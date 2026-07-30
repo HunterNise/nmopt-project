@@ -15,6 +15,8 @@ Start here:
   problem, its relation to textbook strong forms, and worked special cases.
 - [Composition boundaries](docs/composition-boundaries.md) — actionable
   component ownership and unavoidable cross-cutting interactions.
+- [Laplace growth case study](docs/laplace-growth-case-study.md) — a concrete
+  semantic-to-solver walkthrough, extensions, and DTO/OTD comparison.
 - [Project guide for contributors and agents](AGENTS.md) — concise working
   instructions and non-negotiable design decisions.
 

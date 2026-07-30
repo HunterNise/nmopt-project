@@ -159,7 +159,7 @@ $$
   \tfrac12\|O(y)-y_d\|_{Q}^2
 $$
 
-requires a declared norm or metric on $Q$; a weighted $L2$, an energy norm,
+requires a declared norm or metric on $Q$; a weighted $L^2$, an energy norm,
 a boundary norm, and a discrete sensor covariance are different choices.
 
 ### 1.3 Derivatives, adjoints, and gradients
@@ -230,7 +230,7 @@ is the correct home for essential boundary conditions and Dirichlet control.
 A textbook may begin with
 
 $$
-  -\nabla\!\cdot(K\nabla y)+b\!\cdot\nabla y+c y
+  -\nabla\!\cdot(K\nabla y)+b\cdot\!\nabla y+c y
   = f+\chi_{\omega_c}u\quad\hbox{in }\Omega, \tag{8}
 $$
 
@@ -249,8 +249,8 @@ library input.  It leaves open, among other things:
 - the discrete scheme, quadrature, and treatment of nonconforming or
   Petrov--Galerkin test functions.
 
-The library should therefore not accept a string such as `diffusion-
-transport-reaction` and infer all of this.  A strong form can be retained as
+The library should therefore not accept a string such as `diffusion-transport-reaction`
+and infer all of this.  A strong form can be retained as
 documentation or as a future symbolic front end, but compilation starts from
 the selected residual formulation.
 
@@ -350,7 +350,7 @@ Consider the strong model
 
 $$
 \begin{aligned}
- -\nabla\!\cdot(K\nabla y)+b\!\cdot\nabla y+c y
+ -\nabla\!\cdot(K\nabla y)+b\cdot\!\nabla y+c y
      &= f+\chi_{\omega_c}u &&\text{in }\Omega,\\
  y&=g_D &&\text{on }\Gamma_D,\\
  (K\nabla y)\!\cdot n&=g_N &&\text{on }\Gamma_N,\\
@@ -364,7 +364,7 @@ One possible primal weak formulation has the following substitutions into
 | Abstract component | This problem |
 |---|---|
 | Optimisation variables | $x=(\hat y,u)$ |
-| State trial space | $Y=V={v \in H^1(\Omega): tr_{\Gamma_D} v=0}$ |
+| State trial space | $Y=V=\{v \in H^1(\Omega): tr_{\Gamma_D} v=0\}$ |
 | Control space | $U=L^2(\omega_c)$ |
 | Test space | $Z=V$ |
 | Fixed data | $d=(K,b,c,f,g_D,g_N,\rho,g_R,y_d,\alpha)$ |
@@ -725,8 +725,8 @@ following.
    any discrete-only semantics.
 
 What it must *not* require is a proof of well-posedness, an automatically
-derived weak form, a universally canonical finite-element space, or a PDE-
-specific solver branch.  Conversely, what it must *not* accept as sufficient
+derived weak form, a universally canonical finite-element space, or a PDE-specific solver branch.
+Conversely, what it must *not* accept as sufficient
 input is merely a strong differential expression, a boundary-control flag,
 or labels such as `Hminus1` and `point tracking` without their spaces,
 pairings, and policies.

@@ -17,6 +17,8 @@ Start here:
   component ownership and unavoidable cross-cutting interactions.
 - [Laplace growth case study](docs/laplace-growth-case-study.md) — a concrete
   semantic-to-solver walkthrough, extensions, and DTO/OTD comparison.
+- [Laplace formula deltas](docs/laplace-interface-formulas.md) — exact
+  formula changes, compiled operators, and required interface primitives.
 - [Project guide for contributors and agents](AGENTS.md) — concise working
   instructions and non-negotiable design decisions.
 

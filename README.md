@@ -11,6 +11,8 @@ below the public model/compilation boundaries are fixed yet.
 Start here:
 
 - [Architecture overview](docs/architecture.md) — the detailed design record.
+- [Theoretical formalism](docs/theoretical-formalism.md) — the abstract
+  problem, its relation to textbook strong forms, and worked special cases.
 - [Project guide for contributors and agents](AGENTS.md) — concise working
   instructions and non-negotiable design decisions.
 

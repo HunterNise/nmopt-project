@@ -11,15 +11,15 @@ $$
 $$
 y\in V,\qquad
 u\in U,\qquad
-f\in V^{*},\qquad
+f\in V^{\ast},\qquad
 y_d\in Q,\qquad
 \alpha>0.
 $$
 
 $$
-\langle E(y,u),v\rangle_{V^{*},V}
+\langle E(y,u),v\rangle_{V^{\ast},V}
 =(\nabla y,\nabla v)_\Omega
--\langle f,v\rangle_{V^{*},V}
+-\langle f,v\rangle_{V^{\ast},V}
 -(u,v)_\Omega,
 \qquad v\in V.
 $$
@@ -35,14 +35,14 @@ $$
 | Component | Concrete input |
 |---|---|
 | Region | $\Omega$, $\Gamma=\partial\Omega$, $`\omega_o`$ |
-| Space and pairing | $V$, $U$, $Q$, $V^{*}\times V$ |
+| Space and pairing | $V$, $U$, $Q$, $V^{\ast}\times V$ |
 | Variables | state $y$, control $u$ |
 | Data | $f$, $`y_d`$, $\alpha$ |
-| Equation block | $E:V\times U\to V^{*}$ |
+| Equation block | $E:V\times U\to V^{\ast}$ |
 | Residual terms | diffusion, source, source-control |
 | Observation | $C:V\to Q$ |
 | Losses | tracking and control regularisation |
-| Metric | $`G_U:U\to U^{*}`$, if a gradient is required |
+| Metric | $`G_U:U\to U^{\ast}`$, if a gradient is required |
 
 The derivative actions are
 
@@ -62,7 +62,7 @@ $$
 With
 
 $$
-\mathcal L(y,u,p)=J(y,u)-\langle p,E(y,u)\rangle_{V,V^{*}},
+\mathcal L(y,u,p)=J(y,u)-\langle p,E(y,u)\rangle_{V,V^{\ast}},
 $$
 
 the solver equations are
@@ -92,9 +92,9 @@ $$
 Choose
 
 $$
-Y_h=\mathrm{span}\{\varphi_i\},\qquad
-Z_h=\mathrm{span}\{\psi_j\},\qquad
-U_h=\mathrm{span}\{\chi_\ell\}.
+Y_{h}=\mathrm{span}\left\{\varphi_{i}\right\},\qquad
+Z_{h}=\mathrm{span}\left\{\psi_{j}\right\},\qquad
+U_{h}=\mathrm{span}\left\{\chi_{\ell}\right\}.
 $$
 
 Define
@@ -128,18 +128,18 @@ J_h(y_h,u_h)
 $$
 
 $$
-E_h'(y_h,u_h)
+E_{h}'(y_{h},u_{h})
 \begin{bmatrix}
-\delta y_h\\
-\delta u_h
+\delta y_{h}\\
+\delta u_{h}
 \end{bmatrix}
-=A_h\delta y_h-B_h\delta u_h,
+=A_{h}\delta y_{h}-B_{h}\delta u_{h},
 \qquad
-E_h'(y_h,u_h)^{*}p_h
+E_{h}'(y_{h},u_{h})^{\ast}p_{h}
 =
 \begin{bmatrix}
-A_h^{\mathsf T}p_h\\
--B_h^{\mathsf T}p_h
+A_{h}^{\mathsf T}p_{h}\\
+-B_{h}^{\mathsf T}p_{h}
 \end{bmatrix}.
 $$
 
@@ -159,7 +159,7 @@ The mandatory executable ports are
 $$
 E_h(x_h),\qquad
 E_h'(x_h)\delta x_h,\qquad
-E_h'(x_h)^{*}p_h,\qquad
+E_h'(x_h)^{\ast}p_h,\qquad
 J_h(x_h),\qquad
 J_h'(x_h),\qquad
 G_h^{-1}.
@@ -186,7 +186,7 @@ $$
 $$
 
 $$
-\langle D_yE(y,u)^{*}p,w\rangle=a(w,p),
+\langle D_yE(y,u)^{\ast}p,w\rangle=a(w,p),
 $$
 
 $$
@@ -203,8 +203,8 @@ Replace the full Dirichlet boundary setting by
 $$
 \Gamma=\Gamma_D\mathbin{\dot\cup}\Gamma_N,
 \qquad
-V=H_{\Gamma_D}^1(\Omega)
-=\{v\in H^1(\Omega):\gamma v=0\ \text{on }\Gamma_D\},
+V=H_{\Gamma_{D}}^1(\Omega)
+=\left\{v\in H^1(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
 \qquad
 \Gamma_c\subseteq\Gamma_N.
 $$
@@ -316,7 +316,7 @@ $$
 
 $$
 D_yJ_\mathrm{pt}(y,u)
-=C_\mathrm{pt}^{*}W(C_\mathrm{pt}y-d).
+=C_\mathrm{pt}^{\ast}W(C_\mathrm{pt}y-d).
 $$
 
 Required interfaces: observation with target $\mathbb R^m$, transpose
@@ -359,17 +359,17 @@ Leave the objective unchanged.  To use a Sobolev search space while the
 control remains $U=L^2(\Omega)$, declare
 
 $$
-U_G=H^1(\Omega),
+U_{G}=H^1(\Omega),
 \qquad
-\iota:U_G\hookrightarrow U,
+\iota:U_{G}\hookrightarrow U,
 \qquad
-\iota^{*}:U^{*}\to U_G^{*}.
+\iota^{\ast}:U^{\ast}\to U_{G}^{\ast}.
 $$
 
 Define
 
 $$
-\langle G_Ug,\delta u\rangle_{U_G^{*},U_G}
+\langle G_Ug,\delta u\rangle_{U_G^{\ast},U_G}
 =(g,\delta u)_\Omega
 +\ell^2(\nabla g,\nabla\delta u)_\Omega.
 $$
@@ -377,7 +377,7 @@ $$
 Then only
 
 $$
-\nabla_{G_U}j=G_U^{-1}\iota^{*}j'
+\nabla_{G_U}j=G_U^{-1}\iota^{\ast}j'
 $$
 
 changes.  The state, adjoint, and reduced covector $j'$ are unchanged.
@@ -385,13 +385,13 @@ changes.  The state, adjoint, and reduced covector $j'$ are unchanged.
 Required interface: metric with apply and inverse-apply.  An $H^{-1}$
 metric may implement inverse-apply by an auxiliary elliptic solve.  If the
 control space itself is changed to $H^1(\Omega)$, the injection
-$\iota^{*}$ is unnecessary.
+$\iota^{\ast}$ is unnecessary.
 
 ### 3.7 Box constraints
 
 $$
-U_\mathrm{ad}
-=\{u\in U:u_a\leq u\leq u_b\ \text{a.e. in }\Omega\}.
+U_{\mathrm{ad}}
+=\left\{u\in U:u_{a}\leq u\leq u_{b}\ \text{a.e. in }\Omega\right\}.
 $$
 
 Replace unconstrained stationarity by
@@ -414,13 +414,13 @@ multiplier operation.  No residual or adjoint formula changes.
 Let
 
 $$
-\Gamma_D=\Gamma_0\mathbin{\dot\cup}\Gamma_c,
+\Gamma_{D}=\Gamma_{0}\mathbin{\dot\cup}\Gamma_{c},
 \qquad
-V_0=\{v\in H^1(\Omega):\gamma v=0\ \text{on }\Gamma_D\},
+V_{0}=\left\{v\in H^1(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
 $$
 
 $$
-U_\Gamma=H^{1/2}(\Gamma_c),
+U_{\Gamma}=H^{1/2}(\Gamma_{c}),
 \qquad
 L_D:U_\Gamma\to H^1(\Omega).
 $$
@@ -532,7 +532,7 @@ positivity policy.
 $$
 V=H_0^1(\Omega),
 \qquad
-Y=L^2(0,T;V)\cap H^1(0,T;V^{*}),
+Y=L^2(0,T;V)\cap H^1(0,T;V^{\ast}),
 \qquad
 Z=L^2(0,T;V).
 $$
@@ -543,7 +543,7 @@ $$
 \langle E_T(y,u),v\rangle
 =\int_0^{T}
 \left[
-\langle\dot y,v\rangle_{V^{*},V}
+\langle\dot y,v\rangle_{V^{\ast},V}
 +(\nabla y,\nabla v)_\Omega
 -\langle f,v\rangle
 -(u,v)_\Omega
@@ -563,7 +563,7 @@ the adjoint relation is
 $$
 \int_0^{T}
 \left[
-\langle\dot w,p\rangle_{V^{*},V}
+\langle\dot w,p\rangle_{V^{\ast},V}
 +(\nabla w,\nabla p)_\Omega
 \right]dt
 =\int_0^{T}(Cy-y_d,Cw)_Qdt.
@@ -572,7 +572,7 @@ $$
 For $w(0)=0$,
 
 $$
--\dot p-\Delta p=C^{*}(Cy-y_d),
+-\dot p-\Delta p=C^{\ast}(Cy-y_d),
 \qquad
 p(T)=0.
 $$
@@ -582,7 +582,7 @@ The reduced derivative is
 $$
 j_T'(u)\delta u
 =\alpha\int_0^{T}(u,\delta u)_Udt
-+\int_0^{T}(p,\delta u)_\Omega\;dt.
++\int_0^{T}(p,\delta u)_\Omega\mathrm{d}t.
 $$
 
 Required interfaces: time-space descriptors, time-derivative residual term,
@@ -602,7 +602,7 @@ $$
 The discrete adjoint is
 
 $$
-E_h'(x_h)^{*}p_h=D_yJ_h(x_h).
+E_h'(x_h)^{\ast}p_h=D_yJ_h(x_h).
 $$
 
 Required solver inputs:
@@ -610,7 +610,7 @@ Required solver inputs:
 $$
 E_h(x_h),\quad
 E_h'(x_h)\delta x_h,\quad
-E_h'(x_h)^{*}p_h,\quad
+E_h'(x_h)^{\ast}p_h,\quad
 J_h(x_h),\quad
 J_h'(x_h),\quad
 G_h^{-1},
@@ -629,7 +629,7 @@ $$
 first:
 
 $$
-E_y'(x)^{*}p=D_yJ(x).
+E_y'(x)^{\ast}p=D_yJ(x).
 $$
 
 Compile that equation separately.  If it gives
@@ -652,7 +652,7 @@ Required additional interfaces:
 
 | Component | Required action |
 |---|---|
-| Formulation builder | build $`E_y'(x)^{*}p-D_yJ(x)=0`$ as a semantic equation block |
+| Formulation builder | build $`E_y'(x)^{\ast}p-D_yJ(x)=0`$ as a semantic equation block |
 | Provenance | record DTO or OTD and the lowering policy |
 
 ## 5. Minimal interface specification
@@ -661,13 +661,13 @@ Required additional interfaces:
 |---|---|
 | Space | domain/region, field shape, trial/test role, pairing, trace and product capabilities |
 | Variable and data | identifier, space, value, admissible-set reference; derivatives only for variables |
-| Map | $T:X\to Y$, $T(x)$, $T'(x)\delta x$, $T'(x)^{*}\eta$ |
+| Map | $T:X\to Y$, $T(x)$, $T'(x)\delta x$, $T'(x)^{\ast}\eta$ |
 | Residual term | $`\langle E_t(x),z\rangle`$, JVP, transpose-JVP |
 | Equation block | test space, sum of terms, residual/JVP/transpose-JVP |
 | Transformation | map applied before residual/observation evaluation |
 | Observation | map from physical variables to $Q$ |
-| Loss | $\Phi:Q\to\mathbb R$, value and $D\Phi(q)\in Q^{*}$ |
-| Metric | $G:X\to X^{*}$, apply and inverse-apply |
+| Loss | $\Phi:Q\to\mathbb R$, value and $D\Phi(q)\in Q^{\ast}$ |
+| Metric | $G:X\to X^{\ast}$, apply and inverse-apply |
 | Constraint | feasibility, projection, normal cone, or multiplier operation |
 | Requirement policy | trace, product, nullspace, point, fractional, or discrete-only policy |
 | Compiler | choose spaces, lower maps, preserve pairing-aware JVP and transpose-JVP |

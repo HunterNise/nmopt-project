@@ -18,7 +18,7 @@ The general semantic model is a constrained optimization problem
 $$
   \min_{x\in X_\mathrm{ad}} J(x)
   \qquad\text{subject to}\qquad
-  E(x)=0\quad\text{in }Z^{*}.
+  E(x)=0\quad\text{in }Z^{\ast}.
 $$
 
 The variable block $x$ may contain a state $y$, control $u$, parameter
@@ -29,15 +29,15 @@ specialized realization, very weak formulations.
 For a state/control model and the Lagrangian convention
 
 $$
-  \mathcal L(y,u,p)=J(y,u)-\langle p,E(y,u)\rangle_{Z,Z^{*}},
+  \mathcal L(y,u,p)=J(y,u)-\langle p,E(y,u)\rangle_{Z,Z^{\ast}},
 $$
 
 the reusable first-order pattern is
 
 $$
   E(y,u)=0,
-  \qquad E_y(y,u)^{*}p=J_y(y,u),
-  \qquad j'(u)=J_u(y,u)-E_u(y,u)^{*}p\in U^{*}.
+  \qquad E_{y}(y,u)^{\ast}p=J_{y}(y,u),
+  \qquad j'(u)=J_{u}(y,u)-E_{u}(y,u)^{\ast}p\in U^{\ast}.
 $$
 
 This is the central abstraction. In the linear-quadratic case it reduces to
@@ -52,7 +52,7 @@ vector without declaring a primal-dual identification. In a Hilbert space a
 chosen metric provides a Riesz map
 
 $$
- R_U:U\to U^{*},\qquad \nabla_U j=R_U^{-1}j'(u).
+ R_U:U\to U^{\ast},\qquad \nabla_U j=R_U^{-1}j'(u).
 $$
 
 Thus changing $L^2$ to $H^1$ regularization/gradient changes the metric
@@ -74,7 +74,7 @@ through a limited set of ports:
 
 | Port | Meaning |
 |---|---|
-| Residual | Add a contribution to $E(x)\in Z^{*}$. |
+| Residual | Add a contribution to $E(x)\in Z^{\ast}$. |
 | Derivative | Supply Jacobian and transpose-Jacobian actions needed by adjoints. |
 | Objective | Add a scalar term and its partial derivatives. |
 | Metric | Define a primal-dual pairing and, when needed, an inverse map. |

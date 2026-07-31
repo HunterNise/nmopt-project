@@ -20,7 +20,7 @@ The semantic model is
 $$
 \min_{x\in X_\mathrm{ad}}J(x;d)
 \qquad\text{subject to}\qquad
-E_a(x;d)=0\in Z_a^{*},
+E_a(x;d)=0\in Z_a^{\ast},
 \qquad a\in\mathcal A.
 $$
 
@@ -29,7 +29,7 @@ Here
 $$
 X=\prod_{i\in\mathcal I}X_i,
 \qquad
-E_a:X\times D\to Z_a^{*}.
+E_a:X\times D\to Z_a^{\ast}.
 $$
 
 A variable block $`x_i`$ can be a state, control, parameter, flux, initial
@@ -88,7 +88,7 @@ A port connection is valid only if all of the following hold:
    capability and policy.
 5. The source component provides every derivative action required downstream.
 
-No implicit conversion from a derivative in $U^{*}$ to a vector in $U$ is
+No implicit conversion from a derivative in $U^{\ast}$ to a vector in $U$ is
 allowed.  Such a conversion requires a metric.
 
 ## 3. Primitive semantic components
@@ -135,7 +135,7 @@ handler, matrix, or vector.
 A pairing is a separate declaration
 
 $$
-\langle\cdot,\cdot\rangle_{S^{*},S}:S^{*}\times S\to\mathbb R.
+\langle\cdot,\cdot\rangle_{S^{\ast},S}:S^{\ast}\times S\to\mathbb R.
 $$
 
 A compiler MUST lower every pairing used by a residual, loss, metric, or
@@ -172,7 +172,7 @@ loss, metric, and constraint connections.
 A general map is the universal compositional primitive:
 
 $$
-T:X_1\times\cdots\times X_n\to Y.
+T:X_{1}\times\cdots\times X_{n}\to Y.
 $$
 
 It MUST declare source ports and target space.  If variable-dependent, it
@@ -183,14 +183,14 @@ T(x),
 \qquad
 T'(x)\delta x,
 \qquad
-T'(x)^{*}\eta,
-\quad \eta\in Y^{*}.
+T'(x)^{\ast}\eta,
+\quad \eta\in Y^{\ast}.
 $$
 
 The last action returns one covector in each variable source dual:
 
 $$
-T'(x)^{*}\eta\in X_1^{*}\times\cdots\times X_n^{*}.
+T'(x)^{\ast}\eta\in X_{1}^{\ast}\times\cdots\times X_{n}^{\ast}.
 $$
 
 For a linear map, the implementation MAY provide a constant action.  It MUST
@@ -229,14 +229,14 @@ A residual term contributes to exactly one equation block.  For equation test
 space $`Z_a`$, it represents
 
 $$
-E_{a,t}:X_{a,t}\to Z_a^{*},
+E_{a,t}:X_{a,t}\to Z_a^{\ast},
 $$
 
 through its tested action
 
 $$
 e_{a,t}(x;z)
-=\langle E_{a,t}(x),z\rangle_{Z_a^{*},Z_a}.
+=\langle E_{a,t}(x),z\rangle_{Z_a^{\ast},Z_a}.
 $$
 
 It MUST provide:
@@ -250,7 +250,7 @@ D_xe_{a,t}(x;z)\delta x,
 $$
 
 $$
-D_xE_{a,t}(x)^{*}p,
+D_xE_{a,t}(x)^{\ast}p,
 \qquad p\in Z_a.
 $$
 
@@ -268,7 +268,7 @@ An equation block owns a test space $`Z_a`$ and an ordered sum of residual
 terms:
 
 $$
-E_a(x;d)=\sum_{t\in\mathcal T_a}E_{a,t}(x;d)\in Z_a^{*}.
+E_a(x;d)=\sum_{t\in\mathcal T_a}E_{a,t}(x;d)\in Z_a^{\ast}.
 $$
 
 It MUST expose accumulated actions:
@@ -278,7 +278,7 @@ E_a(x;d),
 \qquad
 E_a'(x;d)\delta x,
 \qquad
-E_a'(x;d)^{*}p_a.
+E_a'(x;d)^{\ast}p_a.
 $$
 
 An equation block MAY be nonlinear, mixed, time dependent, or
@@ -311,7 +311,7 @@ It MUST provide
 $$
 \Phi_k(q;d),
 \qquad
-D_q\Phi_k(q;d)\in Q_k^{*}.
+D_q\Phi_k(q;d)\in Q_k^{\ast}.
 $$
 
 An objective is a sum of loss compositions:
@@ -324,7 +324,7 @@ The objective component MUST assemble its derivative by the chain rule:
 
 $$
 D_xJ(x;d)
-=\sum_k O_k'(x;d)^{*}D_q\Phi_k(O_k(x;d);d).
+=\sum_k O_k'(x;d)^{\ast}D_q\Phi_k(O_k(x;d);d).
 $$
 
 A tracking norm is a loss and its pairing.  It MUST NOT be represented by an
@@ -333,24 +333,24 @@ unqualified string such as “L2 tracking.”
 ### 3.11 Metric
 
 A metric provides an explicit primal-dual identification for an algorithm.
-It MUST declare primal search space $P$, dual space $P^{*}$, and actions
+It MUST declare primal search space $P$, dual space $P^{\ast}$, and actions
 
 $$
-G:P\to P^{*},
+G:P\to P^{\ast},
 \qquad
-G^{-1}:P^{*}\to P,
+G^{-1}:P^{\ast}\to P,
 $$
 
 where inverse-apply MAY be unavailable if no selected solver needs it.
 
-If the reduced derivative is naturally in $U^{*}$ but the search space is
+If the reduced derivative is naturally in $U^{\ast}$ but the search space is
 $P$ with an injection $\iota:P\hookrightarrow U$, the metric protocol MUST
 also provide or reference
 
 $$
-\iota^{*}:U^{*}\to P^{*},
+\iota^{\ast}:U^{\ast}\to P^{\ast},
 \qquad
-\nabla_Gj=G^{-1}\iota^{*}j'.
+\nabla_Gj=G^{-1}\iota^{\ast}j'.
 $$
 
 A metric MUST NOT alter a residual or objective.  An $H^1$ regularisation is
@@ -374,8 +374,8 @@ $$
 For a box constraint,
 
 $$
-U_\mathrm{ad}
-=\{u\in U:u_a\leq u\leq u_b\ \text{a.e.}\},
+U_{\mathrm{ad}}
+=\left\{u\in U:u_{a}\leq u\leq u_{b}\ \text{a.e.}\right\},
 $$
 
 the constraint owns the projection or normal-cone operation.  It MUST NOT
@@ -438,7 +438,7 @@ class.
 For a parabolic state,
 
 $$
-Y=L^2(0,T;V)\cap H^1(0,T;V^{*}),
+Y=L^2(0,T;V)\cap H^1(0,T;V^{\ast}),
 \qquad
 Z=L^2(0,T;V),
 $$
@@ -447,7 +447,7 @@ the time term is a residual term
 
 $$
 e_\mathrm{time}(y;v)
-=\int_0^{T}\langle\dot y,v\rangle_{V^{*},V}dt.
+=\int_0^{T}\langle\dot y,v\rangle_{V^{\ast},V}dt.
 $$
 
 Initial data MUST be represented by an affine state-space transformation or a
@@ -533,7 +533,7 @@ It MUST declare:
 
 Galerkin is one policy with $`Y_h=Z_h`$.  Petrov–Galerkin is a policy with
 separately selected $`Y_h`$ and $`Z_h`$.  The latter MUST preserve the
-declared residual target $`Z_h^{*}`$.
+declared residual target $`Z_h^{\ast}`$.
 
 ### 6.2 Compiler obligations
 
@@ -562,7 +562,7 @@ Compilation produces an executable model with:
 $$
 E_h(x_h),\qquad
 E_h'(x_h)\delta x_h,\qquad
-E_h'(x_h)^{*}p_h,
+E_h'(x_h)^{\ast}p_h,
 $$
 
 $$
@@ -576,9 +576,9 @@ For every component that declares a transpose action, the implementation MUST
 support the adjoint-consistency identity
 
 $$
-\langle E_h'(x_h)\delta x_h,p_h\rangle_{Z_h^{*},Z_h}
+\langle E_{h}'(x_{h})\delta x_{h},p_{h}\rangle_{Z_{h}^{\ast},Z_{h}}
 =
-\langle E_h'(x_h)^{*}p_h,\delta x_h\rangle_{X_h^{*},X_h}.
+\langle E_{h}'(x_{h})^{\ast}p_{h},\delta x_{h}\rangle_{X_{h}^{\ast},X_{h}}.
 $$
 
 The test suite MUST exercise this identity for each term and composed block.
@@ -604,12 +604,12 @@ E_h(y_h,u_h)=0,
 $$
 
 $$
-D_yE_h(y_h,u_h)^{*}p_h=D_yJ_h(y_h,u_h),
+D_yE_h(y_h,u_h)^{\ast}p_h=D_yJ_h(y_h,u_h),
 $$
 
 $$
 j_h'(u_h)
-=D_uJ_h(y_h,u_h)-D_uE_h(y_h,u_h)^{*}p_h.
+=D_uJ_h(y_h,u_h)-D_uE_h(y_h,u_h)^{\ast}p_h.
 $$
 
 A reduced-space solver requires state solution, adjoint solution, reduced
@@ -634,11 +634,11 @@ $$
 It requires a formulation builder that creates semantic equation blocks for
 
 $$
-D_yE(y,u)^{*}p-D_yJ(y,u)=0,
+D_yE(y,u)^{\ast}p-D_yJ(y,u)=0,
 $$
 
 $$
-D_uJ(y,u)-D_uE(y,u)^{*}p=0,
+D_uJ(y,u)-D_uE(y,u)^{\ast}p=0,
 $$
 
 plus constraints as appropriate.
@@ -714,7 +714,7 @@ The registered components are:
 |---|---|
 | Region | $\Omega$, $\Gamma$, $`\omega_o`$ |
 | Variables | $y\in V$, $u\in U$ |
-| Data | $f\in V^{*}$, $`y_d\in Q`$, $\alpha>0$ |
+| Data | $f\in V^{\ast}$, $`y_d\in Q`$, $\alpha>0$ |
 | Equation block | test space $V$ |
 | Residual terms | $`(\nabla y,\nabla v)_\Omega`$, $-\langle f,v\rangle$, $`-(u,v)_\Omega`$ |
 | Observation | $`C:y\mapsto y\|_{\omega_o}`$ |

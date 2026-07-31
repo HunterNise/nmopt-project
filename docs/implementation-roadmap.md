@@ -37,11 +37,9 @@ class is a concrete lowerer/reference slice, not the future public
 
 1. Preserve the global convention
 
-   $$
-     \mathcal L(x,p)=J(x)-\langle p,E(x)\rangle.
-   $$
+   The global convention is $`\mathcal L(x,p)=J(x)-\langle p,E(x)\rangle`$.
 
-   Thus the reduced covector is always $`J_u'-E_u'^{*}p`$.
+   Thus the reduced covector is always $`J_u'-E_u'^{\ast}p`$.
 
 2. Residuals and objective derivatives return covectors. A metric alone maps
    the reduced covector to a primal direction.

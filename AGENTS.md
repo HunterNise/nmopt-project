@@ -99,8 +99,10 @@ report which checks were skipped.
   `\(...\)` or `\[...\]`, because the project Markdown viewer does not render
   those delimiters reliably.
 - Always brace superscripts and subscripts, including one-character scripts:
-  write `x_{i}`, `x^{*}`, and `E'(x)^{*}` rather than `x_i`, `x^*`, or
-  `E'(x)^*`. This avoids parser ambiguity around primes and nested scripts.
+  write `x_{i}`, `x^{\ast}`, and `E'(x)^{\ast}` rather than `x_i`, `x^*`, or
+  `E'(x)^*`. Use `\ast` instead of a literal `*` for adjoints and duals, since
+  the literal asterisk can be consumed as Markdown emphasis before math is
+  rendered. This avoids parser ambiguity around primes and nested scripts.
 - For inline formulas containing underscores or other Markdown punctuation, use
   GitHub's backtick-delimited math form:
 
@@ -111,8 +113,9 @@ report which checks were skipped.
 - Do not use `\operatorname`, `\tag`, `\hbox`, `\tt`, or `\rm`; GitHub's math
   pipeline does not handle all of these consistently. Prefer `\mathrm{...}` or
   `\text{...}`, and put equation numbers in `\text{(1)}` or in prose.
-- Do not use fine-spacing commands such as `\!` or `\,`. Use ordinary spaces,
-  `\;`, or `\quad` when extra spacing is actually needed.
+- Do not use fine-spacing commands such as `\!`, `\,`, or `\;`; some project
+  viewers display the punctuation literally. Use ordinary spaces, `\quad`, or
+  explicit operators such as `\mathrm{d}t` when extra spacing is needed.
 - Use `\lVert u\rVert` and `\rVert` for norm bars rather than constructions
   such as `\|\|u\|\|`.
 - Use a literal Unicode en dash `–` in prose. Preserve `--` only where it is

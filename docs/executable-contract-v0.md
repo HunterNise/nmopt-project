@@ -41,26 +41,26 @@ corresponding types with a T suffix are backend-parametric, for example
 An `ExecutableModel` has the following exact signatures in mathematical form:
 
 $$
-  r_h(x_h)\in Z_h^{*},\qquad
-  r_h'(x_h)\delta x_h\in Z_h^{*},\qquad
-  r_h'(x_h)^{*}p_h\in X_h^{*},\quad p_h\in Z_h,
+  r_{h}(x_{h})\in Z_{h}^{\ast},\qquad
+  r_{h}'(x_{h})\delta x_{h}\in Z_{h}^{\ast},\qquad
+  r_{h}'(x_{h})^{\ast}p_{h}\in X_{h}^{\ast},\quad p_{h}\in Z_{h},
 $$
 
 $$
-  J_h(x_h)\in\mathbb R,\qquad J_h'(x_h)\in X_h^{*}.
+  J_{h}(x_{h})\in\mathbb R,\qquad J_{h}'(x_{h})\in X_{h}^{\ast}.
 $$
 
 The DTO builder uses the global convention
 
 $$
-  \mathcal L_h(x_h,p_h)=J_h(x_h)-\langle p_h,r_h(x_h)\rangle.
+  \mathcal L_{h}(x_{h},p_{h})=J_{h}(x_{h})-\langle p_{h},r_{h}(x_{h})\rangle.
 $$
 
 For $`x_h=(y_h,u_h)`$, it therefore computes
 
 $$
- E_y'(x_h)^{*}p_h=J_y'(x_h),\qquad
- j_h'(u_h)=J_u'(x_h)-E_u'(x_h)^{*}p_h.
+ E_{y}'(x_{h})^{\ast}p_{h}=J_{y}'(x_{h}),\qquad
+ j_{h}'(u_{h})=J_{u}'(x_{h})-E_{u}'(x_{h})^{\ast}p_{h}.
 $$
 
 No method accepts a PDE name, boundary-condition enum, or untyped vector.

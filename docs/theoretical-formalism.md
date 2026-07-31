@@ -34,7 +34,7 @@ $$
 The notation
 
 $$
-  \langle \xi,z\rangle_{Z^{*},Z}
+  \langle \xi,z\rangle_{Z^{\ast},Z}
 $$
 
 always denotes the dual pairing between a test space $Z$ and its dual.  It is
@@ -46,7 +46,7 @@ We use the Lagrangian convention
 
 $$
   \mathcal L(x,p;d) = J(x;d)
-    - \sum_{a\in\mathcal A}\langle p_a,E_a(x;d)\rangle_{Z_a,Z_a^{*}}.
+    - \sum_{a\in\mathcal A}\langle p_a,E_a(x;d)\rangle_{Z_a,Z_a^{\ast}}.
 $$
 
 Here $d$ denotes fixed data.  The sign is global: individual terms and
@@ -80,7 +80,7 @@ $$
 the residual is allowed to depend on data,
 
 $$
-  E_a:X\times D\longrightarrow Z_a^{*},\qquad a\in\mathcal A,
+  E_a:X\times D\longrightarrow Z_a^{\ast},\qquad a\in\mathcal A,
 $$
 
 where $`Z_a`$ is the declared test space for equation block $a$.  The
@@ -89,14 +89,14 @@ mathematical problem is
 $$
   \begin{aligned}
     &\min_{x\in X_\mathrm{ad}(d)} J(x;d),\\
-    &E_a(x;d)=0\quad\text{in }Z_a^{*},\qquad a\in\mathcal A.
+    &E_a(x;d)=0\quad\text{in }Z_a^{\ast},\qquad a\in\mathcal A.
   \end{aligned} \quad\text{(1)}
 $$
 
 The residual equation means
 
 $$
-  \langle E_a(x;d),z_a\rangle_{Z_a^{*},Z_a}=0
+  \langle E_a(x;d),z_a\rangle_{Z_a^{\ast},Z_a}=0
   \quad\text{for every }z_a\in Z_a. \quad\text{(2)}
 $$
 
@@ -152,7 +152,7 @@ $$
 
 The observation space $`Q_k`$ is explicit.  It can be a volume space, a trace
 space, a flux space, a space-time space, or $R^m$ for a finite sensor array.
-The loss $`\Phi_k`$ supplies a scalar value and derivative in $`Q_k^{*}`$.  Hence a
+The loss $`\Phi_k`$ supplies a scalar value and derivative in $`Q_k^{\ast}`$.  Hence a
 tracking term is not intrinsically an $L^2$ mass matrix.  For example,
 
 $$
@@ -167,16 +167,16 @@ a boundary norm, and a discrete sensor covariance are different choices.
 At a differentiability point, a residual term provides partial linearizations
 
 $$
-  D_iE_a(x;d):X_i\longrightarrow Z_a^{*},
+  D_{i}E_{a}(x;d):X_{i}\longrightarrow Z_{a}^{\ast},
   \qquad
-  D_iE_a(x;d)^{*}:Z_a\longrightarrow X_i^{*}. \quad\text{(4)}
+  D_{i}E_{a}(x;d)^{\ast}:Z_{a}\longrightarrow X_{i}^{\ast}. \quad\text{(4)}
 $$
 
 The latter is the transpose action with respect to the declared dual
 pairings.  An objective provides
 
 $$
-  D_iJ(x;d)\in X_i^{*}.
+  D_iJ(x;d)\in X_i^{\ast}.
 $$
 
 For a state/control split $x=(y,u)$ and adjoints $`p_a \in Z_a`$, the first
@@ -185,8 +185,8 @@ order pattern for an unconstrained state is
 $$
   \begin{aligned}
   E_a(y,u;d)&=0,\\
-  \sum_a D_yE_a(y,u;d)^{*}p_a&=D_yJ(y,u;d),\\
-  j'(u)&=D_uJ(y,u;d)-\sum_aD_uE_a(y,u;d)^{*}p_a\in U^{*}.
+  \sum_{a} D_{y}E_{a}(y,u;d)^{\ast}p_{a}&=D_{y}J(y,u;d),\\
+  j'(u)&=D_{u}J(y,u;d)-\sum_{a}D_{u}E_{a}(y,u;d)^{\ast}p_{a}\in U^{\ast}.
   \end{aligned} \quad\text{(5)}
 $$
 
@@ -196,7 +196,7 @@ condition.  A reduced gradient is not obtained until a primal–dual
 identification is chosen.  In a Hilbert control space, a metric/Riesz map
 
 $$
-  R_U:U\longrightarrow U^{*},\qquad \nabla_U j=R_U^{-1}j'(u) \quad\text{(6)}
+  R_U:U\longrightarrow U^{\ast},\qquad \nabla_U j=R_U^{-1}j'(u) \quad\text{(6)}
 $$
 
 defines one such identification.  Choosing $L^2$, $H^1$, boundary $L^2$, or an
@@ -285,7 +285,7 @@ can safely guess.
 Suppose $`\Gamma_D`$ carries a Dirichlet datum $`g_D`$.  Set
 
 $$
-  V:=\{v\in H^1(\Omega):\mathrm{tr}_{\Gamma_D}v=0\}
+  V:=\left\{v\in H^1(\Omega):\mathrm{tr}_{\Gamma_{D}}v=0\right\}
 $$
 
 and choose a lifting $`\ell_D(g_D)`$ with the desired trace.  The physical
@@ -369,10 +369,10 @@ One possible primal weak formulation has the following substitutions into
 | Test space | $Z=V$ |
 | Fixed data | $`d=(K,b,c,f,g_D,g_N,\rho,g_R,y_d,\alpha)`$ |
 | Reconstruction | $`y=\hat y+\ell_D(g_D)`$ |
-| Equation | One residual $E(\hat y,u;d) \in V^{*}$ |
+| Equation | One residual $E(\hat y,u;d) \in V^{\ast}$ |
 
 If $`\Gamma_D=\Gamma`$, then $`V=H^1_0(\Omega)`$ and this residual lies in
-$V^{*}=H^{-1}(\Omega)$.
+$V^{\ast}=H^{-1}(\Omega)$.
 
 For $v \in V$, define
 
@@ -518,7 +518,7 @@ trial and test spaces coincide.  Petrov–Galerkin uses different spaces or a
 test transformation, while preserving the same typed residual form:
 
 $$
-  E_h:X_h\longrightarrow Z_h^{*},\qquad
+  E_h:X_h\longrightarrow Z_h^{\ast},\qquad
   \langle E_h(x_h),z_h\rangle=0\quad\forall z_h\in Z_h. \quad\text{(20)}
 $$
 
@@ -564,7 +564,7 @@ with the spatial boundary conditions treated as in Section 3.1.  Let
 $$
   V=H^1_{\Gamma_D}(\Omega),\qquad H=L^2(\Omega),
   \qquad
-  Y=L^2(I;V)\cap H^1(I;V^{*}),\qquad Z=L^2(I;V). \quad\text{(22)}
+  Y=L^2(I;V)\cap H^1(I;V^{\ast}),\qquad Z=L^2(I;V). \quad\text{(22)}
 $$
 
 One formulation retains the time derivative on the state.  With $`a_t`$ the
@@ -573,7 +573,7 @@ spatial weak form and $`B_t`$ the control coupling, it declares
 $$
   \langle E(y,u),v\rangle=
   \int_0^{T}\bigl[
-    \langle \dot y(t),v(t)\rangle_{V^{*},V}+a_t(y(t),v(t))
+    \langle \dot y(t),v(t)\rangle_{V^{\ast},V}+a_t(y(t),v(t))
     -F_t(v(t))-B_t(u(t),v(t))
   \bigr]dt, \quad\text{(23)}
 $$
@@ -679,7 +679,7 @@ realizations, lifting construction, and assembly or matrix-free execution.
 It lowers the semantic residual to
 
 $$
-  E_h:X_h\times D_h\longrightarrow Z_h^{*}, \quad\text{(30)}
+  E_h:X_h\times D_h\longrightarrow Z_h^{\ast}, \quad\text{(30)}
 $$
 
 and similarly lowers observations, metrics, constraints, and transformations.
@@ -690,7 +690,7 @@ The discrete model must expose the value, Jacobian action, and transpose
 action of *its own* residual,
 
 $$
-  E_h'(x_h)\delta x_h,\qquad E_h'(x_h)^{*}p_h,
+  E_h'(x_h)\delta x_h,\qquad E_h'(x_h)^{\ast}p_h,
 $$
 
 along with $`J_h`$ and its derivative.  This is the basis for exact discrete

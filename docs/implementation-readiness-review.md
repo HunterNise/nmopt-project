@@ -27,7 +27,7 @@ The central model
 $$
   \min_{x\in X_\mathrm{ad}} J(x)
   \quad\text{subject to}\quad
-  E_a(x)=0\in Z_a^{*}
+  E_a(x)=0\in Z_a^{\ast}
 $$
 
 is correct for the intended family of PDE-constrained problems. In
@@ -98,8 +98,8 @@ $$
   J_{ji}=\langle E'(x)\varphi_i,\psi_j\rangle.
 $$
 
-The JVP returns a covector in $`Z_h^{*}`$, and the pullback of a test vector
-returns a covector in $`X_h^{*}`$. Its coordinate action is the storage
+The JVP returns a covector in $`Z_h^{\ast}`$, and the pullback of a test vector
+returns a covector in $`X_h^{\ast}`$. Its coordinate action is the storage
 transpose $J^{\mathsf T}p$ *because* the default dual representation has
 been declared. This is not a general permission to use a raw storage
 transpose.
@@ -114,9 +114,9 @@ For every term, map, and composed equation block, test random compatible
 directions and seeds:
 
 $$
- \mathrm{pair}_Z(E_h'(x_h)\delta x_h,p_h)
+ \mathrm{pair}_{Z}(E_{h}'(x_{h})\delta x_{h},p_{h})
  =
- \mathrm{pair}_X(E_h'(x_h)^{*}p_h,\delta x_h).
+ \mathrm{pair}_{X}(E_{h}'(x_{h})^{\ast}p_{h},\delta x_{h}).
 $$
 
 The test is performed after applying the same constraint and distribution
@@ -147,10 +147,10 @@ vjp(inputs, output_seed, input_covector_accumulator, context)
 VJP means vector–Jacobian product / pullback. The name is preferred to
 “transpose-JVP” because the seed has a type:
 
-- for a transformation or observation $T:X\to Y$, the seed is in $`Y_h^{*}`$
-  and the result accumulates into $`X_h^{*}`$;
-- for a residual $E:X\to Z^{*}$, the seed is an adjoint variable in $`Z_h`$
-  and the result accumulates into $`X_h^{*}`$.
+- for a transformation or observation $T:X\to Y$, the seed is in $`Y_h^{\ast}`$
+  and the result accumulates into $`X_h^{\ast}`$;
+- for a residual $E:X\to Z^{\ast}$, the seed is an adjoint variable in $`Z_h`$
+  and the result accumulates into $`X_h^{\ast}`$.
 
 Residual-term signs belong in the term's value and local derivative. The
 global Lagrangian sign belongs only in a formulation builder.
@@ -172,7 +172,7 @@ special objective path. A loss involving several variables first receives a
 product/concatenation map output. This keeps the rule
 
 $$
-  J'(x)=\sum_k O_k'(x)^{*}\Phi_k'(O_k(x))
+  J'(x)=\sum_k O_k'(x)^{\ast}\Phi_k'(O_k(x))
 $$
 
 literal and removes the ambiguity between “loss source is an observation” and
@@ -236,7 +236,7 @@ gradient methods. They are not sufficient for a nonlinear Newton step on the
 KKT equations: differentiating the adjoint equation requires terms such as
 
 $$
-  D_x\bigl(E_h'(x_h)^{*}p_h\bigr)[\delta x_h]
+  D_x\bigl(E_h'(x_h)^{\ast}p_h\bigr)[\delta x_h]
   \quad\text{and}\quad
   J_h''(x_h)\delta x_h.
 $$
@@ -288,7 +288,7 @@ state equation, or the adjoint equation. No document or API may use
 | Choice | Meaning | Decision |
 |---|---|---|
 | $L^2$ metric | $`G=M_U`$ in the selected control realization. | **First default.** |
-| $H^1$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{*}$. Direction formation solves $Gg=\iota^{*}j'$. | Supported after the $L^2$ path, with boundary and nullspace policy. |
+| $H^1$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | Supported after the $L^2$ path, with boundary and nullspace policy. |
 | $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^2}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^1$ Sobolev-gradient solve. | No generic default; unsupported until specified as an operator and tested. |
 | Fractional metric | Requires a named discrete realization and spectral/extension/auxiliary problem policy. | Unsupported initially. |
 
@@ -329,7 +329,7 @@ $$
 $$
 
 Residuals and observations evaluate the physical field. Pullbacks use the
-matching $`P_h^{*}`$. `AffineConstraints` is an implementation mechanism for
+matching $`P_h^{\ast}`$. `AffineConstraints` is an implementation mechanism for
 $`P_h`$ and must be applied consistently in residual, observation, JVP, and
 VJP paths.
 

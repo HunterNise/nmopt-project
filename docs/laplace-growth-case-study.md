@@ -47,7 +47,7 @@ form and boundary treatment.
 For the usual weak formulation, choose
 
 $$
-  Y=Z=V:=H^1_0(\Omega),\qquad U=L^2(\Omega),\qquad E:Y\times U\to V^{*}=H^{-1}(\Omega).
+  Y=Z=V:=H^1_0(\Omega),\qquad U=L^2(\Omega),\qquad E:Y\times U\to V^{\ast}=H^{-1}(\Omega).
 $$
 
 The program-facing semantic graph is:
@@ -113,14 +113,14 @@ two losses, and one optional metric.
 |---|---|---|
 | $Y$, $Z$, field shape | state/test DoF layouts and trial/test FE spaces | state and adjoint vector spaces |
 | $U$ | control DoF layout/FE space | control vector and admissible-set operations |
-| diffusion term | state residual and its linearisation $`A_h`$ | state solve and adjoint transpose $`A_h^{*}`$ |
+| diffusion term | state residual and its linearisation $`A_h`$ | state solve and adjoint transpose $`A_h^{\ast}`$ |
 | source data $f$ | load vector/function $`f_h`$ | state residual value only |
-| source-control term | coupling $`B_h:U_h \rightarrow Z_h^{*}`$ | state solve and reduced derivative through $`B_h^{*}`$ |
-| observation $C$ | restriction/interpolation $`C_h:Y_h \rightarrow Q_h`$ | objective and adjoint right-hand side through $`C_h^{*}`$ |
+| source-control term | coupling $`B_h:U_h \rightarrow Z_h^{\ast}`$ | state solve and reduced derivative through $`B_h^{\ast}`$ |
+| observation $C$ | restriction/interpolation $`C_h:Y_h \rightarrow Q_h`$ | objective and adjoint right-hand side through $`C_h^{\ast}`$ |
 | target $`y_d`$ | observation data $`d_h`$ | objective and adjoint right-hand side |
 | tracking loss | observation-space weight/pairing $`W_h`$ | objective and adjoint right-hand side |
 | control loss | covector map $`\alpha R_{\mathrm{reg},h}`$ | reduced derivative |
-| algorithmic metric $`G_U`$ | $`G_h:U_h \rightarrow U_h^{*}`$, possibly a linear solve | conversion of a reduced derivative to a search direction |
+| algorithmic metric $`G_U`$ | $`G_h:U_h \rightarrow U_h^{\ast}`$, possibly a linear solve | conversion of a reduced derivative to a search direction |
 | $`U_\mathrm{ad}`$ | identity/projection/normal-cone operation | stopping condition and constrained update |
 
 The regularisation map $`R_{\mathrm{reg},h}`$ and the algorithmic metric $`G_h`$ are
@@ -219,7 +219,7 @@ $$
 $$
 
 $$
-  j_h'(u)=\alpha R_{\mathrm{reg},h}u+B_h^{T}p\in U_h^{*}. \quad\text{(6c)}
+  j_h'(u)=\alpha R_{\mathrm{reg},h}u+B_h^{T}p\in U_h^{\ast}. \quad\text{(6c)}
 $$
 
 An unconstrained gradient method uses
@@ -323,7 +323,7 @@ must be newly available to a solver after compilation.
 |---|---|---|---|
 | New $f$ | replace `Data(f)` | residual value/load changes | new $`f_h`$; no new operator port |
 | Reaction coefficient $c$ | data plus reaction residual term $(cy,v)$ | state Jacobian/adjoint includes reaction | $`A_h`$ action changes |
-| Transport $b$ | data plus selected transport residual term | residual and transpose reflect the selected weak form | $`A_h`$, $`A_h^{*}`$; no solver branch |
+| Transport $b$ | data plus selected transport residual term | residual and transpose reflect the selected weak form | $`A_h`$, $`A_h^{\ast}`$; no solver branch |
 
 This establishes the simplest composition rule: PDE physics is a residual
 term.  It affects state and adjoint operator actions, but never changes the
@@ -348,7 +348,7 @@ $$
 |---|---|---|
 | Region | $`\Gamma_c`$ boundary region | boundary quadrature/DoF access |
 | Control variable | $`u \in U_\Gamma`$ | boundary control layout and bounds |
-| Residual coupling | Neumann control term (9) | $`B_{\Gamma,h}:U_{\Gamma,h} \rightarrow Z_h^{*}`$ |
+| Residual coupling | Neumann control term (9) | $`B_{\Gamma,h}:U_{\Gamma,h} \rightarrow Z_h^{\ast}`$ |
 | Requirement | declared trace $`Z \rightarrow L^2(\Gamma_c)`$ or another selected pairing | validator requires an explicit trace realization |
 | Control loss/metric | boundary-space versions | $`R_{\mathrm{reg},h}`$, $`G_h`$ on boundary control DoFs |
 
@@ -468,7 +468,7 @@ $$
 | New component | Downstream effect | Solver output needed |
 |---|---|---|
 | parameter variable $m \in M$ | residual is nonlinear in full $(y,m)$ | nonlinear residual/JVP/transpose-JVP |
-| coefficient residual term | state and parameter Jacobian blocks | $`D_mE_h`$ and $`D_mE_h^{*}`$ |
+| coefficient residual term | state and parameter Jacobian blocks | $`D_mE_h`$ and $`D_mE_h^{\ast}`$ |
 | parameter loss/metric/constraint | parameter derivative/search/feasibility | parameter Riesz and constraint operations |
 | product/positivity requirement | model validation/policy only | recorded policy, not an automatic proof |
 
@@ -481,7 +481,7 @@ For the heat equation, replace the stationary state space and add a temporal
 residual term:
 
 $$
-  Y=L^2(0,T;V)\cap H^1(0,T;V^{*}),\quad Z=L^2(0,T;V),
+  Y=L^2(0,T;V)\cap H^1(0,T;V^{\ast}),\quad Z=L^2(0,T;V),
 $$
 
 $$

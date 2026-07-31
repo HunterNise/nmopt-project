@@ -52,7 +52,7 @@ branches.
 Every nonlinear semantic map needed by an algorithm reduces to three actions:
 
 $$
-  F(x),\qquad F'(x)\delta x,\qquad F'(x)^{*}q.
+  F(x),\qquad F'(x)\delta x,\qquad F'(x)^{\ast}q.
 $$
 
 For a residual, $F(x)$ lies in a declared test-space dual.  For an observation

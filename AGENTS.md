@@ -32,9 +32,53 @@ the documents relevant to a task; do not assume that every document is needed.
 - Inspect `git status` before changing files and preserve existing user work.
 - Work on the currently selected branch or worktree; do not switch branches
   for convenience.
+- On `main` or any branch that does not match `codex/*`, do not edit, create,
+  delete, or rename repository files unless the user explicitly requests that
+  change. Read-only inspection and validation are allowed. If a task might
+  require edits but the authorization is unclear, first describe the intended
+  changes and ask for permission.
+- On a `codex/*` branch, Codex may make in-scope project changes without
+  requesting per-file permission. It must still follow the architecture,
+  validation, and preservation rules in this file and must not switch branches
+  on its own.
+- After completing each requested change, or each coherent atomic part of a
+  larger change, inspect the diff and create a Git commit on `codex/*` branches.
+  Do not include unrelated user changes. If the environment requires approval
+  for the commit, present the proposed commit message and request that
+  approval. Do not push unless the user explicitly asks.
 - Do not merge, push, force-push, or rewrite history unless explicitly asked.
 - Prefer small, coherent changes with a clear handoff.
 - Do not commit build products, generated files, editor files, or secrets.
+- Do not change the Git author or committer identity, or rewrite existing
+  authorship, unless the user explicitly requests it.
+
+### Commit messages
+
+Use this Conventional Commits format:
+
+```text
+<type>(<scope>): <imperative summary>
+```
+
+- Use a lowercase `type` such as `feat`, `fix`, `refactor`, `docs`, `test`,
+  `build`, `ci`, `chore`, `perf`, or `revert`.
+- Use a short, lowercase `scope` when it clarifies the affected component;
+  omit it when it adds no information.
+- Keep the summary imperative, specific, and preferably within 72 characters.
+  Do not end it with a period.
+- Add a body after a blank line when the reason, tradeoff, or compatibility
+  impact is not clear from the summary.
+- Mark breaking changes with `!` after the type or scope and explain them in
+  the body or a `BREAKING CHANGE:` footer.
+- Keep each commit focused on one coherent purpose.
+
+Examples:
+
+```text
+docs(agents): define Codex edit and commit policy
+docs(markdown): fix GitHub math rendering
+refactor(spec): separate semantic contracts from backends
+```
 
 ## Validation
 

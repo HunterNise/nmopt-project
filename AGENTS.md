@@ -42,10 +42,10 @@ the documents relevant to a task; do not assume that every document is needed.
   validation, and preservation rules in this file and must not switch branches
   on its own.
 - After completing each requested change, or each coherent atomic part of a
-  larger change, inspect the diff and create a Git commit on `codex/*` branches.
-  Do not include unrelated user changes. If the environment requires approval
-  for the commit, present the proposed commit message and request that
-  approval. Do not push unless the user explicitly asks.
+  larger change, inspect the diff and suggest a Git commit message in the final
+  reply on `codex/*` branches. Do not run `git commit`, ask for commit approval,
+  or include unrelated user changes; leave the changes pending so the user can
+  review or adjust them before committing.
 - Do not merge, push, force-push, or rewrite history unless explicitly asked.
 - Prefer small, coherent changes with a clear handoff.
 - Do not commit build products, generated files, editor files, or secrets.

@@ -1,4 +1,4 @@
-# Markdown and LaTeX style
+# Documentation and Markdown conventions
 
 These conventions target the project’s Markdown viewer and GitHub-rendered
 documentation.

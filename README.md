@@ -17,9 +17,7 @@ Start here:
   component contracts and compilation protocols.
 - [Implementation roadmap](docs/implementation-roadmap.md) — current state,
   prioritized tasks, and acceptance checks.
+- [Project conventions](conventions/README.md) — action-specific guidance for
+  code, builds, documentation, and Git operations.
 - [Project guide for contributors and agents](AGENTS.md) — concise working,
-  architecture, and formatting rules.
-
-The governing principle is **composition of residual, objective, metric,
-constraint, and discretization components—not inheritance from particular PDE
-problem types**.
+  mission and required routing.

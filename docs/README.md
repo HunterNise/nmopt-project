@@ -15,8 +15,9 @@ document that answers the question, then follow links to the deeper material.
 - `architecture.md` records the long-term design rationale and boundaries.
 - `implementation-roadmap.md` records current implementation state, task
   order, acceptance checks, and agent handoff guidance.
-- `markdown-style.md` defines the Markdown and LaTeX conventions used by the
-  project documentation.
+- Project-wide working conventions live in the
+  [project conventions](../conventions/README.md); read the applicable
+  convention before changing files.
 - The remaining documents provide mathematical background, examples, and
   implementation analysis; they do not silently override the normative
   contracts above.
@@ -34,7 +35,7 @@ document that answers the question, then follow links to the deeper material.
 | Understanding the concrete end-to-end example | `laplace-growth-case-study.md` | `laplace-interface-formulas.md` |
 | Choosing the next implementation task | `implementation-roadmap.md` | The task-specific contract listed above |
 | Reviewing why the design is shaped this way | `architecture.md` | `theoretical-formalism.md` |
-| Editing Markdown or LaTeX | `markdown-style.md` | The document being changed |
+| Editing Markdown or LaTeX | `../conventions/documentation.md` | The document being changed |
 
 ## Document index
 
@@ -48,4 +49,4 @@ document that answers the question, then follow links to the deeper material.
 - [Laplace growth case study](laplace-growth-case-study.md)
 - [Laplace interface formulas](laplace-interface-formulas.md)
 - [Implementation roadmap](implementation-roadmap.md)
-- [Markdown and LaTeX style](markdown-style.md)
+- [Project conventions](../conventions/README.md)

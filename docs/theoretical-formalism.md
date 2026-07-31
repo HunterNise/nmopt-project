@@ -284,9 +284,9 @@ can safely guess.
 
 Suppose $`\Gamma_D`$ carries a Dirichlet datum $`g_D`$.  Set
 
-$$
+```math
   V:=\left\{v\in H^1(\Omega):\mathrm{tr}_{\Gamma_{D}}v=0\right\}
-$$
+```
 
 and choose a lifting $`\ell_D(g_D)`$ with the desired trace.  The physical
 state is represented as

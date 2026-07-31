@@ -91,11 +91,11 @@ $$
 
 Choose
 
-$$
+```math
 Y_{h}=\mathrm{span}\left\{\varphi_{i}\right\},\qquad
 Z_{h}=\mathrm{span}\left\{\psi_{j}\right\},\qquad
 U_{h}=\mathrm{span}\left\{\chi_{\ell}\right\}.
-$$
+```
 
 Define
 
@@ -127,7 +127,7 @@ J_h(y_h,u_h)
 +\frac{\alpha}{2}u_h^{\mathsf T}R_{\mathrm{reg},h}u_h,
 $$
 
-$$
+```math
 E_{h}'(y_{h},u_{h})
 \begin{bmatrix}
 \delta y_{h}\\
@@ -141,7 +141,7 @@ E_{h}'(y_{h},u_{h})^{\ast}p_{h}
 A_{h}^{\mathsf T}p_{h}\\
 -B_{h}^{\mathsf T}p_{h}
 \end{bmatrix}.
-$$
+```
 
 The DTO solver receives
 
@@ -200,14 +200,14 @@ policy if the chosen form needs one.
 
 Replace the full Dirichlet boundary setting by
 
-$$
+```math
 \Gamma=\Gamma_D\mathbin{\dot\cup}\Gamma_N,
 \qquad
 V=H_{\Gamma_{D}}^1(\Omega)
 =\left\{v\in H^1(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
 \qquad
 \Gamma_c\subseteq\Gamma_N.
-$$
+```
 
 Set
 
@@ -389,10 +389,10 @@ $\iota^{\ast}$ is unnecessary.
 
 ### 3.7 Box constraints
 
-$$
+```math
 U_{\mathrm{ad}}
 =\left\{u\in U:u_{a}\leq u\leq u_{b}\ \text{a.e. in }\Omega\right\}.
-$$
+```
 
 Replace unconstrained stationarity by
 
@@ -413,11 +413,11 @@ multiplier operation.  No residual or adjoint formula changes.
 
 Let
 
-$$
+```math
 \Gamma_{D}=\Gamma_{0}\mathbin{\dot\cup}\Gamma_{c},
 \qquad
 V_{0}=\left\{v\in H^1(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
-$$
+```
 
 $$
 U_{\Gamma}=H^{1/2}(\Gamma_{c}),

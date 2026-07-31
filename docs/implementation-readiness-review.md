@@ -113,11 +113,11 @@ without a reversible block map.
 For every term, map, and composed equation block, test random compatible
 directions and seeds:
 
-$$
+```math
  \mathrm{pair}_{Z}(E_{h}'(x_{h})\delta x_{h},p_{h})
  =
  \mathrm{pair}_{X}(E_{h}'(x_{h})^{\ast}p_{h},\delta x_{h}).
-$$
+```
 
 The test is performed after applying the same constraint and distribution
 rules used in production. For deterministic assembled double-precision tests,

@@ -95,9 +95,12 @@ report which checks were skipped.
 
 ## Documentation and Markdown style
 
-- Use `$...$` for inline LaTeX and `$$...$$` for display equations. Do not use
-  `\(...\)` or `\[...\]`, because the project Markdown viewer does not render
-  those delimiters reliably.
+- Use `$...$` for inline LaTeX and `$$...$$` or fenced `math` blocks for
+  display equations. Prefer a fenced `math` block when a multiline equation
+  contains underscores, asterisks, escaped braces, or environments such as
+  `aligned` and `bmatrix`; this prevents Markdown from rewriting the LaTeX.
+  Do not use `\(...\)` or `\[...\]`, because the project Markdown viewer does
+  not render those delimiters reliably.
 - Always brace superscripts and subscripts, including one-character scripts:
   write `x_{i}`, `x^{\ast}`, and `E'(x)^{\ast}` rather than `x_i`, `x^*`, or
   `E'(x)^*`. Use `\ast` instead of a literal `*` for adjoints and duals, since

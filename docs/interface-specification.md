@@ -373,10 +373,10 @@ $$
 
 For a box constraint,
 
-$$
+```math
 U_{\mathrm{ad}}
 =\left\{u\in U:u_{a}\leq u\leq u_{b}\ \text{a.e.}\right\},
-$$
+```
 
 the constraint owns the projection or normal-cone operation.  It MUST NOT
 modify a residual term.
@@ -575,11 +575,11 @@ and compiled metric and constraint actions.
 For every component that declares a transpose action, the implementation MUST
 support the adjoint-consistency identity
 
-$$
+```math
 \langle E_{h}'(x_{h})\delta x_{h},p_{h}\rangle_{Z_{h}^{\ast},Z_{h}}
 =
 \langle E_{h}'(x_{h})^{\ast}p_{h},\delta x_{h}\rangle_{X_{h}^{\ast},X_{h}}.
-$$
+```
 
 The test suite MUST exercise this identity for each term and composed block.
 

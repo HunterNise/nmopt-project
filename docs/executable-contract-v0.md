@@ -56,7 +56,7 @@ $$
   \mathcal L_{h}(x_{h},p_{h})=J_{h}(x_{h})-\langle p_{h},r_{h}(x_{h})\rangle.
 $$
 
-For $`x_h=(y_h,u_h)`$, it therefore computes
+For $`x_{h}=(y_{h},u_{h})`$, it therefore computes
 
 $$
  E_{y}'(x_{h})^{\ast}p_{h}=J_{y}'(x_{h}),\qquad
@@ -70,7 +70,7 @@ No method accepts a PDE name, boundary-condition enum, or untyped vector.
 V0 uses dual coefficients. If
 
 $$
-  r_j=\langle E_h,\psi_j\rangle,
+  r_{j}=\langle E_{h},\psi_{j}\rangle,
 $$
 
 then pairing a residual with a test vector of coefficients $p$ is
@@ -107,7 +107,7 @@ The only concrete metric supplied is a positive diagonal metric. The only
 concrete constraint supplied is a cellwise box constraint, and it explicitly
 supports projection only in a metric whose identifier is `l2_cellwise`. This
 models the selected `FE_DGQ(0)` volume-control policy and prevents accidental
-coefficient clipping in an $H^1$ geometry.
+coefficient clipping in an $H^{1}$ geometry.
 
 ## Reference model and verification
 
@@ -118,8 +118,8 @@ $$
 $$
 
 $$
-  J(y,u)=\tfrac12(Cy-d)^{\mathsf T}W(Cy-d)
-         +\tfrac\alpha2u^{\mathsf T}Ru.
+  J(y,u)=\tfrac{1}{2}(Cy-d)^{\mathsf T}W(Cy-d)
+         +\tfrac{\alpha}{2}u^{\mathsf T}Ru.
 $$
 
 The `CTest` executable verifies:
@@ -130,7 +130,7 @@ The `CTest` executable verifies:
 4. state solve residual;
 5. reduced DTO derivative;
 6. metric inverse/apply consistency; and
-7. the selected cellwise $L^2$ box projection.
+7. the selected cellwise $L^{2}$ box projection.
 
 This establishes the small executable algebra that a deal.II compiler must
 produce. The first serial scalar diffusion-reaction compiler now exists; its

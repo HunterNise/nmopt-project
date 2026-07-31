@@ -119,14 +119,13 @@ report which checks were skipped.
 - Do not use fine-spacing commands such as `\!`, `\,`, or `\;`; some project
   viewers display the punctuation literally. Use ordinary spaces, `\quad`, or
   explicit operators such as `\mathrm{d}t` when extra spacing is needed.
-- Use `\lVert u\rVert` and `\rVert` for norm bars rather than constructions
-  such as `\|\|u\|\|`.
+- Use `\lVert u\rVert` for norm bars rather than doubled vertical bars.
 - Use a literal Unicode en dash `–` in prose. Preserve `--` only where it is
   Markdown table syntax or part of a shell command/options.
 - Use inline `$...$` math inside tables. Move longer or display-sized equations
   outside tables rather than putting `$$...$$` in a table cell.
 - Use proper LaTeX notation instead of shorthand when precision matters. For
-  example, write `$L^2(\Omega)$`, `$\partial\Omega$`, and `$\nabla u$` rather
+  example, write `$L^{2}(\Omega)$`, `$\partial\Omega$`, and `$\nabla u$` rather
   than plain-text substitutes.
 - Put code symbols, class names, functions, commands, options, filenames,
   paths, branch names, and environment variables in backticks: `ProblemSpec`,

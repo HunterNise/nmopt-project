@@ -19,9 +19,9 @@ proposed user syntax.
 Let $\Omega$ be a bounded domain.  The textbook problem is
 
 $$
-  \min_{u\in U_\mathrm{ad}}\quad
-  J(y,u)=\frac12\int_{\omega_o}(y-y_d)^2
-           +\frac\alpha2\int_\Omega u^2
+  \min_{u\in U_{\mathrm{ad}}}\quad
+  J(y,u)=\frac{1}{2}\int_{\omega_{o}}(y-y_{d})^{2}
+           +\frac{\alpha}{2}\int_{\Omega} u^{2}
 $$
 
 subject to
@@ -31,8 +31,8 @@ $$
   \qquad y=0\quad\text{on }\Gamma=\partial\Omega. \quad\text{(1)}
 $$
 
-Here $`\omega_o`$ is an observation subdomain, possibly all of $\Omega$, and
-$`U_\mathrm{ad}`$ is initially all of $L^2(\Omega)$.
+Here $`\omega_{o}`$ is an observation subdomain, possibly all of $\Omega$, and
+$`U_{\mathrm{ad}}`$ is initially all of $L^{2}(\Omega)$.
 
 ### 1.1 What (1) does *not* give to the program
 
@@ -47,7 +47,7 @@ form and boundary treatment.
 For the usual weak formulation, choose
 
 $$
-  Y=Z=V:=H^1_0(\Omega),\qquad U=L^2(\Omega),\qquad E:Y\times U\to V^{\ast}=H^{-1}(\Omega).
+  Y=Z=V:=H^{1}_{0}(\Omega),\qquad U=L^{2}(\Omega),\qquad E:Y\times U\to V^{\ast}=H^{-1}(\Omega).
 $$
 
 The program-facing semantic graph is:
@@ -82,8 +82,8 @@ state equation block (test space Z)
 
 objective
   observation C     : y |-> y restricted to omega_o, into Q
-  tracking loss     : q |-> 1/2 ||q-y_d||_Q^2
-  control loss      : u |-> alpha/2 ||u||_U^2
+  tracking loss     : q |-> 1/2 \lVert q-y_d\rVert_Q^2
+  control loss      : u |-> alpha/2 \lVert u\rVert_U^2
 
 algorithmic metric (only if a gradient method requires one)
   G_U : U -> U*     : chosen L^2 Riesz map
@@ -92,15 +92,15 @@ algorithmic metric (only if a gradient method requires one)
 The resulting mathematical objects are
 
 $$
-  \langle E(y,u),v\rangle=(\nabla y,\nabla v)_\Omega
-    -(f,v)_\Omega-(u,v)_\Omega, \quad\text{(2)}
+  \langle E(y,u),v\rangle=(\nabla y,\nabla v)_{\Omega}
+    -(f,v)_{\Omega}-(u,v)_{\Omega}, \quad\text{(2)}
 $$
 
 and
 
 $$
-  J(y,u)=\tfrac12\|Cy-y_d\|_Q^2+
-           \tfrac\alpha2\|u\|_U^2. \quad\text{(3)}
+  J(y,u)=\tfrac{1}{2}\lVert Cy-y_{d}\rVert_{Q}^{2}+
+           \tfrac{\alpha}{2}\lVert u\rVert_{U}^{2}. \quad\text{(3)}
 $$
 
 The initial architecture therefore needs no `LaplaceProblem` object.  It only
@@ -113,18 +113,18 @@ two losses, and one optional metric.
 |---|---|---|
 | $Y$, $Z$, field shape | state/test DoF layouts and trial/test FE spaces | state and adjoint vector spaces |
 | $U$ | control DoF layout/FE space | control vector and admissible-set operations |
-| diffusion term | state residual and its linearisation $`A_h`$ | state solve and adjoint transpose $`A_h^{\ast}`$ |
-| source data $f$ | load vector/function $`f_h`$ | state residual value only |
-| source-control term | coupling $`B_h:U_h \rightarrow Z_h^{\ast}`$ | state solve and reduced derivative through $`B_h^{\ast}`$ |
-| observation $C$ | restriction/interpolation $`C_h:Y_h \rightarrow Q_h`$ | objective and adjoint right-hand side through $`C_h^{\ast}`$ |
-| target $`y_d`$ | observation data $`d_h`$ | objective and adjoint right-hand side |
-| tracking loss | observation-space weight/pairing $`W_h`$ | objective and adjoint right-hand side |
+| diffusion term | state residual and its linearisation $`A_{h}`$ | state solve and adjoint transpose $`A_{h}^{\ast}`$ |
+| source data $f$ | load vector/function $`f_{h}`$ | state residual value only |
+| source-control term | coupling $`B_{h}:U_{h} \rightarrow Z_{h}^{\ast}`$ | state solve and reduced derivative through $`B_{h}^{\ast}`$ |
+| observation $C$ | restriction/interpolation $`C_{h}:Y_{h} \rightarrow Q_{h}`$ | objective and adjoint right-hand side through $`C_{h}^{\ast}`$ |
+| target $`y_{d}`$ | observation data $`d_{h}`$ | objective and adjoint right-hand side |
+| tracking loss | observation-space weight/pairing $`W_{h}`$ | objective and adjoint right-hand side |
 | control loss | covector map $`\alpha R_{\mathrm{reg},h}`$ | reduced derivative |
-| algorithmic metric $`G_U`$ | $`G_h:U_h \rightarrow U_h^{\ast}`$, possibly a linear solve | conversion of a reduced derivative to a search direction |
-| $`U_\mathrm{ad}`$ | identity/projection/normal-cone operation | stopping condition and constrained update |
+| algorithmic metric $`G_{U}`$ | $`G_{h}:U_{h} \rightarrow U_{h}^{\ast}`$, possibly a linear solve | conversion of a reduced derivative to a search direction |
+| $`U_{\mathrm{ad}}`$ | identity/projection/normal-cone operation | stopping condition and constrained update |
 
-The regularisation map $`R_{\mathrm{reg},h}`$ and the algorithmic metric $`G_h`$ are
-intentionally separate.  In this basic example both may be the $L^2$ mass
+The regularisation map $`R_{\mathrm{reg},h}`$ and the algorithmic metric $`G_{h}`$ are
+intentionally separate.  In this basic example both may be the $L^{2}$ mass
 matrix, but they represent different choices and will diverge in later cases.
 
 ## 2. What compilation produces
@@ -132,7 +132,7 @@ matrix, but they represent different choices and will diverge in later cases.
 Choose a conforming Galerkin policy, for example
 
 $$
-  Y_h=Z_h\subset H^1_0(\Omega),\qquad U_h\subset L^2(\Omega).
+  Y_{h}=Z_{h}\subset H^{1}_{0}(\Omega),\qquad U_{h}\subset L^{2}(\Omega).
 $$
 
 The compiler lowers the graph into an `ExecutableModel`.  It need not expose
@@ -169,15 +169,15 @@ For this linear quadratic example, an assembled realization may be written
 in coordinates as
 
 $$
-  r_h(y,u)=A_hy-f_h-B_hu, \quad\text{(4)}
+  r_{h}(y,u)=A_{h}y-f_{h}-B_{h}u, \quad\text{(4)}
 $$
 
 $$
-  J_h(y,u)=\tfrac12(C_hy-d_h)^{T} W_h(C_hy-d_h)
-            +\tfrac\alpha2u^{T}R_{\mathrm{reg},h}u. \quad\text{(5)}
+  J_{h}(y,u)=\tfrac{1}{2}(C_{h}y-d_{h})^{T} W_{h}(C_{h}y-d_{h})
+            +\tfrac{\alpha}{2}u^{T}R_{\mathrm{reg},h}u. \quad\text{(5)}
 $$
 
-$`A_h^{T}`$, $`B_h^{T}`$, and $`C_h^{T}`$ in formulas below mean the transpose that
+$`A_{h}^{T}`$, $`B_{h}^{T}`$, and $`C_{h}^{T}`$ in formulas below mean the transpose that
 represents the declared discrete pairings.  An implementation must not assume
 that a raw storage transpose is correct if its vector representations use
 non-Euclidean pairings.
@@ -205,27 +205,27 @@ Neither formulation needs to know that the residual term was “Laplace.”
 With the global convention
 
 $$
-  \mathcal L_h(y,u,p)=J_h(y,u)-p^{T}r_h(y,u),
+  \mathcal L_{h}(y,u,p)=J_{h}(y,u)-p^{T}r_{h}(y,u),
 $$
 
 the discrete equations for (4)–(5) are
 
 $$
-  A_hy=f_h+B_hu, \quad\text{(6a)}
+  A_{h}y=f_{h}+B_{h}u, \quad\text{(6a)}
 $$
 
 $$
-  A_h^{T}p=C_h^{T}W_h(C_hy-d_h), \quad\text{(6b)}
+  A_{h}^{T}p=C_{h}^{T}W_{h}(C_{h}y-d_{h}), \quad\text{(6b)}
 $$
 
 $$
-  j_h'(u)=\alpha R_{\mathrm{reg},h}u+B_h^{T}p\in U_h^{\ast}. \quad\text{(6c)}
+  j_{h}'(u)=\alpha R_{\mathrm{reg},h}u+B_{h}^{T}p\in U_{h}^{\ast}. \quad\text{(6c)}
 $$
 
 An unconstrained gradient method uses
 
 $$
-  \nabla_{G_h}j_h=G_h^{-1}j_h'(u). \quad\text{(7)}
+  \nabla_{G_{h}}j_{h}=G_{h}^{-1}j_{h}'(u). \quad\text{(7)}
 $$
 
 For box constraints, (6c) becomes a variational inequality or a projected
@@ -274,11 +274,11 @@ $$
 $$
 
 $$
-  (\nabla w,\nabla p)=(Cy-y_d,Cw)_Q,
+  (\nabla w,\nabla p)=(Cy-y_{d},Cw)_{Q},
 $$
 
 $$
-  j'(u)\delta u=\alpha(u,\delta u)_U+(p,\delta u)_\Omega. \quad\text{(8)}
+  j'(u)\delta u=\alpha(u,\delta u)_{U}+(p,\delta u)_{\Omega}. \quad\text{(8)}
 $$
 
 The formal adjoint in (8) comes from the declared residual and its continuous
@@ -299,7 +299,7 @@ The semantic core must support both provenance paths:
 
 | Path | Object differentiated | Solver's adjoint action |
 |---|---|---|
-| DTO | compiled $`E_h`$, $`J_h`$ | exact transpose of $`E_h'(x_h)`$ |
+| DTO | compiled $`E_{h}`$, $`J_{h}`$ | exact transpose of $`E_{h}'(x_{h})`$ |
 | OTD | semantic $E$, $J$, then compiled optimality relations | discretisation of the declared continuous adjoint relation |
 
 The first executable slice should implement DTO and test it rigorously.  OTD
@@ -321,9 +321,9 @@ must be newly available to a solver after compilation.
 
 | Add/change | Semantic input | Downstream effect | Output change |
 |---|---|---|---|
-| New $f$ | replace `Data(f)` | residual value/load changes | new $`f_h`$; no new operator port |
-| Reaction coefficient $c$ | data plus reaction residual term $(cy,v)$ | state Jacobian/adjoint includes reaction | $`A_h`$ action changes |
-| Transport $b$ | data plus selected transport residual term | residual and transpose reflect the selected weak form | $`A_h`$, $`A_h^{\ast}`$; no solver branch |
+| New $f$ | replace `Data(f)` | residual value/load changes | new $`f_{h}`$; no new operator port |
+| Reaction coefficient $c$ | data plus reaction residual term $(cy,v)$ | state Jacobian/adjoint includes reaction | $`A_{h}`$ action changes |
+| Transport $b$ | data plus selected transport residual term | residual and transpose reflect the selected weak form | $`A_{h}`$, $`A_{h}^{\ast}`$; no solver branch |
 
 This establishes the simplest composition rule: PDE physics is a residual
 term.  It affects state and adjoint operator actions, but never changes the
@@ -331,31 +331,31 @@ objective, metric, or optimisation algorithm interface.
 
 ### 4.2 Replace distributed control with Neumann control
 
-Let $`\Gamma_c`$ be a named subset of the Neumann boundary.  Replace
+Let $`\Gamma_{c}`$ be a named subset of the Neumann boundary.  Replace
 
 $$
-  U=L^2(\Omega),\qquad -(u,v)_\Omega
+  U=L^{2}(\Omega),\qquad -(u,v)_{\Omega}
 $$
 
 by
 
 $$
-  U_\Gamma=L^2(\Gamma_c),\qquad
-  -\langle u,\mathrm{tr}_{\Gamma_c}v\rangle. \quad\text{(9)}
+  U_{\Gamma}=L^{2}(\Gamma_{c}),\qquad
+  -\langle u,\mathrm{tr}_{\Gamma_{c}}v\rangle. \quad\text{(9)}
 $$
 
 | Component | New input | Downstream effect |
 |---|---|---|
-| Region | $`\Gamma_c`$ boundary region | boundary quadrature/DoF access |
-| Control variable | $`u \in U_\Gamma`$ | boundary control layout and bounds |
-| Residual coupling | Neumann control term (9) | $`B_{\Gamma,h}:U_{\Gamma,h} \rightarrow Z_h^{\ast}`$ |
-| Requirement | declared trace $`Z \rightarrow L^2(\Gamma_c)`$ or another selected pairing | validator requires an explicit trace realization |
-| Control loss/metric | boundary-space versions | $`R_{\mathrm{reg},h}`$, $`G_h`$ on boundary control DoFs |
+| Region | $`\Gamma_{c}`$ boundary region | boundary quadrature/DoF access |
+| Control variable | $`u \in U_{\Gamma}`$ | boundary control layout and bounds |
+| Residual coupling | Neumann control term (9) | $`B_{\Gamma,h}:U_{\Gamma,h} \rightarrow Z_{h}^{\ast}`$ |
+| Requirement | declared trace $`Z \rightarrow L^{2}(\Gamma_{c})`$ or another selected pairing | validator requires an explicit trace realization |
+| Control loss/metric | boundary-space versions | $`R_{\mathrm{reg},h}`$, $`G_{h}`$ on boundary control DoFs |
 
 The compiled adjoint derivative becomes
 
 $$
-  j_h'(u)=\alpha R_{\mathrm{reg},h}u+B_{\Gamma,h}^{T}p.
+  j_{h}'(u)=\alpha R_{\mathrm{reg},h}u+B_{\Gamma,h}^{T}p.
 $$
 
 The state solve, generic adjoint workflow, and outer solver do not change;
@@ -367,9 +367,9 @@ Replace the volume restriction $C$ by one of:
 
 | Desired feature | Semantic component replaced/added | Required policy | Compiled solver effect |
 |---|---|---|---|
-| Boundary tracking | trace observation $`C_\Gamma:Y \rightarrow Q_\Gamma`$ | trace and boundary metric | replace $`C_h^{T} W_h(...)`$ in adjoint RHS |
+| Boundary tracking | trace observation $`C_{\Gamma}:Y \rightarrow Q_{\Gamma}`$ | trace and boundary metric | replace $`C_{h}^{T} W_{h}(...)`$ in adjoint RHS |
 | Flux tracking | normal-flux observation | flux regularity and trace realization | same observation-transpose port, different implementation |
-| Point sensors | $`C_{pt}:Y \rightarrow R^m`$ | regularity or explicitly discrete-only status | finite sensor residual and $`C_{pt,h}^{T}`$ adjoint forcing |
+| Point sensors | $`C_{pt}:Y \rightarrow R^{m}`$ | regularity or explicitly discrete-only status | finite sensor residual and $`C_{pt,h}^{T}`$ adjoint forcing |
 | Energy tracking | change loss to a declared bilinear form | positivity/semidefiniteness policy | different objective derivative/adjoint RHS |
 
 No state residual term changes.  The only solver-visible change is the
@@ -382,20 +382,20 @@ There are two independent modifications.
 
 | Modification | Input owner | Baseline replacement | Solver effect |
 |---|---|---|---|
-| $H^1$ control regularisation | control `Space` (or loss domain) plus `Loss` | $`\frac{\alpha}{2}\lVert u\rVert_{L^2}^2`$ becomes $`\frac{\alpha}{2}\lVert u\rVert_{H^1}^2`$ | replace $`\alpha R_{\mathrm{reg},h} u`$ in (6c); compile an $H^1$-conforming control realization |
-| $H^1$ or $H^{-1}$ gradient | algorithmic `Metric` | $`G_h=M_h`$ becomes chosen Riesz/auxiliary-solve map | replace only $`G_h^{-1}`$ in (7) |
+| $H^{1}$ control regularisation | control `Space` (or loss domain) plus `Loss` | $`\frac{\alpha}{2}\lVert u\rVert_{L^{2}}^{2}`$ becomes $`\frac{\alpha}{2}\lVert u\rVert_{H^{1}}^{2}`$ | replace $`\alpha R_{\mathrm{reg},h} u`$ in (6c); compile an $H^{1}$-conforming control realization |
+| $H^{1}$ or $H^{-1}$ gradient | algorithmic `Metric` | $`G_{h}=M_{h}`$ becomes chosen Riesz/auxiliary-solve map | replace only $`G_{h}^{-1}`$ in (7) |
 
-For example, an $H^1$ regularisation produces an objective derivative
-$`\alpha(M_h+K_h)u`$ under its selected boundary convention.  It normally
-requires an $H^1$ control space (or, more generally, a declared loss domain
+For example, an $H^{1}$ regularisation produces an objective derivative
+$`\alpha(M_{h}+K_{h})u`$ under its selected boundary convention.  It normally
+requires an $H^{1}$ control space (or, more generally, a declared loss domain
 inside the ambient control space) and changes the optimal control problem.
-Choosing an $H^1$ search metric for the same $L^2$-regularised objective leaves
+Choosing an $H^{1}$ search metric for the same $L^{2}$-regularised objective leaves
 (6a)–(6c) unchanged and only preconditions the search direction.  This
 separation is essential for correct reduced-space solvers.
 
 ### 4.5 Add box constraints
 
-For bounds $`u_a \leq u \leq u_b`$, add one constraint component:
+For bounds $`u_{a} \leq u \leq u_{b}`$, add one constraint component:
 
 ```text
 Constraint(Box)
@@ -404,7 +404,7 @@ Constraint(Box)
   operations     : feasible-set test, projection and/or normal-cone relation
 ```
 
-There is no change to $E$, $`A_h`$, $`B_h`$, $`C_h`$, or the adjoint equation.  The
+There is no change to $E$, $`A_{h}`$, $`B_{h}`$, $`C_{h}`$, or the adjoint equation.  The
 compiled output adds a discrete admissible-set operation.  A projected
 gradient solver needs $`\mathrm{projection}_{U_{\mathrm{ad},h}}`$ compatible with its chosen metric;
 a primal-dual active-set/KKT solver instead requests complementarity or
@@ -413,37 +413,37 @@ terms.
 
 ### 4.6 Make the control Dirichlet boundary data
 
-This is the important intentionally non-local case.  Let $`\Gamma_c`$ be part
+This is the important intentionally non-local case.  Let $`\Gamma_{c}`$ be part
 of the Dirichlet boundary and choose a control space and lifting, for example
 
 $$
-  U_\Gamma=H^{1/2}(\Gamma_c),\qquad
-  L_D:U_\Gamma\longrightarrow H^1(\Omega).
+  U_{\Gamma}=H^{1/2}(\Gamma_{c}),\qquad
+  L_{D}:U_{\Gamma}\longrightarrow H^{1}(\Omega).
 $$
 
 Use a homogeneous unknown and reconstruct the physical state:
 
 $$
-  y_\mathrm{phys}=\widehat y+\ell_0+L_Du,\qquad \widehat y\in H^1_{\Gamma_D}(\Omega).
+  y_{\mathrm{phys}}=\widehat y+\ell_{0}+L_{D}u,\qquad \widehat y\in H^{1}_{\Gamma_{D}}(\Omega).
   \quad\text{(10)}
 $$
 
 | Component | New input | Downstream effect |
 |---|---|---|
 | Regions/spaces | controlled and fixed Dirichlet portions; control trace space | state/control layouts and trace requirements |
-| Transformation | lifting $`L_D`$, value/JVP/transpose-JVP | physical state used by residual and observation |
-| Residual | diffusion applied to reconstructed state | discrete $`A_{\mathrm{ext},h} L_{D,h}`$ coupling, not boundary load $`B_h`$ |
-| Observation | reads $`y_\mathrm{phys}`$, not merely $\hat y$ | direct chain-rule contribution through $`L_{D,h}`$ |
+| Transformation | lifting $`L_{D}`$, value/JVP/transpose-JVP | physical state used by residual and observation |
+| Residual | diffusion applied to reconstructed state | discrete $`A_{\mathrm{ext},h} L_{D,h}`$ coupling, not boundary load $`B_{h}`$ |
+| Observation | reads $`y_{\mathrm{phys}}`$, not merely $\hat y$ | direct chain-rule contribution through $`L_{D,h}`$ |
 | Objective/metric/constraint | boundary-control versions | corresponding control-space operations |
 
-With $`r_h(\widehat y,u)=A_h\widehat y+A_{\mathrm{ext},h}L_{D,h}u-f_h`$, the
+With $`r_{h}(\widehat y,u)=A_{h}\widehat y+A_{\mathrm{ext},h}L_{D,h}u-f_{h}`$, the
 reduced covector has the generic form
 
 $$
-  j_h'(u)=D_uJ_h-\bigl(A_{\mathrm{ext},h}L_{D,h}\bigr)^{T}p_h. \quad\text{(11)}
+  j_{h}'(u)=D_{u}J_{h}-\bigl(A_{\mathrm{ext},h}L_{D,h}\bigr)^{T}p_{h}. \quad\text{(11)}
 $$
 
-Here $`D_uJ_h`$ includes any direct dependence of the objective on the
+Here $`D_{u}J_{h}`$ includes any direct dependence of the objective on the
 reconstructed physical state.  Equation (11) is deliberately left as a
 composed transpose action: turning it into a simplified boundary formula
 requires the selected lifting and additional analysis.  The framework remains
@@ -454,21 +454,21 @@ generic precisely by retaining this chain rule.
 Promote a coefficient from immutable data to a parameter variable $m$:
 
 $$
-  \langle E(y,m),v\rangle=\int_\Omega m\nabla y\cdot\nabla v-\int_\Omega fv,
-  \qquad m\in M_\mathrm{ad}. \quad\text{(12)}
+  \langle E(y,m),v\rangle=\int_{\Omega} m\nabla y\cdot\nabla v-\int_{\Omega} fv,
+  \qquad m\in M_{\mathrm{ad}}. \quad\text{(12)}
 $$
 
 The only new PDE-side object is a parameter residual derivative:
 
 $$
-  \langle D_mE(y,m)\delta m,v\rangle
-    =\int_\Omega\delta m\nabla y\cdot\nabla v. \quad\text{(13)}
+  \langle D_{m}E(y,m)\delta m,v\rangle
+    =\int_{\Omega}\delta m\nabla y\cdot\nabla v. \quad\text{(13)}
 $$
 
 | New component | Downstream effect | Solver output needed |
 |---|---|---|
 | parameter variable $m \in M$ | residual is nonlinear in full $(y,m)$ | nonlinear residual/JVP/transpose-JVP |
-| coefficient residual term | state and parameter Jacobian blocks | $`D_mE_h`$ and $`D_mE_h^{\ast}`$ |
+| coefficient residual term | state and parameter Jacobian blocks | $`D_{m}E_{h}`$ and $`D_{m}E_{h}^{\ast}`$ |
 | parameter loss/metric/constraint | parameter derivative/search/feasibility | parameter Riesz and constraint operations |
 | product/positivity requirement | model validation/policy only | recorded policy, not an automatic proof |
 
@@ -481,13 +481,13 @@ For the heat equation, replace the stationary state space and add a temporal
 residual term:
 
 $$
-  Y=L^2(0,T;V)\cap H^1(0,T;V^{\ast}),\quad Z=L^2(0,T;V),
+  Y=L^{2}(0,T;V)\cap H^{1}(0,T;V^{\ast}),\quad Z=L^{2}(0,T;V),
 $$
 
 $$
   \langle E(y,u),v\rangle=
-  \int_0^{T}\left[\langle\dot y,v\rangle+a(y,v)-(f+u,v)\right]dt,
-  \qquad y(0)=y_0. \quad\text{(14)}
+  \int_{0}^{T}\left[\langle\dot y,v\rangle+a(y,v)-(f+u,v)\right]\mathrm{d}t,
+  \qquad y(0)=y_{0}. \quad\text{(14)}
 $$
 
 | Component change | Downstream effect |
@@ -499,7 +499,7 @@ $$
 | temporal discretisation policy | exact discrete time transpose, checkpointing/trajectory access policy |
 
 All spatial terms from the baseline are reused unchanged.  A time-stepping
-compiler produces a global or sequential residual $`E_h`$; DTO differentiates
+compiler produces a global or sequential residual $`E_{h}`$; DTO differentiates
 that actual residual.  This is sufficient for a reduced state/adjoint solver
 without introducing a parabolic-specific outer optimiser.
 
@@ -552,7 +552,7 @@ components.
 ## 7. Feasible implementation path exposed by the case study
 
 1. Implement the baseline DTO path: scalar conforming Galerkin, residual
-   terms, one observation/loss, $L^2$ metric, and state/adjoint/reduced-gradient
+   terms, one observation/loss, $L^{2}$ metric, and state/adjoint/reduced-gradient
    interfaces.  Verify the three actions by residual, adjoint-consistency, and
    Taylor-remainder tests.
 2. Add Neumann control and boundary observation.  This tests region, trace,

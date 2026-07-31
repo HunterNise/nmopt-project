@@ -3,59 +3,59 @@
 ## 1. Baseline input
 
 $$
-V=H_0^1(\Omega),\qquad
-U=L^2(\Omega),\qquad
-Q=L^2(\omega_o).
+V=H_{0}^{1}(\Omega),\qquad
+U=L^{2}(\Omega),\qquad
+Q=L^{2}(\omega_{o}).
 $$
 
 $$
 y\in V,\qquad
 u\in U,\qquad
 f\in V^{\ast},\qquad
-y_d\in Q,\qquad
+y_{d}\in Q,\qquad
 \alpha>0.
 $$
 
 $$
 \langle E(y,u),v\rangle_{V^{\ast},V}
-=(\nabla y,\nabla v)_\Omega
+=(\nabla y,\nabla v)_{\Omega}
 -\langle f,v\rangle_{V^{\ast},V}
--(u,v)_\Omega,
+-(u,v)_{\Omega},
 \qquad v\in V.
 $$
 
 $$
 J(y,u)
-=\frac12\lVert Cy-y_d\rVert_Q^2
-+\frac{\alpha}{2}\lVert u\rVert_U^2,
+=\frac{1}{2}\lVert Cy-y_{d}\rVert_{Q}^{2}
++\frac{\alpha}{2}\lVert u\rVert_{U}^{2},
 \qquad
-C:V\to Q,\quad Cy=y|_{\omega_o}.
+C:V\to Q,\quad Cy=y\vert_{\omega_{o}}.
 $$
 
 | Component | Concrete input |
 |---|---|
-| Region | $\Omega$, $\Gamma=\partial\Omega$, $`\omega_o`$ |
+| Region | $\Omega$, $\Gamma=\partial\Omega$, $`\omega_{o}`$ |
 | Space and pairing | $V$, $U$, $Q$, $V^{\ast}\times V$ |
 | Variables | state $y$, control $u$ |
-| Data | $f$, $`y_d`$, $\alpha$ |
+| Data | $f$, $`y_{d}`$, $\alpha$ |
 | Equation block | $E:V\times U\to V^{\ast}$ |
 | Residual terms | diffusion, source, source-control |
 | Observation | $C:V\to Q$ |
 | Losses | tracking and control regularisation |
-| Metric | $`G_U:U\to U^{\ast}`$, if a gradient is required |
+| Metric | $`G_{U}:U\to U^{\ast}`$, if a gradient is required |
 
 The derivative actions are
 
 $$
 \begin{aligned}
-\langle D_yE(y,u)w,v\rangle
-&=(\nabla w,\nabla v)_\Omega,\\
-\langle D_uE(y,u)\delta u,v\rangle
-&=-(\delta u,v)_\Omega,\\
-D_yJ(y,u)w
-&=(Cy-y_d,Cw)_Q,\\
-D_uJ(y,u)\delta u
-&=\alpha(u,\delta u)_U.
+\langle D_{y}E(y,u)w,v\rangle
+&=(\nabla w,\nabla v)_{\Omega},\\
+\langle D_{u}E(y,u)\delta u,v\rangle
+&=-(\delta u,v)_{\Omega},\\
+D_{y}J(y,u)w
+&=(Cy-y_{d},Cw)_{Q},\\
+D_{u}J(y,u)\delta u
+&=\alpha(u,\delta u)_{U}.
 \end{aligned}
 $$
 
@@ -69,14 +69,14 @@ the solver equations are
 
 $$
 \begin{aligned}
-(\nabla y,\nabla v)_\Omega
-&=\langle f,v\rangle+(u,v)_\Omega,
+(\nabla y,\nabla v)_{\Omega}
+&=\langle f,v\rangle+(u,v)_{\Omega},
 &&v\in V,\\
-(\nabla w,\nabla p)_\Omega
-&=(Cy-y_d,Cw)_Q,
+(\nabla w,\nabla p)_{\Omega}
+&=(Cy-y_{d},Cw)_{Q},
 &&w\in V,\\
 j'(u)\delta u
-&=\alpha(u,\delta u)_U+(p,\delta u)_\Omega,
+&=\alpha(u,\delta u)_{U}+(p,\delta u)_{\Omega},
 &&\delta u\in U.
 \end{aligned}
 $$
@@ -84,7 +84,7 @@ $$
 The search direction is
 
 $$
-\nabla_{G_U}j(u)=G_U^{-1}j'(u).
+\nabla_{G_{U}}j(u)=G_{U}^{-1}j'(u).
 $$
 
 ## 2. Baseline compiled output
@@ -100,31 +100,31 @@ U_{h}=\mathrm{span}\left\{\chi_{\ell}\right\}.
 Define
 
 $$
-(A_h)_{ji}=(\nabla\varphi_i,\nabla\psi_j)_\Omega,
+(A_{h})_{ji}=(\nabla\varphi_{i},\nabla\psi_{j})_{\Omega},
 \qquad
-(B_h)_{j\ell}=(\chi_\ell,\psi_j)_\Omega,
+(B_{h})_{j\ell}=(\chi_{\ell},\psi_{j})_{\Omega},
 \qquad
-(f_h)_j=\langle f,\psi_j\rangle.
+(f_{h})_{j}=\langle f,\psi_{j}\rangle.
 $$
 
-For an observation basis $`\{\eta_k\}`$,
+For an observation basis $`\left\{\eta_{k}\right\}`$,
 
 $$
-(W_h)_{kr}=(\eta_k,\eta_r)_Q,
+(W_{h})_{kr}=(\eta_{k},\eta_{r})_{Q},
 \qquad
-(R_{\mathrm{reg},h})_{\ell m}=(\chi_\ell,\chi_m)_U.
+(R_{\mathrm{reg},h})_{\ell m}=(\chi_{\ell},\chi_{m})_{U}.
 $$
 
 Compilation returns
 
 $$
-r_h(y_h,u_h)=A_hy_h-f_h-B_hu_h,
+r_{h}(y_{h},u_{h})=A_{h}y_{h}-f_{h}-B_{h}u_{h},
 $$
 
 $$
-J_h(y_h,u_h)
-=\frac12(C_hy_h-d_h)^{\mathsf T}W_h(C_hy_h-d_h)
-+\frac{\alpha}{2}u_h^{\mathsf T}R_{\mathrm{reg},h}u_h,
+J_{h}(y_{h},u_{h})
+=\frac{1}{2}(C_{h}y_{h}-d_{h})^{\mathsf T}W_{h}(C_{h}y_{h}-d_{h})
++\frac{\alpha}{2}u_{h}^{\mathsf T}R_{\mathrm{reg},h}u_{h},
 $$
 
 ```math
@@ -147,22 +147,22 @@ The DTO solver receives
 
 $$
 \begin{aligned}
-A_hy_h&=f_h+B_hu_h,\\
-A_h^{\mathsf T}p_h&=C_h^{\mathsf T}W_h(C_hy_h-d_h),\\
-j_h'(u_h)&=\alpha R_{\mathrm{reg},h}u_h+B_h^{\mathsf T}p_h,\\
-\nabla_{G_h}j_h(u_h)&=G_h^{-1}j_h'(u_h).
+A_{h}y_{h}&=f_{h}+B_{h}u_{h},\\
+A_{h}^{\mathsf T}p_{h}&=C_{h}^{\mathsf T}W_{h}(C_{h}y_{h}-d_{h}),\\
+j_{h}'(u_{h})&=\alpha R_{\mathrm{reg},h}u_{h}+B_{h}^{\mathsf T}p_{h},\\
+\nabla_{G_{h}}j_{h}(u_{h})&=G_{h}^{-1}j_{h}'(u_{h}).
 \end{aligned}
 $$
 
 The mandatory executable ports are
 
 $$
-E_h(x_h),\qquad
-E_h'(x_h)\delta x_h,\qquad
-E_h'(x_h)^{\ast}p_h,\qquad
-J_h(x_h),\qquad
-J_h'(x_h),\qquad
-G_h^{-1}.
+E_{h}(x_{h}),\qquad
+E_{h}'(x_{h})\delta x_{h},\qquad
+E_{h}'(x_{h})^{\ast}p_{h},\qquad
+J_{h}(x_{h}),\qquad
+J_{h}'(x_{h}),\qquad
+G_{h}^{-1}.
 $$
 
 ## 3. Formula deltas
@@ -173,24 +173,24 @@ Replace the diffusion form by
 
 $$
 a(y,v)
-=(K\nabla y,\nabla v)_\Omega
-+(b\cdot\nabla y,v)_\Omega
-+(cy,v)_\Omega.
+=(K\nabla y,\nabla v)_{\Omega}
++(b\cdot\nabla y,v)_{\Omega}
++(cy,v)_{\Omega}.
 $$
 
 Then
 
 $$
 \langle E(y,u),v\rangle
-=a(y,v)-\langle f,v\rangle-(u,v)_\Omega,
+=a(y,v)-\langle f,v\rangle-(u,v)_{\Omega},
 $$
 
 $$
-\langle D_yE(y,u)^{\ast}p,w\rangle=a(w,p),
+\langle D_{y}E(y,u)^{\ast}p,w\rangle=a(w,p),
 $$
 
 $$
-(A_h)_{ji}=a(\varphi_i,\psi_j).
+(A_{h})_{ji}=a(\varphi_{i},\psi_{j}).
 $$
 
 Required interfaces: residual term; data $K,b,c$; transport/stabilisation
@@ -201,49 +201,49 @@ policy if the chosen form needs one.
 Replace the full Dirichlet boundary setting by
 
 ```math
-\Gamma=\Gamma_D\mathbin{\dot\cup}\Gamma_N,
+\Gamma=\Gamma_{D}\mathbin{\dot\cup}\Gamma_{N},
 \qquad
-V=H_{\Gamma_{D}}^1(\Omega)
-=\left\{v\in H^1(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
+V=H_{\Gamma_{D}}^{1}(\Omega)
+=\left\{v\in H^{1}(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
 \qquad
-\Gamma_c\subseteq\Gamma_N.
+\Gamma_{c}\subseteq\Gamma_{N}.
 ```
 
 Set
 
 $$
-U_\Gamma=L^2(\Gamma_c).
+U_{\Gamma}=L^{2}(\Gamma_{c}).
 $$
 
 Replace the control contribution by
 
 $$
-\langle E_\Gamma(y,u),v\rangle
-=(\nabla y,\nabla v)_\Omega-\langle f,v\rangle
--\langle u,\gamma_{\Gamma_c}v\rangle.
+\langle E_{\Gamma}(y,u),v\rangle
+=(\nabla y,\nabla v)_{\Omega}-\langle f,v\rangle
+-\langle u,\gamma_{\Gamma_{c}}v\rangle.
 $$
 
 Then
 
 $$
-\langle D_uE_\Gamma(y,u)\delta u,v\rangle
-=-\langle\delta u,\gamma_{\Gamma_c}v\rangle,
+\langle D_{u}E_{\Gamma}(y,u)\delta u,v\rangle
+=-\langle\delta u,\gamma_{\Gamma_{c}}v\rangle,
 $$
 
 $$
-j_\Gamma'(u)\delta u
-=\alpha(u,\delta u)_{U_\Gamma}
-+\langle\delta u,\gamma_{\Gamma_c}p\rangle.
+j_{\Gamma}'(u)\delta u
+=\alpha(u,\delta u)_{U_{\Gamma}}
++\langle\delta u,\gamma_{\Gamma_{c}}p\rangle.
 $$
 
-With $`U_{\Gamma,h}=\mathrm{span}\{\xi_\ell\}`$,
+With $`U_{\Gamma,h}=\mathrm{span}\left\{\xi_{\ell}\right\}`$,
 
 $$
 (B_{\Gamma,h})_{j\ell}
-=\langle\xi_\ell,\gamma_{\Gamma_c}\psi_j\rangle,
+=\langle\xi_{\ell},\gamma_{\Gamma_{c}}\psi_{j}\rangle,
 \qquad
-j_{\Gamma,h}'(u_h)
-=\alpha R_{\mathrm{reg},\Gamma,h}u_h+B_{\Gamma,h}^{\mathsf T}p_h.
+j_{\Gamma,h}'(u_{h})
+=\alpha R_{\mathrm{reg},\Gamma,h}u_{h}+B_{\Gamma,h}^{\mathsf T}p_{h}.
 $$
 
 Required interfaces: boundary partition and state space, boundary control
@@ -254,112 +254,112 @@ space, trace map, boundary residual term, boundary quadrature.
 For a nontrivial trace observation, use the same boundary partition
 
 $$
-\Gamma=\Gamma_D\mathbin{\dot\cup}\Gamma_N,
+\Gamma=\Gamma_{D}\mathbin{\dot\cup}\Gamma_{N},
 \qquad
-V=H_{\Gamma_D}^1(\Omega),
+V=H_{\Gamma_{D}}^{1}(\Omega),
 \qquad
-\Gamma_o\subseteq\Gamma_N.
+\Gamma_{o}\subseteq\Gamma_{N}.
 $$
 
 Let
 
 $$
-Q_\Gamma=L^2(\Gamma_o),
+Q_{\Gamma}=L^{2}(\Gamma_{o}),
 \qquad
-C_\Gamma y=\gamma_{\Gamma_o}y.
+C_{\Gamma} y=\gamma_{\Gamma_{o}}y.
 $$
 
 Replace the tracking loss by
 
 $$
-J_\Gamma(y,u)
-=\frac12\lVert C_\Gamma y-y_{d,\Gamma}\rVert_{Q_\Gamma}^2
-+\frac{\alpha}{2}\lVert u\rVert_U^2.
+J_{\Gamma}(y,u)
+=\frac{1}{2}\lVert C_{\Gamma} y-y_{d,\Gamma}\rVert_{Q_{\Gamma}}^{2}
++\frac{\alpha}{2}\lVert u\rVert_{U}^{2}.
 $$
 
 The state equation is unchanged.  The adjoint becomes
 
 $$
-(\nabla w,\nabla p)_\Omega
-=\langle C_\Gamma y-y_{d,\Gamma},C_\Gamma w\rangle_{Q_\Gamma}.
+(\nabla w,\nabla p)_{\Omega}
+=\langle C_{\Gamma} y-y_{d,\Gamma},C_{\Gamma} w\rangle_{Q_{\Gamma}}.
 $$
 
 The compiled adjoint right-hand side is
 
 $$
-A_h^{\mathsf T}p_h
+A_{h}^{\mathsf T}p_{h}
 =C_{\Gamma,h}^{\mathsf T}W_{\Gamma,h}
-(C_{\Gamma,h}y_h-d_{\Gamma,h}).
+(C_{\Gamma,h}y_{h}-d_{\Gamma,h}).
 $$
 
 Required interfaces: boundary partition and state space, trace observation,
 boundary loss, boundary quadrature.  Once this state space has been selected,
-changing only $`\Gamma_o`$ changes only the observation and loss.
+changing only $`\Gamma_{o}`$ changes only the observation and loss.
 
 ### 3.4 Point observations
 
 $$
-C_\mathrm{pt}y=
+C_{\mathrm{pt}}y=
 \begin{bmatrix}
-y(x_1)\\
+y(x_{1})\\
 \vdots\\
-y(x_m)
+y(x_{m})
 \end{bmatrix}
-\in\mathbb R^m,
+\in\mathbb R^{m},
 $$
 
 $$
-J_\mathrm{pt}(y,u)
-=\frac12(C_\mathrm{pt}y-d)^{\mathsf T}W(C_\mathrm{pt}y-d)
-+\frac{\alpha}{2}\lVert u\rVert_U^2,
+J_{\mathrm{pt}}(y,u)
+=\frac{1}{2}(C_{\mathrm{pt}}y-d)^{\mathsf T}W(C_{\mathrm{pt}}y-d)
++\frac{\alpha}{2}\lVert u\rVert_{U}^{2},
 $$
 
 $$
-D_yJ_\mathrm{pt}(y,u)
-=C_\mathrm{pt}^{\ast}W(C_\mathrm{pt}y-d).
+D_{y}J_{\mathrm{pt}}(y,u)
+=C_{\mathrm{pt}}^{\ast}W(C_{\mathrm{pt}}y-d).
 $$
 
-Required interfaces: observation with target $\mathbb R^m$, transpose
+Required interfaces: observation with target $\mathbb R^{m}$, transpose
 action, and a policy declaring continuous validity or discrete-only meaning.
 
-### 3.5 $H^1$ regularisation
+### 3.5 $H^{1}$ regularisation
 
 Replace the control loss by
 
 $$
 \frac{\alpha}{2}\left(
-\lVert u\rVert_{L^2(\Omega)}^2
-+\ell^2\lVert\nabla u\rVert_{L^2(\Omega)}^2
+\lVert u\rVert_{L^{2}(\Omega)}^{2}
++\ell^{2}\lVert\nabla u\rVert_{L^{2}(\Omega)}^{2}
 \right),
 \qquad
-U=H^1(\Omega).
+U=H^{1}(\Omega).
 $$
 
 Then
 
 $$
-j_\mathrm{reg}'(u)\delta u
+j_{\mathrm{reg}}'(u)\delta u
 =\alpha\left(
-(u,\delta u)_\Omega
-+\ell^2(\nabla u,\nabla\delta u)_\Omega
+(u,\delta u)_{\Omega}
++\ell^{2}(\nabla u,\nabla\delta u)_{\Omega}
 \right)
-+(p,\delta u)_\Omega,
++(p,\delta u)_{\Omega},
 $$
 
 $$
-R_{\mathrm{reg},h}=M_{U,h}+\ell^2K_{U,h}.
+R_{\mathrm{reg},h}=M_{U,h}+\ell^{2}K_{U,h}.
 $$
 
 Required interfaces: control space, control loss, control discretisation, and
 possibly a new constraint space.
 
-### 3.6 $H^1$ or $H^{-1}$ search metric
+### 3.6 $H^{1}$ or $H^{-1}$ search metric
 
 Leave the objective unchanged.  To use a Sobolev search space while the
-control remains $U=L^2(\Omega)$, declare
+control remains $U=L^{2}(\Omega)$, declare
 
 $$
-U_{G}=H^1(\Omega),
+U_{G}=H^{1}(\Omega),
 \qquad
 \iota:U_{G}\hookrightarrow U,
 \qquad
@@ -369,22 +369,22 @@ $$
 Define
 
 $$
-\langle G_Ug,\delta u\rangle_{U_G^{\ast},U_G}
-=(g,\delta u)_\Omega
-+\ell^2(\nabla g,\nabla\delta u)_\Omega.
+\langle G_{U}g,\delta u\rangle_{U_{G}^{\ast},U_{G}}
+=(g,\delta u)_{\Omega}
++\ell^{2}(\nabla g,\nabla\delta u)_{\Omega}.
 $$
 
 Then only
 
 $$
-\nabla_{G_U}j=G_U^{-1}\iota^{\ast}j'
+\nabla_{G_{U}}j=G_{U}^{-1}\iota^{\ast}j'
 $$
 
 changes.  The state, adjoint, and reduced covector $j'$ are unchanged.
 
 Required interface: metric with apply and inverse-apply.  An $H^{-1}$
 metric may implement inverse-apply by an auxiliary elliptic solve.  If the
-control space itself is changed to $H^1(\Omega)$, the injection
+control space itself is changed to $H^{1}(\Omega)$, the injection
 $\iota^{\ast}$ is unnecessary.
 
 ### 3.7 Box constraints
@@ -397,13 +397,13 @@ U_{\mathrm{ad}}
 Replace unconstrained stationarity by
 
 $$
-0\in j'(u)+N_{U_\mathrm{ad}}(u),
+0\in j'(u)+N_{U_{\mathrm{ad}}}(u),
 $$
 
 or
 
 $$
-u=\Pi_{U_\mathrm{ad}}\bigl(u-\tau\nabla_{G_U}j(u)\bigr).
+u=\Pi_{U_{\mathrm{ad}}}\bigl(u-\tau\nabla_{G_{U}}j(u)\bigr).
 $$
 
 Required interfaces: constraint feasibility, projection, normal cone, or
@@ -416,73 +416,73 @@ Let
 ```math
 \Gamma_{D}=\Gamma_{0}\mathbin{\dot\cup}\Gamma_{c},
 \qquad
-V_{0}=\left\{v\in H^1(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
+V_{0}=\left\{v\in H^{1}(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
 ```
 
 $$
 U_{\Gamma}=H^{1/2}(\Gamma_{c}),
 \qquad
-L_D:U_\Gamma\to H^1(\Omega).
+L_{D}:U_{\Gamma}\to H^{1}(\Omega).
 $$
 
-With a fixed-data lifting $`\ell_0`$,
+With a fixed-data lifting $`\ell_{0}`$,
 
 $$
-y_\mathrm{phys}=\widehat y+\ell_0+L_Du,
+y_{\mathrm{phys}}=\widehat y+\ell_{0}+L_{D}u,
 \qquad
-\widehat y\in V_0.
+\widehat y\in V_{0}.
 $$
 
 The residual is
 
 $$
-\langle E_D(\widehat y,u),v\rangle
-=(\nabla(\widehat y+\ell_0+L_Du),\nabla v)_\Omega
+\langle E_{D}(\widehat y,u),v\rangle
+=(\nabla(\widehat y+\ell_{0}+L_{D}u),\nabla v)_{\Omega}
 -\langle f,v\rangle,
-\qquad v\in V_0.
+\qquad v\in V_{0}.
 $$
 
 The objective is
 
 $$
-J_D(\widehat y,u)
-=\frac12\lVert C(\widehat y+\ell_0+L_Du)-y_d\rVert_Q^2
-+\frac{\alpha}{2}\lVert u\rVert_{U_\Gamma}^2.
+J_{D}(\widehat y,u)
+=\frac{1}{2}\lVert C(\widehat y+\ell_{0}+L_{D}u)-y_{d}\rVert_{Q}^{2}
++\frac{\alpha}{2}\lVert u\rVert_{U_{\Gamma}}^{2}.
 $$
 
 The changed derivatives are
 
 $$
 \begin{aligned}
-\langle D_{\widehat y}E_Dw,v\rangle
-&=(\nabla w,\nabla v)_\Omega,\\
-\langle D_uE_D\delta u,v\rangle
-&=(\nabla L_D\delta u,\nabla v)_\Omega,\\
-D_uJ_D\delta u
-&=\langle Cy_\mathrm{phys}-y_d,CL_D\delta u\rangle_Q
-+\alpha(u,\delta u)_{U_\Gamma}.
+\langle D_{\widehat y}E_{D}w,v\rangle
+&=(\nabla w,\nabla v)_{\Omega},\\
+\langle D_{u}E_{D}\delta u,v\rangle
+&=(\nabla L_{D}\delta u,\nabla v)_{\Omega},\\
+D_{u}J_{D}\delta u
+&=\langle Cy_{\mathrm{phys}}-y_{d},CL_{D}\delta u\rangle_{Q}
++\alpha(u,\delta u)_{U_{\Gamma}}.
 \end{aligned}
 $$
 
 Therefore
 
 $$
-(\nabla w,\nabla p)_\Omega=D_{\widehat y}J_Dw,
+(\nabla w,\nabla p)_{\Omega}=D_{\widehat y}J_{D}w,
 $$
 
 $$
-j_D'(u)\delta u
-=D_uJ_D\delta u
--(\nabla L_D\delta u,\nabla p)_\Omega.
+j_{D}'(u)\delta u
+=D_{u}J_{D}\delta u
+-(\nabla L_{D}\delta u,\nabla p)_{\Omega}.
 $$
 
 The compiled residual is
 
 $$
-r_{D,h}(\widehat y_h,u_h)
-=A_h\widehat y_h
-+A_{\mathrm{ext},h}L_{D,h}u_h
-+b_{\ell_0,h}-f_h.
+r_{D,h}(\widehat y_{h},u_{h})
+=A_{h}\widehat y_{h}
++A_{\mathrm{ext},h}L_{D,h}u_{h}
++b_{\ell_{0},h}-f_{h}.
 $$
 
 Required interfaces: controlled/fixed boundary regions, lifting
@@ -494,33 +494,33 @@ physical state, and compiler support for $`L_{D,h}`$ and affine constraints.
 Introduce
 
 $$
-m\in M_\mathrm{ad},
+m\in M_{\mathrm{ad}},
 $$
 
 and use
 
 $$
-\langle E_m(y,m),v\rangle
-=(m\nabla y,\nabla v)_\Omega-\langle f,v\rangle.
+\langle E_{m}(y,m),v\rangle
+=(m\nabla y,\nabla v)_{\Omega}-\langle f,v\rangle.
 $$
 
 The parameter derivative is
 
 $$
-\langle D_mE_m(y,m)\delta m,v\rangle
-=(\delta m\nabla y,\nabla v)_\Omega.
+\langle D_{m}E_{m}(y,m)\delta m,v\rangle
+=(\delta m\nabla y,\nabla v)_{\Omega}.
 $$
 
 The adjoint and parameter derivative are
 
 $$
-(m\nabla w,\nabla p)_\Omega=D_yJ_m(y,m)w,
+(m\nabla w,\nabla p)_{\Omega}=D_{y}J_{m}(y,m)w,
 $$
 
 $$
-j_m'(m)\delta m
-=D_mJ_m(y,m)\delta m
--(\delta m\nabla y,\nabla p)_\Omega.
+j_{m}'(m)\delta m
+=D_{m}J_{m}(y,m)\delta m
+-(\delta m\nabla y,\nabla p)_{\Omega}.
 $$
 
 Required interfaces: parameter variable and constraint, nonlinear residual
@@ -530,49 +530,49 @@ positivity policy.
 ### 3.10 Parabolic source control
 
 $$
-V=H_0^1(\Omega),
+V=H_{0}^{1}(\Omega),
 \qquad
-Y=L^2(0,T;V)\cap H^1(0,T;V^{\ast}),
+Y=L^{2}(0,T;V)\cap H^{1}(0,T;V^{\ast}),
 \qquad
-Z=L^2(0,T;V).
+Z=L^{2}(0,T;V).
 $$
 
-With $`y(0)=y_0`$,
+With $`y(0)=y_{0}`$,
 
 $$
-\langle E_T(y,u),v\rangle
-=\int_0^{T}
+\langle E_{T}(y,u),v\rangle
+=\int_{0}^{T}
 \left[
 \langle\dot y,v\rangle_{V^{\ast},V}
-+(\nabla y,\nabla v)_\Omega
++(\nabla y,\nabla v)_{\Omega}
 -\langle f,v\rangle
--(u,v)_\Omega
-\right]dt.
+-(u,v)_{\Omega}
+ \right]\mathrm{d}t.
 $$
 
 For
 
 $$
-J_T(y,u)
-=\frac12\int_0^{T}\lVert Cy(t)-y_d(t)\rVert_Q^2dt
-+\frac{\alpha}{2}\int_0^{T}\lVert u(t)\rVert_U^2dt,
+J_{T}(y,u)
+=\frac{1}{2}\int_{0}^{T}\lVert Cy(t)-y_{d}(t)\rVert_{Q}^{2}\mathrm{d}t
++\frac{\alpha}{2}\int_{0}^{T}\lVert u(t)\rVert_{U}^{2}\mathrm{d}t,
 $$
 
 the adjoint relation is
 
 $$
-\int_0^{T}
+\int_{0}^{T}
 \left[
 \langle\dot w,p\rangle_{V^{\ast},V}
-+(\nabla w,\nabla p)_\Omega
-\right]dt
-=\int_0^{T}(Cy-y_d,Cw)_Qdt.
++(\nabla w,\nabla p)_{\Omega}
+ \right]\mathrm{d}t
+=\int_{0}^{T}(Cy-y_{d},Cw)_{Q}\mathrm{d}t.
 $$
 
 For $w(0)=0$,
 
 $$
--\dot p-\Delta p=C^{\ast}(Cy-y_d),
+-\dot p-\Delta p=C^{\ast}(Cy-y_{d}),
 \qquad
 p(T)=0.
 $$
@@ -580,9 +580,9 @@ $$
 The reduced derivative is
 
 $$
-j_T'(u)\delta u
-=\alpha\int_0^{T}(u,\delta u)_Udt
-+\int_0^{T}(p,\delta u)_\Omega\mathrm{d}t.
+j_{T}'(u)\delta u
+=\alpha\int_{0}^{T}(u,\delta u)_{U}\mathrm{d}t
++\int_{0}^{T}(p,\delta u)_{\Omega}\mathrm{d}t.
 $$
 
 Required interfaces: time-space descriptors, time-derivative residual term,
@@ -596,24 +596,24 @@ transpose of the compiled time residual.
 Differentiate
 
 $$
-(E_h,J_h).
+(E_{h},J_{h}).
 $$
 
 The discrete adjoint is
 
 $$
-E_h'(x_h)^{\ast}p_h=D_yJ_h(x_h).
+E_{h}'(x_{h})^{\ast}p_{h}=D_{y}J_{h}(x_{h}).
 $$
 
 Required solver inputs:
 
 $$
-E_h(x_h),\quad
-E_h'(x_h)\delta x_h,\quad
-E_h'(x_h)^{\ast}p_h,\quad
-J_h(x_h),\quad
-J_h'(x_h),\quad
-G_h^{-1},
+E_{h}(x_{h}),\quad
+E_{h}'(x_{h})\delta x_{h},\quad
+E_{h}'(x_{h})^{\ast}p_{h},\quad
+J_{h}(x_{h}),\quad
+J_{h}'(x_{h}),\quad
+G_{h}^{-1},
 $$
 
 plus constraint operations.
@@ -629,19 +629,19 @@ $$
 first:
 
 $$
-E_y'(x)^{\ast}p=D_yJ(x).
+E_{y}'(x)^{\ast}p=D_{y}J(x).
 $$
 
 Compile that equation separately.  If it gives
 
 $$
-\widetilde A_hp_h=\widetilde b_h,
+\widetilde A_{h}p_{h}=\widetilde b_{h},
 $$
 
 there is no general identity
 
 $$
-\widetilde A_h=A_h^{\mathsf T}.
+\widetilde A_{h}=A_{h}^{\mathsf T}.
 $$
 
 They can agree for compatible conforming Galerkin forms.  They need not agree
@@ -652,7 +652,7 @@ Required additional interfaces:
 
 | Component | Required action |
 |---|---|
-| Formulation builder | build $`E_y'(x)^{\ast}p-D_yJ(x)=0`$ as a semantic equation block |
+| Formulation builder | build $`E_{y}'(x)^{\ast}p-D_{y}J(x)=0`$ as a semantic equation block |
 | Provenance | record DTO or OTD and the lowering policy |
 
 ## 5. Minimal interface specification
@@ -662,7 +662,7 @@ Required additional interfaces:
 | Space | domain/region, field shape, trial/test role, pairing, trace and product capabilities |
 | Variable and data | identifier, space, value, admissible-set reference; derivatives only for variables |
 | Map | $T:X\to Y$, $T(x)$, $T'(x)\delta x$, $T'(x)^{\ast}\eta$ |
-| Residual term | $`\langle E_t(x),z\rangle`$, JVP, transpose-JVP |
+| Residual term | $`\langle E_{t}(x),z\rangle`$, JVP, transpose-JVP |
 | Equation block | test space, sum of terms, residual/JVP/transpose-JVP |
 | Transformation | map applied before residual/observation evaluation |
 | Observation | map from physical variables to $Q$ |

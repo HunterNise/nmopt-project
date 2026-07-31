@@ -25,9 +25,9 @@ The result is deliberately conservative:
 The central model
 
 $$
-  \min_{x\in X_\mathrm{ad}} J(x)
+  \min_{x\in X_{\mathrm{ad}}} J(x)
   \quad\text{subject to}\quad
-  E_a(x)=0\in Z_a^{\ast}
+  E_{a}(x)=0\in Z_{a}^{\ast}
 $$
 
 is correct for the intended family of PDE-constrained problems. In
@@ -75,8 +75,8 @@ For every semantic space $S$, compilation MUST create the following typed
 objects:
 
 $$
-  \mathrm{Primal}(S_h),\qquad \mathrm{Covector}(S_h),\qquad
-  \mathrm{pair}_S:\mathrm{Covector}(S_h)\times\mathrm{Primal}(S_h)\to\mathbb R.
+  \mathrm{Primal}(S_{h}),\qquad \mathrm{Covector}(S_{h}),\qquad
+  \mathrm{pair}_{S}:\mathrm{Covector}(S_{h})\times\mathrm{Primal}(S_{h})\to\mathbb R.
 $$
 
 The wrappers may contain the same `Vector` implementation, but public operator
@@ -87,19 +87,19 @@ primal vectors and typed block covectors.
 
 | Choice | Description | Decision |
 |---|---|---|
-| Dual-coefficient representation | A residual vector stores $`r_j=\langle E,\psi_j\rangle`$, and `pair(r,p)` is the coefficient dot product $r^{\mathsf T}p$. | **First default.** It matches ordinary FE assembly and makes a tested residual an actual covector. |
-| Riesz-representative representation | A dual element is stored as a primal vector $\bar r$, with $`\langle E,p\rangle=\bar r^{\mathsf T}M_Sp`$. | Allowed later, but it MUST expose the mass/pairing map explicitly. |
+| Dual-coefficient representation | A residual vector stores $`r_{j}=\langle E,\psi_{j}\rangle`$, and `pair(r,p)` is the coefficient dot product $r^{\mathsf T}p$. | **First default.** It matches ordinary FE assembly and makes a tested residual an actual covector. |
+| Riesz-representative representation | A dual element is stored as a primal vector $\bar r$, with $`\langle E,p\rangle=\bar r^{\mathsf T}M_{S}p`$. | Allowed later, but it MUST expose the mass/pairing map explicitly. |
 | Untyped backend vector | The meaning of a vector depends on the caller. | Forbidden. |
 
 Under the default, an assembled residual Jacobian has test rows and trial
 columns:
 
 $$
-  J_{ji}=\langle E'(x)\varphi_i,\psi_j\rangle.
+  J_{ji}=\langle E'(x)\varphi_{i},\psi_{j}\rangle.
 $$
 
-The JVP returns a covector in $`Z_h^{\ast}`$, and the pullback of a test vector
-returns a covector in $`X_h^{\ast}`$. Its coordinate action is the storage
+The JVP returns a covector in $`Z_{h}^{\ast}`$, and the pullback of a test vector
+returns a covector in $`X_{h}^{\ast}`$. Its coordinate action is the storage
 transpose $J^{\mathsf T}p$ *because* the default dual representation has
 been declared. This is not a general permission to use a raw storage
 transpose.
@@ -147,10 +147,10 @@ vjp(inputs, output_seed, input_covector_accumulator, context)
 VJP means vector–Jacobian product / pullback. The name is preferred to
 “transpose-JVP” because the seed has a type:
 
-- for a transformation or observation $T:X\to Y$, the seed is in $`Y_h^{\ast}`$
-  and the result accumulates into $`X_h^{\ast}`$;
-- for a residual $E:X\to Z^{\ast}$, the seed is an adjoint variable in $`Z_h`$
-  and the result accumulates into $`X_h^{\ast}`$.
+- for a transformation or observation $T:X\to Y$, the seed is in $`Y_{h}^{\ast}`$
+  and the result accumulates into $`X_{h}^{\ast}`$;
+- for a residual $E:X\to Z^{\ast}$, the seed is an adjoint variable in $`Z_{h}`$
+  and the result accumulates into $`X_{h}^{\ast}`$.
 
 Residual-term signs belong in the term's value and local derivative. The
 global Lagrangian sign belongs only in a formulation builder.
@@ -172,7 +172,7 @@ special objective path. A loss involving several variables first receives a
 product/concatenation map output. This keeps the rule
 
 $$
-  J'(x)=\sum_k O_k'(x)^{\ast}\Phi_k'(O_k(x))
+  J'(x)=\sum_{k} O_{k}'(x)^{\ast}\Phi_{k}'(O_{k}(x))
 $$
 
 literal and removes the ambiguity between “loss source is an observation” and
@@ -236,9 +236,9 @@ gradient methods. They are not sufficient for a nonlinear Newton step on the
 KKT equations: differentiating the adjoint equation requires terms such as
 
 $$
-  D_x\bigl(E_h'(x_h)^{\ast}p_h\bigr)[\delta x_h]
+  D_{x}\bigl(E_{h}'(x_{h})^{\ast}p_{h}\bigr)[\delta x_{h}]
   \quad\text{and}\quad
-  J_h''(x_h)\delta x_h.
+  J_{h}''(x_{h})\delta x_{h}.
 $$
 
 | Choice | Decision |
@@ -259,7 +259,7 @@ constraints must advertise that this action is unavailable.
 DTO is the only first-default provenance:
 
 $$
- (E,J)\longrightarrow(E_h,J_h)\longrightarrow\text{discrete derivatives}.
+ (E,J)\longrightarrow(E_{h},J_{h})\longrightarrow\text{discrete derivatives}.
 $$
 
 Every executable model records provenance = DTO, the exact quadrature and
@@ -275,7 +275,7 @@ discrete adjoint without an explicit equivalence test.
 An objective term
 
 $$
-  \frac{\alpha}{2}\|u\|_{H^1}^2
+  \frac{\alpha}{2}\lVert u\rVert_{H^{1}}^{2}
 $$
 
 is a regularisation loss and changes $J'(u)$. A search metric maps the
@@ -287,12 +287,12 @@ state equation, or the adjoint equation. No document or API may use
 
 | Choice | Meaning | Decision |
 |---|---|---|
-| $L^2$ metric | $`G=M_U`$ in the selected control realization. | **First default.** |
-| $H^1$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | Supported after the $L^2$ path, with boundary and nullspace policy. |
-| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^2}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^1$ Sobolev-gradient solve. | No generic default; unsupported until specified as an operator and tested. |
+| $L^{2}$ metric | $`G=M_{U}`$ in the selected control realization. | **First default.** |
+| $H^{1}$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | Supported after the $L^{2}$ path, with boundary and nullspace policy. |
+| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default; unsupported until specified as an operator and tested. |
 | Fractional metric | Requires a named discrete realization and spectral/extension/auxiliary problem policy. | Unsupported initially. |
 
-An $H^1$ metric includes a positive zero-order term or an explicit
+An $H^{1}$ metric includes a positive zero-order term or an explicit
 mean/boundary condition; the seminorm alone is not invertible. A metric
 inverse is a solver operation and must report its tolerance and
 preconditioner policy.
@@ -303,7 +303,7 @@ Pointwise box constraints have no FE-independent projection rule.
 
 | Discrete set realization | Consequence | Decision |
 |---|---|---|
-| Cellwise constants on the same volume mesh | Coefficient clipping exactly represents cellwise bounds; $L^2$ metric projection is local. | **First default for volume controls.** |
+| Cellwise constants on the same volume mesh | Coefficient clipping exactly represents cellwise bounds; $L^{2}$ metric projection is local. | **First default for volume controls.** |
 | Nodal bounds for continuous Lagrange controls | Nodal clipping need not imply bounds between nodes for all polynomial degrees. | Allowed only with a stated nodal, not $a.e.$, semantics. |
 | Quadrature-point inequalities | Faithful sampled constraint but projection is a constrained optimization problem. | Future extension. |
 | Exact FE obstacle/set projection | Metric-dependent global problem. | Future extension. |
@@ -311,8 +311,8 @@ Pointwise box constraints have no FE-independent projection rule.
 The initial volume-control space is therefore discontinuous piecewise
 constant (`FE_DGQ(0)`) on the state mesh, and lower/upper bound data must be
 piecewise constant on that mesh. The initial box solver uses the declared
-$L^2$-metric projection. It MUST NOT claim that coefficient clipping is an
-$H^1$-metric projection. A solver requesting a projection asks explicitly
+$L^{2}$-metric projection. It MUST NOT claim that coefficient clipping is an
+$H^{1}$-metric projection. A solver requesting a projection asks explicitly
 for `project_in_metric(metric_id)`; absence of that operation is a capability
 failure, not permission to substitute clipping.
 
@@ -321,16 +321,16 @@ failure, not permission to substitute clipping.
 ### 8.1 Fixed essential data
 
 All compiled state operators use independent unknown coordinates. With
-$`P_h`$ the homogeneous/hanging/periodic reconstruction, the physical field
+$`P_{h}`$ the homogeneous/hanging/periodic reconstruction, the physical field
 is represented as
 
 $$
-  y_\mathrm{phys}=P_h\widehat y_h+\ell_{0,h}.
+  y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}.
 $$
 
 Residuals and observations evaluate the physical field. Pullbacks use the
-matching $`P_h^{\ast}`$. `AffineConstraints` is an implementation mechanism for
-$`P_h`$ and must be applied consistently in residual, observation, JVP, and
+matching $`P_{h}^{\ast}`$. `AffineConstraints` is an implementation mechanism for
+$`P_{h}`$ and must be applied consistently in residual, observation, JVP, and
 VJP paths.
 
 The first default supports homogeneous or fixed, time-independent Dirichlet
@@ -342,7 +342,7 @@ permitted.
 The correct later representation is
 
 $$
- y_\mathrm{phys}=P_h\widehat y_h+\ell_{0,h}+L_{D,h}u_h.
+ y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}.
 $$
 
 | Choice | Decision |
@@ -360,7 +360,7 @@ a Neumann-like coupling.
 
 ### 8.3 Natural boundary data and controls
 
-For the first boundary-control extension, $`\Gamma_c`$ is a marked collection
+For the first boundary-control extension, $`\Gamma_{c}`$ is a marked collection
 of faces on the same static triangulation and the control is facewise
 constant. The boundary term is assembled with `FEFaceValues`; its coupling and
 pullback are tested by the ordinary adjoint identity.
@@ -409,7 +409,7 @@ dedicated execution policy.
 | Choice | Decision |
 |---|---|
 | Global space–time residual | Valid future option. |
-| Fixed-grid one-step residual with the complete trajectory represented in $`E_h`$ | **First temporal default.** Use fixed-step backward Euler. |
+| Fixed-grid one-step residual with the complete trajectory represented in $`E_{h}`$ | **First temporal default.** Use fixed-step backward Euler. |
 | Opaque forward time integrator with an independently coded backward adjoint | Forbidden as a DTO implementation unless it exposes the exact residual transpose. |
 | Adaptive time steps, events, remeshing, or nonlinear stopping-dependent step decisions | Unsupported until replay and differentiated-control policies exist. |
 
@@ -456,7 +456,7 @@ unconstrained reduced gradient, then L2-projected box gradient
 
 The following are declared but return an unsupported-capability diagnostic in
 this release: Robin and pure-Neumann policies, Neumann boundary control,
-boundary tracking, $H^1$ metric/regularisation, Dirichlet control,
+boundary tracking, $H^{1}$ metric/regularisation, Dirichlet control,
 coefficient inversion, mixed/Petrov–Galerkin spaces, time dependence,
 matrix-free execution, OTD, and general nonlinear KKT Newton.
 
@@ -466,7 +466,7 @@ The extension order is:
 2. Fixed liftings, then explicit Dirichlet-control liftings.
 3. Pure-Neumann mean-constraint policy.
 4. Nonlinear coefficient parameter and L-BFGS/Gauss–Newton actions.
-5. $H^1$ metrics and their compatible constraint solvers.
+5. $H^{1}$ metrics and their compatible constraint solvers.
 6. Fixed-step temporal compiler.
 7. Mixed/Petrov–Galerkin, matrix-free, OTD, and second-order KKT features.
 

@@ -39,7 +39,7 @@ class is a concrete lowerer/reference slice, not the future public
 
    The global convention is $`\mathcal L(x,p)=J(x)-\langle p,E(x)\rangle`$.
 
-   Thus the reduced covector is always $`J_u'-E_u'^{\ast}p`$.
+   Thus the reduced covector is always $`J_{u}'-E_{u}'^{\ast}p`$.
 
 2. Residuals and objective derivatives return covectors. A metric alone maps
    the reduced covector to a primal direction.
@@ -57,14 +57,14 @@ class is a concrete lowerer/reference slice, not the future public
 
 ## Ranked work items
 
-### P0.1 — Add a real deal.II $L^2$ metric
+### P0.1 — Add a real deal.II $L^{2}$ metric
 
 **Why first:** The lowerer already assembles the control mass matrix
-$`M_u`$, and the reduced DTO builder already produces $`j_h'(u)`$. The
+$`M_{u}`$, and the reduced DTO builder already produces $`j_{h}'(u)`$. The
 missing operation is
 
 $$
-  \nabla_{L^2}j=M_u^{-1}j_h'.
+  \nabla_{L^{2}}j=M_{u}^{-1}j_{h}'.
 $$
 
 Without it, the result is a correct covector but not yet a usable search
@@ -85,7 +85,7 @@ the current lowerer with a metric factory or compiled-object registry.
 
 - applying the inverse followed by apply recovers a random covector;
 - a metric direction satisfies
-  $`\langle M_u g,\delta u\rangle=\langle j',\delta u\rangle`$;
+  $`\langle M_{u} g,\delta u\rangle=\langle j',\delta u\rangle`$;
 - the test uses actual deal.II vectors and a nontrivial control mass matrix.
 
 ### P0.2 — Add a generic reduced Armijo gradient solver
@@ -111,9 +111,9 @@ deal.II integration test.
   a manufactured linear-quadratic case;
 - the same solver passes the dense reference model test unchanged.
 
-### P0.3 — Add the selected cellwise $L^2$ box constraint
+### P0.3 — Add the selected cellwise $L^{2}$ box constraint
 
-**Why now:** `FE_DGQ(0)` was chosen precisely because the $L^2$ box projection
+**Why now:** `FE_DGQ(0)` was chosen precisely because the $L^{2}$ box projection
 is unambiguous: clipping one control coefficient per cell represents the
 declared cellwise-constant admissible set.
 
@@ -127,7 +127,7 @@ declared cellwise-constant admissible set.
   control mesh only.
 
 **Do not do:** reuse this projection for continuous controls, nodal bounds,
-or an $H^1$ metric.
+or an $H^{1}$ metric.
 
 **Done when:** a test reaches a bound on a manufactured problem, preserves
 feasibility every iteration, and satisfies a discrete projected-stationarity
@@ -177,7 +177,7 @@ Dirichlet data.
 **Choices and default:**
 
 - **Default:** represent
-  $`y_\mathrm{phys}=P_h\widehat y_h+\ell_{0,h}`$, where $`P_h`$ handles all
+  $`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}`$, where $`P_{h}`$ handles all
   affine constraints and $`\ell_{0,h}`$ is a declared fixed lifting.
 - Alternative: work only with full vectors plus modified rows. This is the
   current homogeneous implementation and must not be generalized implicitly
@@ -200,7 +200,7 @@ It also forces the compiler to make region and data semantics real.
   FE projection/interpolation. No implicit nodal interpretation.
 
 **Done when:** changing only the observation region changes the adjoint RHS
-and objective, not $`A_h`$, $`B_h`$, the state solution, or solver code.
+and objective, not $`A_{h}`$, $`B_{h}`$, the state solution, or solver code.
 
 ### P2.1 — Add Neumann control and boundary tracking
 
@@ -215,9 +215,9 @@ marked boundary faces of the state triangulation. Assemble with `FEFaceValues`.
 
 - Boundary Region declarations and a boundary control layout.
 - A residual term
-  $`-\langle u,\gamma v\rangle_{\Gamma_c}`$ and its VJP.
+  $`-\langle u,\gamma v\rangle_{\Gamma_{c}}`$ and its VJP.
 - Boundary trace observation/loss on a marked boundary region.
-- Independent boundary $L^2$ metric and box constraint realization.
+- Independent boundary $L^{2}$ metric and box constraint realization.
 
 **Done when:** the boundary coupling obeys the pairing test and a
 finite-difference reduced derivative test. Do not call it a Dirichlet
@@ -236,16 +236,16 @@ including controls.
 gauge in their compilation manifest; state and adjoint are invariant under no
 unrecorded pinning convention.
 
-### P2.3 — Add $H^1$ regularisation and $H^1$ search geometry separately
+### P2.3 — Add $H^{1}$ regularisation and $H^{1}$ search geometry separately
 
 **Why:** The current code makes the distinction possible but does not yet
 exercise it.
 
 **Implement in two different tasks or commits:**
 
-1. $H^1$ **regularisation**: a new control loss and likely an `FE_Q` control
-   space; it changes $`J_u'`$.
-2. $H^1$ **metric**: a Riesz map/inverse used only for
+1. $H^{1}$ **regularisation**: a new control loss and likely an `FE_Q` control
+   space; it changes $`J_{u}'`$.
+2. $H^{1}$ **metric**: a Riesz map/inverse used only for
    $G^{-1}j'$; it does not change the objective or adjoint.
 
 The metric needs a positive zero-order term or an explicit boundary/mean
@@ -277,11 +277,11 @@ lifting work in P1.2 is its prerequisite.
 **Default:** compile an explicit map
 
 $$
-  y_\mathrm{phys}=P_h\widehat y_h+\ell_{0,h}+L_{D,h}u_h
+  y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}
 $$
 
 with forward value, JVP, and VJP. Both residual and observation consume
-$`y_\mathrm{phys}`$.
+$`y_{\mathrm{phys}}`$.
 
 **Done when:** the implementation passes a composed-transformation VJP test
 and a reduced Taylor test. Reject boundary spaces or corner/interface

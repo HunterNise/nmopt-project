@@ -8,26 +8,26 @@ deal.II lowerer for the executable contract. It compiles the concrete model
 $$
   -\nabla\cdot(k\nabla y)+c y=f+u
   \quad\text{in }\Omega,\qquad
-  y=0\quad\text{on }\Gamma_D,
+  y=0\quad\text{on }\Gamma_{D},
 $$
 
 with the objective
 
 $$
-  J(y,u)=\frac12\|y-y_d\|_{L^2(\Omega)}^2+
-         \frac{\alpha}{2}\|u\|_{L^2(\Omega)}^2.
+  J(y,u)=\frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}+
+         \frac{\alpha}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
 $$
 
 The emitted DTO objects are
 
 $$
-  r_h(y_h,u_h)=A_hy_h-f_h-B_hu_h,
+  r_{h}(y_{h},u_{h})=A_{h}y_{h}-f_{h}-B_{h}u_{h},
 $$
 
 $$
-  J_h(y_h,u_h)=\frac12y_h^{\mathsf T}M_yy_h-q_y^{\mathsf T}y_h+
-               \frac12\|y_d\|^2_{L^2(\Omega)}+
-               \frac{\alpha}{2}u_h^{\mathsf T}M_uu_h.
+  J_{h}(y_{h},u_{h})=\frac{1}{2}y_{h}^{\mathsf T}M_{y}y_{h}-q_{y}^{\mathsf T}y_{h}+
+               \frac{1}{2}\lVert y_{d}\rVert^{2}_{L^{2}(\Omega)}+
+               \frac{\alpha}{2}u_{h}^{\mathsf T}M_{u}u_{h}.
 $$
 
 The source, target, and sign convention are thus exactly those required by
@@ -47,9 +47,9 @@ the backend-parametric `ExecutableModelT` contract.
 | State and adjoint solves | Serial CG with identity preconditioner; valid only because this v0 operator is symmetric positive definite. |
 | Provenance | DTO. |
 
-The control mass matrix is the $L^2$ metric and regularisation realization.
+The control mass matrix is the $L^{2}$ metric and regularisation realization.
 Because `FE_DGQ(0)` is cellwise constant, a future deal.II cellwise box
-constraint may use coefficient clipping only with that declared $L^2$
+constraint may use coefficient clipping only with that declared $L^{2}$
 metric.
 
 ## Affine constraints and coordinate policy
@@ -95,7 +95,7 @@ the following:
 - vector, mixed, DG state, nonmatching meshes, or distributed MPI vectors;
 - variable/nonlinear coefficients, nonlinear state solves, and second
   derivatives;
-- $H^1$, $H^{-1}$, fractional, or non-diagonal metric realizations;
+- $H^{1}$, $H^{-1}$, fractional, or non-diagonal metric realizations;
 - box constraints in a deal.II vector backend;
 - time dependence, matrix-free execution, OTD, or KKT Newton.
 

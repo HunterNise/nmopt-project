@@ -16,7 +16,7 @@ be deliberately small and well tested.
 The general semantic model is a constrained optimization problem
 
 $$
-  \min_{x\in X_\mathrm{ad}} J(x)
+  \min_{x\in X_{\mathrm{ad}}} J(x)
   \qquad\text{subject to}\qquad
   E(x)=0\quad\text{in }Z^{\ast}.
 $$
@@ -52,10 +52,10 @@ vector without declaring a primal-dual identification. In a Hilbert space a
 chosen metric provides a Riesz map
 
 $$
- R_U:U\to U^{\ast},\qquad \nabla_U j=R_U^{-1}j'(u).
+ R_{U}:U\to U^{\ast},\qquad \nabla_{U} j=R_{U}^{-1}j'(u).
 $$
 
-Thus changing $L^2$ to $H^1$ regularization/gradient changes the metric
+Thus changing $L^{2}$ to $H^{1}$ regularization/gradient changes the metric
 realization, not the state equation or adjoint derivation. An $H^{-1}$ metric may
 require an auxiliary elliptic solve. Fractional and trace norms require an
 explicit, documented discrete realization; they are not generic strings or
@@ -123,8 +123,8 @@ $$
   \qquad y=0\ \text{on }\partial\Omega,
 $$
 
-with $`y\in H_0^1(\Omega)`$, $u\in L^2(\Omega)$, and a distributed $L^2$
-tracking and $L^2$ regularization objective. Its residual is
+with $`y\in H_{0}^{1}(\Omega)`$, $u\in L^{2}(\Omega)$, and a distributed $L^{2}$
+tracking and $L^{2}$ regularization objective. Its residual is
 
 $$
  \langle E(y,u),v\rangle=(\nabla y,\nabla v)-(f,v)-(u,v).
@@ -135,7 +135,7 @@ coupling, Dirichlet condition, tracking term, and regularization metric. The
 adjoint and control derivative emerge from the generic residual relations:
 
 $$
- -\Delta p=y-y_d,
+ -\Delta p=y-y_{d},
  \qquad j'(u)=\alpha u+p.
 $$
 
@@ -189,8 +189,8 @@ models, they can be assembled at each iterate or provided matrix-free.
 | diffusion/reaction/transport change | residual term | objective, optimization workflow |
 | volume or Neumann control | control coupling and transpose | state/adjoint driver, optimizer |
 | boundary/subdomain tracking | observation and metric | PDE and optimizer |
-| $H^1$ or $H^{-1}$ search geometry | metric realization | residual and adjoint derivation |
-| $H^1$ or $H^{-1}$ regularization | loss and control-space realization | residual and adjoint derivation |
+| $H^{1}$ or $H^{-1}$ search geometry | metric realization | residual and adjoint derivation |
+| $H^{1}$ or $H^{-1}$ regularization | loss and control-space realization | residual and adjoint derivation |
 | Dirichlet control | lifting/parameterization | formulation and outer solver |
 | coefficient determination | parameter residual derivatives | adjoint orchestration and line search |
 | vector/mixed state | field blocks and residual blocks | conceptual model and optimizer |

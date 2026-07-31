@@ -74,7 +74,7 @@ the affected concern.
 | Replace volume control by Neumann control | control `Variable` + residual coupling term | control space, boundary trace requirement, reduced derivative | equation/adjoint workflow, optimiser |
 | Change the target region for tracking | `Observation` | loss derivative and therefore adjoint forcing | state residual, control constraint, optimiser |
 | Change a tracking norm | `Loss` and its observation-space pairing | objective derivative and adjoint forcing | state residual |
-| Change only search geometry from $L^2$ to $H^1$ or $H^{-1}$ | algorithmic `Metric` | dual-to-search-direction conversion | objective, residual, adjoint equation |
+| Change only search geometry from $L^{2}$ to $H^{1}$ or $H^{-1}$ | algorithmic `Metric` | dual-to-search-direction conversion | objective, residual, adjoint equation |
 | Add a box constraint | `Constraint` | optimality condition and constrained optimisation method | PDE terms, observation, adjoint equation |
 | Change scalar to vector field | `Space` field shape plus compatible terms | tensor contractions and FE component layout | residual/adjoint protocol, optimiser |
 | Add a mixed flux variable | new `Variable` and `EquationBlock` terms | block residual and block adjoint | objective/constraint architecture |
@@ -152,7 +152,7 @@ action and derivative ports.
 For example, the textbook equation
 
 $$
-  -\Delta y=f+u,\qquad y|_\Gamma=0
+  -\Delta y=f+u,\qquad y\vert_{\Gamma}=0
 $$
 
 becomes the small graph

@@ -18,21 +18,21 @@ assumptions through requirements and policies.
 The semantic model is
 
 $$
-\min_{x\in X_\mathrm{ad}}J(x;d)
+\min_{x\in X_{\mathrm{ad}}}J(x;d)
 \qquad\text{subject to}\qquad
-E_a(x;d)=0\in Z_a^{\ast},
+E_{a}(x;d)=0\in Z_{a}^{\ast},
 \qquad a\in\mathcal A.
 $$
 
 Here
 
 $$
-X=\prod_{i\in\mathcal I}X_i,
+X=\prod_{i\in\mathcal I}X_{i},
 \qquad
-E_a:X\times D\to Z_a^{\ast}.
+E_{a}:X\times D\to Z_{a}^{\ast}.
 $$
 
-A variable block $`x_i`$ can be a state, control, parameter, flux, initial
+A variable block $`x_{i}`$ can be a state, control, parameter, flux, initial
 state, or any auxiliary field.  Data $d\in D$ are fixed during an
 optimisation solve.
 
@@ -110,7 +110,7 @@ A region owns no PDE term and no finite-element policy.
 A boundary partition is a region declaration, for example
 
 $$
-\Gamma=\Gamma_D\mathbin{\dot\cup}\Gamma_N\mathbin{\dot\cup}\Gamma_R.
+\Gamma=\Gamma_{D}\mathbin{\dot\cup}\Gamma_{N}\mathbin{\dot\cup}\Gamma_{R}.
 $$
 
 The compiler MUST reject a request for boundary integration or trace evaluation
@@ -124,7 +124,7 @@ A space describes a mathematical source or target.  It MUST declare:
 |---|---|
 | Base region | the region on which functions, traces, or values live |
 | Field shape | scalar, vector, tensor, or product-block shape |
-| Topology | for example $L^2$, $H^1$, $H(\mathrm{div})$, a trace space, or a Bochner space |
+| Topology | for example $L^{2}$, $H^{1}$, $H(\mathrm{div})$, a trace space, or a Bochner space |
 | Role | trial, test, observation, data, control, parameter, or auxiliary |
 | Dual pairing | explicit primal-dual pairing or reference to one |
 | Capabilities | declared trace, product, derivative, restriction, and temporal-trace capabilities |
@@ -149,7 +149,7 @@ A variable block MUST declare:
 | Field | Requirement |
 |---|---|
 | Identifier and role | state, control, parameter, flux, or auxiliary |
-| Space | one semantic primal space $`X_i`$ |
+| Space | one semantic primal space $`X_{i}`$ |
 | Physical-field relation | identity or a declared transformation output |
 | Admissible-set reference | optional constraint component |
 | Differentiability status | differentiable, nonsmooth, or externally supplied derivative policy |
@@ -205,11 +205,11 @@ it reconstructs and the stage at which it applies.
 Examples are
 
 $$
-y_\mathrm{phys}=\widehat y+\ell_D(g_D),
+y_{\mathrm{phys}}=\widehat y+\ell_{D}(g_{D}),
 $$
 
 $$
-y_\mathrm{phys}=\widehat y+\ell_0+L_Du,
+y_{\mathrm{phys}}=\widehat y+\ell_{0}+L_{D}u,
 $$
 
 $$
@@ -226,17 +226,17 @@ connections.
 ### 3.7 Residual term
 
 A residual term contributes to exactly one equation block.  For equation test
-space $`Z_a`$, it represents
+space $`Z_{a}`$, it represents
 
 $$
-E_{a,t}:X_{a,t}\to Z_a^{\ast},
+E_{a,t}:X_{a,t}\to Z_{a}^{\ast},
 $$
 
 through its tested action
 
 $$
 e_{a,t}(x;z)
-=\langle E_{a,t}(x),z\rangle_{Z_a^{\ast},Z_a}.
+=\langle E_{a,t}(x),z\rangle_{Z_{a}^{\ast},Z_{a}}.
 $$
 
 It MUST provide:
@@ -246,12 +246,12 @@ e_{a,t}(x;z),
 $$
 
 $$
-D_xe_{a,t}(x;z)\delta x,
+D_{x}e_{a,t}(x;z)\delta x,
 $$
 
 $$
-D_xE_{a,t}(x)^{\ast}p,
-\qquad p\in Z_a.
+D_{x}E_{a,t}(x)^{\ast}p,
+\qquad p\in Z_{a}.
 $$
 
 The transpose action returns covectors for every variable input of the term.
@@ -264,21 +264,21 @@ control-to-residual coupling.
 
 ### 3.8 Equation block
 
-An equation block owns a test space $`Z_a`$ and an ordered sum of residual
+An equation block owns a test space $`Z_{a}`$ and an ordered sum of residual
 terms:
 
 $$
-E_a(x;d)=\sum_{t\in\mathcal T_a}E_{a,t}(x;d)\in Z_a^{\ast}.
+E_{a}(x;d)=\sum_{t\in\mathcal T_{a}}E_{a,t}(x;d)\in Z_{a}^{\ast}.
 $$
 
 It MUST expose accumulated actions:
 
 $$
-E_a(x;d),
+E_{a}(x;d),
 \qquad
-E_a'(x;d)\delta x,
+E_{a}'(x;d)\delta x,
 \qquad
-E_a'(x;d)^{\ast}p_a.
+E_{a}'(x;d)^{\ast}p_{a}.
 $$
 
 An equation block MAY be nonlinear, mixed, time dependent, or
@@ -290,7 +290,7 @@ PDE-family enum.
 An observation is a general map
 
 $$
-O_k:X_\mathrm{phys}\times D\to Q_k.
+O_{k}:X_{\mathrm{phys}}\times D\to Q_{k}.
 $$
 
 It MUST provide value, JVP, and transpose-JVP.  It MUST NOT contain a loss.
@@ -303,28 +303,28 @@ sensor array, time sampling, and actuator output.
 A loss is a scalar map
 
 $$
-\Phi_k:Q_k\times D\to\mathbb R.
+\Phi_{k}:Q_{k}\times D\to\mathbb R.
 $$
 
 It MUST provide
 
 $$
-\Phi_k(q;d),
+\Phi_{k}(q;d),
 \qquad
-D_q\Phi_k(q;d)\in Q_k^{\ast}.
+D_{q}\Phi_{k}(q;d)\in Q_{k}^{\ast}.
 $$
 
 An objective is a sum of loss compositions:
 
 $$
-J(x;d)=\sum_{k\in\mathcal K}\Phi_k(O_k(x;d);d).
+J(x;d)=\sum_{k\in\mathcal K}\Phi_{k}(O_{k}(x;d);d).
 $$
 
 The objective component MUST assemble its derivative by the chain rule:
 
 $$
-D_xJ(x;d)
-=\sum_k O_k'(x;d)^{\ast}D_q\Phi_k(O_k(x;d);d).
+D_{x}J(x;d)
+=\sum_{k} O_{k}'(x;d)^{\ast}D_{q}\Phi_{k}(O_{k}(x;d);d).
 $$
 
 A tracking norm is a loss and its pairing.  It MUST NOT be represented by an
@@ -350,11 +350,11 @@ also provide or reference
 $$
 \iota^{\ast}:U^{\ast}\to P^{\ast},
 \qquad
-\nabla_Gj=G^{-1}\iota^{\ast}j'.
+\nabla_{G}j=G^{-1}\iota^{\ast}j'.
 $$
 
-A metric MUST NOT alter a residual or objective.  An $H^1$ regularisation is
-a loss; an $H^1$ search geometry is a metric.
+A metric MUST NOT alter a residual or objective.  An $H^{1}$ regularisation is
+a loss; an $H^{1}$ search geometry is a metric.
 
 ### 3.12 Constraint
 
@@ -364,9 +364,9 @@ space and supported operations.  It MAY provide any of:
 $$
 \mathrm{is\_feasible}(x),
 \qquad
-\Pi_{X_\mathrm{ad}}(x),
+\Pi_{X_{\mathrm{ad}}}(x),
 \qquad
-N_{X_\mathrm{ad}}(x),
+N_{X_{\mathrm{ad}}}(x),
 \qquad
 \text{multiplier or complementarity relation}.
 $$
@@ -416,14 +416,14 @@ There is intentionally no universal boundary-condition residual class.
 The decisive distinction is
 
 $$
-\text{Dirichlet control: } y_\mathrm{phys}=\widehat y+L_Du,
+\text{Dirichlet control: } y_{\mathrm{phys}}=\widehat y+L_{D}u,
 $$
 
 versus
 
 $$
 \text{Neumann control: }
-\langle E_u(u),v\rangle=-\langle u,\gamma v\rangle.
+\langle E_{u}(u),v\rangle=-\langle u,\gamma v\rangle.
 $$
 
 The first is a transformation and chain-rule problem.  The second is a
@@ -438,16 +438,16 @@ class.
 For a parabolic state,
 
 $$
-Y=L^2(0,T;V)\cap H^1(0,T;V^{\ast}),
+Y=L^{2}(0,T;V)\cap H^{1}(0,T;V^{\ast}),
 \qquad
-Z=L^2(0,T;V),
+Z=L^{2}(0,T;V),
 $$
 
 the time term is a residual term
 
 $$
-e_\mathrm{time}(y;v)
-=\int_0^{T}\langle\dot y,v\rangle_{V^{\ast},V}dt.
+e_{\mathrm{time}}(y;v)
+=\int_{0}^{T}\langle\dot y,v\rangle_{V^{\ast},V}\mathrm{d}t.
 $$
 
 Initial data MUST be represented by an affine state-space transformation or a
@@ -513,11 +513,11 @@ and compatibility assumptions.
 A discretisation policy selects, for every referenced semantic space,
 
 $$
-X_i\rightsquigarrow X_{i,h},
+X_{i}\rightsquigarrow X_{i,h},
 \qquad
-Z_a\rightsquigarrow Z_{a,h},
+Z_{a}\rightsquigarrow Z_{a,h},
 \qquad
-Q_k\rightsquigarrow Q_{k,h}.
+Q_{k}\rightsquigarrow Q_{k,h}.
 $$
 
 It MUST declare:
@@ -531,9 +531,9 @@ It MUST declare:
 | Execution | assembled or matrix-free operator realization |
 | Exceptional policies | point sensors, fractional norms, stabilization, and discrete-only objects |
 
-Galerkin is one policy with $`Y_h=Z_h`$.  Petrov–Galerkin is a policy with
-separately selected $`Y_h`$ and $`Z_h`$.  The latter MUST preserve the
-declared residual target $`Z_h^{\ast}`$.
+Galerkin is one policy with $`Y_{h}=Z_{h}`$.  Petrov–Galerkin is a policy with
+separately selected $`Y_{h}`$ and $`Z_{h}`$.  The latter MUST preserve the
+declared residual target $`Z_{h}^{\ast}`$.
 
 ### 6.2 Compiler obligations
 
@@ -560,14 +560,14 @@ pairing-aware transpose.
 Compilation produces an executable model with:
 
 $$
-E_h(x_h),\qquad
-E_h'(x_h)\delta x_h,\qquad
-E_h'(x_h)^{\ast}p_h,
+E_{h}(x_{h}),\qquad
+E_{h}'(x_{h})\delta x_{h},\qquad
+E_{h}'(x_{h})^{\ast}p_{h},
 $$
 
 $$
-J_h(x_h),\qquad
-J_h'(x_h),
+J_{h}(x_{h}),\qquad
+J_{h}'(x_{h}),
 $$
 
 and compiled metric and constraint actions.
@@ -592,7 +592,7 @@ The default executable route is
 $$
 (E,J)
 \longrightarrow
-(E_h,J_h)
+(E_{h},J_{h})
 \longrightarrow
 \text{discrete derivatives}.
 $$
@@ -600,16 +600,16 @@ $$
 For a state-control split $x=(y,u)$, the DTO formulation builder uses
 
 $$
-E_h(y_h,u_h)=0,
+E_{h}(y_{h},u_{h})=0,
 $$
 
 $$
-D_yE_h(y_h,u_h)^{\ast}p_h=D_yJ_h(y_h,u_h),
+D_{y}E_{h}(y_{h},u_{h})^{\ast}p_{h}=D_{y}J_{h}(y_{h},u_{h}),
 $$
 
 $$
-j_h'(u_h)
-=D_uJ_h(y_h,u_h)-D_uE_h(y_h,u_h)^{\ast}p_h.
+j_{h}'(u_{h})
+=D_{u}J_{h}(y_{h},u_{h})-D_{u}E_{h}(y_{h},u_{h})^{\ast}p_{h}.
 $$
 
 A reduced-space solver requires state solution, adjoint solution, reduced
@@ -634,11 +634,11 @@ $$
 It requires a formulation builder that creates semantic equation blocks for
 
 $$
-D_yE(y,u)^{\ast}p-D_yJ(y,u)=0,
+D_{y}E(y,u)^{\ast}p-D_{y}J(y,u)=0,
 $$
 
 $$
-D_uJ(y,u)-D_uE(y,u)^{\ast}p=0,
+D_{u}J(y,u)-D_{u}E(y,u)^{\ast}p=0,
 $$
 
 plus constraints as appropriate.
@@ -650,19 +650,19 @@ author has established the equivalence.
 If DTO produces
 
 $$
-A_h^{\mathsf T}p_h=b_h
+A_{h}^{\mathsf T}p_{h}=b_{h}
 $$
 
 and OTD produces
 
 $$
-\widetilde A_hp_h=\widetilde b_h,
+\widetilde A_{h}p_{h}=\widetilde b_{h},
 $$
 
 the framework MUST allow
 
 $$
-\widetilde A_h\ne A_h^{\mathsf T}.
+\widetilde A_{h}\ne A_{h}^{\mathsf T}.
 $$
 
 This difference is expected for some Petrov–Galerkin, stabilized,
@@ -701,41 +701,41 @@ $$
 use
 
 $$
-V=H_0^1(\Omega),
+V=H_{0}^{1}(\Omega),
 \qquad
-U=L^2(\Omega),
+U=L^{2}(\Omega),
 \qquad
-Q=L^2(\omega_o).
+Q=L^{2}(\omega_{o}).
 $$
 
 The registered components are:
 
 | Component | Instance |
 |---|---|
-| Region | $\Omega$, $\Gamma$, $`\omega_o`$ |
+| Region | $\Omega$, $\Gamma$, $`\omega_{o}`$ |
 | Variables | $y\in V$, $u\in U$ |
-| Data | $f\in V^{\ast}$, $`y_d\in Q`$, $\alpha>0$ |
+| Data | $f\in V^{\ast}$, $`y_{d}\in Q`$, $\alpha>0$ |
 | Equation block | test space $V$ |
-| Residual terms | $`(\nabla y,\nabla v)_\Omega`$, $-\langle f,v\rangle$, $`-(u,v)_\Omega`$ |
-| Observation | $`C:y\mapsto y\|_{\omega_o}`$ |
-| Losses | $`\tfrac12\lVert Cy-y_d\rVert_Q^2`$, $`\tfrac\alpha2\lVert u\rVert_U^2`$ |
-| Metric | selected $`G_U`$ |
+| Residual terms | $`(\nabla y,\nabla v)_{\Omega}`$, $-\langle f,v\rangle$, $`-(u,v)_{\Omega}`$ |
+| Observation | $`C:y\mapsto y\vert_{\omega_{o}}`$ |
+| Losses | $`\tfrac{1}{2}\lVert Cy-y_{d}\rVert_{Q}^{2}`$, $`\tfrac{\alpha}{2}\lVert u\rVert_{U}^{2}`$ |
+| Metric | selected $`G_{U}`$ |
 | Constraint | absent, or a box constraint on $u$ |
 
 The compiled operators are
 
 $$
-r_h(y_h,u_h)=A_hy_h-f_h-B_hu_h,
+r_{h}(y_{h},u_{h})=A_{h}y_{h}-f_{h}-B_{h}u_{h},
 $$
 
 $$
-A_h^{\mathsf T}p_h
-=C_h^{\mathsf T}W_h(C_hy_h-d_h),
+A_{h}^{\mathsf T}p_{h}
+=C_{h}^{\mathsf T}W_{h}(C_{h}y_{h}-d_{h}),
 $$
 
 $$
-j_h'(u_h)
-=\alpha R_{\mathrm{reg},h}u_h+B_h^{\mathsf T}p_h.
+j_{h}'(u_{h})
+=\alpha R_{\mathrm{reg},h}u_{h}+B_{h}^{\mathsf T}p_{h}.
 $$
 
 ### 9.2 Neumann-control delta
@@ -743,21 +743,21 @@ $$
 Replace the source-control term by
 
 $$
--\langle u,\gamma_{\Gamma_c}v\rangle,
+-\langle u,\gamma_{\Gamma_{c}}v\rangle,
 \qquad
-u\in L^2(\Gamma_c),
+u\in L^{2}(\Gamma_{c}),
 \qquad
-\Gamma_c\subseteq\Gamma_N.
+\Gamma_{c}\subseteq\Gamma_{N}.
 $$
 
 Add a boundary region, boundary-control space, trace map, and boundary
 residual term.  The only compiled coupling change is
 
 $$
-B_h\longrightarrow B_{\Gamma,h},
+B_{h}\longrightarrow B_{\Gamma,h},
 \qquad
 (B_{\Gamma,h})_{j\ell}
-=\langle\xi_\ell,\gamma_{\Gamma_c}\psi_j\rangle.
+=\langle\xi_{\ell},\gamma_{\Gamma_{c}}\psi_{j}\rangle.
 $$
 
 The solver protocol is unchanged.
@@ -767,40 +767,40 @@ The solver protocol is unchanged.
 Replace the physical state by
 
 $$
-y_\mathrm{phys}=\widehat y+\ell_0+L_Du.
+y_{\mathrm{phys}}=\widehat y+\ell_{0}+L_{D}u.
 $$
 
 Replace the residual by
 
 $$
-\langle E_D(\widehat y,u),v\rangle
-=(\nabla y_\mathrm{phys},\nabla v)_\Omega-\langle f,v\rangle.
+\langle E_{D}(\widehat y,u),v\rangle
+=(\nabla y_{\mathrm{phys}},\nabla v)_{\Omega}-\langle f,v\rangle.
 $$
 
 Add a lifting transformation and make both residual and observation consume
-$`y_\mathrm{phys}`$.  Compilation produces
+$`y_{\mathrm{phys}}`$.  Compilation produces
 
 $$
-r_{D,h}(\widehat y_h,u_h)
-=A_h\widehat y_h+A_{\mathrm{ext},h}L_{D,h}u_h+b_{\ell_0,h}-f_h.
+r_{D,h}(\widehat y_{h},u_{h})
+=A_{h}\widehat y_{h}+A_{\mathrm{ext},h}L_{D,h}u_{h}+b_{\ell_{0},h}-f_{h}.
 $$
 
-This is not a replacement of $`B_h`$ by a boundary load matrix.
+This is not a replacement of $`B_{h}`$ by a boundary load matrix.
 
 ### 9.4 Coefficient-identification delta
 
 Promote $m$ to a variable and use
 
 $$
-\langle E_m(y,m),v\rangle
-=(m\nabla y,\nabla v)_\Omega-\langle f,v\rangle.
+\langle E_{m}(y,m),v\rangle
+=(m\nabla y,\nabla v)_{\Omega}-\langle f,v\rangle.
 $$
 
 Add the parameter derivative port
 
 $$
-\langle D_mE_m(y,m)\delta m,v\rangle
-=(\delta m\nabla y,\nabla v)_\Omega.
+\langle D_{m}E_{m}(y,m)\delta m,v\rangle
+=(\delta m\nabla y,\nabla v)_{\Omega}.
 $$
 
 No inverse-problem solver type is required.  The existing equation block,
@@ -821,7 +821,7 @@ advanced instances return an unsupported-capability diagnostic:
 
 The first concrete instances SHOULD be scalar stationary diffusion-reaction,
 fixed Dirichlet data, volume and Neumann controls, distributed and boundary
-tracking, $L^2$ and $H^1$ metrics, and box constraints.
+tracking, $L^{2}$ and $H^{1}$ metrics, and box constraints.
 
 Dirichlet control, coefficient identification, time terms, Petrov–Galerkin,
 and OTD SHOULD be added only as new instances or formulation builders.  If an

@@ -1,0 +1,16 @@
+/build/
+/cmake-build-*/
+compile_commands.json
+
+# Editor and operating-system files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+!.env.example

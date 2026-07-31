@@ -32,7 +32,7 @@ The public headers under `include/nmopt/contract` provide:
 | `ExecutableModel` | Residual value, residual JVP, residual VJP, objective value, and objective derivative. |
 | `Metric` | Explicit primal-to-dual action and inverse action. |
 | `Constraint` | Feasibility and a metric-specific projection capability. |
-| `ReducedDTO` | The state--adjoint--reduced-covector workflow for one state and one control block. |
+| `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one control block. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
@@ -41,13 +41,13 @@ corresponding types with a T suffix are backend-parametric, for example
 An `ExecutableModel` has the following exact signatures in mathematical form:
 
 $$
-  r_h(x_h)\in Z_h^*,\qquad
-  r_h'(x_h)\delta x_h\in Z_h^*,\qquad
-  r_h'(x_h)^*p_h\in X_h^*,\quad p_h\in Z_h,
+  r_h(x_h)\in Z_h^{*},\qquad
+  r_h'(x_h)\delta x_h\in Z_h^{*},\qquad
+  r_h'(x_h)^{*}p_h\in X_h^{*},\quad p_h\in Z_h,
 $$
 
 $$
-  J_h(x_h)\in\mathbb R,\qquad J_h'(x_h)\in X_h^*.
+  J_h(x_h)\in\mathbb R,\qquad J_h'(x_h)\in X_h^{*}.
 $$
 
 The DTO builder uses the global convention
@@ -56,11 +56,11 @@ $$
   \mathcal L_h(x_h,p_h)=J_h(x_h)-\langle p_h,r_h(x_h)\rangle.
 $$
 
-For $x_h=(y_h,u_h)$, it therefore computes
+For $`x_h=(y_h,u_h)`$, it therefore computes
 
 $$
- E_y'(x_h)^*p_h=J_y'(x_h),\qquad
- j_h'(u_h)=J_u'(x_h)-E_u'(x_h)^*p_h.
+ E_y'(x_h)^{*}p_h=J_y'(x_h),\qquad
+ j_h'(u_h)=J_u'(x_h)-E_u'(x_h)^{*}p_h.
 $$
 
 No method accepts a PDE name, boundary-condition enum, or untyped vector.

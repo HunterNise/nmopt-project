@@ -41,7 +41,7 @@ class is a concrete lowerer/reference slice, not the future public
      \mathcal L(x,p)=J(x)-\langle p,E(x)\rangle.
    $$
 
-   Thus the reduced covector is always $J_u'-E_u'^*p$.
+   Thus the reduced covector is always $`J_u'-E_u'^{*}p`$.
 
 2. Residuals and objective derivatives return covectors. A metric alone maps
    the reduced covector to a primal direction.
@@ -62,7 +62,7 @@ class is a concrete lowerer/reference slice, not the future public
 ### P0.1 — Add a real deal.II $L^2$ metric
 
 **Why first:** The lowerer already assembles the control mass matrix
-$M_u$, and the reduced DTO builder already produces $j_h'(u)$. The
+$`M_u`$, and the reduced DTO builder already produces $`j_h'(u)`$. The
 missing operation is
 
 $$
@@ -87,7 +87,7 @@ the current lowerer with a metric factory or compiled-object registry.
 
 - applying the inverse followed by apply recovers a random covector;
 - a metric direction satisfies
-  $\langle M_u g,\delta u\rangle=\langle j',\delta u\rangle$;
+  $`\langle M_u g,\delta u\rangle=\langle j',\delta u\rangle`$;
 - the test uses actual deal.II vectors and a nontrivial control mass matrix.
 
 ### P0.2 — Add a generic reduced Armijo gradient solver
@@ -179,8 +179,8 @@ Dirichlet data.
 **Choices and default:**
 
 - **Default:** represent
-  $y_{\rm phys}=P_h\widehat y_h+\ell_{0,h}$, where $P_h$ handles all
-  affine constraints and $\ell_{0,h}$ is a declared fixed lifting.
+  $`y_\mathrm{phys}=P_h\widehat y_h+\ell_{0,h}`$, where $`P_h`$ handles all
+  affine constraints and $`\ell_{0,h}`$ is a declared fixed lifting.
 - Alternative: work only with full vectors plus modified rows. This is the
   current homogeneous implementation and must not be generalized implicitly
   to nonzero data.
@@ -202,7 +202,7 @@ It also forces the compiler to make region and data semantics real.
   FE projection/interpolation. No implicit nodal interpretation.
 
 **Done when:** changing only the observation region changes the adjoint RHS
-and objective, not $A_h$, $B_h$, the state solution, or solver code.
+and objective, not $`A_h`$, $`B_h`$, the state solution, or solver code.
 
 ### P2.1 — Add Neumann control and boundary tracking
 
@@ -217,7 +217,7 @@ marked boundary faces of the state triangulation. Assemble with `FEFaceValues`.
 
 - Boundary Region declarations and a boundary control layout.
 - A residual term
-  $-\langle u,\gamma v\rangle_{\Gamma_c}$ and its VJP.
+  $`-\langle u,\gamma v\rangle_{\Gamma_c}`$ and its VJP.
 - Boundary trace observation/loss on a marked boundary region.
 - Independent boundary $L^2$ metric and box constraint realization.
 
@@ -246,7 +246,7 @@ exercise it.
 **Implement in two different tasks or commits:**
 
 1. $H^1$ **regularisation**: a new control loss and likely an `FE_Q` control
-   space; it changes $J_u'$.
+   space; it changes $`J_u'`$.
 2. $H^1$ **metric**: a Riesz map/inverse used only for
    $G^{-1}j'$; it does not change the objective or adjoint.
 
@@ -266,7 +266,7 @@ remaining compatible with reduced DTO and L-BFGS.
 - Residual
   $(m\nabla y,\nabla v)$, JVPs in $y$ and $m$, and VJPs for both.
 - State solve policy that reassembles at each parameter iterate.
-- L-BFGS or Gauss--Newton only after reduced derivatives pass Taylor tests.
+- L-BFGS or Gauss–Newton only after reduced derivatives pass Taylor tests.
 
 **Do not do:** introduce an inverse-problem solver type or a general nonlinear
 KKT Newton method. The latter needs the separate second-order contract.
@@ -279,11 +279,11 @@ lifting work in P1.2 is its prerequisite.
 **Default:** compile an explicit map
 
 $$
-  y_{\rm phys}=P_h\widehat y_h+\ell_{0,h}+L_{D,h}u_h
+  y_\mathrm{phys}=P_h\widehat y_h+\ell_{0,h}+L_{D,h}u_h
 $$
 
 with forward value, JVP, and VJP. Both residual and observation consume
-$y_{\rm phys}$.
+$`y_\mathrm{phys}`$.
 
 **Done when:** the implementation passes a composed-transformation VJP test
 and a reduced Taylor test. Reject boundary spaces or corner/interface
@@ -306,7 +306,7 @@ differentiated-control policies exist.
 This final group has value, but should not block the preceding vertical
 slices:
 
-1. Multiple state/equation blocks, mixed fields, and Petrov--Galerkin spaces.
+1. Multiple state/equation blocks, mixed fields, and Petrov–Galerkin spaces.
 2. Serial matrix-free equivalence, then distributed Trilinos/PETSc vector
    backends with ownership/ghost policies.
 3. OTD formulation builder with explicit provenance and DTO comparison tests.

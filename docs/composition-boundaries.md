@@ -52,7 +52,7 @@ branches.
 Every nonlinear semantic map needed by an algorithm reduces to three actions:
 
 $$
-  F(x),\qquad F'(x)\,\delta x,\qquad F'(x)^*q.
+  F(x),\qquad F'(x)\delta x,\qquad F'(x)^{*}q.
 $$
 
 For a residual, $F(x)$ lies in a declared test-space dual.  For an observation
@@ -74,11 +74,11 @@ the affected concern.
 | Replace volume control by Neumann control | control `Variable` + residual coupling term | control space, boundary trace requirement, reduced derivative | equation/adjoint workflow, optimiser |
 | Change the target region for tracking | `Observation` | loss derivative and therefore adjoint forcing | state residual, control constraint, optimiser |
 | Change a tracking norm | `Loss` and its observation-space pairing | objective derivative and adjoint forcing | state residual |
-| Change only search geometry from $L^2$ to $H^1$/$H^{-1}$ | algorithmic `Metric` | dual-to-search-direction conversion | objective, residual, adjoint equation |
+| Change only search geometry from $L^2$ to $H^1$ or $H^{-1}$ | algorithmic `Metric` | dual-to-search-direction conversion | objective, residual, adjoint equation |
 | Add a box constraint | `Constraint` | optimality condition and constrained optimisation method | PDE terms, observation, adjoint equation |
 | Change scalar to vector field | `Space` field shape plus compatible terms | tensor contractions and FE component layout | residual/adjoint protocol, optimiser |
 | Add a mixed flux variable | new `Variable` and `EquationBlock` terms | block residual and block adjoint | objective/constraint architecture |
-| Switch Galerkin to Petrov--Galerkin | `DiscretisationPolicy` | discrete trial/test spaces and discrete transpose | continuous semantic problem |
+| Switch Galerkin to Petrov–Galerkin | `DiscretisationPolicy` | discrete trial/test spaces and discrete transpose | continuous semantic problem |
 | Add stabilization/upwinding | residual term and sometimes test-space policy | discrete/continuous residual and transpose | objective and outer optimiser |
 | Replace a coefficient datum by an estimated coefficient | promote `Data` to `Variable` + parameter residual term | residual nonlinearity, parameter derivative, parameter constraints | adjoint orchestration, optimiser protocol |
 
@@ -103,7 +103,7 @@ must make them explicit rather than hide them in a component.
 | Spaces and dual pairings | Every residual, observation, trace, metric, and derivative is typed by them | source, target, pairing, regularity/trace/product requirement |
 | Regions and geometry | Terms, controls, observations, and boundary conditions all refer to physical sets | named-region identity and dimension/measure kind |
 | Essential boundary conditions | They alter the physical state before both residual and observation evaluation | homogeneous space plus lifting/reconstruction and chain rule |
-| Dirichlet boundary control | It simultaneously determines control trace space, lifting, residual dependence, and reduced derivative | $U \rightarrow {\rm state}$ lifting with derivative and discrete realization |
+| Dirichlet boundary control | It simultaneously determines control trace space, lifting, residual dependence, and reduced derivative | $U \rightarrow \mathrm{state}$ lifting with derivative and discrete realization |
 | Time dependence | It changes spaces, residual endpoint terms, observations, controls, and the discrete transpose | time-space declaration plus initial/terminal policy |
 | Nullspaces and compatibility | A residual’s kernel affects solvability, adjoints, metrics, and linear solvers | explicit gauge/mean/compatibility/nullspace policy |
 | Very-weak formulations | Moving derivatives changes state/test spaces, data pairings, and admissible observations | full residual formulation; never an automatic flag |

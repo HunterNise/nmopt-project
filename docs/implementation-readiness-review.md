@@ -25,9 +25,9 @@ The result is deliberately conservative:
 The central model
 
 $$
-  \min_{x\in X_{\rm ad}} J(x)
+  \min_{x\in X_\mathrm{ad}} J(x)
   \quad\text{subject to}\quad
-  E_a(x)=0\in Z_a^*
+  E_a(x)=0\in Z_a^{*}
 $$
 
 is correct for the intended family of PDE-constrained problems. In
@@ -35,7 +35,7 @@ particular, the following decisions are retained:
 
 - residuals target declared test-space duals;
 - derivatives are covectors, not silently identified with functions;
-- a metric is an algorithmic primal--dual identification, distinct from an
+- a metric is an algorithmic primal–dual identification, distinct from an
   objective regularisation term;
 - transformations carry liftings, parameterisations, restrictions, and their
   chain rule;
@@ -60,7 +60,7 @@ Every feature decision follows this order:
    imply their correctness.
 
 Semantic validation records assumptions; it does not prove regularity,
-well-posedness, inf--sup stability, or convergence.
+well-posedness, inf–sup stability, or convergence.
 
 ## 3. Discrete algebra and pairings
 
@@ -75,8 +75,8 @@ For every semantic space $S$, compilation MUST create the following typed
 objects:
 
 $$
-  {\tt Primal}(S_h),\qquad {\tt Covector}(S_h),\qquad
-  {\tt pair}_S:{\tt Covector}(S_h)\times{\tt Primal}(S_h)\to\mathbb R.
+  \mathrm{Primal}(S_h),\qquad \mathrm{Covector}(S_h),\qquad
+  \mathrm{pair}_S:\mathrm{Covector}(S_h)\times\mathrm{Primal}(S_h)\to\mathbb R.
 $$
 
 The wrappers may contain the same `Vector` implementation, but public operator
@@ -87,8 +87,8 @@ primal vectors and typed block covectors.
 
 | Choice | Description | Decision |
 |---|---|---|
-| Dual-coefficient representation | A residual vector stores $r_j=\langle E,\psi_j\rangle$, and `pair(r,p)` is the coefficient dot product $r^{\mathsf T}p$. | **First default.** It matches ordinary FE assembly and makes a tested residual an actual covector. |
-| Riesz-representative representation | A dual element is stored as a primal vector $\bar r$, with $\langle E,p\rangle=\bar r^{\mathsf T}M_Sp$. | Allowed later, but it MUST expose the mass/pairing map explicitly. |
+| Dual-coefficient representation | A residual vector stores $`r_j=\langle E,\psi_j\rangle`$, and `pair(r,p)` is the coefficient dot product $r^{\mathsf T}p$. | **First default.** It matches ordinary FE assembly and makes a tested residual an actual covector. |
+| Riesz-representative representation | A dual element is stored as a primal vector $\bar r$, with $`\langle E,p\rangle=\bar r^{\mathsf T}M_Sp`$. | Allowed later, but it MUST expose the mass/pairing map explicitly. |
 | Untyped backend vector | The meaning of a vector depends on the caller. | Forbidden. |
 
 Under the default, an assembled residual Jacobian has test rows and trial
@@ -98,8 +98,8 @@ $$
   J_{ji}=\langle E'(x)\varphi_i,\psi_j\rangle.
 $$
 
-The JVP returns a covector in $Z_h^*$, and the pullback of a test vector
-returns a covector in $X_h^*$. Its coordinate action is the storage
+The JVP returns a covector in $`Z_h^{*}`$, and the pullback of a test vector
+returns a covector in $`X_h^{*}`$. Its coordinate action is the storage
 transpose $J^{\mathsf T}p$ *because* the default dual representation has
 been declared. This is not a general permission to use a raw storage
 transpose.
@@ -114,9 +114,9 @@ For every term, map, and composed equation block, test random compatible
 directions and seeds:
 
 $$
- {\tt pair}_Z(E_h'(x_h)\delta x_h,p_h)
+ \mathrm{pair}_Z(E_h'(x_h)\delta x_h,p_h)
  =
- {\tt pair}_X(E_h'(x_h)^*p_h,\delta x_h).
+ \mathrm{pair}_X(E_h'(x_h)^{*}p_h,\delta x_h).
 $$
 
 The test is performed after applying the same constraint and distribution
@@ -144,13 +144,13 @@ jvp(inputs, input_tangents, context) -> output_tangent
 vjp(inputs, output_seed, input_covector_accumulator, context)
 ~~~
 
-VJP means vector--Jacobian product / pullback. The name is preferred to
+VJP means vector–Jacobian product / pullback. The name is preferred to
 “transpose-JVP” because the seed has a type:
 
-- for a transformation or observation $T:X\to Y$, the seed is in $Y_h^*$
-  and the result accumulates into $X_h^*$;
-- for a residual $E:X\to Z^*$, the seed is an adjoint variable in $Z_h$
-  and the result accumulates into $X_h^*$.
+- for a transformation or observation $T:X\to Y$, the seed is in $`Y_h^{*}`$
+  and the result accumulates into $`X_h^{*}`$;
+- for a residual $E:X\to Z^{*}$, the seed is an adjoint variable in $`Z_h`$
+  and the result accumulates into $`X_h^{*}`$.
 
 Residual-term signs belong in the term's value and local derivative. The
 global Lagrangian sign belongs only in a formulation builder.
@@ -172,7 +172,7 @@ special objective path. A loss involving several variables first receives a
 product/concatenation map output. This keeps the rule
 
 $$
-  J'(x)=\sum_k O_k'(x)^*\Phi_k'(O_k(x))
+  J'(x)=\sum_k O_k'(x)^{*}\Phi_k'(O_k(x))
 $$
 
 literal and removes the ambiguity between “loss source is an observation” and
@@ -236,7 +236,7 @@ gradient methods. They are not sufficient for a nonlinear Newton step on the
 KKT equations: differentiating the adjoint equation requires terms such as
 
 $$
-  D_x\bigl(E_h'(x_h)^*p_h\bigr)[\delta x_h]
+  D_x\bigl(E_h'(x_h)^{*}p_h\bigr)[\delta x_h]
   \quad\text{and}\quad
   J_h''(x_h)\delta x_h.
 $$
@@ -245,7 +245,7 @@ $$
 |---|---|
 | Exact second-order action supplied by terms/maps | Future general Newton/SQP contract. |
 | Automatic differentiation of local kernels, with an independently tested pullback | Permitted future implementation strategy. |
-| Gauss--Newton or quasi-Newton approximation | Permitted only when the formulation declares the approximation. |
+| Gauss–Newton or quasi-Newton approximation | Permitted only when the formulation declares the approximation. |
 | First-order L-BFGS reduced solver | **First default for nonlinear problems.** |
 | All-at-once KKT Newton for linear-quadratic problems | Allowed after the first reduced DTO path. |
 | General nonlinear all-at-once Newton/SQP | Unsupported until the second-order contract exists. |
@@ -287,9 +287,9 @@ state equation, or the adjoint equation. No document or API may use
 
 | Choice | Meaning | Decision |
 |---|---|---|
-| $L^2$ metric | $G=M_U$ in the selected control realization. | **First default.** |
-| $H^1$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^*$. Direction formation solves $Gg=\iota^*j'$. | Supported after the $L^2$ path, with boundary and nullspace policy. |
-| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $(v,w)_{-1}=(A^{-1}v,w)_{L^2}$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^1$ Sobolev-gradient solve. | No generic default; unsupported until specified as an operator and tested. |
+| $L^2$ metric | $`G=M_U`$ in the selected control realization. | **First default.** |
+| $H^1$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{*}$. Direction formation solves $Gg=\iota^{*}j'$. | Supported after the $L^2$ path, with boundary and nullspace policy. |
+| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^2}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^1$ Sobolev-gradient solve. | No generic default; unsupported until specified as an operator and tested. |
 | Fractional metric | Requires a named discrete realization and spectral/extension/auxiliary problem policy. | Unsupported initially. |
 
 An $H^1$ metric includes a positive zero-order term or an explicit
@@ -321,16 +321,16 @@ failure, not permission to substitute clipping.
 ### 8.1 Fixed essential data
 
 All compiled state operators use independent unknown coordinates. With
-$P_h$ the homogeneous/hanging/periodic reconstruction, the physical field
+$`P_h`$ the homogeneous/hanging/periodic reconstruction, the physical field
 is represented as
 
 $$
-  y_{\rm phys}=P_h\widehat y_h+\ell_{0,h}.
+  y_\mathrm{phys}=P_h\widehat y_h+\ell_{0,h}.
 $$
 
 Residuals and observations evaluate the physical field. Pullbacks use the
-matching $P_h^*$. `AffineConstraints` is an implementation mechanism for
-$P_h$ and must be applied consistently in residual, observation, JVP, and
+matching $`P_h^{*}`$. `AffineConstraints` is an implementation mechanism for
+$`P_h`$ and must be applied consistently in residual, observation, JVP, and
 VJP paths.
 
 The first default supports homogeneous or fixed, time-independent Dirichlet
@@ -342,16 +342,16 @@ permitted.
 The correct later representation is
 
 $$
- y_{\rm phys}=P_h\widehat y_h+\ell_{0,h}+L_{D,h}u_h.
+ y_\mathrm{phys}=P_h\widehat y_h+\ell_{0,h}+L_{D,h}u_h.
 $$
 
 | Choice | Decision |
 |---|---|
 | Treat controlled data as a boundary load | Forbidden. |
 | Rebuild affine constraints for each control and hide the dependence | Not a public derivative contract; not the default. |
-| Expose an explicit lifting/reconstruction $L_{D,h}$, including JVP and VJP | Required future implementation. |
+| Expose an explicit lifting/reconstruction $`L_{D,h}`$, including JVP and VJP | Required future implementation. |
 
-$L_{D,h}$ must state its boundary-control discretisation, interior
+$`L_{D,h}`$ must state its boundary-control discretisation, interior
 extension, corner/interface compatibility, and behavior on fixed Dirichlet
 portions. The discrete problem records the lifting choice because different
 liftings can produce different discrete intermediate systems. Dirichlet
@@ -360,7 +360,7 @@ a Neumann-like coupling.
 
 ### 8.3 Natural boundary data and controls
 
-For the first boundary-control extension, $\Gamma_c$ is a marked collection
+For the first boundary-control extension, $`\Gamma_c`$ is a marked collection
 of faces on the same static triangulation and the control is facewise
 constant. The boundary term is assembled with `FEFaceValues`; its coupling and
 pullback are tested by the ordinary adjoint identity.
@@ -391,7 +391,7 @@ pure-Neumann problem is unsupported until this complete policy is available.
 |---|---|---|
 | Geometry | Fixed geometry and static triangulation throughout one optimisation solve. | Shape/topology optimisation and moving meshes. |
 | Mesh relation | One state mesh; volume controls and observations use it; boundary controls use marked faces of it. | Nonmatching meshes and explicit transfer maps. |
-| FE state | Scalar conforming `FE_Q` of selected degree. | Vector, mixed, DG, and Petrov--Galerkin systems. |
+| FE state | Scalar conforming `FE_Q` of selected degree. | Vector, mixed, DG, and Petrov–Galerkin systems. |
 | Execution | Assembled residual/Jacobian actions. | Matrix-free actions after assembled equivalence tests. |
 | Data rule | Analytic data evaluated at declared quadrature points, or an explicitly named projection/interpolation map. | Implicit sampling/interpolation. |
 
@@ -408,8 +408,8 @@ dedicated execution policy.
 
 | Choice | Decision |
 |---|---|
-| Global space--time residual | Valid future option. |
-| Fixed-grid one-step residual with the complete trajectory represented in $E_h$ | **First temporal default.** Use fixed-step backward Euler. |
+| Global space–time residual | Valid future option. |
+| Fixed-grid one-step residual with the complete trajectory represented in $`E_h`$ | **First temporal default.** Use fixed-step backward Euler. |
 | Opaque forward time integrator with an independently coded backward adjoint | Forbidden as a DTO implementation unless it exposes the exact residual transpose. |
 | Adaptive time steps, events, remeshing, or nonlinear stopping-dependent step decisions | Unsupported until replay and differentiated-control policies exist. |
 
@@ -457,7 +457,7 @@ unconstrained reduced gradient, then L2-projected box gradient
 The following are declared but return an unsupported-capability diagnostic in
 this release: Robin and pure-Neumann policies, Neumann boundary control,
 boundary tracking, $H^1$ metric/regularisation, Dirichlet control,
-coefficient inversion, mixed/Petrov--Galerkin spaces, time dependence,
+coefficient inversion, mixed/Petrov–Galerkin spaces, time dependence,
 matrix-free execution, OTD, and general nonlinear KKT Newton.
 
 The extension order is:
@@ -465,10 +465,10 @@ The extension order is:
 1. Neumann control and boundary observation on marked faces.
 2. Fixed liftings, then explicit Dirichlet-control liftings.
 3. Pure-Neumann mean-constraint policy.
-4. Nonlinear coefficient parameter and L-BFGS/Gauss--Newton actions.
+4. Nonlinear coefficient parameter and L-BFGS/Gauss–Newton actions.
 5. $H^1$ metrics and their compatible constraint solvers.
 6. Fixed-step temporal compiler.
-7. Mixed/Petrov--Galerkin, matrix-free, OTD, and second-order KKT features.
+7. Mixed/Petrov–Galerkin, matrix-free, OTD, and second-order KKT features.
 
 Each extension must add its own lowerer, capability declaration, and tests; it
 must not add a PDE-name branch to a solver.

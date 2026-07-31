@@ -11,15 +11,15 @@ $$
 $$
 y\in V,\qquad
 u\in U,\qquad
-f\in V^*,\qquad
+f\in V^{*},\qquad
 y_d\in Q,\qquad
 \alpha>0.
 $$
 
 $$
-\langle E(y,u),v\rangle_{V^*,V}
+\langle E(y,u),v\rangle_{V^{*},V}
 =(\nabla y,\nabla v)_\Omega
--\langle f,v\rangle_{V^*,V}
+-\langle f,v\rangle_{V^{*},V}
 -(u,v)_\Omega,
 \qquad v\in V.
 $$
@@ -34,15 +34,15 @@ $$
 
 | Component | Concrete input |
 |---|---|
-| Region | $\Omega$, $\Gamma=\partial\Omega$, $\omega_o$ |
-| Space and pairing | $V$, $U$, $Q$, $V^*\times V$ |
+| Region | $\Omega$, $\Gamma=\partial\Omega$, $`\omega_o`$ |
+| Space and pairing | $V$, $U$, $Q$, $V^{*}\times V$ |
 | Variables | state $y$, control $u$ |
-| Data | $f$, $y_d$, $\alpha$ |
-| Equation block | $E:V\times U\to V^*$ |
+| Data | $f$, $`y_d`$, $\alpha$ |
+| Equation block | $E:V\times U\to V^{*}$ |
 | Residual terms | diffusion, source, source-control |
 | Observation | $C:V\to Q$ |
 | Losses | tracking and control regularisation |
-| Metric | $G_U:U\to U^*$, if a gradient is required |
+| Metric | $`G_U:U\to U^{*}`$, if a gradient is required |
 
 The derivative actions are
 
@@ -50,11 +50,11 @@ $$
 \begin{aligned}
 \langle D_yE(y,u)w,v\rangle
 &=(\nabla w,\nabla v)_\Omega,\\
-\langle D_uE(y,u)\,\delta u,v\rangle
+\langle D_uE(y,u)\delta u,v\rangle
 &=-(\delta u,v)_\Omega,\\
 D_yJ(y,u)w
 &=(Cy-y_d,Cw)_Q,\\
-D_uJ(y,u)\,\delta u
+D_uJ(y,u)\delta u
 &=\alpha(u,\delta u)_U.
 \end{aligned}
 $$
@@ -62,7 +62,7 @@ $$
 With
 
 $$
-\mathcal L(y,u,p)=J(y,u)-\langle p,E(y,u)\rangle_{V,V^*},
+\mathcal L(y,u,p)=J(y,u)-\langle p,E(y,u)\rangle_{V,V^{*}},
 $$
 
 the solver equations are
@@ -75,7 +75,7 @@ $$
 (\nabla w,\nabla p)_\Omega
 &=(Cy-y_d,Cw)_Q,
 &&w\in V,\\
-j'(u)\,\delta u
+j'(u)\delta u
 &=\alpha(u,\delta u)_U+(p,\delta u)_\Omega,
 &&\delta u\in U.
 \end{aligned}
@@ -92,9 +92,9 @@ $$
 Choose
 
 $$
-Y_h=\operatorname{span}\{\varphi_i\},\qquad
-Z_h=\operatorname{span}\{\psi_j\},\qquad
-U_h=\operatorname{span}\{\chi_\ell\}.
+Y_h=\mathrm{span}\{\varphi_i\},\qquad
+Z_h=\mathrm{span}\{\psi_j\},\qquad
+U_h=\mathrm{span}\{\chi_\ell\}.
 $$
 
 Define
@@ -107,12 +107,12 @@ $$
 (f_h)_j=\langle f,\psi_j\rangle.
 $$
 
-For an observation basis $\{\eta_k\}$,
+For an observation basis $`\{\eta_k\}`$,
 
 $$
 (W_h)_{kr}=(\eta_k,\eta_r)_Q,
 \qquad
-(R_{{\rm reg},h})_{\ell m}=(\chi_\ell,\chi_m)_U.
+(R_{\mathrm{reg},h})_{\ell m}=(\chi_\ell,\chi_m)_U.
 $$
 
 Compilation returns
@@ -124,7 +124,7 @@ $$
 $$
 J_h(y_h,u_h)
 =\frac12(C_hy_h-d_h)^{\mathsf T}W_h(C_hy_h-d_h)
-+\frac{\alpha}{2}u_h^{\mathsf T}R_{{\rm reg},h}u_h,
++\frac{\alpha}{2}u_h^{\mathsf T}R_{\mathrm{reg},h}u_h,
 $$
 
 $$
@@ -135,7 +135,7 @@ E_h'(y_h,u_h)
 \end{bmatrix}
 =A_h\delta y_h-B_h\delta u_h,
 \qquad
-E_h'(y_h,u_h)^*p_h
+E_h'(y_h,u_h)^{*}p_h
 =
 \begin{bmatrix}
 A_h^{\mathsf T}p_h\\
@@ -149,7 +149,7 @@ $$
 \begin{aligned}
 A_hy_h&=f_h+B_hu_h,\\
 A_h^{\mathsf T}p_h&=C_h^{\mathsf T}W_h(C_hy_h-d_h),\\
-j_h'(u_h)&=\alpha R_{{\rm reg},h}u_h+B_h^{\mathsf T}p_h,\\
+j_h'(u_h)&=\alpha R_{\mathrm{reg},h}u_h+B_h^{\mathsf T}p_h,\\
 \nabla_{G_h}j_h(u_h)&=G_h^{-1}j_h'(u_h).
 \end{aligned}
 $$
@@ -159,7 +159,7 @@ The mandatory executable ports are
 $$
 E_h(x_h),\qquad
 E_h'(x_h)\delta x_h,\qquad
-E_h'(x_h)^*p_h,\qquad
+E_h'(x_h)^{*}p_h,\qquad
 J_h(x_h),\qquad
 J_h'(x_h),\qquad
 G_h^{-1}.
@@ -186,7 +186,7 @@ $$
 $$
 
 $$
-\langle D_yE(y,u)^*p,w\rangle=a(w,p),
+\langle D_yE(y,u)^{*}p,w\rangle=a(w,p),
 $$
 
 $$
@@ -226,24 +226,24 @@ $$
 Then
 
 $$
-\langle D_uE_\Gamma(y,u)\,\delta u,v\rangle
+\langle D_uE_\Gamma(y,u)\delta u,v\rangle
 =-\langle\delta u,\gamma_{\Gamma_c}v\rangle,
 $$
 
 $$
-j_\Gamma'(u)\,\delta u
+j_\Gamma'(u)\delta u
 =\alpha(u,\delta u)_{U_\Gamma}
 +\langle\delta u,\gamma_{\Gamma_c}p\rangle.
 $$
 
-With $U_{\Gamma,h}=\operatorname{span}\{\xi_\ell\}$,
+With $`U_{\Gamma,h}=\mathrm{span}\{\xi_\ell\}`$,
 
 $$
 (B_{\Gamma,h})_{j\ell}
 =\langle\xi_\ell,\gamma_{\Gamma_c}\psi_j\rangle,
 \qquad
 j_{\Gamma,h}'(u_h)
-=\alpha R_{{\rm reg},\Gamma,h}u_h+B_{\Gamma,h}^{\mathsf T}p_h.
+=\alpha R_{\mathrm{reg},\Gamma,h}u_h+B_{\Gamma,h}^{\mathsf T}p_h.
 $$
 
 Required interfaces: boundary partition and state space, boundary control
@@ -294,12 +294,12 @@ $$
 
 Required interfaces: boundary partition and state space, trace observation,
 boundary loss, boundary quadrature.  Once this state space has been selected,
-changing only $\Gamma_o$ changes only the observation and loss.
+changing only $`\Gamma_o`$ changes only the observation and loss.
 
 ### 3.4 Point observations
 
 $$
-C_{\rm pt}y=
+C_\mathrm{pt}y=
 \begin{bmatrix}
 y(x_1)\\
 \vdots\\
@@ -309,14 +309,14 @@ y(x_m)
 $$
 
 $$
-J_{\rm pt}(y,u)
-=\frac12(C_{\rm pt}y-d)^{\mathsf T}W(C_{\rm pt}y-d)
+J_\mathrm{pt}(y,u)
+=\frac12(C_\mathrm{pt}y-d)^{\mathsf T}W(C_\mathrm{pt}y-d)
 +\frac{\alpha}{2}\lVert u\rVert_U^2,
 $$
 
 $$
-D_yJ_{\rm pt}(y,u)
-=C_{\rm pt}^*W(C_{\rm pt}y-d).
+D_yJ_\mathrm{pt}(y,u)
+=C_\mathrm{pt}^{*}W(C_\mathrm{pt}y-d).
 $$
 
 Required interfaces: observation with target $\mathbb R^m$, transpose
@@ -338,7 +338,7 @@ $$
 Then
 
 $$
-j_{\rm reg}'(u)\,\delta u
+j_\mathrm{reg}'(u)\delta u
 =\alpha\left(
 (u,\delta u)_\Omega
 +\ell^2(\nabla u,\nabla\delta u)_\Omega
@@ -347,7 +347,7 @@ j_{\rm reg}'(u)\,\delta u
 $$
 
 $$
-R_{{\rm reg},h}=M_{U,h}+\ell^2K_{U,h}.
+R_{\mathrm{reg},h}=M_{U,h}+\ell^2K_{U,h}.
 $$
 
 Required interfaces: control space, control loss, control discretisation, and
@@ -363,13 +363,13 @@ U_G=H^1(\Omega),
 \qquad
 \iota:U_G\hookrightarrow U,
 \qquad
-\iota^*:U^*\to U_G^*.
+\iota^{*}:U^{*}\to U_G^{*}.
 $$
 
 Define
 
 $$
-\langle G_Ug,\delta u\rangle_{U_G^*,U_G}
+\langle G_Ug,\delta u\rangle_{U_G^{*},U_G}
 =(g,\delta u)_\Omega
 +\ell^2(\nabla g,\nabla\delta u)_\Omega.
 $$
@@ -377,7 +377,7 @@ $$
 Then only
 
 $$
-\nabla_{G_U}j=G_U^{-1}\iota^*j'
+\nabla_{G_U}j=G_U^{-1}\iota^{*}j'
 $$
 
 changes.  The state, adjoint, and reduced covector $j'$ are unchanged.
@@ -385,25 +385,25 @@ changes.  The state, adjoint, and reduced covector $j'$ are unchanged.
 Required interface: metric with apply and inverse-apply.  An $H^{-1}$
 metric may implement inverse-apply by an auxiliary elliptic solve.  If the
 control space itself is changed to $H^1(\Omega)$, the injection
-$\iota^*$ is unnecessary.
+$\iota^{*}$ is unnecessary.
 
 ### 3.7 Box constraints
 
 $$
-U_{\rm ad}
+U_\mathrm{ad}
 =\{u\in U:u_a\leq u\leq u_b\ \text{a.e. in }\Omega\}.
 $$
 
 Replace unconstrained stationarity by
 
 $$
-0\in j'(u)+N_{U_{\rm ad}}(u),
+0\in j'(u)+N_{U_\mathrm{ad}}(u),
 $$
 
 or
 
 $$
-u=\Pi_{U_{\rm ad}}\bigl(u-\tau\nabla_{G_U}j(u)\bigr).
+u=\Pi_{U_\mathrm{ad}}\bigl(u-\tau\nabla_{G_U}j(u)\bigr).
 $$
 
 Required interfaces: constraint feasibility, projection, normal cone, or
@@ -425,10 +425,10 @@ U_\Gamma=H^{1/2}(\Gamma_c),
 L_D:U_\Gamma\to H^1(\Omega).
 $$
 
-With a fixed-data lifting $\ell_0$,
+With a fixed-data lifting $`\ell_0`$,
 
 $$
-y_{\rm phys}=\widehat y+\ell_0+L_Du,
+y_\mathrm{phys}=\widehat y+\ell_0+L_Du,
 \qquad
 \widehat y\in V_0.
 $$
@@ -454,12 +454,12 @@ The changed derivatives are
 
 $$
 \begin{aligned}
-\langle D_{\widehat y}E_D\,w,v\rangle
+\langle D_{\widehat y}E_Dw,v\rangle
 &=(\nabla w,\nabla v)_\Omega,\\
-\langle D_uE_D\,\delta u,v\rangle
+\langle D_uE_D\delta u,v\rangle
 &=(\nabla L_D\delta u,\nabla v)_\Omega,\\
-D_uJ_D\,\delta u
-&=\langle Cy_{\rm phys}-y_d,CL_D\delta u\rangle_Q
+D_uJ_D\delta u
+&=\langle Cy_\mathrm{phys}-y_d,CL_D\delta u\rangle_Q
 +\alpha(u,\delta u)_{U_\Gamma}.
 \end{aligned}
 $$
@@ -467,12 +467,12 @@ $$
 Therefore
 
 $$
-(\nabla w,\nabla p)_\Omega=D_{\widehat y}J_D\,w,
+(\nabla w,\nabla p)_\Omega=D_{\widehat y}J_Dw,
 $$
 
 $$
-j_D'(u)\,\delta u
-=D_uJ_D\,\delta u
+j_D'(u)\delta u
+=D_uJ_D\delta u
 -(\nabla L_D\delta u,\nabla p)_\Omega.
 $$
 
@@ -481,20 +481,20 @@ The compiled residual is
 $$
 r_{D,h}(\widehat y_h,u_h)
 =A_h\widehat y_h
-+A_{{\rm ext},h}L_{D,h}u_h
++A_{\mathrm{ext},h}L_{D,h}u_h
 +b_{\ell_0,h}-f_h.
 $$
 
 Required interfaces: controlled/fixed boundary regions, lifting
 transformation with value/JVP/transpose-JVP, residual and observation on the
-physical state, and compiler support for $L_{D,h}$ and affine constraints.
+physical state, and compiler support for $`L_{D,h}`$ and affine constraints.
 
 ### 3.9 Coefficient identification
 
 Introduce
 
 $$
-m\in M_{\rm ad},
+m\in M_\mathrm{ad},
 $$
 
 and use
@@ -507,7 +507,7 @@ $$
 The parameter derivative is
 
 $$
-\langle D_mE_m(y,m)\,\delta m,v\rangle
+\langle D_mE_m(y,m)\delta m,v\rangle
 =(\delta m\nabla y,\nabla v)_\Omega.
 $$
 
@@ -518,8 +518,8 @@ $$
 $$
 
 $$
-j_m'(m)\,\delta m
-=D_mJ_m(y,m)\,\delta m
+j_m'(m)\delta m
+=D_mJ_m(y,m)\delta m
 -(\delta m\nabla y,\nabla p)_\Omega.
 $$
 
@@ -532,18 +532,18 @@ positivity policy.
 $$
 V=H_0^1(\Omega),
 \qquad
-Y=L^2(0,T;V)\cap H^1(0,T;V^*),
+Y=L^2(0,T;V)\cap H^1(0,T;V^{*}),
 \qquad
 Z=L^2(0,T;V).
 $$
 
-With $y(0)=y_0$,
+With $`y(0)=y_0`$,
 
 $$
 \langle E_T(y,u),v\rangle
-=\int_0^T
+=\int_0^{T}
 \left[
-\langle\dot y,v\rangle_{V^*,V}
+\langle\dot y,v\rangle_{V^{*},V}
 +(\nabla y,\nabla v)_\Omega
 -\langle f,v\rangle
 -(u,v)_\Omega
@@ -554,25 +554,25 @@ For
 
 $$
 J_T(y,u)
-=\frac12\int_0^T\lVert Cy(t)-y_d(t)\rVert_Q^2\,dt
-+\frac{\alpha}{2}\int_0^T\lVert u(t)\rVert_U^2\,dt,
+=\frac12\int_0^{T}\lVert Cy(t)-y_d(t)\rVert_Q^2dt
++\frac{\alpha}{2}\int_0^{T}\lVert u(t)\rVert_U^2dt,
 $$
 
 the adjoint relation is
 
 $$
-\int_0^T
+\int_0^{T}
 \left[
-\langle\dot w,p\rangle_{V^*,V}
+\langle\dot w,p\rangle_{V^{*},V}
 +(\nabla w,\nabla p)_\Omega
 \right]dt
-=\int_0^T(Cy-y_d,Cw)_Q\,dt.
+=\int_0^{T}(Cy-y_d,Cw)_Qdt.
 $$
 
 For $w(0)=0$,
 
 $$
--\dot p-\Delta p=C^*(Cy-y_d),
+-\dot p-\Delta p=C^{*}(Cy-y_d),
 \qquad
 p(T)=0.
 $$
@@ -580,9 +580,9 @@ $$
 The reduced derivative is
 
 $$
-j_T'(u)\,\delta u
-=\alpha\int_0^T(u,\delta u)_U\,dt
-+\int_0^T(p,\delta u)_\Omega\,dt.
+j_T'(u)\delta u
+=\alpha\int_0^{T}(u,\delta u)_Udt
++\int_0^{T}(p,\delta u)_\Omega\;dt.
 $$
 
 Required interfaces: time-space descriptors, time-derivative residual term,
@@ -602,7 +602,7 @@ $$
 The discrete adjoint is
 
 $$
-E_h'(x_h)^*p_h=D_yJ_h(x_h).
+E_h'(x_h)^{*}p_h=D_yJ_h(x_h).
 $$
 
 Required solver inputs:
@@ -610,7 +610,7 @@ Required solver inputs:
 $$
 E_h(x_h),\quad
 E_h'(x_h)\delta x_h,\quad
-E_h'(x_h)^*p_h,\quad
+E_h'(x_h)^{*}p_h,\quad
 J_h(x_h),\quad
 J_h'(x_h),\quad
 G_h^{-1},
@@ -629,7 +629,7 @@ $$
 first:
 
 $$
-E_y'(x)^*p=D_yJ(x).
+E_y'(x)^{*}p=D_yJ(x).
 $$
 
 Compile that equation separately.  If it gives
@@ -645,14 +645,14 @@ $$
 $$
 
 They can agree for compatible conforming Galerkin forms.  They need not agree
-for Petrov--Galerkin, stabilisation, time stepping, inexact quadrature,
+for Petrov–Galerkin, stabilisation, time stepping, inexact quadrature,
 discrete observations, or different lifting treatments.
 
 Required additional interfaces:
 
 | Component | Required action |
 |---|---|
-| Formulation builder | build $E_y'(x)^*p-D_yJ(x)=0$ as a semantic equation block |
+| Formulation builder | build $`E_y'(x)^{*}p-D_yJ(x)=0`$ as a semantic equation block |
 | Provenance | record DTO or OTD and the lowering policy |
 
 ## 5. Minimal interface specification
@@ -661,13 +661,13 @@ Required additional interfaces:
 |---|---|
 | Space | domain/region, field shape, trial/test role, pairing, trace and product capabilities |
 | Variable and data | identifier, space, value, admissible-set reference; derivatives only for variables |
-| Map | $T:X\to Y$, $T(x)$, $T'(x)\delta x$, $T'(x)^*\eta$ |
-| Residual term | $\langle E_t(x),z\rangle$, JVP, transpose-JVP |
+| Map | $T:X\to Y$, $T(x)$, $T'(x)\delta x$, $T'(x)^{*}\eta$ |
+| Residual term | $`\langle E_t(x),z\rangle`$, JVP, transpose-JVP |
 | Equation block | test space, sum of terms, residual/JVP/transpose-JVP |
 | Transformation | map applied before residual/observation evaluation |
 | Observation | map from physical variables to $Q$ |
-| Loss | $\Phi:Q\to\mathbb R$, value and $D\Phi(q)\in Q^*$ |
-| Metric | $G:X\to X^*$, apply and inverse-apply |
+| Loss | $\Phi:Q\to\mathbb R$, value and $D\Phi(q)\in Q^{*}$ |
+| Metric | $G:X\to X^{*}$, apply and inverse-apply |
 | Constraint | feasibility, projection, normal cone, or multiplier operation |
 | Requirement policy | trace, product, nullspace, point, fractional, or discrete-only policy |
 | Compiler | choose spaces, lower maps, preserve pairing-aware JVP and transpose-JVP |

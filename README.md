@@ -21,6 +21,9 @@ Start here:
   formula changes, compiled operators, and required interface primitives.
 - [Interface specification](docs/interface-specification.md) — normative
   component contracts, compilation protocols, and solver-facing outputs.
+- [Implementation-readiness review and default policies](docs/implementation-readiness-review.md)
+  — resolved discrete-algebra, compilation, formulation, metric, constraint,
+  boundary, and rollout decisions for the first implementation.
 - [Project guide for contributors and agents](AGENTS.md) — concise working
   instructions and non-negotiable design decisions.
 

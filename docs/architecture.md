@@ -189,7 +189,8 @@ models, they can be assembled at each iterate or provided matrix-free.
 | diffusion/reaction/transport change | residual term | objective, optimization workflow |
 | volume or Neumann control | control coupling and transpose | state/adjoint driver, optimizer |
 | boundary/subdomain tracking | observation and metric | PDE and optimizer |
-| $H^1$/$H^{-1}$ regularization | metric realization | residual and adjoint derivation |
+| $H^1$/$H^{-1}$ search geometry | metric realization | residual and adjoint derivation |
+| $H^1$/$H^{-1}$ regularization | loss and control-space realization | residual and adjoint derivation |
 | Dirichlet control | lifting/parameterization | formulation and outer solver |
 | coefficient determination | parameter residual derivatives | adjoint orchestration and line search |
 | vector/mixed state | field blocks and residual blocks | conceptual model and optimizer |

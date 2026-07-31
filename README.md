@@ -1,12 +1,13 @@
 # nmopt-project
 
-A future deal.II framework for PDE-constrained optimal control and inverse
+A deal.II-oriented framework for PDE-constrained optimal control and inverse
 problems. The aim is to support reusable combinations of PDE operators,
 boundary conditions, controls, observations, norms, constraints, and solvers
 without creating a new `Problem` class for every combination.
 
-The project is currently in the architecture stage: no implementation choices
-below the public model/compilation boundaries are fixed yet.
+The project has a small backend-neutral executable DTO contract and reference
+test. A deal.II compiler for the first finite-element slice remains to be
+implemented.
 
 Start here:
 
@@ -24,9 +25,19 @@ Start here:
 - [Implementation-readiness review and default policies](docs/implementation-readiness-review.md)
   — resolved discrete-algebra, compilation, formulation, metric, constraint,
   boundary, and rollout decisions for the first implementation.
+- [V0 executable contract](docs/executable-contract-v0.md) — the implemented
+  typed value/JVP/VJP, metric, constraint, and reduced-DTO boundary.
 - [Project guide for contributors and agents](AGENTS.md) — concise working
   instructions and non-negotiable design decisions.
 
 The governing principle is **composition of residual, objective, metric,
 constraint, and discretization components—not inheritance from particular PDE
 problem types**.
+
+## Validate the contract
+
+~~~bash
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+~~~

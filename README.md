@@ -5,9 +5,8 @@ problems. The aim is to support reusable combinations of PDE operators,
 boundary conditions, controls, observations, norms, constraints, and solvers
 without creating a new `Problem` class for every combination.
 
-The project has a small backend-neutral executable DTO contract and reference
-test. A deal.II compiler for the first finite-element slice remains to be
-implemented.
+The project has a backend-parametric executable DTO contract, dense reference
+test, and a serial deal.II lowerer for the first scalar finite-element slice.
 
 Start here:
 
@@ -27,6 +26,8 @@ Start here:
   boundary, and rollout decisions for the first implementation.
 - [V0 executable contract](docs/executable-contract-v0.md) — the implemented
   typed value/JVP/VJP, metric, constraint, and reduced-DTO boundary.
+- [deal.II v0 lowerer](docs/dealii-v0-lowerer.md) — the compiled scalar
+  diffusion-reaction slice, its discrete policies, and exclusions.
 - [Project guide for contributors and agents](AGENTS.md) — concise working
   instructions and non-negotiable design decisions.
 

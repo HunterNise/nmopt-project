@@ -15,6 +15,8 @@ document that answers the question, then follow links to the deeper material.
 - `architecture.md` records the long-term design rationale and boundaries.
 - `implementation-roadmap.md` records current implementation state, task
   order, acceptance checks, and agent handoff guidance.
+- `markdown-style.md` defines the Markdown and LaTeX conventions used by the
+  project documentation.
 - The remaining documents provide mathematical background, examples, and
   implementation analysis; they do not silently override the normative
   contracts above.
@@ -23,7 +25,7 @@ document that answers the question, then follow links to the deeper material.
 
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
-| New contributor or agent | `README.md`, `AGENTS.md` | `implementation-roadmap.md` |
+| New contributor or agent | `../README.md`, `../AGENTS.md` | `implementation-roadmap.md` |
 | Changing semantic interfaces or ports | `interface-specification.md` | `architecture.md`, `implementation-readiness-review.md` |
 | Changing the backend-neutral executable API | `executable-contract-v0.md` | `implementation-readiness-review.md`, `implementation-roadmap.md` |
 | Changing deal.II code or the compiler/lowerer | `dealii-v0-lowerer.md` | `executable-contract-v0.md`, `implementation-roadmap.md` |
@@ -32,6 +34,7 @@ document that answers the question, then follow links to the deeper material.
 | Understanding the concrete end-to-end example | `laplace-growth-case-study.md` | `laplace-interface-formulas.md` |
 | Choosing the next implementation task | `implementation-roadmap.md` | The task-specific contract listed above |
 | Reviewing why the design is shaped this way | `architecture.md` | `theoretical-formalism.md` |
+| Editing Markdown or LaTeX | `markdown-style.md` | The document being changed |
 
 ## Document index
 
@@ -45,3 +48,4 @@ document that answers the question, then follow links to the deeper material.
 - [Laplace growth case study](laplace-growth-case-study.md)
 - [Laplace interface formulas](laplace-interface-formulas.md)
 - [Implementation roadmap](implementation-roadmap.md)
+- [Markdown and LaTeX style](markdown-style.md)

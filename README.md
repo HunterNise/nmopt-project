@@ -19,17 +19,7 @@ Start here:
   prioritized tasks, and acceptance checks.
 - [Project guide for contributors and agents](AGENTS.md) — concise working,
   architecture, and formatting rules.
-- [Project guide for contributors and agents](AGENTS.md) — concise working
-  instructions and non-negotiable design decisions.
 
 The governing principle is **composition of residual, objective, metric,
 constraint, and discretization components—not inheritance from particular PDE
 problem types**.
-
-## Validate the contract
-
-~~~bash
-cmake -S . -B build -DBUILD_TESTING=ON
-cmake --build build
-ctest --test-dir build --output-on-failure
-~~~

@@ -1,0 +1,333 @@
+# Implementation roadmap and agent handoff
+
+## Purpose
+
+This is the ranked continuation plan after the v0 executable contract and the
+first serial deal.II lowerer. It is intentionally dependency-ordered: finish
+the useful vertical slice before broadening the semantic language, and broaden
+the semantic language before adding advanced PDE variants.
+
+The command below is the baseline check before and after every task:
+
+~~~bash
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+~~~
+
+## Current handoff state
+
+The following pieces exist and are tested:
+
+| Layer | Existing artifact | Meaning |
+|---|---|---|
+| Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. |
+| Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
+| DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one control block, one test block, externally supplied state/adjoint solves. |
+| Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
+| deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend for the backend-parametric contract. |
+| deal.II lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Assembled scalar `FE_Q` diffusion-reaction state, `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
+| Tests | `tests/reduced_dto_contract.cc` and `tests/dealii_diffusion_contract.cc` | Pairing, JVP, VJP, residual finite difference, state solve, and reduced derivative checks. |
+
+The implementation is deliberately not a general compiler yet. The deal.II
+class is a concrete lowerer/reference slice, not the future public
+`ProblemSpec` interface.
+
+## Non-negotiable rules for every task
+
+1. Preserve the global convention
+
+   $$
+     \mathcal L(x,p)=J(x)-\langle p,E(x)\rangle.
+   $$
+
+   Thus the reduced covector is always $J_u'-E_u'^*p$.
+
+2. Residuals and objective derivatives return covectors. A metric alone maps
+   the reduced covector to a primal direction.
+3. A VJP seed for a residual is primal in its test space. Do not replace it
+   with a covector or add mass matrices unless the chosen discrete dual
+   representation requires one.
+4. New physics belongs in a residual-term lowerer, observations in an
+   observation lowerer, and optimizer behavior in a solver. Do not introduce
+   classes named after complete PDE/control combinations.
+5. Every differentiable new coupling needs a value test, a JVP Taylor test,
+   and a VJP pairing test. Every reduced feature needs a reduced-derivative
+   Taylor test.
+6. Unsupported combinations must yield a capability diagnostic. They must not
+   quietly fall back to a nearby but different mathematical problem.
+
+## Ranked work items
+
+### P0.1 — Add a real deal.II $L^2$ metric
+
+**Why first:** The lowerer already assembles the control mass matrix
+$M_u$, and the reduced DTO builder already produces $j_h'(u)$. The
+missing operation is
+
+$$
+  \nabla_{L^2}j=M_u^{-1}j_h'.
+$$
+
+Without it, the result is a correct covector but not yet a usable search
+direction for a deal.II optimizer.
+
+**Implement:**
+
+- A generic deal.II mass-metric implementation of `MetricT<SerialBackend>`.
+- Apply with a sparse mass-matrix multiplication and inverse-apply with a
+  declared linear solver/tolerance.
+- Expose the control mass matrix through a narrow compiled-metric factory, not
+  through optimizer knowledge of `ScalarDiffusionReactionModel`.
+
+**Primary files:** add `include/nmopt/dealii/mass_metric.hpp`; minimally extend
+the current lowerer with a metric factory or compiled-object registry.
+
+**Done when:**
+
+- applying the inverse followed by apply recovers a random covector;
+- a metric direction satisfies
+  $\langle M_u g,\delta u\rangle=\langle j',\delta u\rangle$;
+- the test uses actual deal.II vectors and a nontrivial control mass matrix.
+
+### P0.2 — Add a generic reduced Armijo gradient solver
+
+**Why second:** This closes the current vertical slice: the existing state
+solve, adjoint solve, reduced covector, and new metric become a real
+optimization loop. The solver must consume only `ReducedDTOT` and `MetricT`.
+
+**Implement:**
+
+- A backend-parametric reduced gradient solver with Armijo backtracking.
+- Objective history, gradient norm in the selected metric, state/adjoint solve
+  counts, and clear stopping reasons.
+- An unconstrained path first; no PDE type checks or casts.
+
+**Primary files:** add `include/nmopt/solvers/reduced_gradient.hpp` and a
+deal.II integration test.
+
+**Done when:**
+
+- the objective decreases monotonically under the line-search criterion;
+- the norm of the reduced covector/gradient reaches a configured tolerance on
+  a manufactured linear-quadratic case;
+- the same solver passes the dense reference model test unchanged.
+
+### P0.3 — Add the selected cellwise $L^2$ box constraint
+
+**Why now:** `FE_DGQ(0)` was chosen precisely because the $L^2$ box projection
+is unambiguous: clipping one control coefficient per cell represents the
+declared cellwise-constant admissible set.
+
+**Implement:**
+
+- A deal.II implementation of `ConstraintT<SerialBackend>` for coefficientwise
+  lower/upper vectors on the control layout.
+- Projected Armijo gradient updates, with a projected-gradient stopping
+  measure.
+- Data rules for bounds: initially constants or `FE_DGQ(0)` vectors on the
+  control mesh only.
+
+**Do not do:** reuse this projection for continuous controls, nodal bounds,
+or an $H^1$ metric.
+
+**Done when:** a test reaches a bound on a manufactured problem, preserves
+feasibility every iteration, and satisfies a discrete projected-stationarity
+criterion.
+
+### P1.1 — Build the narrow semantic-to-compiler path
+
+**Why before additional PDE features:** The current lowerer is intentionally
+concrete. Adding Neumann, boundary observation, or coefficients directly to
+it would recreate the forbidden problem-class pattern.
+
+**Implement only the current slice of a public semantic graph:**
+
+~~~text
+Region:       volume and boundary ids
+Space:        scalar state/test/control/observation declarations
+Variable:     state and control
+Data:         forcing, target, constants, bounds
+ResidualTerm: diffusion-reaction, volume source, volume control
+Observation:  volume restriction (initially full domain)
+Loss:         quadratic tracking and quadratic control regularisation
+Metric:       L2
+Constraint:   optional cellwise box
+~~~
+
+Add a semantic validator with separate structural, policy, lowerability, and
+formulation-capability diagnostics. Add a lowerer registry that recognizes
+only the listed v0 term kinds and creates the existing deal.II executable
+objects.
+
+**Primary files:** add `include/nmopt/semantic` and `include/nmopt/compiler`
+namespaces; refactor the current concrete model into a registered lowerer.
+Keep the existing direct constructor as a test helper until semantic
+compilation supersedes it.
+
+**Done when:** constructing the current problem through a `ProblemSpec` produces
+the same residual, objective, and reduced derivative as the direct deal.II
+reference setup.
+
+### P1.2 — Generalize fixed essential conditions through reconstruction
+
+**Why:** The current lowerer correctly handles only homogeneous Dirichlet
+data. Fixed inhomogeneous data is the smallest meaningful test of the
+transformation/reconstruction contract; it must happen before controlled
+Dirichlet data.
+
+**Choices and default:**
+
+- **Default:** represent
+  $y_{\rm phys}=P_h\widehat y_h+\ell_{0,h}$, where $P_h$ handles all
+  affine constraints and $\ell_{0,h}$ is a declared fixed lifting.
+- Alternative: work only with full vectors plus modified rows. This is the
+  current homogeneous implementation and must not be generalized implicitly
+  to nonzero data.
+
+**Done when:** residual, observation, JVP, and VJP operate on the physical
+field; a nonzero manufactured Dirichlet solution passes the reduced Taylor
+test; and changing the lifting/data invalidates all appropriate caches.
+
+### P1.3 — Add subdomain observations and data projection policy
+
+**Why:** It exercises the observation/loss port without changing PDE physics.
+It also forces the compiler to make region and data semantics real.
+
+**Implement:**
+
+- Named material/subdomain regions and an observation mask/restriction.
+- A tracking mass/load assembled only on the observation region.
+- Explicit data rule: analytic `Function` evaluated at quadrature or a declared
+  FE projection/interpolation. No implicit nodal interpretation.
+
+**Done when:** changing only the observation region changes the adjoint RHS
+and objective, not $A_h$, $B_h$, the state solution, or solver code.
+
+### P2.1 — Add Neumann control and boundary tracking
+
+**Why:** This is the first nontrivial boundary composition test while keeping
+the state parameterization fixed. It tests face integration, regions, trace
+semantics, control layout, and pullbacks.
+
+**Default first discrete choice:** facewise-constant boundary control on
+marked boundary faces of the state triangulation. Assemble with `FEFaceValues`.
+
+**Implement:**
+
+- Boundary Region declarations and a boundary control layout.
+- A residual term
+  $-\langle u,\gamma v\rangle_{\Gamma_c}$ and its VJP.
+- Boundary trace observation/loss on a marked boundary region.
+- Independent boundary $L^2$ metric and box constraint realization.
+
+**Done when:** the boundary coupling obeys the pairing test and a
+finite-difference reduced derivative test. Do not call it a Dirichlet
+control or use a generic boundary-load abstraction for both cases.
+
+### P2.2 — Support pure Neumann with the selected mean-constraint policy
+
+**Why:** This is a correctness feature, not a convenience flag. It affects
+state uniqueness, adjoints, observation meaning, metrics, and preconditioners.
+
+**Default:** augment state and adjoint systems with one mean-zero
+constraint/multiplier. Check compatibility of every volume and boundary load,
+including controls.
+
+**Done when:** incompatible data is rejected; compatible problems report the
+gauge in their compilation manifest; state and adjoint are invariant under no
+unrecorded pinning convention.
+
+### P2.3 — Add $H^1$ regularisation and $H^1$ search geometry separately
+
+**Why:** The current code makes the distinction possible but does not yet
+exercise it.
+
+**Implement in two different tasks or commits:**
+
+1. $H^1$ **regularisation**: a new control loss and likely an `FE_Q` control
+   space; it changes $J_u'$.
+2. $H^1$ **metric**: a Riesz map/inverse used only for
+   $G^{-1}j'$; it does not change the objective or adjoint.
+
+The metric needs a positive zero-order term or an explicit boundary/mean
+policy to be invertible. An $H^{-1}$-type metric remains unsupported until
+its exact Hilbert space and discrete operator are stated.
+
+### P3.1 — Add coefficient identification and nonlinear first-order actions
+
+**Why:** This validates the parameter block and nonlinear residual paths while
+remaining compatible with reduced DTO and L-BFGS.
+
+**Implement:**
+
+- Parameter variable, bounds/positivity policy, and optionally
+  $m=\exp(q)$ transformation.
+- Residual
+  $(m\nabla y,\nabla v)$, JVPs in $y$ and $m$, and VJPs for both.
+- State solve policy that reassembles at each parameter iterate.
+- L-BFGS or Gauss--Newton only after reduced derivatives pass Taylor tests.
+
+**Do not do:** introduce an inverse-problem solver type or a general nonlinear
+KKT Newton method. The latter needs the separate second-order contract.
+
+### P3.2 — Add Dirichlet control through an explicit lifting
+
+**Why later:** It is a transformation problem, not a load term. The fixed
+lifting work in P1.2 is its prerequisite.
+
+**Default:** compile an explicit map
+
+$$
+  y_{\rm phys}=P_h\widehat y_h+\ell_{0,h}+L_{D,h}u_h
+$$
+
+with forward value, JVP, and VJP. Both residual and observation consume
+$y_{\rm phys}$.
+
+**Done when:** the implementation passes a composed-transformation VJP test
+and a reduced Taylor test. Reject boundary spaces or corner/interface
+configurations with no declared lifting policy.
+
+### P4.1 — Add the fixed-step temporal compiler
+
+**Default:** a global residual for a fixed-step backward-Euler heat equation,
+with the complete trajectory available for its exact transpose.
+
+**Prerequisites:** stable reconstruction semantics, compilation manifests,
+and state/adjoint solve diagnostics.
+
+**Do not do:** hide a forward time integrator behind a separately coded
+backward adjoint, or introduce adaptive steps/events before replay and
+differentiated-control policies exist.
+
+### P4.2 — Generalize algebra, execution, and formulations
+
+This final group has value, but should not block the preceding vertical
+slices:
+
+1. Multiple state/equation blocks, mixed fields, and Petrov--Galerkin spaces.
+2. Serial matrix-free equivalence, then distributed Trilinos/PETSc vector
+   backends with ownership/ghost policies.
+3. OTD formulation builder with explicit provenance and DTO comparison tests.
+4. Second-order Lagrangian Hessian-vector contract, then nonlinear KKT
+   Newton/SQP and active-set methods.
+5. Fractional metrics, point/flux observations, nonmatching meshes, and shape
+   optimization only with their own explicit policies.
+
+## Suggested next-agent sequence
+
+For the next agent, take **P0.1 only** unless explicitly asked for a broader
+change:
+
+1. Read this roadmap, the executable-contract document, and the deal.II
+   lowerer document.
+2. Run the baseline `CTest` command.
+3. Inspect the existing control mass assembly in
+   `scalar_diffusion_reaction.hpp`.
+4. Add the deal.II mass metric without changing residual/objective code.
+5. Add its exact inverse/apply and pairing tests.
+6. Run the baseline tests again, then report the new capability and the
+   remaining exclusions.
+
+This keeps the public contracts stable and makes each step reviewable.

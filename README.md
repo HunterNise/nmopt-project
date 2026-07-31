@@ -28,6 +28,8 @@ Start here:
   typed value/JVP/VJP, metric, constraint, and reduced-DTO boundary.
 - [deal.II v0 lowerer](docs/dealii-v0-lowerer.md) — the compiled scalar
   diffusion-reaction slice, its discrete policies, and exclusions.
+- [Implementation roadmap and agent handoff](docs/implementation-roadmap.md)
+  — ranked continuation tasks, acceptance checks, and file-level guidance.
 - [Project guide for contributors and agents](AGENTS.md) — concise working
   instructions and non-negotiable design decisions.
 

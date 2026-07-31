@@ -1,0 +1,47 @@
+# Documentation map
+
+This directory is organized by purpose and audience. Start with the smallest
+document that answers the question, then follow links to the deeper material.
+
+## Authority and status
+
+- `interface-specification.md` is the normative, implementation-neutral
+  contract for semantic interfaces and component protocols.
+- `implementation-readiness-review.md` selects the required default policies
+  for the first executable implementation when the specification allows
+  multiple choices.
+- `executable-contract-v0.md` and `dealii-v0-lowerer.md` describe the current
+  implemented contracts, supported slice, and explicit exclusions.
+- `architecture.md` records the long-term design rationale and boundaries.
+- `implementation-roadmap.md` records current implementation state, task
+  order, acceptance checks, and agent handoff guidance.
+- The remaining documents provide mathematical background, examples, and
+  implementation analysis; they do not silently override the normative
+  contracts above.
+
+## Choose by task
+
+| Audience or task | Start with | Then consult |
+| --- | --- | --- |
+| New contributor or agent | `README.md`, `AGENTS.md` | `implementation-roadmap.md` |
+| Changing semantic interfaces or ports | `interface-specification.md` | `architecture.md`, `implementation-readiness-review.md` |
+| Changing the backend-neutral executable API | `executable-contract-v0.md` | `implementation-readiness-review.md`, `implementation-roadmap.md` |
+| Changing deal.II code or the compiler/lowerer | `dealii-v0-lowerer.md` | `executable-contract-v0.md`, `implementation-roadmap.md` |
+| Deciding component ownership or layer boundaries | `composition-boundaries.md` | `architecture.md`, `interface-specification.md` |
+| Checking mathematical signs or formulas | `theoretical-formalism.md` | `laplace-interface-formulas.md`, `laplace-growth-case-study.md` |
+| Understanding the concrete end-to-end example | `laplace-growth-case-study.md` | `laplace-interface-formulas.md` |
+| Choosing the next implementation task | `implementation-roadmap.md` | The task-specific contract listed above |
+| Reviewing why the design is shaped this way | `architecture.md` | `theoretical-formalism.md` |
+
+## Document index
+
+- [Architecture record](architecture.md)
+- [Composition boundaries](composition-boundaries.md)
+- [Theoretical formalism](theoretical-formalism.md)
+- [Interface specification](interface-specification.md)
+- [Implementation-readiness review](implementation-readiness-review.md)
+- [V0 executable contract](executable-contract-v0.md)
+- [deal.II v0 lowerer](dealii-v0-lowerer.md)
+- [Laplace growth case study](laplace-growth-case-study.md)
+- [Laplace interface formulas](laplace-interface-formulas.md)
+- [Implementation roadmap](implementation-roadmap.md)

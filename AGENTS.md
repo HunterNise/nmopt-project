@@ -1,68 +1,96 @@
 # Project guide
 
-## Goal
+## Mission
 
-Build a deal.II-based framework for PDE-constrained optimal control and inverse
-problems. It should make valid variations composable: elliptic and later
-evolution PDEs; scalar/vector/mixed fields; distributed, boundary, and
-parameter controls; observations; norms; boundary conditions; box constraints;
-and reduced-space or all-at-once solvers.
+Build a deal.II-based framework for PDE-constrained optimal control and
+inverse problems. The project should make combinations of PDE operators,
+controls, observations, norms, constraints, and solvers reusable without
+creating a new problem class for every combination.
 
-The detailed architectural record is [docs/architecture.md](docs/architecture.md).
+The documentation map is [docs/README.md](docs/README.md). Use it to select
+the documents relevant to a task; do not assume that every document is needed.
 
-## Core design decisions
+## Code and file architecture
 
-1. Do **not** create subclasses such as
-   `NeumannBoundaryControlProblem` or `DiffusionTrackingProblem`.
-2. The general mathematical model is
-   $\min J(x)$ subject to $E(x)=0$ in a declared test-space dual. Here
-   $x$ can contain state, control, parameters, and other variables.
-3. Components compose through explicit ports:
+- Keep semantic problem descriptions, executable contracts, discretization
+  backends, and solver/formulation code in separate layers.
+- Connect layers through explicit, stable interfaces or ports. Do not bypass
+  a layer by adding backend or solver details to a semantic component.
+- Do not create subclasses for particular combinations of PDE, objective,
+  control, or boundary condition.
+- Do not add PDE-specific branches to generic solvers or solver-specific
+  branches to PDE components.
+- Keep implementation details in the narrowest layer that needs them.
+- When a public interface or file boundary changes, update its authoritative
+  documentation and add or update focused tests.
+- Use the implementation roadmap for task scope and sequencing. If a task
+  requires a new architectural decision, document the decision instead of
+  silently extending an existing interface.
 
-   - residual and residual derivatives;
-   - objective and objective derivatives;
-   - primal/dual pairings and metrics;
-   - transformations such as liftings and restrictions;
-   - constraints and admissible-set operations.
+## Working rules
 
-4. A derivative is a dual element. A gradient is obtained only after choosing
-   a metric/Riesz or other primal-dual identification. Do not silently identify
-   all derivatives with `L2` functions.
-5. Dirichlet conditions are not ordinary load terms. Essential conditions
-   restrict/parameterize the state space and may require a lifting. Dirichlet
-   boundary control must go through such a lifting.
-6. Keep continuous semantics and deal.II realization separate. A semantic
-   model describes spaces, residuals, objectives, and requirements; a compiler
-   creates FE layouts, `AffineConstraints`, liftings, operators, and vectors.
-7. The core coordinates state, adjoint, gradient, KKT, and solver workflows.
-   Individual terms own the weak form and adjoint/Jacobian actions they need.
+- Inspect `git status` before changing files and preserve existing user work.
+- Work on the currently selected branch or worktree; do not switch branches
+  for convenience.
+- Do not merge, push, force-push, or rewrite history unless explicitly asked.
+- Prefer small, coherent changes with a clear handoff.
+- Do not commit build products, generated files, editor files, or secrets.
 
-## Target pipeline
+## Validation
 
-```text
-ProblemSpec -> semantic validation -> discretization/compilation
-            -> executable residual/objective/metric operators
-            -> reduced or KKT formulation -> solver -> output
+Run the baseline checks after implementation changes:
+
+```bash
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
 ```
 
-## Scope discipline
+If an optional backend is unavailable, run the tests that can be built and
+report which checks were skipped.
 
-Do not claim arbitrary combinations are automatically well posed or have a
-canonical FE discretization. Components must declare requirements, and the
-validator must reject or request an explicit policy for cases such as point
-observations, fractional norms, pure Neumann nullspaces, very weak forms, and
-Dirichlet control.
+## Documentation and Markdown style
 
-Prefer a small, tested first vertical slice before advanced cases. The proposed
-initial slice is scalar stationary diffusion-reaction with standard boundary
-conditions, volume and Neumann control, distributed/boundary tracking, `L2` and
-`H1` metrics, box constraints, and a reduced-space optimizer.
+- Use `$...$` for inline LaTeX and `$$...$$` for display equations. Do not use
+  `\(...\)` or `\[...\]`, because the project Markdown viewer does not render
+  those delimiters reliably.
+- Always brace superscripts and subscripts, including one-character scripts:
+  write `x_{i}`, `x^{*}`, and `E'(x)^{*}` rather than `x_i`, `x^*`, or
+  `E'(x)^*`. This avoids parser ambiguity around primes and nested scripts.
+- For inline formulas containing underscores or other Markdown punctuation, use
+  GitHub's backtick-delimited math form:
 
-## When implementing
+  ```text
+  $`x_{i}`$
+  ```
 
-- Preserve the residual-based abstraction; never add solver-specific branches
-  to a PDE term or PDE-specific branches to an optimizer.
-- Make every required linearized action and its transpose testable.
-- Keep signs, dual pairings, and Lagrangian convention documented globally.
-- Add adjoint-consistency and Taylor-remainder tests for each new coupling.
-- Use deal.II implementation details only in the discrete layer.
+- Do not use `\operatorname`, `\tag`, `\hbox`, `\tt`, or `\rm`; GitHub's math
+  pipeline does not handle all of these consistently. Prefer `\mathrm{...}` or
+  `\text{...}`, and put equation numbers in `\text{(1)}` or in prose.
+- Do not use fine-spacing commands such as `\!` or `\,`. Use ordinary spaces,
+  `\;`, or `\quad` when extra spacing is actually needed.
+- Use `\lVert u\rVert` and `\rVert` for norm bars rather than constructions
+  such as `\|\|u\|\|`.
+- Use a literal Unicode en dash `–` in prose. Preserve `--` only where it is
+  Markdown table syntax or part of a shell command/options.
+- Use inline `$...$` math inside tables. Move longer or display-sized equations
+  outside tables rather than putting `$$...$$` in a table cell.
+- Use proper LaTeX notation instead of shorthand when precision matters. For
+  example, write `$L^2(\Omega)$`, `$\partial\Omega$`, and `$\nabla u$` rather
+  than plain-text substitutes.
+- Put code symbols, class names, functions, commands, options, filenames,
+  paths, branch names, and environment variables in backticks: `ProblemSpec`,
+  `docs/architecture.md`, or `cmake --build build`.
+- Use fenced code blocks with a language tag, such as a `cpp` block or a `bash`
+  block.
+- Use relative Markdown links for repository files and give links descriptive
+  labels.
+- Keep headings hierarchical, use blank lines around lists and code blocks,
+  and keep tables limited to compact comparisons.
+- Before finishing, inspect rendered-looking Markdown for unmatched backticks,
+  broken links, malformed tables, and inconsistent notation.
+
+## Handoff
+
+Report the files changed, architectural decisions made, validation commands
+run, skipped checks, known limitations, and useful follow-up work.

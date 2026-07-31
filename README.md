@@ -10,26 +10,15 @@ test, and a serial deal.II lowerer for the first scalar finite-element slice.
 
 Start here:
 
+- [Documentation map](docs/README.md) — which document applies to which
+  audience and task.
 - [Architecture overview](docs/architecture.md) — the detailed design record.
-- [Theoretical formalism](docs/theoretical-formalism.md) — the abstract
-  problem, its relation to textbook strong forms, and worked special cases.
-- [Composition boundaries](docs/composition-boundaries.md) — actionable
-  component ownership and unavoidable cross-cutting interactions.
-- [Laplace growth case study](docs/laplace-growth-case-study.md) — a concrete
-  semantic-to-solver walkthrough, extensions, and DTO/OTD comparison.
-- [Laplace formula deltas](docs/laplace-interface-formulas.md) — exact
-  formula changes, compiled operators, and required interface primitives.
 - [Interface specification](docs/interface-specification.md) — normative
-  component contracts, compilation protocols, and solver-facing outputs.
-- [Implementation-readiness review and default policies](docs/implementation-readiness-review.md)
-  — resolved discrete-algebra, compilation, formulation, metric, constraint,
-  boundary, and rollout decisions for the first implementation.
-- [V0 executable contract](docs/executable-contract-v0.md) — the implemented
-  typed value/JVP/VJP, metric, constraint, and reduced-DTO boundary.
-- [deal.II v0 lowerer](docs/dealii-v0-lowerer.md) — the compiled scalar
-  diffusion-reaction slice, its discrete policies, and exclusions.
-- [Implementation roadmap and agent handoff](docs/implementation-roadmap.md)
-  — ranked continuation tasks, acceptance checks, and file-level guidance.
+  component contracts and compilation protocols.
+- [Implementation roadmap](docs/implementation-roadmap.md) — current state,
+  prioritized tasks, and acceptance checks.
+- [Project guide for contributors and agents](AGENTS.md) — concise working,
+  architecture, and formatting rules.
 - [Project guide for contributors and agents](AGENTS.md) — concise working
   instructions and non-negotiable design decisions.
 

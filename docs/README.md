@@ -27,6 +27,7 @@ document that answers the question, then follow links to the deeper material.
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
 | New contributor or agent | `../README.md`, `../AGENTS.md` | `implementation-roadmap.md` |
+| Understand the whole system and its code correspondence | `system-blueprint.md` | `interface-specification.md`, `executable-contract-v0.md` |
 | Changing semantic interfaces or ports | `interface-specification.md` | `architecture.md`, `implementation-readiness-review.md` |
 | Changing the backend-neutral executable API | `executable-contract-v0.md` | `implementation-readiness-review.md`, `implementation-roadmap.md` |
 | Changing deal.II code or the compiler/lowerer | `dealii-v0-lowerer.md` | `executable-contract-v0.md`, `implementation-roadmap.md` |
@@ -40,6 +41,7 @@ document that answers the question, then follow links to the deeper material.
 ## Document index
 
 - [Architecture record](architecture.md)
+- [System blueprint](system-blueprint.md)
 - [Composition boundaries](composition-boundaries.md)
 - [Theoretical formalism](theoretical-formalism.md)
 - [Interface specification](interface-specification.md)

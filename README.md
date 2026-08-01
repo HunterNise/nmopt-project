@@ -10,6 +10,8 @@ test, and a serial deal.II lowerer for the first scalar finite-element slice.
 
 Start here:
 
+- [System blueprint](docs/system-blueprint.md) — theory, specification, v0
+  implementation, and test correspondence in one implementer-oriented guide.
 - [Documentation map](docs/README.md) — which document applies to which
   audience and task.
 - [Architecture overview](docs/architecture.md) — the detailed design record.

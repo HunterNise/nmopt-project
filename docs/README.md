@@ -26,7 +26,7 @@ document that answers the question, then follow links to the deeper material.
 
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
-| New contributor or agent | `../README.md`, `../AGENTS.md` | `implementation-roadmap.md` |
+| New contributor or agent | `system-blueprint.md` | `../AGENTS.md`, `implementation-roadmap.md`, `interface-specification.md` |
 | Understand the whole system and its code correspondence | `system-blueprint.md` | `interface-specification.md`, `executable-contract-v0.md` |
 | Changing semantic interfaces or ports | `interface-specification.md` | `architecture.md`, `implementation-readiness-review.md` |
 | Changing the backend-neutral executable API | `executable-contract-v0.md` | `implementation-readiness-review.md`, `implementation-roadmap.md` |

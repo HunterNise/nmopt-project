@@ -1,7 +1,11 @@
 # Documentation and Markdown conventions
 
-These conventions target the project’s Markdown viewer and GitHub-rendered
-documentation.
+These conventions apply to Markdown and LaTeX stored in the repository,
+especially the project’s Markdown viewer and GitHub-rendered documentation.
+
+They do not govern Codex chat replies. In chat, use `\(...\)` for inline
+mathematics and `\[...\]` for display mathematics, because the chat renderer
+uses a different Markdown/LaTeX pipeline.
 
 ## Mathematics
 

@@ -13,22 +13,14 @@ problem types**.
 
 ## Required routing
 
-Before changing anything:
+Before changing anything, inspect `git status`, preserve existing user work,
+and follow the mandatory routing rules in
+[conventions/README.md](conventions/README.md). That file is the single source
+of truth for action-specific convention routing; do not duplicate its
+convention table here.
 
-1. Inspect `git status` and preserve existing user work.
-2. Read [conventions/README.md](conventions/README.md).
-3. Read every convention file that applies to the intended action.
-4. Use [docs/README.md](docs/README.md) to select the relevant design and
-   implementation documents; do not read every document by default.
-
-The convention files are required pre-reading, not optional background:
-
-- Code, headers, or tests: `conventions/code.md`
-- CMake, build, or test configuration: `conventions/build.md`
-- Markdown or LaTeX: `conventions/documentation.md`
-- Branches, commits, or remotes: `conventions/git.md`
-
-If a change crosses categories, read all applicable convention files first.
+Use [docs/README.md](docs/README.md) to select the relevant design and
+implementation documents. Do not read every document by default.
 
 ## Project authority
 

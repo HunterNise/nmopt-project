@@ -279,8 +279,10 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`mass_metric.hpp`](../include/nmopt/dealii/mass_metric.hpp) | Sparse control $L^{2}$ Riesz map | deal.II control search directions |
 | [`cellwise_box_constraint.hpp`](../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control updates |
 | [`scalar_diffusion_reaction.hpp`](../include/nmopt/dealii/scalar_diffusion_reaction.hpp) | Concrete deal.II lowerer | FE assembly, constraints, solves |
-| [`problem_spec.hpp`](../include/nmopt/semantic/v1/problem_spec.hpp) | Narrow deal.II-free v1 graph and semantic diagnostics | Semantic ports and policies |
-| [`dealii_scalar_diffusion_reaction.hpp`](../include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp) | V1 registered compiler path | Lowerability/formulation diagnostics and compiled v0 comparison |
+| [`types.hpp`](../include/nmopt/semantic/v1/types.hpp) | Narrow deal.II-free v1 graph types | Semantic component ports |
+| [`validation.hpp`](../include/nmopt/semantic/v1/validation.hpp) | Structural and policy diagnostics | Semantic validation |
+| [`compiled_problem.hpp`](../include/nmopt/compiler/v1/compiled_problem.hpp) | Backend-generic compiled package and manifest | Solver-facing compiled ports and provenance |
+| [`dealii_compiler.hpp`](../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks and private v0 comparison target |
 | [`reduced_dto_contract.cc`](../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
 | [`dealii_diffusion_contract.cc`](../tests/dealii_diffusion_contract.cc) | Same checks through real deal.II assembly | End-to-end reference use |
 

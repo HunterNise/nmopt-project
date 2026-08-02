@@ -1,6 +1,7 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
+#include "nmopt/semantic/v1/problem_spec.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
 
 #include <deal.II/base/function_lib.h>
@@ -330,18 +331,7 @@ namespace
                            1e-12,
                            "v1 and v0 objective derivative differ");
 
-    contract::StateControlPartitionT<Backend> compiled_partition(compiled_model,
-                                                                   0,
-                                                                   1);
-    const contract::StateAdjointSolversT<Backend> compiled_solvers{
-      [&compiled_model](const Primal &compiled_control) {
-        return compiled_model.solve_state(compiled_control);
-      },
-      [&compiled_model](const Primal &full_point, const Covector &state_rhs) {
-        return compiled_model.solve_adjoint(full_point, state_rhs);
-      }};
-    const contract::ReducedDTOT<Backend> compiled_reduced(
-      compiled_model, compiled_partition, compiled_solvers);
+    const auto compiled_reduced = compilation.problem->make_reduced_dto();
     const auto compiled_evaluation = compiled_reduced.evaluate(control);
     require_close(compiled_evaluation.objective_value,
                   evaluation.objective_value,
@@ -351,10 +341,17 @@ namespace
                            evaluation.reduced_derivative,
                            1e-12,
                            "v1 and v0 reduced derivative differ");
-    const auto *compiled_constraint = compilation.problem->control_constraint();
+    const auto *compiled_constraint = compilation.problem->constraint();
     contract::require(compiled_constraint != nullptr &&
                         compiled_constraint->is_feasible(bounded_control),
                       "v1 compiler did not preserve the declared box constraint");
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(manifest.semantic_problem_id == specification.id &&
+                        manifest.provenance == "DTO" &&
+                        manifest.execution == "assembled" &&
+                        manifest.constraint_realisation.find("FE_DGQ(0)") !=
+                          std::string::npos,
+                      "v1 compiler did not record its compilation manifest");
   }
 } // namespace
 

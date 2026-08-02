@@ -12,16 +12,16 @@ ScalarDiffusionReactionModel<dim>
 v1 semantic/compiler path
 semantic::v1::ProblemSpec
   -> SemanticValidator + compiler diagnostics
-  -> compiler::v1::CompiledProblem<dim>
-  -> separately constructed ScalarDiffusionReactionModel<dim>
+  -> compiler::v1::CompiledProblemT<SerialBackend>
+  -> generic executable/metric/constraint/DTO services
 ```
 
-The v0 lowerer is not modified or replaced by this path. The v1 compiler owns
-a separate executable instance produced from a validated `ProblemSpec`; v0
-and v1 can therefore be evaluated side by side at the same coefficients.
-This first registration intentionally reuses the already-tested v0 assembly
-as its executable target. A later independently assembled v1 lowerer may be
-registered without changing the semantic API or the v0 reference.
+The v0 lowerer is not modified or replaced by this path. The v1 compiler
+privately constructs a separate v0 executable instance from a validated
+`ProblemSpec` and packages it behind generic executable ports. V0 and v1 can
+therefore be evaluated side by side at the same coefficients, while a later
+independently assembled v1 lowerer can replace the private target without
+changing compiler consumers or the v0 reference.
 
 The normative semantic protocol remains the
 [interface specification](interface-specification.md). This document records
@@ -29,9 +29,10 @@ the concrete, intentionally narrow v1 realization of that protocol.
 
 ## Public semantic graph
 
-`include/nmopt/semantic/v1/problem_spec.hpp` contains deal.II-free component
-descriptions and `make_scalar_diffusion_reaction_problem()`. The current
-factory declares only this graph:
+The compatibility aggregate `include/nmopt/semantic/v1/problem_spec.hpp`
+includes the focused deal.II-free headers `types.hpp`, `validation.hpp`, and
+`reference_specs.hpp`. The last contains
+`make_scalar_diffusion_reaction_problem()`, the current reference graph:
 
 ```text
 Region       one full volume region and homogeneous Dirichlet boundary ids
@@ -67,25 +68,34 @@ to the same `ValidationReport`.
 | `lowerability` | `DealiiCompiler` and its `DealiiLowererRegistryV1` | matrix-free execution, zero `FE_Q` degree, unregistered node kind, missing bound binding |
 | `formulation_capability` | `DealiiCompiler` | all-at-once formulation or a multi-block DTO request |
 
-`CompilationResult<dim>` returns the report and only contains a
-`CompiledProblem<dim>` when it is valid. Unsupported choices are reported as
-diagnostics; the compiler does not substitute another residual, observation,
-metric, constraint, or formulation.
+`CompilationResultT<Backend>` returns the report and only contains a
+`CompiledProblemT<Backend>` when it is valid. Unsupported choices are reported
+as diagnostics; the compiler does not substitute another residual,
+observation, metric, constraint, or formulation.
 
 ## Registered deal.II realization
 
-`include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp` registers
-only the listed volume terms, full-domain volume restriction, quadratic
-losses, `L2` metric, and optional cellwise box. Its selected discrete policy
-is the v0 assembled serial realization: scalar `FE_Q` state/test with degree
-at least one, `FE_DGQ(0)` control on the same mesh, homogeneous Dirichlet
+The compatibility aggregate
+`include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp` exposes the
+focused compiler headers: `compiled_problem.hpp`, `dealii_types.hpp`,
+`dealii_capabilities.hpp`, and `dealii_compiler.hpp`. The last registers only
+the listed volume terms, full-domain volume restriction, quadratic losses,
+`L2` metric, and optional cellwise box. Its selected discrete policy is the
+v0 assembled serial realization: scalar `FE_Q` state/test with degree at
+least one, `FE_DGQ(0)` control on the same mesh, homogeneous Dirichlet
 boundary ids, and reduced DTO.
 
-`CompiledProblem<dim>::executable_model()` exposes the separately owned
-executable for formulation construction. `control_l2_metric()` and
-`control_constraint()` expose only the metric and optional constraint that
-were declared by the graph. Solvers continue to consume the backend-neutral
-executable/DTO/metric/constraint contracts; they have no v1 branches.
+`CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
+and `make_reduced_dto()` expose only backend-neutral ports and formulation
+services. The concrete v0 model, mass metric, and box constraint stay inside
+`DealiiCompiler`. Solvers have no v1 branches.
+
+Every successful compiled product also carries a `CompilationManifest`. It
+records semantic component identities, FE spaces, quadrature, the
+dual-coefficient representation, data rule, metric solve tolerances,
+constraint/lifting/nullspace policies, DTO provenance, and declared
+assumptions. The manifest is descriptive provenance; it does not create a
+second configuration channel.
 
 ## Comparison guarantee
 

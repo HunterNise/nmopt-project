@@ -1,0 +1,61 @@
+#pragma once
+
+#include "nmopt/semantic/v1/types.hpp"
+
+namespace nmopt::compiler::v1
+{
+  // This small built-in registry is intentionally explicit. A semantic kind
+  // is executable only when the v1 compiler has registered the corresponding
+  // lowerer capability; it never falls back to a nearby term.
+  class DealiiLowererRegistryV1 final
+  {
+  public:
+    bool
+    has_residual_term_lowerer(const semantic::v1::ResidualTermKind kind) const
+    {
+      switch (kind)
+        {
+          case semantic::v1::ResidualTermKind::diffusion_reaction:
+          case semantic::v1::ResidualTermKind::volume_source:
+          case semantic::v1::ResidualTermKind::volume_control:
+            return true;
+        }
+      return false;
+    }
+
+    bool
+    has_observation_lowerer(const semantic::v1::ObservationKind kind) const
+    {
+      switch (kind)
+        {
+          case semantic::v1::ObservationKind::volume_restriction:
+            return true;
+        }
+      return false;
+    }
+
+    bool
+    has_loss_lowerer(const semantic::v1::LossKind kind) const
+    {
+      switch (kind)
+        {
+          case semantic::v1::LossKind::quadratic_tracking:
+          case semantic::v1::LossKind::quadratic_control_regularisation:
+            return true;
+        }
+      return false;
+    }
+
+    bool
+    has_metric_lowerer(const semantic::v1::MetricKind kind) const
+    {
+      return kind == semantic::v1::MetricKind::l2;
+    }
+
+    bool
+    has_constraint_lowerer(const semantic::v1::ConstraintKind kind) const
+    {
+      return kind == semantic::v1::ConstraintKind::cellwise_box;
+    }
+  };
+} // namespace nmopt::compiler::v1

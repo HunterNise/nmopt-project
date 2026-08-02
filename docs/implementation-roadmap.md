@@ -22,8 +22,8 @@ The following pieces exist and are tested:
 | Layer | Existing artifact | Meaning |
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. |
-| V1 semantic graph | `include/nmopt/semantic/v1/problem_spec.hpp` | Deal.II-free selected graph, explicit pairings, and structural/policy diagnostics. |
-| V1 compiler | `include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp` | Registered assembled volume slice with lowerability/formulation diagnostics and a separately owned executable. |
+| V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph, explicit pairings, and structural/policy diagnostics. |
+| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp` | Backend-generic compiled package, manifest, and registered assembled volume slice. |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one control block, one test block, externally supplied state/adjoint solves. |
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
@@ -191,8 +191,8 @@ separately owned compiled executable. The v0 direct
 constructs its own instance from the semantic declaration, so both paths can
 be compared without overwriting v0.
 
-**Primary files:** `include/nmopt/semantic/v1/problem_spec.hpp`,
-`include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp`,
+**Primary files:** `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp`,
+`include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp`,
 `docs/semantic-v1-compiler.md`, and focused semantic/deal.II contract tests.
 
 **Done when:** constructing the current problem through a `ProblemSpec` produces

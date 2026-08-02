@@ -1,3 +1,4 @@
+#include "nmopt/contract/linalg.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
 
 #include <exception>

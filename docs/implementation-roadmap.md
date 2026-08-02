@@ -28,8 +28,9 @@ The following pieces exist and are tested:
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend for the backend-parametric contract. |
 | deal.II lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Assembled scalar `FE_Q` diffusion-reaction state, `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
 | deal.II metric | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse-mass $L^{2}$ Riesz action with serial CG inverse apply. |
-| Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained Armijo method over `ReducedDTOT` and `MetricT`. |
-| Tests | `tests/reduced_dto_contract.cc` and `tests/dealii_diffusion_contract.cc` | Pairing, JVP, VJP, residual finite difference, state solve, reduced derivative, deal.II mass metric, and reduced Armijo checks. |
+| deal.II constraint | `include/nmopt/dealii/cellwise_box_constraint.hpp` | `FE_DGQ(0)` coefficientwise box projection for the declared `l2_cellwise` metric. |
+| Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
+| Tests | `tests/reduced_dto_contract.cc` and `tests/dealii_diffusion_contract.cc` | Pairing, JVP, VJP, residual finite difference, state solve, reduced derivative, deal.II metric, and unconstrained/projected Armijo checks. |
 
 The implementation is deliberately not a general compiler yet. The deal.II
 class is a concrete lowerer/reference slice, not the future public
@@ -125,7 +126,7 @@ deal.II integration test.
   a manufactured linear-quadratic case;
 - the same solver passes the dense reference model test unchanged.
 
-### P0.3 — Add the selected cellwise $L^{2}$ box constraint
+### P0.3 — Add the selected cellwise $L^{2}$ box constraint — completed
 
 **Why now:** `FE_DGQ(0)` was chosen precisely because the $L^{2}$ box projection
 is unambiguous: clipping one control coefficient per cell represents the
@@ -142,6 +143,13 @@ declared cellwise-constant admissible set.
 
 **Do not do:** reuse this projection for continuous controls, nodal bounds,
 or an $H^{1}$ metric.
+
+**Implemented:** `dealii_backend::CellwiseBoxConstraint` is the serial
+coefficientwise `ConstraintT<SerialBackend>` realization. The lowerer exposes
+only `FE_DGQ(0)` control factories for scalar constants or exact-layout
+coefficient vectors. The constraint-qualified `ReducedGradientSolverT`
+projects every trial in `l2_cellwise` and stops on the metric norm of the
+projected-gradient residual.
 
 **Done when:** a test reaches a bound on a manufactured problem, preserves
 feasibility every iteration, and satisfies a discrete projected-stationarity
@@ -329,18 +337,18 @@ slices:
 
 ## Suggested next-agent sequence
 
-For the next agent, take **P0.3 only** unless explicitly asked for a broader
+For the next agent, take **P1.1 only** unless explicitly asked for a broader
 change:
 
-1. Read this roadmap, the executable-contract document, the constraint
-   contract, and the deal.II lowerer document.
+1. Read this roadmap, the interface specification, the executable contract,
+   and the deal.II lowerer document.
 2. Run the baseline `CTest` command.
-3. Add the selected `FE_DGQ(0)` coefficientwise box constraint without
-   extending it to continuous controls or any non-$L^{2}$ metric.
-4. Extend the generic solver with the declared metric-specific projection and
-   projected-stationarity measure, without PDE type checks or casts.
-5. Test bounds, feasibility at every iteration, and projected stationarity on
-   a manufactured problem.
+3. Define the narrow v0 semantic graph and its structural, policy,
+   lowerability, and formulation-capability diagnostics.
+4. Register only the existing scalar diffusion-reaction volume slice and
+   compile it to the current executable objects.
+5. Prove semantic and direct construction agree on residual, objective, and
+   reduced derivative.
 6. Run the baseline tests again, then report the new capability and the
    remaining exclusions.
 

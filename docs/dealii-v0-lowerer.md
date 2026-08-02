@@ -48,9 +48,8 @@ the backend-parametric `ExecutableModelT` contract.
 | Provenance | DTO. |
 
 The control mass matrix is the $L^{2}$ metric and regularisation realization.
-Because `FE_DGQ(0)` is cellwise constant, a future deal.II cellwise box
-constraint may use coefficient clipping only with that declared $L^{2}$
-metric.
+Because `FE_DGQ(0)` is cellwise constant, coefficientwise clipping realizes
+the declared cellwise $L^{2}$ box projection and no other bound semantics.
 
 `ScalarDiffusionReactionModel::control_l2_metric()` is the narrow
 compiled-metric factory for the control space. It returns a
@@ -59,6 +58,13 @@ the assembled control mass matrix and applies its inverse with serial CG using
 declared iteration and relative/absolute tolerance parameters. Optimizers use
 the returned `MetricT<SerialBackend>` implementation and do not access this
 lowerer's matrix or PDE-specific type.
+
+`ScalarDiffusionReactionModel::control_l2_box_constraint()` is the matching
+control-space factory for `dealii_backend::CellwiseBoxConstraint`. It accepts
+either scalar constant bounds or serial vectors with exactly the control
+layout's coefficient count. The factory is the only v0 path for this
+constraint, so the bounds are `FE_DGQ(0)` cell coefficients on this control
+mesh; it is not a nodal, continuous-control, or $H^{1}$ projection.
 
 ## Affine constraints and coordinate policy
 
@@ -88,7 +94,10 @@ The deal.II `CTest` case assembles a refined two-dimensional mesh and verifies:
 1. the state solve residual;
 2. residual JVP/VJP adjoint consistency;
 3. residual finite-difference JVP consistency; and
-4. the reduced DTO derivative by a state-recomputed Taylor difference.
+4. the reduced DTO derivative by a state-recomputed Taylor difference;
+5. control mass-metric inverse/apply and pairing consistency; and
+6. unconstrained and box-projected reduced Armijo convergence, including
+   a feasible active-bound control and projected stationarity.
 
 The test runs through the real deal.II `DoFHandler`, `FEValues`, `FEFace`-independent
 volume assembly, `AffineConstraints`, sparse matrices, and CG solves.
@@ -104,7 +113,7 @@ the following:
 - variable/nonlinear coefficients, nonlinear state solves, and second
   derivatives;
 - $H^{1}$, $H^{-1}$, fractional, or other non-$L^{2}$ metric realizations;
-- box constraints in a deal.II vector backend;
+- continuous-control, nodal, or non-$L^{2}$ box projection;
 - time dependence, matrix-free execution, OTD, or KKT Newton.
 
 These are extensions of the contract, not branches to insert into this

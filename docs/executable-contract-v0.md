@@ -113,13 +113,30 @@ $$
   j_{h}(u-\alpha g) \leq j_{h}(u)-c\alpha\langle j_{h}',g\rangle.
 $$
 
-The solver returns accepted-objective and metric-gradient-norm histories,
+The constraint-qualified constructor accepts a `ConstraintT` only when its
+layout matches the metric and it declares projection support for that metric.
+It requires a feasible initial control. With projection $`\Pi_{\mathcal U}`$,
+the stopping measure and trial control are
+
+$$
+  r_{\Pi}=u-\Pi_{\mathcal U}(u-G^{-1}j_{h}'),\qquad
+  u_{\alpha}=\Pi_{\mathcal U}(u-\alpha G^{-1}j_{h}').
+$$
+
+It stops when the declared metric norm of $`r_{\Pi}`$ reaches the configured
+tolerance. A projected trial is accepted only when
+
+$$
+  j_{h}(u_{\alpha}) \leq
+  j_{h}(u)+c\langle j_{h}',u_{\alpha}-u\rangle.
+$$
+
+The solver returns accepted-objective and stopping-norm histories,
 accepted-iteration and line-search-trial counts, state/adjoint solve counts,
 and one stopping reason: `gradient_tolerance`, `maximum_iterations`, or
 `line_search_failure`. Each objective trial is evaluated through
 `ReducedDTOT::evaluate`, so both reported solve counts increase once for the
-initial point and once for every line-search trial. It implements no
-constraint projection; the cellwise box extension owns that behavior.
+initial point and once for every line-search trial.
 
 ## Metric and constraint boundary
 
@@ -127,10 +144,12 @@ The backend-neutral concrete metric supplied is a positive diagonal metric.
 The serial deal.II backend also supplies `dealii_backend::MassMetric`, which
 uses a one-block sparse mass matrix for its primal-to-dual action and a
 CG inverse apply with explicit iteration and relative/absolute tolerance
-parameters. The only concrete constraint supplied is a cellwise box
-constraint, and it explicitly supports projection only in a metric whose
-identifier is `l2_cellwise`. This models the selected `FE_DGQ(0)`
-volume-control policy and prevents accidental coefficient clipping in an
+parameters. The concrete dense and serial deal.II constraints are cellwise
+boxes, and they explicitly support projection only in a metric whose
+identifier is `l2_cellwise`. The deal.II realization is created only through
+the concrete lowerer's `FE_DGQ(0)` control factory, with scalar constant
+bounds or control coefficient vectors of the exact control layout. This
+prevents accidental coefficient clipping in continuous controls or an
 $H^{1}$ geometry.
 
 ## Reference model and verification
@@ -154,7 +173,9 @@ The `CTest` executable verifies:
 4. state solve residual;
 5. reduced DTO derivative;
 6. metric inverse/apply consistency; and
-7. the selected cellwise $L^{2}$ box projection.
+7. the selected cellwise $L^{2}$ box projection; and
+8. dense and deal.II unconstrained/projected Armijo convergence, including
+   active-bound and projected-stationarity checks.
 
 This establishes the small executable algebra that a deal.II compiler must
 produce. The first serial scalar diffusion-reaction compiler now exists; its

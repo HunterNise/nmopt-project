@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 
@@ -128,6 +129,20 @@ namespace nmopt::dealii_backend
                         control_layout_,
                         control_mass_,
                         solve_parameters);
+    }
+
+    CellwiseBoxConstraint
+    control_l2_box_constraint(Vector lower, Vector upper) const
+    {
+      return CellwiseBoxConstraint(control_layout_,
+                                   std::move(lower),
+                                   std::move(upper));
+    }
+
+    CellwiseBoxConstraint
+    control_l2_box_constraint(const double lower, const double upper) const
+    {
+      return CellwiseBoxConstraint(control_layout_, lower, upper);
     }
 
     const dealii::AffineConstraints<double> &

@@ -211,6 +211,45 @@ namespace
     contract::require(solver_result.line_search_trial_count + 1 ==
                         solver_result.state_solve_count,
                       "deal.II reduced gradient solve count misses a trial evaluation");
+
+    const auto bounds = model.control_l2_box_constraint(-1.0, 0.05);
+    dealii::Vector<double> bounded_control_values(
+      partition.control_layout()->dimension(0));
+    const Primal bounded_control(partition.control_layout(),
+                                 {std::move(bounded_control_values)});
+    const nmopt::solvers::ReducedGradientSolverT<Backend> projected_solver(
+      reduced, metric, bounds, solver_parameters);
+    const auto projected_result = projected_solver.solve(bounded_control);
+
+    contract::require(
+      projected_result.stopping_reason ==
+        nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+      "deal.II projected reduced gradient solver did not reach stationarity");
+    contract::require(bounds.is_feasible(projected_result.control),
+                      "deal.II projected reduced gradient returned an infeasible control");
+    contract::require(projected_result.gradient_norm_history.back() <=
+                        solver_parameters.gradient_tolerance,
+                      "deal.II projected reduced gradient final norm exceeds tolerance");
+    bool upper_bound_is_active = false;
+    for (dealii::types::global_dof_index index = 0;
+         index < projected_result.control.block(0).size();
+         ++index)
+      {
+        contract::require(projected_result.control.block(0)[index] >= -1.0 &&
+                            projected_result.control.block(0)[index] <= 0.05,
+                          "deal.II projected reduced gradient left the box");
+        upper_bound_is_active = upper_bound_is_active ||
+                                projected_result.control.block(0)[index] >=
+                                  0.05 - 1e-12;
+      }
+    contract::require(upper_bound_is_active,
+                      "deal.II projected reduced gradient did not reach a bound");
+    for (std::size_t index = 1;
+         index < projected_result.objective_history.size();
+         ++index)
+      contract::require(projected_result.objective_history[index] <=
+                          projected_result.objective_history[index - 1],
+                        "deal.II projected reduced objective is not monotonic");
   }
 } // namespace
 

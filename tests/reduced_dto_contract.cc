@@ -71,6 +71,50 @@ namespace
     return value;
   }
 
+  class RecordingConstraint final : public Constraint
+  {
+  public:
+    explicit RecordingConstraint(const CellwiseBoxConstraint &constraint)
+      : constraint_(constraint)
+    {}
+
+    const LayoutPtr &
+    layout() const override
+    {
+      return constraint_.layout();
+    }
+
+    bool
+    is_feasible(const PrimalBlock &primal) const override
+    {
+      return constraint_.is_feasible(primal);
+    }
+
+    bool
+    supports_projection_in(const Metric &metric) const override
+    {
+      return constraint_.supports_projection_in(metric);
+    }
+
+    PrimalBlock
+    project_in(const PrimalBlock &primal, const Metric &metric) const override
+    {
+      PrimalBlock projected = constraint_.project_in(primal, metric);
+      projected_controls_.push_back(projected);
+      return projected;
+    }
+
+    const std::vector<PrimalBlock> &
+    projected_controls() const
+    {
+      return projected_controls_;
+    }
+
+  private:
+    const CellwiseBoxConstraint &  constraint_;
+    mutable std::vector<PrimalBlock> projected_controls_;
+  };
+
   void
   test_v0_contract()
   {
@@ -209,6 +253,40 @@ namespace
     require(solver_result.state_solve_count >
               solver_result.objective_history.size(),
             "Dense reduced gradient test did not exercise Armijo backtracking");
+
+    const CellwiseBoxConstraint projected_bounds(
+      partition.control_layout(), {DenseVector{-1.0, -0.2}},
+      {DenseVector{1.0, 0.5}});
+    const RecordingConstraint recording_bounds(projected_bounds);
+    const nmopt::solvers::ReducedGradientSolver projected_solver(
+      reduced, metric, recording_bounds, solver_parameters);
+    const auto projected_result = projected_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{0.4, 0.4}}));
+
+    require(projected_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Projected reduced gradient solver did not reach stationarity");
+    require(projected_bounds.is_feasible(projected_result.control),
+            "Projected reduced gradient solver returned an infeasible control");
+    require_close(projected_result.control.block(0)[1],
+                  -0.2,
+                  1e-12,
+                  "Projected reduced gradient did not reach the lower bound");
+    require(projected_result.gradient_norm_history.back() <=
+              solver_parameters.gradient_tolerance,
+            "Projected reduced gradient final norm exceeds the tolerance");
+    require(!recording_bounds.projected_controls().empty(),
+            "Projected reduced gradient did not request a projection");
+    for (const PrimalBlock &projected_control :
+         recording_bounds.projected_controls())
+      require(projected_bounds.is_feasible(projected_control),
+              "Projected reduced gradient generated an infeasible iterate");
+    for (std::size_t index = 1;
+         index < projected_result.objective_history.size();
+         ++index)
+      require(projected_result.objective_history[index] <=
+                projected_result.objective_history[index - 1],
+              "Projected reduced gradient objective history is not monotonic");
   }
 
   void

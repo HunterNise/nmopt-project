@@ -271,8 +271,11 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`executable_model.hpp`](../include/nmopt/contract/executable_model.hpp) | Five universal executable actions | What a compiler/lowerer must emit |
 | [`metric_constraint.hpp`](../include/nmopt/contract/metric_constraint.hpp) | Metric and projection boundaries | Search direction versus feasibility |
 | [`reduced_dto.hpp`](../include/nmopt/contract/reduced_dto.hpp) | State/adjoint/reduced-covector orchestration | First-order workflow and signs |
+| [`reduced_gradient.hpp`](../include/nmopt/solvers/reduced_gradient.hpp) | Unconstrained and projected reduced Armijo method | First optimizer and its diagnostics |
 | [`linear_quadratic_model.hpp`](../include/nmopt/reference/linear_quadratic_model.hpp) | Transparent matrix oracle | Check algebra before FE assembly |
 | [`serial_backend.hpp`](../include/nmopt/dealii/serial_backend.hpp) | Adapter from five vector operations to deal.II | Backend parameterisation |
+| [`mass_metric.hpp`](../include/nmopt/dealii/mass_metric.hpp) | Sparse control $L^{2}$ Riesz map | deal.II control search directions |
+| [`cellwise_box_constraint.hpp`](../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control updates |
 | [`scalar_diffusion_reaction.hpp`](../include/nmopt/dealii/scalar_diffusion_reaction.hpp) | Concrete deal.II lowerer | FE assembly, constraints, solves |
 | [`reduced_dto_contract.cc`](../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
 | [`dealii_diffusion_contract.cc`](../tests/dealii_diffusion_contract.cc) | Same checks through real deal.II assembly | End-to-end reference use |
@@ -298,13 +301,23 @@ Every differentiable feature has four increasingly global checks:
    where the perturbed state is solved again
 ```
 
-The dense contract test exercises pairing, residual finite difference, objective directional derivative, state residual, reduced derivative, metric, and box projection. The deal.II test exercises state solve, JVP/VJP pairing, residual finite difference, and state-recomputed reduced derivative.
+The dense contract test exercises pairing, residual finite difference,
+objective directional derivative, state residual, reduced derivative, metric,
+box projection, and unconstrained/projected Armijo convergence. The deal.II
+test exercises the same residual and reduced checks through actual assembly,
+then verifies the mass metric and an active cellwise box bound under the same
+generic solver.
 
 ## What is deliberately unsupported today
 
-Do not mistake a documented architectural slot for working functionality. V0 does not yet provide a semantic graph/compiler, a generic deal.II metric or constraint, inhomogeneous/controlled/periodic/hanging essential conditions, Neumann or Robin terms, boundary observations, nonlinear or variable coefficients, mixed/vector/DG states, MPI vectors, time, OTD, or KKT Newton.
+Do not mistake a documented architectural slot for working functionality. V0
+does not yet provide a semantic graph/compiler, inhomogeneous/controlled/
+periodic/hanging essential conditions, Neumann or Robin terms, boundary
+observations, nonlinear or variable coefficients, mixed/vector/DG states, MPI
+vectors, time, OTD, or KKT Newton. The available box projection is only the
+declared `FE_DGQ(0)` cellwise $L^{2}$ policy.
 
-The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions). The [roadmap](implementation-roadmap.md) orders the next extensions: real deal.II $L^{2}$ metric, generic reduced Armijo gradient solver, and deal.II cellwise $L^{2}$ box constraint; only then does the project introduce the narrow public semantic-to-compiler path.
+The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions). With the deal.II $L^{2}$ metric, generic reduced Armijo solver, and selected cellwise box constraint complete, the [roadmap](implementation-roadmap.md) next introduces the narrow public semantic-to-compiler path.
 
 ## Blueprint for adding one feature yourself
 

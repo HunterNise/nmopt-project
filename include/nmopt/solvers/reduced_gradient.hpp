@@ -77,20 +77,23 @@ namespace nmopt::solvers
       , metric_(metric)
       , parameters_(parameters)
     {
-      contract::require(parameters_.maximum_iterations > 0,
-                        "Reduced gradient maximum iterations must be positive");
-      contract::require(parameters_.maximum_line_search_trials > 0,
-                        "Reduced gradient line-search trials must be positive");
-      contract::require(parameters_.gradient_tolerance > 0.0,
-                        "Reduced gradient tolerance must be positive");
-      contract::require(parameters_.initial_step_length > 0.0,
-                        "Reduced gradient initial step must be positive");
-      contract::require(parameters_.armijo_fraction > 0.0 &&
-                          parameters_.armijo_fraction < 1.0,
-                        "Reduced gradient Armijo fraction must lie in (0, 1)");
-      contract::require(parameters_.backtracking_factor > 0.0 &&
-                          parameters_.backtracking_factor < 1.0,
-                        "Reduced gradient backtracking factor must lie in (0, 1)");
+      validate_parameters();
+    }
+
+    ReducedGradientSolverT(const contract::ReducedDTOT<Backend> &reduced,
+                           const contract::MetricT<Backend> &    metric,
+                           const contract::ConstraintT<Backend> & constraint,
+                           ReducedGradientParameters              parameters = {})
+      : reduced_(reduced)
+      , metric_(metric)
+      , constraint_(&constraint)
+      , parameters_(parameters)
+    {
+      validate_parameters();
+      contract::require(constraint_->layout()->compatible_with(*metric_.layout()),
+                        "Reduced gradient constraint does not match metric");
+      contract::require(constraint_->supports_projection_in(metric_),
+                        "Reduced gradient constraint cannot project in this metric");
     }
 
     Result
@@ -98,6 +101,9 @@ namespace nmopt::solvers
     {
       contract::require(initial_control.layout()->compatible_with(*metric_.layout()),
                         "Reduced gradient initial control does not match metric");
+      if (constraint_ != nullptr)
+        contract::require(constraint_->is_feasible(initial_control),
+                          "Projected reduced gradient requires a feasible initial control");
 
       std::size_t state_solve_count = 0;
       std::size_t adjoint_solve_count = 0;
@@ -116,9 +122,20 @@ namespace nmopt::solvers
         {
           const GradientData gradient =
             evaluate_gradient(current_evaluation.reduced_derivative);
-          gradient_norm_history.push_back(gradient.metric_norm);
+          double stopping_norm = gradient.metric_norm;
+          double unit_step_descent_measure = -gradient.descent_measure;
+          if (constraint_ != nullptr)
+            {
+              const ProjectedGradientData projected_gradient =
+                evaluate_projected_gradient(current_control,
+                                            current_evaluation.reduced_derivative,
+                                            gradient.direction);
+              stopping_norm = projected_gradient.metric_norm;
+              unit_step_descent_measure = projected_gradient.descent_measure;
+            }
+          gradient_norm_history.push_back(stopping_norm);
 
-          if (gradient.metric_norm <= parameters_.gradient_tolerance)
+          if (stopping_norm <= parameters_.gradient_tolerance)
             return result(current_control,
                           std::move(objective_history),
                           std::move(gradient_norm_history),
@@ -128,8 +145,8 @@ namespace nmopt::solvers
                           adjoint_solve_count,
                           ReducedGradientStoppingReason::gradient_tolerance);
 
-          contract::require(gradient.descent_measure > 0.0,
-                            "Reduced gradient metric did not produce a descent direction");
+          contract::require(unit_step_descent_measure < 0.0,
+                            "Reduced gradient did not produce a descent direction");
 
           if (accepted_iterations == parameters_.maximum_iterations)
             return result(current_control,
@@ -149,16 +166,26 @@ namespace nmopt::solvers
             {
               Primal trial_control = current_control;
               add_scaled(trial_control, -step_length, gradient.direction);
+              if (constraint_ != nullptr)
+                {
+                  trial_control = constraint_->project_in(trial_control, metric_);
+                  contract::require(constraint_->is_feasible(trial_control),
+                                    "Reduced gradient projection returned an infeasible control");
+                }
               Evaluation trial_evaluation = reduced_.evaluate(trial_control);
               ++state_solve_count;
               ++adjoint_solve_count;
               ++line_search_trial_count;
 
-              const double armijo_bound =
-                current_evaluation.objective_value -
-                parameters_.armijo_fraction * step_length *
-                  gradient.descent_measure;
-              if (trial_evaluation.objective_value <= armijo_bound)
+              Primal update = trial_control;
+              add_scaled(update, -1.0, current_control);
+              const double armijo_decrease =
+                contract::pair(current_evaluation.reduced_derivative, update);
+              const double armijo_bound = current_evaluation.objective_value +
+                                          parameters_.armijo_fraction *
+                                            armijo_decrease;
+              if (armijo_decrease < 0.0 &&
+                  trial_evaluation.objective_value <= armijo_bound)
                 {
                   current_control = std::move(trial_control);
                   current_evaluation = std::move(trial_evaluation);
@@ -190,6 +217,12 @@ namespace nmopt::solvers
       double descent_measure;
     };
 
+    struct ProjectedGradientData
+    {
+      double metric_norm;
+      double descent_measure;
+    };
+
     GradientData
     evaluate_gradient(const Covector &reduced_derivative) const
     {
@@ -203,6 +236,46 @@ namespace nmopt::solvers
       contract::require(descent_measure >= 0.0,
                         "Reduced gradient metric returned a negative descent measure");
       return {std::move(gradient), std::sqrt(metric_norm_squared), descent_measure};
+    }
+
+    ProjectedGradientData
+    evaluate_projected_gradient(const Primal &  control,
+                                const Covector &reduced_derivative,
+                                const Primal &  gradient) const
+    {
+      Primal projected_control = control;
+      add_scaled(projected_control, -1.0, gradient);
+      projected_control = constraint_->project_in(projected_control, metric_);
+      contract::require(constraint_->is_feasible(projected_control),
+                        "Reduced gradient projection returned an infeasible control");
+
+      Primal update = projected_control;
+      add_scaled(update, -1.0, control);
+      const Covector metric_update = metric_.apply(update);
+      const double metric_norm_squared = contract::pair(metric_update, update);
+      contract::require(metric_norm_squared >= 0.0,
+                        "Projected gradient metric returned a negative squared norm");
+      return {std::sqrt(metric_norm_squared),
+              contract::pair(reduced_derivative, update)};
+    }
+
+    void
+    validate_parameters() const
+    {
+      contract::require(parameters_.maximum_iterations > 0,
+                        "Reduced gradient maximum iterations must be positive");
+      contract::require(parameters_.maximum_line_search_trials > 0,
+                        "Reduced gradient line-search trials must be positive");
+      contract::require(parameters_.gradient_tolerance > 0.0,
+                        "Reduced gradient tolerance must be positive");
+      contract::require(parameters_.initial_step_length > 0.0,
+                        "Reduced gradient initial step must be positive");
+      contract::require(parameters_.armijo_fraction > 0.0 &&
+                          parameters_.armijo_fraction < 1.0,
+                        "Reduced gradient Armijo fraction must lie in (0, 1)");
+      contract::require(parameters_.backtracking_factor > 0.0 &&
+                          parameters_.backtracking_factor < 1.0,
+                        "Reduced gradient backtracking factor must lie in (0, 1)");
     }
 
     static void
@@ -237,6 +310,7 @@ namespace nmopt::solvers
 
     const contract::ReducedDTOT<Backend> &reduced_;
     const contract::MetricT<Backend> &    metric_;
+    const contract::ConstraintT<Backend> * constraint_ = nullptr;
     ReducedGradientParameters              parameters_;
   };
 

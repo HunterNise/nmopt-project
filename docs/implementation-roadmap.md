@@ -22,6 +22,8 @@ The following pieces exist and are tested:
 | Layer | Existing artifact | Meaning |
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. |
+| V1 semantic graph | `include/nmopt/semantic/v1/problem_spec.hpp` | Deal.II-free selected graph, explicit pairings, and structural/policy diagnostics. |
+| V1 compiler | `include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp` | Registered assembled volume slice with lowerability/formulation diagnostics and a separately owned executable. |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one control block, one test block, externally supplied state/adjoint solves. |
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
@@ -155,7 +157,7 @@ projected-gradient residual.
 feasibility every iteration, and satisfies a discrete projected-stationarity
 criterion.
 
-### P1.1 — Build the narrow semantic-to-compiler path
+### P1.1 — Build the narrow v1 semantic-to-compiler path — completed
 
 **Why before additional PDE features:** The current lowerer is intentionally
 concrete. Adding Neumann, boundary observation, or coefficients directly to
@@ -180,10 +182,18 @@ formulation-capability diagnostics. Add a lowerer registry that recognizes
 only the listed v0 term kinds and creates the existing deal.II executable
 objects.
 
-**Primary files:** add `include/nmopt/semantic` and `include/nmopt/compiler`
-namespaces; refactor the current concrete model into a registered lowerer.
-Keep the existing direct constructor as a test helper until semantic
-compilation supersedes it.
+**Implemented (v1):** `semantic::v1::ProblemSpec` and
+`SemanticValidator` describe and validate the selected graph without backend
+objects. `compiler::v1::DealiiCompiler` appends lowerability and formulation
+diagnostics through a small explicit lowerer registry, then produces a
+separately owned compiled executable. The v0 direct
+`ScalarDiffusionReactionModel` remains unchanged as the reference path; v1
+constructs its own instance from the semantic declaration, so both paths can
+be compared without overwriting v0.
+
+**Primary files:** `include/nmopt/semantic/v1/problem_spec.hpp`,
+`include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp`,
+`docs/semantic-v1-compiler.md`, and focused semantic/deal.II contract tests.
 
 **Done when:** constructing the current problem through a `ProblemSpec` produces
 the same residual, objective, and reduced derivative as the direct deal.II
@@ -337,19 +347,17 @@ slices:
 
 ## Suggested next-agent sequence
 
-For the next agent, take **P1.1 only** unless explicitly asked for a broader
+For the next agent, take **P1.2 only** unless explicitly asked for a broader
 change:
 
-1. Read this roadmap, the interface specification, the executable contract,
-   and the deal.II lowerer document.
+1. Read this roadmap, the interface specification, the v1 semantic/compiler
+   record, the executable contract, and the deal.II lowerer document.
 2. Run the baseline `CTest` command.
-3. Define the narrow v0 semantic graph and its structural, policy,
-   lowerability, and formulation-capability diagnostics.
-4. Register only the existing scalar diffusion-reaction volume slice and
-   compile it to the current executable objects.
-5. Prove semantic and direct construction agree on residual, objective, and
-   reduced derivative.
-6. Run the baseline tests again, then report the new capability and the
-   remaining exclusions.
+3. Add an explicit fixed-data lifting/reconstruction to the v1 path without
+   altering the v0 homogeneous reference model.
+4. Preserve physical-field residual, observation, JVP, and VJP semantics;
+   extend the compiler manifest and diagnostics for the selected lifting.
+5. Prove a nonzero manufactured Dirichlet state with a reduced Taylor test,
+   then run the baseline tests again.
 
 This keeps the public contracts stable and makes each step reviewable.

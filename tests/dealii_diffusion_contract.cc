@@ -1,4 +1,5 @@
 #include "nmopt/contract/reduced_dto.hpp"
+#include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
 
@@ -28,6 +29,22 @@ namespace
       throw contract::ContractError(description + ": expected " +
                                     std::to_string(expected) + ", got " +
                                     std::to_string(actual));
+  }
+
+  void
+  require_covector_close(const Covector &   actual,
+                         const Covector &   expected,
+                         const double       tolerance,
+                         const std::string &description)
+  {
+    contract::require_compatible(actual, expected,
+                                 description + " has incompatible layouts");
+    for (std::size_t block = 0; block < actual.n_blocks(); ++block)
+      {
+        dealii::Vector<double> difference = actual.block(block);
+        difference.add(-1.0, expected.block(block));
+        require_close(difference.l2_norm(), 0.0, tolerance, description);
+      }
   }
 
   Primal
@@ -250,6 +267,94 @@ namespace
       contract::require(projected_result.objective_history[index] <=
                           projected_result.objective_history[index - 1],
                         "deal.II projected reduced objective is not monotonic");
+
+    const auto specification =
+      semantic::v1::make_scalar_diffusion_reaction_problem(true);
+    compiler::v1::DealiiDiscretisationPolicy compilation_policy;
+    compilation_policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler v1_compiler;
+    const auto validation = v1_compiler.validate(specification,
+                                                 compilation_policy);
+    contract::require(validation.valid(),
+                      "the canonical v1 problem did not validate for deal.II");
+
+    compiler::v1::DealiiDiscretisationPolicy unsupported_execution =
+      compilation_policy;
+    unsupported_execution.execution =
+      compiler::v1::DealiiDiscretisationPolicy::Execution::matrix_free;
+    const auto lowerability_diagnostic =
+      v1_compiler.validate(specification, unsupported_execution);
+    contract::require(lowerability_diagnostic.has_category(
+                        semantic::v1::DiagnosticCategory::lowerability),
+                      "v1 compiler did not report an unsupported lowerability");
+
+    auto unsupported_formulation = specification;
+    unsupported_formulation.formulation.kind =
+      semantic::v1::FormulationKind::all_at_once;
+    const auto formulation_diagnostic =
+      v1_compiler.validate(unsupported_formulation, compilation_policy);
+    contract::require(
+      formulation_diagnostic.has_category(
+        semantic::v1::DiagnosticCategory::formulation_capability),
+      "v1 compiler did not report an unsupported formulation capability");
+
+    const compiler::v1::DealiiDataBindings<dim> data_bindings{
+      forcing, desired_state, 1.0, 0.5, 0.1};
+    const compiler::v1::CellwiseBoxDataBindings bound_bindings{
+      compiler::v1::CellwiseBoundValue{-1.0},
+      compiler::v1::CellwiseBoundValue{0.05}};
+    const auto compilation = v1_compiler.compile(specification,
+                                                  triangulation,
+                                                  data_bindings,
+                                                  compilation_policy,
+                                                  bound_bindings);
+    contract::require(compilation.succeeded(),
+                      "v1 compiler failed to produce an executable problem");
+    const auto &compiled_model = compilation.problem->executable_model();
+
+    const Primal comparison_point =
+      shifted(evaluation.full_point, tangent, 0.37);
+    const Covector compiled_residual =
+      compiled_model.residual(comparison_point);
+    require_covector_close(compiled_residual,
+                           model.residual(comparison_point),
+                           1e-12,
+                           "v1 and v0 residual differ");
+    require_close(compiled_model.objective(evaluation.full_point),
+                  model.objective(evaluation.full_point),
+                  1e-12,
+                  "v1 and v0 objective differ");
+    require_covector_close(compiled_model.objective_derivative(
+                             evaluation.full_point),
+                           model.objective_derivative(evaluation.full_point),
+                           1e-12,
+                           "v1 and v0 objective derivative differ");
+
+    contract::StateControlPartitionT<Backend> compiled_partition(compiled_model,
+                                                                   0,
+                                                                   1);
+    const contract::StateAdjointSolversT<Backend> compiled_solvers{
+      [&compiled_model](const Primal &compiled_control) {
+        return compiled_model.solve_state(compiled_control);
+      },
+      [&compiled_model](const Primal &full_point, const Covector &state_rhs) {
+        return compiled_model.solve_adjoint(full_point, state_rhs);
+      }};
+    const contract::ReducedDTOT<Backend> compiled_reduced(
+      compiled_model, compiled_partition, compiled_solvers);
+    const auto compiled_evaluation = compiled_reduced.evaluate(control);
+    require_close(compiled_evaluation.objective_value,
+                  evaluation.objective_value,
+                  1e-12,
+                  "v1 and v0 reduced objective differ");
+    require_covector_close(compiled_evaluation.reduced_derivative,
+                           evaluation.reduced_derivative,
+                           1e-12,
+                           "v1 and v0 reduced derivative differ");
+    const auto *compiled_constraint = compilation.problem->control_constraint();
+    contract::require(compiled_constraint != nullptr &&
+                        compiled_constraint->is_feasible(bounded_control),
+                      "v1 compiler did not preserve the declared box constraint");
   }
 } // namespace
 

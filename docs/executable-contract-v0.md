@@ -4,9 +4,10 @@
 
 This is the first code-level realization of the default policies in the
 [implementation-readiness review](implementation-readiness-review.md). It is
-backend-neutral on purpose: a future deal.II compiler lowers a semantic
-problem to this contract, while the contract itself does not contain a
-DoFHandler, finite element, matrix type, or solver selection.
+backend-neutral on purpose: the [v1 deal.II compiler](semantic-v1-compiler.md)
+lowers its supported semantic graph to this contract, while the contract
+itself does not contain a DoFHandler, finite element, matrix type, or solver
+selection.
 
 The current reference implementation is dense and algebraic. It validates the
 contract and DTO signs; it is not presented as an FE discretisation or a
@@ -33,7 +34,7 @@ The public executable and solver headers provide:
 | `Metric` | Explicit primal-to-dual action and inverse action. The serial deal.II backend supplies `dealii_backend::MassMetric` for one-block sparse mass matrices. |
 | `Constraint` | Feasibility and a metric-specific projection capability. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one control block. |
-| `solvers::ReducedGradientSolverT` | Backend-parametric, unconstrained reduced Armijo method consuming only `ReducedDTOT` and `MetricT`. |
+| `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example

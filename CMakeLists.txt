@@ -12,6 +12,11 @@ if(BUILD_TESTING)
   add_executable(nmopt_contract_tests tests/reduced_dto_contract.cc)
   target_link_libraries(nmopt_contract_tests PRIVATE nmopt_contract)
   add_test(NAME nmopt_contract_tests COMMAND nmopt_contract_tests)
+
+  add_executable(nmopt_semantic_v1_contract_test tests/semantic_v1_contract.cc)
+  target_link_libraries(nmopt_semantic_v1_contract_test PRIVATE nmopt_contract)
+  add_test(NAME nmopt_semantic_v1_contract_test
+    COMMAND nmopt_semantic_v1_contract_test)
 endif()
 
 option(NMOPT_ENABLE_DEAL_II "Build the serial deal.II reference lowerer" ON)

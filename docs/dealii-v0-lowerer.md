@@ -52,6 +52,14 @@ Because `FE_DGQ(0)` is cellwise constant, a future deal.II cellwise box
 constraint may use coefficient clipping only with that declared $L^{2}$
 metric.
 
+`ScalarDiffusionReactionModel::control_l2_metric()` is the narrow
+compiled-metric factory for the control space. It returns a
+`dealii_backend::MassMetric` with identifier `l2_cellwise`; the metric retains
+the assembled control mass matrix and applies its inverse with serial CG using
+declared iteration and relative/absolute tolerance parameters. Optimizers use
+the returned `MetricT<SerialBackend>` implementation and do not access this
+lowerer's matrix or PDE-specific type.
+
 ## Affine constraints and coordinate policy
 
 The lowerer creates and retains `AffineConstraints` for the homogeneous
@@ -95,7 +103,7 @@ the following:
 - vector, mixed, DG state, nonmatching meshes, or distributed MPI vectors;
 - variable/nonlinear coefficients, nonlinear state solves, and second
   derivatives;
-- $H^{1}$, $H^{-1}$, fractional, or non-diagonal metric realizations;
+- $H^{1}$, $H^{-1}$, fractional, or other non-$L^{2}$ metric realizations;
 - box constraints in a deal.II vector backend;
 - time dependence, matrix-free execution, OTD, or KKT Newton.
 

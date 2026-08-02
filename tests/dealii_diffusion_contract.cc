@@ -80,6 +80,33 @@ namespace
                   1e-11,
                   "deal.II state residual");
 
+    dealii_backend::MassMetricSolveParameters metric_parameters;
+    metric_parameters.maximum_iterations = 1000;
+    metric_parameters.relative_tolerance = 1e-12;
+    metric_parameters.absolute_tolerance = 1e-14;
+    const auto metric = model.control_l2_metric(metric_parameters);
+    dealii::Vector<double> random_covector_values(
+      partition.control_layout()->dimension(0));
+    for (dealii::types::global_dof_index i = 0;
+         i < random_covector_values.size();
+         ++i)
+      random_covector_values[i] =
+        0.17 + 0.03 * static_cast<double>((7 * i) % 11);
+    const Covector random_covector(partition.control_layout(),
+                                   {std::move(random_covector_values)});
+    const Primal recovered_primal = metric.inverse_apply(random_covector);
+    const Covector recovered_covector = metric.apply(recovered_primal);
+    dealii::Vector<double> inverse_apply_error = recovered_covector.block(0);
+    inverse_apply_error.add(-1.0, random_covector.block(0));
+    require_close(inverse_apply_error.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "deal.II mass metric inverse/apply consistency");
+    dealii::Vector<double> nonidentity_mass_action = recovered_primal.block(0);
+    nonidentity_mass_action.add(-1.0, random_covector.block(0));
+    contract::require(nonidentity_mass_action.l2_norm() > 1e-3,
+                      "deal.II control mass matrix unexpectedly acts as identity");
+
     dealii::Vector<double> state_tangent(
       model.variable_layout()->dimension(0));
     dealii::Vector<double> control_tangent(
@@ -132,6 +159,15 @@ namespace
         (i % 2 == 0 ? 0.05 : -0.04) * static_cast<double>(i + 1);
     const Primal control_direction(partition.control_layout(),
                                    {std::move(control_direction_values)});
+
+    const Primal metric_direction =
+      reduced.gradient_direction(evaluation.reduced_derivative, metric);
+    const Covector metric_covector = metric.apply(metric_direction);
+    require_close(contract::pair(metric_covector, control_direction),
+                  contract::pair(evaluation.reduced_derivative,
+                                 control_direction),
+                  1e-11,
+                  "deal.II mass metric pairing");
 
     const double reduced_difference =
       reduced.evaluate(shifted(control, control_direction, epsilon)).objective_value -

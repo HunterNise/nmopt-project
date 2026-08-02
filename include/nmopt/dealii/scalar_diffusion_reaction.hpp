@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 
 #include <deal.II/base/function.h>
@@ -119,6 +120,16 @@ namespace nmopt::dealii_backend
       return control_layout_;
     }
 
+    MassMetric
+    control_l2_metric(
+      MassMetricSolveParameters solve_parameters = {}) const
+    {
+      return MassMetric("l2_cellwise",
+                        control_layout_,
+                        control_mass_,
+                        solve_parameters);
+    }
+
     const dealii::AffineConstraints<double> &
     state_constraints() const
     {
@@ -184,7 +195,7 @@ namespace nmopt::dealii_backend
         (desired_state_load_ * variables.block(0)) + 0.5 * desired_state_norm_;
 
       Vector control_mass_times_control(control_dof_handler_.n_dofs());
-      control_mass_.vmult(control_mass_times_control, variables.block(1));
+      control_mass_->vmult(control_mass_times_control, variables.block(1));
       const double control_value = 0.5 * regularisation_weight_ *
                                    (variables.block(1) *
                                     control_mass_times_control);
@@ -201,7 +212,7 @@ namespace nmopt::dealii_backend
       state.add(-1.0, desired_state_load_);
 
       Vector control(control_dof_handler_.n_dofs());
-      control_mass_.vmult(control, variables.block(1));
+      control_mass_->vmult(control, variables.block(1));
       control *= regularisation_weight_;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
     }
@@ -337,7 +348,8 @@ namespace nmopt::dealii_backend
       dealii::DoFTools::make_sparsity_pattern(control_dof_handler_,
                                                control_mass_dsp);
       control_mass_sparsity_.copy_from(control_mass_dsp);
-      control_mass_.reinit(control_mass_sparsity_);
+      control_mass_ = std::make_shared<dealii::SparseMatrix<double>>();
+      control_mass_->reinit(control_mass_sparsity_);
 
       forcing_load_.reinit(state_size);
       desired_state_load_.reinit(state_size);
@@ -456,9 +468,9 @@ namespace nmopt::dealii_backend
 
           for (unsigned int i = 0; i < control_fe_.dofs_per_cell; ++i)
             for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
-              control_mass_.add(control_indices[i],
-                                control_indices[j],
-                                local_control_mass(i, j));
+              control_mass_->add(control_indices[i],
+                                 control_indices[j],
+                                 local_control_mass(i, j));
         }
       contract::require(control_cell == control_dof_handler_.end(),
                         "State and control DoF handlers have different cells");
@@ -502,7 +514,7 @@ namespace nmopt::dealii_backend
     dealii::SparseMatrix<double> system_matrix_;
     dealii::SparseMatrix<double> state_mass_;
     dealii::SparseMatrix<double> control_coupling_;
-    dealii::SparseMatrix<double> control_mass_;
+    std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     Vector forcing_load_;
     Vector desired_state_load_;
     double desired_state_norm_ = 0.0;

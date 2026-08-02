@@ -27,7 +27,8 @@ The following pieces exist and are tested:
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend for the backend-parametric contract. |
 | deal.II lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Assembled scalar `FE_Q` diffusion-reaction state, `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
-| Tests | `tests/reduced_dto_contract.cc` and `tests/dealii_diffusion_contract.cc` | Pairing, JVP, VJP, residual finite difference, state solve, and reduced derivative checks. |
+| deal.II metric | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse-mass $L^{2}$ Riesz action with serial CG inverse apply. |
+| Tests | `tests/reduced_dto_contract.cc` and `tests/dealii_diffusion_contract.cc` | Pairing, JVP, VJP, residual finite difference, state solve, reduced derivative, and deal.II mass-metric checks. |
 
 The implementation is deliberately not a general compiler yet. The deal.II
 class is a concrete lowerer/reference slice, not the future public
@@ -57,7 +58,7 @@ class is a concrete lowerer/reference slice, not the future public
 
 ## Ranked work items
 
-### P0.1 — Add a real deal.II $L^{2}$ metric
+### P0.1 — Add a real deal.II $L^{2}$ metric — completed
 
 **Why first:** The lowerer already assembles the control mass matrix
 $`M_{u}`$, and the reduced DTO builder already produces $`j_{h}'(u)`$. The
@@ -77,6 +78,12 @@ direction for a deal.II optimizer.
   declared linear solver/tolerance.
 - Expose the control mass matrix through a narrow compiled-metric factory, not
   through optimizer knowledge of `ScalarDiffusionReactionModel`.
+
+**Implemented:** `dealii_backend::MassMetric` provides the generic one-block
+sparse-mass realization of `MetricT<SerialBackend>`. Its inverse action uses
+serial CG with declared iteration and relative/absolute tolerances, and
+`ScalarDiffusionReactionModel::control_l2_metric()` is the control-space
+compiled-metric factory.
 
 **Primary files:** add `include/nmopt/dealii/mass_metric.hpp`; minimally extend
 the current lowerer with a metric factory or compiled-object registry.
@@ -315,16 +322,18 @@ slices:
 
 ## Suggested next-agent sequence
 
-For the next agent, take **P0.1 only** unless explicitly asked for a broader
+For the next agent, take **P0.2 only** unless explicitly asked for a broader
 change:
 
-1. Read this roadmap, the executable-contract document, and the deal.II
-   lowerer document.
+1. Read this roadmap, the executable-contract document, and the reduced DTO
+   implementation.
 2. Run the baseline `CTest` command.
-3. Inspect the existing control mass assembly in
-   `scalar_diffusion_reaction.hpp`.
-4. Add the deal.II mass metric without changing residual/objective code.
-5. Add its exact inverse/apply and pairing tests.
+3. Implement the backend-parametric reduced Armijo gradient solver without
+   PDE type checks or casts.
+4. Test it unchanged against the dense reference model and through the
+   existing deal.II lowerer with `control_l2_metric()`.
+5. Record objective history, metric gradient norm, solve counts, and stopping
+   reason.
 6. Run the baseline tests again, then report the new capability and the
    remaining exclusions.
 

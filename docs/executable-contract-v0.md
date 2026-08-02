@@ -30,7 +30,7 @@ The public headers under `include/nmopt/contract` provide:
 | `CovectorBlock` | A typed block of coefficients in the dual of that layout. |
 | `pair` | The declared dual-coefficient pairing. It is the only primitive that pairs a covector with a primal vector. |
 | `ExecutableModel` | Residual value, residual JVP, residual VJP, objective value, and objective derivative. |
-| `Metric` | Explicit primal-to-dual action and inverse action. |
+| `Metric` | Explicit primal-to-dual action and inverse action. The serial deal.II backend supplies `dealii_backend::MassMetric` for one-block sparse mass matrices. |
 | `Constraint` | Feasibility and a metric-specific projection capability. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one control block. |
 
@@ -103,11 +103,15 @@ They will extend, rather than alter, the value/JVP/VJP core.
 
 ## Metric and constraint boundary
 
-The only concrete metric supplied is a positive diagonal metric. The only
-concrete constraint supplied is a cellwise box constraint, and it explicitly
-supports projection only in a metric whose identifier is `l2_cellwise`. This
-models the selected `FE_DGQ(0)` volume-control policy and prevents accidental
-coefficient clipping in an $H^{1}$ geometry.
+The backend-neutral concrete metric supplied is a positive diagonal metric.
+The serial deal.II backend also supplies `dealii_backend::MassMetric`, which
+uses a one-block sparse mass matrix for its primal-to-dual action and a
+CG inverse apply with explicit iteration and relative/absolute tolerance
+parameters. The only concrete constraint supplied is a cellwise box
+constraint, and it explicitly supports projection only in a metric whose
+identifier is `l2_cellwise`. This models the selected `FE_DGQ(0)`
+volume-control policy and prevents accidental coefficient clipping in an
+$H^{1}$ geometry.
 
 ## Reference model and verification
 

@@ -28,7 +28,8 @@ The following pieces exist and are tested:
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend for the backend-parametric contract. |
 | deal.II lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Assembled scalar `FE_Q` diffusion-reaction state, `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
 | deal.II metric | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse-mass $L^{2}$ Riesz action with serial CG inverse apply. |
-| Tests | `tests/reduced_dto_contract.cc` and `tests/dealii_diffusion_contract.cc` | Pairing, JVP, VJP, residual finite difference, state solve, reduced derivative, and deal.II mass-metric checks. |
+| Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained Armijo method over `ReducedDTOT` and `MetricT`. |
+| Tests | `tests/reduced_dto_contract.cc` and `tests/dealii_diffusion_contract.cc` | Pairing, JVP, VJP, residual finite difference, state solve, reduced derivative, deal.II mass metric, and reduced Armijo checks. |
 
 The implementation is deliberately not a general compiler yet. The deal.II
 class is a concrete lowerer/reference slice, not the future public
@@ -95,7 +96,7 @@ the current lowerer with a metric factory or compiled-object registry.
   $`\langle M_{u} g,\delta u\rangle=\langle j',\delta u\rangle`$;
 - the test uses actual deal.II vectors and a nontrivial control mass matrix.
 
-### P0.2 — Add a generic reduced Armijo gradient solver
+### P0.2 — Add a generic reduced Armijo gradient solver — completed
 
 **Why second:** This closes the current vertical slice: the existing state
 solve, adjoint solve, reduced covector, and new metric become a real
@@ -107,6 +108,12 @@ optimization loop. The solver must consume only `ReducedDTOT` and `MetricT`.
 - Objective history, gradient norm in the selected metric, state/adjoint solve
   counts, and clear stopping reasons.
 - An unconstrained path first; no PDE type checks or casts.
+
+**Implemented:** `solvers::ReducedGradientSolverT` evaluates every initial and
+trial control with `ReducedDTOT::evaluate`, converts the DTO covector through
+the supplied metric, and applies an unconstrained Armijo update. Its result
+records objective and metric-gradient-norm histories, accepted iterations,
+line-search trials, state/adjoint solve counts, and explicit stopping reason.
 
 **Primary files:** add `include/nmopt/solvers/reduced_gradient.hpp` and a
 deal.II integration test.
@@ -322,18 +329,18 @@ slices:
 
 ## Suggested next-agent sequence
 
-For the next agent, take **P0.2 only** unless explicitly asked for a broader
+For the next agent, take **P0.3 only** unless explicitly asked for a broader
 change:
 
-1. Read this roadmap, the executable-contract document, and the reduced DTO
-   implementation.
+1. Read this roadmap, the executable-contract document, the constraint
+   contract, and the deal.II lowerer document.
 2. Run the baseline `CTest` command.
-3. Implement the backend-parametric reduced Armijo gradient solver without
-   PDE type checks or casts.
-4. Test it unchanged against the dense reference model and through the
-   existing deal.II lowerer with `control_l2_metric()`.
-5. Record objective history, metric gradient norm, solve counts, and stopping
-   reason.
+3. Add the selected `FE_DGQ(0)` coefficientwise box constraint without
+   extending it to continuous controls or any non-$L^{2}$ metric.
+4. Extend the generic solver with the declared metric-specific projection and
+   projected-stationarity measure, without PDE type checks or casts.
+5. Test bounds, feasibility at every iteration, and projected stationarity on
+   a manufactured problem.
 6. Run the baseline tests again, then report the new capability and the
    remaining exclusions.
 

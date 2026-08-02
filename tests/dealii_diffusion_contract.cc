@@ -1,5 +1,6 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
+#include "nmopt/solvers/reduced_gradient.hpp"
 
 #include <deal.II/base/function_lib.h>
 #include <deal.II/grid/grid_generator.h>
@@ -177,6 +178,39 @@ namespace
                                  control_direction),
                   2e-7,
                   "deal.II reduced DTO derivative");
+
+    nmopt::solvers::ReducedGradientParameters solver_parameters;
+    solver_parameters.maximum_iterations = 100;
+    solver_parameters.maximum_line_search_trials = 30;
+    solver_parameters.gradient_tolerance = 1e-6;
+    solver_parameters.initial_step_length = 20.0;
+    solver_parameters.armijo_fraction = 1e-4;
+    solver_parameters.backtracking_factor = 0.5;
+    const nmopt::solvers::ReducedGradientSolverT<Backend> solver(
+      reduced, metric, solver_parameters);
+    const auto solver_result = solver.solve(control);
+
+    contract::require(
+      solver_result.stopping_reason ==
+        nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+      "deal.II reduced gradient solver did not reach its tolerance");
+    contract::require(solver_result.objective_history.size() > 1,
+                      "deal.II reduced gradient solver did not accept an iteration");
+    for (std::size_t index = 1;
+         index < solver_result.objective_history.size();
+         ++index)
+      contract::require(solver_result.objective_history[index] <=
+                          solver_result.objective_history[index - 1],
+                        "deal.II reduced gradient objective history is not monotonic");
+    contract::require(solver_result.gradient_norm_history.back() <=
+                        solver_parameters.gradient_tolerance,
+                      "deal.II reduced gradient final norm exceeds tolerance");
+    contract::require(solver_result.state_solve_count ==
+                        solver_result.adjoint_solve_count,
+                      "deal.II reduced gradient solve counts do not match");
+    contract::require(solver_result.line_search_trial_count + 1 ==
+                        solver_result.state_solve_count,
+                      "deal.II reduced gradient solve count misses a trial evaluation");
   }
 } // namespace
 

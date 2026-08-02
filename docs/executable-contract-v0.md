@@ -21,7 +21,7 @@ signatures.
 
 ## Exact v0 types
 
-The public headers under `include/nmopt/contract` provide:
+The public executable and solver headers provide:
 
 | Type | Meaning |
 |---|---|
@@ -33,6 +33,7 @@ The public headers under `include/nmopt/contract` provide:
 | `Metric` | Explicit primal-to-dual action and inverse action. The serial deal.II backend supplies `dealii_backend::MassMetric` for one-block sparse mass matrices. |
 | `Constraint` | Feasibility and a metric-specific projection capability. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one control block. |
+| `solvers::ReducedGradientSolverT` | Backend-parametric, unconstrained reduced Armijo method consuming only `ReducedDTOT` and `MetricT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
@@ -100,6 +101,25 @@ no implicit state/control selection is made.
 Mixed partitions, multiple equation blocks, nonlinear all-at-once Newton,
 OTD, and Hessian-vector actions are intentionally outside this v0 contract.
 They will extend, rather than alter, the value/JVP/VJP core.
+
+## First reduced solver
+
+`solvers::ReducedGradientSolverT` is the first generic optimizer. Given the
+DTO covector $`j_{h}'`$ and a declared metric $`G`$, it forms
+$`g=G^{-1}j_{h}'`$ and attempts the unconstrained update
+$`u^{+}=u-\alpha g`$. A trial is accepted only when it satisfies
+
+$$
+  j_{h}(u-\alpha g) \leq j_{h}(u)-c\alpha\langle j_{h}',g\rangle.
+$$
+
+The solver returns accepted-objective and metric-gradient-norm histories,
+accepted-iteration and line-search-trial counts, state/adjoint solve counts,
+and one stopping reason: `gradient_tolerance`, `maximum_iterations`, or
+`line_search_failure`. Each objective trial is evaluated through
+`ReducedDTOT::evaluate`, so both reported solve counts increase once for the
+initial point and once for every line-search trial. It implements no
+constraint projection; the cellwise box extension owns that behavior.
 
 ## Metric and constraint boundary
 

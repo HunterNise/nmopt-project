@@ -1,6 +1,7 @@
 #include "nmopt/contract/metric_constraint.hpp"
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/reference/linear_quadratic_model.hpp"
+#include "nmopt/solvers/reduced_gradient.hpp"
 
 #include <cmath>
 #include <exception>
@@ -173,6 +174,41 @@ namespace
                   "Cellwise box lower projection");
     require_close(projected.block(0)[1], 0.5, 1e-15,
                   "Cellwise box upper projection");
+
+    nmopt::solvers::ReducedGradientParameters solver_parameters;
+    solver_parameters.maximum_iterations = 100;
+    solver_parameters.maximum_line_search_trials = 20;
+    solver_parameters.gradient_tolerance = 1e-8;
+    solver_parameters.initial_step_length = 10.0;
+    solver_parameters.armijo_fraction = 1e-4;
+    solver_parameters.backtracking_factor = 0.5;
+    const nmopt::solvers::ReducedGradientSolver solver(
+      reduced, metric, solver_parameters);
+    const auto solver_result = solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+
+    require(solver_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Dense reduced gradient solver did not reach its tolerance");
+    require(solver_result.objective_history.size() > 1,
+            "Dense reduced gradient solver did not accept an iteration");
+    for (std::size_t index = 1;
+         index < solver_result.objective_history.size();
+         ++index)
+      require(solver_result.objective_history[index] <=
+                solver_result.objective_history[index - 1],
+              "Dense reduced gradient objective history is not monotonic");
+    require(solver_result.gradient_norm_history.back() <=
+              solver_parameters.gradient_tolerance,
+            "Dense reduced gradient final norm exceeds the configured tolerance");
+    require(solver_result.state_solve_count == solver_result.adjoint_solve_count,
+            "Dense reduced gradient solve counts do not match");
+    require(solver_result.line_search_trial_count + 1 ==
+              solver_result.state_solve_count,
+            "Dense reduced gradient solve count misses a trial evaluation");
+    require(solver_result.state_solve_count >
+              solver_result.objective_history.size(),
+            "Dense reduced gradient test did not exercise Armijo backtracking");
   }
 
   void

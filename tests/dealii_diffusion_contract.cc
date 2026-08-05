@@ -510,6 +510,115 @@ namespace
 
   template <int dim>
   void
+  run_pure_neumann_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+
+    const dealii::Functions::ConstantFunction<dim> zero_forcing(0.0);
+    const dealii::Functions::ConstantFunction<dim> incompatible_forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(1.0);
+    const auto specification =
+      semantic::v1::make_pure_neumann_boundary_control_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(
+      compiler.validate(specification, policy).valid(),
+      "pure-Neumann mean-constraint v1 graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> nonzero_reaction{
+      zero_forcing, desired_state, 1.0, 0.5, 0.1};
+    const auto rejected_reaction = compiler.compile(specification,
+                                                    triangulation,
+                                                    nonzero_reaction,
+                                                    policy);
+    contract::require(
+      !rejected_reaction.succeeded() &&
+        rejected_reaction.diagnostics.has_category(
+          semantic::v1::DiagnosticCategory::lowerability),
+      "pure-Neumann compiler did not reject a nonzero reaction");
+
+    const compiler::v1::DealiiDataBindings<dim> incompatible_binding{
+      incompatible_forcing, desired_state, 1.0, 0.0, 0.1};
+    const auto rejected_forcing = compiler.compile(specification,
+                                                   triangulation,
+                                                   incompatible_binding,
+                                                   policy);
+    contract::require(
+      !rejected_forcing.succeeded() &&
+        rejected_forcing.diagnostics.has_category(
+          semantic::v1::DiagnosticCategory::lowerability),
+      "pure-Neumann compiler did not reject incompatible forcing");
+
+    const compiler::v1::DealiiDataBindings<dim> compatible_binding{
+      zero_forcing, desired_state, 1.0, 0.0, 0.1};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              compatible_binding,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "pure-Neumann v1 compilation failed");
+
+    const auto &model = compilation.problem->executable_model();
+    const auto *pure_model =
+      dynamic_cast<const compiler::v1::detail::NeumannBoundaryControlModel<dim> *>(
+        &model);
+    contract::require(pure_model != nullptr && pure_model->uses_mean_zero_gauge(),
+                      "pure-Neumann compiler did not select the mean-zero target");
+
+    const auto reduced = compilation.problem->make_reduced_dto();
+    dealii::Vector<double> zero_values(model.variable_layout()->dimension(1));
+    const Primal zero_control(model.variable_layout()->single_block(1, "control"),
+                              {std::move(zero_values)});
+    const auto evaluation = reduced.evaluate(zero_control);
+    const auto repeated_evaluation = reduced.evaluate(zero_control);
+    require_primal_close(evaluation.state,
+                         repeated_evaluation.state,
+                         1e-13,
+                         "pure-Neumann state must not depend on an implicit pin");
+    require_close(pure_model->state_mean(evaluation.state),
+                  0.0,
+                  1e-12,
+                  "pure-Neumann state mean");
+    require_close(pure_model->state_mean(evaluation.adjoint),
+                  0.0,
+                  1e-12,
+                  "pure-Neumann adjoint mean");
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-12,
+                  "pure-Neumann compatible state residual");
+
+    dealii::Vector<double> incompatible_values(zero_control.block(0).size());
+    incompatible_values[0] = 0.1;
+    const Primal incompatible_control(zero_control.layout(),
+                                      {std::move(incompatible_values)});
+    bool rejected_control = false;
+    try
+      {
+        (void)reduced.evaluate(incompatible_control);
+      }
+    catch (const contract::ContractError &)
+      {
+        rejected_control = true;
+      }
+    contract::require(rejected_control,
+                      "pure-Neumann solve did not reject an incompatible boundary control");
+
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.nullspace_policy.find("mean-zero Lagrange multiplier") !=
+        std::string::npos &&
+        manifest.state_adjoint_solve_policy.find("SparseDirectUMFPACK") !=
+          std::string::npos &&
+        manifest.lifting_realisation.find("pure-Neumann") != std::string::npos,
+      "pure-Neumann compilation manifest omitted the selected gauge");
+  }
+
+  template <int dim>
+  void
   run_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -813,6 +922,7 @@ main()
       run_fixed_dirichlet_contract_test<2>();
       run_subdomain_observation_contract_test<2>();
       run_neumann_boundary_contract_test<2>();
+      run_pure_neumann_contract_test<2>();
       std::cout << "deal.II diffusion DTO contract test passed\n";
       return 0;
     }

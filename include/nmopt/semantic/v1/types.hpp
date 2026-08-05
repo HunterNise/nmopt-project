@@ -95,6 +95,7 @@ namespace nmopt::semantic::v1
   enum class RequirementKind
   {
     fixed_dirichlet,
+    mean_zero_multiplier,
     boundary_trace,
     analytic_quadrature_evaluation,
     discrete_cellwise_bounds,

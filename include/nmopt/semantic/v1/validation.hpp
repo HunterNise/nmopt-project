@@ -805,12 +805,25 @@ namespace nmopt::semantic::v1
       };
 
       for (const auto &variable : specification.variables)
-        if (variable.role == VariableRole::state &&
-            !has_policy(variable.id, RequirementKind::fixed_dirichlet))
-          report.add(DiagnosticCategory::analytical_policy,
-                     variable.id,
-                     "fixed_dirichlet_realisation",
-                     "Declare the selected fixed-Dirichlet discrete policy.");
+        if (variable.role == VariableRole::state)
+          {
+            const bool has_fixed_dirichlet =
+              has_policy(variable.id, RequirementKind::fixed_dirichlet);
+            const bool has_mean_zero_multiplier =
+              has_policy(variable.id, RequirementKind::mean_zero_multiplier);
+            if (!has_fixed_dirichlet && !has_mean_zero_multiplier)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                variable.id,
+                "state_uniqueness_realisation",
+                "Declare either the selected fixed-Dirichlet policy or the mean-zero multiplier policy.");
+            if (has_fixed_dirichlet && has_mean_zero_multiplier)
+              report.add(
+                DiagnosticCategory::structural,
+                variable.id,
+                "state_uniqueness_policy_conflict",
+                "Select exactly one state uniqueness policy for the declared residual.");
+          }
 
       for (const auto &datum : specification.data)
         if (datum.role == DataRole::desired_state &&

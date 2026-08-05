@@ -2,6 +2,8 @@
 
 #include "nmopt/semantic/v1/types.hpp"
 
+#include <algorithm>
+
 namespace nmopt::semantic::v1
 {
   // This is the current reference graph used to compare direct v0 assembly
@@ -266,6 +268,40 @@ namespace nmopt::semantic::v1
         specification.formulation.constraint_id = "control_box";
       }
 
+    return specification;
+  }
+
+  // The pure-Neumann variant keeps the natural boundary residual of the
+  // preceding graph but replaces the fixed-boundary uniqueness policy by the
+  // selected discrete mean constraint.  The auxiliary multiplier belongs to
+  // the compiled solve, not to the user-facing state/control graph.
+  inline ProblemSpec
+  make_pure_neumann_boundary_control_problem()
+  {
+    ProblemSpec specification = make_neumann_boundary_control_problem();
+    specification.id = "scalar_diffusion_pure_neumann_boundary_control";
+    specification.label =
+      "Scalar diffusion pure-Neumann boundary control with mean constraint";
+    specification.regions = {
+      {"domain", "Full volume domain", RegionKind::volume, true, {}, {}},
+      {"control_boundary", "Pure-Neumann control boundary", RegionKind::boundary,
+       false, {0}, {}},
+      {"observation_boundary", "Pure-Neumann boundary tracking region",
+       RegionKind::boundary, false, {0}, {}}};
+    specification.requirement_policies.erase(
+      std::remove_if(specification.requirement_policies.begin(),
+                     specification.requirement_policies.end(),
+                     [](const RequirementPolicySpec &policy) {
+                       return policy.kind == RequirementKind::fixed_dirichlet;
+                     }),
+      specification.requirement_policies.end());
+    specification.requirement_policies.insert(
+      specification.requirement_policies.begin(),
+      {"state_mean_zero_gauge", "state", RequirementKind::mean_zero_multiplier,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "one mean-zero Lagrange multiplier in the state and adjoint solves",
+       "domain"});
     return specification;
   }
 

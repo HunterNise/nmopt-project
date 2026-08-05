@@ -12,6 +12,7 @@
 #include <deal.II/grid/tria.h>
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <set>
@@ -56,6 +57,8 @@ namespace nmopt::compiler::v1
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_neumann_boundary_control =
         uses_neumann_control(specification);
+      const bool uses_mean_zero_gauge =
+        uses_mean_zero_multiplier(specification);
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *control_boundary_region =
         selected_neumann_control_region(specification);
@@ -76,6 +79,18 @@ namespace nmopt::compiler::v1
           specification.formulation.state_variable_id,
           "selected_fixed_dirichlet_reconstruction",
           "Declare the fixed-Dirichlet reconstruction before binding lifting data.");
+      if (uses_mean_zero_gauge && std::abs(data.reaction) > 1e-14)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "pure_neumann_zero_reaction",
+          "Bind zero reaction for the selected pure-Neumann constant-nullspace policy.");
+      if (uses_mean_zero_gauge && uses_fixed_reconstruction)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "pure_neumann_without_fixed_reconstruction",
+          "Remove fixed-Dirichlet reconstruction when selecting the pure-Neumann mean constraint.");
       const bool has_constraint = !specification.formulation.constraint_id.empty();
       if (has_constraint &&
           ((uses_neumann_boundary_control && !facewise_bounds) ||
@@ -114,8 +129,10 @@ namespace nmopt::compiler::v1
       if (!result.diagnostics.valid())
         return result;
 
-      const auto dirichlet_boundary_ids =
-        selected_dirichlet_boundary_ids(specification);
+      const auto dirichlet_boundary_ids = uses_mean_zero_gauge
+                                            ? std::set<dealii::types::boundary_id>{}
+                                            : selected_dirichlet_boundary_ids(
+                                                specification);
       contract::require(tracking_region != nullptr,
                         "Validated v1 problem has no tracking observation region");
       std::shared_ptr<const contract::MetricT<Backend>> metric;
@@ -137,7 +154,19 @@ namespace nmopt::compiler::v1
             policy.state_degree,
             dirichlet_boundary_ids,
             boundary_ids(*control_boundary_region),
-            boundary_ids(*tracking_region));
+            boundary_ids(*tracking_region),
+            uses_mean_zero_gauge
+              ? BoundaryModel::StateGauge::mean_zero_multiplier
+              : BoundaryModel::StateGauge::fixed_dirichlet);
+          if (uses_mean_zero_gauge && !boundary->forcing_is_compatible())
+            {
+              result.diagnostics.add(
+                semantic::v1::DiagnosticCategory::lowerability,
+                "forcing",
+                "pure_neumann_forcing_compatibility",
+                "Bind forcing with zero discrete pairing against the constant null mode.");
+              return result;
+            }
           metric = std::make_shared<dealii_backend::MassMetric>(
             boundary->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
@@ -220,6 +249,7 @@ namespace nmopt::compiler::v1
                       uses_fixed_reconstruction,
                       uses_assembled_v1_target,
                       uses_neumann_boundary_control,
+                      uses_mean_zero_gauge,
                       *tracking_region,
                       control_boundary_region));
       return result;
@@ -316,6 +346,22 @@ namespace nmopt::compiler::v1
         specification.residual_terms.end(),
         [](const semantic::v1::ResidualTermSpec &term) {
           return term.kind == semantic::v1::ResidualTermKind::neumann_control;
+        });
+    }
+
+    static bool
+    uses_mean_zero_multiplier(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [&specification](const semantic::v1::RequirementPolicySpec &policy) {
+          return policy.subject_id == specification.formulation.state_variable_id &&
+                 policy.kind ==
+                   semantic::v1::RequirementKind::mean_zero_multiplier &&
+                 policy.status ==
+                   semantic::v1::RequirementStatus::selected_discrete_realisation;
         });
     }
 
@@ -493,6 +539,7 @@ namespace nmopt::compiler::v1
                      "registered_transformation_lowerer",
                      "Register value, JVP, and VJP lowering for this transformation.");
 
+      const bool mean_zero_gauge = uses_mean_zero_multiplier(specification);
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),
@@ -504,13 +551,51 @@ namespace nmopt::compiler::v1
       const auto boundary = fixed_policy == specification.requirement_policies.end()
                               ? nullptr
                               : find_region(specification, fixed_policy->region_id);
-      if (boundary == nullptr ||
-          boundary->kind != semantic::v1::RegionKind::boundary ||
-          boundary->boundary_ids.empty())
+      if (!mean_zero_gauge &&
+          (boundary == nullptr ||
+           boundary->kind != semantic::v1::RegionKind::boundary ||
+           boundary->boundary_ids.empty()))
         report.add(DiagnosticCategory::lowerability,
                    specification.formulation.state_variable_id,
                    "fixed_dirichlet_boundary_ids",
                    "Select a boundary region with at least one fixed Dirichlet id.");
+
+      if (mean_zero_gauge)
+        {
+          if (!uses_neumann_control(specification))
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.state_variable_id,
+              "pure_neumann_registered_residual",
+              "Select the mean-zero multiplier only with the registered pure-Neumann boundary-control residual.");
+          const auto mean_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
+              return candidate.subject_id ==
+                       specification.formulation.state_variable_id &&
+                     candidate.kind ==
+                       semantic::v1::RequirementKind::mean_zero_multiplier;
+            });
+          const auto mean_region =
+            mean_policy == specification.requirement_policies.end()
+              ? nullptr
+              : find_region(specification, mean_policy->region_id);
+          if (mean_region == nullptr ||
+              mean_region->kind != semantic::v1::RegionKind::volume ||
+              !mean_region->is_full_domain)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.state_variable_id,
+              "pure_neumann_mean_constraint_region",
+              "Place the mean-zero multiplier policy on the single full volume region.");
+          if (boundary != nullptr)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.state_variable_id,
+              "pure_neumann_without_fixed_dirichlet",
+              "Do not declare a fixed Dirichlet policy with the pure-Neumann mean constraint.");
+        }
 
       if (!uses_neumann_control(specification))
         return;
@@ -773,6 +858,7 @@ namespace nmopt::compiler::v1
                   const bool                         uses_fixed_reconstruction,
                   const bool                         uses_assembled_v1_target,
                   const bool                         uses_neumann_boundary_control,
+                  const bool                         uses_mean_zero_gauge,
                   const semantic::v1::RegionSpec &   tracking_region,
                   const semantic::v1::RegionSpec *   control_boundary_region)
     {
@@ -814,15 +900,19 @@ namespace nmopt::compiler::v1
                                           : uses_neumann_boundary_control
                                               ? "facewise-constant coefficientwise l2_facewise clipping"
                                               : "FE_DGQ(0) coefficientwise l2_cellwise clipping";
-      manifest.lifting_realisation = uses_fixed_reconstruction
+      manifest.lifting_realisation = uses_mean_zero_gauge
+                                       ? "none; pure-Neumann state uses an explicit mean-zero gauge"
+                                       : uses_fixed_reconstruction
                                        ? "y_phys = P_h y_hat + ell_0,h; independent FE_Q coordinates, AffineConstraints reconstruction, and P_h^* pullbacks"
                                        : uses_assembled_v1_target
                                            ? "y_phys = P_h y_hat; independent FE_Q coordinates and AffineConstraints reconstruction"
                                            : "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
-      manifest.nullspace_policy =
-        "not applicable: non-empty fixed Dirichlet boundary";
-      manifest.state_adjoint_solve_policy =
-        "serial CG with identity preconditioner for symmetric positive-definite operator";
+      manifest.nullspace_policy = uses_mean_zero_gauge
+        ? "one mean-zero Lagrange multiplier; discrete constant-mode compatibility is enforced for forcing and every control state load"
+        : "not applicable: non-empty fixed Dirichlet boundary";
+      manifest.state_adjoint_solve_policy = uses_mean_zero_gauge
+        ? "serial SparseDirectUMFPACK on the augmented symmetric state and adjoint saddle systems"
+        : "serial CG with identity preconditioner for symmetric positive-definite operator";
       manifest.provenance = "DTO";
       if (uses_neumann_boundary_control && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(

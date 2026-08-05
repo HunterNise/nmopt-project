@@ -18,6 +18,7 @@
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
+#include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/numerics/vector_tools.h>
@@ -52,6 +53,12 @@ namespace nmopt::compiler::v1::detail
     using Primal = contract::PrimalBlockT<Backend>;
     using Covector = contract::CovectorBlockT<Backend>;
 
+    enum class StateGauge
+    {
+      fixed_dirichlet,
+      mean_zero_multiplier
+    };
+
     NeumannBoundaryControlModel(
       dealii::Triangulation<dim> &                triangulation,
       const dealii::Function<dim> &               forcing,
@@ -62,12 +69,15 @@ namespace nmopt::compiler::v1::detail
       const unsigned int                            state_degree,
       std::set<dealii::types::boundary_id>         dirichlet_boundary_ids,
       std::set<dealii::types::boundary_id>         control_boundary_ids,
-      std::set<dealii::types::boundary_id>         observation_boundary_ids)
+      std::set<dealii::types::boundary_id>         observation_boundary_ids,
+      const StateGauge                              state_gauge =
+        StateGauge::fixed_dirichlet)
       : state_fe_(state_degree)
       , state_dof_handler_(triangulation)
       , diffusion_(diffusion)
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
+      , state_gauge_(state_gauge)
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
       , control_boundary_ids_(std::move(control_boundary_ids))
       , observation_boundary_ids_(std::move(observation_boundary_ids))
@@ -80,8 +90,18 @@ namespace nmopt::compiler::v1::detail
                         "Control regularisation weight must be strictly positive");
       contract::require(state_degree > 0,
                         "State FE degree must be at least one");
-      contract::require(!dirichlet_boundary_ids_.empty(),
-                        "The Neumann v1 target needs a fixed Dirichlet boundary");
+      contract::require(
+        state_gauge_ != StateGauge::fixed_dirichlet ||
+          !dirichlet_boundary_ids_.empty(),
+        "The Neumann v1 target needs a fixed Dirichlet boundary for this gauge");
+      contract::require(
+        state_gauge_ != StateGauge::mean_zero_multiplier ||
+          dirichlet_boundary_ids_.empty(),
+        "The pure-Neumann mean-zero gauge cannot also fix boundary DoFs");
+      contract::require(
+        state_gauge_ != StateGauge::mean_zero_multiplier ||
+          std::abs(reaction_) <= 1e-14,
+        "The pure-Neumann mean-zero gauge requires zero reaction");
       contract::require(!control_boundary_ids_.empty(),
                         "The Neumann v1 target needs a marked control boundary");
       contract::require(!observation_boundary_ids_.empty(),
@@ -94,6 +114,8 @@ namespace nmopt::compiler::v1::detail
                         "The selected Neumann boundary has no active boundary faces");
       initialise_storage();
       assemble(forcing, desired_state);
+      if (uses_mean_zero_gauge())
+        build_mean_zero_system();
     }
 
     const contract::LayoutPtr &
@@ -130,6 +152,28 @@ namespace nmopt::compiler::v1::detail
     control_l2_box_constraint(const double lower, const double upper) const
     {
       return dealii_backend::FacewiseBoxConstraint(control_layout_, lower, upper);
+    }
+
+    bool
+    uses_mean_zero_gauge() const
+    {
+      return state_gauge_ == StateGauge::mean_zero_multiplier;
+    }
+
+    bool
+    forcing_is_compatible() const
+    {
+      return is_compatible(forcing_load_);
+    }
+
+    double
+    state_mean(const Primal &state) const
+    {
+      contract::require(
+        state.layout()->compatible_with(*state_layout_) ||
+          state.layout()->compatible_with(*test_layout_),
+        "State mean received an incompatible state or adjoint layout");
+      return mean_constraint_ * state.block(0);
     }
 
     Covector
@@ -218,7 +262,15 @@ namespace nmopt::compiler::v1::detail
       right_hand_side.add(1.0, control_contribution);
 
       Vector state(state_dof_handler_.n_dofs());
-      solve_symmetric_system(state, right_hand_side);
+      if (uses_mean_zero_gauge())
+        {
+          contract::require(
+            is_compatible(right_hand_side),
+            "Pure-Neumann state load violates the discrete constant-mode compatibility condition");
+          solve_mean_zero_system(state, right_hand_side);
+        }
+      else
+        solve_symmetric_system(state, right_hand_side);
       state_constraints_.distribute(state);
       return Primal(state_layout_, {std::move(state)});
     }
@@ -233,7 +285,10 @@ namespace nmopt::compiler::v1::detail
         "Adjoint solve right-hand side has an incompatible state layout");
 
       Vector adjoint(test_layout_->dimension(0));
-      solve_symmetric_system(adjoint, state_objective_derivative.block(0));
+      if (uses_mean_zero_gauge())
+        solve_mean_zero_system(adjoint, state_objective_derivative.block(0));
+      else
+        solve_symmetric_system(adjoint, state_objective_derivative.block(0));
       state_constraints_.distribute(adjoint);
       return Primal(test_layout_, {std::move(adjoint)});
     }
@@ -365,6 +420,10 @@ namespace nmopt::compiler::v1::detail
 
       forcing_load_.reinit(state_size);
       desired_state_load_.reinit(state_size);
+      mean_constraint_.reinit(state_size);
+      constant_mode_.reinit(state_size);
+      for (dealii::types::global_dof_index index = 0; index < state_size; ++index)
+        constant_mode_[index] = 1.0;
     }
 
     void
@@ -381,6 +440,7 @@ namespace nmopt::compiler::v1::detail
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
                                               state_fe_.dofs_per_cell);
       dealii::Vector<double> local_forcing(state_fe_.dofs_per_cell);
+      dealii::Vector<double> local_mean_constraint(state_fe_.dofs_per_cell);
       std::vector<dealii::types::global_dof_index> state_indices(
         state_fe_.dofs_per_cell);
 
@@ -391,6 +451,7 @@ namespace nmopt::compiler::v1::detail
           state_values.reinit(cell);
           local_system = 0.0;
           local_forcing = 0.0;
+          local_mean_constraint = 0.0;
           for (unsigned int q = 0; q < volume_quadrature.size(); ++q)
             {
               const double weight = state_values.JxW(q);
@@ -400,6 +461,7 @@ namespace nmopt::compiler::v1::detail
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
+                  local_mean_constraint(i) += phi_i * weight;
                   for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
                     local_system(i, j) +=
                       (diffusion_ * (state_values.shape_grad(i, q) *
@@ -415,6 +477,7 @@ namespace nmopt::compiler::v1::detail
               if (constrained_state_dofs_.at(global_i))
                 continue;
               forcing_load_[global_i] += local_forcing(i);
+              mean_constraint_[global_i] += local_mean_constraint(i);
               for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
                 {
                   const auto global_j = state_indices[j];
@@ -424,11 +487,12 @@ namespace nmopt::compiler::v1::detail
             }
         }
 
-      for (dealii::types::global_dof_index index = 0;
-           index < state_dof_handler_.n_dofs();
-           ++index)
-        if (constrained_state_dofs_.at(index))
-          system_matrix_.set(index, index, 1.0);
+      if (!uses_mean_zero_gauge())
+        for (dealii::types::global_dof_index index = 0;
+             index < state_dof_handler_.n_dofs();
+             ++index)
+          if (constrained_state_dofs_.at(index))
+            system_matrix_.set(index, index, 1.0);
 
       assemble_boundary_operators(desired_state, quadrature_order);
     }
@@ -525,6 +589,58 @@ namespace nmopt::compiler::v1::detail
                    dealii::PreconditionIdentity());
     }
 
+    bool
+    is_compatible(const Vector &load) const
+    {
+      const double tolerance = std::max(1e-12, 1e-11 * load.l2_norm());
+      return std::abs(constant_mode_ * load) <= tolerance;
+    }
+
+    void
+    build_mean_zero_system()
+    {
+      const auto state_size = state_dof_handler_.n_dofs();
+      dealii::DynamicSparsityPattern augmented_dsp(state_size + 1,
+                                                    state_size + 1);
+      for (dealii::types::global_dof_index row = 0; row < state_size; ++row)
+        {
+          for (auto entry = system_matrix_.begin(row);
+               entry != system_matrix_.end(row);
+               ++entry)
+            augmented_dsp.add(row, entry->column());
+          if (mean_constraint_[row] != 0.0)
+            {
+              augmented_dsp.add(row, state_size);
+              augmented_dsp.add(state_size, row);
+            }
+        }
+      augmented_sparsity_.copy_from(augmented_dsp);
+      augmented_system_.reinit(augmented_sparsity_);
+      for (dealii::types::global_dof_index row = 0; row < state_size; ++row)
+        {
+          for (auto entry = system_matrix_.begin(row);
+               entry != system_matrix_.end(row);
+               ++entry)
+            augmented_system_.set(row, entry->column(), entry->value());
+          augmented_system_.set(row, state_size, mean_constraint_[row]);
+          augmented_system_.set(state_size, row, mean_constraint_[row]);
+        }
+      augmented_solver_.initialize(augmented_system_);
+    }
+
+    void
+    solve_mean_zero_system(Vector &solution, const Vector &right_hand_side) const
+    {
+      const auto state_size = state_dof_handler_.n_dofs();
+      dealii::Vector<double> augmented_right_hand_side(state_size + 1);
+      for (dealii::types::global_dof_index index = 0; index < state_size; ++index)
+        augmented_right_hand_side[index] = right_hand_side[index];
+      dealii::Vector<double> augmented_solution(state_size + 1);
+      augmented_solver_.vmult(augmented_solution, augmented_right_hand_side);
+      for (dealii::types::global_dof_index index = 0; index < state_size; ++index)
+        solution[index] = augmented_solution[index];
+    }
+
     dealii::FE_Q<dim> state_fe_;
     dealii::DoFHandler<dim> state_dof_handler_;
     dealii::AffineConstraints<double> state_constraints_;
@@ -533,6 +649,7 @@ namespace nmopt::compiler::v1::detail
     const double diffusion_;
     const double reaction_;
     const double regularisation_weight_;
+    const StateGauge state_gauge_;
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
     const std::set<dealii::types::boundary_id> control_boundary_ids_;
     const std::set<dealii::types::boundary_id> observation_boundary_ids_;
@@ -541,12 +658,17 @@ namespace nmopt::compiler::v1::detail
     dealii::SparsityPattern state_sparsity_;
     dealii::SparsityPattern control_sparsity_;
     dealii::SparsityPattern control_mass_sparsity_;
+    dealii::SparsityPattern augmented_sparsity_;
     dealii::SparseMatrix<double> system_matrix_;
     dealii::SparseMatrix<double> state_mass_;
     dealii::SparseMatrix<double> control_coupling_;
+    dealii::SparseMatrix<double> augmented_system_;
+    dealii::SparseDirectUMFPACK augmented_solver_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     Vector forcing_load_;
     Vector desired_state_load_;
+    Vector mean_constraint_;
+    Vector constant_mode_;
     double desired_state_norm_ = 0.0;
 
     contract::LayoutPtr variable_layout_;

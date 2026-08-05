@@ -308,6 +308,15 @@ including controls.
 gauge in their compilation manifest; state and adjoint are invariant under no
 unrecorded pinning convention.
 
+**Implemented (v1):** `make_pure_neumann_boundary_control_problem()` keeps
+the facewise natural-boundary residual but selects a full-domain
+`mean_zero_multiplier` policy. With zero reaction, its private v1 target
+solves state and adjoint systems through an explicit one-multiplier saddle
+matrix. Compilation rejects nonzero reaction and incompatible forcing; state
+solves reject incompatible boundary controls. The manifest records the gauge
+and `SparseDirectUMFPACK` solve, and focused contracts check zero means and no
+hidden DoF pin. The v0 model remains unchanged.
+
 ### P2.3 — Add $H^{1}$ regularisation and $H^{1}$ search geometry separately
 
 **Why:** The current code makes the distinction possible but does not yet

@@ -375,13 +375,15 @@ transfer map. They are not inferred from a boundary ID.
 |---|---|---|
 | Pin one state DoF | Easy but mesh- and point-dependent gauge. | Not the default. |
 | Work in a quotient/mean-zero subspace | Clean mathematically, but needs a robust discrete realization. | Equivalent permitted realization. |
-| Augment with one mean constraint/multiplier | Makes the gauge and compatibility visible in the algebra. | **First supported policy, after the baseline slice.** |
+| Augment with one mean constraint/multiplier | Makes the gauge and compatibility visible in the algebra. | **Implemented first supported policy.** |
 
-The default future system augments the state and adjoint solves with a
-mean-zero condition. The compiler checks the discrete compatibility functional
-against all load, Neumann-data, and control contributions. It records the
-gauge for state, adjoint, observations, metrics, and preconditioners. A
-pure-Neumann problem is unsupported until this complete policy is available.
+**Implemented v1 policy:** the pure-Neumann boundary-control graph augments
+both state and adjoint solves with one mean-zero multiplier. It checks the
+discrete constant-mode pairing of forcing at compilation and each boundary
+control state load at solve time; no state DoF is pinned. The manifest records
+the saddle-system gauge and solver. This initial policy applies only to the
+registered zero-reaction, facewise-control path; a generic constraint that
+preserves compatibility remains future work.
 
 ## 9. Mesh, data, geometry, and time
 

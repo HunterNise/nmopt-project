@@ -42,6 +42,12 @@ namespace
     require(boundary_report.valid(),
             "the Neumann boundary-control v1 graph is invalid");
 
+    const auto pure_neumann_specification =
+      nmopt::semantic::v1::make_pure_neumann_boundary_control_problem();
+    const auto pure_neumann_report = validator.validate(pure_neumann_specification);
+    require(pure_neumann_report.valid(),
+            "the pure-Neumann mean-constraint v1 graph is invalid");
+
     auto missing_lifting_port = fixed_specification;
     missing_lifting_port.transformations.front().fixed_data_id = "missing_data";
     const auto lifting_port_report = validator.validate(missing_lifting_port);
@@ -92,6 +98,29 @@ namespace
     require(missing_neumann_trace_report.has_category(
               nmopt::semantic::v1::DiagnosticCategory::analytical_policy),
             "v1 semantic validation did not require the Neumann trace policy");
+
+    auto missing_mean_constraint = pure_neumann_specification;
+    for (auto &policy : missing_mean_constraint.requirement_policies)
+      if (policy.kind == nmopt::semantic::v1::RequirementKind::mean_zero_multiplier)
+        policy.status = nmopt::semantic::v1::RequirementStatus::provided;
+    const auto missing_mean_constraint_report =
+      validator.validate(missing_mean_constraint);
+    require(missing_mean_constraint_report.has_category(
+              nmopt::semantic::v1::DiagnosticCategory::analytical_policy),
+            "v1 semantic validation did not require the pure-Neumann mean constraint");
+
+    auto conflicting_state_gauges = pure_neumann_specification;
+    conflicting_state_gauges.requirement_policies.push_back(
+      {"state_fixed_dirichlet", "state",
+       nmopt::semantic::v1::RequirementKind::fixed_dirichlet,
+       nmopt::semantic::v1::RequirementStatus::selected_discrete_realisation,
+       nmopt::semantic::v1::RequirementScope::discrete_compilation,
+       "homogeneous full-vector Dirichlet rows", "control_boundary"});
+    const auto conflicting_state_gauges_report =
+      validator.validate(conflicting_state_gauges);
+    require(conflicting_state_gauges_report.has_category(
+              nmopt::semantic::v1::DiagnosticCategory::structural),
+            "v1 semantic validation did not reject conflicting state gauges");
 
     auto mismatched_neumann_region = boundary_specification;
     for (auto &term : mismatched_neumann_region.residual_terms)

@@ -38,7 +38,10 @@ includes the focused deal.II-free headers `types.hpp`, `validation.hpp`, and
 declared physical-field transformation, while
 `make_subdomain_tracking_scalar_diffusion_reaction_problem()` adds a named
 material-id observation region. `make_neumann_boundary_control_problem()`
-declares a facewise Neumann control and state boundary trace:
+declares a facewise Neumann control and state boundary trace.
+`make_pure_neumann_boundary_control_problem()` is its separate zero-reaction
+mean-constraint variant. The compatibility table below describes the
+homogeneous graph; the named graph sections record the added features.
 
 ```text
 Region       one full volume region, named material-id volume subregions, and Dirichlet boundary ids
@@ -112,6 +115,27 @@ separate from `CellwiseBoxDataBindings`; both bounds are scalar constants or
 exact face-layout vectors. The compiler rejects a control boundary that
 overlaps the fixed homogeneous Dirichlet ids.
 
+### Pure Neumann mean constraint
+
+The P2.2 graph retains the singular natural-boundary residual but declares
+`mean_zero_multiplier` on the full volume instead of fixed Dirichlet rows.
+The private v1 target solves state and adjoint systems with
+
+```math
+\begin{bmatrix}A_{h}&m_{h}\\m_{h}^{T}&0\end{bmatrix}
+\begin{bmatrix}y_{h}\\\lambda \end{bmatrix}=
+\begin{bmatrix}f_{h}+C_{\Gamma} u\\0\end{bmatrix},
+\qquad (m_{h})_{i}=\int_{\Omega}\phi_{i}.
+```
+
+It requires zero reaction and checks the discrete constant-mode pairing of
+forcing at compilation and of every boundary-control state load at solve time.
+The adjoint uses the same augmented system, so state and adjoint have the
+recorded zero mean without pinning a DoF. The manifest names the multiplier
+policy and serial `SparseDirectUMFPACK` saddle solve. The pure-Neumann graph
+does not select a box: the current generic projection cannot preserve its
+affine load-compatibility condition.
+
 ### Fixed essential reconstruction
 
 The fixed-data graph represents independent state coordinates and a physical
@@ -158,13 +182,15 @@ focused compiler headers: `compiled_problem.hpp`, `dealii_types.hpp`,
 assembly used for fixed reconstruction and material-subdomain tracking. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, facewise control layout, boundary trace tracking, facewise metric,
-and facewise box realization. The registry otherwise supports only the listed
+facewise box realization, and pure-Neumann mean-zero saddle realization. The
+registry otherwise supports only the listed
 volume terms, full-domain control observation, full-domain or material-id
 state restriction, quadratic losses, `L2` metric, optional cellwise box, and
 fixed-Dirichlet reconstruction. Its selected discrete policies are assembled
 serial scalar `FE_Q` state/test with degree at least one and reduced DTO:
 `FE_DGQ(0)` volume control on the state mesh, or one facewise-constant
-Neumann coefficient for every marked boundary face.
+Neumann coefficient for every marked boundary face. Pure Neumann is limited
+to zero reaction and compatible forcing/control loads.
 
 `CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
 and `make_reduced_dto()` expose only backend-neutral ports and formulation

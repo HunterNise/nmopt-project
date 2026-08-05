@@ -424,7 +424,7 @@ differentiated-control policies exist.
 
 ### P4.2 — Generalize algebra, execution, and formulations
 
-This final group has value, but should not block the preceding vertical
+This long-term group has value, but should not block the preceding vertical
 slices:
 
 1. Multiple state/equation blocks, mixed fields, and Petrov–Galerkin spaces.
@@ -435,6 +435,186 @@ slices:
    Newton/SQP and active-set methods.
 5. Fractional metrics, point/flux observations, nonmatching meshes, and shape
    optimization only with their own explicit policies.
+
+## Chapter 5 feature requests
+
+The Chapter 5 implementation guide records the mathematical variants and the
+required composition boundary for each request. The requests below are
+ordered by reusable capability, not by the source chapter's presentation
+order. They must not be implemented as a hierarchy of named textbook problem
+classes.
+
+### P5.1 — Compose general scalar elliptic volume and Robin boundary terms
+
+**Motivation:** C5.1, C5.5.1, and C5.6 use scalar operators beyond the
+current diffusion-reaction slice. Their differences are residual terms and
+boundary policies, not different optimisation frameworks.
+
+**Declare and implement:**
+
+- Tensor diffusion, conservative transport `div(b y)`, advective transport
+  `c · grad(y)`, reaction, volume source, and volume-control residual terms.
+- Robin bilinear boundary term and Robin boundary source, with a declared
+  conormal-flux convention.
+- A boundary-partition policy that distinguishes fixed Dirichlet, Neumann,
+  Robin, and transport inflow/outflow regions.
+- Requirement policies for uniform ellipticity, coefficient regularity,
+  coercivity, and trace interpretation. They record assumptions; they are not
+  theorem provers.
+
+**First registered target:** serial scalar `FE_Q` state/test with selected
+coefficient `Function` bindings, volume `FE_DGQ(0)` control, and one declared
+Robin boundary region. It may initially retain homogeneous fixed Dirichlet
+data; partial controlled Dirichlet boundaries belong to P5.4.
+
+**Derivative and test contract:** each variable-dependent residual term must
+have value, JVP, and VJP pairing tests. The combined target must pass a
+non-symmetric transport adjoint test, a Robin boundary contribution test, and
+a reduced Taylor test. Unsupported coefficient shapes, boundary overlaps, or
+missing policies must return compiler diagnostics.
+
+### P5.2 — Add energy-volume and weighted-trace observations, then the selected $H^{-1}$ metric separately
+
+**Motivation:** C5.5.2 needs state tracking in an energy space, while C5.7
+needs a boundary trace multiplied by declared data. The alternate C5.5.2
+control-space formulation requires a separate $H^{-1}$ primal-dual map.
+
+**First observation slice:**
+
+- Add a full-domain `h1_state_restriction` observation with its explicitly
+  declared $H^{1}_{0}$ pairing. Its quadratic loss lowers to selected mass and
+  stiffness contributions, and its VJP supplies the corresponding state
+  covector.
+- Add `weighted_boundary_trace`, a general map from a state trace and fixed
+  boundary weight data to a declared boundary observation space. It must not
+  be encoded by modifying a tracking loss or Neumann residual.
+- Record the target-data and trace quadrature policies in the manifest.
+
+**Separate metric slice:** add an $H^{-1}$ metric only after stating its
+control space, Riesz operator, boundary/mean policy, and inverse-solve
+tolerances. It changes only the search direction; it does not change the
+energy observation, residual, or adjoint equation.
+
+**Done when:** state energy and weighted-trace value/JVP/VJP tests pass, the
+metric apply/inverse tests establish the declared pairing, and a reduced
+Taylor test distinguishes the $L^{2}$ and $H^{-1}$ search directions without
+changing the reduced covector.
+
+### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy
+
+**Motivation:** C5.8 and C5.10 are not ordinary restriction/trace
+observations. Their adjoints use boundary data or Dirac sources with lower
+regularity. The $L^{2}$ Dirichlet-control variant in C5.11 uses the same
+transposition principle.
+
+**Declare and implement:**
+
+- Point-set regions with immutable sensor coordinates, a selected discrete
+  evaluation rule, and a finite-dimensional observation pairing.
+- A normal-flux observation whose input has an explicit strong $H^{2}$ or
+  declared $H(\mathrm{div})$ trace capability. The selected policy must state
+  the normal orientation and observation boundary region.
+- A transposition formulation policy declaring the strong test space $Y$, the
+  isomorphism $T:Y\rightarrow H$, the residual codomain, and the multiplier
+  space. It must identify which domain-regularity assumptions are supplied by
+  the model author.
+
+**First registered target:** scalar Dirichlet Laplace or reaction-diffusion
+on a convex or declared $C^{2}$ serial domain. Choose one explicit discrete
+point-evaluation policy and one flux policy; reject every alternative until
+it has its own lowerer. The corresponding adjoint must use the declared
+transpose/very-weak formulation, not an undeclared nodal Dirac approximation.
+
+**Done when:** sensor and flux observation derivatives pass value/JVP/VJP
+tests; the low-regularity adjoint passes its dual residual test; and the
+compiled product records all regularity, orientation, and evaluation policies.
+
+### P5.4 — Generalize Dirichlet-control transformations and trace metrics
+
+**Motivation:** C5.11 and C5.13.2 require choices beyond the current complete
+boundary nodal $L^{2}$ lifting: mixed fixed/controlled boundaries, nonzero
+fixed data, fractional trace geometry, and tangential $H^{1}$ regularisation.
+
+**Declare and implement:**
+
+- A boundary-partition/lifting policy that explicitly resolves every
+  fixed-controlled interface, corner, and hanging-node relation in
+  $`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}`$.
+- Selected trace-space declarations and metrics for boundary $L^{2}$,
+  fractional $H^{1/2}$, and tangential $H^{1}$ choices. A metric is separate
+  from the associated control regularisation loss.
+- A surface-gradient observation/map for the tangential $H^{1}$ loss, with
+  boundary mesh, endpoint, and orientation policies.
+
+**First registered target:** one partial scalar controlled boundary disjoint
+from one fixed nonzero Dirichlet boundary, with a complete declaration of the
+corner policy. Start with an $L^{2}$ trace metric; add fractional and
+tangential metrics as separate follow-up targets rather than silently using a
+mass matrix for all three.
+
+**Done when:** the physical reconstruction and both state/control pullbacks
+pass VJP tests under changed fixed and controlled data; each metric passes its
+own pairing test; and incomplete or ambiguous boundary declarations are
+rejected.
+
+### P5.5 — Add regularised state-observation constraints with KKT provenance
+
+**Motivation:** C5.12 constrains the state, so it cannot be represented by the
+current control-only projection capability. The unregularised problem has
+measure multipliers and is outside the present first-order executable scope.
+
+**First supported formulation:** declare a state-control observation
+
+```math
+w=O_{c}(y,u)=y+\lambda u,
+\qquad \lambda>0,
+```
+
+with box constraints on $w$. The compiler must record the selected
+Lavrentiev regularisation and may introduce the transformed decision
+$`v=(\lambda I+S)u`$ only through declared maps and solves. It must expose the
+$L^{2}$ multipliers, complementarity residual, and regularised adjoint relation.
+
+**Do not do:** represent the original state constraint as a cellwise control
+box; conceal the control-to-state inverse inside an optimiser; or present an
+$L^{2}$ multiplier as the multiplier of the unregularised state constraint.
+
+**Done when:** a feasible manufactured regularised problem satisfies primal
+feasibility, dual feasibility, complementarity, stationarity, and a reduced
+derivative test. A continuation test must record the sequence of positive
+regularisation parameters. The original measure-multiplier problem remains a
+capability diagnostic until its own functional-analytic contract exists.
+
+### P5.6 — Generalize to mixed equation blocks and register a Stokes vertical slice
+
+**Motivation:** C5.13 needs vector fields, multiple equation blocks, a
+pressure gauge, inf-sup stability, traction, and—later—boundary multipliers.
+This is the concrete Chapter 5 instance of P4.2 item 1.
+
+**Declare and implement:**
+
+- General reduced DTO support for multiple state and test blocks and an
+  externally supplied coupled state/adjoint solve. The reduced decision port
+  remains explicit; do not make it infer a velocity-control problem.
+- Vector-valued spaces and reusable viscous, pressure-gradient, divergence,
+  traction, curl, and boundary-multiplier terms.
+- Requirement policies for the pressure gauge, velocity/pressure FE pair,
+  inf-sup assumption, traction trace, and controlled-boundary relation.
+
+**First registered target:** serial steady Stokes with distributed vector
+force control, velocity $L^{2}$ tracking, homogeneous Dirichlet and declared
+traction boundaries, and a pressure mean policy. Its adjoint is the exact
+coupled transpose and its reduced covector is the adjoint velocity plus the
+regularised force covector.
+
+**Follow-up target:** boundary velocity control with vorticity observation,
+surface $H^{1}$ regularisation, and a declared boundary multiplier. It must
+reuse the mixed equation and trace components rather than introduce a
+named Stokes-control application type.
+
+**Done when:** the mixed residual has blockwise JVP/VJP pairing tests, the
+chosen FE pair/policy is in the manifest, the state and adjoint satisfy their
+block residuals, and each target passes a coupled reduced Taylor test.
 
 ## Suggested next-agent sequence
 

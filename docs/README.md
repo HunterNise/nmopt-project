@@ -37,6 +37,7 @@ document that answers the question, then follow links to the deeper material.
 | Deciding component ownership or layer boundaries | `composition-boundaries.md` | `architecture.md`, `interface-specification.md` |
 | Checking mathematical signs or formulas | `theoretical-formalism.md` | `laplace-interface-formulas.md`, `laplace-growth-case-study.md` |
 | Understanding the concrete end-to-end example | `laplace-growth-case-study.md` | `laplace-interface-formulas.md` |
+| Implementing a Chapter 5 elliptic control application | `chapter-5-implementation-guide.md` | `semantic-v1-compiler.md`, `implementation-roadmap.md` |
 | Choosing the next implementation task | `implementation-roadmap.md` | The task-specific contract listed above |
 | Reviewing why the design is shaped this way | `architecture.md` | `theoretical-formalism.md` |
 | Editing Markdown or LaTeX | `../conventions/documentation.md` | The document being changed |
@@ -54,5 +55,6 @@ document that answers the question, then follow links to the deeper material.
 - [V1 semantic graph and compiler](semantic-v1-compiler.md)
 - [Laplace growth case study](laplace-growth-case-study.md)
 - [Laplace interface formulas](laplace-interface-formulas.md)
+- [Chapter 5 elliptic optimal-control implementation guide](chapter-5-implementation-guide.md)
 - [Implementation roadmap](implementation-roadmap.md)
 - [Project conventions](../conventions/README.md)

@@ -18,6 +18,7 @@ namespace nmopt::compiler::v1
           case semantic::v1::ResidualTermKind::diffusion_reaction:
           case semantic::v1::ResidualTermKind::volume_source:
           case semantic::v1::ResidualTermKind::volume_control:
+          case semantic::v1::ResidualTermKind::neumann_control:
             return true;
         }
       return false;
@@ -29,6 +30,8 @@ namespace nmopt::compiler::v1
       switch (kind)
         {
           case semantic::v1::ObservationKind::volume_restriction:
+          case semantic::v1::ObservationKind::boundary_trace:
+          case semantic::v1::ObservationKind::boundary_restriction:
             return true;
         }
       return false;
@@ -55,7 +58,8 @@ namespace nmopt::compiler::v1
     bool
     has_constraint_lowerer(const semantic::v1::ConstraintKind kind) const
     {
-      return kind == semantic::v1::ConstraintKind::cellwise_box;
+      return kind == semantic::v1::ConstraintKind::cellwise_box ||
+             kind == semantic::v1::ConstraintKind::facewise_box;
     }
 
     bool

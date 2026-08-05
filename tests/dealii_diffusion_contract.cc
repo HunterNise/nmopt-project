@@ -343,6 +343,173 @@ namespace
 
   template <int dim>
   void
+  run_neumann_boundary_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary())
+          {
+            const double x = cell->face(face)->center()[0];
+            cell->face(face)->set_boundary_id(x < 1e-12 ? 0 :
+                                              x > 1.0 - 1e-12 ? 1 : 2);
+          }
+
+    const dealii::Functions::ConstantFunction<dim> forcing(0.5);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.2);
+    const auto specification =
+      semantic::v1::make_neumann_boundary_control_problem(true);
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(specification, policy).valid(),
+                      "Neumann boundary-control v1 graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing, desired_state, 1.0, 0.5, 0.1};
+    const compiler::v1::FacewiseBoxDataBindings facewise_bounds{
+      compiler::v1::FacewiseBoundValue{-0.25},
+      compiler::v1::FacewiseBoundValue{0.4}};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy,
+                                              std::nullopt,
+                                              facewise_bounds);
+    contract::require(compilation.succeeded(),
+                      "Neumann boundary-control v1 compilation failed");
+
+    const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_values.size();
+         ++index)
+      control_values[index] = 0.05 * static_cast<double>(index + 1);
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = reduced.evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "Neumann boundary-control state residual");
+
+    dealii::Vector<double> state_tangent(
+      model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_tangent(
+      model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_tangent.size();
+         ++index)
+      control_tangent[index] =
+        (index % 2 == 0 ? 0.03 : -0.02) * static_cast<double>(index + 1);
+    const Primal coupling_tangent(model.variable_layout(),
+                                  {std::move(state_tangent),
+                                   std::move(control_tangent)});
+    dealii::Vector<double> seed_values(model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < seed_values.size();
+         ++index)
+      seed_values[index] = 0.04 * static_cast<double>(index + 1);
+    const Primal test_seed(model.test_layout(), {std::move(seed_values)});
+    const Covector coupling_jvp =
+      model.residual_jvp(evaluation.full_point, coupling_tangent);
+    const Covector coupling_vjp =
+      model.residual_vjp(evaluation.full_point, test_seed);
+    require_close(contract::pair(coupling_jvp, test_seed),
+                  contract::pair(coupling_vjp, coupling_tangent),
+                  1e-11,
+                  "Neumann boundary-control residual JVP/VJP pairing");
+
+    dealii::Vector<double> trace_state_tangent(
+      model.variable_layout()->dimension(0));
+    dealii::Vector<double> trace_control_tangent(
+      model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < trace_state_tangent.size();
+         ++index)
+      trace_state_tangent[index] = 0.01 * static_cast<double>(index + 1);
+    const Primal trace_tangent(model.variable_layout(),
+                               {std::move(trace_state_tangent),
+                                std::move(trace_control_tangent)});
+    constexpr double derivative_step = 1e-7;
+    const double trace_objective_difference =
+      model.objective(shifted(evaluation.full_point, trace_tangent, derivative_step)) -
+      evaluation.objective_value;
+    require_close(
+      trace_objective_difference / derivative_step,
+      contract::pair(model.objective_derivative(evaluation.full_point), trace_tangent),
+      2e-7,
+      "boundary trace observation objective derivative");
+
+    dealii::Vector<double> control_direction_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_direction_values.size();
+         ++index)
+      control_direction_values[index] =
+        (index % 2 == 0 ? 0.04 : -0.03) * static_cast<double>(index + 1);
+    const Primal control_direction(control.layout(),
+                                   {std::move(control_direction_values)});
+    const double directional_derivative =
+      contract::pair(evaluation.reduced_derivative, control_direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, control_direction, step))
+                        .objective_value -
+                      evaluation.objective_value - step * directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "Neumann boundary-control reduced Taylor remainder is not quadratic");
+
+    const auto &metric = compilation.problem->metric();
+    const Primal metric_direction =
+      reduced.gradient_direction(evaluation.reduced_derivative, metric);
+    const Covector metric_covector = metric.apply(metric_direction);
+    require_close(contract::pair(metric_covector, control_direction),
+                  contract::pair(evaluation.reduced_derivative, control_direction),
+                  1e-11,
+                  "facewise L2 metric pairing");
+
+    const auto *constraint = compilation.problem->constraint();
+    contract::require(constraint != nullptr,
+                      "Neumann boundary compiler did not produce the facewise box");
+    dealii::Vector<double> infeasible_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < infeasible_values.size();
+         ++index)
+      infeasible_values[index] = 1.0;
+    const Primal infeasible(control.layout(), {std::move(infeasible_values)});
+    const Primal projected = constraint->project_in(infeasible, metric);
+    contract::require(constraint->is_feasible(projected),
+                      "facewise boundary box did not project into its feasible set");
+    for (dealii::types::global_dof_index index = 0;
+         index < projected.block(0).size();
+         ++index)
+      require_close(projected.block(0)[index],
+                    0.4,
+                    1e-12,
+                    "facewise boundary box upper clipping");
+
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.control_space.find("facewise-constant") != std::string::npos &&
+        manifest.observation_realisation.find("boundary trace") !=
+          std::string::npos &&
+        manifest.data_rule.find("boundary face quadrature") != std::string::npos &&
+        manifest.constraint_realisation.find("l2_facewise") != std::string::npos,
+      "Neumann boundary compilation manifest is incomplete");
+  }
+
+  template <int dim>
+  void
   run_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -645,6 +812,7 @@ main()
       run_contract_test<2>();
       run_fixed_dirichlet_contract_test<2>();
       run_subdomain_observation_contract_test<2>();
+      run_neumann_boundary_contract_test<2>();
       std::cout << "deal.II diffusion DTO contract test passed\n";
       return 0;
     }

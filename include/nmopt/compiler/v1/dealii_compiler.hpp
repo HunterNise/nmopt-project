@@ -3,7 +3,9 @@
 #include "nmopt/compiler/v1/compiled_problem.hpp"
 #include "nmopt/compiler/v1/dealii_capabilities.hpp"
 #include "nmopt/compiler/v1/dealii_fixed_dirichlet.hpp"
+#include "nmopt/compiler/v1/dealii_neumann_boundary.hpp"
 #include "nmopt/compiler/v1/dealii_types.hpp"
+#include "nmopt/dealii/facewise_box_constraint.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/semantic/v1/validation.hpp"
 
@@ -44,18 +46,24 @@ namespace nmopt::compiler::v1
             dealii::Triangulation<dim> &        triangulation,
             const DealiiDataBindings<dim> &     data,
             const DealiiDiscretisationPolicy &  policy = {},
-            std::optional<CellwiseBoxDataBindings> bounds = std::nullopt) const
+            std::optional<CellwiseBoxDataBindings> bounds = std::nullopt,
+            std::optional<FacewiseBoxDataBindings> facewise_bounds = std::nullopt) const
     {
       using Backend = dealii_backend::SerialBackend;
       CompilationResultT<Backend> result;
       result.diagnostics = validate(specification, policy);
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
+      const bool uses_neumann_boundary_control =
+        uses_neumann_control(specification);
       const auto *tracking_region = selected_tracking_region(specification);
+      const auto *control_boundary_region =
+        selected_neumann_control_region(specification);
       const bool uses_subdomain_observation =
         tracking_region != nullptr && !tracking_region->is_full_domain;
       const bool uses_assembled_v1_target =
-        uses_fixed_reconstruction || uses_subdomain_observation;
+        !uses_neumann_boundary_control &&
+        (uses_fixed_reconstruction || uses_subdomain_observation);
       if (uses_fixed_reconstruction && !data.fixed_dirichlet_data)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -69,18 +77,40 @@ namespace nmopt::compiler::v1
           "selected_fixed_dirichlet_reconstruction",
           "Declare the fixed-Dirichlet reconstruction before binding lifting data.");
       const bool has_constraint = !specification.formulation.constraint_id.empty();
-      if (has_constraint && !bounds)
+      if (has_constraint &&
+          ((uses_neumann_boundary_control && !facewise_bounds) ||
+           (!uses_neumann_boundary_control && !bounds)))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.formulation.constraint_id,
           "bound_data_binding",
-          "Bind scalar constants or FE_DGQ(0) coefficient vectors for both bounds.");
+          uses_neumann_boundary_control
+            ? "Bind scalar constants or exact facewise boundary-control vectors for both bounds."
+            : "Bind scalar constants or FE_DGQ(0) coefficient vectors for both bounds.");
       if (bounds && !valid_bound_representation(*bounds))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.formulation.constraint_id,
           "bound_data_representation",
           "Bind both cellwise bounds as scalars or both as FE_DGQ(0) vectors.");
+      if (facewise_bounds && !valid_facewise_bound_representation(*facewise_bounds))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.constraint_id,
+          "facewise_bound_data_representation",
+          "Bind both facewise bounds as scalars or both as exact boundary-control vectors.");
+      if (uses_neumann_boundary_control && bounds)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.constraint_id,
+          "cellwise_bounds_for_boundary_control",
+          "Bind the declared facewise box data for the boundary control.");
+      if (!uses_neumann_boundary_control && facewise_bounds)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.constraint_id,
+          "facewise_bounds_for_volume_control",
+          "Bind the declared cellwise box data for the volume control.");
       if (!result.diagnostics.valid())
         return result;
 
@@ -92,7 +122,38 @@ namespace nmopt::compiler::v1
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
       contract::StateAdjointSolversT<Backend> solvers;
-      if (uses_assembled_v1_target)
+      if (uses_neumann_boundary_control)
+        {
+          contract::require(control_boundary_region != nullptr,
+                            "Validated v1 problem has no Neumann control region");
+          using BoundaryModel = detail::NeumannBoundaryControlModel<dim>;
+          const auto boundary = std::make_shared<BoundaryModel>(
+            triangulation,
+            data.forcing,
+            data.desired_state,
+            data.diffusion,
+            data.reaction,
+            data.regularisation_weight,
+            policy.state_degree,
+            dirichlet_boundary_ids,
+            boundary_ids(*control_boundary_region),
+            boundary_ids(*tracking_region));
+          metric = std::make_shared<dealii_backend::MassMetric>(
+            boundary->control_l2_metric(policy.control_metric_solve));
+          if (has_constraint)
+            constraint = std::make_shared<dealii_backend::FacewiseBoxConstraint>(
+              make_facewise_constraint(*boundary, *facewise_bounds));
+          solvers = {
+            [boundary](const contract::PrimalBlockT<Backend> &control) {
+              return boundary->solve_state(control);
+            },
+            [boundary](const contract::PrimalBlockT<Backend> &full_point,
+                       const contract::CovectorBlockT<Backend> &state_rhs) {
+              return boundary->solve_adjoint(full_point, state_rhs);
+            }};
+          executable = boundary;
+        }
+      else if (uses_assembled_v1_target)
         {
           using AssembledModel = detail::AssembledScalarDiffusionReactionModel<dim>;
           const auto assembled = std::make_shared<AssembledModel>(
@@ -158,7 +219,9 @@ namespace nmopt::compiler::v1
                       has_constraint,
                       uses_fixed_reconstruction,
                       uses_assembled_v1_target,
-                      *tracking_region));
+                      uses_neumann_boundary_control,
+                      *tracking_region,
+                      control_boundary_region));
       return result;
     }
 
@@ -246,6 +309,41 @@ namespace nmopt::compiler::v1
     }
 
     static bool
+    uses_neumann_control(const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &term) {
+          return term.kind == semantic::v1::ResidualTermKind::neumann_control;
+        });
+    }
+
+    static const semantic::v1::RegionSpec *
+    selected_neumann_control_region(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto term = std::find_if(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &candidate) {
+          return candidate.kind == semantic::v1::ResidualTermKind::neumann_control;
+        });
+      return term == specification.residual_terms.end()
+               ? nullptr
+               : find_region(specification, term->region_id);
+    }
+
+    static std::set<dealii::types::boundary_id>
+    boundary_ids(const semantic::v1::RegionSpec &region)
+    {
+      std::set<dealii::types::boundary_id> ids;
+      for (const auto id : region.boundary_ids)
+        ids.insert(static_cast<dealii::types::boundary_id>(id));
+      return ids;
+    }
+
+    static bool
     uses_fixed_dirichlet_reconstruction(
       const semantic::v1::ProblemSpec &specification)
     {
@@ -277,14 +375,20 @@ namespace nmopt::compiler::v1
       const auto region = find_region(specification, policy->region_id);
       contract::require(region != nullptr,
                         "Validated v1 fixed Dirichlet policy has no region");
-      std::set<dealii::types::boundary_id> ids;
-      for (const auto id : region->boundary_ids)
-        ids.insert(static_cast<dealii::types::boundary_id>(id));
-      return ids;
+      return boundary_ids(*region);
     }
 
     static bool
     valid_bound_representation(const CellwiseBoxDataBindings &bounds)
+    {
+      return (std::holds_alternative<double>(bounds.lower) &&
+              std::holds_alternative<double>(bounds.upper)) ||
+             (std::holds_alternative<dealii::Vector<double>>(bounds.lower) &&
+              std::holds_alternative<dealii::Vector<double>>(bounds.upper));
+    }
+
+    static bool
+    valid_facewise_bound_representation(const FacewiseBoxDataBindings &bounds)
     {
       return (std::holds_alternative<double>(bounds.lower) &&
               std::holds_alternative<double>(bounds.upper)) ||
@@ -300,6 +404,21 @@ namespace nmopt::compiler::v1
     {
       contract::require(valid_bound_representation(bounds),
                         "The v1 cellwise box needs compatible bound data");
+      if (std::holds_alternative<double>(bounds.lower))
+        return executable.control_l2_box_constraint(
+          std::get<double>(bounds.lower), std::get<double>(bounds.upper));
+      return executable.control_l2_box_constraint(
+        std::get<dealii::Vector<double>>(bounds.lower),
+        std::get<dealii::Vector<double>>(bounds.upper));
+    }
+
+    template <typename Model>
+    static dealii_backend::FacewiseBoxConstraint
+    make_facewise_constraint(const Model &                  executable,
+                             const FacewiseBoxDataBindings &bounds)
+    {
+      contract::require(valid_facewise_bound_representation(bounds),
+                        "The v1 facewise box needs compatible bound data");
       if (std::holds_alternative<double>(bounds.lower))
         return executable.control_l2_box_constraint(
           std::get<double>(bounds.lower), std::get<double>(bounds.upper));
@@ -392,6 +511,34 @@ namespace nmopt::compiler::v1
                    specification.formulation.state_variable_id,
                    "fixed_dirichlet_boundary_ids",
                    "Select a boundary region with at least one fixed Dirichlet id.");
+
+      if (!uses_neumann_control(specification))
+        return;
+      const auto control_region = selected_neumann_control_region(specification);
+      const auto tracking_region = selected_tracking_region(specification);
+      if (control_region == nullptr ||
+          control_region->kind != semantic::v1::RegionKind::boundary ||
+          control_region->boundary_ids.empty())
+        report.add(DiagnosticCategory::lowerability,
+                   specification.id,
+                   "neumann_control_boundary_ids",
+                   "Select a marked boundary region with at least one Neumann control id.");
+      if (tracking_region == nullptr ||
+          tracking_region->kind != semantic::v1::RegionKind::boundary ||
+          tracking_region->boundary_ids.empty())
+        report.add(DiagnosticCategory::lowerability,
+                   specification.id,
+                   "boundary_tracking_region",
+                   "Select a marked boundary region for the state trace observation.");
+      if (control_region != nullptr && boundary != nullptr)
+        for (const auto control_id : control_region->boundary_ids)
+          if (std::find(boundary->boundary_ids.begin(),
+                        boundary->boundary_ids.end(),
+                        control_id) != boundary->boundary_ids.end())
+            report.add(DiagnosticCategory::lowerability,
+                       control_region->id,
+                       "neumann_control_dirichlet_overlap",
+                       "Use boundary ids not fixed by the homogeneous Dirichlet realization.");
     }
 
     static void
@@ -411,13 +558,24 @@ namespace nmopt::compiler::v1
             return term.kind == kind;
           });
       };
-      if (count_terms(ResidualTermKind::diffusion_reaction) != 1 ||
-          count_terms(ResidualTermKind::volume_source) != 1 ||
-          count_terms(ResidualTermKind::volume_control) != 1)
+      const bool boundary_control = uses_neumann_control(specification);
+      const bool complete_residual = boundary_control
+        ? count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
+            count_terms(ResidualTermKind::volume_source) == 1 &&
+            count_terms(ResidualTermKind::neumann_control) == 1 &&
+            count_terms(ResidualTermKind::volume_control) == 0
+        : count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
+            count_terms(ResidualTermKind::volume_source) == 1 &&
+            count_terms(ResidualTermKind::volume_control) == 1 &&
+            count_terms(ResidualTermKind::neumann_control) == 0;
+      if (!complete_residual)
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   "complete_volume_residual_term_set",
-                   "Declare exactly one diffusion-reaction, volume-source, and volume-control term.");
+                   boundary_control ? "complete_neumann_boundary_residual_term_set"
+                                    : "complete_volume_residual_term_set",
+                   boundary_control
+                     ? "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
+                     : "Declare exactly one diffusion-reaction, volume-source, and volume-control term.");
 
       const auto count_data = [&specification](const DataRole role) {
         return std::count_if(
@@ -454,29 +612,77 @@ namespace nmopt::compiler::v1
 
       const auto state = find_variable(
         specification, specification.formulation.state_variable_id);
-      for (const auto &observation : specification.observations)
+      if (boundary_control)
         {
-          const auto region = find_region(specification, observation.region_id);
-          if (region == nullptr || region->kind != semantic::v1::RegionKind::volume)
+          const auto state_trace = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [](const semantic::v1::ObservationSpec &observation) {
+              return observation.kind ==
+                     semantic::v1::ObservationKind::boundary_trace;
+            });
+          const auto control_restriction = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [](const semantic::v1::ObservationSpec &observation) {
+              return observation.kind ==
+                     semantic::v1::ObservationKind::boundary_restriction;
+            });
+          if (specification.observations.size() != 2 ||
+              state_trace == specification.observations.end() ||
+              control_restriction == specification.observations.end())
             report.add(DiagnosticCategory::lowerability,
-                       observation.id,
-                       "volume_observation_region",
-                       "Select a registered volume observation region.");
-          else if (state != nullptr &&
-                   observation.input_variable_id == state->id &&
-                   !region->is_full_domain && region->material_ids.empty())
-            report.add(DiagnosticCategory::lowerability,
-                       observation.id,
-                       "material_subdomain_observation",
-                       "Declare one or more material ids for the subdomain observation.");
-          else if ((state == nullptr ||
-                    observation.input_variable_id != state->id) &&
-                   !region->is_full_domain)
-            report.add(DiagnosticCategory::lowerability,
-                       observation.id,
-                       "full_domain_nonstate_observation",
-                       "Only the state tracking observation supports material subdomains in v1.");
+                       specification.id,
+                       "complete_boundary_observation_set",
+                       "Declare one boundary state trace and one boundary control restriction.");
+          if (state_trace != specification.observations.end())
+            {
+              const auto region = find_region(specification, state_trace->region_id);
+              if (region == nullptr ||
+                  region->kind != semantic::v1::RegionKind::boundary ||
+                  region->boundary_ids.empty())
+                report.add(DiagnosticCategory::lowerability,
+                           state_trace->id,
+                           "boundary_trace_observation_region",
+                           "Select marked boundary ids for the state trace observation.");
+            }
+          if (control_restriction != specification.observations.end())
+            {
+              const auto region = find_region(specification,
+                                              control_restriction->region_id);
+              const auto control_region = selected_neumann_control_region(specification);
+              if (region == nullptr || control_region == nullptr ||
+                  region->id != control_region->id)
+                report.add(DiagnosticCategory::lowerability,
+                           control_restriction->id,
+                           "boundary_control_observation_region",
+                           "Restrict the facewise control on its Neumann control boundary.");
+            }
         }
+      else
+        for (const auto &observation : specification.observations)
+          {
+            const auto region = find_region(specification, observation.region_id);
+            if (region == nullptr || region->kind != semantic::v1::RegionKind::volume)
+              report.add(DiagnosticCategory::lowerability,
+                         observation.id,
+                         "volume_observation_region",
+                         "Select a registered volume observation region.");
+            else if (state != nullptr &&
+                     observation.input_variable_id == state->id &&
+                     !region->is_full_domain && region->material_ids.empty())
+              report.add(DiagnosticCategory::lowerability,
+                         observation.id,
+                         "material_subdomain_observation",
+                         "Declare one or more material ids for the subdomain observation.");
+            else if ((state == nullptr ||
+                      observation.input_variable_id != state->id) &&
+                     !region->is_full_domain)
+              report.add(DiagnosticCategory::lowerability,
+                         observation.id,
+                         "full_domain_nonstate_observation",
+                         "Only the state tracking observation supports material subdomains in v1.");
+          }
 
       const bool has_constraint = !specification.formulation.constraint_id.empty();
       if (!has_constraint && !specification.constraints.empty())
@@ -490,8 +696,28 @@ namespace nmopt::compiler::v1
            count_data(DataRole::upper_bound) != 1))
         report.add(DiagnosticCategory::lowerability,
                    specification.formulation.constraint_id,
-                   "complete_cellwise_box_data_set",
-                   "Declare one selected box plus one lower and one upper bound datum.");
+                   boundary_control ? "complete_facewise_box_data_set"
+                                    : "complete_cellwise_box_data_set",
+                   boundary_control
+                     ? "Declare one selected facewise box plus one lower and one upper bound datum."
+                     : "Declare one selected box plus one lower and one upper bound datum.");
+      if (has_constraint)
+        {
+          const auto constraint = std::find_if(
+            specification.constraints.begin(),
+            specification.constraints.end(),
+            [&specification](const semantic::v1::ConstraintSpec &candidate) {
+              return candidate.id == specification.formulation.constraint_id;
+            });
+          if (constraint != specification.constraints.end() &&
+              constraint->kind != (boundary_control
+                                    ? semantic::v1::ConstraintKind::facewise_box
+                                    : semantic::v1::ConstraintKind::cellwise_box))
+            report.add(DiagnosticCategory::lowerability,
+                       constraint->id,
+                       "control_layout_constraint_realisation",
+                       "Use a facewise box for boundary control and a cellwise box for volume control.");
+        }
     }
 
     static void
@@ -521,11 +747,12 @@ namespace nmopt::compiler::v1
           return candidate.id == specification.formulation.constraint_id;
         });
       if (constraint == specification.constraints.end() ||
-          constraint->kind != semantic::v1::ConstraintKind::cellwise_box)
+          (constraint->kind != semantic::v1::ConstraintKind::cellwise_box &&
+           constraint->kind != semantic::v1::ConstraintKind::facewise_box))
         report.add(DiagnosticCategory::formulation_capability,
                    specification.formulation.id,
-                   "l2_cellwise_projected_gradient",
-                   "Use the registered cellwise L2 box constraint or omit the constraint.");
+                   "l2_coefficientwise_projected_gradient",
+                   "Use the registered cellwise or facewise L2 box constraint, or omit the constraint.");
     }
 
     template <typename Component>
@@ -545,7 +772,9 @@ namespace nmopt::compiler::v1
                   const bool                         has_constraint,
                   const bool                         uses_fixed_reconstruction,
                   const bool                         uses_assembled_v1_target,
-                  const semantic::v1::RegionSpec &   tracking_region)
+                  const bool                         uses_neumann_boundary_control,
+                  const semantic::v1::RegionSpec &   tracking_region,
+                  const semantic::v1::RegionSpec *   control_boundary_region)
     {
       CompilationManifest manifest;
       manifest.semantic_problem_id = specification.id;
@@ -555,18 +784,24 @@ namespace nmopt::compiler::v1
       manifest.execution = "assembled";
       manifest.state_space = "scalar FE_Q(" +
                              std::to_string(policy.state_degree) + ")";
-      manifest.control_space = "FE_DGQ(0) on the state active-cell mesh";
+      manifest.control_space = uses_neumann_boundary_control
+                                 ? "one facewise-constant coefficient per marked state boundary face"
+                                 : "FE_DGQ(0) on the state active-cell mesh";
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
       manifest.dual_representation = "tested dual coefficients with dot pairing";
-      manifest.data_rule =
-        "analytic desired-state Function at selected QGauss(" +
-        std::to_string(policy.state_degree + 2) + ") volume quadrature" +
-        (uses_fixed_reconstruction
-           ? "; fixed Dirichlet Function interpolated at boundary DoFs"
-           : "; scalar coefficients and forcing Function at volume quadrature");
-      manifest.observation_realisation =
-        observation_realisation(tracking_region);
+      manifest.data_rule = uses_neumann_boundary_control
+        ? "analytic desired-state Function at selected QGauss(" +
+            std::to_string(policy.state_degree + 2) +
+            ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature"
+        : "analytic desired-state Function at selected QGauss(" +
+            std::to_string(policy.state_degree + 2) + ") volume quadrature" +
+            (uses_fixed_reconstruction
+              ? "; fixed Dirichlet Function interpolated at boundary DoFs"
+              : "; scalar coefficients and forcing Function at volume quadrature");
+      manifest.observation_realisation = uses_neumann_boundary_control
+        ? boundary_observation_realisation(tracking_region)
+        : observation_realisation(tracking_region);
       manifest.metric_solve_policy =
         "serial CG: maximum iterations=" +
         std::to_string(policy.control_metric_solve.maximum_iterations) +
@@ -574,9 +809,11 @@ namespace nmopt::compiler::v1
         std::to_string(policy.control_metric_solve.relative_tolerance) +
         ", absolute tolerance=" +
         std::to_string(policy.control_metric_solve.absolute_tolerance);
-      manifest.constraint_realisation = has_constraint
-                                          ? "FE_DGQ(0) coefficientwise l2_cellwise clipping"
-                                          : "none";
+      manifest.constraint_realisation = !has_constraint
+                                          ? "none"
+                                          : uses_neumann_boundary_control
+                                              ? "facewise-constant coefficientwise l2_facewise clipping"
+                                              : "FE_DGQ(0) coefficientwise l2_cellwise clipping";
       manifest.lifting_realisation = uses_fixed_reconstruction
                                        ? "y_phys = P_h y_hat + ell_0,h; independent FE_Q coordinates, AffineConstraints reconstruction, and P_h^* pullbacks"
                                        : uses_assembled_v1_target
@@ -587,6 +824,10 @@ namespace nmopt::compiler::v1
       manifest.state_adjoint_solve_policy =
         "serial CG with identity preconditioner for symmetric positive-definite operator";
       manifest.provenance = "DTO";
+      if (uses_neumann_boundary_control && control_boundary_region != nullptr)
+        manifest.declared_assumptions.push_back(
+          "neumann_control_realisation: facewise-constant FEFaceValues pairing on boundary ids " +
+          boundary_id_list(*control_boundary_region));
       manifest.region_ids = identifiers(specification.regions);
       manifest.space_ids = identifiers(specification.spaces);
       manifest.pairing_ids = identifiers(specification.pairings);
@@ -617,6 +858,26 @@ namespace nmopt::compiler::v1
           result += std::to_string(region.material_ids[index]);
         }
       return result;
+    }
+
+    static std::string
+    boundary_id_list(const semantic::v1::RegionSpec &region)
+    {
+      std::string result;
+      for (std::size_t index = 0; index < region.boundary_ids.size(); ++index)
+        {
+          if (index != 0)
+            result += ",";
+          result += std::to_string(region.boundary_ids[index]);
+        }
+      return result;
+    }
+
+    static std::string
+    boundary_observation_realisation(const semantic::v1::RegionSpec &region)
+    {
+      return "boundary trace restriction on boundary ids " +
+             boundary_id_list(region);
     }
 
     DealiiLowererRegistryV1 registry_;

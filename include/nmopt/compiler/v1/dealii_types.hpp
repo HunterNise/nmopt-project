@@ -36,6 +36,16 @@ namespace nmopt::compiler::v1
     CellwiseBoundValue upper;
   };
 
+  // This is intentionally separate from CellwiseBoxDataBindings: a boundary
+  // control has one coefficient per selected face rather than one per cell.
+  using FacewiseBoundValue = std::variant<double, dealii::Vector<double>>;
+
+  struct FacewiseBoxDataBindings
+  {
+    FacewiseBoundValue lower;
+    FacewiseBoundValue upper;
+  };
+
   struct DealiiDiscretisationPolicy
   {
     enum class Execution

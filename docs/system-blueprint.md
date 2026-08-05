@@ -278,12 +278,14 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`serial_backend.hpp`](../include/nmopt/dealii/serial_backend.hpp) | Adapter from five vector operations to deal.II | Backend parameterisation |
 | [`mass_metric.hpp`](../include/nmopt/dealii/mass_metric.hpp) | Sparse control $L^{2}$ Riesz map | deal.II control search directions |
 | [`cellwise_box_constraint.hpp`](../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control updates |
+| [`facewise_box_constraint.hpp`](../include/nmopt/dealii/facewise_box_constraint.hpp) | Facewise-constant coefficientwise box projection | Feasible Neumann boundary-control updates |
 | [`scalar_diffusion_reaction.hpp`](../include/nmopt/dealii/scalar_diffusion_reaction.hpp) | Concrete deal.II lowerer | FE assembly, constraints, solves |
 | [`types.hpp`](../include/nmopt/semantic/v1/types.hpp) | Narrow deal.II-free v1 graph types | Semantic component ports |
 | [`validation.hpp`](../include/nmopt/semantic/v1/validation.hpp) | Structural and policy diagnostics | Semantic validation |
 | [`compiled_problem.hpp`](../include/nmopt/compiler/v1/compiled_problem.hpp) | Backend-generic compiled package and manifest | Solver-facing compiled ports and provenance |
 | [`dealii_compiler.hpp`](../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks plus private v0 comparison or v1 assembled targets |
 | [`dealii_fixed_dirichlet.hpp`](../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
+| [`dealii_neumann_boundary.hpp`](../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, and pullbacks |
 | [`reduced_dto_contract.cc`](../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
 | [`dealii_diffusion_contract.cc`](../tests/dealii_diffusion_contract.cc) | Same checks through real deal.II assembly | End-to-end reference use |
 
@@ -318,15 +320,16 @@ generic solver.
 ## What is deliberately unsupported today
 
 Do not mistake a documented architectural slot for working functionality. The
-implemented v1 graph/compiler supports fixed Dirichlet reconstruction and
-state tracking on the full volume or one material-id volume subregion. It does
-not provide controlled/periodic/hanging essential conditions, Neumann or
-Robin terms, boundary observations, arbitrary geometric subdomains, FE target
-projection/interpolation, nonlinear or variable coefficients, mixed/vector/DG
-states, MPI vectors, time, OTD, or KKT Newton. The available box projection is
-only the declared `FE_DGQ(0)` cellwise $L^{2}$ policy.
+implemented v1 graph/compiler supports fixed Dirichlet reconstruction, state
+tracking on the full volume or one material-id volume subregion, and marked
+facewise Neumann control with boundary trace tracking. It does not provide
+controlled/periodic/hanging essential conditions, Robin terms, arbitrary
+geometric subdomains, FE target projection/interpolation, nonlinear or
+variable coefficients, mixed/vector/DG states, MPI vectors, time, OTD, or KKT
+Newton. The available box projections are only the declared `FE_DGQ(0)`
+cellwise volume and facewise-constant boundary $L^{2}$ policies.
 
-The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) next adds Neumann control and boundary tracking while preserving the v0 reference.
+The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) next adds the pure-Neumann mean-constraint policy while preserving the v0 reference.
 
 ## Blueprint for adding one feature yourself
 

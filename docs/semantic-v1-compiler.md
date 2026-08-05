@@ -19,10 +19,10 @@ semantic::v1::ProblemSpec
 The v0 lowerer is not modified or replaced by this path. The homogeneous v1
 reference graph privately constructs a separate v0 executable instance and
 packages it behind generic executable ports, so v0 and v1 can be compared at
-the same coefficients. A graph that declares fixed-Dirichlet reconstruction
-or material-subdomain state tracking selects a separate v1-only assembled
-target; it never extends the v0 direct model. Both targets expose the same
-generic compiled ports.
+the same coefficients. A graph that declares fixed-Dirichlet reconstruction,
+material-subdomain state tracking, or Neumann boundary control selects a
+separate v1-only assembled target; it never extends the v0 direct model. All
+targets expose the same generic compiled ports.
 
 The normative semantic protocol remains the
 [interface specification](interface-specification.md). This document records
@@ -37,7 +37,8 @@ includes the focused deal.II-free headers `types.hpp`, `validation.hpp`, and
 `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` adds the first
 declared physical-field transformation, while
 `make_subdomain_tracking_scalar_diffusion_reaction_problem()` adds a named
-material-id observation region:
+material-id observation region. `make_neumann_boundary_control_problem()`
+declares a facewise Neumann control and state boundary trace:
 
 ```text
 Region       one full volume region, named material-id volume subregions, and Dirichlet boundary ids
@@ -85,6 +86,32 @@ Consequently, changing the tracking region changes the objective derivative
 and adjoint right-hand side without changing the state equation or solver
 interfaces.
 
+### Neumann control and boundary tracking
+
+The registered P2.1 realization assigns one scalar control coefficient to
+each active state-mesh boundary face with an id in `control_boundary`. The
+compiler assembles with `FEFaceValues`:
+
+```math
+r_{h}(y,u)=A_{h}y-f_{h}-C_{\Gamma}u,
+\qquad
+(C_{\Gamma}u)_{i}=\sum_{F\subset\Gamma_{c}} u_{F}\int_{F}\phi_{i}.
+```
+
+$C_{\Gamma}^{\ast}$ is used directly for the residual VJP. A separate marked
+`observation_boundary` assembles the trace tracking mass, target load, and
+target norm with face quadrature. The desired-state `Function` is evaluated
+at the selected `QGauss` face quadrature points; no nodal trace or implicit
+surface projection is inferred.
+
+The control face indicators have disjoint support, so their boundary $L^{2}$
+mass matrix is diagonal with face measures. `MassMetric` receives the
+`l2_facewise` identifier, while the separate `FacewiseBoxConstraint` clips
+only these face coefficients. `FacewiseBoxDataBindings` is intentionally
+separate from `CellwiseBoxDataBindings`; both bounds are scalar constants or
+exact face-layout vectors. The compiler rejects a control boundary that
+overlaps the fixed homogeneous Dirichlet ids.
+
 ### Fixed essential reconstruction
 
 The fixed-data graph represents independent state coordinates and a physical
@@ -129,12 +156,15 @@ focused compiler headers: `compiled_problem.hpp`, `dealii_types.hpp`,
 `dealii_capabilities.hpp`, and `dealii_compiler.hpp`. The compiler's private
 `dealii_fixed_dirichlet.hpp` target owns the separate v1 physical-state
 assembly used for fixed reconstruction and material-subdomain tracking. The
-registry otherwise supports only the listed volume terms, full-domain control
-observation, full-domain or material-id state restriction, quadratic losses,
-`L2` metric, optional cellwise box, and fixed-Dirichlet reconstruction. Its
-selected discrete policy is assembled serial scalar `FE_Q` state/test with
-degree at least one, `FE_DGQ(0)` control on the same mesh, fixed Dirichlet
-boundary ids, and reduced DTO.
+private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
+residual, facewise control layout, boundary trace tracking, facewise metric,
+and facewise box realization. The registry otherwise supports only the listed
+volume terms, full-domain control observation, full-domain or material-id
+state restriction, quadratic losses, `L2` metric, optional cellwise box, and
+fixed-Dirichlet reconstruction. Its selected discrete policies are assembled
+serial scalar `FE_Q` state/test with degree at least one and reduced DTO:
+`FE_DGQ(0)` volume control on the state mesh, or one facewise-constant
+Neumann coefficient for every marked boundary face.
 
 `CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
 and `make_reduced_dto()` expose only backend-neutral ports and formulation
@@ -158,7 +188,10 @@ compiled box constraint and classifies unsupported matrix-free and all-at-once
 requests. It also compiles a nonzero manufactured fixed-Dirichlet state and
 checks its physical residual/objective, reconstruction JVP/VJP pairing, and
 reduced Taylor remainder; recompilation with changed lifting data must change
-the compiled result.
+the compiled result. The same test builds a mesh with distinct Dirichlet,
+Neumann-control, and observation boundary ids. It checks the Neumann
+residual pairing, trace-loss derivative, facewise metric and box realization,
+and a state-recomputed reduced Taylor remainder.
 
 `tests/semantic_v1_contract.cc` independently verifies the semantic validator
 for the canonical and material-subdomain graphs, including missing or
@@ -169,11 +202,11 @@ while requiring a different tracking objective and state-objective derivative.
 ## Exclusions
 
 This v1 registration does not broaden the v0 executable mathematics. Beyond
-the selected fixed-data reconstruction and material-id state tracking, it does
-not compile boundary observations, arbitrary geometric or overlapping
-subdomain restrictions, FE target projection/interpolation, Neumann/Robin
-terms, controlled Dirichlet liftings, continuous-control bounds,
-non-$L^{2}$ metrics, matrix-free execution, all-at-once/OTD, multiple
-equations, or multiple optimisation variables. Each requires its own semantic
-declaration, registered lowerer, capability diagnostic, and value/JVP/VJP/
-reduced tests.
+the selected fixed-data reconstruction, material-id state tracking, and
+marked-face Neumann control with boundary tracking, it does not compile
+arbitrary geometric or overlapping subdomain restrictions, FE target
+projection/interpolation, Robin terms, controlled Dirichlet liftings,
+continuous-control bounds, non-$L^{2}$ metrics, matrix-free execution,
+all-at-once/OTD, multiple equations, or multiple optimisation variables. Each
+requires its own semantic declaration, registered lowerer, capability
+diagnostic, and value/JVP/VJP/reduced tests.

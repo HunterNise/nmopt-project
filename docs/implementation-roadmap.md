@@ -261,7 +261,7 @@ objective and adjoint RHS but not the state solution or residual action. FE
 target projection/interpolation remains an explicit future lowerer; no nodal
 interpretation is inferred.
 
-### P2.1 — Add Neumann control and boundary tracking
+### P2.1 — Add Neumann control and boundary tracking — completed
 
 **Why:** This is the first nontrivial boundary composition test while keeping
 the state parameterization fixed. It tests face integration, regions, trace
@@ -281,6 +281,19 @@ marked boundary faces of the state triangulation. Assemble with `FEFaceValues`.
 **Done when:** the boundary coupling obeys the pairing test and a
 finite-difference reduced derivative test. Do not call it a Dirichlet
 control or use a generic boundary-load abstraction for both cases.
+
+**Implemented (v1):** `make_neumann_boundary_control_problem()` declares
+separate Dirichlet, control, and observation boundary regions; an explicit
+`neumann_control` residual term; a state `boundary_trace` observation; and
+the trace policies required for both. The private v1 Neumann target assigns
+one scalar to each marked active boundary face and uses `FEFaceValues` to
+assemble $`-\langle u,\gamma v\rangle_{\Gamma_{c}}`$, its transpose, and
+boundary tracking. It has a separate diagonal face-measure `l2_facewise`
+metric and `FacewiseBoxConstraint`, with separate facewise bound bindings.
+Focused semantic tests reject an absent trace policy or a mismatched control
+region; the deal.II contract test verifies the coupling pairing, trace-loss
+derivative, facewise projection, manifest, and a reduced Taylor remainder.
+The v0 volume-control model remains unchanged.
 
 ### P2.2 — Support pure Neumann with the selected mean-constraint policy
 

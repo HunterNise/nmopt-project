@@ -39,7 +39,8 @@ namespace nmopt::semantic::v1
   {
     function,
     scalar_constant,
-    cellwise_bound
+    cellwise_bound,
+    facewise_bound
   };
 
   enum class DataRole
@@ -58,12 +59,15 @@ namespace nmopt::semantic::v1
   {
     diffusion_reaction,
     volume_source,
-    volume_control
+    volume_control,
+    neumann_control
   };
 
   enum class ObservationKind
   {
-    volume_restriction
+    volume_restriction,
+    boundary_trace,
+    boundary_restriction
   };
 
   enum class LossKind
@@ -79,7 +83,8 @@ namespace nmopt::semantic::v1
 
   enum class ConstraintKind
   {
-    cellwise_box
+    cellwise_box,
+    facewise_box
   };
 
   enum class TransformationKind
@@ -90,8 +95,10 @@ namespace nmopt::semantic::v1
   enum class RequirementKind
   {
     fixed_dirichlet,
+    boundary_trace,
     analytic_quadrature_evaluation,
-    discrete_cellwise_bounds
+    discrete_cellwise_bounds,
+    discrete_facewise_bounds
   };
 
   enum class RequirementStatus
@@ -181,6 +188,9 @@ namespace nmopt::semantic::v1
     std::string              equation_id;
     std::vector<std::string> variable_ids;
     std::vector<std::string> data_ids;
+    // Natural boundary terms name the boundary on which their declared trace
+    // pairing is evaluated. Volume terms leave this port empty.
+    std::string              region_id;
   };
 
   struct EquationBlockSpec

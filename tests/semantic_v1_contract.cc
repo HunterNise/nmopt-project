@@ -36,6 +36,12 @@ namespace
     require(subdomain_report.valid(),
             "the material-subdomain v1 tracking graph is invalid");
 
+    const auto boundary_specification =
+      nmopt::semantic::v1::make_neumann_boundary_control_problem(true);
+    const auto boundary_report = validator.validate(boundary_specification);
+    require(boundary_report.valid(),
+            "the Neumann boundary-control v1 graph is invalid");
+
     auto missing_lifting_port = fixed_specification;
     missing_lifting_port.transformations.front().fixed_data_id = "missing_data";
     const auto lifting_port_report = validator.validate(missing_lifting_port);
@@ -76,6 +82,26 @@ namespace
     require(target_region_report.has_category(
               nmopt::semantic::v1::DiagnosticCategory::structural),
             "v1 semantic validation did not match target data to its observation region");
+
+    auto missing_neumann_trace_policy = boundary_specification;
+    for (auto &policy : missing_neumann_trace_policy.requirement_policies)
+      if (policy.subject_id == "neumann_control")
+        policy.status = nmopt::semantic::v1::RequirementStatus::provided;
+    const auto missing_neumann_trace_report =
+      validator.validate(missing_neumann_trace_policy);
+    require(missing_neumann_trace_report.has_category(
+              nmopt::semantic::v1::DiagnosticCategory::analytical_policy),
+            "v1 semantic validation did not require the Neumann trace policy");
+
+    auto mismatched_neumann_region = boundary_specification;
+    for (auto &term : mismatched_neumann_region.residual_terms)
+      if (term.id == "neumann_control")
+        term.region_id = "observation_boundary";
+    const auto mismatched_neumann_region_report =
+      validator.validate(mismatched_neumann_region);
+    require(mismatched_neumann_region_report.has_category(
+              nmopt::semantic::v1::DiagnosticCategory::structural),
+            "v1 semantic validation did not match the Neumann control to its boundary space");
 
     auto missing_test_space = specification;
     missing_test_space.equations.front().test_space_id = "missing_test_space";

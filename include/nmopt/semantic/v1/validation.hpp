@@ -98,12 +98,18 @@ namespace nmopt::semantic::v1
                                spaces,
                                report);
       validate_equations(specification, spaces, pairings, terms, report);
-      validate_terms(specification, variables, data, equations, report);
+      validate_terms(specification,
+                     variables,
+                     data,
+                     equations,
+                     spaces,
+                     regions,
+                     report);
       validate_observations(specification, variables, regions, spaces, pairings,
                             report);
       validate_losses(specification, observations, pairings, data, report);
       validate_metrics(specification, variables, pairings, report);
-      validate_constraints(specification, variables, data, report);
+      validate_constraints(specification, variables, data, spaces, regions, report);
       validate_policy_regions(specification, regions, report);
       validate_formulation(specification.formulation,
                            variables,
@@ -373,6 +379,8 @@ namespace nmopt::semantic::v1
                    const Index<VariableSpec> &     variables,
                    const Index<DataSpec> &         data,
                    const Index<EquationBlockSpec> &equations,
+                   const Index<SpaceSpec> &        spaces,
+                   const Index<RegionSpec> &       regions,
                    ValidationReport &               report)
     {
       for (const auto &term : specification.residual_terms)
@@ -395,6 +403,34 @@ namespace nmopt::semantic::v1
                          "residual_term_data_port",
                          "Reference declared immutable data.");
           validate_term_signature(term, variables, data, report);
+          if (term.kind != ResidualTermKind::neumann_control &&
+              !term.region_id.empty())
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       "volume_term_has_no_boundary_region",
+                       "Leave the region port empty for the registered volume term.");
+          if (term.kind != ResidualTermKind::neumann_control)
+            continue;
+
+          const auto region = regions.find(term.region_id);
+          if (region == regions.end() ||
+              region->second->kind != RegionKind::boundary)
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       "neumann_control_boundary_region",
+                       "Declare the Neumann trace pairing on a boundary region.");
+          const auto control = term.variable_ids.size() == 1
+                                 ? variables.find(term.variable_ids.front())
+                                 : variables.end();
+          const auto control_space = control == variables.end()
+                                       ? spaces.end()
+                                       : spaces.find(control->second->space_id);
+          if (control_space == spaces.end() ||
+              control_space->second->region_id != term.region_id)
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       "neumann_control_space_region",
+                       "Place the Neumann control space on the declared boundary region.");
         }
     }
 
@@ -413,16 +449,40 @@ namespace nmopt::semantic::v1
                        observation.id,
                        "observation_input_port",
                        "Reference a declared variable input.");
+          const bool boundary_observation =
+            observation.kind == ObservationKind::boundary_trace ||
+            observation.kind == ObservationKind::boundary_restriction;
+          const RegionKind expected_region = boundary_observation
+                                               ? RegionKind::boundary
+                                               : RegionKind::volume;
           if (!contains(regions, observation.region_id))
             report.add(DiagnosticCategory::structural,
                        observation.id,
                        "observation_region_port",
-                       "Reference a declared volume region.");
-          else if (regions.at(observation.region_id)->kind != RegionKind::volume)
+                       "Reference the declared observation region.");
+          else if (regions.at(observation.region_id)->kind != expected_region)
             report.add(DiagnosticCategory::structural,
                        observation.id,
-                       "observation_volume_region",
-                       "The registered volume restriction needs a volume region.");
+                       boundary_observation ? "observation_boundary_region" :
+                                              "observation_volume_region",
+                       boundary_observation
+                         ? "The registered boundary observation needs a boundary region."
+                         : "The registered volume restriction needs a volume region.");
+          const auto input = variables.find(observation.input_variable_id);
+          if (observation.kind == ObservationKind::boundary_trace &&
+              (input == variables.end() ||
+               input->second->role != VariableRole::state))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "boundary_trace_state_input",
+                       "Use a state variable as the source of a boundary trace.");
+          if (observation.kind == ObservationKind::boundary_restriction &&
+              (input == variables.end() ||
+               input->second->role != VariableRole::control))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "boundary_restriction_control_input",
+                       "Use the boundary control as the source of its restriction.");
           const auto output_space = spaces.find(observation.output_space_id);
           if (output_space == spaces.end())
             report.add(DiagnosticCategory::structural,
@@ -526,6 +586,8 @@ namespace nmopt::semantic::v1
     validate_constraints(const ProblemSpec &          specification,
                          const Index<VariableSpec> &  variables,
                          const Index<DataSpec> &      data,
+                         const Index<SpaceSpec> &     spaces,
+                         const Index<RegionSpec> &    regions,
                          ValidationReport &            report)
     {
       for (const auto &constraint : specification.constraints)
@@ -540,7 +602,23 @@ namespace nmopt::semantic::v1
             report.add(DiagnosticCategory::structural,
                        constraint.id,
                        "constraint_control_variable",
-                       "The v1 cellwise box can constrain the control variable only.");
+                       "The registered v1 boxes can constrain the control variable only.");
+          else
+            {
+              const auto space = spaces.find(variable->second->space_id);
+              const auto region = space == spaces.end()
+                                    ? regions.end()
+                                    : regions.find(space->second->region_id);
+              const RegionKind expected_region =
+                constraint.kind == ConstraintKind::facewise_box
+                  ? RegionKind::boundary
+                  : RegionKind::volume;
+              if (region == regions.end() || region->second->kind != expected_region)
+                report.add(DiagnosticCategory::structural,
+                           constraint.id,
+                           "constraint_control_region",
+                           "Use a cellwise box for a volume control and a facewise box for a boundary control.");
+            }
           const auto lower = data.find(constraint.lower_bound_data_id);
           const auto upper = data.find(constraint.upper_bound_data_id);
           if (lower == data.end() || upper == data.end())
@@ -550,12 +628,20 @@ namespace nmopt::semantic::v1
                        "Reference declared lower and upper bound data.");
           else if (lower->second->role != DataRole::lower_bound ||
                    upper->second->role != DataRole::upper_bound ||
-                   lower->second->kind != DataKind::cellwise_bound ||
-                   upper->second->kind != DataKind::cellwise_bound)
+                   lower->second->kind !=
+                     (constraint.kind == ConstraintKind::facewise_box
+                        ? DataKind::facewise_bound
+                        : DataKind::cellwise_bound) ||
+                   upper->second->kind !=
+                     (constraint.kind == ConstraintKind::facewise_box
+                        ? DataKind::facewise_bound
+                        : DataKind::cellwise_bound))
             report.add(DiagnosticCategory::structural,
                        constraint.id,
-                       "constraint_cellwise_bound_data",
-                       "Use declared cellwise lower and upper bound data.");
+                       constraint.kind == ConstraintKind::facewise_box
+                         ? "constraint_facewise_bound_data"
+                         : "constraint_cellwise_bound_data",
+                       "Use the declared lower and upper bound data for this control layout.");
         }
     }
 
@@ -618,7 +704,13 @@ namespace nmopt::semantic::v1
             valid = term.variable_ids.size() == 1 &&
                     has_variable_role(term.variable_ids, variables,
                                       VariableRole::control) &&
-                    term.data_ids.empty();
+                    term.data_ids.empty() && term.region_id.empty();
+            break;
+          case ResidualTermKind::neumann_control:
+            valid = term.variable_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::control) &&
+                    term.data_ids.empty() && !term.region_id.empty();
             break;
         }
       if (!valid)
@@ -758,13 +850,52 @@ namespace nmopt::semantic::v1
           }
 
       for (const auto &constraint : specification.constraints)
-        if (constraint.kind == ConstraintKind::cellwise_box &&
-            !has_policy(constraint.id,
-                        RequirementKind::discrete_cellwise_bounds))
+        if (!has_policy(constraint.id,
+                        constraint.kind == ConstraintKind::facewise_box
+                          ? RequirementKind::discrete_facewise_bounds
+                          : RequirementKind::discrete_cellwise_bounds))
           report.add(DiagnosticCategory::analytical_policy,
                      constraint.id,
-                     "cellwise_bound_realisation",
-                     "Declare the FE_DGQ(0) coefficientwise bound policy.");
+                     constraint.kind == ConstraintKind::facewise_box
+                       ? "facewise_bound_realisation"
+                       : "cellwise_bound_realisation",
+                     constraint.kind == ConstraintKind::facewise_box
+                       ? "Declare the facewise-constant coefficientwise bound policy."
+                       : "Declare the FE_DGQ(0) coefficientwise bound policy.");
+
+      for (const auto &term : specification.residual_terms)
+        if (term.kind == ResidualTermKind::neumann_control)
+          {
+            const auto policy = selected_policy(term.id,
+                                                RequirementKind::boundary_trace);
+            if (policy == specification.requirement_policies.end())
+              report.add(DiagnosticCategory::analytical_policy,
+                         term.id,
+                         "neumann_control_trace_realisation",
+                         "Declare the selected Neumann-control trace pairing realization.");
+            else if (policy->region_id != term.region_id)
+              report.add(DiagnosticCategory::structural,
+                         term.id,
+                         "neumann_control_trace_region",
+                         "Declare the Neumann trace policy on its residual boundary region.");
+          }
+
+      for (const auto &observation : specification.observations)
+        if (observation.kind == ObservationKind::boundary_trace)
+          {
+            const auto policy = selected_policy(observation.id,
+                                                RequirementKind::boundary_trace);
+            if (policy == specification.requirement_policies.end())
+              report.add(DiagnosticCategory::analytical_policy,
+                         observation.id,
+                         "boundary_trace_realisation",
+                         "Declare the selected boundary-trace observation realization.");
+            else if (policy->region_id != observation.region_id)
+              report.add(DiagnosticCategory::structural,
+                         observation.id,
+                         "boundary_trace_region",
+                         "Declare the trace policy on the observation boundary region.");
+          }
     }
   };
 } // namespace nmopt::semantic::v1

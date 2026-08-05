@@ -454,15 +454,21 @@ assembled DTO residual/JVP/VJP; L2 search metric
 unconstrained reduced gradient, then L2-projected box gradient
 ~~~
 
+The separately owned v1 compiler now also realizes marked-face Neumann
+control and boundary trace tracking: one facewise-constant coefficient per
+selected state-mesh boundary face, `FEFaceValues` residual/transpose and
+trace assembly, and an independent facewise $L^{2}$ metric and box policy.
+It remains distinct from the baseline volume-control lowerer.
+
 The following are declared but return an unsupported-capability diagnostic in
-this release: Robin and pure-Neumann policies, Neumann boundary control,
-boundary tracking, $H^{1}$ metric/regularisation, Dirichlet control,
-coefficient inversion, mixed/Petrov–Galerkin spaces, time dependence,
-matrix-free execution, OTD, and general nonlinear KKT Newton.
+this release: Robin and pure-Neumann policies, $H^{1}$
+metric/regularisation, Dirichlet control, coefficient inversion,
+mixed/Petrov–Galerkin spaces, time dependence, matrix-free execution, OTD,
+and general nonlinear KKT Newton.
 
 The extension order is:
 
-1. Neumann control and boundary observation on marked faces.
+1. Neumann control and boundary observation on marked faces — completed in v1.
 2. Fixed liftings, then explicit Dirichlet-control liftings.
 3. Pure-Neumann mean-constraint policy.
 4. Nonlinear coefficient parameter and L-BFGS/Gauss–Newton actions.

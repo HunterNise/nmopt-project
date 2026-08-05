@@ -2,10 +2,10 @@
 
 ## Baseline commands
 
-Use an out-of-source `build/` directory:
+Use an out-of-source `build/` directory with the Ninja generator.
 
 ```bash
-cmake -S . -B build -DBUILD_TESTING=ON
+cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```

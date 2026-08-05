@@ -7,10 +7,11 @@ first serial deal.II lowerer. It is intentionally dependency-ordered: finish
 the useful vertical slice before broadening the semantic language, and broaden
 the semantic language before adding advanced PDE variants.
 
-The command below is the baseline check before and after every task:
+The command below is the baseline check before and after every task. 
+It uses the Ninja generator.
 
 ~~~bash
-cmake -S . -B build -DBUILD_TESTING=ON
+cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ~~~

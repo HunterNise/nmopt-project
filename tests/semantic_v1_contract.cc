@@ -42,6 +42,12 @@ namespace
     require(h1_control_report.valid(),
             "the H1-control regularisation v1 graph is invalid");
 
+    const auto h1_metric_specification =
+      nmopt::semantic::v1::make_h1_metric_scalar_diffusion_reaction_problem();
+    const auto h1_metric_report = validator.validate(h1_metric_specification);
+    require(h1_metric_report.valid(),
+            "the H1-control metric v1 graph is invalid");
+
     const auto boundary_specification =
       nmopt::semantic::v1::make_neumann_boundary_control_problem(true);
     const auto boundary_report = validator.validate(boundary_specification);

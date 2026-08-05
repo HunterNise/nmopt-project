@@ -42,7 +42,7 @@ namespace nmopt::compiler::v1::detail
   //   J(y,u) = J_tracking(y) + alpha/2 u^T (M_u + K_u) u.
   //
   // The search metric is intentionally not M_u + K_u: control_l2_metric()
-  // exposes M_u only. The H1 metric is a later P2.3 task.
+  // exposes M_u only or M_u + K_u according to the selected semantic metric.
   template <int dim>
   class H1ControlRegularisedModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
@@ -108,6 +108,16 @@ namespace nmopt::compiler::v1::detail
       return dealii_backend::MassMetric("l2_continuous",
                                         control_layout_,
                                         control_mass_,
+                                        solve_parameters);
+    }
+
+    dealii_backend::MassMetric
+    control_h1_metric(
+      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
+    {
+      return dealii_backend::MassMetric("h1_continuous",
+                                        control_layout_,
+                                        control_h1_matrix_,
                                         solve_parameters);
     }
 

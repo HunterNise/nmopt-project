@@ -176,6 +176,22 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // This changes only the Riesz map used for search directions. The inherited
+  // H1 regularisation loss and every residual/objective action are unchanged.
+  inline ProblemSpec
+  make_h1_metric_scalar_diffusion_reaction_problem()
+  {
+    ProblemSpec specification =
+      make_h1_regularised_scalar_diffusion_reaction_problem();
+    specification.id = "scalar_diffusion_reaction_h1_control_metric";
+    specification.label = "Scalar diffusion-reaction with H1 control metric";
+    specification.metrics.at(0) =
+      {"control_h1_metric", "Continuous-control H1 metric", MetricKind::h1,
+       "control", "control_pairing"};
+    specification.formulation.metric_id = "control_h1_metric";
+    return specification;
+  }
+
   // The first boundary-control graph deliberately has a different control
   // space and residual term from volume control. It is a Neumann trace
   // pairing, not a Dirichlet lifting or a generic boundary-load switch.

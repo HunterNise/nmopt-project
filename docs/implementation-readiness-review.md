@@ -283,18 +283,19 @@ already-computed covector to a direction and does not change $J'(u)$, the
 state equation, or the adjoint equation. No document or API may use
 “regularisation metric” for both.
 
-**Implemented v1 regularisation:** the registered continuous `FE_Q` control
-path assembles the full $H^{1}$ matrix $M_{u}+K_{u}$ in the objective term and
-its derivative. Its search metric remains the separately named
-`l2_continuous` mass-matrix Riesz map. The $H^{1}$ search metric is not part
-of this implementation.
+**Implemented v1 regularisation and metric:** the registered continuous
+`FE_Q` control path assembles the full $H^{1}$ matrix $M_{u}+K_{u}$ in the
+objective term and its derivative. The regularisation factory retains the
+separately named `l2_continuous` mass-matrix Riesz map. A distinct factory
+selects the `h1_continuous` metric with $G=M_{u}+K_{u}$; the positive mass term
+makes it coercive, and its inverse changes only the search direction.
 
 ### 7.2 Search-metric choices
 
 | Choice | Meaning | Decision |
 |---|---|---|
 | $L^{2}$ metric | $`G=M_{U}`$ in the selected control realization. | **First default.** |
-| $H^{1}$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | Supported after the $L^{2}$ path, with boundary and nullspace policy. |
+| $H^{1}$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | **Implemented v1 for continuous control:** $P=U$ and $G=M_{u}+K_{u}$, with mass providing coercivity. No compatible box projection. |
 | $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default; unsupported until specified as an operator and tested. |
 | Fractional metric | Requires a named discrete realization and spectral/extension/auxiliary problem policy. | Unsupported initially. |
 
@@ -469,12 +470,13 @@ trace assembly, and an independent facewise $L^{2}$ metric and box policy.
 It remains distinct from the baseline volume-control lowerer.
 
 A second v1 target realizes $H^{1}$ control regularisation for the
-homogeneous full-domain volume-control graph: continuous `FE_Q` control,
-$\frac{\alpha}{2} u^{T}(M_{u}+K_{u})u$ objective term, and still an $L^{2}$ search
-metric. It deliberately selects no box constraint.
+homogeneous full-domain volume-control graph: continuous `FE_Q` control and
+$\frac{\alpha}{2} u^{T}(M_{u}+K_{u})u$ objective term. Its regularisation
+factory uses an $L^{2}$ search metric; a separate factory selects the
+$H^{1}$ Riesz map $G=M_{u}+K_{u}$. Both deliberately select no box constraint.
 
 The following are declared but return an unsupported-capability diagnostic in
-this release: Robin and $H^{1}$ metric policies, Dirichlet control, coefficient inversion,
+this release: Robin policies, Dirichlet control, coefficient inversion,
 mixed/Petrov–Galerkin spaces, time dependence, matrix-free execution, OTD,
 and general nonlinear KKT Newton.
 
@@ -483,9 +485,9 @@ The extension order is:
 1. Neumann control and boundary observation on marked faces — completed in v1.
 2. Fixed liftings, then explicit Dirichlet-control liftings.
 3. Pure-Neumann mean-constraint policy — completed in v1.
-4. $H^{1}$ control regularisation — completed in v1; its search metric remains separate.
+4. $H^{1}$ control regularisation and an unconstrained $H^{1}$ metric — completed in v1.
 5. Nonlinear coefficient parameter and L-BFGS/Gauss–Newton actions.
-6. $H^{1}$ metrics and their compatible constraint solvers.
+6. Compatible continuous-control constraint solvers for non-$L^{2}$ metrics.
 7. Fixed-step temporal compiler.
 8. Mixed/Petrov–Galerkin, matrix-free, OTD, and second-order KKT features.
 

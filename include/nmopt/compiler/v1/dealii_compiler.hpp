@@ -62,6 +62,8 @@ namespace nmopt::compiler::v1
         uses_mean_zero_multiplier(specification);
       const bool uses_h1_control_regularisation =
         uses_h1_control_regularisation_loss(specification);
+      const bool uses_h1_control_metric =
+        selects_h1_control_metric(specification);
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *control_boundary_region =
         selected_neumann_control_region(specification);
@@ -199,7 +201,9 @@ namespace nmopt::compiler::v1
             policy.state_degree,
             dirichlet_boundary_ids);
           metric = std::make_shared<dealii_backend::MassMetric>(
-            h1_control->control_l2_metric(policy.control_metric_solve));
+            uses_h1_control_metric
+              ? h1_control->control_h1_metric(policy.control_metric_solve)
+              : h1_control->control_l2_metric(policy.control_metric_solve));
           solvers = {
             [h1_control](const contract::PrimalBlockT<Backend> &control) {
               return h1_control->solve_state(control);
@@ -279,6 +283,7 @@ namespace nmopt::compiler::v1
                       uses_neumann_boundary_control,
                       uses_mean_zero_gauge,
                       uses_h1_control_regularisation,
+                      uses_h1_control_metric,
                       *tracking_region,
                       control_boundary_region));
       return result;
@@ -405,6 +410,20 @@ namespace nmopt::compiler::v1
           return loss.kind ==
                  semantic::v1::LossKind::quadratic_h1_control_regularisation;
         });
+    }
+
+    static bool
+    selects_h1_control_metric(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto metric = std::find_if(
+        specification.metrics.begin(),
+        specification.metrics.end(),
+        [&specification](const semantic::v1::MetricSpec &candidate) {
+          return candidate.id == specification.formulation.metric_id;
+        });
+      return metric != specification.metrics.end() &&
+             metric->kind == semantic::v1::MetricKind::h1;
     }
 
     static const semantic::v1::RegionSpec *
@@ -584,6 +603,7 @@ namespace nmopt::compiler::v1
       const bool mean_zero_gauge = uses_mean_zero_multiplier(specification);
       const bool h1_control_regularisation =
         uses_h1_control_regularisation_loss(specification);
+      const bool h1_control_metric = selects_h1_control_metric(specification);
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),
@@ -681,6 +701,13 @@ namespace nmopt::compiler::v1
               "h1_regularisation_full_domain_tracking",
               "The first H1-control regularisation target supports full-domain tracking only.");
         }
+
+      if (h1_control_metric && !h1_control_regularisation)
+        report.add(
+          DiagnosticCategory::lowerability,
+          specification.formulation.metric_id,
+          "h1_metric_registered_control_space",
+          "Select the registered continuous H1-control target before requesting the H1 metric.");
 
       if (!uses_neumann_control(specification))
         return;
@@ -788,6 +815,21 @@ namespace nmopt::compiler::v1
                    h1_control_regularisation
                      ? "Declare exactly one tracking and one H1 control-regularisation loss."
                      : "Declare exactly one tracking and one L2 control-regularisation loss.");
+
+      const auto selected_metric = std::find_if(
+        specification.metrics.begin(),
+        specification.metrics.end(),
+        [&specification](const semantic::v1::MetricSpec &metric) {
+          return metric.id == specification.formulation.metric_id;
+        });
+      if (specification.metrics.size() != 1 ||
+          selected_metric == specification.metrics.end() ||
+          (selected_metric->kind != semantic::v1::MetricKind::l2 &&
+           selected_metric->kind != semantic::v1::MetricKind::h1))
+        report.add(DiagnosticCategory::lowerability,
+                   specification.formulation.metric_id,
+                   "selected_registered_metric",
+                   "Select exactly one registered L2 or H1 control metric.");
 
       const auto state = find_variable(
         specification, specification.formulation.state_variable_id);
@@ -954,6 +996,7 @@ namespace nmopt::compiler::v1
                   const bool                         uses_neumann_boundary_control,
                   const bool                         uses_mean_zero_gauge,
                   const bool                         uses_h1_control_regularisation,
+                  const bool                         uses_h1_control_metric,
                   const semantic::v1::RegionSpec &   tracking_region,
                   const semantic::v1::RegionSpec *   control_boundary_region)
     {
@@ -988,7 +1031,9 @@ namespace nmopt::compiler::v1
         ? boundary_observation_realisation(tracking_region)
         : observation_realisation(tracking_region);
       manifest.metric_solve_policy =
-        "serial CG: maximum iterations=" +
+        std::string("serial CG for ") +
+        (uses_h1_control_metric ? "h1_continuous Riesz map" : "L2 Riesz map") +
+        ": maximum iterations=" +
         std::to_string(policy.control_metric_solve.maximum_iterations) +
         ", relative tolerance=" +
         std::to_string(policy.control_metric_solve.relative_tolerance) +
@@ -1019,7 +1064,8 @@ namespace nmopt::compiler::v1
           boundary_id_list(*control_boundary_region));
       if (uses_h1_control_regularisation)
         manifest.declared_assumptions.push_back(
-          "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric remains l2_continuous");
+          "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric=" +
+          std::string(uses_h1_control_metric ? "h1_continuous" : "l2_continuous"));
       manifest.region_ids = identifiers(specification.regions);
       manifest.space_ids = identifiers(specification.spaces);
       manifest.pairing_ids = identifiers(specification.pairings);

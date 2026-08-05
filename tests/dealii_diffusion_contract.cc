@@ -520,12 +520,30 @@ namespace
     const dealii::Functions::ConstantFunction<dim> desired_state(0.0);
     const auto specification =
       semantic::v1::make_h1_regularised_scalar_diffusion_reaction_problem();
+    const auto h1_metric_specification =
+      semantic::v1::make_h1_metric_scalar_diffusion_reaction_problem();
     compiler::v1::DealiiDiscretisationPolicy policy;
     policy.state_degree = 1;
     const compiler::v1::DealiiCompiler compiler;
     contract::require(
       compiler.validate(specification, policy).valid(),
       "H1-control regularisation v1 graph did not validate for deal.II");
+    contract::require(
+      compiler.validate(h1_metric_specification, policy).valid(),
+      "H1-control metric v1 graph did not validate for deal.II");
+
+    auto unsupported_h1_metric =
+      semantic::v1::make_scalar_diffusion_reaction_problem();
+    unsupported_h1_metric.metrics.at(0) =
+      {"control_h1_metric", "Unsupported discontinuous H1 metric",
+       semantic::v1::MetricKind::h1, "control", "control_pairing"};
+    unsupported_h1_metric.formulation.metric_id = "control_h1_metric";
+    const auto unsupported_h1_metric_report =
+      compiler.validate(unsupported_h1_metric, policy);
+    contract::require(
+      unsupported_h1_metric_report.has_category(
+        semantic::v1::DiagnosticCategory::lowerability),
+      "H1 metric compiler did not require the continuous H1-control target");
 
     auto discontinuous_control = specification;
     discontinuous_control.spaces.at(2).topology =
@@ -560,6 +578,12 @@ namespace
                                               policy);
     contract::require(compilation.succeeded(),
                       "H1-control regularisation v1 compilation failed");
+    const auto h1_metric_compilation = compiler.compile(h1_metric_specification,
+                                                        triangulation,
+                                                        bindings,
+                                                        policy);
+    contract::require(h1_metric_compilation.succeeded(),
+                      "H1-control metric v1 compilation failed");
 
     const auto &model = compilation.problem->executable_model();
     const auto reduced = compilation.problem->make_reduced_dto();
@@ -587,7 +611,51 @@ namespace
     contract::require(stiffness_component.l2_norm() > 1e-4,
                       "H1 regularisation did not contribute its control stiffness");
 
+    const auto &h1_metric_model =
+      h1_metric_compilation.problem->executable_model();
+    const auto h1_metric_reduced =
+      h1_metric_compilation.problem->make_reduced_dto();
+    const Primal h1_metric_control(
+      h1_metric_model.variable_layout()->single_block(1, "control"),
+      {control_values});
+    dealii::Vector<double> h1_metric_zero_state(
+      h1_metric_model.variable_layout()->dimension(0));
+    const Primal h1_metric_direct_objective_point(
+      h1_metric_model.variable_layout(),
+      {std::move(h1_metric_zero_state), control_values});
+    const Covector h1_metric_direct_objective_derivative =
+      h1_metric_model.objective_derivative(h1_metric_direct_objective_point);
+    const Covector h1_metric_control_derivative =
+      contract::extract_covector_block(h1_metric_direct_objective_derivative,
+                                       1,
+                                       "control");
+    const Primal h1_metric_direction =
+      h1_metric_compilation.problem->metric().inverse_apply(
+        h1_metric_control_derivative);
+    const Primal expected_h1_metric_direction(
+      h1_metric_control.layout(), {control_values});
+    dealii::Vector<double> h1_metric_difference = h1_metric_direction.block(0);
+    h1_metric_difference.add(-0.2, expected_h1_metric_direction.block(0));
+    require_close(h1_metric_difference.l2_norm(),
+                  0.0,
+                  1e-10,
+                  "H1 metric did not invert the H1 regularisation Riesz map");
+    require_covector_close(
+      h1_metric_compilation.problem->metric().apply(h1_metric_direction),
+      h1_metric_control_derivative,
+      1e-10,
+      "H1 metric inverse/apply relation");
+
     const auto evaluation = reduced.evaluate(control);
+    const auto h1_metric_evaluation = h1_metric_reduced.evaluate(h1_metric_control);
+    require_close(h1_metric_evaluation.objective_value,
+                  evaluation.objective_value,
+                  1e-12,
+                  "H1 metric changed the reduced objective");
+    require_covector_close(h1_metric_evaluation.reduced_derivative,
+                           evaluation.reduced_derivative,
+                           1e-11,
+                           "H1 metric changed the reduced derivative");
     require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
                   0.0,
                   1e-11,
@@ -640,12 +708,19 @@ namespace
     const auto &metric = compilation.problem->metric();
     contract::require(metric.id() == "l2_continuous",
                       "H1 regularisation incorrectly selected an H1 search metric");
+    contract::require(h1_metric_compilation.problem->metric().id() ==
+                        "h1_continuous",
+                      "H1 metric compilation did not select the H1 Riesz map");
     const auto &manifest = compilation.problem->manifest();
     contract::require(
       manifest.control_space.find("continuous scalar FE_Q") != std::string::npos &&
         manifest.declared_assumptions.front().find("h1_control_regularisation") !=
           std::string::npos,
       "H1-control compilation manifest omitted the loss or control realization");
+    contract::require(
+      h1_metric_compilation.problem->manifest().metric_solve_policy.find(
+        "h1_continuous") != std::string::npos,
+      "H1 metric compilation manifest omitted the selected Riesz map");
   }
 
   template <int dim>

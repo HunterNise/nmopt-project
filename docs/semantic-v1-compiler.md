@@ -91,7 +91,7 @@ Consequently, changing the tracking region changes the objective derivative
 and adjoint right-hand side without changing the state equation or solver
 interfaces.
 
-### $H^{1}$ control regularisation
+### $H^{1}$ control regularisation and search metric
 
 The first half of P2.3 adds a distinct
 `quadratic_h1_control_regularisation` loss. It changes the control space to
@@ -103,12 +103,19 @@ J_{\mathrm{control}}(u_{h})=\frac{\alpha}{2}u_{h}^{T}(M_{u}+K_{u})u_{h},
 
 where $M_{u}$ is the control mass matrix and $K_{u}$ its Laplace stiffness
 matrix. Thus the objective derivative receives
-$\alpha(M_{u}+K_{u})u_{h}$. This is deliberately distinct from the selected
-`l2_continuous` search metric, which still maps covectors through $M_{u}^{-1}$
-and does not change the state or adjoint equation. The first target supports
-the homogeneous full-domain volume-control graph only and selects no box:
-the existing coefficientwise boxes apply only to the discontinuous cellwise
-or facewise control layouts.
+$\alpha(M_{u}+K_{u})u_{h}$. `make_h1_regularised_scalar_diffusion_reaction_problem()`
+deliberately retains the `l2_continuous` search metric, which maps covectors
+through $M_{u}^{-1}$.
+
+`make_h1_metric_scalar_diffusion_reaction_problem()` selects a separate
+`MetricKind::h1` realization on the same continuous control layout. It uses
+$G=M_{u}+K_{u}$ as the Riesz map, so the positive mass term makes the map
+coercive without a separate boundary or mean condition. Its CG inverse is
+used only to form a search direction: selecting it does not change the
+objective, residual, state equation, or adjoint equation. The first target
+supports the homogeneous full-domain volume-control graph only and selects no
+box: the existing coefficientwise boxes apply only to the discontinuous
+cellwise or facewise control layouts.
 
 ### Neumann control and boundary tracking
 

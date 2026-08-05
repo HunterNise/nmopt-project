@@ -79,7 +79,8 @@ namespace nmopt::semantic::v1
 
   enum class MetricKind
   {
-    l2
+    l2,
+    h1
   };
 
   enum class ConstraintKind

@@ -41,9 +41,10 @@ material-id observation region. `make_neumann_boundary_control_problem()`
 declares a facewise Neumann control and state boundary trace.
 `make_pure_neumann_boundary_control_problem()` is its separate zero-reaction
 mean-constraint variant. `make_h1_regularised_scalar_diffusion_reaction_problem()`
-is the separate continuous-control objective variant. The compatibility table
-below describes the homogeneous graph; the named graph sections record the
-added features.
+is the separate continuous-control objective variant.
+`make_coefficient_identification_problem()` adds a physical diffusion
+parameter. The compatibility table below describes the homogeneous graph; the
+named graph sections record the added features.
 
 ```text
 Region       one full volume region, named material-id volume subregions, and Dirichlet boundary ids
@@ -63,8 +64,10 @@ Formulation  one-state/one-control reduced DTO
 
 Concrete values are not semantic objects. `DealiiDataBindings<dim>` binds the
 forcing and desired-state `Function` objects plus scalar coefficients only
-after validation. A graph with the reconstruction also requires its optional
-`fixed_dirichlet_data` binding. The selected data rule interpolates that
+after validation; its constant-diffusion binding is optional and is required
+only by a graph that declares constant diffusion. A graph with the
+reconstruction also requires its optional `fixed_dirichlet_data` binding. The
+selected data rule interpolates that
 `Function` at the declared Dirichlet boundary DoFs to form the lifting; it is
 not inferred from the forcing or target. If the graph declares its optional
 box, the compiler also requires `CellwiseBoxDataBindings`: both bounds must
@@ -116,6 +119,32 @@ objective, residual, state equation, or adjoint equation. The first target
 supports the homogeneous full-domain volume-control graph only and selects no
 box: the existing coefficientwise boxes apply only to the discontinuous
 cellwise or facewise control layouts.
+
+### Coefficient identification
+
+`make_coefficient_identification_problem()` uses the existing binary reduced
+DTO decision port for a `VariableRole::parameter` named
+`diffusion_parameter`. It has a cellwise `FE_DGQ(0)` parameter space and a
+separate parameter observation, $L^{2}$ metric, and cellwise box. The selected box
+must bind a strictly positive lower bound, so the physical coefficient is
+positive without an implicit $m=\exp(q)$ transformation.
+
+The graph replaces the constant-diffusion data port and source-control term by
+the `parameter_diffusion_reaction` residual term:
+
+```math
+\langle E(y,m),v\rangle=(m\nabla y,\nabla v)+(c y,v)-(f,v).
+```
+
+Its private `dealii_coefficient_identification.hpp` target reassembles the
+parameter-dependent state matrix for each residual, state solve, and adjoint
+solve. It supplies $`D_{y}E(y,m)\delta y`$, $`D_{m}E(y,m)\delta m`$, and their
+exact transpose actions. The parameter regularisation is
+$`\frac{\alpha}{2} m_{h}^{T}M_{m}m_{h}`$; the parameter $L^{2}$ Riesz map and coefficientwise
+box use the `l2_cellwise_parameter` identifier. The target is limited to the
+homogeneous, full-domain volume graph with a physical positive parameter;
+continuous parameter spaces, logarithmic parameterisation, and parameter
+spaces on other meshes remain unsupported.
 
 ### Neumann control and boundary tracking
 
@@ -212,7 +241,10 @@ private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, facewise control layout, boundary trace tracking, facewise metric,
 facewise box realization, and pure-Neumann mean-zero saddle realization. The
 private `dealii_h1_control.hpp` target owns the distinct continuous-control
-$H^{1}$ loss. The registry otherwise supports only the listed
+$H^{1}$ loss and $H^{1}$ or $L^{2}$ search metrics. The private
+`dealii_coefficient_identification.hpp` target owns the cellwise positive
+diffusion-parameter residual, its nonlinear first-order actions, parameter
+metric, and parameter box. The registry otherwise supports only the listed
 volume terms, full-domain control observation, full-domain or material-id
 state restriction, quadratic losses, `L2` metric, optional cellwise box, and
 fixed-Dirichlet reconstruction. Its selected discrete policies are assembled
@@ -220,7 +252,9 @@ serial scalar `FE_Q` state/test with degree at least one and reduced DTO:
 `FE_DGQ(0)` volume control on the state mesh, or one facewise-constant
 Neumann coefficient for every marked boundary face, or continuous `FE_Q`
 volume control for the registered $H^{1}$ loss. Pure Neumann is limited to
-zero reaction and compatible forcing/control loads.
+zero reaction and compatible forcing/control loads. Coefficient identification
+instead selects a cellwise `FE_DGQ(0)` physical parameter with a strictly
+positive box and reassembled state/adjoint matrices.
 
 `CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
 and `make_reduced_dto()` expose only backend-neutral ports and formulation
@@ -254,6 +288,9 @@ for the canonical and material-subdomain graphs, including missing or
 region-mismatched target-data policies. The deal.II test compiles two material
 masks on the same mesh and requires the same state solution and residual JVP,
 while requiring a different tracking objective and state-objective derivative.
+The same test compiles the coefficient-identification graph, rejects a
+nonpositive lower bound, verifies reassembly at changed parameter values, and
+checks parameter JVP/VJP, finite-difference, and reduced-Taylor identities.
 
 ## Exclusions
 
@@ -262,7 +299,7 @@ the selected fixed-data reconstruction, material-id state tracking, and
 marked-face Neumann control with boundary tracking, it does not compile
 arbitrary geometric or overlapping subdomain restrictions, FE target
 projection/interpolation, Robin terms, controlled Dirichlet liftings,
-continuous-control bounds, non-$L^{2}$ metrics, matrix-free execution,
-all-at-once/OTD, multiple equations, or multiple optimisation variables. Each
-requires its own semantic declaration, registered lowerer, capability
-diagnostic, and value/JVP/VJP/reduced tests.
+continuous-control bounds, continuous or transformed coefficient parameters,
+matrix-free execution, all-at-once/OTD, multiple equations, or multiple
+optimisation variables. Each requires its own semantic declaration, registered
+lowerer, capability diagnostic, and value/JVP/VJP/reduced tests.

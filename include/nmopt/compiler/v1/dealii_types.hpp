@@ -18,7 +18,10 @@ namespace nmopt::compiler::v1
   {
     const dealii::Function<dim> &forcing;
     const dealii::Function<dim> &desired_state;
-    double                       diffusion;
+    // Constant diffusion is required by the linear source-control targets.
+    // The coefficient-identification target supplies diffusion through its
+    // decision variable and therefore leaves this binding disengaged.
+    std::optional<double>        diffusion;
     double                       reaction;
     double                       regularisation_weight;
     // Present only when the semantic graph declares a fixed-Dirichlet

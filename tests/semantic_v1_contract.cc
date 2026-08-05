@@ -48,6 +48,12 @@ namespace
     require(h1_metric_report.valid(),
             "the H1-control metric v1 graph is invalid");
 
+    const auto coefficient_specification =
+      nmopt::semantic::v1::make_coefficient_identification_problem();
+    const auto coefficient_report = validator.validate(coefficient_specification);
+    require(coefficient_report.valid(),
+            "the coefficient-identification v1 graph is invalid");
+
     const auto boundary_specification =
       nmopt::semantic::v1::make_neumann_boundary_control_problem(true);
     const auto boundary_report = validator.validate(boundary_specification);

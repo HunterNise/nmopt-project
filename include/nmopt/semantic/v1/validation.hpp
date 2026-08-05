@@ -243,11 +243,13 @@ namespace nmopt::semantic::v1
           else if ((variable.role == VariableRole::state &&
                     space->second->role != SpaceRole::state) ||
                    (variable.role == VariableRole::control &&
-                    space->second->role != SpaceRole::control))
+                    space->second->role != SpaceRole::control) ||
+                   (variable.role == VariableRole::parameter &&
+                    space->second->role != SpaceRole::parameter))
             report.add(DiagnosticCategory::structural,
                        variable.id,
                        "variable_space_role",
-                       "Connect each variable to a matching state or control space.");
+                       "Connect each variable to a matching state, control, or parameter space.");
           if (!variable.physical_field_transform_id.empty())
             {
               const auto transformation =
@@ -574,11 +576,12 @@ namespace nmopt::semantic::v1
                        metric.id,
                        "metric_pairing",
                        "Reference the declared primal-dual pairing for the metric variable.");
-          else if (variable->second->role != VariableRole::control)
+          else if (variable->second->role != VariableRole::control &&
+                   variable->second->role != VariableRole::parameter)
             report.add(DiagnosticCategory::structural,
                        metric.id,
-                       "metric_control_variable",
-                       "The v1 L2 metric currently identifies the control derivative only.");
+                       "metric_decision_variable",
+                       "The v1 metric identifies a control or parameter derivative only.");
         }
     }
 
@@ -598,11 +601,12 @@ namespace nmopt::semantic::v1
                        constraint.id,
                        "constraint_variable_port",
                        "Reference the constrained control variable.");
-          else if (variable->second->role != VariableRole::control)
+          else if (variable->second->role != VariableRole::control &&
+                   variable->second->role != VariableRole::parameter)
             report.add(DiagnosticCategory::structural,
                        constraint.id,
-                       "constraint_control_variable",
-                       "The registered v1 boxes can constrain the control variable only.");
+                       "constraint_decision_variable",
+                       "The registered v1 boxes can constrain a control or parameter variable only.");
           else
             {
               const auto space = spaces.find(variable->second->space_id);
@@ -696,6 +700,14 @@ namespace nmopt::semantic::v1
                     has_role(term.data_ids, data, DataRole::diffusion) &&
                     has_role(term.data_ids, data, DataRole::reaction);
             break;
+          case ResidualTermKind::parameter_diffusion_reaction:
+            valid = term.variable_ids.size() == 2 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::parameter) &&
+                    has_role(term.data_ids, data, DataRole::reaction);
+            break;
           case ResidualTermKind::volume_source:
             valid = term.variable_ids.empty() && term.data_ids.size() == 1 &&
                     has_role(term.data_ids, data, DataRole::forcing);
@@ -735,12 +747,14 @@ namespace nmopt::semantic::v1
         (loss.kind == LossKind::quadratic_control_regularisation &&
          datum->second->role == DataRole::regularisation_weight) ||
         (loss.kind == LossKind::quadratic_h1_control_regularisation &&
+         datum->second->role == DataRole::regularisation_weight) ||
+        (loss.kind == LossKind::quadratic_parameter_regularisation &&
          datum->second->role == DataRole::regularisation_weight);
       if (!valid)
         report.add(DiagnosticCategory::structural,
                    loss.id,
                    "loss_data_role",
-                   "Use desired-state data for tracking and a scalar regularisation weight for control loss.");
+                   "Use desired-state data for tracking and a scalar regularisation weight for a decision-variable loss.");
     }
 
     static void
@@ -759,11 +773,12 @@ namespace nmopt::semantic::v1
                    "formulation_state_variable",
                    "Select one declared state variable for elimination.");
       if (control == variables.end() ||
-          control->second->role != VariableRole::control)
+          (control->second->role != VariableRole::control &&
+           control->second->role != VariableRole::parameter))
         report.add(DiagnosticCategory::structural,
                    formulation.id,
-                   "formulation_control_variable",
-                   "Select one declared control variable for optimisation.");
+                   "formulation_decision_variable",
+                   "Select one declared control or parameter variable for optimisation.");
       if (!contains(equations, formulation.equation_id))
         report.add(DiagnosticCategory::structural,
                    formulation.id,

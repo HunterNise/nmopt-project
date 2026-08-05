@@ -475,8 +475,18 @@ $\frac{\alpha}{2} u^{T}(M_{u}+K_{u})u$ objective term. Its regularisation
 factory uses an $L^{2}$ search metric; a separate factory selects the
 $H^{1}$ Riesz map $G=M_{u}+K_{u}$. Both deliberately select no box constraint.
 
+A third v1 target realizes coefficient identification with one cellwise
+physical diffusion parameter as the binary reduced decision block. Its
+strictly positive `FE_DGQ(0)` lower box is the selected positivity policy; it
+assembles $`(m\nabla y,\nabla v)+(c y,v)-(f,v)`$ and reassembles the state and
+adjoint matrices at every parameter point. Its first-order parameter JVP/VJP
+actions and reduced Taylor identity are verified. Logarithmic
+parameterisation, L-BFGS/Gauss–Newton, and second-order KKT actions remain
+separate extensions.
+
 The following are declared but return an unsupported-capability diagnostic in
-this release: Robin policies, Dirichlet control, coefficient inversion,
+this release: Robin policies, Dirichlet control, transformed or continuous
+coefficient parameters,
 mixed/Petrov–Galerkin spaces, time dependence, matrix-free execution, OTD,
 and general nonlinear KKT Newton.
 
@@ -486,7 +496,7 @@ The extension order is:
 2. Fixed liftings, then explicit Dirichlet-control liftings.
 3. Pure-Neumann mean-constraint policy — completed in v1.
 4. $H^{1}$ control regularisation and an unconstrained $H^{1}$ metric — completed in v1.
-5. Nonlinear coefficient parameter and L-BFGS/Gauss–Newton actions.
+5. Cellwise positive coefficient parameter and nonlinear first-order actions — completed in v1.
 6. Compatible continuous-control constraint solvers for non-$L^{2}$ metrics.
 7. Fixed-step temporal compiler.
 8. Mixed/Petrov–Galerkin, matrix-free, OTD, and second-order KKT features.

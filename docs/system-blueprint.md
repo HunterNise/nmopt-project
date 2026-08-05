@@ -74,13 +74,13 @@ current implementation status.
 | --- | --- | --- | --- |
 | `Region` | Named volume, boundary, interface, point set, or time set | Identity, dimension, relation | V1: one full volume and fixed Dirichlet boundary ids |
 | `Space` and `Pairing` | Field shape, topology, role, primal/dual pairing | Typed source and target ports | V1 scalar H1/L2 declarations and explicit coefficient pairings |
-| `VariableBlock` | State, control, parameter, flux, or auxiliary unknown | One primal space; feeds maps | V1: exactly one state and one control |
+| `VariableBlock` | State, control, parameter, flux, or auxiliary unknown | One primal space; feeds maps | V1: exactly one state and one binary decision block (control or parameter) |
 | `Data` | Fixed forcing, target, coefficient, lifting, or bound | Read-only ports; never a derivative block | V1 declarations; compiler binds deal.II functions, constants, fixed lifting, and optional bounds |
 | `Transformation` | Reconstruction, lifting, parameterisation, restriction, transfer | Value, JVP, VJP | V1 fixed-Dirichlet reconstruction; v0 uses homogeneous constrained coordinates |
-| `ResidualTerm` | One physical contribution to one equation | Tested value, JVP, VJP | V1 registers diffusion-reaction, source, and volume-control assembly |
+| `ResidualTerm` | One physical contribution to one equation | Tested value, JVP, VJP | V1 registers diffusion-reaction, source, volume-control, and cellwise parameter-diffusion assembly |
 | `EquationBlock` | Sum of residual terms and its test space | $E$, $E'\delta x$, $E'^{\ast}p$ | V1: one state-test block |
 | `Observation` | Map from physical variables to observation space | Value, JVP, VJP | V1 full-domain restriction only |
-| `Loss` | One scalar penalty of an observation | Scalar value and output covector | V1 quadratic tracking and control regularisation |
+| `Loss` | One scalar penalty of an observation | Scalar value and output covector | V1 quadratic tracking plus control or parameter regularisation |
 | `Objective` | Sum of loss compositions | $J$ and $J'$ | Homogeneous v1 comparison target or v1 fixed-lifting target |
 | `Metric` | Algorithmic map $G:P\to P^{\ast}$ | `apply`, `inverse_apply` | Dense diagonal and serial deal.II mass-metric realizations |
 | `Constraint` | Feasibility, projection, normal cone, multipliers | Operations in a named metric | Dense and serial deal.II cellwise $L^{2}$ boxes |
@@ -276,8 +276,8 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`reduced_gradient.hpp`](../include/nmopt/solvers/reduced_gradient.hpp) | Unconstrained and projected reduced Armijo method | First optimizer and its diagnostics |
 | [`linear_quadratic_model.hpp`](../include/nmopt/reference/linear_quadratic_model.hpp) | Transparent matrix oracle | Check algebra before FE assembly |
 | [`serial_backend.hpp`](../include/nmopt/dealii/serial_backend.hpp) | Adapter from five vector operations to deal.II | Backend parameterisation |
-| [`mass_metric.hpp`](../include/nmopt/dealii/mass_metric.hpp) | Sparse SPD control Riesz map | deal.II $L^{2}$ and $H^{1}$ control search directions |
-| [`cellwise_box_constraint.hpp`](../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control updates |
+| [`mass_metric.hpp`](../include/nmopt/dealii/mass_metric.hpp) | Sparse SPD decision Riesz map | deal.II $L^{2}$ and $H^{1}$ control or parameter search directions |
+| [`cellwise_box_constraint.hpp`](../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control or parameter updates |
 | [`facewise_box_constraint.hpp`](../include/nmopt/dealii/facewise_box_constraint.hpp) | Facewise-constant coefficientwise box projection | Feasible Neumann boundary-control updates |
 | [`scalar_diffusion_reaction.hpp`](../include/nmopt/dealii/scalar_diffusion_reaction.hpp) | Concrete deal.II lowerer | FE assembly, constraints, solves |
 | [`types.hpp`](../include/nmopt/semantic/v1/types.hpp) | Narrow deal.II-free v1 graph types | Semantic component ports |
@@ -287,6 +287,7 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`dealii_fixed_dirichlet.hpp`](../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
 | [`dealii_neumann_boundary.hpp`](../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, pullbacks, and pure-Neumann mean-zero saddle solves |
 | [`dealii_h1_control.hpp`](../include/nmopt/compiler/v1/dealii_h1_control.hpp) | V1 continuous-control target | $H^{1}$ control loss with explicitly selectable $L^{2}$ or $H^{1}$ search metric |
+| [`dealii_coefficient_identification.hpp`](../include/nmopt/compiler/v1/dealii_coefficient_identification.hpp) | V1 positive cellwise coefficient target | Parameter-dependent state/adjoint actions and exact first-order pullbacks |
 | [`reduced_dto_contract.cc`](../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
 | [`dealii_diffusion_contract.cc`](../tests/dealii_diffusion_contract.cc) | Same checks through real deal.II assembly | End-to-end reference use |
 
@@ -327,14 +328,18 @@ facewise Neumann control with boundary trace tracking. Its registered
 zero-reaction pure-Neumann variant uses a one-multiplier mean-zero gauge and
 compatible facewise loads. Its homogeneous volume-control variant also
 supports continuous `FE_Q` control with an $H^{1}$ objective loss and
-separate $L^{2}$ or $H^{1}$ metrics. It does not provide
+separate $L^{2}$ or $H^{1}$ metrics. Its coefficient-identification target
+also supports a positive cellwise physical diffusion parameter with
+parameter-dependent first-order actions and reassembled state/adjoint solves.
+It does not provide
 controlled/periodic/hanging essential conditions, Robin terms, arbitrary
 geometric subdomains, FE target projection/interpolation, nonlinear or
-variable coefficients, mixed/vector/DG states, MPI vectors, time, OTD, or KKT
-Newton. The available box projections are only the declared `FE_DGQ(0)`
+variable coefficients beyond the registered cellwise positive diffusion
+parameter, mixed/vector/DG states, MPI vectors, time, OTD, or KKT Newton. The
+available box projections are only the declared `FE_DGQ(0)`
 cellwise volume and facewise-constant boundary $L^{2}$ policies.
 
-The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) next adds nonlinear coefficient identification while preserving the v0 reference.
+The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) next adds Dirichlet control through an explicit lifting while preserving the v0 reference.
 
 ## Blueprint for adding one feature yourself
 

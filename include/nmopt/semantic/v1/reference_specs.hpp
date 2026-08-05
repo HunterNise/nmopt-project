@@ -192,6 +192,80 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // P3.1 uses the binary reduced DTO decision port for a physical diffusion
+  // coefficient rather than a source control. Positivity is explicit through
+  // the required cellwise box; a logarithmic parameterisation is deliberately
+  // left to a later transformation realization.
+  inline ProblemSpec
+  make_coefficient_identification_problem()
+  {
+    ProblemSpec specification = make_scalar_diffusion_reaction_problem();
+    specification.id = "scalar_diffusion_reaction_coefficient_identification";
+    specification.label =
+      "Scalar diffusion-reaction coefficient identification";
+    specification.spaces.at(2) =
+      {"parameter_space", "Cellwise diffusion parameter", "domain",
+       SpaceTopology::l2, SpaceRole::parameter};
+    specification.spaces.at(4) =
+      {"parameter_observation_space", "Cellwise parameter observation",
+       "domain", SpaceTopology::l2, SpaceRole::observation};
+    specification.pairings.at(2) =
+      {"parameter_pairing", "Parameter coefficient pairing", "parameter_space",
+       "parameter_space"};
+    specification.pairings.at(4) =
+      {"parameter_observation_pairing", "Parameter observation pairing",
+       "parameter_observation_space", "parameter_observation_space"};
+    specification.variables.at(1) =
+      {"diffusion_parameter", "Diffusion parameter", VariableRole::parameter,
+       "parameter_space", ""};
+    specification.data.erase(
+      std::remove_if(specification.data.begin(),
+                     specification.data.end(),
+                     [](const DataSpec &datum) {
+                       return datum.role == DataRole::diffusion;
+                     }),
+      specification.data.end());
+    specification.data.push_back(
+      {"parameter_lower_bound", "Strictly positive diffusion lower bound",
+       DataKind::cellwise_bound, DataRole::lower_bound, "parameter_space"});
+    specification.data.push_back(
+      {"parameter_upper_bound", "Diffusion upper bound",
+       DataKind::cellwise_bound, DataRole::upper_bound, "parameter_space"});
+    specification.residual_terms.at(0) =
+      {"parameter_diffusion_reaction", "Parameter diffusion and reaction",
+       ResidualTermKind::parameter_diffusion_reaction, "state_equation",
+       {"state", "diffusion_parameter"}, {"reaction"}, ""};
+    specification.residual_terms.erase(specification.residual_terms.begin() + 2);
+    specification.equations.at(0).residual_term_ids =
+      {"parameter_diffusion_reaction", "volume_source"};
+    specification.observations.at(1) =
+      {"parameter_observation", "Full-domain parameter restriction",
+       ObservationKind::volume_restriction, "diffusion_parameter", "domain",
+       "parameter_observation_space", "parameter_observation_pairing"};
+    specification.losses.at(1) =
+      {"parameter_regularisation", "Quadratic parameter regularisation",
+       LossKind::quadratic_parameter_regularisation, "parameter_observation",
+       "regularisation_weight", "parameter_observation_pairing"};
+    specification.metrics.at(0) =
+      {"parameter_l2_metric", "Cellwise parameter L2 metric", MetricKind::l2,
+       "diffusion_parameter", "parameter_pairing"};
+    specification.constraints = {
+      {"parameter_box", "Positive cellwise diffusion box",
+       ConstraintKind::cellwise_box, "diffusion_parameter",
+       "parameter_lower_bound", "parameter_upper_bound"}};
+    specification.requirement_policies.push_back(
+      {"parameter_positive_box_policy", "parameter_box",
+       RequirementKind::discrete_cellwise_bounds,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "strictly positive FE_DGQ(0) lower bound with coefficientwise l2_cellwise_parameter clipping",
+       "domain"});
+    specification.formulation.control_variable_id = "diffusion_parameter";
+    specification.formulation.metric_id = "parameter_l2_metric";
+    specification.formulation.constraint_id = "parameter_box";
+    return specification;
+  }
+
   // The first boundary-control graph deliberately has a different control
   // space and residual term from volume control. It is a Neumann trace
   // pairing, not a Dirichlet lifting or a generic boundary-load switch.

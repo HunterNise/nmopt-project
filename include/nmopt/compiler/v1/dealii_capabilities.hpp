@@ -16,6 +16,7 @@ namespace nmopt::compiler::v1
       switch (kind)
         {
           case semantic::v1::ResidualTermKind::diffusion_reaction:
+          case semantic::v1::ResidualTermKind::parameter_diffusion_reaction:
           case semantic::v1::ResidualTermKind::volume_source:
           case semantic::v1::ResidualTermKind::volume_control:
           case semantic::v1::ResidualTermKind::neumann_control:
@@ -45,6 +46,7 @@ namespace nmopt::compiler::v1
           case semantic::v1::LossKind::quadratic_tracking:
           case semantic::v1::LossKind::quadratic_control_regularisation:
           case semantic::v1::LossKind::quadratic_h1_control_regularisation:
+          case semantic::v1::LossKind::quadratic_parameter_regularisation:
             return true;
         }
       return false;

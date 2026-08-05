@@ -725,6 +725,218 @@ namespace
 
   template <int dim>
   void
+  run_coefficient_identification_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.0);
+    const auto specification =
+      semantic::v1::make_coefficient_identification_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(
+      compiler.validate(specification, policy).valid(),
+      "coefficient-identification v1 graph did not validate for deal.II");
+
+    auto continuous_parameter = specification;
+    continuous_parameter.spaces.at(2).topology =
+      semantic::v1::SpaceTopology::h1;
+    const auto continuous_parameter_report =
+      compiler.validate(continuous_parameter, policy);
+    contract::require(
+      continuous_parameter_report.has_category(
+        semantic::v1::DiagnosticCategory::lowerability),
+      "coefficient-identification compiler did not require cellwise parameters");
+
+    auto missing_positive_box = specification;
+    missing_positive_box.constraints.clear();
+    missing_positive_box.formulation.constraint_id.clear();
+    const auto missing_positive_box_report =
+      compiler.validate(missing_positive_box, policy);
+    contract::require(
+      missing_positive_box_report.has_category(
+        semantic::v1::DiagnosticCategory::lowerability),
+      "coefficient-identification compiler did not require the positive parameter box");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing, desired_state, std::nullopt, 0.5, 0.2};
+    const compiler::v1::CellwiseBoxDataBindings bounds{
+      compiler::v1::CellwiseBoundValue{0.2},
+      compiler::v1::CellwiseBoundValue{2.0}};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy,
+                                              bounds);
+    contract::require(compilation.succeeded(),
+                      "coefficient-identification v1 compilation failed");
+
+    const compiler::v1::CellwiseBoxDataBindings nonpositive_bounds{
+      compiler::v1::CellwiseBoundValue{0.0},
+      compiler::v1::CellwiseBoundValue{2.0}};
+    const auto rejected_nonpositive_bounds = compiler.compile(specification,
+                                                              triangulation,
+                                                              bindings,
+                                                              policy,
+                                                              nonpositive_bounds);
+    contract::require(
+      !rejected_nonpositive_bounds.succeeded() &&
+        rejected_nonpositive_bounds.diagnostics.has_category(
+          semantic::v1::DiagnosticCategory::lowerability),
+      "coefficient-identification compiler accepted a nonpositive lower bound");
+
+    const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
+    dealii::Vector<double> nonpositive_lower(
+      model.variable_layout()->dimension(1));
+    dealii::Vector<double> positive_upper(
+      model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < nonpositive_lower.size();
+         ++index)
+      {
+        nonpositive_lower[index] = index == 0 ? 0.0 : 0.2;
+        positive_upper[index] = 2.0;
+      }
+    const compiler::v1::CellwiseBoxDataBindings nonpositive_vector_bounds{
+      compiler::v1::CellwiseBoundValue{std::move(nonpositive_lower)},
+      compiler::v1::CellwiseBoundValue{std::move(positive_upper)}};
+    const auto rejected_nonpositive_vector_bounds =
+      compiler.compile(specification,
+                       triangulation,
+                       bindings,
+                       policy,
+                       nonpositive_vector_bounds);
+    contract::require(
+      !rejected_nonpositive_vector_bounds.succeeded() &&
+        rejected_nonpositive_vector_bounds.diagnostics.has_category(
+          semantic::v1::DiagnosticCategory::lowerability),
+      "coefficient-identification compiler accepted a nonpositive vector lower bound");
+    dealii::Vector<double> parameter_values(
+      model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < parameter_values.size();
+         ++index)
+      parameter_values[index] = index % 2 == 0 ? 0.6 : 1.1;
+    const Primal parameter(
+      model.variable_layout()->single_block(1, "parameter"),
+      {parameter_values});
+    const auto evaluation = reduced.evaluate(parameter);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "coefficient-identification state residual");
+
+    dealii::Vector<double> changed_parameter_values = parameter_values;
+    for (dealii::types::global_dof_index index = 0;
+         index < changed_parameter_values.size();
+         ++index)
+      changed_parameter_values[index] = 1.5;
+    const Primal changed_parameter(parameter.layout(),
+                                   {std::move(changed_parameter_values)});
+    const auto changed_evaluation = reduced.evaluate(changed_parameter);
+    require_close(model.residual(changed_evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "coefficient-identification reassembled state residual");
+    dealii::Vector<double> changed_state_difference = changed_evaluation.state.block(0);
+    changed_state_difference.add(-1.0, evaluation.state.block(0));
+    contract::require(changed_state_difference.l2_norm() > 1e-4,
+                      "coefficient-identification state matrix was not reassembled");
+
+    dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
+    dealii::Vector<double> parameter_tangent(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size();
+         ++index)
+      state_tangent[index] = -0.01 * static_cast<double>(index + 1);
+    for (dealii::types::global_dof_index index = 0;
+         index < parameter_tangent.size();
+         ++index)
+      parameter_tangent[index] = index % 2 == 0 ? 0.03 : -0.02;
+    const Primal tangent(model.variable_layout(),
+                         {std::move(state_tangent), std::move(parameter_tangent)});
+    dealii::Vector<double> test_seed_values(model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < test_seed_values.size();
+         ++index)
+      test_seed_values[index] = 0.04 * static_cast<double>(index + 1);
+    const Primal test_seed(model.test_layout(), {std::move(test_seed_values)});
+    const Covector jvp = model.residual_jvp(evaluation.full_point, tangent);
+    const Covector vjp = model.residual_vjp(evaluation.full_point, test_seed);
+    require_close(contract::pair(jvp, test_seed),
+                  contract::pair(vjp, tangent),
+                  1e-11,
+                  "coefficient-identification residual JVP/VJP pairing");
+
+    constexpr double derivative_step = 1e-7;
+    const Covector residual_at_step =
+      model.residual(shifted(evaluation.full_point, tangent, derivative_step));
+    const Covector residual_at_point = model.residual(evaluation.full_point);
+    for (std::size_t block = 0; block < residual_at_step.n_blocks(); ++block)
+      {
+        dealii::Vector<double> finite_difference = residual_at_step.block(block);
+        finite_difference.add(-1.0, residual_at_point.block(block));
+        finite_difference *= 1.0 / derivative_step;
+        finite_difference.add(-1.0, jvp.block(block));
+        require_close(finite_difference.l2_norm(),
+                      0.0,
+                      1e-7,
+                      "coefficient-identification residual finite-difference JVP");
+      }
+
+    const double objective_difference =
+      model.objective(shifted(evaluation.full_point, tangent, derivative_step)) -
+      evaluation.objective_value;
+    require_close(
+      objective_difference / derivative_step,
+      contract::pair(model.objective_derivative(evaluation.full_point), tangent),
+      1e-7,
+      "coefficient-identification objective directional derivative");
+
+    dealii::Vector<double> direction_values(parameter.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size();
+         ++index)
+      direction_values[index] = index % 2 == 0 ? 0.02 : -0.03;
+    const Primal direction(parameter.layout(), {std::move(direction_values)});
+    const double directional_derivative =
+      contract::pair(evaluation.reduced_derivative, direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(parameter, direction, step))
+                        .objective_value -
+                      evaluation.objective_value - step * directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "coefficient-identification reduced Taylor remainder is not quadratic");
+
+    const auto &metric = compilation.problem->metric();
+    const Primal metric_direction =
+      metric.inverse_apply(evaluation.reduced_derivative);
+    require_covector_close(metric.apply(metric_direction),
+                           evaluation.reduced_derivative,
+                           1e-10,
+                           "coefficient-identification metric inverse/apply");
+    const auto *constraint = compilation.problem->constraint();
+    contract::require(constraint != nullptr && constraint->is_feasible(parameter),
+                      "coefficient-identification compilation omitted the parameter box");
+    contract::require(metric.id() == "l2_cellwise_parameter",
+                      "coefficient-identification compilation selected the wrong metric");
+    contract::require(
+      compilation.problem->manifest().state_adjoint_solve_policy.find(
+        "reassembled") != std::string::npos,
+      "coefficient-identification manifest omitted state-matrix reassembly");
+  }
+
+  template <int dim>
+  void
   run_pure_neumann_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -1138,6 +1350,7 @@ main()
       run_subdomain_observation_contract_test<2>();
       run_neumann_boundary_contract_test<2>();
       run_h1_control_regularisation_contract_test<2>();
+      run_coefficient_identification_contract_test<2>();
       run_pure_neumann_contract_test<2>();
       std::cout << "deal.II diffusion DTO contract test passed\n";
       return 0;

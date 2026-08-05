@@ -12,9 +12,9 @@
 
 namespace nmopt::dealii_backend
 {
-  // Coefficientwise bounds for a cellwise-constant serial control space. The
-  // owning lowerer is responsible for constructing this only for its
-  // FE_DGQ(0) control layout.
+  // Coefficientwise bounds for a cellwise-constant serial decision space. The
+  // owning lowerer is responsible for constructing this only for its declared
+  // FE_DGQ(0) control or parameter layout.
   class CellwiseBoxConstraint final : public contract::ConstraintT<SerialBackend>
   {
   public:

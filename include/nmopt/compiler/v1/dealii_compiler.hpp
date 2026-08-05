@@ -2,6 +2,7 @@
 
 #include "nmopt/compiler/v1/compiled_problem.hpp"
 #include "nmopt/compiler/v1/dealii_capabilities.hpp"
+#include "nmopt/compiler/v1/dealii_coefficient_identification.hpp"
 #include "nmopt/compiler/v1/dealii_fixed_dirichlet.hpp"
 #include "nmopt/compiler/v1/dealii_h1_control.hpp"
 #include "nmopt/compiler/v1/dealii_neumann_boundary.hpp"
@@ -64,6 +65,8 @@ namespace nmopt::compiler::v1
         uses_h1_control_regularisation_loss(specification);
       const bool uses_h1_control_metric =
         selects_h1_control_metric(specification);
+      const bool uses_coefficient_identification =
+        uses_parameter_diffusion_residual(specification);
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *control_boundary_region =
         selected_neumann_control_region(specification);
@@ -72,7 +75,14 @@ namespace nmopt::compiler::v1
       const bool uses_assembled_v1_target =
         !uses_neumann_boundary_control &&
         !uses_h1_control_regularisation &&
+        !uses_coefficient_identification &&
         (uses_fixed_reconstruction || uses_subdomain_observation);
+      if (!uses_coefficient_identification && !data.diffusion)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "diffusion",
+          "diffusion_data_binding",
+          "Bind the constant diffusion coefficient selected by this graph.");
       if (uses_fixed_reconstruction && !data.fixed_dirichlet_data)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -120,6 +130,13 @@ namespace nmopt::compiler::v1
           specification.formulation.constraint_id,
           "facewise_bound_data_representation",
           "Bind both facewise bounds as scalars or both as exact boundary-control vectors.");
+      if (uses_coefficient_identification && bounds &&
+          !has_strictly_positive_lower_bound(*bounds))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.constraint_id,
+          "positive_parameter_lower_bound",
+          "Bind a strictly positive scalar or every strictly positive cellwise lower parameter bound.");
       if (uses_neumann_boundary_control && bounds)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -154,7 +171,7 @@ namespace nmopt::compiler::v1
             triangulation,
             data.forcing,
             data.desired_state,
-            data.diffusion,
+            *data.diffusion,
             data.reaction,
             data.regularisation_weight,
             policy.state_degree,
@@ -195,7 +212,7 @@ namespace nmopt::compiler::v1
             triangulation,
             data.forcing,
             data.desired_state,
-            data.diffusion,
+            *data.diffusion,
             data.reaction,
             data.regularisation_weight,
             policy.state_degree,
@@ -214,6 +231,32 @@ namespace nmopt::compiler::v1
             }};
           executable = h1_control;
         }
+      else if (uses_coefficient_identification)
+        {
+          using CoefficientModel = detail::CoefficientIdentificationModel<dim>;
+          const auto coefficient = std::make_shared<CoefficientModel>(
+            triangulation,
+            data.forcing,
+            data.desired_state,
+            data.reaction,
+            data.regularisation_weight,
+            policy.state_degree,
+            dirichlet_boundary_ids);
+          metric = std::make_shared<dealii_backend::MassMetric>(
+            coefficient->parameter_l2_metric(policy.control_metric_solve));
+          if (has_constraint)
+            constraint = std::make_shared<dealii_backend::CellwiseBoxConstraint>(
+              make_parameter_constraint(*coefficient, *bounds));
+          solvers = {
+            [coefficient](const contract::PrimalBlockT<Backend> &parameter) {
+              return coefficient->solve_state(parameter);
+            },
+            [coefficient](const contract::PrimalBlockT<Backend> &full_point,
+                          const contract::CovectorBlockT<Backend> &state_rhs) {
+              return coefficient->solve_adjoint(full_point, state_rhs);
+            }};
+          executable = coefficient;
+        }
       else if (uses_assembled_v1_target)
         {
           using AssembledModel = detail::AssembledScalarDiffusionReactionModel<dim>;
@@ -222,7 +265,7 @@ namespace nmopt::compiler::v1
             data.forcing,
             data.desired_state,
             data.fixed_dirichlet_data,
-            data.diffusion,
+            *data.diffusion,
             data.reaction,
             data.regularisation_weight,
             policy.state_degree,
@@ -250,7 +293,7 @@ namespace nmopt::compiler::v1
             triangulation,
             data.forcing,
             data.desired_state,
-            data.diffusion,
+            *data.diffusion,
             data.reaction,
             data.regularisation_weight,
             policy.state_degree,
@@ -284,6 +327,7 @@ namespace nmopt::compiler::v1
                       uses_mean_zero_gauge,
                       uses_h1_control_regularisation,
                       uses_h1_control_metric,
+                      uses_coefficient_identification,
                       *tracking_region,
                       control_boundary_region));
       return result;
@@ -413,6 +457,19 @@ namespace nmopt::compiler::v1
     }
 
     static bool
+    uses_parameter_diffusion_residual(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &term) {
+          return term.kind ==
+                 semantic::v1::ResidualTermKind::parameter_diffusion_reaction;
+        });
+    }
+
+    static bool
     selects_h1_control_metric(
       const semantic::v1::ProblemSpec &specification)
     {
@@ -495,6 +552,20 @@ namespace nmopt::compiler::v1
     }
 
     static bool
+    has_strictly_positive_lower_bound(const CellwiseBoxDataBindings &bounds)
+    {
+      if (!valid_bound_representation(bounds))
+        return false;
+      if (std::holds_alternative<double>(bounds.lower))
+        return std::isfinite(std::get<double>(bounds.lower)) &&
+               std::get<double>(bounds.lower) > 0.0;
+      const auto &lower = std::get<dealii::Vector<double>>(bounds.lower);
+      return std::all_of(lower.begin(), lower.end(), [](const double value) {
+        return std::isfinite(value) && value > 0.0;
+      });
+    }
+
+    static bool
     valid_facewise_bound_representation(const FacewiseBoxDataBindings &bounds)
     {
       return (std::holds_alternative<double>(bounds.lower) &&
@@ -515,6 +586,24 @@ namespace nmopt::compiler::v1
         return executable.control_l2_box_constraint(
           std::get<double>(bounds.lower), std::get<double>(bounds.upper));
       return executable.control_l2_box_constraint(
+        std::get<dealii::Vector<double>>(bounds.lower),
+        std::get<dealii::Vector<double>>(bounds.upper));
+    }
+
+    template <typename Model>
+    static dealii_backend::CellwiseBoxConstraint
+    make_parameter_constraint(
+      const Model &                    executable,
+      const CellwiseBoxDataBindings &  bounds)
+    {
+      contract::require(valid_bound_representation(bounds),
+                        "The v1 parameter box needs compatible bound data");
+      contract::require(has_strictly_positive_lower_bound(bounds),
+                        "The v1 parameter box needs a strictly positive lower bound");
+      if (std::holds_alternative<double>(bounds.lower))
+        return executable.parameter_l2_box_constraint(
+          std::get<double>(bounds.lower), std::get<double>(bounds.upper));
+      return executable.parameter_l2_box_constraint(
         std::get<dealii::Vector<double>>(bounds.lower),
         std::get<dealii::Vector<double>>(bounds.upper));
     }
@@ -604,6 +693,8 @@ namespace nmopt::compiler::v1
       const bool h1_control_regularisation =
         uses_h1_control_regularisation_loss(specification);
       const bool h1_control_metric = selects_h1_control_metric(specification);
+      const bool coefficient_identification =
+        uses_parameter_diffusion_residual(specification);
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),
@@ -709,6 +800,49 @@ namespace nmopt::compiler::v1
           "h1_metric_registered_control_space",
           "Select the registered continuous H1-control target before requesting the H1 metric.");
 
+      if (coefficient_identification)
+        {
+          const auto parameter = find_variable(
+            specification, specification.formulation.control_variable_id);
+          const auto space = std::find_if(
+            specification.spaces.begin(),
+            specification.spaces.end(),
+            [parameter](const semantic::v1::SpaceSpec &candidate) {
+              return parameter != nullptr && candidate.id == parameter->space_id;
+            });
+          if (parameter == nullptr ||
+              parameter->role != semantic::v1::VariableRole::parameter ||
+              space == specification.spaces.end() ||
+              space->topology != semantic::v1::SpaceTopology::l2)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.control_variable_id,
+              "cellwise_parameter_space",
+              "Select the registered cellwise L2 parameter space for coefficient identification.");
+          if (specification.formulation.constraint_id.empty())
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.control_variable_id,
+              "positive_parameter_constraint",
+              "Select the registered positive cellwise parameter box.");
+          if (uses_fixed_dirichlet_reconstruction(specification) ||
+              uses_neumann_control(specification) || h1_control_regularisation)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "coefficient_identification_registered_combination",
+              "The first coefficient-identification target supports the homogeneous full-domain volume graph only.");
+          const auto coefficient_tracking_region =
+            selected_tracking_region(specification);
+          if (coefficient_tracking_region == nullptr ||
+              !coefficient_tracking_region->is_full_domain)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "coefficient_identification_full_domain_tracking",
+              "The first coefficient-identification target supports full-domain tracking only.");
+        }
+
       if (!uses_neumann_control(specification))
         return;
       const auto control_region = selected_neumann_control_region(specification);
@@ -756,7 +890,15 @@ namespace nmopt::compiler::v1
           });
       };
       const bool boundary_control = uses_neumann_control(specification);
-      const bool complete_residual = boundary_control
+      const bool coefficient_identification =
+        uses_parameter_diffusion_residual(specification);
+      const bool complete_residual = coefficient_identification
+        ? count_terms(ResidualTermKind::parameter_diffusion_reaction) == 1 &&
+            count_terms(ResidualTermKind::volume_source) == 1 &&
+            count_terms(ResidualTermKind::diffusion_reaction) == 0 &&
+            count_terms(ResidualTermKind::volume_control) == 0 &&
+            count_terms(ResidualTermKind::neumann_control) == 0
+        : boundary_control
         ? count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
             count_terms(ResidualTermKind::volume_source) == 1 &&
             count_terms(ResidualTermKind::neumann_control) == 1 &&
@@ -768,9 +910,14 @@ namespace nmopt::compiler::v1
       if (!complete_residual)
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   boundary_control ? "complete_neumann_boundary_residual_term_set"
-                                    : "complete_volume_residual_term_set",
-                   boundary_control
+                   coefficient_identification
+                     ? "complete_parameter_diffusion_residual_term_set"
+                     : boundary_control
+                         ? "complete_neumann_boundary_residual_term_set"
+                         : "complete_volume_residual_term_set",
+                   coefficient_identification
+                     ? "Declare exactly one parameter diffusion-reaction and one volume-source term."
+                     : boundary_control
                      ? "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
                      : "Declare exactly one diffusion-reaction, volume-source, and volume-control term.");
 
@@ -784,13 +931,18 @@ namespace nmopt::compiler::v1
       };
       if (count_data(DataRole::forcing) != 1 ||
           count_data(DataRole::desired_state) != 1 ||
-          count_data(DataRole::diffusion) != 1 ||
           count_data(DataRole::reaction) != 1 ||
-          count_data(DataRole::regularisation_weight) != 1)
+          count_data(DataRole::regularisation_weight) != 1 ||
+          (coefficient_identification ? count_data(DataRole::diffusion) != 0
+                                      : count_data(DataRole::diffusion) != 1))
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   "complete_volume_data_set",
-                   "Declare one forcing, target, diffusion, reaction, and regularisation datum.");
+                   coefficient_identification
+                     ? "complete_parameter_data_set"
+                     : "complete_volume_data_set",
+                   coefficient_identification
+                     ? "Declare one forcing, target, reaction, and parameter-regularisation datum, with no constant diffusion datum."
+                     : "Declare one forcing, target, diffusion, reaction, and regularisation datum.");
 
       const auto count_losses = [&specification](const LossKind kind) {
         return std::count_if(
@@ -802,17 +954,24 @@ namespace nmopt::compiler::v1
       };
       const bool h1_control_regularisation =
         uses_h1_control_regularisation_loss(specification);
-      const bool complete_control_loss = h1_control_regularisation
+      const bool complete_control_loss = coefficient_identification
+        ? count_losses(LossKind::quadratic_parameter_regularisation) == 1 &&
+            count_losses(LossKind::quadratic_control_regularisation) == 0 &&
+            count_losses(LossKind::quadratic_h1_control_regularisation) == 0
+        : h1_control_regularisation
         ? count_losses(LossKind::quadratic_h1_control_regularisation) == 1 &&
             count_losses(LossKind::quadratic_control_regularisation) == 0
         : count_losses(LossKind::quadratic_control_regularisation) == 1 &&
-            count_losses(LossKind::quadratic_h1_control_regularisation) == 0;
+            count_losses(LossKind::quadratic_h1_control_regularisation) == 0 &&
+            count_losses(LossKind::quadratic_parameter_regularisation) == 0;
       if (count_losses(LossKind::quadratic_tracking) != 1 ||
           !complete_control_loss || specification.losses.size() != 2)
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
                    "complete_registered_loss_set",
-                   h1_control_regularisation
+                   coefficient_identification
+                     ? "Declare exactly one tracking and one parameter-regularisation loss."
+                     : h1_control_regularisation
                      ? "Declare exactly one tracking and one H1 control-regularisation loss."
                      : "Declare exactly one tracking and one L2 control-regularisation loss.");
 
@@ -830,6 +989,45 @@ namespace nmopt::compiler::v1
                    specification.formulation.metric_id,
                    "selected_registered_metric",
                    "Select exactly one registered L2 or H1 control metric.");
+      if (coefficient_identification &&
+          selected_metric != specification.metrics.end() &&
+          selected_metric->kind != semantic::v1::MetricKind::l2)
+        report.add(DiagnosticCategory::lowerability,
+                   selected_metric->id,
+                   "parameter_l2_metric",
+                   "Select the registered cellwise L2 metric for the coefficient parameter.");
+      if (coefficient_identification)
+        {
+          const auto parameter = find_variable(
+            specification, specification.formulation.control_variable_id);
+          const auto parameter_observation = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [parameter](const semantic::v1::ObservationSpec &observation) {
+              return parameter != nullptr &&
+                     observation.kind ==
+                       semantic::v1::ObservationKind::volume_restriction &&
+                     observation.input_variable_id == parameter->id;
+            });
+          const auto parameter_loss = std::find_if(
+            specification.losses.begin(),
+            specification.losses.end(),
+            [](const semantic::v1::LossSpec &loss) {
+              return loss.kind ==
+                     semantic::v1::LossKind::quadratic_parameter_regularisation;
+            });
+          if (parameter == nullptr ||
+              selected_metric == specification.metrics.end() ||
+              selected_metric->variable_id != parameter->id ||
+              parameter_observation == specification.observations.end() ||
+              parameter_loss == specification.losses.end() ||
+              parameter_loss->source_observation_id != parameter_observation->id)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "registered_parameter_observation_metric_loss",
+              "Connect the registered parameter observation, L2 metric, and parameter regularisation to the parameter decision variable.");
+        }
 
       const auto state = find_variable(
         specification, specification.formulation.state_variable_id);
@@ -957,8 +1155,8 @@ namespace nmopt::compiler::v1
           specification.equations.size() != 1)
         report.add(DiagnosticCategory::formulation_capability,
                    specification.formulation.id,
-                   "one_state_one_control_one_equation",
-                   "The executable DTO contract currently supports one state, control, and equation block.");
+                   "one_state_one_decision_one_equation",
+                   "The executable DTO contract currently supports one state, one control-or-parameter decision, and one equation block.");
       if (specification.formulation.constraint_id.empty())
         return;
       const auto constraint = std::find_if(
@@ -997,6 +1195,7 @@ namespace nmopt::compiler::v1
                   const bool                         uses_mean_zero_gauge,
                   const bool                         uses_h1_control_regularisation,
                   const bool                         uses_h1_control_metric,
+                  const bool                         uses_coefficient_identification,
                   const semantic::v1::RegionSpec &   tracking_region,
                   const semantic::v1::RegionSpec *   control_boundary_region)
     {
@@ -1010,6 +1209,8 @@ namespace nmopt::compiler::v1
                              std::to_string(policy.state_degree) + ")";
       manifest.control_space = uses_neumann_boundary_control
                                  ? "one facewise-constant coefficient per marked state boundary face"
+                                 : uses_coefficient_identification
+                                     ? "cellwise-constant positive diffusion parameter FE_DGQ(0) on the state mesh"
                                  : uses_h1_control_regularisation
                                      ? "continuous scalar FE_Q(" +
                                          std::to_string(policy.state_degree) +
@@ -1024,7 +1225,9 @@ namespace nmopt::compiler::v1
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature"
         : "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) + ") volume quadrature" +
-            (uses_fixed_reconstruction
+            (uses_coefficient_identification
+              ? "; forcing Function, reaction and regularisation scalars; diffusion is the parameter decision block"
+              : uses_fixed_reconstruction
               ? "; fixed Dirichlet Function interpolated at boundary DoFs"
               : "; scalar coefficients and forcing Function at volume quadrature");
       manifest.observation_realisation = uses_neumann_boundary_control
@@ -1032,7 +1235,10 @@ namespace nmopt::compiler::v1
         : observation_realisation(tracking_region);
       manifest.metric_solve_policy =
         std::string("serial CG for ") +
-        (uses_h1_control_metric ? "h1_continuous Riesz map" : "L2 Riesz map") +
+        (uses_h1_control_metric ? "h1_continuous Riesz map"
+                                : uses_coefficient_identification
+                                    ? "l2_cellwise_parameter Riesz map"
+                                    : "L2 Riesz map") +
         ": maximum iterations=" +
         std::to_string(policy.control_metric_solve.maximum_iterations) +
         ", relative tolerance=" +
@@ -1056,6 +1262,8 @@ namespace nmopt::compiler::v1
         : "not applicable: non-empty fixed Dirichlet boundary";
       manifest.state_adjoint_solve_policy = uses_mean_zero_gauge
         ? "serial SparseDirectUMFPACK on the augmented symmetric state and adjoint saddle systems"
+        : uses_coefficient_identification
+          ? "serial CG with identity preconditioner; parameter-dependent SPD state matrix is reassembled for each state and adjoint solve"
         : "serial CG with identity preconditioner for symmetric positive-definite operator";
       manifest.provenance = "DTO";
       if (uses_neumann_boundary_control && control_boundary_region != nullptr)
@@ -1066,6 +1274,9 @@ namespace nmopt::compiler::v1
         manifest.declared_assumptions.push_back(
           "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric=" +
           std::string(uses_h1_control_metric ? "h1_continuous" : "l2_continuous"));
+      if (uses_coefficient_identification)
+        manifest.declared_assumptions.push_back(
+          "coefficient_identification: positive cellwise physical diffusion parameter; A(m) is reassembled for every state and adjoint solve");
       manifest.region_ids = identifiers(specification.regions);
       manifest.space_ids = identifiers(specification.spaces);
       manifest.pairing_ids = identifiers(specification.pairings);

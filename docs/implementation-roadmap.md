@@ -26,7 +26,7 @@ The following pieces exist and are tested:
 | V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph, explicit pairings, and structural/policy diagnostics. |
 | V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp` | Backend-generic compiled package, manifest, and registered assembled volume slice. |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
-| DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one control block, one test block, externally supplied state/adjoint solves. |
+| DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend for the backend-parametric contract. |
 | deal.II lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Assembled scalar `FE_Q` diffusion-reaction state, `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
@@ -363,6 +363,21 @@ remaining compatible with reduced DTO and L-BFGS.
 
 **Do not do:** introduce an inverse-problem solver type or a general nonlinear
 KKT Newton method. The latter needs the separate second-order contract.
+
+**Implemented (v1):**
+`make_coefficient_identification_problem()` uses the binary reduced DTO
+decision port for a `diffusion_parameter` variable rather than a source
+control. The parameter is cellwise `FE_DGQ(0)` and must select a cellwise L2
+box whose lower bound is strictly positive; this is the first explicit
+positivity policy, with no logarithmic transformation. Its private v1 target
+realises $`(m\nabla y,\nabla v)+(c y,v)-(f,v)`$, reassembles the SPD state
+matrix for each parameter point, and supplies both JVP and VJP parameter
+actions. The parameter L2 metric and box use the separate
+`l2_cellwise_parameter` identifier. Focused contracts check positivity
+diagnostics, reassembly, residual finite differences, residual pullback,
+objective derivative, and a state-recomputed reduced Taylor remainder. The
+generic first-order reduced workflow is reused; L-BFGS, Gauss–Newton, and
+second-order KKT actions remain separate future solver work.
 
 ### P3.2 — Add Dirichlet control through an explicit lifting
 

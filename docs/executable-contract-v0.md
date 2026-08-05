@@ -33,7 +33,7 @@ The public executable and solver headers provide:
 | `ExecutableModel` | Residual value, residual JVP, residual VJP, objective value, and objective derivative. |
 | `Metric` | Explicit primal-to-dual action and inverse action. The serial deal.II backend supplies `dealii_backend::MassMetric` for one-block sparse mass matrices. |
 | `Constraint` | Feasibility and a metric-specific projection capability. |
-| `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one control block. |
+| `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
@@ -86,7 +86,7 @@ cannot reuse this rule implicitly.
 The contract deliberately supports only:
 
 ~~~text
-two variable blocks: one eliminated state and one decision/control
+two variable blocks: one eliminated state and one decision/control-or-parameter
 one residual test block
 an externally supplied state solve
 an externally supplied adjoint solve
@@ -101,7 +101,9 @@ no implicit state/control selection is made.
 
 Mixed partitions, multiple equation blocks, nonlinear all-at-once Newton,
 OTD, and Hessian-vector actions are intentionally outside this v0 contract.
-They will extend, rather than alter, the value/JVP/VJP core.
+The historical `StateControlPartitionT` name denotes this binary decision
+port; a v1 coefficient lowerer may give its layout the semantic identifier
+`parameter` without changing the backend-neutral value/JVP/VJP core.
 
 ## First reduced solver
 
@@ -146,12 +148,11 @@ The serial deal.II backend also supplies `dealii_backend::MassMetric`, which
 uses a one-block sparse mass matrix for its primal-to-dual action and a
 CG inverse apply with explicit iteration and relative/absolute tolerance
 parameters. The concrete dense and serial deal.II constraints are cellwise
-boxes, and they explicitly support projection only in a metric whose
-identifier is `l2_cellwise`. The deal.II realization is created only through
-the concrete lowerer's `FE_DGQ(0)` control factory, with scalar constant
-bounds or control coefficient vectors of the exact control layout. This
-prevents accidental coefficient clipping in continuous controls or an
-$H^{1}$ geometry.
+boxes. The v0 control lowerer uses identifier `l2_cellwise`; the separately
+owned v1 coefficient target uses `l2_cellwise_parameter`. Each lowerer creates
+its box only for matching `FE_DGQ(0)` coefficients and an exact-layout scalar
+or vector bound representation. This prevents accidental coefficient clipping
+in continuous controls or an $H^{1}$ geometry.
 
 ## Reference model and verification
 

@@ -805,6 +805,9 @@ $$
 
 No inverse-problem solver type is required.  The existing equation block,
 variable, loss, metric, constraint, and formulation protocols suffice.
+The first binary reduced formulation may name its decision port with a
+parameter variable rather than a control variable; this changes the semantic
+role and residual derivatives, not the generic two-block DTO protocol.
 
 ## 10. Required implementation sequence
 

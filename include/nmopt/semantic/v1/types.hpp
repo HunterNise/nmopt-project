@@ -25,6 +25,7 @@ namespace nmopt::semantic::v1
     state,
     test,
     control,
+    parameter,
     observation,
     data
   };
@@ -32,7 +33,8 @@ namespace nmopt::semantic::v1
   enum class VariableRole
   {
     state,
-    control
+    control,
+    parameter
   };
 
   enum class DataKind
@@ -58,6 +60,7 @@ namespace nmopt::semantic::v1
   enum class ResidualTermKind
   {
     diffusion_reaction,
+    parameter_diffusion_reaction,
     volume_source,
     volume_control,
     neumann_control
@@ -74,7 +77,8 @@ namespace nmopt::semantic::v1
   {
     quadratic_tracking,
     quadratic_control_regularisation,
-    quadratic_h1_control_regularisation
+    quadratic_h1_control_regularisation,
+    quadratic_parameter_regularisation
   };
 
   enum class MetricKind
@@ -261,6 +265,9 @@ namespace nmopt::semantic::v1
     std::string     id;
     FormulationKind kind;
     std::string     state_variable_id;
+    // This is the binary reduced DTO decision port. It may identify either a
+    // control or a parameter variable; the field name is retained for source
+    // compatibility with the first control-only semantic slice.
     std::string     control_variable_id;
     std::string     equation_id;
     std::string     metric_id;

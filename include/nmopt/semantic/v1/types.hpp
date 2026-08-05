@@ -90,6 +90,7 @@ namespace nmopt::semantic::v1
   enum class RequirementKind
   {
     fixed_dirichlet,
+    analytic_quadrature_evaluation,
     discrete_cellwise_bounds
   };
 
@@ -120,6 +121,7 @@ namespace nmopt::semantic::v1
     RegionKind                kind;
     bool                      is_full_domain = false;
     std::vector<unsigned int> boundary_ids;
+    std::vector<unsigned int> material_ids;
   };
 
   struct SpaceSpec

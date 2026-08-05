@@ -27,7 +27,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -36,14 +38,14 @@
 namespace nmopt::compiler::v1::detail
 {
   // This v1-only target represents the independent state coefficients
-  // y_hat. It evaluates the compiled equation and objective on
+  // y_hat. It evaluates the compiled equation and observation/loss on
   //
   //   y_phys = P_h y_hat + ell_0,h,
   //
   // and pulls covectors back with P_h^*. The direct v0 lowerer is not used or
   // modified here: it remains the homogeneous comparison implementation.
   template <int dim>
-  class FixedDirichletScalarDiffusionReactionModel final
+  class AssembledScalarDiffusionReactionModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
   {
   public:
@@ -52,16 +54,18 @@ namespace nmopt::compiler::v1::detail
     using Primal = contract::PrimalBlockT<Backend>;
     using Covector = contract::CovectorBlockT<Backend>;
 
-    FixedDirichletScalarDiffusionReactionModel(
+    AssembledScalarDiffusionReactionModel(
       dealii::Triangulation<dim> &                triangulation,
       const dealii::Function<dim> &               forcing,
       const dealii::Function<dim> &               desired_state,
-      const dealii::Function<dim> &               fixed_dirichlet_data,
+      std::optional<std::reference_wrapper<const dealii::Function<dim>>>
+                                                    fixed_dirichlet_data,
       const double                                  diffusion,
       const double                                  reaction,
       const double                                  regularisation_weight,
       const unsigned int                            state_degree,
-      std::set<dealii::types::boundary_id> dirichlet_boundary_ids)
+      std::set<dealii::types::boundary_id>          dirichlet_boundary_ids,
+      std::set<dealii::types::material_id>          observation_material_ids = {})
       : state_fe_(state_degree)
       , control_fe_(0)
       , state_dof_handler_(triangulation)
@@ -70,6 +74,7 @@ namespace nmopt::compiler::v1::detail
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
+      , observation_material_ids_(std::move(observation_material_ids))
     {
       contract::require(diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
@@ -80,7 +85,7 @@ namespace nmopt::compiler::v1::detail
       contract::require(state_degree > 0,
                         "State FE degree must be at least one");
       contract::require(!dirichlet_boundary_ids_.empty(),
-                        "The fixed-Dirichlet v1 lowerer needs a boundary region");
+                        "The assembled v1 target needs a fixed Dirichlet boundary");
 
       state_dof_handler_.distribute_dofs(state_fe_);
       control_dof_handler_.distribute_dofs(control_fe_);
@@ -137,6 +142,14 @@ namespace nmopt::compiler::v1::detail
     control_l2_box_constraint(const double lower, const double upper) const
     {
       return dealii_backend::CellwiseBoxConstraint(control_layout_, lower, upper);
+    }
+
+    Vector
+    reconstruct_physical_state(const Primal &independent_state) const
+    {
+      contract::require(independent_state.layout()->compatible_with(*state_layout_),
+                        "Physical-state reconstruction needs the state layout");
+      return reconstruct(independent_state.block(0));
     }
 
     Covector
@@ -265,7 +278,9 @@ namespace nmopt::compiler::v1::detail
     }
 
     void
-    build_constraints(const dealii::Function<dim> &fixed_dirichlet_data)
+    build_constraints(
+      const std::optional<std::reference_wrapper<const dealii::Function<dim>>>
+        fixed_dirichlet_data)
     {
       homogeneous_constraints_.clear();
       physical_constraints_.clear();
@@ -275,13 +290,15 @@ namespace nmopt::compiler::v1::detail
                                                        physical_constraints_);
 
       dealii::Functions::ZeroFunction<dim> zero;
+      const dealii::Function<dim> &physical_dirichlet_data =
+        fixed_dirichlet_data ? fixed_dirichlet_data->get() : zero;
       for (const auto boundary_id : dirichlet_boundary_ids_)
         {
           dealii::VectorTools::interpolate_boundary_values(
             state_dof_handler_, boundary_id, zero, homogeneous_constraints_);
           dealii::VectorTools::interpolate_boundary_values(state_dof_handler_,
                                                             boundary_id,
-                                                            fixed_dirichlet_data,
+                                                            physical_dirichlet_data,
                                                             physical_constraints_);
         }
       homogeneous_constraints_.close();
@@ -297,7 +314,7 @@ namespace nmopt::compiler::v1::detail
         if (!homogeneous_constraints_.is_constrained(index))
           independent_state_dofs_.push_back(index);
       contract::require(!independent_state_dofs_.empty(),
-                        "Fixed-Dirichlet reconstruction needs an independent state DoF");
+                        "State reconstruction needs an independent state DoF");
 
       dealii::DynamicSparsityPattern reconstruction_dsp(
         physical_size, independent_state_dofs_.size());
@@ -434,20 +451,28 @@ namespace nmopt::compiler::v1::detail
           local_control_mass = 0.0;
           local_forcing = 0.0;
           local_desired_state = 0.0;
+          const bool observe_cell =
+            observation_material_ids_.empty() ||
+            observation_material_ids_.find(state_cell->material_id()) !=
+              observation_material_ids_.end();
 
           for (unsigned int q = 0; q < quadrature.size(); ++q)
             {
               const double weight = state_values.JxW(q);
               const double forcing_value = forcing.value(state_values.quadrature_point(q));
-              const double desired_value = desired_state.value(
-                state_values.quadrature_point(q));
-              desired_state_norm_ += desired_value * desired_value * weight;
+              const double desired_value = observe_cell
+                                             ? desired_state.value(
+                                                 state_values.quadrature_point(q))
+                                             : 0.0;
+              if (observe_cell)
+                desired_state_norm_ += desired_value * desired_value * weight;
 
               for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
-                  local_desired_state(i) += desired_value * phi_i * weight;
+                  if (observe_cell)
+                    local_desired_state(i) += desired_value * phi_i * weight;
                   for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
                     {
                       local_system(i, j) +=
@@ -455,8 +480,9 @@ namespace nmopt::compiler::v1::detail
                                        state_values.shape_grad(j, q)) +
                          reaction_ * phi_i * state_values.shape_value(j, q)) *
                         weight;
-                      local_state_mass(i, j) +=
-                        phi_i * state_values.shape_value(j, q) * weight;
+                      if (observe_cell)
+                        local_state_mass(i, j) +=
+                          phi_i * state_values.shape_value(j, q) * weight;
                     }
                   for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
                     local_control_coupling(i, j) +=
@@ -637,6 +663,7 @@ namespace nmopt::compiler::v1::detail
     const double reaction_;
     const double regularisation_weight_;
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
+    const std::set<dealii::types::material_id> observation_material_ids_;
 
     dealii::SparsityPattern reconstruction_sparsity_;
     dealii::SparseMatrix<double> reconstruction_;

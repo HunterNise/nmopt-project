@@ -49,6 +49,22 @@ namespace
       }
   }
 
+  void
+  require_primal_close(const Primal &     actual,
+                       const Primal &     expected,
+                       const double       tolerance,
+                       const std::string &description)
+  {
+    contract::require_compatible(actual, expected,
+                                 description + " has incompatible layouts");
+    for (std::size_t block = 0; block < actual.n_blocks(); ++block)
+      {
+        dealii::Vector<double> difference = actual.block(block);
+        difference.add(-1.0, expected.block(block));
+        require_close(difference.l2_norm(), 0.0, tolerance, description);
+      }
+  }
+
   Primal
   shifted(Primal value, const Primal &direction, const double step)
   {
@@ -210,11 +226,119 @@ namespace
 
     const auto &manifest = compilation.problem->manifest();
     contract::require(
-      manifest.lifting_realisation.find("y_phys = P_h y_hat + ell_0,h") !=
+        manifest.lifting_realisation.find("y_phys = P_h y_hat + ell_0,h") !=
         std::string::npos &&
         manifest.data_rule.find("boundary DoFs") != std::string::npos &&
         manifest.transformation_ids.size() == 1,
       "v1 fixed-Dirichlet compilation manifest is incomplete");
+  }
+
+  template <int dim>
+  void
+  run_subdomain_observation_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    bool first_cell = true;
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      {
+        cell->set_material_id(first_cell ? 1 : 0);
+        first_cell = false;
+      }
+
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.0);
+    const auto material_one_specification =
+      semantic::v1::make_subdomain_tracking_scalar_diffusion_reaction_problem(1);
+    const auto material_zero_specification =
+      semantic::v1::make_subdomain_tracking_scalar_diffusion_reaction_problem(0);
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(
+      compiler.validate(material_one_specification, policy).valid() &&
+        compiler.validate(material_zero_specification, policy).valid(),
+      "material-subdomain v1 graphs did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing, desired_state, 1.0, 0.5, 0.1};
+    const auto material_one = compiler.compile(material_one_specification,
+                                               triangulation,
+                                               bindings,
+                                               policy);
+    const auto material_zero = compiler.compile(material_zero_specification,
+                                                triangulation,
+                                                bindings,
+                                                policy);
+    contract::require(material_one.succeeded() && material_zero.succeeded(),
+                      "material-subdomain v1 compilation failed");
+
+    const auto &one_model = material_one.problem->executable_model();
+    const auto &zero_model = material_zero.problem->executable_model();
+    dealii::Vector<double> one_control_values(
+      one_model.variable_layout()->dimension(1));
+    dealii::Vector<double> zero_control_values(
+      zero_model.variable_layout()->dimension(1));
+    const Primal one_control(one_model.variable_layout()->single_block(1,
+                                                                       "control"),
+                             {std::move(one_control_values)});
+    const Primal zero_control(zero_model.variable_layout()->single_block(1,
+                                                                         "control"),
+                              {std::move(zero_control_values)});
+    const auto one_evaluation =
+      material_one.problem->make_reduced_dto().evaluate(one_control);
+    const auto zero_evaluation =
+      material_zero.problem->make_reduced_dto().evaluate(zero_control);
+
+    // Changing the observation mask must not change the state solve or its
+    // residual operators. Only the tracking mass/load are selected below.
+    require_primal_close(one_evaluation.state,
+                         zero_evaluation.state,
+                         1e-12,
+                         "material observation changed the state solution");
+    dealii::Vector<double> state_tangent(
+      one_model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_tangent(
+      one_model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size();
+         ++index)
+      state_tangent[index] = 0.02 * static_cast<double>(index + 1);
+    for (dealii::types::global_dof_index index = 0;
+         index < control_tangent.size();
+         ++index)
+      control_tangent[index] = -0.03 * static_cast<double>(index + 1);
+    const Primal tangent(one_model.variable_layout(),
+                         {std::move(state_tangent), std::move(control_tangent)});
+    require_covector_close(
+      one_model.residual_jvp(one_evaluation.full_point, tangent),
+      zero_model.residual_jvp(zero_evaluation.full_point, tangent),
+      1e-12,
+      "material observation changed the residual operators");
+
+    const Covector one_objective_derivative =
+      one_model.objective_derivative(one_evaluation.full_point);
+    const Covector zero_objective_derivative =
+      zero_model.objective_derivative(zero_evaluation.full_point);
+    dealii::Vector<double> state_rhs_difference =
+      one_objective_derivative.block(0);
+    state_rhs_difference.add(-1.0, zero_objective_derivative.block(0));
+    contract::require(
+      std::abs(one_evaluation.objective_value -
+               zero_evaluation.objective_value) > 1e-6 &&
+        state_rhs_difference.l2_norm() > 1e-6,
+      "material observation did not change the tracking objective and adjoint RHS");
+
+    const auto &one_manifest = material_one.problem->manifest();
+    contract::require(
+      one_manifest.observation_realisation ==
+        "material-id volume restriction: 1" &&
+        one_manifest.data_rule.find("analytic desired-state Function") !=
+          std::string::npos,
+      "v1 subdomain observation manifest omitted its restriction or data rule");
   }
 
   template <int dim>
@@ -520,6 +644,7 @@ main()
     {
       run_contract_test<2>();
       run_fixed_dirichlet_contract_test<2>();
+      run_subdomain_observation_contract_test<2>();
       std::cout << "deal.II diffusion DTO contract test passed\n";
       return 0;
     }

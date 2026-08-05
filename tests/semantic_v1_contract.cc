@@ -29,6 +29,13 @@ namespace
     require(fixed_report.valid(),
             "the fixed-Dirichlet v1 reconstruction graph is invalid");
 
+    const auto subdomain_specification =
+      nmopt::semantic::v1::make_subdomain_tracking_scalar_diffusion_reaction_problem(
+        1);
+    const auto subdomain_report = validator.validate(subdomain_specification);
+    require(subdomain_report.valid(),
+            "the material-subdomain v1 tracking graph is invalid");
+
     auto missing_lifting_port = fixed_specification;
     missing_lifting_port.transformations.front().fixed_data_id = "missing_data";
     const auto lifting_port_report = validator.validate(missing_lifting_port);
@@ -50,6 +57,25 @@ namespace
     require(policy_report.has_category(
               nmopt::semantic::v1::DiagnosticCategory::analytical_policy),
             "v1 semantic validation did not classify a missing policy");
+
+    auto missing_target_rule = subdomain_specification;
+    for (auto &policy : missing_target_rule.requirement_policies)
+      if (policy.subject_id == "desired_state")
+        policy.status = nmopt::semantic::v1::RequirementStatus::provided;
+    const auto target_rule_report = validator.validate(missing_target_rule);
+    require(target_rule_report.has_category(
+              nmopt::semantic::v1::DiagnosticCategory::analytical_policy),
+            "v1 semantic validation did not require an explicit target-data rule");
+
+    auto mismatched_target_region = subdomain_specification;
+    for (auto &policy : mismatched_target_region.requirement_policies)
+      if (policy.subject_id == "desired_state")
+        policy.region_id = "domain";
+    const auto target_region_report =
+      validator.validate(mismatched_target_region);
+    require(target_region_report.has_category(
+              nmopt::semantic::v1::DiagnosticCategory::structural),
+            "v1 semantic validation did not match target data to its observation region");
 
     auto missing_test_space = specification;
     missing_test_space.equations.front().test_space_id = "missing_test_space";

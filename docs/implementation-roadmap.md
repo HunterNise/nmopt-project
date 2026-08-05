@@ -233,7 +233,7 @@ Dirichlet data.
 field; a nonzero manufactured Dirichlet solution passes the reduced Taylor
 test; and changing the lifting/data invalidates all appropriate caches.
 
-### P1.3 — Add subdomain observations and data projection policy
+### P1.3 — Add subdomain observations and data projection policy — completed
 
 **Why:** It exercises the observation/loss port without changing PDE physics.
 It also forces the compiler to make region and data semantics real.
@@ -247,6 +247,19 @@ It also forces the compiler to make region and data semantics real.
 
 **Done when:** changing only the observation region changes the adjoint RHS
 and objective, not $`A_{h}`$, $`B_{h}`$, the state solution, or solver code.
+
+**Implemented (v1):** `RegionSpec` now names material-id volume subregions;
+the state tracking observation, observation space, desired state, and selected
+analytic-quadrature data policy are checked to use the same region. The
+private v1 assembled target builds tracking mass/load/norm only on those
+cells, leaving the state matrix, forcing, control coupling, state solution,
+and generic solver interfaces untouched. `CompilationManifest` records both
+the analytic `QGauss` target-data rule and material observation realization.
+Focused semantic and deal.II tests reject an absent or region-mismatched
+target policy and prove that changing only the material mask changes the
+objective and adjoint RHS but not the state solution or residual action. FE
+target projection/interpolation remains an explicit future lowerer; no nodal
+interpretation is inferred.
 
 ### P2.1 — Add Neumann control and boundary tracking
 

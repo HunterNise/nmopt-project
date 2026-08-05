@@ -13,9 +13,9 @@ namespace nmopt::semantic::v1
     specification.id = "scalar_diffusion_reaction_volume_control";
     specification.label = "Scalar diffusion-reaction volume control";
     specification.regions = {
-      {"domain", "Full volume domain", RegionKind::volume, true, {}},
+      {"domain", "Full volume domain", RegionKind::volume, true, {}, {}},
       {"dirichlet_boundary", "Homogeneous Dirichlet boundary", RegionKind::boundary,
-       false, {0}}};
+       false, {0}, {}}};
     specification.spaces = {
       {"state_space", "State", "domain", SpaceTopology::h1, SpaceRole::state},
       {"state_test_space", "State test", "domain", SpaceTopology::h1,
@@ -83,7 +83,12 @@ namespace nmopt::semantic::v1
       {"state_fixed_dirichlet", "state", RequirementKind::fixed_dirichlet,
        RequirementStatus::selected_discrete_realisation,
        RequirementScope::discrete_compilation,
-       "homogeneous full-vector Dirichlet rows", "dirichlet_boundary"}};
+       "homogeneous full-vector Dirichlet rows", "dirichlet_boundary"},
+      {"desired_state_quadrature_policy", "desired_state",
+       RequirementKind::analytic_quadrature_evaluation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "analytic Function evaluated at selected volume quadrature", "domain"}};
     specification.formulation = {"reduced_dto", FormulationKind::reduced_dto,
                                   "state", "control", "state_equation",
                                   "control_l2_metric", ""};
@@ -108,6 +113,28 @@ namespace nmopt::semantic::v1
         specification.formulation.constraint_id = "control_box";
       }
 
+    return specification;
+  }
+
+  inline ProblemSpec
+  make_subdomain_tracking_scalar_diffusion_reaction_problem(
+    const unsigned int observed_material_id,
+    const bool         with_cellwise_box = false)
+  {
+    ProblemSpec specification =
+      make_scalar_diffusion_reaction_problem(with_cellwise_box);
+    specification.id = "scalar_diffusion_reaction_subdomain_tracking";
+    specification.label = "Scalar diffusion-reaction with subdomain tracking";
+    specification.regions.push_back(
+      {"observation_subdomain", "Material subdomain observation region",
+       RegionKind::volume, false, {}, {observed_material_id}});
+    specification.spaces.at(3).region_id = "observation_subdomain";
+    specification.observations.at(0).label = "Subdomain state restriction";
+    specification.observations.at(0).region_id = "observation_subdomain";
+    for (auto &policy : specification.requirement_policies)
+      if (policy.subject_id == "desired_state" &&
+          policy.kind == RequirementKind::analytic_quadrature_evaluation)
+        policy.region_id = "observation_subdomain";
     return specification;
   }
 

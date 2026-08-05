@@ -51,6 +51,11 @@ namespace nmopt::compiler::v1
       result.diagnostics = validate(specification, policy);
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
+      const auto *tracking_region = selected_tracking_region(specification);
+      const bool uses_subdomain_observation =
+        tracking_region != nullptr && !tracking_region->is_full_domain;
+      const bool uses_assembled_v1_target =
+        uses_fixed_reconstruction || uses_subdomain_observation;
       if (uses_fixed_reconstruction && !data.fixed_dirichlet_data)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -81,38 +86,40 @@ namespace nmopt::compiler::v1
 
       const auto dirichlet_boundary_ids =
         selected_dirichlet_boundary_ids(specification);
+      contract::require(tracking_region != nullptr,
+                        "Validated v1 problem has no tracking observation region");
       std::shared_ptr<const contract::MetricT<Backend>> metric;
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
       contract::StateAdjointSolversT<Backend> solvers;
-      if (uses_fixed_reconstruction)
+      if (uses_assembled_v1_target)
         {
-          using LiftedModel =
-            detail::FixedDirichletScalarDiffusionReactionModel<dim>;
-          const auto lifted = std::make_shared<LiftedModel>(
+          using AssembledModel = detail::AssembledScalarDiffusionReactionModel<dim>;
+          const auto assembled = std::make_shared<AssembledModel>(
             triangulation,
             data.forcing,
             data.desired_state,
-            data.fixed_dirichlet_data->get(),
+            data.fixed_dirichlet_data,
             data.diffusion,
             data.reaction,
             data.regularisation_weight,
             policy.state_degree,
-            dirichlet_boundary_ids);
+            dirichlet_boundary_ids,
+            selected_tracking_material_ids(*tracking_region));
           metric = std::make_shared<dealii_backend::MassMetric>(
-            lifted->control_l2_metric(policy.control_metric_solve));
+            assembled->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
             constraint = std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-              make_constraint(*lifted, *bounds));
+              make_constraint(*assembled, *bounds));
           solvers = {
-            [lifted](const contract::PrimalBlockT<Backend> &control) {
-              return lifted->solve_state(control);
+            [assembled](const contract::PrimalBlockT<Backend> &control) {
+              return assembled->solve_state(control);
             },
-            [lifted](const contract::PrimalBlockT<Backend> &full_point,
-                     const contract::CovectorBlockT<Backend> &state_rhs) {
-              return lifted->solve_adjoint(full_point, state_rhs);
+            [assembled](const contract::PrimalBlockT<Backend> &full_point,
+                        const contract::CovectorBlockT<Backend> &state_rhs) {
+              return assembled->solve_adjoint(full_point, state_rhs);
             }};
-          executable = lifted;
+          executable = assembled;
         }
       else
         {
@@ -149,7 +156,9 @@ namespace nmopt::compiler::v1
         make_manifest(specification,
                       policy,
                       has_constraint,
-                      uses_fixed_reconstruction));
+                      uses_fixed_reconstruction,
+                      uses_assembled_v1_target,
+                      *tracking_region));
       return result;
     }
 
@@ -193,6 +202,47 @@ namespace nmopt::compiler::v1
       return transformation == specification.transformations.end()
                ? nullptr
                : &*transformation;
+    }
+
+    static const semantic::v1::ObservationSpec *
+    find_observation(const semantic::v1::ProblemSpec &specification,
+                     const std::string &              id)
+    {
+      const auto observation = std::find_if(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [&id](const semantic::v1::ObservationSpec &candidate) {
+          return candidate.id == id;
+        });
+      return observation == specification.observations.end() ? nullptr :
+                                                               &*observation;
+    }
+
+    static const semantic::v1::RegionSpec *
+    selected_tracking_region(const semantic::v1::ProblemSpec &specification)
+    {
+      const auto loss = std::find_if(
+        specification.losses.begin(),
+        specification.losses.end(),
+        [](const semantic::v1::LossSpec &candidate) {
+          return candidate.kind == semantic::v1::LossKind::quadratic_tracking;
+        });
+      if (loss == specification.losses.end())
+        return nullptr;
+      const auto observation = find_observation(specification,
+                                                loss->source_observation_id);
+      return observation == nullptr ? nullptr :
+                                    find_region(specification,
+                                                observation->region_id);
+    }
+
+    static std::set<dealii::types::material_id>
+    selected_tracking_material_ids(const semantic::v1::RegionSpec &region)
+    {
+      std::set<dealii::types::material_id> ids;
+      for (const auto id : region.material_ids)
+        ids.insert(static_cast<dealii::types::material_id>(id));
+      return ids;
     }
 
     static bool
@@ -402,14 +452,30 @@ namespace nmopt::compiler::v1
                    "complete_quadratic_loss_set",
                    "Declare exactly one tracking and one control-regularisation loss.");
 
+      const auto state = find_variable(
+        specification, specification.formulation.state_variable_id);
       for (const auto &observation : specification.observations)
         {
           const auto region = find_region(specification, observation.region_id);
-          if (region == nullptr || !region->is_full_domain)
+          if (region == nullptr || region->kind != semantic::v1::RegionKind::volume)
             report.add(DiagnosticCategory::lowerability,
                        observation.id,
-                       "full_domain_volume_observation",
-                       "The first v1 lowerer supports full-domain volume restriction only.");
+                       "volume_observation_region",
+                       "Select a registered volume observation region.");
+          else if (state != nullptr &&
+                   observation.input_variable_id == state->id &&
+                   !region->is_full_domain && region->material_ids.empty())
+            report.add(DiagnosticCategory::lowerability,
+                       observation.id,
+                       "material_subdomain_observation",
+                       "Declare one or more material ids for the subdomain observation.");
+          else if ((state == nullptr ||
+                    observation.input_variable_id != state->id) &&
+                   !region->is_full_domain)
+            report.add(DiagnosticCategory::lowerability,
+                       observation.id,
+                       "full_domain_nonstate_observation",
+                       "Only the state tracking observation supports material subdomains in v1.");
         }
 
       const bool has_constraint = !specification.formulation.constraint_id.empty();
@@ -477,7 +543,9 @@ namespace nmopt::compiler::v1
     make_manifest(const semantic::v1::ProblemSpec &  specification,
                   const DealiiDiscretisationPolicy & policy,
                   const bool                         has_constraint,
-                  const bool                         uses_fixed_reconstruction)
+                  const bool                         uses_fixed_reconstruction,
+                  const bool                         uses_assembled_v1_target,
+                  const semantic::v1::RegionSpec &   tracking_region)
     {
       CompilationManifest manifest;
       manifest.semantic_problem_id = specification.id;
@@ -491,9 +559,14 @@ namespace nmopt::compiler::v1
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
       manifest.dual_representation = "tested dual coefficients with dot pairing";
-      manifest.data_rule = uses_fixed_reconstruction
-                             ? "deal.II Function at volume quadrature; fixed Dirichlet Function interpolated at boundary DoFs; scalar coefficients"
-                             : "deal.II Function at volume quadrature; scalar coefficients";
+      manifest.data_rule =
+        "analytic desired-state Function at selected QGauss(" +
+        std::to_string(policy.state_degree + 2) + ") volume quadrature" +
+        (uses_fixed_reconstruction
+           ? "; fixed Dirichlet Function interpolated at boundary DoFs"
+           : "; scalar coefficients and forcing Function at volume quadrature");
+      manifest.observation_realisation =
+        observation_realisation(tracking_region);
       manifest.metric_solve_policy =
         "serial CG: maximum iterations=" +
         std::to_string(policy.control_metric_solve.maximum_iterations) +
@@ -506,7 +579,9 @@ namespace nmopt::compiler::v1
                                           : "none";
       manifest.lifting_realisation = uses_fixed_reconstruction
                                        ? "y_phys = P_h y_hat + ell_0,h; independent FE_Q coordinates, AffineConstraints reconstruction, and P_h^* pullbacks"
-                                       : "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
+                                       : uses_assembled_v1_target
+                                           ? "y_phys = P_h y_hat; independent FE_Q coordinates and AffineConstraints reconstruction"
+                                           : "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
       manifest.nullspace_policy =
         "not applicable: non-empty fixed Dirichlet boundary";
       manifest.state_adjoint_solve_policy =
@@ -527,6 +602,21 @@ namespace nmopt::compiler::v1
         manifest.declared_assumptions.push_back(
           requirement.id + ": " + requirement.selected_policy);
       return manifest;
+    }
+
+    static std::string
+    observation_realisation(const semantic::v1::RegionSpec &region)
+    {
+      if (region.is_full_domain)
+        return "full-domain volume restriction";
+      std::string result = "material-id volume restriction: ";
+      for (std::size_t index = 0; index < region.material_ids.size(); ++index)
+        {
+          if (index != 0)
+            result += ",";
+          result += std::to_string(region.material_ids[index]);
+        }
+      return result;
     }
 
     DealiiLowererRegistryV1 registry_;

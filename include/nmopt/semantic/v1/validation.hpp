@@ -162,6 +162,12 @@ namespace nmopt::semantic::v1
                        region.id,
                        "volume_region_has_no_boundary_ids",
                        "Declare boundary ids only on a boundary region.");
+          if (region.kind == RegionKind::volume && region.is_full_domain &&
+              !region.material_ids.empty())
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "full_volume_region_has_no_material_ids",
+                       "Use a non-full volume region for a material-id restriction.");
           if (region.kind == RegionKind::boundary && region.is_full_domain)
             report.add(DiagnosticCategory::structural,
                        region.id,
@@ -172,6 +178,11 @@ namespace nmopt::semantic::v1
                        region.id,
                        "boundary_region_ids",
                        "Declare at least one boundary id for a boundary region.");
+          if (region.kind == RegionKind::boundary && !region.material_ids.empty())
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "boundary_region_has_no_material_ids",
+                       "Declare material ids only on a volume region.");
         }
     }
 
@@ -407,6 +418,11 @@ namespace nmopt::semantic::v1
                        observation.id,
                        "observation_region_port",
                        "Reference a declared volume region.");
+          else if (regions.at(observation.region_id)->kind != RegionKind::volume)
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "observation_volume_region",
+                       "The registered volume restriction needs a volume region.");
           const auto output_space = spaces.find(observation.output_space_id);
           if (output_space == spaces.end())
             report.add(DiagnosticCategory::structural,
@@ -418,6 +434,11 @@ namespace nmopt::semantic::v1
                        observation.id,
                        "observation_output_space_role",
                        "Reference a space declared with the observation role.");
+          else if (output_space->second->region_id != observation.region_id)
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "observation_output_region",
+                       "Declare the observation output space on the observation region.");
           const auto pairing = pairings.find(observation.output_pairing_id);
           if (pairing == pairings.end() ||
               pairing->second->primal_space_id != observation.output_space_id)
@@ -457,6 +478,18 @@ namespace nmopt::semantic::v1
                        "loss_pairing",
                        "Reference the pairing for the loss observation output.");
           validate_loss_signature(loss, data, report);
+          if (loss.kind == LossKind::quadratic_tracking &&
+              observation != observations.end())
+            {
+              const auto datum = data.find(loss.data_id);
+              if (datum != data.end() &&
+                  datum->second->space_id !=
+                    observation->second->output_space_id)
+                report.add(DiagnosticCategory::structural,
+                           loss.id,
+                           "tracking_target_observation_space",
+                           "Bind the tracking target in the selected observation space.");
+            }
         }
     }
 
@@ -659,9 +692,10 @@ namespace nmopt::semantic::v1
     validate_policies(const ProblemSpec &specification,
                       ValidationReport & report)
     {
-      const auto has_policy = [&specification](const std::string &subject,
-                                                const RequirementKind kind) {
-        return std::any_of(
+      const auto selected_policy = [&specification](
+                                     const std::string &subject,
+                                     const RequirementKind kind) {
+        return std::find_if(
           specification.requirement_policies.begin(),
           specification.requirement_policies.end(),
           [&subject, kind](const RequirementPolicySpec &policy) {
@@ -671,6 +705,12 @@ namespace nmopt::semantic::v1
                    !policy.selected_policy.empty();
           });
       };
+      const auto has_policy = [&specification, &selected_policy](
+                                const std::string &  subject,
+                                const RequirementKind kind) {
+        return selected_policy(subject, kind) !=
+               specification.requirement_policies.end();
+      };
 
       for (const auto &variable : specification.variables)
         if (variable.role == VariableRole::state &&
@@ -679,6 +719,43 @@ namespace nmopt::semantic::v1
                      variable.id,
                      "fixed_dirichlet_realisation",
                      "Declare the selected fixed-Dirichlet discrete policy.");
+
+      for (const auto &datum : specification.data)
+        if (datum.role == DataRole::desired_state &&
+            !has_policy(datum.id,
+                        RequirementKind::analytic_quadrature_evaluation))
+          report.add(DiagnosticCategory::analytical_policy,
+                     datum.id,
+                     "desired_state_data_rule",
+                     "Declare the analytic quadrature target-data realization.");
+
+      for (const auto &loss : specification.losses)
+        if (loss.kind == LossKind::quadratic_tracking)
+          {
+            const auto observation = std::find_if(
+              specification.observations.begin(),
+              specification.observations.end(),
+              [&loss](const ObservationSpec &candidate) {
+                return candidate.id == loss.source_observation_id;
+              });
+            const auto datum = std::find_if(
+              specification.data.begin(), specification.data.end(),
+              [&loss](const DataSpec &candidate) {
+                return candidate.id == loss.data_id;
+              });
+            if (observation == specification.observations.end() ||
+                datum == specification.data.end() ||
+                datum->role != DataRole::desired_state)
+              continue;
+            const auto policy = selected_policy(
+              datum->id, RequirementKind::analytic_quadrature_evaluation);
+            if (policy != specification.requirement_policies.end() &&
+                policy->region_id != observation->region_id)
+              report.add(DiagnosticCategory::structural,
+                         loss.id,
+                         "tracking_target_data_region",
+                         "Declare the selected target-data realization on the tracking observation region.");
+          }
 
       for (const auto &constraint : specification.constraints)
         if (constraint.kind == ConstraintKind::cellwise_box &&

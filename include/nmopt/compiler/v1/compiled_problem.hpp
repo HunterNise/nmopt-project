@@ -25,6 +25,7 @@ namespace nmopt::compiler::v1
     std::string              quadrature;
     std::string              dual_representation;
     std::string              data_rule;
+    std::string              observation_realisation;
     std::string              metric_solve_policy;
     std::string              constraint_realisation;
     std::string              lifting_realisation;

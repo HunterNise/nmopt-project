@@ -616,6 +616,152 @@ named Stokes-control application type.
 chosen FE pair/policy is in the manifest, the state and adjoint satisfy their
 block residuals, and each target passes a coupled reduced Taylor test.
 
+## Chapter 6 feature requests
+
+The Chapter 6 guides separate reusable numerical-method infrastructure from
+the source's scalar, boundary-control, and Stokes examples. These requests
+extend formulation and solver layers without adding an optimiser or KKT class
+for a named PDE. P5.6 remains the prerequisite for the Stokes portions.
+
+### P6.1 — Generalise reduced-space search strategies and line-search policies
+
+**Motivation:** `ReducedGradientSolverT` supplies the first
+steepest-descent/Armijo slice, while Section 6.3 also uses nonlinear CG,
+Newton, and BFGS. They share reduced covectors, metrics, state/adjoint solves,
+and reporting; they are not separate problem formulations.
+
+**Declare and implement:**
+
+- A typed primal search-direction protocol supplied by a reduced covector and
+  declared inverse metric.
+- Deterministic steepest-descent, nonlinear-CG (selected update and restart),
+  and limited-memory BFGS policies. Store history with primal/dual layout
+  checks and declared curvature/reset behaviour. Add a trust-region policy
+  only after a Hessian-vector service is available.
+- Exact quadratic, Armijo, and later Wolfe line-search policies. Acceptance
+  must use declared pairings and the actual projected displacement.
+- A uniform report with accepted objective, covector/gradient norm, step,
+  stop reason, line-search trials, and state/adjoint/metric solve counts.
+
+**First registered target:** the existing one-state/one-decision linear DTO
+path, using a mass metric and unconstrained L-BFGS. Keep projected steepest
+descent as the only projected method until box transition/restart tests exist.
+
+**Done when:** each direction has a descent test, each accepted trial meets
+its declared inequality, and gradient/metric identities plus solve-count
+accounting are verified. BFGS history must neither mix layouts nor silently
+fall back after a failed curvature test.
+
+### P6.2 — Record formulation, trial/test, and stabilisation provenance
+
+**Motivation:** Section 6.2 shows that OtD, DtO, and GLS-stabilised variants
+can be distinct discrete systems even when they share a continuous PDE. The
+compiler must make its selected formulation reviewable.
+
+**Declare and implement:**
+
+- A formulation policy naming DTO, OTD, or declared stabilised-Lagrangian
+  construction, plus state/adjoint trial and test spaces and quadrature.
+- Stabilisation terms as residual/objective components with exact value, JVP,
+  and VJP ownership. Include selected element residual, local parameter, and
+  inflow/outflow policies in the manifest.
+- A separately owned OTD optimality-system product. It is not a
+  `ReducedDTO` instance unless a comparison proves discrete equivalence.
+
+**First registered target:** scalar advection-diffusion DTO with one GLS
+policy and full-volume tracking. Its DTO adjoint is the exact transpose of the
+lowered residual. Add the strongly consistent stabilised-Lagrangian policy
+only after its coupled derivatives are explicit.
+
+**Done when:** the manifest distinguishes all formulations, stabilised
+JVP/VJP and reduced Taylor tests pass, and a mismatched-adjoint-space request
+cannot be reported as a DTO optimum.
+
+### P6.3 — Add reusable equality-constrained quadratic KKT products
+
+**Motivation:** All-at-once OCPs are equality-constrained quadratic programs
+with a symmetric indefinite KKT operator. PDAS repeatedly solves related KKT
+subproblems. A generic block product is needed before problem-specific
+preconditioners.
+
+**Declare and implement:**
+
+- A formulation service for $Q$, $D$, and the KKT action
+  $\begin{bmatrix}Q&D^{\mathsf T}\\D&0\end{bmatrix}$, assembled from
+  objective derivatives and residual JVP/VJP actions.
+- Explicit primal, residual-multiplier, and block-layout descriptors; KKT
+  multiplier sign conversion to the framework adjoint belongs in the manifest.
+  Record rank and kernel-positivity assumptions needed for a nonsingular KKT
+  product or return a formulation diagnostic.
+- Krylov policies for symmetric-indefinite MINRES and nonsymmetric GMRES, with
+  formulation/layout compatibility and residual diagnostics.
+
+**First registered target:** serial scalar linear-quadratic DTO with a
+volume-control matrix-free/assembled-equivalence test. Do not require a
+scalar PDE name or identify control and state mass matrices in the generic
+product.
+
+**Done when:** KKT block action and transpose signs pass, its solution agrees
+with reduced DTO on the same target, and it reports feasibility, stationarity,
+multiplier conversion, and solver termination independently.
+
+### P6.4 — Compose block preconditioners from declared approximate solves
+
+**Motivation:** Chapter 6 uses diagonal, triangular, and constraint
+preconditioners built from mass, PDE, Schur-complement, multigrid, and Uzawa
+actions. These must remain reusable approximate operator services.
+
+**Declare and implement:**
+
+- Block-diagonal Schur, Bramble–Pasciak triangular, and constraint
+  preconditioner compositions, each with its required symmetry/inner-product
+  property and compatible outer Krylov method.
+- Approximate mass and PDE inverse actions with fixed work/tolerance policies
+  and nested-solve diagnostics. Variable inner Krylov work must select a
+  flexible outer method.
+- Parameter-robustness and mesh-scaling claims as benchmark metadata, never
+  as an unchecked property of a preconditioner name.
+
+**First registered target:** the scalar all-at-once product of P6.3 with one
+positive-definite block-diagonal preconditioner, mass lumping or a declared
+stationary mass approximation, and a fixed-cycle serial multigrid state
+approximation.
+
+**Done when:** preconditioner layouts and symmetry restrictions are validated,
+apply diagnostics are deterministic, and a mesh/regularisation sweep records
+outer and inner iterations separately. Add Stokes/Uzawa after P5.6 supplies
+the mixed state operator and pressure policy.
+
+### P6.5 — Add typed complementarity, selection, and PDAS services
+
+**Motivation:** Section 6.8 treats control boxes and regularised mixed
+state-control bounds with semismooth primal-dual active sets. The current
+control projection cannot express a multiplier, active selection, or a
+sequence of KKT subproblems.
+
+**Declare and implement:**
+
+- A primal constraint observation with a compatible dual multiplier,
+  complementarity residual, selected primal/dual representation for active
+  classification, and active-set restriction/prolongation operators.
+- A PDAS/semismooth-Newton service that constructs KKT equality subproblems
+  through P6.3, updates sets, and reports stable-set plus full-KKT
+  convergence.
+- The regularised observation $O_{c}(y,u)=y+\varepsilon u$ of P5.5 as a
+  separate target. Its multiplier VJP contributes to state and control
+  stationarity; the original measure-multiplier state constraint remains out
+  of scope.
+
+**First registered target:** cellwise-discontinuous distributed control with
+two-sided boxes and an $L^{2}$ multiplier, beginning with an inactive-box case
+where PDAS agrees with the unconstrained KKT solution.
+
+**Done when:** every iteration exposes primal/dual feasibility,
+complementarity, stationarity, active-set change, and KKT diagnostics; an
+active manufactured case stabilises at correct bounds; and no continuous
+control coefficient or multiplier is classified pointwise without its
+declared conversion policy.
+
 ## Suggested next-agent sequence
 
 For the next agent, take **P1.2 only** unless explicitly asked for a broader

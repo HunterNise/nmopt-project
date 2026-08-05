@@ -787,6 +787,14 @@ $$
 
 This is not a replacement of $`B_{h}`$ by a boundary load matrix.
 
+The first v1 realization selects the explicit discrete policy
+$`\ell_{0,h}=0`$ with one shared nodal trace coefficient for every state DoF on
+the complete exterior controlled boundary. It evaluates residual and tracking
+on $`y_{\mathrm{phys}}`$ and uses $`P_{h}^{\ast}`$ and $`L_{D,h}^{\ast}`$ for
+the two pullbacks. Partial boundary controls, mixed controlled/fixed corners,
+interfaces, hanging-node trace relations, and trace-box projections require a
+separately declared lifting policy; they are not inferred by this realization.
+
 ### 9.4 Coefficient-identification delta
 
 Promote $m$ to a variable and use

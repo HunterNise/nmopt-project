@@ -20,7 +20,8 @@ The v0 lowerer is not modified or replaced by this path. The homogeneous v1
 reference graph privately constructs a separate v0 executable instance and
 packages it behind generic executable ports, so v0 and v1 can be compared at
 the same coefficients. A graph that declares fixed-Dirichlet reconstruction,
-material-subdomain state tracking, or Neumann boundary control selects a
+controlled-Dirichlet lifting, material-subdomain state tracking, or Neumann
+boundary control selects a
 separate v1-only assembled target; it never extends the v0 direct model. All
 targets expose the same generic compiled ports.
 
@@ -36,6 +37,8 @@ includes the focused deal.II-free headers `types.hpp`, `validation.hpp`, and
 `make_scalar_diffusion_reaction_problem()`, the homogeneous comparison graph.
 `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` adds the first
 declared physical-field transformation, while
+`make_dirichlet_control_scalar_diffusion_reaction_problem()` adds an explicit
+controlled-Dirichlet lifting, and
 `make_subdomain_tracking_scalar_diffusion_reaction_problem()` adds a named
 material-id observation region. `make_neumann_boundary_control_problem()`
 declares a facewise Neumann control and state boundary trace.
@@ -47,13 +50,13 @@ parameter. The compatibility table below describes the homogeneous graph; the
 named graph sections record the added features.
 
 ```text
-Region       one full volume region, named material-id volume subregions, and Dirichlet boundary ids
-Space        scalar H1 state/test; scalar L2 control and observations
+Region       one full volume region, named material-id volume subregions, and marked boundary ids
+Space        scalar H1 state/test; scalar L2 volume or facewise control; selected H1 trace control
 Pairing      explicit coefficient pairings for state, test, control, and observations
 Variable     one state and one control; the state may name a physical-field transformation
 Data         forcing, desired state, fixed Dirichlet lifting, diffusion, reaction,
              regularisation, and optional lower/upper cellwise bounds
-Transformation optional fixed-Dirichlet reconstruction of the physical state
+Transformation optional fixed-Dirichlet reconstruction or controlled-Dirichlet physical-state lifting
 Residual     diffusion-reaction, volume source, and volume control
 Observation  full-volume control restriction; state restriction on the full volume or one material subregion
 Loss         quadratic tracking and quadratic control regularisation
@@ -65,7 +68,7 @@ Formulation  one-state/one-control reduced DTO
 Concrete values are not semantic objects. `DealiiDataBindings<dim>` binds the
 forcing and desired-state `Function` objects plus scalar coefficients only
 after validation; its constant-diffusion binding is optional and is required
-only by a graph that declares constant diffusion. A graph with the
+only by a graph that declares constant diffusion. A graph with the fixed-data
 reconstruction also requires its optional `fixed_dirichlet_data` binding. The
 selected data rule interpolates that
 `Function` at the declared Dirichlet boundary DoFs to form the lifting; it is
@@ -211,6 +214,32 @@ independent-coordinate system. The compiled model is immutable: compiling
 with a different lifting or other data binding assembles a distinct product,
 so no data-dependent cached field is shared across compilations.
 
+### Controlled essential lifting
+
+`make_dirichlet_control_scalar_diffusion_reaction_problem()` introduces the
+second transformation input explicitly through
+`TransformationSpec::control_variable_id`. Its first registered target in
+`dealii_dirichlet_control.hpp` has
+
+$$
+y_{\mathrm{phys}}=P_{h}\widehat y_{h}+L_{D,h}u_{h}.
+$$
+
+It chooses $`\ell_{0,h}=0`$ and one shared nodal trace coefficient for every
+state `FE_Q` DoF on the complete exterior controlled boundary. The boundary
+$L^{2}$ mass assembles both the control regularisation and the
+`l2_dirichlet_trace` metric. The residual and full-volume tracking objective
+use $`y_{\mathrm{phys}}`$; their state and control pullbacks are
+$`P_{h}^{\ast}`$ and $`L_{D,h}^{\ast}`$. State and adjoint solves use the
+independent-coordinate system.
+
+This deliberately narrow trace policy is an architectural decision, not an
+interpolation shortcut: any partial boundary, fixed/controlled corner,
+interface, hanging-node relation, trace box, or nonzero fixed lifting would
+need an additional declared map and lowering policy. Compilation rejects the
+unregistered cases rather than selecting one-sided values or silently adding a
+boundary load.
+
 ## Validation and diagnostics
 
 `SemanticValidator` validates semantic structure and declared policies.
@@ -220,8 +249,8 @@ to the same `ValidationReport`.
 | Category | Produced by | Examples in v1 |
 | --- | --- | --- |
 | `structural` | `SemanticValidator` | missing ports, absent equation test space, wrong term inputs |
-| `analytical_policy` | `SemanticValidator` | missing selected fixed-Dirichlet or cellwise-bound policy |
-| `lowerability` | `DealiiCompiler` and its `DealiiLowererRegistryV1` | matrix-free execution, zero `FE_Q` degree, unregistered node kind, missing bound or fixed-lifting binding |
+| `analytical_policy` | `SemanticValidator` | missing selected fixed/controlled-Dirichlet or cellwise-bound policy |
+| `lowerability` | `DealiiCompiler` and its `DealiiLowererRegistryV1` | matrix-free execution, zero `FE_Q` degree, unregistered node kind, missing bound or fixed-lifting binding, incomplete controlled boundary |
 | `formulation_capability` | `DealiiCompiler` | all-at-once formulation or a multi-block DTO request |
 
 `CompilationResultT<Backend>` returns the report and only contains a
@@ -240,18 +269,24 @@ assembly used for fixed reconstruction and material-subdomain tracking. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, facewise control layout, boundary trace tracking, facewise metric,
 facewise box realization, and pure-Neumann mean-zero saddle realization. The
-private `dealii_h1_control.hpp` target owns the distinct continuous-control
+private `dealii_dirichlet_control.hpp` target owns the distinct controlled
+essential reconstruction, nodal trace layout, boundary mass metric, and both
+transformation pullbacks. The private `dealii_h1_control.hpp` target owns the
+distinct continuous-control
 $H^{1}$ loss and $H^{1}$ or $L^{2}$ search metrics. The private
 `dealii_coefficient_identification.hpp` target owns the cellwise positive
 diffusion-parameter residual, its nonlinear first-order actions, parameter
 metric, and parameter box. The registry otherwise supports only the listed
 volume terms, full-domain control observation, full-domain or material-id
 state restriction, quadratic losses, `L2` metric, optional cellwise box, and
-fixed-Dirichlet reconstruction. Its selected discrete policies are assembled
+fixed or controlled Dirichlet reconstruction. Its selected discrete policies are
+assembled
 serial scalar `FE_Q` state/test with degree at least one and reduced DTO:
-`FE_DGQ(0)` volume control on the state mesh, or one facewise-constant
-Neumann coefficient for every marked boundary face, or continuous `FE_Q`
-volume control for the registered $H^{1}$ loss. Pure Neumann is limited to
+`FE_DGQ(0)` volume control on the state mesh, one facewise-constant Neumann
+coefficient for every marked boundary face, one nodal Dirichlet trace
+coefficient for every state DoF on the complete exterior controlled boundary,
+or continuous `FE_Q` volume control for the registered $H^{1}$ loss. Pure
+Neumann is limited to
 zero reaction and compatible forcing/control loads. Coefficient identification
 instead selects a cellwise `FE_DGQ(0)` physical parameter with a strictly
 positive box and reassembled state/adjoint matrices.
@@ -278,8 +313,11 @@ compiled box constraint and classifies unsupported matrix-free and all-at-once
 requests. It also compiles a nonzero manufactured fixed-Dirichlet state and
 checks its physical residual/objective, reconstruction JVP/VJP pairing, and
 reduced Taylor remainder; recompilation with changed lifting data must change
-the compiled result. The same test builds a mesh with distinct Dirichlet,
-Neumann-control, and observation boundary ids. It checks the Neumann
+the compiled result. The same test builds a mesh with a complete controlled
+Dirichlet boundary and checks its nonzero manufactured physical state, lifting
+JVP/VJP pairing, reduced Taylor remainder, trace metric, manifest, and
+incomplete-boundary diagnostic. It also builds a mesh with distinct fixed
+Dirichlet, Neumann-control, and observation boundary ids. It checks the Neumann
 residual pairing, trace-loss derivative, facewise metric and box realization,
 and a state-recomputed reduced Taylor remainder.
 
@@ -295,10 +333,12 @@ checks parameter JVP/VJP, finite-difference, and reduced-Taylor identities.
 ## Exclusions
 
 This v1 registration does not broaden the v0 executable mathematics. Beyond
-the selected fixed-data reconstruction, material-id state tracking, and
-marked-face Neumann control with boundary tracking, it does not compile
+the selected fixed-data reconstruction, complete-boundary nodal
+Dirichlet-control lifting, material-id state tracking, and marked-face Neumann
+control with boundary tracking, it does not compile
 arbitrary geometric or overlapping subdomain restrictions, FE target
-projection/interpolation, Robin terms, controlled Dirichlet liftings,
+projection/interpolation, Robin terms, partial or mixed controlled Dirichlet
+boundaries, nonzero fixed data combined with Dirichlet control, trace boxes,
 continuous-control bounds, continuous or transformed coefficient parameters,
 matrix-free execution, all-at-once/OTD, multiple equations, or multiple
 optimisation variables. Each requires its own semantic declaration, registered

@@ -72,11 +72,11 @@ current implementation status.
 
 | Component | Owns | Communicates through | Current status |
 | --- | --- | --- | --- |
-| `Region` | Named volume, boundary, interface, point set, or time set | Identity, dimension, relation | V1: one full volume and fixed Dirichlet boundary ids |
+| `Region` | Named volume, boundary, interface, point set, or time set | Identity, dimension, relation | V1: one full volume and fixed or complete controlled Dirichlet boundary ids |
 | `Space` and `Pairing` | Field shape, topology, role, primal/dual pairing | Typed source and target ports | V1 scalar H1/L2 declarations and explicit coefficient pairings |
 | `VariableBlock` | State, control, parameter, flux, or auxiliary unknown | One primal space; feeds maps | V1: exactly one state and one binary decision block (control or parameter) |
 | `Data` | Fixed forcing, target, coefficient, lifting, or bound | Read-only ports; never a derivative block | V1 declarations; compiler binds deal.II functions, constants, fixed lifting, and optional bounds |
-| `Transformation` | Reconstruction, lifting, parameterisation, restriction, transfer | Value, JVP, VJP | V1 fixed-Dirichlet reconstruction; v0 uses homogeneous constrained coordinates |
+| `Transformation` | Reconstruction, lifting, parameterisation, restriction, transfer | Value, JVP, VJP | V1 fixed reconstruction plus complete-boundary controlled-Dirichlet lifting; v0 uses homogeneous constrained coordinates |
 | `ResidualTerm` | One physical contribution to one equation | Tested value, JVP, VJP | V1 registers diffusion-reaction, source, volume-control, and cellwise parameter-diffusion assembly |
 | `EquationBlock` | Sum of residual terms and its test space | $E$, $E'\delta x$, $E'^{\ast}p$ | V1: one state-test block |
 | `Observation` | Map from physical variables to observation space | Value, JVP, VJP | V1 full-domain restriction only |
@@ -84,7 +84,7 @@ current implementation status.
 | `Objective` | Sum of loss compositions | $J$ and $J'$ | Homogeneous v1 comparison target or v1 fixed-lifting target |
 | `Metric` | Algorithmic map $G:P\to P^{\ast}$ | `apply`, `inverse_apply` | Dense diagonal and serial deal.II mass-metric realizations |
 | `Constraint` | Feasibility, projection, normal cone, multipliers | Operations in a named metric | Dense and serial deal.II cellwise $L^{2}$ boxes |
-| `RequirementPolicy` | A non-inferable trace, nullspace, point, or discrete-only choice | Validator metadata | V1 fixed-Dirichlet and optional cellwise-bound policies |
+| `RequirementPolicy` | A non-inferable trace, nullspace, point, or discrete-only choice | Validator metadata | V1 fixed/controlled Dirichlet and optional cellwise-bound policies |
 | `DiscretisationPolicy` | FE family, mesh relation, quadrature, lifting, execution | Input to lowerers | V1 assembled `FE_Q`/`FE_DGQ(0)` policy; v0 remains the direct reference |
 
 The practical rule: add new *physics* as a residual-term lowerer, a new measurement as an observation/loss lowerer, and a new search geometry as a metric. Do not add a solver branch that asks which PDE, control placement, or boundary condition it received.
@@ -285,6 +285,7 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`compiled_problem.hpp`](../include/nmopt/compiler/v1/compiled_problem.hpp) | Backend-generic compiled package and manifest | Solver-facing compiled ports and provenance |
 | [`dealii_compiler.hpp`](../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks plus private v0 comparison or v1 assembled targets |
 | [`dealii_fixed_dirichlet.hpp`](../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
+| [`dealii_dirichlet_control.hpp`](../include/nmopt/compiler/v1/dealii_dirichlet_control.hpp) | V1 controlled physical-state target | Complete-boundary nodal lifting, trace metric, and state/control pullbacks |
 | [`dealii_neumann_boundary.hpp`](../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, pullbacks, and pure-Neumann mean-zero saddle solves |
 | [`dealii_h1_control.hpp`](../include/nmopt/compiler/v1/dealii_h1_control.hpp) | V1 continuous-control target | $H^{1}$ control loss with explicitly selectable $L^{2}$ or $H^{1}$ search metric |
 | [`dealii_coefficient_identification.hpp`](../include/nmopt/compiler/v1/dealii_coefficient_identification.hpp) | V1 positive cellwise coefficient target | Parameter-dependent state/adjoint actions and exact first-order pullbacks |
@@ -337,9 +338,10 @@ geometric subdomains, FE target projection/interpolation, nonlinear or
 variable coefficients beyond the registered cellwise positive diffusion
 parameter, mixed/vector/DG states, MPI vectors, time, OTD, or KKT Newton. The
 available box projections are only the declared `FE_DGQ(0)`
-cellwise volume and facewise-constant boundary $L^{2}$ policies.
+cellwise volume and facewise-constant boundary $L^{2}$ policies. The
+complete-boundary nodal Dirichlet lifting has no box realization.
 
-The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) next adds Dirichlet control through an explicit lifting while preserving the v0 reference.
+The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) records the completed explicit Dirichlet-control lifting while preserving the v0 reference.
 
 ## Blueprint for adding one feature yourself
 

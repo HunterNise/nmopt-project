@@ -379,7 +379,7 @@ objective derivative, and a state-recomputed reduced Taylor remainder. The
 generic first-order reduced workflow is reused; L-BFGS, Gauss–Newton, and
 second-order KKT actions remain separate future solver work.
 
-### P3.2 — Add Dirichlet control through an explicit lifting
+### P3.2 — Add Dirichlet control through an explicit lifting — completed
 
 **Why later:** It is a transformation problem, not a load term. The fixed
 lifting work in P1.2 is its prerequisite.
@@ -396,6 +396,19 @@ $`y_{\mathrm{phys}}`$.
 **Done when:** the implementation passes a composed-transformation VJP test
 and a reduced Taylor test. Reject boundary spaces or corner/interface
 configurations with no declared lifting policy.
+
+**Implementation:** `make_dirichlet_control_scalar_diffusion_reaction_problem()`
+selects a separate v1-only assembled target with
+$`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+L_{D,h}u_{h}`$. The initial registered
+trace policy has one shared nodal control coefficient for every `FE_Q` state
+DoF on the complete exterior boundary; its $`\ell_{0,h}`$ term is zero. The
+compiler rejects partial boundaries, undeclared corner or interface rules,
+hanging-node relations, and box constraints rather than choosing a trace
+value implicitly. Residual and full-volume tracking assemble on the physical
+state, while state and control covectors use $`P_{h}^{\ast}`$ and
+$`L_{D,h}^{\ast}`$. The deal.II contract test verifies a nonzero manufactured
+state, composed lifting VJP, reduced Taylor remainder, trace metric, manifest,
+and incomplete-boundary diagnostic. The v0 lowerer remains unchanged.
 
 ### P4.1 — Add the fixed-step temporal compiler
 

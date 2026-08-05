@@ -95,12 +95,14 @@ namespace nmopt::semantic::v1
 
   enum class TransformationKind
   {
-    fixed_dirichlet_reconstruction
+    fixed_dirichlet_reconstruction,
+    dirichlet_control_lifting
   };
 
   enum class RequirementKind
   {
     fixed_dirichlet,
+    controlled_dirichlet,
     mean_zero_multiplier,
     boundary_trace,
     analytic_quadrature_evaluation,
@@ -185,6 +187,9 @@ namespace nmopt::semantic::v1
     std::string        input_variable_id;
     std::string        output_space_id;
     std::string        fixed_data_id;
+    // A controlled Dirichlet lifting has a second primal input. Fixed-data
+    // reconstructions leave this port empty.
+    std::string        control_variable_id;
   };
 
   struct ResidualTermSpec

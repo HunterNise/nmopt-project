@@ -70,8 +70,8 @@ namespace nmopt::compiler::v1
     has_transformation_lowerer(
       const semantic::v1::TransformationKind kind) const
     {
-      return kind ==
-             semantic::v1::TransformationKind::fixed_dirichlet_reconstruction;
+      return kind == semantic::v1::TransformationKind::fixed_dirichlet_reconstruction ||
+             kind == semantic::v1::TransformationKind::dirichlet_control_lifting;
     }
   };
 } // namespace nmopt::compiler::v1

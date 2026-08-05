@@ -3,6 +3,7 @@
 #include "nmopt/compiler/v1/compiled_problem.hpp"
 #include "nmopt/compiler/v1/dealii_capabilities.hpp"
 #include "nmopt/compiler/v1/dealii_coefficient_identification.hpp"
+#include "nmopt/compiler/v1/dealii_dirichlet_control.hpp"
 #include "nmopt/compiler/v1/dealii_fixed_dirichlet.hpp"
 #include "nmopt/compiler/v1/dealii_h1_control.hpp"
 #include "nmopt/compiler/v1/dealii_neumann_boundary.hpp"
@@ -57,6 +58,8 @@ namespace nmopt::compiler::v1
       result.diagnostics = validate(specification, policy);
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
+      const bool uses_dirichlet_control =
+        uses_dirichlet_control_lifting(specification);
       const bool uses_neumann_boundary_control =
         uses_neumann_control(specification);
       const bool uses_mean_zero_gauge =
@@ -69,13 +72,16 @@ namespace nmopt::compiler::v1
         uses_parameter_diffusion_residual(specification);
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *control_boundary_region =
-        selected_neumann_control_region(specification);
+        uses_dirichlet_control
+          ? selected_dirichlet_control_region(specification)
+          : selected_neumann_control_region(specification);
       const bool uses_subdomain_observation =
         tracking_region != nullptr && !tracking_region->is_full_domain;
       const bool uses_assembled_v1_target =
         !uses_neumann_boundary_control &&
         !uses_h1_control_regularisation &&
         !uses_coefficient_identification &&
+        !uses_dirichlet_control &&
         (uses_fixed_reconstruction || uses_subdomain_observation);
       if (!uses_coefficient_identification && !data.diffusion)
         result.diagnostics.add(
@@ -154,8 +160,22 @@ namespace nmopt::compiler::v1
 
       const auto dirichlet_boundary_ids = uses_mean_zero_gauge
                                             ? std::set<dealii::types::boundary_id>{}
+                                            : uses_dirichlet_control
+                                              ? selected_dirichlet_control_boundary_ids(
+                                                  specification)
                                             : selected_dirichlet_boundary_ids(
                                                 specification);
+      if (uses_dirichlet_control &&
+          !controls_complete_exterior_boundary(triangulation,
+                                               dirichlet_boundary_ids))
+        {
+          result.diagnostics.add(
+            semantic::v1::DiagnosticCategory::lowerability,
+            specification.formulation.state_variable_id,
+            "complete_dirichlet_control_boundary",
+            "Select every exterior boundary id for the registered nodal Dirichlet lifting; partial boundaries, interfaces, and undeclared corner policies are not supported.");
+          return result;
+        }
       contract::require(tracking_region != nullptr,
                         "Validated v1 problem has no tracking observation region");
       std::shared_ptr<const contract::MetricT<Backend>> metric;
@@ -204,6 +224,30 @@ namespace nmopt::compiler::v1
               return boundary->solve_adjoint(full_point, state_rhs);
             }};
           executable = boundary;
+        }
+      else if (uses_dirichlet_control)
+        {
+          using DirichletModel = detail::DirichletControlLiftingModel<dim>;
+          const auto dirichlet = std::make_shared<DirichletModel>(
+            triangulation,
+            data.forcing,
+            data.desired_state,
+            *data.diffusion,
+            data.reaction,
+            data.regularisation_weight,
+            policy.state_degree,
+            dirichlet_boundary_ids);
+          metric = std::make_shared<dealii_backend::MassMetric>(
+            dirichlet->control_l2_metric(policy.control_metric_solve));
+          solvers = {
+            [dirichlet](const contract::PrimalBlockT<Backend> &control) {
+              return dirichlet->solve_state(control);
+            },
+            [dirichlet](const contract::PrimalBlockT<Backend> &full_point,
+                        const contract::CovectorBlockT<Backend> &state_rhs) {
+              return dirichlet->solve_adjoint(full_point, state_rhs);
+            }};
+          executable = dirichlet;
         }
       else if (uses_h1_control_regularisation)
         {
@@ -322,6 +366,7 @@ namespace nmopt::compiler::v1
                       policy,
                       has_constraint,
                       uses_fixed_reconstruction,
+                      uses_dirichlet_control,
                       uses_assembled_v1_target,
                       uses_neumann_boundary_control,
                       uses_mean_zero_gauge,
@@ -498,6 +543,24 @@ namespace nmopt::compiler::v1
                : find_region(specification, term->region_id);
     }
 
+    static const semantic::v1::RegionSpec *
+    selected_dirichlet_control_region(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto policy = std::find_if(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
+          return candidate.subject_id ==
+                   specification.formulation.state_variable_id &&
+                 candidate.kind ==
+                   semantic::v1::RequirementKind::controlled_dirichlet;
+        });
+      return policy == specification.requirement_policies.end()
+               ? nullptr
+               : find_region(specification, policy->region_id);
+    }
+
     static std::set<dealii::types::boundary_id>
     boundary_ids(const semantic::v1::RegionSpec &region)
     {
@@ -522,6 +585,21 @@ namespace nmopt::compiler::v1
                semantic::v1::TransformationKind::fixed_dirichlet_reconstruction;
     }
 
+    static bool
+    uses_dirichlet_control_lifting(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto state = find_variable(specification,
+                                       specification.formulation.state_variable_id);
+      if (state == nullptr || state->physical_field_transform_id.empty())
+        return false;
+      const auto transformation = find_transformation(
+        specification, state->physical_field_transform_id);
+      return transformation != nullptr &&
+             transformation->kind ==
+               semantic::v1::TransformationKind::dirichlet_control_lifting;
+    }
+
     static std::set<dealii::types::boundary_id>
     selected_dirichlet_boundary_ids(
       const semantic::v1::ProblemSpec &specification)
@@ -540,6 +618,38 @@ namespace nmopt::compiler::v1
       contract::require(region != nullptr,
                         "Validated v1 fixed Dirichlet policy has no region");
       return boundary_ids(*region);
+    }
+
+    static std::set<dealii::types::boundary_id>
+    selected_dirichlet_control_boundary_ids(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto region = selected_dirichlet_control_region(specification);
+      contract::require(region != nullptr,
+                        "Validated v1 problem has no controlled Dirichlet policy");
+      return boundary_ids(*region);
+    }
+
+    template <int dim>
+    static bool
+    controls_complete_exterior_boundary(
+      const dealii::Triangulation<dim> &              triangulation,
+      const std::set<dealii::types::boundary_id> &controlled_ids)
+    {
+      bool has_boundary_face = false;
+      for (auto cell = triangulation.begin_active();
+           cell != triangulation.end();
+           ++cell)
+        for (unsigned int face = 0;
+             face < dealii::GeometryInfo<dim>::faces_per_cell;
+             ++face)
+          if (cell->face(face)->at_boundary())
+            {
+              has_boundary_face = true;
+              if (controlled_ids.count(cell->face(face)->boundary_id()) == 0)
+                return false;
+            }
+      return has_boundary_face;
     }
 
     static bool
@@ -695,6 +805,8 @@ namespace nmopt::compiler::v1
       const bool h1_control_metric = selects_h1_control_metric(specification);
       const bool coefficient_identification =
         uses_parameter_diffusion_residual(specification);
+      const bool dirichlet_control_lifting =
+        uses_dirichlet_control_lifting(specification);
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),
@@ -706,7 +818,9 @@ namespace nmopt::compiler::v1
       const auto boundary = fixed_policy == specification.requirement_policies.end()
                               ? nullptr
                               : find_region(specification, fixed_policy->region_id);
-      if (!mean_zero_gauge &&
+      const auto controlled_boundary =
+        selected_dirichlet_control_region(specification);
+      if (!mean_zero_gauge && !dirichlet_control_lifting &&
           (boundary == nullptr ||
            boundary->kind != semantic::v1::RegionKind::boundary ||
            boundary->boundary_ids.empty()))
@@ -714,6 +828,15 @@ namespace nmopt::compiler::v1
                    specification.formulation.state_variable_id,
                    "fixed_dirichlet_boundary_ids",
                    "Select a boundary region with at least one fixed Dirichlet id.");
+      if (dirichlet_control_lifting &&
+          (controlled_boundary == nullptr ||
+           controlled_boundary->kind != semantic::v1::RegionKind::boundary ||
+           controlled_boundary->boundary_ids.empty()))
+        report.add(
+          DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "controlled_dirichlet_boundary_ids",
+          "Select a non-empty exterior boundary region for the registered Dirichlet-control lifting.");
 
       if (mean_zero_gauge)
         {
@@ -777,7 +900,7 @@ namespace nmopt::compiler::v1
               "continuous_control_box_constraint",
               "Do not select the cellwise or facewise box with the continuous H1 control realization.");
           if (uses_fixed_dirichlet_reconstruction(specification) ||
-              uses_neumann_control(specification))
+              uses_neumann_control(specification) || dirichlet_control_lifting)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
@@ -826,7 +949,8 @@ namespace nmopt::compiler::v1
               "positive_parameter_constraint",
               "Select the registered positive cellwise parameter box.");
           if (uses_fixed_dirichlet_reconstruction(specification) ||
-              uses_neumann_control(specification) || h1_control_regularisation)
+              uses_neumann_control(specification) || h1_control_regularisation ||
+              dirichlet_control_lifting)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
@@ -841,6 +965,50 @@ namespace nmopt::compiler::v1
               specification.id,
               "coefficient_identification_full_domain_tracking",
               "The first coefficient-identification target supports full-domain tracking only.");
+        }
+
+      if (dirichlet_control_lifting)
+        {
+          const auto control = find_variable(
+            specification, specification.formulation.control_variable_id);
+          const auto space = std::find_if(
+            specification.spaces.begin(),
+            specification.spaces.end(),
+            [control](const semantic::v1::SpaceSpec &candidate) {
+              return control != nullptr && candidate.id == control->space_id;
+            });
+          if (control == nullptr ||
+              control->role != semantic::v1::VariableRole::control ||
+              space == specification.spaces.end() ||
+              space->topology != semantic::v1::SpaceTopology::h1 ||
+              controlled_boundary == nullptr ||
+              space->region_id != controlled_boundary->id)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.control_variable_id,
+              "dirichlet_nodal_trace_control_space",
+              "Select the registered continuous nodal trace control space on the controlled Dirichlet boundary.");
+          if (!specification.formulation.constraint_id.empty())
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.constraint_id,
+              "dirichlet_control_box_constraint",
+              "The first nodal Dirichlet lifting has no box-constraint realization.");
+          if (uses_fixed_dirichlet_reconstruction(specification) ||
+              uses_neumann_control(specification) || h1_control_regularisation ||
+              coefficient_identification)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "dirichlet_control_registered_combination",
+              "The first Dirichlet-control target supports only diffusion-reaction, volume forcing, full-volume tracking, and L2 trace regularisation.");
+          const auto tracking_region = selected_tracking_region(specification);
+          if (tracking_region == nullptr || !tracking_region->is_full_domain)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "dirichlet_control_full_domain_tracking",
+              "The first Dirichlet-control target supports full-domain state tracking only.");
         }
 
       if (!uses_neumann_control(specification))
@@ -890,6 +1058,8 @@ namespace nmopt::compiler::v1
           });
       };
       const bool boundary_control = uses_neumann_control(specification);
+      const bool dirichlet_control =
+        uses_dirichlet_control_lifting(specification);
       const bool coefficient_identification =
         uses_parameter_diffusion_residual(specification);
       const bool complete_residual = coefficient_identification
@@ -903,6 +1073,11 @@ namespace nmopt::compiler::v1
             count_terms(ResidualTermKind::volume_source) == 1 &&
             count_terms(ResidualTermKind::neumann_control) == 1 &&
             count_terms(ResidualTermKind::volume_control) == 0
+        : dirichlet_control
+        ? count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
+            count_terms(ResidualTermKind::volume_source) == 1 &&
+            count_terms(ResidualTermKind::volume_control) == 0 &&
+            count_terms(ResidualTermKind::neumann_control) == 0
         : count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
             count_terms(ResidualTermKind::volume_source) == 1 &&
             count_terms(ResidualTermKind::volume_control) == 1 &&
@@ -914,11 +1089,15 @@ namespace nmopt::compiler::v1
                      ? "complete_parameter_diffusion_residual_term_set"
                      : boundary_control
                          ? "complete_neumann_boundary_residual_term_set"
+                         : dirichlet_control
+                             ? "complete_dirichlet_control_residual_term_set"
                          : "complete_volume_residual_term_set",
                    coefficient_identification
                      ? "Declare exactly one parameter diffusion-reaction and one volume-source term."
                      : boundary_control
                      ? "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
+                     : dirichlet_control
+                     ? "Declare exactly one diffusion-reaction and one volume-source term; the control enters through the declared lifting."
                      : "Declare exactly one diffusion-reaction, volume-source, and volume-control term.");
 
       const auto count_data = [&specification](const DataRole role) {
@@ -1078,6 +1257,58 @@ namespace nmopt::compiler::v1
                            "Restrict the facewise control on its Neumann control boundary.");
             }
         }
+      else if (dirichlet_control)
+        {
+          const auto state_observation = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [state](const semantic::v1::ObservationSpec &observation) {
+              return state != nullptr &&
+                     observation.kind ==
+                       semantic::v1::ObservationKind::volume_restriction &&
+                     observation.input_variable_id == state->id;
+            });
+          const auto control_restriction = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [](const semantic::v1::ObservationSpec &observation) {
+              return observation.kind ==
+                     semantic::v1::ObservationKind::boundary_restriction;
+            });
+          const auto control_region =
+            selected_dirichlet_control_region(specification);
+          if (specification.observations.size() != 2 ||
+              state_observation == specification.observations.end() ||
+              control_restriction == specification.observations.end())
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "complete_dirichlet_control_observation_set",
+              "Declare one full-volume physical-state restriction and one controlled-boundary control restriction.");
+          if (state_observation != specification.observations.end())
+            {
+              const auto region = find_region(specification,
+                                              state_observation->region_id);
+              if (region == nullptr || !region->is_full_domain)
+                report.add(
+                  DiagnosticCategory::lowerability,
+                  state_observation->id,
+                  "dirichlet_control_full_volume_observation",
+                  "Track the physical state on the full volume in the first Dirichlet-control target.");
+            }
+          if (control_restriction != specification.observations.end())
+            {
+              const auto region = find_region(specification,
+                                              control_restriction->region_id);
+              if (region == nullptr || control_region == nullptr ||
+                  region->id != control_region->id)
+                report.add(
+                  DiagnosticCategory::lowerability,
+                  control_restriction->id,
+                  "dirichlet_control_observation_region",
+                  "Restrict the nodal trace control on its declared controlled boundary.");
+            }
+        }
       else
         for (const auto &observation : specification.observations)
           {
@@ -1190,6 +1421,7 @@ namespace nmopt::compiler::v1
                   const DealiiDiscretisationPolicy & policy,
                   const bool                         has_constraint,
                   const bool                         uses_fixed_reconstruction,
+                  const bool                         uses_dirichlet_control_lifting,
                   const bool                         uses_assembled_v1_target,
                   const bool                         uses_neumann_boundary_control,
                   const bool                         uses_mean_zero_gauge,
@@ -1207,7 +1439,9 @@ namespace nmopt::compiler::v1
       manifest.execution = "assembled";
       manifest.state_space = "scalar FE_Q(" +
                              std::to_string(policy.state_degree) + ")";
-      manifest.control_space = uses_neumann_boundary_control
+      manifest.control_space = uses_dirichlet_control_lifting
+                                 ? "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary"
+                                 : uses_neumann_boundary_control
                                  ? "one facewise-constant coefficient per marked state boundary face"
                                  : uses_coefficient_identification
                                      ? "cellwise-constant positive diffusion parameter FE_DGQ(0) on the state mesh"
@@ -1229,6 +1463,8 @@ namespace nmopt::compiler::v1
               ? "; forcing Function, reaction and regularisation scalars; diffusion is the parameter decision block"
               : uses_fixed_reconstruction
               ? "; fixed Dirichlet Function interpolated at boundary DoFs"
+              : uses_dirichlet_control_lifting
+              ? "; scalar coefficients and forcing Function at volume quadrature; Dirichlet trace is the decision block"
               : "; scalar coefficients and forcing Function at volume quadrature");
       manifest.observation_realisation = uses_neumann_boundary_control
         ? boundary_observation_realisation(tracking_region)
@@ -1236,6 +1472,8 @@ namespace nmopt::compiler::v1
       manifest.metric_solve_policy =
         std::string("serial CG for ") +
         (uses_h1_control_metric ? "h1_continuous Riesz map"
+                                : uses_dirichlet_control_lifting
+                                    ? "l2_dirichlet_trace Riesz map"
                                 : uses_coefficient_identification
                                     ? "l2_cellwise_parameter Riesz map"
                                     : "L2 Riesz map") +
@@ -1254,6 +1492,8 @@ namespace nmopt::compiler::v1
                                        ? "none; pure-Neumann state uses an explicit mean-zero gauge"
                                        : uses_fixed_reconstruction
                                        ? "y_phys = P_h y_hat + ell_0,h; independent FE_Q coordinates, AffineConstraints reconstruction, and P_h^* pullbacks"
+                                       : uses_dirichlet_control_lifting
+                                           ? "y_phys = P_h y_hat + L_D,h u_h; complete-boundary shared nodal trace lifting, independent FE_Q coordinates, and P_h^*/L_D,h^* pullbacks"
                                        : uses_assembled_v1_target
                                            ? "y_phys = P_h y_hat; independent FE_Q coordinates and AffineConstraints reconstruction"
                                            : "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
@@ -1270,6 +1510,11 @@ namespace nmopt::compiler::v1
         manifest.declared_assumptions.push_back(
           "neumann_control_realisation: facewise-constant FEFaceValues pairing on boundary ids " +
           boundary_id_list(*control_boundary_region));
+      if (uses_dirichlet_control_lifting && control_boundary_region != nullptr)
+        manifest.declared_assumptions.push_back(
+          "dirichlet_control_lifting: complete-exterior-boundary shared nodal trace map on boundary ids " +
+          boundary_id_list(*control_boundary_region) +
+          "; no corner/interface averaging, hanging-node relation, or box policy is registered");
       if (uses_h1_control_regularisation)
         manifest.declared_assumptions.push_back(
           "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric=" +

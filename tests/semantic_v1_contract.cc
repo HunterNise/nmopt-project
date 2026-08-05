@@ -29,6 +29,13 @@ namespace
     require(fixed_report.valid(),
             "the fixed-Dirichlet v1 reconstruction graph is invalid");
 
+    const auto dirichlet_control_specification =
+      nmopt::semantic::v1::make_dirichlet_control_scalar_diffusion_reaction_problem();
+    const auto dirichlet_control_report =
+      validator.validate(dirichlet_control_specification);
+    require(dirichlet_control_report.valid(),
+            "the Dirichlet-control lifting v1 graph is invalid");
+
     const auto subdomain_specification =
       nmopt::semantic::v1::make_subdomain_tracking_scalar_diffusion_reaction_problem(
         1);
@@ -72,6 +79,15 @@ namespace
     require(lifting_port_report.has_category(
               nmopt::semantic::v1::DiagnosticCategory::structural),
             "v1 semantic validation did not classify a broken lifting port");
+
+    auto missing_dirichlet_control_port = dirichlet_control_specification;
+    missing_dirichlet_control_port.transformations.front().control_variable_id =
+      "missing_control";
+    const auto dirichlet_control_port_report =
+      validator.validate(missing_dirichlet_control_port);
+    require(dirichlet_control_port_report.has_category(
+              nmopt::semantic::v1::DiagnosticCategory::structural),
+            "v1 semantic validation did not classify a broken Dirichlet-control lifting port");
 
     auto unused_reconstruction = fixed_specification;
     unused_reconstruction.variables.front().physical_field_transform_id.clear();

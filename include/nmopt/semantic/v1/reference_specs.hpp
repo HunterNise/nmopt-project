@@ -449,11 +449,70 @@ namespace nmopt::semantic::v1
     specification.transformations = {
       {"fixed_dirichlet_reconstruction", "Fixed Dirichlet reconstruction",
        TransformationKind::fixed_dirichlet_reconstruction, "state",
-       "state_space", "fixed_dirichlet_data"}};
+       "state_space", "fixed_dirichlet_data", ""}};
     specification.variables.at(0).physical_field_transform_id =
       "fixed_dirichlet_reconstruction";
     specification.requirement_policies.at(0).selected_policy =
       "P_h independent FE_Q coordinates plus nodal fixed Dirichlet lifting";
+    return specification;
+  }
+
+  // P3.2 deliberately represents controlled essential data as a physical
+  // state transformation, never as a boundary residual load. The first
+  // registered lifting uses one continuous nodal trace coefficient for every
+  // state DoF on the complete selected exterior boundary.
+  inline ProblemSpec
+  make_dirichlet_control_scalar_diffusion_reaction_problem()
+  {
+    ProblemSpec specification = make_scalar_diffusion_reaction_problem();
+    specification.id = "scalar_diffusion_reaction_dirichlet_control";
+    specification.label =
+      "Scalar diffusion-reaction with Dirichlet control lifting";
+    specification.regions.at(1) =
+      {"control_boundary", "Complete controlled Dirichlet boundary",
+       RegionKind::boundary, false, {0}, {}};
+    specification.spaces.at(2) =
+      {"control_space", "Nodal Dirichlet trace control", "control_boundary",
+       SpaceTopology::h1, SpaceRole::control};
+    specification.spaces.at(4) =
+      {"control_observation_space", "Nodal Dirichlet trace observation",
+       "control_boundary", SpaceTopology::h1, SpaceRole::observation};
+    specification.pairings.at(2) =
+      {"control_pairing", "Dirichlet trace control coefficient pairing",
+       "control_space", "control_space"};
+    specification.pairings.at(4) =
+      {"control_observation_pairing",
+       "Dirichlet trace observation coefficient pairing",
+       "control_observation_space", "control_observation_space"};
+    specification.variables.at(0).physical_field_transform_id =
+      "dirichlet_control_lifting";
+    specification.variables.at(1).label = "Dirichlet control";
+    specification.residual_terms.erase(specification.residual_terms.begin() + 2);
+    specification.equations.at(0).residual_term_ids =
+      {"diffusion_reaction", "volume_source"};
+    specification.observations.at(1) =
+      {"control_boundary_restriction", "Dirichlet control restriction",
+       ObservationKind::boundary_restriction, "control", "control_boundary",
+       "control_observation_space", "control_observation_pairing"};
+    specification.losses.at(1) =
+      {"control_regularisation", "Quadratic Dirichlet control regularisation",
+       LossKind::quadratic_control_regularisation,
+       "control_boundary_restriction", "regularisation_weight",
+       "control_observation_pairing"};
+    specification.metrics.at(0) =
+      {"control_l2_metric", "Dirichlet trace L2 metric", MetricKind::l2,
+       "control", "control_pairing"};
+    specification.transformations = {
+      {"dirichlet_control_lifting", "Dirichlet control physical-state lifting",
+       TransformationKind::dirichlet_control_lifting, "state", "state_space",
+       "", "control"}};
+    specification.requirement_policies.at(0) =
+      {"state_controlled_dirichlet", "state",
+       RequirementKind::controlled_dirichlet,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "complete-exterior-boundary nodal trace lifting with one shared coefficient per state boundary DoF",
+       "control_boundary"};
     return specification;
   }
 } // namespace nmopt::semantic::v1

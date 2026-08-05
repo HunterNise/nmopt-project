@@ -294,30 +294,48 @@ namespace nmopt::semantic::v1
           const auto input = variables.find(transformation.input_variable_id);
           const auto output = spaces.find(transformation.output_space_id);
           const auto fixed_data = data.find(transformation.fixed_data_id);
-          if (input == variables.end() ||
-              input->second->role != VariableRole::state ||
-              output == spaces.end() ||
-              output->second->role != SpaceRole::state ||
-              fixed_data == data.end() ||
-              fixed_data->second->kind != DataKind::function ||
-              fixed_data->second->role != DataRole::fixed_dirichlet_lifting)
-            report.add(
-              DiagnosticCategory::structural,
-              transformation.id,
-              "fixed_dirichlet_reconstruction_ports",
-              "Connect the fixed reconstruction to one state variable, its state space, and fixed Function data.");
+          const auto control = variables.find(transformation.control_variable_id);
+          const bool has_state_ports =
+            input != variables.end() &&
+            input->second->role == VariableRole::state &&
+            output != spaces.end() && output->second->role == SpaceRole::state;
+          if (transformation.kind ==
+              TransformationKind::fixed_dirichlet_reconstruction)
+            {
+              if (!has_state_ports || fixed_data == data.end() ||
+                  fixed_data->second->kind != DataKind::function ||
+                  fixed_data->second->role != DataRole::fixed_dirichlet_lifting ||
+                  !transformation.control_variable_id.empty())
+                report.add(
+                  DiagnosticCategory::structural,
+                  transformation.id,
+                  "fixed_dirichlet_reconstruction_ports",
+                  "Connect the fixed reconstruction to one state variable, its state space, and fixed Function data only.");
+              if (fixed_data != data.end() &&
+                  fixed_data->second->space_id != transformation.output_space_id)
+                report.add(DiagnosticCategory::structural,
+                           transformation.id,
+                           "fixed_dirichlet_lifting_space",
+                           "Declare fixed lifting data in the reconstructed state space.");
+            }
+          else if (transformation.kind ==
+                   TransformationKind::dirichlet_control_lifting)
+            {
+              if (!has_state_ports || control == variables.end() ||
+                  control->second->role != VariableRole::control ||
+                  !transformation.fixed_data_id.empty())
+                report.add(
+                  DiagnosticCategory::structural,
+                  transformation.id,
+                  "dirichlet_control_lifting_ports",
+                  "Connect the Dirichlet lifting to one state variable, one control variable, and the reconstructed state space without implicit fixed data.");
+            }
           if (input != variables.end() && output != spaces.end() &&
               input->second->space_id != transformation.output_space_id)
             report.add(DiagnosticCategory::structural,
                        transformation.id,
-                       "fixed_dirichlet_reconstruction_space",
+                       "physical_field_reconstruction_space",
                        "Reconstruct the physical field in the state variable's declared space.");
-          if (fixed_data != data.end() &&
-              fixed_data->second->space_id != transformation.output_space_id)
-            report.add(DiagnosticCategory::structural,
-                       transformation.id,
-                       "fixed_dirichlet_lifting_space",
-                       "Declare fixed lifting data in the reconstructed state space.");
           const auto output_uses = std::count_if(
             specification.variables.begin(),
             specification.variables.end(),
@@ -826,15 +844,21 @@ namespace nmopt::semantic::v1
           {
             const bool has_fixed_dirichlet =
               has_policy(variable.id, RequirementKind::fixed_dirichlet);
+            const bool has_controlled_dirichlet =
+              has_policy(variable.id, RequirementKind::controlled_dirichlet);
             const bool has_mean_zero_multiplier =
               has_policy(variable.id, RequirementKind::mean_zero_multiplier);
-            if (!has_fixed_dirichlet && !has_mean_zero_multiplier)
+            const unsigned int uniqueness_policies =
+              static_cast<unsigned int>(has_fixed_dirichlet) +
+              static_cast<unsigned int>(has_controlled_dirichlet) +
+              static_cast<unsigned int>(has_mean_zero_multiplier);
+            if (uniqueness_policies == 0)
               report.add(
                 DiagnosticCategory::analytical_policy,
                 variable.id,
                 "state_uniqueness_realisation",
-                "Declare either the selected fixed-Dirichlet policy or the mean-zero multiplier policy.");
-            if (has_fixed_dirichlet && has_mean_zero_multiplier)
+                "Declare one selected fixed-Dirichlet, controlled-Dirichlet, or mean-zero multiplier policy.");
+            if (uniqueness_policies > 1)
               report.add(
                 DiagnosticCategory::structural,
                 variable.id,

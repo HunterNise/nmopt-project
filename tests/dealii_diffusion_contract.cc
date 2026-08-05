@@ -235,6 +235,143 @@ namespace
 
   template <int dim>
   void
+  run_dirichlet_control_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+
+    // y_phys = 1 is the manufactured state for -Delta y + 0.5 y = 0.5,
+    // now with the entire Dirichlet trace supplied by the decision block.
+    const dealii::Functions::ConstantFunction<dim> forcing(0.5);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const auto specification =
+      semantic::v1::make_dirichlet_control_scalar_diffusion_reaction_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(
+      compiler.validate(specification, policy).valid(),
+      "Dirichlet-control lifting v1 graph did not validate for deal.II");
+
+    auto partial_boundary_specification = specification;
+    partial_boundary_specification.regions.at(1).boundary_ids = {1};
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing, desired_state, 1.0, 0.5, 0.1};
+    const auto partial_boundary = compiler.compile(partial_boundary_specification,
+                                                   triangulation,
+                                                   bindings,
+                                                   policy);
+    contract::require(
+      !partial_boundary.succeeded() &&
+        partial_boundary.diagnostics.has_category(
+          semantic::v1::DiagnosticCategory::lowerability),
+      "Dirichlet-control compiler did not reject an incomplete exterior boundary");
+
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "Dirichlet-control lifting v1 compilation failed");
+    const auto &model = compilation.problem->executable_model();
+    const auto *dirichlet_model =
+      dynamic_cast<const compiler::v1::detail::DirichletControlLiftingModel<dim> *>(
+        &model);
+    contract::require(dirichlet_model != nullptr,
+                      "Dirichlet-control compiler did not select its lifting target");
+    const auto reduced = compilation.problem->make_reduced_dto();
+
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_values.size();
+         ++index)
+      control_values[index] = 1.0;
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = reduced.evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "Dirichlet-control lifted state residual");
+    const dealii::Vector<double> physical_state =
+      dirichlet_model->reconstruct_physical_state(evaluation.full_point);
+    for (dealii::types::global_dof_index index = 0;
+         index < physical_state.size();
+         ++index)
+      require_close(physical_state[index],
+                    1.0,
+                    1e-11,
+                    "Dirichlet-control physical-state reconstruction");
+
+    dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_tangent(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size();
+         ++index)
+      state_tangent[index] = 0.02 * static_cast<double>(index + 1);
+    for (dealii::types::global_dof_index index = 0;
+         index < control_tangent.size();
+         ++index)
+      control_tangent[index] =
+        (index % 2 == 0 ? 0.03 : -0.02) * static_cast<double>(index + 1);
+    const Primal tangent(model.variable_layout(),
+                         {std::move(state_tangent), std::move(control_tangent)});
+    dealii::Vector<double> seed_values(model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < seed_values.size();
+         ++index)
+      seed_values[index] = 0.04 * static_cast<double>(index + 1);
+    const Primal test_seed(model.test_layout(), {std::move(seed_values)});
+    const Covector jvp = model.residual_jvp(evaluation.full_point, tangent);
+    const Covector vjp = model.residual_vjp(evaluation.full_point, test_seed);
+    require_close(contract::pair(jvp, test_seed),
+                  contract::pair(vjp, tangent),
+                  1e-11,
+                  "Dirichlet-control composed lifting JVP/VJP pairing");
+
+    dealii::Vector<double> control_direction_values(
+      control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_direction_values.size();
+         ++index)
+      control_direction_values[index] =
+        (index % 2 == 0 ? 0.05 : -0.04) * static_cast<double>(index + 1);
+    const Primal control_direction(control.layout(),
+                                   {std::move(control_direction_values)});
+    const double directional_derivative =
+      contract::pair(evaluation.reduced_derivative, control_direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(
+        reduced.evaluate(shifted(control, control_direction, step)).objective_value -
+        evaluation.objective_value - step * directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "Dirichlet-control reduced Taylor remainder is not quadratic");
+
+    const auto &metric = compilation.problem->metric();
+    const Primal metric_direction =
+      metric.inverse_apply(evaluation.reduced_derivative);
+    require_covector_close(metric.apply(metric_direction),
+                           evaluation.reduced_derivative,
+                           1e-10,
+                           "Dirichlet-control trace metric inverse/apply");
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.control_space.find("nodal trace") != std::string::npos &&
+        manifest.lifting_realisation.find("L_D,h") != std::string::npos &&
+        manifest.metric_solve_policy.find("l2_dirichlet_trace") !=
+          std::string::npos &&
+        manifest.declared_assumptions.front().find("dirichlet_control_lifting") !=
+          std::string::npos,
+      "Dirichlet-control compilation manifest is incomplete");
+  }
+
+  template <int dim>
+  void
   run_subdomain_observation_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -1347,6 +1484,7 @@ main()
     {
       run_contract_test<2>();
       run_fixed_dirichlet_contract_test<2>();
+      run_dirichlet_control_contract_test<2>();
       run_subdomain_observation_contract_test<2>();
       run_neumann_boundary_contract_test<2>();
       run_h1_control_regularisation_contract_test<2>();

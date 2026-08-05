@@ -38,8 +38,8 @@ namespace nmopt::semantic::v1
        "Control-observation coefficient pairing", "control_observation_space",
        "control_observation_space"}};
     specification.variables = {
-      {"state", "State", VariableRole::state, "state_space"},
-      {"control", "Control", VariableRole::control, "control_space"}};
+      {"state", "State", VariableRole::state, "state_space", ""},
+      {"control", "Control", VariableRole::control, "control_space", ""}};
     specification.data = {
       {"forcing", "Volume forcing", DataKind::function, DataRole::forcing,
        "state_test_space"},
@@ -108,6 +108,32 @@ namespace nmopt::semantic::v1
         specification.formulation.constraint_id = "control_box";
       }
 
+    return specification;
+  }
+
+  // This deliberately differs from the homogeneous reference graph above:
+  // the state variable denotes independent coordinates and the declared map
+  // reconstructs the physical field consumed by residuals and observations.
+  inline ProblemSpec
+  make_fixed_dirichlet_scalar_diffusion_reaction_problem(
+    const bool with_cellwise_box = false)
+  {
+    ProblemSpec specification =
+      make_scalar_diffusion_reaction_problem(with_cellwise_box);
+    specification.id = "scalar_diffusion_reaction_fixed_dirichlet";
+    specification.label = "Scalar diffusion-reaction with fixed Dirichlet lifting";
+    specification.regions.at(1).label = "Fixed Dirichlet boundary";
+    specification.data.push_back(
+      {"fixed_dirichlet_data", "Fixed Dirichlet data", DataKind::function,
+       DataRole::fixed_dirichlet_lifting, "state_space"});
+    specification.transformations = {
+      {"fixed_dirichlet_reconstruction", "Fixed Dirichlet reconstruction",
+       TransformationKind::fixed_dirichlet_reconstruction, "state",
+       "state_space", "fixed_dirichlet_data"}};
+    specification.variables.at(0).physical_field_transform_id =
+      "fixed_dirichlet_reconstruction";
+    specification.requirement_policies.at(0).selected_policy =
+      "P_h independent FE_Q coordinates plus nodal fixed Dirichlet lifting";
     return specification;
   }
 } // namespace nmopt::semantic::v1

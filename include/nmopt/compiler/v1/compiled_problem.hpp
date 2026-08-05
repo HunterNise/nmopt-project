@@ -36,6 +36,7 @@ namespace nmopt::compiler::v1
     std::vector<std::string> pairing_ids;
     std::vector<std::string> variable_ids;
     std::vector<std::string> data_ids;
+    std::vector<std::string> transformation_ids;
     std::vector<std::string> residual_term_ids;
     std::vector<std::string> observation_ids;
     std::vector<std::string> loss_ids;

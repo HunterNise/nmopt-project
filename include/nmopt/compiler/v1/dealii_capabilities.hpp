@@ -57,5 +57,13 @@ namespace nmopt::compiler::v1
     {
       return kind == semantic::v1::ConstraintKind::cellwise_box;
     }
+
+    bool
+    has_transformation_lowerer(
+      const semantic::v1::TransformationKind kind) const
+    {
+      return kind ==
+             semantic::v1::TransformationKind::fixed_dirichlet_reconstruction;
+    }
   };
 } // namespace nmopt::compiler::v1

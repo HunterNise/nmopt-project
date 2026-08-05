@@ -46,6 +46,7 @@ namespace nmopt::semantic::v1
   {
     forcing,
     desired_state,
+    fixed_dirichlet_lifting,
     diffusion,
     reaction,
     regularisation_weight,
@@ -79,6 +80,11 @@ namespace nmopt::semantic::v1
   enum class ConstraintKind
   {
     cellwise_box
+  };
+
+  enum class TransformationKind
+  {
+    fixed_dirichlet_reconstruction
   };
 
   enum class RequirementKind
@@ -140,6 +146,10 @@ namespace nmopt::semantic::v1
     std::string  label;
     VariableRole role;
     std::string  space_id;
+    // An empty port means that this variable is already its physical field.
+    // Otherwise the referenced transformation reconstructs that field before
+    // residual and observation evaluation.
+    std::string  physical_field_transform_id;
   };
 
   struct DataSpec
@@ -149,6 +159,16 @@ namespace nmopt::semantic::v1
     DataKind    kind;
     DataRole    role;
     std::string space_id;
+  };
+
+  struct TransformationSpec
+  {
+    std::string        id;
+    std::string        label;
+    TransformationKind kind;
+    std::string        input_variable_id;
+    std::string        output_space_id;
+    std::string        fixed_data_id;
   };
 
   struct ResidualTermSpec
@@ -244,6 +264,7 @@ namespace nmopt::semantic::v1
     std::vector<PairingSpec>           pairings;
     std::vector<VariableSpec>          variables;
     std::vector<DataSpec>              data;
+    std::vector<TransformationSpec>    transformations;
     std::vector<ResidualTermSpec>      residual_terms;
     std::vector<EquationBlockSpec>     equations;
     std::vector<ObservationSpec>       observations;

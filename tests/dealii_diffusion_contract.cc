@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <exception>
+#include <functional>
 #include <iostream>
 #include <string>
 
@@ -57,6 +58,163 @@ namespace
     for (std::size_t block = 0; block < value.n_blocks(); ++block)
       Backend::add_scaled(value.block(block), step, direction.block(block));
     return value;
+  }
+
+  template <int dim>
+  void
+  run_fixed_dirichlet_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+
+    // y_phys = 1 is the manufactured state for -Delta y + 0.5 y = 0.5
+    // with fixed Dirichlet data y = 1. The state coordinates are the
+    // independent y_hat values, while the executable actions see y_phys.
+    const dealii::Functions::ConstantFunction<dim> forcing(0.5);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const dealii::Functions::ConstantFunction<dim> fixed_dirichlet_data(1.0);
+    const dealii::Functions::ConstantFunction<dim> changed_dirichlet_data(2.0);
+    const auto specification =
+      semantic::v1::make_fixed_dirichlet_scalar_diffusion_reaction_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(specification, policy).valid(),
+                      "fixed-Dirichlet v1 graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> missing_lifting_binding{
+      forcing, desired_state, 1.0, 0.5, 0.1};
+    const auto missing_lifting = compiler.compile(specification,
+                                                  triangulation,
+                                                  missing_lifting_binding,
+                                                  policy);
+    contract::require(
+      !missing_lifting.succeeded() &&
+        missing_lifting.diagnostics.has_category(
+          semantic::v1::DiagnosticCategory::lowerability),
+      "v1 compiler did not diagnose missing fixed-Dirichlet data");
+
+    auto bindings = compiler::v1::DealiiDataBindings<dim>{
+      forcing, desired_state, 1.0, 0.5, 0.1};
+    bindings.fixed_dirichlet_data = std::cref(fixed_dirichlet_data);
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "v1 fixed-Dirichlet compilation failed");
+
+    const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = reduced.evaluate(control);
+    const Covector state_residual = model.residual(evaluation.full_point);
+    require_close(state_residual.block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "fixed-Dirichlet reconstructed state residual");
+    require_close(evaluation.objective_value,
+                  0.28125,
+                  1e-11,
+                  "fixed-Dirichlet physical state tracking value");
+
+    dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_tangent(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size();
+         ++index)
+      state_tangent[index] = 0.02 * static_cast<double>(index + 1);
+    for (dealii::types::global_dof_index index = 0;
+         index < control_tangent.size();
+         ++index)
+      control_tangent[index] = -0.03 * static_cast<double>(index + 1);
+    const Primal tangent(model.variable_layout(),
+                         {std::move(state_tangent), std::move(control_tangent)});
+    dealii::Vector<double> seed_values(model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < seed_values.size();
+         ++index)
+      seed_values[index] = 0.04 * static_cast<double>(index + 1);
+    const Primal test_seed(model.test_layout(), {std::move(seed_values)});
+
+    const Covector jvp = model.residual_jvp(evaluation.full_point, tangent);
+    const Covector vjp = model.residual_vjp(evaluation.full_point, test_seed);
+    require_close(contract::pair(jvp, test_seed),
+                  contract::pair(vjp, tangent),
+                  1e-11,
+                  "fixed-Dirichlet reconstruction JVP/VJP pairing");
+
+    constexpr double derivative_step = 1e-7;
+    const Covector residual_at_step = model.residual(
+      shifted(evaluation.full_point, tangent, derivative_step));
+    for (std::size_t block = 0; block < residual_at_step.n_blocks(); ++block)
+      {
+        dealii::Vector<double> finite_difference = residual_at_step.block(block);
+        finite_difference.add(-1.0, state_residual.block(block));
+        finite_difference *= 1.0 / derivative_step;
+        finite_difference.add(-1.0, jvp.block(block));
+        require_close(finite_difference.l2_norm(),
+                      0.0,
+                      1e-7,
+                      "fixed-Dirichlet reconstruction residual JVP");
+      }
+    const double objective_difference =
+      model.objective(shifted(evaluation.full_point, tangent, derivative_step)) -
+      evaluation.objective_value;
+    require_close(objective_difference / derivative_step,
+                  contract::pair(model.objective_derivative(evaluation.full_point),
+                                 tangent),
+                  2e-7,
+                  "fixed-Dirichlet physical objective derivative");
+
+    dealii::Vector<double> control_direction_values(
+      control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_direction_values.size();
+         ++index)
+      control_direction_values[index] =
+        (index % 2 == 0 ? 0.05 : -0.04) * static_cast<double>(index + 1);
+    const Primal control_direction(control.layout(),
+                                   {std::move(control_direction_values)});
+    const double directional_derivative =
+      contract::pair(evaluation.reduced_derivative, control_direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, control_direction, step))
+                        .objective_value -
+                      evaluation.objective_value - step * directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "fixed-Dirichlet reduced Taylor remainder is not quadratic");
+
+    auto changed_bindings = compiler::v1::DealiiDataBindings<dim>{
+      forcing, desired_state, 1.0, 0.5, 0.1};
+    changed_bindings.fixed_dirichlet_data = std::cref(changed_dirichlet_data);
+    const auto changed_compilation = compiler.compile(specification,
+                                                      triangulation,
+                                                      changed_bindings,
+                                                      policy);
+    contract::require(changed_compilation.succeeded(),
+                      "v1 fixed-Dirichlet recompilation failed for changed data");
+    const auto changed_evaluation =
+      changed_compilation.problem->make_reduced_dto().evaluate(control);
+    contract::require(
+      std::abs(changed_evaluation.objective_value - evaluation.objective_value) >
+        1e-4,
+      "changed fixed-Dirichlet data reused stale compiled values");
+
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.lifting_realisation.find("y_phys = P_h y_hat + ell_0,h") !=
+        std::string::npos &&
+        manifest.data_rule.find("boundary DoFs") != std::string::npos &&
+        manifest.transformation_ids.size() == 1,
+      "v1 fixed-Dirichlet compilation manifest is incomplete");
   }
 
   template <int dim>
@@ -361,6 +519,7 @@ main()
   try
     {
       run_contract_test<2>();
+      run_fixed_dirichlet_contract_test<2>();
       std::cout << "deal.II diffusion DTO contract test passed\n";
       return 0;
     }

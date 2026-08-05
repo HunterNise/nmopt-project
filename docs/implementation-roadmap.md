@@ -202,6 +202,19 @@ reference setup.
 
 ### P1.2 — Generalize fixed essential conditions through reconstruction
 
+**Implemented (v1):** A state variable can declare the
+`fixed_dirichlet_reconstruction` transformation, and the compiler then binds
+explicit fixed-Dirichlet `Function` data. Its private v1-only compiler target
+compiles independent `FE_Q` coordinates with
+$`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}`$, evaluates residual and
+tracking on the physical field, and applies $`P_{h}^{\ast}`$ for every
+state-side covector. The direct v0 homogeneous model is untouched. The
+manifest records the transformation, nodal boundary interpolation data rule,
+and lifting realization; recompilation is the immutable data-cache boundary.
+The deal.II contract test covers a nonzero manufactured state, reconstruction
+JVP/VJP and objective derivatives, a reduced Taylor remainder, missing data
+diagnostics, and changed lifting data.
+
 **Why:** The current lowerer correctly handles only homogeneous Dirichlet
 data. Fixed inhomogeneous data is the smallest meaningful test of the
 transformation/reconstruction contract; it must happen before controlled

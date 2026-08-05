@@ -2,6 +2,7 @@
 
 #include "nmopt/compiler/v1/compiled_problem.hpp"
 #include "nmopt/compiler/v1/dealii_capabilities.hpp"
+#include "nmopt/compiler/v1/dealii_fixed_dirichlet.hpp"
 #include "nmopt/compiler/v1/dealii_types.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/semantic/v1/validation.hpp"
@@ -46,10 +47,22 @@ namespace nmopt::compiler::v1
             std::optional<CellwiseBoxDataBindings> bounds = std::nullopt) const
     {
       using Backend = dealii_backend::SerialBackend;
-      using DirectModel = dealii_backend::ScalarDiffusionReactionModel<dim>;
-
       CompilationResultT<Backend> result;
       result.diagnostics = validate(specification, policy);
+      const bool uses_fixed_reconstruction =
+        uses_fixed_dirichlet_reconstruction(specification);
+      if (uses_fixed_reconstruction && !data.fixed_dirichlet_data)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "fixed_dirichlet_data_binding",
+          "Bind fixed Dirichlet Function data for the declared reconstruction.");
+      if (!uses_fixed_reconstruction && data.fixed_dirichlet_data)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "selected_fixed_dirichlet_reconstruction",
+          "Declare the fixed-Dirichlet reconstruction before binding lifting data.");
       const bool has_constraint = !specification.formulation.constraint_id.empty();
       if (has_constraint && !bounds)
         result.diagnostics.add(
@@ -68,40 +81,75 @@ namespace nmopt::compiler::v1
 
       const auto dirichlet_boundary_ids =
         selected_dirichlet_boundary_ids(specification);
-      const auto direct = std::make_shared<DirectModel>(
-        triangulation,
-        data.forcing,
-        data.desired_state,
-        data.diffusion,
-        data.reaction,
-        data.regularisation_weight,
-        policy.state_degree,
-        dirichlet_boundary_ids);
-
-      const std::shared_ptr<const contract::MetricT<Backend>> metric =
-        std::make_shared<dealii_backend::MassMetric>(
-          direct->control_l2_metric(policy.control_metric_solve));
+      std::shared_ptr<const contract::MetricT<Backend>> metric;
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
-      if (has_constraint)
-        constraint = std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-          make_constraint(*direct, *bounds));
-
-      const contract::StateAdjointSolversT<Backend> solvers{
-        [direct](const contract::PrimalBlockT<Backend> &control) {
-          return direct->solve_state(control);
-        },
-        [direct](const contract::PrimalBlockT<Backend> &full_point,
-                 const contract::CovectorBlockT<Backend> &state_rhs) {
-          return direct->solve_adjoint(full_point, state_rhs);
-        }};
-      const std::shared_ptr<const contract::ExecutableModelT<Backend>> executable =
-        direct;
+      std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
+      contract::StateAdjointSolversT<Backend> solvers;
+      if (uses_fixed_reconstruction)
+        {
+          using LiftedModel =
+            detail::FixedDirichletScalarDiffusionReactionModel<dim>;
+          const auto lifted = std::make_shared<LiftedModel>(
+            triangulation,
+            data.forcing,
+            data.desired_state,
+            data.fixed_dirichlet_data->get(),
+            data.diffusion,
+            data.reaction,
+            data.regularisation_weight,
+            policy.state_degree,
+            dirichlet_boundary_ids);
+          metric = std::make_shared<dealii_backend::MassMetric>(
+            lifted->control_l2_metric(policy.control_metric_solve));
+          if (has_constraint)
+            constraint = std::make_shared<dealii_backend::CellwiseBoxConstraint>(
+              make_constraint(*lifted, *bounds));
+          solvers = {
+            [lifted](const contract::PrimalBlockT<Backend> &control) {
+              return lifted->solve_state(control);
+            },
+            [lifted](const contract::PrimalBlockT<Backend> &full_point,
+                     const contract::CovectorBlockT<Backend> &state_rhs) {
+              return lifted->solve_adjoint(full_point, state_rhs);
+            }};
+          executable = lifted;
+        }
+      else
+        {
+          using DirectModel = dealii_backend::ScalarDiffusionReactionModel<dim>;
+          const auto direct = std::make_shared<DirectModel>(
+            triangulation,
+            data.forcing,
+            data.desired_state,
+            data.diffusion,
+            data.reaction,
+            data.regularisation_weight,
+            policy.state_degree,
+            dirichlet_boundary_ids);
+          metric = std::make_shared<dealii_backend::MassMetric>(
+            direct->control_l2_metric(policy.control_metric_solve));
+          if (has_constraint)
+            constraint = std::make_shared<dealii_backend::CellwiseBoxConstraint>(
+              make_constraint(*direct, *bounds));
+          solvers = {
+            [direct](const contract::PrimalBlockT<Backend> &control) {
+              return direct->solve_state(control);
+            },
+            [direct](const contract::PrimalBlockT<Backend> &full_point,
+                     const contract::CovectorBlockT<Backend> &state_rhs) {
+              return direct->solve_adjoint(full_point, state_rhs);
+            }};
+          executable = direct;
+        }
       result.problem = std::make_shared<const CompiledProblemT<Backend>>(
         executable,
         metric,
         constraint,
         solvers,
-        make_manifest(specification, policy, has_constraint));
+        make_manifest(specification,
+                      policy,
+                      has_constraint,
+                      uses_fixed_reconstruction));
       return result;
     }
 
@@ -117,6 +165,49 @@ namespace nmopt::compiler::v1
           return candidate.id == id;
         });
       return region == specification.regions.end() ? nullptr : &*region;
+    }
+
+    static const semantic::v1::VariableSpec *
+    find_variable(const semantic::v1::ProblemSpec &specification,
+                  const std::string &              id)
+    {
+      const auto variable = std::find_if(
+        specification.variables.begin(),
+        specification.variables.end(),
+        [&id](const semantic::v1::VariableSpec &candidate) {
+          return candidate.id == id;
+        });
+      return variable == specification.variables.end() ? nullptr : &*variable;
+    }
+
+    static const semantic::v1::TransformationSpec *
+    find_transformation(const semantic::v1::ProblemSpec &specification,
+                        const std::string &              id)
+    {
+      const auto transformation = std::find_if(
+        specification.transformations.begin(),
+        specification.transformations.end(),
+        [&id](const semantic::v1::TransformationSpec &candidate) {
+          return candidate.id == id;
+        });
+      return transformation == specification.transformations.end()
+               ? nullptr
+               : &*transformation;
+    }
+
+    static bool
+    uses_fixed_dirichlet_reconstruction(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto state = find_variable(specification,
+                                       specification.formulation.state_variable_id);
+      if (state == nullptr || state->physical_field_transform_id.empty())
+        return false;
+      const auto transformation = find_transformation(
+        specification, state->physical_field_transform_id);
+      return transformation != nullptr &&
+             transformation->kind ==
+               semantic::v1::TransformationKind::fixed_dirichlet_reconstruction;
     }
 
     static std::set<dealii::types::boundary_id>
@@ -151,11 +242,11 @@ namespace nmopt::compiler::v1
               std::holds_alternative<dealii::Vector<double>>(bounds.upper));
     }
 
-    template <int dim>
+    template <typename Model>
     static dealii_backend::CellwiseBoxConstraint
     make_constraint(
-      const dealii_backend::ScalarDiffusionReactionModel<dim> &executable,
-      const CellwiseBoxDataBindings &                          bounds)
+      const Model &                    executable,
+      const CellwiseBoxDataBindings &  bounds)
     {
       contract::require(valid_bound_representation(bounds),
                         "The v1 cellwise box needs compatible bound data");
@@ -226,6 +317,12 @@ namespace nmopt::compiler::v1
                      constraint.id,
                      "registered_constraint_lowerer",
                      "Register the selected constraint projection realization.");
+      for (const auto &transformation : specification.transformations)
+        if (!registry_.has_transformation_lowerer(transformation.kind))
+          report.add(DiagnosticCategory::lowerability,
+                     transformation.id,
+                     "registered_transformation_lowerer",
+                     "Register value, JVP, and VJP lowering for this transformation.");
 
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
@@ -243,8 +340,8 @@ namespace nmopt::compiler::v1
           boundary->boundary_ids.empty())
         report.add(DiagnosticCategory::lowerability,
                    specification.formulation.state_variable_id,
-                   "homogeneous_dirichlet_boundary_ids",
-                   "Select a boundary region with at least one homogeneous Dirichlet id.");
+                   "fixed_dirichlet_boundary_ids",
+                   "Select a boundary region with at least one fixed Dirichlet id.");
     }
 
     static void
@@ -379,7 +476,8 @@ namespace nmopt::compiler::v1
     static CompilationManifest
     make_manifest(const semantic::v1::ProblemSpec &  specification,
                   const DealiiDiscretisationPolicy & policy,
-                  const bool                         has_constraint)
+                  const bool                         has_constraint,
+                  const bool                         uses_fixed_reconstruction)
     {
       CompilationManifest manifest;
       manifest.semantic_problem_id = specification.id;
@@ -393,7 +491,9 @@ namespace nmopt::compiler::v1
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
       manifest.dual_representation = "tested dual coefficients with dot pairing";
-      manifest.data_rule = "deal.II Function at volume quadrature; scalar coefficients";
+      manifest.data_rule = uses_fixed_reconstruction
+                             ? "deal.II Function at volume quadrature; fixed Dirichlet Function interpolated at boundary DoFs; scalar coefficients"
+                             : "deal.II Function at volume quadrature; scalar coefficients";
       manifest.metric_solve_policy =
         "serial CG: maximum iterations=" +
         std::to_string(policy.control_metric_solve.maximum_iterations) +
@@ -404,10 +504,11 @@ namespace nmopt::compiler::v1
       manifest.constraint_realisation = has_constraint
                                           ? "FE_DGQ(0) coefficientwise l2_cellwise clipping"
                                           : "none";
-      manifest.lifting_realisation =
-        "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
+      manifest.lifting_realisation = uses_fixed_reconstruction
+                                       ? "y_phys = P_h y_hat + ell_0,h; independent FE_Q coordinates, AffineConstraints reconstruction, and P_h^* pullbacks"
+                                       : "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
       manifest.nullspace_policy =
-        "not applicable: non-empty homogeneous Dirichlet boundary";
+        "not applicable: non-empty fixed Dirichlet boundary";
       manifest.state_adjoint_solve_policy =
         "serial CG with identity preconditioner for symmetric positive-definite operator";
       manifest.provenance = "DTO";
@@ -416,6 +517,7 @@ namespace nmopt::compiler::v1
       manifest.pairing_ids = identifiers(specification.pairings);
       manifest.variable_ids = identifiers(specification.variables);
       manifest.data_ids = identifiers(specification.data);
+      manifest.transformation_ids = identifiers(specification.transformations);
       manifest.residual_term_ids = identifiers(specification.residual_terms);
       manifest.observation_ids = identifiers(specification.observations);
       manifest.loss_ids = identifiers(specification.losses);

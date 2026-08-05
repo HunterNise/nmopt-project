@@ -73,6 +73,9 @@ namespace nmopt::semantic::v1
       const auto pairings = index(specification.pairings, report, "pairing");
       const auto variables = index(specification.variables, report, "variable");
       const auto data = index(specification.data, report, "data");
+      const auto transformations = index(specification.transformations,
+                                         report,
+                                         "transformation");
       const auto terms = index(specification.residual_terms, report,
                                "residual term");
       const auto equations = index(specification.equations, report,
@@ -87,8 +90,13 @@ namespace nmopt::semantic::v1
       validate_regions(specification, report);
       validate_spaces(specification, regions, report);
       validate_pairings(specification, spaces, report);
-      validate_variables(specification, spaces, report);
+      validate_variables(specification, spaces, transformations, report);
       validate_data(specification, spaces, report);
+      validate_transformations(specification,
+                               variables,
+                               data,
+                               spaces,
+                               report);
       validate_equations(specification, spaces, pairings, terms, report);
       validate_terms(specification, variables, data, equations, report);
       validate_observations(specification, variables, regions, spaces, pairings,
@@ -202,9 +210,10 @@ namespace nmopt::semantic::v1
     }
 
     static void
-    validate_variables(const ProblemSpec &     specification,
-                       const Index<SpaceSpec> &spaces,
-                       ValidationReport &      report)
+    validate_variables(const ProblemSpec &                  specification,
+                       const Index<SpaceSpec> &             spaces,
+                       const Index<TransformationSpec> &    transformations,
+                       ValidationReport &                   report)
     {
       for (const auto &variable : specification.variables)
         {
@@ -222,6 +231,22 @@ namespace nmopt::semantic::v1
                        variable.id,
                        "variable_space_role",
                        "Connect each variable to a matching state or control space.");
+          if (!variable.physical_field_transform_id.empty())
+            {
+              const auto transformation =
+                transformations.find(variable.physical_field_transform_id);
+              if (transformation == transformations.end())
+                report.add(DiagnosticCategory::structural,
+                           variable.id,
+                           "physical_field_transformation",
+                           "Reference a declared physical-field transformation.");
+              else if (transformation->second->input_variable_id != variable.id ||
+                       transformation->second->output_space_id != variable.space_id)
+                report.add(DiagnosticCategory::structural,
+                           variable.id,
+                           "physical_field_transformation_ports",
+                           "Use a transformation from this variable to its declared space.");
+            }
         }
     }
 
@@ -236,6 +261,56 @@ namespace nmopt::semantic::v1
                      datum.id,
                      "data_space_port",
                      "Reference a declared data space or leave scalar constants unspaced.");
+    }
+
+    static void
+    validate_transformations(const ProblemSpec &                 specification,
+                             const Index<VariableSpec> &         variables,
+                             const Index<DataSpec> &             data,
+                             const Index<SpaceSpec> &            spaces,
+                             ValidationReport &                  report)
+    {
+      for (const auto &transformation : specification.transformations)
+        {
+          const auto input = variables.find(transformation.input_variable_id);
+          const auto output = spaces.find(transformation.output_space_id);
+          const auto fixed_data = data.find(transformation.fixed_data_id);
+          if (input == variables.end() ||
+              input->second->role != VariableRole::state ||
+              output == spaces.end() ||
+              output->second->role != SpaceRole::state ||
+              fixed_data == data.end() ||
+              fixed_data->second->kind != DataKind::function ||
+              fixed_data->second->role != DataRole::fixed_dirichlet_lifting)
+            report.add(
+              DiagnosticCategory::structural,
+              transformation.id,
+              "fixed_dirichlet_reconstruction_ports",
+              "Connect the fixed reconstruction to one state variable, its state space, and fixed Function data.");
+          if (input != variables.end() && output != spaces.end() &&
+              input->second->space_id != transformation.output_space_id)
+            report.add(DiagnosticCategory::structural,
+                       transformation.id,
+                       "fixed_dirichlet_reconstruction_space",
+                       "Reconstruct the physical field in the state variable's declared space.");
+          if (fixed_data != data.end() &&
+              fixed_data->second->space_id != transformation.output_space_id)
+            report.add(DiagnosticCategory::structural,
+                       transformation.id,
+                       "fixed_dirichlet_lifting_space",
+                       "Declare fixed lifting data in the reconstructed state space.");
+          const auto output_uses = std::count_if(
+            specification.variables.begin(),
+            specification.variables.end(),
+            [&transformation](const VariableSpec &variable) {
+              return variable.physical_field_transform_id == transformation.id;
+            });
+          if (output_uses != 1)
+            report.add(DiagnosticCategory::structural,
+                       transformation.id,
+                       "physical_field_transformation_output",
+                       "Connect this transformation to exactly one physical state field.");
+        }
     }
 
     static void

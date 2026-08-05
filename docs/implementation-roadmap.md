@@ -329,6 +329,15 @@ exercise it.
 2. $H^{1}$ **metric**: a Riesz map/inverse used only for
    $G^{-1}j'$; it does not change the objective or adjoint.
 
+**Implemented (v1, regularisation only):**
+`make_h1_regularised_scalar_diffusion_reaction_problem()` selects a new
+`quadratic_h1_control_regularisation` loss and continuous control `FE_Q` space.
+Its private v1 target adds $`\alpha(M_{u}+K_{u})u`$ to the control objective
+derivative while retaining the `l2_continuous` mass-matrix search metric. It
+does not select a box constraint. Focused contracts verify the stiffness
+contribution, residual pullback identity, and reduced Taylor remainder. The
+separate $H^{1}$ metric remains the next task.
+
 The metric needs a positive zero-order term or an explicit boundary/mean
 policy to be invertible. An $H^{-1}$-type metric remains unsupported until
 its exact Hilbert space and discrete operator are stated.

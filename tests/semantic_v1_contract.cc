@@ -36,6 +36,12 @@ namespace
     require(subdomain_report.valid(),
             "the material-subdomain v1 tracking graph is invalid");
 
+    const auto h1_control_specification =
+      nmopt::semantic::v1::make_h1_regularised_scalar_diffusion_reaction_problem();
+    const auto h1_control_report = validator.validate(h1_control_specification);
+    require(h1_control_report.valid(),
+            "the H1-control regularisation v1 graph is invalid");
+
     const auto boundary_specification =
       nmopt::semantic::v1::make_neumann_boundary_control_problem(true);
     const auto boundary_report = validator.validate(boundary_specification);
@@ -108,6 +114,14 @@ namespace
     require(missing_mean_constraint_report.has_category(
               nmopt::semantic::v1::DiagnosticCategory::analytical_policy),
             "v1 semantic validation did not require the pure-Neumann mean constraint");
+
+    auto h1_regularisation_data_mismatch = h1_control_specification;
+    h1_regularisation_data_mismatch.losses.at(1).data_id = "desired_state";
+    const auto h1_regularisation_data_mismatch_report =
+      validator.validate(h1_regularisation_data_mismatch);
+    require(h1_regularisation_data_mismatch_report.has_category(
+              nmopt::semantic::v1::DiagnosticCategory::structural),
+            "v1 semantic validation did not validate H1 regularisation data");
 
     auto conflicting_state_gauges = pure_neumann_specification;
     conflicting_state_gauges.requirement_policies.push_back(

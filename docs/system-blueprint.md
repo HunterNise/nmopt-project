@@ -286,6 +286,7 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`dealii_compiler.hpp`](../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks plus private v0 comparison or v1 assembled targets |
 | [`dealii_fixed_dirichlet.hpp`](../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
 | [`dealii_neumann_boundary.hpp`](../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, pullbacks, and pure-Neumann mean-zero saddle solves |
+| [`dealii_h1_control.hpp`](../include/nmopt/compiler/v1/dealii_h1_control.hpp) | V1 continuous-control target | $H^{1}$ control loss with an explicitly separate $L^{2}$ search metric |
 | [`reduced_dto_contract.cc`](../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
 | [`dealii_diffusion_contract.cc`](../tests/dealii_diffusion_contract.cc) | Same checks through real deal.II assembly | End-to-end reference use |
 
@@ -324,14 +325,16 @@ implemented v1 graph/compiler supports fixed Dirichlet reconstruction, state
 tracking on the full volume or one material-id volume subregion, and marked
 facewise Neumann control with boundary trace tracking. Its registered
 zero-reaction pure-Neumann variant uses a one-multiplier mean-zero gauge and
-compatible facewise loads. It does not provide
+compatible facewise loads. Its homogeneous volume-control variant also
+supports continuous `FE_Q` control with an $H^{1}$ objective loss and an
+$L^{2}$ metric. It does not provide
 controlled/periodic/hanging essential conditions, Robin terms, arbitrary
 geometric subdomains, FE target projection/interpolation, nonlinear or
 variable coefficients, mixed/vector/DG states, MPI vectors, time, OTD, or KKT
 Newton. The available box projections are only the declared `FE_DGQ(0)`
 cellwise volume and facewise-constant boundary $L^{2}$ policies.
 
-The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) next separates $H^{1}$ regularisation from $H^{1}$ search geometry while preserving the v0 reference.
+The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) next adds the separately specified $H^{1}$ search geometry while preserving the v0 reference.
 
 ## Blueprint for adding one feature yourself
 

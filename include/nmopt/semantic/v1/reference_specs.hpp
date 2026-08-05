@@ -140,6 +140,42 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // P2.3's first half changes the objective, not the search geometry.  The
+  // control has continuous FE_Q coordinates and the declared loss is the
+  // H1 norm, while the selected algorithmic metric remains L2.
+  inline ProblemSpec
+  make_h1_regularised_scalar_diffusion_reaction_problem()
+  {
+    ProblemSpec specification = make_scalar_diffusion_reaction_problem();
+    specification.id = "scalar_diffusion_reaction_h1_control_regularisation";
+    specification.label =
+      "Scalar diffusion-reaction with H1 control regularisation";
+    specification.spaces.at(2) =
+      {"control_space", "Continuous control", "domain", SpaceTopology::h1,
+       SpaceRole::control};
+    specification.spaces.at(4) =
+      {"control_observation_space", "Continuous control observation", "domain",
+       SpaceTopology::h1, SpaceRole::observation};
+    specification.pairings.at(2) =
+      {"control_pairing", "Continuous control coefficient pairing",
+       "control_space", "control_space"};
+    specification.pairings.at(4) =
+      {"control_observation_pairing", "Continuous control observation pairing",
+       "control_observation_space", "control_observation_space"};
+    specification.observations.at(1) =
+      {"control_observation", "Continuous control identity observation",
+       ObservationKind::volume_restriction, "control", "domain",
+       "control_observation_space", "control_observation_pairing"};
+    specification.losses.at(1) =
+      {"control_h1_regularisation", "Quadratic H1 control regularisation",
+       LossKind::quadratic_h1_control_regularisation, "control_observation",
+       "regularisation_weight", "control_observation_pairing"};
+    specification.metrics.at(0) =
+      {"control_l2_metric", "Continuous-control L2 metric", MetricKind::l2,
+       "control", "control_pairing"};
+    return specification;
+  }
+
   // The first boundary-control graph deliberately has a different control
   // space and residual term from volume control. It is a Neumann trace
   // pairing, not a Dirichlet lifting or a generic boundary-load switch.

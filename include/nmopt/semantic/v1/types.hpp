@@ -73,7 +73,8 @@ namespace nmopt::semantic::v1
   enum class LossKind
   {
     quadratic_tracking,
-    quadratic_control_regularisation
+    quadratic_control_regularisation,
+    quadratic_h1_control_regularisation
   };
 
   enum class MetricKind

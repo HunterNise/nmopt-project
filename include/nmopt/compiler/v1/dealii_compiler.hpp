@@ -3,6 +3,7 @@
 #include "nmopt/compiler/v1/compiled_problem.hpp"
 #include "nmopt/compiler/v1/dealii_capabilities.hpp"
 #include "nmopt/compiler/v1/dealii_fixed_dirichlet.hpp"
+#include "nmopt/compiler/v1/dealii_h1_control.hpp"
 #include "nmopt/compiler/v1/dealii_neumann_boundary.hpp"
 #include "nmopt/compiler/v1/dealii_types.hpp"
 #include "nmopt/dealii/facewise_box_constraint.hpp"
@@ -59,6 +60,8 @@ namespace nmopt::compiler::v1
         uses_neumann_control(specification);
       const bool uses_mean_zero_gauge =
         uses_mean_zero_multiplier(specification);
+      const bool uses_h1_control_regularisation =
+        uses_h1_control_regularisation_loss(specification);
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *control_boundary_region =
         selected_neumann_control_region(specification);
@@ -66,6 +69,7 @@ namespace nmopt::compiler::v1
         tracking_region != nullptr && !tracking_region->is_full_domain;
       const bool uses_assembled_v1_target =
         !uses_neumann_boundary_control &&
+        !uses_h1_control_regularisation &&
         (uses_fixed_reconstruction || uses_subdomain_observation);
       if (uses_fixed_reconstruction && !data.fixed_dirichlet_data)
         result.diagnostics.add(
@@ -182,6 +186,30 @@ namespace nmopt::compiler::v1
             }};
           executable = boundary;
         }
+      else if (uses_h1_control_regularisation)
+        {
+          using H1Model = detail::H1ControlRegularisedModel<dim>;
+          const auto h1_control = std::make_shared<H1Model>(
+            triangulation,
+            data.forcing,
+            data.desired_state,
+            data.diffusion,
+            data.reaction,
+            data.regularisation_weight,
+            policy.state_degree,
+            dirichlet_boundary_ids);
+          metric = std::make_shared<dealii_backend::MassMetric>(
+            h1_control->control_l2_metric(policy.control_metric_solve));
+          solvers = {
+            [h1_control](const contract::PrimalBlockT<Backend> &control) {
+              return h1_control->solve_state(control);
+            },
+            [h1_control](const contract::PrimalBlockT<Backend> &full_point,
+                         const contract::CovectorBlockT<Backend> &state_rhs) {
+              return h1_control->solve_adjoint(full_point, state_rhs);
+            }};
+          executable = h1_control;
+        }
       else if (uses_assembled_v1_target)
         {
           using AssembledModel = detail::AssembledScalarDiffusionReactionModel<dim>;
@@ -250,6 +278,7 @@ namespace nmopt::compiler::v1
                       uses_assembled_v1_target,
                       uses_neumann_boundary_control,
                       uses_mean_zero_gauge,
+                      uses_h1_control_regularisation,
                       *tracking_region,
                       control_boundary_region));
       return result;
@@ -362,6 +391,19 @@ namespace nmopt::compiler::v1
                    semantic::v1::RequirementKind::mean_zero_multiplier &&
                  policy.status ==
                    semantic::v1::RequirementStatus::selected_discrete_realisation;
+        });
+    }
+
+    static bool
+    uses_h1_control_regularisation_loss(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.losses.begin(),
+        specification.losses.end(),
+        [](const semantic::v1::LossSpec &loss) {
+          return loss.kind ==
+                 semantic::v1::LossKind::quadratic_h1_control_regularisation;
         });
     }
 
@@ -540,6 +582,8 @@ namespace nmopt::compiler::v1
                      "Register value, JVP, and VJP lowering for this transformation.");
 
       const bool mean_zero_gauge = uses_mean_zero_multiplier(specification);
+      const bool h1_control_regularisation =
+        uses_h1_control_regularisation_loss(specification);
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),
@@ -595,6 +639,47 @@ namespace nmopt::compiler::v1
               specification.formulation.state_variable_id,
               "pure_neumann_without_fixed_dirichlet",
               "Do not declare a fixed Dirichlet policy with the pure-Neumann mean constraint.");
+        }
+
+      if (h1_control_regularisation)
+        {
+          const auto control = find_variable(
+            specification, specification.formulation.control_variable_id);
+          const auto space = std::find_if(
+            specification.spaces.begin(),
+            specification.spaces.end(),
+            [control](const semantic::v1::SpaceSpec &candidate) {
+              return control != nullptr && candidate.id == control->space_id;
+            });
+          if (control == nullptr ||
+              space == specification.spaces.end() ||
+              space->topology != semantic::v1::SpaceTopology::h1)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.control_variable_id,
+              "h1_continuous_control_space",
+              "Select the registered continuous H1 control space for H1 regularisation.");
+          if (!specification.formulation.constraint_id.empty())
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.constraint_id,
+              "continuous_control_box_constraint",
+              "Do not select the cellwise or facewise box with the continuous H1 control realization.");
+          if (uses_fixed_dirichlet_reconstruction(specification) ||
+              uses_neumann_control(specification))
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "h1_regularisation_registered_combination",
+              "The first H1-control regularisation target supports the homogeneous volume-control graph only.");
+          const auto h1_tracking_region = selected_tracking_region(specification);
+          if (h1_tracking_region == nullptr ||
+              !h1_tracking_region->is_full_domain)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "h1_regularisation_full_domain_tracking",
+              "The first H1-control regularisation target supports full-domain tracking only.");
         }
 
       if (!uses_neumann_control(specification))
@@ -688,12 +773,21 @@ namespace nmopt::compiler::v1
             return loss.kind == kind;
           });
       };
+      const bool h1_control_regularisation =
+        uses_h1_control_regularisation_loss(specification);
+      const bool complete_control_loss = h1_control_regularisation
+        ? count_losses(LossKind::quadratic_h1_control_regularisation) == 1 &&
+            count_losses(LossKind::quadratic_control_regularisation) == 0
+        : count_losses(LossKind::quadratic_control_regularisation) == 1 &&
+            count_losses(LossKind::quadratic_h1_control_regularisation) == 0;
       if (count_losses(LossKind::quadratic_tracking) != 1 ||
-          count_losses(LossKind::quadratic_control_regularisation) != 1)
+          !complete_control_loss || specification.losses.size() != 2)
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   "complete_quadratic_loss_set",
-                   "Declare exactly one tracking and one control-regularisation loss.");
+                   "complete_registered_loss_set",
+                   h1_control_regularisation
+                     ? "Declare exactly one tracking and one H1 control-regularisation loss."
+                     : "Declare exactly one tracking and one L2 control-regularisation loss.");
 
       const auto state = find_variable(
         specification, specification.formulation.state_variable_id);
@@ -859,6 +953,7 @@ namespace nmopt::compiler::v1
                   const bool                         uses_assembled_v1_target,
                   const bool                         uses_neumann_boundary_control,
                   const bool                         uses_mean_zero_gauge,
+                  const bool                         uses_h1_control_regularisation,
                   const semantic::v1::RegionSpec &   tracking_region,
                   const semantic::v1::RegionSpec *   control_boundary_region)
     {
@@ -872,6 +967,10 @@ namespace nmopt::compiler::v1
                              std::to_string(policy.state_degree) + ")";
       manifest.control_space = uses_neumann_boundary_control
                                  ? "one facewise-constant coefficient per marked state boundary face"
+                                 : uses_h1_control_regularisation
+                                     ? "continuous scalar FE_Q(" +
+                                         std::to_string(policy.state_degree) +
+                                         ") on the state mesh"
                                  : "FE_DGQ(0) on the state active-cell mesh";
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
@@ -918,6 +1017,9 @@ namespace nmopt::compiler::v1
         manifest.declared_assumptions.push_back(
           "neumann_control_realisation: facewise-constant FEFaceValues pairing on boundary ids " +
           boundary_id_list(*control_boundary_region));
+      if (uses_h1_control_regularisation)
+        manifest.declared_assumptions.push_back(
+          "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric remains l2_continuous");
       manifest.region_ids = identifiers(specification.regions);
       manifest.space_ids = identifiers(specification.spaces);
       manifest.pairing_ids = identifiers(specification.pairings);

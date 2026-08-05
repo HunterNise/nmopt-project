@@ -44,6 +44,7 @@ namespace nmopt::compiler::v1
         {
           case semantic::v1::LossKind::quadratic_tracking:
           case semantic::v1::LossKind::quadratic_control_regularisation:
+          case semantic::v1::LossKind::quadratic_h1_control_regularisation:
             return true;
         }
       return false;

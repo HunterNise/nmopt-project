@@ -733,6 +733,8 @@ namespace nmopt::semantic::v1
         (loss.kind == LossKind::quadratic_tracking &&
          datum->second->role == DataRole::desired_state) ||
         (loss.kind == LossKind::quadratic_control_regularisation &&
+         datum->second->role == DataRole::regularisation_weight) ||
+        (loss.kind == LossKind::quadratic_h1_control_regularisation &&
          datum->second->role == DataRole::regularisation_weight);
       if (!valid)
         report.add(DiagnosticCategory::structural,

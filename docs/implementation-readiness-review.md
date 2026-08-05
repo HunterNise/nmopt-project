@@ -283,6 +283,12 @@ already-computed covector to a direction and does not change $J'(u)$, the
 state equation, or the adjoint equation. No document or API may use
 “regularisation metric” for both.
 
+**Implemented v1 regularisation:** the registered continuous `FE_Q` control
+path assembles the full $H^{1}$ matrix $M_{u}+K_{u}$ in the objective term and
+its derivative. Its search metric remains the separately named
+`l2_continuous` mass-matrix Riesz map. The $H^{1}$ search metric is not part
+of this implementation.
+
 ### 7.2 Search-metric choices
 
 | Choice | Meaning | Decision |
@@ -462,9 +468,13 @@ selected state-mesh boundary face, `FEFaceValues` residual/transpose and
 trace assembly, and an independent facewise $L^{2}$ metric and box policy.
 It remains distinct from the baseline volume-control lowerer.
 
+A second v1 target realizes $H^{1}$ control regularisation for the
+homogeneous full-domain volume-control graph: continuous `FE_Q` control,
+$\frac{\alpha}{2} u^{T}(M_{u}+K_{u})u$ objective term, and still an $L^{2}$ search
+metric. It deliberately selects no box constraint.
+
 The following are declared but return an unsupported-capability diagnostic in
-this release: Robin and pure-Neumann policies, $H^{1}$
-metric/regularisation, Dirichlet control, coefficient inversion,
+this release: Robin and $H^{1}$ metric policies, Dirichlet control, coefficient inversion,
 mixed/Petrov–Galerkin spaces, time dependence, matrix-free execution, OTD,
 and general nonlinear KKT Newton.
 
@@ -472,11 +482,12 @@ The extension order is:
 
 1. Neumann control and boundary observation on marked faces — completed in v1.
 2. Fixed liftings, then explicit Dirichlet-control liftings.
-3. Pure-Neumann mean-constraint policy.
-4. Nonlinear coefficient parameter and L-BFGS/Gauss–Newton actions.
-5. $H^{1}$ metrics and their compatible constraint solvers.
-6. Fixed-step temporal compiler.
-7. Mixed/Petrov–Galerkin, matrix-free, OTD, and second-order KKT features.
+3. Pure-Neumann mean-constraint policy — completed in v1.
+4. $H^{1}$ control regularisation — completed in v1; its search metric remains separate.
+5. Nonlinear coefficient parameter and L-BFGS/Gauss–Newton actions.
+6. $H^{1}$ metrics and their compatible constraint solvers.
+7. Fixed-step temporal compiler.
+8. Mixed/Petrov–Galerkin, matrix-free, OTD, and second-order KKT features.
 
 Each extension must add its own lowerer, capability declaration, and tests; it
 must not add a PDE-name branch to a solver.

@@ -40,8 +40,10 @@ declared physical-field transformation, while
 material-id observation region. `make_neumann_boundary_control_problem()`
 declares a facewise Neumann control and state boundary trace.
 `make_pure_neumann_boundary_control_problem()` is its separate zero-reaction
-mean-constraint variant. The compatibility table below describes the
-homogeneous graph; the named graph sections record the added features.
+mean-constraint variant. `make_h1_regularised_scalar_diffusion_reaction_problem()`
+is the separate continuous-control objective variant. The compatibility table
+below describes the homogeneous graph; the named graph sections record the
+added features.
 
 ```text
 Region       one full volume region, named material-id volume subregions, and Dirichlet boundary ids
@@ -88,6 +90,25 @@ control coupling, control mass, and state/adjoint solvers over the full mesh.
 Consequently, changing the tracking region changes the objective derivative
 and adjoint right-hand side without changing the state equation or solver
 interfaces.
+
+### $H^{1}$ control regularisation
+
+The first half of P2.3 adds a distinct
+`quadratic_h1_control_regularisation` loss. It changes the control space to
+continuous scalar `FE_Q` on the state mesh and assembles
+
+```math
+J_{\mathrm{control}}(u_{h})=\frac{\alpha}{2}u_{h}^{T}(M_{u}+K_{u})u_{h},
+```
+
+where $M_{u}$ is the control mass matrix and $K_{u}$ its Laplace stiffness
+matrix. Thus the objective derivative receives
+$\alpha(M_{u}+K_{u})u_{h}$. This is deliberately distinct from the selected
+`l2_continuous` search metric, which still maps covectors through $M_{u}^{-1}$
+and does not change the state or adjoint equation. The first target supports
+the homogeneous full-domain volume-control graph only and selects no box:
+the existing coefficientwise boxes apply only to the discontinuous cellwise
+or facewise control layouts.
 
 ### Neumann control and boundary tracking
 
@@ -183,14 +204,16 @@ assembly used for fixed reconstruction and material-subdomain tracking. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, facewise control layout, boundary trace tracking, facewise metric,
 facewise box realization, and pure-Neumann mean-zero saddle realization. The
-registry otherwise supports only the listed
+private `dealii_h1_control.hpp` target owns the distinct continuous-control
+$H^{1}$ loss. The registry otherwise supports only the listed
 volume terms, full-domain control observation, full-domain or material-id
 state restriction, quadratic losses, `L2` metric, optional cellwise box, and
 fixed-Dirichlet reconstruction. Its selected discrete policies are assembled
 serial scalar `FE_Q` state/test with degree at least one and reduced DTO:
 `FE_DGQ(0)` volume control on the state mesh, or one facewise-constant
-Neumann coefficient for every marked boundary face. Pure Neumann is limited
-to zero reaction and compatible forcing/control loads.
+Neumann coefficient for every marked boundary face, or continuous `FE_Q`
+volume control for the registered $H^{1}$ loss. Pure Neumann is limited to
+zero reaction and compatible forcing/control loads.
 
 `CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
 and `make_reduced_dto()` expose only backend-neutral ports and formulation

@@ -510,6 +510,146 @@ namespace
 
   template <int dim>
   void
+  run_h1_control_regularisation_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+
+    const dealii::Functions::ConstantFunction<dim> forcing(0.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.0);
+    const auto specification =
+      semantic::v1::make_h1_regularised_scalar_diffusion_reaction_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(
+      compiler.validate(specification, policy).valid(),
+      "H1-control regularisation v1 graph did not validate for deal.II");
+
+    auto discontinuous_control = specification;
+    discontinuous_control.spaces.at(2).topology =
+      semantic::v1::SpaceTopology::l2;
+    const auto discontinuous_control_report =
+      compiler.validate(discontinuous_control, policy);
+    contract::require(
+      discontinuous_control_report.has_category(
+        semantic::v1::DiagnosticCategory::lowerability),
+      "H1-control compiler did not require the continuous control realization");
+
+    auto h1_control_box = specification;
+    const auto cellwise_box_source =
+      semantic::v1::make_scalar_diffusion_reaction_problem(true);
+    h1_control_box.data.push_back(cellwise_box_source.data.at(5));
+    h1_control_box.data.push_back(cellwise_box_source.data.at(6));
+    h1_control_box.constraints = cellwise_box_source.constraints;
+    h1_control_box.requirement_policies.push_back(
+      cellwise_box_source.requirement_policies.at(2));
+    h1_control_box.formulation.constraint_id = "control_box";
+    const auto h1_control_box_report = compiler.validate(h1_control_box, policy);
+    contract::require(
+      h1_control_box_report.has_category(
+        semantic::v1::DiagnosticCategory::lowerability),
+      "H1-control compiler did not reject the unsupported cellwise box");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing, desired_state, 1.0, 0.5, 0.2};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "H1-control regularisation v1 compilation failed");
+
+    const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_values.size();
+         ++index)
+      control_values[index] = index % 2 == 0
+                                ? 0.1 * static_cast<double>(index + 1)
+                                : -0.05 * static_cast<double>(index + 1);
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {control_values});
+
+    dealii::Vector<double> zero_state(model.variable_layout()->dimension(0));
+    const Primal direct_objective_point(model.variable_layout(),
+                                        {std::move(zero_state), control_values});
+    const Covector direct_objective_derivative =
+      model.objective_derivative(direct_objective_point);
+    const Covector direct_control_derivative = contract::extract_covector_block(
+      direct_objective_derivative, 1, "control");
+    const Primal l2_direction = compilation.problem->metric().inverse_apply(
+      direct_control_derivative);
+    dealii::Vector<double> stiffness_component = l2_direction.block(0);
+    stiffness_component.add(-0.2, control.block(0));
+    contract::require(stiffness_component.l2_norm() > 1e-4,
+                      "H1 regularisation did not contribute its control stiffness");
+
+    const auto evaluation = reduced.evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "H1-control regularisation state residual");
+
+    dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_tangent(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size();
+         ++index)
+      state_tangent[index] = -0.01 * static_cast<double>(index + 1);
+    for (dealii::types::global_dof_index index = 0;
+         index < control_tangent.size();
+         ++index)
+      control_tangent[index] = index % 2 == 0
+                                  ? 0.03 * static_cast<double>(index + 1)
+                                  : -0.02 * static_cast<double>(index + 1);
+    const Primal tangent(model.variable_layout(),
+                         {std::move(state_tangent), std::move(control_tangent)});
+    dealii::Vector<double> test_seed_values(model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < test_seed_values.size();
+         ++index)
+      test_seed_values[index] = 0.04 * static_cast<double>(index + 1);
+    const Primal test_seed(model.test_layout(), {std::move(test_seed_values)});
+    require_close(
+      contract::pair(model.residual_jvp(evaluation.full_point, tangent), test_seed),
+      contract::pair(model.residual_vjp(evaluation.full_point, test_seed), tangent),
+      1e-11,
+      "H1-control regularisation residual JVP/VJP pairing");
+
+    dealii::Vector<double> direction_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size();
+         ++index)
+      direction_values[index] = index % 2 == 0 ? 0.02 : -0.03;
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const double directional_derivative =
+      contract::pair(evaluation.reduced_derivative, direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, direction, step)).objective_value -
+                      evaluation.objective_value - step * directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "H1-control reduced Taylor remainder is not quadratic");
+
+    const auto &metric = compilation.problem->metric();
+    contract::require(metric.id() == "l2_continuous",
+                      "H1 regularisation incorrectly selected an H1 search metric");
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.control_space.find("continuous scalar FE_Q") != std::string::npos &&
+        manifest.declared_assumptions.front().find("h1_control_regularisation") !=
+          std::string::npos,
+      "H1-control compilation manifest omitted the loss or control realization");
+  }
+
+  template <int dim>
+  void
   run_pure_neumann_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -922,6 +1062,7 @@ main()
       run_fixed_dirichlet_contract_test<2>();
       run_subdomain_observation_contract_test<2>();
       run_neumann_boundary_contract_test<2>();
+      run_h1_control_regularisation_contract_test<2>();
       run_pure_neumann_contract_test<2>();
       std::cout << "deal.II diffusion DTO contract test passed\n";
       return 0;

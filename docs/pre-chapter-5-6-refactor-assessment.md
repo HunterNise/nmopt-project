@@ -2,34 +2,45 @@
 
 ## Assessment status
 
-**In progress — evidence wave 2 complete.**
+**In progress — evidence wave 3 complete.**
 
 This document records the assessment defined by the
 [refactor assessment plan](pre-chapter-5-6-refactor-plan.md). The current
 contents establish the reproducible baseline, the Chapter 5/6 scope matrix,
-and the backend-neutral contract and semantic-layer findings. Compiler,
-deal.II realization, solver, broader test-quality, build-design, and
-documentation findings remain pending until their corresponding review waves
-are complete.
+and findings for the backend-neutral contracts, semantic layer, v1 compiler,
+compiled-product ownership, manifests, and current deal.II realizations.
+Formulation and solver architecture, broader test quality, build design,
+documentation, conventions, and agent guidance remain pending until their
+corresponding review waves are complete.
 
 No code, tests, CMake, conventions, or agent instructions may be changed while
 this assessment is in progress.
 
 ## Executive verdict
 
-**Preliminary outcome: a small cross-cutting refactor is warranted before new
-semantic features are added.** The build and test baseline is healthy, and the
-core mathematical distinctions are good. However, the public block wrapper
-can be mutated out of agreement with its layout, and semantic validation
-currently accepts several malformed graphs. Reference graph factories also
-modify inherited graphs by positional vector index. These are scope-neutral
-engineering issues whose cost and risk increase as Chapter 5 adds spaces,
-pairings, terms, and observations.
+**Preliminary outcome: two bounded refactor tiers are warranted, not a
+rewrite.** A small cross-cutting safety refactor is required before any new
+semantic feature: restore block/layout invariants, make incomplete semantic
+objects safe to validate, close structural graph validation, replace
+positional reference-graph mutation, and strengthen negative tests.
 
-It is still too early to decide whether the compiler and deal.II realization
-need a broader structural refactor. The final verdict must distinguish the
-small common prerequisite above from target-dependent work such as mixed
-blocks, KKT products, and complementarity.
+A focused compiler decomposition is also warranted before adding
+component-heavy Chapter 5 features or a Chapter 6 DTO/OTD or stabilization
+comparison. The advertised component registry is currently a boolean
+whitelist in front of an exact whole-graph matcher and a six-way whole-model
+dispatcher. The compiled targets contain valuable, tested realization
+policies, but common scalar assembly and solve policy are repeated across
+them. The right refactor is therefore to introduce a resolved lowering plan
+and extract shared realization services while preserving specialized
+reconstruction, trace, nullspace, and parameter-dependent policies as
+composed strategies.
+
+This compiler tier is target-dependent: an isolated P6.1 reduced search or
+line-search improvement should not be blocked on it. No current evidence
+justifies a runtime plugin system, a general graph DSL, a PDE inheritance
+hierarchy, or implementation of unselected Chapter 5/6 capabilities. The
+final verdict must still integrate the formulation, solver, build, test, and
+guidance waves.
 
 The final verdict will select and qualify one of these outcomes:
 
@@ -50,7 +61,7 @@ The baseline was recorded on 2026-08-06.
 | Assessment branch | `codex/refactor-ch5-ch6-readiness` |
 | Assessment start commit | `8616cba` (`docs(refactor): add pre-chapter 5 and 6 assessment plan`) |
 | Tagged implementation baseline | `pre-refactor-ch5-ch6` at `7c2496b` |
-| Baseline relation | Assessment branch is one documentation-only commit ahead of the tagged implementation baseline |
+| Baseline relation | At the start of evidence wave 3, the assessment branch is three documentation-only commits ahead of the tagged implementation baseline |
 | Worktree at start | Clean |
 | Generated build directories used | `build-audit/` and `build-nodealii/`, both ignored by `/build*/` |
 
@@ -333,6 +344,73 @@ instantiates the basic algebra with an alternate backend type at lines
 tests should complement it, not make deal.II necessary to verify DTO signs or
 typed algebra.
 
+### S-008 — Compiled consumers see ports, not concrete problem variants
+
+**Evidence:** `CompiledProblemT<Backend>` owns an executable model, metric,
+optional constraint, state/adjoint services, and manifest, but exposes only
+the backend-neutral contract interfaces
+(`include/nmopt/compiler/v1/compiled_problem.hpp:48-130`). The six concrete
+deal.II choices occur inside `DealiiCompiler::compile()`; the reduced-gradient
+solver does not branch on diffusion, control placement, observation, lifting,
+or nullspace policy. Every current compiler-created solver callback captures
+the same `shared_ptr` as the executable port, so a reduced DTO detached from
+its `CompiledProblemT` currently retains the concrete target indirectly.
+
+**Preserve:** Keep target selection and deal.II types behind compilation. Make
+the ownership guarantee explicit during refactoring rather than relying on
+the particular captures in the current compiler.
+
+### S-009 — Unsupported realization combinations are rejected explicitly
+
+**Evidence:** The compiler distinguishes structural/analytical validation,
+deal.II lowerability, and formulation capability. It rejects matrix-free
+execution, missing fixed lifting data, incomplete controlled boundaries,
+continuous-control boxes, nonpositive coefficient bounds, incompatible pure
+Neumann forcing, and all-at-once formulation requests instead of silently
+substituting a nearby implementation
+(`include/nmopt/compiler/v1/dealii_compiler.hpp:28-177,738-1407`). The
+deal.II contract test exercises representative rejection paths.
+
+**Preserve:** A component-lowering refactor must retain conservative failure.
+Composition means combining registered semantics, not accepting an
+unregistered cross-product by inference.
+
+### S-010 — Specialized deal.II policies implement real transpose and reconstruction actions
+
+**Evidence:** The fixed-Dirichlet and controlled-Dirichlet targets construct
+physical reconstruction/lifting maps and use their transpose pullbacks. The
+Neumann target assembles a separate boundary coupling and a mean-zero saddle
+system for its pure-Neumann variant. The coefficient target reassembles its
+state operator and implements parameter JVP/VJP actions. The H1 target keeps
+objective regularisation distinct from the selected search metric. Targeted
+tests check residual JVP/VJP pairings, finite differences or reduced Taylor
+remainders, metric identities, physical reconstruction, nullspace behavior,
+and constraint semantics in
+`tests/dealii_diffusion_contract.cc:79-1181`.
+
+**Preserve:** These are useful vertical-slice oracles and policy
+implementations. Extract common FE assembly and solve infrastructure without
+flattening reconstruction, trace, gauge, or parameter dependence into a
+single branch-heavy model.
+
+## Compiler and deal.II review surface
+
+Evidence wave 3 reviewed the complete compiler product, capability, and
+binding headers; traced `DealiiCompiler` validation, target selection,
+binding, ownership, and manifest construction; and inspected the public
+actions, assembly boundaries, solve policies, and retained state of the v0
+model and all five v1-only targets. The deal.II test was read by target and by
+diagnostic/manifest assertion rather than treated as one opaque passing
+executable.
+
+Authoritative records used in this wave were the
+[v1 compiler record](semantic-v1-compiler.md), the
+[v0 lowerer record](dealii-v0-lowerer.md), the compiler/lowering sections of
+the [system blueprint](system-blueprint.md), the manifest requirements in the
+[implementation-readiness review](implementation-readiness-review.md), and
+the Chapter 6 provenance requirements in the
+[numerical-methods guide](chapter-6-numerical-methods-guide.md).
+
 ## Architecture and code findings: contracts and semantic layer
 
 ### RF-001 — Block storage can be mutated out of agreement with its layout
@@ -580,18 +658,21 @@ reordering does not redirect a feature delta.
 graph construction rather than at compile time. It is still substantially
 safer than positional mutation and much smaller than a new graph DSL.
 
-### RF-006 — Contract and semantic negative tests are too coarse for refactoring
+### RF-006 — Contract, semantic, and compiler negative tests are too coarse for refactoring
 
 **Classification:** Test debt.
 
-**Evidence:** `tests/semantic_v1_contract.cc` has 12 negative assertions using
-only `ValidationReport::has_category()`. It never asserts the available
+**Evidence:** `tests/semantic_v1_contract.cc` has 12 negative assertions and
+`tests/dealii_diffusion_contract.cc` has 13 compiler-negative assertions that
+use only `ValidationReport::has_category()`. Neither asserts the available
 `Diagnostic::component_id` or `Diagnostic::capability`, so an unrelated error
-in the same category can satisfy a test. `tests/reduced_dto_contract.cc`
-checks many successful numerical identities but has no expected-failure case
-for layout mismatch, invalid partition, solver callback, metric, or
-constraint construction. All current tests pass, so this is a containment and
-localization weakness rather than a failing baseline.
+in the same category can satisfy a test. The compiler alone has 64 diagnostic
+insertion sites, making category-only assertions especially weak.
+`tests/reduced_dto_contract.cc` checks many successful numerical identities
+but has no expected-failure case for layout mismatch, invalid partition,
+solver callback, metric, or constraint construction. All current tests pass,
+so this is a containment and localization weakness rather than a failing
+baseline.
 
 **Authority:** The [implementation-readiness review](implementation-readiness-review.md)
 requires explicit component diagnostics and value/JVP/VJP, constraint, and
@@ -609,11 +690,13 @@ it.
 tests first, then change production code.
 
 **Recommendation:** Add a reusable exact-diagnostic matcher over category,
-component ID, and capability; make negative semantic cases table-driven where
-that improves readability. Add `expect_contract_error` tests for public
-contract preconditions and separate the dense test's algebra, DTO, metric,
-constraint, and solver cases into focused functions. CTest executable
-granularity can be decided in the broader test/build wave.
+component ID, and capability; make negative semantic and compiler cases
+table-driven where that improves readability. Assert whether a rejected
+compile returns a diagnostic or throws, because RF-010 shows that both paths
+currently exist. Add `expect_contract_error` tests for public contract
+preconditions and separate the dense test's algebra, DTO, metric, constraint,
+and solver cases into focused functions. CTest executable granularity can be
+decided in the broader test/build wave.
 
 **Verification:** Demonstrate that each test fails if its expected capability
 or component is changed. Run the backend-neutral suite first, then the full
@@ -622,6 +705,405 @@ deal.II suite, and preserve all current numerical checks.
 **Tradeoff:** Exact assertions require intentional updates when diagnostic
 names change. That maintenance cost is the mechanism that prevents silent
 diagnostic drift.
+
+## Architecture and code findings: compiler and deal.II realization
+
+### RF-007 — The component registry is a whitelist in front of a whole-problem dispatcher
+
+**Classification:** Architectural debt and a direct gap against the project’s
+composition mission.
+
+**Evidence:** `DealiiLowererRegistryV1` is a final, stateless class whose six
+methods return booleans from enum switches
+(`include/nmopt/compiler/v1/dealii_capabilities.hpp:9-74`). It stores no
+lowering functions and cannot be extended without editing the class. After
+those per-kind checks, `validate_registered_graph()` accepts exact residual,
+data, loss, observation, metric, and constraint sets selected by whole-graph
+feature flags (`include/nmopt/compiler/v1/dealii_compiler.hpp:1047-1371`).
+`compile()` then derives ten booleans and selects one of six mutually
+exclusive complete models at lines 54-378: Neumann boundary, controlled
+Dirichlet, H1 control, coefficient identification, fixed/subdomain assembled
+v1, or the direct v0 model.
+
+The five v1-only target headers contain 3,171 lines; the direct v0 target adds
+542. All six implement the complete executable model, assembly, objective,
+state/adjoint solves, and layouts. Some specialization is mathematically
+necessary, but common scalar diffusion-reaction assembly, objective
+bookkeeping, variable checks, and the same CG helper are repeated. A kind may
+therefore be “registered” while no independently composable lowerer for that
+kind exists.
+
+**Authority:** The root mission, [composition boundaries](composition-boundaries.md),
+and [system blueprint](system-blueprint.md) require residual, observation,
+loss, metric, constraint, transformation, and discretization components to be
+lowered without a new problem class for every combination.
+
+**Consequence:** Adding tensor coefficients or transport to P5.1, an energy
+or weighted observation to P5.2, or a generalized lifting to P5.4 currently
+requires modifying exact-graph validation, the central dispatcher, manifest
+boolean logic, and at least one complete target. Combining two individually
+supported additions tends toward another target class. The public registry
+communicates a stronger compositional architecture than the implementation
+provides.
+
+**Scope relevance:** Before affected features. This is a prerequisite for
+component-heavy P5.1/P5.2/P5.4 and the P6.2 advection/stabilization target. It
+does not block isolated P6.1 solver-policy work, and it must not pre-implement
+mixed Stokes, KKT, or complementarity.
+
+**Action tier:** Before the first selected feature that would add a residual,
+observation/loss, or transformation combination.
+
+**Recommendation:** Introduce one validated, ID-resolved compiler view and a
+small scalar lowering plan. Registered component handlers should contribute
+operators, data requirements, objective pieces, metric/constraint services,
+and provenance to that plan; registration should hold those handlers or be
+honestly named a capability whitelist. Extract shared scalar FE context,
+assembly utilities, and solve services. Keep reconstruction maps, boundary
+trace maps, mean-zero saddle policy, and parameter-dependent assembly as
+explicit composed strategies because their coordinate and transpose behavior
+is genuinely distinct. Do not introduce inheritance from PDE families, a
+runtime plugin framework, or a universal builder.
+
+This also resolves `OBS-ARC-03`: file length alone is not the finding, but the
+955-line semantic validator and 1,579-line compiler each build indexes,
+switch on kinds, and issue 70 and 64 diagnostics respectively. A resolved
+structural graph should be produced once by the semantic layer and consumed
+by focused lowerability/planning code, preserving the category boundary.
+
+**Verification:** Characterize every current graph before extraction. Compile
+the same variants through the new plan, compare manifests structurally, and
+retain all current value/JVP/VJP, reconstruction, metric, constraint, and
+nullspace checks. Add at least one orthogonal recombination test showing that
+changing an observation does not require or alter residual assembly, as the
+current subdomain test already partially demonstrates.
+
+**Tradeoff:** A full generic weak-form engine would exceed the documented
+endpoint. The useful seam is a modest shared scalar assembly plan plus
+specialized policies; selected mixed or all-at-once products can add separate
+formulation plans later.
+
+### RF-008 — The compilation manifest is incomplete, stringly typed, and wrong for one current target
+
+**Classification:** Provenance correctness defect and architectural debt.
+
+**Evidence:** `CompilationManifest` is a flat aggregate of free-form strings
+and component-ID vectors (`include/nmopt/compiler/v1/compiled_problem.hpp:17-46`).
+It has no explicit test, adjoint, or observation spaces; mesh identity or
+selection; formulation kind; state and adjoint solve tolerances; or binding
+provenance. Those fields are required by the implementation-readiness review
+and Chapter 6 numerical-methods guide. The manifest builder accepts nine
+feature booleans and reconstructs descriptions in nested conditionals
+(`include/nmopt/compiler/v1/dealii_compiler.hpp:1419-1539`) instead of being
+populated by the lowerers that made the choices.
+
+There is also a current factual error. Coefficient identification constructs
+the metric and box with identifier `l2_cellwise_parameter`
+(`include/nmopt/compiler/v1/dealii_coefficient_identification.hpp:103-129`),
+and the metric manifest names that Riesz map, but
+`constraint_realisation` falls through to the generic
+`l2_cellwise` description at compiler lines 1486-1490. Existing manifest tests
+mostly use substring searches and do not detect the mismatch.
+
+**Authority:** `docs/implementation-readiness-review.md:523-528` requires
+semantic IDs, FE and mesh selections, pairings/dual representation, policies,
+provenance, and assumptions. `docs/chapter-6-numerical-methods-guide.md:74-78`
+also requires state, test, control, adjoint, and observation spaces;
+trial/test relation; formulation; and state, adjoint, metric, and KKT
+tolerances.
+
+**Consequence:** Two materially different compiled calculations can have
+manifests that omit the distinguishing mesh, solve, or data-binding
+provenance, while a parameter-box result can actively report the wrong
+projection identifier. Free-form substring tests allow wording and semantic
+content to drift independently.
+
+**Scope relevance:** Fix the factual error as common maintenance. Manifest
+structure is required before publishing Chapter 6 comparisons or adding P6.2
+formulation provenance. It is useful but not a reason to invent unselected
+OTD/KKT fields now.
+
+**Action tier:** Correct the existing target before new numerical results;
+perform the structured refactor before P6.2 or benchmark/reproduction work.
+
+**Recommendation:** Derive a structured manifest from the resolved lowering
+plan and compiled services, not from parallel feature booleans. Use typed
+subrecords for spaces and pairings, discretization/mesh summary, formulation,
+metric/constraint realization, and solver policies; retain human-readable
+rendering as an output view. Record the exact projection metric ID. Where a
+deal.II `Function` or generated mesh cannot describe itself, require a
+caller-supplied provenance label or documented fingerprint policy rather
+than pretending the current object is reproducible. Keep the manifest
+descriptive: it must not become a second input configuration.
+
+**Verification:** Compare exact structured fields for every current target,
+including the coefficient parameter box. Compile two meshes, two solve
+policies, and two formulations and require the relevant manifest fields to
+differ. Add serialization/rendering round-trip tests only if a persisted
+format is selected.
+
+**Tradeoff:** Typed fields require an explicit compatibility/version policy.
+That is preferable to parsing prose in tests or downstream experiment tools.
+
+### RF-009 — The canonical v0/v1 comparison shares its assembly implementation
+
+**Classification:** Test-independence debt and overstated documentation.
+
+**Evidence:** The homogeneous fallback branch aliases `DirectModel` to
+`dealii_backend::ScalarDiffusionReactionModel<dim>` and constructs it directly
+(`include/nmopt/compiler/v1/dealii_compiler.hpp:335-358`). The comparison test
+first constructs that same concrete class at
+`tests/dealii_diffusion_contract.cc:1194-1202`, then compiles the canonical
+graph through the fallback and compares the two instances at lines
+1429-1467. The instances are separate and can catch wrong binding, selection,
+packaging, layout, metric, or constraint wiring, but the residual, objective,
+derivative, and assembly code are identical.
+
+**Authority:** The [v1 compiler record](semantic-v1-compiler.md) describes
+this as a v0/v1 comparison guarantee, while the assessment plan requires
+independent verification or an explicit record of shared implementation.
+
+**Consequence:** An assembly sign, quadrature, boundary-row, or objective
+error in `ScalarDiffusionReactionModel` appears on both sides and cannot be
+found by the equality check. Exact equality at `1e-12` looks stronger than the
+actual oracle. The other derivative-consistency tests remain valuable but
+mostly establish internal calculus identities rather than the intended weak
+form independently.
+
+**Scope relevance:** Common characterization concern before RF-007 changes
+the compiler. It does not imply maintaining duplicate production assemblers.
+
+**Action tier:** Before implementation of the compiler refactor.
+
+**Recommendation:** Relabel the current assertion as a compiler wiring and
+packaging regression. Add an independent small oracle for the homogeneous
+weak form: hand-assembled local/global matrices on a tiny mesh, a manufactured
+residual/objective with analytically known integrals, or a separate test-only
+assembly path. Do not copy the full production model merely to manufacture
+independence.
+
+**Verification:** Seed a temporary sign or coefficient fault in each
+production contribution and confirm an independent test fails on only the
+faulty path. Retain the current compiled/direct equality check for binding and
+port regressions.
+
+**Tradeoff:** A tiny oracle covers fewer meshes and policies than the
+production test. Its purpose is semantic independence, while the existing
+larger tests retain integration breadth.
+
+### RF-010 — Compiler input failures are split unpredictably between diagnostics and exceptions
+
+**Classification:** Compiler API correctness and diagnostic debt.
+
+**Evidence:** `compile()` returns `CompilationResultT` and explicitly reports
+missing diffusion/lifting data, bound representation, positivity, and several
+mesh/policy failures as lowerability diagnostics
+(`include/nmopt/compiler/v1/dealii_compiler.hpp:86-177`). It does not validate
+ordinary diffusion, reaction, or regularisation values, bound vector length,
+or bound ordering before construction. Those caller-supplied errors throw
+`ContractError` from model and constraint constructors instead: for example,
+`ScalarDiffusionReactionModel` requires positive diffusion and
+regularisation at `include/nmopt/dealii/scalar_diffusion_reaction.hpp:82-91`,
+and `CellwiseBoxConstraint` checks mesh-dependent vector sizes and ordering at
+`include/nmopt/dealii/cellwise_box_constraint.hpp:33-44`. Facewise bounds have
+the same split. Existing tests expect a diagnostic for a nonpositive
+coefficient lower bound but do not cover neighboring invalid inputs.
+
+**Authority:** The semantic/compiler records require unsupported bindings and
+realizations to be diagnosed, while `ContractError` is the executable
+contract’s invariant-failure mechanism. User-provided compilation data should
+have a predictable boundary between those two channels.
+
+**Consequence:** Code consuming `CompilationResultT::succeeded()` can still
+be terminated by a foreseeable bad binding. As P5 adds coefficient tensors,
+boundary data, weights, and observation data, the inconsistent error surface
+will grow and category-only tests may hide it.
+
+**Scope relevance:** Common prerequisite for adding binding kinds and useful
+for experiment tooling.
+
+**Action tier:** Before the next compiler data-binding extension.
+
+**Recommendation:** Define and document the failure boundary. Validate
+user-supplied scalar values and representation shape early; after FE layouts
+exist, run a binding-to-layout validation pass that appends exact diagnostics
+before constructing constraints or services. Reserve `ContractError` for
+violated internal invariants and direct low-level constructor misuse. If the
+project intentionally chooses exceptions for invalid concrete data, make
+`compile()` consistently translate or document them rather than mixing both
+case by case.
+
+**Verification:** Add table-driven cases for nonfinite/negative coefficients,
+zero regularisation, mismatched cellwise and facewise vector sizes, reversed
+and nonfinite bounds, empty meshes, and incompatible boundary IDs. Assert the
+exact chosen error channel, category, component, and capability.
+
+**Tradeoff:** Some binding validation needs assembled layout information, so
+compilation may do limited discretization work before returning a diagnostic.
+That cost is preferable to exposing partially constructed products or
+unpredictable throws.
+
+### RF-011 — Compiled-product lifetime safety is incidental and does not include the mesh
+
+**Classification:** Ownership and lifetime architectural risk.
+
+**Evidence:** `CompiledProblemT` owns the model, metric, constraint, and solver
+function objects, but `make_reduced_dto()` passes a reference to the model
+(`include/nmopt/compiler/v1/compiled_problem.hpp:60-137`). The current
+`DealiiCompiler` callbacks capture their concrete model `shared_ptr`, so that
+specific returned DTO keeps its referenced model alive indirectly. The
+public backend-generic `CompiledProblemT` constructor does not require such a
+capture, so the guarantee is neither represented by the type nor documented.
+
+More importantly, every concrete target constructs one or more deal.II
+`DoFHandler`s from the caller’s `Triangulation&`; for example the v0 target
+does so at `include/nmopt/dealii/scalar_diffusion_reaction.hpp:64-80`.
+`DealiiCompiler::compile()` accepts that borrowed triangulation and the
+compiled product retains no mesh owner or lifetime token. The bound
+`Function` data are evaluated during assembly and are not retained, which is
+good, but the discretization lifetime remains external.
+
+**Consequence:** A generic compiled product can produce a dangling detached
+DTO if its callbacks do not happen to own the model. Any compiled deal.II
+product can outlive its triangulation at the C++ type level, and mesh mutation
+can invalidate the relation among DoF handlers, layouts, and assembled
+operators. This weakens the claim that the result is an immutable compiled
+discrete problem and is especially risky for Chapter 6 mesh sequences and
+experiment drivers.
+
+**Scope relevance:** Resolve before exposing compiled artifacts to longer-lived
+drivers, adaptive/refinement workflows, or stored solver sessions. It need
+not block local semantic-only work.
+
+**Action tier:** Before Chapter 6 experiment infrastructure or any public API
+that detaches/stores compiled services.
+
+**Recommendation:** Choose an explicit ownership model. A deal.II compilation
+context can own the triangulation/discretization and be shared by the target,
+or a compiled session can own all backend resources and return only
+lifetime-bound views. Make an owned reduced formulation service hold the
+executable explicitly; retain the existing non-owning `ReducedDTOT`
+constructor for short-lived direct use if its lifetime precondition is
+documented. Do not scatter `shared_ptr` through mathematical ports without a
+clear owner.
+
+**Verification:** Under ASan, return a compiled reduced service from a helper
+after the wrapper’s local variables die and evaluate it safely. Destroying or
+mutating the mesh while compiled services exist must either be impossible by
+ownership, rejected deterministically, or documented and covered as a
+precondition.
+
+**Tradeoff:** Owning a mesh changes how callers construct multiple products
+on one triangulation. A shared discretization context can preserve reuse while
+making invalidation and recompilation explicit.
+
+### RF-012 — Projection compatibility can be spoofed with a metric string
+
+**Classification:** Architectural correctness risk in the metric/constraint
+contract.
+
+**Evidence:** Dense, cellwise deal.II, and facewise deal.II box constraints
+implement `supports_projection_in()` by checking layout compatibility and
+`MetricT::id()` equality
+(`include/nmopt/contract/metric_constraint.hpp:159-171`,
+`include/nmopt/dealii/cellwise_box_constraint.hpp:75-89`, and
+`include/nmopt/dealii/facewise_box_constraint.hpp:75-89`). `MassMetric` has a
+public constructor accepting any sparse square matrix and any nonempty ID
+(`include/nmopt/dealii/mass_metric.hpp:34-61`). A caller can therefore give a
+non-diagonal SPD metric the ID `l2_cellwise`; the box advertises support and
+performs coefficient clipping even though that is generally not the metric
+projection. For example, with metric matrix
+`[[2,1],[1,2]]`, box `[0,1]^2`, and point `(-1,1)`, clipping returns `(0,1)`
+while the metric projection is `(0,0.5)`.
+
+The current `DealiiCompiler` constructs honest metric/constraint pairs from
+the same target, so no present reference graph triggers the defect. The
+public constructors and backend-generic `CompiledProblemT` nevertheless make
+the string an unverified mathematical capability token.
+
+**Authority:** The executable contract and implementation-readiness review
+require projection to be qualified by the actual selected metric and
+explicitly forbid treating coefficient clipping as an H1 or global metric
+projection.
+
+**Consequence:** A typo, reused semantic ID, or future custom metric can turn
+a false projection into a reported capability. Layout compatibility cannot
+establish the separability property that makes clipping exact.
+
+**Scope relevance:** Before adding H-1, trace, obstacle, state, or
+complementarity constraints in P5.2/P5.4/P5.5/P6.5. The current compiler path
+can remain operational while the contract is strengthened.
+
+**Action tier:** Before the next metric/constraint compatibility extension.
+
+**Recommendation:** Stop using caller-controlled display IDs as the proof of
+projection semantics. Have the owning lowerer construct a coupled projection
+service with an opaque/strong realization identity, or otherwise provide a
+non-spoofable compatibility witness tied to the actual metric operator.
+Continue exposing a human-readable metric ID for provenance, but separate it
+from capability identity. Keep projection owned by the constraint, as the
+interface specification requires.
+
+**Verification:** Construct a compatible-layout, same-string non-diagonal
+metric and require rejection. Retain positive tests for diagonal DGQ(0) cell
+mass, face mass, and the dense diagonal reference; add an explicit negative
+H1 case.
+
+**Tradeoff:** Runtime type checks alone would couple constraints to concrete
+metric classes and still over-accept arbitrary matrices. An opaque witness or
+coupled factory adds a small amount of plumbing but expresses the actual
+compiled relationship.
+
+### RF-013 — State and adjoint solve policy is hard-coded and repeated across targets
+
+**Classification:** Reproducibility, architecture, and code-quality debt.
+
+**Evidence:** The v0 model and all five v1-only targets contain near-identical
+CG helpers using identity preconditioning, maximum iterations
+`max(100, 10 * matrix.m())`, and tolerance
+`max(1e-14, 1e-12 * ||rhs||)`. The six copies occur in
+`scalar_diffusion_reaction.hpp:500-512`,
+`dealii_fixed_dirichlet.hpp:638-652`,
+`dealii_dirichlet_control.hpp:636-650`,
+`dealii_neumann_boundary.hpp:578-590`,
+`dealii_h1_control.hpp:467-479`, and
+`dealii_coefficient_identification.hpp:561-575`.
+`DealiiDiscretisationPolicy` exposes parameters only for the control metric
+inverse, and the manifest states only prose about state/adjoint CG or direct
+solution, not the iterative tolerances.
+
+**Authority:** The implementation-readiness review requires solve policy and
+the Chapter 6 guide requires separate state, adjoint, metric-inverse, and KKT
+tolerances in the manifest and numerical reports.
+
+**Consequence:** Numerical experiments cannot select or faithfully record
+state/adjoint accuracy, a solver failure is exposed through deal.II rather
+than a uniform compiled-service diagnostic, and changing the default requires
+six edits. P6.1 line-search and gradient comparisons can be contaminated by
+unreported inner accuracy.
+
+**Scope relevance:** Required before Chapter 6 numerical comparisons. It can
+be deferred while doing semantic-only Chapter 5 work, but shared solve
+extraction is naturally part of RF-007.
+
+**Action tier:** Before P6.1 results are treated as comparable and before P6.2
+or later formulation studies.
+
+**Recommendation:** Add a small typed SPD solve policy and one shared serial
+deal.II solve service that returns convergence information. Permit state and
+adjoint policies to be selected/recorded separately even when they share a
+default. Keep the pure-Neumann direct saddle solve as a distinct declared
+policy. Do not build a universal linear-solver framework before a selected
+target needs additional algorithms.
+
+**Verification:** Test that changing maximum iterations and tolerances changes
+the invoked policy and manifest; cover zero RHS, convergence, deliberate
+nonconvergence, and state/adjoint residual criteria. Re-run derivative tests
+at sufficiently tight declared tolerances.
+
+**Tradeoff:** Exposing inner-solve failure forces callers and solvers to decide
+how to stop or report it. That explicit behavior is necessary for the
+project’s software-engineering and numerical-methods goals.
 
 ## Findings and observations pending cross-layer review
 
@@ -632,15 +1114,13 @@ The following baseline observations remain queued for later classification:
 | `OBS-BLD-01`: the prescribed `build/` Ninja command conflicts with an existing Makefiles cache | Determine whether this is only local stale state or a documentation/workflow weakness reproducible for contributors |
 | `OBS-BLD-02`: an unspecified build type is silently forced to `Debug` by deal.II after a warning | Review CMake policy, expected developer configurations, and whether performance-sensitive examples need an explicit choice |
 | `OBS-TST-01`: all deal.II behavior is registered as one CTest executable | Review internal test organization, failure handling, runtime, and whether granularity impedes diagnosis or focused refactoring |
-| `OBS-ARC-01`: `ReducedDTOT` and injected solve functions use non-owning references | Trace ownership through compiled products and solvers before deciding whether the lifetime contract is safe, merely undocumented, or defective |
-| `OBS-ARC-02`: cellwise projection capability is matched by layout and a metric string identifier | Check whether compiler construction makes spoofing impossible in practice and how additional metrics are expected to advertise projection compatibility |
-| `OBS-ARC-03`: the semantic validator is a 955-line public header with 70 diagnostic sites and centralized kind switches | Compare this ownership with compiler registry structure before deciding whether a focused internal split is warranted |
+| `OBS-TST-02`: deal.II integration tests use `dynamic_cast` to compiler `detail` targets | Decide whether lowerer-policy white-box tests should be separated from black-box compiled-port contracts instead of reaching through the same public aggregate |
+| `OBS-BLD-03`: the public compiler aggregate includes every large template target | Review target/install boundaries and measured compilation cost before deciding whether explicit instantiation or internal headers are warranted for this bounded project |
+| `OBS-INT-01`: architecture documents say manifests accompany solver diagnostics | Inspect solver reports and experiment/output ownership before classifying the absent integration as current debt or deferred Chapter 6 work |
 
 ## Pending review waves
 
-1. Compiler ownership, manifests, capability diagnostics, v0/v1 independence,
-   and deal.II realizations.
-2. Formulations, solvers, tests, numerical verification, CMake, and tooling.
-3. Documentation consistency, conventions, and agent guidance.
-4. Final synthesis, action tiers, dependency-ordered refactor batches,
+1. Formulations, solvers, tests, numerical verification, CMake, and tooling.
+2. Documentation consistency, conventions, and agent guidance.
+3. Final synthesis, action tiers, dependency-ordered refactor batches,
    deferred work, and user decisions.

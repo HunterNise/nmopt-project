@@ -41,6 +41,7 @@ document that answers the question, then follow links to the deeper material.
 | Implementing Chapter 6 numerical methods | `chapter-6-numerical-methods-guide.md` | `executable-contract-v0.md`, `semantic-v1-compiler.md`, `implementation-roadmap.md` |
 | Reproducing Chapter 6 numerical examples | `chapter-6-numerical-examples.md` | `chapter-6-numerical-methods-guide.md` |
 | Assessing refactor readiness before Chapters 5 and 6 | `pre-chapter-5-6-refactor-plan.md` | `implementation-roadmap.md`, the layer-specific contracts selected by the plan |
+| Reading the current pre-Chapter 5/6 refactor findings | `pre-chapter-5-6-refactor-assessment.md` | `pre-chapter-5-6-refactor-plan.md` |
 | Choosing the next implementation task | `implementation-roadmap.md` | The task-specific contract listed above |
 | Reviewing why the design is shaped this way | `architecture.md` | `theoretical-formalism.md` |
 | Editing Markdown or LaTeX | `../conventions/documentation.md` | The document being changed |
@@ -62,5 +63,6 @@ document that answers the question, then follow links to the deeper material.
 - [Chapter 6 numerical-methods implementation guide](chapter-6-numerical-methods-guide.md)
 - [Chapter 6 numerical-examples reference](chapter-6-numerical-examples.md)
 - [Pre-Chapter 5/6 refactor assessment plan](pre-chapter-5-6-refactor-plan.md)
+- [Pre-Chapter 5/6 refactor assessment](pre-chapter-5-6-refactor-assessment.md)
 - [Implementation roadmap](implementation-roadmap.md)
 - [Project conventions](../conventions/README.md)

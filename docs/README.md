@@ -40,6 +40,7 @@ document that answers the question, then follow links to the deeper material.
 | Implementing a Chapter 5 elliptic control application | `chapter-5-implementation-guide.md` | `semantic-v1-compiler.md`, `implementation-roadmap.md` |
 | Implementing Chapter 6 numerical methods | `chapter-6-numerical-methods-guide.md` | `executable-contract-v0.md`, `semantic-v1-compiler.md`, `implementation-roadmap.md` |
 | Reproducing Chapter 6 numerical examples | `chapter-6-numerical-examples.md` | `chapter-6-numerical-methods-guide.md` |
+| Assessing refactor readiness before Chapters 5 and 6 | `pre-chapter-5-6-refactor-plan.md` | `implementation-roadmap.md`, the layer-specific contracts selected by the plan |
 | Choosing the next implementation task | `implementation-roadmap.md` | The task-specific contract listed above |
 | Reviewing why the design is shaped this way | `architecture.md` | `theoretical-formalism.md` |
 | Editing Markdown or LaTeX | `../conventions/documentation.md` | The document being changed |
@@ -60,5 +61,6 @@ document that answers the question, then follow links to the deeper material.
 - [Chapter 5 elliptic optimal-control implementation guide](chapter-5-implementation-guide.md)
 - [Chapter 6 numerical-methods implementation guide](chapter-6-numerical-methods-guide.md)
 - [Chapter 6 numerical-examples reference](chapter-6-numerical-examples.md)
+- [Pre-Chapter 5/6 refactor assessment plan](pre-chapter-5-6-refactor-plan.md)
 - [Implementation roadmap](implementation-roadmap.md)
 - [Project conventions](../conventions/README.md)

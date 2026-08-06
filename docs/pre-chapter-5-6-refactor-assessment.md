@@ -2,16 +2,16 @@
 
 ## Assessment status
 
-**In progress — evidence wave 3 complete.**
+**In progress — evidence wave 4 complete.**
 
 This document records the assessment defined by the
 [refactor assessment plan](pre-chapter-5-6-refactor-plan.md). The current
 contents establish the reproducible baseline, the Chapter 5/6 scope matrix,
 and findings for the backend-neutral contracts, semantic layer, v1 compiler,
-compiled-product ownership, manifests, and current deal.II realizations.
-Formulation and solver architecture, broader test quality, build design,
-documentation, conventions, and agent guidance remain pending until their
-corresponding review waves are complete.
+compiled-product ownership, manifests, current deal.II realizations, reduced
+formulation and solver, tests, numerical verification, CMake, and developer
+tooling. Documentation, conventions, agent guidance, and the final synthesis
+remain pending until their corresponding review waves are complete.
 
 No code, tests, CMake, conventions, or agent instructions may be changed while
 this assessment is in progress.
@@ -36,11 +36,22 @@ reconstruction, trace, nullspace, and parameter-dependent policies as
 composed strategies.
 
 This compiler tier is target-dependent: an isolated P6.1 reduced search or
-line-search improvement should not be blocked on it. No current evidence
-justifies a runtime plugin system, a general graph DSL, a PDE inheritance
-hierarchy, or implementation of unselected Chapter 5/6 capabilities. The
-final verdict must still integrate the formulation, solver, build, test, and
-guidance waves.
+line-search improvement should not be blocked on it. P6.1 does, however,
+need a smaller solver-local refactor: separate value-only trial evaluation
+from derivative evaluation, make direction and line-search choices modest
+policies instead of branches in the current driver, and produce a typed report
+whose work counts and accepted steps can be audited. The current binary DTO
+boundary should be preserved; OTD and KKT products remain separate future
+formulations.
+
+Test and build changes are supporting batches rather than a third architecture
+tier. The mathematical test coverage is unusually strong for the repository's
+size, but three process-level tests hide eleven logical scenarios, exact
+solver failure behavior is largely uncharacterized, and the optional deal.II
+configuration can degrade silently. No current evidence justifies a runtime
+plugin system, a general graph DSL, a PDE inheritance hierarchy, packaging
+machinery, or implementation of unselected Chapter 5/6 capabilities. The
+final verdict must still integrate the documentation and guidance wave.
 
 The final verdict will select and qualify one of these outcomes:
 
@@ -61,9 +72,9 @@ The baseline was recorded on 2026-08-06.
 | Assessment branch | `codex/refactor-ch5-ch6-readiness` |
 | Assessment start commit | `8616cba` (`docs(refactor): add pre-chapter 5 and 6 assessment plan`) |
 | Tagged implementation baseline | `pre-refactor-ch5-ch6` at `7c2496b` |
-| Baseline relation | At the start of evidence wave 3, the assessment branch is three documentation-only commits ahead of the tagged implementation baseline |
+| Baseline relation | At the start of evidence wave 4, the assessment branch is four documentation-only commits ahead of the tagged implementation baseline |
 | Worktree at start | Clean |
-| Generated build directories used | `build-audit/` and `build-nodealii/`, both ignored by `/build*/` |
+| Generated build directories used | `build-audit/`, `build-nodealii/`, `build-audit-warnings/`, `build-audit-dealii-warnings/`, and `build-audit-sanitizers/`, all ignored by `/build*/` |
 
 The tag is the immutable comparison point for later behavior-preserving
 refactors. The assessment branch is the only integration branch authorized by
@@ -161,16 +172,29 @@ backend-neutral configuration registers two. CTest assigns no timeout,
 labels, fixtures, resource locks, or other properties beyond the working
 directory. Whether that granularity is appropriate remains a Phase 4 question.
 
-### Baseline limitations
+### Supplemental diagnostics and limitations
 
-- Tests were run once in each fresh configuration; nondeterminism and repeated
-  execution have not yet been assessed.
-- The passing suite establishes current behavior, not completeness or
-  independence of mathematical verification.
-- No warning-enabling configuration, sanitizer, static analysis, coverage, or
-  performance measurement was introduced.
+- `ctest --repeat until-fail:3` passed all three registered tests on every
+  repetition. The first deal.II process took 22.17 s after the rebuild and the
+  next two took 0.32 s and 0.30 s, so this establishes repeatability of
+  outcomes, not a portable runtime baseline.
+- A backend-neutral Debug build with `-Wall -Wextra -Wpedantic -Wconversion
+  -Wshadow` compiled without warnings and passed both tests.
+- The same warning profile with deal.II compiled and passed all tests, but
+  exposed pervasive narrowing warnings at the adapter boundary from
+  `std::size_t` to the 32-bit `dealii::Vector<double>::size_type`. The clean
+  three-target build took 54.00 s and 1,486,284 KiB peak resident memory on
+  this machine. These are local build-cost observations, not benchmark gates.
+- A backend-neutral AddressSanitizer/UndefinedBehaviorSanitizer build passed
+  both tests. LeakSanitizer itself had to be disabled because it cannot run
+  under the workspace's tracing environment; this is an environment
+  limitation, not a repository failure. The deal.II target was not sanitized
+  in this wave.
+- The passing suite still establishes current behavior, not completeness or
+  independence of every mathematical oracle. No static analysis or coverage
+  service was introduced.
 - The optional fallback deal.II discovery path was not exercised because the
-  CMake package was available.
+  CMake package was available. Its CMake logic is assessed structurally below.
 - No Chapter 6 reproduction target was run; the examples guide explicitly
   classifies those experiments as deferred benchmarks rather than current
   correctness tests.
@@ -392,6 +416,54 @@ and constraint semantics in
 implementations. Extract common FE assembly and solve infrastructure without
 flattening reconstruction, trace, gauge, or parameter dependence into a
 single branch-heavy model.
+
+### S-011 — The first optimizer preserves the covector/metric distinction and uses the correct projected displacement
+
+**Evidence:** `ReducedGradientSolverT` obtains a primal direction only through
+`ReducedDTOT::gradient_direction(reduced_derivative, metric)`, measures it
+through `metric.apply()`, and never assumes Euclidean coefficient identity
+(`include/nmopt/solvers/reduced_gradient.hpp:93-246`). In the constrained
+path it computes
+`Pi(u - G^-1 j') - u`, measures that projected residual in the selected
+metric, and evaluates Armijo decrease with the actual projected trial
+displacement rather than the unprojected direction. It also requires a
+feasible initial control and rechecks projection feasibility.
+
+**Preserve:** A P6.1 policy split must keep typed covector/primal pairings and
+must give projected line searches the accepted displacement. Do not turn a
+search direction into a raw coefficient vector or apply unconstrained Armijo
+formulas after projection.
+
+### S-012 — Numerical contracts cover the difficult chain-rule and policy boundaries
+
+**Evidence:** The deal.II test contains separate scenarios for the baseline
+volume control, fixed reconstruction, controlled-Dirichlet lifting, subdomain
+observation, Neumann boundary control and trace observation, H1
+regularisation and metric choice, coefficient identification, and the
+pure-Neumann gauge. Across them it checks manufactured values, residual
+pairings, finite differences, state-recomputed reduced Taylor ratios,
+metric identities, box behavior, changed-data invalidation, nullspace
+conditions, and rejected capabilities. All three CTests passed three
+consecutive repetitions. The backend-neutral suite also passed strict common
+warnings and AddressSanitizer/UndefinedBehaviorSanitizer diagnostics.
+
+**Preserve:** Refactor test organization without replacing these mathematical
+oracles by constructor-only or snapshot tests. In particular, keep
+state-recomputed Taylor tests for every nonlinear or transformation-sensitive
+decision path.
+
+### S-013 — The build has a real deal.II-free verification mode and little incidental machinery
+
+**Evidence:** The 59-line root `CMakeLists.txt` uses a C++17 interface target,
+keeps deal.II behind `NMOPT_ENABLE_DEAL_II`, and registers the dense and
+semantic tests independently of that backend. With the option disabled the
+repository configures, builds, and tests without special stubs. There is no
+packaging, generated-code, plugin, or application layer to preserve.
+
+**Preserve:** Keep a fast backend-neutral developer gate and do not add
+packaging or a generalized build framework solely for architectural
+appearance. Build changes should address explicit configuration, diagnostic,
+or compile-cost failures identified below.
 
 ## Compiler and deal.II review surface
 
@@ -745,6 +817,14 @@ boolean logic, and at least one complete target. Combining two individually
 supported additions tends toward another target class. The public registry
 communicates a stronger compositional architecture than the implementation
 provides.
+
+A clean warning-enabled build gives this coupling a practical cost: compiling
+the one 1,502-line deal.II test translation unit, which reaches every target
+through the public compiler aggregate, contributed to a 54.00 s clean build
+with 1.49 GiB peak resident memory; its object file was 14 MiB. These local
+numbers are not performance requirements, but they resolve `OBS-BLD-03`:
+including every target implementation through one public template aggregate
+is already material to the edit-build-test loop.
 
 **Scope relevance:** Before affected features. This is a prerequisite for
 component-heavy P5.1/P5.2/P5.4 and the P6.2 advection/stabilization target. It
@@ -1105,22 +1185,395 @@ at sufficiently tight declared tolerances.
 how to stop or report it. That explicit behavior is necessary for the
 project’s software-engineering and numerical-methods goals.
 
-## Findings and observations pending cross-layer review
+## Formulation, solver, test, and build review surface
 
-The following baseline observations remain queued for later classification:
+Evidence wave 4 fully reviewed the only current optimizer,
+`include/nmopt/solvers/reduced_gradient.hpp`, and its reduced-formulation
+service in `include/nmopt/contract/reduced_dto.hpp`; inventoried every logical
+test scenario and its numerical checks; and reviewed the complete root CMake
+configuration and repository-local developer tooling. Relevant authority came
+from the reduced and verification sections of the
+[executable contract](executable-contract-v0.md),
+[implementation-readiness review](implementation-readiness-review.md),
+[implementation roadmap](implementation-roadmap.md), and
+[Chapter 6 numerical-methods guide](chapter-6-numerical-methods-guide.md).
 
-| Observation | Evidence needed before classification |
+There is no separate formulation package today. That is appropriate for the
+implemented slice: `StateControlPartitionT` plus `ReducedDTOT` is explicitly
+one-state/one-decision, DTO, and first-order. It should not be generalized to
+represent P6.2 OTD or P6.3 KKT products. Those features need separately named
+products if selected. The current refactor question is therefore limited to
+how reduced algorithms request state/objective/adjoint work and how they
+record it.
+
+### Current verification map
+
+| Logical scenario | Strongest current checks | Important gap or characterization need |
+| --- | --- | --- |
+| Dense linear-quadratic DTO | Residual JVP/VJP, residual and objective finite differences, state residual, reduced derivative, metric identity, box clipping, unconstrained/projected convergence | No direct adjoint-equation residual; solver failure/limit paths and exact accepted Armijo data are absent |
+| Alternate dense backend | Backend-parametric pairing and covector subtraction | Only a very small algebra instantiation; no DTO/metric/solver instantiation |
+| Semantic v1 graph | Positive reference graphs and twelve rejected mutations | Category-only rejection assertions; RF-002 through RF-005 are uncharacterized |
+| Baseline deal.II volume control | State residual, residual JVP/VJP and finite difference, metric action, reduced derivative, projected/unconstrained solves, v0/v1 comparison, representative compiler diagnostics and manifest | v0/v1 assembly is shared (RF-009); only one mesh and the v0 solver success path |
+| Fixed Dirichlet | Manufactured objective, reconstructed state residual, JVP/VJP, residual/objective derivatives, state-recomputed Taylor ratio, changed-data invalidation, manifest | Reconstruction is tested through the whole target rather than an independently owned transformation port |
+| Controlled Dirichlet | Physical-state reconstruction, state residual, composed JVP/VJP, reduced Taylor ratio, trace metric, unsupported partial boundary, manifest | White-box `dynamic_cast` to a compiler `detail` target; no standalone lifting value/JVP/VJP contract |
+| Subdomain observation | Changing the material mask leaves the state/residual unchanged and changes objective/adjoint RHS; exact manifest string | Differential behavior only; no independent restricted-integral value/derivative or reduced Taylor check |
+| Neumann boundary control | State residual, boundary coupling JVP/VJP, trace-objective derivative, reduced Taylor ratio, face metric and clipping, manifest | No independent face-integral oracle or degenerate empty/incorrect marker case at the compiled boundary |
+| H1 regularisation/metric | Unsupported combinations, stiffness contribution, L2 versus H1 direction distinction, H1 metric identity, state residual, pairing, reduced Taylor ratio, manifest | Absolute tolerances on one mesh; no solver behavior under the H1 metric |
+| Coefficient identification | Positive-bound diagnostics, state reassembly, nonlinear residual finite difference and pairing, objective derivative, reduced Taylor ratio, metric/constraint | No solver iteration or reassembly/work-count report; manifest misses the constraint bug in RF-008 |
+| Pure Neumann | Incompatible data/control rejection, repeatability, state/adjoint mean-zero gauge, state residual, manifest | White-box cast for gauge inspection; no direct saddle residual or adjoint equation residual |
+
+The existing tests are correctness contracts, not Chapter 6 reproduction
+drivers. That separation is good. Mesh/parameter sweeps, convergence trends,
+hardware, timings, and published iteration comparisons should remain outside
+CTest and should be added only for selected examples with a manifest-bearing
+run record. Their present absence is not refactor debt.
+
+## Architecture and engineering findings: solver, tests, and build
+
+### RF-014 — The reduced evaluation protocol performs an adjoint solve for every objective-only trial
+
+**Classification:** Solver/formulation interface debt with immediate P6.1
+performance and extensibility impact.
+
+**Evidence:** `ReducedDTOT` exposes one operation, `evaluate(control)`, which
+always solves the state, evaluates the full objective derivative, solves the
+adjoint, applies the residual VJP, and only then returns the objective value
+(`include/nmopt/contract/reduced_dto.hpp:127-170`). The Armijo loop calls that
+full operation before deciding whether a trial objective is acceptable
+(`include/nmopt/solvers/reduced_gradient.hpp:151-181`). The dense and deal.II
+tests explicitly assert
+`state_solve_count == adjoint_solve_count == line_search_trial_count + 1`, so
+this is established behavior, not a speculative cost.
+
+**Authority:** Armijo acceptance needs a trial objective and state solve, not
+a trial derivative. P6.1 then adds policies with different information needs:
+exact quadratic search needs a Hessian action, while Wolfe conditions need a
+trial derivative. The executable contract should make those costs explicit.
+
+**Consequence:** Every rejected backtracking step pays for an unused adjoint;
+the current `initial_step_length = 20` deal.II test deliberately exercises
+that waste. More importantly, a P6.1 implementation would either keep
+over-solving or add algorithm-name branches around the monolithic evaluation.
+The reported solve counts describe calls to `evaluate`, not work requested by
+the chosen line search.
+
+**Scope relevance:** Required before implementing selected P6.1 line searches
+or treating solver work counts as numerical results. It does not block
+semantic-only Chapter 5 work or require RF-007 first.
+
+**Action tier:** Target-dependent pre-feature refactor for P6.1.
+
+**Recommendation:** Split the reduced service by requested information, for
+example into a value record containing state/full point/objective and a
+derivative operation that augments an accepted value record with adjoint and
+reduced covector. Let the iteration driver request value-only Armijo trials
+and compute a derivative after acceptance. Add small direction and
+line-search policy concepts only for methods actually selected under P6.1;
+do not create a universal algorithm registry. Preserve the current
+`ReducedDTOT::evaluate()` as a convenience composition if that reduces
+migration risk.
+
+**Verification:** Use counting state/adjoint callbacks. A rejected Armijo
+trial must increment only the state count; every point at which a stopping
+norm or new direction is computed must have one matching adjoint. Add exact
+quadratic and Wolfe tests only when those policies are implemented, each
+asserting the work it requested.
+
+**Tradeoff:** A split record introduces an accepted-state cache and therefore
+more lifetime/layout checks. It pays for itself by making algorithm costs and
+derivative validity explicit, and it remains much smaller than a generalized
+formulation engine.
+
+### RF-015 — Solver reporting cannot yet audit a Chapter 6 run or carry its compilation provenance
+
+**Classification:** Reproducibility and failure-contract debt; partial P6.1
+feature gap.
+
+**Evidence:** `ReducedGradientResultT` records the final control, accepted
+objective history, stopping-norm history, four aggregate counts, and one of
+three reasons (`gradient_tolerance`, `maximum_iterations`, or
+`line_search_failure`) at
+`include/nmopt/solvers/reduced_gradient.hpp:11-47`. It does not record
+accepted step lengths, relative norm, objective change, actual directional
+decrease, metric solves, inner linear iterations/residuals, or a snapshot of
+solver parameters. Non-descent, infeasible projection output, bad metric
+actions, and state/adjoint callback failures escape as exceptions rather than
+typed terminal outcomes. The compilation manifest is accessible from
+`CompiledProblemT`, but the solver consumes a detached DTO and its result has
+no run-level association with that manifest.
+
+**Authority:** P6.1 requires uniform step, stop, line-search, and separated
+work counts. The implementation-readiness review requires compilation
+provenance to accompany solver diagnostics, and the numerical-examples guide
+requires solver policies, tolerances, mesh policy, and hardware/run metadata
+for a reproduction.
+
+**Consequence:** Objective monotonicity can be checked, but the current result
+cannot independently reconstruct whether each accepted step met its declared
+Armijo inequality. A saved result can be separated from the discretization
+and policy that produced it. As new directions add restart or curvature
+failure, using `ContractError` for all non-success behavior would confuse
+invalid program wiring with normal algorithm termination.
+
+**Scope relevance:** Required before publishing or comparing Chapter 6
+numerical results and naturally implemented with P6.1. Current v0 regression
+tests can continue using the smaller result until then.
+
+**Action tier:** Target-dependent pre-feature refactor for P6.1/results; not a
+common prerequisite for Chapter 5.
+
+**Recommendation:** Define a typed optimization report with an initial/final
+and relative stationarity measure, per-accepted-iteration objective and step,
+line-search trials, actual descent pairing, separated state/adjoint/metric
+work, and an explicit terminal status. Keep invalid layouts and violated
+metric/constraint contracts as exceptions; represent expected algorithmic
+outcomes such as failed line search, curvature reset/failure, nonfinite trial,
+or inner-solve failure in the report when recovery or comparison is
+meaningful. Build a small experiment/run envelope outside the generic solver
+that pairs the compilation manifest, solver policy snapshot, report, and
+environment metadata. Do not make the backend-neutral solver depend on a
+deal.II manifest type.
+
+**Verification:** Assert every accepted inequality from reported fields;
+check relative and absolute stopping, maximum-iteration and forced
+line-search failure paths, nonfinite trial handling, and exact work counts.
+Serialize or print one run envelope and show that formulation, mesh, state,
+adjoint, metric, and outer-solver policies can all be identified without
+inspecting live objects.
+
+**Tradeoff:** Per-iteration records consume more memory than two scalar
+histories. Chapter 6 experiments need that evidence; a configurable compact
+mode can be considered only if a selected large run demonstrates a problem.
+
+### RF-016 — Eleven logical test scenarios are hidden behind three fail-fast process entries
+
+**Classification:** Test architecture and characterization debt.
+
+**Evidence:** `nmopt_contract_tests` contains two logical functions,
+`nmopt_semantic_v1_contract_test` one, and the 1,502-line deal.II executable
+eight templated scenario functions. Each `main()` runs them sequentially
+inside one catch block, so the first failure prevents all later cases from
+running. CTest exposes only three entries and assigns no label or timeout.
+The controlled-Dirichlet and pure-Neumann cases `dynamic_cast` the public
+executable port to compiler `detail` model types to inspect reconstruction or
+gauge behavior. All repetitions passed, so the finding is diagnosis and
+coupling, not observed flakiness.
+
+Coverage is strong but incomplete at important refactor seams: there is no
+direct adjoint-equation residual check, no solver test for maximum-iteration
+or line-search-failure results, no exact accepted Armijo record, and no tests
+for callback failure or nonfinite values. Absolute `require_close` tolerances
+are repeated locally and are suitable for the fixed meshes but will not scale
+to refinement/parameter sweeps. RF-001 through RF-006, RF-008, RF-010, and
+RF-012 identify additional missing regressions.
+
+**Authority:** The assessment plan requires failure localization, independent
+oracles, degenerate cases, and a practical refactor loop. The Chapter 6 guide
+requires direction, acceptance, stopping, and work-count tests independently.
+
+**Consequence:** A failure in the first deal.II scenario can hide seven later
+results, focused execution is unavailable through CTest, and a test-only need
+to inspect a specialized policy leaks through the same aggregate used for
+black-box compiler contracts. Splitting the 1,502-line source into many
+executables immediately would instead multiply the already expensive public
+template compilation.
+
+**Scope relevance:** Characterization work is a common Stage B prerequisite;
+full reorganization can accompany RF-007 and RF-014.
+
+**Action tier:** Add missing defect characterizations before production
+refactors; improve process granularity early in Stage B.
+
+**Recommendation:** First add exact regression cases to the existing binaries.
+Then let the deal.II executable dispatch one named scenario from a command
+argument and register each scenario as a separately named/labeled CTest,
+without creating eight translation units. Extract deterministic value,
+pairing, Taylor, diagnostic, and solver-report helpers. Keep black-box compiler
+port tests separate in intent from white-box realization-policy tests; after
+RF-007 extracts lifting/gauge components, test those components directly
+instead of casting a compiled executable to `detail`. A third-party test
+framework is not necessary to obtain these benefits.
+
+**Verification:** CTest must list and run each logical scenario separately,
+one failing case must not suppress unrelated results, and labels must permit
+backend-neutral versus deal.II selection. Mutate an expected diagnostic,
+transpose sign, and accepted step to confirm the corresponding focused test
+fails. Keep the aggregate full run within a documented developer budget.
+
+**Tradeoff:** More CTest processes may repeat deal.II startup. Reusing one
+binary and measuring the resulting suite is the low-cost first step; only
+split translation units where dependency boundaries or parallelism outweigh
+compile cost.
+
+### RF-017 — Enabling deal.II can silently produce a build with no deal.II target or test
+
+**Classification:** Build correctness and dependency-discovery debt.
+
+**Evidence:** `NMOPT_ENABLE_DEAL_II` defaults to `ON`. CMake first calls
+`find_package(deal.II CONFIG QUIET)`, then falls back to independent
+`find_path` and `find_library` calls. If neither path succeeds, configuration
+reaches the end without a status, warning, or error and simply does not create
+`nmopt_dealii_contract` or its CTest (`CMakeLists.txt:22-59`). The manual
+fallback links one library and include directory but does not call
+`deal_ii_setup_target` or propagate the package's dependency libraries,
+compile definitions, feature flags, and configuration selection. It was not
+executed here because the package configuration was available.
+
+**Authority:** The build convention permits a deal.II-free environment but
+requires skipped backend checks to be reported. An option described as
+“Build the serial deal.II reference lowerer” should not silently mean “try to
+build it.”
+
+**Consequence:** A contributor can request/default to deal.II support, see a
+successful configure and green two-test run, and reasonably mistake it for a
+full verification. The fallback may configure successfully but fail later or
+use incomplete deal.II settings, producing a harder-to-diagnose path than a
+clear dependency error.
+
+**Scope relevance:** Common developer-workflow fix; independent of which
+Chapter 5/6 features are selected.
+
+**Action tier:** Early Stage B build hardening, before relying on automated
+gates.
+
+**Recommendation:** Prefer the official deal.II config package as the one
+supported path. If `NMOPT_ENABLE_DEAL_II=ON` and it is unavailable, fail with
+an actionable message; users who intentionally need the backend-neutral mode
+already have `NMOPT_ENABLE_DEAL_II=OFF`. Remove the manual fallback unless a
+real supported environment can verify all required imported-target behavior.
+Always print a concise configuration summary including deal.II test
+availability.
+
+**Verification:** Configure with the package available, with the option
+explicitly off, and with the option on while package discovery is disabled.
+The first must register three test groups, the second two, and the third must
+fail at configure time with the documented remedy.
+
+**Tradeoff:** Removing an unverified fallback can reduce apparent portability.
+For deal.II, a reliable explicit package requirement is preferable to a path
+that cannot reproduce the dependency's CMake usage requirements.
+
+### RF-018 — The developer build profile leaves generator, configuration, warnings, and test intent implicit
+
+**Classification:** Developer-experience and reproducibility debt.
+
+**Evidence:** The prescribed command fixes Ninja and the directory `build/`
+but omits `CMAKE_BUILD_TYPE`. In this checkout, reusing an older Makefiles
+cache failed with CMake's generator-mismatch error; a fresh configure let
+deal.II warn and force the empty build type to Debug. The repository has no
+CMake presets, project warning option, CI configuration, or CTest labels and
+timeouts. Backend-neutral code is clean under `-Wall -Wextra -Wpedantic
+-Wconversion -Wshadow`, while the deal.II build exposes the checked-size
+boundary in RF-019. Address/undefined-behavior checks are cheap and pass for
+the backend-neutral targets when environment-incompatible leak detection is
+disabled.
+
+`OBS-BLD-01` is therefore not a source-state or Git risk: generated build
+trees are ignored and a commit/tag preserves all authored state. It is a
+recoverable CMake cache conflict. The workflow weakness is that the canonical
+command provides neither an alternate build-directory convention nor a
+documented recovery path. `OBS-BLD-02` is reproducibility debt because an
+implicit Debug build is unsuitable as the basis for Chapter 6 performance
+observations.
+
+**Authority:** The build convention asks for reproducible out-of-source Ninja
+checks and visible failures. The numerical-examples guide separates
+correctness from performance and requires the actual configuration to be
+recorded.
+
+**Consequence:** Two contributors can run the same documented command but use
+different cached settings, or fail before configuration because of an old
+generator. Backend-neutral warnings depend on manually supplied flags.
+Performance-sensitive experiments risk being run in an implicitly forced
+Debug configuration, while the absence of labels makes “fast core” versus
+“deal.II integration” an informal distinction.
+
+**Scope relevance:** Common workflow improvement, but not a reason to delay
+all semantic fixes. It becomes important before sustained implementation and
+mandatory before numerical benchmarking.
+
+**Action tier:** Early Stage B workflow batch; explicit Release/benchmark
+profile before any Chapter 6 reported timings.
+
+**Recommendation:** Provide one canonical explicit Debug developer profile
+and one backend-neutral profile, either as small CMake presets or fully
+specified commands using distinct generated directories. Document generator
+cache recovery without deleting a user's build tree automatically. Apply a
+project-owned warning interface to project targets without making warnings
+from external headers fatal. Add CTest labels and proportionate timeouts.
+Use the cheap backend-neutral warning and sanitizer configurations as local or
+automated gates. A minimal backend-neutral CI job would address the concrete
+absence of any automatic gate; a deal.II CI job should be added only where a
+stable package image is actually maintainable. Packaging, installation,
+coverage hosting, and a formatter gate are not currently justified.
+
+**Verification:** A new checkout must run the documented profile without an
+implicit build-type warning; the backend-neutral profile must not search for
+deal.II; test labels must select the intended subsets; and a stale different-
+generator tree must have a safe documented recovery. Record configuration in
+any experiment run envelope from RF-015.
+
+**Tradeoff:** Presets and extra configurations add a small maintenance matrix.
+Keeping only profiles that are actually exercised avoids turning build
+polish into a parallel product.
+
+### RF-019 — Contract dimensions and serial deal.II vector sizes meet through unchecked narrowing conversions
+
+**Classification:** Backend adapter safety and warning-hygiene debt.
+
+**Evidence:** Layout dimensions and backend-neutral APIs use `std::size_t`.
+On the audited deal.II 9.5.1 build, `dealii::Vector<double>::size_type` is
+`unsigned int`. `SerialBackend::zeros(size_t)` passes the value directly to
+the vector constructor (`include/nmopt/dealii/serial_backend.hpp:17-21`), and
+the two box constraints allocate and index deal.II vectors with `size_t`.
+`-Wconversion` reports the same boundary throughout target assembly helpers,
+including vector construction and sparse-matrix row/column insertion.
+
+**Consequence:** Present two-dimensional tests are far below the native limit,
+so no current result is wrong. The API nevertheless has no checked point at
+which an oversized backend-neutral dimension is rejected; a large value can
+truncate before later layout/vector agreement checks. The volume of warnings
+also prevents a strict conversion profile from distinguishing newly
+introduced conversions.
+
+**Scope relevance:** Not a blocker for the bounded small serial Chapter 5/6
+targets, but a concrete safety cleanup and prerequisite for making conversion
+warnings actionable. It must not be misrepresented as distributed or
+large-scale backend support.
+
+**Action tier:** Opportunistic Stage B adapter cleanup, after the correctness
+characterizations and before enabling the strict warning profile routinely.
+
+**Recommendation:** Centralize checked conversion from contract dimension to
+the backend's native size/index type in `SerialBackend` or a small deal.II
+adapter utility. Use native deal.II index types inside vector/matrix loops and
+convert back to `size_t` only through widening paths. Apply the helper first at
+all allocation and sparse-index boundaries; do not scatter unchecked casts to
+silence warnings.
+
+**Verification:** Add a backend adapter test that accepts the maximum
+representable native size symbolically without allocating it and rejects a
+larger `size_t` when the platform permits one. Rebuild under the strict warning
+profile and confirm project-owned conversions are either checked or absent.
+
+**Tradeoff:** The bounded serial examples will never allocate billions of
+entries, so the runtime defect risk is low. A centralized boundary still has
+learning value and removes noise without redesigning layout dimensions or
+claiming a distributed backend.
+
+## Resolution of prior cross-layer observations
+
+| Observation | Resolution |
 | --- | --- |
-| `OBS-BLD-01`: the prescribed `build/` Ninja command conflicts with an existing Makefiles cache | Determine whether this is only local stale state or a documentation/workflow weakness reproducible for contributors |
-| `OBS-BLD-02`: an unspecified build type is silently forced to `Debug` by deal.II after a warning | Review CMake policy, expected developer configurations, and whether performance-sensitive examples need an explicit choice |
-| `OBS-TST-01`: all deal.II behavior is registered as one CTest executable | Review internal test organization, failure handling, runtime, and whether granularity impedes diagnosis or focused refactoring |
-| `OBS-TST-02`: deal.II integration tests use `dynamic_cast` to compiler `detail` targets | Decide whether lowerer-policy white-box tests should be separated from black-box compiled-port contracts instead of reaching through the same public aggregate |
-| `OBS-BLD-03`: the public compiler aggregate includes every large template target | Review target/install boundaries and measured compilation cost before deciding whether explicit instantiation or internal headers are warranted for this bounded project |
-| `OBS-INT-01`: architecture documents say manifests accompany solver diagnostics | Inspect solver reports and experiment/output ownership before classifying the absent integration as current debt or deferred Chapter 6 work |
+| `OBS-BLD-01`: Ninja conflicts with the existing Makefiles cache | Resolved by RF-018 as a recoverable ignored-cache conflict plus a missing documented/profiled recovery path, not a source or Git-preservation risk |
+| `OBS-BLD-02`: deal.II forces an unspecified build type to Debug | Resolved by RF-018 as reproducibility debt; explicit Debug and benchmark profiles are needed |
+| `OBS-TST-01`: all deal.II behavior is one CTest | Resolved by RF-016; eight logical scenarios need focused registration without multiplying expensive translation units |
+| `OBS-TST-02`: tests cast to compiler `detail` targets | Resolved by RF-016; separate black-box compiler intent from white-box policy intent and test extracted policies directly after RF-007 |
+| `OBS-BLD-03`: the compiler aggregate includes all large targets | Resolved by RF-007 with measured build evidence; decompose lowering first and measure before choosing explicit instantiation or additional binary-library machinery |
+| `OBS-INT-01`: manifests should accompany solver diagnostics | Resolved by RF-015; use a run envelope outside the backend-neutral solver rather than coupling the solver to compiler manifest types |
 
 ## Pending review waves
 
-1. Formulations, solvers, tests, numerical verification, CMake, and tooling.
-2. Documentation consistency, conventions, and agent guidance.
-3. Final synthesis, action tiers, dependency-ordered refactor batches,
+1. Documentation consistency, conventions, and agent guidance.
+2. Final synthesis, action tiers, dependency-ordered refactor batches,
    deferred work, and user decisions.

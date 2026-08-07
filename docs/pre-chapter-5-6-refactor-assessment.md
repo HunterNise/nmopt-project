@@ -340,7 +340,7 @@ continue to pass through a declared metric.
 variable blocks and one test block in
 `include/nmopt/contract/reduced_dto.hpp:18-37`. `ReducedDTOT::evaluate()`
 centralizes the documented Lagrangian sign by computing
-`J_u' - E_u'^* p` at lines 147-163. State and adjoint solves are injected as
+$J_{u}' - E_{u}'^{*} p$ at lines 147-163. State and adjoint solves are injected as
 formulation services rather than hidden in a residual term.
 
 **Preserve:** Mixed states, multiple equations, all-at-once actions, OTD, and
@@ -410,7 +410,7 @@ unregistered cross-product by inference.
 physical reconstruction/lifting maps and use their transpose pullbacks. The
 Neumann target assembles a separate boundary coupling and a mean-zero saddle
 system for its pure-Neumann variant. The coefficient target reassembles its
-state operator and implements parameter JVP/VJP actions. The H1 target keeps
+state operator and implements parameter JVP/VJP actions. The $H^{1}$ target keeps
 objective regularisation distinct from the selected search metric. Targeted
 tests check residual JVP/VJP pairings, finite differences or reduced Taylor
 remainders, metric identities, physical reconstruction, nullspace behavior,
@@ -429,7 +429,7 @@ single branch-heavy model.
 through `metric.apply()`, and never assumes Euclidean coefficient identity
 (`include/nmopt/solvers/reduced_gradient.hpp:93-246`). In the constrained
 path it computes
-`Pi(u - G^-1 j') - u`, measures that projected residual in the selected
+$\Pi(u - G^{-1} j') - u$, measures that projected residual in the selected
 metric, and evaluates Armijo decrease with the actual projected trial
 displacement rather than the unprojected direction. It also requires a
 feasible initial control and rechecks projection feasibility.
@@ -443,14 +443,14 @@ formulas after projection.
 
 **Evidence:** The deal.II test contains separate scenarios for the baseline
 volume control, fixed reconstruction, controlled-Dirichlet lifting, subdomain
-observation, Neumann boundary control and trace observation, H1
+observation, Neumann boundary control and trace observation, $H^{1}$
 regularisation and metric choice, coefficient identification, and the
 pure-Neumann gauge. Across them it checks manufactured values, residual
 pairings, finite differences, state-recomputed reduced Taylor ratios,
 metric identities, box behavior, changed-data invalidation, nullspace
 conditions, and rejected capabilities. All three CTests passed three
 consecutive repetitions. The backend-neutral suite also passed strict common
-warnings and AddressSanitizer/UndefinedBehaviorSanitizer diagnostics.
+warnings and `AddressSanitizer` / `UndefinedBehaviorSanitizer` diagnostics.
 
 **Preserve:** Refactor test organization without replacing these mathematical
 oracles by constructor-only or snapshot tests. In particular, keep
@@ -509,7 +509,7 @@ under `.agents/` or `.codex/`, so no hidden instruction layer contradicts the
 visible policy.
 
 **Preserve:** Keep this guidance small and authority-directed. Add workflow or
-test guidance only when implementing the concrete RF-016–RF-018 changes; do
+test guidance only when implementing the concrete RF-016 – RF-018 changes; do
 not introduce a second agent handbook, a duplicated convention table, or a
 large generic style guide.
 
@@ -740,7 +740,7 @@ coding avoids over-generalizing the current space model.
 
 **Evidence:** `include/nmopt/semantic/v1/reference_specs.hpp` contains 36
 numeric `.at(index)` mutations, plus positional erase operations such as
-`residual_terms.erase(begin() + 2)`. The H1, coefficient-identification,
+`residual_terms.erase(begin() + 2)`. The $H^{1}$, coefficient-identification,
 fixed-Dirichlet, and controlled-Dirichlet factories derive variants by
 rewriting assumed positions in the base scalar graph. For example, the
 coefficient factory rewrites spaces, pairings, the second variable, the first
@@ -842,7 +842,7 @@ data, loss, observation, metric, and constraint sets selected by whole-graph
 feature flags (`include/nmopt/compiler/v1/dealii_compiler.hpp:1047-1371`).
 `compile()` then derives ten booleans and selects one of six mutually
 exclusive complete models at lines 54-378: Neumann boundary, controlled
-Dirichlet, H1 control, coefficient identification, fixed/subdomain assembled
+Dirichlet, $H^{1}$ control, coefficient identification, fixed/subdomain assembled
 v1, or the direct v0 model.
 
 The five v1-only target headers contain 3,171 lines; the direct v0 target adds
@@ -1151,14 +1151,14 @@ the string an unverified mathematical capability token.
 
 **Authority:** The executable contract and implementation-readiness review
 require projection to be qualified by the actual selected metric and
-explicitly forbid treating coefficient clipping as an H1 or global metric
+explicitly forbid treating coefficient clipping as an $H^{1}$ or global metric
 projection.
 
 **Consequence:** A typo, reused semantic ID, or future custom metric can turn
 a false projection into a reported capability. Layout compatibility cannot
 establish the separability property that makes clipping exact.
 
-**Scope relevance:** Before adding H-1, trace, obstacle, state, or
+**Scope relevance:** Before adding $H^{-1}$, trace, obstacle, state, or
 complementarity constraints in P5.2/P5.4/P5.5/P6.5. The current compiler path
 can remain operational while the contract is strengthened.
 
@@ -1173,9 +1173,9 @@ from capability identity. Keep projection owned by the constraint, as the
 interface specification requires.
 
 **Verification:** Construct a compatible-layout, same-string non-diagonal
-metric and require rejection. Retain positive tests for diagonal DGQ(0) cell
+metric and require rejection. Retain positive tests for diagonal `DGQ(0)` cell
 mass, face mass, and the dense diagonal reference; add an explicit negative
-H1 case.
+$H^{1}$ case.
 
 **Tradeoff:** Runtime type checks alone would couple constraints to concrete
 metric classes and still over-accept arbitrary matrices. An opaque witness or
@@ -1266,7 +1266,7 @@ record it.
 | Controlled Dirichlet | Physical-state reconstruction, state residual, composed JVP/VJP, reduced Taylor ratio, trace metric, unsupported partial boundary, manifest | White-box `dynamic_cast` to a compiler `detail` target; no standalone lifting value/JVP/VJP contract |
 | Subdomain observation | Changing the material mask leaves the state/residual unchanged and changes objective/adjoint RHS; exact manifest string | Differential behavior only; no independent restricted-integral value/derivative or reduced Taylor check |
 | Neumann boundary control | State residual, boundary coupling JVP/VJP, trace-objective derivative, reduced Taylor ratio, face metric and clipping, manifest | No independent face-integral oracle or degenerate empty/incorrect marker case at the compiled boundary |
-| H1 regularisation/metric | Unsupported combinations, stiffness contribution, L2 versus H1 direction distinction, H1 metric identity, state residual, pairing, reduced Taylor ratio, manifest | Absolute tolerances on one mesh; no solver behavior under the H1 metric |
+| $H^{1}$ regularisation/metric | Unsupported combinations, stiffness contribution, $L^{2}$ versus $H^{1}$ direction distinction, $H^{1}$ metric identity, state residual, pairing, reduced Taylor ratio, manifest | Absolute tolerances on one mesh; no solver behavior under the $H^{1}$ metric |
 | Coefficient identification | Positive-bound diagnostics, state reassembly, nonlinear residual finite difference and pairing, objective derivative, reduced Taylor ratio, metric/constraint | No solver iteration or reassembly/work-count report; manifest misses the constraint bug in RF-008 |
 | Pure Neumann | Incompatible data/control rejection, repeatability, state/adjoint mean-zero gauge, state residual, manifest | White-box cast for gauge inspection; no direct saddle residual or adjoint equation residual |
 
@@ -1508,7 +1508,7 @@ that cannot reproduce the dependency's CMake usage requirements.
 **Evidence:** The prescribed command fixes Ninja and the directory `build/`
 but omits `CMAKE_BUILD_TYPE`. In this checkout, reusing an older Makefiles
 cache failed with CMake's generator-mismatch error; a fresh configure let
-deal.II warn and force the empty build type to Debug. The repository has no
+deal.II warn and force the empty build type to `Debug`. The repository has no
 CMake presets, project warning option, CI configuration, or CTest labels and
 timeouts. Backend-neutral code is clean under `-Wall -Wextra -Wpedantic
 -Wconversion -Wshadow`, while the deal.II build exposes the checked-size

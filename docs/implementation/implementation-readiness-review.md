@@ -318,9 +318,11 @@ The initial volume-control space is therefore discontinuous piecewise
 constant (`FE_DGQ(0)`) on the state mesh, and lower/upper bound data must be
 piecewise constant on that mesh. The initial box solver uses the declared
 $L^{2}$-metric projection. It MUST NOT claim that coefficient clipping is an
-$H^{1}$-metric projection. A solver requesting a projection asks explicitly
-for `project_in_metric(metric_id)`; absence of that operation is a capability
-failure, not permission to substitute clipping.
+$H^{1}$-metric projection. A solver requesting a projection supplies the
+actual metric service. The box accepts only the positive-diagonal metric
+realization coupled by its owning lowerer; a human-readable metric identifier
+is provenance, not compatibility proof. Absence of that coupled capability is
+a failure, not permission to substitute clipping.
 
 ## 8. Boundary conditions, liftings, and nullspaces
 

@@ -3,12 +3,48 @@
 #include "nmopt/contract/layout.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace nmopt::contract
 {
+  template <typename Backend>
+  class MetricT;
+
+  // An opaque identity for one constructed metric realization. Display IDs
+  // remain useful provenance, but they are not mathematical capability tokens.
+  class MetricRealisationWitness final
+  {
+  public:
+    MetricRealisationWitness(const MetricRealisationWitness &) = default;
+    MetricRealisationWitness(MetricRealisationWitness &&) = default;
+    MetricRealisationWitness &
+    operator=(const MetricRealisationWitness &) = default;
+    MetricRealisationWitness &
+    operator=(MetricRealisationWitness &&) = default;
+
+    bool
+    matches(const MetricRealisationWitness &other) const noexcept
+    {
+      return identity_ == other.identity_;
+    }
+
+  private:
+    struct Identity
+    {};
+
+    MetricRealisationWitness()
+      : identity_(std::make_shared<const Identity>())
+    {}
+
+    std::shared_ptr<const Identity> identity_;
+
+    template <typename Backend>
+    friend class MetricT;
+  };
+
   template <typename Backend>
   class MetricT
   {
@@ -21,11 +57,20 @@ namespace nmopt::contract
     virtual const LayoutPtr &
     layout() const = 0;
 
+    const MetricRealisationWitness &
+    realisation_witness() const noexcept
+    {
+      return realisation_witness_;
+    }
+
     virtual CovectorBlockT<Backend>
     apply(const PrimalBlockT<Backend> &primal) const = 0;
 
     virtual PrimalBlockT<Backend>
     inverse_apply(const CovectorBlockT<Backend> &covector) const = 0;
+
+  private:
+    MetricRealisationWitness realisation_witness_;
   };
 
   using Metric = MetricT<DenseBackend>;
@@ -132,12 +177,16 @@ namespace nmopt::contract
     CellwiseBoxConstraint(LayoutPtr                layout,
                           std::vector<DenseVector> lower,
                           std::vector<DenseVector> upper,
-                          std::string              l2_metric_id = "l2_cellwise")
+                          const DiagonalMetric &   projection_metric)
       : layout_(std::move(layout))
       , lower_(std::move(lower))
       , upper_(std::move(upper))
-      , l2_metric_id_(std::move(l2_metric_id))
+      , projection_metric_(projection_metric.realisation_witness())
     {
+      require(static_cast<bool>(layout_),
+              "Cellwise box constraint needs a layout");
+      require(layout_->compatible_with(*projection_metric.layout()),
+              "Cellwise box projection metric has an incompatible layout");
       const PrimalBlock lower_probe(layout_, lower_);
       const PrimalBlock upper_probe(layout_, upper_);
       for (std::size_t block = 0; block < lower_probe.n_blocks(); ++block)
@@ -170,7 +219,7 @@ namespace nmopt::contract
     supports_projection_in(const Metric &metric) const override
     {
       return layout_->compatible_with(*metric.layout()) &&
-             metric.id() == l2_metric_id_;
+             projection_metric_.matches(metric.realisation_witness());
     }
 
     PrimalBlock
@@ -200,6 +249,6 @@ namespace nmopt::contract
     LayoutPtr                layout_;
     std::vector<DenseVector> lower_;
     std::vector<DenseVector> upper_;
-    std::string              l2_metric_id_;
+    MetricRealisationWitness projection_metric_;
   };
 } // namespace nmopt::contract

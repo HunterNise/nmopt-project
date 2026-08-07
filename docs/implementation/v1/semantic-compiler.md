@@ -341,7 +341,11 @@ positive box and reassembled state/adjoint matrices.
 `CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
 and `make_reduced_dto()` expose only backend-neutral ports and formulation
 services. The homogeneous private v0 target, v1 assembled target, mass metric,
-and box constraint stay inside `DealiiCompiler`. Solvers have no v1 branches.
+and box constraint stay inside `DealiiCompiler`. Each registered box is
+constructed with the actual positive-diagonal `MassMetric` selected by the
+same lowerer and retains that metric's opaque realization witness. Metric
+display IDs remain descriptive provenance and cannot grant clipping support to
+another operator. Solvers have no v1 branches.
 
 Every successful compiled product also carries a `CompilationManifest`. It
 records semantic component identities, FE spaces, quadrature, the
@@ -349,6 +353,11 @@ dual-coefficient representation, target-data rule, material observation
 realization, metric solve tolerances, constraint/lifting/nullspace policies,
 DTO provenance, declared transformations, and assumptions. The manifest is
 descriptive provenance; it does not create a second configuration channel.
+The compiler selects a typed internal constraint realization alongside the
+constructed service, then renders it into the current human-readable manifest.
+In particular, coefficient identification records
+`l2_cellwise_parameter`, while volume and facewise controls record their own
+distinct clipping realizations.
 
 ## Comparison guarantee
 
@@ -364,13 +373,14 @@ not an independent assembly oracle.
 Five backend-neutral semantic scenarios validate every registered factory,
 representative structural or policy failures, incomplete aggregates,
 whole-graph closure, two-sided pairing compatibility, and order-independent
-reference deltas. The eight deal.II scenarios named in the
+reference deltas. The eight deal.II target scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic
-and compiler checks match diagnostic category, component ID, and capability;
-exact assertions remain in the test sources rather than being duplicated as a
-second inventory here.
+and compiler checks match diagnostic category, component ID, and capability.
+A ninth deal.II contract scenario rejects display-ID spoofing for cellwise,
+facewise, and $H^{1}$ metric realizations. Exact assertions remain in the test
+sources rather than being duplicated as a second inventory here.
 
 ## Exclusions
 

@@ -111,21 +111,27 @@ namespace nmopt::compiler::v1::detail
     }
 
     dealii_backend::CellwiseBoxConstraint
-    parameter_l2_box_constraint(Vector lower, Vector upper) const
+    parameter_l2_box_constraint(
+      Vector                              lower,
+      Vector                              upper,
+      const dealii_backend::MassMetric & projection_metric) const
     {
       return dealii_backend::CellwiseBoxConstraint(parameter_layout_,
                                                     std::move(lower),
                                                     std::move(upper),
-                                                    "l2_cellwise_parameter");
+                                                    projection_metric);
     }
 
     dealii_backend::CellwiseBoxConstraint
-    parameter_l2_box_constraint(const double lower, const double upper) const
+    parameter_l2_box_constraint(
+      const double                        lower,
+      const double                        upper,
+      const dealii_backend::MassMetric & projection_metric) const
     {
       return dealii_backend::CellwiseBoxConstraint(parameter_layout_,
                                                     lower,
                                                     upper,
-                                                    "l2_cellwise_parameter");
+                                                    projection_metric);
     }
 
     Covector

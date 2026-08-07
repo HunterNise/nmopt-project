@@ -31,8 +31,8 @@ The public executable and solver headers provide:
 | `CovectorBlock` | A typed block of coefficients in the dual of that layout, with the same layout-preserving storage boundary. |
 | `pair` | The declared dual-coefficient pairing. It is the only primitive that pairs a covector with a primal vector. |
 | `ExecutableModel` | Residual value, residual JVP, residual VJP, objective value, and objective derivative. |
-| `Metric` | Explicit primal-to-dual action and inverse action. The serial deal.II backend supplies `dealii_backend::MassMetric` for one-block sparse mass matrices. |
-| `Constraint` | Feasibility and a metric-specific projection capability. |
+| `Metric` | Explicit primal-to-dual action and inverse action, plus an opaque realization witness distinct from its display ID. The serial deal.II backend supplies `dealii_backend::MassMetric` for one-block sparse mass matrices. |
+| `Constraint` | Feasibility and projection coupled to an actual compatible metric realization. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 
@@ -121,7 +121,9 @@ $$
 $$
 
 The constraint-qualified constructor accepts a `ConstraintT` only when its
-layout matches the metric and it declares projection support for that metric.
+layout matches the metric and it declares projection support for that exact
+metric realization. Display identifiers are retained for provenance and do
+not grant projection capability.
 It requires a feasible initial control. With projection $`\Pi_{\mathcal U}`$,
 the stopping measure and trial control are
 
@@ -180,11 +182,13 @@ The `CTest` scenarios verify:
 5. reduced DTO derivative;
 6. metric inverse/apply consistency;
 7. the selected cellwise $L^{2}$ box projection;
-8. read-only block storage, rejected dimension-changing updates, and preserved
+8. rejection of a non-diagonal metric that reuses a compatible metric's
+   display identifier;
+9. read-only block storage, rejected dimension-changing updates, and preserved
    pairing under checked algebraic updates;
-9. exact `ContractError` messages for representative partition, callback,
+10. exact `ContractError` messages for representative partition, callback,
    metric, constraint, and projected-solver precondition failures; and
-10. dense and deal.II unconstrained/projected Armijo convergence, including
+11. dense and deal.II unconstrained/projected Armijo convergence, including
    active-bound and projected-stationarity checks.
 
 This establishes the small executable algebra that a deal.II compiler must

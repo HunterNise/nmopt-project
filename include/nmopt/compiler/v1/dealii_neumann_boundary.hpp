@@ -141,17 +141,27 @@ namespace nmopt::compiler::v1::detail
     }
 
     dealii_backend::FacewiseBoxConstraint
-    control_l2_box_constraint(Vector lower, Vector upper) const
+    control_l2_box_constraint(
+      Vector                              lower,
+      Vector                              upper,
+      const dealii_backend::MassMetric & projection_metric) const
     {
       return dealii_backend::FacewiseBoxConstraint(control_layout_,
                                                     std::move(lower),
-                                                    std::move(upper));
+                                                    std::move(upper),
+                                                    projection_metric);
     }
 
     dealii_backend::FacewiseBoxConstraint
-    control_l2_box_constraint(const double lower, const double upper) const
+    control_l2_box_constraint(
+      const double                        lower,
+      const double                        upper,
+      const dealii_backend::MassMetric & projection_metric) const
     {
-      return dealii_backend::FacewiseBoxConstraint(control_layout_, lower, upper);
+      return dealii_backend::FacewiseBoxConstraint(control_layout_,
+                                                    lower,
+                                                    upper,
+                                                    projection_metric);
     }
 
     bool

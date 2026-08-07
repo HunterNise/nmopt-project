@@ -10,12 +10,17 @@
 #include <deal.II/base/function_lib.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
+#include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/sparsity_pattern.h>
 
 #include <cmath>
 #include <exception>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -77,6 +82,79 @@ namespace
     for (std::size_t block = 0; block < value.n_blocks(); ++block)
       value.add_scaled_block(block, step, direction.block(block));
     return value;
+  }
+
+  void
+  require_constraint_realisation(
+    const compiler::v1::CompilationManifest &manifest,
+    const std::string &                       expected,
+    const std::string &                       target)
+  {
+    contract::require(
+      manifest.constraint_realisation == expected,
+      target + " manifest constraint realization: expected " + expected +
+        ", got " + manifest.constraint_realisation);
+  }
+
+  void
+  run_projection_compatibility_contract_test()
+  {
+    const auto layout = std::make_shared<const contract::BlockLayout>(
+      "projection_compatibility",
+      std::vector<contract::SpaceId>{{"control"}},
+      std::vector<std::size_t>{2});
+    dealii::DynamicSparsityPattern dynamic_pattern(2, 2);
+    for (std::size_t row = 0; row < 2; ++row)
+      for (std::size_t column = 0; column < 2; ++column)
+        dynamic_pattern.add(row, column);
+    dealii::SparsityPattern pattern;
+    pattern.copy_from(dynamic_pattern);
+
+    auto diagonal_matrix =
+      std::make_shared<dealii::SparseMatrix<double>>(pattern);
+    diagonal_matrix->set(0, 0, 2.0);
+    diagonal_matrix->set(1, 1, 2.0);
+    const dealii_backend::MassMetric cellwise_metric(
+      "l2_cellwise", layout, diagonal_matrix);
+    const dealii_backend::CellwiseBoxConstraint cellwise_box(
+      layout, 0.0, 1.0, cellwise_metric);
+    contract::require(cellwise_box.supports_projection_in(cellwise_metric),
+                      "Cellwise box rejected its coupled diagonal metric");
+
+    auto non_diagonal_matrix =
+      std::make_shared<dealii::SparseMatrix<double>>(pattern);
+    non_diagonal_matrix->set(0, 0, 2.0);
+    non_diagonal_matrix->set(0, 1, 1.0);
+    non_diagonal_matrix->set(1, 0, 1.0);
+    non_diagonal_matrix->set(1, 1, 2.0);
+    const dealii_backend::MassMetric spoofed_cellwise_metric(
+      "l2_cellwise", layout, non_diagonal_matrix);
+    contract::require(
+      !cellwise_box.supports_projection_in(spoofed_cellwise_metric),
+      "A non-diagonal deal.II metric obtained cellwise clipping by reusing the l2_cellwise display identifier");
+    test_support::require_contract_error(
+      [&layout, &spoofed_cellwise_metric]() {
+        (void)dealii_backend::CellwiseBoxConstraint(
+          layout, 0.0, 1.0, spoofed_cellwise_metric);
+      },
+      "Cellwise box projection needs a positive diagonal metric realization",
+      "non-diagonal cellwise projection coupling");
+
+    const dealii_backend::MassMetric facewise_metric(
+      "l2_facewise", layout, diagonal_matrix);
+    const dealii_backend::FacewiseBoxConstraint facewise_box(
+      layout, 0.0, 1.0, facewise_metric);
+    contract::require(facewise_box.supports_projection_in(facewise_metric),
+                      "Facewise box rejected its coupled diagonal metric");
+    const dealii_backend::MassMetric spoofed_facewise_metric(
+      "l2_facewise", layout, non_diagonal_matrix);
+    contract::require(
+      !facewise_box.supports_projection_in(spoofed_facewise_metric),
+      "A non-diagonal deal.II metric obtained facewise clipping by reusing the l2_facewise display identifier");
+    const dealii_backend::MassMetric h1_metric(
+      "h1_continuous", layout, non_diagonal_matrix);
+    contract::require(!cellwise_box.supports_projection_in(h1_metric),
+                      "Cellwise clipping accepted an H1 metric realization");
   }
 
   template <int dim>
@@ -232,6 +310,7 @@ namespace
       "changed fixed-Dirichlet data reused stale compiled values");
 
     const auto &manifest = compilation.problem->manifest();
+    require_constraint_realisation(manifest, "none", "fixed-Dirichlet");
     contract::require(
         manifest.lifting_realisation.find("y_phys = P_h y_hat + ell_0,h") !=
         std::string::npos &&
@@ -371,6 +450,7 @@ namespace
                            1e-10,
                            "Dirichlet-control trace metric inverse/apply");
     const auto &manifest = compilation.problem->manifest();
+    require_constraint_realisation(manifest, "none", "Dirichlet-control");
     contract::require(
       manifest.control_space.find("nodal trace") != std::string::npos &&
         manifest.lifting_realisation.find("L_D,h") != std::string::npos &&
@@ -481,6 +561,10 @@ namespace
       "material observation did not change the tracking objective and adjoint RHS");
 
     const auto &one_manifest = material_one.problem->manifest();
+    require_constraint_realisation(one_manifest, "none", "subdomain-tracking");
+    require_constraint_realisation(material_zero.problem->manifest(),
+                                   "none",
+                                   "subdomain-tracking alternate region");
     contract::require(
       one_manifest.observation_realisation ==
         "material-id volume restriction: 1" &&
@@ -647,6 +731,10 @@ namespace
                     "facewise boundary box upper clipping");
 
     const auto &manifest = compilation.problem->manifest();
+    require_constraint_realisation(
+      manifest,
+      "facewise-constant coefficientwise l2_facewise clipping",
+      "Neumann-boundary control");
     contract::require(
       manifest.control_space.find("facewise-constant") != std::string::npos &&
         manifest.observation_realisation.find("boundary trace") !=
@@ -866,6 +954,10 @@ namespace
                         "h1_continuous",
                       "H1 metric compilation did not select the H1 Riesz map");
     const auto &manifest = compilation.problem->manifest();
+    require_constraint_realisation(manifest, "none", "H1-control L2 metric");
+    require_constraint_realisation(h1_metric_compilation.problem->manifest(),
+                                   "none",
+                                   "H1-control H1 metric");
     contract::require(
       manifest.control_space.find("continuous scalar FE_Q") != std::string::npos &&
         manifest.declared_assumptions.front().find("h1_control_regularisation") !=
@@ -1099,6 +1191,10 @@ namespace
       compilation.problem->manifest().state_adjoint_solve_policy.find(
         "reassembled") != std::string::npos,
       "coefficient-identification manifest omitted state-matrix reassembly");
+    require_constraint_realisation(
+      compilation.problem->manifest(),
+      "FE_DGQ(0) coefficientwise l2_cellwise_parameter clipping",
+      "coefficient-identification");
   }
 
   template <int dim>
@@ -1204,6 +1300,7 @@ namespace
       "pure-Neumann incompatible boundary control");
 
     const auto &manifest = compilation.problem->manifest();
+    require_constraint_realisation(manifest, "none", "pure-Neumann");
     contract::require(
       manifest.nullspace_policy.find("mean-zero Lagrange multiplier") !=
         std::string::npos &&
@@ -1445,7 +1542,7 @@ namespace
                         solver_result.state_solve_count,
                       "deal.II reduced gradient solve count misses a trial evaluation");
 
-    const auto bounds = model.control_l2_box_constraint(-1.0, 0.05);
+    const auto bounds = model.control_l2_box_constraint(-1.0, 0.05, metric);
     dealii::Vector<double> bounded_control_values(
       partition.control_layout()->dimension(0));
     const Primal bounded_control(partition.control_layout(),
@@ -1566,11 +1663,13 @@ namespace
                         compiled_constraint->is_feasible(bounded_control),
                       "v1 compiler did not preserve the declared box constraint");
     const auto &manifest = compilation.problem->manifest();
+    require_constraint_realisation(
+      manifest,
+      "FE_DGQ(0) coefficientwise l2_cellwise clipping",
+      "canonical volume control");
     contract::require(manifest.semantic_problem_id == specification.id &&
                         manifest.provenance == "DTO" &&
-                        manifest.execution == "assembled" &&
-                        manifest.constraint_realisation.find("FE_DGQ(0)") !=
-                          std::string::npos,
+                        manifest.execution == "assembled",
                       "v1 compiler did not record its compilation manifest");
   }
 } // namespace
@@ -1598,7 +1697,9 @@ main(const int argc, char **argv)
             []() { run_h1_control_regularisation_contract_test<2>(); }},
            {"coefficient_identification",
             []() { run_coefficient_identification_contract_test<2>(); }},
-           {"pure_neumann", []() { run_pure_neumann_contract_test<2>(); }}});
+           {"pure_neumann", []() { run_pure_neumann_contract_test<2>(); }},
+           {"projection_compatibility",
+            run_projection_compatibility_contract_test}});
       std::cout << "deal.II diffusion DTO contract scenario passed: "
                 << executed << '\n';
       return 0;

@@ -178,10 +178,11 @@ namespace nmopt::compiler::v1
         }
       contract::require(tracking_region != nullptr,
                         "Validated v1 problem has no tracking observation region");
-      std::shared_ptr<const contract::MetricT<Backend>> metric;
+      std::shared_ptr<const dealii_backend::MassMetric> metric;
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
       contract::StateAdjointSolversT<Backend> solvers;
+      ConstraintRealisation constraint_realisation = ConstraintRealisation::none;
       if (uses_neumann_boundary_control)
         {
           contract::require(control_boundary_region != nullptr,
@@ -213,8 +214,12 @@ namespace nmopt::compiler::v1
           metric = std::make_shared<dealii_backend::MassMetric>(
             boundary->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
-            constraint = std::make_shared<dealii_backend::FacewiseBoxConstraint>(
-              make_facewise_constraint(*boundary, *facewise_bounds));
+            {
+              constraint =
+                std::make_shared<dealii_backend::FacewiseBoxConstraint>(
+                  make_facewise_constraint(*boundary, *facewise_bounds, *metric));
+              constraint_realisation = ConstraintRealisation::facewise_l2;
+            }
           solvers = {
             [boundary](const contract::PrimalBlockT<Backend> &control) {
               return boundary->solve_state(control);
@@ -289,8 +294,13 @@ namespace nmopt::compiler::v1
           metric = std::make_shared<dealii_backend::MassMetric>(
             coefficient->parameter_l2_metric(policy.control_metric_solve));
           if (has_constraint)
-            constraint = std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-              make_parameter_constraint(*coefficient, *bounds));
+            {
+              constraint =
+                std::make_shared<dealii_backend::CellwiseBoxConstraint>(
+                  make_parameter_constraint(*coefficient, *bounds, *metric));
+              constraint_realisation =
+                ConstraintRealisation::cellwise_parameter_l2;
+            }
           solvers = {
             [coefficient](const contract::PrimalBlockT<Backend> &parameter) {
               return coefficient->solve_state(parameter);
@@ -318,8 +328,12 @@ namespace nmopt::compiler::v1
           metric = std::make_shared<dealii_backend::MassMetric>(
             assembled->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
-            constraint = std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-              make_constraint(*assembled, *bounds));
+            {
+              constraint =
+                std::make_shared<dealii_backend::CellwiseBoxConstraint>(
+                  make_constraint(*assembled, *bounds, *metric));
+              constraint_realisation = ConstraintRealisation::cellwise_l2;
+            }
           solvers = {
             [assembled](const contract::PrimalBlockT<Backend> &control) {
               return assembled->solve_state(control);
@@ -345,8 +359,12 @@ namespace nmopt::compiler::v1
           metric = std::make_shared<dealii_backend::MassMetric>(
             direct->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
-            constraint = std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-              make_constraint(*direct, *bounds));
+            {
+              constraint =
+                std::make_shared<dealii_backend::CellwiseBoxConstraint>(
+                  make_constraint(*direct, *bounds, *metric));
+              constraint_realisation = ConstraintRealisation::cellwise_l2;
+            }
           solvers = {
             [direct](const contract::PrimalBlockT<Backend> &control) {
               return direct->solve_state(control);
@@ -364,7 +382,7 @@ namespace nmopt::compiler::v1
         solvers,
         make_manifest(specification,
                       policy,
-                      has_constraint,
+                      constraint_realisation,
                       uses_fixed_reconstruction,
                       uses_dirichlet_control,
                       uses_assembled_v1_target,
@@ -379,6 +397,14 @@ namespace nmopt::compiler::v1
     }
 
   private:
+    enum class ConstraintRealisation
+    {
+      none,
+      cellwise_l2,
+      cellwise_parameter_l2,
+      facewise_l2
+    };
+
     static const semantic::v1::RegionSpec *
     find_region(const semantic::v1::ProblemSpec &specification,
                 const std::string &              id)
@@ -688,23 +714,28 @@ namespace nmopt::compiler::v1
     static dealii_backend::CellwiseBoxConstraint
     make_constraint(
       const Model &                    executable,
-      const CellwiseBoxDataBindings &  bounds)
+      const CellwiseBoxDataBindings &  bounds,
+      const dealii_backend::MassMetric &projection_metric)
     {
       contract::require(valid_bound_representation(bounds),
                         "The v1 cellwise box needs compatible bound data");
       if (std::holds_alternative<double>(bounds.lower))
         return executable.control_l2_box_constraint(
-          std::get<double>(bounds.lower), std::get<double>(bounds.upper));
+          std::get<double>(bounds.lower),
+          std::get<double>(bounds.upper),
+          projection_metric);
       return executable.control_l2_box_constraint(
         std::get<dealii::Vector<double>>(bounds.lower),
-        std::get<dealii::Vector<double>>(bounds.upper));
+        std::get<dealii::Vector<double>>(bounds.upper),
+        projection_metric);
     }
 
     template <typename Model>
     static dealii_backend::CellwiseBoxConstraint
     make_parameter_constraint(
       const Model &                    executable,
-      const CellwiseBoxDataBindings &  bounds)
+      const CellwiseBoxDataBindings &  bounds,
+      const dealii_backend::MassMetric &projection_metric)
     {
       contract::require(valid_bound_representation(bounds),
                         "The v1 parameter box needs compatible bound data");
@@ -712,25 +743,32 @@ namespace nmopt::compiler::v1
                         "The v1 parameter box needs a strictly positive lower bound");
       if (std::holds_alternative<double>(bounds.lower))
         return executable.parameter_l2_box_constraint(
-          std::get<double>(bounds.lower), std::get<double>(bounds.upper));
+          std::get<double>(bounds.lower),
+          std::get<double>(bounds.upper),
+          projection_metric);
       return executable.parameter_l2_box_constraint(
         std::get<dealii::Vector<double>>(bounds.lower),
-        std::get<dealii::Vector<double>>(bounds.upper));
+        std::get<dealii::Vector<double>>(bounds.upper),
+        projection_metric);
     }
 
     template <typename Model>
     static dealii_backend::FacewiseBoxConstraint
     make_facewise_constraint(const Model &                  executable,
-                             const FacewiseBoxDataBindings &bounds)
+                             const FacewiseBoxDataBindings &bounds,
+                             const dealii_backend::MassMetric &projection_metric)
     {
       contract::require(valid_facewise_bound_representation(bounds),
                         "The v1 facewise box needs compatible bound data");
       if (std::holds_alternative<double>(bounds.lower))
         return executable.control_l2_box_constraint(
-          std::get<double>(bounds.lower), std::get<double>(bounds.upper));
+          std::get<double>(bounds.lower),
+          std::get<double>(bounds.upper),
+          projection_metric);
       return executable.control_l2_box_constraint(
         std::get<dealii::Vector<double>>(bounds.lower),
-        std::get<dealii::Vector<double>>(bounds.upper));
+        std::get<dealii::Vector<double>>(bounds.upper),
+        projection_metric);
     }
 
     void
@@ -1416,10 +1454,28 @@ namespace nmopt::compiler::v1
       return ids;
     }
 
+    static std::string
+    describe(const ConstraintRealisation realisation)
+    {
+      switch (realisation)
+        {
+          case ConstraintRealisation::none:
+            return "none";
+          case ConstraintRealisation::cellwise_l2:
+            return "FE_DGQ(0) coefficientwise l2_cellwise clipping";
+          case ConstraintRealisation::cellwise_parameter_l2:
+            return "FE_DGQ(0) coefficientwise l2_cellwise_parameter clipping";
+          case ConstraintRealisation::facewise_l2:
+            return "facewise-constant coefficientwise l2_facewise clipping";
+        }
+      contract::require(false, "Unknown compiled constraint realization");
+      return {};
+    }
+
     static CompilationManifest
     make_manifest(const semantic::v1::ProblemSpec &  specification,
                   const DealiiDiscretisationPolicy & policy,
-                  const bool                         has_constraint,
+                  const ConstraintRealisation        constraint_realisation,
                   const bool                         uses_fixed_reconstruction,
                   const bool                         uses_dirichlet_control_lifting,
                   const bool                         uses_assembled_v1_target,
@@ -1483,11 +1539,8 @@ namespace nmopt::compiler::v1
         std::to_string(policy.control_metric_solve.relative_tolerance) +
         ", absolute tolerance=" +
         std::to_string(policy.control_metric_solve.absolute_tolerance);
-      manifest.constraint_realisation = !has_constraint
-                                          ? "none"
-                                          : uses_neumann_boundary_control
-                                              ? "facewise-constant coefficientwise l2_facewise clipping"
-                                              : "FE_DGQ(0) coefficientwise l2_cellwise clipping";
+      manifest.constraint_realisation =
+        describe(constraint_realisation);
       manifest.lifting_realisation = uses_mean_zero_gauge
                                        ? "none; pure-Neumann state uses an explicit mean-zero gauge"
                                        : uses_fixed_reconstruction

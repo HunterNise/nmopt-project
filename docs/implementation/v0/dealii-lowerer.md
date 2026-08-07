@@ -66,8 +66,12 @@ lowerer's matrix or PDE-specific type.
 
 `ScalarDiffusionReactionModel::control_l2_box_constraint()` is the matching
 control-space factory for `dealii_backend::CellwiseBoxConstraint`. It accepts
-either scalar constant bounds or serial vectors with exactly the control
-layout's coefficient count. The factory is the only v0 path for this
+the actual metric returned by `control_l2_metric()` together with either
+scalar constant bounds or serial vectors with exactly the control layout's
+coefficient count. Construction requires the metric matrix to be positive
+diagonal and stores its opaque realization witness. Consequently an unrelated
+or non-diagonal `MassMetric` cannot obtain clipping capability by reusing the
+`l2_cellwise` display identifier. The factory is the only v0 path for this
 constraint, so the bounds are `FE_DGQ(0)` cell coefficients on this control
 mesh; it is not a nodal, continuous-control, or $H^{1}$ projection.
 

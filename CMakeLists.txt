@@ -31,6 +31,11 @@ if(BUILD_TESTING)
     nmopt_contract_tests
     backend_parameterisation
     "backend-neutral;contract")
+  nmopt_add_scenario_test(
+    nmopt.contract.projection_compatibility
+    nmopt_contract_tests
+    projection_compatibility
+    "backend-neutral;contract;constraint")
 
   add_executable(nmopt_semantic_v1_contract_test tests/semantic_v1_contract.cc)
   target_link_libraries(nmopt_semantic_v1_contract_test PRIVATE nmopt_contract)
@@ -135,5 +140,10 @@ if(NMOPT_ENABLE_DEAL_II)
       nmopt_dealii_diffusion_contract_test
       pure_neumann
       "dealii;compiler")
+    nmopt_add_scenario_test(
+      nmopt.dealii.projection_compatibility
+      nmopt_dealii_diffusion_contract_test
+      projection_compatibility
+      "dealii;contract;constraint")
   endif()
 endif()

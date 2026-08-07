@@ -20,9 +20,10 @@ ctest --test-dir build --output-on-failure
 
 Stage B is active on `codex/refactor-ch5-ch6-readiness`. Batches R0
 (`RF-020`), R1 (`RF-006`, `RF-009`, and `RF-016`), R2a (`RF-001` and the
-relevant `RF-006` characterization), and R2b (`RF-002` through `RF-005` and
-the relevant `RF-006` cases) are complete; the next bounded batch is
-[R2c current correctness](refactor/stage-b-roadmap.md#r2c--repair-present-provenance-and-projection-correctness).
+relevant `RF-006` characterization), R2b (`RF-002` through `RF-005` and the
+relevant `RF-006` cases), and R2c (the current factual defect in `RF-008` plus
+`RF-012`) are complete; the next bounded batch is
+[R3 build and test feedback](refactor/stage-b-roadmap.md#r3--make-build-and-test-feedback-explicit).
 Chapter 5/6 feature work remains behind the common stabilization checkpoint
 and the conditional gates in the Stage B roadmap. No P5/P6 feature has been
 selected yet.
@@ -39,10 +40,10 @@ The following pieces exist and are tested:
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend for the backend-parametric contract. |
 | Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
-| deal.II metrics | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, and parameter layouts, with serial CG inverse apply. |
-| deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes for the registered cellwise-volume and facewise-boundary $L^{2}$ metrics. |
+| deal.II metrics | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, and parameter layouts, with serial CG inverse apply and an operator-bound realization witness. |
+| deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose sixteen independently named and labeled CTest scenarios: three dense/backend contract cases, five semantic graph cases, and eight deal.II compiler/lowering cases. Negative checks identify exact diagnostics or contract failures, including block/layout and graph-closure invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose eighteen independently named and labeled CTest scenarios: four dense/backend contract cases, five semantic graph cases, and nine deal.II compiler/lowering cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, manifest-realization, and projection-coupling invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It validates registered component kinds, then matches the complete graph
@@ -776,20 +777,21 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-Take **Stage B R2c only**:
+Take **Stage B R3 only**:
 
 1. Follow the [Stage B routing protocol](refactor/README.md) and read only the
-   R2c batch plus the current factual defect in `RF-008` and finding `RF-012`.
-2. Add focused regressions for the incorrect current manifest realization and
-   for a non-diagonal metric spoofing projection compatibility through a known
-   display label.
-3. Derive the manifest constraint realization from the selected realization,
-   and replace caller-controlled metric strings as compatibility proof with an
-   opaque witness or coupled service.
-4. Run focused checks followed by the applicable full Debug configurations,
-   preserve every current target and projection result, then record R2c
-   completion and the next batch here.
+   R3 batch and findings `RF-016` through `RF-019`.
+2. Make backend-neutral, deal.II, sanitizer, and Release configurations
+   explicit through the accepted persistent build layout and presets; a
+   requested but unavailable deal.II backend must fail configuration clearly.
+3. Complete logical CTest metadata with labels and timeouts, integrate project
+   warnings into Debug profiles, and keep backend-neutral sanitizers separate.
+   Add checked size conversions only at adapter seams touched by this batch.
+4. Validate clean Debug configurations first, then the sanitizer and Release
+   profiles appropriate to the roadmap, and record R3 completion plus the
+   common stabilization checkpoint here.
 
-Do not broaden constraint kinds or select a P5/P6 feature during R2c.
+Do not change numerical or semantic capabilities or select a P5/P6 feature
+during R3.
 Feature selection occurs only after the common stabilization checkpoint and
 its relevant conditional gate.

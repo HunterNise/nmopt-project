@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nmopt/contract/metric_constraint.hpp"
+#include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 
 #include <deal.II/lac/vector.h>
@@ -24,11 +24,11 @@ namespace nmopt::dealii_backend
     FacewiseBoxConstraint(contract::LayoutPtr layout,
                           Vector              lower,
                           Vector              upper,
-                          std::string l2_metric_id = "l2_facewise")
+                          const MassMetric &  projection_metric)
       : layout_(std::move(layout))
       , lower_(std::move(lower))
       , upper_(std::move(upper))
-      , l2_metric_id_(std::move(l2_metric_id))
+      , projection_metric_(projection_metric.realisation_witness())
     {
       contract::require(static_cast<bool>(layout_),
                         "Facewise box constraint needs a layout");
@@ -37,8 +37,11 @@ namespace nmopt::dealii_backend
       contract::require(lower_.size() == layout_->dimension(0) &&
                           upper_.size() == layout_->dimension(0),
                         "Facewise box bounds do not match their layout");
-      contract::require(!l2_metric_id_.empty(),
-                        "Facewise box metric identifier must not be empty");
+      contract::require(layout_->compatible_with(*projection_metric.layout()),
+                        "Facewise box projection metric has an incompatible layout");
+      contract::require(
+        projection_metric.supports_coefficientwise_box_projection(),
+        "Facewise box projection needs a positive diagonal metric realization");
       for (std::size_t index = 0; index < lower_.size(); ++index)
         contract::require(lower_[index] <= upper_[index],
                           "Facewise box lower bound exceeds upper bound");
@@ -47,11 +50,11 @@ namespace nmopt::dealii_backend
     FacewiseBoxConstraint(contract::LayoutPtr layout,
                           const double        lower,
                           const double        upper,
-                          std::string l2_metric_id = "l2_facewise")
+                          const MassMetric &  projection_metric)
       : FacewiseBoxConstraint(layout,
                               constant_bound(layout, lower),
                               constant_bound(layout, upper),
-                              std::move(l2_metric_id))
+                              projection_metric)
     {}
 
     const contract::LayoutPtr &
@@ -75,7 +78,7 @@ namespace nmopt::dealii_backend
     supports_projection_in(const contract::MetricT<SerialBackend> &metric) const override
     {
       return layout_->compatible_with(*metric.layout()) &&
-             metric.id() == l2_metric_id_;
+             projection_metric_.matches(metric.realisation_witness());
     }
 
     Primal
@@ -117,6 +120,6 @@ namespace nmopt::dealii_backend
     contract::LayoutPtr layout_;
     Vector              lower_;
     Vector              upper_;
-    std::string         l2_metric_id_;
+    contract::MetricRealisationWitness projection_metric_;
   };
 } // namespace nmopt::dealii_backend

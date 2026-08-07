@@ -119,6 +119,52 @@ namespace
     mutable std::vector<PrimalBlock> projected_controls_;
   };
 
+  class NonDiagonalMetric final : public Metric
+  {
+  public:
+    explicit NonDiagonalMetric(LayoutPtr layout)
+      : layout_(std::move(layout))
+    {}
+
+    const std::string &
+    id() const override
+    {
+      static const std::string id = "l2_cellwise";
+      return id;
+    }
+
+    const LayoutPtr &
+    layout() const override
+    {
+      return layout_;
+    }
+
+    CovectorBlock
+    apply(const PrimalBlock &primal) const override
+    {
+      require(primal.layout()->compatible_with(*layout_),
+              "Non-diagonal metric primal has an incompatible layout");
+      const auto &values = primal.block(0);
+      return CovectorBlock(
+        layout_, {DenseVector{2.0 * values[0] + values[1],
+                              values[0] + 2.0 * values[1]}});
+    }
+
+    PrimalBlock
+    inverse_apply(const CovectorBlock &covector) const override
+    {
+      require(covector.layout()->compatible_with(*layout_),
+              "Non-diagonal metric covector has an incompatible layout");
+      const auto &values = covector.block(0);
+      return PrimalBlock(
+        layout_, {DenseVector{(2.0 * values[0] - values[1]) / 3.0,
+                              (-values[0] + 2.0 * values[1]) / 3.0}});
+    }
+
+  private:
+    LayoutPtr layout_;
+  };
+
   void
   test_block_layout_invariant()
   {
@@ -272,17 +318,18 @@ namespace
                   "Metric inverse/apply consistency");
 
     nmopt::test_support::require_contract_error(
-      [&partition]() {
+      [&partition, &metric]() {
         (void)CellwiseBoxConstraint(
           partition.control_layout(),
           {DenseVector{0.0, 0.6}},
-          {DenseVector{1.0, 0.5}});
+          {DenseVector{1.0, 0.5}},
+          metric);
       },
       "Cellwise box lower bound exceeds upper bound",
       "reversed cellwise bounds");
     const CellwiseBoxConstraint bounds(
       partition.control_layout(), {DenseVector{-0.1, -0.2}},
-      {DenseVector{0.6, 0.5}});
+      {DenseVector{0.6, 0.5}}, metric);
     const PrimalBlock projected = bounds.project_in(
       PrimalBlock(partition.control_layout(), {DenseVector{-0.4, 0.8}}), metric);
     require(bounds.is_feasible(projected),
@@ -329,7 +376,7 @@ namespace
 
     const CellwiseBoxConstraint projected_bounds(
       partition.control_layout(), {DenseVector{-1.0, -0.2}},
-      {DenseVector{1.0, 0.5}});
+      {DenseVector{1.0, 0.5}}, metric);
     const RecordingConstraint recording_bounds(projected_bounds);
     const nmopt::solvers::ReducedGradientSolver projected_solver(
       reduced, metric, recording_bounds, solver_parameters);
@@ -400,6 +447,28 @@ namespace
                   1e-15,
                   "Backend-parametric covector subtraction");
   }
+
+  void
+  test_projection_compatibility()
+  {
+    const auto layout = std::make_shared<const BlockLayout>(
+      "projection_compatibility",
+      std::vector<SpaceId>{{"control"}},
+      std::vector<std::size_t>{2});
+    const DiagonalMetric trusted_metric(
+      "l2_cellwise", layout, {DenseVector{2.0, 2.0}});
+    const CellwiseBoxConstraint bounds(
+      layout,
+      {DenseVector{0.0, 0.0}},
+      {DenseVector{1.0, 1.0}},
+      trusted_metric);
+    const NonDiagonalMetric spoofed_metric(layout);
+
+    require(bounds.supports_projection_in(trusted_metric),
+            "Cellwise box rejected its diagonal L2 metric");
+    require(!bounds.supports_projection_in(spoofed_metric),
+            "A non-diagonal metric obtained clipping projection by reusing the l2_cellwise display identifier");
+  }
 } // namespace
 
 int
@@ -413,7 +482,8 @@ main(const int argc, char **argv)
           argv,
           {{"layout_invariant", test_block_layout_invariant},
            {"v0_contract", test_v0_contract},
-           {"backend_parameterisation", test_backend_parameterisation}});
+           {"backend_parameterisation", test_backend_parameterisation},
+           {"projection_compatibility", test_projection_compatibility}});
       std::cout << "nmopt executable contract scenario passed: " << executed
                 << '\n';
       return 0;

@@ -77,6 +77,24 @@ namespace nmopt::dealii_backend
       return solve_parameters_;
     }
 
+    bool
+    supports_coefficientwise_box_projection() const
+    {
+      for (std::size_t row = 0; row < matrix_->m(); ++row)
+        {
+          double diagonal = 0.0;
+          for (auto entry = matrix_->begin(row); entry != matrix_->end(row);
+               ++entry)
+            if (entry->column() == row)
+              diagonal += entry->value();
+            else if (entry->value() != 0.0)
+              return false;
+          if (!(diagonal > 0.0))
+            return false;
+        }
+      return true;
+    }
+
     Covector
     apply(const Primal &primal) const override
     {

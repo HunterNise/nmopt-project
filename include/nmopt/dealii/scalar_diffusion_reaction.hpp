@@ -132,17 +132,25 @@ namespace nmopt::dealii_backend
     }
 
     CellwiseBoxConstraint
-    control_l2_box_constraint(Vector lower, Vector upper) const
+    control_l2_box_constraint(Vector            lower,
+                              Vector            upper,
+                              const MassMetric &projection_metric) const
     {
       return CellwiseBoxConstraint(control_layout_,
                                    std::move(lower),
-                                   std::move(upper));
+                                   std::move(upper),
+                                   projection_metric);
     }
 
     CellwiseBoxConstraint
-    control_l2_box_constraint(const double lower, const double upper) const
+    control_l2_box_constraint(const double      lower,
+                              const double      upper,
+                              const MassMetric &projection_metric) const
     {
-      return CellwiseBoxConstraint(control_layout_, lower, upper);
+      return CellwiseBoxConstraint(control_layout_,
+                                   lower,
+                                   upper,
+                                   projection_metric);
     }
 
     const dealii::AffineConstraints<double> &

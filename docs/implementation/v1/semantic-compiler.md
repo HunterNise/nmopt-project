@@ -79,6 +79,22 @@ is the separate continuous-control objective variant.
 parameter. The compatibility table below describes the homogeneous graph; the
 named graph sections record the added features.
 
+Every enum-bearing semantic aggregate defaults to an explicit `unspecified`
+value. `SemanticValidator` rejects that sentinel structurally, so default or
+incrementally populated aggregates remain safe validation inputs rather than
+containing indeterminate enum state. Components that expose a label port must
+also provide a non-empty human-readable label.
+
+The current dual-coefficient pairing rule is intentionally exact: a
+`PairingSpec` must name the same semantic space ID on its primal and covector
+ports, and every equation, observation, loss, and metric checks both ports.
+This v1 rule does not encode a nontrivial dual-space relation. A future such
+pairing must declare that relation explicitly before relaxing exact identity.
+
+Reference variants are named feature deltas over shared declarations. Their
+lookup, replacement, and removal helpers require exactly one matching stable
+ID; declaration-vector order is not used as semantic identity.
+
 ```text
 Region       one full volume region, named material-id volume subregions, and marked boundary ids
 Space        scalar H1 state/test; scalar L2 volume or facewise control; selected H1 trace control
@@ -278,7 +294,7 @@ to the same `ValidationReport`.
 
 | Category | Produced by | Examples in v1 |
 | --- | --- | --- |
-| `structural` | `SemanticValidator` | missing ports, absent equation test space, wrong term inputs |
+| `structural` | `SemanticValidator` | incomplete nodes, missing labels or ports, incompatible pairings, orphan/duplicate term edges, and variable-space mismatches |
 | `analytical_policy` | `SemanticValidator` | missing selected fixed/controlled-Dirichlet or cellwise-bound policy |
 | `lowerability` | `DealiiCompiler` and its `DealiiLowererRegistryV1` | matrix-free execution, zero `FE_Q` degree, unregistered node kind, missing bound or fixed-lifting binding, incomplete controlled boundary |
 | `formulation_capability` | `DealiiCompiler` | all-at-once formulation or a multi-block DTO request |
@@ -345,8 +361,10 @@ bounds and compares residual, objective, objective derivative, and reduced
 derivative. That second check is a compiler wiring and packaging regression,
 not an independent assembly oracle.
 
-The semantic test validates every registered factory and representative
-structural or policy failures. The eight deal.II scenarios named in the
+Five backend-neutral semantic scenarios validate every registered factory,
+representative structural or policy failures, incomplete aggregates,
+whole-graph closure, two-sided pairing compatibility, and order-independent
+reference deltas. The eight deal.II scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic

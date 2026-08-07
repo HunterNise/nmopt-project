@@ -3,7 +3,9 @@
 #include "test_support/diagnostics.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
+#include <algorithm>
 #include <exception>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,6 +17,36 @@ namespace
   {
     if (!condition)
       throw nmopt::contract::ContractError(message);
+  }
+
+  template <typename Component>
+  Component &
+  component_by_id(std::vector<Component> &components, const std::string &id)
+  {
+    const auto component = std::find_if(
+      components.begin(), components.end(), [&id](const Component &candidate) {
+        return candidate.id == id;
+      });
+    require(component != components.end(), "semantic test component is missing");
+    require(std::count_if(components.begin(),
+                          components.end(),
+                          [&id](const Component &candidate) {
+                            return candidate.id == id;
+                          }) == 1,
+            "semantic test component is not unique");
+    return *component;
+  }
+
+  template <typename Component>
+  std::vector<std::string>
+  sorted_component_ids(const std::vector<Component> &components)
+  {
+    std::vector<std::string> ids;
+    ids.reserve(components.size());
+    for (const auto &component : components)
+      ids.push_back(component.id);
+    std::sort(ids.begin(), ids.end());
+    return ids;
   }
 
   void
@@ -221,6 +253,347 @@ namespace
       "equation_test_space",
       "v1 semantic validation did not classify a broken structural port");
   }
+
+  void
+  test_semantic_v1_graph_closure()
+  {
+    using namespace nmopt::semantic::v1;
+    const SemanticValidator validator;
+
+    auto orphan_term = make_scalar_diffusion_reaction_problem(true);
+    orphan_term.residual_terms.push_back(
+      {"orphan_diffusion_reaction", "Orphan diffusion and reaction",
+       ResidualTermKind::diffusion_reaction, "state_equation", {"state"},
+       {"diffusion", "reaction"}, ""});
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(orphan_term),
+      DiagnosticCategory::structural,
+      "orphan_diffusion_reaction",
+      "residual_term_equation_membership",
+      "v1 semantic validation accepted an orphan residual term");
+
+    auto duplicate_edge = make_scalar_diffusion_reaction_problem(true);
+    component_by_id(duplicate_edge.equations, "state_equation")
+      .residual_term_ids.push_back("volume_source");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(duplicate_edge),
+      DiagnosticCategory::structural,
+      "state_equation",
+      "unique_equation_residual_term_edges",
+      "v1 semantic validation accepted a duplicate equation edge");
+
+    auto wrong_bound_space = make_scalar_diffusion_reaction_problem(true);
+    component_by_id(wrong_bound_space.data, "lower_bound").space_id =
+      "state_space";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_bound_space),
+      DiagnosticCategory::structural,
+      "control_box",
+      "constraint_bound_data_space",
+      "v1 semantic validation accepted bound data in the wrong space");
+
+    auto missing_label = make_scalar_diffusion_reaction_problem(true);
+    component_by_id(missing_label.variables, "state").label.clear();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_label),
+      DiagnosticCategory::structural,
+      "state",
+      "human_readable_label",
+      "v1 semantic validation accepted a missing component label");
+
+    auto mismatched_metric = make_scalar_diffusion_reaction_problem(true);
+    mismatched_metric.metrics.push_back(
+      {"state_l2_metric", "State L2 metric", MetricKind::l2, "state",
+       "state_pairing"});
+    mismatched_metric.formulation.metric_id = "state_l2_metric";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(mismatched_metric),
+      DiagnosticCategory::structural,
+      "reduced_dto",
+      "formulation_metric_variable",
+      "v1 semantic validation accepted a metric for another variable");
+
+    auto mismatched_constraint = make_scalar_diffusion_reaction_problem(true);
+    mismatched_constraint.variables.push_back(
+      {"other_control", "Other control", VariableRole::control,
+       "control_space", ""});
+    mismatched_constraint.constraints.push_back(
+      {"other_control_box", "Other control box", ConstraintKind::cellwise_box,
+       "other_control", "lower_bound", "upper_bound"});
+    mismatched_constraint.formulation.constraint_id = "other_control_box";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(mismatched_constraint),
+      DiagnosticCategory::structural,
+      "reduced_dto",
+      "formulation_constraint_variable",
+      "v1 semantic validation accepted a constraint for another variable");
+  }
+
+  void
+  test_semantic_v1_pairing_compatibility()
+  {
+    using namespace nmopt::semantic::v1;
+    const SemanticValidator validator;
+
+    auto equation_pairing = make_scalar_diffusion_reaction_problem();
+    component_by_id(equation_pairing.pairings, "state_test_pairing")
+      .covector_space_id = "control_space";
+    const auto equation_report = validator.validate(equation_pairing);
+    nmopt::test_support::require_exact_diagnostic(
+      equation_report,
+      DiagnosticCategory::structural,
+      "state_test_pairing",
+      "pairing_primal_covector_space",
+      "v1 semantic validation accepted incompatible pairing ports");
+    nmopt::test_support::require_exact_diagnostic(
+      equation_report,
+      DiagnosticCategory::structural,
+      "state_equation",
+      "equation_test_pairing",
+      "v1 equation validation ignored the pairing covector port");
+
+    auto observation_pairing = make_scalar_diffusion_reaction_problem();
+    component_by_id(observation_pairing.pairings,
+                    "state_observation_pairing")
+      .covector_space_id = "control_space";
+    const auto observation_report = validator.validate(observation_pairing);
+    nmopt::test_support::require_exact_diagnostic(
+      observation_report,
+      DiagnosticCategory::structural,
+      "state_observation",
+      "observation_output_pairing",
+      "v1 observation validation ignored the pairing covector port");
+    nmopt::test_support::require_exact_diagnostic(
+      observation_report,
+      DiagnosticCategory::structural,
+      "state_tracking",
+      "loss_pairing",
+      "v1 loss validation ignored the pairing covector port");
+
+    auto metric_pairing = make_scalar_diffusion_reaction_problem();
+    component_by_id(metric_pairing.pairings, "control_pairing")
+      .covector_space_id = "state_space";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(metric_pairing),
+      DiagnosticCategory::structural,
+      "control_l2_metric",
+      "metric_pairing",
+      "v1 metric validation ignored the pairing covector port");
+  }
+
+  void
+  test_semantic_v1_incomplete_components()
+  {
+    using namespace nmopt::semantic::v1;
+    require(RegionSpec{}.kind == RegionKind::unspecified,
+            "default region kind is not safe");
+    require(SpaceSpec{}.topology == SpaceTopology::unspecified &&
+              SpaceSpec{}.role == SpaceRole::unspecified,
+            "default space enums are not safe");
+    require(VariableSpec{}.role == VariableRole::unspecified,
+            "default variable role is not safe");
+    require(DataSpec{}.kind == DataKind::unspecified &&
+              DataSpec{}.role == DataRole::unspecified,
+            "default data enums are not safe");
+    require(TransformationSpec{}.kind == TransformationKind::unspecified,
+            "default transformation kind is not safe");
+    require(ResidualTermSpec{}.kind == ResidualTermKind::unspecified,
+            "default residual-term kind is not safe");
+    require(ObservationSpec{}.kind == ObservationKind::unspecified,
+            "default observation kind is not safe");
+    require(LossSpec{}.kind == LossKind::unspecified,
+            "default loss kind is not safe");
+    require(MetricSpec{}.kind == MetricKind::unspecified,
+            "default metric kind is not safe");
+    require(ConstraintSpec{}.kind == ConstraintKind::unspecified,
+            "default constraint kind is not safe");
+    require(RequirementPolicySpec{}.kind == RequirementKind::unspecified &&
+              RequirementPolicySpec{}.status == RequirementStatus::unspecified &&
+              RequirementPolicySpec{}.scope == RequirementScope::unspecified,
+            "default requirement-policy enums are not safe");
+    require(ReducedFormulationSpec{}.kind == FormulationKind::unspecified,
+            "default formulation kind is not safe");
+
+    const SemanticValidator validator;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(ProblemSpec{}),
+      DiagnosticCategory::structural,
+      "formulation",
+      "formulation_kind",
+      "default semantic problem did not diagnose an incomplete formulation");
+
+    auto default_pairing = make_scalar_diffusion_reaction_problem();
+    default_pairing.pairings.push_back(PairingSpec{});
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(default_pairing),
+      DiagnosticCategory::structural,
+      "pairing",
+      "stable_component_identity",
+      "default semantic pairing was not diagnosed safely");
+
+    auto default_equation = make_scalar_diffusion_reaction_problem();
+    default_equation.equations.push_back(EquationBlockSpec{});
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(default_equation),
+      DiagnosticCategory::structural,
+      "equation",
+      "stable_component_identity",
+      "default semantic equation was not diagnosed safely");
+
+    struct IncompleteCase
+    {
+      std::string                        component_id;
+      std::string                        capability;
+      std::function<void(ProblemSpec &)> make_incomplete;
+    };
+
+    const std::vector<IncompleteCase> cases{
+      {"domain", "region_kind", [](ProblemSpec &specification) {
+         component_by_id(specification.regions, "domain").kind =
+           RegionKind::unspecified;
+       }},
+      {"state_space", "space_topology", [](ProblemSpec &specification) {
+         component_by_id(specification.spaces, "state_space").topology =
+           SpaceTopology::unspecified;
+       }},
+      {"state_space", "space_role", [](ProblemSpec &specification) {
+         component_by_id(specification.spaces, "state_space").role =
+           SpaceRole::unspecified;
+       }},
+      {"state", "variable_role", [](ProblemSpec &specification) {
+         component_by_id(specification.variables, "state").role =
+           VariableRole::unspecified;
+       }},
+      {"forcing", "data_kind", [](ProblemSpec &specification) {
+         component_by_id(specification.data, "forcing").kind =
+           DataKind::unspecified;
+       }},
+      {"forcing", "data_role", [](ProblemSpec &specification) {
+         component_by_id(specification.data, "forcing").role =
+           DataRole::unspecified;
+       }},
+      {"fixed_dirichlet_reconstruction",
+       "transformation_kind",
+       [](ProblemSpec &specification) {
+         specification =
+           make_fixed_dirichlet_scalar_diffusion_reaction_problem();
+         component_by_id(specification.transformations,
+                         "fixed_dirichlet_reconstruction")
+           .kind = TransformationKind::unspecified;
+       }},
+      {"diffusion_reaction", "residual_term_kind", [](ProblemSpec &specification) {
+         component_by_id(specification.residual_terms, "diffusion_reaction").kind =
+           ResidualTermKind::unspecified;
+       }},
+      {"state_observation", "observation_kind", [](ProblemSpec &specification) {
+         component_by_id(specification.observations, "state_observation").kind =
+           ObservationKind::unspecified;
+       }},
+      {"state_tracking", "loss_kind", [](ProblemSpec &specification) {
+         component_by_id(specification.losses, "state_tracking").kind =
+           LossKind::unspecified;
+       }},
+      {"control_l2_metric", "metric_kind", [](ProblemSpec &specification) {
+         component_by_id(specification.metrics, "control_l2_metric").kind =
+           MetricKind::unspecified;
+       }},
+      {"control_box", "constraint_kind", [](ProblemSpec &specification) {
+         component_by_id(specification.constraints, "control_box").kind =
+           ConstraintKind::unspecified;
+       }},
+      {"state_fixed_dirichlet", "requirement_kind", [](ProblemSpec &specification) {
+         component_by_id(specification.requirement_policies,
+                         "state_fixed_dirichlet")
+           .kind = RequirementKind::unspecified;
+       }},
+      {"state_fixed_dirichlet", "requirement_status", [](ProblemSpec &specification) {
+         component_by_id(specification.requirement_policies,
+                         "state_fixed_dirichlet")
+           .status = RequirementStatus::unspecified;
+       }},
+      {"state_fixed_dirichlet", "requirement_scope", [](ProblemSpec &specification) {
+         component_by_id(specification.requirement_policies,
+                         "state_fixed_dirichlet")
+           .scope = RequirementScope::unspecified;
+       }},
+      {"reduced_dto", "formulation_kind", [](ProblemSpec &specification) {
+         specification.formulation.kind = FormulationKind::unspecified;
+       }}};
+
+    for (const auto &test_case : cases)
+      {
+        ProblemSpec specification = make_scalar_diffusion_reaction_problem(true);
+        test_case.make_incomplete(specification);
+        nmopt::test_support::require_exact_diagnostic(
+          validator.validate(specification),
+          DiagnosticCategory::structural,
+          test_case.component_id,
+          test_case.capability,
+          "partially populated semantic component was not diagnosed");
+      }
+  }
+
+  void
+  test_semantic_v1_reference_delta_stability()
+  {
+    using namespace nmopt::semantic::v1;
+    ProblemSpec reordered = make_scalar_diffusion_reaction_problem();
+    std::reverse(reordered.regions.begin(), reordered.regions.end());
+    std::reverse(reordered.spaces.begin(), reordered.spaces.end());
+    std::reverse(reordered.pairings.begin(), reordered.pairings.end());
+    std::reverse(reordered.variables.begin(), reordered.variables.end());
+    std::reverse(reordered.data.begin(), reordered.data.end());
+    std::reverse(reordered.residual_terms.begin(), reordered.residual_terms.end());
+    std::reverse(reordered.equations.begin(), reordered.equations.end());
+    std::reverse(reordered.observations.begin(), reordered.observations.end());
+    std::reverse(reordered.losses.begin(), reordered.losses.end());
+    std::reverse(reordered.metrics.begin(), reordered.metrics.end());
+    std::reverse(reordered.requirement_policies.begin(),
+                 reordered.requirement_policies.end());
+
+    reference_detail::apply_coefficient_identification_delta(reordered);
+    const SemanticValidator validator;
+    require(validator.validate(reordered).valid(),
+            "an ID-based feature delta depends on declaration order");
+
+    const ProblemSpec expected = make_coefficient_identification_problem();
+    require(sorted_component_ids(reordered.regions) ==
+              sorted_component_ids(expected.regions) &&
+              sorted_component_ids(reordered.spaces) ==
+                sorted_component_ids(expected.spaces) &&
+              sorted_component_ids(reordered.pairings) ==
+                sorted_component_ids(expected.pairings) &&
+              sorted_component_ids(reordered.variables) ==
+                sorted_component_ids(expected.variables) &&
+              sorted_component_ids(reordered.data) ==
+                sorted_component_ids(expected.data) &&
+              sorted_component_ids(reordered.residual_terms) ==
+                sorted_component_ids(expected.residual_terms) &&
+              sorted_component_ids(reordered.equations) ==
+                sorted_component_ids(expected.equations) &&
+              sorted_component_ids(reordered.observations) ==
+                sorted_component_ids(expected.observations) &&
+              sorted_component_ids(reordered.losses) ==
+                sorted_component_ids(expected.losses) &&
+              sorted_component_ids(reordered.metrics) ==
+                sorted_component_ids(expected.metrics) &&
+              sorted_component_ids(reordered.constraints) ==
+                sorted_component_ids(expected.constraints) &&
+              sorted_component_ids(reordered.requirement_policies) ==
+                sorted_component_ids(expected.requirement_policies),
+            "a reordered feature delta changed semantic component identities");
+    require(reordered.formulation.state_variable_id ==
+                expected.formulation.state_variable_id &&
+              reordered.formulation.control_variable_id ==
+                expected.formulation.control_variable_id &&
+              reordered.formulation.equation_id ==
+                expected.formulation.equation_id &&
+              reordered.formulation.metric_id ==
+                expected.formulation.metric_id &&
+              reordered.formulation.constraint_id ==
+                expected.formulation.constraint_id,
+            "a reordered feature delta changed formulation ports");
+  }
 } // namespace
 
 int
@@ -232,7 +605,14 @@ main(const int argc, char **argv)
         nmopt::test_support::run_requested_scenarios(
           argc,
           argv,
-          {{"validation", test_semantic_v1_validation}});
+          {{"validation", test_semantic_v1_validation},
+           {"graph_closure", test_semantic_v1_graph_closure},
+           {"pairing_compatibility",
+            test_semantic_v1_pairing_compatibility},
+           {"incomplete_components",
+            test_semantic_v1_incomplete_components},
+           {"reference_delta_stability",
+            test_semantic_v1_reference_delta_stability}});
       std::cout << "semantic v1 contract scenario passed: " << executed
                 << '\n';
       return 0;

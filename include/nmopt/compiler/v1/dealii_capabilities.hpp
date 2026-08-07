@@ -15,6 +15,8 @@ namespace nmopt::compiler::v1
     {
       switch (kind)
         {
+          case semantic::v1::ResidualTermKind::unspecified:
+            return false;
           case semantic::v1::ResidualTermKind::diffusion_reaction:
           case semantic::v1::ResidualTermKind::parameter_diffusion_reaction:
           case semantic::v1::ResidualTermKind::volume_source:
@@ -30,6 +32,8 @@ namespace nmopt::compiler::v1
     {
       switch (kind)
         {
+          case semantic::v1::ObservationKind::unspecified:
+            return false;
           case semantic::v1::ObservationKind::volume_restriction:
           case semantic::v1::ObservationKind::boundary_trace:
           case semantic::v1::ObservationKind::boundary_restriction:
@@ -43,6 +47,8 @@ namespace nmopt::compiler::v1
     {
       switch (kind)
         {
+          case semantic::v1::LossKind::unspecified:
+            return false;
           case semantic::v1::LossKind::quadratic_tracking:
           case semantic::v1::LossKind::quadratic_control_regularisation:
           case semantic::v1::LossKind::quadratic_h1_control_regularisation:

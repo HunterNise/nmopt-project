@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -67,6 +68,11 @@ namespace nmopt::semantic::v1
                    "problem",
                    "stable_problem_identity",
                    "Give ProblemSpec a non-empty stable identifier.");
+      if (specification.label.empty())
+        report.add(DiagnosticCategory::structural,
+                   specification.id.empty() ? "problem" : specification.id,
+                   "human_readable_label",
+                   "Give ProblemSpec a non-empty human-readable label.");
 
       const auto regions = index(specification.regions, report, "region");
       const auto spaces = index(specification.spaces, report, "space");
@@ -82,10 +88,25 @@ namespace nmopt::semantic::v1
                                    "equation");
       const auto observations = index(specification.observations, report,
                                       "observation");
+      index(specification.losses, report, "loss");
       const auto metrics = index(specification.metrics, report, "metric");
       const auto constraints = index(specification.constraints, report,
                                      "constraint");
       index(specification.requirement_policies, report, "requirement policy");
+
+      validate_labels(specification.regions, report, "region");
+      validate_labels(specification.spaces, report, "space");
+      validate_labels(specification.pairings, report, "pairing");
+      validate_labels(specification.variables, report, "variable");
+      validate_labels(specification.data, report, "data");
+      validate_labels(specification.transformations, report, "transformation");
+      validate_labels(specification.residual_terms, report, "residual term");
+      validate_labels(specification.equations, report, "equation");
+      validate_labels(specification.observations, report, "observation");
+      validate_labels(specification.losses, report, "loss");
+      validate_labels(specification.metrics, report, "metric");
+      validate_labels(specification.constraints, report, "constraint");
+      validate_required_enum_fields(specification, report);
 
       validate_regions(specification, report);
       validate_spaces(specification, regions, report);
@@ -158,6 +179,147 @@ namespace nmopt::semantic::v1
       return index.find(id) != index.end();
     }
 
+    template <typename Component>
+    static void
+    validate_labels(const std::vector<Component> &components,
+                    ValidationReport &           report,
+                    const char *                 component_name)
+    {
+      for (const auto &component : components)
+        if (component.label.empty())
+          report.add(DiagnosticCategory::structural,
+                     component.id.empty() ? component_name : component.id,
+                     "human_readable_label",
+                     "Give every semantic component a non-empty human-readable label.");
+    }
+
+    static void
+    require_specified(const bool         specified,
+                      const std::string &component_id,
+                      const char *       fallback_id,
+                      const char *       capability,
+                      ValidationReport & report)
+    {
+      if (!specified)
+        report.add(DiagnosticCategory::structural,
+                   component_id.empty() ? fallback_id : component_id,
+                   capability,
+                   "Select an explicit semantic kind, role, status, or scope.");
+    }
+
+    static void
+    validate_required_enum_fields(const ProblemSpec &specification,
+                                  ValidationReport & report)
+    {
+      for (const auto &region : specification.regions)
+        require_specified(region.kind != RegionKind::unspecified,
+                          region.id,
+                          "region",
+                          "region_kind",
+                          report);
+      for (const auto &space : specification.spaces)
+        {
+          require_specified(space.topology != SpaceTopology::unspecified,
+                            space.id,
+                            "space",
+                            "space_topology",
+                            report);
+          require_specified(space.role != SpaceRole::unspecified,
+                            space.id,
+                            "space",
+                            "space_role",
+                            report);
+        }
+      for (const auto &variable : specification.variables)
+        require_specified(variable.role != VariableRole::unspecified,
+                          variable.id,
+                          "variable",
+                          "variable_role",
+                          report);
+      for (const auto &datum : specification.data)
+        {
+          require_specified(datum.kind != DataKind::unspecified,
+                            datum.id,
+                            "data",
+                            "data_kind",
+                            report);
+          require_specified(datum.role != DataRole::unspecified,
+                            datum.id,
+                            "data",
+                            "data_role",
+                            report);
+        }
+      for (const auto &transformation : specification.transformations)
+        require_specified(
+          transformation.kind != TransformationKind::unspecified,
+          transformation.id,
+          "transformation",
+          "transformation_kind",
+          report);
+      for (const auto &term : specification.residual_terms)
+        require_specified(term.kind != ResidualTermKind::unspecified,
+                          term.id,
+                          "residual term",
+                          "residual_term_kind",
+                          report);
+      for (const auto &observation : specification.observations)
+        require_specified(observation.kind != ObservationKind::unspecified,
+                          observation.id,
+                          "observation",
+                          "observation_kind",
+                          report);
+      for (const auto &loss : specification.losses)
+        require_specified(loss.kind != LossKind::unspecified,
+                          loss.id,
+                          "loss",
+                          "loss_kind",
+                          report);
+      for (const auto &metric : specification.metrics)
+        require_specified(metric.kind != MetricKind::unspecified,
+                          metric.id,
+                          "metric",
+                          "metric_kind",
+                          report);
+      for (const auto &constraint : specification.constraints)
+        require_specified(constraint.kind != ConstraintKind::unspecified,
+                          constraint.id,
+                          "constraint",
+                          "constraint_kind",
+                          report);
+      for (const auto &policy : specification.requirement_policies)
+        {
+          require_specified(policy.kind != RequirementKind::unspecified,
+                            policy.id,
+                            "requirement policy",
+                            "requirement_kind",
+                            report);
+          require_specified(policy.status != RequirementStatus::unspecified,
+                            policy.id,
+                            "requirement policy",
+                            "requirement_status",
+                            report);
+          require_specified(policy.scope != RequirementScope::unspecified,
+                            policy.id,
+                            "requirement policy",
+                            "requirement_scope",
+                            report);
+        }
+      require_specified(
+        specification.formulation.kind != FormulationKind::unspecified,
+        specification.formulation.id,
+        "formulation",
+        "formulation_kind",
+        report);
+    }
+
+    static bool
+    pairing_matches_space(const PairingSpec &pairing,
+                          const std::string &space_id)
+    {
+      return pairing.primal_space_id == space_id &&
+             pairing.covector_space_id == space_id;
+    }
+
     static void
     validate_regions(const ProblemSpec &specification, ValidationReport &report)
     {
@@ -218,12 +380,20 @@ namespace nmopt::semantic::v1
                       ValidationReport &      report)
     {
       for (const auto &pairing : specification.pairings)
-        if (!contains(spaces, pairing.primal_space_id) ||
-            !contains(spaces, pairing.covector_space_id))
-          report.add(DiagnosticCategory::structural,
-                     pairing.id,
-                     "pairing_space_ports",
-                     "Reference declared primal and covector spaces.");
+        {
+          if (!contains(spaces, pairing.primal_space_id) ||
+              !contains(spaces, pairing.covector_space_id))
+            report.add(DiagnosticCategory::structural,
+                       pairing.id,
+                       "pairing_space_ports",
+                       "Reference declared primal and covector spaces.");
+          else if (pairing.primal_space_id != pairing.covector_space_id)
+            report.add(
+              DiagnosticCategory::structural,
+              pairing.id,
+              "pairing_primal_covector_space",
+              "In the v1 dual-coefficient slice, name the same semantic space on both pairing ports.");
+        }
     }
 
     static void
@@ -372,13 +542,22 @@ namespace nmopt::semantic::v1
                        "Reference a space declared with the test role.");
           const auto pairing = pairings.find(equation.test_pairing_id);
           if (pairing == pairings.end() ||
-              pairing->second->primal_space_id != equation.test_space_id)
+              !pairing_matches_space(*pairing->second,
+                                     equation.test_space_id))
             report.add(DiagnosticCategory::structural,
                        equation.id,
                        "equation_test_pairing",
-                       "Reference a pairing whose primal port is the equation test space.");
+                       "Reference the two-sided pairing for the equation test space.");
+          std::unordered_set<std::string> unique_term_ids;
+          std::unordered_set<std::string> reported_duplicate_term_ids;
           for (const auto &term_id : equation.residual_term_ids)
             {
+              if (!unique_term_ids.insert(term_id).second &&
+                  reported_duplicate_term_ids.insert(term_id).second)
+                report.add(DiagnosticCategory::structural,
+                           equation.id,
+                           "unique_equation_residual_term_edges",
+                           "List every residual term exactly once in its owning equation.");
               const auto term = terms.find(term_id);
               if (term == terms.end())
                 report.add(DiagnosticCategory::structural,
@@ -405,11 +584,19 @@ namespace nmopt::semantic::v1
     {
       for (const auto &term : specification.residual_terms)
         {
-          if (!contains(equations, term.equation_id))
+          const auto equation = equations.find(term.equation_id);
+          if (equation == equations.end())
             report.add(DiagnosticCategory::structural,
                        term.id,
                        "residual_term_target_equation",
                        "Reference a declared target equation block.");
+          else if (std::count(equation->second->residual_term_ids.begin(),
+                              equation->second->residual_term_ids.end(),
+                              term.id) == 0)
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       "residual_term_equation_membership",
+                       "List this residual term exactly once in its target equation.");
           for (const auto &variable_id : term.variable_ids)
             if (!contains(variables, variable_id))
               report.add(DiagnosticCategory::structural,
@@ -521,11 +708,12 @@ namespace nmopt::semantic::v1
                        "Declare the observation output space on the observation region.");
           const auto pairing = pairings.find(observation.output_pairing_id);
           if (pairing == pairings.end() ||
-              pairing->second->primal_space_id != observation.output_space_id)
+              !pairing_matches_space(*pairing->second,
+                                     observation.output_space_id))
             report.add(DiagnosticCategory::structural,
                        observation.id,
                        "observation_output_pairing",
-                       "Reference a pairing whose primal port is the observation output.");
+                       "Reference the two-sided pairing for the observation output.");
         }
     }
 
@@ -551,8 +739,8 @@ namespace nmopt::semantic::v1
           const auto observation = observations.find(loss.source_observation_id);
           const auto pairing = pairings.find(loss.pairing_id);
           if (observation == observations.end() || pairing == pairings.end() ||
-              pairing->second->primal_space_id !=
-                observation->second->output_space_id)
+              !pairing_matches_space(
+                *pairing->second, observation->second->output_space_id))
             report.add(DiagnosticCategory::structural,
                        loss.id,
                        "loss_pairing",
@@ -589,7 +777,8 @@ namespace nmopt::semantic::v1
                        "Reference the primal variable identified by this metric.");
           const auto pairing = pairings.find(metric.pairing_id);
           if (variable == variables.end() || pairing == pairings.end() ||
-              pairing->second->primal_space_id != variable->second->space_id)
+              !pairing_matches_space(*pairing->second,
+                                     variable->second->space_id))
             report.add(DiagnosticCategory::structural,
                        metric.id,
                        "metric_pairing",
@@ -664,6 +853,14 @@ namespace nmopt::semantic::v1
                          ? "constraint_facewise_bound_data"
                          : "constraint_cellwise_bound_data",
                        "Use the declared lower and upper bound data for this control layout.");
+          if (variable != variables.end() && lower != data.end() &&
+              upper != data.end() &&
+              (lower->second->space_id != variable->second->space_id ||
+               upper->second->space_id != variable->second->space_id))
+            report.add(DiagnosticCategory::structural,
+                       constraint.id,
+                       "constraint_bound_data_space",
+                       "Declare both bounds in the constrained variable's semantic space.");
         }
     }
 
@@ -711,6 +908,8 @@ namespace nmopt::semantic::v1
       bool valid = false;
       switch (term.kind)
         {
+          case ResidualTermKind::unspecified:
+            break;
           case ResidualTermKind::diffusion_reaction:
             valid = term.variable_ids.size() == 1 && term.data_ids.size() == 2 &&
                     has_variable_role(term.variable_ids, variables,
@@ -785,6 +984,11 @@ namespace nmopt::semantic::v1
     {
       const auto state = variables.find(formulation.state_variable_id);
       const auto control = variables.find(formulation.control_variable_id);
+      if (formulation.id.empty())
+        report.add(DiagnosticCategory::structural,
+                   "formulation",
+                   "stable_component_identity",
+                   "Give the reduced formulation a non-empty identifier.");
       if (state == variables.end() || state->second->role != VariableRole::state)
         report.add(DiagnosticCategory::structural,
                    formulation.id,
@@ -802,17 +1006,35 @@ namespace nmopt::semantic::v1
                    formulation.id,
                    "formulation_equation",
                    "Reference the equation that defines the state.");
-      if (!contains(metrics, formulation.metric_id))
+      const auto metric = metrics.find(formulation.metric_id);
+      if (metric == metrics.end())
         report.add(DiagnosticCategory::structural,
                    formulation.id,
                    "formulation_metric",
                    "Reference a declared search metric.");
-      if (!formulation.constraint_id.empty() &&
-          !contains(constraints, formulation.constraint_id))
+      else if (control != variables.end() &&
+               metric->second->variable_id != formulation.control_variable_id)
         report.add(DiagnosticCategory::structural,
                    formulation.id,
-                   "formulation_constraint",
-                   "Reference a declared constraint or leave this port empty.");
+                   "formulation_metric_variable",
+                   "Select a metric acting on the formulation decision variable.");
+      if (!formulation.constraint_id.empty())
+        {
+          const auto constraint = constraints.find(formulation.constraint_id);
+          if (constraint == constraints.end())
+            report.add(DiagnosticCategory::structural,
+                       formulation.id,
+                       "formulation_constraint",
+                       "Reference a declared constraint or leave this port empty.");
+          else if (control != variables.end() &&
+                   constraint->second->variable_id !=
+                     formulation.control_variable_id)
+            report.add(
+              DiagnosticCategory::structural,
+              formulation.id,
+              "formulation_constraint_variable",
+              "Select a constraint acting on the formulation decision variable.");
+        }
     }
 
     static void

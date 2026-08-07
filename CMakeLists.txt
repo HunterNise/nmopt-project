@@ -39,6 +39,26 @@ if(BUILD_TESTING)
     nmopt_semantic_v1_contract_test
     validation
     "backend-neutral;semantic")
+  nmopt_add_scenario_test(
+    nmopt.semantic.v1_graph_closure
+    nmopt_semantic_v1_contract_test
+    graph_closure
+    "backend-neutral;semantic")
+  nmopt_add_scenario_test(
+    nmopt.semantic.v1_pairing_compatibility
+    nmopt_semantic_v1_contract_test
+    pairing_compatibility
+    "backend-neutral;semantic")
+  nmopt_add_scenario_test(
+    nmopt.semantic.v1_incomplete_components
+    nmopt_semantic_v1_contract_test
+    incomplete_components
+    "backend-neutral;semantic")
+  nmopt_add_scenario_test(
+    nmopt.semantic.v1_reference_delta_stability
+    nmopt_semantic_v1_contract_test
+    reference_delta_stability
+    "backend-neutral;semantic")
 endif()
 
 option(NMOPT_ENABLE_DEAL_II "Build the serial deal.II reference lowerer" ON)

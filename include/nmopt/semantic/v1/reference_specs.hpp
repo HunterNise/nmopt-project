@@ -3,9 +3,50 @@
 #include "nmopt/semantic/v1/types.hpp"
 
 #include <algorithm>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace nmopt::semantic::v1
 {
+  namespace reference_detail
+  {
+    template <typename Component>
+    Component &
+    component_by_id(std::vector<Component> &components,
+                    const std::string &     id,
+                    const char *            component_name)
+    {
+      const auto component = std::find_if(
+        components.begin(), components.end(), [&id](const Component &candidate) {
+          return candidate.id == id;
+        });
+      const auto matches = std::count_if(
+        components.begin(), components.end(), [&id](const Component &candidate) {
+          return candidate.id == id;
+        });
+      if (matches != 1)
+        throw std::logic_error("Reference specification requires exactly one " +
+                               std::string(component_name) + " with id '" + id +
+                               "'");
+      return *component;
+    }
+
+    template <typename Component>
+    void
+    remove_component_by_id(std::vector<Component> &components,
+                           const std::string &     id,
+                           const char *            component_name)
+    {
+      (void)component_by_id(components, id, component_name);
+      const auto component = std::find_if(
+        components.begin(), components.end(), [&id](const Component &candidate) {
+          return candidate.id == id;
+        });
+      components.erase(component);
+    }
+  } // namespace reference_detail
+
   // This is the current reference graph used to compare direct v0 assembly
   // with semantic compilation. It is a factory, not a PDE problem class.
   inline ProblemSpec
@@ -118,6 +159,32 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  namespace reference_detail
+  {
+    inline void
+    apply_subdomain_tracking_delta(ProblemSpec &       specification,
+                                   const unsigned int observed_material_id)
+    {
+      specification.id = "scalar_diffusion_reaction_subdomain_tracking";
+      specification.label = "Scalar diffusion-reaction with subdomain tracking";
+      specification.regions.push_back(
+        {"observation_subdomain", "Material subdomain observation region",
+         RegionKind::volume, false, {}, {observed_material_id}});
+      component_by_id(specification.spaces,
+                      "state_observation_space",
+                      "space")
+        .region_id = "observation_subdomain";
+      auto &observation = component_by_id(
+        specification.observations, "state_observation", "observation");
+      observation.label = "Subdomain state restriction";
+      observation.region_id = "observation_subdomain";
+      component_by_id(specification.requirement_policies,
+                      "desired_state_quadrature_policy",
+                      "requirement policy")
+        .region_id = "observation_subdomain";
+    }
+  } // namespace reference_detail
+
   inline ProblemSpec
   make_subdomain_tracking_scalar_diffusion_reaction_problem(
     const unsigned int observed_material_id,
@@ -125,54 +192,75 @@ namespace nmopt::semantic::v1
   {
     ProblemSpec specification =
       make_scalar_diffusion_reaction_problem(with_cellwise_box);
-    specification.id = "scalar_diffusion_reaction_subdomain_tracking";
-    specification.label = "Scalar diffusion-reaction with subdomain tracking";
-    specification.regions.push_back(
-      {"observation_subdomain", "Material subdomain observation region",
-       RegionKind::volume, false, {}, {observed_material_id}});
-    specification.spaces.at(3).region_id = "observation_subdomain";
-    specification.observations.at(0).label = "Subdomain state restriction";
-    specification.observations.at(0).region_id = "observation_subdomain";
-    for (auto &policy : specification.requirement_policies)
-      if (policy.subject_id == "desired_state" &&
-          policy.kind == RequirementKind::analytic_quadrature_evaluation)
-        policy.region_id = "observation_subdomain";
+    reference_detail::apply_subdomain_tracking_delta(specification,
+                                                     observed_material_id);
     return specification;
   }
 
   // P2.3's first half changes the objective, not the search geometry.  The
   // control has continuous FE_Q coordinates and the declared loss is the
   // H1 norm, while the selected algorithmic metric remains L2.
+  namespace reference_detail
+  {
+    inline void
+    apply_h1_control_regularisation_delta(ProblemSpec &specification)
+    {
+      specification.id = "scalar_diffusion_reaction_h1_control_regularisation";
+      specification.label =
+        "Scalar diffusion-reaction with H1 control regularisation";
+      component_by_id(specification.spaces, "control_space", "space") =
+        {"control_space", "Continuous control", "domain", SpaceTopology::h1,
+         SpaceRole::control};
+      component_by_id(specification.spaces,
+                      "control_observation_space",
+                      "space") =
+        {"control_observation_space", "Continuous control observation", "domain",
+         SpaceTopology::h1, SpaceRole::observation};
+      component_by_id(specification.pairings,
+                      "control_pairing",
+                      "pairing") =
+        {"control_pairing", "Continuous control coefficient pairing",
+         "control_space", "control_space"};
+      component_by_id(specification.pairings,
+                      "control_observation_pairing",
+                      "pairing") =
+        {"control_observation_pairing",
+         "Continuous control observation pairing",
+         "control_observation_space", "control_observation_space"};
+      component_by_id(specification.observations,
+                      "control_observation",
+                      "observation") =
+        {"control_observation", "Continuous control identity observation",
+         ObservationKind::volume_restriction, "control", "domain",
+         "control_observation_space", "control_observation_pairing"};
+      component_by_id(specification.losses,
+                      "control_regularisation",
+                      "loss") =
+        {"control_h1_regularisation", "Quadratic H1 control regularisation",
+         LossKind::quadratic_h1_control_regularisation, "control_observation",
+         "regularisation_weight", "control_observation_pairing"};
+      component_by_id(specification.metrics, "control_l2_metric", "metric") =
+        {"control_l2_metric", "Continuous-control L2 metric", MetricKind::l2,
+         "control", "control_pairing"};
+    }
+
+    inline void
+    apply_h1_metric_delta(ProblemSpec &specification)
+    {
+      specification.id = "scalar_diffusion_reaction_h1_control_metric";
+      specification.label = "Scalar diffusion-reaction with H1 control metric";
+      component_by_id(specification.metrics, "control_l2_metric", "metric") =
+        {"control_h1_metric", "Continuous-control H1 metric", MetricKind::h1,
+         "control", "control_pairing"};
+      specification.formulation.metric_id = "control_h1_metric";
+    }
+  } // namespace reference_detail
+
   inline ProblemSpec
   make_h1_regularised_scalar_diffusion_reaction_problem()
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
-    specification.id = "scalar_diffusion_reaction_h1_control_regularisation";
-    specification.label =
-      "Scalar diffusion-reaction with H1 control regularisation";
-    specification.spaces.at(2) =
-      {"control_space", "Continuous control", "domain", SpaceTopology::h1,
-       SpaceRole::control};
-    specification.spaces.at(4) =
-      {"control_observation_space", "Continuous control observation", "domain",
-       SpaceTopology::h1, SpaceRole::observation};
-    specification.pairings.at(2) =
-      {"control_pairing", "Continuous control coefficient pairing",
-       "control_space", "control_space"};
-    specification.pairings.at(4) =
-      {"control_observation_pairing", "Continuous control observation pairing",
-       "control_observation_space", "control_observation_space"};
-    specification.observations.at(1) =
-      {"control_observation", "Continuous control identity observation",
-       ObservationKind::volume_restriction, "control", "domain",
-       "control_observation_space", "control_observation_pairing"};
-    specification.losses.at(1) =
-      {"control_h1_regularisation", "Quadratic H1 control regularisation",
-       LossKind::quadratic_h1_control_regularisation, "control_observation",
-       "regularisation_weight", "control_observation_pairing"};
-    specification.metrics.at(0) =
-      {"control_l2_metric", "Continuous-control L2 metric", MetricKind::l2,
-       "control", "control_pairing"};
+    reference_detail::apply_h1_control_regularisation_delta(specification);
     return specification;
   }
 
@@ -183,12 +271,7 @@ namespace nmopt::semantic::v1
   {
     ProblemSpec specification =
       make_h1_regularised_scalar_diffusion_reaction_problem();
-    specification.id = "scalar_diffusion_reaction_h1_control_metric";
-    specification.label = "Scalar diffusion-reaction with H1 control metric";
-    specification.metrics.at(0) =
-      {"control_h1_metric", "Continuous-control H1 metric", MetricKind::h1,
-       "control", "control_pairing"};
-    specification.formulation.metric_id = "control_h1_metric";
+    reference_detail::apply_h1_metric_delta(specification);
     return specification;
   }
 
@@ -196,73 +279,92 @@ namespace nmopt::semantic::v1
   // coefficient rather than a source control. Positivity is explicit through
   // the required cellwise box; a logarithmic parameterisation is deliberately
   // left to a later transformation realization.
+  namespace reference_detail
+  {
+    inline void
+    apply_coefficient_identification_delta(ProblemSpec &specification)
+    {
+      specification.id = "scalar_diffusion_reaction_coefficient_identification";
+      specification.label =
+        "Scalar diffusion-reaction coefficient identification";
+      component_by_id(specification.spaces, "control_space", "space") =
+        {"parameter_space", "Cellwise diffusion parameter", "domain",
+         SpaceTopology::l2, SpaceRole::parameter};
+      component_by_id(specification.spaces,
+                      "control_observation_space",
+                      "space") =
+        {"parameter_observation_space", "Cellwise parameter observation",
+         "domain", SpaceTopology::l2, SpaceRole::observation};
+      component_by_id(specification.pairings,
+                      "control_pairing",
+                      "pairing") =
+        {"parameter_pairing", "Parameter coefficient pairing", "parameter_space",
+         "parameter_space"};
+      component_by_id(specification.pairings,
+                      "control_observation_pairing",
+                      "pairing") =
+        {"parameter_observation_pairing", "Parameter observation pairing",
+         "parameter_observation_space", "parameter_observation_space"};
+      component_by_id(specification.variables, "control", "variable") =
+        {"diffusion_parameter", "Diffusion parameter", VariableRole::parameter,
+         "parameter_space", ""};
+      remove_component_by_id(specification.data, "diffusion", "data");
+      specification.data.push_back(
+        {"parameter_lower_bound", "Strictly positive diffusion lower bound",
+         DataKind::cellwise_bound, DataRole::lower_bound, "parameter_space"});
+      specification.data.push_back(
+        {"parameter_upper_bound", "Diffusion upper bound",
+         DataKind::cellwise_bound, DataRole::upper_bound, "parameter_space"});
+      component_by_id(specification.residual_terms,
+                      "diffusion_reaction",
+                      "residual term") =
+        {"parameter_diffusion_reaction", "Parameter diffusion and reaction",
+         ResidualTermKind::parameter_diffusion_reaction, "state_equation",
+         {"state", "diffusion_parameter"}, {"reaction"}, ""};
+      remove_component_by_id(specification.residual_terms,
+                             "volume_control",
+                             "residual term");
+      component_by_id(specification.equations,
+                      "state_equation",
+                      "equation")
+        .residual_term_ids = {"parameter_diffusion_reaction", "volume_source"};
+      component_by_id(specification.observations,
+                      "control_observation",
+                      "observation") =
+        {"parameter_observation", "Full-domain parameter restriction",
+         ObservationKind::volume_restriction, "diffusion_parameter", "domain",
+         "parameter_observation_space", "parameter_observation_pairing"};
+      component_by_id(specification.losses,
+                      "control_regularisation",
+                      "loss") =
+        {"parameter_regularisation", "Quadratic parameter regularisation",
+         LossKind::quadratic_parameter_regularisation, "parameter_observation",
+         "regularisation_weight", "parameter_observation_pairing"};
+      component_by_id(specification.metrics, "control_l2_metric", "metric") =
+        {"parameter_l2_metric", "Cellwise parameter L2 metric", MetricKind::l2,
+         "diffusion_parameter", "parameter_pairing"};
+      specification.constraints = {
+        {"parameter_box", "Positive cellwise diffusion box",
+         ConstraintKind::cellwise_box, "diffusion_parameter",
+         "parameter_lower_bound", "parameter_upper_bound"}};
+      specification.requirement_policies.push_back(
+        {"parameter_positive_box_policy", "parameter_box",
+         RequirementKind::discrete_cellwise_bounds,
+         RequirementStatus::selected_discrete_realisation,
+         RequirementScope::discrete_compilation,
+         "strictly positive FE_DGQ(0) lower bound with coefficientwise l2_cellwise_parameter clipping",
+         "domain"});
+      specification.formulation.control_variable_id = "diffusion_parameter";
+      specification.formulation.metric_id = "parameter_l2_metric";
+      specification.formulation.constraint_id = "parameter_box";
+    }
+  } // namespace reference_detail
+
   inline ProblemSpec
   make_coefficient_identification_problem()
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
-    specification.id = "scalar_diffusion_reaction_coefficient_identification";
-    specification.label =
-      "Scalar diffusion-reaction coefficient identification";
-    specification.spaces.at(2) =
-      {"parameter_space", "Cellwise diffusion parameter", "domain",
-       SpaceTopology::l2, SpaceRole::parameter};
-    specification.spaces.at(4) =
-      {"parameter_observation_space", "Cellwise parameter observation",
-       "domain", SpaceTopology::l2, SpaceRole::observation};
-    specification.pairings.at(2) =
-      {"parameter_pairing", "Parameter coefficient pairing", "parameter_space",
-       "parameter_space"};
-    specification.pairings.at(4) =
-      {"parameter_observation_pairing", "Parameter observation pairing",
-       "parameter_observation_space", "parameter_observation_space"};
-    specification.variables.at(1) =
-      {"diffusion_parameter", "Diffusion parameter", VariableRole::parameter,
-       "parameter_space", ""};
-    specification.data.erase(
-      std::remove_if(specification.data.begin(),
-                     specification.data.end(),
-                     [](const DataSpec &datum) {
-                       return datum.role == DataRole::diffusion;
-                     }),
-      specification.data.end());
-    specification.data.push_back(
-      {"parameter_lower_bound", "Strictly positive diffusion lower bound",
-       DataKind::cellwise_bound, DataRole::lower_bound, "parameter_space"});
-    specification.data.push_back(
-      {"parameter_upper_bound", "Diffusion upper bound",
-       DataKind::cellwise_bound, DataRole::upper_bound, "parameter_space"});
-    specification.residual_terms.at(0) =
-      {"parameter_diffusion_reaction", "Parameter diffusion and reaction",
-       ResidualTermKind::parameter_diffusion_reaction, "state_equation",
-       {"state", "diffusion_parameter"}, {"reaction"}, ""};
-    specification.residual_terms.erase(specification.residual_terms.begin() + 2);
-    specification.equations.at(0).residual_term_ids =
-      {"parameter_diffusion_reaction", "volume_source"};
-    specification.observations.at(1) =
-      {"parameter_observation", "Full-domain parameter restriction",
-       ObservationKind::volume_restriction, "diffusion_parameter", "domain",
-       "parameter_observation_space", "parameter_observation_pairing"};
-    specification.losses.at(1) =
-      {"parameter_regularisation", "Quadratic parameter regularisation",
-       LossKind::quadratic_parameter_regularisation, "parameter_observation",
-       "regularisation_weight", "parameter_observation_pairing"};
-    specification.metrics.at(0) =
-      {"parameter_l2_metric", "Cellwise parameter L2 metric", MetricKind::l2,
-       "diffusion_parameter", "parameter_pairing"};
-    specification.constraints = {
-      {"parameter_box", "Positive cellwise diffusion box",
-       ConstraintKind::cellwise_box, "diffusion_parameter",
-       "parameter_lower_bound", "parameter_upper_bound"}};
-    specification.requirement_policies.push_back(
-      {"parameter_positive_box_policy", "parameter_box",
-       RequirementKind::discrete_cellwise_bounds,
-       RequirementStatus::selected_discrete_realisation,
-       RequirementScope::discrete_compilation,
-       "strictly positive FE_DGQ(0) lower bound with coefficientwise l2_cellwise_parameter clipping",
-       "domain"});
-    specification.formulation.control_variable_id = "diffusion_parameter";
-    specification.formulation.metric_id = "parameter_l2_metric";
-    specification.formulation.constraint_id = "parameter_box";
+    reference_detail::apply_coefficient_identification_delta(specification);
     return specification;
   }
 
@@ -401,59 +503,154 @@ namespace nmopt::semantic::v1
   // preceding graph but replaces the fixed-boundary uniqueness policy by the
   // selected discrete mean constraint.  The auxiliary multiplier belongs to
   // the compiled solve, not to the user-facing state/control graph.
+  namespace reference_detail
+  {
+    inline void
+    apply_pure_neumann_delta(ProblemSpec &specification)
+    {
+      specification.id = "scalar_diffusion_pure_neumann_boundary_control";
+      specification.label =
+        "Scalar diffusion pure-Neumann boundary control with mean constraint";
+      specification.regions = {
+        {"domain", "Full volume domain", RegionKind::volume, true, {}, {}},
+        {"control_boundary", "Pure-Neumann control boundary",
+         RegionKind::boundary, false, {0}, {}},
+        {"observation_boundary", "Pure-Neumann boundary tracking region",
+         RegionKind::boundary, false, {0}, {}}};
+      remove_component_by_id(specification.requirement_policies,
+                             "state_fixed_dirichlet",
+                             "requirement policy");
+      specification.requirement_policies.insert(
+        specification.requirement_policies.begin(),
+        {"state_mean_zero_gauge", "state",
+         RequirementKind::mean_zero_multiplier,
+         RequirementStatus::selected_discrete_realisation,
+         RequirementScope::discrete_compilation,
+         "one mean-zero Lagrange multiplier in the state and adjoint solves",
+         "domain"});
+    }
+  } // namespace reference_detail
+
   inline ProblemSpec
   make_pure_neumann_boundary_control_problem()
   {
     ProblemSpec specification = make_neumann_boundary_control_problem();
-    specification.id = "scalar_diffusion_pure_neumann_boundary_control";
-    specification.label =
-      "Scalar diffusion pure-Neumann boundary control with mean constraint";
-    specification.regions = {
-      {"domain", "Full volume domain", RegionKind::volume, true, {}, {}},
-      {"control_boundary", "Pure-Neumann control boundary", RegionKind::boundary,
-       false, {0}, {}},
-      {"observation_boundary", "Pure-Neumann boundary tracking region",
-       RegionKind::boundary, false, {0}, {}}};
-    specification.requirement_policies.erase(
-      std::remove_if(specification.requirement_policies.begin(),
-                     specification.requirement_policies.end(),
-                     [](const RequirementPolicySpec &policy) {
-                       return policy.kind == RequirementKind::fixed_dirichlet;
-                     }),
-      specification.requirement_policies.end());
-    specification.requirement_policies.insert(
-      specification.requirement_policies.begin(),
-      {"state_mean_zero_gauge", "state", RequirementKind::mean_zero_multiplier,
-       RequirementStatus::selected_discrete_realisation,
-       RequirementScope::discrete_compilation,
-       "one mean-zero Lagrange multiplier in the state and adjoint solves",
-       "domain"});
+    reference_detail::apply_pure_neumann_delta(specification);
     return specification;
   }
 
   // This deliberately differs from the homogeneous reference graph above:
   // the state variable denotes independent coordinates and the declared map
   // reconstructs the physical field consumed by residuals and observations.
+  namespace reference_detail
+  {
+    inline void
+    apply_fixed_dirichlet_reconstruction_delta(ProblemSpec &specification)
+    {
+      specification.id = "scalar_diffusion_reaction_fixed_dirichlet";
+      specification.label =
+        "Scalar diffusion-reaction with fixed Dirichlet lifting";
+      component_by_id(specification.regions,
+                      "dirichlet_boundary",
+                      "region")
+        .label = "Fixed Dirichlet boundary";
+      specification.data.push_back(
+        {"fixed_dirichlet_data", "Fixed Dirichlet data", DataKind::function,
+         DataRole::fixed_dirichlet_lifting, "state_space"});
+      specification.transformations = {
+        {"fixed_dirichlet_reconstruction", "Fixed Dirichlet reconstruction",
+         TransformationKind::fixed_dirichlet_reconstruction, "state",
+         "state_space", "fixed_dirichlet_data", ""}};
+      component_by_id(specification.variables, "state", "variable")
+        .physical_field_transform_id = "fixed_dirichlet_reconstruction";
+      component_by_id(specification.requirement_policies,
+                      "state_fixed_dirichlet",
+                      "requirement policy")
+        .selected_policy =
+        "P_h independent FE_Q coordinates plus nodal fixed Dirichlet lifting";
+    }
+
+    inline void
+    apply_dirichlet_control_delta(ProblemSpec &specification)
+    {
+      specification.id = "scalar_diffusion_reaction_dirichlet_control";
+      specification.label =
+        "Scalar diffusion-reaction with Dirichlet control lifting";
+      component_by_id(specification.regions,
+                      "dirichlet_boundary",
+                      "region") =
+        {"control_boundary", "Complete controlled Dirichlet boundary",
+         RegionKind::boundary, false, {0}, {}};
+      component_by_id(specification.spaces, "control_space", "space") =
+        {"control_space", "Nodal Dirichlet trace control", "control_boundary",
+         SpaceTopology::h1, SpaceRole::control};
+      component_by_id(specification.spaces,
+                      "control_observation_space",
+                      "space") =
+        {"control_observation_space", "Nodal Dirichlet trace observation",
+         "control_boundary", SpaceTopology::h1, SpaceRole::observation};
+      component_by_id(specification.pairings,
+                      "control_pairing",
+                      "pairing") =
+        {"control_pairing", "Dirichlet trace control coefficient pairing",
+         "control_space", "control_space"};
+      component_by_id(specification.pairings,
+                      "control_observation_pairing",
+                      "pairing") =
+        {"control_observation_pairing",
+         "Dirichlet trace observation coefficient pairing",
+         "control_observation_space", "control_observation_space"};
+      component_by_id(specification.variables, "state", "variable")
+        .physical_field_transform_id = "dirichlet_control_lifting";
+      component_by_id(specification.variables, "control", "variable").label =
+        "Dirichlet control";
+      remove_component_by_id(specification.residual_terms,
+                             "volume_control",
+                             "residual term");
+      component_by_id(specification.equations,
+                      "state_equation",
+                      "equation")
+        .residual_term_ids = {"diffusion_reaction", "volume_source"};
+      component_by_id(specification.observations,
+                      "control_observation",
+                      "observation") =
+        {"control_boundary_restriction", "Dirichlet control restriction",
+         ObservationKind::boundary_restriction, "control", "control_boundary",
+         "control_observation_space", "control_observation_pairing"};
+      component_by_id(specification.losses,
+                      "control_regularisation",
+                      "loss") =
+        {"control_regularisation", "Quadratic Dirichlet control regularisation",
+         LossKind::quadratic_control_regularisation,
+         "control_boundary_restriction", "regularisation_weight",
+         "control_observation_pairing"};
+      component_by_id(specification.metrics, "control_l2_metric", "metric") =
+        {"control_l2_metric", "Dirichlet trace L2 metric", MetricKind::l2,
+         "control", "control_pairing"};
+      specification.transformations = {
+        {"dirichlet_control_lifting",
+         "Dirichlet control physical-state lifting",
+         TransformationKind::dirichlet_control_lifting, "state", "state_space",
+         "", "control"}};
+      component_by_id(specification.requirement_policies,
+                      "state_fixed_dirichlet",
+                      "requirement policy") =
+        {"state_controlled_dirichlet", "state",
+         RequirementKind::controlled_dirichlet,
+         RequirementStatus::selected_discrete_realisation,
+         RequirementScope::discrete_compilation,
+         "complete-exterior-boundary nodal trace lifting with one shared coefficient per state boundary DoF",
+         "control_boundary"};
+    }
+  } // namespace reference_detail
+
   inline ProblemSpec
   make_fixed_dirichlet_scalar_diffusion_reaction_problem(
     const bool with_cellwise_box = false)
   {
     ProblemSpec specification =
       make_scalar_diffusion_reaction_problem(with_cellwise_box);
-    specification.id = "scalar_diffusion_reaction_fixed_dirichlet";
-    specification.label = "Scalar diffusion-reaction with fixed Dirichlet lifting";
-    specification.regions.at(1).label = "Fixed Dirichlet boundary";
-    specification.data.push_back(
-      {"fixed_dirichlet_data", "Fixed Dirichlet data", DataKind::function,
-       DataRole::fixed_dirichlet_lifting, "state_space"});
-    specification.transformations = {
-      {"fixed_dirichlet_reconstruction", "Fixed Dirichlet reconstruction",
-       TransformationKind::fixed_dirichlet_reconstruction, "state",
-       "state_space", "fixed_dirichlet_data", ""}};
-    specification.variables.at(0).physical_field_transform_id =
-      "fixed_dirichlet_reconstruction";
-    specification.requirement_policies.at(0).selected_policy =
-      "P_h independent FE_Q coordinates plus nodal fixed Dirichlet lifting";
+    reference_detail::apply_fixed_dirichlet_reconstruction_delta(specification);
     return specification;
   }
 
@@ -465,54 +662,7 @@ namespace nmopt::semantic::v1
   make_dirichlet_control_scalar_diffusion_reaction_problem()
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
-    specification.id = "scalar_diffusion_reaction_dirichlet_control";
-    specification.label =
-      "Scalar diffusion-reaction with Dirichlet control lifting";
-    specification.regions.at(1) =
-      {"control_boundary", "Complete controlled Dirichlet boundary",
-       RegionKind::boundary, false, {0}, {}};
-    specification.spaces.at(2) =
-      {"control_space", "Nodal Dirichlet trace control", "control_boundary",
-       SpaceTopology::h1, SpaceRole::control};
-    specification.spaces.at(4) =
-      {"control_observation_space", "Nodal Dirichlet trace observation",
-       "control_boundary", SpaceTopology::h1, SpaceRole::observation};
-    specification.pairings.at(2) =
-      {"control_pairing", "Dirichlet trace control coefficient pairing",
-       "control_space", "control_space"};
-    specification.pairings.at(4) =
-      {"control_observation_pairing",
-       "Dirichlet trace observation coefficient pairing",
-       "control_observation_space", "control_observation_space"};
-    specification.variables.at(0).physical_field_transform_id =
-      "dirichlet_control_lifting";
-    specification.variables.at(1).label = "Dirichlet control";
-    specification.residual_terms.erase(specification.residual_terms.begin() + 2);
-    specification.equations.at(0).residual_term_ids =
-      {"diffusion_reaction", "volume_source"};
-    specification.observations.at(1) =
-      {"control_boundary_restriction", "Dirichlet control restriction",
-       ObservationKind::boundary_restriction, "control", "control_boundary",
-       "control_observation_space", "control_observation_pairing"};
-    specification.losses.at(1) =
-      {"control_regularisation", "Quadratic Dirichlet control regularisation",
-       LossKind::quadratic_control_regularisation,
-       "control_boundary_restriction", "regularisation_weight",
-       "control_observation_pairing"};
-    specification.metrics.at(0) =
-      {"control_l2_metric", "Dirichlet trace L2 metric", MetricKind::l2,
-       "control", "control_pairing"};
-    specification.transformations = {
-      {"dirichlet_control_lifting", "Dirichlet control physical-state lifting",
-       TransformationKind::dirichlet_control_lifting, "state", "state_space",
-       "", "control"}};
-    specification.requirement_policies.at(0) =
-      {"state_controlled_dirichlet", "state",
-       RequirementKind::controlled_dirichlet,
-       RequirementStatus::selected_discrete_realisation,
-       RequirementScope::discrete_compilation,
-       "complete-exterior-boundary nodal trace lifting with one shared coefficient per state boundary DoF",
-       "control_boundary"};
+    reference_detail::apply_dirichlet_control_delta(specification);
     return specification;
   }
 } // namespace nmopt::semantic::v1

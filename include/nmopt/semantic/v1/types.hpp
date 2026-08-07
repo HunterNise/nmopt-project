@@ -10,18 +10,21 @@ namespace nmopt::semantic::v1
 {
   enum class RegionKind
   {
+    unspecified = -1,
     volume,
     boundary
   };
 
   enum class SpaceTopology
   {
+    unspecified = -1,
     h1,
     l2
   };
 
   enum class SpaceRole
   {
+    unspecified = -1,
     state,
     test,
     control,
@@ -32,6 +35,7 @@ namespace nmopt::semantic::v1
 
   enum class VariableRole
   {
+    unspecified = -1,
     state,
     control,
     parameter
@@ -39,6 +43,7 @@ namespace nmopt::semantic::v1
 
   enum class DataKind
   {
+    unspecified = -1,
     function,
     scalar_constant,
     cellwise_bound,
@@ -47,6 +52,7 @@ namespace nmopt::semantic::v1
 
   enum class DataRole
   {
+    unspecified = -1,
     forcing,
     desired_state,
     fixed_dirichlet_lifting,
@@ -59,6 +65,7 @@ namespace nmopt::semantic::v1
 
   enum class ResidualTermKind
   {
+    unspecified = -1,
     diffusion_reaction,
     parameter_diffusion_reaction,
     volume_source,
@@ -68,6 +75,7 @@ namespace nmopt::semantic::v1
 
   enum class ObservationKind
   {
+    unspecified = -1,
     volume_restriction,
     boundary_trace,
     boundary_restriction
@@ -75,6 +83,7 @@ namespace nmopt::semantic::v1
 
   enum class LossKind
   {
+    unspecified = -1,
     quadratic_tracking,
     quadratic_control_regularisation,
     quadratic_h1_control_regularisation,
@@ -83,24 +92,28 @@ namespace nmopt::semantic::v1
 
   enum class MetricKind
   {
+    unspecified = -1,
     l2,
     h1
   };
 
   enum class ConstraintKind
   {
+    unspecified = -1,
     cellwise_box,
     facewise_box
   };
 
   enum class TransformationKind
   {
+    unspecified = -1,
     fixed_dirichlet_reconstruction,
     dirichlet_control_lifting
   };
 
   enum class RequirementKind
   {
+    unspecified = -1,
     fixed_dirichlet,
     controlled_dirichlet,
     mean_zero_multiplier,
@@ -112,6 +125,7 @@ namespace nmopt::semantic::v1
 
   enum class RequirementStatus
   {
+    unspecified = -1,
     provided,
     user_assumed,
     selected_discrete_realisation
@@ -119,6 +133,7 @@ namespace nmopt::semantic::v1
 
   enum class RequirementScope
   {
+    unspecified = -1,
     continuous_semantics,
     discrete_compilation,
     both
@@ -126,6 +141,7 @@ namespace nmopt::semantic::v1
 
   enum class FormulationKind
   {
+    unspecified = -1,
     reduced_dto,
     all_at_once
   };
@@ -134,7 +150,7 @@ namespace nmopt::semantic::v1
   {
     std::string               id;
     std::string               label;
-    RegionKind                kind;
+    RegionKind                kind = RegionKind::unspecified;
     bool                      is_full_domain = false;
     std::vector<unsigned int> boundary_ids;
     std::vector<unsigned int> material_ids;
@@ -145,8 +161,8 @@ namespace nmopt::semantic::v1
     std::string   id;
     std::string   label;
     std::string   region_id;
-    SpaceTopology topology;
-    SpaceRole     role;
+    SpaceTopology topology = SpaceTopology::unspecified;
+    SpaceRole     role = SpaceRole::unspecified;
     bool          is_scalar = true;
   };
 
@@ -162,7 +178,7 @@ namespace nmopt::semantic::v1
   {
     std::string  id;
     std::string  label;
-    VariableRole role;
+    VariableRole role = VariableRole::unspecified;
     std::string  space_id;
     // An empty port means that this variable is already its physical field.
     // Otherwise the referenced transformation reconstructs that field before
@@ -174,8 +190,8 @@ namespace nmopt::semantic::v1
   {
     std::string id;
     std::string label;
-    DataKind    kind;
-    DataRole    role;
+    DataKind    kind = DataKind::unspecified;
+    DataRole    role = DataRole::unspecified;
     std::string space_id;
   };
 
@@ -183,7 +199,7 @@ namespace nmopt::semantic::v1
   {
     std::string        id;
     std::string        label;
-    TransformationKind kind;
+    TransformationKind kind = TransformationKind::unspecified;
     std::string        input_variable_id;
     std::string        output_space_id;
     std::string        fixed_data_id;
@@ -196,7 +212,7 @@ namespace nmopt::semantic::v1
   {
     std::string              id;
     std::string              label;
-    ResidualTermKind         kind;
+    ResidualTermKind         kind = ResidualTermKind::unspecified;
     std::string              equation_id;
     std::vector<std::string> variable_ids;
     std::vector<std::string> data_ids;
@@ -218,7 +234,7 @@ namespace nmopt::semantic::v1
   {
     std::string     id;
     std::string     label;
-    ObservationKind kind;
+    ObservationKind kind = ObservationKind::unspecified;
     std::string     input_variable_id;
     std::string     region_id;
     std::string     output_space_id;
@@ -229,7 +245,7 @@ namespace nmopt::semantic::v1
   {
     std::string id;
     std::string label;
-    LossKind    kind;
+    LossKind    kind = LossKind::unspecified;
     std::string source_observation_id;
     std::string data_id;
     std::string pairing_id;
@@ -239,7 +255,7 @@ namespace nmopt::semantic::v1
   {
     std::string id;
     std::string label;
-    MetricKind  kind;
+    MetricKind  kind = MetricKind::unspecified;
     std::string variable_id;
     std::string pairing_id;
   };
@@ -248,7 +264,7 @@ namespace nmopt::semantic::v1
   {
     std::string    id;
     std::string    label;
-    ConstraintKind kind;
+    ConstraintKind kind = ConstraintKind::unspecified;
     std::string    variable_id;
     std::string    lower_bound_data_id;
     std::string    upper_bound_data_id;
@@ -258,9 +274,9 @@ namespace nmopt::semantic::v1
   {
     std::string       id;
     std::string       subject_id;
-    RequirementKind   kind;
-    RequirementStatus status;
-    RequirementScope  scope;
+    RequirementKind   kind = RequirementKind::unspecified;
+    RequirementStatus status = RequirementStatus::unspecified;
+    RequirementScope  scope = RequirementScope::unspecified;
     std::string       selected_policy;
     std::string       region_id;
   };
@@ -268,7 +284,7 @@ namespace nmopt::semantic::v1
   struct ReducedFormulationSpec
   {
     std::string     id;
-    FormulationKind kind;
+    FormulationKind kind = FormulationKind::unspecified;
     std::string     state_variable_id;
     // This is the binary reduced DTO decision port. It may identify either a
     // control or a parameter variable; the field name is retained for source

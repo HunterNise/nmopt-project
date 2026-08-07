@@ -2,7 +2,7 @@
 
 ## Assessment status
 
-**In progress — evidence wave 4 complete.**
+**In progress — evidence wave 5 complete.**
 
 This document records the assessment defined by the
 [refactor assessment plan](pre-chapter-5-6-refactor-plan.md). The current
@@ -10,8 +10,9 @@ contents establish the reproducible baseline, the Chapter 5/6 scope matrix,
 and findings for the backend-neutral contracts, semantic layer, v1 compiler,
 compiled-product ownership, manifests, current deal.II realizations, reduced
 formulation and solver, tests, numerical verification, CMake, and developer
-tooling. Documentation, conventions, agent guidance, and the final synthesis
-remain pending until their corresponding review waves are complete.
+tooling. Documentation, conventions, agent guidance, and hidden repository
+guidance have also been audited. Only the final synthesis and sequencing wave
+remains pending.
 
 No code, tests, CMake, conventions, or agent instructions may be changed while
 this assessment is in progress.
@@ -51,7 +52,11 @@ solver failure behavior is largely uncharacterized, and the optional deal.II
 configuration can degrade silently. No current evidence justifies a runtime
 plugin system, a general graph DSL, a PDE inheritance hierarchy, packaging
 machinery, or implementation of unselected Chapter 5/6 capabilities. The
-final verdict must still integrate the documentation and guidance wave.
+documentation and guidance audit also does not justify a new governance
+layer. It does identify one concentrated correctness problem: mutable
+implementation status is copied across several otherwise well-routed
+documents and now contradicts the code and even other sections of the same
+documents.
 
 The final verdict will select and qualify one of these outcomes:
 
@@ -287,8 +292,7 @@ linear-quadratic target. P5.6 is therefore not a prerequisite for all Chapter
 
 ## Confirmed strengths and invariants to preserve
 
-The following strengths are established by the baseline and scope documents;
-code-level confirmation remains part of later waves.
+The following strengths are established across the completed evidence waves.
 
 ### S-001 — Backend-neutral contracts have an executable build boundary
 
@@ -464,6 +468,49 @@ packaging, generated-code, plugin, or application layer to preserve.
 packaging or a generalized build framework solely for architectural
 appearance. Build changes should address explicit configuration, diagnostic,
 or compile-cost failures identified below.
+
+### S-014 — Documentation has an explicit authority map and disciplined scope boundaries
+
+**Evidence:** `docs/README.md` assigns separate roles to the normative
+interface specification, first-policy readiness review, v0 executable and
+lowerer records, v1 compiler record, architecture rationale, roadmap, and
+mathematical guides. Its task table directs a contributor to the smallest
+relevant starting document instead of requiring a linear read of the corpus.
+All 17 other Markdown files under `docs/` appear exactly once in its document
+index. The Chapter 5 guide says explicitly that it is a catalogue rather than
+a claim of compiler support; the Chapter 6 methods guide excludes later
+chapters and the user-excluded error-estimation sections; and the numerical
+examples are classified as deferred reproduction targets rather than current
+acceptance tests.
+
+A static check of `AGENTS.md`, `README.md`, conventions, and project docs found
+122 local Markdown links with no missing file targets. All five explicit
+fragment links resolve to their named headings.
+
+**Preserve:** Keep the distinction between normative contract, selected
+policy, implemented realization, roadmap, and mathematical background. Do not
+collapse the theory, formula, case-study, and implementation guides into one
+continually changing document merely to reduce file count. Scope statements
+must continue to make P5/P6 capabilities conditional on selected targets.
+
+### S-015 — Repository and agent guidance is compact, routed, and conflict-free
+
+**Evidence:** The repository has one 50-line root `AGENTS.md`, a 30-line
+convention router, and four focused convention files for code, builds,
+documentation, and Git. The root guide states the compositional mission,
+delegates action details to the convention router, delegates architecture and
+scope to `docs/`, requires an architectural decision to be documented, and
+sets an appropriate read-only default. Code conventions reinforce the layer
+boundaries; Git conventions make branch and authorship safety explicit; and
+documentation conventions state the repository's actual Markdown and math
+rendering rules. There are no nested `AGENTS.md` files and no repository files
+under `.agents/` or `.codex/`, so no hidden instruction layer contradicts the
+visible policy.
+
+**Preserve:** Keep this guidance small and authority-directed. Add workflow or
+test guidance only when implementing the concrete RF-016–RF-018 changes; do
+not introduce a second agent handbook, a duplicated convention table, or a
+large generic style guide.
 
 ## Compiler and deal.II review surface
 
@@ -1561,6 +1608,138 @@ entries, so the runtime defect risk is low. A centralized boundary still has
 learning value and removes noise without redesigning layout dimensions or
 claiming a distributed backend.
 
+## Documentation, convention, and agent-guidance review surface
+
+Evidence wave 5 followed the authority routing in `docs/README.md` rather than
+reading every long mathematical document linearly. It reviewed the root guide
+and every convention in full; checked the documentation map and current-state
+claims; traced the high-authority implementation records; and used targeted
+searches in the Chapter 5/6 and mathematical background documents to locate
+status, support, sequencing, and handoff statements. The already audited code,
+tests, and CMake configuration were the comparison point for claims about what
+exists today.
+
+### Authority and maintenance result
+
+| Document group | Intended authority | Audit result |
+| --- | --- | --- |
+| `AGENTS.md` and `conventions/` | Mission plus action-specific repository workflow | Clear, concise, and non-conflicting; build-profile weaknesses resolve to RF-018 rather than an agent-guidance redesign |
+| `interface-specification.md` | Normative implementation-neutral component protocol | Properly broader than the present implementation and explicit about unsupported advanced instances |
+| `implementation-readiness-review.md` | Selected defaults where the interface allows several choices | Policy analysis is strong, but release-status additions have drifted and should not remain a second capability ledger |
+| `executable-contract-v0.md` and `dealii-v0-lowerer.md` | Exact current v0 API and direct reference slice | Scope and exclusions match the audited v0 code; they correctly avoid claiming v1 extensions as v0 behavior |
+| `semantic-v1-compiler.md` | Exact current v1 graph/compiler realization | Most complete and accurate current-capability record; its component-lowering language must be qualified by RF-007 until the dispatcher is refactored |
+| `implementation-roadmap.md` | Dependency order, completion state, acceptance checks, and handoff | Mathematical dependencies remain useful, but its current-state table, completion markers, and final handoff are stale |
+| `system-blueprint.md` | Short mental model and code correspondence, not a second authority | Later code map and exclusions are useful; the early component-status table and implemented-path diagram overstate or omit parts of current behavior |
+| Chapter 5/6 guides | Bounded source catalogue and implementation requirements | Scope boundaries and prerequisites are explicit and consistent with the stated endpoint |
+| Architecture, composition, theory, formula, and case-study records | Design rationale and mathematical background | Aspirational language is identifiable as such and should remain separate from mutable release status |
+
+### Current-status consistency check
+
+The drift is concentrated in mutable status and handoff text, not in the
+mathematical contracts:
+
+| Capability or claim | Accurate current record | Conflicting or stale record |
+| --- | --- | --- |
+| Fixed-Dirichlet reconstruction | `semantic-v1-compiler.md` and the implementation paragraph under roadmap P1.2 describe the tested v1 target | P1.2 lacks a completed marker and the roadmap's final handoff still directs the next agent to implement P1.2 |
+| Complete-boundary controlled-Dirichlet lifting | The compiler record, interface delta, Chapter 5 guide, system-blueprint closing scope, and roadmap P3.2 describe the implemented narrow target | The readiness review lists Dirichlet control as unsupported and leaves fixed/controlled liftings incomplete in its extension order; the blueprint also broadly says controlled essential conditions are unavailable |
+| Material-subdomain tracking | Compiler record and roadmap P1.3 describe the implemented material-id observation | The blueprint's early component table says the current observation is full-domain only |
+| Pure-Neumann gauge | Compiler record and readiness review describe the one-multiplier implementation | Roadmap P2.2 contains an implementation block but lacks a completed marker |
+| Continuous-control $H^{1}$ loss and metric | Compiler record and readiness review describe both implemented variants | Roadmap P2.3 contains an implementation block but lacks a completed marker; the blueprint's early metric row names only dense diagonal and deal.II mass realizations |
+| Positive cellwise coefficient identification | Compiler record and readiness review describe the implemented parameter target | Roadmap P3.1 contains an implementation block but lacks a completed marker |
+| Verification inventory | CMake and tests register dense, semantic, and deal.II executables with eleven logical scenarios | The roadmap's current-handoff table lists only the dense and deal.II source files and describes only the earlier test surface |
+| V1 lowering architecture | Code has a semantic graph plus six-way whole-target dispatch as established by RF-007 | The blueprint's `IMPLEMENTED V1` diagram labels the lowerers reusable for independently declared terms, which is the target architecture rather than the present dispatch mechanism |
+
+The roadmap headings are internally inconsistent: P0.1–P1.1, P1.3, P2.1,
+and P3.2 append “completed,” while P1.2, P2.2, P2.3, and P3.1 omit the marker
+despite immediately documenting their implementations. This is stronger
+evidence than a stylistic preference because the same file's obsolete
+next-agent section selects one of those completed tasks.
+
+### Link, index, and Markdown checks
+
+- Every project document is represented once in the documentation index; the
+  additional index entry is the intentional link to `conventions/README.md`.
+- All 122 local links name existing files. The five explicit fragments for
+  the boundary protocol, exclusions, and Chapter 5/6 roadmap sections match
+  actual headings.
+- No project document uses the repository-forbidden `\(...\)` or `\[...\]`
+  math delimiters. Searches found no unintentional TODO, TBD, FIXME, or
+  placeholder marker; the one placeholder mention is an instruction in the
+  assessment plan to remove provisional recommendations.
+- Four formulas in `chapter-5-implementation-guide.md` use the fine-spacing
+  command `\,`, which `conventions/documentation.md` asks authors to avoid.
+  This is local rendering hygiene to fix when that guide is next edited, not
+  a refactor gate or a reason to add a Markdown toolchain.
+- No project documentation renderer or external-link checker is configured.
+  The present evidence supports simple review and occasional static link
+  checks; it does not justify a new documentation build system for this
+  repository's endpoint.
+
+### RF-020 — Mutable implementation status has several owners and now gives obsolete handoff instructions
+
+**Classification:** Documentation correctness and maintenance-boundary debt.
+
+**Evidence:** `docs/README.md` names the roadmap as the record of current
+implementation state and agent handoff. Its final section nevertheless tells
+the next agent to implement P1.2 fixed reconstruction, while the same roadmap,
+the v1 compiler record, code, and tests say P1.2 is implemented. Four roadmap
+headings omit their completion state despite containing implementation
+results. The readiness review still calls Dirichlet control unsupported even
+though roadmap P3.2, the interface delta, compiler record, Chapter 5 guide,
+code, and tests all describe the deliberately narrow complete-boundary
+realization. The blueprint's early current-status table omits material
+tracking and several later targets that its own closing section lists.
+
+The same duplication obscures RF-007. The blueprint presents reusable
+independently declared term lowerers in a diagram explicitly labelled
+implemented, but the audited registry recognizes exact whole graphs and the
+compiler dispatches complete targets. The diagram accurately states the
+desired architecture, not the current mechanism.
+
+**Consequence:** An agent following the mandated routing can select already
+completed work, report a supported target as unavailable, or design an
+extension around component-lowering seams that do not yet exist. Repeatedly
+reconciling documents against code consumes review time and reduces the value
+of otherwise strong documentation as an engineering control.
+
+**Scope relevance:** Common pre-feature documentation repair. It does not
+expand the Chapter 5/6 endpoint and does not require a code refactor by
+itself, but it should be corrected before handing implementation to another
+agent.
+
+**Action tier:** First documentation batch in Stage B, coordinated with the
+characterization and RF-007 work so current architecture is not overstated.
+
+**Recommendation:** Assign one kind of truth to each existing document:
+
+1. Keep the interface specification normative and implementation-neutral.
+2. Keep the readiness review about selected policies and move or remove
+   mutable release-status lists.
+3. Make `semantic-v1-compiler.md` the exact v1 capability and exclusion
+   record, with each capability tied to its registered target and test.
+4. Keep the roadmap as the dependency-ordered status ledger and acceptance
+   plan. Normalize all completion markers, update its compact current-state
+   table, and replace the fixed P1.2 handoff with the assessment gate and the
+   first *selected* pending P5/P6 batch.
+5. Keep the blueprint conceptual. Replace copied current-status cells with
+   links to the compiler record, or label them as examples; distinguish the
+   present whole-target dispatcher from the component-lowering architecture
+   sought by RF-007.
+
+Do this as a bounded editorial repair, not a documentation rewrite or a
+generated capability system. A small manually maintained capability table
+with one owner is proportionate to the repository.
+
+**Verification:** After the repair, search every high-authority document for
+the implemented target names and unsupported claims; the capability table,
+roadmap completion states, and compiler exclusions must agree. A new
+contributor following `docs/README.md` must land on an actually pending task.
+Repeat the local link/anchor check and inspect the Markdown rendering.
+
+**Tradeoff:** Removing duplicated status makes some documents less
+self-contained. Links to one nearby authoritative capability table are safer
+than several detailed but independently maintained release narratives.
+
 ## Resolution of prior cross-layer observations
 
 | Observation | Resolution |
@@ -1571,9 +1750,13 @@ claiming a distributed backend.
 | `OBS-TST-02`: tests cast to compiler `detail` targets | Resolved by RF-016; separate black-box compiler intent from white-box policy intent and test extracted policies directly after RF-007 |
 | `OBS-BLD-03`: the compiler aggregate includes all large targets | Resolved by RF-007 with measured build evidence; decompose lowering first and measure before choosing explicit instantiation or additional binary-library machinery |
 | `OBS-INT-01`: manifests should accompany solver diagnostics | Resolved by RF-015; use a run envelope outside the backend-neutral solver rather than coupling the solver to compiler manifest types |
+| `OBS-DOC-01`: implemented component-lowering claims do not match the whole-target dispatcher | Resolved architecturally by RF-007 and editorially by RF-020; document the present mechanism until the refactor changes it |
+| `OBS-DOC-02`: mutable status and next-agent instructions disagree | Resolved by RF-020; establish one current-capability owner and normalize the roadmap handoff |
+| `OBS-DOC-03`: canonical build commands are repeated without explicit configuration or cache recovery | Resolved by RF-018; update build conventions and roadmap commands with the implemented profiles rather than create a separate documentation finding |
+| `OBS-GOV-01`: nested or hidden agent guidance could conflict with root policy | No conflict found; S-015 records the compact single-root guidance as a strength to preserve |
+| `OBS-MD-01`: four Chapter 5 formulas use a discouraged fine-spacing command | Minor documentation housekeeping; correct when the guide is touched, with no separate refactor batch or tooling requirement |
 
 ## Pending review waves
 
-1. Documentation consistency, conventions, and agent guidance.
-2. Final synthesis, action tiers, dependency-ordered refactor batches,
+1. Final synthesis, action tiers, dependency-ordered refactor batches,
    deferred work, and user decisions.

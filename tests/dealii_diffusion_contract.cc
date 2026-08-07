@@ -75,7 +75,7 @@ namespace
                                  direction,
                                  "deal.II shift has incompatible layouts");
     for (std::size_t block = 0; block < value.n_blocks(); ++block)
-      Backend::add_scaled(value.block(block), step, direction.block(block));
+      value.add_scaled_block(block, step, direction.block(block));
     return value;
   }
 

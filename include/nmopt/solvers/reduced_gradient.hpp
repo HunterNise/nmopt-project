@@ -285,7 +285,7 @@ namespace nmopt::solvers
                                    source,
                                    "Reduced gradient update has incompatible layouts");
       for (std::size_t block = 0; block < target.n_blocks(); ++block)
-        Backend::add_scaled(target.block(block), factor, source.block(block));
+        target.add_scaled_block(block, factor, source.block(block));
     }
 
     static Result

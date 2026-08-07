@@ -17,6 +17,11 @@ if(BUILD_TESTING)
   add_executable(nmopt_contract_tests tests/reduced_dto_contract.cc)
   target_link_libraries(nmopt_contract_tests PRIVATE nmopt_contract)
   nmopt_add_scenario_test(
+    nmopt.contract.layout_invariant
+    nmopt_contract_tests
+    layout_invariant
+    "backend-neutral;contract")
+  nmopt_add_scenario_test(
     nmopt.contract.v0
     nmopt_contract_tests
     v0_contract

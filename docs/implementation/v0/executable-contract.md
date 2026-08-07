@@ -27,8 +27,8 @@ The public executable and solver headers provide:
 | Type | Meaning |
 |---|---|
 | `SpaceId` and `BlockLayout` | Stable semantic space identifiers and compatible block dimensions. |
-| `PrimalBlock` | A typed block of coefficients in a declared discrete primal space. |
-| `CovectorBlock` | A typed block of coefficients in the dual of that layout. |
+| `PrimalBlock` | A typed block of coefficients in a declared discrete primal space, with read-only vector access and checked algebraic updates. |
+| `CovectorBlock` | A typed block of coefficients in the dual of that layout, with the same layout-preserving storage boundary. |
 | `pair` | The declared dual-coefficient pairing. It is the only primitive that pairs a covector with a primal vector. |
 | `ExecutableModel` | Residual value, residual JVP, residual VJP, objective value, and objective derivative. |
 | `Metric` | Explicit primal-to-dual action and inverse action. The serial deal.II backend supplies `dealii_backend::MassMetric` for one-block sparse mass matrices. |
@@ -39,6 +39,10 @@ The public executable and solver headers provide:
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
 `ExecutableModelT`, `PrimalBlockT`, `CovectorBlockT`, `MetricT`, and `ReducedDTOT`.
+Block vectors are supplied at construction and exposed read-only afterward.
+The retained `add_scaled_block()` and `scale_block()` operations cannot replace
+storage, and scaled updates reject a source whose dimension differs from the
+declared block layout.
 
 An `ExecutableModel` has the following exact signatures in mathematical form:
 
@@ -167,18 +171,20 @@ $$
          +\tfrac{\alpha}{2}u^{\mathsf T}Ru.
 $$
 
-The `CTest` executable verifies:
+The `CTest` scenarios verify:
 
 1. residual JVP/VJP pairing;
 2. residual finite-difference derivative;
 3. objective directional derivative;
 4. state solve residual;
 5. reduced DTO derivative;
-6. metric inverse/apply consistency; and
+6. metric inverse/apply consistency;
 7. the selected cellwise $L^{2}$ box projection;
-8. exact `ContractError` messages for representative partition, callback,
+8. read-only block storage, rejected dimension-changing updates, and preserved
+   pairing under checked algebraic updates;
+9. exact `ContractError` messages for representative partition, callback,
    metric, constraint, and projected-solver precondition failures; and
-9. dense and deal.II unconstrained/projected Armijo convergence, including
+10. dense and deal.II unconstrained/projected Armijo convergence, including
    active-bound and projected-stationarity checks.
 
 This establishes the small executable algebra that a deal.II compiler must

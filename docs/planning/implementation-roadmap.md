@@ -19,9 +19,9 @@ ctest --test-dir build --output-on-failure
 ## Current handoff state
 
 Stage B is active on `codex/refactor-ch5-ch6-readiness`. Batches R0
-(`RF-020`) and R1 (`RF-006`, `RF-009`, and `RF-016`) are complete; the next
-bounded batch is
-[R2a contract safety](refactor/stage-b-roadmap.md#r2a--restore-blocklayout-invariants).
+(`RF-020`), R1 (`RF-006`, `RF-009`, and `RF-016`), and R2a (`RF-001` and the
+relevant `RF-006` characterization) are complete; the next bounded batch is
+[R2b semantic safety](refactor/stage-b-roadmap.md#r2b--make-semantic-construction-and-validation-safe).
 Chapter 5/6 feature work remains behind the common stabilization checkpoint
 and the conditional gates in the Stage B roadmap. No P5/P6 feature has been
 selected yet.
@@ -30,7 +30,7 @@ The following pieces exist and are tested:
 
 | Layer | Existing artifact | Meaning |
 |---|---|---|
-| Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. |
+| Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. Their block storage is read-only after construction; checked algebraic updates preserve the declared dimensions. |
 | V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph, explicit pairings, and structural/policy diagnostics. |
 | V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp` | Backend-generic compiled package and manifest, with whole-target dispatch across the exact registrations in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
@@ -41,7 +41,7 @@ The following pieces exist and are tested:
 | deal.II metrics | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, and parameter layouts, with serial CG inverse apply. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes for the registered cellwise-volume and facewise-boundary $L^{2}$ metrics. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose eleven independently named and labeled CTest scenarios: two dense/backend contract cases, semantic graph validation, and eight deal.II compiler/lowering cases. Negative checks identify exact diagnostics or contract failures; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twelve independently named and labeled CTest scenarios: three dense/backend contract cases, semantic graph validation, and eight deal.II compiler/lowering cases. Negative checks identify exact diagnostics or contract failures, including the block/layout invariant; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It validates registered component kinds, then matches the complete graph
@@ -775,18 +775,21 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-Take **Stage B R2a only**:
+Take **Stage B R2b only**:
 
 1. Follow the [Stage B routing protocol](refactor/README.md) and read only the
-   R2a batch plus finding `RF-001` and the contract-focused parts of `RF-006`.
-2. Add focused regressions that expose any dimension-changing mutation by
-   `BlockValuesT` storage before changing its mutation boundary.
-3. Prevent stored vector dimensions from diverging from their declared block
-   layout, exposing only the checked mutation current callers require.
+   R2b batch plus findings `RF-002` through `RF-005` and the relevant semantic
+   parts of `RF-006`.
+2. Add focused exact-diagnostic regressions for the recorded malformed graphs
+   before repairing their construction and validation boundaries.
+3. Introduce explicit safe incomplete enum states, close the recorded
+   whole-graph invariants, and replace positional reference-graph mutation with
+   small ID-based helpers.
 4. Run focused checks followed by the applicable full Debug configurations,
-   preserve current algebra and pairing identities, then record R2a completion
-   and the next batch here.
+   preserve every valid current reference graph, then record R2b completion and
+   the next batch here.
 
-Do not redesign the algebra layer or select a P5/P6 feature during R2a.
+Do not introduce a graph DSL or staged builder, or select a P5/P6 feature
+during R2b.
 Feature selection occurs only after the common stabilization checkpoint and
 its relevant conditional gate.

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace nmopt::contract
 {
@@ -64,12 +65,17 @@ namespace nmopt::contract
     {
       require_compatible(primal, PrimalBlock(layout_, diagonal_),
                          "Metric primal has an incompatible layout");
-      CovectorBlock result = CovectorBlock::zeros(layout_);
+      std::vector<DenseVector> blocks;
+      blocks.reserve(primal.n_blocks());
       for (std::size_t block = 0; block < primal.n_blocks(); ++block)
-        for (std::size_t entry = 0; entry < primal.block(block).size(); ++entry)
-          result.block(block)[entry] =
-            diagonal_.at(block)[entry] * primal.block(block)[entry];
-      return result;
+        {
+          DenseVector values(primal.block(block).size());
+          for (std::size_t entry = 0; entry < primal.block(block).size(); ++entry)
+            values[entry] =
+              diagonal_.at(block)[entry] * primal.block(block)[entry];
+          blocks.push_back(std::move(values));
+        }
+      return CovectorBlock(layout_, std::move(blocks));
     }
 
     PrimalBlock
@@ -77,12 +83,17 @@ namespace nmopt::contract
     {
       require_compatible(covector, PrimalBlock(layout_, diagonal_),
                          "Metric covector has an incompatible layout");
-      PrimalBlock result = PrimalBlock::zeros(layout_);
+      std::vector<DenseVector> blocks;
+      blocks.reserve(covector.n_blocks());
       for (std::size_t block = 0; block < covector.n_blocks(); ++block)
-        for (std::size_t entry = 0; entry < covector.block(block).size(); ++entry)
-          result.block(block)[entry] =
-            covector.block(block)[entry] / diagonal_.at(block)[entry];
-      return result;
+        {
+          DenseVector values(covector.block(block).size());
+          for (std::size_t entry = 0; entry < covector.block(block).size(); ++entry)
+            values[entry] =
+              covector.block(block)[entry] / diagonal_.at(block)[entry];
+          blocks.push_back(std::move(values));
+        }
+      return PrimalBlock(layout_, std::move(blocks));
     }
 
   private:
@@ -170,14 +181,19 @@ namespace nmopt::contract
       require_compatible(primal, PrimalBlock(layout_, lower_),
                          "Constraint primal has an incompatible layout");
 
-      PrimalBlock projected = primal;
+      std::vector<DenseVector> blocks;
+      blocks.reserve(primal.n_blocks());
       for (std::size_t block = 0; block < primal.n_blocks(); ++block)
-        for (std::size_t entry = 0; entry < primal.block(block).size(); ++entry)
-          projected.block(block)[entry] =
-            std::max(lower_.at(block)[entry],
-                     std::min(upper_.at(block)[entry],
-                              primal.block(block)[entry]));
-      return projected;
+        {
+          DenseVector values(primal.block(block).size());
+          for (std::size_t entry = 0; entry < primal.block(block).size(); ++entry)
+            values[entry] =
+              std::max(lower_.at(block)[entry],
+                       std::min(upper_.at(block)[entry],
+                                primal.block(block)[entry]));
+          blocks.push_back(std::move(values));
+        }
+      return PrimalBlock(layout_, std::move(blocks));
     }
 
   private:

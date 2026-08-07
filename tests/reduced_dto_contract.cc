@@ -10,6 +10,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace
@@ -69,7 +71,7 @@ namespace
   {
     require_compatible(value, direction, "Shift has incompatible primal layouts");
     for (std::size_t block = 0; block < value.n_blocks(); ++block)
-      value.block(block).add_scaled(step, direction.block(block));
+      value.add_scaled_block(block, step, direction.block(block));
     return value;
   }
 
@@ -118,6 +120,45 @@ namespace
   };
 
   void
+  test_block_layout_invariant()
+  {
+    using BlockAccess = decltype(std::declval<PrimalBlock &>().block(0));
+    static_assert(std::is_same_v<BlockAccess, const DenseVector &>,
+                  "BlockValues public block access must be read-only");
+
+    const auto layout = std::make_shared<const BlockLayout>(
+      "layout_invariant",
+      std::vector<SpaceId>{{"state"}},
+      std::vector<std::size_t>{2});
+    PrimalBlock   primal(layout, {DenseVector{1.0, 2.0}});
+    CovectorBlock covector(layout, {DenseVector{3.0, 4.0}});
+
+    nmopt::test_support::require_contract_error(
+      [&primal]() {
+        primal.add_scaled_block(0, 1.0, DenseVector{1.0, 2.0, 3.0});
+      },
+      "BlockValues update vector dimension does not match layout",
+      "dimension-changing primal block update");
+    nmopt::test_support::require_contract_error(
+      [&covector]() {
+        covector.add_scaled_block(0, 1.0, DenseVector{1.0, 2.0, 3.0});
+      },
+      "BlockValues update vector dimension does not match layout",
+      "dimension-changing covector block update");
+    require_close(pair(covector, primal),
+                  11.0,
+                  1e-15,
+                  "Rejected block updates preserve pairing");
+
+    primal.add_scaled_block(0, 1.0, DenseVector{-1.0, 0.5});
+    covector.scale_block(0, 0.5);
+    require_close(pair(covector, primal),
+                  5.0,
+                  1e-15,
+                  "Checked block algebra preserves pairing");
+  }
+
+  void
   test_v0_contract()
   {
     const LinearQuadraticModel model(
@@ -151,9 +192,9 @@ namespace
     const CovectorBlock residual_at_point = model.residual(point);
     for (std::size_t block = 0; block < finite_difference.n_blocks(); ++block)
       {
-        finite_difference.block(block).add_scaled(
-          -1.0, residual_at_point.block(block));
-        finite_difference.block(block).scale(1.0 / epsilon);
+        finite_difference.add_scaled_block(
+          block, -1.0, residual_at_point.block(block));
+        finite_difference.scale_block(block, 1.0 / epsilon);
         for (std::size_t entry = 0;
              entry < finite_difference.block(block).size();
              ++entry)
@@ -370,7 +411,8 @@ main(const int argc, char **argv)
         nmopt::test_support::run_requested_scenarios(
           argc,
           argv,
-          {{"v0_contract", test_v0_contract},
+          {{"layout_invariant", test_block_layout_invariant},
+           {"v0_contract", test_v0_contract},
            {"backend_parameterisation", test_backend_parameterisation}});
       std::cout << "nmopt executable contract scenario passed: " << executed
                 << '\n';

@@ -109,16 +109,26 @@ namespace nmopt::contract
       return blocks_.size();
     }
 
-    typename Backend::Vector &
-    block(const std::size_t index)
-    {
-      return blocks_.at(index);
-    }
-
     const typename Backend::Vector &
     block(const std::size_t index) const
     {
       return blocks_.at(index);
+    }
+
+    void
+    add_scaled_block(const std::size_t               index,
+                     const double                    factor,
+                     const typename Backend::Vector &source)
+    {
+      require(Backend::size(source) == layout_->dimension(index),
+              "BlockValues update vector dimension does not match layout");
+      Backend::add_scaled(blocks_.at(index), factor, source);
+    }
+
+    void
+    scale_block(const std::size_t index, const double factor)
+    {
+      Backend::scale(blocks_.at(index), factor);
     }
 
   protected:
@@ -217,7 +227,7 @@ namespace nmopt::contract
     require_compatible(left, right, "Cannot subtract incompatible covectors");
     CovectorBlockT<Backend> result = left;
     for (std::size_t block = 0; block < result.n_blocks(); ++block)
-      Backend::add_scaled(result.block(block), -1.0, right.block(block));
+      result.add_scaled_block(block, -1.0, right.block(block));
     return result;
   }
 

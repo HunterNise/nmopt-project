@@ -19,13 +19,11 @@ estimates, are excluded at the user's request. Section 6.12 exercises is also
 not an implementation method. References to SQP and nonlinear OCPs belong to
 later chapters; this guide records only the capabilities Chapter 6 needs.
 
-The present executable slice has one eliminated scalar state block, one
-decision block, and a reduced DTO formulation. Its `ReducedGradientSolverT`
-implements steepest descent with an Armijo line search, optionally with its
-selected metric-qualified projection. All-at-once KKT solves, second
-derivatives, general reduced search methods, Petrov–Galerkin formulation
-choices, and mixed Stokes blocks are not current compiler targets. The
-required reusable extensions are P6.1–P6.5 in the
+Consult the [roadmap handoff](../planning/implementation-roadmap.md#current-handoff-state)
+for implemented solver and formulation services and the
+[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
+for exact compiler targets. The required reusable Chapter 6 extensions are
+P6.1–P6.5 in the
 [implementation roadmap](../planning/implementation-roadmap.md#chapter-6-feature-requests).
 
 ## Framework convention and discrete notation
@@ -90,9 +88,9 @@ The chapter compares two formulation orders:
   residual VJP and the reduced covector is the DTO covector above.
 
 For a Galerkin linear-quadratic problem using the same finite-element space
-for state and adjoint, the routes produce the same KKT system. This is the
-currently selected DTO route. It permits different state and control spaces,
-so a boundary-control $B$ may be rectangular.
+for state and adjoint, the routes produce the same KKT system. DTO is the
+selected default route. It permits different state and control spaces, so a
+boundary-control $B$ may be rectangular.
 
 If OtD chooses a different adjoint space, it can yield a non-symmetric reduced
 operator that is not the stationarity system of the lowered discrete
@@ -233,9 +231,8 @@ r_{\Pi}=u-\Pi_{U_{\mathrm{ad}}}\bigl(u-G^{-1}j_{h}'(u)\bigr).
 Measure the projected residual in the declared metric. Projected Armijo must
 use the actual displacement $u^{+}-u$, not the unprojected direction. The
 book's coefficient clipping is exact only under a selected discretisation and
-projection policy. The current implementation has that policy for cellwise
-`FE_DGQ(0)` $L^{2}$ boxes. Continuous FE, trace, and $H^{1}$ controls need
-their own projection contract.
+projection policy. It is exact for cellwise `FE_DGQ(0)` $L^{2}$ boxes;
+continuous FE, trace, and $H^{1}$ controls need their own projection contract.
 
 The first extension should implement and verify projected steepest descent
 before projected nonlinear CG or L-BFGS, because restarts and descent
@@ -370,7 +367,7 @@ the generic PDAS solve.
 ## Implementation sequence and verification
 
 1. Extend the reduced solver to selected reduced directions and line searches
-   (P6.1), while retaining the current one-state/one-decision DTO boundary.
+   (P6.1), while retaining the baseline one-state/one-decision DTO boundary.
 2. Add formulation, trial/test, and stabilisation provenance (P6.2). A
    compiler must say whether it differentiates a discrete residual, lowers an
    OTD system, or differentiates a stabilised Lagrangian.

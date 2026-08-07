@@ -29,6 +29,36 @@ The normative semantic protocol remains the
 [interface specification](../../design/interface-specification.md). This document records
 the concrete, intentionally narrow v1 realization of that protocol.
 
+## Registered capabilities
+
+This section is the sole detailed capability ledger for the current v1
+compiler. The [implementation roadmap](../../planning/implementation-roadmap.md)
+owns completion and handoff status; design and policy documents link here
+instead of reproducing this table.
+
+Every factory below is validated in
+[`semantic_v1_contract.cc`](../../../tests/semantic_v1_contract.cc). The last
+column names its focused executable scenario in
+[`dealii_diffusion_contract.cc`](../../../tests/dealii_diffusion_contract.cc).
+
+| Registered semantic graph | Selected whole-target implementation | Bounded capability | Focused executable scenario |
+| --- | --- | --- | --- |
+| `make_scalar_diffusion_reaction_problem()` | `ScalarDiffusionReactionModel<dim>` direct v0 reference, packaged through v1 ports | Homogeneous fixed Dirichlet, full-volume tracking, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `run_contract_test()` |
+| `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `AssembledScalarDiffusionReactionModel<dim>` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `run_fixed_dirichlet_contract_test()` |
+| `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `AssembledScalarDiffusionReactionModel<dim>` | State tracking on one material-id set while retaining the full-domain state equation | `run_subdomain_observation_contract_test()` |
+| `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `run_dirichlet_control_contract_test()` |
+| `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `run_neumann_boundary_contract_test()` |
+| `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `run_pure_neumann_contract_test()` |
+| `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `H1ControlRegularisedModel<dim>` | Continuous `FE_Q` control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `run_h1_control_regularisation_contract_test()` |
+| `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `run_coefficient_identification_contract_test()` |
+
+These are whole-graph registrations, not freely composable component
+lowerers. `DealiiLowererRegistryV1` whitelists individual semantic kinds for
+diagnostics, while `DealiiCompiler::compile()` uses graph predicates to choose
+one of the target implementation families above. Supporting a kind therefore
+does not imply that it can be combined arbitrarily with every other supported
+kind.
+
 ## Public semantic graph
 
 The compatibility aggregate `include/nmopt/semantic/v1/problem_spec.hpp`
@@ -263,8 +293,9 @@ observation, metric, constraint, or formulation.
 The compatibility aggregate
 `include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp` exposes the
 focused compiler headers: `compiled_problem.hpp`, `dealii_types.hpp`,
-`dealii_capabilities.hpp`, and `dealii_compiler.hpp`. The compiler's private
-`dealii_fixed_dirichlet.hpp` target owns the separate v1 physical-state
+`dealii_capabilities.hpp`, and `dealii_compiler.hpp`. The compiler's present
+whole-target dispatcher selects private implementation families.
+`dealii_fixed_dirichlet.hpp` owns the separate v1 physical-state
 assembly used for fixed reconstruction and material-subdomain tracking. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, facewise control layout, boundary trace tracking, facewise metric,
@@ -305,30 +336,19 @@ descriptive provenance; it does not create a second configuration channel.
 
 ## Comparison guarantee
 
-`tests/dealii_diffusion_contract.cc` creates one direct v0 model and one
-homogeneous v1 compiled model on the same triangulation, functions, constants,
-and bounds. It verifies equal assembled residual, objective, objective
-derivative, and DTO reduced derivative. The same test confirms the optional
-compiled box constraint and classifies unsupported matrix-free and all-at-once
-requests. It also compiles a nonzero manufactured fixed-Dirichlet state and
-checks its physical residual/objective, reconstruction JVP/VJP pairing, and
-reduced Taylor remainder; recompilation with changed lifting data must change
-the compiled result. The same test builds a mesh with a complete controlled
-Dirichlet boundary and checks its nonzero manufactured physical state, lifting
-JVP/VJP pairing, reduced Taylor remainder, trace metric, manifest, and
-incomplete-boundary diagnostic. It also builds a mesh with distinct fixed
-Dirichlet, Neumann-control, and observation boundary ids. It checks the Neumann
-residual pairing, trace-loss derivative, facewise metric and box realization,
-and a state-recomputed reduced Taylor remainder.
+`run_contract_test()` in `tests/dealii_diffusion_contract.cc` is specifically a
+v0/v1 wiring comparison: it constructs the direct model and the homogeneous
+compiled product with identical mesh, data, coefficients, and bounds, then
+compares residual, objective, objective derivative, and reduced derivative.
+It is not an independent assembly oracle.
 
-`tests/semantic_v1_contract.cc` independently verifies the semantic validator
-for the canonical and material-subdomain graphs, including missing or
-region-mismatched target-data policies. The deal.II test compiles two material
-masks on the same mesh and requires the same state solution and residual JVP,
-while requiring a different tracking objective and state-objective derivative.
-The same test compiles the coefficient-identification graph, rejects a
-nonpositive lower bound, verifies reassembly at changed parameter values, and
-checks parameter JVP/VJP, finite-difference, and reduced-Taylor identities.
+The semantic test validates every registered factory and representative
+structural or policy failures. The eight deal.II scenarios named in the
+[capability table](#registered-capabilities) exercise their selected target,
+diagnostics, manifest, metric or constraint where applicable, forward and
+transpose actions, and state-recomputed reduced derivative. Exact assertions
+remain in the test sources rather than being duplicated as a second inventory
+here.
 
 ## Exclusions
 

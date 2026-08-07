@@ -2,9 +2,17 @@
 
 ## Purpose
 
-This guide is the shortest path to a working mental model of `nmopt`. It connects the mathematical model, the semantic specification, the current v0 contracts, the serial deal.II reference lowerer, and the tests.
+This guide is the shortest path to a working mental model of `nmopt`. It
+connects the mathematical model, the semantic specification, the current v0
+contracts, the serial deal.II reference lowerer, and the tests.
 
-It is not a second source of authority: the [interface specification](interface-specification.md) is normative for the intended semantic API; the [v0 executable contract](../implementation/v0/executable-contract.md) and [deal.II lowerer record](../implementation/v0/dealii-lowerer.md) state what works today.
+It is not a second source of authority: the [interface specification](interface-specification.md)
+is normative for the intended semantic API; the
+[v0 executable contract](../implementation/v0/executable-contract.md) and
+[deal.II lowerer record](../implementation/v0/dealii-lowerer.md) define the
+direct reference slice; and the
+[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
+owns exact compiler support and exclusions.
 
 ## The one-sentence model
 
@@ -35,12 +43,21 @@ For a residual, the output is a covector in a *test-space dual*, so its VJP seed
 ## Intended architecture versus present code
 
 ```text
-IMPLEMENTED V1 SEMANTIC/COMPILER PATH
+PRESENT V1 SEMANTIC/COMPILER PATH
 
-ProblemSpec ──> semantic resolver/validator ──> lowerer registry ──> executable model
-      ↑                 ↑                              ↑
- regions, spaces,       structural/policy/             reusable lowerers for
- maps, terms, etc.      lowerability diagnostics        independently declared terms
+ProblemSpec ──> semantic validation + kind whitelist
+                              │
+                              └──> whole-graph predicate dispatch
+                                           │
+                                           └──> one target implementation
+                                                       │
+                                                       └──> executable ports
+
+TARGET COMPONENT-LOWERING ARCHITECTURE (NOT YET IMPLEMENTED)
+
+ProblemSpec ──> validated component graph ──> independently owned lowerers
+                                                     │
+                                                     └──> composed executable model
 
 
 IMPLEMENTED V0 VERTICAL SLICE
@@ -52,42 +69,52 @@ ScalarDiffusionReactionModel (preserved hand-written deal.II reference)
       └──> ReducedDTOT + supplied state/adjoint solves ──> reduced covector
 ```
 
-The `ScalarDiffusionReactionModel` is a reference lowerer for one selected finite-element problem. It is **not** the planned public `ProblemSpec` and must not grow into a hierarchy of complete PDE/control combinations.
+The `ScalarDiffusionReactionModel` is a reference lowerer for one selected
+finite-element problem. It is **not** the public `ProblemSpec` and must not
+grow into a hierarchy of complete PDE/control combinations. The present v1
+kind registry improves diagnostics, but it does not independently lower an
+arbitrary combination of whitelisted components.
 
-| Layer | Question answered | Authority | Current implementation |
+| Layer | Question answered | Authority | Representative code |
 | --- | --- | --- | --- |
-| Theory | What mathematical object is solved? | [Formalism](theoretical-formalism.md) | A dense linear-quadratic oracle and one FE instance |
-| Semantic specification | Which components and ports should exist? | [Interface specification](interface-specification.md) | Narrow `semantic::v1::ProblemSpec` graph |
-| Compilation policy | How do spaces, pairings, liftings, and execution become discrete? | [V1 semantic compiler](../implementation/v1/semantic-compiler.md) | Assembled serial v1 registry, compared with v0 |
+| Theory | What mathematical object is solved? | [Formalism](theoretical-formalism.md) | `LinearQuadraticModel` oracle |
+| Semantic specification | Which components and ports should exist? | [Interface specification](interface-specification.md) | `semantic::v1::ProblemSpec` |
+| Compilation policy | How do spaces, pairings, liftings, and execution become discrete? | [V1 semantic compiler](../implementation/v1/semantic-compiler.md) | `compiler::v1::DealiiCompiler` |
 | Executable contract | What may algorithms call after lowering? | [V0 contract](../implementation/v0/executable-contract.md) | `include/nmopt/contract/` |
-| Formulation | How do residual and objective become first-order operations? | [Interface specification](interface-specification.md) | `ReducedDTOT` implements narrow DTO |
+| Formulation | How do residual and objective become first-order operations? | [Interface specification](interface-specification.md) | `ReducedDTOT` |
 | Backend/lowerer | How is one model assembled in deal.II? | [deal.II lowerer](../implementation/v0/dealii-lowerer.md) | `ScalarDiffusionReactionModel` |
-| Verification | How do values and derivatives agree? | [Roadmap](../planning/implementation-roadmap.md) | Semantic and deal.II comparison `CTest` executables |
+| Verification | How do values and derivatives agree? | [Roadmap](../planning/implementation-roadmap.md) | `tests/*_contract.cc` |
 
 ## The vocabulary: component cards
 
 The semantic layer is deliberately broader than the implemented v1 slice.
-Each card says what the component owns, which kind of port it exposes, and its
-current implementation status.
+Each card says what the component owns and which kind of port it exposes. For
+current implementations of these cards, consult the
+[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities).
 
-| Component | Owns | Communicates through | Current status |
-| --- | --- | --- | --- |
-| `Region` | Named volume, boundary, interface, point set, or time set | Identity, dimension, relation | V1: one full volume and fixed or complete controlled Dirichlet boundary ids |
-| `Space` and `Pairing` | Field shape, topology, role, primal/dual pairing | Typed source and target ports | V1 scalar H1/L2 declarations and explicit coefficient pairings |
-| `VariableBlock` | State, control, parameter, flux, or auxiliary unknown | One primal space; feeds maps | V1: exactly one state and one binary decision block (control or parameter) |
-| `Data` | Fixed forcing, target, coefficient, lifting, or bound | Read-only ports; never a derivative block | V1 declarations; compiler binds deal.II functions, constants, fixed lifting, and optional bounds |
-| `Transformation` | Reconstruction, lifting, parameterisation, restriction, transfer | Value, JVP, VJP | V1 fixed reconstruction plus complete-boundary controlled-Dirichlet lifting; v0 uses homogeneous constrained coordinates |
-| `ResidualTerm` | One physical contribution to one equation | Tested value, JVP, VJP | V1 registers diffusion-reaction, source, volume-control, and cellwise parameter-diffusion assembly |
-| `EquationBlock` | Sum of residual terms and its test space | $E$, $E'\delta x$, $E'^{\ast}p$ | V1: one state-test block |
-| `Observation` | Map from physical variables to observation space | Value, JVP, VJP | V1 full-domain restriction only |
-| `Loss` | One scalar penalty of an observation | Scalar value and output covector | V1 quadratic tracking plus control or parameter regularisation |
-| `Objective` | Sum of loss compositions | $J$ and $J'$ | Homogeneous v1 comparison target or v1 fixed-lifting target |
-| `Metric` | Algorithmic map $G:P\to P^{\ast}$ | `apply`, `inverse_apply` | Dense diagonal and serial deal.II mass-metric realizations |
-| `Constraint` | Feasibility, projection, normal cone, multipliers | Operations in a named metric | Dense and serial deal.II cellwise $L^{2}$ boxes |
-| `RequirementPolicy` | A non-inferable trace, nullspace, point, or discrete-only choice | Validator metadata | V1 fixed/controlled Dirichlet and optional cellwise-bound policies |
-| `DiscretisationPolicy` | FE family, mesh relation, quadrature, lifting, execution | Input to lowerers | V1 assembled `FE_Q`/`FE_DGQ(0)` policy; v0 remains the direct reference |
+| Component | Owns | Communicates through |
+| --- | --- | --- |
+| `Region` | Named volume, boundary, interface, point set, or time set | Identity, dimension, relation |
+| `Space` and `Pairing` | Field shape, topology, role, primal/dual pairing | Typed source and target ports |
+| `VariableBlock` | State, control, parameter, flux, or auxiliary unknown | One primal space; feeds maps |
+| `Data` | Fixed forcing, target, coefficient, lifting, or bound | Read-only ports; never a derivative block |
+| `Transformation` | Reconstruction, lifting, parameterisation, restriction, transfer | Value, JVP, VJP |
+| `ResidualTerm` | One physical contribution to one equation | Tested value, JVP, VJP |
+| `EquationBlock` | Sum of residual terms and its test space | $E$, $E'\delta x$, $E'^{\ast}p$ |
+| `Observation` | Map from physical variables to observation space | Value, JVP, VJP |
+| `Loss` | One scalar penalty of an observation | Scalar value and output covector |
+| `Objective` | Sum of loss compositions | $J$ and $J'$ |
+| `Metric` | Algorithmic map $G:P\to P^{\ast}$ | `apply`, `inverse_apply` |
+| `Constraint` | Feasibility, projection, normal cone, multipliers | Operations in a named metric |
+| `RequirementPolicy` | A non-inferable trace, nullspace, point, or discrete-only choice | Validator metadata |
+| `DiscretisationPolicy` | FE family, mesh relation, quadrature, lifting, execution | Input to lowerers |
 
-The practical rule: add new *physics* as a residual-term lowerer, a new measurement as an observation/loss lowerer, and a new search geometry as a metric. Do not add a solver branch that asks which PDE, control placement, or boundary condition it received.
+The ownership rule is the target architecture: new *physics* belongs in a
+residual-term lowerer, a new measurement in an observation/loss lowerer, and a
+new search geometry in a metric. Until component lowering is introduced, a
+feature also needs one explicitly bounded whole-target registration. It must
+not become a solver branch keyed by PDE, control placement, or boundary
+condition.
 
 ## The essential type distinction
 
@@ -219,7 +246,7 @@ Regularisation and metric must stay separate. Adding $`\frac{\alpha}{2}\lVert u\
 
 [`reduced_dto.hpp`](../../include/nmopt/contract/reduced_dto.hpp) implements this narrow workflow: one eliminated state block, one control block, one residual test block, and externally supplied state/adjoint solves.
 
-## Current deal.II model: theory to assembled objects
+## Direct v0 deal.II model: theory to assembled objects
 
 `ScalarDiffusionReactionModel<dim>` realizes the scalar, stationary, homogeneous-Dirichlet case. Its discrete model is
 
@@ -290,7 +317,8 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`dealii_h1_control.hpp`](../../include/nmopt/compiler/v1/dealii_h1_control.hpp) | V1 continuous-control target | $H^{1}$ control loss with explicitly selectable $L^{2}$ or $H^{1}$ search metric |
 | [`dealii_coefficient_identification.hpp`](../../include/nmopt/compiler/v1/dealii_coefficient_identification.hpp) | V1 positive cellwise coefficient target | Parameter-dependent state/adjoint actions and exact first-order pullbacks |
 | [`reduced_dto_contract.cc`](../../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
-| [`dealii_diffusion_contract.cc`](../../tests/dealii_diffusion_contract.cc) | Same checks through real deal.II assembly | End-to-end reference use |
+| [`semantic_v1_contract.cc`](../../tests/semantic_v1_contract.cc) | Deal.II-free graph validation | Structural and analytical-policy diagnostics |
+| [`dealii_diffusion_contract.cc`](../../tests/dealii_diffusion_contract.cc) | Compiler and lowerer checks through real deal.II assembly | Exact scenarios are listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities) |
 
 The dense model has no mesh or FE code. It makes an incorrect formula, type pairing, or DTO sign fail independently of deal.II. The deal.II test then establishes that the same contract survives real `DoFHandler`, quadrature, sparse assembly, `AffineConstraints`, and CG solve operations.
 
@@ -315,33 +343,21 @@ Every differentiable feature has four increasingly global checks:
 
 The dense contract test exercises pairing, residual finite difference,
 objective directional derivative, state residual, reduced derivative, metric,
-box projection, and unconstrained/projected Armijo convergence. The deal.II
-test exercises the same residual and reduced checks through actual assembly,
-then verifies the mass metric and an active cellwise box bound under the same
-generic solver.
+box projection, and unconstrained/projected Armijo convergence. The semantic
+test exercises graph and policy validation. The exact v1 deal.II scenarios are
+listed only in the [capability table](../implementation/v1/semantic-compiler.md#registered-capabilities).
 
-## What is deliberately unsupported today
+## Capability boundary
 
-Do not mistake a documented architectural slot for working functionality. The
-implemented v1 graph/compiler supports fixed Dirichlet reconstruction, state
-tracking on the full volume or one material-id volume subregion, and marked
-facewise Neumann control with boundary trace tracking. Its registered
-zero-reaction pure-Neumann variant uses a one-multiplier mean-zero gauge and
-compatible facewise loads. Its homogeneous volume-control variant also
-supports continuous `FE_Q` control with an $H^{1}$ objective loss and
-separate $L^{2}$ or $H^{1}$ metrics. Its coefficient-identification target
-also supports a positive cellwise physical diffusion parameter with
-parameter-dependent first-order actions and reassembled state/adjoint solves.
-It does not provide
-controlled/periodic/hanging essential conditions, Robin terms, arbitrary
-geometric subdomains, FE target projection/interpolation, nonlinear or
-variable coefficients beyond the registered cellwise positive diffusion
-parameter, mixed/vector/DG states, MPI vectors, time, OTD, or KKT Newton. The
-available box projections are only the declared `FE_DGQ(0)`
-cellwise volume and facewise-constant boundary $L^{2}$ policies. The
-complete-boundary nodal Dirichlet lifting has no box realization.
-
-The exact exclusions are in the [deal.II lowerer record](../implementation/v0/dealii-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](../implementation/v1/semantic-compiler.md#exclusions). The [roadmap](../planning/implementation-roadmap.md) records the completed explicit Dirichlet-control lifting while preserving the v0 reference.
+Do not mistake a documented architectural slot or a whitelisted semantic kind
+for working functionality. The exact current registrations and unsupported
+combinations are maintained in the
+[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
+and [v1 exclusions](../implementation/v1/semantic-compiler.md#exclusions).
+The direct reference slice has its own
+[v0 exclusions](../implementation/v0/dealii-lowerer.md#explicit-exclusions),
+and the [roadmap](../planning/implementation-roadmap.md) alone records task
+completion and handoff.
 
 ## Blueprint for adding one feature yourself
 

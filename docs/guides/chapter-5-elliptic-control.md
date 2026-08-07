@@ -48,29 +48,27 @@ test, a VJP pairing test, an objective-derivative test, and a state-recomputed
 reduced Taylor test. A constraint or metric additionally needs its own
 feasibility/projection or apply/inverse-apply test.
 
-## Current baseline and capability classification
+## Capability routing and stable feature deltas
 
-The current v1 compiler already has reusable pieces for scalar
-diffusion-reaction residuals, volume control, material-id volume tracking,
-cellwise $L^{2}$ boxes, continuous-volume $H^{1}$ control regularisation and
-metric, facewise Neumann control with boundary trace tracking, a pure-Neumann
-mean-zero gauge, and a deliberately narrow complete-boundary Dirichlet
-control lifting. These are exact implementations only under their registered
-discrete policies; a nearby continuous formulation must not be silently
-substituted.
+Consult the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
+for exact compiler support and the
+[implementation roadmap](../planning/implementation-roadmap.md#chapter-5-feature-requests)
+for completion state. The table below records stable mathematical and
+architectural deltas required by the source families; it is not a second
+release-status table.
 
-| Source family | Current relation | Principal gap when not an exact fit |
-| --- | --- | --- |
-| 5.1–5.2 volume heat source | Partial fit | The reference target has no declared advection term; its boxes are only cellwise discontinuous controls. |
-| 5.5.1 Robin volume problem | Partial fit | Robin residual and general scalar elliptic coefficients are absent. |
-| 5.5.2 energy tracking | Partial fit | $H^{1}$ state observation and $H^{-1}$ control metric are absent. |
-| 5.6 Neumann control with volume tracking | Partial fit | The registered Neumann target pairs its control with boundary tracking, not the source combination. |
-| 5.7 Neumann control with boundary tracking | Partial fit | The unweighted trace case is close; a weighted trace observation must be declared. |
-| 5.8 flux observation | Unsupported | Normal-flux observation and very-weak adjoint policy are absent. |
-| 5.10 point observations | Unsupported | Point-set regions, sensor evaluation, and Dirac/very-weak adjoints are absent. |
-| 5.11 Dirichlet control | Partial fit | Only a complete exterior controlled boundary with a nodal trace and boundary $L^{2}$ metric is registered. |
-| 5.12 state constraints | Unsupported | State-derived constraints and their regularised KKT policy are absent. |
-| 5.13 Stokes control | Unsupported | The executable DTO boundary has one scalar state equation; mixed vector saddle systems are absent. |
+| Source family | Required distinct capability |
+| --- | --- |
+| 5.1–5.2 volume heat source | Advection residual and transpose actions; any requested continuous-control box needs its own discrete constraint policy. |
+| 5.5.1 Robin volume problem | General scalar elliptic coefficients plus Robin boundary residual and source terms. |
+| 5.5.2 energy tracking | $H^{1}$ state observation and a separately declared $H^{-1}$ control metric. |
+| 5.6 Neumann control with volume tracking | Composition of a Neumann control residual with a volume observation. |
+| 5.7 Neumann control with boundary tracking | Weighted trace observation in addition to the unweighted trace case. |
+| 5.8 flux observation | Normal-flux observation and its strong or very-weak adjoint policy. |
+| 5.10 point observations | Point-set regions, sensor evaluation, and Dirac or very-weak adjoints. |
+| 5.11 Dirichlet control | General partial or mixed controlled-boundary transformations and the requested trace metric. |
+| 5.12 state constraints | State-derived constraints and their regularised KKT policy. |
+| 5.13 Stokes control | Mixed vector state/test blocks, pressure gauge, and saddle-system policies. |
 
 The required reusable extensions are recorded as P5.1–P5.6 in the
 [implementation roadmap](../planning/implementation-roadmap.md#chapter-5-feature-requests).
@@ -162,13 +160,12 @@ J(y,u) &= \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
   control is $L^{2}(\Omega)$; the control residual term is a volume source;
   the observation is full-volume state restriction.
 - **Data and analysis policy:** $f,z_{d}\in L^{2}(\Omega)$; the book assumes
-  $b\in C^{1}$ and $\mathrm{div}\,b=0$, giving coercivity of the stated
+  $b\in C^{1}$ and $\mathrm{div} b=0$, giving coercivity of the stated
   form. The adjoint strong operator is $-\Delta p-b\mathbin\cdot\nabla p$.
 - **Optimality:** $p+\beta u=0$ in $L^{2}(\Omega)$. In the framework this is
   the zero reduced covector under the selected $L^{2}$ metric.
-- **Implementation status:** the volume-control/tracking composition exists,
-  but the transport term needs P5.1. Do not encode transport by modifying the
-  diffusion-reaction lowerer in place.
+- **Framework delta:** the transport term needs P5.1. Do not encode transport
+  by modifying the diffusion-reaction lowerer in place.
 
 ### C5.2 — Box-constrained distributed heat source
 
@@ -221,8 +218,8 @@ J(y,u) &= \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega_{0})}^{2}
 - **Variants:** no constraint, nonnegative controls, and two-sided boxes. If
   $\beta=0$, the bounded control set gives existence but the subdomain
   observation need not identify a unique control.
-- **Implementation status:** material-id subdomain tracking exists; the
-  Robin and general-coefficient residual terms need P5.1.
+- **Framework delta:** the Robin and general-coefficient residual terms need
+  P5.1.
 
 ### C5.5.2 — Energy tracking with distributed control
 
@@ -265,14 +262,13 @@ regions. State/test space is $H^{1}_{\Gamma_{D}}(\Omega)$; control is
 $L^{2}(\Gamma_{N})$. The control residual is a Neumann trace pairing and its
 VJP is the adjoint trace. The boundary reduced covector is
 $p|_{\Gamma_{N}}+\beta u$. The source assumes a coercivity policy involving
-$b\mathbin\cdot n$ and $\mathrm{div}\,b$: $b$ has Lipschitz components,
+$b\mathbin\cdot n$ and $\mathrm{div} b$ : $b$ has Lipschitz components,
 $b\mathbin\cdot n\leq0$ on $\Gamma_{N}$, and
-$\mathrm{div}\,b\geq0$ in $\Omega$. It takes
+$\mathrm{div} b\geq0$ in $\Omega$. It takes
 $f\in L^{2}(\Omega)$ and $z_{d}\in L^{2}(\Omega_{0})$.
 
-The Neumann residual and its facewise metric already exist, but this exact
-combination needs the unregistered composition of volume tracking with
-boundary Neumann control, plus P5.1 transport/mixed-boundary support.
+This source combination requires composition of volume tracking with boundary
+Neumann control, plus P5.1 transport/mixed-boundary support.
 
 ### C5.7 — Boundary tracking with Neumann boundary control
 
@@ -403,11 +399,11 @@ The source's variants are:
    fractional norm and the very-weak state, but requires a declared surface
    gradient and its metric.
 
-The current compiler supports only a zero fixed lifting and one nodal value
-per state DoF on a complete exterior controlled boundary, with a boundary
-$L^{2}$ regularisation and metric. P5.4 covers partial/mixed boundaries,
-nonzero fixed data, and the fractional or tangential metric variants. P5.3 is
-also necessary for the $L^{2}$-control variant.
+The exact registered Dirichlet-control boundary is recorded in the
+[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities).
+P5.4 covers partial/mixed boundaries, nonzero fixed data, and the fractional
+or tangential metric variants. P5.3 is also necessary for the
+$L^{2}$-control variant.
 
 ### C5.12 — State-constrained distributed control
 
@@ -449,7 +445,7 @@ The state has velocity and pressure blocks:
 ```math
 \begin{aligned}
 -\nu\Delta v+\nabla\pi&=f+u, \\
-\mathrm{div}\,v&=0.
+\mathrm{div} v&=0.
 \end{aligned}
 ```
 
@@ -522,6 +518,6 @@ For any one catalogue entry, an agent should proceed in this order:
    trace, or formulation choice.
 
 The roadmap requests below are the only intended route for extending the
-current registered slice. They keep the Chapter 5 catalogue compositional
+registered compiler. They keep the Chapter 5 catalogue compositional
 and make the difference between a new general capability and a new application
 configuration explicit.

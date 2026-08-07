@@ -18,26 +18,35 @@ ctest --test-dir build --output-on-failure
 
 ## Current handoff state
 
+Stage B is active on `codex/refactor-ch5-ch6-readiness`. Batch R0
+(`RF-020`) is complete; the next bounded batch is
+[R1 characterization](refactor/stage-b-roadmap.md#r1--characterize-refactor-boundaries).
+Chapter 5/6 feature work remains behind the common stabilization checkpoint
+and the conditional gates in the Stage B roadmap. No P5/P6 feature has been
+selected yet.
+
 The following pieces exist and are tested:
 
 | Layer | Existing artifact | Meaning |
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. |
 | V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph, explicit pairings, and structural/policy diagnostics. |
-| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp` | Backend-generic compiled package, manifest, and registered assembled volume slice. |
+| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp` | Backend-generic compiled package and manifest, with whole-target dispatch across the exact registrations in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend for the backend-parametric contract. |
-| deal.II lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Assembled scalar `FE_Q` diffusion-reaction state, `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
-| deal.II metric | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse-mass $L^{2}$ Riesz action with serial CG inverse apply. |
-| deal.II constraint | `include/nmopt/dealii/cellwise_box_constraint.hpp` | `FE_DGQ(0)` coefficientwise box projection for the declared `l2_cellwise` metric. |
+| Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
+| deal.II metrics | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, and parameter layouts, with serial CG inverse apply. |
+| deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes for the registered cellwise-volume and facewise-boundary $L^{2}$ metrics. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
-| Tests | `tests/reduced_dto_contract.cc` and `tests/dealii_diffusion_contract.cc` | Pairing, JVP, VJP, residual finite difference, state solve, reduced derivative, deal.II metric, and unconstrained/projected Armijo checks. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three CTest executables containing eleven logical scenarios: two dense/backend contract cases, semantic graph validation, and eight deal.II compiler/lowering cases. |
 
-The implementation is deliberately not a general compiler yet. The deal.II
-class is a concrete lowerer/reference slice, not the future public
-`ProblemSpec` interface.
+The public v1 semantic path is deliberately not a general component compiler
+yet. It validates registered component kinds, then matches the complete graph
+to one of a bounded set of target-specific implementations. The direct
+deal.II v0 class remains a concrete reference lowerer rather than a public
+problem hierarchy.
 
 ## Non-negotiable rules for every task
 
@@ -84,12 +93,6 @@ direction for a deal.II optimizer.
 - Expose the control mass matrix through a narrow compiled-metric factory, not
   through optimizer knowledge of `ScalarDiffusionReactionModel`.
 
-**Implemented:** `dealii_backend::MassMetric` provides the generic one-block
-sparse-mass realization of `MetricT<SerialBackend>`. Its inverse action uses
-serial CG with declared iteration and relative/absolute tolerances, and
-`ScalarDiffusionReactionModel::control_l2_metric()` is the control-space
-compiled-metric factory.
-
 **Primary files:** add `include/nmopt/dealii/mass_metric.hpp`; minimally extend
 the current lowerer with a metric factory or compiled-object registry.
 
@@ -99,6 +102,12 @@ the current lowerer with a metric factory or compiled-object registry.
 - a metric direction satisfies
   $`\langle M_{u} g,\delta u\rangle=\langle j',\delta u\rangle`$;
 - the test uses actual deal.II vectors and a nontrivial control mass matrix.
+
+**Implemented:** `dealii_backend::MassMetric` provides the generic one-block
+sparse-mass realization of `MetricT<SerialBackend>`. Its inverse action uses
+serial CG with declared iteration and relative/absolute tolerances, and
+`ScalarDiffusionReactionModel::control_l2_metric()` is the control-space
+compiled-metric factory.
 
 ### P0.2 — Add a generic reduced Armijo gradient solver — completed
 
@@ -113,12 +122,6 @@ optimization loop. The solver must consume only `ReducedDTOT` and `MetricT`.
   counts, and clear stopping reasons.
 - An unconstrained path first; no PDE type checks or casts.
 
-**Implemented:** `solvers::ReducedGradientSolverT` evaluates every initial and
-trial control with `ReducedDTOT::evaluate`, converts the DTO covector through
-the supplied metric, and applies an unconstrained Armijo update. Its result
-records objective and metric-gradient-norm histories, accepted iterations,
-line-search trials, state/adjoint solve counts, and explicit stopping reason.
-
 **Primary files:** add `include/nmopt/solvers/reduced_gradient.hpp` and a
 deal.II integration test.
 
@@ -128,6 +131,12 @@ deal.II integration test.
 - the norm of the reduced covector/gradient reaches a configured tolerance on
   a manufactured linear-quadratic case;
 - the same solver passes the dense reference model test unchanged.
+
+**Implemented:** `solvers::ReducedGradientSolverT` evaluates every initial and
+trial control with `ReducedDTOT::evaluate`, converts the DTO covector through
+the supplied metric, and applies an unconstrained Armijo update. Its result
+records objective and metric-gradient-norm histories, accepted iterations,
+line-search trials, state/adjoint solve counts, and explicit stopping reason.
 
 ### P0.3 — Add the selected cellwise $L^{2}$ box constraint — completed
 
@@ -147,16 +156,16 @@ declared cellwise-constant admissible set.
 **Do not do:** reuse this projection for continuous controls, nodal bounds,
 or an $H^{1}$ metric.
 
+**Done when:** a test reaches a bound on a manufactured problem, preserves
+feasibility every iteration, and satisfies a discrete projected-stationarity
+criterion.
+
 **Implemented:** `dealii_backend::CellwiseBoxConstraint` is the serial
 coefficientwise `ConstraintT<SerialBackend>` realization. The lowerer exposes
 only `FE_DGQ(0)` control factories for scalar constants or exact-layout
 coefficient vectors. The constraint-qualified `ReducedGradientSolverT`
 projects every trial in `l2_cellwise` and stops on the metric norm of the
 projected-gradient residual.
-
-**Done when:** a test reaches a bound on a manufactured problem, preserves
-feasibility every iteration, and satisfies a discrete projected-stationarity
-criterion.
 
 ### P1.1 — Build the narrow v1 semantic-to-compiler path — completed
 
@@ -183,15 +192,6 @@ formulation-capability diagnostics. Add a lowerer registry that recognizes
 only the listed v0 term kinds and creates the existing deal.II executable
 objects.
 
-**Implemented (v1):** `semantic::v1::ProblemSpec` and
-`SemanticValidator` describe and validate the selected graph without backend
-objects. `compiler::v1::DealiiCompiler` appends lowerability and formulation
-diagnostics through a small explicit lowerer registry, then produces a
-separately owned compiled executable. The v0 direct
-`ScalarDiffusionReactionModel` remains unchanged as the reference path; v1
-constructs its own instance from the semantic declaration, so both paths can
-be compared without overwriting v0.
-
 **Primary files:** `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp`,
 `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp`,
 `docs/implementation/v1/semantic-compiler.md`, and focused semantic/deal.II
@@ -201,20 +201,16 @@ contract tests.
 the same residual, objective, and reduced derivative as the direct deal.II
 reference setup.
 
-### P1.2 — Generalize fixed essential conditions through reconstruction
+**Implemented (v1):** `semantic::v1::ProblemSpec` and
+`SemanticValidator` describe and validate the selected graph without backend
+objects. `compiler::v1::DealiiCompiler` appends lowerability and formulation
+diagnostics through a small explicit lowerer registry, then produces a
+separately owned compiled executable. The v0 direct
+`ScalarDiffusionReactionModel` remains unchanged as the reference path; v1
+constructs its own instance from the semantic declaration, so both paths can
+be compared without overwriting v0.
 
-**Implemented (v1):** A state variable can declare the
-`fixed_dirichlet_reconstruction` transformation, and the compiler then binds
-explicit fixed-Dirichlet `Function` data. Its private v1-only compiler target
-compiles independent `FE_Q` coordinates with
-$`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}`$, evaluates residual and
-tracking on the physical field, and applies $`P_{h}^{\ast}`$ for every
-state-side covector. The direct v0 homogeneous model is untouched. The
-manifest records the transformation, nodal boundary interpolation data rule,
-and lifting realization; recompilation is the immutable data-cache boundary.
-The deal.II contract test covers a nonzero manufactured state, reconstruction
-JVP/VJP and objective derivatives, a reduced Taylor remainder, missing data
-diagnostics, and changed lifting data.
+### P1.2 — Generalize fixed essential conditions through reconstruction — completed
 
 **Why:** The current lowerer correctly handles only homogeneous Dirichlet
 data. Fixed inhomogeneous data is the smallest meaningful test of the
@@ -233,6 +229,19 @@ Dirichlet data.
 **Done when:** residual, observation, JVP, and VJP operate on the physical
 field; a nonzero manufactured Dirichlet solution passes the reduced Taylor
 test; and changing the lifting/data invalidates all appropriate caches.
+
+**Implemented (v1):** A state variable can declare the
+`fixed_dirichlet_reconstruction` transformation, and the compiler then binds
+explicit fixed-Dirichlet `Function` data. Its private v1-only compiler target
+compiles independent `FE_Q` coordinates with
+$`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}`$, evaluates residual and
+tracking on the physical field, and applies $`P_{h}^{\ast}`$ for every
+state-side covector. The direct v0 homogeneous model is untouched. The
+manifest records the transformation, nodal boundary interpolation data rule,
+and lifting realization; recompilation is the immutable data-cache boundary.
+The deal.II contract test covers a nonzero manufactured state, reconstruction
+JVP/VJP and objective derivatives, a reduced Taylor remainder, missing data
+diagnostics, and changed lifting data.
 
 ### P1.3 — Add subdomain observations and data projection policy — completed
 
@@ -296,7 +305,7 @@ region; the deal.II contract test verifies the coupling pairing, trace-loss
 derivative, facewise projection, manifest, and a reduced Taylor remainder.
 The v0 volume-control model remains unchanged.
 
-### P2.2 — Support pure Neumann with the selected mean-constraint policy
+### P2.2 — Support pure Neumann with the selected mean-constraint policy — completed
 
 **Why:** This is a correctness feature, not a convenience flag. It affects
 state uniqueness, adjoints, observation meaning, metrics, and preconditioners.
@@ -318,7 +327,7 @@ solves reject incompatible boundary controls. The manifest records the gauge
 and `SparseDirectUMFPACK` solve, and focused contracts check zero means and no
 hidden DoF pin. The v0 model remains unchanged.
 
-### P2.3 — Add $H^{1}$ regularisation and $H^{1}$ search geometry separately
+### P2.3 — Add $H^{1}$ regularisation and $H^{1}$ search geometry separately — completed
 
 **Why:** The current code makes the distinction possible but does not yet
 exercise it.
@@ -348,7 +357,7 @@ The metric needs a positive zero-order term or an explicit boundary/mean
 policy to be invertible. An $H^{-1}$-type metric remains unsupported until
 its exact Hilbert space and discrete operator are stated.
 
-### P3.1 — Add coefficient identification and nonlinear first-order actions
+### P3.1 — Add coefficient identification and nonlinear first-order actions — completed
 
 **Why:** This validates the parameter block and nonlinear residual paths while
 remaining compatible with reduced DTO and L-BFGS.
@@ -763,19 +772,20 @@ active manufactured case stabilises at correct bounds; and no continuous
 control coefficient or multiplier is classified pointwise without its
 declared conversion policy.
 
-## Suggested next-agent sequence
+## Current next-agent sequence
 
-For the next agent, take **P1.2 only** unless explicitly asked for a broader
-change:
+Take **Stage B R1 only**:
 
-1. Read this roadmap, the interface specification, the v1 semantic/compiler
-   record, the executable contract, and the deal.II lowerer document.
-2. Run the baseline `CTest` command.
-3. Add an explicit fixed-data lifting/reconstruction to the v1 path without
-   altering the v0 homogeneous reference model.
-4. Preserve physical-field residual, observation, JVP, and VJP semantics;
-   extend the compiler manifest and diagnostics for the selected lifting.
-5. Prove a nonzero manufactured Dirichlet state with a reduced Taylor test,
-   then run the baseline tests again.
+1. Follow the [Stage B routing protocol](refactor/README.md) and read only the
+   R1 batch plus findings `RF-006`, `RF-009`, and `RF-016`.
+2. Characterize the current diagnostic, v0/v1 comparison, and logical-test
+   boundaries without changing numerical contracts.
+3. Make all eleven logical scenarios independently selectable and visible to
+   CTest, add exact diagnostic matching, and retain an accurately named v0/v1
+   wiring comparison.
+4. Run focused checks followed by the applicable full Debug configurations,
+   then record R1 completion and the next batch here.
 
-This keeps the public contracts stable and makes each step reviewable.
+Do not select or implement a P5/P6 feature during R1. Feature selection occurs
+only after the common stabilization checkpoint and its relevant conditional
+gate.

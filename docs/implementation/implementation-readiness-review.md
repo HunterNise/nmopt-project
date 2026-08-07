@@ -263,8 +263,8 @@ $$
 $$
 
 Every executable model records provenance = DTO, the exact quadrature and
-constraint policy, and its data/lifting realization. OTD is unsupported in
-the first release. When later added, it is a separate formulation builder
+constraint policy, and its data/lifting realization. The direct v0 baseline
+selects DTO only. If OTD is registered, it is a separate formulation builder
 whose output records provenance = OTD; it may never be labelled the exact
 discrete adjoint without an explicit equivalence test.
 
@@ -283,19 +283,18 @@ already-computed covector to a direction and does not change $J'(u)$, the
 state equation, or the adjoint equation. No document or API may use
 “regularisation metric” for both.
 
-**Implemented v1 regularisation and metric:** the registered continuous
-`FE_Q` control path assembles the full $H^{1}$ matrix $M_{u}+K_{u}$ in the
-objective term and its derivative. The regularisation factory retains the
-separately named `l2_continuous` mass-matrix Riesz map. A distinct factory
-selects the `h1_continuous` metric with $G=M_{u}+K_{u}$; the positive mass term
-makes it coercive, and its inverse changes only the search direction.
+A conforming discrete realization may use the full $H^{1}$ matrix
+$M_{u}+K_{u}$ in the objective term and its derivative. Its regularisation
+factory must remain separate from either an $L^{2}$ mass-matrix Riesz map or
+an $H^{1}$ metric with $G=M_{u}+K_{u}$; the positive mass term makes the
+latter coercive, and its inverse changes only the search direction.
 
 ### 7.2 Search-metric choices
 
 | Choice | Meaning | Decision |
 |---|---|---|
 | $L^{2}$ metric | $`G=M_{U}`$ in the selected control realization. | **First default.** |
-| $H^{1}$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | **Implemented v1 for continuous control:** $P=U$ and $G=M_{u}+K_{u}$, with mass providing coercivity. No compatible box projection. |
+| $H^{1}$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | Allowed with an explicit coercivity policy and a separately declared compatible constraint, if any. |
 | $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default; unsupported until specified as an operator and tested. |
 | Fractional metric | Requires a named discrete realization and spectral/extension/auxiliary problem policy. | Unsupported initially. |
 
@@ -346,7 +345,7 @@ permitted.
 
 ### 8.2 Dirichlet control
 
-The correct later representation is
+The required representation is
 
 $$
  y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}.
@@ -356,14 +355,15 @@ $$
 |---|---|
 | Treat controlled data as a boundary load | Forbidden. |
 | Rebuild affine constraints for each control and hide the dependence | Not a public derivative contract; not the default. |
-| Expose an explicit lifting/reconstruction $`L_{D,h}`$, including JVP and VJP | Required future implementation. |
+| Expose an explicit lifting/reconstruction $`L_{D,h}`$, including JVP and VJP | Required whenever this capability is registered. |
 
 $`L_{D,h}`$ must state its boundary-control discretisation, interior
 extension, corner/interface compatibility, and behavior on fixed Dirichlet
 portions. The discrete problem records the lifting choice because different
 liftings can produce different discrete intermediate systems. Dirichlet
-control is unsupported in the first executable slice rather than simulated by
-a Neumann-like coupling.
+control is excluded from the direct v0 baseline rather than simulated by a
+Neumann-like coupling. The [v1 capability table](v1/semantic-compiler.md#registered-capabilities)
+owns the status and bounds of any registered realization.
 
 ### 8.3 Natural boundary data and controls
 
@@ -382,15 +382,13 @@ transfer map. They are not inferred from a boundary ID.
 |---|---|---|
 | Pin one state DoF | Easy but mesh- and point-dependent gauge. | Not the default. |
 | Work in a quotient/mean-zero subspace | Clean mathematically, but needs a robust discrete realization. | Equivalent permitted realization. |
-| Augment with one mean constraint/multiplier | Makes the gauge and compatibility visible in the algebra. | **Implemented first supported policy.** |
+| Augment with one mean constraint/multiplier | Makes the gauge and compatibility visible in the algebra. | **First default.** |
 
-**Implemented v1 policy:** the pure-Neumann boundary-control graph augments
-both state and adjoint solves with one mean-zero multiplier. It checks the
-discrete constant-mode pairing of forcing at compilation and each boundary
-control state load at solve time; no state DoF is pinned. The manifest records
-the saddle-system gauge and solver. This initial policy applies only to the
-registered zero-reaction, facewise-control path; a generic constraint that
-preserves compatibility remains future work.
+This policy requires the state and adjoint realizations to use the same
+visible gauge, check all discrete compatibility conditions, and record the
+gauge and solve policy in provenance. The
+[v1 capability table](v1/semantic-compiler.md#registered-capabilities) owns
+the exact bounds of any registered pure-Neumann target.
 
 ## 9. Mesh, data, geometry, and time
 
@@ -449,9 +447,9 @@ added later. Matrix-free mode is a separate lowerer capability and must pass
 the same value/JVP/VJP tests as the assembled mode before it is usable in an
 optimizer.
 
-## 11. Supported first vertical slice
+## 11. Baseline slice and extension policies
 
-The first executable release is intentionally narrower than the complete
+The selected direct v0 baseline is intentionally narrower than the complete
 semantic language:
 
 ~~~text
@@ -463,46 +461,17 @@ assembled DTO residual/JVP/VJP; L2 search metric
 unconstrained reduced gradient, then L2-projected box gradient
 ~~~
 
-The separately owned v1 compiler now also realizes marked-face Neumann
-control and boundary trace tracking: one facewise-constant coefficient per
-selected state-mesh boundary face, `FEFaceValues` residual/transpose and
-trace assembly, and an independent facewise $L^{2}$ metric and box policy.
-It remains distinct from the baseline volume-control lowerer.
+This is a policy baseline, not a mutable release ledger. The exact current v1
+graphs, target implementations, bounds, tests, and exclusions live in the
+[v1 capability table](v1/semantic-compiler.md#registered-capabilities) and its
+[exclusions](v1/semantic-compiler.md#exclusions). Task order and completion
+state live only in the [implementation roadmap](../planning/implementation-roadmap.md).
 
-A second v1 target realizes $H^{1}$ control regularisation for the
-homogeneous full-domain volume-control graph: continuous `FE_Q` control and
-$\frac{\alpha}{2} u^{T}(M_{u}+K_{u})u$ objective term. Its regularisation
-factory uses an $L^{2}$ search metric; a separate factory selects the
-$H^{1}$ Riesz map $G=M_{u}+K_{u}$. Both deliberately select no box constraint.
-
-A third v1 target realizes coefficient identification with one cellwise
-physical diffusion parameter as the binary reduced decision block. Its
-strictly positive `FE_DGQ(0)` lower box is the selected positivity policy; it
-assembles $`(m\nabla y,\nabla v)+(c y,v)-(f,v)`$ and reassembles the state and
-adjoint matrices at every parameter point. Its first-order parameter JVP/VJP
-actions and reduced Taylor identity are verified. Logarithmic
-parameterisation, L-BFGS/Gauss–Newton, and second-order KKT actions remain
-separate extensions.
-
-The following are declared but return an unsupported-capability diagnostic in
-this release: Robin policies, Dirichlet control, transformed or continuous
-coefficient parameters,
-mixed/Petrov–Galerkin spaces, time dependence, matrix-free execution, OTD,
-and general nonlinear KKT Newton.
-
-The extension order is:
-
-1. Neumann control and boundary observation on marked faces — completed in v1.
-2. Fixed liftings, then explicit Dirichlet-control liftings.
-3. Pure-Neumann mean-constraint policy — completed in v1.
-4. $H^{1}$ control regularisation and an unconstrained $H^{1}$ metric — completed in v1.
-5. Cellwise positive coefficient parameter and nonlinear first-order actions — completed in v1.
-6. Compatible continuous-control constraint solvers for non-$L^{2}$ metrics.
-7. Fixed-step temporal compiler.
-8. Mixed/Petrov–Galerkin, matrix-free, OTD, and second-order KKT features.
-
-Each extension must add its own lowerer, capability declaration, and tests; it
-must not add a PDE-name branch to a solver.
+Every extension must declare its own lowering boundary, capability diagnostic,
+and tests. Fixed reconstruction precedes controlled-essential lifting;
+regularisation remains distinct from the search metric; nullspace policy is
+explicit; and coefficient transformations are never inferred from positivity
+bounds. No extension may add a PDE-name branch to a solver.
 
 ## 12. Required verification and provenance
 

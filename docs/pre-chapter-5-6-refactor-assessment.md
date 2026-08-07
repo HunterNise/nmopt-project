@@ -2,30 +2,32 @@
 
 ## Assessment status
 
-**In progress — evidence wave 5 complete.**
+**Complete — Stage A assessment and sequencing finished.**
 
 This document records the assessment defined by the
 [refactor assessment plan](pre-chapter-5-6-refactor-plan.md). The current
 contents establish the reproducible baseline, the Chapter 5/6 scope matrix,
-and findings for the backend-neutral contracts, semantic layer, v1 compiler,
-compiled-product ownership, manifests, current deal.II realizations, reduced
-formulation and solver, tests, numerical verification, CMake, and developer
-tooling. Documentation, conventions, agent guidance, and hidden repository
-guidance have also been audited. Only the final synthesis and sequencing wave
-remains pending.
+findings across every requested repository layer, the final refactor decision,
+dependency-ordered Stage B batches, target-dependent feature gates, explicit
+non-goals, user decisions, and verification criteria.
 
-No code, tests, CMake, conventions, or agent instructions may be changed while
-this assessment is in progress.
+No code, tests, CMake, conventions, or agent instructions were changed during
+Stage A. Stage B remains a separate, user-approved implementation phase.
 
 ## Executive verdict
 
-**Preliminary outcome: two bounded refactor tiers are warranted, not a
-rewrite.** A small cross-cutting safety refactor is required before any new
-semantic feature: restore block/layout invariants, make incomplete semantic
-objects safe to validate, close structural graph validation, replace
-positional reference-graph mutation, and strengthen negative tests.
+**Final outcome: a small cross-cutting refactor is required before further
+features; focused refactors are additionally required only before the selected
+features that exercise them. No broad rewrite is warranted.**
 
-A focused compiler decomposition is also warranted before adding
+The common gate is deliberately small. It repairs current contract and
+semantic invariants, adds exact defect characterizations, makes logical tests
+independently runnable, corrects current provenance errors, hardens the
+deal.II build request, and restores one reliable owner for mutable capability
+status. These are current correctness and feedback-loop issues, not an excuse
+to pre-implement the Chapter 5/6 catalogue.
+
+A focused compiler decomposition is warranted before adding
 component-heavy Chapter 5 features or a Chapter 6 DTO/OTD or stabilization
 comparison. The advertised component registry is currently a boolean
 whitelist in front of an exact whole-graph matcher and a six-way whole-model
@@ -37,7 +39,7 @@ reconstruction, trace, nullspace, and parameter-dependent policies as
 composed strategies.
 
 This compiler tier is target-dependent: an isolated P6.1 reduced search or
-line-search improvement should not be blocked on it. P6.1 does, however,
+line-search improvement is not blocked on it. P6.1 does, however,
 need a smaller solver-local refactor: separate value-only trial evaluation
 from derivative evaluation, make direction and line-search choices modest
 policies instead of branches in the current driver, and produce a typed report
@@ -58,13 +60,12 @@ implementation status is copied across several otherwise well-routed
 documents and now contradicts the code and even other sections of the same
 documents.
 
-The final verdict will select and qualify one of these outcomes:
-
-- no broad refactor is warranted;
-- a small cross-cutting refactor is required before further features;
-- refactor only before particular selected Chapter 5/6 capabilities; or
-- a broader structural refactor is required before the documented endpoint is
-  safely achievable.
+The branch and tagged baseline already provide sufficient recovery. Stage B
+should continue on `codex/refactor-ch5-ch6-readiness`, with
+`pre-refactor-ch5-ch6` at `7c2496b` retained as the immutable comparison
+point. A second frozen branch would duplicate what the tag and commit graph
+already provide. Create a separate feature branch or worktree only if feature
+implementation must proceed in parallel after an accepted refactor checkpoint.
 
 ## Audited baseline
 
@@ -1756,7 +1757,361 @@ than several detailed but independently maintained release narratives.
 | `OBS-GOV-01`: nested or hidden agent guidance could conflict with root policy | No conflict found; S-015 records the compact single-root guidance as a strength to preserve |
 | `OBS-MD-01`: four Chapter 5 formulas use a discouraged fine-spacing command | Minor documentation housekeeping; correct when the guide is touched, with no separate refactor batch or tooling requirement |
 
-## Pending review waves
+## Final refactor decision table
 
-1. Final synthesis, action tiers, dependency-ordered refactor batches,
-   deferred work, and user decisions.
+The decision is based on timing and selected scope, not on a severity score.
+“Common” means the work should be completed before the next feature branch is
+allowed to change behavior. “Conditional” means the finding becomes a gate
+only when the selected feature reaches that boundary. “Opportunistic” means
+the bounded project can remain correct without scheduling a dedicated batch.
+
+| Finding | Decision and timing | Batch | Scope control |
+| --- | --- | --- | --- |
+| RF-001 | Accept as common correctness work | R2 | Restrict dimension-changing mutation; do not redesign the algebra layer |
+| RF-002 | Accept before new semantic construction | R2 | Add safe defaults and exhaustive handling, not a general staged builder |
+| RF-003 | Accept before new semantic components | R2 | Close the existing graph and binding invariants only |
+| RF-004 | Accept before the next pairing/space addition | R2 | Implement and document the v1 compatibility rule without anticipating distributional pairings |
+| RF-005 | Accept before the first Chapter 5 graph change | R2 | Add small ID-based graph helpers, not a DSL |
+| RF-006 | Accept before implementation refactors | R1 | Strengthen exact diagnostics in the existing test style |
+| RF-007 | Conditional compiler gate | C2 | Required for component-heavy P5.1/P5.2/P5.4 and P6.2; not required for isolated P6.1 |
+| RF-008 | Correct the present manifest error in R2; make the manifest structured before numerical results in C1 | R2, C1 | Record implemented choices; do not promise a universal serialization schema |
+| RF-009 | Accept immediately before compiler decomposition | C1 | Add one small independent oracle and accurately retain the existing wiring comparison |
+| RF-010 | Conditional compiler-input gate | C1 | Normalize supported binding failures before adding binding kinds |
+| RF-011 | Conditional ownership gate | C1 | Resolve before long-lived experiment products or a public compiled-product API |
+| RF-012 | Accept the narrow non-spoofable compatibility fix as current safety work | R2 | Do not add unselected metric or constraint realizations |
+| RF-013 | Conditional reproducibility gate | C1 | Required before comparative Chapter 6 runs or P6.2; retain distinct nullspace policy |
+| RF-014 | Conditional P6.1 gate | S1 | Split requested evaluation information; add only selected search policies |
+| RF-015 | Conditional P6.1/results gate | S1 | Keep compiler provenance in an outer run envelope, not the generic solver |
+| RF-016 | Accept early as characterization and test-addressability work | R1, R3 | One case-selectable deal.II binary is sufficient; do not adopt a test framework |
+| RF-017 | Accept as common build correctness work | R3 | `ON` must mean available and tested; `OFF` remains the intentional neutral mode |
+| RF-018 | Accept as early workflow work | R3 | Add only explicit developer and benchmark profiles plus cheap checks justified here |
+| RF-019 | Defer to touched adapter code | R3 optional | Checked conversions are useful, but no dedicated broad type migration is warranted |
+| RF-020 | Accept as the first Stage B documentation repair | R0 | Reassign existing document responsibilities; do not add a governance system |
+
+This table rejects the fourth possible assessment outcome—a broad structural
+refactor before the endpoint. The current typed algebra, reduced DTO, public
+compiled ports, specialized transpose/reconstruction policies, and numerical
+contracts are sound foundations. The evidence supports repairing their seams,
+not replacing them.
+
+## Dependency-ordered Stage B roadmap
+
+The batches below are deliberately sized so one agent can complete and verify
+one batch without loading the entire repository. Each starts with the finding
+sections named for that batch and the directly authoritative files routed by
+`conventions/README.md` and `docs/README.md`. A batch should not begin merely
+because it appears in this list: Stage B still requires user approval, and C1,
+C2, and S1 additionally require selection of the affected feature lane.
+
+### R0 — Restore one trustworthy implementation narrative
+
+**Findings:** RF-020.
+
+1. Keep the interface specification normative and the readiness review focused
+   on selected mathematical and realization policy.
+2. Make `semantic-v1-compiler.md` the exact current v1 capability and exclusion
+   table.
+3. Normalize the implementation-roadmap completion markers and replace its
+   obsolete P1.2 next-agent handoff with the accepted refactor gate and the
+   actually selected pending P5/P6 target.
+4. Make the system blueprint distinguish the present whole-target dispatcher
+   from the intended component-lowering architecture, linking to the current
+   capability table rather than copying it.
+5. Correct the four discouraged fine-spacing commands in the Chapter 5 guide
+   only while that file is already being edited.
+
+**Exit check:** No status-bearing document claims an implemented or missing
+capability that contradicts the current compiler tests and capability table;
+all local links and the documentation index remain valid.
+
+### R1 — Characterize behavior at refactor boundaries
+
+**Findings:** RF-006, RF-009, and RF-016, plus regression cases for RF-001
+through RF-004, RF-008, RF-010, RF-012, RF-014, and RF-015 as their batches
+begin.
+
+1. Add a small exact-diagnostic matcher over category, component, and
+   capability while retaining useful message checks only where wording is a
+   contract.
+2. Make each existing logical scenario independently selectable and visible to
+   CTest. Prefer one case-selectable deal.II executable over multiple expensive
+   translation units.
+3. Add desired-failure tests immediately before or together with each defect
+   repair so the branch remains green at reviewable checkpoints.
+4. Before C2, add one tiny assembly oracle that does not call the production
+   target assembly. Retain the v0/v1 comparison but label it as a compiler
+   wiring and packaging comparison.
+5. Separate black-box compiler tests from white-box tests of extracted
+   policies as those policies acquire their own seams.
+
+**Exit check:** CTest can run every logical scenario by name; a deliberately
+changed component/capability causes the intended assertion to fail; each
+current correctness repair has a focused regression; the backend-neutral and
+deal.II suites remain green.
+
+### R2 — Repair common contracts and existing correctness defects
+
+**Findings:** RF-001 through RF-005, the present factual part of RF-008, and
+RF-012.
+
+Apply these changes in this internal order:
+
+1. Prevent `BlockValuesT` storage from changing dimension independently of its
+   layout; offer only the checked mutation needed by current callers.
+2. Give semantic enum-bearing aggregates an explicit safe incomplete state and
+   validate it deterministically.
+3. Add one graph-level closure pass for exact term ownership, duplicate edges,
+   bound-variable space agreement, required labels, selected formulation
+   references, and both sides of every pairing.
+4. Replace numeric graph mutation with ID-based lookup, replacement, and
+   removal helpers, then rebuild every reference variant through those helpers.
+5. Derive the current manifest constraint realization from the actual selected
+   realization rather than a neighboring metric branch.
+6. Replace caller-controlled metric strings as evidence of projection
+   compatibility with an opaque realization witness or a coupled
+   metric/constraint service.
+
+**Exit check:** The recorded malformed-storage and malformed-graph probes are
+rejected; a non-diagonal matrix cannot obtain clipping projection by adopting
+an `l2_cellwise` label; all existing reference graphs and numerical identities
+remain unchanged.
+
+### R3 — Make the development feedback loop explicit
+
+**Findings:** RF-016 through RF-019.
+
+1. Register logical CTest cases with useful labels and timeouts after R1 makes
+   them independently runnable.
+2. Use the official deal.II configuration package as the supported discovery
+   path. A requested `NMOPT_ENABLE_DEAL_II=ON` configuration must fail clearly
+   when deal.II is unavailable; `OFF` must configure and test the neutral
+   targets only.
+3. Provide a canonical explicit Debug developer profile, including the chosen
+   generator and warnings, plus a separate Release/benchmark profile before
+   timing numerical methods. Document safe recovery from a generator-mismatched
+   cache.
+4. Keep sanitizers and strict warnings as cheap backend-neutral checks. Add a
+   minimal automated neutral check only if the repository's selected hosting
+   workflow can own it; do not introduce a CI platform solely for this project.
+5. Add checked dimension conversions when the affected adapter is touched; do
+   not delay bounded serial work for a repository-wide native-size migration.
+
+**Exit check:** A clean checkout can intentionally configure both supported
+modes; a missing requested backend is an error rather than a silent downgrade;
+the documented profiles reproduce the warning-clean neutral build; the full
+Debug suite still passes.
+
+R0 through R3 form the recommended common stabilization checkpoint. R0 and R1
+may be reviewed separately, but R1 must precede behavior-changing parts of R2,
+and R3 should be complete before undertaking the larger C2 migration. This is
+the point from which a selected Chapter 5/6 feature branch may safely start.
+
+### C1 — Make compiler inputs, products, and provenance explicit
+
+**Findings:** RF-008 through RF-013. This batch is conditional on selecting a
+compiler-facing feature or producing comparative numerical results.
+
+1. Decide and document which invalid inputs are returned as compilation
+   diagnostics and which programmer-contract violations throw. Validate all
+   caller-provided bindings, layouts, coefficient domains, and bound ordering
+   at that boundary.
+2. Introduce an explicit shared discretization/session context whose ownership
+   includes or visibly constrains the mesh lifetime. Verify detached compiled
+   services under ASan and define the policy for caller mesh mutation.
+3. Define a typed SPD solve policy and result for the repeated state/adjoint
+   CG path, including tolerances, iteration limits, convergence, and work.
+   Preserve the genuinely distinct pure-Neumann/nullspace strategy.
+4. Replace reconstructed manifest booleans and free-form choices with typed
+   subrecords populated from resolved compiler decisions. Record formulation,
+   trial/test/observation spaces, mesh policy, binding provenance, and exact
+   solve policies required for the selected run.
+5. Complete the metric/constraint realization witness from R2 through the
+   compiler plan rather than reintroducing string comparisons.
+
+**Exit check:** Supported invalid inputs use the documented channel; a compiled
+service has a tested lifetime; changing an inner solve policy changes both
+behavior and recorded provenance; exact structured manifests match every
+current target.
+
+### C2 — Replace whole-target dispatch with bounded component lowering
+
+**Findings:** RF-007 and RF-009, building on C1. This batch is required before
+the first selected component-heavy P5.1/P5.2/P5.4 feature or the P6.2
+advection/stabilization target.
+
+1. Have semantic validation produce one ID-resolved, closed view rather than
+   rebuilding indexes and whole-graph feature flags in several compiler
+   functions.
+2. Introduce a modest scalar lowering plan. Component handlers contribute
+   residual operators and data, objective pieces, metric/constraint services,
+   and provenance; the registry must hold such handlers or be renamed to state
+   honestly that it is a whitelist during migration.
+3. Extract shared scalar FE context, assembly utilities, objective bookkeeping,
+   and the C1 solve service only where current targets demonstrate identical
+   policy.
+4. Keep controlled-Dirichlet reconstruction, boundary trace, coefficient
+   dependence, and mean-zero/gauge handling as composed specialized policies.
+5. Migrate one simplest existing scalar target through the plan, compare it
+   with the old path, then migrate only the paths needed to demonstrate one
+   orthogonal residual/observation recombination and the selected new target.
+   Avoid an all-target flag day.
+6. Measure clean build time and peak memory again before considering explicit
+   instantiation, library splitting, or further template machinery.
+
+**Exit check:** The selected new scalar combination can be expressed by
+registering/composing its parts instead of adding a complete problem class;
+residual changes do not force observation changes; current value, JVP, VJP,
+reconstruction, nullspace, metric, constraint, and independent-oracle checks
+pass; manifests are structurally equal where policy did not change.
+
+### S1 — Prepare only the selected P6.1 reduced methods
+
+**Findings:** RF-014 and RF-015. This batch is independent of C2 and should not
+wait for it when P6.1 is selected first.
+
+1. Split value/state evaluation from derivative/adjoint augmentation, retaining
+   `evaluate()` as a compatibility composition if useful.
+2. Make Armijo trials request only the value information they use and cache an
+   accepted record with explicit validity and layout checks.
+3. Add small direction and line-search policy concepts only for the nonlinear
+   CG, L-BFGS, exact-quadratic, Armijo, or Wolfe variants actually selected.
+4. Introduce a typed terminal status and per-accepted-iteration report with
+   step, descent pairing, stopping measures, trials, and separated work counts.
+5. Keep invalid wiring as exceptions, represent expected algorithm outcomes in
+   the report, and pair that report with the C1 manifest and run environment in
+   an outer experiment envelope when numerical comparisons begin.
+
+**Exit check:** Rejected Armijo trials perform no adjoint solve; every reported
+accepted step can be independently checked; state, adjoint, metric, and line
+search work counts are exact; existing projected-displacement and covector
+semantics remain intact.
+
+### F1 — Implement one selected feature vertical slice
+
+Only after its gates pass should feature implementation begin. Keep the feature
+and its required refactor in separate reviewable commits even when they remain
+on the same branch. A feature is complete only when its semantic declaration,
+compiler/formulation product, backend realization, exact diagnostics,
+mathematical verification, provenance, and authoritative documentation agree.
+
+## Feature-to-refactor gates
+
+| Selected capability | Required refactor gate | Boundary not to infer |
+| --- | --- | --- |
+| P6.1 reduced directions or line searches | R0–R3 and S1; add C1 before treating compiled runs as reproducible experiments | Does not require C2, mixed blocks, KKT, or a universal solver registry |
+| P5.1 scalar volume/Robin terms | R0–R3, C1, and C2 | Add only terms and boundary policy required by the selected catalogue target |
+| P5.2 energy/weighted observations or new metric | R0–R3, C1, and C2 | Keep observation, loss, regularization, and search metric separate |
+| P5.3 sensors, flux, or low-regularity targets | R0–R3 and C1/C2, followed by a selected formulation-policy design | Transposition/very-weak semantics are new contracts, not a compiler refactor side effect |
+| P5.4 partial controlled Dirichlet | R0–R3, C1, and C2 | Generalize reconstruction actions only for a declared boundary/interface policy |
+| P5.5 regularized state constraints or P6.5 PDAS | R0–R3, then selected P6.3 KKT and explicit complementarity contracts | Do not stretch the current control-box projection into multiplier or state-constraint semantics |
+| P5.6 Stokes or Stokes variants of P6 methods | R0–R3, then an explicit mixed-block/formulation design | Do not generalize the scalar reduced DTO or scalar lowering plan speculatively |
+| P6.2 DTO/OTD/stabilization comparison | R0–R3, C1, and C2, plus selected P5.1 transport terms | OTD is a separate product with explicit formulation provenance, not a mode flag on DTO |
+| P6.3 scalar KKT, then P6.4 preconditioning | R0–R3, followed by a bounded KKT product design; C2 only where component lowering is exercised | Preserve the reduced DTO and add all-at-once ports separately |
+
+For the project's learning goal, the recommended default after R0–R3 is one
+scalar P5.1 vertical slice through C1/C2. It tests the central composition
+mission and the new seams without first requiring mixed spaces, KKT,
+complementarity, or low-regularity analysis. If faster algorithmic progress is
+preferred, S1 plus one selected P6.1 method is the lower-coupling alternative.
+Do not run both lanes concurrently until the common checkpoint is accepted.
+
+## Deferred work and explicit non-goals
+
+The following work is not justified by this assessment and must not be folded
+into Stage B without a new selected requirement:
+
+- a rewrite of the typed algebra, reduced DTO, or compiled port boundary;
+- inheritance from named PDE problem families;
+- a runtime plugin system, universal component graph DSL, reflection layer, or
+  general-purpose weak-form engine;
+- premature generalization to mixed Stokes blocks, transposition formulations,
+  KKT products, complementarity, PDAS, or every Chapter 5/6 catalogue problem;
+- forced unification of reconstruction, trace, coefficient-dependent,
+  nullspace, and gauge policies whose mathematics is genuinely different;
+- distributed-memory support, mesh adaptation, packaging/install/export
+  machinery, or a public ABI;
+- a third-party test framework, a dedicated documentation renderer, exhaustive
+  coverage infrastructure, or a formatter/pre-commit gate without a concrete
+  failure that needs it;
+- template/library restructuring based only on file length; remeasure after C2;
+- a repository-wide native-size migration for examples that remain bounded and
+  serial; apply checked conversions at adapter seams as they are touched;
+- implementation of all P5/P6 problems merely to prove generality.
+
+## Decisions requiring user selection
+
+The evidence has resolved the refactor shape. Two product choices remain and
+cannot be inferred without expanding scope:
+
+1. **Authorize Stage B and its common checkpoint.** The recommended approval is
+   R0 through R3 on `codex/refactor-ch5-ch6-readiness`, in separate reviewable
+   commits. Until that approval, the repository remains documentation-only.
+2. **Choose the first post-checkpoint vertical slice.** The recommended default
+   is one scalar P5.1 composition target, which activates C1 and C2. Choosing a
+   P6.1 method instead activates S1 and defers C2. The exact catalogue target or
+   solver methods must be named before their conditional batch is designed in
+   code.
+
+Later choices—such as a particular transposition policy, Stokes variant, KKT
+sign convention, or complementarity realization—belong to their selected
+feature and should not be answered during the common refactor.
+
+## Branch, commit, and handoff policy for Stage B
+
+- Continue on `codex/refactor-ch5-ch6-readiness`; retain
+  `pre-refactor-ch5-ch6` at `7c2496b` as the immutable behavioral baseline.
+- Do not create another frozen branch. Git can recover the tagged commit, and a
+  duplicate branch adds a mutable name without adding preservation.
+- Use one coherent batch or safely reviewable sub-batch per commit. Keep
+  characterization, behavior-changing repair, and selected feature commits
+  distinguishable even if a failing desired-behavior test must travel with its
+  fix to keep the branch green.
+- Start each new turn from this roadmap and the named findings. Read only their
+  directly authoritative contracts, tests, and conventions; do not repeat the
+  repository-wide discovery audit.
+- Record completed batch IDs and any deliberate contract change in this
+  assessment. Stop at the next conditional gate rather than silently selecting
+  a Chapter 5/6 target.
+- Create a separate branch or worktree only for genuinely parallel feature
+  implementation after an accepted common checkpoint. Branching does not
+  replace tests or the tagged comparison.
+
+## Stage B verification checklist
+
+Apply the relevant subset after every batch and the full set at each checkpoint:
+
+- [ ] The diff contains only the approved batch and no unselected capability.
+- [ ] New or changed contracts state their valid states, failure channel,
+      ownership, and lifetime.
+- [ ] Every repaired defect has a focused regression that fails under the old
+      behavior for the intended reason.
+- [ ] Diagnostic tests match category, component, and capability where those
+      fields are part of the contract.
+- [ ] All backend-neutral logical cases pass in the explicit Debug profile.
+- [ ] All deal.II logical cases pass individually and as a full suite.
+- [ ] Strict-warning and backend-neutral sanitizer checks pass, accounting for
+      the recorded leak-detection limitation under the execution environment.
+- [ ] Value, JVP, VJP, reconstruction, nullspace, metric, constraint, and
+      projected-displacement identities affected by the batch remain within
+      their established tolerances.
+- [ ] Compiler changes are checked against the independent oracle as well as
+      the v0/v1 wiring comparison.
+- [ ] Manifests and run reports identify the exact formulation, spaces, mesh,
+      bindings, inner solves, and selected outer policy needed by that batch.
+- [ ] Ownership/lifetime changes have a focused ASan exercise, including a
+      compiled service returned from its construction scope.
+- [ ] Build discovery fails when requested dependencies are unavailable and the
+      neutral configuration remains intentional and usable.
+- [ ] Clean build time and peak memory are compared with the recorded 54.00 s
+      and 1.49 GiB local warning-build observation after C2; those observations
+      are diagnostics, not performance promises.
+- [ ] Authoritative capability status, roadmap handoff, and examples are
+      updated together without copying a second status table.
+- [ ] `git diff --check`, local Markdown-link validation, and focused/full test
+      results are recorded before handoff.
+
+Stage A now satisfies its exit criteria: the baseline and limitations are
+recorded, all tracked implementation and repository-support layers were
+reviewed, every P5/P6 capability family is traced, strengths and debts are
+evidence-backed, missing features remain distinct from refactor debt, and the
+next agent can execute an approved batch without another discovery pass.

@@ -38,19 +38,19 @@ instead of reproducing this table.
 
 Every factory below is validated in
 [`semantic_v1_contract.cc`](../../../tests/semantic_v1_contract.cc). The last
-column names its focused executable scenario in
+column names its focused CTest scenario backed by
 [`dealii_diffusion_contract.cc`](../../../tests/dealii_diffusion_contract.cc).
 
-| Registered semantic graph | Selected whole-target implementation | Bounded capability | Focused executable scenario |
+| Registered semantic graph | Selected whole-target implementation | Bounded capability | Focused CTest scenario |
 | --- | --- | --- | --- |
-| `make_scalar_diffusion_reaction_problem()` | `ScalarDiffusionReactionModel<dim>` direct v0 reference, packaged through v1 ports | Homogeneous fixed Dirichlet, full-volume tracking, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `run_contract_test()` |
-| `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `AssembledScalarDiffusionReactionModel<dim>` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `run_fixed_dirichlet_contract_test()` |
-| `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `AssembledScalarDiffusionReactionModel<dim>` | State tracking on one material-id set while retaining the full-domain state equation | `run_subdomain_observation_contract_test()` |
-| `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `run_dirichlet_control_contract_test()` |
-| `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `run_neumann_boundary_contract_test()` |
-| `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `run_pure_neumann_contract_test()` |
-| `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `H1ControlRegularisedModel<dim>` | Continuous `FE_Q` control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `run_h1_control_regularisation_contract_test()` |
-| `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `run_coefficient_identification_contract_test()` |
+| `make_scalar_diffusion_reaction_problem()` | `ScalarDiffusionReactionModel<dim>` direct v0 reference, packaged through v1 ports | Homogeneous fixed Dirichlet, full-volume tracking, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `nmopt.dealii.canonical_volume_control` |
+| `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `AssembledScalarDiffusionReactionModel<dim>` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `nmopt.dealii.fixed_dirichlet` |
+| `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `AssembledScalarDiffusionReactionModel<dim>` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
+| `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
+| `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
+| `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `nmopt.dealii.pure_neumann` |
+| `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `H1ControlRegularisedModel<dim>` | Continuous `FE_Q` control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `nmopt.dealii.h1_control` |
+| `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `nmopt.dealii.coefficient_identification` |
 
 These are whole-graph registrations, not freely composable component
 lowerers. `DealiiLowererRegistryV1` whitelists individual semantic kinds for
@@ -336,19 +336,23 @@ descriptive provenance; it does not create a second configuration channel.
 
 ## Comparison guarantee
 
-`run_contract_test()` in `tests/dealii_diffusion_contract.cc` is specifically a
-v0/v1 wiring comparison: it constructs the direct model and the homogeneous
-compiled product with identical mesh, data, coefficients, and bounds, then
-compares residual, objective, objective derivative, and reduced derivative.
-It is not an independent assembly oracle.
+The `nmopt.dealii.canonical_volume_control` scenario contains two deliberately
+different checks. A hand-integrated Q1/DGQ0 calculation on a $2\times2$ mesh
+checks one residual coefficient and the objective independently of production
+assembly. The compiled/direct comparison then constructs the direct model and
+the homogeneous compiled product with identical mesh, data, coefficients, and
+bounds and compares residual, objective, objective derivative, and reduced
+derivative. That second check is a compiler wiring and packaging regression,
+not an independent assembly oracle.
 
 The semantic test validates every registered factory and representative
 structural or policy failures. The eight deal.II scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
-transpose actions, and state-recomputed reduced derivative. Exact assertions
-remain in the test sources rather than being duplicated as a second inventory
-here.
+transpose actions, and state-recomputed reduced derivative. Negative semantic
+and compiler checks match diagnostic category, component ID, and capability;
+exact assertions remain in the test sources rather than being duplicated as a
+second inventory here.
 
 ## Exclusions
 

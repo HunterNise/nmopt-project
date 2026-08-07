@@ -3,6 +3,9 @@
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
+#include "test_support/contract_errors.hpp"
+#include "test_support/diagnostics.hpp"
+#include "test_support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
 #include <deal.II/grid/grid_generator.h>
@@ -106,10 +109,14 @@ namespace
                                                   missing_lifting_binding,
                                                   policy);
     contract::require(
-      !missing_lifting.succeeded() &&
-        missing_lifting.diagnostics.has_category(
-          semantic::v1::DiagnosticCategory::lowerability),
+      !missing_lifting.succeeded(),
       "v1 compiler did not diagnose missing fixed-Dirichlet data");
+    test_support::require_exact_diagnostic(
+      missing_lifting.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "fixed_dirichlet_data_binding",
+      "v1 compiler did not identify missing fixed-Dirichlet data");
 
     auto bindings = compiler::v1::DealiiDataBindings<dim>{
       forcing, desired_state, 1.0, 0.5, 0.1};
@@ -263,10 +270,14 @@ namespace
                                                    bindings,
                                                    policy);
     contract::require(
-      !partial_boundary.succeeded() &&
-        partial_boundary.diagnostics.has_category(
-          semantic::v1::DiagnosticCategory::lowerability),
+      !partial_boundary.succeeded(),
       "Dirichlet-control compiler did not reject an incomplete exterior boundary");
+    test_support::require_exact_diagnostic(
+      partial_boundary.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "complete_dirichlet_control_boundary",
+      "Dirichlet-control compiler did not identify the incomplete exterior boundary");
 
     const auto compilation = compiler.compile(specification,
                                               triangulation,
@@ -677,9 +688,11 @@ namespace
     unsupported_h1_metric.formulation.metric_id = "control_h1_metric";
     const auto unsupported_h1_metric_report =
       compiler.validate(unsupported_h1_metric, policy);
-    contract::require(
-      unsupported_h1_metric_report.has_category(
-        semantic::v1::DiagnosticCategory::lowerability),
+    test_support::require_exact_diagnostic(
+      unsupported_h1_metric_report,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "control_h1_metric",
+      "h1_metric_registered_control_space",
       "H1 metric compiler did not require the continuous H1-control target");
 
     auto discontinuous_control = specification;
@@ -687,9 +700,11 @@ namespace
       semantic::v1::SpaceTopology::l2;
     const auto discontinuous_control_report =
       compiler.validate(discontinuous_control, policy);
-    contract::require(
-      discontinuous_control_report.has_category(
-        semantic::v1::DiagnosticCategory::lowerability),
+    test_support::require_exact_diagnostic(
+      discontinuous_control_report,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "control",
+      "h1_continuous_control_space",
       "H1-control compiler did not require the continuous control realization");
 
     auto h1_control_box = specification;
@@ -702,9 +717,11 @@ namespace
       cellwise_box_source.requirement_policies.at(2));
     h1_control_box.formulation.constraint_id = "control_box";
     const auto h1_control_box_report = compiler.validate(h1_control_box, policy);
-    contract::require(
-      h1_control_box_report.has_category(
-        semantic::v1::DiagnosticCategory::lowerability),
+    test_support::require_exact_diagnostic(
+      h1_control_box_report,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "control_box",
+      "continuous_control_box_constraint",
       "H1-control compiler did not reject the unsupported cellwise box");
 
     const compiler::v1::DealiiDataBindings<dim> bindings{
@@ -884,9 +901,11 @@ namespace
       semantic::v1::SpaceTopology::h1;
     const auto continuous_parameter_report =
       compiler.validate(continuous_parameter, policy);
-    contract::require(
-      continuous_parameter_report.has_category(
-        semantic::v1::DiagnosticCategory::lowerability),
+    test_support::require_exact_diagnostic(
+      continuous_parameter_report,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "diffusion_parameter",
+      "cellwise_parameter_space",
       "coefficient-identification compiler did not require cellwise parameters");
 
     auto missing_positive_box = specification;
@@ -894,9 +913,11 @@ namespace
     missing_positive_box.formulation.constraint_id.clear();
     const auto missing_positive_box_report =
       compiler.validate(missing_positive_box, policy);
-    contract::require(
-      missing_positive_box_report.has_category(
-        semantic::v1::DiagnosticCategory::lowerability),
+    test_support::require_exact_diagnostic(
+      missing_positive_box_report,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "diffusion_parameter",
+      "positive_parameter_constraint",
       "coefficient-identification compiler did not require the positive parameter box");
 
     const compiler::v1::DealiiDataBindings<dim> bindings{
@@ -921,10 +942,14 @@ namespace
                                                               policy,
                                                               nonpositive_bounds);
     contract::require(
-      !rejected_nonpositive_bounds.succeeded() &&
-        rejected_nonpositive_bounds.diagnostics.has_category(
-          semantic::v1::DiagnosticCategory::lowerability),
+      !rejected_nonpositive_bounds.succeeded(),
       "coefficient-identification compiler accepted a nonpositive lower bound");
+    test_support::require_exact_diagnostic(
+      rejected_nonpositive_bounds.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "parameter_box",
+      "positive_parameter_lower_bound",
+      "coefficient-identification compiler did not identify a nonpositive lower bound");
 
     const auto &model = compilation.problem->executable_model();
     const auto reduced = compilation.problem->make_reduced_dto();
@@ -949,10 +974,14 @@ namespace
                        policy,
                        nonpositive_vector_bounds);
     contract::require(
-      !rejected_nonpositive_vector_bounds.succeeded() &&
-        rejected_nonpositive_vector_bounds.diagnostics.has_category(
-          semantic::v1::DiagnosticCategory::lowerability),
+      !rejected_nonpositive_vector_bounds.succeeded(),
       "coefficient-identification compiler accepted a nonpositive vector lower bound");
+    test_support::require_exact_diagnostic(
+      rejected_nonpositive_vector_bounds.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "parameter_box",
+      "positive_parameter_lower_bound",
+      "coefficient-identification compiler did not identify a nonpositive vector lower bound");
     dealii::Vector<double> parameter_values(
       model.variable_layout()->dimension(1));
     for (dealii::types::global_dof_index index = 0;
@@ -1099,10 +1128,14 @@ namespace
                                                     nonzero_reaction,
                                                     policy);
     contract::require(
-      !rejected_reaction.succeeded() &&
-        rejected_reaction.diagnostics.has_category(
-          semantic::v1::DiagnosticCategory::lowerability),
+      !rejected_reaction.succeeded(),
       "pure-Neumann compiler did not reject a nonzero reaction");
+    test_support::require_exact_diagnostic(
+      rejected_reaction.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "pure_neumann_zero_reaction",
+      "pure-Neumann compiler did not identify the nonzero reaction");
 
     const compiler::v1::DealiiDataBindings<dim> incompatible_binding{
       incompatible_forcing, desired_state, 1.0, 0.0, 0.1};
@@ -1111,10 +1144,14 @@ namespace
                                                    incompatible_binding,
                                                    policy);
     contract::require(
-      !rejected_forcing.succeeded() &&
-        rejected_forcing.diagnostics.has_category(
-          semantic::v1::DiagnosticCategory::lowerability),
+      !rejected_forcing.succeeded(),
       "pure-Neumann compiler did not reject incompatible forcing");
+    test_support::require_exact_diagnostic(
+      rejected_forcing.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "forcing",
+      "pure_neumann_forcing_compatibility",
+      "pure-Neumann compiler did not identify incompatible forcing");
 
     const compiler::v1::DealiiDataBindings<dim> compatible_binding{
       zero_forcing, desired_state, 1.0, 0.0, 0.1};
@@ -1159,17 +1196,12 @@ namespace
     incompatible_values[0] = 0.1;
     const Primal incompatible_control(zero_control.layout(),
                                       {std::move(incompatible_values)});
-    bool rejected_control = false;
-    try
-      {
+    test_support::require_contract_error(
+      [&reduced, &incompatible_control]() {
         (void)reduced.evaluate(incompatible_control);
-      }
-    catch (const contract::ContractError &)
-      {
-        rejected_control = true;
-      }
-    contract::require(rejected_control,
-                      "pure-Neumann solve did not reject an incompatible boundary control");
+      },
+      "Pure-Neumann state load violates the discrete constant-mode compatibility condition",
+      "pure-Neumann incompatible boundary control");
 
     const auto &manifest = compilation.problem->manifest();
     contract::require(
@@ -1183,8 +1215,69 @@ namespace
 
   template <int dim>
   void
-  run_contract_test()
+  verify_homogeneous_weak_form_oracle()
   {
+    static_assert(dim == 2,
+                  "The hand-integrated weak-form oracle is two-dimensional");
+
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const dealii_backend::ScalarDiffusionReactionModel<dim> model(
+      triangulation,
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      1);
+
+    const std::size_t state_size = model.variable_layout()->dimension(0);
+    std::size_t       interior_state_dof = state_size;
+    std::size_t       unconstrained_dofs = 0;
+    for (std::size_t index = 0; index < state_size; ++index)
+      if (!model.state_constraints().is_constrained(index))
+        {
+          interior_state_dof = index;
+          ++unconstrained_dofs;
+        }
+    contract::require(unconstrained_dofs == 1,
+                      "the 2x2 Q1 oracle mesh must have one interior state DoF");
+
+    dealii::Vector<double> state(state_size);
+    state[interior_state_dof] = 1.0;
+    dealii::Vector<double> control(model.variable_layout()->dimension(1));
+    control = 2.0;
+    const Primal point(model.variable_layout(),
+                       {std::move(state), std::move(control)});
+
+    // For the central Q1 hat on four squares of side 1/2:
+    // integral |grad phi|^2 = 8/3, integral phi^2 = 1/9, and
+    // integral phi = 1/4. With f = 1 and u = 2, the residual is
+    // 8/3 + (1/2)(1/9) - 1/4 - 2(1/4) = 71/36.
+    const Covector residual = model.residual(point);
+    require_close(residual.block(0)[interior_state_dof],
+                  71.0 / 36.0,
+                  1e-13,
+                  "independent Q1/DGQ0 weak-form residual oracle");
+
+    // The tracking part is 7/288 for desired state 1/4; the constant
+    // control contributes (0.1/2) integral 2^2 = 1/5.
+    require_close(model.objective(point),
+                  7.0 / 288.0 + 1.0 / 5.0,
+                  1e-13,
+                  "independent Q1/DGQ0 objective oracle");
+  }
+
+  template <int dim>
+  void
+  run_canonical_volume_control_contract_test()
+  {
+    verify_homogeneous_weak_form_oracle<dim>();
+
     dealii::Triangulation<dim> triangulation;
     dealii::GridGenerator::hyper_cube(triangulation);
     triangulation.refine_global(2);
@@ -1407,18 +1500,23 @@ namespace
       compiler::v1::DealiiDiscretisationPolicy::Execution::matrix_free;
     const auto lowerability_diagnostic =
       v1_compiler.validate(specification, unsupported_execution);
-    contract::require(lowerability_diagnostic.has_category(
-                        semantic::v1::DiagnosticCategory::lowerability),
-                      "v1 compiler did not report an unsupported lowerability");
+    test_support::require_exact_diagnostic(
+      lowerability_diagnostic,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "scalar_diffusion_reaction_volume_control",
+      "assembled_execution",
+      "v1 compiler did not report an unsupported execution mode");
 
     auto unsupported_formulation = specification;
     unsupported_formulation.formulation.kind =
       semantic::v1::FormulationKind::all_at_once;
     const auto formulation_diagnostic =
       v1_compiler.validate(unsupported_formulation, compilation_policy);
-    contract::require(
-      formulation_diagnostic.has_category(
-        semantic::v1::DiagnosticCategory::formulation_capability),
+    test_support::require_exact_diagnostic(
+      formulation_diagnostic,
+      semantic::v1::DiagnosticCategory::formulation_capability,
+      "reduced_dto",
+      "reduced_dto_formulation",
       "v1 compiler did not report an unsupported formulation capability");
 
     const compiler::v1::DealiiDataBindings<dim> data_bindings{
@@ -1442,27 +1540,27 @@ namespace
     require_covector_close(compiled_residual,
                            model.residual(comparison_point),
                            1e-12,
-                           "v1 and v0 residual differ");
+                           "compiled/direct wiring residual differs");
     require_close(compiled_model.objective(evaluation.full_point),
                   model.objective(evaluation.full_point),
                   1e-12,
-                  "v1 and v0 objective differ");
+                  "compiled/direct wiring objective differs");
     require_covector_close(compiled_model.objective_derivative(
                              evaluation.full_point),
                            model.objective_derivative(evaluation.full_point),
                            1e-12,
-                           "v1 and v0 objective derivative differ");
+                           "compiled/direct wiring objective derivative differs");
 
     const auto compiled_reduced = compilation.problem->make_reduced_dto();
     const auto compiled_evaluation = compiled_reduced.evaluate(control);
     require_close(compiled_evaluation.objective_value,
                   evaluation.objective_value,
                   1e-12,
-                  "v1 and v0 reduced objective differ");
+                  "compiled/direct wiring reduced objective differs");
     require_covector_close(compiled_evaluation.reduced_derivative,
                            evaluation.reduced_derivative,
                            1e-12,
-                           "v1 and v0 reduced derivative differ");
+                           "compiled/direct wiring reduced derivative differs");
     const auto *compiled_constraint = compilation.problem->constraint();
     contract::require(compiled_constraint != nullptr &&
                         compiled_constraint->is_feasible(bounded_control),
@@ -1478,19 +1576,31 @@ namespace
 } // namespace
 
 int
-main()
+main(const int argc, char **argv)
 {
   try
     {
-      run_contract_test<2>();
-      run_fixed_dirichlet_contract_test<2>();
-      run_dirichlet_control_contract_test<2>();
-      run_subdomain_observation_contract_test<2>();
-      run_neumann_boundary_contract_test<2>();
-      run_h1_control_regularisation_contract_test<2>();
-      run_coefficient_identification_contract_test<2>();
-      run_pure_neumann_contract_test<2>();
-      std::cout << "deal.II diffusion DTO contract test passed\n";
+      const std::string executed =
+        test_support::run_requested_scenarios(
+          argc,
+          argv,
+          {{"canonical_volume_control",
+            []() { run_canonical_volume_control_contract_test<2>(); }},
+           {"fixed_dirichlet",
+            []() { run_fixed_dirichlet_contract_test<2>(); }},
+           {"dirichlet_control",
+            []() { run_dirichlet_control_contract_test<2>(); }},
+           {"subdomain_observation",
+            []() { run_subdomain_observation_contract_test<2>(); }},
+           {"neumann_boundary",
+            []() { run_neumann_boundary_contract_test<2>(); }},
+           {"h1_control",
+            []() { run_h1_control_regularisation_contract_test<2>(); }},
+           {"coefficient_identification",
+            []() { run_coefficient_identification_contract_test<2>(); }},
+           {"pure_neumann", []() { run_pure_neumann_contract_test<2>(); }}});
+      std::cout << "deal.II diffusion DTO contract scenario passed: "
+                << executed << '\n';
       return 0;
     }
   catch (const std::exception &exception)

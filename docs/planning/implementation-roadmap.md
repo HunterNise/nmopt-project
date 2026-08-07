@@ -18,9 +18,10 @@ ctest --test-dir build --output-on-failure
 
 ## Current handoff state
 
-Stage B is active on `codex/refactor-ch5-ch6-readiness`. Batch R0
-(`RF-020`) is complete; the next bounded batch is
-[R1 characterization](refactor/stage-b-roadmap.md#r1--characterize-refactor-boundaries).
+Stage B is active on `codex/refactor-ch5-ch6-readiness`. Batches R0
+(`RF-020`) and R1 (`RF-006`, `RF-009`, and `RF-016`) are complete; the next
+bounded batch is
+[R2a contract safety](refactor/stage-b-roadmap.md#r2a--restore-blocklayout-invariants).
 Chapter 5/6 feature work remains behind the common stabilization checkpoint
 and the conditional gates in the Stage B roadmap. No P5/P6 feature has been
 selected yet.
@@ -40,7 +41,7 @@ The following pieces exist and are tested:
 | deal.II metrics | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, and parameter layouts, with serial CG inverse apply. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes for the registered cellwise-volume and facewise-boundary $L^{2}$ metrics. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three CTest executables containing eleven logical scenarios: two dense/backend contract cases, semantic graph validation, and eight deal.II compiler/lowering cases. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose eleven independently named and labeled CTest scenarios: two dense/backend contract cases, semantic graph validation, and eight deal.II compiler/lowering cases. Negative checks identify exact diagnostics or contract failures; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It validates registered component kinds, then matches the complete graph
@@ -774,18 +775,18 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-Take **Stage B R1 only**:
+Take **Stage B R2a only**:
 
 1. Follow the [Stage B routing protocol](refactor/README.md) and read only the
-   R1 batch plus findings `RF-006`, `RF-009`, and `RF-016`.
-2. Characterize the current diagnostic, v0/v1 comparison, and logical-test
-   boundaries without changing numerical contracts.
-3. Make all eleven logical scenarios independently selectable and visible to
-   CTest, add exact diagnostic matching, and retain an accurately named v0/v1
-   wiring comparison.
+   R2a batch plus finding `RF-001` and the contract-focused parts of `RF-006`.
+2. Add focused regressions that expose any dimension-changing mutation by
+   `BlockValuesT` storage before changing its mutation boundary.
+3. Prevent stored vector dimensions from diverging from their declared block
+   layout, exposing only the checked mutation current callers require.
 4. Run focused checks followed by the applicable full Debug configurations,
-   then record R1 completion and the next batch here.
+   preserve current algebra and pairing identities, then record R2a completion
+   and the next batch here.
 
-Do not select or implement a P5/P6 feature during R1. Feature selection occurs
-only after the common stabilization checkpoint and its relevant conditional
-gate.
+Do not redesign the algebra layer or select a P5/P6 feature during R2a.
+Feature selection occurs only after the common stabilization checkpoint and
+its relevant conditional gate.

@@ -2,6 +2,8 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/reference/linear_quadratic_model.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
+#include "test_support/contract_errors.hpp"
+#include "test_support/scenario_dispatch.hpp"
 
 #include <cmath>
 #include <exception>
@@ -170,12 +172,24 @@ namespace
                   2e-7,
                   "Objective directional derivative");
 
+    nmopt::test_support::require_contract_error(
+      [&model]() { (void)StateControlPartition(model, 0, 0); },
+      "State and control blocks must be distinct",
+      "invalid reduced partition");
+
     const StateControlPartition partition(model, 0, 1);
     const StateAdjointSolvers solvers{
       [&model](const PrimalBlock &control) { return model.solve_state(control); },
       [&model](const PrimalBlock &full_point, const CovectorBlock &state_rhs) {
         return model.solve_adjoint(full_point, state_rhs);
       }};
+    nmopt::test_support::require_contract_error(
+      [&model, &partition, &solvers]() {
+        (void)ReducedDTO(
+          model, partition, StateAdjointSolvers{solvers.solve_state, {}});
+      },
+      "Reduced DTO requires an adjoint solve operation",
+      "missing reduced adjoint callback");
     const ReducedDTO reduced(model, partition, solvers);
 
     const PrimalBlock control(partition.control_layout(), {DenseVector{0.4, -0.3}});
@@ -197,6 +211,15 @@ namespace
                   2e-7,
                   "Reduced DTO derivative");
 
+    nmopt::test_support::require_contract_error(
+      [&partition]() {
+        (void)DiagonalMetric(
+          "invalid_metric",
+          partition.control_layout(),
+          {DenseVector{2.0, 0.0}});
+      },
+      "Metric diagonal must be strictly positive",
+      "nonpositive metric diagonal");
     const DiagonalMetric metric(
       "l2_cellwise", partition.control_layout(), {DenseVector{2.0, 5.0}});
     const PrimalBlock direction =
@@ -207,6 +230,15 @@ namespace
                   1e-13,
                   "Metric inverse/apply consistency");
 
+    nmopt::test_support::require_contract_error(
+      [&partition]() {
+        (void)CellwiseBoxConstraint(
+          partition.control_layout(),
+          {DenseVector{0.0, 0.6}},
+          {DenseVector{1.0, 0.5}});
+      },
+      "Cellwise box lower bound exceeds upper bound",
+      "reversed cellwise bounds");
     const CellwiseBoxConstraint bounds(
       partition.control_layout(), {DenseVector{-0.1, -0.2}},
       {DenseVector{0.6, 0.5}});
@@ -260,6 +292,14 @@ namespace
     const RecordingConstraint recording_bounds(projected_bounds);
     const nmopt::solvers::ReducedGradientSolver projected_solver(
       reduced, metric, recording_bounds, solver_parameters);
+    nmopt::test_support::require_contract_error(
+      [&projected_solver, &partition]() {
+        (void)projected_solver.solve(
+          PrimalBlock(partition.control_layout(),
+                      {DenseVector{0.0, 0.6}}));
+      },
+      "Projected reduced gradient requires a feasible initial control",
+      "infeasible projected-solver initial control");
     const auto projected_result = projected_solver.solve(
       PrimalBlock(partition.control_layout(), {DenseVector{0.4, 0.4}}));
 
@@ -322,13 +362,18 @@ namespace
 } // namespace
 
 int
-main()
+main(const int argc, char **argv)
 {
   try
     {
-      test_v0_contract();
-      test_backend_parameterisation();
-      std::cout << "nmopt v0 executable contract tests passed\n";
+      const std::string executed =
+        nmopt::test_support::run_requested_scenarios(
+          argc,
+          argv,
+          {{"v0_contract", test_v0_contract},
+           {"backend_parameterisation", test_backend_parameterisation}});
+      std::cout << "nmopt executable contract scenario passed: " << executed
+                << '\n';
       return 0;
     }
   catch (const std::exception &exception)

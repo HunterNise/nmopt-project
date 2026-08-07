@@ -175,8 +175,10 @@ The `CTest` executable verifies:
 4. state solve residual;
 5. reduced DTO derivative;
 6. metric inverse/apply consistency; and
-7. the selected cellwise $L^{2}$ box projection; and
-8. dense and deal.II unconstrained/projected Armijo convergence, including
+7. the selected cellwise $L^{2}$ box projection;
+8. exact `ContractError` messages for representative partition, callback,
+   metric, constraint, and projected-solver precondition failures; and
+9. dense and deal.II unconstrained/projected Armijo convergence, including
    active-bound and projected-stationarity checks.
 
 This establishes the small executable algebra that a deal.II compiler must

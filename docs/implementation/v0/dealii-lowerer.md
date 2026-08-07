@@ -34,7 +34,7 @@ The source, target, and sign convention are thus exactly those required by
 the backend-parametric `ExecutableModelT` contract.
 
 This direct v0 model remains a preserved reference implementation. The
-[v1 semantic compiler](semantic-v1-compiler.md) constructs a separate
+[v1 semantic compiler](../v1/semantic-compiler.md) constructs a separate
 executable from `ProblemSpec` and compares it with this direct path; it does
 not replace or mutate this model.
 

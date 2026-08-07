@@ -5,7 +5,7 @@
 This is the deferred reproduction catalogue for the numerical examples in
 Chapter 6 of *Optimal Control of Partial Differential Equations* (Manzoni,
 Quarteroni, Salsa; book pages 187–217). It is separate from the
-[numerical-methods implementation guide](chapter-6-numerical-methods-guide.md)
+[numerical-methods implementation guide](chapter-6-numerical-methods.md)
 so the framework can first be implemented and verified with manufactured
 tests.
 

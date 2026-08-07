@@ -1,68 +1,92 @@
 # Documentation map
 
-This directory is organized by purpose and audience. Start with the smallest
-document that answers the question, then follow links to the deeper material.
+The documentation is organized by role and authority. Start with the smallest
+document that answers the task, then follow its links to deeper material. Do
+not read every document by default.
 
-## Authority and status
+## Organization and authority
 
-- `interface-specification.md` is the normative, implementation-neutral
-  contract for semantic interfaces and component protocols.
-- `implementation-readiness-review.md` selects the required default policies
-  for the first executable implementation when the specification allows
-  multiple choices.
-- `executable-contract-v0.md` and `dealii-v0-lowerer.md` describe the current
-  implemented contracts, supported slice, and explicit exclusions.
-- `semantic-v1-compiler.md` describes the implemented v1 semantic graph and
-  the separately owned compiler path that is compared with the v0 reference.
-- `architecture.md` records the long-term design rationale and boundaries.
-- `implementation-roadmap.md` records current implementation state, task
-  order, acceptance checks, and agent handoff guidance.
-- Project-wide working conventions live in the
-  [project conventions](../conventions/README.md); read the applicable
-  convention before changing files.
-- The remaining documents provide mathematical background, examples, and
-  implementation analysis; they do not silently override the normative
-  contracts above.
+### Design
+
+The documents under `design/` describe long-lived mathematical, semantic, and
+architectural boundaries.
+
+- [Interface specification](design/interface-specification.md) is the
+  normative, implementation-neutral component and protocol contract.
+- [Architecture record](design/architecture.md) explains the long-term design
+  rationale.
+- [Composition boundaries](design/composition-boundaries.md) summarizes
+  component ownership and cross-cutting seams.
+- [System blueprint](design/system-blueprint.md) is the shortest end-to-end
+  mental model and code correspondence.
+- [Theoretical formalism](design/theoretical-formalism.md) records the
+  mathematical model and strong-to-variational bridge.
+
+### Implemented generations and selected policies
+
+The documents under `implementation/` describe concrete implemented contracts,
+realizations, and the policies selected for the first executable generations.
+
+- [Implementation-readiness review](implementation/implementation-readiness-review.md)
+  selects required defaults where the normative specification permits several
+  policies. It is not a second capability ledger.
+- [V0 executable contract](implementation/v0/executable-contract.md) and
+  [deal.II v0 lowerer](implementation/v0/dealii-lowerer.md) define the direct
+  reference slice and its explicit exclusions.
+- [V1 semantic graph and compiler](implementation/v1/semantic-compiler.md)
+  owns the exact implemented v1 capability and exclusion record.
+
+### Guides and case studies
+
+The documents under `guides/` explain how to implement or reproduce the
+bounded Chapter 5/6 work. Their location does not imply that every catalogue
+entry will be implemented.
+
+- [Chapter 5 elliptic-control guide](guides/chapter-5-elliptic-control.md)
+- [Chapter 6 numerical-methods guide](guides/chapter-6-numerical-methods.md)
+- [Chapter 6 numerical-examples reference](guides/chapter-6-numerical-examples.md)
+
+The documents under `case-studies/` are worked examples used to derive and
+stress the interfaces.
+
+- [Laplace composition-growth study](case-studies/laplace-growth.md)
+- [Laplace formula and interface deltas](case-studies/laplace-interface-formulas.md)
+
+### Planning and refactor evidence
+
+- [Implementation roadmap](planning/implementation-roadmap.md) is the sole
+  owner of mutable project status, task order, acceptance state, and current
+  agent handoff.
+- [Stage B refactor routing](planning/refactor/README.md) tells an agent what
+  to read for one bounded refactor batch.
+- [Stage B roadmap](planning/refactor/stage-b-roadmap.md) defines the accepted
+  batch boundaries and gates without duplicating current project status.
+- [Refactor assessment](planning/refactor/assessment.md) is the exhaustive
+  evidence archive. Read only the assigned findings unless a tradeoff or scope
+  decision requires wider context.
+- [Assessment plan](planning/refactor/assessment-plan.md) records the completed
+  Stage A audit method and is not normal Stage B reading.
+
+Project-wide working conventions live in the
+[project conventions](../conventions/README.md). Read the applicable
+convention before inspecting or changing repository content.
 
 ## Choose by task
 
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
-| New contributor or agent | `system-blueprint.md` | `../AGENTS.md`, `implementation-roadmap.md`, `interface-specification.md` |
-| Understand the whole system and its code correspondence | `system-blueprint.md` | `interface-specification.md`, `executable-contract-v0.md` |
-| Changing semantic interfaces or ports | `interface-specification.md` | `architecture.md`, `implementation-readiness-review.md` |
-| Changing the backend-neutral executable API | `executable-contract-v0.md` | `implementation-readiness-review.md`, `implementation-roadmap.md` |
-| Changing deal.II code or the compiler/lowerer | `dealii-v0-lowerer.md` | `executable-contract-v0.md`, `implementation-roadmap.md` |
-| Changing the v1 semantic graph/compiler | `semantic-v1-compiler.md` | `interface-specification.md`, `implementation-readiness-review.md` |
-| Deciding component ownership or layer boundaries | `composition-boundaries.md` | `architecture.md`, `interface-specification.md` |
-| Checking mathematical signs or formulas | `theoretical-formalism.md` | `laplace-interface-formulas.md`, `laplace-growth-case-study.md` |
-| Understanding the concrete end-to-end example | `laplace-growth-case-study.md` | `laplace-interface-formulas.md` |
-| Implementing a Chapter 5 elliptic control application | `chapter-5-implementation-guide.md` | `semantic-v1-compiler.md`, `implementation-roadmap.md` |
-| Implementing Chapter 6 numerical methods | `chapter-6-numerical-methods-guide.md` | `executable-contract-v0.md`, `semantic-v1-compiler.md`, `implementation-roadmap.md` |
-| Reproducing Chapter 6 numerical examples | `chapter-6-numerical-examples.md` | `chapter-6-numerical-methods-guide.md` |
-| Assessing refactor readiness before Chapters 5 and 6 | `pre-chapter-5-6-refactor-plan.md` | `implementation-roadmap.md`, the layer-specific contracts selected by the plan |
-| Reading the current pre-Chapter 5/6 refactor findings | `pre-chapter-5-6-refactor-assessment.md` | `pre-chapter-5-6-refactor-plan.md` |
-| Choosing the next implementation task | `implementation-roadmap.md` | The task-specific contract listed above |
-| Reviewing why the design is shaped this way | `architecture.md` | `theoretical-formalism.md` |
-| Editing Markdown or LaTeX | `../conventions/documentation.md` | The document being changed |
-
-## Document index
-
-- [Architecture record](architecture.md)
-- [System blueprint](system-blueprint.md)
-- [Composition boundaries](composition-boundaries.md)
-- [Theoretical formalism](theoretical-formalism.md)
-- [Interface specification](interface-specification.md)
-- [Implementation-readiness review](implementation-readiness-review.md)
-- [V0 executable contract](executable-contract-v0.md)
-- [deal.II v0 lowerer](dealii-v0-lowerer.md)
-- [V1 semantic graph and compiler](semantic-v1-compiler.md)
-- [Laplace growth case study](laplace-growth-case-study.md)
-- [Laplace interface formulas](laplace-interface-formulas.md)
-- [Chapter 5 elliptic optimal-control implementation guide](chapter-5-implementation-guide.md)
-- [Chapter 6 numerical-methods implementation guide](chapter-6-numerical-methods-guide.md)
-- [Chapter 6 numerical-examples reference](chapter-6-numerical-examples.md)
-- [Pre-Chapter 5/6 refactor assessment plan](pre-chapter-5-6-refactor-plan.md)
-- [Pre-Chapter 5/6 refactor assessment](pre-chapter-5-6-refactor-assessment.md)
-- [Implementation roadmap](implementation-roadmap.md)
-- [Project conventions](../conventions/README.md)
+| New contributor or agent | [System blueprint](design/system-blueprint.md) | Root `AGENTS.md`, the [implementation roadmap](planning/implementation-roadmap.md), and the [interface specification](design/interface-specification.md) |
+| Understand the whole system and its code correspondence | [System blueprint](design/system-blueprint.md) | [Interface specification](design/interface-specification.md) and [v0 executable contract](implementation/v0/executable-contract.md) |
+| Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Architecture](design/architecture.md) and [selected policies](implementation/implementation-readiness-review.md) |
+| Change the backend-neutral executable API | [V0 executable contract](implementation/v0/executable-contract.md) | [Selected policies](implementation/implementation-readiness-review.md) and [roadmap](planning/implementation-roadmap.md) |
+| Change deal.II code or compiler/lowering | [deal.II v0 lowerer](implementation/v0/dealii-lowerer.md) | [V0 executable contract](implementation/v0/executable-contract.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [roadmap](planning/implementation-roadmap.md) |
+| Change the v1 semantic graph/compiler | [V1 compiler](implementation/v1/semantic-compiler.md) | [Interface specification](design/interface-specification.md) and [selected policies](implementation/implementation-readiness-review.md) |
+| Decide component ownership | [Composition boundaries](design/composition-boundaries.md) | [Architecture](design/architecture.md) and [interface specification](design/interface-specification.md) |
+| Check mathematical signs or formulas | [Theoretical formalism](design/theoretical-formalism.md) | [Laplace formulas](case-studies/laplace-interface-formulas.md) and [growth study](case-studies/laplace-growth.md) |
+| Implement a selected Chapter 5 application | [Chapter 5 guide](guides/chapter-5-elliptic-control.md) | [V1 compiler](implementation/v1/semantic-compiler.md) and [roadmap](planning/implementation-roadmap.md) |
+| Implement selected Chapter 6 methods | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) | [V0 contract](implementation/v0/executable-contract.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [roadmap](planning/implementation-roadmap.md) |
+| Reproduce Chapter 6 examples | [Numerical examples](guides/chapter-6-numerical-examples.md) | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
+| Execute one Stage B refactor batch | [Refactor routing](planning/refactor/README.md) | The current batch in the [Stage B roadmap](planning/refactor/stage-b-roadmap.md), assigned findings, and task-specific authorities above |
+| Review the complete pre-Chapter 5/6 evidence | [Refactor assessment](planning/refactor/assessment.md) | [Assessment plan](planning/refactor/assessment-plan.md) only when the audit method matters |
+| Choose the next implementation task | [Implementation roadmap](planning/implementation-roadmap.md) | The task-specific contract or guide listed above |
+| Edit Markdown or LaTeX | [Documentation conventions](../conventions/documentation.md) | The document being changed |

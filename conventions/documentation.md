@@ -52,7 +52,7 @@ uses a different Markdown/LaTeX pipeline.
 
 - Put code symbols, class names, functions, commands, options, filenames,
   paths, branch names, and environment variables in backticks, for example
-  `ProblemSpec`, `docs/architecture.md`, and `cmake --build build`.
+  `ProblemSpec`, `docs/design/architecture.md`, and `cmake --build build`.
 - Use fenced code blocks with a language tag, such as `cpp`, `bash`, or `text`.
 - Use relative Markdown links for repository files and give links descriptive
   labels.

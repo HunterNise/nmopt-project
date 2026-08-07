@@ -3,8 +3,8 @@
 ## Scope
 
 This is the first code-level realization of the default policies in the
-[implementation-readiness review](implementation-readiness-review.md). It is
-backend-neutral on purpose: the [v1 deal.II compiler](semantic-v1-compiler.md)
+[implementation-readiness review](../implementation-readiness-review.md). It is
+backend-neutral on purpose: the [v1 deal.II compiler](../v1/semantic-compiler.md)
 lowers its supported semantic graph to this contract, while the contract
 itself does not contain a DoFHandler, finite element, matrix type, or solver
 selection.
@@ -182,4 +182,4 @@ The `CTest` executable verifies:
 This establishes the small executable algebra that a deal.II compiler must
 produce. The first serial scalar diffusion-reaction compiler now exists; its
 exact finite-element scope and exclusions are recorded in the
-[deal.II v0 lowerer](dealii-v0-lowerer.md).
+[deal.II v0 lowerer](dealii-lowerer.md).

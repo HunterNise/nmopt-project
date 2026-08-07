@@ -7,7 +7,7 @@ first serial deal.II lowerer. It is intentionally dependency-ordered: finish
 the useful vertical slice before broadening the semantic language, and broaden
 the semantic language before adding advanced PDE variants.
 
-The command below is the baseline check before and after every task. 
+The command below is the baseline check before and after every task.
 It uses the Ninja generator.
 
 ~~~bash
@@ -194,7 +194,8 @@ be compared without overwriting v0.
 
 **Primary files:** `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp`,
 `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp`,
-`docs/semantic-v1-compiler.md`, and focused semantic/deal.II contract tests.
+`docs/implementation/v1/semantic-compiler.md`, and focused semantic/deal.II
+contract tests.
 
 **Done when:** constructing the current problem through a `ProblemSpec` produces
 the same residual, objective, and reduced derivative as the direct deal.II

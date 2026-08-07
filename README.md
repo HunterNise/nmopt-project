@@ -10,15 +10,16 @@ test, and a serial deal.II lowerer for the first scalar finite-element slice.
 
 Start here:
 
-- [System blueprint](docs/system-blueprint.md) — theory, specification, v0
+- [System blueprint](docs/design/system-blueprint.md) — theory, specification, v0
   implementation, and test correspondence in one implementer-oriented guide.
 - [Documentation map](docs/README.md) — which document applies to which
   audience and task.
-- [Architecture overview](docs/architecture.md) — the detailed design record.
-- [Interface specification](docs/interface-specification.md) — normative
+- [Architecture overview](docs/design/architecture.md) — the detailed design
+  record.
+- [Interface specification](docs/design/interface-specification.md) — normative
   component contracts and compilation protocols.
-- [Implementation roadmap](docs/implementation-roadmap.md) — current state,
-  prioritized tasks, and acceptance checks.
+- [Implementation roadmap](docs/planning/implementation-roadmap.md) — current
+  state, prioritized tasks, and acceptance checks.
 - [Project conventions](conventions/README.md) — action-specific guidance for
   code, builds, documentation, and Git operations.
 - [Project guide for contributors and agents](AGENTS.md) — concise working,

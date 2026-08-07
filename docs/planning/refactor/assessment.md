@@ -5,7 +5,7 @@
 **Complete — Stage A assessment and sequencing finished.**
 
 This document records the assessment defined by the
-[refactor assessment plan](pre-chapter-5-6-refactor-plan.md). The current
+[refactor assessment plan](assessment-plan.md). The current
 contents establish the reproducible baseline, the Chapter 5/6 scope matrix,
 findings across every requested repository layer, the final refactor decision,
 dependency-ordered Stage B batches, target-dependent feature gates, explicit
@@ -210,9 +210,9 @@ directory. Whether that granularity is appropriate remains a Phase 4 question.
 ### Interpretation
 
 The matrix is derived from P5.1–P5.6 and P6.1–P6.5 of the
-[implementation roadmap](implementation-roadmap.md), the
-[Chapter 5 implementation guide](chapter-5-implementation-guide.md), and the
-[Chapter 6 numerical-methods guide](chapter-6-numerical-methods-guide.md).
+[implementation roadmap](../implementation-roadmap.md), the
+[Chapter 5 implementation guide](../../guides/chapter-5-elliptic-control.md), and the
+[Chapter 6 numerical-methods guide](../../guides/chapter-6-numerical-methods.md).
 
 “Documented baseline” reports what those sources claim. It is not treated as
 verified code evidence until the relevant implementation and tests are
@@ -524,12 +524,12 @@ diagnostic/manifest assertion rather than treated as one opaque passing
 executable.
 
 Authoritative records used in this wave were the
-[v1 compiler record](semantic-v1-compiler.md), the
-[v0 lowerer record](dealii-v0-lowerer.md), the compiler/lowering sections of
-the [system blueprint](system-blueprint.md), the manifest requirements in the
-[implementation-readiness review](implementation-readiness-review.md), and
+[v1 compiler record](../../implementation/v1/semantic-compiler.md), the
+[v0 lowerer record](../../implementation/v0/dealii-lowerer.md), the compiler/lowering sections of
+the [system blueprint](../../design/system-blueprint.md), the manifest requirements in the
+[implementation-readiness review](../../implementation/implementation-readiness-review.md), and
 the Chapter 6 provenance requirements in the
-[numerical-methods guide](chapter-6-numerical-methods-guide.md).
+[numerical-methods guide](../../guides/chapter-6-numerical-methods.md).
 
 ## Architecture and code findings: contracts and semantic layer
 
@@ -547,9 +547,9 @@ vectors through the mutable references, and called `pair()`. The call
 succeeded and returned `32` while reporting declared dimension `2` and stored
 dimension `3`.
 
-**Authority:** The [executable contract](executable-contract-v0.md) describes
+**Authority:** The [executable contract](../../implementation/v0/executable-contract.md) describes
 `BlockLayout` as the compatible block dimensions, and the
-[implementation-readiness review](implementation-readiness-review.md)
+[implementation-readiness review](../../implementation/implementation-readiness-review.md)
 requires typed coefficient objects whose discrete layouts are preserved.
 
 **Consequence:** Layout compatibility is not an invariant after construction.
@@ -597,7 +597,7 @@ in comparisons and switches, for example at
 reference factories avoid the fault by fully aggregate-initializing every
 component, but the public API does not enforce that discipline.
 
-**Authority:** The [interface specification](interface-specification.md)
+**Authority:** The [interface specification](../../design/interface-specification.md)
 defines semantic resolution and validation as the boundary that rejects
 invalid or incomplete declarations. Validation itself must therefore be safe
 on incomplete user input.
@@ -655,7 +655,7 @@ on the formulation's selected decision variable
 (`include/nmopt/semantic/v1/validation.hpp:778-816`).
 
 **Authority:** Sections 2, 5.2, and 5.3 of the
-[interface specification](interface-specification.md) require declared ports,
+[interface specification](../../design/interface-specification.md) require declared ports,
 ordered semantic resolution, and structural rejection of mismatched
 connections. An equation owns an ordered sum of terms; a constraint and
 metric act on declared variable blocks.
@@ -702,9 +702,9 @@ observation, loss, and metric checks compare only
 test pairing's `covector_space_id` to `control_space`; the semantic report
 remained valid.
 
-**Authority:** The [interface specification](interface-specification.md)
+**Authority:** The [interface specification](../../design/interface-specification.md)
 requires every dual value to be paired with its declared primal space, and the
-[implementation-readiness review](implementation-readiness-review.md) makes
+[implementation-readiness review](../../implementation/implementation-readiness-review.md) makes
 the primal/covector distinction the first discrete-algebra default.
 
 **Consequence:** The semantic graph can claim a test-space pairing while its
@@ -747,7 +747,7 @@ coefficient factory rewrites spaces, pairings, the second variable, the first
 term, the second observation/loss, and the first metric at lines 202-265.
 
 **Authority:** The project mission and
-[composition boundaries](composition-boundaries.md) require combinations to
+[composition boundaries](../../design/composition-boundaries.md) require combinations to
 be built from connected components without a new whole-problem
 implementation for each combination.
 
@@ -794,7 +794,7 @@ solver callback, metric, or constraint construction. All current tests pass,
 so this is a containment and localization weakness rather than a failing
 baseline.
 
-**Authority:** The [implementation-readiness review](implementation-readiness-review.md)
+**Authority:** The [implementation-readiness review](../../implementation/implementation-readiness-review.md)
 requires explicit component diagnostics and value/JVP/VJP, constraint, and
 formulation verification. The assessment plan requires tests to localize the
 responsible layer and cover negative and degenerate cases.
@@ -853,8 +853,8 @@ bookkeeping, variable checks, and the same CG helper are repeated. A kind may
 therefore be “registered” while no independently composable lowerer for that
 kind exists.
 
-**Authority:** The root mission, [composition boundaries](composition-boundaries.md),
-and [system blueprint](system-blueprint.md) require residual, observation,
+**Authority:** The root mission, [composition boundaries](../../design/composition-boundaries.md),
+and [system blueprint](../../design/system-blueprint.md) require residual, observation,
 loss, metric, constraint, transformation, and discretization components to be
 lowered without a new problem class for every combination.
 
@@ -933,9 +933,10 @@ and the metric manifest names that Riesz map, but
 `l2_cellwise` description at compiler lines 1486-1490. Existing manifest tests
 mostly use substring searches and do not detect the mismatch.
 
-**Authority:** `docs/implementation-readiness-review.md:523-528` requires
+**Authority:** `docs/implementation/implementation-readiness-review.md:523-528`
+requires
 semantic IDs, FE and mesh selections, pairings/dual representation, policies,
-provenance, and assumptions. `docs/chapter-6-numerical-methods-guide.md:74-78`
+provenance, and assumptions. `docs/guides/chapter-6-numerical-methods.md:74-78`
 also requires state, test, control, adjoint, and observation spaces;
 trial/test relation; formulation; and state, adjoint, metric, and KKT
 tolerances.
@@ -987,7 +988,7 @@ graph through the fallback and compares the two instances at lines
 packaging, layout, metric, or constraint wiring, but the residual, objective,
 derivative, and assembly code are identical.
 
-**Authority:** The [v1 compiler record](semantic-v1-compiler.md) describes
+**Authority:** The [v1 compiler record](../../implementation/v1/semantic-compiler.md) describes
 this as a v0/v1 comparison guarantee, while the assessment plan requires
 independent verification or an explicit record of shared implementation.
 
@@ -1241,10 +1242,10 @@ service in `include/nmopt/contract/reduced_dto.hpp`; inventoried every logical
 test scenario and its numerical checks; and reviewed the complete root CMake
 configuration and repository-local developer tooling. Relevant authority came
 from the reduced and verification sections of the
-[executable contract](executable-contract-v0.md),
-[implementation-readiness review](implementation-readiness-review.md),
-[implementation roadmap](implementation-roadmap.md), and
-[Chapter 6 numerical-methods guide](chapter-6-numerical-methods-guide.md).
+[executable contract](../../implementation/v0/executable-contract.md),
+[implementation-readiness review](../../implementation/implementation-readiness-review.md),
+[implementation roadmap](../implementation-roadmap.md), and
+[Chapter 6 numerical-methods guide](../../guides/chapter-6-numerical-methods.md).
 
 There is no separate formulation package today. That is appropriate for the
 implemented slice: `StateControlPartitionT` plus `ReducedDTOT` is explicitly
@@ -1627,8 +1628,8 @@ exists today.
 | `AGENTS.md` and `conventions/` | Mission plus action-specific repository workflow | Clear, concise, and non-conflicting; build-profile weaknesses resolve to RF-018 rather than an agent-guidance redesign |
 | `interface-specification.md` | Normative implementation-neutral component protocol | Properly broader than the present implementation and explicit about unsupported advanced instances |
 | `implementation-readiness-review.md` | Selected defaults where the interface allows several choices | Policy analysis is strong, but release-status additions have drifted and should not remain a second capability ledger |
-| `executable-contract-v0.md` and `dealii-v0-lowerer.md` | Exact current v0 API and direct reference slice | Scope and exclusions match the audited v0 code; they correctly avoid claiming v1 extensions as v0 behavior |
-| `semantic-v1-compiler.md` | Exact current v1 graph/compiler realization | Most complete and accurate current-capability record; its component-lowering language must be qualified by RF-007 until the dispatcher is refactored |
+| `implementation/v0/executable-contract.md` and `implementation/v0/dealii-lowerer.md` | Exact current v0 API and direct reference slice | Scope and exclusions match the audited v0 code; they correctly avoid claiming v1 extensions as v0 behavior |
+| `implementation/v1/semantic-compiler.md` | Exact current v1 graph/compiler realization | Most complete and accurate current-capability record; its component-lowering language must be qualified by RF-007 until the dispatcher is refactored |
 | `implementation-roadmap.md` | Dependency order, completion state, acceptance checks, and handoff | Mathematical dependencies remain useful, but its current-state table, completion markers, and final handoff are stale |
 | `system-blueprint.md` | Short mental model and code correspondence, not a second authority | Later code map and exclusions are useful; the early component-status table and implemented-path diagram overstate or omit parts of current behavior |
 | Chapter 5/6 guides | Bounded source catalogue and implementation requirements | Scope boundaries and prerequisites are explicit and consistent with the stated endpoint |
@@ -1641,7 +1642,7 @@ mathematical contracts:
 
 | Capability or claim | Accurate current record | Conflicting or stale record |
 | --- | --- | --- |
-| Fixed-Dirichlet reconstruction | `semantic-v1-compiler.md` and the implementation paragraph under roadmap P1.2 describe the tested v1 target | P1.2 lacks a completed marker and the roadmap's final handoff still directs the next agent to implement P1.2 |
+| Fixed-Dirichlet reconstruction | `implementation/v1/semantic-compiler.md` and the implementation paragraph under roadmap P1.2 describe the tested v1 target | P1.2 lacks a completed marker and the roadmap's final handoff still directs the next agent to implement P1.2 |
 | Complete-boundary controlled-Dirichlet lifting | The compiler record, interface delta, Chapter 5 guide, system-blueprint closing scope, and roadmap P3.2 describe the implemented narrow target | The readiness review lists Dirichlet control as unsupported and leaves fixed/controlled liftings incomplete in its extension order; the blueprint also broadly says controlled essential conditions are unavailable |
 | Material-subdomain tracking | Compiler record and roadmap P1.3 describe the implemented material-id observation | The blueprint's early component table says the current observation is full-domain only |
 | Pure-Neumann gauge | Compiler record and readiness review describe the one-multiplier implementation | Roadmap P2.2 contains an implementation block but lacks a completed marker |
@@ -1667,7 +1668,7 @@ next-agent section selects one of those completed tasks.
   math delimiters. Searches found no unintentional TODO, TBD, FIXME, or
   placeholder marker; the one placeholder mention is an instruction in the
   assessment plan to remove provisional recommendations.
-- Four formulas in `chapter-5-implementation-guide.md` use the fine-spacing
+- Four formulas in `guides/chapter-5-elliptic-control.md` use the fine-spacing
   command `\,`, which `conventions/documentation.md` asks authors to avoid.
   This is local rendering hygiene to fix when that guide is next edited, not
   a refactor gate or a reason to add a Markdown toolchain.
@@ -1716,7 +1717,8 @@ characterization and RF-007 work so current architecture is not overstated.
 1. Keep the interface specification normative and implementation-neutral.
 2. Keep the readiness review about selected policies and move or remove
    mutable release-status lists.
-3. Make `semantic-v1-compiler.md` the exact v1 capability and exclusion
+3. Make `implementation/v1/semantic-compiler.md` the exact v1 capability and
+   exclusion
    record, with each capability tied to its registered target and test.
 4. Keep the roadmap as the dependency-ordered status ledger and acceptance
    plan. Normalize all completion markers, update its compact current-state
@@ -1809,7 +1811,8 @@ C2, and S1 additionally require selection of the affected feature lane.
 
 1. Keep the interface specification normative and the readiness review focused
    on selected mathematical and realization policy.
-2. Make `semantic-v1-compiler.md` the exact current v1 capability and exclusion
+2. Make `implementation/v1/semantic-compiler.md` the exact current v1
+   capability and exclusion
    table.
 3. Normalize the implementation-roadmap completion markers and replace its
    obsolete P1.2 next-agent handoff with the accepted refactor gate and the

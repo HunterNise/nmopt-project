@@ -26,7 +26,7 @@ separate v1-only assembled target; it never extends the v0 direct model. All
 targets expose the same generic compiled ports.
 
 The normative semantic protocol remains the
-[interface specification](interface-specification.md). This document records
+[interface specification](../../design/interface-specification.md). This document records
 the concrete, intentionally narrow v1 realization of that protocol.
 
 ## Public semantic graph

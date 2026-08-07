@@ -4,7 +4,7 @@
 
 This guide is the shortest path to a working mental model of `nmopt`. It connects the mathematical model, the semantic specification, the current v0 contracts, the serial deal.II reference lowerer, and the tests.
 
-It is not a second source of authority: the [interface specification](interface-specification.md) is normative for the intended semantic API; the [v0 executable contract](executable-contract-v0.md) and [deal.II lowerer record](dealii-v0-lowerer.md) state what works today.
+It is not a second source of authority: the [interface specification](interface-specification.md) is normative for the intended semantic API; the [v0 executable contract](../implementation/v0/executable-contract.md) and [deal.II lowerer record](../implementation/v0/dealii-lowerer.md) state what works today.
 
 ## The one-sentence model
 
@@ -58,11 +58,11 @@ The `ScalarDiffusionReactionModel` is a reference lowerer for one selected finit
 | --- | --- | --- | --- |
 | Theory | What mathematical object is solved? | [Formalism](theoretical-formalism.md) | A dense linear-quadratic oracle and one FE instance |
 | Semantic specification | Which components and ports should exist? | [Interface specification](interface-specification.md) | Narrow `semantic::v1::ProblemSpec` graph |
-| Compilation policy | How do spaces, pairings, liftings, and execution become discrete? | [V1 semantic compiler](semantic-v1-compiler.md) | Assembled serial v1 registry, compared with v0 |
-| Executable contract | What may algorithms call after lowering? | [V0 contract](executable-contract-v0.md) | `include/nmopt/contract/` |
+| Compilation policy | How do spaces, pairings, liftings, and execution become discrete? | [V1 semantic compiler](../implementation/v1/semantic-compiler.md) | Assembled serial v1 registry, compared with v0 |
+| Executable contract | What may algorithms call after lowering? | [V0 contract](../implementation/v0/executable-contract.md) | `include/nmopt/contract/` |
 | Formulation | How do residual and objective become first-order operations? | [Interface specification](interface-specification.md) | `ReducedDTOT` implements narrow DTO |
-| Backend/lowerer | How is one model assembled in deal.II? | [deal.II lowerer](dealii-v0-lowerer.md) | `ScalarDiffusionReactionModel` |
-| Verification | How do values and derivatives agree? | [Roadmap](implementation-roadmap.md) | Semantic and deal.II comparison `CTest` executables |
+| Backend/lowerer | How is one model assembled in deal.II? | [deal.II lowerer](../implementation/v0/dealii-lowerer.md) | `ScalarDiffusionReactionModel` |
+| Verification | How do values and derivatives agree? | [Roadmap](../planning/implementation-roadmap.md) | Semantic and deal.II comparison `CTest` executables |
 
 ## The vocabulary: component cards
 
@@ -116,7 +116,7 @@ BlockLayout                          named spaces + dimensions
 pair(covector, primal)               the only primitive dual pairing
 ```
 
-See [`layout.hpp`](../include/nmopt/contract/layout.hpp) and [`linalg.hpp`](../include/nmopt/contract/linalg.hpp). Layout checks reject a state vector where a control vector is required, even when both use the same storage type and happen to have the same length.
+See [`layout.hpp`](../../include/nmopt/contract/layout.hpp) and [`linalg.hpp`](../../include/nmopt/contract/linalg.hpp). Layout checks reject a state vector where a control vector is required, even when both use the same storage type and happen to have the same length.
 
 ## From a strong PDE to an input graph
 
@@ -180,7 +180,7 @@ ConstraintT<Backend>
     project_in(u, metric)       -> metric-specific projection, when supported
 ```
 
-The interface is [`executable_model.hpp`](../include/nmopt/contract/executable_model.hpp); metric and constraint interfaces are in [`metric_constraint.hpp`](../include/nmopt/contract/metric_constraint.hpp). No method accepts a PDE name or boundary-condition enum. That is what allows an optimizer to be reused once a lowerer has supplied these actions.
+The interface is [`executable_model.hpp`](../../include/nmopt/contract/executable_model.hpp); metric and constraint interfaces are in [`metric_constraint.hpp`](../../include/nmopt/contract/metric_constraint.hpp). No method accepts a PDE name or boundary-condition enum. That is what allows an optimizer to be reused once a lowerer has supplied these actions.
 
 ## DTO: how a control becomes a reduced covector
 
@@ -217,7 +217,7 @@ g_{h}=G^{-1}j_{h}'.
 
 Regularisation and metric must stay separate. Adding $`\frac{\alpha}{2}\lVert u\rVert_{H^{1}}^{2}`$ changes $`J_{u}'`$ and therefore the reduced derivative. Replacing the search metric by an $H^{1}$ metric changes only the last covector-to-direction map.
 
-[`reduced_dto.hpp`](../include/nmopt/contract/reduced_dto.hpp) implements this narrow workflow: one eliminated state block, one control block, one residual test block, and externally supplied state/adjoint solves.
+[`reduced_dto.hpp`](../../include/nmopt/contract/reduced_dto.hpp) implements this narrow workflow: one eliminated state block, one control block, one residual test block, and externally supplied state/adjoint solves.
 
 ## Current deal.II model: theory to assembled objects
 
@@ -268,29 +268,29 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 
 | Read next | Why it exists | Read it when you need to understand or change |
 | --- | --- | --- |
-| [`linalg.hpp`](../include/nmopt/contract/linalg.hpp) | Dense reference vector/matrix algebra and `ContractError` | Backend capability minimum and reference solves |
-| [`layout.hpp`](../include/nmopt/contract/layout.hpp) | Named layouts, primal/covector wrappers, pairing | Type and duality errors |
-| [`executable_model.hpp`](../include/nmopt/contract/executable_model.hpp) | Five universal executable actions | What a compiler/lowerer must emit |
-| [`metric_constraint.hpp`](../include/nmopt/contract/metric_constraint.hpp) | Metric and projection boundaries | Search direction versus feasibility |
-| [`reduced_dto.hpp`](../include/nmopt/contract/reduced_dto.hpp) | State/adjoint/reduced-covector orchestration | First-order workflow and signs |
-| [`reduced_gradient.hpp`](../include/nmopt/solvers/reduced_gradient.hpp) | Unconstrained and projected reduced Armijo method | First optimizer and its diagnostics |
-| [`linear_quadratic_model.hpp`](../include/nmopt/reference/linear_quadratic_model.hpp) | Transparent matrix oracle | Check algebra before FE assembly |
-| [`serial_backend.hpp`](../include/nmopt/dealii/serial_backend.hpp) | Adapter from five vector operations to deal.II | Backend parameterisation |
-| [`mass_metric.hpp`](../include/nmopt/dealii/mass_metric.hpp) | Sparse SPD decision Riesz map | deal.II $L^{2}$ and $H^{1}$ control or parameter search directions |
-| [`cellwise_box_constraint.hpp`](../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control or parameter updates |
-| [`facewise_box_constraint.hpp`](../include/nmopt/dealii/facewise_box_constraint.hpp) | Facewise-constant coefficientwise box projection | Feasible Neumann boundary-control updates |
-| [`scalar_diffusion_reaction.hpp`](../include/nmopt/dealii/scalar_diffusion_reaction.hpp) | Concrete deal.II lowerer | FE assembly, constraints, solves |
-| [`types.hpp`](../include/nmopt/semantic/v1/types.hpp) | Narrow deal.II-free v1 graph types | Semantic component ports |
-| [`validation.hpp`](../include/nmopt/semantic/v1/validation.hpp) | Structural and policy diagnostics | Semantic validation |
-| [`compiled_problem.hpp`](../include/nmopt/compiler/v1/compiled_problem.hpp) | Backend-generic compiled package and manifest | Solver-facing compiled ports and provenance |
-| [`dealii_compiler.hpp`](../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks plus private v0 comparison or v1 assembled targets |
-| [`dealii_fixed_dirichlet.hpp`](../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
-| [`dealii_dirichlet_control.hpp`](../include/nmopt/compiler/v1/dealii_dirichlet_control.hpp) | V1 controlled physical-state target | Complete-boundary nodal lifting, trace metric, and state/control pullbacks |
-| [`dealii_neumann_boundary.hpp`](../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, pullbacks, and pure-Neumann mean-zero saddle solves |
-| [`dealii_h1_control.hpp`](../include/nmopt/compiler/v1/dealii_h1_control.hpp) | V1 continuous-control target | $H^{1}$ control loss with explicitly selectable $L^{2}$ or $H^{1}$ search metric |
-| [`dealii_coefficient_identification.hpp`](../include/nmopt/compiler/v1/dealii_coefficient_identification.hpp) | V1 positive cellwise coefficient target | Parameter-dependent state/adjoint actions and exact first-order pullbacks |
-| [`reduced_dto_contract.cc`](../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
-| [`dealii_diffusion_contract.cc`](../tests/dealii_diffusion_contract.cc) | Same checks through real deal.II assembly | End-to-end reference use |
+| [`linalg.hpp`](../../include/nmopt/contract/linalg.hpp) | Dense reference vector/matrix algebra and `ContractError` | Backend capability minimum and reference solves |
+| [`layout.hpp`](../../include/nmopt/contract/layout.hpp) | Named layouts, primal/covector wrappers, pairing | Type and duality errors |
+| [`executable_model.hpp`](../../include/nmopt/contract/executable_model.hpp) | Five universal executable actions | What a compiler/lowerer must emit |
+| [`metric_constraint.hpp`](../../include/nmopt/contract/metric_constraint.hpp) | Metric and projection boundaries | Search direction versus feasibility |
+| [`reduced_dto.hpp`](../../include/nmopt/contract/reduced_dto.hpp) | State/adjoint/reduced-covector orchestration | First-order workflow and signs |
+| [`reduced_gradient.hpp`](../../include/nmopt/solvers/reduced_gradient.hpp) | Unconstrained and projected reduced Armijo method | First optimizer and its diagnostics |
+| [`linear_quadratic_model.hpp`](../../include/nmopt/reference/linear_quadratic_model.hpp) | Transparent matrix oracle | Check algebra before FE assembly |
+| [`serial_backend.hpp`](../../include/nmopt/dealii/serial_backend.hpp) | Adapter from five vector operations to deal.II | Backend parameterisation |
+| [`mass_metric.hpp`](../../include/nmopt/dealii/mass_metric.hpp) | Sparse SPD decision Riesz map | deal.II $L^{2}$ and $H^{1}$ control or parameter search directions |
+| [`cellwise_box_constraint.hpp`](../../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control or parameter updates |
+| [`facewise_box_constraint.hpp`](../../include/nmopt/dealii/facewise_box_constraint.hpp) | Facewise-constant coefficientwise box projection | Feasible Neumann boundary-control updates |
+| [`scalar_diffusion_reaction.hpp`](../../include/nmopt/dealii/scalar_diffusion_reaction.hpp) | Concrete deal.II lowerer | FE assembly, constraints, solves |
+| [`types.hpp`](../../include/nmopt/semantic/v1/types.hpp) | Narrow deal.II-free v1 graph types | Semantic component ports |
+| [`validation.hpp`](../../include/nmopt/semantic/v1/validation.hpp) | Structural and policy diagnostics | Semantic validation |
+| [`compiled_problem.hpp`](../../include/nmopt/compiler/v1/compiled_problem.hpp) | Backend-generic compiled package and manifest | Solver-facing compiled ports and provenance |
+| [`dealii_compiler.hpp`](../../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks plus private v0 comparison or v1 assembled targets |
+| [`dealii_fixed_dirichlet.hpp`](../../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
+| [`dealii_dirichlet_control.hpp`](../../include/nmopt/compiler/v1/dealii_dirichlet_control.hpp) | V1 controlled physical-state target | Complete-boundary nodal lifting, trace metric, and state/control pullbacks |
+| [`dealii_neumann_boundary.hpp`](../../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, pullbacks, and pure-Neumann mean-zero saddle solves |
+| [`dealii_h1_control.hpp`](../../include/nmopt/compiler/v1/dealii_h1_control.hpp) | V1 continuous-control target | $H^{1}$ control loss with explicitly selectable $L^{2}$ or $H^{1}$ search metric |
+| [`dealii_coefficient_identification.hpp`](../../include/nmopt/compiler/v1/dealii_coefficient_identification.hpp) | V1 positive cellwise coefficient target | Parameter-dependent state/adjoint actions and exact first-order pullbacks |
+| [`reduced_dto_contract.cc`](../../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
+| [`dealii_diffusion_contract.cc`](../../tests/dealii_diffusion_contract.cc) | Same checks through real deal.II assembly | End-to-end reference use |
 
 The dense model has no mesh or FE code. It makes an incorrect formula, type pairing, or DTO sign fail independently of deal.II. The deal.II test then establishes that the same contract survives real `DoFHandler`, quadrature, sparse assembly, `AffineConstraints`, and CG solve operations.
 
@@ -341,7 +341,7 @@ available box projections are only the declared `FE_DGQ(0)`
 cellwise volume and facewise-constant boundary $L^{2}$ policies. The
 complete-boundary nodal Dirichlet lifting has no box realization.
 
-The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](semantic-v1-compiler.md#exclusions). The [roadmap](implementation-roadmap.md) records the completed explicit Dirichlet-control lifting while preserving the v0 reference.
+The exact exclusions are in the [deal.II lowerer record](../implementation/v0/dealii-lowerer.md#explicit-exclusions) and [v1 semantic/compiler record](../implementation/v1/semantic-compiler.md#exclusions). The [roadmap](../planning/implementation-roadmap.md) records the completed explicit Dirichlet-control lifting while preserving the v0 reference.
 
 ## Blueprint for adding one feature yourself
 
@@ -353,4 +353,4 @@ The exact exclusions are in the [deal.II lowerer record](dealii-v0-lowerer.md#ex
 6. Add value, JVP, and VJP pairing tests. If it affects an optimised variable, add a state-recomputed reduced Taylor test. Test the metric relation separately when a solver needs a direction.
 7. Reject unsupported combinations with a capability diagnostic; never use a nearby but mathematically different fallback.
 
-For worked deltas from the baseline, use the [Laplace growth case study](laplace-growth-case-study.md) and [formula-delta guide](laplace-interface-formulas.md). They show exactly which component changes for Neumann or Dirichlet control, observation changes, metrics, box constraints, coefficient identification, and time dependence.
+For worked deltas from the baseline, use the [Laplace growth case study](../case-studies/laplace-growth.md) and [formula-delta guide](../case-studies/laplace-interface-formulas.md). They show exactly which component changes for Neumann or Dirichlet control, observation changes, metrics, box constraints, coefficient identification, and time dependence.

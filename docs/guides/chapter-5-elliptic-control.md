@@ -73,7 +73,7 @@ substituted.
 | 5.13 Stokes control | Unsupported | The executable DTO boundary has one scalar state equation; mixed vector saddle systems are absent. |
 
 The required reusable extensions are recorded as P5.1–P5.6 in the
-[implementation roadmap](implementation-roadmap.md#chapter-5-feature-requests).
+[implementation roadmap](../planning/implementation-roadmap.md#chapter-5-feature-requests).
 
 ## Shared mathematical declarations
 

@@ -26,7 +26,7 @@ selected metric-qualified projection. All-at-once KKT solves, second
 derivatives, general reduced search methods, Petrov–Galerkin formulation
 choices, and mixed Stokes blocks are not current compiler targets. The
 required reusable extensions are P6.1–P6.5 in the
-[implementation roadmap](implementation-roadmap.md#chapter-6-feature-requests).
+[implementation roadmap](../planning/implementation-roadmap.md#chapter-6-feature-requests).
 
 ## Framework convention and discrete notation
 

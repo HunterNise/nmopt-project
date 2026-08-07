@@ -1,0 +1,129 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "debug-neutral",
+      "displayName": "Debug backend-neutral",
+      "description": "Fast contract and semantic checks without deal.II discovery.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug-neutral",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BUILD_TESTING": "ON",
+        "NMOPT_ENABLE_DEAL_II": "OFF",
+        "NMOPT_ENABLE_WARNINGS": "ON",
+        "NMOPT_ENABLE_STRICT_WARNINGS": "ON",
+        "NMOPT_WARNINGS_AS_ERRORS": "ON",
+        "NMOPT_ENABLE_SANITIZERS": "OFF"
+      }
+    },
+    {
+      "name": "debug-dealii",
+      "displayName": "Debug deal.II",
+      "description": "Full Debug correctness build with the official deal.II package.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug-dealii",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BUILD_TESTING": "ON",
+        "NMOPT_ENABLE_DEAL_II": "ON",
+        "NMOPT_ENABLE_WARNINGS": "ON",
+        "NMOPT_ENABLE_STRICT_WARNINGS": "OFF",
+        "NMOPT_WARNINGS_AS_ERRORS": "ON",
+        "NMOPT_ENABLE_SANITIZERS": "OFF"
+      }
+    },
+    {
+      "name": "sanitize-neutral",
+      "displayName": "Sanitized backend-neutral",
+      "description": "Address and undefined-behavior checks without deal.II.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/sanitize-neutral",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BUILD_TESTING": "ON",
+        "NMOPT_ENABLE_DEAL_II": "OFF",
+        "NMOPT_ENABLE_WARNINGS": "ON",
+        "NMOPT_ENABLE_STRICT_WARNINGS": "ON",
+        "NMOPT_WARNINGS_AS_ERRORS": "ON",
+        "NMOPT_ENABLE_SANITIZERS": "ON"
+      }
+    },
+    {
+      "name": "release-dealii",
+      "displayName": "Release deal.II",
+      "description": "Optimized verification and Chapter 6 timing profile.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release-dealii",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BUILD_TESTING": "ON",
+        "NMOPT_ENABLE_DEAL_II": "ON",
+        "NMOPT_ENABLE_WARNINGS": "OFF",
+        "NMOPT_ENABLE_STRICT_WARNINGS": "OFF",
+        "NMOPT_WARNINGS_AS_ERRORS": "OFF",
+        "NMOPT_ENABLE_SANITIZERS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug-neutral",
+      "configurePreset": "debug-neutral"
+    },
+    {
+      "name": "debug-dealii",
+      "configurePreset": "debug-dealii"
+    },
+    {
+      "name": "sanitize-neutral",
+      "configurePreset": "sanitize-neutral"
+    },
+    {
+      "name": "release-dealii",
+      "configurePreset": "release-dealii"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "debug-neutral",
+      "configurePreset": "debug-neutral",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "debug-dealii",
+      "configurePreset": "debug-dealii",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "sanitize-neutral",
+      "configurePreset": "sanitize-neutral",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0"
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release-dealii",
+      "configurePreset": "release-dealii",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

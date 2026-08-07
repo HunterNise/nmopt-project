@@ -42,7 +42,7 @@ namespace nmopt::dealii_backend
       contract::require(
         projection_metric.supports_coefficientwise_box_projection(),
         "Facewise box projection needs a positive diagonal metric realization");
-      for (std::size_t index = 0; index < lower_.size(); ++index)
+      for (Vector::size_type index = 0; index < lower_.size(); ++index)
         contract::require(lower_[index] <= upper_[index],
                           "Facewise box lower bound exceeds upper bound");
     }
@@ -67,7 +67,7 @@ namespace nmopt::dealii_backend
     is_feasible(const Primal &primal) const override
     {
       require_primal(primal, "Facewise box primal has an incompatible layout");
-      for (std::size_t index = 0; index < lower_.size(); ++index)
+      for (Vector::size_type index = 0; index < lower_.size(); ++index)
         if (primal.block(0)[index] < lower_[index] ||
             primal.block(0)[index] > upper_[index])
           return false;
@@ -90,7 +90,7 @@ namespace nmopt::dealii_backend
       require_primal(primal, "Facewise box primal has an incompatible layout");
 
       Vector projected = primal.block(0);
-      for (std::size_t index = 0; index < projected.size(); ++index)
+      for (Vector::size_type index = 0; index < projected.size(); ++index)
         projected[index] = std::max(lower_[index],
                                     std::min(upper_[index], projected[index]));
       return Primal(layout_, {std::move(projected)});
@@ -105,8 +105,8 @@ namespace nmopt::dealii_backend
       contract::require(layout->n_blocks() == 1,
                         "Facewise box constraint supports exactly one block");
 
-      Vector bound(layout->dimension(0));
-      for (std::size_t index = 0; index < bound.size(); ++index)
+      Vector bound(SerialBackend::checked_native_size(layout->dimension(0)));
+      for (Vector::size_type index = 0; index < bound.size(); ++index)
         bound[index] = value;
       return bound;
     }

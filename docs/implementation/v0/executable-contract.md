@@ -44,6 +44,12 @@ The retained `add_scaled_block()` and `scale_block()` operations cannot replace
 storage, and scaled updates reject a source whose dimension differs from the
 declared block layout.
 
+`dealii_backend::SerialBackend` is the checked adapter between contract
+dimensions (`std::size_t`) and the native serial deal.II vector size type. It
+accepts the native maximum symbolically without allocation and rejects a
+larger contract dimension before vector construction. The cellwise and
+facewise box adapters use the same conversion and native index type.
+
 An `ExecutableModel` has the following exact signatures in mathematical form:
 
 $$
@@ -187,9 +193,10 @@ The `CTest` scenarios verify:
 9. read-only block storage, rejected dimension-changing updates, and preserved
    pairing under checked algebraic updates;
 10. exact `ContractError` messages for representative partition, callback,
-   metric, constraint, and projected-solver precondition failures; and
+   metric, constraint, and projected-solver precondition failures;
 11. dense and deal.II unconstrained/projected Armijo convergence, including
-   active-bound and projected-stationarity checks.
+   active-bound and projected-stationarity checks; and
+12. checked acceptance/rejection at the serial deal.II native-size boundary.
 
 This establishes the small executable algebra that a deal.II compiler must
 produce. The first serial scalar diffusion-reaction compiler now exists; its

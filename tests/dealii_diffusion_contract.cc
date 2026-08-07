@@ -157,6 +157,25 @@ namespace
                       "Cellwise clipping accepted an H1 metric realization");
   }
 
+  void
+  run_backend_size_conversion_contract_test()
+  {
+    const std::size_t maximum =
+      dealii_backend::SerialBackend::maximum_native_size();
+    contract::require(
+      static_cast<std::size_t>(
+        dealii_backend::SerialBackend::checked_native_size(maximum)) == maximum,
+      "Serial deal.II size conversion rejected its native maximum");
+
+    if constexpr (dealii_backend::SerialBackend::native_size_is_narrower)
+      test_support::require_contract_error(
+        [maximum]() {
+          (void)dealii_backend::SerialBackend::checked_native_size(maximum + 1);
+        },
+        "Serial deal.II vector size exceeds its native range",
+        "oversized serial deal.II vector dimension");
+  }
+
   template <int dim>
   void
   run_fixed_dirichlet_contract_test()
@@ -1699,7 +1718,9 @@ main(const int argc, char **argv)
             []() { run_coefficient_identification_contract_test<2>(); }},
            {"pure_neumann", []() { run_pure_neumann_contract_test<2>(); }},
            {"projection_compatibility",
-            run_projection_compatibility_contract_test}});
+            run_projection_compatibility_contract_test},
+           {"backend_size_conversion",
+            run_backend_size_conversion_contract_test}});
       std::cout << "deal.II diffusion DTO contract scenario passed: "
                 << executed << '\n';
       return 0;

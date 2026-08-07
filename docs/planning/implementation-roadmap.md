@@ -7,26 +7,30 @@ first serial deal.II lowerer. It is intentionally dependency-ordered: finish
 the useful vertical slice before broadening the semantic language, and broaden
 the semantic language before adding advanced PDE variants.
 
-The command below is the baseline check before and after every task.
-It uses the Ninja generator.
+The fast baseline before and after every task is the explicit backend-neutral
+Debug profile:
 
 ~~~bash
-cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
-cmake --build build
-ctest --test-dir build --output-on-failure
+cmake --preset debug-neutral
+cmake --build --preset debug-neutral
+ctest --preset debug-neutral
 ~~~
+
+Run `debug-dealii` as well for compiler, lowerer, backend, or numerical
+changes. The [build convention](../../conventions/build.md) owns the complete
+profile matrix and cache-recovery guidance.
 
 ## Current handoff state
 
-Stage B is active on `codex/refactor-ch5-ch6-readiness`. Batches R0
+Stage B common stabilization is complete on
+`codex/refactor-ch5-ch6-readiness`. Batches R0
 (`RF-020`), R1 (`RF-006`, `RF-009`, and `RF-016`), R2a (`RF-001` and the
 relevant `RF-006` characterization), R2b (`RF-002` through `RF-005` and the
-relevant `RF-006` cases), and R2c (the current factual defect in `RF-008` plus
-`RF-012`) are complete; the next bounded batch is
-[R3 build and test feedback](refactor/stage-b-roadmap.md#r3--make-build-and-test-feedback-explicit).
-Chapter 5/6 feature work remains behind the common stabilization checkpoint
-and the conditional gates in the Stage B roadmap. No P5/P6 feature has been
-selected yet.
+relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
+`RF-012`), and R3 (`RF-016` through `RF-019`) are complete. No P5/P6 feature
+has been selected yet, so the next step is an explicit vertical-slice choice
+followed by its conditional C1, C2, or S1 gate from the
+[Stage B roadmap](refactor/stage-b-roadmap.md).
 
 The following pieces exist and are tested:
 
@@ -38,12 +42,13 @@ The following pieces exist and are tested:
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
-| deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend for the backend-parametric contract. |
+| deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend with a checked conversion from contract dimensions to the native deal.II size type. |
 | Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
 | deal.II metrics | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, and parameter layouts, with serial CG inverse apply and an operator-bound realization witness. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose eighteen independently named and labeled CTest scenarios: four dense/backend contract cases, five semantic graph cases, and nine deal.II compiler/lowering cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, manifest-realization, and projection-coupling invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
+| Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose nineteen independently named, labeled, and time-bounded CTest scenarios: four dense/backend contract cases, five semantic graph cases, and ten deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, manifest-realization, projection-coupling, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It validates registered component kinds, then matches the complete graph
@@ -777,21 +782,18 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-Take **Stage B R3 only**:
+Do not start another implementation batch until the user selects a bounded
+Chapter 5/6 vertical slice. After that choice:
 
-1. Follow the [Stage B routing protocol](refactor/README.md) and read only the
-   R3 batch and findings `RF-016` through `RF-019`.
-2. Make backend-neutral, deal.II, sanitizer, and Release configurations
-   explicit through the accepted persistent build layout and presets; a
-   requested but unavailable deal.II backend must fail configuration clearly.
-3. Complete logical CTest metadata with labels and timeouts, integrate project
-   warnings into Debug profiles, and keep backend-neutral sanitizers separate.
-   Add checked size conversions only at adapter seams touched by this batch.
-4. Validate clean Debug configurations first, then the sanitizer and Release
-   profiles appropriate to the roadmap, and record R3 completion plus the
-   common stabilization checkpoint here.
+1. Map the selected slice to the conditional gate in the
+   [Stage B roadmap](refactor/stage-b-roadmap.md): compiler-facing or comparative
+   numerical work starts with C1; component-heavy lowering then takes C2; a
+   selected P6.1 solver feature takes S1.
+2. Follow the [Stage B routing protocol](refactor/README.md) and read only that
+   gate's assigned findings plus the selected feature guide and current
+   authoritative contract.
+3. Record the selected slice and concrete acceptance criteria here before
+   implementation, then execute only its prerequisite gate.
 
-Do not change numerical or semantic capabilities or select a P5/P6 feature
-during R3.
-Feature selection occurs only after the common stabilization checkpoint and
-its relevant conditional gate.
+Do not run C1, C2, or S1 speculatively: their scope depends on the feature that
+will actually be implemented.

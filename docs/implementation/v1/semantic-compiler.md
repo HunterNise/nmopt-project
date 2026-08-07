@@ -379,8 +379,9 @@ diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic
 and compiler checks match diagnostic category, component ID, and capability.
 A ninth deal.II contract scenario rejects display-ID spoofing for cellwise,
-facewise, and $H^{1}$ metric realizations. Exact assertions remain in the test
-sources rather than being duplicated as a second inventory here.
+facewise, and $H^{1}$ metric realizations; a tenth checks the serial backend's
+native-size conversion boundary. Exact assertions remain in the test sources
+rather than being duplicated as a second inventory here.
 
 ## Exclusions
 

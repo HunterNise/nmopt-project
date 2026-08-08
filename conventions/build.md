@@ -1,5 +1,12 @@
 # Build and test conventions
 
+## Read-only tasks
+
+For read-only tasks, do not configure, build, or run tests unless the user
+explicitly requests verification or the answer depends on test output.
+Existing build artifacts may be inspected, but should not be regenerated. If
+nothing was edited, skip build and test by default.
+
 ## Baseline profiles
 
 Use the checked-in CMake presets. They select Ninja, an explicit build type,

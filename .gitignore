@@ -1,4 +1,7 @@
-/build*/
+# CMake build trees must use a profile subdirectory such as
+# build/debug-neutral/, never the build/ container itself.
+/build/*
+/build-*/
 /cmake-build-*/
 compile_commands.json
 

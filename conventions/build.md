@@ -52,6 +52,24 @@ ASAN_OPTIONS=detect_leaks=1 \
 Run `release-dealii` before reporting numerical timings. Debug timings are not
 benchmark evidence.
 
+Each profile keeps CMake's own state at the profile root, while project outputs
+use this layout:
+
+```text
+build/debug-neutral/
+  bin/                         # executable targets
+  lib/                         # library targets
+  generated/scenarios/         # generated CTest registrations
+    nmopt_reduced_dto_contract_test/
+      discovered_scenarios.cmake
+      include.cmake
+```
+
+The same layout applies to the other profiles. The
+`discovered_scenarios.cmake` files are produced after their registered test
+executables are built, while the small `include.cmake` wrappers are generated
+at configure time. Neither is a source file; do not edit them by hand.
+
 ### Unix Makefiles fallback
 
 The checked-in presets intentionally require Ninja. If Ninja is unavailable,
@@ -84,16 +102,19 @@ ctest --preset debug-dealii -R coefficient_identification
 ```
 
 Each test source owns its scenario names, CTest names, labels, timeouts, and
-callbacks in one registry. After linking an executable, the generic discovery
+callbacks in one registry. The current convention is one test executable per
+test translation unit: `tests/foo.cc` becomes the project target
+`nmopt_foo_test`. A translation unit may still contain multiple logical
+scenarios.
+
+After linking a test executable, the generic `scenario_discovery_register`
 helper queries its `--list-scenarios` manifest and generates the individual
 CTest entries. Adding or removing a logical scenario therefore changes only
-the test source; do not duplicate its inventory in `CMakeLists.txt`.
-
-The deal.II executable remains one translation unit, so adding a scenario does
-not require another expensive executable. Separate processes localize ordinary
-failures, crashes, and timeouts while allowing later CTest entries to continue.
-Running an executable without a scenario remains an aggregate convenience,
-and its failure text identifies the active scenario.
+the test source; do not duplicate its inventory in `CMakeLists.txt`. Separate
+processes localize ordinary failures, crashes, and timeouts while allowing
+later CTest entries to continue. Running an executable without a scenario
+remains an aggregate convenience, and its failure text identifies the active
+scenario.
 
 ## Dependency intent and cache discipline
 
@@ -103,22 +124,24 @@ backend-neutral alternative. `NMOPT_ENABLE_DEAL_II=OFF` intentionally performs
 no deal.II discovery and registers only backend-neutral tests. Every configure
 prints a concise summary of the selected mode.
 
-The root of `build/` is a container for named profile directories; do not
-configure CMake directly into it. Generated files directly under `build/` are
-obsolete legacy output and should be removed rather than moved because CMake
-caches embed their original paths. If a named profile directory contains a
-stale or different-generator cache, remove only that generated directory and
-configure the profile again, or select a fresh ignored directory when its old
-contents must be retained temporarily.
+The root of `build/` is a container only. Never configure or build directly in
+`build/`; always use a named subdirectory such as `build/debug-neutral/` or
+`build/debug-dealii/`. A CMake cache, `CMakeFiles/`, or build product directly
+under `build/` is invalid legacy output and should not be reused. If a named
+profile directory contains a stale or different-generator cache, remove only
+that generated directory and configure the profile again, or select a fresh
+ignored directory when its old contents must be retained temporarily.
 
 ## Build boundaries
 
 - Keep generated files and build products under `build/` or another ignored
   build directory.
-- When adding a test executable, update the relevant `CMakeLists.txt` and
-  enable scenario discovery for its target. When adding a scenario to an
-  existing executable, update only its C++ registry with useful labels and a
-  proportionate timeout, then rebuild before running CTest.
+- Add ordinary backend-neutral executables with the neutral executable helper;
+  add tests with its test variant so scenario discovery is registered exactly
+  once. Use the corresponding deal.II helpers only inside the deal.II-enabled
+  block. When adding a scenario to an existing executable, update only its C++
+  registry with useful labels and a proportionate timeout, then rebuild before
+  running CTest.
 - The deal.II backend is optional only through the explicit neutral mode. Do
   not hide a requested unavailable dependency, failed build, or failed test.
 - Do not add packaging, coverage hosting, formatter gates, or additional

@@ -84,7 +84,7 @@ namespace nmopt::test_support
   {
     for (const auto &scenario : scenarios)
       {
-        output << "NMOPT_SCENARIO|" << scenario.ctest_name << '|'
+        output << "SCENARIO_DISCOVERY|" << scenario.ctest_name << '|'
                << scenario.name << '|' << scenario.timeout_seconds << '|';
         for (std::size_t index = 0; index < scenario.labels.size(); ++index)
           {

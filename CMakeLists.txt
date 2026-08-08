@@ -16,18 +16,18 @@ if(NMOPT_ENABLE_SANITIZERS AND NMOPT_ENABLE_DEAL_II)
     "Configure with NMOPT_ENABLE_DEAL_II=OFF or use the sanitize-neutral preset.")
 endif()
 
-add_library(nmopt_project_options INTERFACE)
+add_library(nmopt_build_flags INTERFACE)
 if(NMOPT_ENABLE_WARNINGS)
   if(MSVC)
-    target_compile_options(nmopt_project_options INTERFACE /W4)
+    target_compile_options(nmopt_build_flags INTERFACE /W4)
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(nmopt_project_options
+    target_compile_options(nmopt_build_flags
       INTERFACE
         -Wall
         -Wextra
         -Wpedantic)
     if(NMOPT_ENABLE_STRICT_WARNINGS)
-      target_compile_options(nmopt_project_options
+      target_compile_options(nmopt_build_flags
         INTERFACE
           -Wconversion
           -Wshadow)
@@ -40,9 +40,9 @@ endif()
 
 if(NMOPT_WARNINGS_AS_ERRORS)
   if(MSVC)
-    target_compile_options(nmopt_project_options INTERFACE /WX)
+    target_compile_options(nmopt_build_flags INTERFACE /WX)
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(nmopt_project_options INTERFACE -Werror)
+    target_compile_options(nmopt_build_flags INTERFACE -Werror)
   endif()
 endif()
 
@@ -51,37 +51,65 @@ if(NMOPT_ENABLE_SANITIZERS)
     message(FATAL_ERROR
       "NMOPT_ENABLE_SANITIZERS currently supports GNU and Clang compilers only.")
   endif()
-  target_compile_options(nmopt_project_options
+  target_compile_options(nmopt_build_flags
     INTERFACE
       -fsanitize=address,undefined
       -fno-omit-frame-pointer)
-  target_link_options(nmopt_project_options
+  target_link_options(nmopt_build_flags
     INTERFACE
       -fsanitize=address,undefined
       -fno-omit-frame-pointer)
 endif()
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+file(MAKE_DIRECTORY
+  "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+  "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+  "${CMAKE_BINARY_DIR}/generated/scenarios")
 
 add_library(nmopt_contract INTERFACE)
 target_include_directories(nmopt_contract INTERFACE include)
 target_compile_features(nmopt_contract INTERFACE cxx_std_17)
 
 include(CTest)
-include(cmake/NmoptDiscoverScenarios.cmake)
+include(cmake/ScenarioDiscovery.cmake)
+
+function(nmopt_add_neutral_executable target source_file)
+  add_executable("${target}" "${source_file}")
+  target_link_libraries("${target}"
+    PRIVATE
+      nmopt_contract
+      nmopt_build_flags)
+endfunction()
+
+function(nmopt_add_neutral_test target source_file)
+  nmopt_add_neutral_executable("${target}" "${source_file}")
+  scenario_discovery_register("${target}")
+endfunction()
+
+function(nmopt_add_dealii_executable target source_file)
+  add_executable("${target}" "${source_file}")
+  target_link_libraries("${target}"
+    nmopt_dealii_contract
+    nmopt_build_flags)
+  deal_ii_setup_target("${target}")
+endfunction()
+
+function(nmopt_add_dealii_test target source_file)
+  nmopt_add_dealii_executable("${target}" "${source_file}")
+  scenario_discovery_register("${target}")
+endfunction()
 
 if(BUILD_TESTING)
-  add_executable(nmopt_contract_tests tests/reduced_dto_contract.cc)
-  target_link_libraries(nmopt_contract_tests
-    PRIVATE
-      nmopt_contract
-      nmopt_project_options)
-  nmopt_discover_scenarios(nmopt_contract_tests)
+  nmopt_add_neutral_test(
+    nmopt_reduced_dto_contract_test
+    tests/reduced_dto_contract.cc)
 
-  add_executable(nmopt_semantic_v1_contract_test tests/semantic_v1_contract.cc)
-  target_link_libraries(nmopt_semantic_v1_contract_test
-    PRIVATE
-      nmopt_contract
-      nmopt_project_options)
-  nmopt_discover_scenarios(nmopt_semantic_v1_contract_test)
+  nmopt_add_neutral_test(
+    nmopt_semantic_v1_contract_test
+    tests/semantic_v1_contract.cc)
 endif()
 
 if(NMOPT_ENABLE_DEAL_II)
@@ -99,13 +127,9 @@ if(NMOPT_ENABLE_DEAL_II)
   target_link_libraries(nmopt_dealii_contract INTERFACE nmopt_contract)
 
   if(BUILD_TESTING)
-    add_executable(nmopt_dealii_diffusion_contract_test
+    nmopt_add_dealii_test(
+      nmopt_dealii_diffusion_contract_test
       tests/dealii_diffusion_contract.cc)
-    target_link_libraries(nmopt_dealii_diffusion_contract_test
-      nmopt_dealii_contract
-      nmopt_project_options)
-    deal_ii_setup_target(nmopt_dealii_diffusion_contract_test)
-    nmopt_discover_scenarios(nmopt_dealii_diffusion_contract_test)
   endif()
 endif()
 

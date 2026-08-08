@@ -76,12 +76,17 @@ ctest --preset debug-dealii -L dealii
 ctest --preset debug-dealii -R coefficient_identification
 ```
 
-The deal.II executable remains one translation unit and dispatches the named
-scenario supplied by CTest; adding a scenario does not require another
-expensive executable. Separate processes localize ordinary failures, crashes,
-and timeouts while allowing later CTest entries to continue. Running an
-executable without a scenario remains an aggregate convenience, and its
-failure text identifies the active scenario.
+Each test source owns its scenario names, CTest names, labels, timeouts, and
+callbacks in one registry. After linking an executable, the generic discovery
+helper queries its `--list-scenarios` manifest and generates the individual
+CTest entries. Adding or removing a logical scenario therefore changes only
+the test source; do not duplicate its inventory in `CMakeLists.txt`.
+
+The deal.II executable remains one translation unit, so adding a scenario does
+not require another expensive executable. Separate processes localize ordinary
+failures, crashes, and timeouts while allowing later CTest entries to continue.
+Running an executable without a scenario remains an aggregate convenience,
+and its failure text identifies the active scenario.
 
 ## Dependency intent and cache discipline
 
@@ -103,8 +108,10 @@ contents must be retained temporarily.
 
 - Keep generated files and build products under `build/` or another ignored
   build directory.
-- When adding a target or test, update the relevant `CMakeLists.txt`, assign
-  useful labels and a proportionate timeout, and run the applicable profiles.
+- When adding a test executable, update the relevant `CMakeLists.txt` and
+  enable scenario discovery for its target. When adding a scenario to an
+  existing executable, update only its C++ registry with useful labels and a
+  proportionate timeout, then rebuild before running CTest.
 - The deal.II backend is optional only through the explicit neutral mode. Do
   not hide a requested unavailable dependency, failed build, or failed test.
 - Do not add packaging, coverage hosting, formatter gates, or additional

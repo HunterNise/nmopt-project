@@ -476,16 +476,33 @@ main(const int argc, char **argv)
 {
   try
     {
-      const std::string executed =
+      const std::vector<nmopt::test_support::Scenario> scenarios{
+        {"layout_invariant",
+         "nmopt.contract.layout_invariant",
+         {"backend-neutral", "contract"},
+         30,
+         test_block_layout_invariant},
+        {"v0_contract",
+         "nmopt.contract.v0",
+         {"backend-neutral", "contract"},
+         30,
+         test_v0_contract},
+        {"backend_parameterisation",
+         "nmopt.contract.backend_parameterisation",
+         {"backend-neutral", "contract"},
+         30,
+         test_backend_parameterisation},
+        {"projection_compatibility",
+         "nmopt.contract.projection_compatibility",
+         {"backend-neutral", "contract", "constraint"},
+         30,
+         test_projection_compatibility}};
+      const auto result =
         nmopt::test_support::run_requested_scenarios(
-          argc,
-          argv,
-          {{"layout_invariant", test_block_layout_invariant},
-           {"v0_contract", test_v0_contract},
-           {"backend_parameterisation", test_backend_parameterisation},
-           {"projection_compatibility", test_projection_compatibility}});
-      std::cout << "nmopt executable contract scenario passed: " << executed
-                << '\n';
+          argc, argv, scenarios, std::cout);
+      if (!result.listed)
+        std::cout << "nmopt executable contract scenario passed: "
+                  << result.executed << '\n';
       return 0;
     }
   catch (const std::exception &exception)

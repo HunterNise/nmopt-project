@@ -1698,31 +1698,62 @@ main(const int argc, char **argv)
 {
   try
     {
-      const std::string executed =
-        test_support::run_requested_scenarios(
-          argc,
-          argv,
-          {{"canonical_volume_control",
-            []() { run_canonical_volume_control_contract_test<2>(); }},
-           {"fixed_dirichlet",
-            []() { run_fixed_dirichlet_contract_test<2>(); }},
-           {"dirichlet_control",
-            []() { run_dirichlet_control_contract_test<2>(); }},
-           {"subdomain_observation",
-            []() { run_subdomain_observation_contract_test<2>(); }},
-           {"neumann_boundary",
-            []() { run_neumann_boundary_contract_test<2>(); }},
-           {"h1_control",
-            []() { run_h1_control_regularisation_contract_test<2>(); }},
-           {"coefficient_identification",
-            []() { run_coefficient_identification_contract_test<2>(); }},
-           {"pure_neumann", []() { run_pure_neumann_contract_test<2>(); }},
-           {"projection_compatibility",
-            run_projection_compatibility_contract_test},
-           {"backend_size_conversion",
-            run_backend_size_conversion_contract_test}});
-      std::cout << "deal.II diffusion DTO contract scenario passed: "
-                << executed << '\n';
+      const std::vector<test_support::Scenario> scenarios{
+        {"canonical_volume_control",
+         "nmopt.dealii.canonical_volume_control",
+         {"dealii", "compiler"},
+         180,
+         []() { run_canonical_volume_control_contract_test<2>(); }},
+        {"fixed_dirichlet",
+         "nmopt.dealii.fixed_dirichlet",
+         {"dealii", "compiler"},
+         60,
+         []() { run_fixed_dirichlet_contract_test<2>(); }},
+        {"dirichlet_control",
+         "nmopt.dealii.dirichlet_control",
+         {"dealii", "compiler"},
+         60,
+         []() { run_dirichlet_control_contract_test<2>(); }},
+        {"subdomain_observation",
+         "nmopt.dealii.subdomain_observation",
+         {"dealii", "compiler"},
+         60,
+         []() { run_subdomain_observation_contract_test<2>(); }},
+        {"neumann_boundary",
+         "nmopt.dealii.neumann_boundary",
+         {"dealii", "compiler"},
+         60,
+         []() { run_neumann_boundary_contract_test<2>(); }},
+        {"h1_control",
+         "nmopt.dealii.h1_control",
+         {"dealii", "compiler"},
+         60,
+         []() { run_h1_control_regularisation_contract_test<2>(); }},
+        {"coefficient_identification",
+         "nmopt.dealii.coefficient_identification",
+         {"dealii", "compiler"},
+         60,
+         []() { run_coefficient_identification_contract_test<2>(); }},
+        {"pure_neumann",
+         "nmopt.dealii.pure_neumann",
+         {"dealii", "compiler"},
+         60,
+         []() { run_pure_neumann_contract_test<2>(); }},
+        {"projection_compatibility",
+         "nmopt.dealii.projection_compatibility",
+         {"dealii", "contract", "constraint"},
+         60,
+         run_projection_compatibility_contract_test},
+        {"backend_size_conversion",
+         "nmopt.dealii.backend_size_conversion",
+         {"dealii", "contract", "adapter"},
+         30,
+         run_backend_size_conversion_contract_test}};
+      const auto result = test_support::run_requested_scenarios(
+        argc, argv, scenarios, std::cout);
+      if (!result.listed)
+        std::cout << "deal.II diffusion DTO contract scenario passed: "
+                  << result.executed << '\n';
       return 0;
     }
   catch (const std::exception &exception)

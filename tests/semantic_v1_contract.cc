@@ -601,20 +601,38 @@ main(const int argc, char **argv)
 {
   try
     {
-      const std::string executed =
+      const std::vector<nmopt::test_support::Scenario> scenarios{
+        {"validation",
+         "nmopt.semantic.v1_validation",
+         {"backend-neutral", "semantic"},
+         30,
+         test_semantic_v1_validation},
+        {"graph_closure",
+         "nmopt.semantic.v1_graph_closure",
+         {"backend-neutral", "semantic"},
+         30,
+         test_semantic_v1_graph_closure},
+        {"pairing_compatibility",
+         "nmopt.semantic.v1_pairing_compatibility",
+         {"backend-neutral", "semantic"},
+         30,
+         test_semantic_v1_pairing_compatibility},
+        {"incomplete_components",
+         "nmopt.semantic.v1_incomplete_components",
+         {"backend-neutral", "semantic"},
+         30,
+         test_semantic_v1_incomplete_components},
+        {"reference_delta_stability",
+         "nmopt.semantic.v1_reference_delta_stability",
+         {"backend-neutral", "semantic"},
+         30,
+         test_semantic_v1_reference_delta_stability}};
+      const auto result =
         nmopt::test_support::run_requested_scenarios(
-          argc,
-          argv,
-          {{"validation", test_semantic_v1_validation},
-           {"graph_closure", test_semantic_v1_graph_closure},
-           {"pairing_compatibility",
-            test_semantic_v1_pairing_compatibility},
-           {"incomplete_components",
-            test_semantic_v1_incomplete_components},
-           {"reference_delta_stability",
-            test_semantic_v1_reference_delta_stability}});
-      std::cout << "semantic v1 contract scenario passed: " << executed
-                << '\n';
+          argc, argv, scenarios, std::cout);
+      if (!result.listed)
+        std::cout << "semantic v1 contract scenario passed: "
+                  << result.executed << '\n';
       return 0;
     }
   catch (const std::exception &exception)

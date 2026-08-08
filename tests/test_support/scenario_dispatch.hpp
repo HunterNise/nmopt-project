@@ -1,5 +1,6 @@
 #pragma once
 
+#include <exception>
 #include <functional>
 #include <sstream>
 #include <stdexcept>
@@ -14,6 +15,25 @@ namespace nmopt::test_support
     std::function<void()> run;
   };
 
+  inline void
+  run_scenario(const Scenario &scenario)
+  {
+    try
+      {
+        scenario.run();
+      }
+    catch (const std::exception &exception)
+      {
+        throw std::runtime_error("scenario '" + scenario.name +
+                                 "' failed: " + exception.what());
+      }
+    catch (...)
+      {
+        throw std::runtime_error("scenario '" + scenario.name +
+                                 "' failed with a non-standard exception");
+      }
+  }
+
   inline std::string
   run_requested_scenarios(const int argc,
                           char **argv,
@@ -22,7 +42,7 @@ namespace nmopt::test_support
     if (argc == 1)
       {
         for (const auto &scenario : scenarios)
-          scenario.run();
+          run_scenario(scenario);
         return "all";
       }
 
@@ -30,7 +50,7 @@ namespace nmopt::test_support
       for (const auto &scenario : scenarios)
         if (scenario.name == argv[1])
           {
-            scenario.run();
+            run_scenario(scenario);
             return scenario.name;
           }
 

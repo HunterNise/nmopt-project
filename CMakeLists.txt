@@ -75,28 +75,35 @@ function(nmopt_add_scenario_test name target scenario labels timeout)
       TIMEOUT "${timeout}")
 endfunction()
 
+function(nmopt_add_scenario_tests target prefix name_prefix labels timeout)
+  foreach(scenario IN LISTS ARGN)
+    nmopt_add_scenario_test(
+      "${prefix}.${name_prefix}${scenario}"
+      "${target}"
+      "${scenario}"
+      "${labels}"
+      "${timeout}")
+  endforeach()
+endfunction()
+
 if(BUILD_TESTING)
   add_executable(nmopt_contract_tests tests/reduced_dto_contract.cc)
   target_link_libraries(nmopt_contract_tests
     PRIVATE
       nmopt_contract
       nmopt_project_options)
-  nmopt_add_scenario_test(
-    nmopt.contract.layout_invariant
+  nmopt_add_scenario_tests(
     nmopt_contract_tests
-    layout_invariant
+    nmopt.contract
+    ""
     "backend-neutral;contract"
-    30)
+    30
+    layout_invariant
+    backend_parameterisation)
   nmopt_add_scenario_test(
     nmopt.contract.v0
     nmopt_contract_tests
     v0_contract
-    "backend-neutral;contract"
-    30)
-  nmopt_add_scenario_test(
-    nmopt.contract.backend_parameterisation
-    nmopt_contract_tests
-    backend_parameterisation
     "backend-neutral;contract"
     30)
   nmopt_add_scenario_test(
@@ -111,36 +118,17 @@ if(BUILD_TESTING)
     PRIVATE
       nmopt_contract
       nmopt_project_options)
-  nmopt_add_scenario_test(
-    nmopt.semantic.v1_validation
+  nmopt_add_scenario_tests(
     nmopt_semantic_v1_contract_test
+    nmopt.semantic
+    v1_
+    "backend-neutral;semantic"
+    30
     validation
-    "backend-neutral;semantic"
-    30)
-  nmopt_add_scenario_test(
-    nmopt.semantic.v1_graph_closure
-    nmopt_semantic_v1_contract_test
     graph_closure
-    "backend-neutral;semantic"
-    30)
-  nmopt_add_scenario_test(
-    nmopt.semantic.v1_pairing_compatibility
-    nmopt_semantic_v1_contract_test
     pairing_compatibility
-    "backend-neutral;semantic"
-    30)
-  nmopt_add_scenario_test(
-    nmopt.semantic.v1_incomplete_components
-    nmopt_semantic_v1_contract_test
     incomplete_components
-    "backend-neutral;semantic"
-    30)
-  nmopt_add_scenario_test(
-    nmopt.semantic.v1_reference_delta_stability
-    nmopt_semantic_v1_contract_test
-    reference_delta_stability
-    "backend-neutral;semantic"
-    30)
+    reference_delta_stability)
 endif()
 
 if(NMOPT_ENABLE_DEAL_II)
@@ -170,48 +158,19 @@ if(NMOPT_ENABLE_DEAL_II)
       canonical_volume_control
       "dealii;compiler"
       180)
-    nmopt_add_scenario_test(
-      nmopt.dealii.fixed_dirichlet
+    nmopt_add_scenario_tests(
       nmopt_dealii_diffusion_contract_test
+      nmopt.dealii
+      ""
+      "dealii;compiler"
+      60
       fixed_dirichlet
-      "dealii;compiler"
-      60)
-    nmopt_add_scenario_test(
-      nmopt.dealii.dirichlet_control
-      nmopt_dealii_diffusion_contract_test
       dirichlet_control
-      "dealii;compiler"
-      60)
-    nmopt_add_scenario_test(
-      nmopt.dealii.subdomain_observation
-      nmopt_dealii_diffusion_contract_test
       subdomain_observation
-      "dealii;compiler"
-      60)
-    nmopt_add_scenario_test(
-      nmopt.dealii.neumann_boundary
-      nmopt_dealii_diffusion_contract_test
       neumann_boundary
-      "dealii;compiler"
-      60)
-    nmopt_add_scenario_test(
-      nmopt.dealii.h1_control
-      nmopt_dealii_diffusion_contract_test
       h1_control
-      "dealii;compiler"
-      60)
-    nmopt_add_scenario_test(
-      nmopt.dealii.coefficient_identification
-      nmopt_dealii_diffusion_contract_test
       coefficient_identification
-      "dealii;compiler"
-      60)
-    nmopt_add_scenario_test(
-      nmopt.dealii.pure_neumann
-      nmopt_dealii_diffusion_contract_test
-      pure_neumann
-      "dealii;compiler"
-      60)
+      pure_neumann)
     nmopt_add_scenario_test(
       nmopt.dealii.projection_compatibility
       nmopt_dealii_diffusion_contract_test

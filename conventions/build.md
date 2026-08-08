@@ -45,6 +45,26 @@ ASAN_OPTIONS=detect_leaks=1 \
 Run `release-dealii` before reporting numerical timings. Debug timings are not
 benchmark evidence.
 
+### Unix Makefiles fallback
+
+The checked-in presets intentionally require Ninja. If Ninja is unavailable,
+reuse a configure preset's cache variables while overriding its generator and
+generated directory locally:
+
+```bash
+cmake --preset debug-neutral \
+  -G "Unix Makefiles" \
+  -B build/debug-neutral-make
+cmake --build build/debug-neutral-make
+ctest --test-dir build/debug-neutral-make --output-on-failure
+```
+
+Substitute another configure preset and a matching `-make` directory when that
+profile is required. Its checked-in build and test presets still refer to the
+Ninja directory, so use the generator-independent `cmake --build` and
+`ctest --test-dir` forms for this fallback. These local directories are not
+additional persistent project profiles.
+
 ## Focused tests
 
 Every logical scenario is a separate CTest entry with labels and a timeout.
@@ -58,9 +78,12 @@ ctest --preset debug-dealii -R coefficient_identification
 
 The deal.II executable remains one translation unit and dispatches the named
 scenario supplied by CTest; adding a scenario does not require another
-expensive executable.
+expensive executable. Separate processes localize ordinary failures, crashes,
+and timeouts while allowing later CTest entries to continue. Running an
+executable without a scenario remains an aggregate convenience, and its
+failure text identifies the active scenario.
 
-## Dependency intent and cache recovery
+## Dependency intent and cache discipline
 
 `NMOPT_ENABLE_DEAL_II=ON` requires the official deal.II CMake package. Missing
 discovery is a configuration error with instructions for `deal.II_DIR` and the
@@ -68,11 +91,13 @@ backend-neutral alternative. `NMOPT_ENABLE_DEAL_II=OFF` intentionally performs
 no deal.II discovery and registers only backend-neutral tests. Every configure
 prints a concise summary of the selected mode.
 
-The preset subdirectories can coexist with a legacy cache directly under
-`build/`; do not delete or rewrite that cache automatically. If one specific
-preset directory contains a stale different-generator cache, inspect it and
-either move that exact generated directory aside or choose a fresh ignored
-directory before configuring again.
+The root of `build/` is a container for named profile directories; do not
+configure CMake directly into it. Generated files directly under `build/` are
+obsolete legacy output and should be removed rather than moved because CMake
+caches embed their original paths. If a named profile directory contains a
+stale or different-generator cache, remove only that generated directory and
+configure the profile again, or select a fresh ignored directory when its old
+contents must be retained temporarily.
 
 ## Build boundaries
 

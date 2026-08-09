@@ -1,5 +1,6 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
+#include "nmopt/dealii/hminus1_metric.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
@@ -29,6 +30,80 @@ namespace
   using Backend = dealii_backend::SerialBackend;
   using Primal = contract::PrimalBlockT<Backend>;
   using Covector = contract::CovectorBlockT<Backend>;
+
+  void
+  require_close(double              actual,
+                double              expected,
+                double              tolerance,
+                const std::string &description);
+
+  void
+  run_hminus1_metric_contract_test()
+  {
+    const auto layout = std::make_shared<const contract::BlockLayout>(
+      "hminus1_metric_test",
+      std::vector<contract::SpaceId>{{"control"}},
+      std::vector<std::size_t>{2});
+    dealii::DynamicSparsityPattern dsp(2, 2);
+    dsp.add(0, 0);
+    dsp.add(0, 1);
+    dsp.add(1, 0);
+    dsp.add(1, 1);
+    dealii::SparsityPattern sparsity;
+    sparsity.copy_from(dsp);
+
+    auto mass = std::make_shared<dealii::SparseMatrix<double>>();
+    mass->reinit(sparsity);
+    mass->set(0, 0, 2.0);
+    mass->set(1, 1, 3.0);
+    auto laplace = std::make_shared<dealii::SparseMatrix<double>>();
+    laplace->reinit(sparsity);
+    laplace->set(0, 0, 4.0);
+    laplace->set(0, 1, 1.0);
+    laplace->set(1, 0, 1.0);
+    laplace->set(1, 1, 2.0);
+
+    dealii_backend::MetricSolveParameters solve_parameters;
+    solve_parameters.maximum_iterations = 100;
+    solve_parameters.relative_tolerance = 1e-13;
+    solve_parameters.absolute_tolerance = 1e-15;
+    const dealii_backend::Hminus1Metric metric(
+      "hminus1_continuous", layout, mass, laplace, solve_parameters);
+
+    dealii::Vector<double> primal_values(2);
+    primal_values[0] = 1.0;
+    primal_values[1] = -2.0;
+    const Primal primal(layout, {std::move(primal_values)});
+    const Covector applied = metric.apply(primal);
+    require_close(applied.block(0)[0],
+                  20.0 / 7.0,
+                  1e-12,
+                  "H-1 metric M K^-1 M first component");
+    require_close(applied.block(0)[1],
+                  -78.0 / 7.0,
+                  1e-12,
+                  "H-1 metric M K^-1 M second component");
+
+    const Primal recovered = metric.inverse_apply(applied);
+    dealii::Vector<double> recovery_error = recovered.block(0);
+    recovery_error.add(-1.0, primal.block(0));
+    require_close(recovery_error.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "H-1 metric apply/inverse pairing");
+
+    dealii::Vector<double> second_values(2);
+    second_values[0] = 0.25;
+    second_values[1] = 0.5;
+    const Primal second(layout, {std::move(second_values)});
+    require_close(contract::pair(metric.apply(primal), second),
+                  contract::pair(metric.apply(second), primal),
+                  1e-12,
+                  "H-1 metric symmetry");
+    contract::require(metric.id() == "hminus1_continuous" &&
+                        metric.solve_parameters().maximum_iterations == 100,
+                      "H-1 metric omitted its identity or solve policy");
+  }
 
   template <typename Component>
   Component &
@@ -3056,6 +3131,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          60,
          []() { run_h1_control_regularisation_contract_test<2>(); }},
+        {"hminus1_metric",
+         "nmopt.dealii.hminus1_metric",
+         {"dealii", "contract", "metric"},
+         30,
+         run_hminus1_metric_contract_test},
         {"coefficient_identification",
          "nmopt.dealii.coefficient_identification",
          {"dealii", "compiler"},

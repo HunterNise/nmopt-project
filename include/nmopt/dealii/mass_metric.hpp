@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/metric_constraint.hpp"
+#include "nmopt/dealii/metric_solve_parameters.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 
 #include <deal.II/lac/precondition.h>
@@ -15,12 +16,7 @@
 
 namespace nmopt::dealii_backend
 {
-  struct MassMetricSolveParameters
-  {
-    unsigned int maximum_iterations = 1000;
-    double       relative_tolerance = 1e-12;
-    double       absolute_tolerance = 1e-14;
-  };
+  using MassMetricSolveParameters = MetricSolveParameters;
 
   // A serial deal.II realization of a one-block Hilbert metric. The supplied
   // matrix must be symmetric positive definite and represents the

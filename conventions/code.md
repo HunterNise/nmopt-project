@@ -22,3 +22,6 @@
   behavior, including forward and reverse actions where applicable.
 - Prefer small, coherent changes. Do not broaden an interface merely to avoid
   making a deliberate architectural decision.
+- Use compatibility seams or staged migrations when they create honest,
+  independently testable intermediate states. Do not add a permanent public
+  interface solely to manufacture an artificial split.

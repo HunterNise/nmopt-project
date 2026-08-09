@@ -11,9 +11,33 @@
   branches on its own.
 - Do not merge, push, force-push, reset shared history, or rewrite existing
   authorship unless explicitly asked.
-- Do not run `git commit`; leave changes pending for user review. After each
-  coherent change, inspect the diff and suggest a commit message in the final
-  reply.
+- Do not run `git add` or `git commit` unless the user explicitly requests it.
+  When commits are not requested, leave each coherent change pending for review,
+  inspect its diff, and suggest a commit message in the final reply.
+  If multiple coherent changes have been made, suggest how to split in
+  separate commits.
+
+## Reviewable commits
+
+- Map each commit to one review-sized work unit from the
+  [workflow conventions](workflow.md).
+  Keep directly required tests and contract updates with the behavior they
+  verify unless they form an independently meaningful documentation or test
+  unit.
+- Prefer separate commits for independently meaningful prerequisites,
+  mechanical migrations, interface changes, integrations, and documentation.
+  Do not split merely to reduce line count when doing so creates an unbuildable
+  or misleading intermediate state.
+- Do not create a separate commit for a tiny follow-up with no independent
+  review or revert value. Include it with the unit it supports; when it is
+  independently meaningful, it may be a small separate commit.
+- Treat roughly 400 changed non-generated lines or changes spanning multiple
+  architectural layers as a prompt to revisit the decomposition before
+  staging. This is a review heuristic, not a quota; exceeding it requires an
+  explicit explanation of the coupling or cohesive generated/mechanical work.
+  A genuinely coupled change may remain one detailed commit.
+- Before every requested commit, inspect the staged diff and its statistics,
+  run focused verification, and confirm that unrelated work is unstaged.
 
 ## Commit messages
 

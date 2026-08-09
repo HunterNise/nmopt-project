@@ -21,6 +21,6 @@ Start here:
 - [Implementation roadmap](docs/planning/implementation-roadmap.md) — current
   state, prioritized tasks, and acceptance checks.
 - [Project conventions](conventions/README.md) — action-specific guidance for
-  code, builds, documentation, and Git operations.
+  workflow, code, builds, documentation, and Git operations.
 - [Project guide for contributors and agents](AGENTS.md) — concise working,
   mission and required routing.

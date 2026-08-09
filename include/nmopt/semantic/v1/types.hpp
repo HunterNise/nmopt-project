@@ -45,6 +45,8 @@ namespace nmopt::semantic::v1
   {
     unspecified = -1,
     function,
+    vector_function,
+    tensor_function,
     scalar_constant,
     cellwise_bound,
     facewise_bound
@@ -57,7 +59,11 @@ namespace nmopt::semantic::v1
     desired_state,
     fixed_dirichlet_lifting,
     diffusion,
+    conservative_transport,
+    advective_transport,
     reaction,
+    robin_coefficient,
+    robin_source,
     regularisation_weight,
     lower_bound,
     upper_bound
@@ -67,10 +73,16 @@ namespace nmopt::semantic::v1
   {
     unspecified = -1,
     diffusion_reaction,
+    tensor_diffusion,
+    conservative_transport,
+    advective_transport,
+    reaction,
     parameter_diffusion_reaction,
     volume_source,
     volume_control,
-    neumann_control
+    neumann_control,
+    robin_bilinear,
+    robin_source
   };
 
   enum class ObservationKind
@@ -120,7 +132,13 @@ namespace nmopt::semantic::v1
     boundary_trace,
     analytic_quadrature_evaluation,
     discrete_cellwise_bounds,
-    discrete_facewise_bounds
+    discrete_facewise_bounds,
+    uniform_ellipticity,
+    coefficient_regularity,
+    coercivity,
+    conormal_flux,
+    boundary_partition,
+    transport_boundary_trace
   };
 
   enum class RequirementStatus

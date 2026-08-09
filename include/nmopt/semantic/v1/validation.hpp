@@ -445,11 +445,41 @@ namespace nmopt::semantic::v1
                   ValidationReport &      report)
     {
       for (const auto &datum : specification.data)
-        if (!datum.space_id.empty() && !contains(spaces, datum.space_id))
-          report.add(DiagnosticCategory::structural,
-                     datum.id,
-                     "data_space_port",
-                     "Reference a declared data space or leave scalar constants unspaced.");
+        {
+          if (!datum.space_id.empty() && !contains(spaces, datum.space_id))
+            report.add(DiagnosticCategory::structural,
+                       datum.id,
+                       "data_space_port",
+                       "Reference a declared data space or leave scalar constants unspaced.");
+          const bool selected_shape =
+            (datum.role == DataRole::diffusion &&
+             (datum.kind == DataKind::scalar_constant ||
+              datum.kind == DataKind::tensor_function)) ||
+            (datum.role == DataRole::conservative_transport &&
+             datum.kind == DataKind::vector_function) ||
+            (datum.role == DataRole::advective_transport &&
+             datum.kind == DataKind::vector_function) ||
+            (datum.role == DataRole::reaction &&
+             (datum.kind == DataKind::scalar_constant ||
+              datum.kind == DataKind::function)) ||
+            (datum.role == DataRole::robin_coefficient &&
+             datum.kind == DataKind::function) ||
+            (datum.role == DataRole::robin_source &&
+             datum.kind == DataKind::function);
+          const bool coefficient_role =
+            datum.role == DataRole::diffusion ||
+            datum.role == DataRole::conservative_transport ||
+            datum.role == DataRole::advective_transport ||
+            datum.role == DataRole::reaction ||
+            datum.role == DataRole::robin_coefficient ||
+            datum.role == DataRole::robin_source;
+          if (coefficient_role && !selected_shape)
+            report.add(
+              DiagnosticCategory::structural,
+              datum.id,
+              "coefficient_data_shape",
+              "Use scalar, vector, or tensor Function data matching the declared coefficient role.");
+        }
     }
 
     static void
@@ -610,13 +640,16 @@ namespace nmopt::semantic::v1
                          "residual_term_data_port",
                          "Reference declared immutable data.");
           validate_term_signature(term, variables, data, report);
-          if (term.kind != ResidualTermKind::neumann_control &&
-              !term.region_id.empty())
+          const bool boundary_term =
+            term.kind == ResidualTermKind::neumann_control ||
+            term.kind == ResidualTermKind::robin_bilinear ||
+            term.kind == ResidualTermKind::robin_source;
+          if (!boundary_term && !term.region_id.empty())
             report.add(DiagnosticCategory::structural,
                        term.id,
                        "volume_term_has_no_boundary_region",
                        "Leave the region port empty for the registered volume term.");
-          if (term.kind != ResidualTermKind::neumann_control)
+          if (!boundary_term)
             continue;
 
           const auto region = regions.find(term.region_id);
@@ -624,8 +657,12 @@ namespace nmopt::semantic::v1
               region->second->kind != RegionKind::boundary)
             report.add(DiagnosticCategory::structural,
                        term.id,
-                       "neumann_control_boundary_region",
-                       "Declare the Neumann trace pairing on a boundary region.");
+                       term.kind == ResidualTermKind::neumann_control
+                         ? "neumann_control_boundary_region"
+                         : "robin_boundary_region",
+                       "Declare this natural residual contribution on a boundary region.");
+          if (term.kind != ResidualTermKind::neumann_control)
+            continue;
           const auto control = term.variable_ids.size() == 1
                                  ? variables.find(term.variable_ids.front())
                                  : variables.end();
@@ -917,6 +954,38 @@ namespace nmopt::semantic::v1
                     has_role(term.data_ids, data, DataRole::diffusion) &&
                     has_role(term.data_ids, data, DataRole::reaction);
             break;
+          case ResidualTermKind::tensor_diffusion:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids, data, DataRole::diffusion) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::conservative_transport:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids,
+                             data,
+                             DataRole::conservative_transport) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::advective_transport:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids,
+                             data,
+                             DataRole::advective_transport) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::reaction:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids, data, DataRole::reaction) &&
+                    term.region_id.empty();
+            break;
           case ResidualTermKind::parameter_diffusion_reaction:
             valid = term.variable_ids.size() == 2 && term.data_ids.size() == 1 &&
                     has_variable_role(term.variable_ids, variables,
@@ -940,6 +1009,20 @@ namespace nmopt::semantic::v1
                     has_variable_role(term.variable_ids, variables,
                                       VariableRole::control) &&
                     term.data_ids.empty() && !term.region_id.empty();
+            break;
+          case ResidualTermKind::robin_bilinear:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids,
+                             data,
+                             DataRole::robin_coefficient) &&
+                    !term.region_id.empty();
+            break;
+          case ResidualTermKind::robin_source:
+            valid = term.variable_ids.empty() && term.data_ids.size() == 1 &&
+                    has_role(term.data_ids, data, DataRole::robin_source) &&
+                    !term.region_id.empty();
             break;
         }
       if (!valid)
@@ -1138,6 +1221,122 @@ namespace nmopt::semantic::v1
                      constraint.kind == ConstraintKind::facewise_box
                        ? "Declare the facewise-constant coefficientwise bound policy."
                        : "Declare the FE_DGQ(0) coefficientwise bound policy.");
+
+      const auto tensor_diffusion = std::find_if(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const ResidualTermSpec &term) {
+          return term.kind == ResidualTermKind::tensor_diffusion;
+        });
+      if (tensor_diffusion != specification.residual_terms.end())
+        {
+          const auto declared_assumption = [&specification](
+                                             const std::string &subject,
+                                             const RequirementKind kind) {
+            return std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&subject, kind](const RequirementPolicySpec &policy) {
+                return policy.subject_id == subject && policy.kind == kind &&
+                       (policy.status == RequirementStatus::provided ||
+                        policy.status == RequirementStatus::user_assumed) &&
+                       !policy.selected_policy.empty();
+              });
+          };
+          const std::string diffusion_data_id =
+            tensor_diffusion->data_ids.empty() ? std::string{} :
+                                                 tensor_diffusion->data_ids.front();
+          if (declared_assumption(diffusion_data_id,
+                                  RequirementKind::uniform_ellipticity) ==
+              specification.requirement_policies.end())
+            report.add(DiagnosticCategory::analytical_policy,
+                       diffusion_data_id,
+                       "uniform_ellipticity_assumption",
+                       "Declare the model author's uniform-ellipticity assumption for the tensor diffusion data.");
+          if (declared_assumption(tensor_diffusion->equation_id,
+                                  RequirementKind::coefficient_regularity) ==
+              specification.requirement_policies.end())
+            report.add(DiagnosticCategory::analytical_policy,
+                       tensor_diffusion->equation_id,
+                       "scalar_coefficient_regularity_assumption",
+                       "Declare the regularity assumptions for all scalar operator coefficients.");
+          if (declared_assumption(tensor_diffusion->equation_id,
+                                  RequirementKind::coercivity) ==
+              specification.requirement_policies.end())
+            report.add(DiagnosticCategory::analytical_policy,
+                       tensor_diffusion->equation_id,
+                       "scalar_coercivity_assumption",
+                       "Declare the model author's coercivity assumption for the composed scalar form.");
+          const auto state = std::find_if(
+            specification.variables.begin(),
+            specification.variables.end(),
+            [](const VariableSpec &variable) {
+              return variable.role == VariableRole::state;
+            });
+          if (state != specification.variables.end() &&
+              !has_policy(state->id, RequirementKind::boundary_partition))
+            report.add(DiagnosticCategory::analytical_policy,
+                       state->id,
+                       "scalar_boundary_partition_policy",
+                       "Declare the selected fixed, natural, and transport boundary partition.");
+
+          const auto robin = std::find_if(
+            specification.residual_terms.begin(),
+            specification.residual_terms.end(),
+            [](const ResidualTermSpec &term) {
+              return term.kind == ResidualTermKind::robin_bilinear;
+            });
+          if (robin != specification.residual_terms.end())
+            {
+              const auto conormal = selected_policy(
+                robin->id, RequirementKind::conormal_flux);
+              if (conormal == specification.requirement_policies.end())
+                report.add(DiagnosticCategory::analytical_policy,
+                           robin->id,
+                           "conormal_flux_convention",
+                           "Declare the selected conormal-flux sign and normal orientation.");
+              else if (conormal->region_id != robin->region_id)
+                report.add(DiagnosticCategory::structural,
+                           robin->id,
+                           "conormal_flux_region",
+                           "Declare the conormal-flux convention on the Robin region.");
+              const auto trace = selected_policy(robin->id,
+                                                 RequirementKind::boundary_trace);
+              if (trace == specification.requirement_policies.end())
+                report.add(DiagnosticCategory::analytical_policy,
+                           robin->id,
+                           "robin_trace_realisation",
+                           "Declare the selected Robin trace and face-quadrature realization.");
+              else if (trace->region_id != robin->region_id)
+                report.add(DiagnosticCategory::structural,
+                           robin->id,
+                           "robin_trace_region",
+                           "Declare the Robin trace policy on its residual boundary region.");
+
+              const auto conservative = std::find_if(
+                specification.residual_terms.begin(),
+                specification.residual_terms.end(),
+                [](const ResidualTermSpec &term) {
+                  return term.kind == ResidualTermKind::conservative_transport;
+                });
+              if (conservative != specification.residual_terms.end())
+                {
+                  const auto transport = selected_policy(
+                    conservative->id,
+                    RequirementKind::transport_boundary_trace);
+                  if (transport == specification.requirement_policies.end())
+                    report.add(DiagnosticCategory::analytical_policy,
+                               conservative->id,
+                               "transport_boundary_trace_policy",
+                               "Declare the selected transport inflow/outflow trace interpretation.");
+                  else if (transport->region_id != robin->region_id)
+                    report.add(DiagnosticCategory::structural,
+                               conservative->id,
+                               "transport_boundary_trace_region",
+                               "Declare the natural transport trace on the selected Robin region.");
+                }
+            }
+        }
 
       for (const auto &term : specification.residual_terms)
         if (term.kind == ResidualTermKind::neumann_control)

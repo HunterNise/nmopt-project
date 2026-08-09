@@ -15,8 +15,14 @@ namespace nmopt::compiler::v1
   enum class ScalarResidualOperatorKind
   {
     diffusion_reaction,
+    tensor_diffusion,
+    conservative_transport,
+    advective_transport,
+    reaction,
     volume_source,
-    volume_control
+    volume_control,
+    robin_bilinear,
+    robin_source
   };
 
   enum class ScalarObservationOperatorKind
@@ -95,6 +101,7 @@ namespace nmopt::compiler::v1
     std::string                               constraint_id;
     std::string                               fixed_data_id;
     std::set<unsigned int>                    dirichlet_boundary_ids;
+    std::set<unsigned int>                    robin_boundary_ids;
     bool                                      tracking_full_domain = true;
     std::set<unsigned int>                    tracking_material_ids;
     std::vector<std::string>                  provenance;
@@ -316,12 +323,30 @@ namespace nmopt::compiler::v1
           {semantic::v1::ResidualTermKind::diffusion_reaction,
            ScalarResidualOperatorKind::diffusion_reaction,
            "dealii.scalar.residual.diffusion_reaction"},
+          {semantic::v1::ResidualTermKind::tensor_diffusion,
+           ScalarResidualOperatorKind::tensor_diffusion,
+           "dealii.scalar.residual.tensor_diffusion"},
+          {semantic::v1::ResidualTermKind::conservative_transport,
+           ScalarResidualOperatorKind::conservative_transport,
+           "dealii.scalar.residual.conservative_transport"},
+          {semantic::v1::ResidualTermKind::advective_transport,
+           ScalarResidualOperatorKind::advective_transport,
+           "dealii.scalar.residual.advective_transport"},
+          {semantic::v1::ResidualTermKind::reaction,
+           ScalarResidualOperatorKind::reaction,
+           "dealii.scalar.residual.reaction"},
           {semantic::v1::ResidualTermKind::volume_source,
            ScalarResidualOperatorKind::volume_source,
            "dealii.scalar.residual.volume_source"},
           {semantic::v1::ResidualTermKind::volume_control,
            ScalarResidualOperatorKind::volume_control,
-           "dealii.scalar.residual.volume_control"}}
+           "dealii.scalar.residual.volume_control"},
+          {semantic::v1::ResidualTermKind::robin_bilinear,
+           ScalarResidualOperatorKind::robin_bilinear,
+           "dealii.scalar.residual.robin_bilinear"},
+          {semantic::v1::ResidualTermKind::robin_source,
+           ScalarResidualOperatorKind::robin_source,
+           "dealii.scalar.residual.robin_source"}}
       , observation_handlers_{
           {semantic::v1::ObservationKind::volume_restriction,
            "dealii.scalar.observation.volume_restriction"}}
@@ -525,6 +550,15 @@ namespace nmopt::compiler::v1
             const auto &region = problem.region(requirement.region_id);
             plan.dirichlet_boundary_ids.insert(region.boundary_ids.begin(),
                                                region.boundary_ids.end());
+          }
+
+      for (const auto &term : plan.residual_terms)
+        if (term.operator_kind == ScalarResidualOperatorKind::robin_bilinear ||
+            term.operator_kind == ScalarResidualOperatorKind::robin_source)
+          {
+            const auto &region = problem.region(term.region_id);
+            plan.robin_boundary_ids.insert(region.boundary_ids.begin(),
+                                           region.boundary_ids.end());
           }
 
       const auto tracking_loss = std::find_if(

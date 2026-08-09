@@ -111,6 +111,36 @@ namespace
     require(pure_neumann_report.valid(),
             "the pure-Neumann mean-constraint v1 graph is invalid");
 
+    const auto general_scalar_specification =
+      nmopt::semantic::v1::make_general_scalar_elliptic_robin_problem(
+        {0, 2, 3}, {1});
+    const auto general_scalar_report =
+      validator.validate(general_scalar_specification);
+    require(general_scalar_report.valid(),
+            "the P5.1 general scalar Robin graph is invalid");
+
+    auto wrong_tensor_shape = general_scalar_specification;
+    component_by_id(wrong_tensor_shape.data, "diffusion_tensor").kind =
+      nmopt::semantic::v1::DataKind::vector_function;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_tensor_shape),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "diffusion_tensor",
+      "coefficient_data_shape",
+      "v1 semantic validation accepted a vector-valued tensor diffusion binding");
+
+    auto missing_conormal_policy = general_scalar_specification;
+    for (auto &policy : missing_conormal_policy.requirement_policies)
+      if (policy.kind ==
+          nmopt::semantic::v1::RequirementKind::conormal_flux)
+        policy.status = nmopt::semantic::v1::RequirementStatus::provided;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_conormal_policy),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "robin_bilinear",
+      "conormal_flux_convention",
+      "v1 semantic validation did not require a conormal-flux convention");
+
     auto missing_lifting_port = fixed_specification;
     missing_lifting_port.transformations.front().fixed_data_id = "missing_data";
     const auto lifting_port_report = validator.validate(missing_lifting_port);
@@ -694,6 +724,27 @@ namespace
       "neumann_control",
       "scalar_residual_component_lowerer",
       "scalar planner did not identify its specialized Neumann boundary");
+
+    const auto general_specification =
+      nmopt::semantic::v1::make_general_scalar_elliptic_robin_problem(
+        {0, 2, 3}, {1});
+    const auto general_resolution = resolver.resolve(general_specification);
+    require(general_resolution.succeeded(),
+            "general scalar lowering-plan setup did not resolve");
+    const auto general_plan = planner.plan(*general_resolution.problem);
+    require(general_plan.succeeded() &&
+              general_plan.plan->residual_terms.size() == 8 &&
+              general_plan.plan->robin_boundary_ids ==
+                std::set<unsigned int>{1} &&
+              general_plan.plan->provenance.size() == 13 &&
+              std::any_of(
+                general_plan.plan->residual_terms.begin(),
+                general_plan.plan->residual_terms.end(),
+                [](const nmopt::compiler::v1::ScalarResidualContribution &term) {
+                  return term.operator_kind ==
+                         nmopt::compiler::v1::ScalarResidualOperatorKind::conservative_transport;
+                }),
+            "P5.1 general scalar plan omitted a term or Robin boundary contribution");
   }
 
 } // namespace

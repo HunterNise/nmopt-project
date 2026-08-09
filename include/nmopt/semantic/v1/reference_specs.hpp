@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace nmopt::semantic::v1
@@ -156,6 +157,135 @@ namespace nmopt::semantic::v1
         specification.formulation.constraint_id = "control_box";
       }
 
+    return specification;
+  }
+
+  // P5.1's first registered target is a recombination of scalar residual
+  // components. It deliberately keeps the existing volume-control,
+  // observation, loss, metric, and optional cellwise-box declarations while
+  // replacing the combined constant diffusion-reaction term by independently
+  // bound coefficient Functions and adding one Robin boundary region.
+  inline ProblemSpec
+  make_general_scalar_elliptic_robin_problem(
+    std::vector<unsigned int> fixed_dirichlet_boundary_ids,
+    std::vector<unsigned int> robin_boundary_ids,
+    const bool                with_cellwise_box = false)
+  {
+    ProblemSpec specification =
+      make_scalar_diffusion_reaction_problem(with_cellwise_box);
+    specification.id = "general_scalar_elliptic_robin_volume_control";
+    specification.label =
+      "General scalar elliptic volume control with Robin boundary";
+    reference_detail::component_by_id(specification.regions,
+                                      "dirichlet_boundary",
+                                      "region")
+      .boundary_ids = std::move(fixed_dirichlet_boundary_ids);
+    specification.regions.push_back(
+      {"robin_boundary", "Robin and transport-outflow boundary",
+       RegionKind::boundary, false, std::move(robin_boundary_ids), {}});
+
+    reference_detail::component_by_id(specification.data,
+                                      "diffusion",
+                                      "data") =
+      {"diffusion_tensor", "Tensor diffusion coefficient",
+       DataKind::tensor_function, DataRole::diffusion, ""};
+    reference_detail::component_by_id(specification.data,
+                                      "reaction",
+                                      "data") =
+      {"reaction", "Reaction coefficient Function", DataKind::function,
+       DataRole::reaction, ""};
+    specification.data.push_back(
+      {"conservative_transport", "Conservative transport coefficient",
+       DataKind::vector_function, DataRole::conservative_transport, ""});
+    specification.data.push_back(
+      {"advective_transport", "Advective transport coefficient",
+       DataKind::vector_function, DataRole::advective_transport, ""});
+    specification.data.push_back(
+      {"robin_coefficient", "Robin bilinear coefficient", DataKind::function,
+       DataRole::robin_coefficient, ""});
+    specification.data.push_back(
+      {"robin_source", "Robin boundary source", DataKind::function,
+       DataRole::robin_source, "state_test_space"});
+
+    reference_detail::component_by_id(specification.residual_terms,
+                                      "diffusion_reaction",
+                                      "residual term") =
+      {"tensor_diffusion", "Tensor diffusion", ResidualTermKind::tensor_diffusion,
+       "state_equation", {"state"}, {"diffusion_tensor"}, ""};
+    specification.residual_terms.push_back(
+      {"conservative_transport", "Conservative transport",
+       ResidualTermKind::conservative_transport, "state_equation", {"state"},
+       {"conservative_transport"}, ""});
+    specification.residual_terms.push_back(
+      {"advective_transport", "Advective transport",
+       ResidualTermKind::advective_transport, "state_equation", {"state"},
+       {"advective_transport"}, ""});
+    specification.residual_terms.push_back(
+      {"reaction", "Reaction", ResidualTermKind::reaction, "state_equation",
+       {"state"}, {"reaction"}, ""});
+    specification.residual_terms.push_back(
+      {"robin_bilinear", "Robin bilinear boundary term",
+       ResidualTermKind::robin_bilinear, "state_equation", {"state"},
+       {"robin_coefficient"}, "robin_boundary"});
+    specification.residual_terms.push_back(
+      {"robin_source", "Robin boundary source",
+       ResidualTermKind::robin_source, "state_equation", {}, {"robin_source"},
+       "robin_boundary"});
+    reference_detail::component_by_id(specification.equations,
+                                      "state_equation",
+                                      "equation")
+      .residual_term_ids = {"tensor_diffusion",
+                            "conservative_transport",
+                            "advective_transport",
+                            "reaction",
+                            "volume_source",
+                            "volume_control",
+                            "robin_bilinear",
+                            "robin_source"};
+
+    specification.requirement_policies.push_back(
+      {"uniform_ellipticity_assumption", "diffusion_tensor",
+       RequirementKind::uniform_ellipticity, RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "bound tensor Function is uniformly elliptic", "domain"});
+    specification.requirement_policies.push_back(
+      {"coefficient_regularity_assumption", "state_equation",
+       RequirementKind::coefficient_regularity,
+       RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "bound tensor, vector, scalar, and Robin coefficients have the declared bounded regularity",
+       "domain"});
+    specification.requirement_policies.push_back(
+      {"coercivity_assumption", "state_equation", RequirementKind::coercivity,
+       RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "the composed scalar bilinear form is coercive on the fixed-Dirichlet state space",
+       "domain"});
+    specification.requirement_policies.push_back(
+      {"scalar_boundary_partition", "state",
+       RequirementKind::boundary_partition,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::both,
+       "disjoint complete fixed-Dirichlet and Robin/transport-outflow regions; Neumann and separate transport-inflow regions are empty",
+       ""});
+    specification.requirement_policies.push_back(
+      {"conormal_flux_convention", "robin_bilinear",
+       RequirementKind::conormal_flux,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::both,
+       "(A grad(y) - b y) dot n with outward unit normal", "robin_boundary"});
+    specification.requirement_policies.push_back(
+      {"robin_trace_policy", "robin_bilinear", RequirementKind::boundary_trace,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "FE_Q state trace with QGauss face quadrature", "robin_boundary"});
+    specification.requirement_policies.push_back(
+      {"transport_boundary_trace", "conservative_transport",
+       RequirementKind::transport_boundary_trace,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::both,
+       "Robin region is the selected natural transport outflow; remaining exterior faces are fixed Dirichlet",
+       "robin_boundary"});
     return specification;
   }
 

@@ -2113,6 +2113,13 @@ namespace nmopt::compiler::v1
                 record.representation = "scalar constant";
                 record.provenance = std::to_string(data.reaction);
                 break;
+              case semantic::v1::DataRole::conservative_transport:
+              case semantic::v1::DataRole::advective_transport:
+              case semantic::v1::DataRole::robin_coefficient:
+              case semantic::v1::DataRole::robin_source:
+                record.representation = "not lowered by this target";
+                record.provenance = "not bound";
+                break;
               case semantic::v1::DataRole::regularisation_weight:
                 record.representation = "scalar constant";
                 record.provenance = std::to_string(data.regularisation_weight);

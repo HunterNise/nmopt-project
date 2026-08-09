@@ -7,7 +7,7 @@ namespace nmopt::compiler::v1
   // This small built-in registry is intentionally explicit. A semantic kind
   // is executable only when the v1 compiler has registered the corresponding
   // lowerer capability; it never falls back to a nearby term.
-  class DealiiLowererRegistryV1 final
+  class DealiiCapabilityRegistryV1 final
   {
   public:
     bool

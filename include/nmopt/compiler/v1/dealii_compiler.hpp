@@ -29,8 +29,8 @@ namespace nmopt::compiler::v1
   class DealiiCompiler final
   {
   public:
-    explicit DealiiCompiler(DealiiLowererRegistryV1 registry = {})
-      : registry_(std::move(registry))
+    explicit DealiiCompiler(DealiiCapabilityRegistryV1 capabilities = {})
+      : capabilities_(std::move(capabilities))
     {}
 
     semantic::v1::ValidationReport
@@ -1123,37 +1123,37 @@ namespace nmopt::compiler::v1
       validate_registered_graph(specification, report);
 
       for (const auto &term : specification.residual_terms)
-        if (!registry_.has_residual_term_lowerer(term.kind))
+        if (!capabilities_.has_residual_term_lowerer(term.kind))
           report.add(DiagnosticCategory::lowerability,
                      term.id,
                      "registered_residual_term_lowerer",
                      "Register a lowerer for this residual term and its derivatives.");
       for (const auto &observation : specification.observations)
-        if (!registry_.has_observation_lowerer(observation.kind))
+        if (!capabilities_.has_observation_lowerer(observation.kind))
           report.add(DiagnosticCategory::lowerability,
                      observation.id,
                      "registered_observation_lowerer",
                      "Register an observation value, JVP, and VJP lowerer.");
       for (const auto &loss : specification.losses)
-        if (!registry_.has_loss_lowerer(loss.kind))
+        if (!capabilities_.has_loss_lowerer(loss.kind))
           report.add(DiagnosticCategory::lowerability,
                      loss.id,
                      "registered_loss_lowerer",
                      "Register a matching loss value and derivative lowerer.");
       for (const auto &metric : specification.metrics)
-        if (!registry_.has_metric_lowerer(metric.kind))
+        if (!capabilities_.has_metric_lowerer(metric.kind))
           report.add(DiagnosticCategory::lowerability,
                      metric.id,
                      "registered_metric_lowerer",
                      "Register a metric realization with inverse apply.");
       for (const auto &constraint : specification.constraints)
-        if (!registry_.has_constraint_lowerer(constraint.kind))
+        if (!capabilities_.has_constraint_lowerer(constraint.kind))
           report.add(DiagnosticCategory::lowerability,
                      constraint.id,
                      "registered_constraint_lowerer",
                      "Register the selected constraint projection realization.");
       for (const auto &transformation : specification.transformations)
-        if (!registry_.has_transformation_lowerer(transformation.kind))
+        if (!capabilities_.has_transformation_lowerer(transformation.kind))
           report.add(DiagnosticCategory::lowerability,
                      transformation.id,
                      "registered_transformation_lowerer",
@@ -1949,6 +1949,6 @@ namespace nmopt::compiler::v1
              boundary_id_list(region);
     }
 
-    DealiiLowererRegistryV1 registry_;
+    DealiiCapabilityRegistryV1 capabilities_;
   };
 } // namespace nmopt::compiler::v1

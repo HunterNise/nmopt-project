@@ -21,8 +21,8 @@ The v0 lowerer is not modified or replaced by this path. The homogeneous v1
 reference graph privately constructs a separate v0 executable instance and
 packages it behind generic executable ports, so v0 and v1 can be compared at
 the same coefficients. A graph that declares fixed-Dirichlet reconstruction,
-controlled-Dirichlet lifting, material-subdomain state tracking, or Neumann
-boundary control selects a
+controlled-Dirichlet lifting, material-subdomain state tracking, Neumann
+boundary control, or the registered general scalar elliptic/Robin composition selects a
 separate v1-only assembled target; it never extends the v0 direct model. All
 targets expose the same generic compiled ports.
 
@@ -52,9 +52,10 @@ column names its focused CTest scenario backed by
 | `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `nmopt.dealii.pure_neumann` |
 | `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `H1ControlRegularisedModel<dim>` | Continuous `FE_Q` control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `nmopt.dealii.h1_control` |
 | `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `nmopt.dealii.coefficient_identification` |
+| `make_general_scalar_elliptic_robin_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Tensor diffusion, conservative and advective transport, reaction, volume source/control, and Robin bilinear/source terms with homogeneous fixed Dirichlet data | `nmopt.dealii.general_scalar_robin` |
 
-The fixed-reconstruction and subdomain-tracking registrations use the first
-bounded component path. `SemanticResolver` turns a valid graph into stable-ID
+The fixed-reconstruction, subdomain-tracking, and general scalar Robin
+registrations use the bounded component path. `SemanticResolver` turns a valid graph into stable-ID
 lookup tables, and `DealiiScalarLoweringPlanner` invokes stored residual,
 observation, loss, metric, constraint, and transformation handlers to build a
 typed `ScalarLoweringPlan`. The remaining registrations deliberately retain
@@ -80,7 +81,9 @@ declares a facewise Neumann control and state boundary trace.
 mean-constraint variant. `make_h1_regularised_scalar_diffusion_reaction_problem()`
 is the separate continuous-control objective variant.
 `make_coefficient_identification_problem()` adds a physical diffusion
-parameter. The compatibility table below describes the homogeneous graph; the
+parameter. `make_general_scalar_elliptic_robin_problem()` recombines the
+registered scalar residual terms and adds one natural Robin region. The
+compatibility table below describes the homogeneous graph; the
 named graph sections record the added features.
 
 Every enum-bearing semantic aggregate defaults to an explicit `unspecified`
@@ -104,7 +107,8 @@ Region       one full volume region, named material-id volume subregions, and ma
 Space        scalar H1 state/test; scalar L2 volume or facewise control; selected H1 trace control
 Pairing      explicit coefficient pairings for state, test, control, and observations
 Variable     one state and one control; the state may name a physical-field transformation
-Data         forcing, desired state, fixed Dirichlet lifting, diffusion, reaction,
+Data         forcing, desired state, fixed Dirichlet lifting, scalar/tensor diffusion,
+             conservative/advective transport, reaction, Robin coefficient/source,
              regularisation, and optional lower/upper cellwise bounds
 Transformation optional fixed-Dirichlet reconstruction or controlled-Dirichlet physical-state lifting
 Residual     diffusion-reaction, volume source, and volume control
@@ -127,6 +131,14 @@ box, the compiler also requires `CellwiseBoxDataBindings`: both bounds must
 be scalar constants or both must be exact-layout `FE_DGQ(0)` coefficient
 vectors.
 
+The P5.1 target additionally requires
+`DealiiGeneralScalarDataBindings<dim>`. Rank-specific deal.II
+`TensorFunction` ports bind tensor diffusion and the two vector transport
+coefficients; one-component `Function` ports bind reaction, Robin coefficient,
+and Robin source data. Every binding has separate provenance. A missing
+binding, empty provenance, or multi-component scalar coefficient is a
+lowerability diagnostic rather than an interpretation of component zero.
+
 The tracking target has its own required selected policy. The current
 registered realization is an analytic desired-state `Function` evaluated at
 the compiler-selected `QGauss` volume quadrature points, on exactly the
@@ -146,6 +158,34 @@ control coupling, control mass, and state/adjoint solvers over the full mesh.
 Consequently, changing the tracking region changes the objective derivative
 and adjoint right-hand side without changing the state equation or solver
 interfaces.
+
+### General scalar elliptic and Robin composition
+
+`make_general_scalar_elliptic_robin_problem()` replaces the legacy combined
+constant diffusion-reaction contribution by independently handled terms. For
+trial state $y$ and test function $v$, the assembled bilinear action is
+
+```math
+(A\nabla y,\nabla v)_{\Omega}
+-(y,b\mathbin\cdot\nabla v)_{\Omega}
++(c\mathbin\cdot\nabla y,v)_{\Omega}
++(r y,v)_{\Omega}
++(h y,v)_{\Gamma_{R}}.
+```
+
+The residual also contains the existing negative volume forcing/control
+loads and the negative Robin source load. The declared conormal convention is
+$(A\nabla y-b y)\mathbin\cdot n$ with the outward normal. The first registered
+boundary partition is one non-empty homogeneous fixed-Dirichlet region and
+one disjoint non-empty Robin/transport-outflow region; together they must
+cover every exterior face of the compiled mesh.
+
+Uniform ellipticity, coefficient regularity, and coercivity are explicit
+model-author assumptions recorded in the manifest, not properties inferred
+by sampling the bound Functions. The state matrix is generally nonsymmetric.
+The selected serial target factors it with `SparseDirectUMFPACK` and uses the
+factorization's exact transpose solve for the adjoint. Residual JVP and VJP
+continue to use the assembled matrix and its transpose directly.
 
 ### $H^{1}$ control regularisation and search metric
 
@@ -326,8 +366,8 @@ focused compiler headers: `compiled_problem.hpp`, `dealii_types.hpp`,
 For the bounded assembled scalar path it then builds a typed contribution plan;
 otherwise it selects one of the registered private target strategies.
 `dealii_fixed_dirichlet.hpp` owns `ScalarComponentModel`, the v1 physical-state
-assembly that consumes the current fixed-reconstruction and
-material-subdomain-tracking plans. The
+assembly that consumes the current fixed-reconstruction,
+material-subdomain-tracking, and P5.1 general scalar/Robin plans. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, facewise control layout, boundary trace tracking, facewise metric,
 facewise box realization, and pure-Neumann mean-zero saddle realization. The
@@ -339,7 +379,7 @@ $H^{1}$ loss and $H^{1}$ or $L^{2}$ search metrics. The private
 `dealii_coefficient_identification.hpp` target owns the cellwise positive
 diffusion-parameter residual, its nonlinear first-order actions, parameter
 metric, and parameter box. The registry otherwise supports only the listed
-volume terms, full-domain control observation, full-domain or material-id
+volume and Robin terms, full-domain control observation, full-domain or material-id
 state restriction, quadratic losses, `L2` metric, optional cellwise box, and
 fixed or controlled Dirichlet reconstruction. Its selected discrete policies are
 assembled
@@ -352,6 +392,11 @@ Neumann is limited to
 zero reaction and compatible forcing/control loads. Coefficient identification
 instead selects a cellwise `FE_DGQ(0)` physical parameter with a strictly
 positive box and reassembled state/adjoint matrices.
+
+The P5.1 realization adds selected tensor/vector/scalar coefficient Functions,
+one Robin boundary region, and a direct nonsymmetric state/transpose-adjoint
+solve while retaining the same `FE_Q`/`FE_DGQ(0)` layouts and reduced DTO
+ports.
 
 `CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
 and `make_reduced_dto()` expose only backend-neutral ports and formulation
@@ -374,6 +419,8 @@ service with independently selected typed policies. Its result reports
 convergence, iterations, requested tolerance, and achieved residual. The
 pure-Neumann mean-zero saddle solve remains a separate typed
 `SparseDirectUMFPACK` policy rather than being forced through the SPD path.
+The P5.1 nonsymmetric target likewise records direct state and exact-transpose
+adjoint solves; it does not misreport its operator as SPD.
 
 Every successful compiled product also carries a versioned, structured
 `CompilationManifest`. Typed subrecords identify the formulation and
@@ -407,7 +454,7 @@ representative structural or policy failures, incomplete aggregates,
 whole-graph closure, two-sided pairing compatibility, and order-independent
 reference deltas. They also verify order-independent resolution and the exact
 bounded scalar contribution plan, including rejection of a specialized graph.
-The eight deal.II target scenarios named in the
+The nine deal.II target scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic
@@ -424,9 +471,11 @@ than being duplicated as a second inventory here.
 This v1 registration does not broaden the v0 executable mathematics. Beyond
 the selected fixed-data reconstruction, complete-boundary nodal
 Dirichlet-control lifting, material-id state tracking, and marked-face Neumann
-control with boundary tracking, it does not compile
+control with boundary tracking, and the selected general scalar/Robin target,
+it does not compile
 arbitrary geometric or overlapping subdomain restrictions, FE target
-projection/interpolation, Robin terms, partial or mixed controlled Dirichlet
+projection/interpolation, Robin partitions beyond the registered homogeneous
+fixed/Robin split, partial or mixed controlled Dirichlet
 boundaries, nonzero fixed data combined with Dirichlet control, trace boxes,
 continuous-control bounds, continuous or transformed coefficient parameters,
 matrix-free execution, all-at-once/OTD, multiple equations, or multiple

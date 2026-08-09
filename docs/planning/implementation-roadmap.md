@@ -29,9 +29,9 @@ relevant `RF-006` characterization), R2b (`RF-002` through `RF-005` and the
 relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
 `RF-012`), and R3 (`RF-016` through `RF-019`) are complete. P4.1 and P4.2 are
 ignored for the current ordered implementation run because their scope is too
-broad. P5.1 is the selected next vertical slice. Its conditional C1 gate
-(`RF-008` through `RF-013`) and C2 bounded component-lowering gate are
-complete. Implement the first registered scalar target next.
+broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
+are complete. P5.2 is the selected next vertical slice; implement its first
+observation slice before selecting the separate $H^{-1}$ metric work.
 
 The following pieces exist and are tested:
 
@@ -39,10 +39,10 @@ The following pieces exist and are tested:
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. Their block storage is read-only after construction; checked algebraic updates preserve the declared dimensions. |
 | V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
-| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package and structured manifest; fixed-reconstruction and subdomain-tracking graphs use stable-ID resolution plus stored component handlers, while specialized registrations retain bounded target strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
+| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package and structured manifest; fixed-reconstruction, subdomain-tracking, and general scalar/Robin graphs use stable-ID resolution plus stored component handlers, while specialized registrations retain bounded target strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
-| Formulation solves and lifetime | `include/nmopt/contract/linear_solve.hpp`, `include/nmopt/dealii/serial_spd_solver.hpp`, and `include/nmopt/compiler/v1/dealii_types.hpp` | Typed state/adjoint solve reports, one shared serial SPD policy/service, an owned static-mesh compilation session, and detached reduced services that retain executable/session lifetime. |
+| Formulation solves and lifetime | `include/nmopt/contract/linear_solve.hpp`, `include/nmopt/dealii/serial_spd_solver.hpp`, and `include/nmopt/compiler/v1/dealii_types.hpp` | Typed state/adjoint solve reports, one shared serial SPD policy/service for symmetric targets, recorded direct and exact-transpose solves for the P5.1 nonsymmetric target, an owned static-mesh compilation session, and detached reduced services that retain executable/session lifetime. |
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend with a checked conversion from contract dimensions to the native deal.II size type. |
 | Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
@@ -50,7 +50,7 @@ The following pieces exist and are tested:
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twenty-five independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and thirteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, binding, solve-policy, manifest-realization, lifetime, projection-coupling, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twenty-six independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and fourteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -471,7 +471,7 @@ ordered by reusable capability, not by the source chapter's presentation
 order. They must not be implemented as a hierarchy of named textbook problem
 classes.
 
-### P5.1 — Compose general scalar elliptic volume and Robin boundary terms
+### P5.1 — Compose general scalar elliptic volume and Robin boundary terms — completed
 
 **Motivation:** C5.1, C5.5.1, and C5.6 use scalar operators beyond the
 current diffusion-reaction slice. Their differences are residual terms and
@@ -499,6 +499,21 @@ have value, JVP, and VJP pairing tests. The combined target must pass a
 non-symmetric transport adjoint test, a Robin boundary contribution test, and
 a reduced Taylor test. Unsupported coefficient shapes, boundary overlaps, or
 missing policies must return compiler diagnostics.
+
+**Implemented (v1):**
+`make_general_scalar_elliptic_robin_problem()` recombines independently
+handled tensor diffusion, conservative transport, advective transport,
+reaction, volume source/control, and Robin bilinear/source contributions in
+`ScalarLoweringPlan`. Rank-specific deal.II `TensorFunction` bindings and
+one-component scalar `Function` bindings carry separate provenance. The
+serial `ScalarComponentModel` target retains `FE_Q` state/test and
+`FE_DGQ(0)` control layouts, requires a disjoint complete homogeneous
+Dirichlet/Robin boundary partition, assembles the declared conormal weak form,
+and uses `SparseDirectUMFPACK` for the nonsymmetric state operator and its
+exact-transpose adjoint solve. Focused contracts isolate every
+state-dependent term's value/JVP/VJP actions, the Robin source, combined
+transport transpose, reduced Taylor remainder, manifest, coefficient-shape
+diagnostic, and boundary overlap/completeness diagnostics.
 
 ### P5.2 — Add energy-volume and weighted-trace observations, then the selected $H^{-1}$ metric separately
 
@@ -791,19 +806,19 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-P5.1 is the selected bounded Chapter 5 vertical slice. P4.1 and P4.2 remain
+P5.2 is the selected bounded Chapter 5 vertical slice. P4.1 and P4.2 remain
 ignored for the current ordered implementation run. Continue as follows:
 
-1. C1 is complete for the P5.1 compiler inputs, products, solve policies, and
-   provenance boundaries.
-2. C2 is complete: stable-ID semantic resolution and stored scalar handlers
-   produce a typed lowering plan for the first recombinable assembled targets.
-   A clean `debug-dealii` build took 81.3 seconds elapsed and 1.53 GiB peak RSS,
-   remaining in the previously measured cost band; no further template split is
-   justified by this gate.
-3. Implement the P5.1 first registered target and verify its individual term
-   actions, non-symmetric adjoint, Robin contribution, and reduced derivative.
-4. Select the next roadmap item only after the P5.1 handoff is complete.
+1. P5.1 is complete: its component plan and first registered deal.II target
+   verify individual term actions, the nonsymmetric adjoint, Robin value/load
+   contributions, boundary/shape diagnostics, and the reduced derivative.
+2. Reuse the completed C1/C2 compiler and component-lowering boundaries for
+   P5.2; do not reopen the broad P4.2 algebra/formulation group.
+3. Implement the P5.2 observation slice first: full-domain
+   `h1_state_restriction` and `weighted_boundary_trace`, with their declared
+   pairings, target/weight data, trace quadrature, and value/JVP/VJP tests.
+4. Treat the selected $H^{-1}$ metric as the next separate review boundary
+   only after the observation slice is complete.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

@@ -41,6 +41,7 @@ namespace nmopt::compiler::v1
           case semantic::v1::ObservationKind::unspecified:
             return false;
           case semantic::v1::ObservationKind::volume_restriction:
+          case semantic::v1::ObservationKind::h1_state_restriction:
           case semantic::v1::ObservationKind::boundary_trace:
           case semantic::v1::ObservationKind::boundary_restriction:
             return true;

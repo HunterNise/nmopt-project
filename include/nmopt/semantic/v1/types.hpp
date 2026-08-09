@@ -89,6 +89,7 @@ namespace nmopt::semantic::v1
   {
     unspecified = -1,
     volume_restriction,
+    h1_state_restriction,
     boundary_trace,
     boundary_restriction
   };

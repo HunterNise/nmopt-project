@@ -30,6 +30,19 @@ namespace
   using Primal = contract::PrimalBlockT<Backend>;
   using Covector = contract::CovectorBlockT<Backend>;
 
+  template <typename Component>
+  Component &
+  component_by_id(std::vector<Component> &components, const std::string &id)
+  {
+    const auto component = std::find_if(
+      components.begin(), components.end(), [&id](const Component &candidate) {
+        return candidate.id == id;
+      });
+    contract::require(component != components.end(),
+                      "deal.II test semantic component is missing");
+    return *component;
+  }
+
   template <int dim>
   class ConstantTensorCoefficient final
     : public dealii::TensorFunction<2, dim>
@@ -66,6 +79,82 @@ namespace
 
   private:
     dealii::Tensor<1, dim> value_;
+  };
+
+  template <int dim>
+  class EnergyPolynomial final : public dealii::Function<dim>
+  {
+  public:
+    explicit EnergyPolynomial(const double scale = 1.0)
+      : scale_(scale)
+    {}
+
+    double
+    value(const dealii::Point<dim> &point,
+          const unsigned int        component = 0) const override
+    {
+      (void)component;
+      double result = scale_;
+      for (unsigned int direction = 0; direction < dim; ++direction)
+        result *= point[direction] * (1.0 - point[direction]);
+      return result;
+    }
+
+    dealii::Tensor<1, dim>
+    gradient(const dealii::Point<dim> &point,
+             const unsigned int        component = 0) const override
+    {
+      (void)component;
+      dealii::Tensor<1, dim> result;
+      for (unsigned int derivative = 0; derivative < dim; ++derivative)
+        {
+          result[derivative] = scale_ * (1.0 - 2.0 * point[derivative]);
+          for (unsigned int direction = 0; direction < dim; ++direction)
+            if (direction != derivative)
+              result[derivative] *=
+                point[direction] * (1.0 - point[direction]);
+        }
+      return result;
+    }
+
+    double
+    laplacian(const dealii::Point<dim> &point) const
+    {
+      double result = 0.0;
+      for (unsigned int derivative = 0; derivative < dim; ++derivative)
+        {
+          double contribution = -2.0 * scale_;
+          for (unsigned int direction = 0; direction < dim; ++direction)
+            if (direction != derivative)
+              contribution *= point[direction] * (1.0 - point[direction]);
+          result += contribution;
+        }
+      return result;
+    }
+
+  private:
+    double scale_;
+  };
+
+  template <int dim>
+  class EnergyPolynomialForcing final : public dealii::Function<dim>
+  {
+  public:
+    explicit EnergyPolynomialForcing(const double reaction)
+      : reaction_(reaction)
+    {}
+
+    double
+    value(const dealii::Point<dim> &point,
+          const unsigned int        component = 0) const override
+    {
+      return -state_.laplacian(point) +
+             reaction_ * state_.value(point, component);
+    }
+
+  private:
+    double                reaction_;
+    EnergyPolynomial<dim> state_;
   };
 
   compiler::v1::DealiiBindingProvenance
@@ -714,6 +803,137 @@ namespace
                   "dealii.scalar.residual.diffusion_reaction") !=
           one_manifest.lowering_handler_records.end(),
       "v1 subdomain observation manifest omitted its restriction or data rule");
+  }
+
+  template <int dim>
+  void
+  run_h1_state_observation_contract_test()
+  {
+    static_assert(dim == 2, "The energy-observation oracle is two-dimensional");
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+
+    constexpr double reaction = 0.5;
+    const EnergyPolynomialForcing<dim> forcing(reaction);
+    const EnergyPolynomial<dim>        desired_state(0.5);
+    const auto specification =
+      semantic::v1::make_h1_state_tracking_scalar_diffusion_reaction_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 2;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(specification, policy).valid(),
+                      "H1-state tracking v1 graph did not validate for deal.II");
+
+    auto subdomain_specification = specification;
+    subdomain_specification.regions.push_back(
+      {"energy_subdomain", "Unsupported H1 observation subdomain",
+       semantic::v1::RegionKind::volume, false, {}, {0}});
+    component_by_id(subdomain_specification.spaces,
+                    "state_observation_space")
+      .region_id = "energy_subdomain";
+    component_by_id(subdomain_specification.observations,
+                    "state_observation")
+      .region_id = "energy_subdomain";
+    component_by_id(subdomain_specification.requirement_policies,
+                    "desired_state_quadrature_policy")
+      .region_id = "energy_subdomain";
+    test_support::require_exact_diagnostic(
+      compiler.validate(subdomain_specification, policy),
+      semantic::v1::DiagnosticCategory::lowerability,
+      specification.id,
+      "h1_state_observation_full_domain",
+      "H1-state observation compiler accepted an unregistered subdomain target");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      1.0,
+      reaction,
+      0.2,
+      test_binding_provenance("h1_state_observation")};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "H1-state observation v1 compilation failed");
+    const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = reduced.evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-10,
+                  "H1-state observation manufactured residual");
+
+    // For y=product_i x_i(1-x_i) and z_d=y/2 on the unit square,
+    // ||y||_H1^2=7/300. The state loss is therefore 7/2400. This oracle
+    // separately proves that the stiffness contribution is present.
+    require_close(evaluation.objective_value,
+                  7.0 / 2400.0,
+                  2e-10,
+                  "H1-state observation energy value");
+
+    dealii::Vector<double> state_tangent = evaluation.full_point.block(0);
+    dealii::Vector<double> control_tangent(model.variable_layout()->dimension(1));
+    const Primal tangent(model.variable_layout(),
+                         {std::move(state_tangent), std::move(control_tangent)});
+    const double derivative_pairing =
+      contract::pair(model.objective_derivative(evaluation.full_point), tangent);
+    require_close(derivative_pairing,
+                  7.0 / 600.0,
+                  5e-10,
+                  "H1-state observation VJP pairing");
+    constexpr double derivative_step = 1e-6;
+    const double centered_difference =
+      (model.objective(
+         shifted(evaluation.full_point, tangent, derivative_step)) -
+       model.objective(
+         shifted(evaluation.full_point, tangent, -derivative_step))) /
+      (2.0 * derivative_step);
+    require_close(centered_difference,
+                  derivative_pairing,
+                  2e-10,
+                  "H1-state observation JVP/VJP derivative");
+
+    dealii::Vector<double> direction_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size();
+         ++index)
+      direction_values[index] =
+        (index % 2 == 0 ? 0.04 : -0.03) * static_cast<double>(index + 1);
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const double reduced_derivative =
+      contract::pair(evaluation.reduced_derivative, direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, direction, step))
+                        .objective_value -
+                      evaluation.objective_value - step * reduced_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-13 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "H1-state observation reduced Taylor remainder is not quadratic");
+
+    const auto &manifest = compilation.problem->manifest();
+    require_constraint_realisation(manifest, "none", "H1-state observation");
+    contract::require(
+      manifest.compiler_id == "nmopt.compiler.v1.dealii.h1_state_tracking" &&
+        manifest.observation_realisation.find("H1_0") != std::string::npos &&
+        manifest.observation_realisation.find("mass-plus-stiffness") !=
+          std::string::npos &&
+        manifest.data_rule.find("value and gradient") != std::string::npos &&
+        manifest.metric_record.realisation_id == "l2_cellwise" &&
+        std::find(manifest.lowering_handler_records.begin(),
+                  manifest.lowering_handler_records.end(),
+                  "state_observation <- "
+                  "dealii.scalar.observation.h1_state_restriction") !=
+          manifest.lowering_handler_records.end(),
+      "H1-state observation manifest omitted its observation, data, or metric provenance");
   }
 
   template <int dim>
@@ -2540,6 +2760,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          60,
          []() { run_subdomain_observation_contract_test<2>(); }},
+        {"h1_state_observation",
+         "nmopt.dealii.h1_state_observation",
+         {"dealii", "compiler"},
+         60,
+         []() { run_h1_state_observation_contract_test<2>(); }},
         {"neumann_boundary",
          "nmopt.dealii.neumann_boundary",
          {"dealii", "compiler"},

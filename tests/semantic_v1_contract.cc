@@ -87,6 +87,22 @@ namespace
     require(h1_control_report.valid(),
             "the H1-control regularisation v1 graph is invalid");
 
+    const auto h1_state_specification =
+      nmopt::semantic::v1::make_h1_state_tracking_scalar_diffusion_reaction_problem();
+    const auto h1_state_report = validator.validate(h1_state_specification);
+    require(h1_state_report.valid(),
+            "the H1-state tracking v1 graph is invalid");
+
+    auto h1_state_l2_output = h1_state_specification;
+    component_by_id(h1_state_l2_output.spaces, "state_observation_space")
+      .topology = nmopt::semantic::v1::SpaceTopology::l2;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(h1_state_l2_output),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "state_observation",
+      "h1_state_restriction_output_topology",
+      "v1 semantic validation accepted an L2 output for the H1 state observation");
+
     const auto h1_metric_specification =
       nmopt::semantic::v1::make_h1_metric_scalar_diffusion_reaction_problem();
     const auto h1_metric_report = validator.validate(h1_metric_specification);
@@ -745,6 +761,28 @@ namespace
                          nmopt::compiler::v1::ScalarResidualOperatorKind::conservative_transport;
                 }),
             "P5.1 general scalar plan omitted a term or Robin boundary contribution");
+
+    const auto h1_state_specification =
+      nmopt::semantic::v1::make_h1_state_tracking_scalar_diffusion_reaction_problem();
+    const auto h1_state_resolution = resolver.resolve(h1_state_specification);
+    require(h1_state_resolution.succeeded(),
+            "H1-state observation lowering-plan setup did not resolve");
+    const auto h1_state_plan = planner.plan(*h1_state_resolution.problem);
+    require(
+      h1_state_plan.succeeded() &&
+        std::any_of(
+          h1_state_plan.plan->observations.begin(),
+          h1_state_plan.plan->observations.end(),
+          [](const nmopt::compiler::v1::ScalarObservationContribution &observation) {
+            return observation.operator_kind ==
+                   nmopt::compiler::v1::ScalarObservationOperatorKind::h1_state_restriction;
+          }) &&
+        std::find(h1_state_plan.plan->provenance.begin(),
+                  h1_state_plan.plan->provenance.end(),
+                  "state_observation <- "
+                  "dealii.scalar.observation.h1_state_restriction") !=
+          h1_state_plan.plan->provenance.end(),
+      "P5.2 H1-state observation did not contribute its scalar lowering handler");
   }
 
 } // namespace

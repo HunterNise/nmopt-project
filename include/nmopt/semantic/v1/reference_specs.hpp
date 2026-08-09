@@ -327,6 +327,41 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // P5.2's first observation target changes the state observation and its
+  // pairing, not the residual or the control search metric. The selected
+  // realization is the full H1_0 inner product assembled from mass and
+  // stiffness contributions.
+  inline ProblemSpec
+  make_h1_state_tracking_scalar_diffusion_reaction_problem()
+  {
+    ProblemSpec specification = make_scalar_diffusion_reaction_problem();
+    specification.id = "scalar_diffusion_reaction_h1_state_tracking";
+    specification.label =
+      "Scalar diffusion-reaction with H1 state tracking";
+    reference_detail::component_by_id(specification.spaces,
+                                      "state_observation_space",
+                                      "space") =
+      {"state_observation_space", "H1 state observation", "domain",
+       SpaceTopology::h1, SpaceRole::observation};
+    reference_detail::component_by_id(specification.pairings,
+                                      "state_observation_pairing",
+                                      "pairing") =
+      {"state_observation_pairing", "H1_0 state-observation pairing",
+       "state_observation_space", "state_observation_space"};
+    reference_detail::component_by_id(specification.observations,
+                                      "state_observation",
+                                      "observation") =
+      {"state_observation", "Full-domain H1 state restriction",
+       ObservationKind::h1_state_restriction, "state", "domain",
+       "state_observation_space", "state_observation_pairing"};
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "desired_state_quadrature_policy",
+                                      "requirement policy")
+      .selected_policy =
+      "analytic Function value and gradient evaluated at selected volume quadrature";
+    return specification;
+  }
+
   // P2.3's first half changes the objective, not the search geometry.  The
   // control has continuous FE_Q coordinates and the declared loss is the
   // H1 norm, while the selected algorithmic metric remains L2.

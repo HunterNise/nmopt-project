@@ -27,7 +27,8 @@ namespace nmopt::compiler::v1
 
   enum class ScalarObservationOperatorKind
   {
-    volume_restriction
+    volume_restriction,
+    h1_state_restriction
   };
 
   enum class ScalarLossOperatorKind
@@ -149,8 +150,10 @@ namespace nmopt::compiler::v1
   {
   public:
     ScalarObservationHandler(const semantic::v1::ObservationKind semantic_kind,
+                             const ScalarObservationOperatorKind operator_kind,
                              std::string handler_id)
       : semantic_kind_(semantic_kind)
+      , operator_kind_(operator_kind)
       , handler_id_(std::move(handler_id))
     {}
 
@@ -169,7 +172,7 @@ namespace nmopt::compiler::v1
         "Scalar observation handler received the wrong semantic kind");
       plan.observations.push_back(
         {observation.id,
-         ScalarObservationOperatorKind::volume_restriction,
+         operator_kind_,
          observation.input_variable_id,
          observation.output_space_id,
          observation.region_id,
@@ -179,6 +182,7 @@ namespace nmopt::compiler::v1
 
   private:
     semantic::v1::ObservationKind semantic_kind_;
+    ScalarObservationOperatorKind operator_kind_;
     std::string                   handler_id_;
   };
 
@@ -349,7 +353,11 @@ namespace nmopt::compiler::v1
            "dealii.scalar.residual.robin_source"}}
       , observation_handlers_{
           {semantic::v1::ObservationKind::volume_restriction,
-           "dealii.scalar.observation.volume_restriction"}}
+           ScalarObservationOperatorKind::volume_restriction,
+           "dealii.scalar.observation.volume_restriction"},
+          {semantic::v1::ObservationKind::h1_state_restriction,
+           ScalarObservationOperatorKind::h1_state_restriction,
+           "dealii.scalar.observation.h1_state_restriction"}}
       , loss_handlers_{
           {semantic::v1::LossKind::quadratic_tracking,
            ScalarLossOperatorKind::quadratic_tracking,

@@ -47,6 +47,7 @@ column names its focused CTest scenario backed by
 | `make_scalar_diffusion_reaction_problem()` | `ScalarDiffusionReactionModel<dim>` direct v0 reference, packaged through v1 ports | Homogeneous fixed Dirichlet, full-volume tracking, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `nmopt.dealii.canonical_volume_control` |
 | `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `nmopt.dealii.fixed_dirichlet` |
 | `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
+| `make_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Full-domain $H^{1}_{0}$ state observation with mass-plus-stiffness tracking and an unchanged control $L^{2}$ metric | `nmopt.dealii.h1_state_observation` |
 | `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
 | `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
 | `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `nmopt.dealii.pure_neumann` |
@@ -54,7 +55,8 @@ column names its focused CTest scenario backed by
 | `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `nmopt.dealii.coefficient_identification` |
 | `make_general_scalar_elliptic_robin_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Tensor diffusion, conservative and advective transport, reaction, volume source/control, and Robin bilinear/source terms with homogeneous fixed Dirichlet data | `nmopt.dealii.general_scalar_robin` |
 
-The fixed-reconstruction, subdomain-tracking, and general scalar Robin
+The fixed-reconstruction, subdomain-tracking, $H^{1}_{0}$ state-tracking, and
+general scalar Robin
 registrations use the bounded component path. `SemanticResolver` turns a valid graph into stable-ID
 lookup tables, and `DealiiScalarLoweringPlanner` invokes stored residual,
 observation, loss, metric, constraint, and transformation handlers to build a
@@ -75,7 +77,10 @@ declared physical-field transformation, while
 `make_dirichlet_control_scalar_diffusion_reaction_problem()` adds an explicit
 controlled-Dirichlet lifting, and
 `make_subdomain_tracking_scalar_diffusion_reaction_problem()` adds a named
-material-id observation region. `make_neumann_boundary_control_problem()`
+material-id observation region.
+`make_h1_state_tracking_scalar_diffusion_reaction_problem()` instead selects
+the full-domain energy observation and its $H^{1}_{0}$ pairing while retaining
+the $L^{2}$ control metric. `make_neumann_boundary_control_problem()`
 declares a facewise Neumann control and state boundary trace.
 `make_pure_neumann_boundary_control_problem()` is its separate zero-reaction
 mean-constraint variant. `make_h1_regularised_scalar_diffusion_reaction_problem()`
@@ -112,7 +117,7 @@ Data         forcing, desired state, fixed Dirichlet lifting, scalar/tensor diff
              regularisation, and optional lower/upper cellwise bounds
 Transformation optional fixed-Dirichlet reconstruction or controlled-Dirichlet physical-state lifting
 Residual     diffusion-reaction, volume source, and volume control
-Observation  full-volume control restriction; state restriction on the full volume or one material subregion
+Observation  full-volume control restriction; L2 state restriction on the full volume or one material subregion; full-volume H1_0 state restriction
 Loss         quadratic tracking and quadratic control regularisation
 Metric       cellwise L2 control metric
 Constraint   optional cellwise L2 box
@@ -158,6 +163,31 @@ control coupling, control mass, and state/adjoint solvers over the full mesh.
 Consequently, changing the tracking region changes the objective derivative
 and adjoint right-hand side without changing the state equation or solver
 interfaces.
+
+### $H^{1}_{0}$ state observation
+
+`make_h1_state_tracking_scalar_diffusion_reaction_problem()` replaces only the
+state observation topology and pairing. The selected full-domain observation
+uses identity value, JVP, and coefficient transpose actions on the physical
+`FE_Q` state. The quadratic loss lowers the declared pairing to the assembled
+mass-plus-stiffness Riesz operator; the concrete target fuses that loss
+derivative with the identity observation pullback. For desired state $z_{d}$,
+the tracking loss is
+
+```math
+J_{\mathrm{state}}(y_{h})=
+\frac{1}{2}\left(
+\lVert y_{h}-z_{d}\rVert_{L^{2}}^{2}
++\lVert\nabla(y_{h}-z_{d})\rVert_{L^{2}}^{2}
+\right).
+```
+
+The bound target `Function` supplies both value and gradient at the selected
+volume quadrature, and the manifest records that rule. The first realization
+requires homogeneous fixed Dirichlet data and the full volume. It retains the
+cellwise $L^{2}$ control metric and regularisation; subdomain energy tracking,
+weighted boundary trace, and an $H^{-1}$ control metric remain separate
+capabilities.
 
 ### General scalar elliptic and Robin composition
 
@@ -367,7 +397,8 @@ For the bounded assembled scalar path it then builds a typed contribution plan;
 otherwise it selects one of the registered private target strategies.
 `dealii_fixed_dirichlet.hpp` owns `ScalarComponentModel`, the v1 physical-state
 assembly that consumes the current fixed-reconstruction,
-material-subdomain-tracking, and P5.1 general scalar/Robin plans. The
+material-subdomain-tracking, $H^{1}_{0}$ state-tracking, and P5.1 general
+scalar/Robin plans. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, facewise control layout, boundary trace tracking, facewise metric,
 facewise box realization, and pure-Neumann mean-zero saddle realization. The
@@ -380,7 +411,8 @@ $H^{1}$ loss and $H^{1}$ or $L^{2}$ search metrics. The private
 diffusion-parameter residual, its nonlinear first-order actions, parameter
 metric, and parameter box. The registry otherwise supports only the listed
 volume and Robin terms, full-domain control observation, full-domain or material-id
-state restriction, quadratic losses, `L2` metric, optional cellwise box, and
+$L^{2}$ state restriction, full-domain $H^{1}_{0}$ state restriction,
+quadratic losses, `L2` metric, optional cellwise box, and
 fixed or controlled Dirichlet reconstruction. Its selected discrete policies are
 assembled
 serial scalar `FE_Q` state/test with degree at least one and reduced DTO:
@@ -454,7 +486,7 @@ representative structural or policy failures, incomplete aggregates,
 whole-graph closure, two-sided pairing compatibility, and order-independent
 reference deltas. They also verify order-independent resolution and the exact
 bounded scalar contribution plan, including rejection of a specialized graph.
-The nine deal.II target scenarios named in the
+The ten deal.II target scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic
@@ -470,10 +502,12 @@ than being duplicated as a second inventory here.
 
 This v1 registration does not broaden the v0 executable mathematics. Beyond
 the selected fixed-data reconstruction, complete-boundary nodal
-Dirichlet-control lifting, material-id state tracking, and marked-face Neumann
-control with boundary tracking, and the selected general scalar/Robin target,
-it does not compile
-arbitrary geometric or overlapping subdomain restrictions, FE target
+Dirichlet-control lifting, material-id $L^{2}$ state tracking, full-domain
+$H^{1}_{0}$ state tracking, marked-face Neumann control with unweighted
+boundary tracking, and the selected general scalar/Robin target, it does not
+compile
+arbitrary geometric or overlapping subdomain restrictions, weighted boundary
+traces, FE target
 projection/interpolation, Robin partitions beyond the registered homogeneous
 fixed/Robin split, partial or mixed controlled Dirichlet
 boundaries, nonzero fixed data combined with Dirichlet control, trace boxes,

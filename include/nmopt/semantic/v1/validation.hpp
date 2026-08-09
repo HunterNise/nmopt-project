@@ -713,6 +713,24 @@ namespace nmopt::semantic::v1
                          ? "The registered boundary observation needs a boundary region."
                          : "The registered volume restriction needs a volume region.");
           const auto input = variables.find(observation.input_variable_id);
+          if (observation.kind == ObservationKind::h1_state_restriction)
+            {
+              const auto input_space =
+                input == variables.end() ? spaces.end() :
+                                           spaces.find(input->second->space_id);
+              if (input == variables.end() ||
+                  input->second->role != VariableRole::state)
+                report.add(DiagnosticCategory::structural,
+                           observation.id,
+                           "h1_state_restriction_state_input",
+                           "Use an H1 state variable as the source of the energy observation.");
+              else if (input_space == spaces.end() ||
+                       input_space->second->topology != SpaceTopology::h1)
+                report.add(DiagnosticCategory::structural,
+                           observation.id,
+                           "h1_state_restriction_input_topology",
+                           "Declare the observed state in an H1 space.");
+            }
           if (observation.kind == ObservationKind::boundary_trace &&
               (input == variables.end() ||
                input->second->role != VariableRole::state))
@@ -743,6 +761,12 @@ namespace nmopt::semantic::v1
                        observation.id,
                        "observation_output_region",
                        "Declare the observation output space on the observation region.");
+          else if (observation.kind == ObservationKind::h1_state_restriction &&
+                   output_space->second->topology != SpaceTopology::h1)
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "h1_state_restriction_output_topology",
+                       "Declare the energy-observation output with H1 topology.");
           const auto pairing = pairings.find(observation.output_pairing_id);
           if (pairing == pairings.end() ||
               !pairing_matches_space(*pairing->second,

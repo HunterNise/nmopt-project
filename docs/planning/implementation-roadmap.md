@@ -30,8 +30,10 @@ relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
 `RF-012`), and R3 (`RF-016` through `RF-019`) are complete. P4.1 and P4.2 are
 ignored for the current ordered implementation run because their scope is too
 broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
-are complete. P5.2 is the selected next vertical slice; implement its first
-observation slice before selecting the separate $H^{-1}$ metric work.
+are complete. The P5.2 full-domain $H^{1}_{0}$ state-observation unit is
+complete. The weighted-boundary-trace observation is the selected next
+vertical slice; keep the separate $H^{-1}$ metric work deferred until both
+observation capabilities are complete.
 
 The following pieces exist and are tested:
 
@@ -39,7 +41,7 @@ The following pieces exist and are tested:
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. Their block storage is read-only after construction; checked algebraic updates preserve the declared dimensions. |
 | V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
-| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package and structured manifest; fixed-reconstruction, subdomain-tracking, and general scalar/Robin graphs use stable-ID resolution plus stored component handlers, while specialized registrations retain bounded target strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
+| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package and structured manifest; fixed-reconstruction, subdomain-tracking, $H^{1}_{0}$ state-tracking, and general scalar/Robin graphs use stable-ID resolution plus stored component handlers, while specialized registrations retain bounded target strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
 | Formulation solves and lifetime | `include/nmopt/contract/linear_solve.hpp`, `include/nmopt/dealii/serial_spd_solver.hpp`, and `include/nmopt/compiler/v1/dealii_types.hpp` | Typed state/adjoint solve reports, one shared serial SPD policy/service for symmetric targets, recorded direct and exact-transpose solves for the P5.1 nonsymmetric target, an owned static-mesh compilation session, and detached reduced services that retain executable/session lifetime. |
@@ -50,7 +52,7 @@ The following pieces exist and are tested:
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twenty-six independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and fourteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twenty-seven independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and fifteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison, and the energy-observation scenario has an independent polynomial $H^{1}_{0}$ oracle. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -542,6 +544,19 @@ metric apply/inverse tests establish the declared pairing, and a reduced
 Taylor test distinguishes the $L^{2}$ and $H^{-1}$ search directions without
 changing the reduced covector.
 
+**Implemented observation progress:**
+`make_h1_state_tracking_scalar_diffusion_reaction_problem()` selects the new
+`h1_state_restriction` kind and an explicit $H^{1}_{0}$ observation pairing.
+The bounded scalar component target assembles the mass-plus-stiffness tracking
+operator, target value/gradient load and norm, and corresponding state
+covector while retaining the cellwise $L^{2}$ control metric. The manifest
+records value-and-gradient target quadrature and handler provenance. Focused
+contracts cover semantic topology, unsupported subdomain lowering, an
+independent polynomial energy value, the observation JVP/VJP derivative,
+reduced Taylor convergence, and unchanged metric provenance. The
+`weighted_boundary_trace` observation and the separate $H^{-1}$ metric remain
+pending.
+
 ### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy
 
 **Motivation:** C5.8 and C5.10 are not ordinary restriction/trace
@@ -814,9 +829,9 @@ ignored for the current ordered implementation run. Continue as follows:
    contributions, boundary/shape diagnostics, and the reduced derivative.
 2. Reuse the completed C1/C2 compiler and component-lowering boundaries for
    P5.2; do not reopen the broad P4.2 algebra/formulation group.
-3. Implement the P5.2 observation slice first: full-domain
-   `h1_state_restriction` and `weighted_boundary_trace`, with their declared
-   pairings, target/weight data, trace quadrature, and value/JVP/VJP tests.
+3. The full-domain `h1_state_restriction` unit is complete. Implement
+   `weighted_boundary_trace` next with its declared pairing, weight data,
+   trace quadrature, and value/JVP/VJP tests.
 4. Treat the selected $H^{-1}$ metric as the next separate review boundary
    only after the observation slice is complete.
 

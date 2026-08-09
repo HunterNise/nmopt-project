@@ -134,6 +134,8 @@ namespace nmopt::compiler::v1
         uses_parameter_diffusion_residual(specification);
       const bool uses_general_scalar =
         uses_general_scalar_residual(specification);
+      const bool uses_h1_state_observation =
+        has_h1_state_observation(specification);
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *robin_boundary_region =
         selected_robin_boundary_region(specification);
@@ -149,7 +151,7 @@ namespace nmopt::compiler::v1
         !uses_coefficient_identification &&
         !uses_dirichlet_control &&
         (uses_fixed_reconstruction || uses_subdomain_observation ||
-         uses_general_scalar);
+         uses_general_scalar || uses_h1_state_observation);
       std::optional<ScalarLoweringPlan> scalar_plan;
       if (uses_assembled_v1_target)
         {
@@ -837,6 +839,19 @@ namespace nmopt::compiler::v1
     }
 
     static bool
+    has_h1_state_observation(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [](const semantic::v1::ObservationSpec &observation) {
+          return observation.kind ==
+                 semantic::v1::ObservationKind::h1_state_restriction;
+        });
+    }
+
+    static bool
     uses_general_scalar_residual(
       const semantic::v1::ProblemSpec &specification)
     {
@@ -1377,6 +1392,8 @@ namespace nmopt::compiler::v1
         uses_parameter_diffusion_residual(specification);
       const bool general_scalar =
         uses_general_scalar_residual(specification);
+      const bool h1_state_observation =
+        has_h1_state_observation(specification);
       const bool dirichlet_control_lifting =
         uses_dirichlet_control_lifting(specification);
       const auto fixed_policy = std::find_if(
@@ -1402,6 +1419,25 @@ namespace nmopt::compiler::v1
                    specification.formulation.state_variable_id,
                    "fixed_dirichlet_boundary_ids",
                    "Select a boundary region with at least one fixed Dirichlet id.");
+      if (h1_state_observation)
+        {
+          const auto tracking_region = selected_tracking_region(specification);
+          if (tracking_region == nullptr || !tracking_region->is_full_domain)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "h1_state_observation_full_domain",
+              "Select the full volume region for the registered H1 state observation.");
+          if (uses_fixed_dirichlet_reconstruction(specification) ||
+              dirichlet_control_lifting || uses_neumann_control(specification) ||
+              h1_control_regularisation || coefficient_identification ||
+              general_scalar)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "h1_state_observation_registered_combination",
+              "Combine the first H1 state observation only with the registered homogeneous diffusion-reaction volume-control target and L2 control regularisation.");
+        }
       if (dirichlet_control_lifting &&
           (controlled_boundary == nullptr ||
            controlled_boundary->kind != semantic::v1::RegionKind::boundary ||
@@ -2300,6 +2336,8 @@ namespace nmopt::compiler::v1
         target == CompiledTargetKind::general_scalar_robin;
       const bool uses_general_scalar =
         target == CompiledTargetKind::general_scalar_robin;
+      const bool uses_h1_state_observation =
+        has_h1_state_observation(specification);
       const bool uses_neumann_boundary_control = uses_neumann_target(target);
       const bool uses_mean_zero_gauge =
         target == CompiledTargetKind::pure_neumann;
@@ -2340,7 +2378,9 @@ namespace nmopt::compiler::v1
                 record.provenance = data.provenance.forcing;
                 break;
               case semantic::v1::DataRole::desired_state:
-                record.representation = "analytic Function at quadrature";
+                record.representation = uses_h1_state_observation
+                                          ? "analytic Function value and gradient at quadrature"
+                                          : "analytic Function at quadrature";
                 record.provenance = data.provenance.desired_state;
                 break;
               case semantic::v1::DataRole::fixed_dirichlet_lifting:
@@ -2452,6 +2492,8 @@ namespace nmopt::compiler::v1
       manifest.compiler_id =
         uses_general_scalar
           ? "nmopt.compiler.v1.dealii.general_scalar_elliptic_robin"
+        : uses_h1_state_observation
+          ? "nmopt.compiler.v1.dealii.h1_state_tracking"
           : "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
       manifest.backend = "deal.II serial Vector<double>";
       manifest.execution = "assembled";
@@ -2461,7 +2503,11 @@ namespace nmopt::compiler::v1
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
       manifest.dual_representation = "tested dual coefficients with dot pairing";
-      manifest.data_rule = uses_neumann_boundary_control
+      manifest.data_rule = uses_h1_state_observation
+        ? "analytic desired-state Function value and gradient at selected QGauss(" +
+            std::to_string(policy.state_degree + 2) +
+            ") volume quadrature; scalar coefficients and forcing Function at volume quadrature"
+        : uses_neumann_boundary_control
         ? "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature"
@@ -2478,7 +2524,9 @@ namespace nmopt::compiler::v1
               : uses_dirichlet_control_lifting
               ? "; scalar coefficients and forcing Function at volume quadrature; Dirichlet trace is the decision block"
               : "; scalar coefficients and forcing Function at volume quadrature");
-      manifest.observation_realisation = uses_neumann_boundary_control
+      manifest.observation_realisation = uses_h1_state_observation
+        ? "full-domain H1_0 state restriction with mass-plus-stiffness pairing"
+        : uses_neumann_boundary_control
         ? boundary_observation_realisation(tracking_region)
         : observation_realisation(tracking_region);
       manifest.metric_solve_policy =
@@ -2543,6 +2591,9 @@ namespace nmopt::compiler::v1
             "general_scalar_robin: tensor diffusion, conservative and advective transport, reaction, and Robin terms; Robin boundary ids " +
             boundary_id_list(*robin_region));
         }
+      if (uses_h1_state_observation)
+        manifest.declared_assumptions.push_back(
+          "h1_state_observation: full-domain H1_0 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric remains L2");
       manifest.region_ids = identifiers(specification.regions);
       manifest.space_ids = identifiers(specification.spaces);
       manifest.pairing_ids = identifiers(specification.pairings);

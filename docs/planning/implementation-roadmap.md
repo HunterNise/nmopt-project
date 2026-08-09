@@ -30,10 +30,11 @@ relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
 `RF-012`), and R3 (`RF-016` through `RF-019`) are complete. P4.1 and P4.2 are
 ignored for the current ordered implementation run because their scope is too
 broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
-are complete. The P5.2 full-domain $H^{1}_{0}$ state-observation unit is
-complete, and the weighted-boundary-trace observation is now complete as its
-own review boundary. The separately specified $H^{-1}$ metric is the selected
-next vertical slice.
+are complete. P5.2 is complete: the full-domain $H^{1}_{0}$ state observation,
+weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
+have their own semantic, lowering, and verification boundary. P5.3 is next in
+the ordered Chapter 5 sequence and requires its strong/very-weak formulation
+policy before implementation.
 
 The following pieces exist and are tested:
 
@@ -48,11 +49,11 @@ The following pieces exist and are tested:
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend with a checked conversion from contract dimensions to the native deal.II size type. |
 | Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
-| deal.II metrics | `include/nmopt/dealii/mass_metric.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, and parameter layouts, with serial CG inverse apply and an operator-bound realization witness. |
+| deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, and negative-norm layouts. The selected $H^{-1}$ realization applies $M_hK_h^{-1}M_h$ and its inverse; all inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twenty-eight independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and sixteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison, the energy-observation scenario has an independent polynomial $H^{1}_{0}$ oracle, and the weighted-trace scenario compares against an exact constant-weight scaling oracle while proving the residual and metric unchanged. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose thirty-one independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and nineteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants. Independent oracles cover the canonical weak form, polynomial $H^{1}_{0}$ tracking, constant weighted-trace scaling, the exact $M_hK_h^{-1}M_h$ metric action, continuous-control components, and the reduced $L^{2}$/$H^{-1}$ direction comparison. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -366,9 +367,10 @@ selects a box constraint. Focused contracts compare the two metrics while
 checking the stiffness contribution, residual pullback identity, and reduced
 Taylor remainder.
 
-The metric needs a positive zero-order term or an explicit boundary/mean
-policy to be invertible. An $H^{-1}$-type metric remains unsupported until
-its exact Hilbert space and discrete operator are stated.
+The $H^{1}$ metric needs a positive zero-order term or an explicit
+boundary/mean policy to be invertible. P5.2 separately registers one named
+$H^{-1}$ realization with an explicit homogeneous-Dirichlet search space and
+operator; no generic negative-norm default is inferred.
 
 ### P3.1 — Add coefficient identification and nonlinear first-order actions — completed
 
@@ -544,7 +546,7 @@ metric apply/inverse tests establish the declared pairing, and a reduced
 Taylor test distinguishes the $L^{2}$ and $H^{-1}$ search directions without
 changing the reduced covector.
 
-**Implemented observation slices:**
+**Implemented slices:**
 `make_h1_state_tracking_scalar_diffusion_reaction_problem()` selects the new
 `h1_state_restriction` kind and an explicit $H^{1}_{0}$ observation pairing.
 The bounded scalar component target assembles the mass-plus-stiffness tracking
@@ -563,7 +565,21 @@ unchanged. Semantic contracts cover the data port and quadrature policy;
 deal.II contracts cover missing/provenance/shape diagnostics, exact
 constant-weight value and pullback scaling, residual JVP/VJP identity,
 unchanged metric action, reduced Taylor convergence, and manifest provenance.
-The separate $H^{-1}$ metric remains pending.
+
+`make_l2_metric_h1_state_tracking_continuous_control_problem()` and
+`make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()`
+select the same independent homogeneous-Dirichlet continuous `FE_Q` control
+coordinates. The first retains $G_h=M_h$; the second selects
+$G_h=M_hK_h^{-1}M_h$, where $K_h$ is the Dirichlet Laplacian, so
+$G_h^{-1}=M_h^{-1}K_hM_h^{-1}$ and no mean constraint is needed. Both retain
+the same energy observation, volume residual, $L^{2}$ control loss, state
+solve, and adjoint solve. The registered target has no coefficientwise box.
+The shared identity-preconditioned CG tolerances are recorded for the mass and
+Laplacian inverse actions. Independent metric tests establish exact action,
+inverse recovery, and symmetry; the compiled comparison establishes identical
+reduced objectives/covectors, distinct $L^{2}$/$H^{-1}$ directions, quadratic
+reduced Taylor remainders for both directions, and complete manifest
+provenance. This completes P5.2.
 
 ### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy
 
@@ -829,20 +845,20 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-P5.2 is the selected bounded Chapter 5 vertical slice. P4.1 and P4.2 remain
-ignored for the current ordered implementation run. Continue as follows:
+P5.2 is complete. P4.1 and P4.2 remain ignored for the current ordered
+implementation run. Continue as follows:
 
 1. P5.1 is complete: its component plan and first registered deal.II target
    verify individual term actions, the nonsymmetric adjoint, Robin value/load
    contributions, boundary/shape diagnostics, and the reduced derivative.
-2. Reuse the completed C1/C2 compiler and component-lowering boundaries for
-   P5.2; do not reopen the broad P4.2 algebra/formulation group.
-3. The full-domain `h1_state_restriction` and `weighted_boundary_trace`
-   observation units are complete, including declared weight data, trace
-   quadrature, and value/JVP/VJP coverage.
-4. Implement the selected $H^{-1}$ metric as the next separate review
-   boundary. State its control space, Riesz operator, boundary/mean policy,
-   and inverse-solve tolerances before changing code.
+2. P5.2 is complete: energy and weighted-trace observations remain separate
+   maps, and the named $H^{-1}$ metric changes only direction formation on its
+   declared continuous-control comparison graph.
+3. Start P5.3 with a selected strong/very-weak formulation-policy design for
+   one sensor or normal-flux target; do not approximate either as an ordinary
+   restriction before that policy is recorded.
+4. Reuse the completed C1/C2 boundaries and do not reopen the broad P4.2
+   algebra/formulation group.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

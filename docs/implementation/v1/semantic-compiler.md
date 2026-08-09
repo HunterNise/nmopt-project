@@ -48,6 +48,7 @@ column names its focused CTest scenario backed by
 | `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `nmopt.dealii.fixed_dirichlet` |
 | `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
 | `make_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Full-domain $H^{1}_{0}$ state observation with mass-plus-stiffness tracking and an unchanged control $L^{2}$ metric | `nmopt.dealii.h1_state_observation` |
+| `make_l2_metric_h1_state_tracking_continuous_control_problem()` and `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Same independent homogeneous-Dirichlet `FE_Q` control layout and energy-tracking graph with separately selected $L^{2}$ or $H^{-1}$ metric; no box | `nmopt.dealii.hminus1_compilation` |
 | `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
 | `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
 | `make_weighted_boundary_trace_neumann_control_problem()` | `NeumannBoundaryControlModel<dim>` with fixed weight data | Marked-face Neumann control and the explicit map $y\mapsto h\gamma y$ with an unchanged facewise $L^{2}$ metric | `nmopt.dealii.weighted_boundary_trace` |
@@ -81,7 +82,11 @@ controlled-Dirichlet lifting, and
 material-id observation region.
 `make_h1_state_tracking_scalar_diffusion_reaction_problem()` instead selects
 the full-domain energy observation and its $H^{1}_{0}$ pairing while retaining
-the $L^{2}$ control metric. `make_neumann_boundary_control_problem()`
+the cellwise $L^{2}$ control metric. The separate
+`make_l2_metric_h1_state_tracking_continuous_control_problem()` and
+`make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()`
+factories share one independent homogeneous-Dirichlet continuous-control graph
+and change only its selected metric. `make_neumann_boundary_control_problem()`
 declares a facewise Neumann control and state boundary trace.
 `make_weighted_boundary_trace_neumann_control_problem()` replaces that state
 observation by a `weighted_boundary_trace` with an explicit immutable
@@ -201,7 +206,34 @@ The bound target `Function` supplies both value and gradient at the selected
 volume quadrature, and the manifest records that rule. The first realization
 requires homogeneous fixed Dirichlet data and the full volume. It retains the
 cellwise $L^{2}$ control metric and regularisation; subdomain energy tracking
-and an $H^{-1}$ control metric remain separate capabilities.
+remains separate. The registered $H^{-1}$ metric is instead composed with the
+continuous-control companion described below.
+
+### $H^{-1}$ control metric
+
+The P5.2 comparison factories expose the same independent control coordinates
+$P_h\subset H^1_0(\Omega)$, energy observation, volume residual, $L^{2}$
+control loss, state solve, and adjoint solve. The companion metric is the
+control mass matrix $M_h$. The negative-norm metric is
+
+```math
+G_h=M_hK_h^{-1}M_h,
+\qquad
+G_h^{-1}=M_h^{-1}K_hM_h^{-1},
+```
+
+where $K_h$ is the homogeneous-Dirichlet control Laplacian. The boundary
+condition makes $K_h$ coercive without a mean constraint. `Hminus1Metric`
+performs the Laplacian and mass inverse actions with the selected
+identity-preconditioned serial-CG tolerances. The manifest records the control
+space, operator, boundary/no-mean choice, preconditioner, and tolerances.
+
+This bounded target retains the existing positive $L^{2}$ control loss; it
+verifies metric composition and does not claim the source catalogue's
+unregularized infinite-dimensional problem as a separate executable target.
+The focused contract proves exact metric action/inversion, identical reduced
+objective and covector under $L^{2}$ and $H^{-1}$ selection, distinct search
+directions, and quadratic state-recomputed Taylor remainders for both.
 
 ### Weighted boundary trace observation
 

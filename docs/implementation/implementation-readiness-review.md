@@ -295,7 +295,7 @@ latter coercive, and its inverse changes only the search direction.
 |---|---|---|
 | $L^{2}$ metric | $`G=M_{U}`$ in the selected control realization. | **First default.** |
 | $H^{1}$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | Allowed with an explicit coercivity policy and a separately declared compatible constraint, if any. |
-| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default; unsupported until specified as an operator and tested. |
+| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default. The named P5.2 realization on independent homogeneous-Dirichlet `FE_Q` coordinates uses $G_h=M_hK_h^{-1}M_h$ and is supported only with its explicit boundary and solve policy. |
 | Fractional metric | Requires a named discrete realization and spectral/extension/auxiliary problem policy. | Unsupported initially. |
 
 An $H^{1}$ metric includes a positive zero-order term or an explicit

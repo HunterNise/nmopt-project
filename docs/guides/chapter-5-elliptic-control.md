@@ -240,8 +240,19 @@ projection solution.
 The alternate variant instead takes control and data in $H^{-1}(\Omega)$.
 It makes the same quadratic form coercive even for an unbounded admissible
 set, but the $H^{-1}$ gradient is $-\Delta p$. This changes the control
-metric/Riesz map, not the residual. P5.2 must add the state energy
-observation; an $H^{-1}$ metric needs its own selected realisation.
+metric/Riesz map, not the residual. P5.2 adds the state energy observation and
+gives the $H^{-1}$ metric its own selected realization.
+
+The registered discrete realization uses independent homogeneous-Dirichlet
+continuous `FE_Q` control coordinates $P_h$ and
+$G_h=M_hK_h^{-1}M_h$, with $K_h$ the Dirichlet Laplacian. Its inverse is
+$M_h^{-1}K_hM_h^{-1}$, so this is not the existing $H^{1}$ Sobolev-gradient
+solve. The fixed boundary removes the constant mode and the compiler records
+identity-preconditioned CG tolerances for every inverse action. An $L^{2}$
+companion factory uses the same graph and control coordinates. Their compiled
+reduced objectives and covectors agree while their search directions differ.
+The bounded v1 comparison retains its positive $L^{2}$ control loss and does
+not claim to lower the catalogue's unregularized admissible-set variant.
 
 ### C5.6 — Subdomain tracking with Neumann boundary control
 

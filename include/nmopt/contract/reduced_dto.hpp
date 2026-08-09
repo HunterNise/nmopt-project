@@ -1,9 +1,11 @@
 #pragma once
 
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/contract/linear_solve.hpp"
 #include "nmopt/contract/metric_constraint.hpp"
 
 #include <functional>
+#include <memory>
 #include <utility>
 
 namespace nmopt::contract
@@ -93,13 +95,15 @@ namespace nmopt::contract
   struct StateAdjointSolversT
   {
     // Input: control. Output: state satisfying the compiled residual.
-    std::function<PrimalBlockT<Backend>(const PrimalBlockT<Backend> &)>
+    std::function<FormulationSolveResultT<Backend>(
+      const PrimalBlockT<Backend> &)>
       solve_state;
 
     // Input: full point and covector D_y J. Output: test-space primal p
     // satisfying E_y^* p = D_y J.
-    std::function<PrimalBlockT<Backend>(const PrimalBlockT<Backend> &,
-                                        const CovectorBlockT<Backend> &)>
+    std::function<FormulationSolveResultT<Backend>(
+      const PrimalBlockT<Backend> &,
+      const CovectorBlockT<Backend> &)>
       solve_adjoint;
   };
 
@@ -113,6 +117,8 @@ namespace nmopt::contract
     PrimalBlockT<Backend>   full_point;
     CovectorBlockT<Backend> reduced_derivative;
     double                  objective_value;
+    LinearSolveReport       state_solve;
+    LinearSolveReport       adjoint_solve;
   };
 
   using ReducedEvaluation = ReducedEvaluationT<DenseBackend>;
@@ -124,10 +130,31 @@ namespace nmopt::contract
     ReducedDTOT(const ExecutableModelT<Backend> &model,
                 StateControlPartitionT<Backend>  partition,
                 StateAdjointSolversT<Backend>    solvers)
-      : model_(model)
+      : model_(&model)
       , partition_(std::move(partition))
       , solvers_(std::move(solvers))
     {
+      require(static_cast<bool>(solvers_.solve_state),
+              "Reduced DTO requires a state solve operation");
+      require(static_cast<bool>(solvers_.solve_adjoint),
+              "Reduced DTO requires an adjoint solve operation");
+    }
+
+    // A compiled reduced service owns its executable and any backend session
+    // token needed by that executable. The reference-taking constructor above
+    // remains available for deliberately short-lived direct use.
+    ReducedDTOT(std::shared_ptr<const ExecutableModelT<Backend>> model,
+                StateControlPartitionT<Backend>                  partition,
+                StateAdjointSolversT<Backend>                    solvers,
+                std::shared_ptr<const void> lifetime_owner = {})
+      : owned_model_(std::move(model))
+      , model_(owned_model_.get())
+      , partition_(std::move(partition))
+      , solvers_(std::move(solvers))
+      , lifetime_owner_(std::move(lifetime_owner))
+    {
+      require(static_cast<bool>(owned_model_),
+              "Owned reduced DTO requires an executable model");
       require(static_cast<bool>(solvers_.solve_state),
               "Reduced DTO requires a state solve operation");
       require(static_cast<bool>(solvers_.solve_adjoint),
@@ -140,33 +167,42 @@ namespace nmopt::contract
       require(control.layout()->compatible_with(*partition_.control_layout()),
               "Control does not match the reduced DTO control layout");
 
-      PrimalBlockT<Backend> state = solvers_.solve_state(control);
+      FormulationSolveResultT<Backend> state_result =
+        solvers_.solve_state(control);
+      require(state_result.report.converged(),
+              "State solve did not converge under its declared policy");
+      PrimalBlockT<Backend> state = std::move(state_result.solution);
       require(state.layout()->compatible_with(*partition_.state_layout()),
               "State solver returned an incompatible state layout");
 
       PrimalBlockT<Backend> full_point = partition_.compose(state, control);
       CovectorBlockT<Backend> objective_derivative =
-        model_.objective_derivative(full_point);
+        model_->objective_derivative(full_point);
       CovectorBlockT<Backend> state_rhs =
         partition_.state_component(objective_derivative);
 
-      PrimalBlockT<Backend> adjoint =
+      FormulationSolveResultT<Backend> adjoint_result =
         solvers_.solve_adjoint(full_point, state_rhs);
-      require(adjoint.layout()->compatible_with(*model_.test_layout()),
+      require(adjoint_result.report.converged(),
+              "Adjoint solve did not converge under its declared policy");
+      PrimalBlockT<Backend> adjoint = std::move(adjoint_result.solution);
+      require(adjoint.layout()->compatible_with(*model_->test_layout()),
               "Adjoint solver returned an incompatible test-space layout");
 
       CovectorBlockT<Backend> residual_pullback =
-        model_.residual_vjp(full_point, adjoint);
+        model_->residual_vjp(full_point, adjoint);
       CovectorBlockT<Backend> reduced_derivative =
         subtract(partition_.control_component(objective_derivative),
                  partition_.control_component(residual_pullback));
-      const double objective_value = model_.objective(full_point);
+      const double objective_value = model_->objective(full_point);
 
       return {std::move(state),
               std::move(adjoint),
               std::move(full_point),
               std::move(reduced_derivative),
-              objective_value};
+              objective_value,
+              std::move(state_result.report),
+              std::move(adjoint_result.report)};
     }
 
     PrimalBlockT<Backend>
@@ -182,9 +218,11 @@ namespace nmopt::contract
     }
 
   private:
-    const ExecutableModelT<Backend> &model_;
-    StateControlPartitionT<Backend>  partition_;
-    StateAdjointSolversT<Backend>    solvers_;
+    std::shared_ptr<const ExecutableModelT<Backend>> owned_model_;
+    const ExecutableModelT<Backend> *                model_ = nullptr;
+    StateControlPartitionT<Backend>                  partition_;
+    StateAdjointSolversT<Backend>                    solvers_;
+    std::shared_ptr<const void>                      lifetime_owner_;
   };
 
   using ReducedDTO = ReducedDTOT<DenseBackend>;

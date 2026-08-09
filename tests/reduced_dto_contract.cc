@@ -418,6 +418,50 @@ namespace
   }
 
   void
+  test_owned_reduced_service_lifetime()
+  {
+    auto detached = []() {
+      auto model = std::make_shared<LinearQuadraticModel>(
+        DenseMatrix(2, 2, {4.0, -1.0, -1.0, 3.0}),
+        DenseMatrix(2, 2, {1.0, 0.5, -0.25, 2.0}),
+        DenseVector{1.0, -0.5},
+        DenseMatrix(2, 2, {1.0, 0.0, 0.5, 1.0}),
+        DenseVector{0.25, -1.0},
+        DenseVector{1.5, 0.75},
+        DenseVector{2.0, 3.0},
+        0.4);
+      const auto *model_view = model.get();
+      StateControlPartition partition(*model_view, 0, 1);
+      StateAdjointSolvers solvers{
+        [model_view](const PrimalBlock &control) {
+          return model_view->solve_state(control);
+        },
+        [model_view](const PrimalBlock &full_point,
+                     const CovectorBlock &state_rhs) {
+          return model_view->solve_adjoint(full_point, state_rhs);
+        }};
+      PrimalBlock control(partition.control_layout(),
+                          {DenseVector{0.4, -0.3}});
+      struct DetachedService
+      {
+        ReducedDTO  reduced;
+        PrimalBlock control;
+      };
+      return DetachedService{
+        ReducedDTO(std::move(model),
+                   std::move(partition),
+                   std::move(solvers),
+                   std::make_shared<const int>(7)),
+        std::move(control)};
+    }();
+
+    const auto evaluation = detached.reduced.evaluate(detached.control);
+    require(evaluation.state_solve.converged() &&
+              evaluation.adjoint_solve.converged(),
+            "Detached owned reduced service lost its solve callbacks");
+  }
+
+  void
   test_backend_parameterisation()
   {
     const auto layout = std::make_shared<const BlockLayout>(
@@ -492,6 +536,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "contract"},
          30,
          test_backend_parameterisation},
+        {"owned_reduced_service_lifetime",
+         "nmopt.contract.owned_reduced_service_lifetime",
+         {"backend-neutral", "contract", "ownership"},
+         30,
+         test_owned_reduced_service_lifetime},
         {"projection_compatibility",
          "nmopt.contract.projection_compatibility",
          {"backend-neutral", "contract", "constraint"},

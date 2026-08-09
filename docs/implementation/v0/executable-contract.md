@@ -33,6 +33,7 @@ The public executable and solver headers provide:
 | `ExecutableModel` | Residual value, residual JVP, residual VJP, objective value, and objective derivative. |
 | `Metric` | Explicit primal-to-dual action and inverse action, plus an opaque realization witness distinct from its display ID. The serial deal.II backend supplies `dealii_backend::MassMetric` for one-block sparse mass matrices. |
 | `Constraint` | Feasibility and projection coupled to an actual compatible metric realization. |
+| `LinearSolveReport` and `FormulationSolveResultT` | Backend-neutral state/adjoint convergence, tolerance, and work evidence paired with a solved primal block. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 
@@ -106,8 +107,17 @@ first derivatives only
 
 The state/adjoint solves are formulation services, not residual-term methods.
 They must operate on the compiled model and honor its constraint, nullspace,
-and tolerance policy. The constructor validates all block-layout connections;
-no implicit state/control selection is made.
+and tolerance policy. Each service returns a `FormulationSolveResultT` whose
+typed report states the algorithm, preconditioner, requested tolerances,
+iteration limit, work, achieved residual, and termination. `ReducedDTOT`
+rejects a nonconverged result before using its primal block. The constructor
+validates all block-layout connections; no implicit state/control selection is
+made.
+
+The direct `ReducedDTOT` constructor borrows its executable for deliberately
+short-lived reference use. Its compiled constructor owns the executable and
+an optional backend-session lifetime token, so a reduced service detached from
+its `CompiledProblemT` remains valid.
 
 Mixed partitions, multiple equation blocks, nonlinear all-at-once Newton,
 OTD, and Hessian-vector actions are intentionally outside this v0 contract.
@@ -196,7 +206,10 @@ The `CTest` scenarios verify:
    metric, constraint, and projected-solver precondition failures;
 11. dense and deal.II unconstrained/projected Armijo convergence, including
    active-bound and projected-stationarity checks; and
-12. checked acceptance/rejection at the serial deal.II native-size boundary.
+12. checked acceptance/rejection at the serial deal.II native-size boundary;
+    and
+13. detached owned reduced-service lifetime and typed state/adjoint solve
+    reports, including sanitizer coverage in the backend-neutral profile.
 
 This establishes the small executable algebra that a deal.II compiler must
 produce. The first serial scalar diffusion-reaction compiler now exists; its

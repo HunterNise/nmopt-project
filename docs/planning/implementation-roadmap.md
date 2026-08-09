@@ -33,8 +33,13 @@ broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
 are complete. P5.2 is complete: the full-domain $H^{1}_{0}$ state observation,
 weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
 have their own semantic, lowering, and verification boundary. P5.3 is next in
-the ordered Chapter 5 sequence and requires its strong/very-weak formulation
-policy before implementation.
+the eventual Chapter 5 sequence and requires its strong/very-weak formulation
+policy before implementation. The current ordered priority is scalar boundary
+control: close the remaining C5.6-style Neumann composition, implement the
+first partial controlled-Dirichlet target from P5.4, and then use the P5.3
+transposition policy for the $L^{2}$ Dirichlet-control variant. Standalone
+normal-flux or point-sensor targets remain deferred unless they are selected as
+the next low-regularity target.
 
 The following pieces exist and are tested:
 
@@ -846,7 +851,8 @@ declared conversion policy.
 ## Current next-agent sequence
 
 P5.2 is complete. P4.1 and P4.2 remain ignored for the current ordered
-implementation run. Continue as follows:
+implementation run. The selected priority is the scalar boundary-control
+track. Continue as follows:
 
 1. P5.1 is complete: its component plan and first registered deal.II target
    verify individual term actions, the nonsymmetric adjoint, Robin value/load
@@ -854,11 +860,21 @@ implementation run. Continue as follows:
 2. P5.2 is complete: energy and weighted-trace observations remain separate
    maps, and the named $H^{-1}$ metric changes only direction formation on its
    declared continuous-control comparison graph.
-3. Start P5.3 with a selected strong/very-weak formulation-policy design for
-   one sensor or normal-flux target; do not approximate either as an ordinary
-   restriction before that policy is recorded.
-4. Reuse the completed C1/C2 boundaries and do not reopen the broad P4.2
-   algebra/formulation group.
+3. Close the C5.6-style Neumann composition as a bounded registered target:
+   combine the completed transport/mixed-boundary residual capability with
+   Neumann control and subdomain tracking, preserving separate boundary and
+   volume observation semantics.
+4. Implement the first P5.4 partial scalar controlled-Dirichlet target with
+   one disjoint fixed nonzero boundary, an explicit corner/interface policy,
+   and an $L^{2}$ trace metric. Keep fractional and tangential metrics as
+   separate follow-up targets.
+5. Select the P5.3 transposition policy needed by the $L^{2}$ Dirichlet-control
+   variant, then implement its low-regularity state/adjoint path. Do not
+   approximate the transposition action by an ordinary restriction or trace.
+6. Reuse the completed C1/C2 boundaries and do not reopen the broad P4.2
+   algebra/formulation group. Defer standalone normal-flux and point-sensor
+   targets until the boundary-control track is complete or a separate
+   low-regularity target is explicitly selected.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

@@ -4,6 +4,7 @@
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
+#include "nmopt/dealii/serial_spd_solver.hpp"
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
@@ -55,6 +56,7 @@ namespace nmopt::compiler::v1::detail
     using Vector = dealii::Vector<double>;
     using Primal = contract::PrimalBlockT<Backend>;
     using Covector = contract::CovectorBlockT<Backend>;
+    using SolveResult = contract::FormulationSolveResultT<Backend>;
 
     CoefficientIdentificationModel(
       dealii::Triangulation<dim> &                triangulation,
@@ -212,20 +214,48 @@ namespace nmopt::compiler::v1::detail
     Primal
     solve_state(const Primal &parameter) const
     {
+      auto result = solve_state_with_report(parameter, {});
+      contract::require(result.report.converged(),
+                        "State solve did not converge under its declared policy");
+      return std::move(result.solution);
+    }
+
+    SolveResult
+    solve_state_with_report(
+      const Primal &                              parameter,
+      const dealii_backend::SPDLinearSolvePolicy &policy) const
+    {
       contract::require(parameter.layout()->compatible_with(*parameter_layout_),
                         "State solve parameter has an incompatible layout");
       require_positive_parameter(parameter.block(0));
       Matrix state_matrix;
       assemble_state_matrix(parameter.block(0), state_matrix);
       Vector state(state_dof_handler_.n_dofs());
-      solve_symmetric_system(state_matrix, state, forcing_load_);
+      auto report = solve_symmetric_system(state_matrix,
+                                           state,
+                                           forcing_load_,
+                                           policy);
       state_constraints_.distribute(state);
-      return Primal(state_layout_, {std::move(state)});
+      return {Primal(state_layout_, {std::move(state)}), std::move(report)};
     }
 
     Primal
     solve_adjoint(const Primal &full_point,
                   const Covector &state_objective_derivative) const
+    {
+      auto result = solve_adjoint_with_report(full_point,
+                                              state_objective_derivative,
+                                              {});
+      contract::require(result.report.converged(),
+                        "Adjoint solve did not converge under its declared policy");
+      return std::move(result.solution);
+    }
+
+    SolveResult
+    solve_adjoint_with_report(
+      const Primal &                              full_point,
+      const Covector &                            state_objective_derivative,
+      const dealii_backend::SPDLinearSolvePolicy &policy) const
     {
       require_variables(full_point, "Adjoint solve point");
       contract::require(
@@ -234,11 +264,12 @@ namespace nmopt::compiler::v1::detail
       Matrix state_matrix;
       assemble_state_matrix(full_point.block(1), state_matrix);
       Vector adjoint(test_layout_->dimension(0));
-      solve_symmetric_system(state_matrix,
-                             adjoint,
-                             state_objective_derivative.block(0));
+      auto report = solve_symmetric_system(state_matrix,
+                                           adjoint,
+                                           state_objective_derivative.block(0),
+                                           policy);
       state_constraints_.distribute(adjoint);
-      return Primal(test_layout_, {std::move(adjoint)});
+      return {Primal(test_layout_, {std::move(adjoint)}), std::move(report)};
     }
 
   private:
@@ -564,20 +595,16 @@ namespace nmopt::compiler::v1::detail
       return value;
     }
 
-    static void
+    static contract::LinearSolveReport
     solve_symmetric_system(const Matrix &matrix,
                            Vector &      solution,
-                           const Vector &right_hand_side)
+                           const Vector &right_hand_side,
+                           const dealii_backend::SPDLinearSolvePolicy &policy)
     {
-      const double tolerance =
-        std::max(1e-14, 1e-12 * right_hand_side.l2_norm());
-      dealii::SolverControl control(
-        std::max<unsigned int>(100, 10 * matrix.m()), tolerance);
-      dealii::SolverCG<Vector> solver(control);
-      solver.solve(matrix,
-                   solution,
-                   right_hand_side,
-                   dealii::PreconditionIdentity());
+      return dealii_backend::solve_serial_spd(matrix,
+                                              solution,
+                                              right_hand_side,
+                                              policy);
     }
 
     dealii::FE_Q<dim> state_fe_;

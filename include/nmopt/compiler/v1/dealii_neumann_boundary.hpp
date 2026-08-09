@@ -4,6 +4,7 @@
 #include "nmopt/dealii/facewise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
+#include "nmopt/dealii/serial_spd_solver.hpp"
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
@@ -52,6 +53,7 @@ namespace nmopt::compiler::v1::detail
     using Vector = dealii::Vector<double>;
     using Primal = contract::PrimalBlockT<Backend>;
     using Covector = contract::CovectorBlockT<Backend>;
+    using SolveResult = contract::FormulationSolveResultT<Backend>;
 
     enum class StateGauge
     {
@@ -264,6 +266,17 @@ namespace nmopt::compiler::v1::detail
     Primal
     solve_state(const Primal &control) const
     {
+      auto result = solve_state_with_report(control, {});
+      contract::require(result.report.converged(),
+                        "State solve did not converge under its declared policy");
+      return std::move(result.solution);
+    }
+
+    SolveResult
+    solve_state_with_report(
+      const Primal &                              control,
+      const dealii_backend::SPDLinearSolvePolicy &policy) const
+    {
       contract::require(control.layout()->compatible_with(*control_layout_),
                         "State solve control has an incompatible layout");
       Vector right_hand_side = forcing_load_;
@@ -272,22 +285,39 @@ namespace nmopt::compiler::v1::detail
       right_hand_side.add(1.0, control_contribution);
 
       Vector state(state_dof_handler_.n_dofs());
+      contract::LinearSolveReport report;
       if (uses_mean_zero_gauge())
         {
           contract::require(
             is_compatible(right_hand_side),
             "Pure-Neumann state load violates the discrete constant-mode compatibility condition");
           solve_mean_zero_system(state, right_hand_side);
+          report = dealii_backend::direct_solve_report(
+            "serial_sparse_direct_umfpack_mean_zero_saddle");
         }
       else
-        solve_symmetric_system(state, right_hand_side);
+        report = solve_symmetric_system(state, right_hand_side, policy);
       state_constraints_.distribute(state);
-      return Primal(state_layout_, {std::move(state)});
+      return {Primal(state_layout_, {std::move(state)}), std::move(report)};
     }
 
     Primal
     solve_adjoint(const Primal &full_point,
                   const Covector &state_objective_derivative) const
+    {
+      auto result = solve_adjoint_with_report(full_point,
+                                              state_objective_derivative,
+                                              {});
+      contract::require(result.report.converged(),
+                        "Adjoint solve did not converge under its declared policy");
+      return std::move(result.solution);
+    }
+
+    SolveResult
+    solve_adjoint_with_report(
+      const Primal &                              full_point,
+      const Covector &                            state_objective_derivative,
+      const dealii_backend::SPDLinearSolvePolicy &policy) const
     {
       require_variables(full_point, "Adjoint solve point");
       contract::require(
@@ -295,12 +325,19 @@ namespace nmopt::compiler::v1::detail
         "Adjoint solve right-hand side has an incompatible state layout");
 
       Vector adjoint(test_layout_->dimension(0));
+      contract::LinearSolveReport report;
       if (uses_mean_zero_gauge())
-        solve_mean_zero_system(adjoint, state_objective_derivative.block(0));
+        {
+          solve_mean_zero_system(adjoint, state_objective_derivative.block(0));
+          report = dealii_backend::direct_solve_report(
+            "serial_sparse_direct_umfpack_mean_zero_saddle");
+        }
       else
-        solve_symmetric_system(adjoint, state_objective_derivative.block(0));
+        report = solve_symmetric_system(adjoint,
+                                        state_objective_derivative.block(0),
+                                        policy);
       state_constraints_.distribute(adjoint);
-      return Primal(test_layout_, {std::move(adjoint)});
+      return {Primal(test_layout_, {std::move(adjoint)}), std::move(report)};
     }
 
   private:
@@ -585,18 +622,16 @@ namespace nmopt::compiler::v1::detail
                         "Neumann control face enumeration changed during assembly");
     }
 
-    void
-    solve_symmetric_system(Vector &solution, const Vector &right_hand_side) const
+    contract::LinearSolveReport
+    solve_symmetric_system(
+      Vector &                                      solution,
+      const Vector &                                right_hand_side,
+      const dealii_backend::SPDLinearSolvePolicy &policy) const
     {
-      const double tolerance =
-        std::max(1e-14, 1e-12 * right_hand_side.l2_norm());
-      dealii::SolverControl control(
-        std::max<unsigned int>(100, 10 * system_matrix_.m()), tolerance);
-      dealii::SolverCG<Vector> solver(control);
-      solver.solve(system_matrix_,
-                   solution,
-                   right_hand_side,
-                   dealii::PreconditionIdentity());
+      return dealii_backend::solve_serial_spd(system_matrix_,
+                                              solution,
+                                              right_hand_side,
+                                              policy);
     }
 
     bool

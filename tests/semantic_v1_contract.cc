@@ -1,4 +1,5 @@
 #include "nmopt/contract/linalg.hpp"
+#include "nmopt/compiler/v1/dealii_scalar_plan.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
 #include "test_support/diagnostics.hpp"
 #include "test_support/scenario_dispatch.hpp"
@@ -7,6 +8,7 @@
 #include <exception>
 #include <functional>
 #include <iostream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -641,6 +643,59 @@ namespace
       "semantic resolver did not retain duplicate-ID diagnostics");
   }
 
+  void
+  test_dealii_scalar_lowering_plan()
+  {
+    const nmopt::semantic::v1::SemanticResolver resolver;
+    const nmopt::compiler::v1::DealiiScalarLoweringPlanner planner;
+    const auto specification =
+      nmopt::semantic::v1::make_scalar_diffusion_reaction_problem(true);
+    const auto resolution = resolver.resolve(specification);
+    require(resolution.succeeded(),
+            "scalar lowering-plan setup did not resolve");
+    const auto planned = planner.plan(*resolution.problem);
+    require(planned.succeeded(),
+            "canonical graph did not produce a scalar lowering plan");
+    require(planned.plan->residual_terms.size() == 3 &&
+              planned.plan->observations.size() == 2 &&
+              planned.plan->losses.size() == 2 &&
+              planned.plan->constraint ==
+                nmopt::compiler::v1::ScalarConstraintOperatorKind::cellwise_box &&
+              planned.plan->transformation ==
+                nmopt::compiler::v1::ScalarTransformationOperatorKind::none &&
+              planned.plan->dirichlet_boundary_ids ==
+                std::set<unsigned int>{0} &&
+              planned.plan->provenance.size() == 9,
+            "canonical scalar lowering plan omitted component contributions");
+
+    const auto fixed_specification =
+      nmopt::semantic::v1::make_fixed_dirichlet_scalar_diffusion_reaction_problem();
+    const auto fixed_resolution = resolver.resolve(fixed_specification);
+    require(fixed_resolution.succeeded(),
+            "fixed reconstruction lowering-plan setup did not resolve");
+    const auto fixed_plan = planner.plan(*fixed_resolution.problem);
+    require(fixed_plan.succeeded() &&
+              fixed_plan.plan->transformation ==
+                nmopt::compiler::v1::ScalarTransformationOperatorKind::fixed_dirichlet_reconstruction &&
+              fixed_plan.plan->fixed_data_id == "fixed_dirichlet_data",
+            "fixed reconstruction did not contribute its scalar strategy");
+
+    const auto boundary_specification =
+      nmopt::semantic::v1::make_neumann_boundary_control_problem();
+    const auto boundary_resolution = resolver.resolve(boundary_specification);
+    require(boundary_resolution.succeeded(),
+            "specialized-boundary lowering-plan setup did not resolve");
+    const auto boundary_plan = planner.plan(*boundary_resolution.problem);
+    require(!boundary_plan.succeeded() && !boundary_plan.plan.has_value(),
+            "specialized Neumann graph entered the bounded scalar plan");
+    nmopt::test_support::require_exact_diagnostic(
+      boundary_plan.diagnostics,
+      nmopt::semantic::v1::DiagnosticCategory::lowerability,
+      "neumann_control",
+      "scalar_residual_component_lowerer",
+      "scalar planner did not identify its specialized Neumann boundary");
+  }
+
 } // namespace
 
 int
@@ -678,7 +733,12 @@ main(const int argc, char **argv)
          "nmopt.semantic.v1_resolution",
          {"backend-neutral", "semantic", "compiler"},
          30,
-         test_semantic_v1_resolution}};
+         test_semantic_v1_resolution},
+        {"scalar_lowering_plan",
+         "nmopt.semantic.v1_scalar_lowering_plan",
+         {"backend-neutral", "semantic", "compiler"},
+         30,
+         test_dealii_scalar_lowering_plan}};
       const auto result =
         nmopt::test_support::run_requested_scenarios(
           argc, argv, scenarios, std::cout);

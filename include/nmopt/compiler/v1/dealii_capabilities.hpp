@@ -70,7 +70,8 @@ namespace nmopt::compiler::v1
     has_metric_lowerer(const semantic::v1::MetricKind kind) const
     {
       return kind == semantic::v1::MetricKind::l2 ||
-             kind == semantic::v1::MetricKind::h1;
+             kind == semantic::v1::MetricKind::h1 ||
+             kind == semantic::v1::MetricKind::hminus1;
     }
 
     bool

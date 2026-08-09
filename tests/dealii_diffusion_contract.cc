@@ -1740,6 +1740,153 @@ namespace
 
   template <int dim>
   void
+  run_hminus1_compilation_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const EnergyPolynomial<dim> desired_state(0.5);
+    auto hminus1_specification = semantic::v1::
+      make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem();
+    auto l2_specification = semantic::v1::
+      make_l2_metric_h1_state_tracking_continuous_control_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    policy.control_metric_solve.maximum_iterations = 500;
+    policy.control_metric_solve.relative_tolerance = 1e-13;
+    policy.control_metric_solve.absolute_tolerance = 1e-15;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(hminus1_specification, policy).valid() &&
+                        compiler.validate(l2_specification, policy).valid(),
+                      "H-1/L2 continuous-control comparison graphs did not validate");
+
+    auto missing_energy_observation = hminus1_specification;
+    auto &state_observation = component_by_id(
+      missing_energy_observation.observations, "state_observation");
+    state_observation.kind = semantic::v1::ObservationKind::volume_restriction;
+    component_by_id(missing_energy_observation.spaces,
+                    "state_observation_space")
+      .topology = semantic::v1::SpaceTopology::l2;
+    test_support::require_exact_diagnostic(
+      compiler.validate(missing_energy_observation, policy),
+      semantic::v1::DiagnosticCategory::lowerability,
+      missing_energy_observation.id,
+      "hminus1_metric_energy_observation",
+      "H-1 compiler did not require the P5.2 energy observation");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.2,
+      test_binding_provenance("hminus1_metric")};
+    const auto hminus1_compilation = compiler.compile(hminus1_specification,
+                                                      triangulation,
+                                                      bindings,
+                                                      policy);
+    const auto l2_compilation = compiler.compile(l2_specification,
+                                                 triangulation,
+                                                 bindings,
+                                                 policy);
+    contract::require(hminus1_compilation.succeeded() &&
+                        l2_compilation.succeeded(),
+                      "H-1/L2 continuous-control comparison compilation failed");
+
+    const auto &hminus1_model =
+      hminus1_compilation.problem->executable_model();
+    const auto &l2_model = l2_compilation.problem->executable_model();
+    contract::require(
+      hminus1_model.variable_layout()->dimension(1) ==
+          l2_model.variable_layout()->dimension(1) &&
+        hminus1_model.variable_layout()->dimension(1) > 1,
+      "H-1/L2 comparison did not retain one independent continuous-control layout");
+    dealii::Vector<double> control_values(
+      hminus1_model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_values.size();
+         ++index)
+      control_values[index] =
+        (index % 2 == 0 ? 0.03 : -0.02) * static_cast<double>(index + 1);
+    const Primal hminus1_control(
+      hminus1_model.variable_layout()->single_block(1, "control"),
+      {control_values});
+    const Primal l2_control(
+      l2_model.variable_layout()->single_block(1, "control"), {control_values});
+    const auto hminus1_reduced =
+      hminus1_compilation.problem->make_reduced_dto();
+    const auto l2_reduced = l2_compilation.problem->make_reduced_dto();
+    const auto hminus1_evaluation = hminus1_reduced.evaluate(hminus1_control);
+    const auto l2_evaluation = l2_reduced.evaluate(l2_control);
+
+    require_close(hminus1_evaluation.objective_value,
+                  l2_evaluation.objective_value,
+                  1e-12,
+                  "H-1 metric changed the reduced objective");
+    require_covector_close(hminus1_evaluation.reduced_derivative,
+                           l2_evaluation.reduced_derivative,
+                           1e-11,
+                           "H-1 metric changed the reduced covector");
+    const Primal hminus1_direction =
+      hminus1_compilation.problem->metric().inverse_apply(
+        hminus1_evaluation.reduced_derivative);
+    const Primal l2_direction = l2_compilation.problem->metric().inverse_apply(
+      l2_evaluation.reduced_derivative);
+    dealii::Vector<double> direction_difference = hminus1_direction.block(0);
+    direction_difference.add(-1.0, l2_direction.block(0));
+    contract::require(direction_difference.l2_norm() > 1e-3,
+                      "H-1 and L2 metrics produced the same search direction");
+    require_covector_close(
+      hminus1_compilation.problem->metric().apply(hminus1_direction),
+      hminus1_evaluation.reduced_derivative,
+      1e-10,
+      "compiled H-1 metric apply/inverse pairing");
+
+    const auto verify_reduced_taylor = [](const auto &reduced,
+                                          const Primal &control,
+                                          const auto &evaluation,
+                                          const Primal &direction,
+                                          const char *description) {
+      const double slope =
+        contract::pair(evaluation.reduced_derivative, direction);
+      const auto remainder = [&](const double step) {
+        return std::abs(
+          reduced.evaluate(shifted(control, direction, step)).objective_value -
+          evaluation.objective_value - step * slope);
+      };
+      const double coarse = remainder(2e-4);
+      const double fine = remainder(1e-4);
+      contract::require(coarse > 1e-13 && fine <= 0.26 * coarse + 1e-13,
+                        description);
+    };
+    verify_reduced_taylor(hminus1_reduced,
+                          hminus1_control,
+                          hminus1_evaluation,
+                          hminus1_direction,
+                          "H-1 search-direction Taylor remainder is not quadratic");
+    verify_reduced_taylor(l2_reduced,
+                          l2_control,
+                          l2_evaluation,
+                          l2_direction,
+                          "L2 comparison-direction Taylor remainder is not quadratic");
+
+    const auto &manifest = hminus1_compilation.problem->manifest();
+    contract::require(
+      hminus1_compilation.problem->metric().id() == "hminus1_continuous" &&
+        l2_compilation.problem->metric().id() == "l2_continuous" &&
+        manifest.metric_record.operator_description.find("M_h K_h^{-1} M_h") !=
+          std::string::npos &&
+        manifest.metric_solve_policy.find("hminus1_continuous") !=
+          std::string::npos &&
+        manifest.control_space.find("independent homogeneous-Dirichlet") !=
+          std::string::npos,
+      "H-1 compilation manifest omitted its operator, solve, or control-space policy");
+  }
+
+  template <int dim>
+  void
   run_coefficient_identification_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -3186,6 +3333,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler", "metric"},
          30,
          []() { run_continuous_control_component_contract_test<2>(); }},
+        {"hminus1_compilation",
+         "nmopt.dealii.hminus1_compilation",
+         {"dealii", "compiler", "metric"},
+         60,
+         []() { run_hminus1_compilation_contract_test<2>(); }},
         {"coefficient_identification",
          "nmopt.dealii.coefficient_identification",
          {"dealii", "compiler"},

@@ -130,6 +130,10 @@ namespace nmopt::compiler::v1
         uses_h1_control_regularisation_loss(specification);
       const bool uses_h1_control_metric =
         selects_h1_control_metric(specification);
+      const bool uses_hminus1_control_metric =
+        selects_hminus1_control_metric(specification);
+      const bool uses_homogeneous_dirichlet_continuous_control =
+        has_homogeneous_dirichlet_continuous_control(specification);
       const bool uses_coefficient_identification =
         uses_parameter_diffusion_residual(specification);
       const bool uses_general_scalar =
@@ -150,6 +154,7 @@ namespace nmopt::compiler::v1
       const bool uses_assembled_v1_target =
         !uses_neumann_boundary_control &&
         !uses_h1_control_regularisation &&
+        !uses_homogeneous_dirichlet_continuous_control &&
         !uses_coefficient_identification &&
         !uses_dirichlet_control &&
         (uses_fixed_reconstruction || uses_subdomain_observation ||
@@ -436,7 +441,7 @@ namespace nmopt::compiler::v1
         }
       contract::require(tracking_region != nullptr,
                         "Validated v1 problem has no tracking observation region");
-      std::shared_ptr<const dealii_backend::MassMetric> metric;
+      std::shared_ptr<const contract::MetricT<Backend>> metric;
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
       contract::StateAdjointSolversT<Backend> solvers;
@@ -476,7 +481,9 @@ namespace nmopt::compiler::v1
             {
               constraint =
                 std::make_shared<dealii_backend::FacewiseBoxConstraint>(
-                  make_facewise_constraint(*boundary, *facewise_bounds, *metric));
+                  make_facewise_constraint(*boundary,
+                                           *facewise_bounds,
+                                           as_mass_metric(*metric)));
               constraint_realisation = ConstraintRealisation::facewise_l2;
             }
           solvers = {
@@ -521,7 +528,8 @@ namespace nmopt::compiler::v1
             }};
           executable = dirichlet;
         }
-      else if (uses_h1_control_regularisation)
+      else if (uses_h1_control_regularisation ||
+               uses_homogeneous_dirichlet_continuous_control)
         {
           using H1Model = detail::ContinuousControlModel<dim>;
           const auto h1_control = std::make_shared<H1Model>(
@@ -532,11 +540,18 @@ namespace nmopt::compiler::v1
             data.reaction,
             data.regularisation_weight,
             policy.state_degree,
-            dirichlet_boundary_ids);
-          metric = std::make_shared<dealii_backend::MassMetric>(
-            uses_h1_control_metric
-              ? h1_control->control_h1_metric(policy.control_metric_solve)
-              : h1_control->control_l2_metric(policy.control_metric_solve));
+            dirichlet_boundary_ids,
+            uses_h1_state_observation,
+            uses_h1_control_regularisation,
+            uses_homogeneous_dirichlet_continuous_control);
+          if (uses_hminus1_control_metric)
+            metric = std::make_shared<dealii_backend::Hminus1Metric>(
+              h1_control->control_hminus1_metric(policy.control_metric_solve));
+          else
+            metric = std::make_shared<dealii_backend::MassMetric>(
+              uses_h1_control_metric
+                ? h1_control->control_h1_metric(policy.control_metric_solve)
+                : h1_control->control_l2_metric(policy.control_metric_solve));
           solvers = {
             [h1_control, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &control) {
@@ -568,7 +583,9 @@ namespace nmopt::compiler::v1
             {
               constraint =
                 std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-                  make_parameter_constraint(*coefficient, *bounds, *metric));
+                  make_parameter_constraint(*coefficient,
+                                            *bounds,
+                                            as_mass_metric(*metric)));
               constraint_realisation =
                 ConstraintRealisation::cellwise_parameter_l2;
             }
@@ -617,7 +634,9 @@ namespace nmopt::compiler::v1
             {
               constraint =
                 std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-                  make_constraint(*assembled, *bounds, *metric));
+                  make_constraint(*assembled,
+                                  *bounds,
+                                  as_mass_metric(*metric)));
               constraint_realisation = ConstraintRealisation::cellwise_l2;
             }
           solvers = {
@@ -652,7 +671,9 @@ namespace nmopt::compiler::v1
             {
               constraint =
                 std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-                  make_constraint(*direct, *bounds, *metric));
+                  make_constraint(*direct,
+                                  *bounds,
+                                  as_mass_metric(*metric)));
               constraint_realisation = ConstraintRealisation::cellwise_l2;
             }
           solvers = {
@@ -679,10 +700,14 @@ namespace nmopt::compiler::v1
                                                ? CompiledTargetKind::dirichlet_control
                                              : uses_coefficient_identification
                                                ? CompiledTargetKind::coefficient_identification
+                                             : uses_hminus1_control_metric
+                                               ? CompiledTargetKind::hminus1_control_metric
                                              : uses_h1_control_regularisation
                                                ? (uses_h1_control_metric
                                                     ? CompiledTargetKind::h1_control_h1_metric
                                                     : CompiledTargetKind::h1_control_l2_metric)
+                                             : uses_homogeneous_dirichlet_continuous_control
+                                               ? CompiledTargetKind::continuous_control_l2_metric
                                              : uses_assembled_v1_target
                                                ? (uses_general_scalar
                                                     ? CompiledTargetKind::general_scalar_robin
@@ -731,6 +756,8 @@ namespace nmopt::compiler::v1
       dirichlet_control,
       h1_control_l2_metric,
       h1_control_h1_metric,
+      hminus1_control_metric,
+      continuous_control_l2_metric,
       coefficient_identification,
       general_scalar_robin
     };
@@ -858,6 +885,34 @@ namespace nmopt::compiler::v1
     }
 
     static bool
+    has_homogeneous_dirichlet_continuous_control(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto control = find_variable(
+        specification, specification.formulation.control_variable_id);
+      if (control == nullptr)
+        return false;
+      const auto space = std::find_if(
+        specification.spaces.begin(),
+        specification.spaces.end(),
+        [control](const semantic::v1::SpaceSpec &candidate) {
+          return candidate.id == control->space_id;
+        });
+      if (space == specification.spaces.end() ||
+          space->topology != semantic::v1::SpaceTopology::h1)
+        return false;
+      return std::any_of(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [control](const semantic::v1::RequirementPolicySpec &policy) {
+          return policy.subject_id == control->id &&
+                 policy.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
+                 policy.status == semantic::v1::RequirementStatus::
+                                    selected_discrete_realisation;
+        });
+    }
+
+    static bool
     uses_parameter_diffusion_residual(
       const semantic::v1::ProblemSpec &specification)
     {
@@ -937,6 +992,20 @@ namespace nmopt::compiler::v1
         });
       return metric != specification.metrics.end() &&
              metric->kind == semantic::v1::MetricKind::h1;
+    }
+
+    static bool
+    selects_hminus1_control_metric(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto metric = std::find_if(
+        specification.metrics.begin(),
+        specification.metrics.end(),
+        [&specification](const semantic::v1::MetricSpec &candidate) {
+          return candidate.id == specification.formulation.metric_id;
+        });
+      return metric != specification.metrics.end() &&
+             metric->kind == semantic::v1::MetricKind::hminus1;
     }
 
     static const semantic::v1::RegionSpec *
@@ -1433,6 +1502,10 @@ namespace nmopt::compiler::v1
       const bool h1_control_regularisation =
         uses_h1_control_regularisation_loss(specification);
       const bool h1_control_metric = selects_h1_control_metric(specification);
+      const bool hminus1_control_metric =
+        selects_hminus1_control_metric(specification);
+      const bool homogeneous_dirichlet_continuous_control =
+        has_homogeneous_dirichlet_continuous_control(specification);
       const bool coefficient_identification =
         uses_parameter_diffusion_residual(specification);
       const bool general_scalar =
@@ -1477,7 +1550,8 @@ namespace nmopt::compiler::v1
               "Select the full volume region for the registered H1 state observation.");
           if (uses_fixed_dirichlet_reconstruction(specification) ||
               dirichlet_control_lifting || uses_neumann_control(specification) ||
-              h1_control_regularisation || coefficient_identification ||
+              h1_control_regularisation ||
+              coefficient_identification ||
               general_scalar)
             report.add(
               DiagnosticCategory::lowerability,
@@ -1634,6 +1708,69 @@ namespace nmopt::compiler::v1
           specification.formulation.metric_id,
           "h1_metric_registered_control_space",
           "Select the registered continuous H1-control target before requesting the H1 metric.");
+
+      if (hminus1_control_metric)
+        {
+          if (h1_control_regularisation)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "hminus1_metric_l2_control_loss",
+              "Keep the registered L2 control loss when selecting the P5.2 H-1 metric target.");
+          if (!h1_state_observation)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "hminus1_metric_energy_observation",
+              "Select the full-domain H1 state observation for the P5.2 H-1 metric target.");
+          if (!specification.formulation.constraint_id.empty())
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.constraint_id,
+              "hminus1_metric_constraint",
+              "Do not select a coefficientwise box for the coupled H-1 metric.");
+          if (uses_fixed_dirichlet_reconstruction(specification) ||
+              uses_neumann_control(specification) || dirichlet_control_lifting ||
+              mean_zero_gauge || coefficient_identification || general_scalar)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "hminus1_metric_registered_combination",
+              "Compose the first H-1 metric target only with homogeneous fixed-Dirichlet state data and volume control.");
+          const auto hminus1_tracking_region =
+            selected_tracking_region(specification);
+          if (hminus1_tracking_region == nullptr ||
+              !hminus1_tracking_region->is_full_domain)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "hminus1_metric_full_domain_tracking",
+              "Select full-domain energy tracking for the first H-1 metric target.");
+        }
+
+      if (homogeneous_dirichlet_continuous_control)
+        {
+          if (!h1_state_observation)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "continuous_control_energy_observation",
+              "Select the full-domain H1 state observation for the registered homogeneous-Dirichlet continuous-control target.");
+          if (!specification.formulation.constraint_id.empty())
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.constraint_id,
+              "continuous_control_box_constraint",
+              "Do not select a coefficientwise box on the continuous control layout.");
+          if (uses_fixed_dirichlet_reconstruction(specification) ||
+              uses_neumann_control(specification) || dirichlet_control_lifting ||
+              mean_zero_gauge || coefficient_identification || general_scalar)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "continuous_control_registered_combination",
+              "Compose the first homogeneous-Dirichlet continuous-control target only with homogeneous fixed-Dirichlet state data and volume control.");
+        }
 
       if (coefficient_identification)
         {
@@ -1921,11 +2058,12 @@ namespace nmopt::compiler::v1
       if (specification.metrics.size() != 1 ||
           selected_metric == specification.metrics.end() ||
           (selected_metric->kind != semantic::v1::MetricKind::l2 &&
-           selected_metric->kind != semantic::v1::MetricKind::h1))
+           selected_metric->kind != semantic::v1::MetricKind::h1 &&
+           selected_metric->kind != semantic::v1::MetricKind::hminus1))
         report.add(DiagnosticCategory::lowerability,
                    specification.formulation.metric_id,
                    "selected_registered_metric",
-                   "Select exactly one registered L2 or H1 control metric.");
+                   "Select exactly one registered L2, H1, or H-1 control metric.");
       if (coefficient_identification &&
           selected_metric != specification.metrics.end() &&
           selected_metric->kind != semantic::v1::MetricKind::l2)
@@ -2215,19 +2353,23 @@ namespace nmopt::compiler::v1
       return {};
     }
 
+    static const dealii_backend::MassMetric &
+    as_mass_metric(const contract::MetricT<dealii_backend::SerialBackend> &metric)
+    {
+      const auto *mass_metric =
+        dynamic_cast<const dealii_backend::MassMetric *>(&metric);
+      contract::require(
+        mass_metric != nullptr,
+        "A coefficientwise constraint requires its concrete mass metric");
+      return *mass_metric;
+    }
+
     static bool
     uses_neumann_target(const CompiledTargetKind target)
     {
       return target == CompiledTargetKind::neumann_boundary ||
              target == CompiledTargetKind::weighted_boundary_trace ||
              target == CompiledTargetKind::pure_neumann;
-    }
-
-    static bool
-    uses_h1_control_target(const CompiledTargetKind target)
-    {
-      return target == CompiledTargetKind::h1_control_l2_metric ||
-             target == CompiledTargetKind::h1_control_h1_metric;
     }
 
     static std::string
@@ -2248,6 +2390,11 @@ namespace nmopt::compiler::v1
           case CompiledTargetKind::h1_control_h1_metric:
             return "continuous scalar FE_Q(" +
                    std::to_string(policy.state_degree) + ") on the state mesh";
+          case CompiledTargetKind::hminus1_control_metric:
+          case CompiledTargetKind::continuous_control_l2_metric:
+            return "independent homogeneous-Dirichlet scalar FE_Q(" +
+                   std::to_string(policy.state_degree) +
+                   ") coefficients on the state mesh";
           case CompiledTargetKind::direct_volume:
           case CompiledTargetKind::assembled_volume:
           case CompiledTargetKind::general_scalar_robin:
@@ -2393,7 +2540,7 @@ namespace nmopt::compiler::v1
       const std::string &                mesh_provenance,
       const bool                         owns_mesh,
       const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
-      const dealii_backend::MassMetric & metric,
+      const contract::MetricT<dealii_backend::SerialBackend> &metric,
       const ScalarLoweringPlan *          scalar_plan)
     {
       CompilationManifest manifest;
@@ -2413,9 +2560,12 @@ namespace nmopt::compiler::v1
       const bool uses_neumann_boundary_control = uses_neumann_target(target);
       const bool uses_mean_zero_gauge =
         target == CompiledTargetKind::pure_neumann;
-      const bool uses_h1_control_regularisation = uses_h1_control_target(target);
+      const bool uses_h1_control_regularisation =
+        uses_h1_control_regularisation_loss(specification);
       const bool uses_h1_control_metric =
         target == CompiledTargetKind::h1_control_h1_metric;
+      const bool uses_hminus1_control_metric =
+        target == CompiledTargetKind::hminus1_control_metric;
       const bool uses_coefficient_identification =
         target == CompiledTargetKind::coefficient_identification;
 
@@ -2549,8 +2699,10 @@ namespace nmopt::compiler::v1
       manifest.metric_record = {
         specification.formulation.metric_id,
         metric.id(),
-        uses_h1_control_metric ? "mass plus stiffness Riesz map"
-                               : "mass Riesz map",
+        uses_hminus1_control_metric
+          ? "M_h K_h^{-1} M_h negative-norm Riesz map"
+        : uses_h1_control_metric ? "mass plus stiffness Riesz map"
+                                 : "mass Riesz map",
         {LinearSolveAlgorithm::serial_cg,
          "identity",
          policy.control_metric_solve.maximum_iterations,
@@ -2575,6 +2727,8 @@ namespace nmopt::compiler::v1
           ? "nmopt.compiler.v1.dealii.general_scalar_elliptic_robin"
         : uses_weighted_boundary_trace
           ? "nmopt.compiler.v1.dealii.weighted_boundary_trace"
+        : uses_hminus1_control_metric
+          ? "nmopt.compiler.v1.dealii.hminus1_control_metric"
         : uses_h1_state_observation
           ? "nmopt.compiler.v1.dealii.h1_state_tracking"
           : "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
@@ -2620,7 +2774,9 @@ namespace nmopt::compiler::v1
         : observation_realisation(tracking_region);
       manifest.metric_solve_policy =
         std::string("serial CG for ") +
-        (uses_h1_control_metric ? "h1_continuous Riesz map"
+        (uses_hminus1_control_metric
+           ? "hminus1_continuous M K^-1 M Riesz map"
+         : uses_h1_control_metric ? "h1_continuous Riesz map"
                                 : uses_dirichlet_control_lifting
                                     ? "l2_dirichlet_trace Riesz map"
                                 : uses_coefficient_identification
@@ -2667,6 +2823,9 @@ namespace nmopt::compiler::v1
         manifest.declared_assumptions.push_back(
           "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric=" +
           std::string(uses_h1_control_metric ? "h1_continuous" : "l2_continuous"));
+      if (uses_hminus1_control_metric)
+        manifest.declared_assumptions.push_back(
+          "hminus1_control_metric: independent homogeneous-Dirichlet FE_Q control coefficients; G_h=M_h K_h^{-1} M_h, G_h^{-1}=M_h^{-1} K_h M_h^{-1}; identity-preconditioned CG and no mean constraint");
       if (uses_coefficient_identification)
         manifest.declared_assumptions.push_back(
           "coefficient_identification: positive cellwise physical diffusion parameter; A(m) is reassembled for every state and adjoint solve");
@@ -2682,7 +2841,9 @@ namespace nmopt::compiler::v1
         }
       if (uses_h1_state_observation)
         manifest.declared_assumptions.push_back(
-          "h1_state_observation: full-domain H1_0 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric remains L2");
+          "h1_state_observation: full-domain H1_0 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric=" +
+          std::string(uses_hminus1_control_metric ? "hminus1_continuous"
+                                                 : "L2"));
       if (uses_weighted_boundary_trace)
         manifest.declared_assumptions.push_back(
           "weighted_boundary_trace: fixed scalar weight multiplies the state trace in value, JVP, and transpose pullback at matching face quadrature; Neumann residual and facewise L2 control metric are unchanged");

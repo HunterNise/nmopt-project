@@ -1435,6 +1435,286 @@ namespace
 
   template <int dim>
   void
+  run_compiler_diagnostics_contract_test()
+  {
+    const compiler::v1::DealiiCompiler compiler;
+    const auto specification =
+      semantic::v1::make_scalar_diffusion_reaction_problem(true);
+
+    dealii::Triangulation<dim> borrowed_mesh;
+    dealii::GridGenerator::hyper_cube(borrowed_mesh);
+    borrowed_mesh.refine_global(2);
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const compiler::v1::CellwiseBoxDataBindings valid_bounds{
+      compiler::v1::CellwiseBoundValue{-1.0},
+      compiler::v1::CellwiseBoundValue{1.0}};
+    const compiler::v1::DealiiDataBindings<dim> valid_bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("compiler_contract")};
+
+    const compiler::v1::DealiiDataBindings<dim> invalid_diffusion{
+      forcing,
+      desired_state,
+      -1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("invalid_diffusion")};
+    const auto rejected_diffusion = compiler.compile(specification,
+                                                      borrowed_mesh,
+                                                      invalid_diffusion,
+                                                      {},
+                                                      valid_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_diffusion.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "diffusion",
+      "positive_finite_diffusion_binding",
+      "compiler did not diagnose a negative diffusion binding");
+
+    const compiler::v1::DealiiDataBindings<dim> invalid_regularisation{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.0,
+      test_binding_provenance("invalid_regularisation")};
+    const auto rejected_regularisation = compiler.compile(
+      specification,
+      borrowed_mesh,
+      invalid_regularisation,
+      {},
+      valid_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_regularisation.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "regularisation",
+      "positive_finite_regularisation_binding",
+      "compiler did not diagnose a zero regularisation binding");
+
+    const compiler::v1::DealiiDataBindings<dim> missing_provenance{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      {"", "", ""}};
+    const auto rejected_provenance = compiler.compile(specification,
+                                                       borrowed_mesh,
+                                                       missing_provenance,
+                                                       {},
+                                                       valid_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_provenance.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "forcing",
+      "forcing_binding_provenance",
+      "compiler did not require forcing binding provenance");
+    test_support::require_exact_diagnostic(
+      rejected_provenance.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "desired_state",
+      "desired_state_binding_provenance",
+      "compiler did not require desired-state binding provenance");
+
+    const compiler::v1::CellwiseBoxDataBindings reversed_bounds{
+      compiler::v1::CellwiseBoundValue{1.0},
+      compiler::v1::CellwiseBoundValue{-1.0}};
+    const auto rejected_order = compiler.compile(specification,
+                                                  borrowed_mesh,
+                                                  valid_bindings,
+                                                  {},
+                                                  reversed_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_order.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "control_box",
+      "ordered_bound_values",
+      "compiler did not diagnose reversed scalar bounds");
+
+    dealii::Vector<double> short_lower(1);
+    dealii::Vector<double> short_upper(1);
+    const compiler::v1::CellwiseBoxDataBindings short_bounds{
+      compiler::v1::CellwiseBoundValue{std::move(short_lower)},
+      compiler::v1::CellwiseBoundValue{std::move(short_upper)}};
+    const auto rejected_layout = compiler.compile(specification,
+                                                   borrowed_mesh,
+                                                   valid_bindings,
+                                                   {},
+                                                   short_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_layout.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "control_box",
+      "cellwise_bound_layout",
+      "compiler did not diagnose a bound/layout mismatch");
+
+    compiler::v1::DealiiDiscretisationPolicy invalid_policy;
+    invalid_policy.state_solve.relative_tolerance = 0.0;
+    const auto rejected_policy = compiler.compile(specification,
+                                                   borrowed_mesh,
+                                                   valid_bindings,
+                                                   invalid_policy,
+                                                   valid_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_policy.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "reduced_dto",
+      "valid_state_solve_policy",
+      "compiler did not diagnose an invalid state-solve policy");
+
+    dealii::Triangulation<dim> empty_mesh;
+    const auto rejected_empty_mesh = compiler.compile(specification,
+                                                       empty_mesh,
+                                                       valid_bindings,
+                                                       {},
+                                                       valid_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_empty_mesh.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      specification.id,
+      "nonempty_triangulation",
+      "compiler did not diagnose an empty triangulation");
+
+    auto missing_boundary_specification = specification;
+    missing_boundary_specification.regions.at(1).boundary_ids = {99};
+    const auto rejected_boundary = compiler.compile(
+      missing_boundary_specification,
+      borrowed_mesh,
+      valid_bindings,
+      {},
+      valid_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_boundary.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "fixed_dirichlet_boundary_presence",
+      "compiler did not diagnose a boundary id absent from the mesh");
+  }
+
+  template <int dim>
+  void
+  run_compiler_session_contract_test()
+  {
+    const compiler::v1::DealiiCompiler compiler;
+    const auto specification =
+      semantic::v1::make_scalar_diffusion_reaction_problem(true);
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const compiler::v1::CellwiseBoxDataBindings valid_bounds{
+      compiler::v1::CellwiseBoundValue{-1.0},
+      compiler::v1::CellwiseBoundValue{1.0}};
+    const compiler::v1::DealiiDataBindings<dim> valid_bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("compiler_session")};
+
+    compiler::v1::DealiiDiscretisationPolicy solve_policy;
+    solve_policy.state_solve = {317, 2e-11, 3e-14};
+    solve_policy.adjoint_solve = {419, 4e-11, 5e-14};
+
+    auto detached = [&]() {
+      auto mesh = std::make_unique<dealii::Triangulation<dim>>();
+      dealii::GridGenerator::hyper_cube(*mesh);
+      mesh->refine_global(2);
+      auto session =
+        std::make_shared<compiler::v1::DealiiCompilationSession<dim>>(
+          std::move(mesh), "test.unit_square.refine_2");
+      const auto compilation = compiler.compile(specification,
+                                                session,
+                                                valid_bindings,
+                                                solve_policy,
+                                                valid_bounds);
+      contract::require(compilation.succeeded(),
+                        "owned-session compiler contract setup failed");
+      const auto &model = compilation.problem->executable_model();
+      dealii::Vector<double> values(model.variable_layout()->dimension(1));
+      Primal control(model.variable_layout()->single_block(1, "control"),
+                     {std::move(values)});
+      struct DetachedService
+      {
+        contract::ReducedDTOT<Backend>          reduced;
+        Primal                                  control;
+        compiler::v1::CompilationManifest manifest;
+      };
+      return DetachedService{compilation.problem->make_reduced_dto(),
+                             std::move(control),
+                             compilation.problem->manifest()};
+    }();
+
+    const auto evaluation = detached.reduced.evaluate(detached.control);
+    contract::require(
+      evaluation.state_solve.converged() &&
+        evaluation.adjoint_solve.converged() &&
+        evaluation.state_solve.maximum_iterations == 317 &&
+        evaluation.adjoint_solve.maximum_iterations == 419,
+      "detached compiled service did not retain its solve policies and reports");
+    contract::require(
+      detached.manifest.schema_version == 1 &&
+        detached.manifest.mesh_record.dimension ==
+          static_cast<unsigned int>(dim) &&
+        detached.manifest.mesh_record.active_cells == 16 &&
+        detached.manifest.mesh_record.provenance ==
+          "test.unit_square.refine_2" &&
+        detached.manifest.mesh_record.lifetime ==
+          compiler::v1::MeshLifetimePolicy::owned_session &&
+        detached.manifest.formulation_record.kind ==
+          semantic::v1::FormulationKind::reduced_dto &&
+        detached.manifest.state_solve_record.maximum_iterations == 317 &&
+        detached.manifest.adjoint_solve_record.maximum_iterations == 419 &&
+        detached.manifest.constraint_record.realisation_id == "l2_cellwise" &&
+        detached.manifest.constraint_record.projection_metric_id ==
+          detached.manifest.metric_record.realisation_id &&
+        !detached.manifest.spaces.empty() &&
+        !detached.manifest.bindings.empty(),
+      "structured compilation manifest omitted resolved session decisions");
+  }
+
+  void
+  run_serial_spd_reporting_contract_test()
+  {
+    dealii::DynamicSparsityPattern dynamic_pattern(2, 2);
+    for (std::size_t row = 0; row < 2; ++row)
+      for (std::size_t column = 0; column < 2; ++column)
+        dynamic_pattern.add(row, column);
+    dealii::SparsityPattern sparsity;
+    sparsity.copy_from(dynamic_pattern);
+    dealii::SparseMatrix<double> matrix(sparsity);
+    matrix.set(0, 0, 4.0);
+    matrix.set(0, 1, 1.0);
+    matrix.set(1, 0, 1.0);
+    matrix.set(1, 1, 3.0);
+    dealii::Vector<double> right_hand_side(2);
+    right_hand_side[0] = 1.0;
+    right_hand_side[1] = 2.0;
+    dealii::Vector<double> approximate_solution(2);
+    const auto failed_report = dealii_backend::solve_serial_spd(
+      matrix,
+      approximate_solution,
+      right_hand_side,
+      dealii_backend::SPDLinearSolvePolicy{1, 1e-15, 1e-15});
+    contract::require(!failed_report.converged() &&
+                        failed_report.maximum_iterations == 1,
+                      "serial SPD service did not report deliberate nonconvergence");
+
+    dealii::Vector<double> zero_right_hand_side(2);
+    dealii::Vector<double> zero_solution(2);
+    const auto zero_report = dealii_backend::solve_serial_spd(
+      matrix, zero_solution, zero_right_hand_side, {});
+    contract::require(zero_report.converged() &&
+                        zero_solution.l2_norm() == 0.0,
+                      "serial SPD service did not handle a zero right-hand side");
+  }
+
+  template <int dim>
+  void
   verify_homogeneous_weak_form_oracle()
   {
     static_assert(dim == 2,
@@ -1853,6 +2133,21 @@ main(const int argc, char **argv)
          {"dealii", "contract", "constraint"},
          60,
          run_projection_compatibility_contract_test},
+        {"compiler_diagnostics",
+         "nmopt.dealii.compiler_diagnostics",
+         {"dealii", "compiler", "contract"},
+         60,
+         []() { run_compiler_diagnostics_contract_test<2>(); }},
+        {"compiler_session",
+         "nmopt.dealii.compiler_session",
+         {"dealii", "compiler", "contract"},
+         60,
+         []() { run_compiler_session_contract_test<2>(); }},
+        {"serial_spd_reporting",
+         "nmopt.dealii.serial_spd_reporting",
+         {"dealii", "contract", "solver"},
+         30,
+         run_serial_spd_reporting_contract_test},
         {"backend_size_conversion",
          "nmopt.dealii.backend_size_conversion",
          {"dealii", "contract", "adapter"},

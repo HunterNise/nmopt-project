@@ -110,10 +110,10 @@ namespace nmopt::semantic::v1
     specification.observations = {
       {"state_observation", "Full-domain state restriction",
        ObservationKind::volume_restriction, "state", "domain",
-       "state_observation_space", "state_observation_pairing"},
+       "state_observation_space", "state_observation_pairing", {}},
       {"control_observation", "Full-domain control restriction",
        ObservationKind::volume_restriction, "control", "domain",
-       "control_observation_space", "control_observation_pairing"}};
+       "control_observation_space", "control_observation_pairing", {}}};
     specification.losses = {
       {"state_tracking", "Quadratic tracking", LossKind::quadratic_tracking,
        "state_observation", "desired_state", "state_observation_pairing"},
@@ -353,7 +353,7 @@ namespace nmopt::semantic::v1
                                       "observation") =
       {"state_observation", "Full-domain H1 state restriction",
        ObservationKind::h1_state_restriction, "state", "domain",
-       "state_observation_space", "state_observation_pairing"};
+       "state_observation_space", "state_observation_pairing", {}};
     reference_detail::component_by_id(specification.requirement_policies,
                                       "desired_state_quadrature_policy",
                                       "requirement policy")
@@ -397,7 +397,7 @@ namespace nmopt::semantic::v1
                       "observation") =
         {"control_observation", "Continuous control identity observation",
          ObservationKind::volume_restriction, "control", "domain",
-         "control_observation_space", "control_observation_pairing"};
+         "control_observation_space", "control_observation_pairing", {}};
       component_by_id(specification.losses,
                       "control_regularisation",
                       "loss") =
@@ -498,7 +498,7 @@ namespace nmopt::semantic::v1
                       "observation") =
         {"parameter_observation", "Full-domain parameter restriction",
          ObservationKind::volume_restriction, "diffusion_parameter", "domain",
-         "parameter_observation_space", "parameter_observation_pairing"};
+         "parameter_observation_space", "parameter_observation_pairing", {}};
       component_by_id(specification.losses,
                       "control_regularisation",
                       "loss") =
@@ -600,10 +600,10 @@ namespace nmopt::semantic::v1
     specification.observations = {
       {"state_boundary_trace", "Boundary state trace", ObservationKind::boundary_trace,
        "state", "observation_boundary", "state_observation_space",
-       "state_observation_pairing"},
+       "state_observation_pairing", {}},
       {"control_boundary_restriction", "Boundary control restriction",
        ObservationKind::boundary_restriction, "control", "control_boundary",
-       "control_observation_space", "control_observation_pairing"}};
+       "control_observation_space", "control_observation_pairing", {}}};
     specification.losses = {
       {"state_tracking", "Quadratic boundary tracking", LossKind::quadratic_tracking,
        "state_boundary_trace", "desired_state", "state_observation_pairing"},
@@ -661,6 +661,61 @@ namespace nmopt::semantic::v1
         specification.formulation.constraint_id = "control_box";
       }
 
+    return specification;
+  }
+
+  namespace reference_detail
+  {
+    inline void
+    apply_weighted_boundary_trace_delta(ProblemSpec &specification)
+    {
+      specification.id =
+        "scalar_diffusion_reaction_weighted_boundary_trace_control";
+      specification.label =
+        "Scalar diffusion-reaction control with weighted boundary trace";
+
+      auto &observation = component_by_id(specification.observations,
+                                          "state_boundary_trace",
+                                          "observation");
+      observation.id = "weighted_state_boundary_trace";
+      observation.label = "Weighted boundary state trace";
+      observation.kind = ObservationKind::weighted_boundary_trace;
+      observation.data_ids = {"boundary_weight"};
+
+      component_by_id(specification.losses, "state_tracking", "loss")
+        .source_observation_id = observation.id;
+      component_by_id(specification.requirement_policies,
+                      "state_boundary_trace_policy",
+                      "requirement policy")
+        .subject_id = observation.id;
+
+      specification.data.push_back(
+        {"boundary_weight", "Boundary observation weight", DataKind::function,
+         DataRole::observation_weight, "state_observation_space"});
+      specification.requirement_policies.push_back(
+        {"boundary_weight_quadrature_policy", "boundary_weight",
+         RequirementKind::analytic_quadrature_evaluation,
+         RequirementStatus::selected_discrete_realisation,
+         RequirementScope::discrete_compilation,
+         "analytic Function evaluated at selected boundary face quadrature",
+         "observation_boundary"});
+      specification.requirement_policies.push_back(
+        {"boundary_weight_boundedness", "boundary_weight",
+         RequirementKind::coefficient_regularity,
+         RequirementStatus::user_assumed,
+         RequirementScope::continuous_semantics,
+         "boundary weight belongs to L-infinity on the observation boundary",
+         "observation_boundary"});
+    }
+  } // namespace reference_detail
+
+  inline ProblemSpec
+  make_weighted_boundary_trace_neumann_control_problem(
+    const bool with_facewise_box = false)
+  {
+    ProblemSpec specification =
+      make_neumann_boundary_control_problem(with_facewise_box);
+    reference_detail::apply_weighted_boundary_trace_delta(specification);
     return specification;
   }
 
@@ -781,7 +836,7 @@ namespace nmopt::semantic::v1
                       "observation") =
         {"control_boundary_restriction", "Dirichlet control restriction",
          ObservationKind::boundary_restriction, "control", "control_boundary",
-         "control_observation_space", "control_observation_pairing"};
+         "control_observation_space", "control_observation_pairing", {}};
       component_by_id(specification.losses,
                       "control_regularisation",
                       "loss") =

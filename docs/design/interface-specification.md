@@ -294,6 +294,9 @@ O_{k}:X_{\mathrm{phys}}\times D\to Q_{k}.
 $$
 
 It MUST provide value, JVP, and transpose-JVP.  It MUST NOT contain a loss.
+Its semantic declaration MUST name every immutable datum consumed by the map
+on explicit data-input ports; observation data MUST NOT be inferred from a
+downstream loss or residual.
 
 Typical instances are restriction to a subdomain, boundary trace, normal flux,
 sensor array, time sampling, and actuator output.

@@ -126,7 +126,12 @@ namespace nmopt::semantic::v1
                      spaces,
                      regions,
                      report);
-      validate_observations(specification, variables, regions, spaces, pairings,
+      validate_observations(specification,
+                            variables,
+                            data,
+                            regions,
+                            spaces,
+                            pairings,
                             report);
       validate_losses(specification, observations, pairings, data, report);
       validate_metrics(specification, variables, pairings, report);
@@ -479,6 +484,13 @@ namespace nmopt::semantic::v1
               datum.id,
               "coefficient_data_shape",
               "Use scalar, vector, or tensor Function data matching the declared coefficient role.");
+          if (datum.role == DataRole::observation_weight &&
+              datum.kind != DataKind::function)
+            report.add(
+              DiagnosticCategory::structural,
+              datum.id,
+              "observation_weight_data_shape",
+              "Represent the fixed scalar observation weight as Function data.");
         }
     }
 
@@ -681,6 +693,7 @@ namespace nmopt::semantic::v1
     static void
     validate_observations(const ProblemSpec &          specification,
                           const Index<VariableSpec> &  variables,
+                          const Index<DataSpec> &      data,
                           const Index<RegionSpec> &    regions,
                           const Index<SpaceSpec> &     spaces,
                           const Index<PairingSpec> &   pairings,
@@ -695,6 +708,7 @@ namespace nmopt::semantic::v1
                        "Reference a declared variable input.");
           const bool boundary_observation =
             observation.kind == ObservationKind::boundary_trace ||
+            observation.kind == ObservationKind::weighted_boundary_trace ||
             observation.kind == ObservationKind::boundary_restriction;
           const RegionKind expected_region = boundary_observation
                                                ? RegionKind::boundary
@@ -731,7 +745,8 @@ namespace nmopt::semantic::v1
                            "h1_state_restriction_input_topology",
                            "Declare the observed state in an H1 space.");
             }
-          if (observation.kind == ObservationKind::boundary_trace &&
+          if ((observation.kind == ObservationKind::boundary_trace ||
+               observation.kind == ObservationKind::weighted_boundary_trace) &&
               (input == variables.end() ||
                input->second->role != VariableRole::state))
             report.add(DiagnosticCategory::structural,
@@ -767,6 +782,45 @@ namespace nmopt::semantic::v1
                        observation.id,
                        "h1_state_restriction_output_topology",
                        "Declare the energy-observation output with H1 topology.");
+          if (observation.kind == ObservationKind::weighted_boundary_trace)
+            {
+              if (observation.data_ids.size() != 1)
+                report.add(
+                  DiagnosticCategory::structural,
+                  observation.id,
+                  "weighted_boundary_trace_data_port",
+                  "Connect the weighted boundary trace to exactly one fixed observation-weight datum.");
+              else
+                {
+                  const auto weight = data.find(observation.data_ids.front());
+                  if (weight == data.end())
+                    report.add(DiagnosticCategory::structural,
+                               observation.id,
+                               "observation_data_port",
+                               "Reference declared immutable observation data.");
+                  else if (weight->second->role !=
+                             DataRole::observation_weight ||
+                           weight->second->kind != DataKind::function)
+                    report.add(
+                      DiagnosticCategory::structural,
+                      observation.id,
+                      "weighted_boundary_trace_data_signature",
+                      "Use one scalar Function datum with the observation-weight role.");
+                  else if (weight->second->space_id !=
+                           observation.output_space_id)
+                    report.add(
+                      DiagnosticCategory::structural,
+                      observation.id,
+                      "weighted_boundary_trace_weight_space",
+                      "Place the observation weight in the declared boundary observation space.");
+                }
+            }
+          else if (!observation.data_ids.empty())
+            report.add(
+              DiagnosticCategory::structural,
+              observation.id,
+              "observation_data_signature",
+              "Leave immutable data ports empty for this observation kind.");
           const auto pairing = pairings.find(observation.output_pairing_id);
           if (pairing == pairings.end() ||
               !pairing_matches_space(*pairing->second,
@@ -1196,13 +1250,40 @@ namespace nmopt::semantic::v1
           }
 
       for (const auto &datum : specification.data)
-        if (datum.role == DataRole::desired_state &&
+        if ((datum.role == DataRole::desired_state ||
+             datum.role == DataRole::observation_weight) &&
             !has_policy(datum.id,
                         RequirementKind::analytic_quadrature_evaluation))
           report.add(DiagnosticCategory::analytical_policy,
                      datum.id,
-                     "desired_state_data_rule",
-                     "Declare the analytic quadrature target-data realization.");
+                     datum.role == DataRole::desired_state
+                       ? "desired_state_data_rule"
+                       : "observation_weight_data_rule",
+                     datum.role == DataRole::desired_state
+                       ? "Declare the analytic quadrature target-data realization."
+                       : "Declare the analytic quadrature observation-weight realization.");
+
+      for (const auto &datum : specification.data)
+        if (datum.role == DataRole::observation_weight)
+          {
+            const auto boundedness = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&datum](const RequirementPolicySpec &policy) {
+                return policy.subject_id == datum.id &&
+                       policy.kind ==
+                         RequirementKind::coefficient_regularity &&
+                       (policy.status == RequirementStatus::provided ||
+                        policy.status == RequirementStatus::user_assumed) &&
+                       !policy.selected_policy.empty();
+              });
+            if (boundedness == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                datum.id,
+                "observation_weight_boundedness",
+                "Declare the model author's L-infinity assumption for the boundary observation weight.");
+          }
 
       for (const auto &loss : specification.losses)
         if (loss.kind == LossKind::quadratic_tracking)
@@ -1230,6 +1311,22 @@ namespace nmopt::semantic::v1
                          loss.id,
                          "tracking_target_data_region",
                          "Declare the selected target-data realization on the tracking observation region.");
+          }
+
+      for (const auto &observation : specification.observations)
+        if (observation.kind == ObservationKind::weighted_boundary_trace &&
+            observation.data_ids.size() == 1)
+          {
+            const auto policy = selected_policy(
+              observation.data_ids.front(),
+              RequirementKind::analytic_quadrature_evaluation);
+            if (policy != specification.requirement_policies.end() &&
+                policy->region_id != observation.region_id)
+              report.add(
+                DiagnosticCategory::structural,
+                observation.id,
+                "weighted_boundary_trace_data_region",
+                "Evaluate the fixed observation weight on the weighted trace region.");
           }
 
       for (const auto &constraint : specification.constraints)
@@ -1380,7 +1477,8 @@ namespace nmopt::semantic::v1
           }
 
       for (const auto &observation : specification.observations)
-        if (observation.kind == ObservationKind::boundary_trace)
+        if (observation.kind == ObservationKind::boundary_trace ||
+            observation.kind == ObservationKind::weighted_boundary_trace)
           {
             const auto policy = selected_policy(observation.id,
                                                 RequirementKind::boundary_trace);

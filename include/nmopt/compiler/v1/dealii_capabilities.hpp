@@ -39,6 +39,7 @@ namespace nmopt::compiler::v1
       switch (kind)
         {
           case semantic::v1::ObservationKind::unspecified:
+          case semantic::v1::ObservationKind::weighted_boundary_trace:
             return false;
           case semantic::v1::ObservationKind::volume_restriction:
           case semantic::v1::ObservationKind::h1_state_restriction:

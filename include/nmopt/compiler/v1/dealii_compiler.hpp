@@ -2429,6 +2429,10 @@ namespace nmopt::compiler::v1
                 record.provenance =
                   data.general_scalar->provenance.robin_source;
                 break;
+              case semantic::v1::DataRole::observation_weight:
+                record.representation = "unsupported observation data";
+                record.provenance = "not lowered";
+                break;
               case semantic::v1::DataRole::regularisation_weight:
                 record.representation = "scalar constant";
                 record.provenance = std::to_string(data.regularisation_weight);

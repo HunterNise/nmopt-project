@@ -121,6 +121,62 @@ namespace
     require(boundary_report.valid(),
             "the Neumann boundary-control v1 graph is invalid");
 
+    auto weighted_boundary_specification =
+      nmopt::semantic::v1::
+        make_weighted_boundary_trace_neumann_control_problem(true);
+    const auto weighted_boundary_report =
+      validator.validate(weighted_boundary_specification);
+    require(weighted_boundary_report.valid(),
+            "the weighted boundary-trace v1 graph is invalid");
+    require(component_by_id(weighted_boundary_specification.observations,
+                            "weighted_state_boundary_trace")
+                .data_ids == std::vector<std::string>{"boundary_weight"},
+            "the weighted boundary trace omitted its immutable data port");
+
+    auto missing_weight_port = weighted_boundary_specification;
+    component_by_id(missing_weight_port.observations,
+                    "weighted_state_boundary_trace")
+      .data_ids.clear();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_weight_port),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "weighted_state_boundary_trace",
+      "weighted_boundary_trace_data_port",
+      "v1 semantic validation accepted a weighted trace without weight data");
+
+    auto missing_weight_policy = weighted_boundary_specification;
+    for (auto &policy : missing_weight_policy.requirement_policies)
+      if (policy.subject_id == "boundary_weight")
+        policy.status = nmopt::semantic::v1::RequirementStatus::provided;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_weight_policy),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "boundary_weight",
+      "observation_weight_data_rule",
+      "v1 semantic validation did not require weight quadrature provenance");
+
+    auto missing_weight_boundedness = weighted_boundary_specification;
+    component_by_id(missing_weight_boundedness.requirement_policies,
+                    "boundary_weight_boundedness")
+      .status = nmopt::semantic::v1::RequirementStatus::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_weight_boundedness),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "boundary_weight",
+      "observation_weight_boundedness",
+      "v1 semantic validation did not require bounded observation weight data");
+
+    auto mismatched_weight_region = weighted_boundary_specification;
+    for (auto &policy : mismatched_weight_region.requirement_policies)
+      if (policy.subject_id == "boundary_weight")
+        policy.region_id = "control_boundary";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(mismatched_weight_region),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "weighted_state_boundary_trace",
+      "weighted_boundary_trace_data_region",
+      "v1 semantic validation did not match the weight to the trace region");
+
     const auto pure_neumann_specification =
       nmopt::semantic::v1::make_pure_neumann_boundary_control_problem();
     const auto pure_neumann_report = validator.validate(pure_neumann_specification);
@@ -641,6 +697,31 @@ namespace
               reordered.formulation.constraint_id ==
                 expected.formulation.constraint_id,
             "a reordered feature delta changed formulation ports");
+
+    ProblemSpec reordered_boundary = make_neumann_boundary_control_problem();
+    std::reverse(reordered_boundary.data.begin(), reordered_boundary.data.end());
+    std::reverse(reordered_boundary.observations.begin(),
+                 reordered_boundary.observations.end());
+    std::reverse(reordered_boundary.losses.begin(),
+                 reordered_boundary.losses.end());
+    std::reverse(reordered_boundary.requirement_policies.begin(),
+                 reordered_boundary.requirement_policies.end());
+    reference_detail::apply_weighted_boundary_trace_delta(reordered_boundary);
+    const ProblemSpec expected_weighted =
+      make_weighted_boundary_trace_neumann_control_problem();
+    require(validator.validate(reordered_boundary).valid() &&
+              sorted_component_ids(reordered_boundary.data) ==
+                sorted_component_ids(expected_weighted.data) &&
+              sorted_component_ids(reordered_boundary.observations) ==
+                sorted_component_ids(expected_weighted.observations) &&
+              sorted_component_ids(reordered_boundary.losses) ==
+                sorted_component_ids(expected_weighted.losses) &&
+              sorted_component_ids(reordered_boundary.requirement_policies) ==
+                sorted_component_ids(expected_weighted.requirement_policies) &&
+              component_by_id(reordered_boundary.observations,
+                              "weighted_state_boundary_trace")
+                  .data_ids == std::vector<std::string>{"boundary_weight"},
+            "the weighted-trace delta depends on declaration order");
   }
 
   void

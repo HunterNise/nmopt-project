@@ -66,7 +66,8 @@ namespace nmopt::semantic::v1
     robin_source,
     regularisation_weight,
     lower_bound,
-    upper_bound
+    upper_bound,
+    observation_weight
   };
 
   enum class ResidualTermKind
@@ -91,7 +92,8 @@ namespace nmopt::semantic::v1
     volume_restriction,
     h1_state_restriction,
     boundary_trace,
-    boundary_restriction
+    boundary_restriction,
+    weighted_boundary_trace
   };
 
   enum class LossKind
@@ -234,7 +236,7 @@ namespace nmopt::semantic::v1
     ResidualTermKind         kind = ResidualTermKind::unspecified;
     std::string              equation_id;
     std::vector<std::string> variable_ids;
-    std::vector<std::string> data_ids;
+    std::vector<std::string> data_ids = {};
     // Natural boundary terms name the boundary on which their declared trace
     // pairing is evaluated. Volume terms leave this port empty.
     std::string              region_id;
@@ -258,6 +260,9 @@ namespace nmopt::semantic::v1
     std::string     region_id;
     std::string     output_space_id;
     std::string     output_pairing_id;
+    // Immutable inputs consumed by the observation map. Plain restrictions
+    // leave this port empty; weighted observations name their fixed data.
+    std::vector<std::string> data_ids;
   };
 
   struct LossSpec

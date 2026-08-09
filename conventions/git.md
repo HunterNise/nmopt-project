@@ -12,14 +12,16 @@
 - Do not merge, push, force-push, reset shared history, or rewrite existing
   authorship unless explicitly asked.
 - Do not run `git add` or `git commit` unless the user explicitly requests it.
-  When commits are not requested, leave each coherent change pending for review,
-  inspect its diff, and suggest a commit message in the final reply.
-  If multiple coherent changes have been made, suggest how to split in
-  separate commits.
+  When commits are not requested, leave each coherent work unit pending for
+  review, keep multiple units distinguishable in the diff, inspect the result,
+  and suggest the prospective commit messages and split in the final reply.
 
 ## Reviewable commits
 
-- Map each commit to one review-sized work unit from the
+- Shape every work unit as a prospective commit boundary, whether or not the
+  user has authorized actual commits. This planning requirement does not grant
+  permission to stage or commit.
+- Map each actual commit to one review-sized work unit from the
   [workflow conventions](workflow.md).
   Keep directly required tests and contract updates with the behavior they
   verify unless they form an independently meaningful documentation or test

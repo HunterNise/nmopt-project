@@ -4,21 +4,32 @@ These conventions govern how repository work is scoped, sequenced, executed,
 and handed off. [`git.md`](git.md) governs repository state and history;
 action-specific convention files govern the content of each change.
 
-## Work units and review boundaries
+## Plans, work units, and review boundaries
 
-- Before substantial work, divide the objective into ordered units with one
-  concrete outcome, an explicit boundary, and focused verification for each
-  unit. A roadmap item or architectural gate may require several units.
+- In the first assistant turn that handles a substantial change, MUST present a
+  working plan before substantial implementation. Divide the objective into
+  ordered, coherent, self-contained units, each of a size and scope suitable
+  for one reviewable commit. Give every unit one concrete outcome, an explicit
+  boundary, focused verification, and a prospective commit boundary. A roadmap
+  item or architectural gate may require several units.
+- Making the plan visible does not by itself require a separate approval turn.
+  After presenting it, proceed when the task is already authorized and no user
+  decision is required.
+- Treat the plan as a working guide, not a rigid scheme. Keep it current as
+  units are completed. When new evidence changes a boundary, dependency,
+  order, risk, or verification need, update the plan, state what changed and
+  why, and then continue from the corrected plan. Do not silently continue
+  under a stale plan.
 - An assistant turn may complete several units when that is the most efficient
-  use of time and context. Propose the independent review boundaries before
-  substantial implementation and, when commits are requested, map them to
-  separate commits according to [`git.md`](git.md). Do not spend a separate
-  turn on a small follow-up unless it needs a user decision.
+  use of time and context. Follow [`git.md`](git.md) for whether prospective
+  commit boundaries may actually be staged and committed. Do not spend a
+  separate turn on a small follow-up unless it needs a user decision.
 - Keep each unit self-contained and leave the repository consistent, buildable,
   and testable where practical. Include the tests and authoritative
   documentation needed to understand the behavior changed by the unit.
-- If a unit grows beyond its stated boundary, stop and repartition it before
-  absorbing adjacent cleanup, another feature, or the next roadmap item.
+- If a unit grows beyond its stated boundary, stop, update the plan, and
+  repartition it before absorbing adjacent cleanup, another feature, or the
+  next roadmap item.
 - Several units may proceed in one turn, but pause before a new architectural
   decision, a material expansion of scope or risk, or a review boundary
   requested by the user.
@@ -28,6 +39,12 @@ action-specific convention files govern the content of each change.
   coupled unit may remain one detailed commit even when it is large. Still
   separate preparatory, mechanical, and documentation work when it remains
   independently meaningful.
+- At the end of every assistant turn that advances a substantial task, review
+  the produced artifacts and repository state against the current plan. Report
+  which units are complete, any evidence-driven correction or unresolved
+  deviation, the verification performed, and the exact next unit. Correct an
+  unintended deviation when it is safely in scope; otherwise update the plan
+  and report the decision or blocker rather than claiming alignment.
 
 ## Efficient execution and context
 

@@ -18,6 +18,13 @@ Before any repository action, follow the mandatory routing rules in
 source of truth for action-specific convention routing; do not duplicate its
 convention table here.
 
+Every convention selected by that routing is a mandatory project instruction,
+not advisory guidance. Apply it with the same force as this `AGENTS.md`,
+regardless of its location below the repository root. If applicable
+instructions conflict, stop and report the conflict instead of silently
+choosing one or treating a convention as optional. Keep detailed rules in the
+convention files; do not duplicate them here.
+
 Use [docs/README.md](docs/README.md) to select the relevant design and
 implementation documents. Do not read every document by default.
 

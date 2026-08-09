@@ -594,6 +594,53 @@ namespace
                 expected.formulation.constraint_id,
             "a reordered feature delta changed formulation ports");
   }
+
+  void
+  test_semantic_v1_resolution()
+  {
+    auto specification =
+      nmopt::semantic::v1::make_scalar_diffusion_reaction_problem(true);
+    const nmopt::semantic::v1::SemanticResolver resolver;
+    const auto resolution = resolver.resolve(specification);
+    require(resolution.succeeded(),
+            "the canonical semantic graph did not produce a resolved view");
+    const auto &view = *resolution.problem;
+    require(view.specification().id == specification.id &&
+              view.variable("state").space_id == "state_space" &&
+              view.variable("control").space_id == "control_space" &&
+              view.equation("state_equation").residual_term_ids.size() == 3 &&
+              view.residual_term("volume_control").kind ==
+                nmopt::semantic::v1::ResidualTermKind::volume_control &&
+              view.observation("state_observation").region_id == "domain" &&
+              view.metric("control_l2_metric").variable_id == "control" &&
+              view.constraint("control_box").variable_id == "control",
+            "the resolved semantic view did not preserve stable-ID edges");
+
+    std::reverse(specification.regions.begin(), specification.regions.end());
+    std::reverse(specification.spaces.begin(), specification.spaces.end());
+    std::reverse(specification.residual_terms.begin(),
+                 specification.residual_terms.end());
+    std::reverse(specification.observations.begin(),
+                 specification.observations.end());
+    const auto reordered = resolver.resolve(specification);
+    require(reordered.succeeded() &&
+              reordered.problem->region("domain").is_full_domain &&
+              reordered.problem->residual_term("diffusion_reaction").data_ids ==
+                std::vector<std::string>({"diffusion", "reaction"}),
+            "semantic resolution depended on declaration order");
+
+    specification.spaces.push_back(specification.spaces.front());
+    const auto duplicate = resolver.resolve(specification);
+    require(!duplicate.succeeded() && !duplicate.problem.has_value(),
+            "an invalid graph produced a resolved semantic view");
+    nmopt::test_support::require_exact_diagnostic(
+      duplicate.diagnostics,
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      specification.spaces.front().id,
+      "unique_component_identity",
+      "semantic resolver did not retain duplicate-ID diagnostics");
+  }
+
 } // namespace
 
 int
@@ -626,7 +673,12 @@ main(const int argc, char **argv)
          "nmopt.semantic.v1_reference_delta_stability",
          {"backend-neutral", "semantic"},
          30,
-         test_semantic_v1_reference_delta_stability}};
+         test_semantic_v1_reference_delta_stability},
+        {"resolution",
+         "nmopt.semantic.v1_resolution",
+         {"backend-neutral", "semantic", "compiler"},
+         30,
+         test_semantic_v1_resolution}};
       const auto result =
         nmopt::test_support::run_requested_scenarios(
           argc, argv, scenarios, std::cout);

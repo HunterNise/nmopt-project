@@ -96,8 +96,15 @@ namespace
     auto hminus1_metric_specification =
       nmopt::semantic::v1::
         make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem();
+    auto hminus1_l2_companion = nmopt::semantic::v1::
+      make_l2_metric_h1_state_tracking_continuous_control_problem();
     require(validator.validate(hminus1_metric_specification).valid(),
             "the H-1 metric v1 graph is invalid");
+    require(validator.validate(hminus1_l2_companion).valid() &&
+              component_by_id(hminus1_l2_companion.metrics,
+                              "control_l2_metric")
+                  .kind == nmopt::semantic::v1::MetricKind::l2,
+            "the H-1 metric L2 comparison graph is invalid");
     const auto hminus1_control_space =
       component_by_id(hminus1_metric_specification.spaces, "control_space");
     const auto hminus1_metric = component_by_id(

@@ -362,42 +362,65 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P5.2's negative metric is a separate search-geometry delta on the energy
-  // tracking graph. The selected finite-dimensional search space consists of
-  // continuous FE coefficients with homogeneous Dirichlet boundary values;
-  // its compiler realizes G_h = M_h K_h^{-1} M_h and records both the
-  // boundary policy and the metric solve policy.
+  namespace reference_detail
+  {
+    inline void
+    apply_homogeneous_dirichlet_continuous_control_delta(
+      ProblemSpec &specification)
+    {
+      component_by_id(specification.spaces, "control_space", "space") =
+        {"control_space", "Homogeneous-Dirichlet continuous control", "domain",
+         SpaceTopology::h1, SpaceRole::control};
+      component_by_id(specification.pairings, "control_pairing", "pairing") =
+        {"control_pairing", "Independent H1_0 control coefficient pairing",
+         "control_space", "control_space"};
+      specification.requirement_policies.push_back(
+        {"control_homogeneous_dirichlet_policy", "control",
+         RequirementKind::fixed_dirichlet,
+         RequirementStatus::selected_discrete_realisation,
+         RequirementScope::both,
+         "P_h is continuous FE_Q with independent homogeneous-Dirichlet DoFs",
+         "dirichlet_boundary"});
+    }
+  } // namespace reference_detail
+
+  // Companion graph for P5.2's metric comparison. It changes the discrete
+  // control search space but retains the L2 Riesz map.
   inline ProblemSpec
-  make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()
+  make_l2_metric_h1_state_tracking_continuous_control_problem()
   {
     ProblemSpec specification =
       make_h1_state_tracking_scalar_diffusion_reaction_problem();
     specification.id =
+      "scalar_diffusion_reaction_h1_state_tracking_continuous_control_l2_metric";
+    specification.label =
+      "Scalar diffusion-reaction with H1 state tracking and continuous-control L2 metric";
+    reference_detail::apply_homogeneous_dirichlet_continuous_control_delta(
+      specification);
+    reference_detail::component_by_id(specification.metrics,
+                                      "control_l2_metric",
+                                      "metric")
+      .label = "Continuous-control L2 metric";
+    return specification;
+  }
+
+  // P5.2's negative metric is a separate search-geometry delta on the
+  // companion energy-tracking graph. Its compiler realizes
+  // G_h = M_h K_h^{-1} M_h and records the metric solve policy.
+  inline ProblemSpec
+  make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()
+  {
+    ProblemSpec specification =
+      make_l2_metric_h1_state_tracking_continuous_control_problem();
+    specification.id =
       "scalar_diffusion_reaction_h1_state_tracking_hminus1_metric";
     specification.label =
       "Scalar diffusion-reaction with H1 state tracking and H-1 control metric";
-    reference_detail::component_by_id(specification.spaces,
-                                      "control_space",
-                                      "space") =
-      {"control_space", "Homogeneous-Dirichlet continuous control", "domain",
-       SpaceTopology::h1, SpaceRole::control};
-    reference_detail::component_by_id(specification.pairings,
-                                      "control_pairing",
-                                      "pairing") =
-      {"control_pairing", "Independent H1_0 control coefficient pairing",
-       "control_space", "control_space"};
     reference_detail::component_by_id(specification.metrics,
                                       "control_l2_metric",
                                       "metric") =
       {"control_hminus1_metric", "Discrete H-1 control metric",
        MetricKind::hminus1, "control", "control_pairing"};
-    specification.requirement_policies.push_back(
-      {"control_hminus1_dirichlet_policy", "control_hminus1_metric",
-       RequirementKind::fixed_dirichlet,
-       RequirementStatus::selected_discrete_realisation,
-       RequirementScope::both,
-       "P_h is continuous FE_Q with independent homogeneous-Dirichlet DoFs; G_h=M_h K_h^{-1} M_h with the Dirichlet Laplacian K_h and no mean constraint",
-       "dirichlet_boundary"});
     specification.formulation.metric_id = "control_hminus1_metric";
     return specification;
   }

@@ -1274,7 +1274,7 @@ namespace nmopt::semantic::v1
                 "Declare the selected H-1 metric on its continuous control search space.");
 
             const auto boundary_policy = selected_policy(
-              metric.id, RequirementKind::fixed_dirichlet);
+              metric.variable_id, RequirementKind::fixed_dirichlet);
             if (boundary_policy == specification.requirement_policies.end())
               report.add(
                 DiagnosticCategory::analytical_policy,

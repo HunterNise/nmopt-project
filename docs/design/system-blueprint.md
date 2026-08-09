@@ -314,7 +314,7 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`dealii_fixed_dirichlet.hpp`](../../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
 | [`dealii_dirichlet_control.hpp`](../../include/nmopt/compiler/v1/dealii_dirichlet_control.hpp) | V1 controlled physical-state target | Complete-boundary nodal lifting, trace metric, and state/control pullbacks |
 | [`dealii_neumann_boundary.hpp`](../../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, pullbacks, and pure-Neumann mean-zero saddle solves |
-| [`dealii_h1_control.hpp`](../../include/nmopt/compiler/v1/dealii_h1_control.hpp) | V1 continuous-control target | $H^{1}$ control loss with explicitly selectable $L^{2}$ or $H^{1}$ search metric |
+| [`dealii_continuous_control.hpp`](../../include/nmopt/compiler/v1/dealii_continuous_control.hpp) | V1 continuous-control target | Continuous control loss and explicitly selectable search-metric realizations |
 | [`dealii_coefficient_identification.hpp`](../../include/nmopt/compiler/v1/dealii_coefficient_identification.hpp) | V1 positive cellwise coefficient target | Parameter-dependent state/adjoint actions and exact first-order pullbacks |
 | [`reduced_dto_contract.cc`](../../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
 | [`semantic_v1_contract.cc`](../../tests/semantic_v1_contract.cc) | Deal.II-free graph validation | Structural and analytical-policy diagnostics |

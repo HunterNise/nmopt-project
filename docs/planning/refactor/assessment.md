@@ -1195,7 +1195,7 @@ CG helpers using identity preconditioning, maximum iterations
 `dealii_fixed_dirichlet.hpp:638-652`,
 `dealii_dirichlet_control.hpp:636-650`,
 `dealii_neumann_boundary.hpp:578-590`,
-`dealii_h1_control.hpp:467-479`, and
+`dealii_continuous_control.hpp:467-479`, and
 `dealii_coefficient_identification.hpp:561-575`.
 `DealiiDiscretisationPolicy` exposes parameters only for the control metric
 inverse, and the manifest states only prose about state/adjoint CG or direct

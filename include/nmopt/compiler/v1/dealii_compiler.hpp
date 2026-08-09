@@ -5,7 +5,7 @@
 #include "nmopt/compiler/v1/dealii_coefficient_identification.hpp"
 #include "nmopt/compiler/v1/dealii_dirichlet_control.hpp"
 #include "nmopt/compiler/v1/dealii_fixed_dirichlet.hpp"
-#include "nmopt/compiler/v1/dealii_h1_control.hpp"
+#include "nmopt/compiler/v1/dealii_continuous_control.hpp"
 #include "nmopt/compiler/v1/dealii_neumann_boundary.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_plan.hpp"
 #include "nmopt/compiler/v1/dealii_types.hpp"
@@ -523,7 +523,7 @@ namespace nmopt::compiler::v1
         }
       else if (uses_h1_control_regularisation)
         {
-          using H1Model = detail::H1ControlRegularisedModel<dim>;
+          using H1Model = detail::ContinuousControlModel<dim>;
           const auto h1_control = std::make_shared<H1Model>(
             triangulation,
             data.forcing,

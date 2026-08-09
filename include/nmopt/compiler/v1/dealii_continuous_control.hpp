@@ -45,7 +45,7 @@ namespace nmopt::compiler::v1::detail
   // The search metric is intentionally not M_u + K_u: control_l2_metric()
   // exposes M_u only or M_u + K_u according to the selected semantic metric.
   template <int dim>
-  class H1ControlRegularisedModel final
+  class ContinuousControlModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
   {
   public:
@@ -55,7 +55,7 @@ namespace nmopt::compiler::v1::detail
     using Covector = contract::CovectorBlockT<Backend>;
     using SolveResult = contract::FormulationSolveResultT<Backend>;
 
-    H1ControlRegularisedModel(
+    ContinuousControlModel(
       dealii::Triangulation<dim> &                triangulation,
       const dealii::Function<dim> &               forcing,
       const dealii::Function<dim> &               desired_state,

@@ -53,9 +53,53 @@ namespace nmopt::compiler::v1
             std::optional<CellwiseBoxDataBindings> bounds = std::nullopt,
             std::optional<FacewiseBoxDataBindings> facewise_bounds = std::nullopt) const
     {
+      return compile_impl(specification,
+                          triangulation,
+                          data,
+                          policy,
+                          std::move(bounds),
+                          std::move(facewise_bounds),
+                          {});
+    }
+
+    template <int dim>
+    CompilationResultT<dealii_backend::SerialBackend>
+    compile(
+      const semantic::v1::ProblemSpec &specification,
+      const std::shared_ptr<DealiiCompilationSession<dim>> &session,
+      const DealiiDataBindings<dim> &data,
+      const DealiiDiscretisationPolicy &policy = {},
+      std::optional<CellwiseBoxDataBindings> bounds = std::nullopt,
+      std::optional<FacewiseBoxDataBindings> facewise_bounds = std::nullopt) const
+    {
+      contract::require(static_cast<bool>(session),
+                        "The deal.II compiler needs a compilation session");
+      return compile_impl(specification,
+                          session->mutable_triangulation(),
+                          data,
+                          policy,
+                          std::move(bounds),
+                          std::move(facewise_bounds),
+                          session);
+    }
+
+  private:
+    template <int dim>
+    CompilationResultT<dealii_backend::SerialBackend>
+    compile_impl(
+            const semantic::v1::ProblemSpec &  specification,
+            dealii::Triangulation<dim> &        triangulation,
+            const DealiiDataBindings<dim> &     data,
+            const DealiiDiscretisationPolicy &  policy,
+            std::optional<CellwiseBoxDataBindings> bounds,
+            std::optional<FacewiseBoxDataBindings> facewise_bounds,
+            std::shared_ptr<const void>             lifetime_owner) const
+    {
       using Backend = dealii_backend::SerialBackend;
       CompilationResultT<Backend> result;
       result.diagnostics = validate(specification, policy);
+      if (!result.diagnostics.valid())
+        return result;
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_dirichlet_control =
@@ -530,7 +574,8 @@ namespace nmopt::compiler::v1
                       uses_h1_control_metric,
                       uses_coefficient_identification,
                       *tracking_region,
-                      control_boundary_region));
+                      control_boundary_region),
+        std::move(lifetime_owner));
       return result;
     }
 

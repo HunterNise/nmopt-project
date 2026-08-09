@@ -3,9 +3,11 @@
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 #include <deal.II/base/function.h>
+#include <deal.II/grid/tria.h>
 #include <deal.II/lac/vector.h>
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -13,6 +15,8 @@
 
 namespace nmopt::compiler::v1
 {
+  class DealiiCompiler;
+
   struct DealiiBindingProvenance
   {
     std::string forcing;
@@ -92,5 +96,49 @@ namespace nmopt::compiler::v1
     dealii_backend::MassMetricSolveParameters control_metric_solve = {};
     dealii_backend::SPDLinearSolvePolicy       state_solve = {};
     dealii_backend::SPDLinearSolvePolicy       adjoint_solve = {};
+  };
+
+  // Owns one static triangulation exclusively for the lifetime of compiled
+  // products. Moving a unique_ptr into the session prevents caller mutation;
+  // the compiler is the only layer allowed mutable access while lowering.
+  template <int dim>
+  class DealiiCompilationSession final
+  {
+  public:
+    DealiiCompilationSession(
+      std::unique_ptr<dealii::Triangulation<dim>> triangulation,
+      std::string                                  mesh_provenance)
+      : triangulation_(std::move(triangulation))
+      , mesh_provenance_(std::move(mesh_provenance))
+    {
+      contract::require(static_cast<bool>(triangulation_),
+                        "A deal.II compilation session needs a triangulation");
+      contract::require(!mesh_provenance_.empty(),
+                        "A deal.II compilation session needs mesh provenance");
+    }
+
+    const dealii::Triangulation<dim> &
+    triangulation() const
+    {
+      return *triangulation_;
+    }
+
+    const std::string &
+    mesh_provenance() const
+    {
+      return mesh_provenance_;
+    }
+
+  private:
+    dealii::Triangulation<dim> &
+    mutable_triangulation() const
+    {
+      return *triangulation_;
+    }
+
+    std::unique_ptr<dealii::Triangulation<dim>> triangulation_;
+    std::string                                  mesh_provenance_;
+
+    friend class DealiiCompiler;
   };
 } // namespace nmopt::compiler::v1

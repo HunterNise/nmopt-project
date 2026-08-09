@@ -61,12 +61,14 @@ namespace nmopt::compiler::v1
                      std::shared_ptr<const Metric>            metric,
                      std::shared_ptr<const Constraint>        constraint,
                      contract::StateAdjointSolversT<Backend>   solvers,
-                     CompilationManifest                       manifest)
+                     CompilationManifest                       manifest,
+                     std::shared_ptr<const void>               lifetime_owner = {})
       : executable_(std::move(executable))
       , metric_(std::move(metric))
       , constraint_(std::move(constraint))
       , solvers_(std::move(solvers))
       , manifest_(std::move(manifest))
+      , lifetime_owner_(std::move(lifetime_owner))
     {
       contract::require(static_cast<bool>(executable_),
                         "A compiled problem needs an executable model");
@@ -119,8 +121,10 @@ namespace nmopt::compiler::v1
     make_reduced_dto() const
     {
       return contract::ReducedDTOT<Backend>(
-        *executable_, contract::StateControlPartitionT<Backend>(*executable_, 0, 1),
-        solvers_);
+        executable_,
+        contract::StateControlPartitionT<Backend>(*executable_, 0, 1),
+        solvers_,
+        lifetime_owner_);
     }
 
     const CompilationManifest &
@@ -135,6 +139,7 @@ namespace nmopt::compiler::v1
     std::shared_ptr<const Constraint>      constraint_;
     contract::StateAdjointSolversT<Backend> solvers_;
     CompilationManifest                     manifest_;
+    std::shared_ptr<const void>             lifetime_owner_;
   };
 
   template <typename Backend>

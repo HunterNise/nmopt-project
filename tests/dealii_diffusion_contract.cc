@@ -29,6 +29,15 @@ namespace
   using Primal = contract::PrimalBlockT<Backend>;
   using Covector = contract::CovectorBlockT<Backend>;
 
+  compiler::v1::DealiiBindingProvenance
+  test_binding_provenance(const std::string &target,
+                          const bool         has_fixed_data = false)
+  {
+    return {"test." + target + ".forcing",
+            "test." + target + ".desired_state",
+            has_fixed_data ? "test." + target + ".fixed_dirichlet" : ""};
+  }
+
   void
   require_close(const double actual,
                 const double expected,
@@ -200,7 +209,12 @@ namespace
                       "fixed-Dirichlet v1 graph did not validate for deal.II");
 
     const compiler::v1::DealiiDataBindings<dim> missing_lifting_binding{
-      forcing, desired_state, 1.0, 0.5, 0.1};
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("fixed_dirichlet_missing")};
     const auto missing_lifting = compiler.compile(specification,
                                                   triangulation,
                                                   missing_lifting_binding,
@@ -216,7 +230,12 @@ namespace
       "v1 compiler did not identify missing fixed-Dirichlet data");
 
     auto bindings = compiler::v1::DealiiDataBindings<dim>{
-      forcing, desired_state, 1.0, 0.5, 0.1};
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("fixed_dirichlet", true)};
     bindings.fixed_dirichlet_data = std::cref(fixed_dirichlet_data);
     const auto compilation = compiler.compile(specification,
                                               triangulation,
@@ -313,7 +332,12 @@ namespace
                       "fixed-Dirichlet reduced Taylor remainder is not quadratic");
 
     auto changed_bindings = compiler::v1::DealiiDataBindings<dim>{
-      forcing, desired_state, 1.0, 0.5, 0.1};
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("changed_fixed_dirichlet", true)};
     changed_bindings.fixed_dirichlet_data = std::cref(changed_dirichlet_data);
     const auto changed_compilation = compiler.compile(specification,
                                                       triangulation,
@@ -362,7 +386,12 @@ namespace
     auto partial_boundary_specification = specification;
     partial_boundary_specification.regions.at(1).boundary_ids = {1};
     const compiler::v1::DealiiDataBindings<dim> bindings{
-      forcing, desired_state, 1.0, 0.5, 0.1};
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("dirichlet_control")};
     const auto partial_boundary = compiler.compile(partial_boundary_specification,
                                                    triangulation,
                                                    bindings,
@@ -511,7 +540,12 @@ namespace
       "material-subdomain v1 graphs did not validate for deal.II");
 
     const compiler::v1::DealiiDataBindings<dim> bindings{
-      forcing, desired_state, 1.0, 0.5, 0.1};
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("subdomain_observation")};
     const auto material_one = compiler.compile(material_one_specification,
                                                triangulation,
                                                bindings,
@@ -623,7 +657,12 @@ namespace
                       "Neumann boundary-control v1 graph did not validate for deal.II");
 
     const compiler::v1::DealiiDataBindings<dim> bindings{
-      forcing, desired_state, 1.0, 0.5, 0.1};
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("neumann_boundary")};
     const compiler::v1::FacewiseBoxDataBindings facewise_bounds{
       compiler::v1::FacewiseBoundValue{-0.25},
       compiler::v1::FacewiseBoundValue{0.4}};
@@ -832,7 +871,12 @@ namespace
       "H1-control compiler did not reject the unsupported cellwise box");
 
     const compiler::v1::DealiiDataBindings<dim> bindings{
-      forcing, desired_state, 1.0, 0.5, 0.2};
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.2,
+      test_binding_provenance("h1_control")};
     const auto compilation = compiler.compile(specification,
                                               triangulation,
                                               bindings,
@@ -1032,7 +1076,12 @@ namespace
       "coefficient-identification compiler did not require the positive parameter box");
 
     const compiler::v1::DealiiDataBindings<dim> bindings{
-      forcing, desired_state, std::nullopt, 0.5, 0.2};
+      forcing,
+      desired_state,
+      std::nullopt,
+      0.5,
+      0.2,
+      test_binding_provenance("coefficient_identification")};
     const compiler::v1::CellwiseBoxDataBindings bounds{
       compiler::v1::CellwiseBoundValue{0.2},
       compiler::v1::CellwiseBoundValue{2.0}};
@@ -1237,7 +1286,12 @@ namespace
       "pure-Neumann mean-constraint v1 graph did not validate for deal.II");
 
     const compiler::v1::DealiiDataBindings<dim> nonzero_reaction{
-      zero_forcing, desired_state, 1.0, 0.5, 0.1};
+      zero_forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("pure_neumann_nonzero_reaction")};
     const auto rejected_reaction = compiler.compile(specification,
                                                     triangulation,
                                                     nonzero_reaction,
@@ -1253,7 +1307,12 @@ namespace
       "pure-Neumann compiler did not identify the nonzero reaction");
 
     const compiler::v1::DealiiDataBindings<dim> incompatible_binding{
-      incompatible_forcing, desired_state, 1.0, 0.0, 0.1};
+      incompatible_forcing,
+      desired_state,
+      1.0,
+      0.0,
+      0.1,
+      test_binding_provenance("pure_neumann_incompatible")};
     const auto rejected_forcing = compiler.compile(specification,
                                                    triangulation,
                                                    incompatible_binding,
@@ -1269,7 +1328,12 @@ namespace
       "pure-Neumann compiler did not identify incompatible forcing");
 
     const compiler::v1::DealiiDataBindings<dim> compatible_binding{
-      zero_forcing, desired_state, 1.0, 0.0, 0.1};
+      zero_forcing,
+      desired_state,
+      1.0,
+      0.0,
+      0.1,
+      test_binding_provenance("pure_neumann")};
     const auto compilation = compiler.compile(specification,
                                               triangulation,
                                               compatible_binding,
@@ -1636,7 +1700,12 @@ namespace
       "v1 compiler did not report an unsupported formulation capability");
 
     const compiler::v1::DealiiDataBindings<dim> data_bindings{
-      forcing, desired_state, 1.0, 0.5, 0.1};
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("canonical_volume")};
     const compiler::v1::CellwiseBoxDataBindings bound_bindings{
       compiler::v1::CellwiseBoundValue{-1.0},
       compiler::v1::CellwiseBoundValue{0.05}};

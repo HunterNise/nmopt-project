@@ -30,6 +30,44 @@ namespace
   using Primal = contract::PrimalBlockT<Backend>;
   using Covector = contract::CovectorBlockT<Backend>;
 
+  template <int dim>
+  class ConstantTensorCoefficient final
+    : public dealii::TensorFunction<2, dim>
+  {
+  public:
+    explicit ConstantTensorCoefficient(const dealii::Tensor<2, dim> value)
+      : value_(value)
+    {}
+
+    dealii::Tensor<2, dim>
+    value(const dealii::Point<dim> &) const override
+    {
+      return value_;
+    }
+
+  private:
+    dealii::Tensor<2, dim> value_;
+  };
+
+  template <int dim>
+  class ConstantVectorCoefficient final
+    : public dealii::TensorFunction<1, dim>
+  {
+  public:
+    explicit ConstantVectorCoefficient(const dealii::Tensor<1, dim> value)
+      : value_(value)
+    {}
+
+    dealii::Tensor<1, dim>
+    value(const dealii::Point<dim> &) const override
+    {
+      return value_;
+    }
+
+  private:
+    dealii::Tensor<1, dim> value_;
+  };
+
   compiler::v1::DealiiBindingProvenance
   test_binding_provenance(const std::string &target,
                           const bool         has_fixed_data = false)
@@ -1447,6 +1485,388 @@ namespace
 
   template <int dim>
   void
+  run_general_scalar_robin_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation, 0.0, 1.0, true);
+    triangulation.refine_global(2);
+
+    dealii::Tensor<2, dim> identity_tensor;
+    dealii::Tensor<2, dim> anisotropic_tensor;
+    for (unsigned int direction = 0; direction < dim; ++direction)
+      {
+        identity_tensor[direction][direction] = 1.0;
+        anisotropic_tensor[direction][direction] =
+          1.4 + 0.3 * static_cast<double>(direction);
+      }
+    dealii::Tensor<1, dim> zero_vector;
+    dealii::Tensor<1, dim> conservative_vector;
+    dealii::Tensor<1, dim> advective_vector;
+    conservative_vector[0] = 0.45;
+    conservative_vector[1] = -0.15;
+    advective_vector[0] = -0.2;
+    advective_vector[1] = 0.35;
+
+    const ConstantTensorCoefficient<dim> identity_diffusion(identity_tensor);
+    const ConstantTensorCoefficient<dim> anisotropic_diffusion(
+      anisotropic_tensor);
+    const ConstantVectorCoefficient<dim> zero_transport(zero_vector);
+    const ConstantVectorCoefficient<dim> conservative_transport(
+      conservative_vector);
+    const ConstantVectorCoefficient<dim> advective_transport(advective_vector);
+    const dealii::Functions::ConstantFunction<dim> zero(0.0);
+    const dealii::Functions::ConstantFunction<dim> reaction(0.6);
+    const dealii::Functions::ConstantFunction<dim> robin_coefficient(1.1);
+    const dealii::Functions::ConstantFunction<dim> robin_source(0.7);
+    const dealii::Functions::ConstantFunction<dim> forcing(0.3);
+    const dealii::Functions::ConstantFunction<dim> desired_state(-0.2);
+
+    const auto specification =
+      semantic::v1::make_general_scalar_elliptic_robin_problem(
+        {0, 2, 3}, {1});
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(specification, policy).valid(),
+                      "P5.1 general scalar graph did not validate for deal.II");
+
+    const compiler::v1::DealiiGeneralScalarBindingProvenance
+      coefficient_provenance{"test.general.diffusion_tensor",
+                             "test.general.conservative_transport",
+                             "test.general.advective_transport",
+                             "test.general.reaction",
+                             "test.general.robin_coefficient",
+                             "test.general.robin_source"};
+    const auto compile_with = [&](
+                                const dealii::TensorFunction<2, dim> &diffusion,
+                                const dealii::TensorFunction<1, dim> &conservative,
+                                const dealii::TensorFunction<1, dim> &advective,
+                                const dealii::Function<dim> &reaction_data,
+                                const dealii::Function<dim> &robin_coefficient_data,
+                                const dealii::Function<dim> &robin_source_data) {
+      const compiler::v1::DealiiDataBindings<dim> bindings{
+        forcing,
+        desired_state,
+        std::nullopt,
+        0.0,
+        0.2,
+        test_binding_provenance("general_scalar_robin"),
+        std::nullopt,
+        compiler::v1::DealiiGeneralScalarDataBindings<dim>{
+          diffusion,
+          conservative,
+          advective,
+          reaction_data,
+          robin_coefficient_data,
+          robin_source_data,
+          coefficient_provenance}};
+      return compiler.compile(specification,
+                              triangulation,
+                              bindings,
+                              policy);
+    };
+
+    const auto base = compile_with(identity_diffusion,
+                                   zero_transport,
+                                   zero_transport,
+                                   zero,
+                                   zero,
+                                   zero);
+    const auto diffusion_only = compile_with(anisotropic_diffusion,
+                                             zero_transport,
+                                             zero_transport,
+                                             zero,
+                                             zero,
+                                             zero);
+    const auto conservative_only = compile_with(identity_diffusion,
+                                                conservative_transport,
+                                                zero_transport,
+                                                zero,
+                                                zero,
+                                                zero);
+    const auto advective_only = compile_with(identity_diffusion,
+                                             zero_transport,
+                                             advective_transport,
+                                             zero,
+                                             zero,
+                                             zero);
+    const auto reaction_only = compile_with(identity_diffusion,
+                                            zero_transport,
+                                            zero_transport,
+                                            reaction,
+                                            zero,
+                                            zero);
+    const auto robin_bilinear_only = compile_with(identity_diffusion,
+                                                  zero_transport,
+                                                  zero_transport,
+                                                  zero,
+                                                  robin_coefficient,
+                                                  zero);
+    const auto robin_source_only = compile_with(identity_diffusion,
+                                                zero_transport,
+                                                zero_transport,
+                                                zero,
+                                                zero,
+                                                robin_source);
+    const auto combined = compile_with(anisotropic_diffusion,
+                                       conservative_transport,
+                                       advective_transport,
+                                       reaction,
+                                       robin_coefficient,
+                                       robin_source);
+    contract::require(base.succeeded() && diffusion_only.succeeded() &&
+                        conservative_only.succeeded() &&
+                        advective_only.succeeded() && reaction_only.succeeded() &&
+                        robin_bilinear_only.succeeded() &&
+                        robin_source_only.succeeded() && combined.succeeded(),
+                      "P5.1 coefficient recombination did not compile");
+
+    const auto &base_model = base.problem->executable_model();
+    dealii::Vector<double> state_values(
+      base_model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_values(
+      base_model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_values.size();
+         ++index)
+      state_values[index] = 0.04 * static_cast<double>(index + 1);
+    for (dealii::types::global_dof_index index = 0;
+         index < control_values.size();
+         ++index)
+      control_values[index] = -0.03 * static_cast<double>(index + 1);
+    const Primal point(base_model.variable_layout(),
+                       {state_values, control_values});
+    const Primal tangent(base_model.variable_layout(),
+                         {std::move(state_values), std::move(control_values)});
+    dealii::Vector<double> seed_values(base_model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < seed_values.size();
+         ++index)
+      seed_values[index] =
+        (index % 2 == 0 ? 0.05 : -0.035) *
+        static_cast<double>(index + 1);
+    const Primal seed(base_model.test_layout(), {std::move(seed_values)});
+
+    using Model = contract::ExecutableModelT<Backend>;
+    const std::vector<std::pair<std::string, const Model *>>
+      variable_term_changes{
+        {"tensor diffusion", &diffusion_only.problem->executable_model()},
+        {"conservative transport",
+         &conservative_only.problem->executable_model()},
+        {"advective transport", &advective_only.problem->executable_model()},
+        {"reaction", &reaction_only.problem->executable_model()},
+        {"Robin bilinear", &robin_bilinear_only.problem->executable_model()}};
+    const Covector base_residual = base_model.residual(point);
+    const Covector base_jvp = base_model.residual_jvp(point, tangent);
+    const Covector base_vjp = base_model.residual_vjp(point, seed);
+    for (const auto &[name, changed_model] : variable_term_changes)
+      {
+        const Covector changed_residual = changed_model->residual(point);
+        const Covector changed_jvp = changed_model->residual_jvp(point, tangent);
+        const Covector changed_vjp = changed_model->residual_vjp(point, seed);
+        dealii::Vector<double> value_jvp_difference = changed_residual.block(0);
+        value_jvp_difference.add(-1.0, base_residual.block(0));
+        value_jvp_difference.add(-1.0, changed_jvp.block(0));
+        value_jvp_difference.add(1.0, base_jvp.block(0));
+        require_close(value_jvp_difference.l2_norm(),
+                      0.0,
+                      2e-11,
+                      name + " value/JVP action");
+
+        dealii::Vector<double> term_action = changed_jvp.block(0);
+        term_action.add(-1.0, base_jvp.block(0));
+        contract::require(term_action.l2_norm() > 1e-8,
+                          name + " term action vanished in its focused test");
+        require_close(contract::pair(changed_jvp, seed) -
+                        contract::pair(base_jvp, seed),
+                      contract::pair(changed_vjp, tangent) -
+                        contract::pair(base_vjp, tangent),
+                      2e-11,
+                      name + " JVP/VJP pairing");
+      }
+
+    const auto &source_model = robin_source_only.problem->executable_model();
+    dealii::Vector<double> robin_load_delta =
+      source_model.residual(point).block(0);
+    robin_load_delta.add(-1.0, base_residual.block(0));
+    contract::require(robin_load_delta.l2_norm() > 1e-8,
+                      "Robin boundary source did not change the residual value");
+    dealii::Vector<double> robin_source_jvp =
+      source_model.residual_jvp(point, tangent).block(0);
+    robin_source_jvp.add(-1.0, base_jvp.block(0));
+    require_close(robin_source_jvp.l2_norm(),
+                  0.0,
+                  1e-13,
+                  "Robin source derivative independence");
+
+    const auto &model = combined.problem->executable_model();
+    const Covector combined_jvp = model.residual_jvp(point, tangent);
+    const Covector combined_vjp = model.residual_vjp(point, seed);
+    require_close(contract::pair(combined_jvp, seed),
+                  contract::pair(combined_vjp, tangent),
+                  3e-11,
+                  "general scalar combined JVP/VJP pairing");
+
+    dealii::Vector<double> state_only_values(
+      model.variable_layout()->dimension(0));
+    dealii::Vector<double> state_seed_values(model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_only_values.size();
+         ++index)
+      {
+        const double value = 0.025 * static_cast<double>(index + 1);
+        state_only_values[index] = value;
+        state_seed_values[index] = value;
+      }
+    dealii::Vector<double> zero_control(
+      model.variable_layout()->dimension(1));
+    const Primal state_only_tangent(model.variable_layout(),
+                                    {std::move(state_only_values),
+                                     std::move(zero_control)});
+    const Primal state_seed(model.test_layout(),
+                            {std::move(state_seed_values)});
+    const Covector forward_state =
+      model.residual_jvp(point, state_only_tangent);
+    const Covector transpose_state = model.residual_vjp(point, state_seed);
+    dealii::Vector<double> nonsymmetric_difference = forward_state.block(0);
+    nonsymmetric_difference.add(-1.0, transpose_state.block(0));
+    contract::require(
+      nonsymmetric_difference.l2_norm() > 1e-7,
+      "P5.1 transport target did not expose a nonsymmetric transpose action");
+
+    dealii::Vector<double> reduced_control_values(
+      model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < reduced_control_values.size();
+         ++index)
+      reduced_control_values[index] =
+        0.02 * std::sin(static_cast<double>(index + 1));
+    const Primal reduced_control(
+      model.variable_layout()->single_block(1, "control"),
+      {std::move(reduced_control_values)});
+    const auto reduced = combined.problem->make_reduced_dto();
+    const auto evaluation = reduced.evaluate(reduced_control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  2e-11,
+                  "general scalar state solve residual");
+    contract::require(
+      evaluation.state_solve.algorithm == "serial_sparse_direct_umfpack" &&
+        evaluation.adjoint_solve.algorithm ==
+          "serial_sparse_direct_umfpack_transpose",
+      "P5.1 target did not report its nonsymmetric state/adjoint solves");
+
+    dealii::Vector<double> direction_values(
+      reduced_control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size();
+         ++index)
+      direction_values[index] =
+        (index % 2 == 0 ? 0.04 : -0.03) *
+        static_cast<double>(index + 1);
+    const Primal direction(reduced_control.layout(),
+                           {std::move(direction_values)});
+    const double reduced_directional_derivative =
+      contract::pair(evaluation.reduced_derivative, direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(
+        reduced.evaluate(shifted(reduced_control, direction, step))
+          .objective_value -
+        evaluation.objective_value - step * reduced_directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "P5.1 reduced Taylor remainder is not quadratic");
+
+    const auto &manifest = combined.problem->manifest();
+    require_constraint_realisation(manifest, "none", "general scalar Robin");
+    contract::require(
+      manifest.state_solve_record.algorithm ==
+          compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
+        manifest.adjoint_solve_record.algorithm ==
+          compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
+        manifest.lowering_handler_records.size() == 13 &&
+        manifest.data_rule.find("Robin coefficient and source") !=
+          std::string::npos &&
+        std::find(manifest.lowering_handler_records.begin(),
+                  manifest.lowering_handler_records.end(),
+                  "conservative_transport <- "
+                  "dealii.scalar.residual.conservative_transport") !=
+          manifest.lowering_handler_records.end(),
+      "P5.1 manifest omitted coefficient, handler, or solve provenance");
+
+    const auto overlapping =
+      semantic::v1::make_general_scalar_elliptic_robin_problem(
+        {0, 1, 2, 3}, {1});
+    test_support::require_exact_diagnostic(
+      compiler.validate(overlapping, policy),
+      semantic::v1::DiagnosticCategory::lowerability,
+      "robin_boundary",
+      "scalar_boundary_partition_overlap",
+      "P5.1 compiler accepted overlapping Dirichlet and Robin regions");
+
+    const auto incomplete_partition =
+      semantic::v1::make_general_scalar_elliptic_robin_problem({0}, {1});
+    const compiler::v1::DealiiDataBindings<dim> incomplete_bindings{
+      forcing,
+      desired_state,
+      std::nullopt,
+      0.0,
+      0.2,
+      test_binding_provenance("general_incomplete_partition"),
+      std::nullopt,
+      compiler::v1::DealiiGeneralScalarDataBindings<dim>{
+        anisotropic_diffusion,
+        conservative_transport,
+        advective_transport,
+        reaction,
+        robin_coefficient,
+        robin_source,
+        coefficient_provenance}};
+    const auto incomplete = compiler.compile(incomplete_partition,
+                                             triangulation,
+                                             incomplete_bindings,
+                                             policy);
+    test_support::require_exact_diagnostic(
+      incomplete.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "complete_scalar_boundary_partition",
+      "P5.1 compiler accepted an incomplete boundary partition");
+
+    const dealii::Functions::ConstantFunction<dim> vector_reaction(0.6, 2);
+    const compiler::v1::DealiiDataBindings<dim> wrong_shape_bindings{
+      forcing,
+      desired_state,
+      std::nullopt,
+      0.0,
+      0.2,
+      test_binding_provenance("general_wrong_shape"),
+      std::nullopt,
+      compiler::v1::DealiiGeneralScalarDataBindings<dim>{
+        anisotropic_diffusion,
+        conservative_transport,
+        advective_transport,
+        vector_reaction,
+        robin_coefficient,
+        robin_source,
+        coefficient_provenance}};
+    const auto wrong_shape = compiler.compile(specification,
+                                              triangulation,
+                                              wrong_shape_bindings,
+                                              policy);
+    test_support::require_exact_diagnostic(
+      wrong_shape.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "reaction",
+      "scalar_coefficient_function_shape",
+      "P5.1 compiler accepted a multi-component reaction Function");
+  }
+
+  template <int dim>
+  void
   run_compiler_diagnostics_contract_test()
   {
     const compiler::v1::DealiiCompiler compiler;
@@ -2140,6 +2560,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          60,
          []() { run_pure_neumann_contract_test<2>(); }},
+        {"general_scalar_robin",
+         "nmopt.dealii.general_scalar_robin",
+         {"dealii", "compiler"},
+         90,
+         []() { run_general_scalar_robin_contract_test<2>(); }},
         {"projection_compatibility",
          "nmopt.dealii.projection_compatibility",
          {"dealii", "contract", "constraint"},

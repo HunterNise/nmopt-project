@@ -132,7 +132,11 @@ namespace nmopt::compiler::v1
         selects_h1_control_metric(specification);
       const bool uses_coefficient_identification =
         uses_parameter_diffusion_residual(specification);
+      const bool uses_general_scalar =
+        uses_general_scalar_residual(specification);
       const auto *tracking_region = selected_tracking_region(specification);
+      const auto *robin_boundary_region =
+        selected_robin_boundary_region(specification);
       const auto *control_boundary_region =
         uses_dirichlet_control
           ? selected_dirichlet_control_region(specification)
@@ -144,7 +148,8 @@ namespace nmopt::compiler::v1
         !uses_h1_control_regularisation &&
         !uses_coefficient_identification &&
         !uses_dirichlet_control &&
-        (uses_fixed_reconstruction || uses_subdomain_observation);
+        (uses_fixed_reconstruction || uses_subdomain_observation ||
+         uses_general_scalar);
       std::optional<ScalarLoweringPlan> scalar_plan;
       if (uses_assembled_v1_target)
         {
@@ -181,25 +186,43 @@ namespace nmopt::compiler::v1
           "fixed_dirichlet_data",
           "fixed_dirichlet_binding_provenance",
           "Supply a stable provenance label for the fixed-Dirichlet Function binding.");
-      if (!uses_coefficient_identification && !data.diffusion)
+      if (!uses_coefficient_identification && !uses_general_scalar &&
+          !data.diffusion)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           "diffusion",
           "diffusion_data_binding",
           "Bind the constant diffusion coefficient selected by this graph.");
-      if (!uses_coefficient_identification && data.diffusion &&
+      if (!uses_coefficient_identification && !uses_general_scalar &&
+          data.diffusion &&
           (!std::isfinite(*data.diffusion) || *data.diffusion <= 0.0))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           "diffusion",
           "positive_finite_diffusion_binding",
           "Bind a positive finite constant diffusion coefficient.");
-      if (!std::isfinite(data.reaction) || data.reaction < 0.0)
+      if (!uses_general_scalar &&
+          (!std::isfinite(data.reaction) || data.reaction < 0.0))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           "reaction",
           "nonnegative_finite_reaction_binding",
           "Bind a nonnegative finite reaction coefficient.");
+      if (uses_general_scalar && !data.general_scalar)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "general_scalar_coefficient_bindings",
+          "Bind tensor diffusion, both vector transports, scalar reaction, Robin coefficient, and Robin source Functions.");
+      if (!uses_general_scalar && data.general_scalar)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "selected_general_scalar_target",
+          "Remove general scalar coefficient bindings unless the graph selects the P5.1 target.");
+      if (uses_general_scalar && data.general_scalar)
+        validate_general_scalar_bindings(*data.general_scalar,
+                                         result.diagnostics);
       if (!std::isfinite(data.regularisation_weight) ||
           data.regularisation_weight <= 0.0)
         result.diagnostics.add(
@@ -333,6 +356,25 @@ namespace nmopt::compiler::v1
           specification.formulation.state_variable_id,
           "fixed_dirichlet_boundary_presence",
           "Select fixed-Dirichlet boundary ids present on the compiled mesh.");
+      if (uses_general_scalar &&
+          (robin_boundary_region == nullptr ||
+           !contains_all_boundary_ids(triangulation,
+                                      boundary_ids(*robin_boundary_region))))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          robin_boundary_region == nullptr ? specification.id :
+                                             robin_boundary_region->id,
+          "robin_boundary_presence",
+          "Select Robin boundary ids present on the compiled mesh.");
+      if (uses_general_scalar && robin_boundary_region != nullptr &&
+          !forms_complete_boundary_partition(triangulation,
+                                             dirichlet_boundary_ids,
+                                             boundary_ids(*robin_boundary_region)))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "complete_scalar_boundary_partition",
+          "Partition every exterior boundary face into the declared fixed-Dirichlet or Robin region.");
       if (uses_neumann_boundary_control && control_boundary_region != nullptr &&
           !contains_all_boundary_ids(triangulation,
                                      boundary_ids(*control_boundary_region)))
@@ -517,16 +559,27 @@ namespace nmopt::compiler::v1
       else if (uses_assembled_v1_target)
         {
           using AssembledModel = detail::ScalarComponentModel<dim>;
-          const auto assembled = std::make_shared<AssembledModel>(
-            triangulation,
-            data.forcing,
-            data.desired_state,
-            data.fixed_dirichlet_data,
-            *data.diffusion,
-            data.reaction,
-            data.regularisation_weight,
-            policy.state_degree,
-            *scalar_plan);
+          std::shared_ptr<AssembledModel> assembled;
+          if (uses_general_scalar)
+            assembled = std::make_shared<AssembledModel>(
+              triangulation,
+              data.forcing,
+              data.desired_state,
+              *data.general_scalar,
+              data.regularisation_weight,
+              policy.state_degree,
+              *scalar_plan);
+          else
+            assembled = std::make_shared<AssembledModel>(
+              triangulation,
+              data.forcing,
+              data.desired_state,
+              data.fixed_dirichlet_data,
+              *data.diffusion,
+              data.reaction,
+              data.regularisation_weight,
+              policy.state_degree,
+              *scalar_plan);
           metric = std::make_shared<dealii_backend::MassMetric>(
             assembled->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
@@ -598,7 +651,9 @@ namespace nmopt::compiler::v1
                                                     ? CompiledTargetKind::h1_control_h1_metric
                                                     : CompiledTargetKind::h1_control_l2_metric)
                                              : uses_assembled_v1_target
-                                               ? CompiledTargetKind::assembled_volume
+                                               ? (uses_general_scalar
+                                                    ? CompiledTargetKind::general_scalar_robin
+                                                    : CompiledTargetKind::assembled_volume)
                                                : CompiledTargetKind::direct_volume;
       result.problem = std::make_shared<const CompiledProblemT<Backend>>(
         executable,
@@ -642,7 +697,8 @@ namespace nmopt::compiler::v1
       dirichlet_control,
       h1_control_l2_metric,
       h1_control_h1_metric,
-      coefficient_identification
+      coefficient_identification,
+      general_scalar_robin
     };
 
     static const semantic::v1::RegionSpec *
@@ -778,6 +834,35 @@ namespace nmopt::compiler::v1
           return term.kind ==
                  semantic::v1::ResidualTermKind::parameter_diffusion_reaction;
         });
+    }
+
+    static bool
+    uses_general_scalar_residual(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &term) {
+          return term.kind ==
+                 semantic::v1::ResidualTermKind::tensor_diffusion;
+        });
+    }
+
+    static const semantic::v1::RegionSpec *
+    selected_robin_boundary_region(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto term = std::find_if(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &candidate) {
+          return candidate.kind ==
+                 semantic::v1::ResidualTermKind::robin_bilinear;
+        });
+      return term == specification.residual_terms.end()
+               ? nullptr
+               : find_region(specification, term->region_id);
     }
 
     static bool
@@ -974,6 +1059,74 @@ namespace nmopt::compiler::v1
               requested_ids.count(cell->face(face)->boundary_id()) != 0)
             found_ids.insert(cell->face(face)->boundary_id());
       return found_ids == requested_ids;
+    }
+
+    template <int dim>
+    static bool
+    forms_complete_boundary_partition(
+      const dealii::Triangulation<dim> &              triangulation,
+      const std::set<dealii::types::boundary_id> &fixed_ids,
+      const std::set<dealii::types::boundary_id> &robin_ids)
+    {
+      if (std::any_of(fixed_ids.begin(), fixed_ids.end(), [&robin_ids](auto id) {
+            return robin_ids.count(id) != 0;
+          }))
+        return false;
+      bool has_boundary_face = false;
+      for (auto cell = triangulation.begin_active();
+           cell != triangulation.end();
+           ++cell)
+        for (unsigned int face = 0;
+             face < dealii::GeometryInfo<dim>::faces_per_cell;
+             ++face)
+          if (cell->face(face)->at_boundary())
+            {
+              has_boundary_face = true;
+              const auto id = cell->face(face)->boundary_id();
+              if (fixed_ids.count(id) + robin_ids.count(id) != 1)
+                return false;
+            }
+      return has_boundary_face;
+    }
+
+    template <int dim>
+    static void
+    validate_general_scalar_bindings(
+      const DealiiGeneralScalarDataBindings<dim> &bindings,
+      semantic::v1::ValidationReport &            report)
+    {
+      using semantic::v1::DiagnosticCategory;
+      const auto require_provenance = [&report](const std::string &component_id,
+                                                const std::string &provenance) {
+        if (provenance.empty())
+          report.add(DiagnosticCategory::lowerability,
+                     component_id,
+                     "coefficient_binding_provenance",
+                     "Supply a stable provenance label for every P5.1 coefficient Function binding.");
+      };
+      require_provenance("diffusion_tensor",
+                         bindings.provenance.diffusion_tensor);
+      require_provenance("conservative_transport",
+                         bindings.provenance.conservative_transport);
+      require_provenance("advective_transport",
+                         bindings.provenance.advective_transport);
+      require_provenance("reaction", bindings.provenance.reaction);
+      require_provenance("robin_coefficient",
+                         bindings.provenance.robin_coefficient);
+      require_provenance("robin_source", bindings.provenance.robin_source);
+
+      const auto require_scalar = [&report](const std::string &component_id,
+                                            const unsigned int n_components) {
+        if (n_components != 1)
+          report.add(DiagnosticCategory::lowerability,
+                     component_id,
+                     "scalar_coefficient_function_shape",
+                     "Bind a one-component scalar Function for this coefficient.");
+      };
+      require_scalar("reaction", bindings.reaction.n_components);
+      require_scalar("robin_coefficient",
+                     bindings.robin_coefficient.n_components);
+      require_scalar("robin_source", bindings.robin_source.n_components);
     }
 
     static void
@@ -1222,6 +1375,8 @@ namespace nmopt::compiler::v1
       const bool h1_control_metric = selects_h1_control_metric(specification);
       const bool coefficient_identification =
         uses_parameter_diffusion_residual(specification);
+      const bool general_scalar =
+        uses_general_scalar_residual(specification);
       const bool dirichlet_control_lifting =
         uses_dirichlet_control_lifting(specification);
       const auto fixed_policy = std::find_if(
@@ -1237,6 +1392,8 @@ namespace nmopt::compiler::v1
                               : find_region(specification, fixed_policy->region_id);
       const auto controlled_boundary =
         selected_dirichlet_control_region(specification);
+      const auto robin_boundary =
+        selected_robin_boundary_region(specification);
       if (!mean_zero_gauge && !dirichlet_control_lifting &&
           (boundary == nullptr ||
            boundary->kind != semantic::v1::RegionKind::boundary ||
@@ -1254,6 +1411,61 @@ namespace nmopt::compiler::v1
           specification.formulation.state_variable_id,
           "controlled_dirichlet_boundary_ids",
           "Select a non-empty exterior boundary region for the registered Dirichlet-control lifting.");
+
+      if (general_scalar)
+        {
+          const auto robin_source = std::find_if(
+            specification.residual_terms.begin(),
+            specification.residual_terms.end(),
+            [](const semantic::v1::ResidualTermSpec &term) {
+              return term.kind ==
+                     semantic::v1::ResidualTermKind::robin_source;
+            });
+          if (robin_boundary == nullptr ||
+              robin_boundary->kind != semantic::v1::RegionKind::boundary ||
+              robin_boundary->boundary_ids.empty())
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "robin_boundary_ids",
+              "Select one non-empty Robin boundary region for both Robin contributions.");
+          if (robin_source == specification.residual_terms.end() ||
+              robin_boundary == nullptr ||
+              robin_source->region_id != robin_boundary->id)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "shared_robin_boundary_region",
+              "Place the Robin bilinear and source contributions on the same declared boundary region.");
+          if (boundary != nullptr && robin_boundary != nullptr)
+            for (const auto robin_id : robin_boundary->boundary_ids)
+              if (std::find(boundary->boundary_ids.begin(),
+                            boundary->boundary_ids.end(),
+                            robin_id) != boundary->boundary_ids.end())
+                report.add(DiagnosticCategory::lowerability,
+                           robin_boundary->id,
+                           "scalar_boundary_partition_overlap",
+                           "Use disjoint fixed-Dirichlet and Robin boundary ids.");
+          if (uses_fixed_dirichlet_reconstruction(specification) ||
+              uses_neumann_control(specification) ||
+              uses_mean_zero_multiplier(specification) ||
+              h1_control_regularisation || coefficient_identification ||
+              dirichlet_control_lifting)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "general_scalar_registered_combination",
+              "Compose the first general scalar target only with homogeneous fixed Dirichlet data, volume control, full-volume tracking, and one Robin region.");
+          const auto general_tracking_region =
+            selected_tracking_region(specification);
+          if (general_tracking_region == nullptr ||
+              !general_tracking_region->is_full_domain)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "general_scalar_full_domain_tracking",
+              "Select full-domain state tracking for the first general scalar target.");
+        }
 
       if (mean_zero_gauge)
         {
@@ -1479,7 +1691,19 @@ namespace nmopt::compiler::v1
         uses_dirichlet_control_lifting(specification);
       const bool coefficient_identification =
         uses_parameter_diffusion_residual(specification);
-      const bool complete_residual = coefficient_identification
+      const bool general_scalar =
+        uses_general_scalar_residual(specification);
+      const bool complete_residual = general_scalar
+        ? count_terms(ResidualTermKind::tensor_diffusion) == 1 &&
+            count_terms(ResidualTermKind::conservative_transport) == 1 &&
+            count_terms(ResidualTermKind::advective_transport) == 1 &&
+            count_terms(ResidualTermKind::reaction) == 1 &&
+            count_terms(ResidualTermKind::volume_source) == 1 &&
+            count_terms(ResidualTermKind::volume_control) == 1 &&
+            count_terms(ResidualTermKind::robin_bilinear) == 1 &&
+            count_terms(ResidualTermKind::robin_source) == 1 &&
+            specification.residual_terms.size() == 8
+        : coefficient_identification
         ? count_terms(ResidualTermKind::parameter_diffusion_reaction) == 1 &&
             count_terms(ResidualTermKind::volume_source) == 1 &&
             count_terms(ResidualTermKind::diffusion_reaction) == 0 &&
@@ -1502,14 +1726,18 @@ namespace nmopt::compiler::v1
       if (!complete_residual)
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   coefficient_identification
+                   general_scalar
+                     ? "complete_general_scalar_residual_term_set"
+                     : coefficient_identification
                      ? "complete_parameter_diffusion_residual_term_set"
                      : boundary_control
                          ? "complete_neumann_boundary_residual_term_set"
                          : dirichlet_control
                              ? "complete_dirichlet_control_residual_term_set"
                          : "complete_volume_residual_term_set",
-                   coefficient_identification
+                   general_scalar
+                     ? "Declare exactly one tensor-diffusion, conservative-transport, advective-transport, reaction, volume-source, volume-control, Robin-bilinear, and Robin-source term."
+                     : coefficient_identification
                      ? "Declare exactly one parameter diffusion-reaction and one volume-source term."
                      : boundary_control
                      ? "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
@@ -1525,18 +1753,32 @@ namespace nmopt::compiler::v1
             return datum.role == role;
           });
       };
+      const bool complete_general_scalar_data =
+        count_data(DataRole::diffusion) == 1 &&
+        count_data(DataRole::conservative_transport) == 1 &&
+        count_data(DataRole::advective_transport) == 1 &&
+        count_data(DataRole::reaction) == 1 &&
+        count_data(DataRole::robin_coefficient) == 1 &&
+        count_data(DataRole::robin_source) == 1;
       if (count_data(DataRole::forcing) != 1 ||
           count_data(DataRole::desired_state) != 1 ||
-          count_data(DataRole::reaction) != 1 ||
           count_data(DataRole::regularisation_weight) != 1 ||
-          (coefficient_identification ? count_data(DataRole::diffusion) != 0
-                                      : count_data(DataRole::diffusion) != 1))
+          (general_scalar
+             ? !complete_general_scalar_data
+             : (count_data(DataRole::reaction) != 1 ||
+                (coefficient_identification
+                   ? count_data(DataRole::diffusion) != 0
+                   : count_data(DataRole::diffusion) != 1))))
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   coefficient_identification
+                   general_scalar
+                     ? "complete_general_scalar_data_set"
+                     : coefficient_identification
                      ? "complete_parameter_data_set"
                      : "complete_volume_data_set",
-                   coefficient_identification
+                   general_scalar
+                     ? "Declare forcing, target, tensor diffusion, both transports, reaction, Robin coefficient/source, and regularisation data exactly once."
+                     : coefficient_identification
                      ? "Declare one forcing, target, reaction, and parameter-regularisation datum, with no constant diffusion datum."
                      : "Declare one forcing, target, diffusion, reaction, and regularisation datum.");
 
@@ -1902,6 +2144,7 @@ namespace nmopt::compiler::v1
                    std::to_string(policy.state_degree) + ") on the state mesh";
           case CompiledTargetKind::direct_volume:
           case CompiledTargetKind::assembled_volume:
+          case CompiledTargetKind::general_scalar_robin:
             return "FE_DGQ(0) on the state active-cell mesh";
         }
       contract::require(false, "Unknown compiled target kind");
@@ -2053,7 +2296,10 @@ namespace nmopt::compiler::v1
       const bool uses_dirichlet_control_lifting =
         target == CompiledTargetKind::dirichlet_control;
       const bool uses_assembled_v1_target =
-        target == CompiledTargetKind::assembled_volume;
+        target == CompiledTargetKind::assembled_volume ||
+        target == CompiledTargetKind::general_scalar_robin;
+      const bool uses_general_scalar =
+        target == CompiledTargetKind::general_scalar_robin;
       const bool uses_neumann_boundary_control = uses_neumann_target(target);
       const bool uses_mean_zero_gauge =
         target == CompiledTargetKind::pure_neumann;
@@ -2104,21 +2350,44 @@ namespace nmopt::compiler::v1
               case semantic::v1::DataRole::diffusion:
                 record.representation = uses_coefficient_identification
                                           ? "decision parameter"
+                                        : uses_general_scalar
+                                          ? "tensor Function at volume quadrature"
                                           : "scalar constant";
                 record.provenance = uses_coefficient_identification
                                       ? specification.formulation.control_variable_id
+                                    : uses_general_scalar
+                                      ? data.general_scalar->provenance.diffusion_tensor
                                       : std::to_string(*data.diffusion);
                 break;
-              case semantic::v1::DataRole::reaction:
-                record.representation = "scalar constant";
-                record.provenance = std::to_string(data.reaction);
-                break;
               case semantic::v1::DataRole::conservative_transport:
+                record.representation = "vector Function at volume quadrature";
+                record.provenance =
+                  data.general_scalar->provenance.conservative_transport;
+                break;
               case semantic::v1::DataRole::advective_transport:
+                record.representation = "vector Function at volume quadrature";
+                record.provenance =
+                  data.general_scalar->provenance.advective_transport;
+                break;
+              case semantic::v1::DataRole::reaction:
+                record.representation = uses_general_scalar
+                                          ? "scalar Function at volume quadrature"
+                                          : "scalar constant";
+                record.provenance = uses_general_scalar
+                                      ? data.general_scalar->provenance.reaction
+                                      : std::to_string(data.reaction);
+                break;
               case semantic::v1::DataRole::robin_coefficient:
+                record.representation =
+                  "scalar Function at boundary quadrature";
+                record.provenance =
+                  data.general_scalar->provenance.robin_coefficient;
+                break;
               case semantic::v1::DataRole::robin_source:
-                record.representation = "not lowered by this target";
-                record.provenance = "not bound";
+                record.representation =
+                  "scalar Function at boundary quadrature";
+                record.provenance =
+                  data.general_scalar->provenance.robin_source;
                 break;
               case semantic::v1::DataRole::regularisation_weight:
                 record.representation = "scalar constant";
@@ -2140,7 +2409,7 @@ namespace nmopt::compiler::v1
 
       const std::size_t state_dimension =
         executable.test_layout()->dimension(0);
-      if (uses_mean_zero_gauge)
+      if (uses_mean_zero_gauge || uses_general_scalar)
         {
           const CompiledSolvePolicyRecord direct_record{
             LinearSolveAlgorithm::serial_sparse_direct_umfpack,
@@ -2148,7 +2417,8 @@ namespace nmopt::compiler::v1
             1,
             0.0,
             0.0,
-            "one mean-zero Lagrange multiplier"};
+            uses_mean_zero_gauge ? "one mean-zero Lagrange multiplier"
+                                 : "fixed Dirichlet"};
           manifest.state_solve_record = direct_record;
           manifest.adjoint_solve_record = direct_record;
         }
@@ -2180,7 +2450,9 @@ namespace nmopt::compiler::v1
         manifest.lowering_handler_records = scalar_plan->provenance;
       manifest.semantic_problem_id = specification.id;
       manifest.compiler_id =
-        "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
+        uses_general_scalar
+          ? "nmopt.compiler.v1.dealii.general_scalar_elliptic_robin"
+          : "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
       manifest.backend = "deal.II serial Vector<double>";
       manifest.execution = "assembled";
       manifest.state_space = "scalar FE_Q(" +
@@ -2193,6 +2465,10 @@ namespace nmopt::compiler::v1
         ? "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature"
+        : uses_general_scalar
+        ? "tensor diffusion, vector transport, scalar reaction, forcing, and desired-state Functions at selected QGauss(" +
+            std::to_string(policy.state_degree + 2) +
+            ") volume quadrature; Robin coefficient and source Functions at matching face quadrature"
         : "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) + ") volume quadrature" +
             (uses_coefficient_identification
@@ -2235,6 +2511,8 @@ namespace nmopt::compiler::v1
         : "not applicable: non-empty fixed Dirichlet boundary";
       manifest.state_adjoint_solve_policy = uses_mean_zero_gauge
         ? "serial SparseDirectUMFPACK on the augmented symmetric state and adjoint saddle systems"
+        : uses_general_scalar
+          ? "serial SparseDirectUMFPACK on the nonsymmetric state operator and its exact transpose"
         : uses_coefficient_identification
           ? "serial CG with identity preconditioner; parameter-dependent SPD state matrix is reassembled for each state and adjoint solve"
         : "serial CG with identity preconditioner for symmetric positive-definite operator";
@@ -2255,6 +2533,16 @@ namespace nmopt::compiler::v1
       if (uses_coefficient_identification)
         manifest.declared_assumptions.push_back(
           "coefficient_identification: positive cellwise physical diffusion parameter; A(m) is reassembled for every state and adjoint solve");
+      if (uses_general_scalar)
+        {
+          const auto *robin_region =
+            selected_robin_boundary_region(specification);
+          contract::require(robin_region != nullptr,
+                            "General scalar manifest needs its Robin region");
+          manifest.declared_assumptions.push_back(
+            "general_scalar_robin: tensor diffusion, conservative and advective transport, reaction, and Robin terms; Robin boundary ids " +
+            boundary_id_list(*robin_region));
+        }
       manifest.region_ids = identifiers(specification.regions);
       manifest.space_ids = identifiers(specification.spaces);
       manifest.pairing_ids = identifiers(specification.pairings);

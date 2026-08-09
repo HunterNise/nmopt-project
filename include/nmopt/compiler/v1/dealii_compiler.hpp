@@ -7,6 +7,7 @@
 #include "nmopt/compiler/v1/dealii_fixed_dirichlet.hpp"
 #include "nmopt/compiler/v1/dealii_h1_control.hpp"
 #include "nmopt/compiler/v1/dealii_neumann_boundary.hpp"
+#include "nmopt/compiler/v1/dealii_scalar_plan.hpp"
 #include "nmopt/compiler/v1/dealii_types.hpp"
 #include "nmopt/dealii/facewise_box_constraint.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
@@ -30,16 +31,21 @@ namespace nmopt::compiler::v1
   class DealiiCompiler final
   {
   public:
-    explicit DealiiCompiler(DealiiCapabilityRegistryV1 capabilities = {})
+    explicit DealiiCompiler(
+      DealiiCapabilityRegistryV1 capabilities = {},
+      DealiiScalarLowererRegistryV1 scalar_registry = {})
       : capabilities_(std::move(capabilities))
+      , scalar_planner_(std::move(scalar_registry))
     {}
 
     semantic::v1::ValidationReport
     validate(const semantic::v1::ProblemSpec &  specification,
              const DealiiDiscretisationPolicy & policy) const
     {
-      semantic::v1::ValidationReport report =
-        semantic::v1::SemanticValidator().validate(specification);
+      auto resolution = semantic::v1::SemanticResolver().resolve(specification);
+      semantic::v1::ValidationReport report = std::move(resolution.diagnostics);
+      if (!report.valid())
+        return report;
       validate_lowerability(specification, policy, report);
       validate_formulation_capability(specification, report);
       return report;
@@ -104,7 +110,12 @@ namespace nmopt::compiler::v1
     {
       using Backend = dealii_backend::SerialBackend;
       CompilationResultT<Backend> result;
-      result.diagnostics = validate(specification, policy);
+      auto resolution = semantic::v1::SemanticResolver().resolve(specification);
+      result.diagnostics = std::move(resolution.diagnostics);
+      if (!result.diagnostics.valid())
+        return result;
+      validate_lowerability(specification, policy, result.diagnostics);
+      validate_formulation_capability(specification, result.diagnostics);
       if (!result.diagnostics.valid())
         return result;
       const bool uses_fixed_reconstruction =
@@ -134,6 +145,17 @@ namespace nmopt::compiler::v1
         !uses_coefficient_identification &&
         !uses_dirichlet_control &&
         (uses_fixed_reconstruction || uses_subdomain_observation);
+      std::optional<ScalarLoweringPlan> scalar_plan;
+      if (uses_assembled_v1_target)
+        {
+          auto planned = scalar_planner_.plan(*resolution.problem);
+          for (const auto &diagnostic : planned.diagnostics.diagnostics())
+            result.diagnostics.add(diagnostic.category,
+                                   diagnostic.component_id,
+                                   diagnostic.capability,
+                                   diagnostic.remedy);
+          scalar_plan = std::move(planned.plan);
+        }
       if (triangulation.n_active_cells() == 0)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -494,7 +516,7 @@ namespace nmopt::compiler::v1
         }
       else if (uses_assembled_v1_target)
         {
-          using AssembledModel = detail::AssembledScalarDiffusionReactionModel<dim>;
+          using AssembledModel = detail::ScalarComponentModel<dim>;
           const auto assembled = std::make_shared<AssembledModel>(
             triangulation,
             data.forcing,
@@ -504,8 +526,7 @@ namespace nmopt::compiler::v1
             data.reaction,
             data.regularisation_weight,
             policy.state_degree,
-            dirichlet_boundary_ids,
-            selected_tracking_material_ids(*tracking_region));
+            *scalar_plan);
           metric = std::make_shared<dealii_backend::MassMetric>(
             assembled->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
@@ -597,7 +618,8 @@ namespace nmopt::compiler::v1
                       mesh_provenance,
                       owns_mesh,
                       *executable,
-                      *metric),
+                      *metric,
+                      scalar_plan ? &*scalar_plan : nullptr),
         std::move(lifetime_owner));
       return result;
     }
@@ -2022,7 +2044,8 @@ namespace nmopt::compiler::v1
       const std::string &                mesh_provenance,
       const bool                         owns_mesh,
       const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
-      const dealii_backend::MassMetric & metric)
+      const dealii_backend::MassMetric & metric,
+      const ScalarLoweringPlan *          scalar_plan)
     {
       CompilationManifest manifest;
       const bool uses_fixed_reconstruction =
@@ -2146,6 +2169,8 @@ namespace nmopt::compiler::v1
         constraint_realisation_id(constraint_realisation),
         constraint_realisation == ConstraintRealisation::none ? "none"
                                                                : metric.id()};
+      if (scalar_plan != nullptr)
+        manifest.lowering_handler_records = scalar_plan->provenance;
       manifest.semantic_problem_id = specification.id;
       manifest.compiler_id =
         "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
@@ -2276,5 +2301,6 @@ namespace nmopt::compiler::v1
     }
 
     DealiiCapabilityRegistryV1 capabilities_;
+    DealiiScalarLoweringPlanner scalar_planner_;
   };
 } // namespace nmopt::compiler::v1

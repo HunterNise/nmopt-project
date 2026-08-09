@@ -398,7 +398,13 @@ namespace
         manifest.lifting_realisation.find("y_phys = P_h y_hat + ell_0,h") !=
         std::string::npos &&
         manifest.data_rule.find("boundary DoFs") != std::string::npos &&
-        manifest.transformation_ids.size() == 1,
+        manifest.transformation_ids.size() == 1 &&
+        manifest.lowering_handler_records.size() == 9 &&
+        std::find(manifest.lowering_handler_records.begin(),
+                  manifest.lowering_handler_records.end(),
+                  "fixed_dirichlet_reconstruction <- "
+                  "dealii.scalar.transformation.fixed_dirichlet") !=
+          manifest.lowering_handler_records.end(),
       "v1 fixed-Dirichlet compilation manifest is incomplete");
   }
 
@@ -662,7 +668,13 @@ namespace
       one_manifest.observation_realisation ==
         "material-id volume restriction: 1" &&
         one_manifest.data_rule.find("analytic desired-state Function") !=
-          std::string::npos,
+          std::string::npos &&
+        one_manifest.lowering_handler_records.size() == 8 &&
+        std::find(one_manifest.lowering_handler_records.begin(),
+                  one_manifest.lowering_handler_records.end(),
+                  "diffusion_reaction <- "
+                  "dealii.scalar.residual.diffusion_reaction") !=
+          one_manifest.lowering_handler_records.end(),
       "v1 subdomain observation manifest omitted its restriction or data rule");
   }
 

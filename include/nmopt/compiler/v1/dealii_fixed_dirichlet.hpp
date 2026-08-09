@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nmopt/compiler/v1/dealii_scalar_plan.hpp"
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
@@ -38,7 +39,7 @@
 
 namespace nmopt::compiler::v1::detail
 {
-  // This v1-only target represents the independent state coefficients
+  // This bounded scalar component target represents the independent state coefficients
   // y_hat. It evaluates the compiled equation and observation/loss on
   //
   //   y_phys = P_h y_hat + ell_0,h,
@@ -46,7 +47,7 @@ namespace nmopt::compiler::v1::detail
   // and pulls covectors back with P_h^*. The direct v0 lowerer is not used or
   // modified here: it remains the homogeneous comparison implementation.
   template <int dim>
-  class AssembledScalarDiffusionReactionModel final
+  class ScalarComponentModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
   {
   public:
@@ -56,7 +57,50 @@ namespace nmopt::compiler::v1::detail
     using Covector = contract::CovectorBlockT<Backend>;
     using SolveResult = contract::FormulationSolveResultT<Backend>;
 
-    AssembledScalarDiffusionReactionModel(
+    ScalarComponentModel(
+      dealii::Triangulation<dim> &triangulation,
+      const dealii::Function<dim> &forcing,
+      const dealii::Function<dim> &desired_state,
+      std::optional<std::reference_wrapper<const dealii::Function<dim>>>
+        fixed_dirichlet_data,
+      const double              diffusion,
+      const double              reaction,
+      const double              regularisation_weight,
+      const unsigned int        state_degree,
+      const ScalarLoweringPlan &plan)
+      : ScalarComponentModel(
+          triangulation,
+          forcing,
+          desired_state,
+          fixed_dirichlet_data,
+          diffusion,
+          reaction,
+          regularisation_weight,
+          state_degree,
+          boundary_ids_from_plan(plan),
+          material_ids_from_plan(plan))
+    {
+      contract::require(
+        has_residual_operator(plan,
+                              ScalarResidualOperatorKind::diffusion_reaction) &&
+          has_residual_operator(plan,
+                                ScalarResidualOperatorKind::volume_source) &&
+          has_residual_operator(plan,
+                                ScalarResidualOperatorKind::volume_control),
+        "The composed scalar target needs diffusion-reaction, source, and volume-control contributions");
+      contract::require(
+        has_loss_operator(plan, ScalarLossOperatorKind::quadratic_tracking) &&
+          has_loss_operator(
+            plan, ScalarLossOperatorKind::quadratic_control_regularisation),
+        "The composed scalar target needs tracking and control-regularisation losses");
+      contract::require(
+        (plan.transformation ==
+           ScalarTransformationOperatorKind::fixed_dirichlet_reconstruction) ==
+          fixed_dirichlet_data.has_value(),
+        "The scalar reconstruction plan and fixed-data binding disagree");
+    }
+
+    ScalarComponentModel(
       dealii::Triangulation<dim> &                triangulation,
       const dealii::Function<dim> &               forcing,
       const dealii::Function<dim> &               desired_state,
@@ -310,6 +354,48 @@ namespace nmopt::compiler::v1::detail
     }
 
   private:
+    static bool
+    has_residual_operator(const ScalarLoweringPlan &        plan,
+                          const ScalarResidualOperatorKind kind)
+    {
+      return std::any_of(
+        plan.residual_terms.begin(),
+        plan.residual_terms.end(),
+        [kind](const ScalarResidualContribution &contribution) {
+          return contribution.operator_kind == kind;
+        });
+    }
+
+    static bool
+    has_loss_operator(const ScalarLoweringPlan &    plan,
+                      const ScalarLossOperatorKind kind)
+    {
+      return std::any_of(
+        plan.losses.begin(),
+        plan.losses.end(),
+        [kind](const ScalarLossContribution &contribution) {
+          return contribution.operator_kind == kind;
+        });
+    }
+
+    static std::set<dealii::types::boundary_id>
+    boundary_ids_from_plan(const ScalarLoweringPlan &plan)
+    {
+      std::set<dealii::types::boundary_id> result;
+      for (const auto id : plan.dirichlet_boundary_ids)
+        result.insert(static_cast<dealii::types::boundary_id>(id));
+      return result;
+    }
+
+    static std::set<dealii::types::material_id>
+    material_ids_from_plan(const ScalarLoweringPlan &plan)
+    {
+      std::set<dealii::types::material_id> result;
+      for (const auto id : plan.tracking_material_ids)
+        result.insert(static_cast<dealii::types::material_id>(id));
+      return result;
+    }
+
     void
     require_variables(const Primal &variables, const char *operation) const
     {

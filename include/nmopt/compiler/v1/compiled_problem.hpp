@@ -104,6 +104,7 @@ namespace nmopt::compiler::v1
     CompiledSolvePolicyRecord             adjoint_solve_record;
     CompiledMetricRecord                  metric_record;
     CompiledConstraintRecord              constraint_record;
+    std::vector<std::string>              lowering_handler_records;
     // Human-readable rendering retained for logs and source compatibility.
     // Tests and experiment tooling use the structured records above.
     std::string              semantic_problem_id;

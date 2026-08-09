@@ -362,6 +362,46 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // P5.2's negative metric is a separate search-geometry delta on the energy
+  // tracking graph. The selected finite-dimensional search space consists of
+  // continuous FE coefficients with homogeneous Dirichlet boundary values;
+  // its compiler realizes G_h = M_h K_h^{-1} M_h and records both the
+  // boundary policy and the metric solve policy.
+  inline ProblemSpec
+  make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()
+  {
+    ProblemSpec specification =
+      make_h1_state_tracking_scalar_diffusion_reaction_problem();
+    specification.id =
+      "scalar_diffusion_reaction_h1_state_tracking_hminus1_metric";
+    specification.label =
+      "Scalar diffusion-reaction with H1 state tracking and H-1 control metric";
+    reference_detail::component_by_id(specification.spaces,
+                                      "control_space",
+                                      "space") =
+      {"control_space", "Homogeneous-Dirichlet continuous control", "domain",
+       SpaceTopology::h1, SpaceRole::control};
+    reference_detail::component_by_id(specification.pairings,
+                                      "control_pairing",
+                                      "pairing") =
+      {"control_pairing", "Independent H1_0 control coefficient pairing",
+       "control_space", "control_space"};
+    reference_detail::component_by_id(specification.metrics,
+                                      "control_l2_metric",
+                                      "metric") =
+      {"control_hminus1_metric", "Discrete H-1 control metric",
+       MetricKind::hminus1, "control", "control_pairing"};
+    specification.requirement_policies.push_back(
+      {"control_hminus1_dirichlet_policy", "control_hminus1_metric",
+       RequirementKind::fixed_dirichlet,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::both,
+       "P_h is continuous FE_Q with independent homogeneous-Dirichlet DoFs; G_h=M_h K_h^{-1} M_h with the Dirichlet Laplacian K_h and no mean constraint",
+       "dirichlet_boundary"});
+    specification.formulation.metric_id = "control_hminus1_metric";
+    return specification;
+  }
+
   // P2.3's first half changes the objective, not the search geometry.  The
   // control has continuous FE_Q coordinates and the declared loss is the
   // H1 norm, while the selected algorithmic metric remains L2.

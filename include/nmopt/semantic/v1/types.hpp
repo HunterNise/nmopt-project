@@ -109,7 +109,8 @@ namespace nmopt::semantic::v1
   {
     unspecified = -1,
     l2,
-    h1
+    h1,
+    hminus1
   };
 
   enum class ConstraintKind

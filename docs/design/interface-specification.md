@@ -359,6 +359,31 @@ $$
 A metric MUST NOT alter a residual or objective.  An $H^{1}$ regularisation is
 a loss; an $H^{1}$ search geometry is a metric.
 
+The first selected $H^{-1}$ realization makes the discrete policy explicit.
+Its search space is the independent homogeneous-Dirichlet coefficient space
+$P_h=\operatorname{span}\{\phi_i\}\subset H^1_0(\Omega)$. With the control
+mass and Dirichlet-Laplacian matrices
+
+$$
+(M_h)_{ij}=(\phi_j,\phi_i)_{L^2},
+\qquad
+(K_h)_{ij}=(\nabla\phi_j,\nabla\phi_i)_{L^2},
+$$
+
+the metric is the pulled-back negative norm
+
+$$
+G_h=M_hK_h^{-1}M_h,
+\qquad
+G_h^{-1}=M_h^{-1}K_hM_h^{-1}.
+$$
+
+The fixed-Dirichlet policy removes the constant nullspace, so this realization
+has no mean constraint. Both elliptic and mass inverse actions MUST use and
+record the selected metric-solve tolerances and preconditioner. Selecting this
+metric changes only direction formation; observations, losses, residuals, and
+adjoint equations remain unchanged.
+
 ### 3.12 Constraint
 
 A constraint acts on one or more variable blocks.  It MUST declare its source

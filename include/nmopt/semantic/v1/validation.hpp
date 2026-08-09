@@ -1249,6 +1249,57 @@ namespace nmopt::semantic::v1
                 "Select exactly one state uniqueness policy for the declared residual.");
           }
 
+      for (const auto &metric : specification.metrics)
+        if (metric.kind == MetricKind::hminus1)
+          {
+            const auto variable = std::find_if(
+              specification.variables.begin(),
+              specification.variables.end(),
+              [&metric](const VariableSpec &candidate) {
+                return candidate.id == metric.variable_id;
+              });
+            const auto space = std::find_if(
+              specification.spaces.begin(),
+              specification.spaces.end(),
+              [&specification, variable](const SpaceSpec &candidate) {
+                return variable != specification.variables.end() &&
+                       candidate.id == variable->space_id;
+              });
+            if (space == specification.spaces.end() ||
+                space->topology != SpaceTopology::h1)
+              report.add(
+                DiagnosticCategory::structural,
+                metric.id,
+                "hminus1_metric_search_space",
+                "Declare the selected H-1 metric on its continuous control search space.");
+
+            const auto boundary_policy = selected_policy(
+              metric.id, RequirementKind::fixed_dirichlet);
+            if (boundary_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "hminus1_metric_boundary_policy",
+                "Declare the selected Dirichlet or mean policy for the H-1 Riesz operator.");
+            else
+              {
+                const auto region = std::find_if(
+                  specification.regions.begin(),
+                  specification.regions.end(),
+                  [&boundary_policy](const RegionSpec &candidate) {
+                    return candidate.id == boundary_policy->region_id;
+                  });
+                if (region == specification.regions.end() ||
+                    region->kind != RegionKind::boundary ||
+                    region->boundary_ids.empty())
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_dirichlet_region",
+                    "Select a non-empty boundary region for the Dirichlet H-1 Riesz operator.");
+              }
+          }
+
       for (const auto &datum : specification.data)
         if ((datum.role == DataRole::desired_state ||
              datum.role == DataRole::observation_weight) &&

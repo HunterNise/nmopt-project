@@ -93,6 +93,42 @@ namespace
     require(h1_state_report.valid(),
             "the H1-state tracking v1 graph is invalid");
 
+    auto hminus1_metric_specification =
+      nmopt::semantic::v1::
+        make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem();
+    require(validator.validate(hminus1_metric_specification).valid(),
+            "the H-1 metric v1 graph is invalid");
+    const auto hminus1_control_space =
+      component_by_id(hminus1_metric_specification.spaces, "control_space");
+    const auto hminus1_metric = component_by_id(
+      hminus1_metric_specification.metrics, "control_hminus1_metric");
+    require(hminus1_control_space.topology ==
+              nmopt::semantic::v1::SpaceTopology::h1 &&
+              hminus1_metric.kind ==
+                nmopt::semantic::v1::MetricKind::hminus1 &&
+              hminus1_metric_specification.formulation.metric_id ==
+                hminus1_metric.id,
+            "the H-1 metric factory did not select its control space and Riesz map");
+
+    auto missing_hminus1_boundary_policy = hminus1_metric_specification;
+    missing_hminus1_boundary_policy.requirement_policies.pop_back();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_hminus1_boundary_policy),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "control_hminus1_metric",
+      "hminus1_metric_boundary_policy",
+      "v1 semantic validation accepted an H-1 metric without its boundary policy");
+
+    auto discontinuous_hminus1_search_space = hminus1_metric_specification;
+    component_by_id(discontinuous_hminus1_search_space.spaces, "control_space")
+      .topology = nmopt::semantic::v1::SpaceTopology::l2;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(discontinuous_hminus1_search_space),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "control_hminus1_metric",
+      "hminus1_metric_search_space",
+      "v1 semantic validation accepted the selected H-1 metric on the wrong search space");
+
     auto h1_state_l2_output = h1_state_specification;
     component_by_id(h1_state_l2_output.spaces, "state_observation_space")
       .topology = nmopt::semantic::v1::SpaceTopology::l2;

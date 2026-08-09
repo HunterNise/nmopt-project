@@ -221,12 +221,16 @@ namespace nmopt::compiler::v1
               constraint_realisation = ConstraintRealisation::facewise_l2;
             }
           solvers = {
-            [boundary](const contract::PrimalBlockT<Backend> &control) {
-              return boundary->solve_state(control);
+            [boundary, solve_policy = policy.state_solve](
+              const contract::PrimalBlockT<Backend> &control) {
+              return boundary->solve_state_with_report(control, solve_policy);
             },
-            [boundary](const contract::PrimalBlockT<Backend> &full_point,
-                       const contract::CovectorBlockT<Backend> &state_rhs) {
-              return boundary->solve_adjoint(full_point, state_rhs);
+            [boundary, solve_policy = policy.adjoint_solve](
+              const contract::PrimalBlockT<Backend> &full_point,
+              const contract::CovectorBlockT<Backend> &state_rhs) {
+              return boundary->solve_adjoint_with_report(full_point,
+                                                         state_rhs,
+                                                         solve_policy);
             }};
           executable = boundary;
         }
@@ -245,12 +249,16 @@ namespace nmopt::compiler::v1
           metric = std::make_shared<dealii_backend::MassMetric>(
             dirichlet->control_l2_metric(policy.control_metric_solve));
           solvers = {
-            [dirichlet](const contract::PrimalBlockT<Backend> &control) {
-              return dirichlet->solve_state(control);
+            [dirichlet, solve_policy = policy.state_solve](
+              const contract::PrimalBlockT<Backend> &control) {
+              return dirichlet->solve_state_with_report(control, solve_policy);
             },
-            [dirichlet](const contract::PrimalBlockT<Backend> &full_point,
-                        const contract::CovectorBlockT<Backend> &state_rhs) {
-              return dirichlet->solve_adjoint(full_point, state_rhs);
+            [dirichlet, solve_policy = policy.adjoint_solve](
+              const contract::PrimalBlockT<Backend> &full_point,
+              const contract::CovectorBlockT<Backend> &state_rhs) {
+              return dirichlet->solve_adjoint_with_report(full_point,
+                                                          state_rhs,
+                                                          solve_policy);
             }};
           executable = dirichlet;
         }
@@ -271,12 +279,16 @@ namespace nmopt::compiler::v1
               ? h1_control->control_h1_metric(policy.control_metric_solve)
               : h1_control->control_l2_metric(policy.control_metric_solve));
           solvers = {
-            [h1_control](const contract::PrimalBlockT<Backend> &control) {
-              return h1_control->solve_state(control);
+            [h1_control, solve_policy = policy.state_solve](
+              const contract::PrimalBlockT<Backend> &control) {
+              return h1_control->solve_state_with_report(control, solve_policy);
             },
-            [h1_control](const contract::PrimalBlockT<Backend> &full_point,
-                         const contract::CovectorBlockT<Backend> &state_rhs) {
-              return h1_control->solve_adjoint(full_point, state_rhs);
+            [h1_control, solve_policy = policy.adjoint_solve](
+              const contract::PrimalBlockT<Backend> &full_point,
+              const contract::CovectorBlockT<Backend> &state_rhs) {
+              return h1_control->solve_adjoint_with_report(full_point,
+                                                           state_rhs,
+                                                           solve_policy);
             }};
           executable = h1_control;
         }
@@ -302,12 +314,17 @@ namespace nmopt::compiler::v1
                 ConstraintRealisation::cellwise_parameter_l2;
             }
           solvers = {
-            [coefficient](const contract::PrimalBlockT<Backend> &parameter) {
-              return coefficient->solve_state(parameter);
+            [coefficient, solve_policy = policy.state_solve](
+              const contract::PrimalBlockT<Backend> &parameter) {
+              return coefficient->solve_state_with_report(parameter,
+                                                          solve_policy);
             },
-            [coefficient](const contract::PrimalBlockT<Backend> &full_point,
-                          const contract::CovectorBlockT<Backend> &state_rhs) {
-              return coefficient->solve_adjoint(full_point, state_rhs);
+            [coefficient, solve_policy = policy.adjoint_solve](
+              const contract::PrimalBlockT<Backend> &full_point,
+              const contract::CovectorBlockT<Backend> &state_rhs) {
+              return coefficient->solve_adjoint_with_report(full_point,
+                                                            state_rhs,
+                                                            solve_policy);
             }};
           executable = coefficient;
         }
@@ -335,12 +352,16 @@ namespace nmopt::compiler::v1
               constraint_realisation = ConstraintRealisation::cellwise_l2;
             }
           solvers = {
-            [assembled](const contract::PrimalBlockT<Backend> &control) {
-              return assembled->solve_state(control);
+            [assembled, solve_policy = policy.state_solve](
+              const contract::PrimalBlockT<Backend> &control) {
+              return assembled->solve_state_with_report(control, solve_policy);
             },
-            [assembled](const contract::PrimalBlockT<Backend> &full_point,
-                        const contract::CovectorBlockT<Backend> &state_rhs) {
-              return assembled->solve_adjoint(full_point, state_rhs);
+            [assembled, solve_policy = policy.adjoint_solve](
+              const contract::PrimalBlockT<Backend> &full_point,
+              const contract::CovectorBlockT<Backend> &state_rhs) {
+              return assembled->solve_adjoint_with_report(full_point,
+                                                          state_rhs,
+                                                          solve_policy);
             }};
           executable = assembled;
         }
@@ -366,12 +387,16 @@ namespace nmopt::compiler::v1
               constraint_realisation = ConstraintRealisation::cellwise_l2;
             }
           solvers = {
-            [direct](const contract::PrimalBlockT<Backend> &control) {
-              return direct->solve_state(control);
+            [direct, solve_policy = policy.state_solve](
+              const contract::PrimalBlockT<Backend> &control) {
+              return direct->solve_state_with_report(control, solve_policy);
             },
-            [direct](const contract::PrimalBlockT<Backend> &full_point,
-                     const contract::CovectorBlockT<Backend> &state_rhs) {
-              return direct->solve_adjoint(full_point, state_rhs);
+            [direct, solve_policy = policy.adjoint_solve](
+              const contract::PrimalBlockT<Backend> &full_point,
+              const contract::CovectorBlockT<Backend> &state_rhs) {
+              return direct->solve_adjoint_with_report(full_point,
+                                                       state_rhs,
+                                                       solve_policy);
             }};
           executable = direct;
         }

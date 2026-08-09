@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/dealii/mass_metric.hpp"
+#include "nmopt/dealii/serial_spd_solver.hpp"
 #include <deal.II/base/function.h>
 #include <deal.II/lac/vector.h>
 
@@ -89,5 +90,7 @@ namespace nmopt::compiler::v1
     unsigned int                                state_degree = 1;
     Execution                                   execution = Execution::assembled;
     dealii_backend::MassMetricSolveParameters control_metric_solve = {};
+    dealii_backend::SPDLinearSolvePolicy       state_solve = {};
+    dealii_backend::SPDLinearSolvePolicy       adjoint_solve = {};
   };
 } // namespace nmopt::compiler::v1

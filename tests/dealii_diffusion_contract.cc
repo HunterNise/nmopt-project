@@ -296,6 +296,51 @@ namespace
     return value;
   }
 
+  template <int dim>
+  void
+  run_continuous_control_component_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+    const dealii::Functions::ConstantFunction<dim> forcing(0.0);
+    const EnergyPolynomial<dim> desired_state;
+    const compiler::v1::detail::ContinuousControlModel<dim> model(
+      triangulation,
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.2,
+      1,
+      {0},
+      true,
+      false,
+      true);
+
+    contract::require(model.variable_layout()->dimension(1) == 1,
+                      "homogeneous-Dirichlet Q1 control did not expose only its independent DoF");
+    dealii::Vector<double> state(model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_values(1);
+    control_values[0] = 0.4;
+    const Primal point(model.variable_layout(), {std::move(state), control_values});
+    const Covector derivative = model.objective_derivative(point);
+    require_close(derivative.block(1)[0],
+                  0.2 * 0.4 / 9.0,
+                  1e-13,
+                  "continuous-control L2 regularisation on independent coordinates");
+
+    const auto control_layout =
+      model.variable_layout()->single_block(1, "control");
+    const Primal control(control_layout, {std::move(control_values)});
+    const auto metric = model.control_hminus1_metric();
+    const Covector metric_covector = metric.apply(control);
+    require_primal_close(metric.inverse_apply(metric_covector),
+                         control,
+                         1e-11,
+                         "continuous-control H-1 metric round trip");
+  }
+
   void
   require_constraint_realisation(
     const compiler::v1::CompilationManifest &manifest,
@@ -3136,6 +3181,11 @@ main(const int argc, char **argv)
          {"dealii", "contract", "metric"},
          30,
          run_hminus1_metric_contract_test},
+        {"continuous_control_components",
+         "nmopt.dealii.continuous_control_components",
+         {"dealii", "compiler", "metric"},
+         30,
+         []() { run_continuous_control_component_contract_test<2>(); }},
         {"coefficient_identification",
          "nmopt.dealii.coefficient_identification",
          {"dealii", "compiler"},

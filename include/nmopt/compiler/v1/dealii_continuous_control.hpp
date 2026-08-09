@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/dealii/hminus1_metric.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
@@ -26,6 +27,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>
@@ -35,15 +37,12 @@
 
 namespace nmopt::compiler::v1::detail
 {
-  // P2.3's first v1-only target. It deliberately owns a continuous control
-  // realization and its objective term rather than changing the v0 DGQ(0),
-  // L2-regularised reference model:
+  // The bounded continuous-control target used by P2.3 and P5.2. It owns one
+  // FE_Q control realization while keeping state observation, control loss,
+  // and search metric as independent compiler selections:
   //
   //   r(y,u) = A y - f_h - B u,
-  //   J(y,u) = J_tracking(y) + alpha/2 u^T (M_u + K_u) u.
-  //
-  // The search metric is intentionally not M_u + K_u: control_l2_metric()
-  // exposes M_u only or M_u + K_u according to the selected semantic metric.
+  //   J(y,u) = J_tracking(y) + alpha/2 u^T R_u u.
   template <int dim>
   class ContinuousControlModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
@@ -63,7 +62,10 @@ namespace nmopt::compiler::v1::detail
       const double                                  reaction,
       const double                                  regularisation_weight,
       const unsigned int                            state_degree,
-      std::set<dealii::types::boundary_id>         dirichlet_boundary_ids)
+      std::set<dealii::types::boundary_id>         dirichlet_boundary_ids,
+      const bool                                    use_h1_state_observation = false,
+      const bool                                    use_h1_control_regularisation = true,
+      const bool homogeneous_dirichlet_control = false)
       : state_fe_(state_degree)
       , control_fe_(state_degree)
       , state_dof_handler_(triangulation)
@@ -72,6 +74,9 @@ namespace nmopt::compiler::v1::detail
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
+      , use_h1_state_observation_(use_h1_state_observation)
+      , use_h1_control_regularisation_(use_h1_control_regularisation)
+      , homogeneous_dirichlet_control_(homogeneous_dirichlet_control)
     {
       contract::require(diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
@@ -82,11 +87,11 @@ namespace nmopt::compiler::v1::detail
       contract::require(state_degree > 0,
                         "State and continuous-control FE degrees must be positive");
       contract::require(!dirichlet_boundary_ids_.empty(),
-                        "The H1-control v1 target needs a fixed Dirichlet boundary");
+                        "The continuous-control v1 target needs a fixed Dirichlet boundary");
 
       state_dof_handler_.distribute_dofs(state_fe_);
       control_dof_handler_.distribute_dofs(control_fe_);
-      build_state_constraints();
+      build_constraints();
       initialise_storage();
       assemble(forcing, desired_state);
     }
@@ -121,6 +126,20 @@ namespace nmopt::compiler::v1::detail
                                         control_layout_,
                                         control_h1_matrix_,
                                         solve_parameters);
+    }
+
+    dealii_backend::Hminus1Metric
+    control_hminus1_metric(
+      dealii_backend::MetricSolveParameters solve_parameters = {}) const
+    {
+      contract::require(
+        homogeneous_dirichlet_control_,
+        "The H-1 metric requires independent homogeneous-Dirichlet control coordinates");
+      return dealii_backend::Hminus1Metric("hminus1_continuous",
+                                           control_layout_,
+                                           control_mass_,
+                                           control_stiffness_,
+                                           solve_parameters);
     }
 
     Covector
@@ -158,7 +177,7 @@ namespace nmopt::compiler::v1::detail
                         "Residual VJP seed has an incompatible test layout");
       Vector state(state_dof_handler_.n_dofs());
       system_matrix_.Tvmult(state, test_seed.block(0));
-      Vector control(control_dof_handler_.n_dofs());
+      Vector control(control_layout_->dimension(0));
       control_coupling_.Tvmult(control, test_seed.block(0));
       control *= -1.0;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
@@ -168,16 +187,19 @@ namespace nmopt::compiler::v1::detail
     objective(const Primal &variables) const override
     {
       require_variables(variables, "Objective");
-      Vector state_mass_times_state(state_dof_handler_.n_dofs());
-      state_mass_.vmult(state_mass_times_state, variables.block(0));
+      Vector state_tracking_times_state(state_dof_handler_.n_dofs());
+      state_tracking_matrix_.vmult(state_tracking_times_state,
+                                   variables.block(0));
       const double state_value =
-        0.5 * (variables.block(0) * state_mass_times_state) -
+        0.5 * (variables.block(0) * state_tracking_times_state) -
         (desired_state_load_ * variables.block(0)) + 0.5 * desired_state_norm_;
 
-      Vector control_h1_times_control(control_dof_handler_.n_dofs());
-      control_h1_matrix_->vmult(control_h1_times_control, variables.block(1));
+      Vector control_regularisation_times_control(control_layout_->dimension(0));
+      control_regularisation_matrix().vmult(
+        control_regularisation_times_control, variables.block(1));
       const double control_value = 0.5 * regularisation_weight_ *
-                                   (variables.block(1) * control_h1_times_control);
+                                   (variables.block(1) *
+                                    control_regularisation_times_control);
       return state_value + control_value;
     }
 
@@ -186,11 +208,11 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective derivative");
       Vector state(state_dof_handler_.n_dofs());
-      state_mass_.vmult(state, variables.block(0));
+      state_tracking_matrix_.vmult(state, variables.block(0));
       state.add(-1.0, desired_state_load_);
 
-      Vector control(control_dof_handler_.n_dofs());
-      control_h1_matrix_->vmult(control, variables.block(1));
+      Vector control(control_layout_->dimension(0));
+      control_regularisation_matrix().vmult(control, variables.block(1));
       control *= regularisation_weight_;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
     }
@@ -260,8 +282,15 @@ namespace nmopt::compiler::v1::detail
         std::string(operation) + " received an incompatible variable layout");
     }
 
+    const dealii::SparseMatrix<double> &
+    control_regularisation_matrix() const
+    {
+      return use_h1_control_regularisation_ ? *control_h1_matrix_
+                                            : *control_mass_;
+    }
+
     void
-    build_state_constraints()
+    build_constraints()
     {
       state_constraints_.clear();
       dealii::DoFTools::make_hanging_node_constraints(state_dof_handler_,
@@ -289,26 +318,56 @@ namespace nmopt::compiler::v1::detail
         if (state_constraints_.is_constrained(index) &&
             !constrained_state_dofs_.at(index))
           throw contract::ContractError(
-            "The H1-control v1 target does not support hanging, periodic, or "
+            "The continuous-control v1 target does not support hanging, periodic, or "
             "other non-Dirichlet affine state constraints");
 
       control_constraints_.clear();
       dealii::DoFTools::make_hanging_node_constraints(control_dof_handler_,
                                                        control_constraints_);
+      if (homogeneous_dirichlet_control_)
+        for (const auto boundary_id : dirichlet_boundary_ids_)
+          dealii::VectorTools::interpolate_boundary_values(control_dof_handler_,
+                                                            boundary_id,
+                                                            zero,
+                                                            control_constraints_);
       control_constraints_.close();
+
+      std::map<dealii::types::global_dof_index, double>
+        control_dirichlet_values;
+      if (homogeneous_dirichlet_control_)
+        for (const auto boundary_id : dirichlet_boundary_ids_)
+          dealii::VectorTools::interpolate_boundary_values(
+            control_dof_handler_, boundary_id, zero, control_dirichlet_values);
+      constrained_control_dofs_.assign(control_dof_handler_.n_dofs(), false);
+      for (const auto &entry : control_dirichlet_values)
+        constrained_control_dofs_.at(entry.first) = true;
       for (dealii::types::global_dof_index index = 0;
            index < control_dof_handler_.n_dofs();
            ++index)
-        if (control_constraints_.is_constrained(index))
+        if (control_constraints_.is_constrained(index) &&
+            !constrained_control_dofs_.at(index))
           throw contract::ContractError(
-            "The H1-control v1 target does not support hanging control constraints");
+            "The continuous-control v1 target does not support hanging, periodic, or other non-Dirichlet affine control constraints");
+
+      control_to_independent_.assign(
+        control_dof_handler_.n_dofs(), std::numeric_limits<std::size_t>::max());
+      for (dealii::types::global_dof_index index = 0;
+           index < control_dof_handler_.n_dofs();
+           ++index)
+        if (!constrained_control_dofs_.at(index))
+          {
+            control_to_independent_.at(index) = independent_control_dofs_.size();
+            independent_control_dofs_.push_back(index);
+          }
+      contract::require(!independent_control_dofs_.empty(),
+                        "The continuous-control target needs an independent control DoF");
     }
 
     void
     initialise_storage()
     {
       const auto state_size = state_dof_handler_.n_dofs();
-      const auto control_size = control_dof_handler_.n_dofs();
+      const auto control_size = independent_control_dofs_.size();
       variable_layout_ = std::make_shared<const contract::BlockLayout>(
         "h1_control_variables",
         std::vector<contract::SpaceId>{{"state"}, {"control"}},
@@ -324,7 +383,7 @@ namespace nmopt::compiler::v1::detail
       dealii::DoFTools::make_sparsity_pattern(state_dof_handler_, state_dsp);
       state_sparsity_.copy_from(state_dsp);
       system_matrix_.reinit(state_sparsity_);
-      state_mass_.reinit(state_sparsity_);
+      state_tracking_matrix_.reinit(state_sparsity_);
 
       dealii::DynamicSparsityPattern control_dsp(state_size, control_size);
       std::vector<dealii::types::global_dof_index> state_indices(
@@ -342,7 +401,9 @@ namespace nmopt::compiler::v1::detail
           for (const auto state_index : state_indices)
             if (!constrained_state_dofs_.at(state_index))
               for (const auto control_index : control_indices)
-                control_dsp.add(state_index, control_index);
+                if (!constrained_control_dofs_.at(control_index))
+                  control_dsp.add(state_index,
+                                  control_to_independent_.at(control_index));
         }
       contract::require(control_cell == control_dof_handler_.end(),
                         "State and control DoF handlers have different cells");
@@ -350,11 +411,22 @@ namespace nmopt::compiler::v1::detail
       control_coupling_.reinit(control_sparsity_);
 
       dealii::DynamicSparsityPattern control_dsp_square(control_size, control_size);
-      dealii::DoFTools::make_sparsity_pattern(control_dof_handler_,
-                                               control_dsp_square);
+      control_cell = control_dof_handler_.begin_active();
+      for (; control_cell != control_dof_handler_.end(); ++control_cell)
+        {
+          control_cell->get_dof_indices(control_indices);
+          for (const auto row : control_indices)
+            if (!constrained_control_dofs_.at(row))
+              for (const auto column : control_indices)
+                if (!constrained_control_dofs_.at(column))
+                  control_dsp_square.add(control_to_independent_.at(row),
+                                         control_to_independent_.at(column));
+        }
       control_sparsity_square_.copy_from(control_dsp_square);
       control_mass_ = std::make_shared<dealii::SparseMatrix<double>>();
       control_mass_->reinit(control_sparsity_square_);
+      control_stiffness_ = std::make_shared<dealii::SparseMatrix<double>>();
+      control_stiffness_->reinit(control_sparsity_square_);
       control_h1_matrix_ = std::make_shared<dealii::SparseMatrix<double>>();
       control_h1_matrix_->reinit(control_sparsity_square_);
 
@@ -379,8 +451,8 @@ namespace nmopt::compiler::v1::detail
 
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
                                               state_fe_.dofs_per_cell);
-      dealii::FullMatrix<double> local_state_mass(state_fe_.dofs_per_cell,
-                                                  state_fe_.dofs_per_cell);
+      dealii::FullMatrix<double> local_state_tracking(state_fe_.dofs_per_cell,
+                                                      state_fe_.dofs_per_cell);
       dealii::FullMatrix<double> local_control_coupling(
         state_fe_.dofs_per_cell, control_fe_.dofs_per_cell);
       dealii::FullMatrix<double> local_control_mass(control_fe_.dofs_per_cell,
@@ -403,7 +475,7 @@ namespace nmopt::compiler::v1::detail
           state_values.reinit(state_cell);
           control_values.reinit(control_cell);
           local_system = 0.0;
-          local_state_mass = 0.0;
+          local_state_tracking = 0.0;
           local_control_coupling = 0.0;
           local_control_mass = 0.0;
           local_control_stiffness = 0.0;
@@ -417,12 +489,25 @@ namespace nmopt::compiler::v1::detail
                 forcing.value(state_values.quadrature_point(q));
               const double desired_value =
                 desired_state.value(state_values.quadrature_point(q));
-              desired_state_norm_ += desired_value * desired_value * weight;
+              const dealii::Tensor<1, dim> desired_gradient =
+                use_h1_state_observation_
+                  ? desired_state.gradient(state_values.quadrature_point(q))
+                  : dealii::Tensor<1, dim>();
+              desired_state_norm_ +=
+                (desired_value * desired_value +
+                 (use_h1_state_observation_ ? desired_gradient * desired_gradient
+                                            : 0.0)) *
+                weight;
               for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
-                  local_desired_state(i) += desired_value * phi_i * weight;
+                  local_desired_state(i) +=
+                    (desired_value * phi_i +
+                     (use_h1_state_observation_
+                        ? desired_gradient * state_values.shape_grad(i, q)
+                        : 0.0)) *
+                    weight;
                   for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
                     {
                       local_system(i, j) +=
@@ -430,8 +515,13 @@ namespace nmopt::compiler::v1::detail
                                        state_values.shape_grad(j, q)) +
                          reaction_ * phi_i * state_values.shape_value(j, q)) *
                         weight;
-                      local_state_mass(i, j) +=
-                        phi_i * state_values.shape_value(j, q) * weight;
+                      local_state_tracking(i, j) +=
+                        (phi_i * state_values.shape_value(j, q) +
+                         (use_h1_state_observation_
+                            ? state_values.shape_grad(i, q) *
+                                state_values.shape_grad(j, q)
+                            : 0.0)) *
+                        weight;
                     }
                   for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
                     local_control_coupling(i, j) +=
@@ -464,25 +554,36 @@ namespace nmopt::compiler::v1::detail
                   if (!constrained_state_dofs_.at(global_j))
                     {
                       system_matrix_.add(global_i, global_j, local_system(i, j));
-                      state_mass_.add(global_i, global_j, local_state_mass(i, j));
+                      state_tracking_matrix_.add(global_i,
+                                                 global_j,
+                                                 local_state_tracking(i, j));
                     }
                 }
               for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
-                control_coupling_.add(global_i,
-                                      control_indices[j],
-                                      local_control_coupling(i, j));
+                if (!constrained_control_dofs_.at(control_indices[j]))
+                  control_coupling_.add(
+                    global_i,
+                    control_to_independent_.at(control_indices[j]),
+                    local_control_coupling(i, j));
             }
           for (unsigned int i = 0; i < control_fe_.dofs_per_cell; ++i)
-            for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
-              {
-                control_mass_->add(control_indices[i],
-                                   control_indices[j],
-                                   local_control_mass(i, j));
-                control_h1_matrix_->add(control_indices[i],
-                                        control_indices[j],
-                                        local_control_mass(i, j) +
-                                          local_control_stiffness(i, j));
-              }
+            if (!constrained_control_dofs_.at(control_indices[i]))
+              for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
+                if (!constrained_control_dofs_.at(control_indices[j]))
+                  {
+                    const auto row =
+                      control_to_independent_.at(control_indices[i]);
+                    const auto column =
+                      control_to_independent_.at(control_indices[j]);
+                    control_mass_->add(row, column, local_control_mass(i, j));
+                    control_stiffness_->add(row,
+                                            column,
+                                            local_control_stiffness(i, j));
+                    control_h1_matrix_->add(
+                      row,
+                      column,
+                      local_control_mass(i, j) + local_control_stiffness(i, j));
+                  }
         }
       contract::require(control_cell == control_dof_handler_.end(),
                         "State and control DoF handlers have different cells");
@@ -512,19 +613,26 @@ namespace nmopt::compiler::v1::detail
     dealii::AffineConstraints<double> state_constraints_;
     dealii::AffineConstraints<double> control_constraints_;
     std::vector<bool> constrained_state_dofs_;
+    std::vector<bool> constrained_control_dofs_;
+    std::vector<dealii::types::global_dof_index> independent_control_dofs_;
+    std::vector<std::size_t> control_to_independent_;
 
     const double diffusion_;
     const double reaction_;
     const double regularisation_weight_;
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
+    const bool use_h1_state_observation_;
+    const bool use_h1_control_regularisation_;
+    const bool homogeneous_dirichlet_control_;
 
     dealii::SparsityPattern state_sparsity_;
     dealii::SparsityPattern control_sparsity_;
     dealii::SparsityPattern control_sparsity_square_;
     dealii::SparseMatrix<double> system_matrix_;
-    dealii::SparseMatrix<double> state_mass_;
+    dealii::SparseMatrix<double> state_tracking_matrix_;
     dealii::SparseMatrix<double> control_coupling_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
+    std::shared_ptr<dealii::SparseMatrix<double>> control_stiffness_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_h1_matrix_;
     Vector forcing_load_;
     Vector desired_state_load_;

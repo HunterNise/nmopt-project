@@ -50,6 +50,7 @@ column names its focused CTest scenario backed by
 | `make_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Full-domain $H^{1}_{0}$ state observation with mass-plus-stiffness tracking and an unchanged control $L^{2}$ metric | `nmopt.dealii.h1_state_observation` |
 | `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
 | `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
+| `make_weighted_boundary_trace_neumann_control_problem()` | `NeumannBoundaryControlModel<dim>` with fixed weight data | Marked-face Neumann control and the explicit map $y\mapsto h\gamma y$ with an unchanged facewise $L^{2}$ metric | `nmopt.dealii.weighted_boundary_trace` |
 | `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `nmopt.dealii.pure_neumann` |
 | `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `H1ControlRegularisedModel<dim>` | Continuous `FE_Q` control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `nmopt.dealii.h1_control` |
 | `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `nmopt.dealii.coefficient_identification` |
@@ -82,6 +83,9 @@ material-id observation region.
 the full-domain energy observation and its $H^{1}_{0}$ pairing while retaining
 the $L^{2}$ control metric. `make_neumann_boundary_control_problem()`
 declares a facewise Neumann control and state boundary trace.
+`make_weighted_boundary_trace_neumann_control_problem()` replaces that state
+observation by a `weighted_boundary_trace` with an explicit immutable
+`boundary_weight` data port; it does not alter the residual or control metric.
 `make_pure_neumann_boundary_control_problem()` is its separate zero-reaction
 mean-constraint variant. `make_h1_regularised_scalar_diffusion_reaction_problem()`
 is the separate continuous-control objective variant.
@@ -107,6 +111,11 @@ Reference variants are named feature deltas over shared declarations. Their
 lookup, replacement, and removal helpers require exactly one matching stable
 ID; declaration-vector order is not used as semantic identity.
 
+`ObservationSpec::data_ids` is the explicit immutable-data input port for an
+observation map. Existing restrictions and unweighted traces require it to be
+empty. The registered weighted trace requires exactly one scalar Function
+datum with role `observation_weight` in its output observation space.
+
 ```text
 Region       one full volume region, named material-id volume subregions, and marked boundary ids
 Space        scalar H1 state/test; scalar L2 volume or facewise control; selected H1 trace control
@@ -114,10 +123,10 @@ Pairing      explicit coefficient pairings for state, test, control, and observa
 Variable     one state and one control; the state may name a physical-field transformation
 Data         forcing, desired state, fixed Dirichlet lifting, scalar/tensor diffusion,
              conservative/advective transport, reaction, Robin coefficient/source,
-             regularisation, and optional lower/upper cellwise bounds
+             observation weight, regularisation, and optional lower/upper bounds
 Transformation optional fixed-Dirichlet reconstruction or controlled-Dirichlet physical-state lifting
 Residual     diffusion-reaction, volume source, and volume control
-Observation  full-volume control restriction; L2 state restriction on the full volume or one material subregion; full-volume H1_0 state restriction
+Observation  volume/control restrictions; full-volume H1_0 state restriction; boundary trace; fixed-data weighted boundary trace
 Loss         quadratic tracking and quadratic control regularisation
 Metric       cellwise L2 control metric
 Constraint   optional cellwise L2 box
@@ -135,6 +144,12 @@ not inferred from the forcing or target. If the graph declares its optional
 box, the compiler also requires `CellwiseBoxDataBindings`: both bounds must
 be scalar constants or both must be exact-layout `FE_DGQ(0)` coefficient
 vectors.
+
+A graph with `weighted_boundary_trace` additionally requires
+`DealiiWeightedTraceDataBindings<dim>`. Its scalar `Function` is independent
+of the desired-state binding and carries separate provenance. Both Functions
+are evaluated at the selected boundary face quadrature; missing, empty-
+provenance, or multi-component weight bindings are lowerability diagnostics.
 
 The P5.1 target additionally requires
 `DealiiGeneralScalarDataBindings<dim>`. Rank-specific deal.II
@@ -185,9 +200,32 @@ J_{\mathrm{state}}(y_{h})=
 The bound target `Function` supplies both value and gradient at the selected
 volume quadrature, and the manifest records that rule. The first realization
 requires homogeneous fixed Dirichlet data and the full volume. It retains the
-cellwise $L^{2}$ control metric and regularisation; subdomain energy tracking,
-weighted boundary trace, and an $H^{-1}$ control metric remain separate
-capabilities.
+cellwise $L^{2}$ control metric and regularisation; subdomain energy tracking
+and an $H^{-1}$ control metric remain separate capabilities.
+
+### Weighted boundary trace observation
+
+`make_weighted_boundary_trace_neumann_control_problem()` is an ID-based delta
+from the registered Neumann graph. Its state observation consumes the physical
+state and exactly one immutable `observation_weight` datum and realizes
+
+```math
+O_h(y_h)=h\,\gamma y_h.
+```
+
+The graph records the model-author assumption
+$h\in L^{\infty}(\Gamma_o)$ separately from the selected quadrature rule.
+
+The value and JVP multiply the state trace by the fixed scalar weight, while
+the transpose action multiplies the boundary observation covector by the same
+weight before the state-trace pullback. Consequently the quadratic tracking
+term assembles $h^2\phi_i\phi_j$ and the target load assembles
+$h z_d\phi_i$ at the same `QGauss` face points. The target norm remains
+$\lVert z_d\rVert^2$, so the objective is exactly
+$\frac12\lVert h\gamma y_h-z_d\rVert^2$. The Neumann residual, facewise
+control layout, regularisation, and `l2_facewise` metric are unchanged. The
+manifest records both Function bindings, their provenance, the shared face
+quadrature rule, and the weighted-observation handler.
 
 ### General scalar elliptic and Robin composition
 
@@ -400,8 +438,9 @@ assembly that consumes the current fixed-reconstruction,
 material-subdomain-tracking, $H^{1}_{0}$ state-tracking, and P5.1 general
 scalar/Robin plans. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
-residual, facewise control layout, boundary trace tracking, facewise metric,
-facewise box realization, and pure-Neumann mean-zero saddle realization. The
+residual, facewise control layout, unweighted or fixed-data weighted boundary
+trace tracking, facewise metric, facewise box realization, and pure-Neumann
+mean-zero saddle realization. The
 private `dealii_dirichlet_control.hpp` target owns the distinct controlled
 essential reconstruction, nodal trace layout, boundary mass metric, and both
 transformation pullbacks. The private `dealii_h1_control.hpp` target owns the
@@ -486,7 +525,7 @@ representative structural or policy failures, incomplete aggregates,
 whole-graph closure, two-sided pairing compatibility, and order-independent
 reference deltas. They also verify order-independent resolution and the exact
 bounded scalar contribution plan, including rejection of a specialized graph.
-The ten deal.II target scenarios named in the
+The eleven deal.II target scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic
@@ -503,11 +542,10 @@ than being duplicated as a second inventory here.
 This v1 registration does not broaden the v0 executable mathematics. Beyond
 the selected fixed-data reconstruction, complete-boundary nodal
 Dirichlet-control lifting, material-id $L^{2}$ state tracking, full-domain
-$H^{1}_{0}$ state tracking, marked-face Neumann control with unweighted
-boundary tracking, and the selected general scalar/Robin target, it does not
-compile
-arbitrary geometric or overlapping subdomain restrictions, weighted boundary
-traces, FE target
+$H^{1}_{0}$ state tracking, marked-face Neumann control with unweighted or
+fixed-data weighted boundary tracking, and the selected general scalar/Robin
+target, it does not compile arbitrary geometric or overlapping subdomain
+restrictions, FE target
 projection/interpolation, Robin partitions beyond the registered homogeneous
 fixed/Robin split, partial or mixed controlled Dirichlet
 boundaries, nonzero fixed data combined with Dirichlet control, trace boxes,

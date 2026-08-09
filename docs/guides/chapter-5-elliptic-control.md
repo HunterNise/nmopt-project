@@ -288,9 +288,11 @@ existence and nonzero $h$ supplies the source's uniqueness condition. Require
 $f\in L^{2}(\Omega)$, $z_{d}\in L^{2}(\Gamma)$, and
 $h\in L^{\infty}(\Gamma)$; the reaction term $+y$ supplies coercivity.
 
-The registered Neumann/boundary-trace target is the closest implementation.
-P5.2 is required to make multiplication by boundary data $h$ an explicit
-weighted trace observation rather than a special problem class.
+The registered P5.2 target declares multiplication by boundary data $h$ as an
+explicit `weighted_boundary_trace` observation with its own immutable data
+port and face-quadrature policy. It reuses the Neumann residual and facewise
+$L^{2}$ control metric unchanged; the tracking pullback realizes the boundary
+datum $h(h\gamma y-z_d)$.
 
 ### C5.8 — Normal-flux tracking with distributed control
 

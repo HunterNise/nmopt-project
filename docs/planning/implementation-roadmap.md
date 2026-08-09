@@ -31,9 +31,9 @@ relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
 ignored for the current ordered implementation run because their scope is too
 broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
 are complete. The P5.2 full-domain $H^{1}_{0}$ state-observation unit is
-complete. The weighted-boundary-trace observation is the selected next
-vertical slice; keep the separate $H^{-1}$ metric work deferred until both
-observation capabilities are complete.
+complete, and the weighted-boundary-trace observation is now complete as its
+own review boundary. The separately specified $H^{-1}$ metric is the selected
+next vertical slice.
 
 The following pieces exist and are tested:
 
@@ -52,7 +52,7 @@ The following pieces exist and are tested:
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twenty-seven independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and fifteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison, and the energy-observation scenario has an independent polynomial $H^{1}_{0}$ oracle. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twenty-eight independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and sixteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison, the energy-observation scenario has an independent polynomial $H^{1}_{0}$ oracle, and the weighted-trace scenario compares against an exact constant-weight scaling oracle while proving the residual and metric unchanged. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -544,7 +544,7 @@ metric apply/inverse tests establish the declared pairing, and a reduced
 Taylor test distinguishes the $L^{2}$ and $H^{-1}$ search directions without
 changing the reduced covector.
 
-**Implemented observation progress:**
+**Implemented observation slices:**
 `make_h1_state_tracking_scalar_diffusion_reaction_problem()` selects the new
 `h1_state_restriction` kind and an explicit $H^{1}_{0}$ observation pairing.
 The bounded scalar component target assembles the mass-plus-stiffness tracking
@@ -554,8 +554,16 @@ records value-and-gradient target quadrature and handler provenance. Focused
 contracts cover semantic topology, unsupported subdomain lowering, an
 independent polynomial energy value, the observation JVP/VJP derivative,
 reduced Taylor convergence, and unchanged metric provenance. The
-`weighted_boundary_trace` observation and the separate $H^{-1}$ metric remain
-pending.
+`make_weighted_boundary_trace_neumann_control_problem()` separately selects
+`weighted_boundary_trace`, whose explicit immutable `boundary_weight` data
+port is evaluated with the desired target at boundary face quadrature. Its
+Neumann target assembles $h^{2}$ in the tracking operator and $h z_d$ in the
+target load, while leaving the residual and `l2_facewise` control metric
+unchanged. Semantic contracts cover the data port and quadrature policy;
+deal.II contracts cover missing/provenance/shape diagnostics, exact
+constant-weight value and pullback scaling, residual JVP/VJP identity,
+unchanged metric action, reduced Taylor convergence, and manifest provenance.
+The separate $H^{-1}$ metric remains pending.
 
 ### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy
 
@@ -829,11 +837,12 @@ ignored for the current ordered implementation run. Continue as follows:
    contributions, boundary/shape diagnostics, and the reduced derivative.
 2. Reuse the completed C1/C2 compiler and component-lowering boundaries for
    P5.2; do not reopen the broad P4.2 algebra/formulation group.
-3. The full-domain `h1_state_restriction` unit is complete. Implement
-   `weighted_boundary_trace` next with its declared pairing, weight data,
-   trace quadrature, and value/JVP/VJP tests.
-4. Treat the selected $H^{-1}$ metric as the next separate review boundary
-   only after the observation slice is complete.
+3. The full-domain `h1_state_restriction` and `weighted_boundary_trace`
+   observation units are complete, including declared weight data, trace
+   quadrature, and value/JVP/VJP coverage.
+4. Implement the selected $H^{-1}$ metric as the next separate review
+   boundary. State its control space, Riesz operator, boundary/mean policy,
+   and inverse-solve tolerances before changing code.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

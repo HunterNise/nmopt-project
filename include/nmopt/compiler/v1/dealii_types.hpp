@@ -3,6 +3,7 @@
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 #include <deal.II/base/function.h>
+#include <deal.II/base/tensor_function.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/vector.h>
 
@@ -24,6 +25,45 @@ namespace nmopt::compiler::v1
     std::string fixed_dirichlet_data;
   };
 
+  struct DealiiGeneralScalarBindingProvenance
+  {
+    std::string diffusion_tensor;
+    std::string conservative_transport;
+    std::string advective_transport;
+    std::string reaction;
+    std::string robin_coefficient;
+    std::string robin_source;
+  };
+
+  template <int dim>
+  struct DealiiGeneralScalarDataBindings
+  {
+    DealiiGeneralScalarDataBindings(
+      const dealii::TensorFunction<2, dim> &diffusion_tensor_function,
+      const dealii::TensorFunction<1, dim> &conservative_transport_function,
+      const dealii::TensorFunction<1, dim> &advective_transport_function,
+      const dealii::Function<dim> &          reaction_function,
+      const dealii::Function<dim> &          robin_coefficient_function,
+      const dealii::Function<dim> &          robin_source_function,
+      DealiiGeneralScalarBindingProvenance   binding_provenance)
+      : diffusion_tensor(diffusion_tensor_function)
+      , conservative_transport(conservative_transport_function)
+      , advective_transport(advective_transport_function)
+      , reaction(reaction_function)
+      , robin_coefficient(robin_coefficient_function)
+      , robin_source(robin_source_function)
+      , provenance(std::move(binding_provenance))
+    {}
+
+    const dealii::TensorFunction<2, dim> &diffusion_tensor;
+    const dealii::TensorFunction<1, dim> &conservative_transport;
+    const dealii::TensorFunction<1, dim> &advective_transport;
+    const dealii::Function<dim> &          reaction;
+    const dealii::Function<dim> &          robin_coefficient;
+    const dealii::Function<dim> &          robin_source;
+    DealiiGeneralScalarBindingProvenance   provenance;
+  };
+
   // Concrete values are supplied after semantic validation. They are not
   // stored in ProblemSpec, which remains independent of deal.II.
   template <int dim>
@@ -37,7 +77,9 @@ namespace nmopt::compiler::v1
       const double                 regularisation_value,
       DealiiBindingProvenance      binding_provenance,
       std::optional<std::reference_wrapper<const dealii::Function<dim>>>
-        fixed_data = std::nullopt)
+        fixed_data = std::nullopt,
+      std::optional<DealiiGeneralScalarDataBindings<dim>>
+        general_scalar_data = std::nullopt)
       : forcing(forcing_function)
       , desired_state(desired_state_function)
       , diffusion(diffusion_value)
@@ -45,6 +87,7 @@ namespace nmopt::compiler::v1
       , regularisation_weight(regularisation_value)
       , fixed_dirichlet_data(fixed_data)
       , provenance(std::move(binding_provenance))
+      , general_scalar(std::move(general_scalar_data))
     {}
 
     const dealii::Function<dim> &forcing;
@@ -63,6 +106,10 @@ namespace nmopt::compiler::v1
     // Function objects cannot describe their own data source. These labels
     // are required compiler provenance, not executable configuration.
     DealiiBindingProvenance provenance;
+    // Present only for P5.1's bounded general scalar component target. The
+    // rank-specific TensorFunction types make coefficient shape explicit at
+    // the compiler boundary rather than interpreting scalar components.
+    std::optional<DealiiGeneralScalarDataBindings<dim>> general_scalar;
   };
 
   using CellwiseBoundValue = std::variant<double, dealii::Vector<double>>;

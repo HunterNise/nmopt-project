@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/compiler/v1/dealii_scalar_plan.hpp"
+#include "nmopt/compiler/v1/dealii_types.hpp"
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
@@ -23,6 +24,7 @@
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -78,7 +80,9 @@ namespace nmopt::compiler::v1::detail
           regularisation_weight,
           state_degree,
           boundary_ids_from_plan(plan),
-          material_ids_from_plan(plan))
+          material_ids_from_plan(plan),
+          {},
+          nullptr)
     {
       contract::require(
         has_residual_operator(plan,
@@ -101,6 +105,53 @@ namespace nmopt::compiler::v1::detail
     }
 
     ScalarComponentModel(
+      dealii::Triangulation<dim> &             triangulation,
+      const dealii::Function<dim> &            forcing,
+      const dealii::Function<dim> &            desired_state,
+      const DealiiGeneralScalarDataBindings<dim> &general_scalar_data,
+      const double                              regularisation_weight,
+      const unsigned int                        state_degree,
+      const ScalarLoweringPlan &                plan)
+      : ScalarComponentModel(triangulation,
+                             forcing,
+                             desired_state,
+                             std::nullopt,
+                             0.0,
+                             0.0,
+                             regularisation_weight,
+                             state_degree,
+                             boundary_ids_from_plan(plan),
+                             material_ids_from_plan(plan),
+                             robin_boundary_ids_from_plan(plan),
+                             &general_scalar_data)
+    {
+      contract::require(
+        has_residual_operator(plan,
+                              ScalarResidualOperatorKind::tensor_diffusion) &&
+          has_residual_operator(
+            plan, ScalarResidualOperatorKind::conservative_transport) &&
+          has_residual_operator(plan,
+                                ScalarResidualOperatorKind::advective_transport) &&
+          has_residual_operator(plan, ScalarResidualOperatorKind::reaction) &&
+          has_residual_operator(plan,
+                                ScalarResidualOperatorKind::volume_source) &&
+          has_residual_operator(plan,
+                                ScalarResidualOperatorKind::volume_control) &&
+          has_residual_operator(plan,
+                                ScalarResidualOperatorKind::robin_bilinear) &&
+          has_residual_operator(plan, ScalarResidualOperatorKind::robin_source),
+        "The general scalar target needs every selected volume and Robin contribution");
+      contract::require(
+        has_loss_operator(plan, ScalarLossOperatorKind::quadratic_tracking) &&
+          has_loss_operator(
+            plan, ScalarLossOperatorKind::quadratic_control_regularisation),
+        "The general scalar target needs tracking and control-regularisation losses");
+      contract::require(
+        plan.transformation == ScalarTransformationOperatorKind::none,
+        "The first general scalar target supports homogeneous fixed Dirichlet data only");
+    }
+
+    ScalarComponentModel(
       dealii::Triangulation<dim> &                triangulation,
       const dealii::Function<dim> &               forcing,
       const dealii::Function<dim> &               desired_state,
@@ -111,7 +162,9 @@ namespace nmopt::compiler::v1::detail
       const double                                  regularisation_weight,
       const unsigned int                            state_degree,
       std::set<dealii::types::boundary_id>          dirichlet_boundary_ids,
-      std::set<dealii::types::material_id>          observation_material_ids = {})
+      std::set<dealii::types::material_id>          observation_material_ids,
+      std::set<dealii::types::boundary_id>          robin_boundary_ids,
+      const DealiiGeneralScalarDataBindings<dim> *  general_scalar_data)
       : state_fe_(state_degree)
       , control_fe_(0)
       , state_dof_handler_(triangulation)
@@ -119,12 +172,14 @@ namespace nmopt::compiler::v1::detail
       , diffusion_(diffusion)
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
+      , uses_general_scalar_(general_scalar_data != nullptr)
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
       , observation_material_ids_(std::move(observation_material_ids))
+      , robin_boundary_ids_(std::move(robin_boundary_ids))
     {
-      contract::require(diffusion_ > 0.0,
+      contract::require(uses_general_scalar_ || diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
-      contract::require(reaction_ >= 0.0,
+      contract::require(uses_general_scalar_ || reaction_ >= 0.0,
                         "Reaction coefficient must be non-negative");
       contract::require(regularisation_weight_ > 0.0,
                         "Control regularisation weight must be strictly positive");
@@ -132,14 +187,24 @@ namespace nmopt::compiler::v1::detail
                         "State FE degree must be at least one");
       contract::require(!dirichlet_boundary_ids_.empty(),
                         "The assembled v1 target needs a fixed Dirichlet boundary");
+      contract::require(!uses_general_scalar_ || !robin_boundary_ids_.empty(),
+                        "The general scalar target needs a Robin boundary");
 
       state_dof_handler_.distribute_dofs(state_fe_);
       control_dof_handler_.distribute_dofs(control_fe_);
       build_constraints(fixed_dirichlet_data);
       build_reconstruction();
       initialise_storage();
-      assemble_physical_operators(forcing, desired_state);
+      assemble_physical_operators(forcing,
+                                  desired_state,
+                                  general_scalar_data);
       assemble_reduced_solve_operators();
+      if (uses_general_scalar_)
+        {
+          nonsymmetric_solver_ =
+            std::make_unique<dealii::SparseDirectUMFPACK>();
+          nonsymmetric_solver_->initialize(reduced_system_matrix_);
+        }
     }
 
     const contract::LayoutPtr &
@@ -315,6 +380,14 @@ namespace nmopt::compiler::v1::detail
       right_hand_side.add(1.0, control_contribution);
 
       Vector state(independent_state_dofs_.size());
+      if (uses_general_scalar_)
+        {
+          (void)policy;
+          nonsymmetric_solver_->vmult(state, right_hand_side);
+          return {Primal(state_layout_, {std::move(state)}),
+                  dealii_backend::direct_solve_report(
+                    "serial_sparse_direct_umfpack")};
+        }
       auto report = solve_symmetric_system(reduced_system_matrix_,
                                            state,
                                            right_hand_side,
@@ -346,6 +419,15 @@ namespace nmopt::compiler::v1::detail
         "Adjoint solve right-hand side has an incompatible state layout");
 
       Vector adjoint(independent_state_dofs_.size());
+      if (uses_general_scalar_)
+        {
+          (void)policy;
+          nonsymmetric_solver_->Tvmult(adjoint,
+                                       state_objective_derivative.block(0));
+          return {Primal(test_layout_, {std::move(adjoint)}),
+                  dealii_backend::direct_solve_report(
+                    "serial_sparse_direct_umfpack_transpose")};
+        }
       auto report = solve_symmetric_system(reduced_system_matrix_,
                                            adjoint,
                                            state_objective_derivative.block(0),
@@ -393,6 +475,15 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::material_id> result;
       for (const auto id : plan.tracking_material_ids)
         result.insert(static_cast<dealii::types::material_id>(id));
+      return result;
+    }
+
+    static std::set<dealii::types::boundary_id>
+    robin_boundary_ids_from_plan(const ScalarLoweringPlan &plan)
+    {
+      std::set<dealii::types::boundary_id> result;
+      for (const auto id : plan.robin_boundary_ids)
+        result.insert(static_cast<dealii::types::boundary_id>(id));
       return result;
     }
 
@@ -535,8 +626,10 @@ namespace nmopt::compiler::v1::detail
     }
 
     void
-    assemble_physical_operators(const dealii::Function<dim> &forcing,
-                                const dealii::Function<dim> &desired_state)
+    assemble_physical_operators(
+      const dealii::Function<dim> &forcing,
+      const dealii::Function<dim> &desired_state,
+      const DealiiGeneralScalarDataBindings<dim> *general_scalar_data)
     {
       const unsigned int quadrature_order =
         std::max(state_fe_.degree, control_fe_.degree) + 2;
@@ -548,6 +641,12 @@ namespace nmopt::compiler::v1::detail
           dealii::update_quadrature_points | dealii::update_JxW_values);
       dealii::FEValues<dim> control_values(control_fe_, quadrature,
                                             dealii::update_values);
+      const dealii::QGauss<dim - 1> face_quadrature(quadrature_order);
+      dealii::FEFaceValues<dim> state_face_values(
+        state_fe_,
+        face_quadrature,
+        dealii::update_values | dealii::update_quadrature_points |
+          dealii::update_JxW_values);
 
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
                                               state_fe_.dofs_per_cell);
@@ -593,6 +692,21 @@ namespace nmopt::compiler::v1::detail
                                              : 0.0;
               if (observe_cell)
                 desired_state_norm_ += desired_value * desired_value * weight;
+              dealii::Tensor<2, dim> diffusion_tensor;
+              dealii::Tensor<1, dim> conservative_transport;
+              dealii::Tensor<1, dim> advective_transport;
+              double                reaction_value = reaction_;
+              if (general_scalar_data != nullptr)
+                {
+                  const auto &point = state_values.quadrature_point(q);
+                  diffusion_tensor =
+                    general_scalar_data->diffusion_tensor.value(point);
+                  conservative_transport =
+                    general_scalar_data->conservative_transport.value(point);
+                  advective_transport =
+                    general_scalar_data->advective_transport.value(point);
+                  reaction_value = general_scalar_data->reaction.value(point);
+                }
 
               for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                 {
@@ -602,14 +716,27 @@ namespace nmopt::compiler::v1::detail
                     local_desired_state(i) += desired_value * phi_i * weight;
                   for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
                     {
-                      local_system(i, j) +=
-                        (diffusion_ * (state_values.shape_grad(i, q) *
-                                       state_values.shape_grad(j, q)) +
-                         reaction_ * phi_i * state_values.shape_value(j, q)) *
-                        weight;
+                      const double phi_j = state_values.shape_value(j, q);
+                      if (general_scalar_data != nullptr)
+                        {
+                          const auto grad_i = state_values.shape_grad(i, q);
+                          const auto grad_j = state_values.shape_grad(j, q);
+                          local_system(i, j) +=
+                            ((diffusion_tensor * grad_j) * grad_i -
+                             phi_j * (conservative_transport * grad_i) +
+                             (advective_transport * grad_j) * phi_i +
+                             reaction_value * phi_i * phi_j) *
+                            weight;
+                        }
+                      else
+                        local_system(i, j) +=
+                          (diffusion_ * (state_values.shape_grad(i, q) *
+                                         state_values.shape_grad(j, q)) +
+                           reaction_ * phi_i * phi_j) *
+                          weight;
                       if (observe_cell)
                         local_state_mass(i, j) +=
-                          phi_i * state_values.shape_value(j, q) * weight;
+                          phi_i * phi_j * weight;
                     }
                   for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
                     local_control_coupling(i, j) +=
@@ -621,6 +748,38 @@ namespace nmopt::compiler::v1::detail
                     control_values.shape_value(i, q) *
                     control_values.shape_value(j, q) * weight;
             }
+
+          if (general_scalar_data != nullptr)
+            for (unsigned int face = 0;
+                 face < dealii::GeometryInfo<dim>::faces_per_cell;
+                 ++face)
+              if (state_cell->face(face)->at_boundary() &&
+                  robin_boundary_ids_.count(
+                    state_cell->face(face)->boundary_id()) != 0)
+                {
+                  state_face_values.reinit(state_cell, face);
+                  for (unsigned int q = 0; q < face_quadrature.size(); ++q)
+                    {
+                      const auto point = state_face_values.quadrature_point(q);
+                      const double robin_coefficient =
+                        general_scalar_data->robin_coefficient.value(point);
+                      const double robin_source =
+                        general_scalar_data->robin_source.value(point);
+                      const double weight = state_face_values.JxW(q);
+                      for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
+                        {
+                          const double phi_i =
+                            state_face_values.shape_value(i, q);
+                          local_forcing(i) += robin_source * phi_i * weight;
+                          for (unsigned int j = 0;
+                               j < state_fe_.dofs_per_cell;
+                               ++j)
+                            local_system(i, j) +=
+                              robin_coefficient * phi_i *
+                              state_face_values.shape_value(j, q) * weight;
+                        }
+                    }
+                }
 
           state_cell->get_dof_indices(state_indices);
           control_cell->get_dof_indices(control_indices);
@@ -785,8 +944,10 @@ namespace nmopt::compiler::v1::detail
     const double diffusion_;
     const double reaction_;
     const double regularisation_weight_;
+    const bool uses_general_scalar_;
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
     const std::set<dealii::types::material_id> observation_material_ids_;
+    const std::set<dealii::types::boundary_id> robin_boundary_ids_;
 
     dealii::SparsityPattern reconstruction_sparsity_;
     dealii::SparseMatrix<double> reconstruction_;
@@ -808,6 +969,7 @@ namespace nmopt::compiler::v1::detail
     dealii::SparseMatrix<double> reduced_system_matrix_;
     dealii::SparseMatrix<double> reduced_control_coupling_;
     Vector reduced_forcing_load_;
+    std::unique_ptr<dealii::SparseDirectUMFPACK> nonsymmetric_solver_;
 
     contract::LayoutPtr variable_layout_;
     contract::LayoutPtr test_layout_;

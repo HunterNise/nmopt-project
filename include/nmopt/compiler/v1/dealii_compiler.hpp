@@ -83,12 +83,75 @@ namespace nmopt::compiler::v1
         !uses_coefficient_identification &&
         !uses_dirichlet_control &&
         (uses_fixed_reconstruction || uses_subdomain_observation);
+      if (triangulation.n_active_cells() == 0)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "nonempty_triangulation",
+          "Compile on a triangulation with at least one active cell.");
+      if (data.provenance.forcing.empty())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "forcing",
+          "forcing_binding_provenance",
+          "Supply a stable provenance label for the forcing Function binding.");
+      if (data.provenance.desired_state.empty())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "desired_state",
+          "desired_state_binding_provenance",
+          "Supply a stable provenance label for the desired-state Function binding.");
+      if (uses_fixed_reconstruction &&
+          data.provenance.fixed_dirichlet_data.empty())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "fixed_dirichlet_data",
+          "fixed_dirichlet_binding_provenance",
+          "Supply a stable provenance label for the fixed-Dirichlet Function binding.");
       if (!uses_coefficient_identification && !data.diffusion)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           "diffusion",
           "diffusion_data_binding",
           "Bind the constant diffusion coefficient selected by this graph.");
+      if (!uses_coefficient_identification && data.diffusion &&
+          (!std::isfinite(*data.diffusion) || *data.diffusion <= 0.0))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "diffusion",
+          "positive_finite_diffusion_binding",
+          "Bind a positive finite constant diffusion coefficient.");
+      if (!std::isfinite(data.reaction) || data.reaction < 0.0)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "reaction",
+          "nonnegative_finite_reaction_binding",
+          "Bind a nonnegative finite reaction coefficient.");
+      if (!std::isfinite(data.regularisation_weight) ||
+          data.regularisation_weight <= 0.0)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "regularisation",
+          "positive_finite_regularisation_binding",
+          "Bind a positive finite regularisation weight.");
+      if (!valid_metric_solve_policy(policy.control_metric_solve))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.metric_id,
+          "valid_metric_solve_policy",
+          "Select positive finite metric-solve tolerances and a positive iteration limit.");
+      if (!dealii_backend::valid(policy.state_solve))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.id,
+          "valid_state_solve_policy",
+          "Select positive finite state-solve tolerances.");
+      if (!dealii_backend::valid(policy.adjoint_solve))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.id,
+          "valid_adjoint_solve_policy",
+          "Select positive finite adjoint-solve tolerances.");
       if (uses_fixed_reconstruction && !data.fixed_dirichlet_data)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -155,6 +218,25 @@ namespace nmopt::compiler::v1
           specification.formulation.constraint_id,
           "facewise_bounds_for_volume_control",
           "Bind the declared cellwise box data for the volume control.");
+      if (!has_constraint && (bounds || facewise_bounds))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.id,
+          "unselected_bound_data",
+          "Remove bound data when the reduced formulation selects no constraint.");
+      if (bounds && valid_bound_representation(*bounds))
+        validate_cellwise_bound_values(*bounds,
+                                       triangulation.n_active_cells(),
+                                       specification.formulation.constraint_id,
+                                       result.diagnostics);
+      if (facewise_bounds && valid_facewise_bound_representation(*facewise_bounds) &&
+          control_boundary_region != nullptr)
+        validate_facewise_bound_values(
+          *facewise_bounds,
+          count_boundary_faces(triangulation,
+                               boundary_ids(*control_boundary_region)),
+          specification.formulation.constraint_id,
+          result.diagnostics);
       if (!result.diagnostics.valid())
         return result;
 
@@ -165,6 +247,37 @@ namespace nmopt::compiler::v1
                                                   specification)
                                             : selected_dirichlet_boundary_ids(
                                                 specification);
+      if (triangulation.has_hanging_nodes())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "conforming_mesh_without_hanging_nodes",
+          "Compile the registered serial targets on a mesh without hanging-node relations.");
+      if (!uses_mean_zero_gauge && !uses_dirichlet_control &&
+          !contains_all_boundary_ids(triangulation, dirichlet_boundary_ids))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "fixed_dirichlet_boundary_presence",
+          "Select fixed-Dirichlet boundary ids present on the compiled mesh.");
+      if (uses_neumann_boundary_control && control_boundary_region != nullptr &&
+          !contains_all_boundary_ids(triangulation,
+                                     boundary_ids(*control_boundary_region)))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          control_boundary_region->id,
+          "neumann_control_boundary_presence",
+          "Select Neumann-control boundary ids present on the compiled mesh.");
+      if (uses_neumann_boundary_control && tracking_region != nullptr &&
+          !contains_all_boundary_ids(triangulation,
+                                     boundary_ids(*tracking_region)))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          tracking_region->id,
+          "boundary_observation_presence",
+          "Select boundary-observation ids present on the compiled mesh.");
+      if (!result.diagnostics.valid())
+        return result;
       if (uses_dirichlet_control &&
           !controls_complete_exterior_boundary(triangulation,
                                                dirichlet_boundary_ids))
@@ -710,6 +823,145 @@ namespace nmopt::compiler::v1
               std::holds_alternative<double>(bounds.upper)) ||
              (std::holds_alternative<dealii::Vector<double>>(bounds.lower) &&
               std::holds_alternative<dealii::Vector<double>>(bounds.upper));
+    }
+
+    static bool
+    valid_metric_solve_policy(
+      const dealii_backend::MassMetricSolveParameters &policy)
+    {
+      return policy.maximum_iterations > 0 &&
+             std::isfinite(policy.relative_tolerance) &&
+             policy.relative_tolerance > 0.0 &&
+             std::isfinite(policy.absolute_tolerance) &&
+             policy.absolute_tolerance > 0.0;
+    }
+
+    template <int dim>
+    static std::size_t
+    count_boundary_faces(
+      const dealii::Triangulation<dim> &              triangulation,
+      const std::set<dealii::types::boundary_id> &boundary_ids)
+    {
+      std::size_t count = 0;
+      for (auto cell = triangulation.begin_active();
+           cell != triangulation.end();
+           ++cell)
+        for (unsigned int face = 0;
+             face < dealii::GeometryInfo<dim>::faces_per_cell;
+             ++face)
+          if (cell->face(face)->at_boundary() &&
+              boundary_ids.count(cell->face(face)->boundary_id()) != 0)
+            ++count;
+      return count;
+    }
+
+    template <int dim>
+    static bool
+    contains_all_boundary_ids(
+      const dealii::Triangulation<dim> &              triangulation,
+      const std::set<dealii::types::boundary_id> &requested_ids)
+    {
+      std::set<dealii::types::boundary_id> found_ids;
+      for (auto cell = triangulation.begin_active();
+           cell != triangulation.end();
+           ++cell)
+        for (unsigned int face = 0;
+             face < dealii::GeometryInfo<dim>::faces_per_cell;
+             ++face)
+          if (cell->face(face)->at_boundary() &&
+              requested_ids.count(cell->face(face)->boundary_id()) != 0)
+            found_ids.insert(cell->face(face)->boundary_id());
+      return found_ids == requested_ids;
+    }
+
+    static void
+    validate_cellwise_bound_values(
+      const CellwiseBoxDataBindings &bounds,
+      const std::size_t              expected_size,
+      const std::string &            component_id,
+      semantic::v1::ValidationReport &report)
+    {
+      validate_bound_values(bounds.lower,
+                            bounds.upper,
+                            expected_size,
+                            component_id,
+                            "cellwise_bound_layout",
+                            report);
+    }
+
+    static void
+    validate_facewise_bound_values(
+      const FacewiseBoxDataBindings &bounds,
+      const std::size_t              expected_size,
+      const std::string &            component_id,
+      semantic::v1::ValidationReport &report)
+    {
+      validate_bound_values(bounds.lower,
+                            bounds.upper,
+                            expected_size,
+                            component_id,
+                            "facewise_bound_layout",
+                            report);
+    }
+
+    template <typename BoundValue>
+    static void
+    validate_bound_values(const BoundValue &lower,
+                          const BoundValue &upper,
+                          const std::size_t expected_size,
+                          const std::string &component_id,
+                          const std::string &layout_capability,
+                          semantic::v1::ValidationReport &report)
+    {
+      using semantic::v1::DiagnosticCategory;
+      if (std::holds_alternative<double>(lower))
+        {
+          const double lower_value = std::get<double>(lower);
+          const double upper_value = std::get<double>(upper);
+          if (!std::isfinite(lower_value) || !std::isfinite(upper_value))
+            report.add(DiagnosticCategory::lowerability,
+                       component_id,
+                       "finite_bound_values",
+                       "Bind finite lower and upper values.");
+          else if (lower_value > upper_value)
+            report.add(DiagnosticCategory::lowerability,
+                       component_id,
+                       "ordered_bound_values",
+                       "Bind lower values that do not exceed upper values.");
+          return;
+        }
+
+      const auto &lower_values = std::get<dealii::Vector<double>>(lower);
+      const auto &upper_values = std::get<dealii::Vector<double>>(upper);
+      if (static_cast<std::size_t>(lower_values.size()) != expected_size ||
+          static_cast<std::size_t>(upper_values.size()) != expected_size)
+        {
+          report.add(DiagnosticCategory::lowerability,
+                     component_id,
+                     layout_capability,
+                     "Bind lower and upper vectors with the exact compiled decision layout.");
+          return;
+        }
+      for (dealii::Vector<double>::size_type index = 0;
+           index < lower_values.size();
+           ++index)
+        if (!std::isfinite(lower_values[index]) ||
+            !std::isfinite(upper_values[index]))
+          {
+            report.add(DiagnosticCategory::lowerability,
+                       component_id,
+                       "finite_bound_values",
+                       "Bind finite lower and upper values.");
+            return;
+          }
+        else if (lower_values[index] > upper_values[index])
+          {
+            report.add(DiagnosticCategory::lowerability,
+                       component_id,
+                       "ordered_bound_values",
+                       "Bind lower values that do not exceed upper values.");
+            return;
+          }
     }
 
     static bool

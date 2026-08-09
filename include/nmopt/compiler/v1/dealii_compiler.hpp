@@ -136,6 +136,8 @@ namespace nmopt::compiler::v1
         uses_general_scalar_residual(specification);
       const bool uses_h1_state_observation =
         has_h1_state_observation(specification);
+      const bool uses_weighted_boundary_trace =
+        has_weighted_boundary_trace(specification);
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *robin_boundary_region =
         selected_robin_boundary_region(specification);
@@ -181,6 +183,32 @@ namespace nmopt::compiler::v1
           "desired_state",
           "desired_state_binding_provenance",
           "Supply a stable provenance label for the desired-state Function binding.");
+      if (uses_weighted_boundary_trace && !data.weighted_trace)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "boundary_weight",
+          "weighted_boundary_trace_data_binding",
+          "Bind the fixed scalar Function consumed by the weighted boundary trace.");
+      if (!uses_weighted_boundary_trace && data.weighted_trace)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "selected_weighted_boundary_trace",
+          "Declare a weighted boundary trace before binding observation-weight data.");
+      if (uses_weighted_boundary_trace && data.weighted_trace &&
+          data.weighted_trace->weight.n_components != 1)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "boundary_weight",
+          "scalar_boundary_weight_binding",
+          "Bind a scalar Function for the weighted boundary trace.");
+      if (uses_weighted_boundary_trace && data.weighted_trace &&
+          data.weighted_trace->provenance.empty())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "boundary_weight",
+          "boundary_weight_binding_provenance",
+          "Supply a stable provenance label for the boundary-weight Function binding.");
       if (uses_fixed_reconstruction &&
           data.provenance.fixed_dirichlet_data.empty())
         result.diagnostics.add(
@@ -429,6 +457,7 @@ namespace nmopt::compiler::v1
             dirichlet_boundary_ids,
             boundary_ids(*control_boundary_region),
             boundary_ids(*tracking_region),
+            uses_weighted_boundary_trace ? &data.weighted_trace->weight : nullptr,
             uses_mean_zero_gauge
               ? BoundaryModel::StateGauge::mean_zero_multiplier
               : BoundaryModel::StateGauge::fixed_dirichlet);
@@ -642,6 +671,8 @@ namespace nmopt::compiler::v1
         }
       const CompiledTargetKind target_kind = uses_mean_zero_gauge
                                                ? CompiledTargetKind::pure_neumann
+                                             : uses_weighted_boundary_trace
+                                               ? CompiledTargetKind::weighted_boundary_trace
                                              : uses_neumann_boundary_control
                                                ? CompiledTargetKind::neumann_boundary
                                              : uses_dirichlet_control
@@ -695,6 +726,7 @@ namespace nmopt::compiler::v1
       direct_volume,
       assembled_volume,
       neumann_boundary,
+      weighted_boundary_trace,
       pure_neumann,
       dirichlet_control,
       h1_control_l2_metric,
@@ -848,6 +880,19 @@ namespace nmopt::compiler::v1
         [](const semantic::v1::ObservationSpec &observation) {
           return observation.kind ==
                  semantic::v1::ObservationKind::h1_state_restriction;
+        });
+    }
+
+    static bool
+    has_weighted_boundary_trace(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [](const semantic::v1::ObservationSpec &observation) {
+          return observation.kind ==
+                 semantic::v1::ObservationKind::weighted_boundary_trace;
         });
     }
 
@@ -1392,6 +1437,8 @@ namespace nmopt::compiler::v1
         uses_parameter_diffusion_residual(specification);
       const bool general_scalar =
         uses_general_scalar_residual(specification);
+      const bool weighted_boundary_trace =
+        has_weighted_boundary_trace(specification);
       const bool h1_state_observation =
         has_h1_state_observation(specification);
       const bool dirichlet_control_lifting =
@@ -1676,6 +1723,14 @@ namespace nmopt::compiler::v1
               "The first Dirichlet-control target supports full-domain state tracking only.");
         }
 
+      if (weighted_boundary_trace &&
+          (!uses_neumann_control(specification) || mean_zero_gauge))
+        report.add(
+          DiagnosticCategory::lowerability,
+          specification.id,
+          "weighted_boundary_trace_registered_combination",
+          "Combine the first weighted boundary trace with the fixed-Dirichlet Neumann-control target.");
+
       if (!uses_neumann_control(specification))
         return;
       const auto control_region = selected_neumann_control_region(specification);
@@ -1729,6 +1784,8 @@ namespace nmopt::compiler::v1
         uses_parameter_diffusion_residual(specification);
       const bool general_scalar =
         uses_general_scalar_residual(specification);
+      const bool weighted_boundary_trace =
+        has_weighted_boundary_trace(specification);
       const bool complete_residual = general_scalar
         ? count_terms(ResidualTermKind::tensor_diffusion) == 1 &&
             count_terms(ResidualTermKind::conservative_transport) == 1 &&
@@ -1798,6 +1855,8 @@ namespace nmopt::compiler::v1
         count_data(DataRole::robin_source) == 1;
       if (count_data(DataRole::forcing) != 1 ||
           count_data(DataRole::desired_state) != 1 ||
+          count_data(DataRole::observation_weight) !=
+            (weighted_boundary_trace ? 1 : 0) ||
           count_data(DataRole::regularisation_weight) != 1 ||
           (general_scalar
              ? !complete_general_scalar_data
@@ -1809,13 +1868,17 @@ namespace nmopt::compiler::v1
                    specification.id,
                    general_scalar
                      ? "complete_general_scalar_data_set"
-                     : coefficient_identification
+                   : coefficient_identification
                      ? "complete_parameter_data_set"
+                   : weighted_boundary_trace
+                     ? "complete_weighted_boundary_data_set"
                      : "complete_volume_data_set",
                    general_scalar
                      ? "Declare forcing, target, tensor diffusion, both transports, reaction, Robin coefficient/source, and regularisation data exactly once."
-                     : coefficient_identification
+                   : coefficient_identification
                      ? "Declare one forcing, target, reaction, and parameter-regularisation datum, with no constant diffusion datum."
+                   : weighted_boundary_trace
+                     ? "Declare one forcing, target, boundary weight, diffusion, reaction, and regularisation datum."
                      : "Declare one forcing, target, diffusion, reaction, and regularisation datum.");
 
       const auto count_losses = [&specification](const LossKind kind) {
@@ -1910,9 +1973,12 @@ namespace nmopt::compiler::v1
           const auto state_trace = std::find_if(
             specification.observations.begin(),
             specification.observations.end(),
-            [](const semantic::v1::ObservationSpec &observation) {
+            [weighted_boundary_trace](
+              const semantic::v1::ObservationSpec &observation) {
               return observation.kind ==
-                     semantic::v1::ObservationKind::boundary_trace;
+                     (weighted_boundary_trace
+                        ? semantic::v1::ObservationKind::weighted_boundary_trace
+                        : semantic::v1::ObservationKind::boundary_trace);
             });
           const auto control_restriction = std::find_if(
             specification.observations.begin(),
@@ -1927,7 +1993,9 @@ namespace nmopt::compiler::v1
             report.add(DiagnosticCategory::lowerability,
                        specification.id,
                        "complete_boundary_observation_set",
-                       "Declare one boundary state trace and one boundary control restriction.");
+                       weighted_boundary_trace
+                         ? "Declare one weighted boundary state trace and one boundary control restriction."
+                         : "Declare one boundary state trace and one boundary control restriction.");
           if (state_trace != specification.observations.end())
             {
               const auto region = find_region(specification, state_trace->region_id);
@@ -2151,6 +2219,7 @@ namespace nmopt::compiler::v1
     uses_neumann_target(const CompiledTargetKind target)
     {
       return target == CompiledTargetKind::neumann_boundary ||
+             target == CompiledTargetKind::weighted_boundary_trace ||
              target == CompiledTargetKind::pure_neumann;
     }
 
@@ -2170,6 +2239,7 @@ namespace nmopt::compiler::v1
           case CompiledTargetKind::dirichlet_control:
             return "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary";
           case CompiledTargetKind::neumann_boundary:
+          case CompiledTargetKind::weighted_boundary_trace:
           case CompiledTargetKind::pure_neumann:
             return "one facewise-constant coefficient per marked state boundary face";
           case CompiledTargetKind::coefficient_identification:
@@ -2338,6 +2408,8 @@ namespace nmopt::compiler::v1
         target == CompiledTargetKind::general_scalar_robin;
       const bool uses_h1_state_observation =
         has_h1_state_observation(specification);
+      const bool uses_weighted_boundary_trace =
+        target == CompiledTargetKind::weighted_boundary_trace;
       const bool uses_neumann_boundary_control = uses_neumann_target(target);
       const bool uses_mean_zero_gauge =
         target == CompiledTargetKind::pure_neumann;
@@ -2430,8 +2502,9 @@ namespace nmopt::compiler::v1
                   data.general_scalar->provenance.robin_source;
                 break;
               case semantic::v1::DataRole::observation_weight:
-                record.representation = "unsupported observation data";
-                record.provenance = "not lowered";
+                record.representation =
+                  "scalar Function at boundary face quadrature";
+                record.provenance = data.weighted_trace->provenance;
                 break;
               case semantic::v1::DataRole::regularisation_weight:
                 record.representation = "scalar constant";
@@ -2492,10 +2565,16 @@ namespace nmopt::compiler::v1
                                                                : metric.id()};
       if (scalar_plan != nullptr)
         manifest.lowering_handler_records = scalar_plan->provenance;
+      if (uses_weighted_boundary_trace)
+        manifest.lowering_handler_records.push_back(
+          "weighted_state_boundary_trace <- "
+          "dealii.neumann.observation.weighted_boundary_trace");
       manifest.semantic_problem_id = specification.id;
       manifest.compiler_id =
         uses_general_scalar
           ? "nmopt.compiler.v1.dealii.general_scalar_elliptic_robin"
+        : uses_weighted_boundary_trace
+          ? "nmopt.compiler.v1.dealii.weighted_boundary_trace"
         : uses_h1_state_observation
           ? "nmopt.compiler.v1.dealii.h1_state_tracking"
           : "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
@@ -2511,6 +2590,10 @@ namespace nmopt::compiler::v1
         ? "analytic desired-state Function value and gradient at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
             ") volume quadrature; scalar coefficients and forcing Function at volume quadrature"
+        : uses_weighted_boundary_trace
+        ? "analytic desired-state and fixed boundary-weight Functions at selected QGauss(" +
+            std::to_string(policy.state_degree + 2) +
+            ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature"
         : uses_neumann_boundary_control
         ? "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
@@ -2530,6 +2613,8 @@ namespace nmopt::compiler::v1
               : "; scalar coefficients and forcing Function at volume quadrature");
       manifest.observation_realisation = uses_h1_state_observation
         ? "full-domain H1_0 state restriction with mass-plus-stiffness pairing"
+        : uses_weighted_boundary_trace
+        ? weighted_boundary_observation_realisation(tracking_region)
         : uses_neumann_boundary_control
         ? boundary_observation_realisation(tracking_region)
         : observation_realisation(tracking_region);
@@ -2598,6 +2683,9 @@ namespace nmopt::compiler::v1
       if (uses_h1_state_observation)
         manifest.declared_assumptions.push_back(
           "h1_state_observation: full-domain H1_0 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric remains L2");
+      if (uses_weighted_boundary_trace)
+        manifest.declared_assumptions.push_back(
+          "weighted_boundary_trace: fixed scalar weight multiplies the state trace in value, JVP, and transpose pullback at matching face quadrature; Neumann residual and facewise L2 control metric are unchanged");
       manifest.region_ids = identifiers(specification.regions);
       manifest.space_ids = identifiers(specification.spaces);
       manifest.pairing_ids = identifiers(specification.pairings);
@@ -2647,6 +2735,14 @@ namespace nmopt::compiler::v1
     boundary_observation_realisation(const semantic::v1::RegionSpec &region)
     {
       return "boundary trace restriction on boundary ids " +
+             boundary_id_list(region);
+    }
+
+    static std::string
+    weighted_boundary_observation_realisation(
+      const semantic::v1::RegionSpec &region)
+    {
+      return "fixed-data weighted boundary trace on boundary ids " +
              boundary_id_list(region);
     }
 

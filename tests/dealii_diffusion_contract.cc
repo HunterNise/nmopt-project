@@ -1114,6 +1114,282 @@ namespace
 
   template <int dim>
   void
+  run_weighted_boundary_trace_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary())
+          {
+            const double x = cell->face(face)->center()[0];
+            cell->face(face)->set_boundary_id(x < 1e-12 ? 0 :
+                                              x > 1.0 - 1e-12 ? 1 : 2);
+          }
+
+    const dealii::Functions::ConstantFunction<dim> forcing(0.5);
+    const dealii::Functions::ConstantFunction<dim> weighted_target(0.2);
+    const dealii::Functions::ConstantFunction<dim> comparison_target(0.1);
+    const dealii::Functions::ConstantFunction<dim> boundary_weight(2.0);
+    const auto weighted_specification =
+      semantic::v1::make_weighted_boundary_trace_neumann_control_problem();
+    const auto comparison_specification =
+      semantic::v1::make_neumann_boundary_control_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(weighted_specification, policy).valid(),
+                      "weighted boundary-trace graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> missing_weight_binding{
+      forcing,
+      weighted_target,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("weighted_boundary_missing")};
+    const auto missing_weight = compiler.compile(weighted_specification,
+                                                 triangulation,
+                                                 missing_weight_binding,
+                                                 policy);
+    test_support::require_exact_diagnostic(
+      missing_weight.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "boundary_weight",
+      "weighted_boundary_trace_data_binding",
+      "weighted trace compiler accepted a missing boundary-weight binding");
+
+    const compiler::v1::DealiiDataBindings<dim> missing_weight_provenance{
+      forcing,
+      weighted_target,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("weighted_boundary_missing_provenance"),
+      std::nullopt,
+      std::nullopt,
+      compiler::v1::DealiiWeightedTraceDataBindings<dim>{boundary_weight, ""}};
+    const auto missing_provenance = compiler.compile(
+      weighted_specification,
+      triangulation,
+      missing_weight_provenance,
+      policy);
+    test_support::require_exact_diagnostic(
+      missing_provenance.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "boundary_weight",
+      "boundary_weight_binding_provenance",
+      "weighted trace compiler accepted missing weight provenance");
+
+    const dealii::Functions::ConstantFunction<dim> vector_weight(2.0, 2);
+    const compiler::v1::DealiiDataBindings<dim> vector_weight_binding{
+      forcing,
+      weighted_target,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("weighted_boundary_vector_weight"),
+      std::nullopt,
+      std::nullopt,
+      compiler::v1::DealiiWeightedTraceDataBindings<dim>{
+        vector_weight, "test.weighted_boundary.vector_weight"}};
+    const auto wrong_shape = compiler.compile(weighted_specification,
+                                              triangulation,
+                                              vector_weight_binding,
+                                              policy);
+    test_support::require_exact_diagnostic(
+      wrong_shape.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "boundary_weight",
+      "scalar_boundary_weight_binding",
+      "weighted trace compiler accepted a multi-component weight Function");
+
+    const compiler::v1::DealiiDataBindings<dim> weighted_bindings{
+      forcing,
+      weighted_target,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("weighted_boundary"),
+      std::nullopt,
+      std::nullopt,
+      compiler::v1::DealiiWeightedTraceDataBindings<dim>{
+        boundary_weight, "test.weighted_boundary.weight"}};
+    const compiler::v1::DealiiDataBindings<dim> comparison_bindings{
+      forcing,
+      comparison_target,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("weighted_boundary_comparison")};
+    const auto weighted = compiler.compile(weighted_specification,
+                                           triangulation,
+                                           weighted_bindings,
+                                           policy);
+    const auto comparison = compiler.compile(comparison_specification,
+                                             triangulation,
+                                             comparison_bindings,
+                                             policy);
+    contract::require(weighted.succeeded() && comparison.succeeded(),
+                      "weighted boundary-trace comparison compilation failed");
+
+    const auto &weighted_model = weighted.problem->executable_model();
+    const auto &comparison_model = comparison.problem->executable_model();
+    dealii::Vector<double> zero_control_values(
+      weighted_model.variable_layout()->dimension(1));
+    const Primal zero_control(
+      weighted_model.variable_layout()->single_block(1, "control"),
+      {std::move(zero_control_values)});
+    const auto weighted_reduced = weighted.problem->make_reduced_dto();
+    const auto comparison_reduced = comparison.problem->make_reduced_dto();
+    const auto weighted_evaluation = weighted_reduced.evaluate(zero_control);
+    const auto comparison_evaluation = comparison_reduced.evaluate(zero_control);
+    require_primal_close(weighted_evaluation.full_point,
+                         comparison_evaluation.full_point,
+                         1e-12,
+                         "weighted trace changed the Neumann state equation");
+    require_covector_close(
+      weighted_model.residual(weighted_evaluation.full_point),
+      comparison_model.residual(weighted_evaluation.full_point),
+      1e-12,
+      "weighted trace changed the Neumann residual value");
+
+    dealii::Vector<double> state_tangent(
+      weighted_model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_tangent(
+      weighted_model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size();
+         ++index)
+      state_tangent[index] = 0.01 * static_cast<double>(index + 1);
+    for (dealii::types::global_dof_index index = 0;
+         index < control_tangent.size();
+         ++index)
+      control_tangent[index] =
+        (index % 2 == 0 ? 0.03 : -0.02) * static_cast<double>(index + 1);
+    const Primal tangent(weighted_model.variable_layout(),
+                         {std::move(state_tangent),
+                          std::move(control_tangent)});
+    dealii::Vector<double> seed_values(weighted_model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < seed_values.size();
+         ++index)
+      seed_values[index] = 0.04 * static_cast<double>(index + 1);
+    const Primal seed(weighted_model.test_layout(), {std::move(seed_values)});
+    require_covector_close(
+      weighted_model.residual_jvp(weighted_evaluation.full_point, tangent),
+      comparison_model.residual_jvp(weighted_evaluation.full_point, tangent),
+      1e-12,
+      "weighted trace changed the Neumann residual JVP");
+    require_covector_close(
+      weighted_model.residual_vjp(weighted_evaluation.full_point, seed),
+      comparison_model.residual_vjp(weighted_evaluation.full_point, seed),
+      1e-12,
+      "weighted trace changed the Neumann residual VJP");
+
+    require_close(weighted_evaluation.objective_value,
+                  4.0 * comparison_evaluation.objective_value,
+                  1e-11,
+                  "weighted trace value did not realize h times the trace");
+    Covector expected_full_derivative = comparison_model.objective_derivative(
+      comparison_evaluation.full_point);
+    expected_full_derivative.scale_block(0, 4.0);
+    require_covector_close(
+      weighted_model.objective_derivative(weighted_evaluation.full_point),
+      expected_full_derivative,
+      1e-11,
+      "weighted trace transpose pullback did not include both weight factors");
+    Covector expected_reduced_derivative =
+      comparison_evaluation.reduced_derivative;
+    expected_reduced_derivative.scale_block(0, 4.0);
+    require_covector_close(weighted_evaluation.reduced_derivative,
+                           expected_reduced_derivative,
+                           1e-9,
+                           "weighted trace reduced pullback is inconsistent");
+
+    constexpr double derivative_step = 1e-7;
+    const double centered_jvp =
+      (weighted_model.objective(
+         shifted(weighted_evaluation.full_point, tangent, derivative_step)) -
+       weighted_model.objective(
+         shifted(weighted_evaluation.full_point, tangent, -derivative_step))) /
+      (2.0 * derivative_step);
+    require_close(
+      centered_jvp,
+      contract::pair(
+        weighted_model.objective_derivative(weighted_evaluation.full_point),
+        tangent),
+      2e-7,
+      "weighted trace value/JVP/VJP chain rule");
+
+    dealii::Vector<double> control_direction_values(zero_control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_direction_values.size();
+         ++index)
+      control_direction_values[index] =
+        (index % 2 == 0 ? 0.04 : -0.03) * static_cast<double>(index + 1);
+    const Primal control_direction(zero_control.layout(),
+                                   {std::move(control_direction_values)});
+    const double directional_derivative =
+      contract::pair(weighted_evaluation.reduced_derivative,
+                     control_direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(
+        weighted_reduced.evaluate(shifted(zero_control,
+                                          control_direction,
+                                          step))
+            .objective_value -
+        weighted_evaluation.objective_value - step * directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "weighted boundary-trace reduced Taylor remainder is not quadratic");
+
+    const auto &weighted_metric = weighted.problem->metric();
+    const auto &comparison_metric = comparison.problem->metric();
+    require_covector_close(weighted_metric.apply(control_direction),
+                           comparison_metric.apply(control_direction),
+                           1e-12,
+                           "weighted trace changed the facewise L2 control metric");
+
+    const auto &manifest = weighted.problem->manifest();
+    const auto weight_record = std::find_if(
+      manifest.bindings.begin(),
+      manifest.bindings.end(),
+      [](const compiler::v1::CompiledBindingRecord &record) {
+        return record.semantic_id == "boundary_weight";
+      });
+    contract::require(
+      weight_record != manifest.bindings.end() &&
+        weight_record->provenance == "test.weighted_boundary.weight" &&
+        weight_record->representation.find("boundary face quadrature") !=
+          std::string::npos &&
+        manifest.compiler_id ==
+          "nmopt.compiler.v1.dealii.weighted_boundary_trace" &&
+        manifest.observation_realisation.find("weighted boundary trace") !=
+          std::string::npos &&
+        manifest.data_rule.find("desired-state and fixed boundary-weight") !=
+          std::string::npos &&
+        manifest.data_rule.find("boundary face quadrature") !=
+          std::string::npos &&
+        manifest.metric_record.realisation_id == "l2_facewise" &&
+        std::find(manifest.lowering_handler_records.begin(),
+                  manifest.lowering_handler_records.end(),
+                  "weighted_state_boundary_trace <- "
+                  "dealii.neumann.observation.weighted_boundary_trace") !=
+          manifest.lowering_handler_records.end(),
+      "weighted trace manifest omitted weight, target, quadrature, or metric provenance");
+  }
+
+  template <int dim>
+  void
   run_h1_control_regularisation_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -2770,6 +3046,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          60,
          []() { run_neumann_boundary_contract_test<2>(); }},
+        {"weighted_boundary_trace",
+         "nmopt.dealii.weighted_boundary_trace",
+         {"dealii", "compiler"},
+         60,
+         []() { run_weighted_boundary_trace_contract_test<2>(); }},
         {"h1_control",
          "nmopt.dealii.h1_control",
          {"dealii", "compiler"},

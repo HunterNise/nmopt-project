@@ -64,6 +64,20 @@ namespace nmopt::compiler::v1
     DealiiGeneralScalarBindingProvenance   provenance;
   };
 
+  template <int dim>
+  struct DealiiWeightedTraceDataBindings
+  {
+    DealiiWeightedTraceDataBindings(
+      const dealii::Function<dim> &weight_function,
+      std::string                  binding_provenance)
+      : weight(weight_function)
+      , provenance(std::move(binding_provenance))
+    {}
+
+    const dealii::Function<dim> &weight;
+    std::string                  provenance;
+  };
+
   // Concrete values are supplied after semantic validation. They are not
   // stored in ProblemSpec, which remains independent of deal.II.
   template <int dim>
@@ -79,7 +93,9 @@ namespace nmopt::compiler::v1
       std::optional<std::reference_wrapper<const dealii::Function<dim>>>
         fixed_data = std::nullopt,
       std::optional<DealiiGeneralScalarDataBindings<dim>>
-        general_scalar_data = std::nullopt)
+        general_scalar_data = std::nullopt,
+      std::optional<DealiiWeightedTraceDataBindings<dim>>
+        weighted_trace_data = std::nullopt)
       : forcing(forcing_function)
       , desired_state(desired_state_function)
       , diffusion(diffusion_value)
@@ -88,6 +104,7 @@ namespace nmopt::compiler::v1
       , fixed_dirichlet_data(fixed_data)
       , provenance(std::move(binding_provenance))
       , general_scalar(std::move(general_scalar_data))
+      , weighted_trace(std::move(weighted_trace_data))
     {}
 
     const dealii::Function<dim> &forcing;
@@ -110,6 +127,9 @@ namespace nmopt::compiler::v1
     // rank-specific TensorFunction types make coefficient shape explicit at
     // the compiler boundary rather than interpreting scalar components.
     std::optional<DealiiGeneralScalarDataBindings<dim>> general_scalar;
+    // Present only when an observation explicitly consumes a fixed boundary
+    // weight. It remains separate from target data and loss configuration.
+    std::optional<DealiiWeightedTraceDataBindings<dim>> weighted_trace;
   };
 
   using CellwiseBoundValue = std::variant<double, dealii::Vector<double>>;

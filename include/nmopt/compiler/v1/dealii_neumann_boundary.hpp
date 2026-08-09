@@ -72,6 +72,7 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id>         dirichlet_boundary_ids,
       std::set<dealii::types::boundary_id>         control_boundary_ids,
       std::set<dealii::types::boundary_id>         observation_boundary_ids,
+      const dealii::Function<dim> *                 observation_weight = nullptr,
       const StateGauge                              state_gauge =
         StateGauge::fixed_dirichlet)
       : state_fe_(state_degree)
@@ -115,7 +116,7 @@ namespace nmopt::compiler::v1::detail
       contract::require(control_face_count_ > 0,
                         "The selected Neumann boundary has no active boundary faces");
       initialise_storage();
-      assemble(forcing, desired_state);
+      assemble(forcing, desired_state, observation_weight);
       if (uses_mean_zero_gauge())
         build_mean_zero_system();
     }
@@ -236,10 +237,10 @@ namespace nmopt::compiler::v1::detail
     objective(const Primal &variables) const override
     {
       require_variables(variables, "Objective");
-      Vector state_mass_times_state(state_dof_handler_.n_dofs());
-      state_mass_.vmult(state_mass_times_state, variables.block(0));
+      Vector tracked_state(state_dof_handler_.n_dofs());
+      state_tracking_matrix_.vmult(tracked_state, variables.block(0));
       const double state_value =
-        0.5 * (variables.block(0) * state_mass_times_state) -
+        0.5 * (variables.block(0) * tracked_state) -
         (desired_state_load_ * variables.block(0)) + 0.5 * desired_state_norm_;
 
       Vector control_mass_times_control(control_face_count_);
@@ -254,7 +255,7 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective derivative");
       Vector state(state_dof_handler_.n_dofs());
-      state_mass_.vmult(state, variables.block(0));
+      state_tracking_matrix_.vmult(state, variables.block(0));
       state.add(-1.0, desired_state_load_);
 
       Vector control(control_face_count_);
@@ -431,7 +432,7 @@ namespace nmopt::compiler::v1::detail
       dealii::DoFTools::make_sparsity_pattern(state_dof_handler_, state_dsp);
       state_sparsity_.copy_from(state_dsp);
       system_matrix_.reinit(state_sparsity_);
-      state_mass_.reinit(state_sparsity_);
+      state_tracking_matrix_.reinit(state_sparsity_);
 
       dealii::DynamicSparsityPattern control_dsp(state_size, control_face_count_);
       std::vector<dealii::types::global_dof_index> state_indices(
@@ -475,7 +476,8 @@ namespace nmopt::compiler::v1::detail
 
     void
     assemble(const dealii::Function<dim> &forcing,
-             const dealii::Function<dim> &desired_state)
+             const dealii::Function<dim> &desired_state,
+             const dealii::Function<dim> *observation_weight)
     {
       const unsigned int quadrature_order = state_fe_.degree + 2;
       const dealii::QGauss<dim> volume_quadrature(quadrature_order);
@@ -541,12 +543,16 @@ namespace nmopt::compiler::v1::detail
           if (constrained_state_dofs_.at(index))
             system_matrix_.set(index, index, 1.0);
 
-      assemble_boundary_operators(desired_state, quadrature_order);
+      assemble_boundary_operators(desired_state,
+                                  observation_weight,
+                                  quadrature_order);
     }
 
     void
-    assemble_boundary_operators(const dealii::Function<dim> &desired_state,
-                                const unsigned int quadrature_order)
+    assemble_boundary_operators(
+      const dealii::Function<dim> &desired_state,
+      const dealii::Function<dim> *observation_weight,
+      const unsigned int           quadrature_order)
     {
       const dealii::QGauss<dim - 1> face_quadrature(quadrature_order);
       dealii::FEFaceValues<dim> face_values(
@@ -579,6 +585,11 @@ namespace nmopt::compiler::v1::detail
                   const double desired_value = observation_face
                     ? desired_state.value(face_values.quadrature_point(q))
                     : 0.0;
+                  const double observation_weight_value =
+                    observation_face && observation_weight != nullptr
+                      ? observation_weight->value(
+                          face_values.quadrature_point(q))
+                      : 1.0;
                   if (observation_face)
                     desired_state_norm_ += desired_value * desired_value * weight;
                   for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
@@ -594,17 +605,20 @@ namespace nmopt::compiler::v1::detail
                       if (observation_face)
                         {
                           desired_state_load_[global_i] +=
-                            desired_value * phi_i * weight;
+                            observation_weight_value * desired_value * phi_i *
+                            weight;
                           for (unsigned int j = 0;
                                j < state_fe_.dofs_per_cell;
                                ++j)
                             {
                               const auto global_j = state_indices[j];
                               if (!constrained_state_dofs_.at(global_j))
-                                state_mass_.add(
+                                state_tracking_matrix_.add(
                                   global_i,
                                   global_j,
-                                  phi_i * face_values.shape_value(j, q) * weight);
+                                  observation_weight_value *
+                                    observation_weight_value * phi_i *
+                                    face_values.shape_value(j, q) * weight);
                             }
                         }
                     }
@@ -705,7 +719,7 @@ namespace nmopt::compiler::v1::detail
     dealii::SparsityPattern control_mass_sparsity_;
     dealii::SparsityPattern augmented_sparsity_;
     dealii::SparseMatrix<double> system_matrix_;
-    dealii::SparseMatrix<double> state_mass_;
+    dealii::SparseMatrix<double> state_tracking_matrix_;
     dealii::SparseMatrix<double> control_coupling_;
     dealii::SparseMatrix<double> augmented_system_;
     dealii::SparseDirectUMFPACK augmented_solver_;

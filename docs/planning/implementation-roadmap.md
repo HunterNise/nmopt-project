@@ -27,10 +27,11 @@ Stage B common stabilization is complete on
 (`RF-020`), R1 (`RF-006`, `RF-009`, and `RF-016`), R2a (`RF-001` and the
 relevant `RF-006` characterization), R2b (`RF-002` through `RF-005` and the
 relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
-`RF-012`), and R3 (`RF-016` through `RF-019`) are complete. No P5/P6 feature
-has been selected yet, so the next step is an explicit vertical-slice choice
-followed by its conditional C1, C2, or S1 gate from the
-[Stage B roadmap](refactor/stage-b-roadmap.md).
+`RF-012`), and R3 (`RF-016` through `RF-019`) are complete. P4.1 and P4.2 are
+ignored for the current ordered implementation run because their scope is too
+broad. P5.1 is the selected next vertical slice. Its conditional C1 gate
+(`RF-008` through `RF-013`) and C2 bounded component-lowering gate are
+complete. Implement the first registered scalar target next.
 
 The following pieces exist and are tested:
 
@@ -38,9 +39,10 @@ The following pieces exist and are tested:
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. Their block storage is read-only after construction; checked algebraic updates preserve the declared dimensions. |
 | V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
-| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp` | Backend-generic compiled package and manifest, with whole-target dispatch across the exact registrations in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
+| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package and structured manifest; fixed-reconstruction and subdomain-tracking graphs use stable-ID resolution plus stored component handlers, while specialized registrations retain bounded target strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
+| Formulation solves and lifetime | `include/nmopt/contract/linear_solve.hpp`, `include/nmopt/dealii/serial_spd_solver.hpp`, and `include/nmopt/compiler/v1/dealii_types.hpp` | Typed state/adjoint solve reports, one shared serial SPD policy/service, an owned static-mesh compilation session, and detached reduced services that retain executable/session lifetime. |
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend with a checked conversion from contract dimensions to the native deal.II size type. |
 | Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
@@ -48,11 +50,12 @@ The following pieces exist and are tested:
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose nineteen independently named, labeled, and time-bounded CTest scenarios: four dense/backend contract cases, five semantic graph cases, and ten deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, manifest-realization, projection-coupling, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose twenty-five independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and thirteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, binding, solve-policy, manifest-realization, lifetime, projection-coupling, and native-size invariants; the canonical deal.II scenario includes a hand-integrated weak-form oracle separately from its compiled/direct wiring comparison. |
 
 The public v1 semantic path is deliberately not a general component compiler
-yet. It validates registered component kinds, then matches the complete graph
-to one of a bounded set of target-specific implementations. The direct
+yet. It resolves valid graphs by stable ID and has one bounded scalar
+component-planning path; specialized graphs still select one of a bounded set
+of target-specific implementations. The direct
 deal.II v0 class remains a concrete reference lowerer rather than a public
 problem hierarchy.
 
@@ -428,7 +431,10 @@ $`L_{D,h}^{\ast}`$. The deal.II contract test verifies a nonzero manufactured
 state, composed lifting VJP, reduced Taylor remainder, trace metric, manifest,
 and incomplete-boundary diagnostic. The v0 lowerer remains unchanged.
 
-### P4.1 — Add the fixed-step temporal compiler
+### P4.1 — Add the fixed-step temporal compiler — ignored
+
+**Status:** ignored for the current ordered implementation run. Reactivate
+only through an explicit user decision.
 
 **Default:** a global residual for a fixed-step backward-Euler heat equation,
 with the complete trajectory available for its exact transpose.
@@ -440,7 +446,10 @@ and state/adjoint solve diagnostics.
 backward adjoint, or introduce adaptive steps/events before replay and
 differentiated-control policies exist.
 
-### P4.2 — Generalize algebra, execution, and formulations
+### P4.2 — Generalize algebra, execution, and formulations — ignored
+
+**Status:** ignored for the current ordered implementation run. Reactivate
+individual capabilities only through an explicit user decision.
 
 This long-term group has value, but should not block the preceding vertical
 slices:
@@ -782,18 +791,19 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-Do not start another implementation batch until the user selects a bounded
-Chapter 5/6 vertical slice. After that choice:
+P5.1 is the selected bounded Chapter 5 vertical slice. P4.1 and P4.2 remain
+ignored for the current ordered implementation run. Continue as follows:
 
-1. Map the selected slice to the conditional gate in the
-   [Stage B roadmap](refactor/stage-b-roadmap.md): compiler-facing or comparative
-   numerical work starts with C1; component-heavy lowering then takes C2; a
-   selected P6.1 solver feature takes S1.
-2. Follow the [Stage B routing protocol](refactor/README.md) and read only that
-   gate's assigned findings plus the selected feature guide and current
-   authoritative contract.
-3. Record the selected slice and concrete acceptance criteria here before
-   implementation, then execute only its prerequisite gate.
+1. C1 is complete for the P5.1 compiler inputs, products, solve policies, and
+   provenance boundaries.
+2. C2 is complete: stable-ID semantic resolution and stored scalar handlers
+   produce a typed lowering plan for the first recombinable assembled targets.
+   A clean `debug-dealii` build took 81.3 seconds elapsed and 1.53 GiB peak RSS,
+   remaining in the previously measured cost band; no further template split is
+   justified by this gate.
+3. Implement the P5.1 first registered target and verify its individual term
+   actions, non-symmetric adjoint, Robin contribution, and reduced derivative.
+4. Select the next roadmap item only after the P5.1 handoff is complete.
 
-Do not run C1, C2, or S1 speculatively: their scope depends on the feature that
-will actually be implemented.
+Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
+run S1 before P6.1 reaches the front of the ordered implementation run.

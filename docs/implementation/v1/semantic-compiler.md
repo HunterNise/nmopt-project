@@ -11,7 +11,8 @@ ScalarDiffusionReactionModel<dim>
 
 v1 semantic/compiler path
 semantic::v1::ProblemSpec
-  -> SemanticValidator + compiler diagnostics
+  -> SemanticValidator + SemanticResolver + compiler diagnostics
+  -> bounded component lowering plan or registered target strategy
   -> compiler::v1::CompiledProblemT<SerialBackend>
   -> generic executable/metric/constraint/DTO services
 ```
@@ -41,29 +42,32 @@ Every factory below is validated in
 column names its focused CTest scenario backed by
 [`dealii_diffusion_contract.cc`](../../../tests/dealii_diffusion_contract.cc).
 
-| Registered semantic graph | Selected whole-target implementation | Bounded capability | Focused CTest scenario |
+| Registered semantic graph | Selected implementation | Bounded capability | Focused CTest scenario |
 | --- | --- | --- | --- |
 | `make_scalar_diffusion_reaction_problem()` | `ScalarDiffusionReactionModel<dim>` direct v0 reference, packaged through v1 ports | Homogeneous fixed Dirichlet, full-volume tracking, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `nmopt.dealii.canonical_volume_control` |
-| `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `AssembledScalarDiffusionReactionModel<dim>` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `nmopt.dealii.fixed_dirichlet` |
-| `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `AssembledScalarDiffusionReactionModel<dim>` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
+| `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `nmopt.dealii.fixed_dirichlet` |
+| `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
 | `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
 | `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
 | `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `nmopt.dealii.pure_neumann` |
 | `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `H1ControlRegularisedModel<dim>` | Continuous `FE_Q` control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `nmopt.dealii.h1_control` |
 | `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `nmopt.dealii.coefficient_identification` |
 
-These are whole-graph registrations, not freely composable component
-lowerers. `DealiiLowererRegistryV1` whitelists individual semantic kinds for
-diagnostics, while `DealiiCompiler::compile()` uses graph predicates to choose
-one of the target implementation families above. Supporting a kind therefore
-does not imply that it can be combined arbitrarily with every other supported
-kind.
+The fixed-reconstruction and subdomain-tracking registrations use the first
+bounded component path. `SemanticResolver` turns a valid graph into stable-ID
+lookup tables, and `DealiiScalarLoweringPlanner` invokes stored residual,
+observation, loss, metric, constraint, and transformation handlers to build a
+typed `ScalarLoweringPlan`. The remaining registrations deliberately retain
+target-specific strategies. `DealiiCapabilityRegistryV1` is only a capability
+ledger used by diagnostics; it is not described as a lowerer. Supporting an
+individual kind therefore does not imply arbitrary recombination outside a
+registered plan or target strategy.
 
 ## Public semantic graph
 
 The compatibility aggregate `include/nmopt/semantic/v1/problem_spec.hpp`
-includes the focused deal.II-free headers `types.hpp`, `validation.hpp`, and
-`reference_specs.hpp`. The last contains
+includes the focused deal.II-free headers `types.hpp`, `validation.hpp`,
+`resolved_problem.hpp`, and `reference_specs.hpp`. The last contains
 `make_scalar_diffusion_reaction_problem()`, the homogeneous comparison graph.
 `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` adds the first
 declared physical-field transformation, while
@@ -296,7 +300,7 @@ to the same `ValidationReport`.
 | --- | --- | --- |
 | `structural` | `SemanticValidator` | incomplete nodes, missing labels or ports, incompatible pairings, orphan/duplicate term edges, and variable-space mismatches |
 | `analytical_policy` | `SemanticValidator` | missing selected fixed/controlled-Dirichlet or cellwise-bound policy |
-| `lowerability` | `DealiiCompiler` and its `DealiiLowererRegistryV1` | matrix-free execution, zero `FE_Q` degree, unregistered node kind, missing bound or fixed-lifting binding, incomplete controlled boundary |
+| `lowerability` | `DealiiCompiler`, `DealiiCapabilityRegistryV1`, and the selected lowering planner or target strategy | matrix-free execution, zero `FE_Q` degree, unregistered or unhandled node kind, missing bound or fixed-lifting binding, incomplete controlled boundary |
 | `formulation_capability` | `DealiiCompiler` | all-at-once formulation or a multi-block DTO request |
 
 `CompilationResultT<Backend>` returns the report and only contains a
@@ -304,15 +308,26 @@ to the same `ValidationReport`.
 as diagnostics; the compiler does not substitute another residual,
 observation, metric, constraint, or formulation.
 
+Caller-provided compilation data use the same predictable boundary. Missing
+or nonfinite scalar bindings, nonpositive diffusion/regularisation, missing
+Function provenance labels, invalid solve policies, empty or unsupported
+meshes, absent requested boundary ids, and nonfinite, reversed, or
+layout-mismatched bound data are `lowerability` diagnostics. `ContractError`
+is reserved for direct low-level constructor misuse and violated internal
+invariants after validated lowering.
+
 ## Registered deal.II realization
 
 The compatibility aggregate
 `include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp` exposes the
 focused compiler headers: `compiled_problem.hpp`, `dealii_types.hpp`,
-`dealii_capabilities.hpp`, and `dealii_compiler.hpp`. The compiler's present
-whole-target dispatcher selects private implementation families.
-`dealii_fixed_dirichlet.hpp` owns the separate v1 physical-state
-assembly used for fixed reconstruction and material-subdomain tracking. The
+`dealii_capabilities.hpp`, `dealii_scalar_plan.hpp`, and
+`dealii_compiler.hpp`. The compiler first resolves the semantic graph once.
+For the bounded assembled scalar path it then builds a typed contribution plan;
+otherwise it selects one of the registered private target strategies.
+`dealii_fixed_dirichlet.hpp` owns `ScalarComponentModel`, the v1 physical-state
+assembly that consumes the current fixed-reconstruction and
+material-subdomain-tracking plans. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, facewise control layout, boundary trace tracking, facewise metric,
 facewise box realization, and pure-Neumann mean-zero saddle realization. The
@@ -347,14 +362,31 @@ same lowerer and retains that metric's opaque realization witness. Metric
 display IDs remain descriptive provenance and cannot grant clipping support to
 another operator. Solvers have no v1 branches.
 
-Every successful compiled product also carries a `CompilationManifest`. It
-records semantic component identities, FE spaces, quadrature, the
-dual-coefficient representation, target-data rule, material observation
-realization, metric solve tolerances, constraint/lifting/nullspace policies,
-DTO provenance, declared transformations, and assumptions. The manifest is
-descriptive provenance; it does not create a second configuration channel.
-The compiler selects a typed internal constraint realization alongside the
-constructed service, then renders it into the current human-readable manifest.
+`DealiiCompilationSession<dim>` exclusively owns a static triangulation moved
+into it and supplies the lifetime token retained by both the compiled problem
+and every detached reduced service. This is the preferred long-lived API and
+prevents caller mesh mutation. The source-compatible triangulation-reference
+overload remains an explicitly borrowed, immutable-lifetime path recorded as
+such in the manifest.
+
+All iterative state and adjoint targets use the shared serial SPD solve
+service with independently selected typed policies. Its result reports
+convergence, iterations, requested tolerance, and achieved residual. The
+pure-Neumann mean-zero saddle solve remains a separate typed
+`SparseDirectUMFPACK` policy rather than being forced through the SPD path.
+
+Every successful compiled product also carries a versioned, structured
+`CompilationManifest`. Typed subrecords identify the formulation and
+execution, state/test-adjoint/decision/observation spaces, mesh provenance and
+lifetime policy, every data binding, separate state and adjoint solve policies,
+the metric realization and inverse policy, and the constraint realization
+coupled to the actual selected metric. Existing human-readable fields are a
+rendered compatibility view, not a configuration or test-parsing channel. The
+compiler selects a typed internal constraint realization alongside the
+constructed service, then renders it into that view.
+Component-planned products additionally record the exact handler provenance
+used to lower every contribution; tests assert those records rather than
+inferring lowering from display text.
 In particular, coefficient identification records
 `l2_cellwise_parameter`, while volume and facewise controls record their own
 distinct clipping realizations.
@@ -370,18 +402,22 @@ bounds and compares residual, objective, objective derivative, and reduced
 derivative. That second check is a compiler wiring and packaging regression,
 not an independent assembly oracle.
 
-Five backend-neutral semantic scenarios validate every registered factory,
+Seven backend-neutral semantic scenarios validate every registered factory,
 representative structural or policy failures, incomplete aggregates,
 whole-graph closure, two-sided pairing compatibility, and order-independent
-reference deltas. The eight deal.II target scenarios named in the
+reference deltas. They also verify order-independent resolution and the exact
+bounded scalar contribution plan, including rejection of a specialized graph.
+The eight deal.II target scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic
 and compiler checks match diagnostic category, component ID, and capability.
-A ninth deal.II contract scenario rejects display-ID spoofing for cellwise,
-facewise, and $H^{1}$ metric realizations; a tenth checks the serial backend's
-native-size conversion boundary. Exact assertions remain in the test sources
-rather than being duplicated as a second inventory here.
+Five further deal.II scenarios separately cover projection-realization
+compatibility, compiler diagnostics, owned-session lifetime, serial SPD solve
+reporting, and the backend's native-size conversion boundary. The
+backend-neutral contract suite separately exercises detached owned-service
+lifetime under sanitizers. Exact assertions remain in the test sources rather
+than being duplicated as a second inventory here.
 
 ## Exclusions
 

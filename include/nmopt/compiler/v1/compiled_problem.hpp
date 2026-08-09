@@ -4,18 +4,108 @@
 #include "nmopt/semantic/v1/validation.hpp"
 
 #include <memory>
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace nmopt::compiler::v1
 {
+  enum class MeshLifetimePolicy
+  {
+    borrowed_immutable,
+    owned_session
+  };
+
+  enum class ExecutionRealisation
+  {
+    assembled
+  };
+
+  enum class LinearSolveAlgorithm
+  {
+    serial_cg,
+    serial_sparse_direct_umfpack
+  };
+
+  struct CompiledSpaceRecord
+  {
+    std::string             semantic_id;
+    semantic::v1::SpaceRole role = semantic::v1::SpaceRole::unspecified;
+    std::string             runtime_role;
+    std::string             region_id;
+    std::string             finite_element;
+    std::size_t             dimension = 0;
+  };
+
+  struct CompiledMeshRecord
+  {
+    unsigned int       dimension = 0;
+    std::size_t        active_cells = 0;
+    std::string        provenance;
+    MeshLifetimePolicy lifetime = MeshLifetimePolicy::borrowed_immutable;
+  };
+
+  struct CompiledBindingRecord
+  {
+    std::string            semantic_id;
+    semantic::v1::DataRole role = semantic::v1::DataRole::unspecified;
+    std::string            representation;
+    std::string            provenance;
+  };
+
+  struct CompiledSolvePolicyRecord
+  {
+    LinearSolveAlgorithm algorithm = LinearSolveAlgorithm::serial_cg;
+    std::string          preconditioner;
+    unsigned int         maximum_iterations = 0;
+    double               relative_tolerance = 0.0;
+    double               absolute_tolerance = 0.0;
+    std::string          nullspace_policy;
+  };
+
+  struct CompiledFormulationRecord
+  {
+    std::string                   semantic_id;
+    semantic::v1::FormulationKind kind =
+      semantic::v1::FormulationKind::unspecified;
+    ExecutionRealisation execution = ExecutionRealisation::assembled;
+    std::string          dual_representation;
+  };
+
+  struct CompiledMetricRecord
+  {
+    std::string semantic_id;
+    std::string realisation_id;
+    std::string operator_description;
+    CompiledSolvePolicyRecord solve_policy;
+  };
+
+  struct CompiledConstraintRecord
+  {
+    bool        present = false;
+    std::string semantic_id;
+    std::string realisation_id;
+    std::string projection_metric_id;
+  };
+
   // This is descriptive provenance, not a second executable configuration.
   // It records the selected compilation choices that affect the discrete
   // model, so a later DTO/OTD or assembled/matrix-free result cannot be
   // mistaken for the same computation.
   struct CompilationManifest
   {
+    unsigned int                         schema_version = 1;
+    CompiledFormulationRecord            formulation_record;
+    CompiledMeshRecord                   mesh_record;
+    std::vector<CompiledSpaceRecord>      spaces;
+    std::vector<CompiledBindingRecord>    bindings;
+    CompiledSolvePolicyRecord             state_solve_record;
+    CompiledSolvePolicyRecord             adjoint_solve_record;
+    CompiledMetricRecord                  metric_record;
+    CompiledConstraintRecord              constraint_record;
+    // Human-readable rendering retained for logs and source compatibility.
+    // Tests and experiment tooling use the structured records above.
     std::string              semantic_problem_id;
     std::string              compiler_id;
     std::string              backend;

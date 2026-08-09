@@ -14,6 +14,7 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
 
+#include <algorithm>
 #include <cmath>
 #include <exception>
 #include <functional>
@@ -99,10 +100,49 @@ namespace
     const std::string &                       expected,
     const std::string &                       target)
   {
+    std::string structured_expected = "none";
+    if (expected.find("l2_cellwise_parameter") != std::string::npos)
+      structured_expected = "l2_cellwise_parameter";
+    else if (expected.find("l2_cellwise") != std::string::npos)
+      structured_expected = "l2_cellwise";
+    else if (expected.find("l2_facewise") != std::string::npos)
+      structured_expected = "l2_facewise";
     contract::require(
-      manifest.constraint_realisation == expected,
+      manifest.constraint_realisation == expected &&
+        manifest.constraint_record.realisation_id == structured_expected &&
+        manifest.constraint_record.present == (structured_expected != "none") &&
+        (structured_expected == "none" ||
+         manifest.constraint_record.projection_metric_id == structured_expected),
       target + " manifest constraint realization: expected " + expected +
         ", got " + manifest.constraint_realisation);
+    const auto has_runtime_role = [&manifest](const std::string &role) {
+      return std::any_of(
+        manifest.spaces.begin(),
+        manifest.spaces.end(),
+        [&role](const compiler::v1::CompiledSpaceRecord &space) {
+          return space.runtime_role == role;
+        });
+    };
+    contract::require(
+      manifest.schema_version == 1 &&
+        manifest.formulation_record.kind ==
+          semantic::v1::FormulationKind::reduced_dto &&
+        manifest.formulation_record.execution ==
+          compiler::v1::ExecutionRealisation::assembled &&
+        manifest.mesh_record.dimension > 0 &&
+        manifest.mesh_record.active_cells > 0 &&
+        !manifest.mesh_record.provenance.empty() &&
+        has_runtime_role("state") &&
+        has_runtime_role("test_and_adjoint") &&
+        (has_runtime_role("decision_control") ||
+         has_runtime_role("decision_parameter")) &&
+        has_runtime_role("observation") &&
+        !manifest.bindings.empty() &&
+        manifest.state_solve_record.maximum_iterations > 0 &&
+        manifest.adjoint_solve_record.maximum_iterations > 0 &&
+        !manifest.metric_record.semantic_id.empty() &&
+        !manifest.metric_record.realisation_id.empty(),
+      target + " structured manifest is incomplete");
   }
 
   void

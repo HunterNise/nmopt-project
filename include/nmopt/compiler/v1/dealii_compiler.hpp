@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <set>
@@ -59,7 +60,9 @@ namespace nmopt::compiler::v1
                           policy,
                           std::move(bounds),
                           std::move(facewise_bounds),
-                          {});
+                          {},
+                          "caller-owned triangulation",
+                          false);
     }
 
     template <int dim>
@@ -80,7 +83,9 @@ namespace nmopt::compiler::v1
                           policy,
                           std::move(bounds),
                           std::move(facewise_bounds),
-                          session);
+                          session,
+                          session->mesh_provenance(),
+                          true);
     }
 
   private:
@@ -93,7 +98,9 @@ namespace nmopt::compiler::v1
             const DealiiDiscretisationPolicy &  policy,
             std::optional<CellwiseBoxDataBindings> bounds,
             std::optional<FacewiseBoxDataBindings> facewise_bounds,
-            std::shared_ptr<const void>             lifetime_owner) const
+            std::shared_ptr<const void>             lifetime_owner,
+            std::string                             mesh_provenance,
+            const bool                              owns_mesh) const
     {
       using Backend = dealii_backend::SerialBackend;
       CompilationResultT<Backend> result;
@@ -557,6 +564,21 @@ namespace nmopt::compiler::v1
             }};
           executable = direct;
         }
+      const CompiledTargetKind target_kind = uses_mean_zero_gauge
+                                               ? CompiledTargetKind::pure_neumann
+                                             : uses_neumann_boundary_control
+                                               ? CompiledTargetKind::neumann_boundary
+                                             : uses_dirichlet_control
+                                               ? CompiledTargetKind::dirichlet_control
+                                             : uses_coefficient_identification
+                                               ? CompiledTargetKind::coefficient_identification
+                                             : uses_h1_control_regularisation
+                                               ? (uses_h1_control_metric
+                                                    ? CompiledTargetKind::h1_control_h1_metric
+                                                    : CompiledTargetKind::h1_control_l2_metric)
+                                             : uses_assembled_v1_target
+                                               ? CompiledTargetKind::assembled_volume
+                                               : CompiledTargetKind::direct_volume;
       result.problem = std::make_shared<const CompiledProblemT<Backend>>(
         executable,
         metric,
@@ -565,16 +587,17 @@ namespace nmopt::compiler::v1
         make_manifest(specification,
                       policy,
                       constraint_realisation,
-                      uses_fixed_reconstruction,
-                      uses_dirichlet_control,
-                      uses_assembled_v1_target,
-                      uses_neumann_boundary_control,
-                      uses_mean_zero_gauge,
-                      uses_h1_control_regularisation,
-                      uses_h1_control_metric,
-                      uses_coefficient_identification,
+                      target_kind,
                       *tracking_region,
-                      control_boundary_region),
+                      control_boundary_region,
+                      data,
+                      bounds,
+                      facewise_bounds,
+                      triangulation,
+                      mesh_provenance,
+                      owns_mesh,
+                      *executable,
+                      *metric),
         std::move(lifetime_owner));
       return result;
     }
@@ -586,6 +609,18 @@ namespace nmopt::compiler::v1
       cellwise_l2,
       cellwise_parameter_l2,
       facewise_l2
+    };
+
+    enum class CompiledTargetKind
+    {
+      direct_volume,
+      assembled_volume,
+      neumann_boundary,
+      pure_neumann,
+      dirichlet_control,
+      h1_control_l2_metric,
+      h1_control_h1_metric,
+      coefficient_identification
     };
 
     static const semantic::v1::RegionSpec *
@@ -1794,22 +1829,323 @@ namespace nmopt::compiler::v1
       return {};
     }
 
+    static std::string
+    constraint_realisation_id(const ConstraintRealisation realisation)
+    {
+      switch (realisation)
+        {
+          case ConstraintRealisation::none:
+            return "none";
+          case ConstraintRealisation::cellwise_l2:
+            return "l2_cellwise";
+          case ConstraintRealisation::cellwise_parameter_l2:
+            return "l2_cellwise_parameter";
+          case ConstraintRealisation::facewise_l2:
+            return "l2_facewise";
+        }
+      contract::require(false, "Unknown compiled constraint realization");
+      return {};
+    }
+
+    static bool
+    uses_neumann_target(const CompiledTargetKind target)
+    {
+      return target == CompiledTargetKind::neumann_boundary ||
+             target == CompiledTargetKind::pure_neumann;
+    }
+
+    static bool
+    uses_h1_control_target(const CompiledTargetKind target)
+    {
+      return target == CompiledTargetKind::h1_control_l2_metric ||
+             target == CompiledTargetKind::h1_control_h1_metric;
+    }
+
+    static std::string
+    control_space_description(const CompiledTargetKind       target,
+                              const DealiiDiscretisationPolicy &policy)
+    {
+      switch (target)
+        {
+          case CompiledTargetKind::dirichlet_control:
+            return "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary";
+          case CompiledTargetKind::neumann_boundary:
+          case CompiledTargetKind::pure_neumann:
+            return "one facewise-constant coefficient per marked state boundary face";
+          case CompiledTargetKind::coefficient_identification:
+            return "cellwise-constant positive diffusion parameter FE_DGQ(0) on the state mesh";
+          case CompiledTargetKind::h1_control_l2_metric:
+          case CompiledTargetKind::h1_control_h1_metric:
+            return "continuous scalar FE_Q(" +
+                   std::to_string(policy.state_degree) + ") on the state mesh";
+          case CompiledTargetKind::direct_volume:
+          case CompiledTargetKind::assembled_volume:
+            return "FE_DGQ(0) on the state active-cell mesh";
+        }
+      contract::require(false, "Unknown compiled target kind");
+      return {};
+    }
+
+    static unsigned int
+    resolved_maximum_iterations(
+      const dealii_backend::SPDLinearSolvePolicy &policy,
+      const std::size_t                           dimension)
+    {
+      if (policy.maximum_iterations != 0)
+        return policy.maximum_iterations;
+      contract::require(
+        dimension <= std::numeric_limits<unsigned int>::max() / 10U,
+        "Compiled solve dimension exceeds the iteration-policy range");
+      return std::max(100U, 10U * static_cast<unsigned int>(dimension));
+    }
+
+    static CompiledSolvePolicyRecord
+    spd_solve_record(const dealii_backend::SPDLinearSolvePolicy &policy,
+                     const std::size_t                           dimension,
+                     std::string                                 nullspace_policy)
+    {
+      return {LinearSolveAlgorithm::serial_cg,
+              "identity",
+              resolved_maximum_iterations(policy, dimension),
+              policy.relative_tolerance,
+              policy.absolute_tolerance,
+              std::move(nullspace_policy)};
+    }
+
+    static std::size_t
+    compiled_space_dimension(
+      const semantic::v1::ProblemSpec &specification,
+      const semantic::v1::SpaceSpec &  space,
+      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable)
+    {
+      const auto state = find_variable(
+        specification, specification.formulation.state_variable_id);
+      const auto decision = find_variable(
+        specification, specification.formulation.control_variable_id);
+      if (state != nullptr && state->space_id == space.id)
+        return executable.variable_layout()->dimension(0);
+      if (decision != nullptr && decision->space_id == space.id)
+        return executable.variable_layout()->dimension(1);
+      if (!specification.equations.empty() &&
+          specification.equations.front().test_space_id == space.id)
+        return executable.test_layout()->dimension(0);
+      const auto observation = std::find_if(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [&space](const semantic::v1::ObservationSpec &candidate) {
+          return candidate.output_space_id == space.id;
+        });
+      if (observation != specification.observations.end())
+        return decision != nullptr &&
+                   observation->input_variable_id == decision->id
+                 ? executable.variable_layout()->dimension(1)
+                 : executable.variable_layout()->dimension(0);
+      return 0;
+    }
+
+    static std::string
+    compiled_space_runtime_role(const semantic::v1::SpaceRole role)
+    {
+      switch (role)
+        {
+          case semantic::v1::SpaceRole::state:
+            return "state";
+          case semantic::v1::SpaceRole::test:
+            return "test_and_adjoint";
+          case semantic::v1::SpaceRole::control:
+            return "decision_control";
+          case semantic::v1::SpaceRole::parameter:
+            return "decision_parameter";
+          case semantic::v1::SpaceRole::observation:
+            return "observation";
+          case semantic::v1::SpaceRole::data:
+            return "data";
+          case semantic::v1::SpaceRole::unspecified:
+            return "unspecified";
+        }
+      return "unspecified";
+    }
+
+    static std::string
+    compiled_space_finite_element(
+      const semantic::v1::SpaceSpec &   space,
+      const CompiledTargetKind          target,
+      const DealiiDiscretisationPolicy &policy)
+    {
+      switch (space.role)
+        {
+          case semantic::v1::SpaceRole::state:
+          case semantic::v1::SpaceRole::test:
+            return "scalar FE_Q(" + std::to_string(policy.state_degree) + ")";
+          case semantic::v1::SpaceRole::control:
+          case semantic::v1::SpaceRole::parameter:
+            return control_space_description(target, policy);
+          case semantic::v1::SpaceRole::observation:
+            return "lowered observation coefficients";
+          case semantic::v1::SpaceRole::data:
+            return "external binding";
+          case semantic::v1::SpaceRole::unspecified:
+            return "unspecified";
+        }
+      return "unspecified";
+    }
+
+    static std::string
+    bound_binding_description(
+      const std::optional<CellwiseBoxDataBindings> &bounds,
+      const std::optional<FacewiseBoxDataBindings> &facewise_bounds)
+    {
+      if (bounds)
+        return std::holds_alternative<double>(bounds->lower)
+                 ? "scalar bound"
+                 : "exact-layout cellwise coefficient vector";
+      if (facewise_bounds)
+        return std::holds_alternative<double>(facewise_bounds->lower)
+                 ? "scalar bound"
+                 : "exact-layout facewise coefficient vector";
+      return "unbound";
+    }
+
+    template <int dim>
     static CompilationManifest
-    make_manifest(const semantic::v1::ProblemSpec &  specification,
-                  const DealiiDiscretisationPolicy & policy,
-                  const ConstraintRealisation        constraint_realisation,
-                  const bool                         uses_fixed_reconstruction,
-                  const bool                         uses_dirichlet_control_lifting,
-                  const bool                         uses_assembled_v1_target,
-                  const bool                         uses_neumann_boundary_control,
-                  const bool                         uses_mean_zero_gauge,
-                  const bool                         uses_h1_control_regularisation,
-                  const bool                         uses_h1_control_metric,
-                  const bool                         uses_coefficient_identification,
-                  const semantic::v1::RegionSpec &   tracking_region,
-                  const semantic::v1::RegionSpec *   control_boundary_region)
+    make_manifest(
+      const semantic::v1::ProblemSpec &specification,
+      const DealiiDiscretisationPolicy &policy,
+      const ConstraintRealisation       constraint_realisation,
+      const CompiledTargetKind          target,
+      const semantic::v1::RegionSpec &  tracking_region,
+      const semantic::v1::RegionSpec *  control_boundary_region,
+      const DealiiDataBindings<dim> &    data,
+      const std::optional<CellwiseBoxDataBindings> &bounds,
+      const std::optional<FacewiseBoxDataBindings> &facewise_bounds,
+      const dealii::Triangulation<dim> & triangulation,
+      const std::string &                mesh_provenance,
+      const bool                         owns_mesh,
+      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
+      const dealii_backend::MassMetric & metric)
     {
       CompilationManifest manifest;
+      const bool uses_fixed_reconstruction =
+        uses_fixed_dirichlet_reconstruction(specification);
+      const bool uses_dirichlet_control_lifting =
+        target == CompiledTargetKind::dirichlet_control;
+      const bool uses_assembled_v1_target =
+        target == CompiledTargetKind::assembled_volume;
+      const bool uses_neumann_boundary_control = uses_neumann_target(target);
+      const bool uses_mean_zero_gauge =
+        target == CompiledTargetKind::pure_neumann;
+      const bool uses_h1_control_regularisation = uses_h1_control_target(target);
+      const bool uses_h1_control_metric =
+        target == CompiledTargetKind::h1_control_h1_metric;
+      const bool uses_coefficient_identification =
+        target == CompiledTargetKind::coefficient_identification;
+
+      manifest.formulation_record = {
+        specification.formulation.id,
+        specification.formulation.kind,
+        ExecutionRealisation::assembled,
+        "tested dual coefficients with dot pairing"};
+      manifest.mesh_record = {
+        dim,
+        triangulation.n_active_cells(),
+        mesh_provenance,
+        owns_mesh ? MeshLifetimePolicy::owned_session
+                  : MeshLifetimePolicy::borrowed_immutable};
+      for (const auto &space : specification.spaces)
+        manifest.spaces.push_back(
+          {space.id,
+           space.role,
+           compiled_space_runtime_role(space.role),
+           space.region_id,
+           compiled_space_finite_element(space, target, policy),
+           compiled_space_dimension(specification, space, executable)});
+      for (const auto &binding : specification.data)
+        {
+          CompiledBindingRecord record;
+          record.semantic_id = binding.id;
+          record.role = binding.role;
+          switch (binding.role)
+            {
+              case semantic::v1::DataRole::forcing:
+                record.representation = "analytic Function at quadrature";
+                record.provenance = data.provenance.forcing;
+                break;
+              case semantic::v1::DataRole::desired_state:
+                record.representation = "analytic Function at quadrature";
+                record.provenance = data.provenance.desired_state;
+                break;
+              case semantic::v1::DataRole::fixed_dirichlet_lifting:
+                record.representation = "Function interpolated at boundary DoFs";
+                record.provenance = data.provenance.fixed_dirichlet_data;
+                break;
+              case semantic::v1::DataRole::diffusion:
+                record.representation = uses_coefficient_identification
+                                          ? "decision parameter"
+                                          : "scalar constant";
+                record.provenance = uses_coefficient_identification
+                                      ? specification.formulation.control_variable_id
+                                      : std::to_string(*data.diffusion);
+                break;
+              case semantic::v1::DataRole::reaction:
+                record.representation = "scalar constant";
+                record.provenance = std::to_string(data.reaction);
+                break;
+              case semantic::v1::DataRole::regularisation_weight:
+                record.representation = "scalar constant";
+                record.provenance = std::to_string(data.regularisation_weight);
+                break;
+              case semantic::v1::DataRole::lower_bound:
+              case semantic::v1::DataRole::upper_bound:
+                record.representation =
+                  bound_binding_description(bounds, facewise_bounds);
+                record.provenance = "caller-supplied compiled bound data";
+                break;
+              case semantic::v1::DataRole::unspecified:
+                record.representation = "unspecified";
+                record.provenance = "unspecified";
+                break;
+            }
+          manifest.bindings.push_back(std::move(record));
+        }
+
+      const std::size_t state_dimension =
+        executable.test_layout()->dimension(0);
+      if (uses_mean_zero_gauge)
+        {
+          const CompiledSolvePolicyRecord direct_record{
+            LinearSolveAlgorithm::serial_sparse_direct_umfpack,
+            "not applicable",
+            1,
+            0.0,
+            0.0,
+            "one mean-zero Lagrange multiplier"};
+          manifest.state_solve_record = direct_record;
+          manifest.adjoint_solve_record = direct_record;
+        }
+      else
+        {
+          manifest.state_solve_record = spd_solve_record(
+            policy.state_solve, state_dimension, "fixed Dirichlet");
+          manifest.adjoint_solve_record = spd_solve_record(
+            policy.adjoint_solve, state_dimension, "fixed Dirichlet");
+        }
+      manifest.metric_record = {
+        specification.formulation.metric_id,
+        metric.id(),
+        uses_h1_control_metric ? "mass plus stiffness Riesz map"
+                               : "mass Riesz map",
+        {LinearSolveAlgorithm::serial_cg,
+         "identity",
+         policy.control_metric_solve.maximum_iterations,
+         policy.control_metric_solve.relative_tolerance,
+         policy.control_metric_solve.absolute_tolerance,
+         "not applicable"}};
+      manifest.constraint_record = {
+        constraint_realisation != ConstraintRealisation::none,
+        specification.formulation.constraint_id,
+        constraint_realisation_id(constraint_realisation),
+        constraint_realisation == ConstraintRealisation::none ? "none"
+                                                               : metric.id()};
       manifest.semantic_problem_id = specification.id;
       manifest.compiler_id =
         "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
@@ -1817,17 +2153,7 @@ namespace nmopt::compiler::v1
       manifest.execution = "assembled";
       manifest.state_space = "scalar FE_Q(" +
                              std::to_string(policy.state_degree) + ")";
-      manifest.control_space = uses_dirichlet_control_lifting
-                                 ? "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary"
-                                 : uses_neumann_boundary_control
-                                 ? "one facewise-constant coefficient per marked state boundary face"
-                                 : uses_coefficient_identification
-                                     ? "cellwise-constant positive diffusion parameter FE_DGQ(0) on the state mesh"
-                                 : uses_h1_control_regularisation
-                                     ? "continuous scalar FE_Q(" +
-                                         std::to_string(policy.state_degree) +
-                                         ") on the state mesh"
-                                 : "FE_DGQ(0) on the state active-cell mesh";
+      manifest.control_space = control_space_description(target, policy);
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
       manifest.dual_representation = "tested dual coefficients with dot pairing";

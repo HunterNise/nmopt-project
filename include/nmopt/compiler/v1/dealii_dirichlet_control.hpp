@@ -26,7 +26,9 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -61,13 +63,17 @@ namespace nmopt::compiler::v1::detail
       const double                         reaction,
       const double                         regularisation_weight,
       const unsigned int                   state_degree,
-      std::set<dealii::types::boundary_id> controlled_boundary_ids)
+      std::set<dealii::types::boundary_id> controlled_boundary_ids,
+      std::set<dealii::types::boundary_id> fixed_boundary_ids = {},
+      std::optional<std::reference_wrapper<const dealii::Function<dim>>>
+        fixed_dirichlet_data = std::nullopt)
       : state_fe_(state_degree)
       , state_dof_handler_(triangulation)
       , diffusion_(diffusion)
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
       , controlled_boundary_ids_(std::move(controlled_boundary_ids))
+      , fixed_boundary_ids_(std::move(fixed_boundary_ids))
     {
       contract::require(diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
@@ -79,10 +85,13 @@ namespace nmopt::compiler::v1::detail
                         "State FE degree must be at least one");
       contract::require(!controlled_boundary_ids_.empty(),
                         "The Dirichlet-control target needs a controlled boundary");
+      contract::require(
+        fixed_boundary_ids_.empty() == !fixed_dirichlet_data.has_value(),
+        "Partial Dirichlet control must bind fixed data exactly when it declares a fixed boundary");
 
       state_dof_handler_.distribute_dofs(state_fe_);
       build_control_dof_map();
-      build_constraints();
+      build_constraints(fixed_dirichlet_data);
       build_reconstruction();
       initialise_storage();
       assemble_physical_operators(forcing, desired_state);
@@ -284,43 +293,90 @@ namespace nmopt::compiler::v1::detail
     void
     build_control_dof_map()
     {
-      const auto boundary_dofs = dealii::DoFTools::extract_boundary_dofs(
+      const auto controlled_boundary_dofs = dealii::DoFTools::extract_boundary_dofs(
         state_dof_handler_, dealii::ComponentMask(), controlled_boundary_ids_);
-      contract::require(!boundary_dofs.is_empty(),
+      contract::require(!controlled_boundary_dofs.is_empty(),
                         "The controlled Dirichlet boundary has no state DoFs");
+      fixed_state_dofs_.assign(state_dof_handler_.n_dofs(), false);
+      // deal.II interprets an empty boundary-id set as "all boundary ids".
+      // The complete-control target deliberately has no fixed boundary, so
+      // do not query fixed DoFs until the partial target actually declares
+      // such a region.
+      if (!fixed_boundary_ids_.empty())
+        {
+          const auto fixed_boundary_dofs =
+            dealii::DoFTools::extract_boundary_dofs(
+              state_dof_handler_, dealii::ComponentMask(), fixed_boundary_ids_);
+          for (auto iterator = fixed_boundary_dofs.begin();
+               iterator != fixed_boundary_dofs.end(); ++iterator)
+            fixed_state_dofs_[*iterator] = true;
+        }
       control_index_for_state_dof_.assign(state_dof_handler_.n_dofs(),
                                            invalid_control_index);
-      for (auto iterator = boundary_dofs.begin(); iterator != boundary_dofs.end();
-           ++iterator)
+      for (auto iterator = controlled_boundary_dofs.begin();
+           iterator != controlled_boundary_dofs.end(); ++iterator)
         {
           const auto state_dof = *iterator;
+          // The selected P5.4 interface policy gives fixed data precedence
+          // at every fixed/controlled corner or interface DoF. The control
+          // is therefore the relative-interior nodal trace and its endpoint
+          // values are supplied by ell_0,h rather than implicit averaging.
+          if (fixed_state_dofs_[state_dof])
+            continue;
           control_index_for_state_dof_[state_dof] =
             controlled_state_dofs_.size();
           controlled_state_dofs_.push_back(state_dof);
         }
+      contract::require(!controlled_state_dofs_.empty(),
+                        "The selected controlled boundary has no independent trace DoFs after the fixed-interface policy");
     }
 
     void
-    build_constraints()
+    build_constraints(
+      const std::optional<std::reference_wrapper<const dealii::Function<dim>>>
+        fixed_dirichlet_data)
     {
       homogeneous_constraints_.clear();
       dealii::DoFTools::make_hanging_node_constraints(state_dof_handler_,
                                                        homogeneous_constraints_);
-      dealii::Functions::ZeroFunction<dim> zero;
-      for (const auto boundary_id : controlled_boundary_ids_)
-        dealii::VectorTools::interpolate_boundary_values(
-          state_dof_handler_, boundary_id, zero, homogeneous_constraints_);
+      for (const auto state_dof : controlled_state_dofs_)
+        homogeneous_constraints_.add_line(state_dof);
+      for (dealii::types::global_dof_index state_dof = 0;
+           state_dof < fixed_state_dofs_.size(); ++state_dof)
+        if (fixed_state_dofs_[state_dof])
+          homogeneous_constraints_.add_line(state_dof);
       homogeneous_constraints_.close();
 
       // The selected initial policy excludes hanging/periodic/interface
       // relations. A controlled trace DoF must be one exact constrained row,
       // so L_D,h has no implicit averaging or corner choice.
       contract::require(
-        homogeneous_constraints_.n_constraints() == controlled_state_dofs_.size(),
-        "The Dirichlet-control lifting supports only hanging-free complete-boundary nodal traces");
+        homogeneous_constraints_.n_constraints() ==
+          controlled_state_dofs_.size() +
+            std::count(fixed_state_dofs_.begin(), fixed_state_dofs_.end(), true),
+        "The Dirichlet-control lifting supports only hanging-free nodal traces");
       for (const auto state_dof : controlled_state_dofs_)
         contract::require(homogeneous_constraints_.is_constrained(state_dof),
-                          "Each controlled trace DoF must be constrained");
+                        "Each controlled trace DoF must be constrained");
+
+      fixed_lifting_.reinit(state_dof_handler_.n_dofs());
+      if (fixed_dirichlet_data)
+        {
+          std::map<dealii::types::global_dof_index, double> fixed_values;
+          for (const auto boundary_id : fixed_boundary_ids_)
+            dealii::VectorTools::interpolate_boundary_values(
+              state_dof_handler_, boundary_id, fixed_dirichlet_data->get(),
+              fixed_values);
+          for (dealii::types::global_dof_index state_dof = 0;
+               state_dof < fixed_state_dofs_.size(); ++state_dof)
+            if (fixed_state_dofs_[state_dof])
+              {
+                const auto value = fixed_values.find(state_dof);
+                contract::require(value != fixed_values.end(),
+                                  "Every fixed Dirichlet trace DoF needs interpolated lifting data");
+                fixed_lifting_[state_dof] = value->second;
+              }
+        }
     }
 
     void
@@ -537,7 +593,11 @@ namespace nmopt::compiler::v1::detail
     {
       build_reduced_state_matrix();
       build_reduced_lifting_coupling();
-      reduced_forcing_load_ = pullback_state(forcing_load_);
+      Vector fixed_lifting_contribution(state_dof_handler_.n_dofs());
+      physical_system_matrix_.vmult(fixed_lifting_contribution, fixed_lifting_);
+      fixed_lifting_contribution *= -1.0;
+      fixed_lifting_contribution += forcing_load_;
+      reduced_forcing_load_ = pullback_state(fixed_lifting_contribution);
     }
 
     void
@@ -610,6 +670,7 @@ namespace nmopt::compiler::v1::detail
     {
       Vector physical = embed_state(independent_state);
       physical.add(1.0, lift_control(control));
+      physical.add(1.0, fixed_lifting_);
       return physical;
     }
 
@@ -687,9 +748,12 @@ namespace nmopt::compiler::v1::detail
     const double reaction_;
     const double regularisation_weight_;
     const std::set<dealii::types::boundary_id> controlled_boundary_ids_;
+    const std::set<dealii::types::boundary_id> fixed_boundary_ids_;
+    std::vector<bool> fixed_state_dofs_;
 
     dealii::SparsityPattern reconstruction_sparsity_;
     dealii::SparseMatrix<double> reconstruction_;
+    Vector fixed_lifting_;
     dealii::SparsityPattern physical_sparsity_;
     dealii::SparseMatrix<double> physical_system_matrix_;
     dealii::SparseMatrix<double> physical_state_mass_;

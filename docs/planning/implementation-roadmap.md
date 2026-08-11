@@ -689,6 +689,16 @@ $\beta M_{\Gamma,h}u_{h}-q_{h}$. This fixes the sign from source equations
 5.18. `DirichletControlLiftingModel::discrete_conormal_covector()` and
 `nmopt.dealii.l2_dirichlet_transposition` provide the independent contract.
 
+**Selected remaining Section 5.11 policy:** the Section 5.11.1
+$H^{1/2}(\Gamma)$ metric is the minimum-volume-$H^{1}$ extension norm on
+$U_{h}=\mathrm{tr}_{\Gamma}V_{h}$, realized by the Schur complement of
+$M_{\Omega,h}+K_{\Omega,h}$. Register both source options: fractional control
+loss with $L^{2}$ state tracking, and boundary $L^{2}$ control loss with
+$H^{1}$ state tracking. Section 5.11.3 uses
+$M_{\Gamma,h}+K_{\Gamma,h}$ for its tangential $H^{1}(\Gamma)$ loss and
+metric. Loss and search metric remain distinct components in every case, and
+none of these registrations has a trace box.
+
 ### P5.5 — Add regularised state-observation constraints with KKT provenance
 
 **Motivation:** C5.12 constrains the state, so it cannot be represented by the

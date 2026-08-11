@@ -434,6 +434,66 @@ pullback and verify the stationarity sign. A general transposition lowerer
 remains a separate requirement for nonconforming $L^{2}$ boundary controls,
 normal-flux observations, and Dirac-source adjoints.
 
+#### 8.2.2 $H^{1/2}(\Gamma)$ Dirichlet-control metric
+
+The selected discrete realization for Section 5.11.1 uses the same
+complete-boundary conforming trace space
+$U_{h}=\mathrm{tr}_{\Gamma}V_{h}$. Let
+
+```math
+a_{H^{1}}(w_{h},v_{h})
+=(w_{h},v_{h})_{\Omega}+(\nabla w_{h},\nabla v_{h})_{\Omega}
+```
+
+on $V_{h}$, and let $E_{h}u_{h}$ be the unique minimum-$a_{H^{1}}$ extension
+with trace $u_{h}$. The selected fractional trace Riesz map is
+
+```math
+\langle G_{1/2,h}u_{h},v_{h}\rangle
+=a_{H^{1}}(E_{h}u_{h},E_{h}v_{h}).
+```
+
+If the volume $H^{1}$ matrix is partitioned into interior and boundary
+coordinates, this is the Schur complement
+
+```math
+G_{1/2,h}=A_{BB}-A_{BI}A_{II}^{-1}A_{IB},
+\qquad A=M_{\Omega,h}+K_{\Omega,h}.
+```
+
+The positive volume mass term controls constants and makes both $A$ and the
+trace Schur complement positive definite. Application uses one declared
+interior $A_{II}$ solve; inverse application uses the boundary block of one
+declared full-$A$ solve. This is the discrete quotient norm induced by
+$H^{1}(\Omega)$, not a boundary $L^{2}$ mass matrix and not an undeclared
+spectral approximation.
+
+Section 5.11.1 has two distinct registrations. Option 1 uses
+$G_{1/2,h}$ for both the $H^{1/2}$ control regularisation loss and the search
+metric, while keeping $L^{2}(\Omega)$ state tracking. Option 2 keeps the
+boundary $L^{2}$ regularisation loss, uses $H^{1}(\Omega)$ state tracking,
+and uses $G_{1/2,h}$ only as the search metric. The loss and metric remain
+separate semantic components even when they share an operator.
+
+#### 8.2.3 Tangential $H^{1}(\Gamma)$ Dirichlet control
+
+The selected Section 5.11.3 realization uses the complete-boundary trace
+space with the discrete Riesz map
+
+```math
+G_{1,h}=M_{\Gamma,h}+K_{\Gamma,h},
+\qquad
+(K_{\Gamma,h})_{ij}
+=\int_{\Gamma}\nabla_{\Gamma}\phi_{i}\mathbin\cdot
+ \nabla_{\Gamma}\phi_{j}\mathrm{d}\sigma.
+```
+
+Tangential gradients are obtained by projecting the ambient shape gradients
+onto each boundary face. The positive boundary mass term fixes the constant
+mode on the closed boundary. The same assembled action realizes the selected
+$H^{1}(\Gamma)$ control loss and search metric, but they retain separate
+semantic identities. No trace box is registered for either Sobolev metric.
+
 ### 8.3 Natural boundary data and controls
 
 For the first boundary-control extension, $`\Gamma_{c}`$ is a marked collection

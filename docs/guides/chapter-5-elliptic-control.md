@@ -470,6 +470,31 @@ The source's variants are:
    fractional norm and the very-weak state, but requires a declared surface
    gradient and its metric.
 
+The first discrete realization of item 1 uses the quotient trace norm induced
+by the volume $H^{1}$ energy. For $U_{h}=\mathrm{tr}_{\Gamma}V_{h}$, let
+$E_{h}u_{h}$ minimize the discrete $H^{1}(\Omega)$ norm among functions with
+trace $u_{h}$ and set
+
+```math
+\langle G_{1/2,h}u_{h},v_{h}\rangle
+=(E_{h}u_{h},E_{h}v_{h})_{H^{1}(\Omega)}.
+```
+
+Thus $G_{1/2,h}$ is the Schur complement of
+$M_{\Omega,h}+K_{\Omega,h}$ with respect to the interior coordinates. This
+choice supplies the fractional Riesz map required by Section 5.11.1 without
+introducing a separate boundary eigendecomposition. Its two source options
+remain distinct: the first uses the fractional action for both control loss
+and metric with $L^{2}$ state tracking; the second uses an $L^{2}$ control
+loss, $H^{1}$ state tracking, and the fractional action only for direction
+formation.
+
+The first discrete realization of item 3 uses
+$G_{1,h}=M_{\Gamma,h}+K_{\Gamma,h}$, with $K_{\Gamma,h}$ assembled from
+tangential shape gradients. It supplies both the selected tangential
+$H^{1}(\Gamma)$ control loss and search metric while preserving their
+separate semantic identities.
+
 The exact registered Dirichlet-control boundary is recorded in the
 [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities).
 P5.4 covers partial/mixed boundaries, nonzero fixed data, and the fractional

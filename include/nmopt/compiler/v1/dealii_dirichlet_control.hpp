@@ -4,6 +4,7 @@
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
+#include "nmopt/dealii/trace_hhalf_metric.hpp"
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/quadrature_lib.h>
@@ -36,6 +37,12 @@
 
 namespace nmopt::compiler::v1::detail
 {
+  enum class DirichletControlNormKind
+  {
+    l2,
+    hhalf
+  };
+
   // This v1-only target keeps the independent state coordinates y_hat and
   // makes the control-to-trace map explicit:
   //
@@ -66,12 +73,16 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id> controlled_boundary_ids,
       std::set<dealii::types::boundary_id> fixed_boundary_ids = {},
       std::optional<std::reference_wrapper<const dealii::Function<dim>>>
-        fixed_dirichlet_data = std::nullopt)
+        fixed_dirichlet_data = std::nullopt,
+      const DirichletControlNormKind control_norm =
+        DirichletControlNormKind::l2,
+      const dealii_backend::MetricSolveParameters trace_metric_solve = {})
       : state_fe_(state_degree)
       , state_dof_handler_(triangulation)
       , diffusion_(diffusion)
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
+      , control_norm_(control_norm)
       , controlled_boundary_ids_(std::move(controlled_boundary_ids))
       , fixed_boundary_ids_(std::move(fixed_boundary_ids))
     {
@@ -95,6 +106,7 @@ namespace nmopt::compiler::v1::detail
       build_reconstruction();
       initialise_storage();
       assemble_physical_operators(forcing, desired_state);
+      initialise_control_norm(trace_metric_solve);
       assemble_reduced_solve_operators();
     }
 
@@ -130,6 +142,15 @@ namespace nmopt::compiler::v1::detail
                                         control_layout_,
                                         control_boundary_mass_,
                                         solve_parameters);
+    }
+
+    const dealii_backend::TraceHhalfMetric &
+    control_hhalf_metric() const
+    {
+      contract::require(
+        static_cast<bool>(control_hhalf_operator_),
+        "The Dirichlet-control model was not configured with an H1/2 trace norm");
+      return *control_hhalf_operator_;
     }
 
     Vector
@@ -213,9 +234,8 @@ namespace nmopt::compiler::v1::detail
         0.5 * (physical_state * state_mass_times_state) -
         (desired_state_load_ * physical_state) + 0.5 * desired_state_norm_;
 
-      Vector control_mass_times_control(controlled_state_dofs_.size());
-      control_boundary_mass_->vmult(control_mass_times_control,
-                                     variables.block(1));
+      const Vector control_mass_times_control =
+        apply_control_norm(variables.block(1));
       const double control_value = 0.5 * regularisation_weight_ *
                                    (variables.block(1) *
                                     control_mass_times_control);
@@ -233,8 +253,7 @@ namespace nmopt::compiler::v1::detail
       physical_covector.add(-1.0, desired_state_load_);
 
       Vector control = pullback_control(physical_covector);
-      Vector regularisation(controlled_state_dofs_.size());
-      control_boundary_mass_->vmult(regularisation, variables.block(1));
+      const Vector regularisation = apply_control_norm(variables.block(1));
       control.add(regularisation_weight_, regularisation);
       return Covector(variable_layout_,
                       {pullback_state(physical_covector), std::move(control)});
@@ -462,6 +481,8 @@ namespace nmopt::compiler::v1::detail
       physical_sparsity_.copy_from(physical_dsp);
       physical_system_matrix_.reinit(physical_sparsity_);
       physical_state_mass_.reinit(physical_sparsity_);
+      volume_h1_matrix_ =
+        std::make_shared<dealii::SparseMatrix<double>>(physical_sparsity_);
 
       dealii::DynamicSparsityPattern boundary_mass_dsp(control_size, control_size);
       std::vector<dealii::types::global_dof_index> state_indices(
@@ -517,6 +538,8 @@ namespace nmopt::compiler::v1::detail
                                               state_fe_.dofs_per_cell);
       dealii::FullMatrix<double> local_state_mass(state_fe_.dofs_per_cell,
                                                   state_fe_.dofs_per_cell);
+      dealii::FullMatrix<double> local_volume_h1(state_fe_.dofs_per_cell,
+                                                 state_fe_.dofs_per_cell);
       dealii::FullMatrix<double> local_boundary_mass(state_fe_.dofs_per_cell,
                                                      state_fe_.dofs_per_cell);
       dealii::Vector<double> local_forcing(state_fe_.dofs_per_cell);
@@ -531,6 +554,7 @@ namespace nmopt::compiler::v1::detail
           state_values.reinit(cell);
           local_system = 0.0;
           local_state_mass = 0.0;
+          local_volume_h1 = 0.0;
           local_forcing = 0.0;
           local_desired_state = 0.0;
           for (unsigned int q = 0; q < quadrature.size(); ++q)
@@ -555,6 +579,11 @@ namespace nmopt::compiler::v1::detail
                         weight;
                       local_state_mass(i, j) +=
                         phi_i * state_values.shape_value(j, q) * weight;
+                      local_volume_h1(i, j) +=
+                        ((state_values.shape_grad(i, q) *
+                          state_values.shape_grad(j, q)) +
+                         phi_i * state_values.shape_value(j, q)) *
+                        weight;
                     }
                 }
             }
@@ -605,9 +634,40 @@ namespace nmopt::compiler::v1::detail
                   physical_state_mass_.add(state_indices[i],
                                            state_indices[j],
                                            local_state_mass(i, j));
+                  volume_h1_matrix_->add(state_indices[i],
+                                         state_indices[j],
+                                         local_volume_h1(i, j));
                 }
             }
         }
+    }
+
+    void
+    initialise_control_norm(
+      const dealii_backend::MetricSolveParameters &trace_metric_solve)
+    {
+      if (control_norm_ != DirichletControlNormKind::hhalf)
+        return;
+      std::vector<std::size_t> trace_dofs(controlled_state_dofs_.size());
+      for (std::size_t index = 0; index < controlled_state_dofs_.size(); ++index)
+        trace_dofs[index] = controlled_state_dofs_[index];
+      control_hhalf_operator_ =
+        std::make_shared<const dealii_backend::TraceHhalfMetric>(
+          "hhalf_dirichlet_trace",
+          control_layout_,
+          volume_h1_matrix_,
+          std::move(trace_dofs),
+          trace_metric_solve);
+    }
+
+    Vector
+    apply_control_norm(const Vector &control) const
+    {
+      if (control_norm_ == DirichletControlNormKind::hhalf)
+        return control_hhalf_metric().apply_vector(control);
+      Vector action(controlled_state_dofs_.size());
+      control_boundary_mass_->vmult(action, control);
+      return action;
     }
 
     void
@@ -769,6 +829,7 @@ namespace nmopt::compiler::v1::detail
     const double diffusion_;
     const double reaction_;
     const double regularisation_weight_;
+    const DirichletControlNormKind control_norm_;
     const std::set<dealii::types::boundary_id> controlled_boundary_ids_;
     const std::set<dealii::types::boundary_id> fixed_boundary_ids_;
     std::vector<bool> fixed_state_dofs_;
@@ -779,8 +840,11 @@ namespace nmopt::compiler::v1::detail
     dealii::SparsityPattern physical_sparsity_;
     dealii::SparseMatrix<double> physical_system_matrix_;
     dealii::SparseMatrix<double> physical_state_mass_;
+    std::shared_ptr<dealii::SparseMatrix<double>> volume_h1_matrix_;
     dealii::SparsityPattern control_boundary_mass_sparsity_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_boundary_mass_;
+    std::shared_ptr<const dealii_backend::TraceHhalfMetric>
+      control_hhalf_operator_;
     Vector forcing_load_;
     Vector desired_state_load_;
     double desired_state_norm_ = 0.0;

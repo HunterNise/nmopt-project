@@ -1,8 +1,12 @@
 #include "nmopt/dealii/trace_hhalf_metric.hpp"
+#include "nmopt/compiler/v1/dealii_dirichlet_control.hpp"
 
 #include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
+#include <deal.II/base/function_lib.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/tria.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
@@ -131,6 +135,84 @@ namespace
       "H1/2 trace DoF map contains a duplicate",
       "duplicate H1/2 trace map");
   }
+
+  void
+  run_dirichlet_hhalf_model_contract()
+  {
+    constexpr int dim = 2;
+    constexpr double regularisation_weight = 0.3;
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    const dealii::Functions::ZeroFunction<dim> forcing;
+    const dealii::Functions::ZeroFunction<dim> desired_state;
+    nmopt::dealii_backend::MetricSolveParameters solve_parameters;
+    solve_parameters.relative_tolerance = 1e-13;
+    solve_parameters.absolute_tolerance = 1e-15;
+
+    using Model =
+      nmopt::compiler::v1::detail::DirichletControlLiftingModel<dim>;
+    const Model hhalf_model(
+      triangulation,
+      forcing,
+      desired_state,
+      1.0,
+      0.0,
+      regularisation_weight,
+      1,
+      {0},
+      {},
+      std::nullopt,
+      nmopt::compiler::v1::detail::DirichletControlNormKind::hhalf,
+      solve_parameters);
+    const Model l2_model(triangulation,
+                         forcing,
+                         desired_state,
+                         1.0,
+                         0.0,
+                         regularisation_weight,
+                         1,
+                         {0});
+
+    dealii::Vector<double> state(hhalf_model.variable_layout()->dimension(0));
+    dealii::Vector<double> control(
+      hhalf_model.variable_layout()->dimension(1));
+    for (std::size_t index = 0; index < control.size(); ++index)
+      control[index] = 0.05 * static_cast<double>(index + 1);
+    const Primal point(hhalf_model.variable_layout(), {state, control});
+    const Primal control_primal(hhalf_model.control_layout(), {control});
+
+    const auto &hhalf_metric = hhalf_model.control_hhalf_metric();
+    const Covector hhalf_action = hhalf_metric.apply(control_primal);
+    require_primal_close(hhalf_metric.inverse_apply(hhalf_action),
+                         control_primal,
+                         1e-11,
+                         "assembled Dirichlet H1/2 metric round trip");
+    const Covector l2_action =
+      l2_model.control_l2_metric(solve_parameters).apply(control_primal);
+
+    const Covector hhalf_derivative = hhalf_model.objective_derivative(point);
+    const Covector l2_derivative = l2_model.objective_derivative(point);
+    dealii::Vector<double> observed_difference = hhalf_derivative.block(1);
+    observed_difference.add(-1.0, l2_derivative.block(1));
+    dealii::Vector<double> expected_difference = hhalf_action.block(0);
+    expected_difference.add(-1.0, l2_action.block(0));
+    expected_difference *= regularisation_weight;
+    observed_difference.add(-1.0, expected_difference);
+    require_close(observed_difference.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "Dirichlet objective H1/2 regularisation action");
+
+    const double expected_objective_difference =
+      0.5 * regularisation_weight *
+      (nmopt::contract::pair(hhalf_action, control_primal) -
+       nmopt::contract::pair(l2_action, control_primal));
+    require_close(hhalf_model.objective(point) - l2_model.objective(point),
+                  expected_objective_difference,
+                  1e-12,
+                  "Dirichlet objective H1/2 regularisation value");
+  }
 } // namespace
 
 int
@@ -143,7 +225,12 @@ main(const int argc, char **argv)
          "nmopt.dealii.trace_hhalf_metric",
          {"dealii", "contract", "metric"},
          30,
-         run_trace_hhalf_metric_contract}};
+         run_trace_hhalf_metric_contract},
+        {"dirichlet_hhalf_model",
+         "nmopt.dealii.dirichlet_hhalf_model",
+         {"dealii", "compiler", "metric"},
+         60,
+         run_dirichlet_hhalf_model_contract}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)
@@ -158,3 +245,6 @@ main(const int argc, char **argv)
       return 1;
     }
 }
+#include <deal.II/base/function_lib.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/tria.h>

@@ -16,6 +16,7 @@ namespace nmopt::compiler::v1
       switch (kind)
         {
           case semantic::v1::ResidualTermKind::unspecified:
+          case semantic::v1::ResidualTermKind::laplacian:
             return false;
           case semantic::v1::ResidualTermKind::diffusion_reaction:
           case semantic::v1::ResidualTermKind::tensor_diffusion:
@@ -58,6 +59,7 @@ namespace nmopt::compiler::v1
       switch (kind)
         {
           case semantic::v1::LossKind::unspecified:
+          case semantic::v1::LossKind::quadratic_hhalf_control_regularisation:
             return false;
           case semantic::v1::LossKind::quadratic_tracking:
           case semantic::v1::LossKind::quadratic_control_regularisation:

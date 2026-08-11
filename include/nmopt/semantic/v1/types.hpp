@@ -20,6 +20,7 @@ namespace nmopt::semantic::v1
     unspecified = -1,
     h1,
     h2,
+    hhalf,
     l2
   };
 
@@ -80,6 +81,7 @@ namespace nmopt::semantic::v1
     advective_transport,
     reaction,
     parameter_diffusion_reaction,
+    laplacian,
     transposition_laplacian,
     dirichlet_transposition_control,
     volume_source,
@@ -104,6 +106,7 @@ namespace nmopt::semantic::v1
     unspecified = -1,
     quadratic_tracking,
     quadratic_control_regularisation,
+    quadratic_hhalf_control_regularisation,
     quadratic_h1_control_regularisation,
     quadratic_parameter_regularisation
   };
@@ -112,6 +115,7 @@ namespace nmopt::semantic::v1
   {
     unspecified = -1,
     l2,
+    hhalf,
     h1,
     hminus1
   };
@@ -148,7 +152,9 @@ namespace nmopt::semantic::v1
     transport_boundary_trace,
     transposition_formulation,
     domain_regularity,
-    conforming_trace_subspace
+    conforming_trace_subspace,
+    fractional_trace_realisation,
+    tangential_gradient_realisation
   };
 
   enum class RequirementStatus

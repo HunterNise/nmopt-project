@@ -133,7 +133,7 @@ namespace nmopt::semantic::v1
                             spaces,
                             pairings,
                             report);
-      validate_losses(specification, observations, pairings, data, report);
+      validate_losses(specification, observations, spaces, pairings, data, report);
       validate_metrics(specification, variables, pairings, report);
       validate_constraints(specification, variables, data, spaces, regions, report);
       validate_policy_regions(specification, regions, report);
@@ -849,6 +849,7 @@ namespace nmopt::semantic::v1
     static void
     validate_losses(const ProblemSpec &             specification,
                     const Index<ObservationSpec> &  observations,
+                    const Index<SpaceSpec> &        spaces,
                     const Index<PairingSpec> &      pairings,
                     const Index<DataSpec> &         data,
                     ValidationReport &               report)
@@ -875,6 +876,19 @@ namespace nmopt::semantic::v1
                        "loss_pairing",
                        "Reference the pairing for the loss observation output.");
           validate_loss_signature(loss, data, report);
+          if (loss.kind == LossKind::quadratic_hhalf_control_regularisation &&
+              observation != observations.end())
+            {
+              const auto output_space =
+                spaces.find(observation->second->output_space_id);
+              if (output_space == spaces.end() ||
+                  output_space->second->topology != SpaceTopology::hhalf)
+                report.add(
+                  DiagnosticCategory::structural,
+                  loss.id,
+                  "hhalf_control_regularisation_topology",
+                  "Declare the fractional control loss on an H1/2 boundary observation space.");
+            }
           if (loss.kind == LossKind::quadratic_tracking &&
               observation != observations.end())
             {
@@ -1086,6 +1100,12 @@ namespace nmopt::semantic::v1
                                       VariableRole::parameter) &&
                     has_role(term.data_ids, data, DataRole::reaction);
             break;
+          case ResidualTermKind::laplacian:
+            valid = term.variable_ids.size() == 1 && term.data_ids.empty() &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    term.region_id.empty();
+            break;
           case ResidualTermKind::transposition_laplacian:
             valid = term.variable_ids.size() == 1 && term.data_ids.empty() &&
                     has_variable_role(term.variable_ids, variables,
@@ -1149,6 +1169,8 @@ namespace nmopt::semantic::v1
         (loss.kind == LossKind::quadratic_tracking &&
          datum->second->role == DataRole::desired_state) ||
         (loss.kind == LossKind::quadratic_control_regularisation &&
+         datum->second->role == DataRole::regularisation_weight) ||
+        (loss.kind == LossKind::quadratic_hhalf_control_regularisation &&
          datum->second->role == DataRole::regularisation_weight) ||
         (loss.kind == LossKind::quadratic_h1_control_regularisation &&
          datum->second->role == DataRole::regularisation_weight) ||
@@ -1407,6 +1429,76 @@ namespace nmopt::semantic::v1
               "transposition_conormal_policy",
               "Select the outward discrete conormal as the lifting pullback of the adjoint residual.");
         }
+
+      for (const auto &metric : specification.metrics)
+        if (metric.kind == MetricKind::hhalf)
+          {
+            const auto variable = std::find_if(
+              specification.variables.begin(),
+              specification.variables.end(),
+              [&metric](const VariableSpec &candidate) {
+                return candidate.id == metric.variable_id;
+              });
+            const auto space = std::find_if(
+              specification.spaces.begin(),
+              specification.spaces.end(),
+              [&variable, &specification](const SpaceSpec &candidate) {
+                return variable != specification.variables.end() &&
+                       candidate.id == variable->space_id;
+              });
+            if (space == specification.spaces.end() ||
+                space->topology != SpaceTopology::hhalf)
+              report.add(
+                DiagnosticCategory::structural,
+                metric.id,
+                "hhalf_metric_search_space",
+                "Declare the selected fractional metric on an H1/2 boundary control space.");
+            if (selected_policy(metric.id,
+                                RequirementKind::fractional_trace_realisation) ==
+                specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "hhalf_metric_realisation_policy",
+                "Select a discrete spectral, extension, or auxiliary realization for the H1/2 Riesz map.");
+          }
+
+      for (const auto &metric : specification.metrics)
+        if (metric.kind == MetricKind::h1)
+          {
+            const auto variable = std::find_if(
+              specification.variables.begin(),
+              specification.variables.end(),
+              [&metric](const VariableSpec &candidate) {
+                return candidate.id == metric.variable_id;
+              });
+            const auto space = std::find_if(
+              specification.spaces.begin(),
+              specification.spaces.end(),
+              [&variable, &specification](const SpaceSpec &candidate) {
+                return variable != specification.variables.end() &&
+                       candidate.id == variable->space_id;
+              });
+            const auto region =
+              space == specification.spaces.end()
+                ? specification.regions.end()
+                : std::find_if(specification.regions.begin(),
+                               specification.regions.end(),
+                               [&space](const RegionSpec &candidate) {
+                                 return candidate.id == space->region_id;
+                               });
+            if (region != specification.regions.end() &&
+                region->kind == RegionKind::boundary &&
+                selected_policy(
+                  metric.id,
+                  RequirementKind::tangential_gradient_realisation) ==
+                  specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "boundary_h1_metric_tangential_policy",
+                "Select the boundary mass-plus-tangential-stiffness realization for the H1 trace Riesz map.");
+          }
 
       for (const auto &metric : specification.metrics)
         if (metric.kind == MetricKind::hminus1)

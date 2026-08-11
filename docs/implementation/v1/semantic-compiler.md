@@ -51,6 +51,7 @@ column names its focused CTest scenario backed by
 | `make_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Full-domain $H^{1}_{0}$ state observation with mass-plus-stiffness tracking and an unchanged control $L^{2}$ metric | `nmopt.dealii.h1_state_observation` |
 | `make_l2_metric_h1_state_tracking_continuous_control_problem()` and `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Same independent homogeneous-Dirichlet `FE_Q` control layout and energy-tracking graph with separately selected $L^{2}$ or $H^{-1}$ metric; no box | `nmopt.dealii.hminus1_compilation` |
 | `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
+| `make_l2_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` through the declared conforming-trace equivalence | Chapter 5.11.2 $L^{2}$ state/control transposition parent, $H^{2}\cap H^{1}_{0}$ tests, complete-boundary $U_{h}=\mathrm{tr}_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)$, normalized Laplacian, and no trace box | `nmopt.dealii.l2_dirichlet_transposition` |
 | `make_partial_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` with fixed and controlled trace maps | Complete fixed/controlled boundary partition, nonzero nodal fixed lifting, fixed-data precedence at interface DoFs, relative-interior controlled trace, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.partial_dirichlet_control` |
 | `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
 | `make_neumann_convection_subdomain_tracking_problem()` | `NeumannBoundaryControlModel<dim>` with conservative transport and volume observation | Mixed fixed/Neumann boundary partition, conservative-transport weak form, material-id state tracking, facewise $L^{2}$ control metric, and optional facewise box | `nmopt.dealii.neumann_convection_subdomain` |
@@ -81,6 +82,12 @@ includes the focused deal.II-free headers `types.hpp`, `validation.hpp`,
 declared physical-field transformation, while
 `make_dirichlet_control_scalar_diffusion_reaction_problem()` adds an explicit
 complete-boundary controlled-Dirichlet lifting.
+`make_l2_dirichlet_laplace_control_problem()` instead declares the distinct
+continuous transposition residual: an $L^{2}(\Omega)$ state, an
+$L^{2}(\Gamma)$ control, $H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ tests, and the
+boundary normal-test-derivative action. Its selected discrete policy lowers
+only the conforming trace subspace through the equivalent variational lifting;
+the semantic graph itself contains no continuous $H^{1}$ transformation.
 `make_partial_dirichlet_control_scalar_diffusion_reaction_problem()` adds a
 separate fixed-data input, complete fixed/controlled partition, and selected
 fixed-precedence interface policy. The
@@ -132,14 +139,14 @@ datum with role `observation_weight` in its output observation space.
 
 ```text
 Region       one full volume region, named material-id volume subregions, and marked boundary ids
-Space        scalar H1 state/test; scalar L2 volume or facewise control; selected H1 trace control
+Space        scalar H1 state/test; selected L2-state/H2-test transposition parent; scalar L2 volume or facewise control; selected H1 trace control
 Pairing      explicit coefficient pairings for state, test, control, and observations
 Variable     one state and one control; the state may name a physical-field transformation
 Data         forcing, desired state, fixed Dirichlet lifting, scalar/tensor diffusion,
              conservative/advective transport, reaction, Robin coefficient/source,
              observation weight, regularisation, and optional lower/upper bounds
 Transformation optional fixed-Dirichlet reconstruction or complete/partial controlled-Dirichlet physical-state lifting
-Residual     diffusion-reaction, conservative transport, volume source/control, and Neumann control; selected general scalar/Robin terms
+Residual     diffusion-reaction, conservative transport, volume source/control, Neumann control, and the selected transposition Laplace/boundary-control actions; selected general scalar/Robin terms
 Observation  volume/control restrictions; full-volume H1_0 state restriction; boundary trace; fixed-data weighted boundary trace
 Loss         quadratic tracking and quadratic control regularisation
 Metric       selected volume, facewise, trace, parameter, H1, or Hminus1 metric
@@ -458,6 +465,24 @@ use $`y_{\mathrm{phys}}`$; their state and control pullbacks are
 $`P_{h}^{\ast}`$ and $`L_{D,h}^{\ast}`$. State and adjoint solves use the
 independent-coordinate system.
 
+The Chapter 5.11.2 registration does not reuse the preceding graph's
+continuous $H^{1}$ declaration. Its parent residual is
+
+```math
+\langle E_{\mathrm{tr}}(y,u;f),\psi\rangle
+=(y,-\Delta\psi)_{\Omega}-(f,\psi)_{\Omega}
++(u,\partial_{n}\psi)_{\Gamma}.
+```
+
+The bounded deal.II strategy nevertheless reuses
+`DirichletControlLiftingModel<dim>` with unit diffusion and zero reaction,
+because its selected nodal trace space is contained in
+$H^{1/2}(\Gamma)$. The manifest records the continuous parent spaces, absence
+of a semantic lifting transformation, conforming trace subspace, variational-
+transposition equivalence, domain assumption, normalized Laplacian, and
+conormal policy. This registration does not accept a facewise or discontinuous
+$L^{2}$ Dirichlet control and is not a general transposition lowerer.
+
 The first P5.4 extension selects
 
 $$
@@ -519,7 +544,9 @@ mean-zero saddle realization. The
 private `dealii_dirichlet_control.hpp` target owns the distinct controlled
 essential reconstruction, the complete and selected partial fixed/controlled
 trace policies, nodal trace layout, boundary mass metric, and both
-transformation pullbacks. The private `dealii_continuous_control.hpp` target owns the
+transformation pullbacks. It also owns the conforming Galerkin realization of
+the Chapter 5.11.2 transposition graph without changing that graph's continuous
+spaces or residual. The private `dealii_continuous_control.hpp` target owns the
 distinct continuous-control
 $H^{1}$ loss and $H^{1}$ or $L^{2}$ search metrics. The private
 `dealii_coefficient_identification.hpp` target owns the cellwise positive

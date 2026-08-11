@@ -121,7 +121,9 @@ namespace nmopt::compiler::v1
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_dirichlet_control =
-        uses_dirichlet_control_lifting(specification);
+        uses_dirichlet_control_target(specification);
+      const bool uses_l2_dirichlet_control =
+        uses_l2_dirichlet_transposition(specification);
       const bool uses_partial_dirichlet_control =
         uses_partial_dirichlet_control_lifting(specification);
       const bool uses_neumann_boundary_control =
@@ -225,14 +227,16 @@ namespace nmopt::compiler::v1
           "fixed_dirichlet_data",
           "fixed_dirichlet_binding_provenance",
           "Supply a stable provenance label for the fixed-Dirichlet Function binding.");
-      if (!uses_coefficient_identification && !uses_general_scalar &&
+      if (!uses_l2_dirichlet_control && !uses_coefficient_identification &&
+          !uses_general_scalar &&
           !data.diffusion)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           "diffusion",
           "diffusion_data_binding",
           "Bind the constant diffusion coefficient selected by this graph.");
-      if (!uses_coefficient_identification && !uses_general_scalar &&
+      if (!uses_l2_dirichlet_control && !uses_coefficient_identification &&
+          !uses_general_scalar &&
           data.diffusion &&
           (!std::isfinite(*data.diffusion) || *data.diffusion <= 0.0))
         result.diagnostics.add(
@@ -240,7 +244,7 @@ namespace nmopt::compiler::v1
           "diffusion",
           "positive_finite_diffusion_binding",
           "Bind a positive finite constant diffusion coefficient.");
-      if (!uses_general_scalar &&
+      if (!uses_l2_dirichlet_control && !uses_general_scalar &&
           (!std::isfinite(data.reaction) || data.reaction < 0.0))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -580,8 +584,8 @@ namespace nmopt::compiler::v1
             triangulation,
             data.forcing,
             data.desired_state,
-            *data.diffusion,
-            data.reaction,
+            uses_l2_dirichlet_control ? 1.0 : *data.diffusion,
+            uses_l2_dirichlet_control ? 0.0 : data.reaction,
             data.regularisation_weight,
             policy.state_degree,
             dirichlet_boundary_ids,
@@ -772,7 +776,11 @@ namespace nmopt::compiler::v1
                                              : uses_neumann_boundary_control
                                                ? CompiledTargetKind::neumann_boundary
                                              : uses_dirichlet_control
-                                               ? CompiledTargetKind::dirichlet_control
+                                               ? (uses_l2_dirichlet_control
+                                                    ? CompiledTargetKind::
+                                                        l2_dirichlet_transposition
+                                                    : CompiledTargetKind::
+                                                        dirichlet_control)
                                              : uses_coefficient_identification
                                                ? CompiledTargetKind::coefficient_identification
                                              : uses_hminus1_control_metric
@@ -829,6 +837,7 @@ namespace nmopt::compiler::v1
       weighted_boundary_trace,
       pure_neumann,
       dirichlet_control,
+      l2_dirichlet_transposition,
       h1_control_l2_metric,
       h1_control_h1_metric,
       hminus1_control_metric,
@@ -1186,6 +1195,29 @@ namespace nmopt::compiler::v1
       return transformation != nullptr &&
              transformation->kind ==
                semantic::v1::TransformationKind::dirichlet_control_lifting;
+    }
+
+    static bool
+    uses_l2_dirichlet_transposition(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &term) {
+          return term.kind ==
+                   semantic::v1::ResidualTermKind::transposition_laplacian ||
+                 term.kind == semantic::v1::ResidualTermKind::
+                                dirichlet_transposition_control;
+        });
+    }
+
+    static bool
+    uses_dirichlet_control_target(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return uses_dirichlet_control_lifting(specification) ||
+             uses_l2_dirichlet_transposition(specification);
     }
 
     static bool
@@ -1654,8 +1686,10 @@ namespace nmopt::compiler::v1
         has_weighted_boundary_trace(specification);
       const bool h1_state_observation =
         has_h1_state_observation(specification);
+      const bool l2_dirichlet_transposition =
+        uses_l2_dirichlet_transposition(specification);
       const bool dirichlet_control_lifting =
-        uses_dirichlet_control_lifting(specification);
+        uses_dirichlet_control_target(specification);
       const bool partial_dirichlet_control =
         uses_partial_dirichlet_control_lifting(specification);
       const auto fixed_policy = std::find_if(
@@ -1973,14 +2007,21 @@ namespace nmopt::compiler::v1
           if (control == nullptr ||
               control->role != semantic::v1::VariableRole::control ||
               space == specification.spaces.end() ||
-              space->topology != semantic::v1::SpaceTopology::h1 ||
+              space->topology !=
+                (l2_dirichlet_transposition
+                   ? semantic::v1::SpaceTopology::l2
+                   : semantic::v1::SpaceTopology::h1) ||
               controlled_boundary == nullptr ||
               space->region_id != controlled_boundary->id)
             report.add(
               DiagnosticCategory::lowerability,
               specification.formulation.control_variable_id,
-              "dirichlet_nodal_trace_control_space",
-              "Select the registered continuous nodal trace control space on the controlled Dirichlet boundary.");
+              l2_dirichlet_transposition
+                ? "l2_dirichlet_control_parent_space"
+                : "dirichlet_nodal_trace_control_space",
+              l2_dirichlet_transposition
+                ? "Declare the continuous parent control in L2 on the controlled boundary; its conforming nodal trace is a selected discrete subspace."
+                : "Select the registered continuous nodal trace control space on the controlled Dirichlet boundary.");
           if (!specification.formulation.constraint_id.empty())
             report.add(
               DiagnosticCategory::lowerability,
@@ -2107,8 +2148,10 @@ namespace nmopt::compiler::v1
           });
       };
       const bool boundary_control = uses_neumann_control(specification);
+      const bool l2_dirichlet_transposition =
+        uses_l2_dirichlet_transposition(specification);
       const bool dirichlet_control =
-        uses_dirichlet_control_lifting(specification);
+        uses_dirichlet_control_target(specification);
       const bool coefficient_identification =
         uses_parameter_diffusion_residual(specification);
       const bool general_scalar =
@@ -2145,6 +2188,12 @@ namespace nmopt::compiler::v1
                  count_terms(ResidualTermKind::volume_source) == 1 &&
                  count_terms(ResidualTermKind::neumann_control) == 1 &&
                  count_terms(ResidualTermKind::volume_control) == 0)
+        : l2_dirichlet_transposition
+        ? count_terms(ResidualTermKind::transposition_laplacian) == 1 &&
+            count_terms(
+              ResidualTermKind::dirichlet_transposition_control) == 1 &&
+            count_terms(ResidualTermKind::volume_source) == 1 &&
+            specification.residual_terms.size() == 3
         : dirichlet_control
         ? count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
             count_terms(ResidualTermKind::volume_source) == 1 &&
@@ -2165,6 +2214,8 @@ namespace nmopt::compiler::v1
                          ? neumann_convection
                              ? "complete_neumann_convection_residual_term_set"
                              : "complete_neumann_boundary_residual_term_set"
+                         : l2_dirichlet_transposition
+                             ? "complete_l2_dirichlet_transposition_term_set"
                          : dirichlet_control
                              ? "complete_dirichlet_control_residual_term_set"
                          : "complete_volume_residual_term_set",
@@ -2176,6 +2227,8 @@ namespace nmopt::compiler::v1
                      ? neumann_convection
                          ? "Declare exactly one diffusion-reaction, conservative-transport, volume-source, and Neumann-control term."
                          : "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
+                     : l2_dirichlet_transposition
+                     ? "Declare exactly one transposition Laplace state action, volume source, and Dirichlet normal-test-derivative control action."
                      : dirichlet_control
                      ? "Declare exactly one diffusion-reaction and one volume-source term; the control enters through the declared lifting."
                      : "Declare exactly one diffusion-reaction, volume-source, and volume-control term.");
@@ -2200,7 +2253,10 @@ namespace nmopt::compiler::v1
           count_data(DataRole::observation_weight) !=
             (weighted_boundary_trace ? 1 : 0) ||
           count_data(DataRole::regularisation_weight) != 1 ||
-          (general_scalar
+          (l2_dirichlet_transposition
+             ? count_data(DataRole::diffusion) != 0 ||
+                 count_data(DataRole::reaction) != 0
+           : general_scalar
              ? !complete_general_scalar_data
              : neumann_convection
                ? count_data(DataRole::diffusion) != 1 ||
@@ -2212,7 +2268,9 @@ namespace nmopt::compiler::v1
                    : count_data(DataRole::diffusion) != 1))))
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   general_scalar
+                   l2_dirichlet_transposition
+                     ? "complete_l2_dirichlet_transposition_data_set"
+                   : general_scalar
                      ? "complete_general_scalar_data_set"
                    : coefficient_identification
                      ? "complete_parameter_data_set"
@@ -2221,7 +2279,9 @@ namespace nmopt::compiler::v1
                      : neumann_convection
                        ? "complete_neumann_convection_data_set"
                      : "complete_volume_data_set",
-                   general_scalar
+                   l2_dirichlet_transposition
+                     ? "Declare exactly one forcing, target, and regularisation datum; the normalized Laplacian has no coefficient binding."
+                   : general_scalar
                      ? "Declare forcing, target, tensor diffusion, both transports, reaction, Robin coefficient/source, and regularisation data exactly once."
                    : coefficient_identification
                      ? "Declare one forcing, target, reaction, and parameter-regularisation datum, with no constant diffusion datum."
@@ -2607,6 +2667,8 @@ namespace nmopt::compiler::v1
         {
           case CompiledTargetKind::dirichlet_control:
             return "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary";
+          case CompiledTargetKind::l2_dirichlet_transposition:
+            return "conforming nodal trace FE subspace U_h=trace(V_h) of the continuous L2 boundary control";
           case CompiledTargetKind::neumann_boundary:
           case CompiledTargetKind::weighted_boundary_trace:
           case CompiledTargetKind::pure_neumann:
@@ -2774,7 +2836,10 @@ namespace nmopt::compiler::v1
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_dirichlet_control_lifting =
-        target == CompiledTargetKind::dirichlet_control;
+        target == CompiledTargetKind::dirichlet_control ||
+        target == CompiledTargetKind::l2_dirichlet_transposition;
+      const bool uses_l2_dirichlet_control =
+        target == CompiledTargetKind::l2_dirichlet_transposition;
       const bool uses_partial_dirichlet_control =
         uses_partial_dirichlet_control_lifting(specification);
       const bool uses_assembled_v1_target =
@@ -2924,9 +2989,17 @@ namespace nmopt::compiler::v1
       else
         {
           manifest.state_solve_record = spd_solve_record(
-            policy.state_solve, state_dimension, "fixed Dirichlet");
+            policy.state_solve,
+            state_dimension,
+            uses_l2_dirichlet_control
+              ? "homogeneous conforming Galerkin state subspace"
+              : "fixed Dirichlet");
           manifest.adjoint_solve_record = spd_solve_record(
-            policy.adjoint_solve, state_dimension, "fixed Dirichlet");
+            policy.adjoint_solve,
+            state_dimension,
+            uses_l2_dirichlet_control
+              ? "homogeneous conforming Galerkin adjoint subspace"
+              : "fixed Dirichlet");
         }
       manifest.metric_record = {
         specification.formulation.metric_id,
@@ -2953,6 +3026,10 @@ namespace nmopt::compiler::v1
         manifest.lowering_handler_records.push_back(
           "weighted_state_boundary_trace <- "
           "dealii.neumann.observation.weighted_boundary_trace");
+      if (uses_l2_dirichlet_control)
+        manifest.lowering_handler_records.push_back(
+          "l2_dirichlet_transposition <- "
+          "dealii.dirichlet_control.conforming_trace_equivalence");
       manifest.semantic_problem_id = specification.id;
       manifest.compiler_id =
         uses_general_scalar
@@ -2965,16 +3042,26 @@ namespace nmopt::compiler::v1
           ? "nmopt.compiler.v1.dealii.hminus1_control_metric"
         : uses_h1_state_observation
           ? "nmopt.compiler.v1.dealii.h1_state_tracking"
+        : uses_l2_dirichlet_control
+          ? "nmopt.compiler.v1.dealii.l2_dirichlet_transposition"
           : "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
       manifest.backend = "deal.II serial Vector<double>";
       manifest.execution = "assembled";
-      manifest.state_space = "scalar FE_Q(" +
-                             std::to_string(policy.state_degree) + ")";
+      manifest.state_space = uses_l2_dirichlet_control
+                               ? "continuous L2(Omega) parent lowered to conforming scalar FE_Q(" +
+                                   std::to_string(policy.state_degree) +
+                                   ") variational Galerkin coordinates"
+                               : "scalar FE_Q(" +
+                                   std::to_string(policy.state_degree) + ")";
       manifest.control_space = control_space_description(target, policy);
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
       manifest.dual_representation = "tested dual coefficients with dot pairing";
-      manifest.data_rule = uses_h1_state_observation
+      manifest.data_rule = uses_l2_dirichlet_control
+        ? "analytic forcing and desired-state Functions at selected QGauss(" +
+            std::to_string(policy.state_degree + 2) +
+            ") volume quadrature; normalized unit-diffusion zero-reaction Laplacian; Dirichlet trace is the decision block"
+        : uses_h1_state_observation
         ? "analytic desired-state Function value and gradient at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
             ") volume quadrature; scalar coefficients and forcing Function at volume quadrature"
@@ -3037,7 +3124,9 @@ namespace nmopt::compiler::v1
                                        : uses_fixed_reconstruction
                                        ? "y_phys = P_h y_hat + ell_0,h; independent FE_Q coordinates, AffineConstraints reconstruction, and P_h^* pullbacks"
                                        : uses_dirichlet_control_lifting
-                                           ? (uses_partial_dirichlet_control
+                                           ? (uses_l2_dirichlet_control
+                                                ? "continuous E_tr(y,u;f) in (H2 cap H1_0)^*; U_h=trace(V_h) subset H1/2(Gamma) uses the equivalent y_phys = P_h y_hat + L_D,h u_h conforming Galerkin lifting"
+                                              : uses_partial_dirichlet_control
                                                 ? "y_phys = P_h y_hat + ell_0,h + L_D,h u_h; partial nodal trace lifting with fixed-data interface precedence, independent FE_Q coordinates, and P_h^*/L_D,h^* pullbacks"
                                                 : "y_phys = P_h y_hat + L_D,h u_h; complete-boundary shared nodal trace lifting, independent FE_Q coordinates, and P_h^*/L_D,h^* pullbacks")
                                        : uses_assembled_v1_target
@@ -3054,6 +3143,8 @@ namespace nmopt::compiler::v1
           ? "serial SparseDirectUMFPACK on the nonsymmetric conservative-transport state operator and its exact transpose"
         : uses_coefficient_identification
           ? "serial CG with identity preconditioner; parameter-dependent SPD state matrix is reassembled for each state and adjoint solve"
+        : uses_l2_dirichlet_control
+          ? "serial CG with identity preconditioner on the conforming variational state and adjoint systems selected by transposition equivalence"
         : "serial CG with identity preconditioner for symmetric positive-definite operator";
       manifest.provenance = "DTO";
       if (uses_neumann_boundary_control && control_boundary_region != nullptr)
@@ -3065,11 +3156,15 @@ namespace nmopt::compiler::v1
           "neumann_convection_subdomain: conservative transport is assembled in the scalar residual; the Neumann datum is its declared conormal boundary functional and state tracking is restricted to declared material ids");
       if (uses_dirichlet_control_lifting && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(
-          std::string(uses_partial_dirichlet_control
+          std::string(uses_l2_dirichlet_control
+                        ? "l2_dirichlet_transposition: continuous L2 boundary control with H2 cap H1_0 tests; complete-boundary conforming trace subspace on boundary ids "
+                      : uses_partial_dirichlet_control
                         ? "dirichlet_control_lifting: partial controlled nodal trace map on boundary ids "
                         : "dirichlet_control_lifting: complete-exterior-boundary shared nodal trace map on boundary ids ") +
           boundary_id_list(*control_boundary_region) +
-          (uses_partial_dirichlet_control
+          (uses_l2_dirichlet_control
+             ? "; the variational lifting lowerer is valid only on U_h=trace(V_h) subset H1/2(Gamma); discontinuous or facewise controls are rejected"
+           : uses_partial_dirichlet_control
              ? "; fixed-data precedence owns every fixed/controlled corner or interface DoF; no hanging-node relation or box policy is registered"
              : "; no corner/interface averaging, hanging-node relation, or box policy is registered"));
       if (uses_h1_control_regularisation)

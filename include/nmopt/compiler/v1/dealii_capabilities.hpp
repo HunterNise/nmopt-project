@@ -23,6 +23,8 @@ namespace nmopt::compiler::v1
           case semantic::v1::ResidualTermKind::advective_transport:
           case semantic::v1::ResidualTermKind::reaction:
           case semantic::v1::ResidualTermKind::parameter_diffusion_reaction:
+          case semantic::v1::ResidualTermKind::transposition_laplacian:
+          case semantic::v1::ResidualTermKind::dirichlet_transposition_control:
           case semantic::v1::ResidualTermKind::volume_source:
           case semantic::v1::ResidualTermKind::volume_control:
           case semantic::v1::ResidualTermKind::neumann_control:

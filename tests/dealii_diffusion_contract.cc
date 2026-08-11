@@ -820,6 +820,105 @@ namespace
 
   template <int dim>
   void
+  run_l2_dirichlet_transposition_lowering_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+
+    const dealii::Functions::ZeroFunction<dim> forcing;
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const auto specification =
+      semantic::v1::make_l2_dirichlet_laplace_control_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(
+      compiler.validate(specification, policy).valid(),
+      "L2 Dirichlet transposition graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      std::nullopt,
+      // This generic aggregate field is intentionally unused because the
+      // semantic graph has no reaction-data port.
+      7.0,
+      0.1,
+      test_binding_provenance("l2_dirichlet_transposition")};
+    const auto compilation =
+      compiler.compile(specification, triangulation, bindings, policy);
+    contract::require(
+      compilation.succeeded(),
+      "L2 Dirichlet transposition graph did not lower through the conforming trace equivalence");
+
+    const auto &model = compilation.problem->executable_model();
+    const auto *dirichlet_model = dynamic_cast<
+      const compiler::v1::detail::DirichletControlLiftingModel<dim> *>(&model);
+    contract::require(
+      dirichlet_model != nullptr,
+      "L2 Dirichlet transposition compiler did not reuse the lifting target");
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    control_values = 1.0;
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = compilation.problem->make_reduced_dto().evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "L2 Dirichlet transposition-equivalent state residual");
+    const auto physical_state =
+      dirichlet_model->reconstruct_physical_state(evaluation.full_point);
+    for (dealii::types::global_dof_index index = 0;
+         index < physical_state.size();
+         ++index)
+      require_close(physical_state[index],
+                    1.0,
+                    1e-11,
+                    "L2 Dirichlet conforming trace state");
+
+    const auto &manifest = compilation.problem->manifest();
+    const auto has_assumption = [&manifest](const std::string &prefix) {
+      return std::any_of(
+        manifest.declared_assumptions.begin(),
+        manifest.declared_assumptions.end(),
+        [&prefix](const std::string &assumption) {
+          return assumption.find(prefix) == 0;
+        });
+    };
+    const auto has_binding_role = [&manifest](const auto role) {
+      return std::any_of(
+        manifest.bindings.begin(),
+        manifest.bindings.end(),
+        [role](const compiler::v1::CompiledBindingRecord &binding) {
+          return binding.role == role;
+        });
+    };
+    contract::require(
+      manifest.compiler_id ==
+          "nmopt.compiler.v1.dealii.l2_dirichlet_transposition" &&
+        manifest.state_space.find("continuous L2(Omega) parent") !=
+          std::string::npos &&
+        manifest.control_space.find("U_h=trace(V_h)") != std::string::npos &&
+        manifest.lifting_realisation.find("E_tr(y,u;f)") !=
+          std::string::npos &&
+        manifest.transformation_ids.empty() &&
+        std::find(manifest.lowering_handler_records.begin(),
+                  manifest.lowering_handler_records.end(),
+                  "l2_dirichlet_transposition <- "
+                  "dealii.dirichlet_control.conforming_trace_equivalence") !=
+          manifest.lowering_handler_records.end() &&
+        has_assumption("transposition_formulation:") &&
+        has_assumption("transposition_domain_regularity:") &&
+        has_assumption("conforming_trace_subspace:") &&
+        has_assumption("discrete_conormal_policy:") &&
+        !has_binding_role(semantic::v1::DataRole::diffusion) &&
+        !has_binding_role(semantic::v1::DataRole::reaction),
+      "L2 Dirichlet manifest omitted its continuous parent, equivalence, or policy provenance");
+  }
+
+  template <int dim>
+  void
   run_partial_dirichlet_control_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -3785,6 +3884,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          60,
          []() { run_dirichlet_control_contract_test<2>(); }},
+        {"l2_dirichlet_transposition",
+         "nmopt.dealii.l2_dirichlet_transposition",
+         {"dealii", "compiler"},
+         60,
+         []() { run_l2_dirichlet_transposition_lowering_test<2>(); }},
         {"partial_dirichlet_control",
          "nmopt.dealii.partial_dirichlet_control",
          {"dealii", "compiler"},

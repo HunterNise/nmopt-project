@@ -56,6 +56,8 @@ namespace nmopt::compiler::v1::detail
       DirichletStateTrackingNormKind::l2;
     DirichletControlNormKind             control_norm =
       DirichletControlNormKind::l2;
+    DirichletControlNormKind             search_metric =
+      DirichletControlNormKind::l2;
     dealii_backend::MetricSolveParameters trace_metric_solve = {};
   };
 
@@ -121,7 +123,7 @@ namespace nmopt::compiler::v1::detail
       build_reconstruction();
       initialise_storage();
       assemble_physical_operators(forcing, desired_state);
-      initialise_control_norm(objective_policy.trace_metric_solve);
+      initialise_control_norm(objective_policy);
       assemble_reduced_solve_operators();
     }
 
@@ -714,10 +716,10 @@ namespace nmopt::compiler::v1::detail
     }
 
     void
-    initialise_control_norm(
-      const dealii_backend::MetricSolveParameters &trace_metric_solve)
+    initialise_control_norm(const DirichletObjectivePolicy &objective_policy)
     {
-      if (control_norm_ != DirichletControlNormKind::hhalf)
+      if (control_norm_ != DirichletControlNormKind::hhalf &&
+          objective_policy.search_metric != DirichletControlNormKind::hhalf)
         return;
       std::vector<std::size_t> trace_dofs(controlled_state_dofs_.size());
       for (std::size_t index = 0; index < controlled_state_dofs_.size(); ++index)
@@ -728,7 +730,7 @@ namespace nmopt::compiler::v1::detail
           control_layout_,
           volume_h1_matrix_,
           std::move(trace_dofs),
-          trace_metric_solve);
+          objective_policy.trace_metric_solve);
     }
 
     Vector

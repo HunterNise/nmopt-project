@@ -211,6 +211,21 @@ namespace
                          regularisation_weight,
                          1,
                          {0});
+    nmopt::compiler::v1::detail::DirichletObjectivePolicy mixed_policy;
+    mixed_policy.search_metric =
+      nmopt::compiler::v1::detail::DirichletControlNormKind::hhalf;
+    mixed_policy.trace_metric_solve = solve_parameters;
+    const Model l2_loss_hhalf_metric_model(triangulation,
+                                            forcing,
+                                            desired_state,
+                                            1.0,
+                                            0.0,
+                                            regularisation_weight,
+                                            1,
+                                            {0},
+                                            {},
+                                            std::nullopt,
+                                            mixed_policy);
 
     dealii::Vector<double> state(hhalf_model.variable_layout()->dimension(0));
     dealii::Vector<double> control(
@@ -250,6 +265,26 @@ namespace
                   expected_objective_difference,
                   1e-12,
                   "Dirichlet objective H1/2 regularisation value");
+    require_close(l2_loss_hhalf_metric_model.objective(point),
+                  l2_model.objective(point),
+                  1e-12,
+                  "L2 loss remained independent of the H1/2 search metric");
+    const Covector mixed_derivative =
+      l2_loss_hhalf_metric_model.objective_derivative(point);
+    dealii::Vector<double> mixed_derivative_difference =
+      mixed_derivative.block(1);
+    mixed_derivative_difference.add(-1.0, l2_derivative.block(1));
+    require_close(mixed_derivative_difference.l2_norm(),
+                  0.0,
+                  1e-12,
+                  "L2 loss derivative remained independent of the H1/2 search metric");
+    const auto &mixed_metric =
+      l2_loss_hhalf_metric_model.control_hhalf_metric();
+    require_primal_close(mixed_metric.inverse_apply(mixed_metric.apply(
+                           control_primal)),
+                         control_primal,
+                         1e-11,
+                         "independent H1/2 search metric round trip");
   }
 
   void

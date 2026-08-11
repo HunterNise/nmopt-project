@@ -19,6 +19,7 @@ namespace nmopt::semantic::v1
   {
     unspecified = -1,
     h1,
+    h2,
     l2
   };
 
@@ -79,6 +80,8 @@ namespace nmopt::semantic::v1
     advective_transport,
     reaction,
     parameter_diffusion_reaction,
+    transposition_laplacian,
+    dirichlet_transposition_control,
     volume_source,
     volume_control,
     neumann_control,
@@ -142,7 +145,10 @@ namespace nmopt::semantic::v1
     coercivity,
     conormal_flux,
     boundary_partition,
-    transport_boundary_trace
+    transport_boundary_trace,
+    transposition_formulation,
+    domain_regularity,
+    conforming_trace_subspace
   };
 
   enum class RequirementStatus

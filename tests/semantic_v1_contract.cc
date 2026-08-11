@@ -74,6 +74,82 @@ namespace
     require(dirichlet_control_report.valid(),
             "the Dirichlet-control lifting v1 graph is invalid");
 
+    auto l2_dirichlet_specification =
+      nmopt::semantic::v1::make_l2_dirichlet_laplace_control_problem();
+    require(validator.validate(l2_dirichlet_specification).valid(),
+            "the L2 Dirichlet transposition graph is invalid");
+    require(component_by_id(l2_dirichlet_specification.spaces, "state_space")
+                .topology == nmopt::semantic::v1::SpaceTopology::l2 &&
+              component_by_id(l2_dirichlet_specification.spaces,
+                              "state_test_space")
+                  .topology == nmopt::semantic::v1::SpaceTopology::h2 &&
+              component_by_id(l2_dirichlet_specification.spaces,
+                              "control_space")
+                  .topology == nmopt::semantic::v1::SpaceTopology::l2 &&
+              l2_dirichlet_specification.transformations.empty() &&
+              component_by_id(l2_dirichlet_specification.residual_terms,
+                              "transposition_state_action")
+                  .kind == nmopt::semantic::v1::ResidualTermKind::
+                             transposition_laplacian &&
+              component_by_id(l2_dirichlet_specification.residual_terms,
+                              "dirichlet_transposition_control")
+                  .kind == nmopt::semantic::v1::ResidualTermKind::
+                             dirichlet_transposition_control,
+            "the L2 Dirichlet graph did not declare its exact continuous residual");
+
+    const auto remove_policy = [](auto &graph,
+                                  const std::string &policy_id) {
+      graph.requirement_policies.erase(
+        std::remove_if(graph.requirement_policies.begin(),
+                       graph.requirement_policies.end(),
+                       [&policy_id](const auto &policy) {
+                         return policy.id == policy_id;
+                       }),
+        graph.requirement_policies.end());
+    };
+    auto missing_transposition = l2_dirichlet_specification;
+    remove_policy(missing_transposition, "transposition_formulation");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_transposition),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_equation",
+      "transposition_formulation_policy",
+      "the transposition graph accepted a missing continuous formulation policy");
+    auto missing_domain_regularity = l2_dirichlet_specification;
+    remove_policy(missing_domain_regularity,
+                  "transposition_domain_regularity");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_domain_regularity),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_equation",
+      "transposition_domain_regularity",
+      "the transposition graph accepted a missing domain assumption");
+    auto missing_trace_subspace = l2_dirichlet_specification;
+    remove_policy(missing_trace_subspace, "conforming_trace_subspace");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_trace_subspace),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "control",
+      "transposition_conforming_trace_subspace",
+      "the transposition graph accepted a missing conforming trace policy");
+    auto missing_conormal = l2_dirichlet_specification;
+    remove_policy(missing_conormal, "discrete_conormal_policy");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_conormal),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_equation",
+      "transposition_conormal_policy",
+      "the transposition graph accepted a missing conormal policy");
+    auto wrong_transposition_state = l2_dirichlet_specification;
+    component_by_id(wrong_transposition_state.spaces, "state_space").topology =
+      nmopt::semantic::v1::SpaceTopology::h1;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_transposition_state),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "state_equation",
+      "transposition_space_topologies",
+      "the transposition graph accepted an H1 continuous state declaration");
+
     auto partial_dirichlet_control_specification =
       nmopt::semantic::v1::
         make_partial_dirichlet_control_scalar_diffusion_reaction_problem();

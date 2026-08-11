@@ -1054,6 +1054,111 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // Chapter 5.11.2 is a different continuous residual, not a relabeling of
+  // the H1 diffusion-reaction graph. The state and control are L2 fields, the
+  // test space is H2 cap H1_0, and the boundary datum enters through the
+  // normal derivative of the test function. Its registered deal.II lowerer
+  // may use the equivalent variational problem only because it separately
+  // selects a conforming trace-control subspace.
+  inline ProblemSpec
+  make_l2_dirichlet_laplace_control_problem()
+  {
+    ProblemSpec specification =
+      make_dirichlet_control_scalar_diffusion_reaction_problem();
+    specification.id = "l2_dirichlet_laplace_control";
+    specification.label = "L2 Dirichlet Laplace control by transposition";
+
+    reference_detail::component_by_id(specification.spaces,
+                                      "state_space",
+                                      "space") =
+      {"state_space", "L2 very-weak state", "domain", SpaceTopology::l2,
+       SpaceRole::state};
+    reference_detail::component_by_id(specification.spaces,
+                                      "state_test_space",
+                                      "space") =
+      {"state_test_space", "H2 cap H1_0 transposition test", "domain",
+       SpaceTopology::h2, SpaceRole::test};
+    reference_detail::component_by_id(specification.spaces,
+                                      "control_space",
+                                      "space") =
+      {"control_space", "L2 Dirichlet boundary control",
+       "control_boundary", SpaceTopology::l2, SpaceRole::control};
+    reference_detail::component_by_id(specification.spaces,
+                                      "control_observation_space",
+                                      "space") =
+      {"control_observation_space", "L2 boundary-control observation",
+       "control_boundary", SpaceTopology::l2, SpaceRole::observation};
+    specification.spaces.push_back(
+      {"forcing_space", "L2 volume forcing", "domain", SpaceTopology::l2,
+       SpaceRole::data});
+
+    reference_detail::component_by_id(specification.data, "forcing", "data")
+      .space_id = "forcing_space";
+    reference_detail::remove_component_by_id(specification.data,
+                                              "diffusion",
+                                              "data");
+    reference_detail::remove_component_by_id(specification.data,
+                                              "reaction",
+                                              "data");
+
+    reference_detail::component_by_id(specification.variables,
+                                      "state",
+                                      "variable")
+      .physical_field_transform_id.clear();
+    specification.transformations.clear();
+    specification.residual_terms = {
+      {"transposition_state_action", "Very-weak Laplace state action",
+       ResidualTermKind::transposition_laplacian, "state_equation", {"state"},
+       {}, ""},
+      {"volume_source", "Volume source", ResidualTermKind::volume_source,
+       "state_equation", {}, {"forcing"}, ""},
+      {"dirichlet_transposition_control",
+       "Dirichlet datum paired with outward normal test derivative",
+       ResidualTermKind::dirichlet_transposition_control, "state_equation",
+       {"control"}, {}, "control_boundary"}};
+    reference_detail::component_by_id(specification.equations,
+                                      "state_equation",
+                                      "equation")
+      .residual_term_ids = {"transposition_state_action",
+                            "volume_source",
+                            "dirichlet_transposition_control"};
+
+    specification.requirement_policies = {
+      {"state_controlled_dirichlet", "state",
+       RequirementKind::controlled_dirichlet,
+       RequirementStatus::selected_discrete_realisation, RequirementScope::both,
+       "the L2 boundary datum enters the declared transposition residual; the registered discrete realization uses the complete-boundary conforming trace subspace",
+       "control_boundary"},
+      {"transposition_formulation", "state_equation",
+       RequirementKind::transposition_formulation, RequirementStatus::provided,
+       RequirementScope::continuous_semantics,
+       "E(y,u;f)(psi)=(y,-Delta psi)_Omega-(f,psi)_Omega+(u,partial_n psi)_Gamma on H2 cap H1_0 tests",
+       "domain"},
+      {"transposition_domain_regularity", "state_equation",
+       RequirementKind::domain_regularity, RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "the Dirichlet Laplacian maps H2 cap H1_0 isomorphically to L2 on the declared convex or C2 domain; C2 is required before claiming the Proposition 5.16 optimal regularity bootstrap",
+       "domain"},
+      {"conforming_trace_subspace", "control",
+       RequirementKind::conforming_trace_subspace,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "U_h=trace(V_h) is contained in H1/2(Gamma) and is lowered by the equivalent lifted H1 Galerkin state problem",
+       "control_boundary"},
+      {"discrete_conormal_policy", "state_equation",
+       RequirementKind::conormal_flux,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "outward discrete conormal is the lifting pullback of the adjoint residual, never a pointwise FE_Q normal derivative",
+       "control_boundary"},
+      {"desired_state_quadrature_policy", "desired_state",
+       RequirementKind::analytic_quadrature_evaluation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "analytic Function evaluated at selected volume quadrature", "domain"}};
+    return specification;
+  }
+
   // P5.4's first target keeps the nodal L2 trace metric but makes the
   // fixed/controlled boundary partition and its interface ownership
   // explicit. At shared corner DoFs, fixed data owns the value, so the

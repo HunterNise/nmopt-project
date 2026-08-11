@@ -660,6 +660,7 @@ namespace nmopt::semantic::v1
           validate_term_signature(term, variables, data, report);
           const bool boundary_term =
             term.kind == ResidualTermKind::neumann_control ||
+            term.kind == ResidualTermKind::dirichlet_transposition_control ||
             term.kind == ResidualTermKind::robin_bilinear ||
             term.kind == ResidualTermKind::robin_source;
           if (!boundary_term && !term.region_id.empty())
@@ -677,9 +678,14 @@ namespace nmopt::semantic::v1
                        term.id,
                        term.kind == ResidualTermKind::neumann_control
                          ? "neumann_control_boundary_region"
+                       : term.kind ==
+                           ResidualTermKind::dirichlet_transposition_control
+                         ? "dirichlet_transposition_boundary_region"
                          : "robin_boundary_region",
                        "Declare this natural residual contribution on a boundary region.");
-          if (term.kind != ResidualTermKind::neumann_control)
+          if (term.kind != ResidualTermKind::neumann_control &&
+              term.kind !=
+                ResidualTermKind::dirichlet_transposition_control)
             continue;
           const auto control = term.variable_ids.size() == 1
                                  ? variables.find(term.variable_ids.front())
@@ -691,8 +697,10 @@ namespace nmopt::semantic::v1
               control_space->second->region_id != term.region_id)
             report.add(DiagnosticCategory::structural,
                        term.id,
-                       "neumann_control_space_region",
-                       "Place the Neumann control space on the declared boundary region.");
+                       term.kind == ResidualTermKind::neumann_control
+                         ? "neumann_control_space_region"
+                         : "dirichlet_transposition_control_space_region",
+                       "Place the boundary control space on the residual term's declared boundary region.");
         }
     }
 
@@ -1078,6 +1086,18 @@ namespace nmopt::semantic::v1
                                       VariableRole::parameter) &&
                     has_role(term.data_ids, data, DataRole::reaction);
             break;
+          case ResidualTermKind::transposition_laplacian:
+            valid = term.variable_ids.size() == 1 && term.data_ids.empty() &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::dirichlet_transposition_control:
+            valid = term.variable_ids.size() == 1 && term.data_ids.empty() &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::control) &&
+                    !term.region_id.empty();
+            break;
           case ResidualTermKind::volume_source:
             valid = term.variable_ids.empty() && term.data_ids.size() == 1 &&
                     has_role(term.data_ids, data, DataRole::forcing);
@@ -1254,6 +1274,139 @@ namespace nmopt::semantic::v1
                 "state_uniqueness_policy_conflict",
                 "Select exactly one state uniqueness policy for the declared residual.");
           }
+
+      const bool has_transposition_state_action = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const ResidualTermSpec &term) {
+          return term.kind == ResidualTermKind::transposition_laplacian;
+        });
+      const bool has_transposition_boundary_action = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const ResidualTermSpec &term) {
+          return term.kind ==
+                 ResidualTermKind::dirichlet_transposition_control;
+        });
+      if (has_transposition_state_action || has_transposition_boundary_action)
+        {
+          const auto state = std::find_if(
+            specification.variables.begin(),
+            specification.variables.end(),
+            [&specification](const VariableSpec &candidate) {
+              return candidate.id == specification.formulation.state_variable_id;
+            });
+          const auto control = std::find_if(
+            specification.variables.begin(),
+            specification.variables.end(),
+            [&specification](const VariableSpec &candidate) {
+              return candidate.id == specification.formulation.control_variable_id;
+            });
+          const auto equation = std::find_if(
+            specification.equations.begin(),
+            specification.equations.end(),
+            [&specification](const EquationBlockSpec &candidate) {
+              return candidate.id == specification.formulation.equation_id;
+            });
+          const auto state_space = state == specification.variables.end()
+                                     ? specification.spaces.end()
+                                     : std::find_if(
+                                         specification.spaces.begin(),
+                                         specification.spaces.end(),
+                                         [&state](const SpaceSpec &candidate) {
+                                           return candidate.id == state->space_id;
+                                         });
+          const auto control_space = control == specification.variables.end()
+                                       ? specification.spaces.end()
+                                       : std::find_if(
+                                           specification.spaces.begin(),
+                                           specification.spaces.end(),
+                                           [&control](const SpaceSpec &candidate) {
+                                             return candidate.id == control->space_id;
+                                           });
+          const auto test_space = equation == specification.equations.end()
+                                    ? specification.spaces.end()
+                                    : std::find_if(
+                                        specification.spaces.begin(),
+                                        specification.spaces.end(),
+                                        [&equation](const SpaceSpec &candidate) {
+                                          return candidate.id ==
+                                                 equation->test_space_id;
+                                        });
+          if (!has_transposition_state_action ||
+              !has_transposition_boundary_action ||
+              state_space == specification.spaces.end() ||
+              state_space->topology != SpaceTopology::l2 ||
+              control_space == specification.spaces.end() ||
+              control_space->topology != SpaceTopology::l2 ||
+              test_space == specification.spaces.end() ||
+              test_space->topology != SpaceTopology::h2)
+            report.add(
+              DiagnosticCategory::structural,
+              specification.formulation.equation_id,
+              "transposition_space_topologies",
+              "Declare one L2 state action and one L2 Dirichlet-control action tested in H2 cap H1_0.");
+          if (state != specification.variables.end() &&
+              !state->physical_field_transform_id.empty())
+            report.add(
+              DiagnosticCategory::structural,
+              state->id,
+              "transposition_physical_state",
+              "Declare the L2 very-weak state directly; the conforming lifting is a selected discrete lowerer, not the continuous residual.");
+
+          const auto has_exact_policy = [&specification](
+                                          const std::string &subject,
+                                          const RequirementKind kind,
+                                          const RequirementStatus status,
+                                          const RequirementScope scope) {
+            return std::any_of(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&subject, kind, status, scope](
+                const RequirementPolicySpec &policy) {
+                return policy.subject_id == subject && policy.kind == kind &&
+                       policy.status == status && policy.scope == scope &&
+                       !policy.selected_policy.empty();
+              });
+          };
+          if (!has_exact_policy(specification.formulation.equation_id,
+                                RequirementKind::transposition_formulation,
+                                RequirementStatus::provided,
+                                RequirementScope::continuous_semantics))
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.equation_id,
+              "transposition_formulation_policy",
+              "Declare the provided L2-state/H2-test transposition residual and its boundary pairing.");
+          if (!has_exact_policy(specification.formulation.equation_id,
+                                RequirementKind::domain_regularity,
+                                RequirementStatus::user_assumed,
+                                RequirementScope::continuous_semantics))
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.equation_id,
+              "transposition_domain_regularity",
+              "Declare the model author's domain regularity assumption for the Dirichlet Laplacian isomorphism.");
+          if (control == specification.variables.end() ||
+              !has_exact_policy(control->id,
+                                RequirementKind::conforming_trace_subspace,
+                                RequirementStatus::selected_discrete_realisation,
+                                RequirementScope::discrete_compilation))
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.control_variable_id,
+              "transposition_conforming_trace_subspace",
+              "Select the conforming trace-control subspace before using the variational lifting lowerer.");
+          if (!has_exact_policy(specification.formulation.equation_id,
+                                RequirementKind::conormal_flux,
+                                RequirementStatus::selected_discrete_realisation,
+                                RequirementScope::discrete_compilation))
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.equation_id,
+              "transposition_conormal_policy",
+              "Select the outward discrete conormal as the lifting pullback of the adjoint residual.");
+        }
 
       for (const auto &metric : specification.metrics)
         if (metric.kind == MetricKind::hminus1)

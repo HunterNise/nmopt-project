@@ -124,6 +124,8 @@ namespace nmopt::compiler::v1
         uses_dirichlet_control_lifting(specification);
       const bool uses_neumann_boundary_control =
         uses_neumann_control(specification);
+      const bool uses_neumann_convection =
+        uses_neumann_conservative_transport(specification);
       const bool uses_mean_zero_gauge =
         uses_mean_zero_multiplier(specification);
       const bool uses_h1_control_regularisation =
@@ -258,6 +260,25 @@ namespace nmopt::compiler::v1
       if (uses_general_scalar && data.general_scalar)
         validate_general_scalar_bindings(*data.general_scalar,
                                          result.diagnostics);
+      if (uses_neumann_convection && !data.conservative_transport)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "conservative_transport",
+          "conservative_transport_data_binding",
+          "Bind the conservative transport Function selected by the C5.6 Neumann-control composition.");
+      if (!uses_neumann_convection && data.conservative_transport)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "selected_neumann_convection_target",
+          "Remove conservative transport data unless the graph declares the registered C5.6 composition.");
+      if (uses_neumann_convection && data.conservative_transport &&
+          data.conservative_transport->provenance.conservative_transport.empty())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          "conservative_transport",
+          "conservative_transport_binding_provenance",
+          "Supply a stable provenance label for the conservative transport Function binding.");
       if (!std::isfinite(data.regularisation_weight) ||
           data.regularisation_weight <= 0.0)
         result.diagnostics.add(
@@ -418,7 +439,18 @@ namespace nmopt::compiler::v1
           control_boundary_region->id,
           "neumann_control_boundary_presence",
           "Select Neumann-control boundary ids present on the compiled mesh.");
-      if (uses_neumann_boundary_control && tracking_region != nullptr &&
+      if (uses_neumann_convection && control_boundary_region != nullptr &&
+          !forms_complete_boundary_partition(
+            triangulation,
+            dirichlet_boundary_ids,
+            boundary_ids(*control_boundary_region)))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "complete_neumann_convection_boundary_partition",
+          "Partition every exterior boundary face into the declared fixed-Dirichlet or Neumann-control region.");
+      if (uses_neumann_boundary_control && !uses_neumann_convection &&
+          tracking_region != nullptr &&
           !contains_all_boundary_ids(triangulation,
                                      boundary_ids(*tracking_region)))
         result.diagnostics.add(
@@ -426,6 +458,14 @@ namespace nmopt::compiler::v1
           tracking_region->id,
           "boundary_observation_presence",
           "Select boundary-observation ids present on the compiled mesh.");
+      if (uses_neumann_convection && tracking_region != nullptr &&
+          !contains_all_material_ids(triangulation,
+                                     selected_tracking_material_ids(*tracking_region)))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          tracking_region->id,
+          "subdomain_observation_material_presence",
+          "Select material ids present on the compiled mesh for C5.6 subdomain tracking.");
       if (!result.diagnostics.valid())
         return result;
       if (uses_dirichlet_control &&
@@ -461,11 +501,22 @@ namespace nmopt::compiler::v1
             policy.state_degree,
             dirichlet_boundary_ids,
             boundary_ids(*control_boundary_region),
-            boundary_ids(*tracking_region),
+            uses_neumann_convection
+              ? std::set<dealii::types::boundary_id>{}
+              : boundary_ids(*tracking_region),
             uses_weighted_boundary_trace ? &data.weighted_trace->weight : nullptr,
             uses_mean_zero_gauge
               ? BoundaryModel::StateGauge::mean_zero_multiplier
-              : BoundaryModel::StateGauge::fixed_dirichlet);
+              : BoundaryModel::StateGauge::fixed_dirichlet,
+            uses_neumann_convection
+              ? BoundaryModel::StateObservation::volume_restriction
+              : BoundaryModel::StateObservation::boundary_trace,
+            uses_neumann_convection
+              ? selected_tracking_material_ids(*tracking_region)
+              : std::set<dealii::types::material_id>{},
+            uses_neumann_convection
+              ? &data.conservative_transport->conservative_transport
+              : nullptr);
           if (uses_mean_zero_gauge && !boundary->forcing_is_compatible())
             {
               result.diagnostics.add(
@@ -856,6 +907,20 @@ namespace nmopt::compiler::v1
     }
 
     static bool
+    uses_neumann_conservative_transport(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return uses_neumann_control(specification) &&
+             std::any_of(
+               specification.residual_terms.begin(),
+               specification.residual_terms.end(),
+               [](const semantic::v1::ResidualTermSpec &term) {
+                 return term.kind ==
+                        semantic::v1::ResidualTermKind::conservative_transport;
+               });
+    }
+
+    static bool
     uses_mean_zero_multiplier(
       const semantic::v1::ProblemSpec &specification)
     {
@@ -1051,6 +1116,25 @@ namespace nmopt::compiler::v1
     }
 
     static bool
+    forms_declared_boundary_partition(
+      const semantic::v1::RegionSpec &fixed_region,
+      const semantic::v1::RegionSpec &controlled_region)
+    {
+      if (fixed_region.kind != semantic::v1::RegionKind::boundary ||
+          controlled_region.kind != semantic::v1::RegionKind::boundary ||
+          fixed_region.boundary_ids.empty() ||
+          controlled_region.boundary_ids.empty())
+        return false;
+      return std::none_of(
+        fixed_region.boundary_ids.begin(), fixed_region.boundary_ids.end(),
+        [&controlled_region](const unsigned int id) {
+          return std::find(controlled_region.boundary_ids.begin(),
+                           controlled_region.boundary_ids.end(),
+                           id) != controlled_region.boundary_ids.end();
+        });
+    }
+
+    static bool
     uses_fixed_dirichlet_reconstruction(
       const semantic::v1::ProblemSpec &specification)
     {
@@ -1187,6 +1271,21 @@ namespace nmopt::compiler::v1
           if (cell->face(face)->at_boundary() &&
               requested_ids.count(cell->face(face)->boundary_id()) != 0)
             found_ids.insert(cell->face(face)->boundary_id());
+      return found_ids == requested_ids;
+    }
+
+    template <int dim>
+    static bool
+    contains_all_material_ids(
+      const dealii::Triangulation<dim> &              triangulation,
+      const std::set<dealii::types::material_id> &requested_ids)
+    {
+      std::set<dealii::types::material_id> found_ids;
+      for (auto cell = triangulation.begin_active();
+           cell != triangulation.end();
+           ++cell)
+        if (requested_ids.count(cell->material_id()) != 0)
+          found_ids.insert(cell->material_id());
       return found_ids == requested_ids;
     }
 
@@ -1510,6 +1609,8 @@ namespace nmopt::compiler::v1
         uses_parameter_diffusion_residual(specification);
       const bool general_scalar =
         uses_general_scalar_residual(specification);
+      const bool neumann_convection =
+        uses_neumann_conservative_transport(specification);
       const bool weighted_boundary_trace =
         has_weighted_boundary_trace(specification);
       const bool h1_state_observation =
@@ -1880,12 +1981,19 @@ namespace nmopt::compiler::v1
                    "neumann_control_boundary_ids",
                    "Select a marked boundary region with at least one Neumann control id.");
       if (tracking_region == nullptr ||
-          tracking_region->kind != semantic::v1::RegionKind::boundary ||
-          tracking_region->boundary_ids.empty())
+          (neumann_convection
+             ? tracking_region->kind != semantic::v1::RegionKind::volume ||
+                 tracking_region->is_full_domain ||
+                 tracking_region->material_ids.empty()
+             : tracking_region->kind != semantic::v1::RegionKind::boundary ||
+                 tracking_region->boundary_ids.empty()))
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   "boundary_tracking_region",
-                   "Select a marked boundary region for the state trace observation.");
+                   neumann_convection ? "neumann_convection_subdomain_region"
+                                      : "boundary_tracking_region",
+                   neumann_convection
+                     ? "Select one or more material ids for the C5.6 state observation."
+                     : "Select a marked boundary region for the state trace observation.");
       if (control_region != nullptr && boundary != nullptr)
         for (const auto control_id : control_region->boundary_ids)
           if (std::find(boundary->boundary_ids.begin(),
@@ -1895,6 +2003,12 @@ namespace nmopt::compiler::v1
                        control_region->id,
                        "neumann_control_dirichlet_overlap",
                        "Use boundary ids not fixed by the homogeneous Dirichlet realization.");
+      if (neumann_convection && control_region != nullptr && boundary != nullptr &&
+          !forms_declared_boundary_partition(*boundary, *control_region))
+        report.add(DiagnosticCategory::lowerability,
+                   specification.id,
+                   "neumann_convection_boundary_partition",
+                   "Declare disjoint fixed-Dirichlet and Neumann-control boundary regions for the C5.6 composition.");
     }
 
     static void
@@ -1921,6 +2035,8 @@ namespace nmopt::compiler::v1
         uses_parameter_diffusion_residual(specification);
       const bool general_scalar =
         uses_general_scalar_residual(specification);
+      const bool neumann_convection =
+        uses_neumann_conservative_transport(specification);
       const bool weighted_boundary_trace =
         has_weighted_boundary_trace(specification);
       const bool complete_residual = general_scalar
@@ -1940,10 +2056,17 @@ namespace nmopt::compiler::v1
             count_terms(ResidualTermKind::volume_control) == 0 &&
             count_terms(ResidualTermKind::neumann_control) == 0
         : boundary_control
-        ? count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
-            count_terms(ResidualTermKind::volume_source) == 1 &&
-            count_terms(ResidualTermKind::neumann_control) == 1 &&
-            count_terms(ResidualTermKind::volume_control) == 0
+        ? (neumann_convection
+             ? count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
+                 count_terms(ResidualTermKind::conservative_transport) == 1 &&
+                 count_terms(ResidualTermKind::volume_source) == 1 &&
+                 count_terms(ResidualTermKind::neumann_control) == 1 &&
+                 count_terms(ResidualTermKind::volume_control) == 0 &&
+                 specification.residual_terms.size() == 4
+             : count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
+                 count_terms(ResidualTermKind::volume_source) == 1 &&
+                 count_terms(ResidualTermKind::neumann_control) == 1 &&
+                 count_terms(ResidualTermKind::volume_control) == 0)
         : dirichlet_control
         ? count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
             count_terms(ResidualTermKind::volume_source) == 1 &&
@@ -1961,7 +2084,9 @@ namespace nmopt::compiler::v1
                      : coefficient_identification
                      ? "complete_parameter_diffusion_residual_term_set"
                      : boundary_control
-                         ? "complete_neumann_boundary_residual_term_set"
+                         ? neumann_convection
+                             ? "complete_neumann_convection_residual_term_set"
+                             : "complete_neumann_boundary_residual_term_set"
                          : dirichlet_control
                              ? "complete_dirichlet_control_residual_term_set"
                          : "complete_volume_residual_term_set",
@@ -1970,7 +2095,9 @@ namespace nmopt::compiler::v1
                      : coefficient_identification
                      ? "Declare exactly one parameter diffusion-reaction and one volume-source term."
                      : boundary_control
-                     ? "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
+                     ? neumann_convection
+                         ? "Declare exactly one diffusion-reaction, conservative-transport, volume-source, and Neumann-control term."
+                         : "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
                      : dirichlet_control
                      ? "Declare exactly one diffusion-reaction and one volume-source term; the control enters through the declared lifting."
                      : "Declare exactly one diffusion-reaction, volume-source, and volume-control term.");
@@ -1997,6 +2124,10 @@ namespace nmopt::compiler::v1
           count_data(DataRole::regularisation_weight) != 1 ||
           (general_scalar
              ? !complete_general_scalar_data
+             : neumann_convection
+               ? count_data(DataRole::diffusion) != 1 ||
+                 count_data(DataRole::reaction) != 1 ||
+                 count_data(DataRole::conservative_transport) != 1
              : (count_data(DataRole::reaction) != 1 ||
                 (coefficient_identification
                    ? count_data(DataRole::diffusion) != 0
@@ -2009,6 +2140,8 @@ namespace nmopt::compiler::v1
                      ? "complete_parameter_data_set"
                    : weighted_boundary_trace
                      ? "complete_weighted_boundary_data_set"
+                     : neumann_convection
+                       ? "complete_neumann_convection_data_set"
                      : "complete_volume_data_set",
                    general_scalar
                      ? "Declare forcing, target, tensor diffusion, both transports, reaction, Robin coefficient/source, and regularisation data exactly once."
@@ -2016,6 +2149,8 @@ namespace nmopt::compiler::v1
                      ? "Declare one forcing, target, reaction, and parameter-regularisation datum, with no constant diffusion datum."
                    : weighted_boundary_trace
                      ? "Declare one forcing, target, boundary weight, diffusion, reaction, and regularisation datum."
+                     : neumann_convection
+                       ? "Declare one forcing, target, scalar diffusion/reaction, conservative transport, and regularisation datum."
                      : "Declare one forcing, target, diffusion, reaction, and regularisation datum.");
 
       const auto count_losses = [&specification](const LossKind kind) {
@@ -2108,13 +2243,15 @@ namespace nmopt::compiler::v1
         specification, specification.formulation.state_variable_id);
       if (boundary_control)
         {
-          const auto state_trace = std::find_if(
+          const auto state_observation = std::find_if(
             specification.observations.begin(),
             specification.observations.end(),
-            [weighted_boundary_trace](
+            [weighted_boundary_trace, neumann_convection](
               const semantic::v1::ObservationSpec &observation) {
               return observation.kind ==
-                     (weighted_boundary_trace
+                     (neumann_convection
+                        ? semantic::v1::ObservationKind::volume_restriction
+                        : weighted_boundary_trace
                         ? semantic::v1::ObservationKind::weighted_boundary_trace
                         : semantic::v1::ObservationKind::boundary_trace);
             });
@@ -2126,24 +2263,36 @@ namespace nmopt::compiler::v1
                      semantic::v1::ObservationKind::boundary_restriction;
             });
           if (specification.observations.size() != 2 ||
-              state_trace == specification.observations.end() ||
+              state_observation == specification.observations.end() ||
               control_restriction == specification.observations.end())
             report.add(DiagnosticCategory::lowerability,
                        specification.id,
-                       "complete_boundary_observation_set",
-                       weighted_boundary_trace
+                       neumann_convection
+                         ? "complete_neumann_convection_observation_set"
+                         : "complete_boundary_observation_set",
+                       neumann_convection
+                         ? "Declare one material-subdomain state restriction and one boundary control restriction."
+                         : weighted_boundary_trace
                          ? "Declare one weighted boundary state trace and one boundary control restriction."
                          : "Declare one boundary state trace and one boundary control restriction.");
-          if (state_trace != specification.observations.end())
+          if (state_observation != specification.observations.end())
             {
-              const auto region = find_region(specification, state_trace->region_id);
+              const auto region = find_region(specification,
+                                              state_observation->region_id);
               if (region == nullptr ||
-                  region->kind != semantic::v1::RegionKind::boundary ||
-                  region->boundary_ids.empty())
+                  (neumann_convection
+                     ? region->kind != semantic::v1::RegionKind::volume ||
+                         region->is_full_domain || region->material_ids.empty()
+                     : region->kind != semantic::v1::RegionKind::boundary ||
+                         region->boundary_ids.empty()))
                 report.add(DiagnosticCategory::lowerability,
-                           state_trace->id,
-                           "boundary_trace_observation_region",
-                           "Select marked boundary ids for the state trace observation.");
+                           state_observation->id,
+                           neumann_convection
+                             ? "neumann_convection_observation_region"
+                             : "boundary_trace_observation_region",
+                           neumann_convection
+                             ? "Select material ids for the C5.6 state observation."
+                             : "Select marked boundary ids for the state trace observation.");
             }
           if (control_restriction != specification.observations.end())
             {
@@ -2558,6 +2707,8 @@ namespace nmopt::compiler::v1
       const bool uses_weighted_boundary_trace =
         target == CompiledTargetKind::weighted_boundary_trace;
       const bool uses_neumann_boundary_control = uses_neumann_target(target);
+      const bool uses_neumann_convection =
+        uses_neumann_conservative_transport(specification);
       const bool uses_mean_zero_gauge =
         target == CompiledTargetKind::pure_neumann;
       const bool uses_h1_control_regularisation =
@@ -2623,8 +2774,9 @@ namespace nmopt::compiler::v1
                 break;
               case semantic::v1::DataRole::conservative_transport:
                 record.representation = "vector Function at volume quadrature";
-                record.provenance =
-                  data.general_scalar->provenance.conservative_transport;
+                record.provenance = uses_general_scalar
+                  ? data.general_scalar->provenance.conservative_transport
+                  : data.conservative_transport->provenance.conservative_transport;
                 break;
               case semantic::v1::DataRole::advective_transport:
                 record.representation = "vector Function at volume quadrature";
@@ -2676,7 +2828,7 @@ namespace nmopt::compiler::v1
 
       const std::size_t state_dimension =
         executable.test_layout()->dimension(0);
-      if (uses_mean_zero_gauge || uses_general_scalar)
+      if (uses_mean_zero_gauge || uses_general_scalar || uses_neumann_convection)
         {
           const CompiledSolvePolicyRecord direct_record{
             LinearSolveAlgorithm::serial_sparse_direct_umfpack,
@@ -2725,6 +2877,8 @@ namespace nmopt::compiler::v1
       manifest.compiler_id =
         uses_general_scalar
           ? "nmopt.compiler.v1.dealii.general_scalar_elliptic_robin"
+        : uses_neumann_convection
+          ? "nmopt.compiler.v1.dealii.neumann_convection_subdomain"
         : uses_weighted_boundary_trace
           ? "nmopt.compiler.v1.dealii.weighted_boundary_trace"
         : uses_hminus1_control_metric
@@ -2749,9 +2903,13 @@ namespace nmopt::compiler::v1
             std::to_string(policy.state_degree + 2) +
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature"
         : uses_neumann_boundary_control
-        ? "analytic desired-state Function at selected QGauss(" +
+        ? (uses_neumann_convection
+             ? "analytic desired-state, conservative transport, and forcing Functions at selected QGauss(" +
+                 std::to_string(policy.state_degree + 2) +
+                 ") volume quadrature; scalar diffusion, reaction, and regularisation constants"
+             : "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
-            ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature"
+            ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature")
         : uses_general_scalar
         ? "tensor diffusion, vector transport, scalar reaction, forcing, and desired-state Functions at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
@@ -2770,7 +2928,9 @@ namespace nmopt::compiler::v1
         : uses_weighted_boundary_trace
         ? weighted_boundary_observation_realisation(tracking_region)
         : uses_neumann_boundary_control
-        ? boundary_observation_realisation(tracking_region)
+        ? (uses_neumann_convection
+             ? observation_realisation(tracking_region)
+             : boundary_observation_realisation(tracking_region))
         : observation_realisation(tracking_region);
       manifest.metric_solve_policy =
         std::string("serial CG for ") +
@@ -2806,6 +2966,8 @@ namespace nmopt::compiler::v1
         ? "serial SparseDirectUMFPACK on the augmented symmetric state and adjoint saddle systems"
         : uses_general_scalar
           ? "serial SparseDirectUMFPACK on the nonsymmetric state operator and its exact transpose"
+        : uses_neumann_convection
+          ? "serial SparseDirectUMFPACK on the nonsymmetric conservative-transport state operator and its exact transpose"
         : uses_coefficient_identification
           ? "serial CG with identity preconditioner; parameter-dependent SPD state matrix is reassembled for each state and adjoint solve"
         : "serial CG with identity preconditioner for symmetric positive-definite operator";
@@ -2814,6 +2976,9 @@ namespace nmopt::compiler::v1
         manifest.declared_assumptions.push_back(
           "neumann_control_realisation: facewise-constant FEFaceValues pairing on boundary ids " +
           boundary_id_list(*control_boundary_region));
+      if (uses_neumann_convection)
+        manifest.declared_assumptions.push_back(
+          "neumann_convection_subdomain: conservative transport is assembled in the scalar residual; the Neumann datum is its declared conormal boundary functional and state tracking is restricted to declared material ids");
       if (uses_dirichlet_control_lifting && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(
           "dirichlet_control_lifting: complete-exterior-boundary shared nodal trace map on boundary ids " +

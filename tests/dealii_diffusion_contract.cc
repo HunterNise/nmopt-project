@@ -9,11 +9,14 @@
 #include "test_support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/fe/fe_q.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
+#include <deal.II/numerics/vector_tools.h>
 
 #include <algorithm>
 #include <cmath>
@@ -154,6 +157,19 @@ namespace
 
   private:
     dealii::Tensor<1, dim> value_;
+  };
+
+  template <int dim>
+  class FirstCoordinateFunction final : public dealii::Function<dim>
+  {
+  public:
+    double
+    value(const dealii::Point<dim> &point,
+          const unsigned int        component = 0) const override
+    {
+      (void)component;
+      return point[0];
+    }
   };
 
   template <int dim>
@@ -1230,6 +1246,220 @@ namespace
         manifest.data_rule.find("boundary face quadrature") != std::string::npos &&
         manifest.constraint_realisation.find("l2_facewise") != std::string::npos,
       "Neumann boundary compilation manifest is incomplete");
+  }
+
+  template <int dim>
+  void
+  run_neumann_convection_subdomain_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      {
+        cell->set_material_id(cell->center()[0] < 0.5 ? 1 : 0);
+        for (unsigned int face = 0;
+             face < dealii::GeometryInfo<dim>::faces_per_cell;
+             ++face)
+          if (cell->face(face)->at_boundary())
+            cell->face(face)->set_boundary_id(
+              cell->face(face)->center()[0] < 1e-12 ? 0 : 1);
+      }
+
+    dealii::Tensor<1, dim> transport_value;
+    transport_value[0] = -0.2;
+    const ConstantVectorCoefficient<dim> conservative_transport(transport_value);
+    const dealii::Tensor<1, dim> zero_transport_value;
+    const ConstantVectorCoefficient<dim> zero_transport(zero_transport_value);
+    const dealii::Functions::ConstantFunction<dim> forcing(0.3);
+    const dealii::Functions::ConstantFunction<dim> desired_state(-0.15);
+    const auto specification = semantic::v1::
+      make_neumann_convection_subdomain_tracking_problem(1);
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(specification, policy).valid(),
+                      "C5.6 Neumann convection graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> missing_transport{
+      forcing, desired_state, 1.0, 0.0, 0.2,
+      test_binding_provenance("neumann_convection_missing")};
+    const auto missing = compiler.compile(specification,
+                                          triangulation,
+                                          missing_transport,
+                                          policy);
+    test_support::require_exact_diagnostic(
+      missing.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "conservative_transport",
+      "conservative_transport_data_binding",
+      "C5.6 compiler did not require conservative transport data");
+
+    const compiler::v1::DealiiConservativeTransportBindingProvenance provenance{
+      "test.neumann_convection.conservative_transport"};
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.0,
+      0.2,
+      test_binding_provenance("neumann_convection"),
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      compiler::v1::DealiiConservativeTransportDataBindings<dim>{
+        conservative_transport, provenance}};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "C5.6 Neumann convection compilation failed");
+    const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
+
+    const compiler::v1::DealiiDataBindings<dim> zero_transport_bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.0,
+      0.2,
+      test_binding_provenance("neumann_zero_convection"),
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      compiler::v1::DealiiConservativeTransportDataBindings<dim>{
+        zero_transport, {"test.neumann_convection.zero_transport"}}};
+    const auto zero_transport_compilation = compiler.compile(
+      specification, triangulation, zero_transport_bindings, policy);
+    contract::require(zero_transport_compilation.succeeded(),
+                      "zero-transport C5.6 comparison compilation failed");
+
+    dealii::FE_Q<dim> oracle_fe(policy.state_degree);
+    dealii::DoFHandler<dim> oracle_dof_handler(triangulation);
+    oracle_dof_handler.distribute_dofs(oracle_fe);
+    const FirstCoordinateFunction<dim> first_coordinate;
+    dealii::Vector<double> coordinate_values(oracle_dof_handler.n_dofs());
+    dealii::VectorTools::interpolate(oracle_dof_handler,
+                                     first_coordinate,
+                                     coordinate_values);
+    dealii::Vector<double> zero_oracle_control(
+      model.variable_layout()->dimension(1));
+    const Primal coordinate_point(model.variable_layout(),
+                                  {coordinate_values,
+                                   std::move(zero_oracle_control)});
+    const Primal coordinate_seed(model.test_layout(), {coordinate_values});
+    const double transport_value_oracle =
+      contract::pair(model.residual(coordinate_point), coordinate_seed) -
+      contract::pair(
+        zero_transport_compilation.problem->executable_model().residual(
+          coordinate_point),
+        coordinate_seed);
+    require_close(transport_value_oracle,
+                  0.1,
+                  2e-12,
+                  "C5.6 conservative transport weak-form value");
+    require_close(model.objective(coordinate_point),
+                  217.0 / 4800.0,
+                  2e-12,
+                  "C5.6 material-subdomain observation value");
+
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_values.size(); ++index)
+      control_values[index] =
+        (index % 2 == 0 ? 0.03 : -0.02) * static_cast<double>(index + 1);
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = reduced.evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  2e-11,
+                  "C5.6 Neumann convection state residual");
+    contract::require(
+      evaluation.state_solve.algorithm == "serial_sparse_direct_umfpack" &&
+        evaluation.adjoint_solve.algorithm ==
+          "serial_sparse_direct_umfpack_transpose",
+      "C5.6 Neumann convection did not use the exact nonsymmetric transpose solve");
+
+    dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_tangent(model.variable_layout()->dimension(1));
+    dealii::Vector<double> seed_values(model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size(); ++index)
+      {
+        state_tangent[index] = 0.025 * static_cast<double>(index + 1);
+        seed_values[index] = -0.035 * static_cast<double>(index + 1);
+      }
+    for (dealii::types::global_dof_index index = 0;
+         index < control_tangent.size(); ++index)
+      control_tangent[index] =
+        (index % 2 == 0 ? -0.04 : 0.03) * static_cast<double>(index + 1);
+    const Primal tangent(model.variable_layout(),
+                         {std::move(state_tangent), std::move(control_tangent)});
+    const Primal test_seed(model.test_layout(), {std::move(seed_values)});
+    require_close(contract::pair(model.residual_jvp(evaluation.full_point, tangent),
+                                 test_seed),
+                  contract::pair(model.residual_vjp(evaluation.full_point,
+                                                    test_seed),
+                                 tangent),
+                  3e-11,
+                  "C5.6 conservative Neumann residual JVP/VJP pairing");
+    constexpr double derivative_step = 1e-7;
+    Covector residual_difference =
+      model.residual(shifted(evaluation.full_point, tangent, derivative_step));
+    const Covector base_residual = model.residual(evaluation.full_point);
+    for (std::size_t block = 0; block < residual_difference.n_blocks(); ++block)
+      {
+        residual_difference.add_scaled_block(block,
+                                             -1.0,
+                                             base_residual.block(block));
+        residual_difference.scale_block(block, 1.0 / derivative_step);
+        residual_difference.add_scaled_block(
+          block,
+          -1.0,
+          model.residual_jvp(evaluation.full_point, tangent).block(block));
+        require_close(residual_difference.block(block).l2_norm(),
+                      0.0,
+                      2e-7,
+                      "C5.6 conservative Neumann residual JVP");
+      }
+
+    dealii::Vector<double> direction_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size(); ++index)
+      direction_values[index] =
+        (index % 2 == 0 ? 0.05 : -0.04) * static_cast<double>(index + 1);
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const double derivative = contract::pair(evaluation.reduced_derivative,
+                                             direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, direction, step))
+                        .objective_value - evaluation.objective_value -
+                      step * derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "C5.6 Neumann convection reduced Taylor remainder is not quadratic");
+
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.compiler_id ==
+          "nmopt.compiler.v1.dealii.neumann_convection_subdomain" &&
+        manifest.observation_realisation == "material-id volume restriction: 1" &&
+        manifest.state_solve_record.algorithm ==
+          compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
+        std::any_of(manifest.bindings.begin(), manifest.bindings.end(),
+                    [](const compiler::v1::CompiledBindingRecord &record) {
+                      return record.semantic_id == "conservative_transport" &&
+                             record.provenance ==
+                               "test.neumann_convection.conservative_transport";
+                    }),
+      "C5.6 manifest omitted transport, subdomain, or solve provenance");
   }
 
   template <int dim>
@@ -3313,6 +3543,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          60,
          []() { run_neumann_boundary_contract_test<2>(); }},
+        {"neumann_convection_subdomain",
+         "nmopt.dealii.neumann_convection_subdomain",
+         {"dealii", "compiler"},
+         60,
+         []() { run_neumann_convection_subdomain_contract_test<2>(); }},
         {"weighted_boundary_trace",
          "nmopt.dealii.weighted_boundary_trace",
          {"dealii", "compiler"},

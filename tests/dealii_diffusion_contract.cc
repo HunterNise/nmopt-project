@@ -820,6 +820,263 @@ namespace
 
   template <int dim>
   void
+  run_partial_dirichlet_control_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary())
+          cell->face(face)->set_boundary_id(
+            cell->face(face)->center()[0] < 1e-12 ? 0 : 1);
+
+    const dealii::Functions::ConstantFunction<dim> forcing(0.5);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const dealii::Functions::ConstantFunction<dim> fixed_data(2.0);
+    const dealii::Functions::ConstantFunction<dim> changed_fixed_data(3.0);
+    const auto specification = semantic::v1::
+      make_partial_dirichlet_control_scalar_diffusion_reaction_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(specification, policy).valid(),
+                      "partial Dirichlet-control graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> missing_fixed_data{
+      forcing, desired_state, 1.0, 0.5, 0.1,
+      test_binding_provenance("partial_dirichlet_missing")};
+    const auto missing = compiler.compile(specification,
+                                          triangulation,
+                                          missing_fixed_data,
+                                          policy);
+    test_support::require_exact_diagnostic(
+      missing.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "fixed_dirichlet_data_binding",
+      "partial Dirichlet control did not require its fixed lifting data");
+
+    auto bindings = compiler::v1::DealiiDataBindings<dim>{
+      forcing, desired_state, 1.0, 0.5, 0.1,
+      test_binding_provenance("partial_dirichlet", true)};
+    bindings.fixed_dirichlet_data = std::cref(fixed_data);
+
+    auto overlapping_specification = specification;
+    component_by_id(overlapping_specification.regions,
+                    "fixed_dirichlet_boundary")
+      .boundary_ids = {0, 1};
+    test_support::require_exact_diagnostic(
+      compiler.validate(overlapping_specification, policy),
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "partial_dirichlet_boundary_partition",
+      "partial Dirichlet control did not reject overlapping boundary regions");
+
+    dealii::Triangulation<dim> missing_control_boundary_triangulation;
+    dealii::GridGenerator::hyper_cube(missing_control_boundary_triangulation);
+    missing_control_boundary_triangulation.refine_global(1);
+    const auto missing_control_boundary = compiler.compile(
+      specification,
+      missing_control_boundary_triangulation,
+      bindings,
+      policy);
+    test_support::require_exact_diagnostic(
+      missing_control_boundary.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "complete_partial_dirichlet_boundary_partition",
+      "partial Dirichlet control did not diagnose an absent control boundary");
+
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "partial Dirichlet-control compilation failed");
+    const auto &model = compilation.problem->executable_model();
+    const auto *dirichlet_model =
+      dynamic_cast<const compiler::v1::detail::DirichletControlLiftingModel<dim> *>(
+        &model);
+    contract::require(dirichlet_model != nullptr,
+                      "partial Dirichlet compiler did not select its lifting target");
+    const auto reduced = compilation.problem->make_reduced_dto();
+
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < control_values.size(); ++index)
+      control_values[index] = 1.0;
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+
+    dealii::Vector<double> zero_state(model.variable_layout()->dimension(0));
+    const Primal lifting_point(model.variable_layout(),
+                               {std::move(zero_state), control.block(0)});
+    const auto lifted_trace =
+      dirichlet_model->reconstruct_physical_state(lifting_point);
+    const auto count_value = [&lifted_trace](const double expected) {
+      return std::count_if(
+        lifted_trace.begin(), lifted_trace.end(), [expected](const double value) {
+          return std::abs(value - expected) <= 1e-12;
+        });
+    };
+    const auto integer_power = [](std::size_t base, unsigned int exponent) {
+      std::size_t value = 1;
+      for (unsigned int factor = 0; factor < exponent; ++factor)
+        value *= base;
+      return value;
+    };
+    const std::size_t nodes_per_axis = 5;
+    const std::size_t expected_fixed_dofs =
+      integer_power(nodes_per_axis, dim - 1);
+    const std::size_t expected_interior_dofs = integer_power(3, dim);
+    const std::size_t expected_control_dofs =
+      integer_power(nodes_per_axis, dim) - expected_interior_dofs -
+      expected_fixed_dofs;
+    contract::require(
+      count_value(2.0) == expected_fixed_dofs &&
+        count_value(1.0) == expected_control_dofs &&
+        count_value(0.0) == expected_interior_dofs,
+      "partial Dirichlet lifting did not give fixed data precedence at interface DoFs");
+
+    const auto evaluation = reduced.evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "partial Dirichlet-control reconstructed state residual");
+    dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
+    dealii::Vector<double> control_tangent(model.variable_layout()->dimension(1));
+    dealii::Vector<double> seed_values(model.test_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size(); ++index)
+      {
+        state_tangent[index] = 0.02 * static_cast<double>(index + 1);
+        seed_values[index] = -0.03 * static_cast<double>(index + 1);
+      }
+    for (dealii::types::global_dof_index index = 0;
+         index < control_tangent.size(); ++index)
+      control_tangent[index] =
+        (index % 2 == 0 ? 0.04 : -0.025) * static_cast<double>(index + 1);
+    dealii::Vector<double> zero_control_tangent(
+      model.variable_layout()->dimension(1));
+    dealii::Vector<double> zero_state_tangent(
+      model.variable_layout()->dimension(0));
+    const Primal state_only_tangent(
+      model.variable_layout(), {state_tangent, std::move(zero_control_tangent)});
+    const Primal control_only_tangent(
+      model.variable_layout(), {std::move(zero_state_tangent), control_tangent});
+    const Primal test_seed(model.test_layout(), {std::move(seed_values)});
+    const Covector residual_pullback =
+      model.residual_vjp(evaluation.full_point, test_seed);
+    require_close(contract::pair(model.residual_jvp(evaluation.full_point,
+                                                    state_only_tangent),
+                                 test_seed),
+                  contract::pair(residual_pullback, state_only_tangent),
+                  1e-11,
+                  "partial Dirichlet-control state reconstruction pullback");
+    require_close(contract::pair(model.residual_jvp(evaluation.full_point,
+                                                    control_only_tangent),
+                                 test_seed),
+                  contract::pair(residual_pullback, control_only_tangent),
+                  1e-11,
+                  "partial Dirichlet-control trace lifting pullback");
+
+    constexpr double derivative_step = 1e-7;
+    const Covector objective_pullback =
+      model.objective_derivative(evaluation.full_point);
+    const auto check_objective_pullback = [&](const Primal &tangent,
+                                              const std::string &description) {
+      const double centered_difference =
+        (model.objective(
+           shifted(evaluation.full_point, tangent, derivative_step)) -
+         model.objective(
+           shifted(evaluation.full_point, tangent, -derivative_step))) /
+        (2.0 * derivative_step);
+      require_close(centered_difference,
+                    contract::pair(objective_pullback, tangent),
+                    2e-8,
+                    description);
+    };
+    check_objective_pullback(state_only_tangent,
+                             "partial Dirichlet-control state objective pullback");
+    check_objective_pullback(control_only_tangent,
+                             "partial Dirichlet-control trace objective pullback");
+
+    dealii::Vector<double> direction_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size(); ++index)
+      direction_values[index] =
+        (index % 2 == 0 ? 0.05 : -0.04) * static_cast<double>(index + 1);
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const double derivative = contract::pair(evaluation.reduced_derivative,
+                                             direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, direction, step))
+                        .objective_value - evaluation.objective_value -
+                      step * derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "partial Dirichlet-control reduced Taylor remainder is not quadratic");
+
+    const auto &metric = compilation.problem->metric();
+    const Primal metric_direction =
+      metric.inverse_apply(evaluation.reduced_derivative);
+    require_covector_close(metric.apply(metric_direction),
+                           evaluation.reduced_derivative,
+                           1e-10,
+                           "partial Dirichlet-control trace metric inverse/apply");
+
+    auto changed_bindings = compiler::v1::DealiiDataBindings<dim>{
+      forcing, desired_state, 1.0, 0.5, 0.1,
+      test_binding_provenance("partial_dirichlet_changed", true)};
+    changed_bindings.fixed_dirichlet_data = std::cref(changed_fixed_data);
+    const auto changed = compiler.compile(specification,
+                                          triangulation,
+                                          changed_bindings,
+                                          policy);
+    contract::require(changed.succeeded() &&
+                        std::abs(changed.problem->make_reduced_dto()
+                                   .evaluate(control)
+                                   .objective_value -
+                                 evaluation.objective_value) > 1e-4,
+                      "partial Dirichlet-control recompilation reused fixed data");
+    const auto *changed_dirichlet_model = dynamic_cast<
+      const compiler::v1::detail::DirichletControlLiftingModel<dim> *>(
+        &changed.problem->executable_model());
+    contract::require(changed_dirichlet_model != nullptr,
+                      "changed partial Dirichlet compilation lost its lifting target");
+    const auto changed_trace =
+      changed_dirichlet_model->reconstruct_physical_state(lifting_point);
+    contract::require(
+      std::count_if(changed_trace.begin(),
+                    changed_trace.end(),
+                    [](const double value) {
+                      return std::abs(value - 3.0) <= 1e-12;
+                    }) == expected_fixed_dofs,
+      "changed partial Dirichlet data did not own the interface DoFs");
+
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.lifting_realisation.find("ell_0,h + L_D,h") != std::string::npos &&
+        manifest.data_rule.find("fixed Dirichlet Function") != std::string::npos &&
+        std::any_of(manifest.declared_assumptions.begin(),
+                    manifest.declared_assumptions.end(),
+                    [](const std::string &assumption) {
+                      return assumption.find("fixed-data precedence") !=
+                             std::string::npos;
+                    }),
+      "partial Dirichlet-control manifest omitted the lifting interface policy");
+  }
+
+  template <int dim>
+  void
   run_subdomain_observation_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -3528,6 +3785,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          60,
          []() { run_dirichlet_control_contract_test<2>(); }},
+        {"partial_dirichlet_control",
+         "nmopt.dealii.partial_dirichlet_control",
+         {"dealii", "compiler"},
+         60,
+         []() { run_partial_dirichlet_control_contract_test<2>(); }},
         {"subdomain_observation",
          "nmopt.dealii.subdomain_observation",
          {"dealii", "compiler"},

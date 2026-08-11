@@ -122,6 +122,8 @@ namespace nmopt::compiler::v1
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_dirichlet_control =
         uses_dirichlet_control_lifting(specification);
+      const bool uses_partial_dirichlet_control =
+        uses_partial_dirichlet_control_lifting(specification);
       const bool uses_neumann_boundary_control =
         uses_neumann_control(specification);
       const bool uses_neumann_convection =
@@ -216,7 +218,7 @@ namespace nmopt::compiler::v1
           "boundary_weight",
           "boundary_weight_binding_provenance",
           "Supply a stable provenance label for the boundary-weight Function binding.");
-      if (uses_fixed_reconstruction &&
+      if ((uses_fixed_reconstruction || uses_partial_dirichlet_control) &&
           data.provenance.fixed_dirichlet_data.empty())
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -304,13 +306,15 @@ namespace nmopt::compiler::v1
           specification.formulation.id,
           "valid_adjoint_solve_policy",
           "Select positive finite adjoint-solve tolerances.");
-      if (uses_fixed_reconstruction && !data.fixed_dirichlet_data)
+      if ((uses_fixed_reconstruction || uses_partial_dirichlet_control) &&
+          !data.fixed_dirichlet_data)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.formulation.state_variable_id,
           "fixed_dirichlet_data_binding",
           "Bind fixed Dirichlet Function data for the declared reconstruction.");
-      if (!uses_fixed_reconstruction && data.fixed_dirichlet_data)
+      if (!uses_fixed_reconstruction && !uses_partial_dirichlet_control &&
+          data.fixed_dirichlet_data)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.formulation.state_variable_id,
@@ -392,13 +396,17 @@ namespace nmopt::compiler::v1
       if (!result.diagnostics.valid())
         return result;
 
+      const auto fixed_dirichlet_boundary_ids =
+        uses_mean_zero_gauge ||
+            (uses_dirichlet_control && !uses_partial_dirichlet_control)
+          ? std::set<dealii::types::boundary_id>{}
+          : selected_dirichlet_boundary_ids(specification);
       const auto dirichlet_boundary_ids = uses_mean_zero_gauge
                                             ? std::set<dealii::types::boundary_id>{}
                                             : uses_dirichlet_control
                                               ? selected_dirichlet_control_boundary_ids(
                                                   specification)
-                                            : selected_dirichlet_boundary_ids(
-                                                specification);
+                                            : fixed_dirichlet_boundary_ids;
       if (triangulation.has_hanging_nodes())
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -469,14 +477,28 @@ namespace nmopt::compiler::v1
       if (!result.diagnostics.valid())
         return result;
       if (uses_dirichlet_control &&
-          !controls_complete_exterior_boundary(triangulation,
-                                               dirichlet_boundary_ids))
+          ((!uses_partial_dirichlet_control &&
+            !controls_complete_exterior_boundary(triangulation,
+                                                 dirichlet_boundary_ids)) ||
+           (uses_partial_dirichlet_control &&
+            (!contains_all_boundary_ids(triangulation,
+                                        fixed_dirichlet_boundary_ids) ||
+             !contains_all_boundary_ids(triangulation,
+                                        dirichlet_boundary_ids) ||
+             !forms_complete_boundary_partition(
+               triangulation,
+               fixed_dirichlet_boundary_ids,
+               dirichlet_boundary_ids)))))
         {
           result.diagnostics.add(
             semantic::v1::DiagnosticCategory::lowerability,
             specification.formulation.state_variable_id,
-            "complete_dirichlet_control_boundary",
-            "Select every exterior boundary id for the registered nodal Dirichlet lifting; partial boundaries, interfaces, and undeclared corner policies are not supported.");
+            uses_partial_dirichlet_control
+              ? "complete_partial_dirichlet_boundary_partition"
+              : "complete_dirichlet_control_boundary",
+            uses_partial_dirichlet_control
+              ? "Partition every exterior boundary face into the declared fixed or controlled Dirichlet region."
+              : "Select every exterior boundary id for the registered nodal Dirichlet lifting; partial boundaries, interfaces, and undeclared corner policies are not supported.");
           return result;
         }
       contract::require(tracking_region != nullptr,
@@ -562,7 +584,9 @@ namespace nmopt::compiler::v1
             data.reaction,
             data.regularisation_weight,
             policy.state_degree,
-            dirichlet_boundary_ids);
+            dirichlet_boundary_ids,
+            fixed_dirichlet_boundary_ids,
+            data.fixed_dirichlet_data);
           metric = std::make_shared<dealii_backend::MassMetric>(
             dirichlet->control_l2_metric(policy.control_metric_solve));
           solvers = {
@@ -1164,6 +1188,19 @@ namespace nmopt::compiler::v1
                semantic::v1::TransformationKind::dirichlet_control_lifting;
     }
 
+    static bool
+    uses_partial_dirichlet_control_lifting(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      if (!uses_dirichlet_control_lifting(specification))
+        return false;
+      const auto state = find_variable(
+        specification, specification.formulation.state_variable_id);
+      const auto transformation = state == nullptr ? nullptr : find_transformation(
+        specification, state->physical_field_transform_id);
+      return transformation != nullptr && !transformation->fixed_data_id.empty();
+    }
+
     static std::set<dealii::types::boundary_id>
     selected_dirichlet_boundary_ids(
       const semantic::v1::ProblemSpec &specification)
@@ -1172,9 +1209,11 @@ namespace nmopt::compiler::v1
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),
         [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
-          return candidate.subject_id ==
-                   specification.formulation.state_variable_id &&
-                 candidate.kind == semantic::v1::RequirementKind::fixed_dirichlet;
+          return candidate.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
+                 (candidate.subject_id ==
+                    specification.formulation.state_variable_id ||
+                  (uses_partial_dirichlet_control_lifting(specification) &&
+                   candidate.subject_id == "dirichlet_control_lifting"));
         });
       contract::require(policy != specification.requirement_policies.end(),
                         "Validated v1 problem has no fixed Dirichlet policy");
@@ -1617,13 +1656,17 @@ namespace nmopt::compiler::v1
         has_h1_state_observation(specification);
       const bool dirichlet_control_lifting =
         uses_dirichlet_control_lifting(specification);
+      const bool partial_dirichlet_control =
+        uses_partial_dirichlet_control_lifting(specification);
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),
         [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
-          return candidate.subject_id ==
-                   specification.formulation.state_variable_id &&
-                 candidate.kind == semantic::v1::RequirementKind::fixed_dirichlet;
+          return candidate.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
+                 (candidate.subject_id ==
+                    specification.formulation.state_variable_id ||
+                  (uses_partial_dirichlet_control_lifting(specification) &&
+                   candidate.subject_id == "dirichlet_control_lifting"));
         });
       const auto boundary = fixed_policy == specification.requirement_policies.end()
                               ? nullptr
@@ -1952,6 +1995,41 @@ namespace nmopt::compiler::v1
               specification.id,
               "dirichlet_control_registered_combination",
               "The first Dirichlet-control target supports only diffusion-reaction, volume forcing, full-volume tracking, and L2 trace regularisation.");
+          if (partial_dirichlet_control)
+            {
+              if (boundary == nullptr ||
+                  boundary->kind != semantic::v1::RegionKind::boundary ||
+                  boundary->boundary_ids.empty())
+                report.add(
+                  DiagnosticCategory::lowerability,
+                  specification.formulation.state_variable_id,
+                  "partial_dirichlet_fixed_boundary",
+                  "Declare a non-empty fixed Dirichlet boundary for the partial controlled lifting.");
+              if (controlled_boundary == nullptr || boundary == nullptr ||
+                  !forms_declared_boundary_partition(*boundary,
+                                                     *controlled_boundary))
+                report.add(
+                  DiagnosticCategory::lowerability,
+                  specification.formulation.state_variable_id,
+                  "partial_dirichlet_boundary_partition",
+                  "Declare disjoint fixed and controlled Dirichlet boundary regions for the partial lifting.");
+              const auto interface_policy = std::find_if(
+                specification.requirement_policies.begin(),
+                specification.requirement_policies.end(),
+                [](const semantic::v1::RequirementPolicySpec &policy) {
+                  return policy.subject_id == "dirichlet_control_lifting" &&
+                         policy.kind ==
+                           semantic::v1::RequirementKind::controlled_dirichlet &&
+                         policy.status == semantic::v1::RequirementStatus::
+                                            selected_discrete_realisation;
+                });
+              if (interface_policy == specification.requirement_policies.end())
+                report.add(
+                  DiagnosticCategory::lowerability,
+                  "dirichlet_control_lifting",
+                  "partial_dirichlet_interface_policy",
+                  "Declare the fixed/controlled corner and interface ownership policy.");
+            }
           const auto tracking_region = selected_tracking_region(specification);
           if (tracking_region == nullptr || !tracking_region->is_full_domain)
             report.add(
@@ -2697,6 +2775,8 @@ namespace nmopt::compiler::v1
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_dirichlet_control_lifting =
         target == CompiledTargetKind::dirichlet_control;
+      const bool uses_partial_dirichlet_control =
+        uses_partial_dirichlet_control_lifting(specification);
       const bool uses_assembled_v1_target =
         target == CompiledTargetKind::assembled_volume ||
         target == CompiledTargetKind::general_scalar_robin;
@@ -2921,7 +3001,9 @@ namespace nmopt::compiler::v1
               : uses_fixed_reconstruction
               ? "; fixed Dirichlet Function interpolated at boundary DoFs"
               : uses_dirichlet_control_lifting
-              ? "; scalar coefficients and forcing Function at volume quadrature; Dirichlet trace is the decision block"
+              ? (uses_partial_dirichlet_control
+                   ? "; scalar coefficients and forcing Function at volume quadrature; fixed Dirichlet Function is interpolated at fixed boundary DoFs and the relative-interior trace is the decision block"
+                   : "; scalar coefficients and forcing Function at volume quadrature; Dirichlet trace is the decision block")
               : "; scalar coefficients and forcing Function at volume quadrature");
       manifest.observation_realisation = uses_h1_state_observation
         ? "full-domain H1_0 state restriction with mass-plus-stiffness pairing"
@@ -2955,7 +3037,9 @@ namespace nmopt::compiler::v1
                                        : uses_fixed_reconstruction
                                        ? "y_phys = P_h y_hat + ell_0,h; independent FE_Q coordinates, AffineConstraints reconstruction, and P_h^* pullbacks"
                                        : uses_dirichlet_control_lifting
-                                           ? "y_phys = P_h y_hat + L_D,h u_h; complete-boundary shared nodal trace lifting, independent FE_Q coordinates, and P_h^*/L_D,h^* pullbacks"
+                                           ? (uses_partial_dirichlet_control
+                                                ? "y_phys = P_h y_hat + ell_0,h + L_D,h u_h; partial nodal trace lifting with fixed-data interface precedence, independent FE_Q coordinates, and P_h^*/L_D,h^* pullbacks"
+                                                : "y_phys = P_h y_hat + L_D,h u_h; complete-boundary shared nodal trace lifting, independent FE_Q coordinates, and P_h^*/L_D,h^* pullbacks")
                                        : uses_assembled_v1_target
                                            ? "y_phys = P_h y_hat; independent FE_Q coordinates and AffineConstraints reconstruction"
                                            : "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
@@ -2981,9 +3065,13 @@ namespace nmopt::compiler::v1
           "neumann_convection_subdomain: conservative transport is assembled in the scalar residual; the Neumann datum is its declared conormal boundary functional and state tracking is restricted to declared material ids");
       if (uses_dirichlet_control_lifting && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(
-          "dirichlet_control_lifting: complete-exterior-boundary shared nodal trace map on boundary ids " +
+          std::string(uses_partial_dirichlet_control
+                        ? "dirichlet_control_lifting: partial controlled nodal trace map on boundary ids "
+                        : "dirichlet_control_lifting: complete-exterior-boundary shared nodal trace map on boundary ids ") +
           boundary_id_list(*control_boundary_region) +
-          "; no corner/interface averaging, hanging-node relation, or box policy is registered");
+          (uses_partial_dirichlet_control
+             ? "; fixed-data precedence owns every fixed/controlled corner or interface DoF; no hanging-node relation or box policy is registered"
+             : "; no corner/interface averaging, hanging-node relation, or box policy is registered"));
       if (uses_h1_control_regularisation)
         manifest.declared_assumptions.push_back(
           "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric=" +

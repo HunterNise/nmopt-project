@@ -36,11 +36,12 @@ have their own semantic, lowering, and verification boundary. P5.3 is next and
 still has no registered target: its first bounded decision is between the C5.8
 normal-flux observation and C5.10 point-sensor observation, followed by an
 observation-specific strong/very-weak policy. The C5.6-style Neumann
-composition and two P5.4 Dirichlet-control slices are complete: the first
-partial controlled boundary and the Chapter 5.11.2 complete-boundary
-$L^{2}(\Gamma)$ transposition problem. Fractional and tangential P5.4 trace
-geometries remain separate follow-up targets, and a general transposition
-lowerer remains unselected.
+composition and all selected scalar Section 5.11/P5.4 Dirichlet-control
+slices are complete: the first partial controlled boundary, the Section
+5.11.2 complete-boundary $L^{2}(\Gamma)$ transposition parent, both Section
+5.11.1 $H^{1/2}(\Gamma)$ options, and the Section 5.11.3 tangential
+$H^{1}(\Gamma)$ option. A general nonconforming transposition lowerer remains
+unselected.
 
 The following pieces exist and are tested:
 
@@ -55,11 +56,11 @@ The following pieces exist and are tested:
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend with a checked conversion from contract dimensions to the native deal.II size type. |
 | Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
-| deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, and negative-norm layouts. The selected $H^{-1}$ realization applies $M_hK_h^{-1}M_h$ and its inverse; all inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
+| deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric,trace_hhalf_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, fractional-trace, and negative-norm layouts. The selected $H^{-1}$ realization applies $M_hK_h^{-1}M_h$; the $H^{1/2}$ realization applies the minimum-volume-$H^{1}$ Schur complement without forming a dense fractional matrix. All inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose thirty-four independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-two deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants. Independent oracles cover the canonical weak form, polynomial $H^{1}_{0}$ tracking, constant weighted-trace scaling, C5.6 transport/subdomain values, partial fixed/control trace ownership, the exact $M_hK_h^{-1}M_h$ metric action, continuous-control components, the reduced $L^{2}$/$H^{-1}$ direction comparison, and the C5.11.2 conforming-trace conormal/stationarity sign. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract,dealii_trace_hhalf_metric_contract}.cc` | Four binaries expose thirty-nine independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-seven deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants. Independent oracles additionally cover the exact trace Schur complement, tangential stiffness, loss/metric separation, all three remaining Section 5.11 stationarity compositions, and their reduced Taylor tests. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -657,7 +658,7 @@ assembles the independent trace $L^{2}$ metric, and realizes
 $`P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}`$. Focused contracts distinguish
 fixed and controlled values, test state/control residual and objective
 pullbacks, metric apply/inverse, changed fixed data, and exact diagnostics for
-overlapping or absent boundary regions. Fractional and tangential metrics,
+overlapping or absent boundary regions. Sobolev metrics on this partial trace,
 alternate interface policies, hanging-node trace relations, and trace boxes
 remain P5.4 follow-ups.
 
@@ -689,7 +690,7 @@ $\beta M_{\Gamma,h}u_{h}-q_{h}$. This fixes the sign from source equations
 5.18. `DirichletControlLiftingModel::discrete_conormal_covector()` and
 `nmopt.dealii.l2_dirichlet_transposition` provide the independent contract.
 
-**Selected remaining Section 5.11 policy:** the Section 5.11.1
+**Implemented remaining Section 5.11 slices:** the Section 5.11.1
 $H^{1/2}(\Gamma)$ metric is the minimum-volume-$H^{1}$ extension norm on
 $U_{h}=\mathrm{tr}_{\Gamma}V_{h}$, realized by the Schur complement of
 $M_{\Omega,h}+K_{\Omega,h}$. Register both source options: fractional control
@@ -697,7 +698,15 @@ loss with $L^{2}$ state tracking, and boundary $L^{2}$ control loss with
 $H^{1}$ state tracking. Section 5.11.3 uses
 $M_{\Gamma,h}+K_{\Gamma,h}$ for its tangential $H^{1}(\Gamma)$ loss and
 metric. Loss and search metric remain distinct components in every case, and
-none of these registrations has a trace box.
+none of these registrations has a trace box. `TraceHhalfMetric` applies the
+Schur complement through one interior minimum-extension solve and applies its
+inverse through one full-volume $H^{1}$ solve; it does not assemble a dense
+fractional matrix. `DirichletControlLiftingModel` independently selects the
+state tracking, control loss, and search metric, and assembles projected
+tangential gradients for Section 5.11.3. The
+`nmopt.dealii.section_5_11_compilation` contract verifies all three metric
+round trips, reduced Taylor tests, stationarity decompositions, and distinct
+structured manifests.
 
 ### P5.5 — Add regularised state-observation constraints with KKT provenance
 
@@ -906,7 +915,8 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-P5.2 and the two selected P5.4 Dirichlet-control slices are complete. P4.1 and
+P5.2 and all selected scalar Section 5.11/P5.4 Dirichlet-control slices are
+complete. P4.1 and
 P4.2 remain ignored for the current ordered implementation run. P5.3 is next
 and still requires selection of its first observation target. Continue as
 follows:
@@ -924,14 +934,18 @@ follows:
    boundary/material diagnostics, and manifest provenance are verified.
 4. The first P5.4 partial scalar controlled-Dirichlet target is complete: one
    disjoint fixed nonzero boundary, fixed-corner precedence, relative-interior
-   control, and an $L^{2}$ trace metric are registered. Fractional and
-   tangential metrics remain separate P5.4 follow-ups.
+   control, and an $L^{2}$ trace metric are registered. Sobolev metrics on
+   partial or nonmatching traces remain separate P5.4 follow-ups.
 5. The P5.4 C5.11.2 continuous $L^{2}(\Gamma)$ transposition parent is
    complete. Its registered lowerer records the conforming
    $U_{h}\subset H^{1/2}(\Gamma)$ equivalence, and its independent discrete
    conormal contract verifies $\beta M_{\Gamma,h}u_{h}-q_{h}$. Discontinuous
    $L^{2}$ Dirichlet data and a general transposition lowerer remain excluded.
-6. Next, select P5.3's first target: either the C5.8 normal-flux observation or
+6. The remaining complete-boundary Section 5.11 registrations are complete:
+   both $H^{1/2}$ options preserve the distinct loss/metric choice, and the
+   tangential $H^{1}$ option uses boundary mass plus projected-gradient
+   stiffness. Their metric, stationarity, Taylor, and manifest contracts pass.
+7. Next, select P5.3's first target: either the C5.8 normal-flux observation or
    C5.10 point-sensor observation. Document its strong/very-weak evaluation
    policy before implementation. Reuse the completed C1/C2
    boundaries and do not reopen the broad P4.2 algebra/formulation group.

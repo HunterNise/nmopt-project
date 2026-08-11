@@ -494,6 +494,14 @@ mode on the closed boundary. The same assembled action realizes the selected
 $H^{1}(\Gamma)$ control loss and search metric, but they retain separate
 semantic identities. No trace box is registered for either Sobolev metric.
 
+These decisions are implemented by `TraceHhalfMetric` and the selectable
+objective policy of `DirichletControlLiftingModel`. The three registered
+factories lower to distinct compiler IDs. The focused
+`nmopt.dealii.section_5_11_compilation` contract checks the Schur-complement
+and tangential metric inverses, the reduced Taylor remainder, the discrete
+conormal stationarity composition, and the option-2 separation between the
+$L^{2}(\Gamma)$ loss and $H^{1/2}(\Gamma)$ search metric.
+
 ### 8.3 Natural boundary data and controls
 
 For the first boundary-control extension, $`\Gamma_{c}`$ is a marked collection

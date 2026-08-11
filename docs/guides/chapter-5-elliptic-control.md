@@ -497,9 +497,16 @@ separate semantic identities.
 
 The exact registered Dirichlet-control boundary is recorded in the
 [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities).
-P5.4 covers partial/mixed boundaries, nonzero fixed data, and the fractional
-or tangential metric variants. P5.3 is also necessary for the
-$L^{2}$-control variant.
+The complete-boundary factories
+`make_hhalf_dirichlet_laplace_control_problem()`,
+`make_h1_tracking_hhalf_dirichlet_laplace_control_problem()`, and
+`make_h1_dirichlet_laplace_control_problem()` implement items 1 and 3 with
+the choices above. Their common contract verifies the reduced stationarity
+composition, including that item 1's second option retains an $L^{2}$ control
+loss while using the fractional action only as its search metric. P5.4 still
+owns alternate partial/nonmatching trace realizations. P5.3 and a general
+transposition lowerer remain necessary for a nonconforming $L^{2}$-control
+variant.
 
 ### C5.12 — State-constrained distributed control
 

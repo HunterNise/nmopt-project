@@ -40,8 +40,10 @@ instead of reproducing this table.
 
 Every factory below is validated in
 [`semantic_v1_contract.cc`](../../../tests/semantic_v1_contract.cc). The last
-column names its focused CTest scenario backed by
-[`dealii_diffusion_contract.cc`](../../../tests/dealii_diffusion_contract.cc).
+column names its focused CTest scenario backed by either
+[`dealii_diffusion_contract.cc`](../../../tests/dealii_diffusion_contract.cc)
+or
+[`dealii_trace_hhalf_metric_contract.cc`](../../../tests/dealii_trace_hhalf_metric_contract.cc).
 
 | Registered semantic graph | Selected implementation | Bounded capability | Focused CTest scenario |
 | --- | --- | --- | --- |
@@ -52,6 +54,9 @@ column names its focused CTest scenario backed by
 | `make_l2_metric_h1_state_tracking_continuous_control_problem()` and `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Same independent homogeneous-Dirichlet `FE_Q` control layout and energy-tracking graph with separately selected $L^{2}$ or $H^{-1}$ metric; no box | `nmopt.dealii.hminus1_compilation` |
 | `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
 | `make_l2_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` through the declared conforming-trace equivalence | Chapter 5.11.2 $L^{2}$ state/control transposition parent, $H^{2}\cap H^{1}_{0}$ tests, complete-boundary $U_{h}=\mathrm{tr}_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)$, normalized Laplacian, and no trace box | `nmopt.dealii.l2_dirichlet_transposition` |
+| `make_hhalf_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` with `TraceHhalfMetric` | Section 5.11.1 option 1: normalized Laplacian, $L^{2}$ state tracking, and the minimum-extension $H^{1/2}$ action for both control loss and search metric | `nmopt.dealii.section_5_11_compilation` |
+| `make_h1_tracking_hhalf_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` with independently selected loss and metric | Section 5.11.1 option 2: physical $H^{1}$ state tracking, boundary $L^{2}$ control loss, minimum-extension $H^{1/2}$ search metric, and no trace box | `nmopt.dealii.section_5_11_compilation` |
+| `make_h1_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` with tangential face assembly | Section 5.11.3: normalized Laplacian and boundary $M_{\Gamma,h}+K^{\tau}_{\Gamma,h}$ for the separately declared $H^{1}$ control loss and metric | `nmopt.dealii.section_5_11_compilation` |
 | `make_partial_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` with fixed and controlled trace maps | Complete fixed/controlled boundary partition, nonzero nodal fixed lifting, fixed-data precedence at interface DoFs, relative-interior controlled trace, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.partial_dirichlet_control` |
 | `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
 | `make_neumann_convection_subdomain_tracking_problem()` | `NeumannBoundaryControlModel<dim>` with conservative transport and volume observation | Mixed fixed/Neumann boundary partition, conservative-transport weak form, material-id state tracking, facewise $L^{2}$ control metric, and optional facewise box | `nmopt.dealii.neumann_convection_subdomain` |
@@ -501,6 +506,19 @@ so the compiled reduced covector is
 $\beta M_{\Gamma,h}u_{h}-q_{h}$. It deliberately does not differentiate an
 `FE_Q` adjoint pointwise on the boundary.
 
+The remaining Section 5.11 registrations use the ordinary normalized
+variational Laplacian with the same explicit complete-boundary lifting. For
+Section 5.11.1, `TraceHhalfMetric` realizes
+$G_{1/2,h}=A_{BB}-A_{BI}A_{II}^{-1}A_{IB}$ with
+$A=M_{\Omega,h}+K_{\Omega,h}$: apply performs the minimum-extension interior
+solve and inverse apply uses a full-volume $A$ solve with trace-supported
+right-hand side. Option 1 also uses that action in the control loss. Option 2
+keeps the loss action $M_{\Gamma,h}$ and uses $G_{1/2,h}$ only for direction
+formation, while its state loss assembles value and gradient tracking.
+Section 5.11.3 instead assembles
+$M_{\Gamma,h}+K^{\tau}_{\Gamma,h}$ from projected tangential shape gradients.
+All three produce distinct compiler IDs and structured metric/loss provenance.
+
 The first P5.4 extension selects
 
 $$
@@ -513,7 +531,9 @@ trace with zero endpoint extension. Both maps use explicit transpose
 pullbacks, and the boundary $L^{2}$ mass is assembled only on the independent
 control trace. Missing, overlapping, or incomplete partitions are compiler
 diagnostics. Hanging-node trace relations, alternate corner policies,
-fractional or tangential metrics, and trace boxes remain unregistered.
+fractional or tangential metrics on partial/nonmatching traces, and trace boxes
+remain unregistered. The complete-boundary Section 5.11 Sobolev metrics are
+the registered specializations described above.
 
 ## Validation and diagnostics
 
@@ -652,12 +672,12 @@ representative structural or policy failures, incomplete aggregates,
 whole-graph closure, two-sided pairing compatibility, and order-independent
 reference deltas. They also verify order-independent resolution and the exact
 bounded scalar contribution plan, including rejection of a specialized graph.
-The fourteen deal.II target scenarios named in the
+The sixteen deal.II target scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic
 and compiler checks match diagnostic category, component ID, and capability.
-Seven further deal.II scenarios separately cover metric and continuous-control
+Eleven further deal.II scenarios separately cover metric and continuous-control
 component actions, projection-realization compatibility, compiler diagnostics,
 owned-session lifetime, serial SPD solve reporting, and the backend's
 native-size conversion boundary. The
@@ -677,7 +697,7 @@ general scalar/Robin target, it does not compile arbitrary geometric or
 overlapping subdomain restrictions, FE target projection/interpolation, Robin
 partitions beyond the registered homogeneous fixed/Robin split, alternate
 partial controlled-Dirichlet interface policies, fractional or tangential
-trace metrics, trace boxes,
+metrics on partial/nonmatching trace spaces, trace boxes,
 continuous-control bounds, continuous or transformed coefficient parameters,
 matrix-free execution, all-at-once/OTD, multiple equations, or multiple
 optimisation variables. Each requires its own semantic declaration, registered

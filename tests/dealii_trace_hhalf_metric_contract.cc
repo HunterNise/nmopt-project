@@ -1,5 +1,7 @@
 #include "nmopt/dealii/trace_hhalf_metric.hpp"
 #include "nmopt/compiler/v1/dealii_dirichlet_control.hpp"
+#include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
+#include "nmopt/semantic/v1/reference_specs.hpp"
 
 #include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
@@ -71,6 +73,35 @@ namespace
     dealii::Vector<double> difference = actual.block(0);
     difference.add(-1.0, expected.block(0));
     require_close(difference.l2_norm(), 0.0, tolerance, description);
+  }
+
+  void
+  require_covector_close(const Covector &   actual,
+                         const Covector &   expected,
+                         const double       tolerance,
+                         const std::string &description)
+  {
+    nmopt::contract::require_compatible(
+      actual, expected, description + " has incompatible layouts");
+    for (std::size_t block = 0; block < actual.n_blocks(); ++block)
+      {
+        dealii::Vector<double> difference = actual.block(block);
+        difference.add(-1.0, expected.block(block));
+        require_close(difference.l2_norm(), 0.0, tolerance, description);
+      }
+  }
+
+  void
+  require_valid(const nmopt::semantic::v1::ValidationReport &report,
+                const std::string &                           description)
+  {
+    if (report.valid())
+      return;
+    std::string message = description;
+    for (const auto &diagnostic : report.diagnostics())
+      message += " {" + diagnostic.component_id + ", " +
+                 diagnostic.capability + "}";
+    throw nmopt::contract::ContractError(message);
   }
 
   Primal
@@ -444,6 +475,122 @@ namespace
         std::abs(h1_model.objective(point) - l2_model.objective(point)) > 1e-4,
       "H1 state tracking collapsed to the L2 observation geometry");
   }
+
+  void
+  run_section_5_11_compilation_contract()
+  {
+    constexpr int dim = 2;
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    const dealii::Functions::ZeroFunction<dim> forcing;
+    const LinearDesiredState<dim> desired_state;
+    const nmopt::compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      std::nullopt,
+      7.0,
+      0.1,
+      {"test.section_5_11.forcing", "test.section_5_11.target", ""}};
+    nmopt::compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.control_metric_solve.relative_tolerance = 1e-13;
+    policy.control_metric_solve.absolute_tolerance = 1e-15;
+    const nmopt::compiler::v1::DealiiCompiler compiler;
+
+    const auto verify = [&](const nmopt::semantic::v1::ProblemSpec &specification,
+                            const std::string &expected_metric_id) {
+      require_valid(compiler.validate(specification, policy),
+                    specification.id + " did not validate");
+      const auto compilation =
+        compiler.compile(specification, triangulation, bindings, policy);
+      require_valid(compilation.diagnostics,
+                    specification.id + " did not compile");
+      const auto &model = compilation.problem->executable_model();
+      const auto *dirichlet = dynamic_cast<const nmopt::compiler::v1::detail::
+        DirichletControlLiftingModel<dim> *>(&model);
+      nmopt::contract::require(
+        dirichlet != nullptr,
+        specification.id + " did not select the Dirichlet lifting target");
+
+      dealii::Vector<double> control_values(
+        model.variable_layout()->dimension(1));
+      dealii::Vector<double> direction_values(control_values.size());
+      for (std::size_t index = 0; index < control_values.size(); ++index)
+        {
+          control_values[index] = 0.02 * static_cast<double>(index + 1);
+          direction_values[index] =
+            (index % 2 == 0 ? 0.015 : -0.01) *
+            static_cast<double>(index + 1);
+        }
+      const Primal control(model.variable_layout()->single_block(1, "control"),
+                           {control_values});
+      const Primal direction(control.layout(), {direction_values});
+      const auto reduced = compilation.problem->make_reduced_dto();
+      const auto evaluation = reduced.evaluate(control);
+      require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                    0.0,
+                    1e-10,
+                    specification.id + " state residual");
+
+      const auto &metric = compilation.problem->metric();
+      nmopt::contract::require(metric.id() == expected_metric_id,
+                               specification.id + " selected the wrong metric");
+      require_covector_close(metric.apply(
+                               metric.inverse_apply(evaluation.reduced_derivative)),
+                             evaluation.reduced_derivative,
+                             1e-9,
+                             specification.id + " metric round trip");
+
+      const double derivative =
+        nmopt::contract::pair(evaluation.reduced_derivative, direction);
+      const auto remainder = [&](const double step) {
+        return std::abs(
+          reduced.evaluate(shifted(control, direction, step)).objective_value -
+          evaluation.objective_value - step * derivative);
+      };
+      const double coarse = remainder(1e-3);
+      const double fine = remainder(5e-4);
+      nmopt::contract::require(
+        coarse > 1e-12 && fine <= 0.27 * coarse + 1e-12,
+        specification.id + " reduced Taylor remainder is not quadratic");
+
+      const auto control_loss = std::find_if(
+        specification.losses.begin(),
+        specification.losses.end(),
+        [](const nmopt::semantic::v1::LossSpec &loss) {
+          return loss.kind !=
+                 nmopt::semantic::v1::LossKind::quadratic_tracking;
+        });
+      nmopt::contract::require(control_loss != specification.losses.end(),
+                               "Section 5.11 graph has no control loss");
+      Covector regularisation =
+        control_loss->kind == nmopt::semantic::v1::LossKind::
+                                quadratic_hhalf_control_regularisation
+          ? dirichlet->control_hhalf_metric().apply(control)
+        : control_loss->kind == nmopt::semantic::v1::LossKind::
+                                quadratic_h1_control_regularisation
+          ? dirichlet->control_h1_metric(policy.control_metric_solve)
+              .apply(control)
+          : dirichlet->control_l2_metric(policy.control_metric_solve)
+              .apply(control);
+      regularisation.scale_block(0, bindings.regularisation_weight);
+      const Covector conormal = dirichlet->discrete_conormal_covector(
+        evaluation.full_point, evaluation.adjoint);
+      regularisation.add_scaled_block(0, -1.0, conormal.block(0));
+      require_covector_close(evaluation.reduced_derivative,
+                             regularisation,
+                             1e-9,
+                             specification.id + " stationarity composition");
+    };
+
+    verify(nmopt::semantic::v1::make_hhalf_dirichlet_laplace_control_problem(),
+           "hhalf_dirichlet_trace");
+    verify(nmopt::semantic::v1::
+             make_h1_tracking_hhalf_dirichlet_laplace_control_problem(),
+           "hhalf_dirichlet_trace");
+    verify(nmopt::semantic::v1::make_h1_dirichlet_laplace_control_problem(),
+           "h1_dirichlet_trace");
+  }
 } // namespace
 
 int
@@ -471,7 +618,12 @@ main(const int argc, char **argv)
          "nmopt.dealii.dirichlet_h1_tracking",
          {"dealii", "compiler", "objective"},
          60,
-         run_dirichlet_h1_tracking_contract}};
+         run_dirichlet_h1_tracking_contract},
+        {"section_5_11_compilation",
+         "nmopt.dealii.section_5_11_compilation",
+         {"dealii", "compiler", "boundary-control"},
+         90,
+         run_section_5_11_compilation_contract}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

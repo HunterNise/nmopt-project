@@ -124,6 +124,10 @@ namespace nmopt::compiler::v1
         uses_dirichlet_control_target(specification);
       const bool uses_l2_dirichlet_control =
         uses_l2_dirichlet_transposition(specification);
+      const bool uses_normalized_dirichlet_laplace =
+        uses_normalized_dirichlet_laplace_control(specification);
+      const bool uses_normalized_laplacian =
+        uses_l2_dirichlet_control || uses_normalized_dirichlet_laplace;
       const bool uses_partial_dirichlet_control =
         uses_partial_dirichlet_control_lifting(specification);
       const bool uses_neumann_boundary_control =
@@ -133,9 +137,14 @@ namespace nmopt::compiler::v1
       const bool uses_mean_zero_gauge =
         uses_mean_zero_multiplier(specification);
       const bool uses_h1_control_regularisation =
-        uses_h1_control_regularisation_loss(specification);
+        uses_h1_control_regularisation_loss(specification) &&
+        !uses_dirichlet_control;
+      const bool uses_hhalf_control_regularisation =
+        uses_hhalf_control_regularisation_loss(specification);
       const bool uses_h1_control_metric =
         selects_h1_control_metric(specification);
+      const bool uses_hhalf_control_metric =
+        selects_hhalf_control_metric(specification);
       const bool uses_hminus1_control_metric =
         selects_hminus1_control_metric(specification);
       const bool uses_homogeneous_dirichlet_continuous_control =
@@ -227,7 +236,7 @@ namespace nmopt::compiler::v1
           "fixed_dirichlet_data",
           "fixed_dirichlet_binding_provenance",
           "Supply a stable provenance label for the fixed-Dirichlet Function binding.");
-      if (!uses_l2_dirichlet_control && !uses_coefficient_identification &&
+      if (!uses_normalized_laplacian && !uses_coefficient_identification &&
           !uses_general_scalar &&
           !data.diffusion)
         result.diagnostics.add(
@@ -235,7 +244,7 @@ namespace nmopt::compiler::v1
           "diffusion",
           "diffusion_data_binding",
           "Bind the constant diffusion coefficient selected by this graph.");
-      if (!uses_l2_dirichlet_control && !uses_coefficient_identification &&
+      if (!uses_normalized_laplacian && !uses_coefficient_identification &&
           !uses_general_scalar &&
           data.diffusion &&
           (!std::isfinite(*data.diffusion) || *data.diffusion <= 0.0))
@@ -244,7 +253,7 @@ namespace nmopt::compiler::v1
           "diffusion",
           "positive_finite_diffusion_binding",
           "Bind a positive finite constant diffusion coefficient.");
-      if (!uses_l2_dirichlet_control && !uses_general_scalar &&
+      if (!uses_normalized_laplacian && !uses_general_scalar &&
           (!std::isfinite(data.reaction) || data.reaction < 0.0))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -580,19 +589,43 @@ namespace nmopt::compiler::v1
       else if (uses_dirichlet_control)
         {
           using DirichletModel = detail::DirichletControlLiftingModel<dim>;
+          detail::DirichletObjectivePolicy objective_policy;
+          objective_policy.state_tracking =
+            uses_h1_state_observation
+              ? detail::DirichletStateTrackingNormKind::h1
+              : detail::DirichletStateTrackingNormKind::l2;
+          objective_policy.control_norm =
+            uses_hhalf_control_regularisation
+              ? detail::DirichletControlNormKind::hhalf
+            : uses_h1_control_regularisation_loss(specification)
+              ? detail::DirichletControlNormKind::h1
+              : detail::DirichletControlNormKind::l2;
+          objective_policy.search_metric =
+            uses_hhalf_control_metric
+              ? detail::DirichletControlNormKind::hhalf
+            : uses_h1_control_metric ? detail::DirichletControlNormKind::h1
+                                     : detail::DirichletControlNormKind::l2;
+          objective_policy.trace_metric_solve = policy.control_metric_solve;
           const auto dirichlet = std::make_shared<DirichletModel>(
             triangulation,
             data.forcing,
             data.desired_state,
-            uses_l2_dirichlet_control ? 1.0 : *data.diffusion,
-            uses_l2_dirichlet_control ? 0.0 : data.reaction,
+            uses_normalized_laplacian ? 1.0 : *data.diffusion,
+            uses_normalized_laplacian ? 0.0 : data.reaction,
             data.regularisation_weight,
             policy.state_degree,
             dirichlet_boundary_ids,
             fixed_dirichlet_boundary_ids,
-            data.fixed_dirichlet_data);
-          metric = std::make_shared<dealii_backend::MassMetric>(
-            dirichlet->control_l2_metric(policy.control_metric_solve));
+            data.fixed_dirichlet_data,
+            objective_policy);
+          if (uses_hhalf_control_metric)
+            metric = std::make_shared<dealii_backend::TraceHhalfMetric>(
+              dirichlet->control_hhalf_metric());
+          else
+            metric = std::make_shared<dealii_backend::MassMetric>(
+              uses_h1_control_metric
+                ? dirichlet->control_h1_metric(policy.control_metric_solve)
+                : dirichlet->control_l2_metric(policy.control_metric_solve));
           solvers = {
             [dirichlet, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &control) {
@@ -779,6 +812,16 @@ namespace nmopt::compiler::v1
                                                ? (uses_l2_dirichlet_control
                                                     ? CompiledTargetKind::
                                                         l2_dirichlet_transposition
+                                                  : uses_normalized_dirichlet_laplace
+                                                    ? (uses_h1_control_regularisation_loss(
+                                                         specification)
+                                                         ? CompiledTargetKind::
+                                                             h1_dirichlet_control
+                                                       : uses_h1_state_observation
+                                                         ? CompiledTargetKind::
+                                                             h1_tracking_hhalf_dirichlet_control
+                                                         : CompiledTargetKind::
+                                                             hhalf_dirichlet_control)
                                                     : CompiledTargetKind::
                                                         dirichlet_control)
                                              : uses_coefficient_identification
@@ -838,6 +881,9 @@ namespace nmopt::compiler::v1
       pure_neumann,
       dirichlet_control,
       l2_dirichlet_transposition,
+      hhalf_dirichlet_control,
+      h1_tracking_hhalf_dirichlet_control,
+      h1_dirichlet_control,
       h1_control_l2_metric,
       h1_control_h1_metric,
       hminus1_control_metric,
@@ -983,6 +1029,19 @@ namespace nmopt::compiler::v1
     }
 
     static bool
+    uses_hhalf_control_regularisation_loss(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.losses.begin(),
+        specification.losses.end(),
+        [](const semantic::v1::LossSpec &loss) {
+          return loss.kind == semantic::v1::LossKind::
+                                quadratic_hhalf_control_regularisation;
+        });
+    }
+
+    static bool
     has_homogeneous_dirichlet_continuous_control(
       const semantic::v1::ProblemSpec &specification)
     {
@@ -1090,6 +1149,20 @@ namespace nmopt::compiler::v1
         });
       return metric != specification.metrics.end() &&
              metric->kind == semantic::v1::MetricKind::h1;
+    }
+
+    static bool
+    selects_hhalf_control_metric(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      const auto metric = std::find_if(
+        specification.metrics.begin(),
+        specification.metrics.end(),
+        [&specification](const semantic::v1::MetricSpec &candidate) {
+          return candidate.id == specification.formulation.metric_id;
+        });
+      return metric != specification.metrics.end() &&
+             metric->kind == semantic::v1::MetricKind::hhalf;
     }
 
     static bool
@@ -1210,6 +1283,20 @@ namespace nmopt::compiler::v1
                  term.kind == semantic::v1::ResidualTermKind::
                                 dirichlet_transposition_control;
         });
+    }
+
+    static bool
+    uses_normalized_dirichlet_laplace_control(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return uses_dirichlet_control_lifting(specification) &&
+             std::any_of(
+               specification.residual_terms.begin(),
+               specification.residual_terms.end(),
+               [](const semantic::v1::ResidualTermSpec &term) {
+                 return term.kind ==
+                        semantic::v1::ResidualTermKind::laplacian;
+               });
     }
 
     static bool
@@ -1669,9 +1756,16 @@ namespace nmopt::compiler::v1
                      "Register value, JVP, and VJP lowering for this transformation.");
 
       const bool mean_zero_gauge = uses_mean_zero_multiplier(specification);
-      const bool h1_control_regularisation =
+      const bool has_h1_control_regularisation_loss =
         uses_h1_control_regularisation_loss(specification);
+      const bool h1_control_regularisation =
+        has_h1_control_regularisation_loss &&
+        !uses_dirichlet_control_target(specification);
+      const bool hhalf_control_regularisation =
+        uses_hhalf_control_regularisation_loss(specification);
       const bool h1_control_metric = selects_h1_control_metric(specification);
+      const bool hhalf_control_metric =
+        selects_hhalf_control_metric(specification);
       const bool hminus1_control_metric =
         selects_hminus1_control_metric(specification);
       const bool homogeneous_dirichlet_continuous_control =
@@ -1688,10 +1782,15 @@ namespace nmopt::compiler::v1
         has_h1_state_observation(specification);
       const bool l2_dirichlet_transposition =
         uses_l2_dirichlet_transposition(specification);
+      const bool normalized_dirichlet_laplace =
+        uses_normalized_dirichlet_laplace_control(specification);
       const bool dirichlet_control_lifting =
         uses_dirichlet_control_target(specification);
       const bool partial_dirichlet_control =
         uses_partial_dirichlet_control_lifting(specification);
+      const bool registered_h1_dirichlet_tracking =
+        normalized_dirichlet_laplace && hhalf_control_metric &&
+        !has_h1_control_regularisation_loss;
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),
@@ -1727,7 +1826,9 @@ namespace nmopt::compiler::v1
               "h1_state_observation_full_domain",
               "Select the full volume region for the registered H1 state observation.");
           if (uses_fixed_dirichlet_reconstruction(specification) ||
-              dirichlet_control_lifting || uses_neumann_control(specification) ||
+              (dirichlet_control_lifting &&
+               !registered_h1_dirichlet_tracking) ||
+              uses_neumann_control(specification) ||
               h1_control_regularisation ||
               coefficient_identification ||
               general_scalar)
@@ -1880,7 +1981,9 @@ namespace nmopt::compiler::v1
               "The first H1-control regularisation target supports full-domain tracking only.");
         }
 
-      if (h1_control_metric && !h1_control_regularisation)
+      if (h1_control_metric && !h1_control_regularisation &&
+          !(normalized_dirichlet_laplace &&
+            has_h1_control_regularisation_loss))
         report.add(
           DiagnosticCategory::lowerability,
           specification.formulation.metric_id,
@@ -2007,10 +2110,11 @@ namespace nmopt::compiler::v1
           if (control == nullptr ||
               control->role != semantic::v1::VariableRole::control ||
               space == specification.spaces.end() ||
-              space->topology !=
-                (l2_dirichlet_transposition
-                   ? semantic::v1::SpaceTopology::l2
-                   : semantic::v1::SpaceTopology::h1) ||
+              space->topology != (l2_dirichlet_transposition
+                                    ? semantic::v1::SpaceTopology::l2
+                                  : hhalf_control_metric
+                                    ? semantic::v1::SpaceTopology::hhalf
+                                    : semantic::v1::SpaceTopology::h1) ||
               controlled_boundary == nullptr ||
               space->region_id != controlled_boundary->id)
             report.add(
@@ -2018,9 +2122,13 @@ namespace nmopt::compiler::v1
               specification.formulation.control_variable_id,
               l2_dirichlet_transposition
                 ? "l2_dirichlet_control_parent_space"
+              : hhalf_control_metric
+                ? "hhalf_dirichlet_nodal_trace_control_space"
                 : "dirichlet_nodal_trace_control_space",
               l2_dirichlet_transposition
                 ? "Declare the continuous parent control in L2 on the controlled boundary; its conforming nodal trace is a selected discrete subspace."
+              : hhalf_control_metric
+                ? "Select the registered H1/2 nodal trace control space on the controlled Dirichlet boundary."
                 : "Select the registered continuous nodal trace control space on the controlled Dirichlet boundary.");
           if (!specification.formulation.constraint_id.empty())
             report.add(
@@ -2036,6 +2144,18 @@ namespace nmopt::compiler::v1
               specification.id,
               "dirichlet_control_registered_combination",
               "The first Dirichlet-control target supports only diffusion-reaction, volume forcing, full-volume tracking, and L2 trace regularisation.");
+          if (normalized_dirichlet_laplace && partial_dirichlet_control)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "normalized_dirichlet_complete_boundary",
+              "Use the complete controlled exterior boundary for the registered Section 5.11 trace-space realizations.");
+          if (hhalf_control_regularisation && !hhalf_control_metric)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.metric_id,
+              "hhalf_loss_metric_realisation",
+              "Select the minimum-extension H1/2 search metric with the H1/2 control loss.");
           if (partial_dirichlet_control)
             {
               if (boundary == nullptr ||
@@ -2150,6 +2270,10 @@ namespace nmopt::compiler::v1
       const bool boundary_control = uses_neumann_control(specification);
       const bool l2_dirichlet_transposition =
         uses_l2_dirichlet_transposition(specification);
+      const bool normalized_dirichlet_laplace =
+        uses_normalized_dirichlet_laplace_control(specification);
+      const bool normalized_laplacian =
+        l2_dirichlet_transposition || normalized_dirichlet_laplace;
       const bool dirichlet_control =
         uses_dirichlet_control_target(specification);
       const bool coefficient_identification =
@@ -2194,6 +2318,10 @@ namespace nmopt::compiler::v1
               ResidualTermKind::dirichlet_transposition_control) == 1 &&
             count_terms(ResidualTermKind::volume_source) == 1 &&
             specification.residual_terms.size() == 3
+        : normalized_dirichlet_laplace
+        ? count_terms(ResidualTermKind::laplacian) == 1 &&
+            count_terms(ResidualTermKind::volume_source) == 1 &&
+            specification.residual_terms.size() == 2
         : dirichlet_control
         ? count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
             count_terms(ResidualTermKind::volume_source) == 1 &&
@@ -2216,6 +2344,8 @@ namespace nmopt::compiler::v1
                              : "complete_neumann_boundary_residual_term_set"
                          : l2_dirichlet_transposition
                              ? "complete_l2_dirichlet_transposition_term_set"
+                         : normalized_dirichlet_laplace
+                             ? "complete_normalized_dirichlet_laplace_term_set"
                          : dirichlet_control
                              ? "complete_dirichlet_control_residual_term_set"
                          : "complete_volume_residual_term_set",
@@ -2229,6 +2359,8 @@ namespace nmopt::compiler::v1
                          : "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
                      : l2_dirichlet_transposition
                      ? "Declare exactly one transposition Laplace state action, volume source, and Dirichlet normal-test-derivative control action."
+                     : normalized_dirichlet_laplace
+                     ? "Declare exactly one normalized Laplace state action and one volume-source term; the control enters through the declared lifting."
                      : dirichlet_control
                      ? "Declare exactly one diffusion-reaction and one volume-source term; the control enters through the declared lifting."
                      : "Declare exactly one diffusion-reaction, volume-source, and volume-control term.");
@@ -2253,7 +2385,7 @@ namespace nmopt::compiler::v1
           count_data(DataRole::observation_weight) !=
             (weighted_boundary_trace ? 1 : 0) ||
           count_data(DataRole::regularisation_weight) != 1 ||
-          (l2_dirichlet_transposition
+          (normalized_laplacian
              ? count_data(DataRole::diffusion) != 0 ||
                  count_data(DataRole::reaction) != 0
            : general_scalar
@@ -2268,8 +2400,8 @@ namespace nmopt::compiler::v1
                    : count_data(DataRole::diffusion) != 1))))
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
-                   l2_dirichlet_transposition
-                     ? "complete_l2_dirichlet_transposition_data_set"
+                   normalized_laplacian
+                     ? "complete_normalized_laplacian_data_set"
                    : general_scalar
                      ? "complete_general_scalar_data_set"
                    : coefficient_identification
@@ -2279,7 +2411,7 @@ namespace nmopt::compiler::v1
                      : neumann_convection
                        ? "complete_neumann_convection_data_set"
                      : "complete_volume_data_set",
-                   l2_dirichlet_transposition
+                   normalized_laplacian
                      ? "Declare exactly one forcing, target, and regularisation datum; the normalized Laplacian has no coefficient binding."
                    : general_scalar
                      ? "Declare forcing, target, tensor diffusion, both transports, reaction, Robin coefficient/source, and regularisation data exactly once."
@@ -2301,14 +2433,27 @@ namespace nmopt::compiler::v1
       };
       const bool h1_control_regularisation =
         uses_h1_control_regularisation_loss(specification);
+      const bool hhalf_control_regularisation =
+        uses_hhalf_control_regularisation_loss(specification);
       const bool complete_control_loss = coefficient_identification
         ? count_losses(LossKind::quadratic_parameter_regularisation) == 1 &&
+            count_losses(LossKind::quadratic_control_regularisation) == 0 &&
+            count_losses(
+              LossKind::quadratic_hhalf_control_regularisation) == 0 &&
+            count_losses(LossKind::quadratic_h1_control_regularisation) == 0
+        : hhalf_control_regularisation
+        ? count_losses(
+            LossKind::quadratic_hhalf_control_regularisation) == 1 &&
             count_losses(LossKind::quadratic_control_regularisation) == 0 &&
             count_losses(LossKind::quadratic_h1_control_regularisation) == 0
         : h1_control_regularisation
         ? count_losses(LossKind::quadratic_h1_control_regularisation) == 1 &&
-            count_losses(LossKind::quadratic_control_regularisation) == 0
+            count_losses(LossKind::quadratic_control_regularisation) == 0 &&
+            count_losses(
+              LossKind::quadratic_hhalf_control_regularisation) == 0
         : count_losses(LossKind::quadratic_control_regularisation) == 1 &&
+            count_losses(
+              LossKind::quadratic_hhalf_control_regularisation) == 0 &&
             count_losses(LossKind::quadratic_h1_control_regularisation) == 0 &&
             count_losses(LossKind::quadratic_parameter_regularisation) == 0;
       if (count_losses(LossKind::quadratic_tracking) != 1 ||
@@ -2318,6 +2463,8 @@ namespace nmopt::compiler::v1
                    "complete_registered_loss_set",
                    coefficient_identification
                      ? "Declare exactly one tracking and one parameter-regularisation loss."
+                     : hhalf_control_regularisation
+                     ? "Declare exactly one tracking and one H1/2 control-regularisation loss."
                      : h1_control_regularisation
                      ? "Declare exactly one tracking and one H1 control-regularisation loss."
                      : "Declare exactly one tracking and one L2 control-regularisation loss.");
@@ -2331,12 +2478,13 @@ namespace nmopt::compiler::v1
       if (specification.metrics.size() != 1 ||
           selected_metric == specification.metrics.end() ||
           (selected_metric->kind != semantic::v1::MetricKind::l2 &&
+           selected_metric->kind != semantic::v1::MetricKind::hhalf &&
            selected_metric->kind != semantic::v1::MetricKind::h1 &&
            selected_metric->kind != semantic::v1::MetricKind::hminus1))
         report.add(DiagnosticCategory::lowerability,
                    specification.formulation.metric_id,
                    "selected_registered_metric",
-                   "Select exactly one registered L2, H1, or H-1 control metric.");
+                   "Select exactly one registered L2, H1/2, H1, or H-1 control metric.");
       if (coefficient_identification &&
           selected_metric != specification.metrics.end() &&
           selected_metric->kind != semantic::v1::MetricKind::l2)
@@ -2452,8 +2600,10 @@ namespace nmopt::compiler::v1
             specification.observations.end(),
             [state](const semantic::v1::ObservationSpec &observation) {
               return state != nullptr &&
-                     observation.kind ==
-                       semantic::v1::ObservationKind::volume_restriction &&
+                     (observation.kind ==
+                        semantic::v1::ObservationKind::volume_restriction ||
+                      observation.kind == semantic::v1::ObservationKind::
+                                            h1_state_restriction) &&
                      observation.input_variable_id == state->id;
             });
           const auto control_restriction = std::find_if(
@@ -2669,6 +2819,11 @@ namespace nmopt::compiler::v1
             return "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary";
           case CompiledTargetKind::l2_dirichlet_transposition:
             return "conforming nodal trace FE subspace U_h=trace(V_h) of the continuous L2 boundary control";
+          case CompiledTargetKind::hhalf_dirichlet_control:
+          case CompiledTargetKind::h1_tracking_hhalf_dirichlet_control:
+            return "conforming nodal trace FE subspace U_h=trace(V_h) with the minimum-extension H1/2 geometry";
+          case CompiledTargetKind::h1_dirichlet_control:
+            return "conforming nodal trace FE subspace with boundary mass-plus-tangential-stiffness H1 geometry";
           case CompiledTargetKind::neumann_boundary:
           case CompiledTargetKind::weighted_boundary_trace:
           case CompiledTargetKind::pure_neumann:

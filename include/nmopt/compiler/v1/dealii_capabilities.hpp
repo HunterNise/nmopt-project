@@ -16,8 +16,8 @@ namespace nmopt::compiler::v1
       switch (kind)
         {
           case semantic::v1::ResidualTermKind::unspecified:
-          case semantic::v1::ResidualTermKind::laplacian:
             return false;
+          case semantic::v1::ResidualTermKind::laplacian:
           case semantic::v1::ResidualTermKind::diffusion_reaction:
           case semantic::v1::ResidualTermKind::tensor_diffusion:
           case semantic::v1::ResidualTermKind::conservative_transport:
@@ -59,8 +59,8 @@ namespace nmopt::compiler::v1
       switch (kind)
         {
           case semantic::v1::LossKind::unspecified:
-          case semantic::v1::LossKind::quadratic_hhalf_control_regularisation:
             return false;
+          case semantic::v1::LossKind::quadratic_hhalf_control_regularisation:
           case semantic::v1::LossKind::quadratic_tracking:
           case semantic::v1::LossKind::quadratic_control_regularisation:
           case semantic::v1::LossKind::quadratic_h1_control_regularisation:
@@ -74,6 +74,7 @@ namespace nmopt::compiler::v1
     has_metric_lowerer(const semantic::v1::MetricKind kind) const
     {
       return kind == semantic::v1::MetricKind::l2 ||
+             kind == semantic::v1::MetricKind::hhalf ||
              kind == semantic::v1::MetricKind::h1 ||
              kind == semantic::v1::MetricKind::hminus1;
     }

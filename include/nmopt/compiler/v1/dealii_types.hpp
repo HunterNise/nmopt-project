@@ -35,6 +35,29 @@ namespace nmopt::compiler::v1
     std::string robin_source;
   };
 
+  struct DealiiConservativeTransportBindingProvenance
+  {
+    std::string conservative_transport;
+  };
+
+  // C5.6 consumes only the conservative transport coefficient in addition
+  // to the registered constant diffusion-reaction data.  Keeping this
+  // narrow binding separate from the full P5.1 coefficient bundle prevents
+  // unused Robin and advective ports from becoming accidental requirements.
+  template <int dim>
+  struct DealiiConservativeTransportDataBindings
+  {
+    DealiiConservativeTransportDataBindings(
+      const dealii::TensorFunction<1, dim> &transport_function,
+      DealiiConservativeTransportBindingProvenance binding_provenance)
+      : conservative_transport(transport_function)
+      , provenance(std::move(binding_provenance))
+    {}
+
+    const dealii::TensorFunction<1, dim> &conservative_transport;
+    DealiiConservativeTransportBindingProvenance provenance;
+  };
+
   template <int dim>
   struct DealiiGeneralScalarDataBindings
   {
@@ -95,7 +118,9 @@ namespace nmopt::compiler::v1
       std::optional<DealiiGeneralScalarDataBindings<dim>>
         general_scalar_data = std::nullopt,
       std::optional<DealiiWeightedTraceDataBindings<dim>>
-        weighted_trace_data = std::nullopt)
+        weighted_trace_data = std::nullopt,
+      std::optional<DealiiConservativeTransportDataBindings<dim>>
+        conservative_transport_data = std::nullopt)
       : forcing(forcing_function)
       , desired_state(desired_state_function)
       , diffusion(diffusion_value)
@@ -105,6 +130,7 @@ namespace nmopt::compiler::v1
       , provenance(std::move(binding_provenance))
       , general_scalar(std::move(general_scalar_data))
       , weighted_trace(std::move(weighted_trace_data))
+      , conservative_transport(std::move(conservative_transport_data))
     {}
 
     const dealii::Function<dim> &forcing;
@@ -130,6 +156,10 @@ namespace nmopt::compiler::v1
     // Present only when an observation explicitly consumes a fixed boundary
     // weight. It remains separate from target data and loss configuration.
     std::optional<DealiiWeightedTraceDataBindings<dim>> weighted_trace;
+    // Present only for the C5.6 Neumann-control composition. Its narrow
+    // surface avoids requiring the unused P5.1 coefficient ports.
+    std::optional<DealiiConservativeTransportDataBindings<dim>>
+      conservative_transport;
   };
 
   using CellwiseBoundValue = std::variant<double, dealii::Vector<double>>;

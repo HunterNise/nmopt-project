@@ -9,6 +9,7 @@
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
 #include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/tensor_function.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe_q.h>
@@ -61,6 +62,12 @@ namespace nmopt::compiler::v1::detail
       mean_zero_multiplier
     };
 
+    enum class StateObservation
+    {
+      boundary_trace,
+      volume_restriction
+    };
+
     NeumannBoundaryControlModel(
       dealii::Triangulation<dim> &                triangulation,
       const dealii::Function<dim> &               forcing,
@@ -74,7 +81,11 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id>         observation_boundary_ids,
       const dealii::Function<dim> *                 observation_weight = nullptr,
       const StateGauge                              state_gauge =
-        StateGauge::fixed_dirichlet)
+        StateGauge::fixed_dirichlet,
+      const StateObservation                       state_observation =
+        StateObservation::boundary_trace,
+      std::set<dealii::types::material_id>         observation_material_ids = {},
+      const dealii::TensorFunction<1, dim> *       conservative_transport = nullptr)
       : state_fe_(state_degree)
       , state_dof_handler_(triangulation)
       , diffusion_(diffusion)
@@ -84,6 +95,9 @@ namespace nmopt::compiler::v1::detail
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
       , control_boundary_ids_(std::move(control_boundary_ids))
       , observation_boundary_ids_(std::move(observation_boundary_ids))
+      , state_observation_(state_observation)
+      , observation_material_ids_(std::move(observation_material_ids))
+      , uses_conservative_transport_(conservative_transport != nullptr)
     {
       contract::require(diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
@@ -107,8 +121,15 @@ namespace nmopt::compiler::v1::detail
         "The pure-Neumann mean-zero gauge requires zero reaction");
       contract::require(!control_boundary_ids_.empty(),
                         "The Neumann v1 target needs a marked control boundary");
-      contract::require(!observation_boundary_ids_.empty(),
-                        "The Neumann v1 target needs a marked observation boundary");
+      contract::require(
+        state_observation_ == StateObservation::boundary_trace
+          ? !observation_boundary_ids_.empty()
+          : !observation_material_ids_.empty(),
+        "The Neumann v1 target needs the declared observation region");
+      contract::require(
+        state_observation_ == StateObservation::boundary_trace ||
+          observation_weight == nullptr,
+        "The C5.6 volume observation does not consume boundary-weight data");
 
       state_dof_handler_.distribute_dofs(state_fe_);
       build_constraints();
@@ -116,9 +137,17 @@ namespace nmopt::compiler::v1::detail
       contract::require(control_face_count_ > 0,
                         "The selected Neumann boundary has no active boundary faces");
       initialise_storage();
-      assemble(forcing, desired_state, observation_weight);
+      assemble(forcing,
+               desired_state,
+               conservative_transport,
+               observation_weight);
       if (uses_mean_zero_gauge())
         build_mean_zero_system();
+      if (uses_conservative_transport_)
+        {
+          nonsymmetric_solver_ = std::make_unique<dealii::SparseDirectUMFPACK>();
+          nonsymmetric_solver_->initialize(system_matrix_);
+        }
     }
 
     const contract::LayoutPtr &
@@ -296,6 +325,12 @@ namespace nmopt::compiler::v1::detail
           report = dealii_backend::direct_solve_report(
             "serial_sparse_direct_umfpack_mean_zero_saddle");
         }
+      else if (uses_conservative_transport_)
+        {
+          (void)policy;
+          nonsymmetric_solver_->vmult(state, right_hand_side);
+          report = dealii_backend::direct_solve_report("serial_sparse_direct_umfpack");
+        }
       else
         report = solve_symmetric_system(state, right_hand_side, policy);
       state_constraints_.distribute(state);
@@ -333,6 +368,13 @@ namespace nmopt::compiler::v1::detail
           report = dealii_backend::direct_solve_report(
             "serial_sparse_direct_umfpack_mean_zero_saddle");
         }
+      else if (uses_conservative_transport_)
+        {
+          (void)policy;
+          nonsymmetric_solver_->Tvmult(adjoint, state_objective_derivative.block(0));
+          report = dealii_backend::direct_solve_report(
+            "serial_sparse_direct_umfpack_transpose");
+        }
       else
         report = solve_symmetric_system(adjoint,
                                         state_objective_derivative.block(0),
@@ -363,8 +405,17 @@ namespace nmopt::compiler::v1::detail
       const typename dealii::DoFHandler<dim>::active_cell_iterator &cell,
       const unsigned int face) const
     {
-      return cell->face(face)->at_boundary() &&
+      return state_observation_ == StateObservation::boundary_trace &&
+             cell->face(face)->at_boundary() &&
              observation_boundary_ids_.count(cell->face(face)->boundary_id()) != 0;
+    }
+
+    bool
+    is_observation_cell(
+      const typename dealii::DoFHandler<dim>::active_cell_iterator &cell) const
+    {
+      return state_observation_ == StateObservation::volume_restriction &&
+             observation_material_ids_.count(cell->material_id()) != 0;
     }
 
     std::size_t
@@ -477,6 +528,7 @@ namespace nmopt::compiler::v1::detail
     void
     assemble(const dealii::Function<dim> &forcing,
              const dealii::Function<dim> &desired_state,
+             const dealii::TensorFunction<1, dim> *conservative_transport,
              const dealii::Function<dim> *observation_weight)
     {
       const unsigned int quadrature_order = state_fe_.degree + 2;
@@ -488,7 +540,10 @@ namespace nmopt::compiler::v1::detail
           dealii::update_quadrature_points | dealii::update_JxW_values);
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
                                               state_fe_.dofs_per_cell);
+      dealii::FullMatrix<double> local_state_tracking(
+        state_fe_.dofs_per_cell, state_fe_.dofs_per_cell);
       dealii::Vector<double> local_forcing(state_fe_.dofs_per_cell);
+      dealii::Vector<double> local_desired_state(state_fe_.dofs_per_cell);
       dealii::Vector<double> local_mean_constraint(state_fe_.dofs_per_cell);
       std::vector<dealii::types::global_dof_index> state_indices(
         state_fe_.dofs_per_cell);
@@ -499,24 +554,44 @@ namespace nmopt::compiler::v1::detail
         {
           state_values.reinit(cell);
           local_system = 0.0;
+          local_state_tracking = 0.0;
           local_forcing = 0.0;
+          local_desired_state = 0.0;
           local_mean_constraint = 0.0;
           for (unsigned int q = 0; q < volume_quadrature.size(); ++q)
             {
               const double weight = state_values.JxW(q);
+              const auto &point = state_values.quadrature_point(q);
               const double forcing_value =
-                forcing.value(state_values.quadrature_point(q));
+                forcing.value(point);
+              const double desired_value = is_observation_cell(cell)
+                ? desired_state.value(point)
+                : 0.0;
+              if (is_observation_cell(cell))
+                desired_state_norm_ += desired_value * desired_value * weight;
               for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
                   local_mean_constraint(i) += phi_i * weight;
+                  if (is_observation_cell(cell))
+                    local_desired_state(i) += desired_value * phi_i * weight;
                   for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
-                    local_system(i, j) +=
-                      (diffusion_ * (state_values.shape_grad(i, q) *
-                                     state_values.shape_grad(j, q)) +
-                       reaction_ * phi_i * state_values.shape_value(j, q)) *
-                      weight;
+                    {
+                      const double phi_j = state_values.shape_value(j, q);
+                      local_system(i, j) +=
+                        (diffusion_ * (state_values.shape_grad(i, q) *
+                                       state_values.shape_grad(j, q)) +
+                         reaction_ * phi_i * phi_j -
+                         (conservative_transport == nullptr
+                            ? 0.0
+                            : phi_j *
+                                (conservative_transport->value(point) *
+                                 state_values.shape_grad(i, q)))) *
+                        weight;
+                      if (is_observation_cell(cell))
+                        local_state_tracking(i, j) += phi_i * phi_j * weight;
+                    }
                 }
             }
           cell->get_dof_indices(state_indices);
@@ -527,11 +602,19 @@ namespace nmopt::compiler::v1::detail
                 continue;
               forcing_load_[global_i] += local_forcing(i);
               mean_constraint_[global_i] += local_mean_constraint(i);
+              if (is_observation_cell(cell))
+                desired_state_load_[global_i] += local_desired_state(i);
               for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
                 {
                   const auto global_j = state_indices[j];
                   if (!constrained_state_dofs_.at(global_j))
-                    system_matrix_.add(global_i, global_j, local_system(i, j));
+                    {
+                      system_matrix_.add(global_i, global_j, local_system(i, j));
+                      if (is_observation_cell(cell))
+                        state_tracking_matrix_.add(global_i,
+                                                   global_j,
+                                                   local_state_tracking(i, j));
+                    }
                 }
             }
         }
@@ -712,6 +795,9 @@ namespace nmopt::compiler::v1::detail
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
     const std::set<dealii::types::boundary_id> control_boundary_ids_;
     const std::set<dealii::types::boundary_id> observation_boundary_ids_;
+    const StateObservation state_observation_;
+    const std::set<dealii::types::material_id> observation_material_ids_;
+    const bool uses_conservative_transport_;
     std::size_t control_face_count_ = 0;
 
     dealii::SparsityPattern state_sparsity_;
@@ -723,6 +809,7 @@ namespace nmopt::compiler::v1::detail
     dealii::SparseMatrix<double> control_coupling_;
     dealii::SparseMatrix<double> augmented_system_;
     dealii::SparseDirectUMFPACK augmented_solver_;
+    std::unique_ptr<dealii::SparseDirectUMFPACK> nonsymmetric_solver_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     Vector forcing_load_;
     Vector desired_state_load_;

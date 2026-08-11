@@ -877,6 +877,40 @@ namespace
                     1e-11,
                     "L2 Dirichlet conforming trace state");
 
+    const Covector conormal = dirichlet_model->discrete_conormal_covector(
+      evaluation.full_point, evaluation.adjoint);
+    Covector regularisation = compilation.problem->metric().apply(control);
+    regularisation.scale_block(0, 0.1);
+    const Covector residual_pullback = model.residual_vjp(
+      evaluation.full_point, evaluation.adjoint);
+    const Covector objective_derivative =
+      model.objective_derivative(evaluation.full_point);
+    dealii::Vector<double> composed_conormal_values =
+      residual_pullback.block(1);
+    composed_conormal_values.add(-1.0, objective_derivative.block(1));
+    composed_conormal_values.add(1.0, regularisation.block(0));
+    const Covector composed_conormal(
+      control.layout(), {std::move(composed_conormal_values)});
+    require_covector_close(conormal,
+                           composed_conormal,
+                           1e-11,
+                           "L2 Dirichlet discrete conormal pullback");
+
+    Covector expected_stationarity = regularisation;
+    expected_stationarity.add_scaled_block(0, -1.0, conormal.block(0));
+    require_covector_close(evaluation.reduced_derivative,
+                           expected_stationarity,
+                           1e-11,
+                           "L2 Dirichlet beta M_Gamma u minus conormal sign");
+    Covector wrong_plus_stationarity = regularisation;
+    wrong_plus_stationarity.add_scaled_block(0, 1.0, conormal.block(0));
+    dealii::Vector<double> sign_difference =
+      wrong_plus_stationarity.block(0);
+    sign_difference.add(-1.0, evaluation.reduced_derivative.block(0));
+    contract::require(
+      sign_difference.l2_norm() > 1e-6,
+      "L2 Dirichlet stationarity test did not distinguish the rejected plus sign");
+
     const auto &manifest = compilation.problem->manifest();
     const auto has_assumption = [&manifest](const std::string &prefix) {
       return std::any_of(

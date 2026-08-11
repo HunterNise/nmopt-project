@@ -140,6 +140,28 @@ namespace nmopt::compiler::v1::detail
     }
 
     Covector
+    discrete_conormal_covector(const Primal &variables,
+                               const Primal &adjoint) const
+    {
+      require_variables(variables, "Discrete conormal");
+      contract::require(adjoint.layout()->compatible_with(*test_layout_),
+                        "Discrete conormal received an incompatible adjoint layout");
+
+      Vector physical_adjoint_action(state_dof_handler_.n_dofs());
+      physical_system_matrix_.Tvmult(physical_adjoint_action,
+                                     embed_state(adjoint.block(0)));
+      Vector tracking_covector(state_dof_handler_.n_dofs());
+      physical_state_mass_.vmult(
+        tracking_covector,
+        reconstruct(variables.block(0), variables.block(1)));
+      tracking_covector.add(-1.0, desired_state_load_);
+      physical_adjoint_action.add(-1.0, tracking_covector);
+
+      return Covector(control_layout_,
+                      {pullback_control(physical_adjoint_action)});
+    }
+
+    Covector
     residual(const Primal &variables) const override
     {
       require_variables(variables, "Residual");

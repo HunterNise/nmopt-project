@@ -35,11 +35,12 @@ weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
 have their own semantic, lowering, and verification boundary. P5.3 is next in
 the eventual Chapter 5 sequence and requires its strong/very-weak formulation
 policy before implementation. The current ordered priority is scalar boundary
-control: close the remaining C5.6-style Neumann composition, implement the
-first partial controlled-Dirichlet target from P5.4, and then use the P5.3
-transposition policy for the $L^{2}$ Dirichlet-control variant. Standalone
-normal-flux or point-sensor targets remain deferred unless they are selected as
-the next low-regularity target.
+control. The C5.6-style Neumann composition and the first partial
+controlled-Dirichlet target from P5.4 are complete. The next selected task is
+the P5.3 transposition policy required by the $L^{2}$ Dirichlet-control
+variant. Fractional and tangential P5.4 trace geometries remain separate
+follow-up targets, while standalone normal-flux or point-sensor targets remain
+deferred unless one is selected as the next low-regularity target.
 
 The following pieces exist and are tested:
 
@@ -58,7 +59,7 @@ The following pieces exist and are tested:
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose thirty-one independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and nineteen deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants. Independent oracles cover the canonical weak form, polynomial $H^{1}_{0}$ tracking, constant weighted-trace scaling, the exact $M_hK_h^{-1}M_h$ metric action, continuous-control components, and the reduced $L^{2}$/$H^{-1}$ direction comparison. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose thirty-three independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-one deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants. Independent oracles cover the canonical weak form, polynomial $H^{1}_{0}$ tracking, constant weighted-trace scaling, C5.6 transport/subdomain values, partial fixed/control trace ownership, the exact $M_hK_h^{-1}M_h$ metric action, continuous-control components, and the reduced $L^{2}$/$H^{-1}$ direction comparison. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -643,6 +644,19 @@ pass VJP tests under changed fixed and controlled data; each metric passes its
 own pairing test; and incomplete or ambiguous boundary declarations are
 rejected.
 
+**Implemented first slice:**
+`make_partial_dirichlet_control_scalar_diffusion_reaction_problem()` declares
+one fixed-data port, a complete fixed/controlled boundary partition, and
+fixed-data precedence at shared corner/interface DoFs. The private nodal target
+uses the relative-interior controlled trace with zero endpoint extension,
+assembles the independent trace $L^{2}$ metric, and realizes
+$`P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}`$. Focused contracts distinguish
+fixed and controlled values, test state/control residual and objective
+pullbacks, metric apply/inverse, changed fixed data, and exact diagnostics for
+overlapping or absent boundary regions. Fractional and tangential metrics,
+alternate interface policies, hanging-node trace relations, and trace boxes
+remain P5.4 follow-ups.
+
 ### P5.5 — Add regularised state-observation constraints with KKT provenance
 
 **Motivation:** C5.12 constrains the state, so it cannot be represented by the
@@ -860,15 +874,16 @@ track. Continue as follows:
 2. P5.2 is complete: energy and weighted-trace observations remain separate
    maps, and the named $H^{-1}$ metric changes only direction formation on its
    declared continuous-control comparison graph.
-3. Close the C5.6-style Neumann composition as a bounded registered target:
-   combine the completed transport/mixed-boundary residual capability with
-   Neumann control and subdomain tracking, preserving separate boundary and
-   volume observation semantics.
-4. Implement the first P5.4 partial scalar controlled-Dirichlet target with
-   one disjoint fixed nonzero boundary, an explicit corner/interface policy,
-   and an $L^{2}$ trace metric. Keep fractional and tangential metrics as
-   separate follow-up targets.
-5. Select the P5.3 transposition policy needed by the $L^{2}$ Dirichlet-control
+3. The C5.6-style Neumann composition is complete: conservative transport,
+   the facewise natural control, and material-subdomain tracking retain
+   separate bindings, residual, observation, and metric semantics. Exact weak-
+   form and observation values, transpose actions, reduced derivatives,
+   boundary/material diagnostics, and manifest provenance are verified.
+4. The first P5.4 partial scalar controlled-Dirichlet target is complete: one
+   disjoint fixed nonzero boundary, fixed-corner precedence, relative-interior
+   control, and an $L^{2}$ trace metric are registered. Fractional and
+   tangential metrics remain separate P5.4 follow-ups.
+5. Next, select the P5.3 transposition policy needed by the $L^{2}$ Dirichlet-control
    variant, then implement its low-regularity state/adjoint path. Do not
    approximate the transposition action by an ordinary restriction or trace.
 6. Reuse the completed C1/C2 boundaries and do not reopen the broad P4.2

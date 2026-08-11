@@ -485,12 +485,12 @@ $L^{2}$ Dirichlet control and is not a general transposition lowerer.
 `discrete_conormal_covector()` realizes that policy as
 
 ```math
-q_h=L_{D,h}^{\ast}\left(A_h^{\mathsf T}P_hp_h
-      -(M_hy_h-z_{d,h})\right),
+q_{h}=L_{D,h}^{\ast}\left(A_{h}^{\mathsf T}P_{h}p_{h}
+      -(M_{h}y_{h}-z_{d,h})\right),
 ```
 
 so the compiled reduced covector is
-$\beta M_{\Gamma,h}u_h-q_h$. It deliberately does not differentiate an
+$\beta M_{\Gamma,h}u_{h}-q_{h}$. It deliberately does not differentiate an
 `FE_Q` adjoint pointwise on the boundary.
 
 The first P5.4 extension selects

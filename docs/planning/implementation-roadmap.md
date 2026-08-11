@@ -32,17 +32,15 @@ ignored for the current ordered implementation run because their scope is too
 broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
 are complete. P5.2 is complete: the full-domain $H^{1}_{0}$ state observation,
 weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
-have their own semantic, lowering, and verification boundary. P5.3 is next in
-the eventual Chapter 5 sequence and requires its strong/very-weak formulation
-policy before a general transposition lowerer. The current ordered priority is
-scalar boundary control. The C5.6-style Neumann composition and the first
-partial controlled-Dirichlet target from P5.4 are complete. Chapter 5.11.2 now
-selects the next bounded target: register its continuous $L^{2}(\Gamma)$
-transposition parent while lowering the existing conforming nodal trace
-subspace through the equivalent $H^{1}$ variational lifting. Fractional and
-tangential P5.4 trace geometries remain separate follow-up targets, while a
-general transposition lowerer and standalone normal-flux or point-sensor
-targets remain deferred unless one is explicitly selected.
+have their own semantic, lowering, and verification boundary. P5.3 is next and
+still has no registered target: its first bounded decision is between the C5.8
+normal-flux observation and C5.10 point-sensor observation, followed by an
+observation-specific strong/very-weak policy. The C5.6-style Neumann
+composition and two P5.4 Dirichlet-control slices are complete: the first
+partial controlled boundary and the Chapter 5.11.2 complete-boundary
+$L^{2}(\Gamma)$ transposition problem. Fractional and tangential P5.4 trace
+geometries remain separate follow-up targets, and a general transposition
+lowerer remains unselected.
 
 The following pieces exist and are tested:
 
@@ -61,7 +59,7 @@ The following pieces exist and are tested:
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose thirty-three independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-one deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants. Independent oracles cover the canonical weak form, polynomial $H^{1}_{0}$ tracking, constant weighted-trace scaling, C5.6 transport/subdomain values, partial fixed/control trace ownership, the exact $M_hK_h^{-1}M_h$ metric action, continuous-control components, and the reduced $L^{2}$/$H^{-1}$ direction comparison. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract}.cc` | Three binaries expose thirty-four independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-two deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, and native-size invariants. Independent oracles cover the canonical weak form, polynomial $H^{1}_{0}$ tracking, constant weighted-trace scaling, C5.6 transport/subdomain values, partial fixed/control trace ownership, the exact $M_hK_h^{-1}M_h$ metric action, continuous-control components, the reduced $L^{2}$/$H^{-1}$ direction comparison, and the C5.11.2 conforming-trace conormal/stationarity sign. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -593,8 +591,9 @@ provenance. This completes P5.2.
 
 **Motivation:** C5.8 and C5.10 are not ordinary restriction/trace
 observations. Their adjoints use boundary data or Dirac sources with lower
-regularity. The $L^{2}$ Dirichlet-control variant in C5.11 uses the same
-transposition principle.
+regularity. The implemented C5.11.2 boundary-control problem uses a related
+transposition principle, but does not implement either observation in this
+roadmap item.
 
 **Declare and implement:**
 
@@ -608,46 +607,15 @@ transposition principle.
   space. It must identify which domain-regularity assumptions are supplied by
   the model author.
 
-**Selected boundary-control prerequisite:** Chapter 5.11.2 declares
-$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$,
-$T=-\Delta:Y\rightarrow L^{2}(\Omega)$, residual codomain $Y^{\ast}$, and
-multiplier space $Y$. Its first discrete realization selects the existing
-complete-boundary nodal trace
-$U_{h}=\mathrm{tr}_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)$ with the boundary
-$L^{2}$ metric. For every $u_{h}$, the associated continuous transposition
-solution equals its ordinary variational solution, so the existing explicit
-lifting supplies the selected conforming Galerkin lowerer. The manifest must
-record this equivalence and reject facewise or discontinuous Dirichlet
-controls. This prerequisite does not claim a general transposition lowerer.
-
-The corresponding discrete conormal is the lifting pullback of the adjoint
-residual, not a pointwise `FE_Q` normal derivative. Its independent contract
-must verify
-
-```math
-\langle q_{h},v_{h}\rangle
-=a(L_{D,h}v_{h},p_{h})
--(y_{h}-z_{d},L_{D,h}v_{h})_{\Omega}
-```
-
-and the reduced stationarity covector
-$\beta M_{\Gamma,h}u_{h}-q_{h}$. This fixes the sign from source equations
-(5.171)–(5.174), rather than the inconsistent plus sign printed in Remark
-5.18.
-
-**First standalone low-regularity target:** after the boundary-control
-prerequisite is complete, select either the C5.8 normal-flux observation or
+**First registered target:** select either the C5.8 normal-flux observation or
 the C5.10 point-sensor observation. Choose its explicit flux or point-
 evaluation policy and reject every alternative until it has its own lowerer.
 Its adjoint must use the declared transpose/very-weak formulation, not an
 ordinary boundary trace or undeclared nodal Dirac approximation.
 
-**Done when:** the boundary-control prerequisite records its continuous parent,
-conforming discrete subspace, domain assumption, equivalence, and conormal
-policy and passes its conormal/stationarity contract. For a later standalone
-target, its observation derivatives pass value/JVP/VJP tests, the
-low-regularity adjoint passes its dual residual test, and the compiled product
-records all regularity, orientation, and evaluation policies.
+**Done when:** the selected observation derivatives pass value/JVP/VJP tests,
+the low-regularity adjoint passes its dual residual test, and the compiled
+product records all regularity, orientation, and evaluation policies.
 
 ### P5.4 — Generalize Dirichlet-control transformations and trace metrics
 
@@ -665,6 +633,9 @@ fixed data, fractional trace geometry, and tangential $H^{1}$ regularisation.
   from the associated control regularisation loss.
 - A surface-gradient observation/map for the tangential $H^{1}$ loss, with
   boundary mesh, endpoint, and orientation policies.
+- A transposition formulation for Dirichlet data below the ordinary
+  $H^{1/2}(\Gamma)$ trace class, with explicit continuous parent spaces,
+  domain regularity, discrete subspace, equivalence, and conormal policies.
 
 **First registered target:** one partial scalar controlled boundary disjoint
 from one fixed nonzero Dirichlet boundary, with a complete declaration of the
@@ -689,6 +660,34 @@ pullbacks, metric apply/inverse, changed fixed data, and exact diagnostics for
 overlapping or absent boundary regions. Fractional and tangential metrics,
 alternate interface policies, hanging-node trace relations, and trace boxes
 remain P5.4 follow-ups.
+
+**Implemented Chapter 5.11.2 slice:**
+`make_l2_dirichlet_laplace_control_problem()` declares
+$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$,
+$T=-\Delta:Y\rightarrow L^{2}(\Omega)$, residual codomain $Y^{\ast}$, and
+multiplier space $Y$ for the complete-boundary $L^{2}(\Gamma)$ Dirichlet
+control. Its selected discrete space
+$U_{h}=\mathrm{tr}_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)$ permits the equivalent
+lifted $H^{1}$ Galerkin solve. The manifest records the continuous parent,
+conforming subspace, equivalence, normalized Laplacian, and exclusions; it
+does not claim support for facewise or discontinuous controls or a general
+transposition lowerer.
+
+The corresponding discrete conormal is the lifting pullback of the adjoint
+residual, not a pointwise `FE_Q` normal derivative. The focused contract
+verifies
+
+```math
+\langle q_{h},v_{h}\rangle
+=a(L_{D,h}v_{h},p_{h})
+-(y_{h}-z_{d},L_{D,h}v_{h})_{\Omega}
+```
+
+and the reduced stationarity covector
+$\beta M_{\Gamma,h}u_{h}-q_{h}$. This fixes the sign from source equations
+(5.171)–(5.174), rather than the inconsistent plus sign printed in Remark
+5.18. `DirichletControlLiftingModel::discrete_conormal_covector()` and
+`nmopt.dealii.l2_dirichlet_transposition` provide the independent contract.
 
 ### P5.5 — Add regularised state-observation constraints with KKT provenance
 
@@ -897,9 +896,10 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-P5.2 is complete. P4.1 and P4.2 remain ignored for the current ordered
-implementation run. The selected priority is the scalar boundary-control
-track. Continue as follows:
+P5.2 and the two selected P5.4 Dirichlet-control slices are complete. P4.1 and
+P4.2 remain ignored for the current ordered implementation run. P5.3 is next
+and still requires selection of its first observation target. Continue as
+follows:
 
 1. P5.1 is complete: its component plan and first registered deal.II target
    verify individual term actions, the nonsymmetric adjoint, Robin value/load
@@ -916,17 +916,15 @@ track. Continue as follows:
    disjoint fixed nonzero boundary, fixed-corner precedence, relative-interior
    control, and an $L^{2}$ trace metric are registered. Fractional and
    tangential metrics remain separate P5.4 follow-ups.
-5. Next, register the C5.11.2 continuous $L^{2}(\Gamma)$ transposition parent
-   for the existing complete-boundary nodal trace target. Record that
-   $U_{h}\subset H^{1/2}(\Gamma)$ makes its lifted $H^{1}$ state solve
-   equivalent to transposition, and add an independent discrete-conormal and
-   stationarity-sign contract. Do not present this conforming shortcut as
-   support for discontinuous $L^{2}$ Dirichlet data or as a general
-   transposition lowerer.
-6. Reuse the completed C1/C2 boundaries and do not reopen the broad P4.2
-   algebra/formulation group. Defer standalone normal-flux and point-sensor
-   targets until the boundary-control track is complete or a separate
-   low-regularity target is explicitly selected.
+5. The P5.4 C5.11.2 continuous $L^{2}(\Gamma)$ transposition parent is
+   complete. Its registered lowerer records the conforming
+   $U_{h}\subset H^{1/2}(\Gamma)$ equivalence, and its independent discrete
+   conormal contract verifies $\beta M_{\Gamma,h}u_{h}-q_{h}$. Discontinuous
+   $L^{2}$ Dirichlet data and a general transposition lowerer remain excluded.
+6. Next, select P5.3's first target: either the C5.8 normal-flux observation or
+   C5.10 point-sensor observation. Document its strong/very-weak evaluation
+   policy before implementation. Reuse the completed C1/C2
+   boundaries and do not reopen the broad P4.2 algebra/formulation group.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

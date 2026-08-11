@@ -1030,6 +1030,87 @@ namespace nmopt::semantic::v1
          "complete-exterior-boundary nodal trace lifting with one shared coefficient per state boundary DoF",
          "control_boundary"};
     }
+
+    inline void
+    apply_normalized_dirichlet_laplace_delta(ProblemSpec &specification)
+    {
+      remove_component_by_id(specification.data, "diffusion", "data");
+      remove_component_by_id(specification.data, "reaction", "data");
+      specification.spaces.push_back(
+        {"forcing_space", "L2 volume forcing", "domain", SpaceTopology::l2,
+         SpaceRole::data});
+      component_by_id(specification.data, "forcing", "data").space_id =
+        "forcing_space";
+      component_by_id(specification.residual_terms,
+                      "diffusion_reaction",
+                      "residual term") =
+        {"laplacian", "Normalized Laplace bilinear form",
+         ResidualTermKind::laplacian, "state_equation", {"state"}, {}, ""};
+      component_by_id(specification.equations,
+                      "state_equation",
+                      "equation")
+        .residual_term_ids = {"laplacian", "volume_source"};
+      component_by_id(specification.requirement_policies,
+                      "state_controlled_dirichlet",
+                      "requirement policy") =
+        {"state_controlled_dirichlet", "state",
+         RequirementKind::controlled_dirichlet,
+         RequirementStatus::selected_discrete_realisation,
+         RequirementScope::both,
+         "complete-boundary H1 variational Dirichlet control lowered by the explicit conforming nodal trace lifting",
+         "control_boundary"};
+    }
+
+    inline void
+    apply_hhalf_dirichlet_control_delta(ProblemSpec &specification)
+    {
+      component_by_id(specification.spaces, "control_space", "space") =
+        {"control_space", "H1/2 Dirichlet boundary control",
+         "control_boundary", SpaceTopology::hhalf, SpaceRole::control};
+      component_by_id(specification.spaces,
+                      "control_observation_space",
+                      "space") =
+        {"control_observation_space", "H1/2 boundary-control observation",
+         "control_boundary", SpaceTopology::hhalf, SpaceRole::observation};
+      component_by_id(specification.pairings,
+                      "control_pairing",
+                      "pairing") =
+        {"control_pairing", "H1/2 trace control coefficient pairing",
+         "control_space", "control_space"};
+      component_by_id(specification.pairings,
+                      "control_observation_pairing",
+                      "pairing") =
+        {"control_observation_pairing",
+         "H1/2 trace observation coefficient pairing",
+         "control_observation_space", "control_observation_space"};
+      component_by_id(specification.losses,
+                      "control_regularisation",
+                      "loss") =
+        {"control_regularisation", "Quadratic H1/2 control regularisation",
+         LossKind::quadratic_hhalf_control_regularisation,
+         "control_boundary_restriction", "regularisation_weight",
+         "control_observation_pairing"};
+      component_by_id(specification.metrics,
+                      "control_l2_metric",
+                      "metric") =
+        {"control_hhalf_metric", "Minimum-extension H1/2 trace metric",
+         MetricKind::hhalf, "control", "control_pairing"};
+      specification.formulation.metric_id = "control_hhalf_metric";
+      specification.requirement_policies.push_back(
+        {"control_hhalf_metric_realisation", "control_hhalf_metric",
+         RequirementKind::fractional_trace_realisation,
+         RequirementStatus::selected_discrete_realisation,
+         RequirementScope::discrete_compilation,
+         "Schur complement of the volume H1 mass-plus-stiffness matrix under minimum-energy trace extension",
+         "control_boundary"});
+      specification.requirement_policies.push_back(
+        {"discrete_conormal_policy", "state_equation",
+         RequirementKind::conormal_flux,
+         RequirementStatus::selected_discrete_realisation,
+         RequirementScope::discrete_compilation,
+         "outward discrete conormal is the lifting pullback of the adjoint residual",
+         "control_boundary"});
+    }
   } // namespace reference_detail
 
   inline ProblemSpec
@@ -1051,6 +1132,129 @@ namespace nmopt::semantic::v1
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
     reference_detail::apply_dirichlet_control_delta(specification);
+    return specification;
+  }
+
+  // Section 5.11.1, option 1: the state uses the ordinary H1 variational
+  // formulation and both the control loss and search metric use the selected
+  // minimum-extension H1/2 trace Riesz map.
+  inline ProblemSpec
+  make_hhalf_dirichlet_laplace_control_problem()
+  {
+    ProblemSpec specification =
+      make_dirichlet_control_scalar_diffusion_reaction_problem();
+    specification.id = "hhalf_dirichlet_laplace_control";
+    specification.label =
+      "H1/2 Dirichlet Laplace control with fractional regularisation";
+    reference_detail::apply_normalized_dirichlet_laplace_delta(specification);
+    reference_detail::apply_hhalf_dirichlet_control_delta(specification);
+    return specification;
+  }
+
+  // Section 5.11.1, option 2: the control remains in H1/2 and its search
+  // metric is fractional, while the objective combines H1 state tracking
+  // with an L2 boundary-control loss.
+  inline ProblemSpec
+  make_h1_tracking_hhalf_dirichlet_laplace_control_problem()
+  {
+    ProblemSpec specification = make_hhalf_dirichlet_laplace_control_problem();
+    specification.id = "h1_tracking_hhalf_dirichlet_laplace_control";
+    specification.label =
+      "H1-tracking H1/2 Dirichlet Laplace control with L2 regularisation";
+    reference_detail::component_by_id(specification.spaces,
+                                      "state_observation_space",
+                                      "space") =
+      {"state_observation_space", "H1 state observation", "domain",
+       SpaceTopology::h1, SpaceRole::observation};
+    reference_detail::component_by_id(specification.pairings,
+                                      "state_observation_pairing",
+                                      "pairing") =
+      {"state_observation_pairing", "H1 state-observation pairing",
+       "state_observation_space", "state_observation_space"};
+    reference_detail::component_by_id(specification.observations,
+                                      "state_observation",
+                                      "observation") =
+      {"state_observation", "Full-domain H1 state restriction",
+       ObservationKind::h1_state_restriction, "state", "domain",
+       "state_observation_space", "state_observation_pairing", {}};
+    reference_detail::component_by_id(specification.spaces,
+                                      "control_observation_space",
+                                      "space") =
+      {"control_observation_space", "L2 boundary-control observation",
+       "control_boundary", SpaceTopology::l2, SpaceRole::observation};
+    reference_detail::component_by_id(specification.pairings,
+                                      "control_observation_pairing",
+                                      "pairing") =
+      {"control_observation_pairing", "L2 boundary-control pairing",
+       "control_observation_space", "control_observation_space"};
+    reference_detail::component_by_id(specification.losses,
+                                      "control_regularisation",
+                                      "loss") =
+      {"control_regularisation", "Quadratic L2 control regularisation",
+       LossKind::quadratic_control_regularisation,
+       "control_boundary_restriction", "regularisation_weight",
+       "control_observation_pairing"};
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "desired_state_quadrature_policy",
+                                      "requirement policy")
+      .selected_policy =
+      "analytic Function value and gradient evaluated at selected volume quadrature";
+    return specification;
+  }
+
+  // Section 5.11.3: both the control loss and search metric use the
+  // mass-plus-tangential-stiffness H1 trace Riesz map.
+  inline ProblemSpec
+  make_h1_dirichlet_laplace_control_problem()
+  {
+    ProblemSpec specification = make_hhalf_dirichlet_laplace_control_problem();
+    specification.id = "h1_dirichlet_laplace_control";
+    specification.label =
+      "Tangential H1 Dirichlet Laplace control";
+    reference_detail::component_by_id(specification.spaces,
+                                      "control_space",
+                                      "space") =
+      {"control_space", "H1 Dirichlet boundary control", "control_boundary",
+       SpaceTopology::h1, SpaceRole::control};
+    reference_detail::component_by_id(specification.spaces,
+                                      "control_observation_space",
+                                      "space") =
+      {"control_observation_space", "H1 boundary-control observation",
+       "control_boundary", SpaceTopology::h1, SpaceRole::observation};
+    reference_detail::component_by_id(specification.pairings,
+                                      "control_pairing",
+                                      "pairing") =
+      {"control_pairing", "Tangential H1 trace control pairing",
+       "control_space", "control_space"};
+    reference_detail::component_by_id(specification.pairings,
+                                      "control_observation_pairing",
+                                      "pairing") =
+      {"control_observation_pairing", "Tangential H1 observation pairing",
+       "control_observation_space", "control_observation_space"};
+    reference_detail::component_by_id(specification.losses,
+                                      "control_regularisation",
+                                      "loss") =
+      {"control_regularisation", "Quadratic tangential H1 regularisation",
+       LossKind::quadratic_h1_control_regularisation,
+       "control_boundary_restriction", "regularisation_weight",
+       "control_observation_pairing"};
+    reference_detail::component_by_id(specification.metrics,
+                                      "control_hhalf_metric",
+                                      "metric") =
+      {"control_h1_metric", "Tangential H1 trace metric", MetricKind::h1,
+       "control", "control_pairing"};
+    specification.formulation.metric_id = "control_h1_metric";
+    reference_detail::remove_component_by_id(
+      specification.requirement_policies,
+      "control_hhalf_metric_realisation",
+      "requirement policy");
+    specification.requirement_policies.push_back(
+      {"control_h1_metric_realisation", "control_h1_metric",
+       RequirementKind::tangential_gradient_realisation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "boundary mass plus tangential stiffness assembled on the complete controlled trace",
+       "control_boundary"});
     return specification;
   }
 

@@ -150,6 +150,95 @@ namespace
       "transposition_space_topologies",
       "the transposition graph accepted an H1 continuous state declaration");
 
+    auto hhalf_dirichlet_specification =
+      nmopt::semantic::v1::make_hhalf_dirichlet_laplace_control_problem();
+    require(validator.validate(hhalf_dirichlet_specification).valid(),
+            "the H1/2 Dirichlet-control graph is invalid");
+    require(
+      component_by_id(hhalf_dirichlet_specification.spaces, "control_space")
+            .topology == nmopt::semantic::v1::SpaceTopology::hhalf &&
+        component_by_id(hhalf_dirichlet_specification.residual_terms,
+                        "laplacian")
+            .kind == nmopt::semantic::v1::ResidualTermKind::laplacian &&
+        component_by_id(hhalf_dirichlet_specification.losses,
+                        "control_regularisation")
+            .kind == nmopt::semantic::v1::LossKind::
+                       quadratic_hhalf_control_regularisation &&
+        component_by_id(hhalf_dirichlet_specification.metrics,
+                        "control_hhalf_metric")
+            .kind == nmopt::semantic::v1::MetricKind::hhalf &&
+        std::none_of(hhalf_dirichlet_specification.data.begin(),
+                     hhalf_dirichlet_specification.data.end(),
+                     [](const auto &datum) {
+                       return datum.role ==
+                                nmopt::semantic::v1::DataRole::diffusion ||
+                              datum.role ==
+                                nmopt::semantic::v1::DataRole::reaction;
+                     }),
+      "the H1/2 graph omitted its normalized Laplacian or fractional geometry");
+
+    auto h1_tracking_hhalf_specification = nmopt::semantic::v1::
+      make_h1_tracking_hhalf_dirichlet_laplace_control_problem();
+    require(validator.validate(h1_tracking_hhalf_specification).valid() &&
+              component_by_id(h1_tracking_hhalf_specification.observations,
+                              "state_observation")
+                  .kind == nmopt::semantic::v1::ObservationKind::
+                             h1_state_restriction &&
+              component_by_id(h1_tracking_hhalf_specification.spaces,
+                              "control_observation_space")
+                  .topology == nmopt::semantic::v1::SpaceTopology::l2 &&
+              component_by_id(h1_tracking_hhalf_specification.losses,
+                              "control_regularisation")
+                  .kind == nmopt::semantic::v1::LossKind::
+                             quadratic_control_regularisation &&
+              component_by_id(h1_tracking_hhalf_specification.metrics,
+                              "control_hhalf_metric")
+                  .kind == nmopt::semantic::v1::MetricKind::hhalf,
+            "Section 5.11.1 option 2 did not separate loss, observation, and metric");
+
+    auto h1_dirichlet_specification =
+      nmopt::semantic::v1::make_h1_dirichlet_laplace_control_problem();
+    require(validator.validate(h1_dirichlet_specification).valid() &&
+              component_by_id(h1_dirichlet_specification.spaces,
+                              "control_space")
+                  .topology == nmopt::semantic::v1::SpaceTopology::h1 &&
+              component_by_id(h1_dirichlet_specification.losses,
+                              "control_regularisation")
+                  .kind == nmopt::semantic::v1::LossKind::
+                             quadratic_h1_control_regularisation &&
+              component_by_id(h1_dirichlet_specification.metrics,
+                              "control_h1_metric")
+                  .kind == nmopt::semantic::v1::MetricKind::h1,
+            "the tangential H1 Dirichlet-control graph is invalid");
+
+    auto missing_hhalf_realisation = hhalf_dirichlet_specification;
+    remove_policy(missing_hhalf_realisation,
+                  "control_hhalf_metric_realisation");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_hhalf_realisation),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "control_hhalf_metric",
+      "hhalf_metric_realisation_policy",
+      "the fractional metric accepted a missing discrete realization");
+    auto wrong_hhalf_space = hhalf_dirichlet_specification;
+    component_by_id(wrong_hhalf_space.spaces, "control_space").topology =
+      nmopt::semantic::v1::SpaceTopology::l2;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_hhalf_space),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "control_hhalf_metric",
+      "hhalf_metric_search_space",
+      "the fractional metric accepted a non-H1/2 control space");
+    auto missing_tangential_realisation = h1_dirichlet_specification;
+    remove_policy(missing_tangential_realisation,
+                  "control_h1_metric_realisation");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_tangential_realisation),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "control_h1_metric",
+      "boundary_h1_metric_tangential_policy",
+      "the boundary H1 metric accepted a missing tangential realization");
+
     auto partial_dirichlet_control_specification =
       nmopt::semantic::v1::
         make_partial_dirichlet_control_scalar_diffusion_reaction_problem();

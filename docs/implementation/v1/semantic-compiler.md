@@ -88,6 +88,14 @@ $L^{2}(\Gamma)$ control, $H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ tests, and the
 boundary normal-test-derivative action. Its selected discrete policy lowers
 only the conforming trace subspace through the equivalent variational lifting;
 the semantic graph itself contains no continuous $H^{1}$ transformation.
+`make_hhalf_dirichlet_laplace_control_problem()`,
+`make_h1_tracking_hhalf_dirichlet_laplace_control_problem()`, and
+`make_h1_dirichlet_laplace_control_problem()` declare the remaining scalar
+Section 5.11 variants separately. They share a normalized variational
+Laplacian and explicit Dirichlet lifting, but distinguish the control space,
+state observation, control loss, and search metric. In particular, Section
+5.11.1 option 2 has an $L^{2}(\Gamma)$ control loss and an
+$H^{1/2}(\Gamma)$ search metric; those components are not aliases.
 `make_partial_dirichlet_control_scalar_diffusion_reaction_problem()` adds a
 separate fixed-data input, complete fixed/controlled partition, and selected
 fixed-precedence interface policy. The
@@ -139,17 +147,17 @@ datum with role `observation_weight` in its output observation space.
 
 ```text
 Region       one full volume region, named material-id volume subregions, and marked boundary ids
-Space        scalar H1 state/test; selected L2-state/H2-test transposition parent; scalar L2 volume or facewise control; selected H1 trace control
+Space        scalar H1 state/test; selected L2-state/H2-test transposition parent; scalar L2 volume or facewise control; selected H1/2 or H1 trace control
 Pairing      explicit coefficient pairings for state, test, control, and observations
 Variable     one state and one control; the state may name a physical-field transformation
 Data         forcing, desired state, fixed Dirichlet lifting, scalar/tensor diffusion,
              conservative/advective transport, reaction, Robin coefficient/source,
              observation weight, regularisation, and optional lower/upper bounds
 Transformation optional fixed-Dirichlet reconstruction or complete/partial controlled-Dirichlet physical-state lifting
-Residual     diffusion-reaction, conservative transport, volume source/control, Neumann control, and the selected transposition Laplace/boundary-control actions; selected general scalar/Robin terms
+Residual     diffusion-reaction or normalized Laplacian, conservative transport, volume source/control, Neumann control, and the selected transposition Laplace/boundary-control actions; selected general scalar/Robin terms
 Observation  volume/control restrictions; full-volume H1_0 state restriction; boundary trace; fixed-data weighted boundary trace
-Loss         quadratic tracking and quadratic control regularisation
-Metric       selected volume, facewise, trace, parameter, H1, or Hminus1 metric
+Loss         quadratic tracking and quadratic L2, H1/2, H1, or parameter regularisation
+Metric       selected volume, facewise, trace, parameter, H1/2, H1, or Hminus1 metric
 Constraint   optional cellwise or facewise L2 box where registered
 Formulation  one-state/one-control reduced DTO
 ```

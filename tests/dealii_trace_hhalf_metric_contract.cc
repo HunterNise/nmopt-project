@@ -497,8 +497,12 @@ namespace
     policy.control_metric_solve.absolute_tolerance = 1e-15;
     const nmopt::compiler::v1::DealiiCompiler compiler;
 
-    const auto verify = [&](const nmopt::semantic::v1::ProblemSpec &specification,
-                            const std::string &expected_metric_id) {
+    const auto verify = [&] (
+      const nmopt::semantic::v1::ProblemSpec &specification,
+      const std::string &expected_metric_id,
+      const std::string &expected_compiler_id,
+      const std::string &expected_metric_operator,
+      const std::string &expected_assumption) {
       require_valid(compiler.validate(specification, policy),
                     specification.id + " did not validate");
       const auto compilation =
@@ -581,15 +585,46 @@ namespace
                              regularisation,
                              1e-9,
                              specification.id + " stationarity composition");
+
+      const auto &manifest = compilation.problem->manifest();
+      const auto contains = [](const std::vector<std::string> &records,
+                               const std::string &              fragment) {
+        return std::any_of(records.begin(), records.end(),
+                           [&fragment](const std::string &record) {
+                             return record.find(fragment) != std::string::npos;
+                           });
+      };
+      nmopt::contract::require(
+        manifest.compiler_id == expected_compiler_id &&
+          manifest.metric_record.realisation_id == expected_metric_id &&
+          manifest.metric_record.operator_description.find(
+            expected_metric_operator) != std::string::npos &&
+          manifest.data_rule.find("normalized unit-diffusion zero-reaction") !=
+            std::string::npos &&
+          manifest.lifting_realisation.find("complete-boundary conforming") !=
+            std::string::npos &&
+          contains(manifest.lowering_handler_records,
+                   "normalized_dirichlet_laplace") &&
+          contains(manifest.declared_assumptions, expected_assumption),
+        specification.id + " compilation manifest is incomplete");
     };
 
     verify(nmopt::semantic::v1::make_hhalf_dirichlet_laplace_control_problem(),
-           "hhalf_dirichlet_trace");
+           "hhalf_dirichlet_trace",
+           "nmopt.compiler.v1.dealii.hhalf_dirichlet_control",
+           "minimum-volume-H1-extension",
+           "hhalf_trace_control_regularisation");
     verify(nmopt::semantic::v1::
              make_h1_tracking_hhalf_dirichlet_laplace_control_problem(),
-           "hhalf_dirichlet_trace");
+           "hhalf_dirichlet_trace",
+           "nmopt.compiler.v1.dealii.h1_tracking_hhalf_dirichlet_control",
+           "minimum-volume-H1-extension",
+           "l2_trace_control_regularisation");
     verify(nmopt::semantic::v1::make_h1_dirichlet_laplace_control_problem(),
-           "h1_dirichlet_trace");
+           "h1_dirichlet_trace",
+           "nmopt.compiler.v1.dealii.h1_dirichlet_control",
+           "tangential stiffness",
+           "h1_trace_control_regularisation");
   }
 } // namespace
 

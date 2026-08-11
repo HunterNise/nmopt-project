@@ -2990,11 +2990,24 @@ namespace nmopt::compiler::v1
       CompilationManifest manifest;
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
+      const bool uses_hhalf_dirichlet_control =
+        target == CompiledTargetKind::hhalf_dirichlet_control;
+      const bool uses_h1_tracking_hhalf_dirichlet_control =
+        target == CompiledTargetKind::h1_tracking_hhalf_dirichlet_control;
+      const bool uses_h1_dirichlet_control =
+        target == CompiledTargetKind::h1_dirichlet_control;
+      const bool uses_section_5_11_dirichlet_control =
+        uses_hhalf_dirichlet_control ||
+        uses_h1_tracking_hhalf_dirichlet_control ||
+        uses_h1_dirichlet_control;
       const bool uses_dirichlet_control_lifting =
         target == CompiledTargetKind::dirichlet_control ||
-        target == CompiledTargetKind::l2_dirichlet_transposition;
+        target == CompiledTargetKind::l2_dirichlet_transposition ||
+        uses_section_5_11_dirichlet_control;
       const bool uses_l2_dirichlet_control =
         target == CompiledTargetKind::l2_dirichlet_transposition;
+      const bool uses_normalized_dirichlet_control =
+        uses_l2_dirichlet_control || uses_section_5_11_dirichlet_control;
       const bool uses_partial_dirichlet_control =
         uses_partial_dirichlet_control_lifting(specification);
       const bool uses_assembled_v1_target =
@@ -3014,7 +3027,11 @@ namespace nmopt::compiler::v1
       const bool uses_h1_control_regularisation =
         uses_h1_control_regularisation_loss(specification);
       const bool uses_h1_control_metric =
-        target == CompiledTargetKind::h1_control_h1_metric;
+        target == CompiledTargetKind::h1_control_h1_metric ||
+        uses_h1_dirichlet_control;
+      const bool uses_hhalf_control_metric =
+        uses_hhalf_dirichlet_control ||
+        uses_h1_tracking_hhalf_dirichlet_control;
       const bool uses_hminus1_control_metric =
         target == CompiledTargetKind::hminus1_control_metric;
       const bool uses_coefficient_identification =
@@ -3146,13 +3163,13 @@ namespace nmopt::compiler::v1
           manifest.state_solve_record = spd_solve_record(
             policy.state_solve,
             state_dimension,
-            uses_l2_dirichlet_control
+            uses_dirichlet_control_lifting
               ? "homogeneous conforming Galerkin state subspace"
               : "fixed Dirichlet");
           manifest.adjoint_solve_record = spd_solve_record(
             policy.adjoint_solve,
             state_dimension,
-            uses_l2_dirichlet_control
+            uses_dirichlet_control_lifting
               ? "homogeneous conforming Galerkin adjoint subspace"
               : "fixed Dirichlet");
         }
@@ -3161,6 +3178,10 @@ namespace nmopt::compiler::v1
         metric.id(),
         uses_hminus1_control_metric
           ? "M_h K_h^{-1} M_h negative-norm Riesz map"
+        : uses_hhalf_control_metric
+          ? "minimum-volume-H1-extension Schur-complement Riesz map"
+        : uses_h1_dirichlet_control
+          ? "boundary mass plus tangential stiffness Riesz map"
         : uses_h1_control_metric ? "mass plus stiffness Riesz map"
                                  : "mass Riesz map",
         {LinearSolveAlgorithm::serial_cg,
@@ -3185,6 +3206,18 @@ namespace nmopt::compiler::v1
         manifest.lowering_handler_records.push_back(
           "l2_dirichlet_transposition <- "
           "dealii.dirichlet_control.conforming_trace_equivalence");
+      if (uses_section_5_11_dirichlet_control)
+        manifest.lowering_handler_records.push_back(
+          "normalized_dirichlet_laplace <- "
+          "dealii.dirichlet_control.explicit_nodal_lifting");
+      if (uses_hhalf_control_metric)
+        manifest.lowering_handler_records.push_back(
+          "hhalf_trace_metric <- "
+          "dealii.metric.minimum_volume_h1_extension");
+      if (uses_h1_dirichlet_control)
+        manifest.lowering_handler_records.push_back(
+          "h1_trace_metric <- "
+          "dealii.metric.boundary_mass_tangential_stiffness");
       manifest.semantic_problem_id = specification.id;
       manifest.compiler_id =
         uses_general_scalar
@@ -3195,6 +3228,12 @@ namespace nmopt::compiler::v1
           ? "nmopt.compiler.v1.dealii.weighted_boundary_trace"
         : uses_hminus1_control_metric
           ? "nmopt.compiler.v1.dealii.hminus1_control_metric"
+        : uses_h1_tracking_hhalf_dirichlet_control
+          ? "nmopt.compiler.v1.dealii.h1_tracking_hhalf_dirichlet_control"
+        : uses_hhalf_dirichlet_control
+          ? "nmopt.compiler.v1.dealii.hhalf_dirichlet_control"
+        : uses_h1_dirichlet_control
+          ? "nmopt.compiler.v1.dealii.h1_dirichlet_control"
         : uses_h1_state_observation
           ? "nmopt.compiler.v1.dealii.h1_state_tracking"
         : uses_l2_dirichlet_control
@@ -3212,7 +3251,14 @@ namespace nmopt::compiler::v1
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
       manifest.dual_representation = "tested dual coefficients with dot pairing";
-      manifest.data_rule = uses_l2_dirichlet_control
+      manifest.data_rule = uses_section_5_11_dirichlet_control
+        ? "analytic forcing and desired-state Function " +
+            std::string(uses_h1_state_observation ? "value and gradient"
+                                                  : "value") +
+            " at selected QGauss(" +
+            std::to_string(policy.state_degree + 2) +
+            ") volume quadrature; normalized unit-diffusion zero-reaction Laplacian; Dirichlet trace is the decision block"
+        : uses_l2_dirichlet_control
         ? "analytic forcing and desired-state Functions at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
             ") volume quadrature; normalized unit-diffusion zero-reaction Laplacian; Dirichlet trace is the decision block"
@@ -3248,7 +3294,9 @@ namespace nmopt::compiler::v1
                    : "; scalar coefficients and forcing Function at volume quadrature; Dirichlet trace is the decision block")
               : "; scalar coefficients and forcing Function at volume quadrature");
       manifest.observation_realisation = uses_h1_state_observation
-        ? "full-domain H1_0 state restriction with mass-plus-stiffness pairing"
+        ? (uses_dirichlet_control_lifting
+             ? "full-domain physical H1 state restriction with mass-plus-stiffness pairing"
+             : "full-domain H1_0 state restriction with mass-plus-stiffness pairing")
         : uses_weighted_boundary_trace
         ? weighted_boundary_observation_realisation(tracking_region)
         : uses_neumann_boundary_control
@@ -3260,6 +3308,10 @@ namespace nmopt::compiler::v1
         std::string("serial CG for ") +
         (uses_hminus1_control_metric
            ? "hminus1_continuous M K^-1 M Riesz map"
+         : uses_hhalf_control_metric
+           ? "hhalf_dirichlet_trace minimum-extension Riesz map"
+         : uses_h1_dirichlet_control
+           ? "h1_dirichlet_trace tangential Riesz map"
          : uses_h1_control_metric ? "h1_continuous Riesz map"
                                 : uses_dirichlet_control_lifting
                                     ? "l2_dirichlet_trace Riesz map"
@@ -3281,6 +3333,8 @@ namespace nmopt::compiler::v1
                                        : uses_dirichlet_control_lifting
                                            ? (uses_l2_dirichlet_control
                                                 ? "continuous E_tr(y,u;f) in (H2 cap H1_0)^*; U_h=trace(V_h) subset H1/2(Gamma) uses the equivalent y_phys = P_h y_hat + L_D,h u_h conforming Galerkin lifting"
+                                              : uses_section_5_11_dirichlet_control
+                                                ? "y_phys = P_h y_hat + L_D,h u_h; complete-boundary conforming nodal trace lifting with P_h^*/L_D,h^* pullbacks for the normalized Laplacian"
                                               : uses_partial_dirichlet_control
                                                 ? "y_phys = P_h y_hat + ell_0,h + L_D,h u_h; partial nodal trace lifting with fixed-data interface precedence, independent FE_Q coordinates, and P_h^*/L_D,h^* pullbacks"
                                                 : "y_phys = P_h y_hat + L_D,h u_h; complete-boundary shared nodal trace lifting, independent FE_Q coordinates, and P_h^*/L_D,h^* pullbacks")
@@ -3298,8 +3352,10 @@ namespace nmopt::compiler::v1
           ? "serial SparseDirectUMFPACK on the nonsymmetric conservative-transport state operator and its exact transpose"
         : uses_coefficient_identification
           ? "serial CG with identity preconditioner; parameter-dependent SPD state matrix is reassembled for each state and adjoint solve"
-        : uses_l2_dirichlet_control
-          ? "serial CG with identity preconditioner on the conforming variational state and adjoint systems selected by transposition equivalence"
+        : uses_normalized_dirichlet_control
+          ? (uses_l2_dirichlet_control
+               ? "serial CG with identity preconditioner on the conforming variational state and adjoint systems selected by transposition equivalence"
+               : "serial CG with identity preconditioner on the normalized-Laplacian conforming state and adjoint systems")
         : "serial CG with identity preconditioner for symmetric positive-definite operator";
       manifest.provenance = "DTO";
       if (uses_neumann_boundary_control && control_boundary_region != nullptr)
@@ -3313,19 +3369,31 @@ namespace nmopt::compiler::v1
         manifest.declared_assumptions.push_back(
           std::string(uses_l2_dirichlet_control
                         ? "l2_dirichlet_transposition: continuous L2 boundary control with H2 cap H1_0 tests; complete-boundary conforming trace subspace on boundary ids "
+                      : uses_section_5_11_dirichlet_control
+                        ? "section_5_11_dirichlet_control: complete-boundary conforming nodal trace on boundary ids "
                       : uses_partial_dirichlet_control
                         ? "dirichlet_control_lifting: partial controlled nodal trace map on boundary ids "
                         : "dirichlet_control_lifting: complete-exterior-boundary shared nodal trace map on boundary ids ") +
           boundary_id_list(*control_boundary_region) +
           (uses_l2_dirichlet_control
              ? "; the variational lifting lowerer is valid only on U_h=trace(V_h) subset H1/2(Gamma); discontinuous or facewise controls are rejected"
+           : uses_section_5_11_dirichlet_control
+             ? "; normalized Laplacian, explicit lifting pullbacks, and no trace box constraint"
            : uses_partial_dirichlet_control
              ? "; fixed-data precedence owns every fixed/controlled corner or interface DoF; no hanging-node relation or box policy is registered"
              : "; no corner/interface averaging, hanging-node relation, or box policy is registered"));
       if (uses_h1_control_regularisation)
+        manifest.declared_assumptions.push_back(uses_h1_dirichlet_control
+          ? "h1_trace_control_regularisation: alpha/2 u^T (M_Gamma + K_Gamma^tau) u; search metric=h1_dirichlet_trace"
+          : "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric=" +
+              std::string(uses_h1_control_metric ? "h1_continuous"
+                                                 : "l2_continuous"));
+      if (uses_hhalf_dirichlet_control)
         manifest.declared_assumptions.push_back(
-          "h1_control_regularisation: alpha/2 u^T (M_u + K_u) u; search metric=" +
-          std::string(uses_h1_control_metric ? "h1_continuous" : "l2_continuous"));
+          "hhalf_trace_control_regularisation: alpha/2 u^T G_1/2,h u with G_1/2,h the minimum-volume-H1-extension Schur complement; search metric=hhalf_dirichlet_trace");
+      if (uses_h1_tracking_hhalf_dirichlet_control)
+        manifest.declared_assumptions.push_back(
+          "l2_trace_control_regularisation: alpha/2 u^T M_Gamma u; search metric remains the independent hhalf_dirichlet_trace Riesz map");
       if (uses_hminus1_control_metric)
         manifest.declared_assumptions.push_back(
           "hminus1_control_metric: independent homogeneous-Dirichlet FE_Q control coefficients; G_h=M_h K_h^{-1} M_h, G_h^{-1}=M_h^{-1} K_h M_h^{-1}; identity-preconditioned CG and no mean constraint");
@@ -3344,8 +3412,11 @@ namespace nmopt::compiler::v1
         }
       if (uses_h1_state_observation)
         manifest.declared_assumptions.push_back(
-          "h1_state_observation: full-domain H1_0 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric=" +
+          std::string(uses_dirichlet_control_lifting
+                        ? "h1_state_observation: full-domain physical H1 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric="
+                        : "h1_state_observation: full-domain H1_0 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric=") +
           std::string(uses_hminus1_control_metric ? "hminus1_continuous"
+                      : uses_hhalf_control_metric ? "hhalf_dirichlet_trace"
                                                  : "L2"));
       if (uses_weighted_boundary_trace)
         manifest.declared_assumptions.push_back(

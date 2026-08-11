@@ -34,13 +34,15 @@ are complete. P5.2 is complete: the full-domain $H^{1}_{0}$ state observation,
 weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
 have their own semantic, lowering, and verification boundary. P5.3 is next in
 the eventual Chapter 5 sequence and requires its strong/very-weak formulation
-policy before implementation. The current ordered priority is scalar boundary
-control. The C5.6-style Neumann composition and the first partial
-controlled-Dirichlet target from P5.4 are complete. The next selected task is
-the P5.3 transposition policy required by the $L^{2}$ Dirichlet-control
-variant. Fractional and tangential P5.4 trace geometries remain separate
-follow-up targets, while standalone normal-flux or point-sensor targets remain
-deferred unless one is selected as the next low-regularity target.
+policy before a general transposition lowerer. The current ordered priority is
+scalar boundary control. The C5.6-style Neumann composition and the first
+partial controlled-Dirichlet target from P5.4 are complete. Chapter 5.11.2 now
+selects the next bounded target: register its continuous $L^{2}(\Gamma)$
+transposition parent while lowering the existing conforming nodal trace
+subspace through the equivalent $H^{1}$ variational lifting. Fractional and
+tangential P5.4 trace geometries remain separate follow-up targets, while a
+general transposition lowerer and standalone normal-flux or point-sensor
+targets remain deferred unless one is explicitly selected.
 
 The following pieces exist and are tested:
 
@@ -606,15 +608,46 @@ transposition principle.
   space. It must identify which domain-regularity assumptions are supplied by
   the model author.
 
-**First registered target:** scalar Dirichlet Laplace or reaction-diffusion
-on a convex or declared $C^{2}$ serial domain. Choose one explicit discrete
-point-evaluation policy and one flux policy; reject every alternative until
-it has its own lowerer. The corresponding adjoint must use the declared
-transpose/very-weak formulation, not an undeclared nodal Dirac approximation.
+**Selected boundary-control prerequisite:** Chapter 5.11.2 declares
+$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$,
+$T=-\Delta:Y\rightarrow L^{2}(\Omega)$, residual codomain $Y^{\ast}$, and
+multiplier space $Y$. Its first discrete realization selects the existing
+complete-boundary nodal trace
+$U_{h}=\mathrm{tr}_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)$ with the boundary
+$L^{2}$ metric. For every $u_{h}$, the associated continuous transposition
+solution equals its ordinary variational solution, so the existing explicit
+lifting supplies the selected conforming Galerkin lowerer. The manifest must
+record this equivalence and reject facewise or discontinuous Dirichlet
+controls. This prerequisite does not claim a general transposition lowerer.
 
-**Done when:** sensor and flux observation derivatives pass value/JVP/VJP
-tests; the low-regularity adjoint passes its dual residual test; and the
-compiled product records all regularity, orientation, and evaluation policies.
+The corresponding discrete conormal is the lifting pullback of the adjoint
+residual, not a pointwise `FE_Q` normal derivative. Its independent contract
+must verify
+
+```math
+\langle q_{h},v_{h}\rangle
+=a(L_{D,h}v_{h},p_{h})
+-(y_{h}-z_{d},L_{D,h}v_{h})_{\Omega}
+```
+
+and the reduced stationarity covector
+$\beta M_{\Gamma,h}u_{h}-q_{h}$. This fixes the sign from source equations
+(5.171)–(5.174), rather than the inconsistent plus sign printed in Remark
+5.18.
+
+**First standalone low-regularity target:** after the boundary-control
+prerequisite is complete, select either the C5.8 normal-flux observation or
+the C5.10 point-sensor observation. Choose its explicit flux or point-
+evaluation policy and reject every alternative until it has its own lowerer.
+Its adjoint must use the declared transpose/very-weak formulation, not an
+ordinary boundary trace or undeclared nodal Dirac approximation.
+
+**Done when:** the boundary-control prerequisite records its continuous parent,
+conforming discrete subspace, domain assumption, equivalence, and conormal
+policy and passes its conormal/stationarity contract. For a later standalone
+target, its observation derivatives pass value/JVP/VJP tests, the
+low-regularity adjoint passes its dual residual test, and the compiled product
+records all regularity, orientation, and evaluation policies.
 
 ### P5.4 — Generalize Dirichlet-control transformations and trace metrics
 
@@ -883,9 +916,13 @@ track. Continue as follows:
    disjoint fixed nonzero boundary, fixed-corner precedence, relative-interior
    control, and an $L^{2}$ trace metric are registered. Fractional and
    tangential metrics remain separate P5.4 follow-ups.
-5. Next, select the P5.3 transposition policy needed by the $L^{2}$ Dirichlet-control
-   variant, then implement its low-regularity state/adjoint path. Do not
-   approximate the transposition action by an ordinary restriction or trace.
+5. Next, register the C5.11.2 continuous $L^{2}(\Gamma)$ transposition parent
+   for the existing complete-boundary nodal trace target. Record that
+   $U_{h}\subset H^{1/2}(\Gamma)$ makes its lifted $H^{1}$ state solve
+   equivalent to transposition, and add an independent discrete-conormal and
+   stationarity-sign contract. Do not present this conforming shortcut as
+   support for discontinuous $L^{2}$ Dirichlet data or as a general
+   transposition lowerer.
 6. Reuse the completed C1/C2 boundaries and do not reopen the broad P4.2
    algebra/formulation group. Defer standalone normal-flux and point-sensor
    targets until the boundary-control track is complete or a separate

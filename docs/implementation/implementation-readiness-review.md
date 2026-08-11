@@ -367,6 +367,73 @@ control is excluded from the direct v0 baseline rather than simulated by a
 Neumann-like coupling. The [v1 capability table](v1/semantic-compiler.md#registered-capabilities)
 owns the status and bounds of any registered realization.
 
+#### 8.2.1 $L^{2}(\Gamma)$ Dirichlet control by a conforming trace subspace
+
+The selected continuous parent for the first Chapter 5.11.2 specialization is
+the unconstrained full-boundary Laplace problem with
+$f,z_{d}\in L^{2}(\Omega)$, $\beta>0$, state $y\in L^{2}(\Omega)$, and control
+$u\in L^{2}(\Gamma)$. It declares the transposition residual
+
+```math
+\langle E_{\mathrm{tr}}(y,u;f),\psi\rangle
+=(y,-\Delta\psi)_\Omega-(f,\psi)_\Omega
++(u,\partial_{n}\psi)_\Gamma,
+\qquad
+\psi\in Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega).
+```
+
+The model author must declare a domain on which
+$-\Delta:Y\rightarrow L^{2}(\Omega)$ has the required isomorphism property;
+convex and $C^{2}$ domains are the source cases. A claim that the exact
+optimal control is in $H^{1/2}(\Gamma)$ and its state is in $H^{1}(\Omega)$
+uses the stronger $C^{2}$ hypothesis of Proposition 5.16. A convex polygonal
+test case may rely on transposition well-posedness and the regularity of its
+selected discrete subspace, but must not claim that stronger continuous
+bootstrap without a separate result.
+
+The first discrete policy does not introduce an $H^{2}$-conforming state or
+test element. It selects the existing complete-boundary nodal trace space
+
+```math
+U_{h}=\mathrm{tr}_{\Gamma}V_{h}
+\subset H^{1/2}(\Gamma)\subset L^{2}(\Gamma)
+```
+
+and the boundary $L^{2}$ pairing independently for the control loss and
+control metric. Both lower to the same boundary mass matrix but remain
+separate semantic components. Because each $u_{h}$ has an $H^{1/2}$ trace,
+its continuous variational and transposition states coincide; the lifted
+$H^{1}$ finite-element solve is the conforming Galerkin approximation of that
+state. The compiled product must record the continuous parent space, the
+conforming discrete subspace, the equivalence used by the lowerer, and the
+domain-regularity declaration. It must reject a discontinuous or facewise
+Dirichlet control under this policy.
+
+For the pure Laplace bilinear form $a$, define the discrete outward conormal
+covector using the same lifting as the physical reconstruction:
+
+```math
+\langle q_{h},v_{h}\rangle
+=a(L_{D,h}v_{h},p_{h})
+-(y_{h}-z_{d},L_{D,h}v_{h})_{\Omega}.
+```
+
+The discrete reduced covector is
+
+```math
+j_{h}'(u_{h})v_{h}
+=\beta(u_{h},v_{h})_{\Gamma}-\langle q_{h},v_{h}\rangle.
+```
+
+For a smooth exact adjoint, $q_{h}$ represents the pullback of
+$\partial_{n}p$; it is not defined by pointwise differentiation of an
+`FE_Q` field. The formula is independent of the interior extension chosen by
+$L_{D,h}$ when the discrete adjoint equation is satisfied. A focused contract
+must compare this conormal covector with the existing composed lifting
+pullback and verify the stationarity sign. A general transposition lowerer
+remains a separate requirement for nonconforming $L^{2}$ boundary controls,
+normal-flux observations, and Dirac-source adjoints.
+
 ### 8.3 Natural boundary data and controls
 
 For the first boundary-control extension, $`\Gamma_{c}`$ is a marked collection

@@ -335,7 +335,7 @@ as an ordinary boundary trace is incorrect.
 
 For $-\Delta w=f$ with boundary datum $g\in L^{2}(\Gamma)$, the source uses
 the test space $Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ and defines the very
-weak solution $w\in L^{2}(\Omega)$ through
+weak solution $w\in L^{2}(\Omega)$ through equations (5.130)–(5.134):
 
 ```math
 -(w,\Delta\psi)_\Omega=(f,\psi)_\Omega
@@ -343,12 +343,29 @@ weak solution $w\in L^{2}(\Omega)$ through
 \qquad\forall\psi\in Y.
 ```
 
-This is a formulation choice: $T=-\Delta:Y\rightarrow L^{2}(\Omega)$ is a
-continuous isomorphism under the selected regularity assumptions, and the
-adjoint multiplier lives in the dual of the residual codomain. It is needed
-by C5.8, C5.10, and the $L^{2}$ Dirichlet-control variant in C5.11. P5.3 must
-make this a declared formulation policy, never an implicit fallback from a
-standard $H^{1}$ variational solve.
+Equivalently, declare the residual $E_{\mathrm{tr}}(w,g;f)\in Y^{\ast}$ by
+
+```math
+\langle E_{\mathrm{tr}}(w,g;f),\psi\rangle
+=(w,-\Delta\psi)_\Omega-(f,\psi)_\Omega
++(g,\partial_{n}\psi)_\Gamma.
+```
+
+This is a formulation choice. Proposition 5.11 applies transposition with
+$T=-\Delta:Y\rightarrow L^{2}(\Omega)$ a continuous isomorphism under the
+declared domain-regularity assumptions. The residual therefore lies in
+$Y^{\ast}$, while the Lagrangian seed or multiplier paired with it lies in
+$Y$ after the Hilbert-space identification. If $g\in H^{1/2}(\Gamma)$, the
+very weak solution gains $H^{1}(\Omega)$ regularity and equals the ordinary
+variational solution; this equivalence is the important implementation route
+used below.
+
+The transposition policy is needed by C5.8, C5.10, and the continuous
+$L^{2}$ Dirichlet-control model in C5.11. It must never be inferred from a
+standard $H^{1}$ residual. A discrete subspace contained in
+$H^{1/2}(\Gamma)$ may nevertheless use the equivalent variational state
+solve, provided that subspace and equivalence are declared and controls
+outside it are rejected.
 
 ### C5.10 — Finite point-sensor tracking
 
@@ -403,10 +420,51 @@ The source's variants are:
    coercivity; the Euler equation is a boundary duality involving
    $\partial_{n} p$.
 2. **Control space $L^{2}(\Gamma)$.** The state is initially very weak and
-   needs the C5.9 transposition policy. The adjoint is in
-   $H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ and satisfies
-   $\beta u-\partial_{n} p=0$. On a smooth domain the optimum gains
-   $H^{1/2}(\Gamma)$ regularity.
+   needs the C5.9 transposition policy. More precisely, Section 5.11.2 takes
+   $Z=L^{2}(\Omega)$, $U=U_{0}=L^{2}(\Gamma)$, and
+
+   ```math
+   \begin{aligned}
+   J(y,u)&=\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
+   +\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Gamma)}^{2}, \\
+   \langle E_{\mathrm{tr}}(y,u;f),\psi\rangle
+   &=(y,-\Delta\psi)_\Omega-(f,\psi)_\Omega
+   +(u,\partial_{n}\psi)_\Gamma=0
+   \quad\forall\psi\in H^{2}(\Omega)\cap H^{1}_{0}(\Omega).
+   \end{aligned}
+   ```
+
+   Here $f,z_{d}\in L^{2}(\Omega)$ and $\beta>0$. With the project convention
+   $\mathcal L=J-\langle p,E\rangle$, the adjoint and Euler equations are
+
+   ```math
+   -\Delta p=y-z_{d}\quad\text{in }\Omega,
+   \qquad p=0\quad\text{on }\Gamma,
+   \qquad \beta u-\partial_{n}p=0\quad\text{on }\Gamma.
+   ```
+
+   These signs agree with source equations (5.171)–(5.174) and Proposition
+   5.16. Remark 5.18 prints a plus sign in its reduced-gradient formula; that
+   sign is inconsistent with the preceding state residual and Euler
+   equations and is not selected here.
+
+   Transposition well-posedness requires a convex or sufficiently smooth
+   domain. Proposition 5.16 uses a $C^{2}$ domain for the stronger conclusion:
+   $p\in H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ implies
+   $\partial_{n}p\in H^{1/2}(\Gamma)$, the Euler equation then gives
+   $u\in H^{1/2}(\Gamma)$, and the optimal state is the ordinary
+   $H^{1}(\Omega)$ variational solution.
+
+   For the first discrete target, choose a conforming trace-control subspace
+   $U_{h}\subset H^{1/2}(\Gamma)\subset L^{2}(\Gamma)$ with the boundary
+   $L^{2}$ mass metric. For every discrete datum, the associated continuous
+   transposition state has the equivalent $H^{1}$ variational formulation, so
+   a lifted conforming Galerkin solve is valid at every discrete iterate, not
+   only at the discrete optimum. This reuses the declared
+   controlled-Dirichlet transformation while retaining the continuous
+   $L^{2}(\Gamma)$ parent problem. A discontinuous or merely facewise
+   $L^{2}$ Dirichlet control is outside this shortcut and still requires a
+   direct transposition lowerer.
 3. **Control space $H^{1}(\Gamma)$.** Use tangential-gradient
    regularisation and a surface weak Euler equation. This avoids a
    fractional norm and the very-weak state, but requires a declared surface

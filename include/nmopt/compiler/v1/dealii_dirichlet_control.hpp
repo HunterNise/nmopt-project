@@ -40,7 +40,8 @@ namespace nmopt::compiler::v1::detail
   enum class DirichletControlNormKind
   {
     l2,
-    hhalf
+    hhalf,
+    h1
   };
 
   // This v1-only target keeps the independent state coordinates y_hat and
@@ -151,6 +152,16 @@ namespace nmopt::compiler::v1::detail
         static_cast<bool>(control_hhalf_operator_),
         "The Dirichlet-control model was not configured with an H1/2 trace norm");
       return *control_hhalf_operator_;
+    }
+
+    dealii_backend::MassMetric
+    control_h1_metric(
+      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
+    {
+      return dealii_backend::MassMetric("h1_dirichlet_trace",
+                                        control_layout_,
+                                        control_boundary_h1_,
+                                        solve_parameters);
     }
 
     Vector
@@ -514,6 +525,8 @@ namespace nmopt::compiler::v1::detail
       control_boundary_mass_sparsity_.copy_from(boundary_mass_dsp);
       control_boundary_mass_ = std::make_shared<dealii::SparseMatrix<double>>();
       control_boundary_mass_->reinit(control_boundary_mass_sparsity_);
+      control_boundary_h1_ = std::make_shared<dealii::SparseMatrix<double>>();
+      control_boundary_h1_->reinit(control_boundary_mass_sparsity_);
 
       forcing_load_.reinit(physical_size);
       desired_state_load_.reinit(physical_size);
@@ -532,7 +545,8 @@ namespace nmopt::compiler::v1::detail
           dealii::update_quadrature_points | dealii::update_JxW_values);
       dealii::FEFaceValues<dim> face_values(
         state_fe_, face_quadrature,
-        dealii::update_values | dealii::update_JxW_values);
+        dealii::update_values | dealii::update_gradients |
+          dealii::update_normal_vectors | dealii::update_JxW_values);
 
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
                                               state_fe_.dofs_per_cell);
@@ -542,6 +556,8 @@ namespace nmopt::compiler::v1::detail
                                                  state_fe_.dofs_per_cell);
       dealii::FullMatrix<double> local_boundary_mass(state_fe_.dofs_per_cell,
                                                      state_fe_.dofs_per_cell);
+      dealii::FullMatrix<double> local_boundary_h1(state_fe_.dofs_per_cell,
+                                                   state_fe_.dofs_per_cell);
       dealii::Vector<double> local_forcing(state_fe_.dofs_per_cell);
       dealii::Vector<double> local_desired_state(state_fe_.dofs_per_cell);
       std::vector<dealii::types::global_dof_index> state_indices(
@@ -597,12 +613,26 @@ namespace nmopt::compiler::v1::detail
               {
                 face_values.reinit(cell, face);
                 local_boundary_mass = 0.0;
+                local_boundary_h1 = 0.0;
                 for (unsigned int q = 0; q < face_quadrature.size(); ++q)
                   for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                     for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
-                      local_boundary_mass(i, j) +=
-                        face_values.shape_value(i, q) *
-                        face_values.shape_value(j, q) * face_values.JxW(q);
+                      {
+                        const double mass_entry =
+                          face_values.shape_value(i, q) *
+                          face_values.shape_value(j, q) * face_values.JxW(q);
+                        const auto normal = face_values.normal_vector(q);
+                        const auto tangential_i =
+                          face_values.shape_grad(i, q) -
+                          (face_values.shape_grad(i, q) * normal) * normal;
+                        const auto tangential_j =
+                          face_values.shape_grad(j, q) -
+                          (face_values.shape_grad(j, q) * normal) * normal;
+                        local_boundary_mass(i, j) += mass_entry;
+                        local_boundary_h1(i, j) +=
+                          mass_entry +
+                          (tangential_i * tangential_j) * face_values.JxW(q);
+                      }
                 for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                   {
                     const auto control_i =
@@ -618,6 +648,11 @@ namespace nmopt::compiler::v1::detail
                           control_boundary_mass_->add(control_i,
                                                       control_j,
                                                       local_boundary_mass(i, j));
+                        if (control_j != invalid_control_index &&
+                            local_boundary_h1(i, j) != 0.0)
+                          control_boundary_h1_->add(control_i,
+                                                    control_j,
+                                                    local_boundary_h1(i, j));
                       }
                   }
               }
@@ -666,7 +701,10 @@ namespace nmopt::compiler::v1::detail
       if (control_norm_ == DirichletControlNormKind::hhalf)
         return control_hhalf_metric().apply_vector(control);
       Vector action(controlled_state_dofs_.size());
-      control_boundary_mass_->vmult(action, control);
+      if (control_norm_ == DirichletControlNormKind::h1)
+        control_boundary_h1_->vmult(action, control);
+      else
+        control_boundary_mass_->vmult(action, control);
       return action;
     }
 
@@ -843,6 +881,7 @@ namespace nmopt::compiler::v1::detail
     std::shared_ptr<dealii::SparseMatrix<double>> volume_h1_matrix_;
     dealii::SparsityPattern control_boundary_mass_sparsity_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_boundary_mass_;
+    std::shared_ptr<dealii::SparseMatrix<double>> control_boundary_h1_;
     std::shared_ptr<const dealii_backend::TraceHhalfMetric>
       control_hhalf_operator_;
     Vector forcing_load_;

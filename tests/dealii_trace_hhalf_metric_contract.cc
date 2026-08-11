@@ -213,6 +213,85 @@ namespace
                   1e-12,
                   "Dirichlet objective H1/2 regularisation value");
   }
+
+  void
+  run_dirichlet_h1_model_contract()
+  {
+    constexpr int dim = 2;
+    constexpr double regularisation_weight = 0.3;
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    const dealii::Functions::ZeroFunction<dim> forcing;
+    const dealii::Functions::ZeroFunction<dim> desired_state;
+    nmopt::dealii_backend::MetricSolveParameters solve_parameters;
+    solve_parameters.relative_tolerance = 1e-13;
+    solve_parameters.absolute_tolerance = 1e-15;
+
+    using Model =
+      nmopt::compiler::v1::detail::DirichletControlLiftingModel<dim>;
+    const Model h1_model(
+      triangulation,
+      forcing,
+      desired_state,
+      1.0,
+      0.0,
+      regularisation_weight,
+      1,
+      {0},
+      {},
+      std::nullopt,
+      nmopt::compiler::v1::detail::DirichletControlNormKind::h1);
+    const Model l2_model(triangulation,
+                         forcing,
+                         desired_state,
+                         1.0,
+                         0.0,
+                         regularisation_weight,
+                         1,
+                         {0});
+
+    dealii::Vector<double> state(h1_model.variable_layout()->dimension(0));
+    dealii::Vector<double> control(h1_model.variable_layout()->dimension(1));
+    for (std::size_t index = 0; index < control.size(); ++index)
+      control[index] = 0.05 * static_cast<double>(index + 1);
+    const Primal point(h1_model.variable_layout(), {state, control});
+    const Primal control_primal(h1_model.control_layout(), {control});
+
+    const auto h1_metric = h1_model.control_h1_metric(solve_parameters);
+    const Covector h1_action = h1_metric.apply(control_primal);
+    require_primal_close(h1_metric.inverse_apply(h1_action),
+                         control_primal,
+                         1e-11,
+                         "assembled Dirichlet H1 metric round trip");
+    const Covector l2_action =
+      l2_model.control_l2_metric(solve_parameters).apply(control_primal);
+    dealii::Vector<double> stiffness_action = h1_action.block(0);
+    stiffness_action.add(-1.0, l2_action.block(0));
+    nmopt::contract::require(
+      stiffness_action.l2_norm() > 1e-4,
+      "Tangential H1 metric did not differ from boundary mass on a nonconstant trace");
+
+    const Covector h1_derivative = h1_model.objective_derivative(point);
+    const Covector l2_derivative = l2_model.objective_derivative(point);
+    dealii::Vector<double> observed_difference = h1_derivative.block(1);
+    observed_difference.add(-1.0, l2_derivative.block(1));
+    stiffness_action *= regularisation_weight;
+    observed_difference.add(-1.0, stiffness_action);
+    require_close(observed_difference.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "Dirichlet objective tangential H1 regularisation action");
+
+    const double expected_objective_difference =
+      0.5 * regularisation_weight *
+      (nmopt::contract::pair(h1_action, control_primal) -
+       nmopt::contract::pair(l2_action, control_primal));
+    require_close(h1_model.objective(point) - l2_model.objective(point),
+                  expected_objective_difference,
+                  1e-12,
+                  "Dirichlet objective tangential H1 regularisation value");
+  }
 } // namespace
 
 int
@@ -230,7 +309,12 @@ main(const int argc, char **argv)
          "nmopt.dealii.dirichlet_hhalf_model",
          {"dealii", "compiler", "metric"},
          60,
-         run_dirichlet_hhalf_model_contract}};
+         run_dirichlet_hhalf_model_contract},
+        {"dirichlet_h1_model",
+         "nmopt.dealii.dirichlet_h1_model",
+         {"dealii", "compiler", "metric"},
+         60,
+         run_dirichlet_h1_model_contract}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

@@ -74,6 +74,35 @@ namespace
     require(dirichlet_control_report.valid(),
             "the Dirichlet-control lifting v1 graph is invalid");
 
+    auto partial_dirichlet_control_specification =
+      nmopt::semantic::v1::
+        make_partial_dirichlet_control_scalar_diffusion_reaction_problem();
+    require(validator.validate(partial_dirichlet_control_specification).valid(),
+            "the partial Dirichlet-control lifting v1 graph is invalid");
+    require(component_by_id(partial_dirichlet_control_specification.transformations,
+                            "dirichlet_control_lifting")
+                .fixed_data_id == "fixed_dirichlet_data",
+            "the partial Dirichlet-control graph omitted its fixed lifting port");
+
+    auto neumann_convection_specification =
+      nmopt::semantic::v1::make_neumann_convection_subdomain_tracking_problem(
+        1);
+    require(validator.validate(neumann_convection_specification).valid(),
+            "the C5.6 Neumann convection composition graph is invalid");
+    require(component_by_id(neumann_convection_specification.observations,
+                            "state_subdomain_restriction")
+                .kind == nmopt::semantic::v1::ObservationKind::volume_restriction,
+            "the C5.6 composition did not select the volume observation");
+    const auto neumann_desired_state_policy = component_by_id(
+      neumann_convection_specification.requirement_policies,
+      "desired_state_quadrature_policy");
+    require(neumann_desired_state_policy.region_id == "observation_subdomain" &&
+              neumann_desired_state_policy.selected_policy.find(
+                "volume quadrature") != std::string::npos &&
+              neumann_desired_state_policy.selected_policy.find(
+                "boundary face") == std::string::npos,
+            "the C5.6 desired-state policy did not select volume quadrature");
+
     const auto subdomain_specification =
       nmopt::semantic::v1::make_subdomain_tracking_scalar_diffusion_reaction_problem(
         1);

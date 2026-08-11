@@ -727,6 +727,111 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // C5.6 composes the natural boundary control with a volume restriction and
+  // conservative transport.  It deliberately reuses the Neumann residual
+  // and facewise control coordinate declarations: the observation and the
+  // scalar state operator are the only changed components.
+  inline ProblemSpec
+  make_neumann_convection_subdomain_tracking_problem(
+    const unsigned int observed_material_id,
+    const bool         with_facewise_box = false)
+  {
+    ProblemSpec specification =
+      make_neumann_boundary_control_problem(with_facewise_box);
+    specification.id = "scalar_convection_neumann_subdomain_control";
+    specification.label =
+      "Scalar conservative transport with Neumann control and subdomain tracking";
+    specification.regions.erase(
+      std::remove_if(specification.regions.begin(), specification.regions.end(),
+                     [](const RegionSpec &region) {
+                       return region.id == "observation_boundary";
+                     }),
+      specification.regions.end());
+    specification.regions.push_back(
+      {"observation_subdomain", "Material subdomain observation region",
+       RegionKind::volume, false, {}, {observed_material_id}});
+
+    reference_detail::component_by_id(specification.spaces,
+                                      "state_observation_space",
+                                      "space") =
+      {"state_observation_space", "Subdomain state observation",
+       "observation_subdomain", SpaceTopology::l2, SpaceRole::observation};
+    reference_detail::component_by_id(specification.observations,
+                                      "state_boundary_trace",
+                                      "observation") =
+      {"state_subdomain_restriction", "Subdomain state restriction",
+       ObservationKind::volume_restriction, "state", "observation_subdomain",
+       "state_observation_space", "state_observation_pairing", {}};
+    reference_detail::component_by_id(specification.losses,
+                                      "state_tracking",
+                                      "loss")
+      .source_observation_id = "state_subdomain_restriction";
+    reference_detail::component_by_id(specification.data,
+                                      "desired_state",
+                                      "data")
+      .label = "Desired subdomain state";
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "state_boundary_trace_policy",
+                                      "requirement policy") =
+      {"state_subdomain_restriction_policy", "state_subdomain_restriction",
+       RequirementKind::analytic_quadrature_evaluation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "FE_Q state restriction assembled on the selected material cells",
+       "observation_subdomain"};
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "desired_state_quadrature_policy",
+                                      "requirement policy") =
+      {"desired_state_quadrature_policy", "desired_state",
+       RequirementKind::analytic_quadrature_evaluation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "analytic Function evaluated at selected volume quadrature on the observed material cells",
+       "observation_subdomain"};
+
+    specification.data.push_back(
+      {"conservative_transport", "Conservative transport coefficient",
+       DataKind::vector_function, DataRole::conservative_transport, ""});
+    specification.residual_terms.insert(
+      specification.residual_terms.begin() + 1,
+      {"conservative_transport", "Conservative transport",
+       ResidualTermKind::conservative_transport, "state_equation", {"state"},
+       {"conservative_transport"}, ""});
+    reference_detail::component_by_id(specification.equations,
+                                      "state_equation",
+                                      "equation")
+      .residual_term_ids =
+      {"diffusion_reaction", "conservative_transport", "volume_source",
+       "neumann_control"};
+    specification.requirement_policies.push_back(
+      {"convection_coercivity_assumption", "state_equation",
+       RequirementKind::coercivity, RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "the selected conservative transport satisfies the C5.6 coercivity assumptions on the fixed-Dirichlet state space",
+       "domain"});
+    specification.requirement_policies.push_back(
+      {"convection_regularity_assumption", "conservative_transport",
+       RequirementKind::coefficient_regularity, RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "transport components are Lipschitz on the volume domain",
+       "domain"});
+    specification.requirement_policies.push_back(
+      {"convection_neumann_sign_assumption", "conservative_transport",
+       RequirementKind::transport_boundary_trace,
+       RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "the conservative transport satisfies b dot n <= 0 on the Neumann-control boundary",
+       "control_boundary"});
+    specification.requirement_policies.push_back(
+      {"neumann_convection_partition", "state",
+       RequirementKind::boundary_partition,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::both,
+       "disjoint complete fixed-Dirichlet and Neumann-control boundary regions; the Neumann datum is the conormal flux of the conservative transport form",
+       ""});
+    return specification;
+  }
+
   namespace reference_detail
   {
     inline void
@@ -946,6 +1051,55 @@ namespace nmopt::semantic::v1
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
     reference_detail::apply_dirichlet_control_delta(specification);
+    return specification;
+  }
+
+  // P5.4's first target keeps the nodal L2 trace metric but makes the
+  // fixed/controlled boundary partition and its interface ownership
+  // explicit. At shared corner DoFs, fixed data owns the value, so the
+  // control is the relative-interior trace with zero endpoint extension.
+  inline ProblemSpec
+  make_partial_dirichlet_control_scalar_diffusion_reaction_problem()
+  {
+    ProblemSpec specification =
+      make_dirichlet_control_scalar_diffusion_reaction_problem();
+    specification.id = "scalar_diffusion_reaction_partial_dirichlet_control";
+    specification.label =
+      "Scalar diffusion-reaction with partial Dirichlet control and fixed lifting";
+    reference_detail::component_by_id(specification.regions,
+                                      "control_boundary",
+                                      "region")
+      .boundary_ids = {1};
+    specification.regions.push_back(
+      {"fixed_dirichlet_boundary", "Fixed nonzero Dirichlet boundary",
+       RegionKind::boundary, false, {0}, {}});
+    specification.data.push_back(
+      {"fixed_dirichlet_data", "Fixed Dirichlet data", DataKind::function,
+       DataRole::fixed_dirichlet_lifting, "state_space"});
+    reference_detail::component_by_id(specification.transformations,
+                                      "dirichlet_control_lifting",
+                                      "transformation")
+      .fixed_data_id = "fixed_dirichlet_data";
+    specification.requirement_policies.push_back(
+      {"state_fixed_dirichlet", "dirichlet_control_lifting", RequirementKind::fixed_dirichlet,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "nodal fixed-data lifting on the declared fixed boundary",
+       "fixed_dirichlet_boundary"});
+    specification.requirement_policies.push_back(
+      {"partial_dirichlet_boundary_partition", "state",
+       RequirementKind::boundary_partition,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::both,
+       "complete disjoint fixed and controlled Dirichlet boundary partition",
+       ""});
+    specification.requirement_policies.push_back(
+      {"partial_dirichlet_interface_policy", "dirichlet_control_lifting",
+       RequirementKind::controlled_dirichlet,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "fixed-data precedence at every fixed/controlled corner or interface DoF; the controlled nodal trace has zero endpoint extension",
+       "control_boundary"});
     return specification;
   }
 } // namespace nmopt::semantic::v1

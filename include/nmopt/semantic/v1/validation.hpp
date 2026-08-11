@@ -535,12 +535,18 @@ namespace nmopt::semantic::v1
             {
               if (!has_state_ports || control == variables.end() ||
                   control->second->role != VariableRole::control ||
-                  !transformation.fixed_data_id.empty())
+                  (!transformation.fixed_data_id.empty() &&
+                   (fixed_data == data.end() ||
+                    fixed_data->second->kind != DataKind::function ||
+                    fixed_data->second->role !=
+                      DataRole::fixed_dirichlet_lifting ||
+                    fixed_data->second->space_id !=
+                      transformation.output_space_id)))
                 report.add(
                   DiagnosticCategory::structural,
                   transformation.id,
                   "dirichlet_control_lifting_ports",
-                  "Connect the Dirichlet lifting to one state variable, one control variable, and the reconstructed state space without implicit fixed data.");
+                  "Connect the Dirichlet lifting to one state variable, one control variable, the reconstructed state space, and optional fixed Function data in that state space.");
             }
           if (input != variables.end() && output != spaces.end() &&
               input->second->space_id != transformation.output_space_id)

@@ -25,6 +25,31 @@ namespace
   using Primal = nmopt::contract::PrimalBlockT<Backend>;
   using Covector = nmopt::contract::CovectorBlockT<Backend>;
 
+  template <int dim>
+  class LinearDesiredState final : public dealii::Function<dim>
+  {
+  public:
+    double
+    value(const dealii::Point<dim> &point,
+          const unsigned int        component = 0) const override
+    {
+      (void)component;
+      return point[0] + 2.0 * point[1];
+    }
+
+    dealii::Tensor<1, dim>
+    gradient(const dealii::Point<dim> &point,
+             const unsigned int        component = 0) const override
+    {
+      (void)point;
+      (void)component;
+      dealii::Tensor<1, dim> result;
+      result[0] = 1.0;
+      result[1] = 2.0;
+      return result;
+    }
+  };
+
   void
   require_close(const double       actual,
                 const double       expected,
@@ -46,6 +71,16 @@ namespace
     dealii::Vector<double> difference = actual.block(0);
     difference.add(-1.0, expected.block(0));
     require_close(difference.l2_norm(), 0.0, tolerance, description);
+  }
+
+  Primal
+  shifted(Primal value, const Primal &direction, const double step)
+  {
+    nmopt::contract::require_compatible(
+      value, direction, "H1/2 test shift has incompatible layouts");
+    for (std::size_t block = 0; block < value.n_blocks(); ++block)
+      value.add_scaled_block(block, step, direction.block(block));
+    return value;
   }
 
   struct MatrixStorage
@@ -152,6 +187,10 @@ namespace
 
     using Model =
       nmopt::compiler::v1::detail::DirichletControlLiftingModel<dim>;
+    nmopt::compiler::v1::detail::DirichletObjectivePolicy hhalf_policy;
+    hhalf_policy.control_norm =
+      nmopt::compiler::v1::detail::DirichletControlNormKind::hhalf;
+    hhalf_policy.trace_metric_solve = solve_parameters;
     const Model hhalf_model(
       triangulation,
       forcing,
@@ -163,8 +202,7 @@ namespace
       {0},
       {},
       std::nullopt,
-      nmopt::compiler::v1::detail::DirichletControlNormKind::hhalf,
-      solve_parameters);
+      hhalf_policy);
     const Model l2_model(triangulation,
                          forcing,
                          desired_state,
@@ -230,6 +268,9 @@ namespace
 
     using Model =
       nmopt::compiler::v1::detail::DirichletControlLiftingModel<dim>;
+    nmopt::compiler::v1::detail::DirichletObjectivePolicy h1_policy;
+    h1_policy.control_norm =
+      nmopt::compiler::v1::detail::DirichletControlNormKind::h1;
     const Model h1_model(
       triangulation,
       forcing,
@@ -241,7 +282,7 @@ namespace
       {0},
       {},
       std::nullopt,
-      nmopt::compiler::v1::detail::DirichletControlNormKind::h1);
+      h1_policy);
     const Model l2_model(triangulation,
                          forcing,
                          desired_state,
@@ -292,6 +333,82 @@ namespace
                   1e-12,
                   "Dirichlet objective tangential H1 regularisation value");
   }
+
+  void
+  run_dirichlet_h1_tracking_contract()
+  {
+    constexpr int dim = 2;
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    const dealii::Functions::ZeroFunction<dim> forcing;
+    const LinearDesiredState<dim> desired_state;
+    using Model =
+      nmopt::compiler::v1::detail::DirichletControlLiftingModel<dim>;
+    nmopt::compiler::v1::detail::DirichletObjectivePolicy h1_policy;
+    h1_policy.state_tracking =
+      nmopt::compiler::v1::detail::DirichletStateTrackingNormKind::h1;
+    const Model h1_model(triangulation,
+                         forcing,
+                         desired_state,
+                         1.0,
+                         0.0,
+                         0.3,
+                         1,
+                         {0},
+                         {},
+                         std::nullopt,
+                         h1_policy);
+    const Model l2_model(triangulation,
+                         forcing,
+                         desired_state,
+                         1.0,
+                         0.0,
+                         0.3,
+                         1,
+                         {0});
+
+    dealii::Vector<double> state(h1_model.variable_layout()->dimension(0));
+    dealii::Vector<double> control(h1_model.variable_layout()->dimension(1));
+    dealii::Vector<double> state_direction(state.size());
+    dealii::Vector<double> control_direction(control.size());
+    for (std::size_t index = 0; index < state.size(); ++index)
+      {
+        state[index] = 0.02 * static_cast<double>(index + 1);
+        state_direction[index] = -0.03 * static_cast<double>(index + 1);
+      }
+    for (std::size_t index = 0; index < control.size(); ++index)
+      {
+        control[index] = 0.01 * static_cast<double>(index + 1);
+        control_direction[index] =
+          (index % 2 == 0 ? 0.02 : -0.015) *
+          static_cast<double>(index + 1);
+      }
+    const Primal point(h1_model.variable_layout(), {state, control});
+    const Primal direction(h1_model.variable_layout(),
+                           {state_direction, control_direction});
+
+    const Covector derivative = h1_model.objective_derivative(point);
+    constexpr double step = 1e-6;
+    const double finite_difference =
+      (h1_model.objective(shifted(point, direction, step)) -
+       h1_model.objective(shifted(point, direction, -step))) /
+      (2.0 * step);
+    require_close(finite_difference,
+                  nmopt::contract::pair(derivative, direction),
+                  2e-8,
+                  "H1 state-tracking objective derivative");
+
+    const Covector l2_derivative = l2_model.objective_derivative(point);
+    dealii::Vector<double> state_difference = derivative.block(0);
+    state_difference.add(-1.0, l2_derivative.block(0));
+    dealii::Vector<double> control_difference = derivative.block(1);
+    control_difference.add(-1.0, l2_derivative.block(1));
+    nmopt::contract::require(
+      state_difference.l2_norm() + control_difference.l2_norm() > 1e-4 &&
+        std::abs(h1_model.objective(point) - l2_model.objective(point)) > 1e-4,
+      "H1 state tracking collapsed to the L2 observation geometry");
+  }
 } // namespace
 
 int
@@ -314,7 +431,12 @@ main(const int argc, char **argv)
          "nmopt.dealii.dirichlet_h1_model",
          {"dealii", "compiler", "metric"},
          60,
-         run_dirichlet_h1_model_contract}};
+         run_dirichlet_h1_model_contract},
+        {"dirichlet_h1_tracking",
+         "nmopt.dealii.dirichlet_h1_tracking",
+         {"dealii", "compiler", "objective"},
+         60,
+         run_dirichlet_h1_tracking_contract}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

@@ -44,6 +44,21 @@ namespace nmopt::compiler::v1::detail
     h1
   };
 
+  enum class DirichletStateTrackingNormKind
+  {
+    l2,
+    h1
+  };
+
+  struct DirichletObjectivePolicy
+  {
+    DirichletStateTrackingNormKind       state_tracking =
+      DirichletStateTrackingNormKind::l2;
+    DirichletControlNormKind             control_norm =
+      DirichletControlNormKind::l2;
+    dealii_backend::MetricSolveParameters trace_metric_solve = {};
+  };
+
   // This v1-only target keeps the independent state coordinates y_hat and
   // makes the control-to-trace map explicit:
   //
@@ -75,15 +90,14 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id> fixed_boundary_ids = {},
       std::optional<std::reference_wrapper<const dealii::Function<dim>>>
         fixed_dirichlet_data = std::nullopt,
-      const DirichletControlNormKind control_norm =
-        DirichletControlNormKind::l2,
-      const dealii_backend::MetricSolveParameters trace_metric_solve = {})
+      const DirichletObjectivePolicy objective_policy = {})
       : state_fe_(state_degree)
       , state_dof_handler_(triangulation)
       , diffusion_(diffusion)
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
-      , control_norm_(control_norm)
+      , state_tracking_norm_(objective_policy.state_tracking)
+      , control_norm_(objective_policy.control_norm)
       , controlled_boundary_ids_(std::move(controlled_boundary_ids))
       , fixed_boundary_ids_(std::move(fixed_boundary_ids))
     {
@@ -107,7 +121,7 @@ namespace nmopt::compiler::v1::detail
       build_reconstruction();
       initialise_storage();
       assemble_physical_operators(forcing, desired_state);
-      initialise_control_norm(trace_metric_solve);
+      initialise_control_norm(objective_policy.trace_metric_solve);
       assemble_reduced_solve_operators();
     }
 
@@ -183,7 +197,7 @@ namespace nmopt::compiler::v1::detail
       physical_system_matrix_.Tvmult(physical_adjoint_action,
                                      embed_state(adjoint.block(0)));
       Vector tracking_covector(state_dof_handler_.n_dofs());
-      physical_state_mass_.vmult(
+      physical_state_observation_.vmult(
         tracking_covector,
         reconstruct(variables.block(0), variables.block(1)));
       tracking_covector.add(-1.0, desired_state_load_);
@@ -239,10 +253,11 @@ namespace nmopt::compiler::v1::detail
       require_variables(variables, "Objective");
       const Vector physical_state =
         reconstruct(variables.block(0), variables.block(1));
-      Vector state_mass_times_state(state_dof_handler_.n_dofs());
-      physical_state_mass_.vmult(state_mass_times_state, physical_state);
+      Vector state_observation_action(state_dof_handler_.n_dofs());
+      physical_state_observation_.vmult(state_observation_action,
+                                        physical_state);
       const double state_value =
-        0.5 * (physical_state * state_mass_times_state) -
+        0.5 * (physical_state * state_observation_action) -
         (desired_state_load_ * physical_state) + 0.5 * desired_state_norm_;
 
       const Vector control_mass_times_control =
@@ -258,7 +273,7 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective derivative");
       Vector physical_covector(state_dof_handler_.n_dofs());
-      physical_state_mass_.vmult(
+      physical_state_observation_.vmult(
         physical_covector,
         reconstruct(variables.block(0), variables.block(1)));
       physical_covector.add(-1.0, desired_state_load_);
@@ -491,7 +506,7 @@ namespace nmopt::compiler::v1::detail
       dealii::DoFTools::make_sparsity_pattern(state_dof_handler_, physical_dsp);
       physical_sparsity_.copy_from(physical_dsp);
       physical_system_matrix_.reinit(physical_sparsity_);
-      physical_state_mass_.reinit(physical_sparsity_);
+      physical_state_observation_.reinit(physical_sparsity_);
       volume_h1_matrix_ =
         std::make_shared<dealii::SparseMatrix<double>>(physical_sparsity_);
 
@@ -550,8 +565,8 @@ namespace nmopt::compiler::v1::detail
 
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
                                               state_fe_.dofs_per_cell);
-      dealii::FullMatrix<double> local_state_mass(state_fe_.dofs_per_cell,
-                                                  state_fe_.dofs_per_cell);
+      dealii::FullMatrix<double> local_state_observation(
+        state_fe_.dofs_per_cell, state_fe_.dofs_per_cell);
       dealii::FullMatrix<double> local_volume_h1(state_fe_.dofs_per_cell,
                                                  state_fe_.dofs_per_cell);
       dealii::FullMatrix<double> local_boundary_mass(state_fe_.dofs_per_cell,
@@ -569,7 +584,7 @@ namespace nmopt::compiler::v1::detail
         {
           state_values.reinit(cell);
           local_system = 0.0;
-          local_state_mass = 0.0;
+          local_state_observation = 0.0;
           local_volume_h1 = 0.0;
           local_forcing = 0.0;
           local_desired_state = 0.0;
@@ -580,12 +595,27 @@ namespace nmopt::compiler::v1::detail
                 forcing.value(state_values.quadrature_point(q));
               const double desired_value =
                 desired_state.value(state_values.quadrature_point(q));
-              desired_state_norm_ += desired_value * desired_value * weight;
+              dealii::Tensor<1, dim> desired_gradient;
+              if (state_tracking_norm_ == DirichletStateTrackingNormKind::h1)
+                desired_gradient =
+                  desired_state.gradient(state_values.quadrature_point(q));
+              desired_state_norm_ +=
+                (desired_value * desired_value +
+                 (state_tracking_norm_ == DirichletStateTrackingNormKind::h1
+                    ? desired_gradient * desired_gradient
+                    : 0.0)) *
+                weight;
               for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
-                  local_desired_state(i) += desired_value * phi_i * weight;
+                  local_desired_state(i) +=
+                    (desired_value * phi_i +
+                     (state_tracking_norm_ ==
+                          DirichletStateTrackingNormKind::h1
+                        ? desired_gradient * state_values.shape_grad(i, q)
+                        : 0.0)) *
+                    weight;
                   for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
                     {
                       local_system(i, j) +=
@@ -593,8 +623,14 @@ namespace nmopt::compiler::v1::detail
                                        state_values.shape_grad(j, q)) +
                          reaction_ * phi_i * state_values.shape_value(j, q)) *
                         weight;
-                      local_state_mass(i, j) +=
-                        phi_i * state_values.shape_value(j, q) * weight;
+                      local_state_observation(i, j) +=
+                        (phi_i * state_values.shape_value(j, q) +
+                         (state_tracking_norm_ ==
+                              DirichletStateTrackingNormKind::h1
+                            ? state_values.shape_grad(i, q) *
+                                state_values.shape_grad(j, q)
+                            : 0.0)) *
+                        weight;
                       local_volume_h1(i, j) +=
                         ((state_values.shape_grad(i, q) *
                           state_values.shape_grad(j, q)) +
@@ -666,9 +702,9 @@ namespace nmopt::compiler::v1::detail
                   physical_system_matrix_.add(state_indices[i],
                                               state_indices[j],
                                               local_system(i, j));
-                  physical_state_mass_.add(state_indices[i],
-                                           state_indices[j],
-                                           local_state_mass(i, j));
+                  physical_state_observation_.add(state_indices[i],
+                                                  state_indices[j],
+                                                  local_state_observation(i, j));
                   volume_h1_matrix_->add(state_indices[i],
                                          state_indices[j],
                                          local_volume_h1(i, j));
@@ -867,6 +903,7 @@ namespace nmopt::compiler::v1::detail
     const double diffusion_;
     const double reaction_;
     const double regularisation_weight_;
+    const DirichletStateTrackingNormKind state_tracking_norm_;
     const DirichletControlNormKind control_norm_;
     const std::set<dealii::types::boundary_id> controlled_boundary_ids_;
     const std::set<dealii::types::boundary_id> fixed_boundary_ids_;
@@ -877,7 +914,7 @@ namespace nmopt::compiler::v1::detail
     Vector fixed_lifting_;
     dealii::SparsityPattern physical_sparsity_;
     dealii::SparseMatrix<double> physical_system_matrix_;
-    dealii::SparseMatrix<double> physical_state_mass_;
+    dealii::SparseMatrix<double> physical_state_observation_;
     std::shared_ptr<dealii::SparseMatrix<double>> volume_h1_matrix_;
     dealii::SparsityPattern control_boundary_mass_sparsity_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_boundary_mass_;

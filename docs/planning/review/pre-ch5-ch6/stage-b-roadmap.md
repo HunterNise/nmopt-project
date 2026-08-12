@@ -4,7 +4,7 @@
 
 This is the concise execution guide derived from the exhaustive
 [assessment](assessment.md). It defines stable batch boundaries and acceptance
-criteria. The [implementation roadmap](../implementation-roadmap.md), not this
+criteria. The [implementation roadmap](../../implementation-roadmap.md), not this
 document, owns current progress and the next-agent handoff.
 
 The final assessment decision is:
@@ -15,7 +15,7 @@ The final assessment decision is:
 
 ## Global execution rules
 
-- Continue on `codex/refactor-ch5-ch6-readiness` and compare behavior with
+- Continue on `codex/ch5-ch6-development` and compare behavior with
   `pre-refactor-ch5-ch6` at `7c2496b`.
 - Execute one coherent batch or named sub-batch at a time.
 - Add focused characterization before or with behavior-changing repairs.

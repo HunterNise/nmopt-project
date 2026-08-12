@@ -23,8 +23,8 @@ the documented Chapter 5/6 endpoint.
 
 This plan does not replace repository conventions or architectural contracts.
 Before every repository action, follow the routing rules in the
-[project conventions](../../../conventions/README.md). Use the
-[documentation map](../../README.md) to select authoritative design documents.
+[project conventions](../../../../conventions/README.md). Use the
+[documentation map](../../../README.md) to select authoritative design documents.
 
 At minimum, the assessment agent must:
 
@@ -43,7 +43,7 @@ the more authoritative source wins and the conflict must be reported.
 All assessment and later refactor work belongs on:
 
 ```text
-codex/refactor-ch5-ch6-readiness
+codex/ch5-ch6-development
 ```
 
 At the time this plan was created, the branch started from commit `7c2496b`,
@@ -67,7 +67,7 @@ git show --no-patch --oneline pre-refactor-ch5-ch6
 Required branch discipline:
 
 - Do not perform assessment or refactor edits on `codex/main`.
-- If the worktree is not already on `codex/refactor-ch5-ch6-readiness`, stop
+- If the worktree is not already on `codex/ch5-ch6-development`, stop
   and ask the user or worktree owner to place it there. Do not switch branches
   for convenience.
 - Do not move or recreate `pre-refactor-ch5-ch6`.
@@ -86,11 +86,11 @@ not create additional branches or worktrees unless the user requests them.
 
 The assessment is bounded by the capabilities already recorded in:
 
-- the [Chapter 5 implementation guide](../../guides/chapter-5-elliptic-control.md);
-- the [Chapter 6 numerical-methods guide](../../guides/chapter-6-numerical-methods.md);
-- the [Chapter 6 numerical-examples reference](../../guides/chapter-6-numerical-examples.md);
+- the [Chapter 5 implementation guide](../../../guides/chapter-5-elliptic-control.md);
+- the [Chapter 6 numerical-methods guide](../../../guides/chapter-6-numerical-methods.md);
+- the [Chapter 6 numerical-examples reference](../../../guides/chapter-6-numerical-examples.md);
 - P5.1–P5.6 and P6.1–P6.5 of the
-  [implementation roadmap](../implementation-roadmap.md).
+  [implementation roadmap](../../implementation-roadmap.md).
 
 The project is not required to implement every catalogue entry. Until the
 user selects exact targets, the assessment must present conditional findings:
@@ -125,7 +125,7 @@ documentation-map entry requested by the user.
 The expected assessment file is:
 
 ```text
-docs/planning/refactor/assessment.md
+docs/planning/review/pre-ch5-ch6/assessment.md
 ```
 
 Do not implement a proposed refactor during Stage A, even if the improvement
@@ -572,10 +572,10 @@ The next agent should perform only Stage A unless the user explicitly approves
 implementation. Its first actions are:
 
 1. Verify that the worktree is clean or identify existing user changes and
-   confirm branch `codex/refactor-ch5-ch6-readiness`.
+   confirm branch `codex/ch5-ch6-development`.
 2. Follow the mandatory convention routing.
 3. Reproduce and record the baseline.
-4. Create `docs/planning/refactor/assessment.md`.
+4. Create `docs/planning/review/pre-ch5-ch6/assessment.md`.
 5. Build the scope matrix before deep code review.
 6. Audit progressively in the layer order given above.
 7. Finish the evidence-backed report and request the user’s Stage B choices.

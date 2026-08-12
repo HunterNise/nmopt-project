@@ -8,13 +8,13 @@ through `349d5f1` on 2026-08-12. All commits in the range were authored on
 compiler-product gate and C2 bounded component-lowering gate before P5.1.
 
 This is a static review and implementation handoff, not a second status
-ledger. The [implementation roadmap](implementation-roadmap.md) remains the
+ledger. The [implementation roadmap](../../implementation-roadmap.md) remains the
 sole owner of mutable status and acceptance state. The
-[Stage B roadmap](refactor/stage-b-roadmap.md),
-[refactor assessment](refactor/assessment.md),
-[interface specification](../design/interface-specification.md),
-[implementation-readiness review](../implementation/implementation-readiness-review.md),
-and [v1 semantic compiler contract](../implementation/v1/semantic-compiler.md)
+[Stage B roadmap](../pre-ch5-ch6/stage-b-roadmap.md),
+[refactor assessment](../pre-ch5-ch6/assessment.md),
+[interface specification](../../../design/interface-specification.md),
+[implementation-readiness review](../../../implementation/implementation-readiness-review.md),
+and [v1 semantic compiler contract](../../../implementation/v1/semantic-compiler.md)
 remain authoritative for the C1/C2 contracts.
 
 The preparation established several useful foundations, but neither gate is
@@ -110,19 +110,19 @@ the committed tests, and the authoritative contracts.
 ## Required reading for the implementing agent
 
 Before changing code, follow the repository routing in
-[`conventions/README.md`](../../conventions/README.md). Read only the bounded
+[`conventions/README.md`](../../../conventions/README.md). Read only the bounded
 authorities needed for the selected work unit:
 
-- [Stage B C1 gate](refactor/stage-b-roadmap.md#c1--make-compiler-inputs-products-and-provenance-explicit);
-- [Stage B C2 gate](refactor/stage-b-roadmap.md#c2--introduce-bounded-component-lowering);
-- [assessment C1 evidence and exit](refactor/assessment.md#c1--make-compiler-inputs-products-and-provenance-explicit);
-- [assessment C2 evidence and exit](refactor/assessment.md#c2--replace-whole-target-dispatch-with-bounded-component-lowering);
-- [interface compiler obligations](../design/interface-specification.md#62-compiler-obligations);
-- [composition boundaries](../design/composition-boundaries.md#what-changes-when-one-component-changes);
-- [selected lowering policy](../implementation/implementation-readiness-review.md#5-lowering-and-compiler-capabilities);
-- [required verification and provenance](../implementation/implementation-readiness-review.md#12-required-verification-and-provenance);
-- [v1 validation and diagnostics](../implementation/v1/semantic-compiler.md#validation-and-diagnostics);
-- [v1 registered deal.II realization](../implementation/v1/semantic-compiler.md#registered-dealii-realization);
+- [Stage B C1 gate](../pre-ch5-ch6/stage-b-roadmap.md#c1--make-compiler-inputs-products-and-provenance-explicit);
+- [Stage B C2 gate](../pre-ch5-ch6/stage-b-roadmap.md#c2--introduce-bounded-component-lowering);
+- [assessment C1 evidence and exit](../pre-ch5-ch6/assessment.md#c1--make-compiler-inputs-products-and-provenance-explicit);
+- [assessment C2 evidence and exit](../pre-ch5-ch6/assessment.md#c2--replace-whole-target-dispatch-with-bounded-component-lowering);
+- [interface compiler obligations](../../../design/interface-specification.md#62-compiler-obligations);
+- [composition boundaries](../../../design/composition-boundaries.md#what-changes-when-one-component-changes);
+- [selected lowering policy](../../../implementation/implementation-readiness-review.md#5-lowering-and-compiler-capabilities);
+- [required verification and provenance](../../../implementation/implementation-readiness-review.md#12-required-verification-and-provenance);
+- [v1 validation and diagnostics](../../../implementation/v1/semantic-compiler.md#validation-and-diagnostics);
+- [v1 registered deal.II realization](../../../implementation/v1/semantic-compiler.md#registered-dealii-realization);
 - [P5.1 data-placement repair](p5.1-remediation-review.md#p51-r1--coefficient-and-robin-data-have-missing-or-wrong-regions);
 - [P5.1 typed-policy repair](p5.1-remediation-review.md#p51-r2--boundary-and-conormal-policies-are-prose-only-selections);
 - [P5.2 realized-dimension repair](p5.2-remediation-review.md#p52-r3--weighted-trace-dimensions-fall-through-to-state-dimensions);

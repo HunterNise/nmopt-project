@@ -61,7 +61,7 @@ documents and now contradicts the code and even other sections of the same
 documents.
 
 The branch and tagged baseline already provide sufficient recovery. Stage B
-should continue on `codex/refactor-ch5-ch6-readiness`, with
+should continue on `codex/ch5-ch6-development`, with
 `pre-refactor-ch5-ch6` at `7c2496b` retained as the immutable comparison
 point. A second frozen branch would duplicate what the tag and commit graph
 already provide. Create a separate feature branch or worktree only if feature
@@ -75,7 +75,7 @@ The baseline was recorded on 2026-08-06.
 
 | Item | Observed state |
 | --- | --- |
-| Assessment branch | `codex/refactor-ch5-ch6-readiness` |
+| Assessment branch | `codex/ch5-ch6-development` |
 | Assessment start commit | `8616cba` (`docs(refactor): add pre-chapter 5 and 6 assessment plan`) |
 | Tagged implementation baseline | `pre-refactor-ch5-ch6` at `7c2496b` |
 | Baseline relation | At the start of evidence wave 4, the assessment branch is four documentation-only commits ahead of the tagged implementation baseline |
@@ -210,9 +210,9 @@ directory. Whether that granularity is appropriate remains a Phase 4 question.
 ### Interpretation
 
 The matrix is derived from P5.1–P5.6 and P6.1–P6.5 of the
-[implementation roadmap](../implementation-roadmap.md), the
-[Chapter 5 implementation guide](../../guides/chapter-5-elliptic-control.md), and the
-[Chapter 6 numerical-methods guide](../../guides/chapter-6-numerical-methods.md).
+[implementation roadmap](../../implementation-roadmap.md), the
+[Chapter 5 implementation guide](../../../guides/chapter-5-elliptic-control.md), and the
+[Chapter 6 numerical-methods guide](../../../guides/chapter-6-numerical-methods.md).
 
 “Documented baseline” reports what those sources claim. It is not treated as
 verified code evidence until the relevant implementation and tests are
@@ -524,12 +524,12 @@ diagnostic/manifest assertion rather than treated as one opaque passing
 executable.
 
 Authoritative records used in this wave were the
-[v1 compiler record](../../implementation/v1/semantic-compiler.md), the
-[v0 lowerer record](../../implementation/v0/dealii-lowerer.md), the compiler/lowering sections of
-the [system blueprint](../../design/system-blueprint.md), the manifest requirements in the
-[implementation-readiness review](../../implementation/implementation-readiness-review.md), and
+[v1 compiler record](../../../implementation/v1/semantic-compiler.md), the
+[v0 lowerer record](../../../implementation/v0/dealii-lowerer.md), the compiler/lowering sections of
+the [system blueprint](../../../design/system-blueprint.md), the manifest requirements in the
+[implementation-readiness review](../../../implementation/implementation-readiness-review.md), and
 the Chapter 6 provenance requirements in the
-[numerical-methods guide](../../guides/chapter-6-numerical-methods.md).
+[numerical-methods guide](../../../guides/chapter-6-numerical-methods.md).
 
 ## Architecture and code findings: contracts and semantic layer
 
@@ -547,9 +547,9 @@ vectors through the mutable references, and called `pair()`. The call
 succeeded and returned `32` while reporting declared dimension `2` and stored
 dimension `3`.
 
-**Authority:** The [executable contract](../../implementation/v0/executable-contract.md) describes
+**Authority:** The [executable contract](../../../implementation/v0/executable-contract.md) describes
 `BlockLayout` as the compatible block dimensions, and the
-[implementation-readiness review](../../implementation/implementation-readiness-review.md)
+[implementation-readiness review](../../../implementation/implementation-readiness-review.md)
 requires typed coefficient objects whose discrete layouts are preserved.
 
 **Consequence:** Layout compatibility is not an invariant after construction.
@@ -597,7 +597,7 @@ in comparisons and switches, for example at
 reference factories avoid the fault by fully aggregate-initializing every
 component, but the public API does not enforce that discipline.
 
-**Authority:** The [interface specification](../../design/interface-specification.md)
+**Authority:** The [interface specification](../../../design/interface-specification.md)
 defines semantic resolution and validation as the boundary that rejects
 invalid or incomplete declarations. Validation itself must therefore be safe
 on incomplete user input.
@@ -655,7 +655,7 @@ on the formulation's selected decision variable
 (`include/nmopt/semantic/v1/validation.hpp:778-816`).
 
 **Authority:** Sections 2, 5.2, and 5.3 of the
-[interface specification](../../design/interface-specification.md) require declared ports,
+[interface specification](../../../design/interface-specification.md) require declared ports,
 ordered semantic resolution, and structural rejection of mismatched
 connections. An equation owns an ordered sum of terms; a constraint and
 metric act on declared variable blocks.
@@ -702,9 +702,9 @@ observation, loss, and metric checks compare only
 test pairing's `covector_space_id` to `control_space`; the semantic report
 remained valid.
 
-**Authority:** The [interface specification](../../design/interface-specification.md)
+**Authority:** The [interface specification](../../../design/interface-specification.md)
 requires every dual value to be paired with its declared primal space, and the
-[implementation-readiness review](../../implementation/implementation-readiness-review.md) makes
+[implementation-readiness review](../../../implementation/implementation-readiness-review.md) makes
 the primal/covector distinction the first discrete-algebra default.
 
 **Consequence:** The semantic graph can claim a test-space pairing while its
@@ -747,7 +747,7 @@ coefficient factory rewrites spaces, pairings, the second variable, the first
 term, the second observation/loss, and the first metric at lines 202-265.
 
 **Authority:** The project mission and
-[composition boundaries](../../design/composition-boundaries.md) require combinations to
+[composition boundaries](../../../design/composition-boundaries.md) require combinations to
 be built from connected components without a new whole-problem
 implementation for each combination.
 
@@ -794,7 +794,7 @@ solver callback, metric, or constraint construction. All current tests pass,
 so this is a containment and localization weakness rather than a failing
 baseline.
 
-**Authority:** The [implementation-readiness review](../../implementation/implementation-readiness-review.md)
+**Authority:** The [implementation-readiness review](../../../implementation/implementation-readiness-review.md)
 requires explicit component diagnostics and value/JVP/VJP, constraint, and
 formulation verification. The assessment plan requires tests to localize the
 responsible layer and cover negative and degenerate cases.
@@ -853,8 +853,8 @@ bookkeeping, variable checks, and the same CG helper are repeated. A kind may
 therefore be “registered” while no independently composable lowerer for that
 kind exists.
 
-**Authority:** The root mission, [composition boundaries](../../design/composition-boundaries.md),
-and [system blueprint](../../design/system-blueprint.md) require residual, observation,
+**Authority:** The root mission, [composition boundaries](../../../design/composition-boundaries.md),
+and [system blueprint](../../../design/system-blueprint.md) require residual, observation,
 loss, metric, constraint, transformation, and discretization components to be
 lowered without a new problem class for every combination.
 
@@ -988,7 +988,7 @@ graph through the fallback and compares the two instances at lines
 packaging, layout, metric, or constraint wiring, but the residual, objective,
 derivative, and assembly code are identical.
 
-**Authority:** The [v1 compiler record](../../implementation/v1/semantic-compiler.md) describes
+**Authority:** The [v1 compiler record](../../../implementation/v1/semantic-compiler.md) describes
 this as a v0/v1 comparison guarantee, while the assessment plan requires
 independent verification or an explicit record of shared implementation.
 
@@ -1242,10 +1242,10 @@ service in `include/nmopt/contract/reduced_dto.hpp`; inventoried every logical
 test scenario and its numerical checks; and reviewed the complete root CMake
 configuration and repository-local developer tooling. Relevant authority came
 from the reduced and verification sections of the
-[executable contract](../../implementation/v0/executable-contract.md),
-[implementation-readiness review](../../implementation/implementation-readiness-review.md),
-[implementation roadmap](../implementation-roadmap.md), and
-[Chapter 6 numerical-methods guide](../../guides/chapter-6-numerical-methods.md).
+[executable contract](../../../implementation/v0/executable-contract.md),
+[implementation-readiness review](../../../implementation/implementation-readiness-review.md),
+[implementation roadmap](../../implementation-roadmap.md), and
+[Chapter 6 numerical-methods guide](../../../guides/chapter-6-numerical-methods.md).
 
 There is no separate formulation package today. That is appropriate for the
 implemented slice: `StateControlPartitionT` plus `ReducedDTOT` is explicitly
@@ -2047,7 +2047,7 @@ The evidence has resolved the refactor shape. Two product choices remain and
 cannot be inferred without expanding scope:
 
 1. **Authorize Stage B and its common checkpoint.** The recommended approval is
-   R0 through R3 on `codex/refactor-ch5-ch6-readiness`, in separate reviewable
+   R0 through R3 on `codex/ch5-ch6-development`, in separate reviewable
    commits. Until that approval, the repository remains documentation-only.
 2. **Choose the first post-checkpoint vertical slice.** The recommended default
    is one scalar P5.1 composition target, which activates C1 and C2. Choosing a
@@ -2061,7 +2061,7 @@ feature and should not be answered during the common refactor.
 
 ## Branch, commit, and handoff policy for Stage B
 
-- Continue on `codex/refactor-ch5-ch6-readiness`; retain
+- Continue on `codex/ch5-ch6-development`; retain
   `pre-refactor-ch5-ch6` at `7c2496b` as the immutable behavioral baseline.
 - Do not create another frozen branch. Git can recover the tagged commit, and a
   duplicate branch adds a mutable name without adding preservation.

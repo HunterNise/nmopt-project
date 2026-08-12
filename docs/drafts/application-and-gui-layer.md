@@ -376,7 +376,7 @@ manifest, solver result/reporting interfaces, and refactor assessment:
 - [`semantic-compiler.md`](../implementation/v1/semantic-compiler.md)
 - [`reduced_gradient.hpp`](../../include/nmopt/solvers/reduced_gradient.hpp)
 - [`compiled_problem.hpp`](../../include/nmopt/compiler/v1/compiled_problem.hpp)
-- [`refactor assessment`](../planning/refactor/assessment.md)
+- [`pre-Chapter 5/6 assessment`](../planning/review/pre-ch5-ch6/assessment.md)
 
 Until those interfaces are intentionally extended, this draft should remain a
 discussion artifact and should not be treated as an implementation commitment.

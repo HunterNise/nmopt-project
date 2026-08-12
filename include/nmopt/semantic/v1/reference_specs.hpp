@@ -390,6 +390,77 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // P5.3's C5.8 target uses the strong-state normal derivative on a declared
+  // boundary subset. The outward normal and the very-weak adjoint policy stay
+  // explicit requirements rather than being inferred from a boundary trace.
+  inline ProblemSpec
+  make_normal_flux_scalar_diffusion_reaction_problem(
+    std::vector<unsigned int> normal_flux_boundary_ids = {1})
+  {
+    ProblemSpec specification = make_scalar_diffusion_reaction_problem();
+    specification.id = "scalar_diffusion_reaction_normal_flux";
+    specification.label = "Scalar diffusion-reaction with normal-flux tracking";
+    reference_detail::component_by_id(specification.regions,
+                                      "dirichlet_boundary",
+                                      "region")
+      .boundary_ids = {0, 1};
+    specification.regions.push_back(
+      {"normal_flux_boundary", "Normal-flux observation boundary",
+       RegionKind::boundary, false, std::move(normal_flux_boundary_ids), {}, {}});
+
+    reference_detail::component_by_id(specification.spaces,
+                                      "state_observation_space",
+                                      "space") =
+      {"state_observation_space", "Normal-flux observation",
+       "normal_flux_boundary", SpaceTopology::l2, SpaceRole::observation};
+    reference_detail::component_by_id(specification.data,
+                                      "desired_state",
+                                      "data")
+      .space_id = "state_observation_space";
+    reference_detail::component_by_id(specification.observations,
+                                      "state_observation",
+                                      "observation") =
+      {"state_observation", "Normal-flux state observation",
+       ObservationKind::normal_flux, "state", "normal_flux_boundary",
+       "state_observation_space", "state_observation_pairing", {}};
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "desired_state_quadrature_policy",
+                                      "requirement policy") =
+      {"desired_state_normal_flux_evaluation", "desired_state",
+       RequirementKind::analytic_quadrature_evaluation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "analytic Function evaluated at selected normal-flux boundary face quadrature",
+       "normal_flux_boundary"};
+    specification.requirement_policies.push_back(
+      {"normal_flux_orientation_policy", "state_observation",
+       RequirementKind::conormal_flux,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::both,
+       "outward unit normal n_out is used and the observed normal flux is partial_n y = grad(y) dot n_out with no sign reversal",
+       "normal_flux_boundary"});
+    specification.requirement_policies.push_back(
+      {"normal_flux_transposition_policy", "state_equation",
+       RequirementKind::transposition_formulation,
+       RequirementStatus::provided, RequirementScope::continuous_semantics,
+       "Y=H2(Omega) cap H1_0(Omega); the normal-flux residual is represented in the boundary dual and its adjoint is a very weak L2(Omega) solution",
+       "domain"});
+    specification.requirement_policies.push_back(
+      {"normal_flux_domain_regularity", "state_equation",
+       RequirementKind::domain_regularity, RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "the declared domain is convex or sufficiently smooth so the Dirichlet state belongs to H2(Omega) cap H1_0(Omega) and its normal trace is meaningful",
+       "domain"});
+    specification.requirement_policies.push_back(
+      {"normal_flux_evaluation_policy", "state_observation",
+       RequirementKind::analytic_quadrature_evaluation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "FE_Q normal derivatives are evaluated with FEFaceValues at selected boundary face quadrature using the outward unit normal; the transpose is assembled from the same face map",
+       "normal_flux_boundary"});
+    return specification;
+  }
+
   // P5.2's first observation target changes the state observation and its
   // pairing, not the residual or the control search metric. The selected
   // realization is the full H1_0 inner product assembled from mass and

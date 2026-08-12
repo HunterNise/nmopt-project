@@ -101,7 +101,8 @@ namespace nmopt::semantic::v1
     boundary_trace,
     boundary_restriction,
     weighted_boundary_trace,
-    point_sensor
+    point_sensor,
+    normal_flux
   };
 
   enum class LossKind

@@ -781,7 +781,8 @@ namespace nmopt::semantic::v1
           const bool boundary_observation =
             observation.kind == ObservationKind::boundary_trace ||
             observation.kind == ObservationKind::weighted_boundary_trace ||
-            observation.kind == ObservationKind::boundary_restriction;
+            observation.kind == ObservationKind::boundary_restriction ||
+            observation.kind == ObservationKind::normal_flux;
           const bool point_observation =
             observation.kind == ObservationKind::point_sensor;
           const RegionKind expected_region =
@@ -824,7 +825,8 @@ namespace nmopt::semantic::v1
                            "Declare the observed state in an H1 space.");
             }
           if ((observation.kind == ObservationKind::boundary_trace ||
-               observation.kind == ObservationKind::weighted_boundary_trace) &&
+               observation.kind == ObservationKind::weighted_boundary_trace ||
+               observation.kind == ObservationKind::normal_flux) &&
               (input == variables.end() ||
                input->second->role != VariableRole::state))
             report.add(DiagnosticCategory::structural,
@@ -1918,6 +1920,75 @@ namespace nmopt::semantic::v1
                          observation.id,
                          "boundary_trace_region",
                          "Declare the trace policy on the observation boundary region.");
+          }
+        else if (observation.kind == ObservationKind::normal_flux)
+          {
+            const auto flux_policy = selected_policy(
+              observation.id, RequirementKind::conormal_flux);
+            if (flux_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                observation.id,
+                "normal_flux_orientation_policy",
+                "Declare the outward-normal normal-flux convention on the observation boundary.");
+            else if (flux_policy->region_id != observation.region_id)
+              report.add(
+                DiagnosticCategory::structural,
+                observation.id,
+                "normal_flux_orientation_region",
+                "Declare the normal-flux orientation policy on the observation boundary region.");
+
+            const auto evaluation_policy = selected_policy(
+              observation.id, RequirementKind::analytic_quadrature_evaluation);
+            if (evaluation_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                observation.id,
+                "normal_flux_evaluation_policy",
+                "Declare the selected face-quadrature normal-flux evaluation rule.");
+            else if (evaluation_policy->region_id != observation.region_id)
+              report.add(
+                DiagnosticCategory::structural,
+                observation.id,
+                "normal_flux_evaluation_region",
+                "Declare the normal-flux evaluation policy on the observation boundary region.");
+
+            const auto transposition_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&specification](const RequirementPolicySpec &candidate_policy) {
+                return candidate_policy.subject_id ==
+                         specification.formulation.equation_id &&
+                       candidate_policy.kind ==
+                         RequirementKind::transposition_formulation &&
+                       candidate_policy.status == RequirementStatus::provided &&
+                       candidate_policy.scope ==
+                         RequirementScope::continuous_semantics &&
+                       !candidate_policy.selected_policy.empty();
+              });
+            if (transposition_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                specification.formulation.equation_id,
+                "normal_flux_transposition_policy",
+                "Declare the strong-state normal-flux adjoint transposition and very-weak formulation.");
+
+            const auto regularity_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&specification](const RequirementPolicySpec &candidate_policy) {
+                return candidate_policy.subject_id ==
+                         specification.formulation.equation_id &&
+                       candidate_policy.kind == RequirementKind::domain_regularity &&
+                       candidate_policy.status == RequirementStatus::user_assumed &&
+                       !candidate_policy.selected_policy.empty();
+              });
+            if (regularity_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                specification.formulation.equation_id,
+                "normal_flux_domain_regularity",
+                "Declare the domain regularity assumption required by the strong normal-flux state and very-weak adjoint.");
           }
     }
   };

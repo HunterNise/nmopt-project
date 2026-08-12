@@ -29,10 +29,15 @@ relevant `RF-006` characterization), R2b (`RF-002` through `RF-005` and the
 relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
 `RF-012`), and R3 (`RF-016` through `RF-019`) are complete. P4.1 and P4.2 are
 ignored for the current ordered implementation run because their scope is too
-broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
-are complete. P5.2 is complete: the full-domain $H^{1}_{0}$ state observation,
-weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
-have their own semantic, lowering, and verification boundary. P5.3's first
+broad. P5.1 and P5.2 implementations have landed, but the
+[P5.1 remediation review](p5.1-remediation-review.md) found open coefficient-
+data placement and typed boundary-policy defects, while the
+[P5.2 remediation review](p5.2-remediation-review.md) found open selected-
+realization, $H^{1}_{0}$ target-data, and weighted-observation-dimension
+defects. Neither phase is acceptance-complete until its documented gates
+pass. The reviewed operator formulas, exact-transpose solve, energy/weighted
+observation assembly, and negative-metric formulas remain the selected
+bounded behavior during remediation. P5.3's first
 bounded C5.8 and C5.10 implementations have landed, but the
 [P5.3 remediation review](p5.3-remediation-review.md) found open transposition,
 fixed-boundary, and manifest-dimension defects. P5.3 is not
@@ -488,7 +493,7 @@ ordered by reusable capability, not by the source chapter's presentation
 order. They must not be implemented as a hierarchy of named textbook problem
 classes.
 
-### P5.1 — Compose general scalar elliptic volume and Robin boundary terms — completed
+### P5.1 — Compose general scalar elliptic volume and Robin boundary terms — implementation landed, remediation open
 
 **Motivation:** C5.1, C5.5.1, and C5.6 use scalar operators beyond the
 current diffusion-reaction slice. Their differences are residual terms and
@@ -532,7 +537,16 @@ state-dependent term's value/JVP/VJP actions, the Robin source, combined
 transport transpose, reduced Taylor remainder, manifest, coefficient-shape
 diagnostic, and boundary overlap/completeness diagnostics.
 
-### P5.2 — Add energy-volume and weighted-trace observations, then the selected $H^{-1}$ metric separately
+**Review status:** the
+[P5.1 remediation review](p5.1-remediation-review.md) found that coefficient
+Functions do not have truthful semantic spaces/regions, the Robin source is
+declared in the volume test space, and the selected boundary/conormal/
+transport/trace realization is still prose while the backend hard-codes a
+specific policy. P5.1 remains open until both acceptance findings pass. The
+assembled weak signs, nonsymmetric exact transpose, complete mesh partition,
+and existing term/Taylor tests remain retained behavior.
+
+### P5.2 — Add energy-volume and weighted-trace observations, then the selected $H^{-1}$ metric separately — implementation landed, remediation open
 
 **Motivation:** C5.5.2 needs state tracking in an energy space, while C5.7
 needs a boundary trace multiplied by declared data. The alternate C5.5.2
@@ -592,7 +606,17 @@ Laplacian inverse actions. Independent metric tests establish exact action,
 inverse recovery, and symmetry; the compiled comparison establishes identical
 reduced objectives/covectors, distinct $L^{2}$/$H^{-1}$ directions, quadratic
 reduced Taylor remainders for both directions, and complete manifest
-provenance. This completes P5.2.
+provenance. These implementation slices have landed.
+
+**Review status:** the
+[P5.2 remediation review](p5.2-remediation-review.md) found that the weighted-
+trace and negative-metric selections are not typed executable contracts, the
+continuous-control backend ignores the control policy's boundary region, the
+$H^{1}_{0}$ desired-state membership is not required, and the weighted-trace
+manifest dimension falls through to the state dimension. P5.2 remains open
+until all three acceptance findings pass. The mass-plus-stiffness observation,
+weighted pullback, $M_{h}K_{h}^{-1}M_{h}$ action/inverse, and existing
+comparison/Taylor tests remain retained behavior.
 
 ### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy — implementation landed, remediation open
 
@@ -957,52 +981,44 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-P5.2 and the C5.6 Neumann composition are complete. The selected P5.3 and P5.4
-implementations have landed but have open review remediation. P4.1 and P4.2
-remain ignored for the current ordered implementation run. Continue as
-follows:
+The C5.6 Neumann composition is complete. P5.1 through P5.4 have landed
+implementation slices but remain open under their static remediation reviews.
+P4.1 and P4.2 remain ignored for the current ordered implementation run. Keep
+the reviewed numerical formulas and explicit exclusions while proceeding in
+these commit-sized units:
 
-1. P5.1 is complete: its component plan and first registered deal.II target
-   verify individual term actions, the nonsymmetric adjoint, Robin value/load
-   contributions, boundary/shape diagnostics, and the reduced derivative.
-2. P5.2 is complete: energy and weighted-trace observations remain separate
-   maps, and the named $H^{-1}$ metric changes only direction formation on its
-   declared continuous-control comparison graph.
-3. The C5.6-style Neumann composition is complete: conservative transport,
-   the facewise natural control, and material-subdomain tracking retain
-   separate bindings, residual, observation, and metric semantics. Exact weak-
-   form and observation values, transpose actions, reduced derivatives,
-   boundary/material diagnostics, and manifest provenance are verified.
-4. The first P5.4 partial scalar controlled-Dirichlet target has landed: one
-   disjoint fixed nonzero boundary, fixed-corner precedence, relative-interior
-   control, and an $L^{2}$ trace metric are registered. Its policy and
-   provenance remediation remains open. Sobolev metrics on partial or
-   nonmatching traces remain excluded.
-5. The P5.4 C5.11.2 continuous $L^{2}(\Gamma)$ transposition parent is
-   implemented. Its registered lowerer records the conforming
-   $U_{h}\subset H^{1/2}(\Gamma)$ equivalence, and its independent discrete
-   conormal contract verifies $\beta M_{\Gamma,h}u_{h}-q_{h}$. Discontinuous
-   $L^{2}$ Dirichlet data and a general transposition lowerer remain excluded;
-   typed transposition and manifest remediation remains open.
-6. The remaining complete-boundary Section 5.11 registrations have landed:
-   both $H^{1/2}$ options preserve the distinct loss/metric choice, and the
-   tangential $H^{1}$ option uses boundary mass plus projected-gradient
-   stiffness. Their current positive metric, stationarity, and Taylor
-   contracts pass, but closed registration matching and exact manifest
-   provenance remain open.
-7. Complete the shared typed-policy work in
+1. Complete
+   [P5.1 work unit 1](p5.1-remediation-review.md#work-unit-1--truthful-p51-data-spaces-and-regions):
+   give every general-scalar coefficient and Robin source a truthful semantic
+   space/region and carry that placement through the plan and manifest.
+2. Establish the common typed boundary/orientation/trace realization
+   vocabulary and complete
+   [P5.1 work unit 2](p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection).
+   Do not create target-specific enums for policies shared by later phases.
+3. Complete
+   [P5.2 work unit 1](p5.2-remediation-review.md#work-unit-1--typed-p52-trace-and-negative-metric-selections):
+   use the shared trace vocabulary, type the named negative metric, and make
+   the continuous-control backend apply the declared control boundary.
+4. Complete the compatible transposition and remaining typed-policy work in
    [P5.3 work unit 1](p5.3-remediation-review.md#work-unit-1--structured-transposition-contract)
-   and [P5.4 work unit 1](p5.4-remediation-review.md#work-unit-1--typed-shared-policies)
-   as one compatible semantic/compiler contract. Do not introduce separate
-   transposition schemas.
-8. Complete P5.4 work units 2 and 3: reject unregistered Section 5.11
-   cross-products from one resolved registration and record the physical
-   transformed-observation dimensions.
-9. Complete the remaining P5.3 boundary and manifest work: enforce complete
-   fixed-Dirichlet coverage for C5.8/C5.10 and record the realized normal-flux
-   observation dimension. Preserve the outward normal, face-quadrature
-   transpose, immutable physical-point evaluation, and current exclusions; do
-   not reopen the broad P4.2 algebra/formulation group.
+   and [P5.4 work unit 1](p5.4-remediation-review.md#work-unit-1--typed-shared-policies).
+   There must be one transposition schema and shared realization identifiers,
+   not separate P5.3/P5.4 vocabularies.
+5. Complete
+   [P5.2 work unit 2](p5.2-remediation-review.md#work-unit-2--explicit-h1-zero-target-data-assumption):
+   require and record the model-author $H^{1}_{0}$ target/zero-trace
+   assumption without claiming runtime proof.
+6. Complete P5.4 work unit 2: reject unregistered Section 5.11 cross-products
+   from one resolved structural registration.
+7. Complete the shared realized-observation work in
+   [P5.2 work unit 3](p5.2-remediation-review.md#work-unit-3--shared-realized-observation-dimensions),
+   P5.3 work unit 3, and P5.4 work unit 3. Weighted trace, normal flux, and
+   transformed state observations must obtain dimensions from the realized
+   map, not the state-coordinate fallback.
+8. Complete the remaining P5.3 fixed-boundary work: enforce complete
+   homogeneous-Dirichlet coverage for C5.8/C5.10. Preserve the outward normal,
+   face-quadrature transpose, immutable physical-point evaluation, and current
+   exclusions; do not reopen the broad P4.2 algebra/formulation group.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

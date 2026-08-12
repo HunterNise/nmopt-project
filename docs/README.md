@@ -57,6 +57,15 @@ stress the interfaces.
 - [Implementation roadmap](planning/implementation-roadmap.md) is the sole
   owner of mutable project status, task order, acceptance state, and current
   agent handoff.
+- [P5.1 remediation review](planning/p5.1-remediation-review.md) records the
+  2026-08-12 review of the general-scalar/Robin commits and gives the bounded
+  data-placement and typed-boundary repair sequence. It is a static review;
+  the implementation roadmap owns remediation status.
+- [P5.2 remediation review](planning/p5.2-remediation-review.md) records the
+  2026-08-12 review of the energy observation, weighted trace, and selected
+  negative-metric commits. It gives the bounded realization, target-data, and
+  observation-dimension repair sequence; the implementation roadmap owns
+  remediation status.
 - [P5.3 remediation review](planning/p5.3-remediation-review.md) records the
   2026-08-12 review evidence and bounded implementation instructions. It is a
   static review; the implementation roadmap owns remediation status.
@@ -93,6 +102,8 @@ convention before inspecting or changing repository content.
 | Implement a selected Chapter 5 application | [Chapter 5 guide](guides/chapter-5-elliptic-control.md) | [V1 compiler](implementation/v1/semantic-compiler.md) and [roadmap](planning/implementation-roadmap.md) |
 | Implement selected Chapter 6 methods | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) | [V0 contract](implementation/v0/executable-contract.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [roadmap](planning/implementation-roadmap.md) |
 | Reproduce Chapter 6 examples | [Numerical examples](guides/chapter-6-numerical-examples.md) | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
+| Repair the reviewed P5.1 implementation | [P5.1 remediation review](planning/p5.1-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
+| Repair the reviewed P5.2 implementation | [P5.2 remediation review](planning/p5.2-remediation-review.md) | [P5.1 remediation review](planning/p5.1-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [selected policies](implementation/implementation-readiness-review.md) |
 | Repair the reviewed P5.3 implementation | [P5.3 remediation review](planning/p5.3-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.4 implementation | [P5.4 remediation review](planning/p5.4-remediation-review.md) | [P5.3 remediation review](planning/p5.3-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Execute one Stage B refactor batch | [Refactor routing](planning/refactor/README.md) | The current batch in the [Stage B roadmap](planning/refactor/stage-b-roadmap.md), assigned findings, and task-specific authorities above |

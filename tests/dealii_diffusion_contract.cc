@@ -248,6 +248,19 @@ namespace
     EnergyPolynomial<dim> state_;
   };
 
+  template <int dim>
+  class RightBoundaryNormalFluxFunction final : public dealii::Function<dim>
+  {
+  public:
+    double
+    value(const dealii::Point<dim> &point,
+          const unsigned int        component = 0) const override
+    {
+      (void)component;
+      return -point[1] * (1.0 - point[1]);
+    }
+  };
+
   compiler::v1::DealiiBindingProvenance
   test_binding_provenance(const std::string &target,
                           const bool         has_fixed_data = false)
@@ -1595,6 +1608,156 @@ namespace
                   "state_observation <- dealii.scalar.observation.point_sensor") !=
           manifest.lowering_handler_records.end(),
       "point-sensor compilation manifest omitted its finite transpose policy");
+  }
+
+  template <int dim>
+  void
+  run_normal_flux_contract_test()
+  {
+    static_assert(dim == 2, "The normal-flux oracle is two-dimensional");
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary())
+          cell->face(face)->set_boundary_id(
+            cell->face(face)->center()[0] > 1.0 - 1e-12 ? 1 : 0);
+
+    constexpr double reaction = 0.5;
+    const EnergyPolynomialForcing<dim> forcing(reaction);
+    const RightBoundaryNormalFluxFunction<dim> desired_state;
+    const auto specification =
+      semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 2;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(specification, policy).valid(),
+                      "normal-flux v1 graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      1.0,
+      reaction,
+      0.2,
+      test_binding_provenance("normal_flux")};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "normal-flux v1 compilation failed");
+    const auto &model = compilation.problem->executable_model();
+    const auto *normal_flux_model =
+      dynamic_cast<const compiler::v1::detail::ScalarComponentModel<dim> *>(
+        &model);
+    contract::require(normal_flux_model != nullptr,
+                      "normal-flux compilation did not produce its scalar target");
+
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = compilation.problem->make_reduced_dto().evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-10,
+                  "normal-flux manufactured state residual");
+
+    const std::vector<double> normal_flux_values =
+      normal_flux_model->normal_flux_values(evaluation.full_point);
+    const auto &normal_flux_weights =
+      normal_flux_model->normal_flux_quadrature_weights();
+    contract::require(!normal_flux_values.empty() &&
+                        normal_flux_values.size() == normal_flux_weights.size(),
+                      "normal-flux target did not assemble face quadrature values");
+    dealii::Vector<double> normal_flux_value_vector(normal_flux_values.size());
+    for (std::size_t index = 0; index < normal_flux_values.size(); ++index)
+      normal_flux_value_vector[index] = normal_flux_values[index];
+    contract::require(normal_flux_value_vector.l2_norm() > 1e-6,
+                      "normal-flux value map was unexpectedly zero");
+    require_close(evaluation.objective_value,
+                  0.0,
+                  2e-10,
+                  "normal-flux outward-orientation tracking value");
+
+    dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size();
+         ++index)
+      state_tangent[index] = 0.03 * static_cast<double>(index + 1);
+    dealii::Vector<double> control_tangent(model.variable_layout()->dimension(1));
+    const Primal tangent(model.variable_layout(),
+                         {std::move(state_tangent), std::move(control_tangent)});
+    const Covector normal_flux_jvp = normal_flux_model->normal_flux_jvp(tangent);
+    std::vector<double> normal_flux_seed(normal_flux_values.size());
+    for (std::size_t index = 0; index < normal_flux_seed.size(); ++index)
+      normal_flux_seed[index] = 0.7 - 0.01 * static_cast<double>(index);
+    const Covector normal_flux_vjp =
+      normal_flux_model->normal_flux_vjp(normal_flux_seed);
+    double weighted_jvp_pairing = 0.0;
+    for (std::size_t index = 0; index < normal_flux_seed.size(); ++index)
+      weighted_jvp_pairing += normal_flux_weights[index] *
+                              normal_flux_jvp.block(0)[index] *
+                              normal_flux_seed[index];
+    const Primal state_tangent_block =
+      contract::extract_primal_block(tangent, 0, "state");
+    require_close(weighted_jvp_pairing,
+                  contract::pair(normal_flux_vjp, state_tangent_block),
+                  1e-11,
+                  "normal-flux evaluation JVP/VJP quadrature pairing");
+
+    dealii::Vector<double> zero_state(model.variable_layout()->dimension(0));
+    dealii::Vector<double> zero_control(model.variable_layout()->dimension(1));
+    const Primal zero_point(model.variable_layout(),
+                            {std::move(zero_state), std::move(zero_control)});
+    std::vector<double> objective_seed(normal_flux_values.size());
+    for (std::size_t index = 0; index < objective_seed.size(); ++index)
+      objective_seed[index] = -normal_flux_values[index];
+    const Covector expected_objective_state =
+      normal_flux_model->normal_flux_vjp(objective_seed);
+    const Covector actual_objective = model.objective_derivative(zero_point);
+    require_covector_close(
+      contract::extract_covector_block(actual_objective, 0, "state"),
+      expected_objective_state,
+      1e-11,
+      "normal-flux very-weak objective transpose");
+
+    const Covector state_objective =
+      contract::extract_covector_block(actual_objective, 0, "state");
+    const auto adjoint =
+      normal_flux_model->solve_adjoint(zero_point, state_objective);
+    const Covector adjoint_pullback =
+      model.residual_vjp(zero_point, adjoint);
+    dealii::Vector<double> adjoint_dual_residual = adjoint_pullback.block(0);
+    adjoint_dual_residual.add(-1.0, state_objective.block(0));
+    require_close(adjoint_dual_residual.l2_norm(),
+                  0.0,
+                  1e-10,
+                  "normal-flux very-weak adjoint dual residual");
+
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.compiler_id == "nmopt.compiler.v1.dealii.normal_flux" &&
+        manifest.observation_realisation.find("outward normal-flux") !=
+          std::string::npos &&
+        manifest.data_rule.find("boundary face quadrature") !=
+          std::string::npos &&
+        std::any_of(manifest.declared_assumptions.begin(),
+                    manifest.declared_assumptions.end(),
+                    [](const std::string &assumption) {
+                      return assumption.find("very-weak adjoint boundary source") !=
+                             std::string::npos;
+                    }) &&
+        std::find(manifest.lowering_handler_records.begin(),
+                  manifest.lowering_handler_records.end(),
+                  "state_observation <- dealii.scalar.observation.normal_flux") !=
+          manifest.lowering_handler_records.end(),
+      "normal-flux compilation manifest omitted its face transpose policy");
   }
 
   template <int dim>
@@ -4073,6 +4236,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler", "observation"},
          60,
          []() { run_point_sensor_contract_test<2>(); }},
+        {"normal_flux",
+         "nmopt.dealii.normal_flux",
+         {"dealii", "compiler", "observation"},
+         60,
+         []() { run_normal_flux_contract_test<2>(); }},
         {"h1_state_observation",
          "nmopt.dealii.h1_state_observation",
          {"dealii", "compiler"},

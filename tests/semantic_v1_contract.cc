@@ -167,6 +167,56 @@ namespace
       "point_sensor_transposition_policy",
       "the point-sensor graph accepted a missing very-weak transposition policy");
 
+    auto normal_flux_specification =
+      nmopt::semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem();
+    require(validator.validate(normal_flux_specification).valid(),
+            "the C5.8 normal-flux v1 graph is invalid");
+    const auto normal_flux_region =
+      component_by_id(normal_flux_specification.regions,
+                      "normal_flux_boundary");
+    const auto normal_flux_space =
+      component_by_id(normal_flux_specification.spaces,
+                      "state_observation_space");
+    const auto normal_flux_observation =
+      component_by_id(normal_flux_specification.observations,
+                      "state_observation");
+    require(normal_flux_region.kind ==
+              nmopt::semantic::v1::RegionKind::boundary &&
+              normal_flux_region.boundary_ids == std::vector<unsigned int>{1} &&
+              normal_flux_space.topology ==
+                nmopt::semantic::v1::SpaceTopology::l2 &&
+              normal_flux_space.region_id == "normal_flux_boundary" &&
+              normal_flux_observation.kind ==
+                nmopt::semantic::v1::ObservationKind::normal_flux,
+            "the normal-flux graph did not declare its boundary output pairing");
+    auto missing_normal_flux_orientation = normal_flux_specification;
+    remove_policy(missing_normal_flux_orientation,
+                  "normal_flux_orientation_policy");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_normal_flux_orientation),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_observation",
+      "normal_flux_orientation_policy",
+      "the normal-flux graph accepted a missing outward-normal policy");
+    auto missing_normal_flux_transposition = normal_flux_specification;
+    remove_policy(missing_normal_flux_transposition,
+                  "normal_flux_transposition_policy");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_normal_flux_transposition),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_equation",
+      "normal_flux_transposition_policy",
+      "the normal-flux graph accepted a missing very-weak transposition policy");
+    auto missing_normal_flux_evaluation = normal_flux_specification;
+    remove_policy(missing_normal_flux_evaluation,
+                  "normal_flux_evaluation_policy");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_normal_flux_evaluation),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_observation",
+      "normal_flux_evaluation_policy",
+      "the normal-flux graph accepted a missing face evaluation policy");
+
     auto missing_transposition = l2_dirichlet_specification;
     remove_policy(missing_transposition, "transposition_formulation");
     nmopt::test_support::require_exact_diagnostic(
@@ -1161,6 +1211,25 @@ namespace
                   "dealii.scalar.observation.h1_state_restriction") !=
           h1_state_plan.plan->provenance.end(),
       "P5.2 H1-state observation did not contribute its scalar lowering handler");
+
+    const auto normal_flux_specification =
+      nmopt::semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem();
+    const auto normal_flux_resolution = resolver.resolve(normal_flux_specification);
+    require(normal_flux_resolution.succeeded(),
+            "normal-flux lowering-plan setup did not resolve");
+    const auto normal_flux_plan = planner.plan(*normal_flux_resolution.problem);
+    require(
+      normal_flux_plan.succeeded() &&
+        normal_flux_plan.plan->normal_flux_boundary_ids ==
+          std::set<unsigned int>{1} &&
+        normal_flux_plan.plan->normal_flux_evaluation_policy.find(
+          "outward normal derivative") != std::string::npos &&
+        std::find(normal_flux_plan.plan->provenance.begin(),
+                  normal_flux_plan.plan->provenance.end(),
+                  "state_observation <- "
+                  "dealii.scalar.observation.normal_flux") !=
+          normal_flux_plan.plan->provenance.end(),
+      "C5.8 normal-flux observation did not contribute its scalar lowering handler");
   }
 
 } // namespace

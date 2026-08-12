@@ -29,7 +29,8 @@ namespace nmopt::compiler::v1
   {
     volume_restriction,
     h1_state_restriction,
-    point_sensor
+    point_sensor,
+    normal_flux
   };
 
   enum class ScalarLossOperatorKind
@@ -106,6 +107,8 @@ namespace nmopt::compiler::v1
     std::set<unsigned int>                    robin_boundary_ids;
     bool                                      tracking_full_domain = true;
     std::set<unsigned int>                    tracking_material_ids;
+    std::set<unsigned int>                    normal_flux_boundary_ids;
+    std::string                               normal_flux_evaluation_policy;
     std::string                               point_sensor_region_id;
     std::vector<std::vector<double>>          point_sensor_coordinates;
     std::string                               point_sensor_evaluation_policy;
@@ -364,7 +367,10 @@ namespace nmopt::compiler::v1
            "dealii.scalar.observation.h1_state_restriction"},
           {semantic::v1::ObservationKind::point_sensor,
            ScalarObservationOperatorKind::point_sensor,
-           "dealii.scalar.observation.point_sensor"}}
+           "dealii.scalar.observation.point_sensor"},
+          {semantic::v1::ObservationKind::normal_flux,
+           ScalarObservationOperatorKind::normal_flux,
+           "dealii.scalar.observation.normal_flux"}}
       , loss_handlers_{
           {semantic::v1::LossKind::quadratic_tracking,
            ScalarLossOperatorKind::quadratic_tracking,
@@ -509,6 +515,14 @@ namespace nmopt::compiler::v1
                   plan.point_sensor_coordinates = region.point_coordinates;
                   plan.point_sensor_evaluation_policy =
                     "FE_Q shape evaluation at immutable physical points with assembled transpose C_h^T";
+                }
+              if (observation.kind == semantic::v1::ObservationKind::normal_flux)
+                {
+                  const auto &region = problem.region(observation.region_id);
+                  plan.normal_flux_boundary_ids.insert(
+                    region.boundary_ids.begin(), region.boundary_ids.end());
+                  plan.normal_flux_evaluation_policy =
+                    "FE_Q outward normal derivative at boundary face quadrature with assembled transpose";
                 }
             }
         }

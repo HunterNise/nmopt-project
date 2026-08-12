@@ -1491,6 +1491,22 @@ namespace
       0.5,
       0.2,
       test_binding_provenance("point_sensor")};
+    auto outside_mesh_specification = specification;
+    component_by_id(outside_mesh_specification.regions, "point_sensor_region")
+      .point_coordinates.front()[0] = 1.25;
+    const auto outside_mesh = compiler.compile(outside_mesh_specification,
+                                               triangulation,
+                                               bindings,
+                                               policy);
+    contract::require(!outside_mesh.succeeded(),
+                      "point-sensor compiler accepted an out-of-mesh coordinate");
+    test_support::require_exact_diagnostic(
+      outside_mesh.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "point_sensor_region",
+      "point_sensor_inside_mesh",
+      "point-sensor compiler did not reject an out-of-mesh coordinate");
+
     const auto compilation = compiler.compile(specification,
                                               triangulation,
                                               bindings,
@@ -1550,6 +1566,16 @@ namespace
       expected_state_derivative,
       1e-11,
       "point-sensor very-weak objective transpose");
+
+    const Covector adjoint_rhs = actual_objective_derivative;
+    const Covector adjoint_pullback =
+      model.residual_vjp(evaluation.full_point, evaluation.adjoint);
+    dealii::Vector<double> adjoint_dual_residual = adjoint_pullback.block(0);
+    adjoint_dual_residual.add(-1.0, adjoint_rhs.block(0));
+    require_close(adjoint_dual_residual.l2_norm(),
+                  0.0,
+                  1e-10,
+                  "point-sensor very-weak adjoint dual residual");
 
     const auto &manifest = compilation.problem->manifest();
     contract::require(

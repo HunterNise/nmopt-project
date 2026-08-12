@@ -85,6 +85,7 @@ namespace nmopt::compiler::v1::detail
           material_ids_from_plan(plan),
           has_observation_operator(
             plan, ScalarObservationOperatorKind::h1_state_restriction),
+          normal_flux_boundary_ids_from_plan(plan),
           point_sensor_coordinates_from_plan(plan),
           {},
           nullptr)
@@ -131,6 +132,7 @@ namespace nmopt::compiler::v1::detail
                                plan,
                                ScalarObservationOperatorKind::h1_state_restriction),
                              {},
+                             {},
                              robin_boundary_ids_from_plan(plan),
                              &general_scalar_data)
     {
@@ -173,6 +175,7 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id>          dirichlet_boundary_ids,
       std::set<dealii::types::material_id>          observation_material_ids,
       const bool                                    uses_h1_state_observation,
+      std::set<dealii::types::boundary_id>          normal_flux_boundary_ids,
       std::vector<std::vector<double>>              point_sensor_coordinates,
       std::set<dealii::types::boundary_id>          robin_boundary_ids,
       const DealiiGeneralScalarDataBindings<dim> *  general_scalar_data)
@@ -187,6 +190,8 @@ namespace nmopt::compiler::v1::detail
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
       , observation_material_ids_(std::move(observation_material_ids))
       , uses_h1_state_observation_(uses_h1_state_observation)
+      , normal_flux_boundary_ids_(std::move(normal_flux_boundary_ids))
+      , uses_normal_flux_(!normal_flux_boundary_ids_.empty())
       , point_sensor_coordinates_(std::move(point_sensor_coordinates))
       , uses_point_sensor_(!point_sensor_coordinates_.empty())
       , robin_boundary_ids_(std::move(robin_boundary_ids))
@@ -429,6 +434,65 @@ namespace nmopt::compiler::v1::detail
       return Covector(state_layout_, {pullback(physical_covector)});
     }
 
+    // The normal-flux ports expose the face-quadrature map selected by the
+    // semantic contract. Values and JVPs are pointwise normal derivatives;
+    // the VJP includes the corresponding face-quadrature weights.
+    std::vector<double>
+    normal_flux_values(const Primal &variables) const
+    {
+      require_variables(variables, "Normal-flux value");
+      contract::require(uses_normal_flux_,
+                        "Normal-flux values need the normal-flux target");
+      const Vector physical_state = reconstruct(variables.block(0));
+      std::vector<double> values;
+      values.reserve(normal_flux_evaluations_.size());
+      for (const auto &evaluation : normal_flux_evaluations_)
+        values.push_back(evaluation * physical_state);
+      return values;
+    }
+
+    Covector
+    normal_flux_jvp(const Primal &variable_tangent) const
+    {
+      require_variables(variable_tangent, "Normal-flux JVP tangent");
+      contract::require(uses_normal_flux_,
+                        "Normal-flux JVP needs the normal-flux target");
+      const Vector physical_tangent = embed_tangent(
+        variable_tangent.block(0));
+      Vector values(normal_flux_evaluations_.size());
+      for (std::size_t index = 0; index < normal_flux_evaluations_.size();
+           ++index)
+        values[index] = normal_flux_evaluations_[index] * physical_tangent;
+      const std::size_t observation_dimension = values.size();
+      return Covector(std::make_shared<const contract::BlockLayout>(
+                        "normal_flux_observation",
+                        std::vector<contract::SpaceId>{{"normal_flux_boundary"}},
+                        std::vector<std::size_t>{observation_dimension}),
+                      {std::move(values)});
+    }
+
+    Covector
+    normal_flux_vjp(const std::vector<double> &seed) const
+    {
+      contract::require(uses_normal_flux_,
+                        "Normal-flux VJP needs the normal-flux target");
+      contract::require(seed.size() == normal_flux_evaluations_.size(),
+                        "Normal-flux VJP seed has the wrong dimension");
+      Vector physical_covector(state_dof_handler_.n_dofs());
+      for (std::size_t index = 0; index < seed.size(); ++index)
+        physical_covector.add(seed[index] * normal_flux_quadrature_weights_[index],
+                              normal_flux_evaluations_[index]);
+      return Covector(state_layout_, {pullback(physical_covector)});
+    }
+
+    const std::vector<double> &
+    normal_flux_quadrature_weights() const
+    {
+      contract::require(uses_normal_flux_,
+                        "Normal-flux quadrature weights need the normal-flux target");
+      return normal_flux_quadrature_weights_;
+    }
+
     Primal
     solve_state(const Primal &control) const
     {
@@ -543,6 +607,22 @@ namespace nmopt::compiler::v1::detail
                })
                ? plan.point_sensor_coordinates
                : std::vector<std::vector<double>>{};
+    }
+
+    static std::set<dealii::types::boundary_id>
+    normal_flux_boundary_ids_from_plan(const ScalarLoweringPlan &plan)
+    {
+      return std::any_of(
+               plan.observations.begin(),
+               plan.observations.end(),
+               [](const ScalarObservationContribution &contribution) {
+                 return contribution.operator_kind ==
+                        ScalarObservationOperatorKind::normal_flux;
+               })
+               ? std::set<dealii::types::boundary_id>(
+                   plan.normal_flux_boundary_ids.begin(),
+                   plan.normal_flux_boundary_ids.end())
+               : std::set<dealii::types::boundary_id>{};
     }
 
     static bool
@@ -742,7 +822,8 @@ namespace nmopt::compiler::v1::detail
       dealii::FEFaceValues<dim> state_face_values(
         state_fe_,
         face_quadrature,
-        dealii::update_values | dealii::update_quadrature_points |
+        dealii::update_values | dealii::update_gradients |
+          dealii::update_normal_vectors | dealii::update_quadrature_points |
           dealii::update_JxW_values);
 
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
@@ -775,7 +856,7 @@ namespace nmopt::compiler::v1::detail
           local_forcing = 0.0;
           local_desired_state = 0.0;
           const bool observe_cell =
-            !uses_point_sensor_ &&
+            !uses_point_sensor_ && !uses_normal_flux_ &&
             (observation_material_ids_.empty() ||
              observation_material_ids_.find(state_cell->material_id()) !=
                observation_material_ids_.end());
@@ -923,6 +1004,8 @@ namespace nmopt::compiler::v1::detail
                         "State and control DoF handlers have different cells");
       if (uses_point_sensor_)
         assemble_point_sensor_operator(desired_state);
+      if (uses_normal_flux_)
+        assemble_normal_flux_operator(desired_state);
     }
 
     void
@@ -964,6 +1047,69 @@ namespace nmopt::compiler::v1::detail
             }
           point_sensor_evaluations_.push_back(std::move(point_evaluation));
         }
+    }
+
+    void
+    assemble_normal_flux_operator(const dealii::Function<dim> &desired_state)
+    {
+      const dealii::QGauss<dim - 1> face_quadrature(
+        std::max(state_fe_.degree, control_fe_.degree) + 2);
+      dealii::FEFaceValues<dim> face_values(
+        state_fe_,
+        face_quadrature,
+        dealii::update_gradients | dealii::update_normal_vectors |
+          dealii::update_quadrature_points | dealii::update_JxW_values);
+      std::vector<dealii::types::global_dof_index> state_indices(
+        state_fe_.dofs_per_cell);
+      for (auto cell = state_dof_handler_.begin_active();
+           cell != state_dof_handler_.end();
+           ++cell)
+        for (unsigned int face = 0;
+             face < dealii::GeometryInfo<dim>::faces_per_cell;
+             ++face)
+          if (cell->face(face)->at_boundary() &&
+              normal_flux_boundary_ids_.count(
+                cell->face(face)->boundary_id()) != 0)
+            {
+              face_values.reinit(cell, face);
+              cell->get_dof_indices(state_indices);
+              for (unsigned int q = 0; q < face_quadrature.size(); ++q)
+                {
+                  const double weight = face_values.JxW(q);
+                  const double target =
+                    desired_state.value(face_values.quadrature_point(q));
+                  desired_state_norm_ += target * target * weight;
+                  Vector normal_flux_evaluation(state_dof_handler_.n_dofs());
+                  for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
+                    {
+                      const double flux_i =
+                        face_values.shape_grad(i, q) *
+                        face_values.normal_vector(q);
+                      const auto global_i = state_indices[i];
+                      if (homogeneous_constraints_.is_constrained(global_i))
+                        continue;
+                      normal_flux_evaluation[global_i] = flux_i;
+                      desired_state_load_[global_i] += target * flux_i * weight;
+                      for (unsigned int j = 0;
+                           j < state_fe_.dofs_per_cell;
+                           ++j)
+                        {
+                          const auto global_j = state_indices[j];
+                          if (!homogeneous_constraints_.is_constrained(global_j))
+                            physical_state_tracking_operator_.add(
+                              global_i,
+                              global_j,
+                              flux_i *
+                                (face_values.shape_grad(j, q) *
+                                 face_values.normal_vector(q)) *
+                                 weight);
+                        }
+                    }
+                  normal_flux_evaluations_.push_back(
+                    std::move(normal_flux_evaluation));
+                  normal_flux_quadrature_weights_.push_back(weight);
+                }
+            }
     }
 
     void
@@ -1103,6 +1249,8 @@ namespace nmopt::compiler::v1::detail
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
     const std::set<dealii::types::material_id> observation_material_ids_;
     const bool uses_h1_state_observation_;
+    const std::set<dealii::types::boundary_id> normal_flux_boundary_ids_;
+    const bool uses_normal_flux_;
     const std::vector<std::vector<double>> point_sensor_coordinates_;
     const bool uses_point_sensor_;
     const std::set<dealii::types::boundary_id> robin_boundary_ids_;
@@ -1121,6 +1269,8 @@ namespace nmopt::compiler::v1::detail
     Vector forcing_load_;
     Vector desired_state_load_;
     std::vector<Vector> point_sensor_evaluations_;
+    std::vector<Vector> normal_flux_evaluations_;
+    std::vector<double> normal_flux_quadrature_weights_;
     double desired_state_norm_ = 0.0;
 
     dealii::SparsityPattern reduced_state_sparsity_;

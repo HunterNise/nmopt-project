@@ -87,6 +87,37 @@ of target-specific implementations. The direct
 deal.II v0 class remains a concrete reference lowerer rather than a public
 problem hierarchy.
 
+## Accepted Chapter 5/6 scope
+
+The current project scope is a scalar, reduced-space DTO framework with
+selected volume and boundary controls. The reusable Chapter 5 problem recipes
+and the frozen Chapter 6 benchmark scenarios are owned by separate roadmaps;
+this section records only the feature dependencies and implementation
+priority.
+
+The accepted scope is:
+
+- finish the open C1/C2 and P5.1–P5.4 remediation gates;
+- keep the selected scalar Section 5.11 and Neumann boundary-control slices;
+- skip book Sections 5.12 and 5.13, corresponding to the roadmap's P5.5
+  regularised state constraints and P5.6 Stokes/mixed-block work;
+- implement all selected P6.1 reduced-space policies, including nonlinear
+  conjugate gradients, L-BFGS, line-search policies, and a Hessian-vector
+  service with Newton/truncated-Newton support where the available derivative
+  contract is sufficient;
+- add a bounded P6.2 interface for executing an explicitly supplied OtD
+  optimality system, without automatic continuous adjoint derivation;
+- implement the scalar equality-constrained KKT product and PDAS services in
+  P6.3 and P6.5;
+- treat P6.4 preconditioning, other continuous-control bound policies, and
+  the all-at-once numerical examples as conditional extensions.
+
+The following remain outside the accepted scope: stabilization policies and
+GLS-specific P6.2 work, automatic OtD derivation, measure-valued state
+constraints, Stokes, and a generic continuous-control box semantics. A
+preconditioner may be added when a selected all-at-once benchmark demonstrates
+that it is needed; it is not a prerequisite for the reduced-space examples.
+
 ## Non-negotiable rules for every task
 
 1. Preserve the global convention
@@ -486,9 +517,10 @@ slices:
 1. Multiple state/equation blocks, mixed fields, and Petrov–Galerkin spaces.
 2. Serial matrix-free equivalence, then distributed Trilinos/PETSc vector
    backends with ownership/ghost policies.
-3. OTD formulation builder with explicit provenance and DTO comparison tests.
-4. Second-order Lagrangian Hessian-vector contract, then nonlinear KKT
-   Newton/SQP and active-set methods.
+3. Automatic OTD formulation derivation; the selected scope provides only an
+   executor for supplied optimality-system blocks.
+4. Generic nonlinear KKT Newton/SQP and other second-order constrained
+   methods beyond the selected scalar reduced Newton consumer.
 5. Fractional metrics, point/flux observations, nonmatching meshes, and shape
    optimization only with their own explicit policies.
 
@@ -783,6 +815,9 @@ structured manifests.
 
 ### P5.5 — Add regularised state-observation constraints with KKT provenance
 
+**Status:** deferred by the accepted scope; this is the roadmap item for book
+Section 5.12. Its measure-valued state-constraint problem remains excluded.
+
 **Motivation:** C5.12 constrains the state, so it cannot be represented by the
 current control-only projection capability. The unregularised problem has
 measure multipliers and is outside the present first-order executable scope.
@@ -810,6 +845,9 @@ regularisation parameters. The original measure-multiplier problem remains a
 capability diagnostic until its own functional-analytic contract exists.
 
 ### P5.6 — Generalize to mixed equation blocks and register a Stokes vertical slice
+
+**Status:** deferred by the accepted scope; this is the roadmap item for book
+Section 5.13 and the Chapter 6 Stokes examples.
 
 **Motivation:** C5.13 needs vector fields, multiple equation blocks, a
 pressure gauge, inf-sup stability, traction, and—later—boundary multipliers.
@@ -845,9 +883,14 @@ block residuals, and each target passes a coupled reduced Taylor test.
 The Chapter 6 guides separate reusable numerical-method infrastructure from
 the source's scalar, boundary-control, and Stokes examples. These requests
 extend formulation and solver layers without adding an optimiser or KKT class
-for a named PDE. P5.6 remains the prerequisite for the Stokes portions.
+for a named PDE. The accepted scope below supersedes the deferred GLS,
+stabilised-Lagrangian, automatic-OtD, and Stokes variants; the separate
+problem-library and benchmark-suite roadmaps own recipe and example
+selection.
 
 ### P6.1 — Generalise reduced-space search strategies and line-search policies
+
+**Status:** selected and first priority after Chapter 5 remediation.
 
 **Motivation:** `ReducedGradientSolverT` supplies the first
 steepest-descent/Armijo slice, while Section 6.3 also uses nonlinear CG,
@@ -862,6 +905,11 @@ and reporting; they are not separate problem formulations.
   and limited-memory BFGS policies. Store history with primal/dual layout
   checks and declared curvature/reset behaviour. Add a trust-region policy
   only after a Hessian-vector service is available.
+- A typed Hessian-vector service for the selected scalar DTO targets. Start
+  with the exact linear-quadratic tangent-state/incremental-adjoint action;
+  expose Newton or truncated Newton only for models that provide the required
+  second-order actions. Do not imply generic nonlinear second-order support
+  from a first-order residual JVP/VJP pair.
 - Exact quadratic, Armijo, and later Wolfe line-search policies. Acceptance
   must use declared pairings and the actual projected displacement.
 - A uniform report with accepted objective, covector/gradient norm, step,
@@ -874,9 +922,48 @@ descent as the only projected method until box transition/restart tests exist.
 **Done when:** each direction has a descent test, each accepted trial meets
 its declared inequality, and gradient/metric identities plus solve-count
 accounting are verified. BFGS history must neither mix layouts nor silently
-fall back after a failed curvature test.
+fall back after a failed curvature test. Every selected Hessian-vector path
+also passes symmetry and finite-difference reduced-covector tests.
 
-### P6.2 — Record formulation, trial/test, and stabilisation provenance
+#### Hessian and Newton boundary
+
+P6.1 has three separable layers:
+
+1. A **Newton optimizer** is a generic consumer. It receives a reduced
+   covector and a service that applies $`H(u)w`$, solves the reduced Newton
+   system, possibly approximately, and performs globalization. It contains no
+   PDE-specific formulas.
+2. A **Hessian-vector provider** is a model capability. For the selected
+   linear-quadratic DTO problem, it is exact: a tangent-state solve and an
+   incremental-adjoint solve produce
+
+   ```math
+   \begin{aligned}
+   A\,\delta y &= B w,\\
+   A^{\ast}\,\delta p &= W\,\delta y,\\
+   H w &= \beta N w+B^{\ast}\delta p.
+   \end{aligned}
+   ```
+
+   This is enough to run Newton or truncated Newton on E6.5.1 without
+   assembling a dense reduced Hessian.
+3. **Generic nonlinear second-order support** means producing that service
+   for arbitrary nonlinear residuals and objectives. It requires derivatives
+   of the residual Jacobian and objective derivative, or an explicitly
+   supplied incremental-adjoint/Hessian action. The current first-order
+   residual JVP/VJP and objective-derivative ports do not provide this
+   information automatically.
+
+The selected scope therefore includes the generic Newton consumer and the
+linear-quadratic Hessian provider first. A nonlinear model may use Newton only
+when it declares the stronger Hessian-vector capability; the optimizer must
+reject rather than approximate a missing second-order action with finite
+differences unless a separate finite-difference policy is explicitly selected.
+
+### P6.2 — Record formulation provenance and execute supplied OtD systems
+
+**Status:** selected only as a supplied-OtD execution interface. Stabilization,
+GLS, stabilized Lagrangians, and automatic OtD derivation are excluded.
 
 **Motivation:** Section 6.2 shows that OtD, DtO, and GLS-stabilised variants
 can be distinct discrete systems even when they share a continuous PDE. The
@@ -884,24 +971,29 @@ compiler must make its selected formulation reviewable.
 
 **Declare and implement:**
 
-- A formulation policy naming DTO, OTD, or declared stabilised-Lagrangian
-  construction, plus state/adjoint trial and test spaces and quadrature.
-- Stabilisation terms as residual/objective components with exact value, JVP,
-  and VJP ownership. Include selected element residual, local parameter, and
-  inflow/outflow policies in the manifest.
-- A separately owned OTD optimality-system product. It is not a
-  `ReducedDTO` instance unless a comparison proves discrete equivalence.
+- A formulation policy naming DTO or supplied OTD, plus state/adjoint trial
+  and test spaces, pairings, quadrature, and provenance.
+- A separately owned supplied-OtD optimality-system product whose state,
+  adjoint, and control-stationarity weak blocks are provided by the
+  application author. The executor may assemble, linearize, solve, and
+  report those blocks, but it does not derive them from a strong PDE.
+- An explicit DTO/OTD sign, space, and comparison boundary. A supplied OTD
+  product is not a `ReducedDTO` instance and is not presented as an exact
+  discrete derivative unless equivalence is established.
 
-**First registered target:** scalar advection-diffusion DTO with one GLS
-policy and full-volume tracking. Its DTO adjoint is the exact transpose of the
-lowered residual. Add the strongly consistent stabilised-Lagrangian policy
-only after its coupled derivatives are explicit.
+**First registered target:** a small scalar supplied-OtD optimality system
+whose weak state, adjoint, and control blocks are explicit and can be compared
+with the corresponding DTO target. The target should exercise the execution
+interface, not introduce a PDE-specific OTD class.
 
-**Done when:** the manifest distinguishes all formulations, stabilised
-JVP/VJP and reduced Taylor tests pass, and a mismatched-adjoint-space request
-cannot be reported as a DTO optimum.
+**Done when:** the manifest distinguishes DTO and supplied OTD, the supplied
+blocks pass their value/JVP/VJP or block-linearization tests, and a
+mismatched-adjoint-space request cannot be reported as a DTO optimum.
 
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
+
+**Status:** selected after P6.1 and the supplied-OtD interface; required by
+the selected PDAS path.
 
 **Motivation:** All-at-once OCPs are equality-constrained quadratic programs
 with a symmetric indefinite KKT operator. PDAS repeatedly solves related KKT
@@ -931,6 +1023,11 @@ multiplier conversion, and solver termination independently.
 
 ### P6.4 — Compose block preconditioners from declared approximate solves
 
+**Status:** conditional. Do not implement this as a Chapter 6 prerequisite.
+Activate a bounded scalar preconditioner only if the selected all-at-once
+application benchmark cannot be run or interpreted with the available direct
+or basic serial solves.
+
 **Motivation:** Chapter 6 uses diagonal, triangular, and constraint
 preconditioners built from mass, PDE, Schur-complement, multigrid, and Uzawa
 actions. These must remain reusable approximate operator services.
@@ -946,17 +1043,23 @@ actions. These must remain reusable approximate operator services.
 - Parameter-robustness and mesh-scaling claims as benchmark metadata, never
   as an unchecked property of a preconditioner name.
 
-**First registered target:** the scalar all-at-once product of P6.3 with one
+**Conditional first target:** the scalar all-at-once product of P6.3 with one
 positive-definite block-diagonal preconditioner, mass lumping or a declared
 stationary mass approximation, and a fixed-cycle serial multigrid state
-approximation.
+approximation. Do not add the full family of preconditioners unless a
+benchmark requires it.
 
 **Done when:** preconditioner layouts and symmetry restrictions are validated,
 apply diagnostics are deterministic, and a mesh/regularisation sweep records
 outer and inner iterations separately. Add Stokes/Uzawa after P5.6 supplies
-the mixed state operator and pressure policy.
+the mixed state operator and pressure policy only if the deferred mixed-PDE
+scope is later reopened.
 
 ### P6.5 — Add typed complementarity, selection, and PDAS services
+
+**Status:** selected after P6.3, initially for cellwise $L^{2}$ control boxes.
+Continuous-control and other bound semantics remain separate optional
+extensions.
 
 **Motivation:** Section 6.8 treats control boxes and regularised mixed
 state-control bounds with semismooth primal-dual active sets. The current
@@ -971,10 +1074,9 @@ sequence of KKT subproblems.
 - A PDAS/semismooth-Newton service that constructs KKT equality subproblems
   through P6.3, updates sets, and reports stable-set plus full-KKT
   convergence.
-- The regularised observation $O_{c}(y,u)=y+\varepsilon u$ of P5.5 as a
-  separate target. Its multiplier VJP contributes to state and control
-  stationarity; the original measure-multiplier state constraint remains out
-  of scope.
+- Do not include the regularised observation $O_{c}(y,u)=y+\varepsilon u$
+  in the selected path. It belongs to deferred P5.5/Section 5.12 work, and
+  the original measure-multiplier state constraint remains out of scope.
 
 **First registered target:** cellwise-discontinuous distributed control with
 two-sided boxes and an $L^{2}$ multiplier, beginning with an inactive-box case
@@ -1048,5 +1150,21 @@ exclusions while proceeding in these commit-sized units:
    face-quadrature transpose, immutable physical-point evaluation, and current
    exclusions; do not reopen the broad P4.2 algebra/formulation group.
 
+12. Start selected P6.1 with the scalar reduced DTO boundary: direction
+    policies, L-BFGS, line searches, reporting, and the exact
+    linear-quadratic Hessian-vector action. Keep Newton/truncated Newton
+    behind the explicit second-order capability check.
+13. Implement the supplied-OtD execution interface from P6.2. Keep it
+    separate from `ReducedDTO`; do not add GLS, stabilization, or automatic
+    continuous adjoint derivation.
+14. Implement the scalar P6.3 KKT product and diagnostics, then P6.5
+    complementarity/PDAS for the selected cellwise box representation.
+15. Use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md)
+    to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate the bounded P6.4
+    preconditioner work only if E6.7.1 is selected and basic serial solves are
+    insufficient.
+
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
-run S1 before P6.1 reaches the front of the ordered implementation run.
+run S1 before P6.1 reaches the front of the ordered implementation run. The
+remaining Stokes, measure-constraint, stabilization, automatic-OtD, and broad
+continuous-bound work is not part of the current ordered run.

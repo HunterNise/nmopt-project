@@ -48,6 +48,7 @@ namespace nmopt::compiler::v1
           case semantic::v1::ObservationKind::boundary_trace:
           case semantic::v1::ObservationKind::weighted_boundary_trace:
           case semantic::v1::ObservationKind::boundary_restriction:
+          case semantic::v1::ObservationKind::point_sensor:
             return true;
         }
       return false;

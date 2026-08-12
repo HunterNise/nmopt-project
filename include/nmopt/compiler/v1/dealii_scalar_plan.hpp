@@ -28,7 +28,8 @@ namespace nmopt::compiler::v1
   enum class ScalarObservationOperatorKind
   {
     volume_restriction,
-    h1_state_restriction
+    h1_state_restriction,
+    point_sensor
   };
 
   enum class ScalarLossOperatorKind
@@ -105,6 +106,9 @@ namespace nmopt::compiler::v1
     std::set<unsigned int>                    robin_boundary_ids;
     bool                                      tracking_full_domain = true;
     std::set<unsigned int>                    tracking_material_ids;
+    std::string                               point_sensor_region_id;
+    std::vector<std::vector<double>>          point_sensor_coordinates;
+    std::string                               point_sensor_evaluation_policy;
     std::vector<std::string>                  provenance;
   };
 
@@ -357,7 +361,10 @@ namespace nmopt::compiler::v1
            "dealii.scalar.observation.volume_restriction"},
           {semantic::v1::ObservationKind::h1_state_restriction,
            ScalarObservationOperatorKind::h1_state_restriction,
-           "dealii.scalar.observation.h1_state_restriction"}}
+           "dealii.scalar.observation.h1_state_restriction"},
+          {semantic::v1::ObservationKind::point_sensor,
+           ScalarObservationOperatorKind::point_sensor,
+           "dealii.scalar.observation.point_sensor"}}
       , loss_handlers_{
           {semantic::v1::LossKind::quadratic_tracking,
            ScalarLossOperatorKind::quadratic_tracking,
@@ -493,7 +500,17 @@ namespace nmopt::compiler::v1
               "scalar_observation_component_lowerer",
               "Register this observation in the bounded scalar lowering plan.");
           else
-            handler->contribute(observation, plan);
+            {
+              handler->contribute(observation, plan);
+              if (observation.kind == semantic::v1::ObservationKind::point_sensor)
+                {
+                  const auto &region = problem.region(observation.region_id);
+                  plan.point_sensor_region_id = region.id;
+                  plan.point_sensor_coordinates = region.point_coordinates;
+                  plan.point_sensor_evaluation_policy =
+                    "FE_Q shape evaluation at immutable physical points with assembled transpose C_h^T";
+                }
+            }
         }
       for (const auto &loss : specification.losses)
         {

@@ -17,6 +17,8 @@
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/grid/tria.h>
+#include <deal.II/grid/grid_tools.h>
+#include <deal.II/fe/mapping_q1.h>
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/full_matrix.h>
@@ -83,6 +85,7 @@ namespace nmopt::compiler::v1::detail
           material_ids_from_plan(plan),
           has_observation_operator(
             plan, ScalarObservationOperatorKind::h1_state_restriction),
+          point_sensor_coordinates_from_plan(plan),
           {},
           nullptr)
     {
@@ -127,6 +130,7 @@ namespace nmopt::compiler::v1::detail
                              has_observation_operator(
                                plan,
                                ScalarObservationOperatorKind::h1_state_restriction),
+                             {},
                              robin_boundary_ids_from_plan(plan),
                              &general_scalar_data)
     {
@@ -169,6 +173,7 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id>          dirichlet_boundary_ids,
       std::set<dealii::types::material_id>          observation_material_ids,
       const bool                                    uses_h1_state_observation,
+      std::vector<std::vector<double>>              point_sensor_coordinates,
       std::set<dealii::types::boundary_id>          robin_boundary_ids,
       const DealiiGeneralScalarDataBindings<dim> *  general_scalar_data)
       : state_fe_(state_degree)
@@ -182,6 +187,8 @@ namespace nmopt::compiler::v1::detail
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
       , observation_material_ids_(std::move(observation_material_ids))
       , uses_h1_state_observation_(uses_h1_state_observation)
+      , point_sensor_coordinates_(std::move(point_sensor_coordinates))
+      , uses_point_sensor_(!point_sensor_coordinates_.empty())
       , robin_boundary_ids_(std::move(robin_boundary_ids))
     {
       contract::require(uses_general_scalar_ || diffusion_ > 0.0,
@@ -199,6 +206,9 @@ namespace nmopt::compiler::v1::detail
       contract::require(!uses_h1_state_observation_ ||
                           observation_material_ids_.empty(),
                         "The registered H1 state observation is full-domain only");
+      contract::require(!uses_point_sensor_ ||
+                          !point_sensor_coordinates_.empty(),
+                        "The point-sensor target needs immutable sensor coordinates");
 
       state_dof_handler_.distribute_dofs(state_fe_);
       control_dof_handler_.distribute_dofs(control_fe_);
@@ -370,6 +380,55 @@ namespace nmopt::compiler::v1::detail
                       {pullback(physical_state), std::move(control)});
     }
 
+    // Target-specific diagnostic ports used by the point-sensor contract.
+    // They expose the selected finite-dimensional map without making sensor
+    // coordinates part of the backend-neutral executable interface.
+    std::vector<double>
+    point_sensor_values(const Primal &variables) const
+    {
+      require_variables(variables, "Point-sensor value");
+      contract::require(uses_point_sensor_,
+                        "Point-sensor values need the point-sensor target");
+      const Vector physical_state = reconstruct(variables.block(0));
+      std::vector<double> values;
+      values.reserve(point_sensor_evaluations_.size());
+      for (const auto &evaluation : point_sensor_evaluations_)
+        values.push_back(evaluation * physical_state);
+      return values;
+    }
+
+    Covector
+    point_sensor_jvp(const Primal &variable_tangent) const
+    {
+      require_variables(variable_tangent, "Point-sensor JVP tangent");
+      contract::require(uses_point_sensor_,
+                        "Point-sensor JVP needs the point-sensor target");
+      const Vector physical_tangent = embed_tangent(
+        variable_tangent.block(0));
+      Vector values(point_sensor_evaluations_.size());
+      for (std::size_t index = 0; index < point_sensor_evaluations_.size(); ++index)
+        values[index] = point_sensor_evaluations_[index] * physical_tangent;
+      const std::size_t observation_dimension = values.size();
+      return Covector(std::make_shared<const contract::BlockLayout>(
+                        "point_sensor_observation",
+                        std::vector<contract::SpaceId>{{"point_sensor"}},
+                        std::vector<std::size_t>{observation_dimension}),
+                      {std::move(values)});
+    }
+
+    Covector
+    point_sensor_vjp(const std::vector<double> &seed) const
+    {
+      contract::require(uses_point_sensor_,
+                        "Point-sensor VJP needs the point-sensor target");
+      contract::require(seed.size() == point_sensor_evaluations_.size(),
+                        "Point-sensor VJP seed has the wrong dimension");
+      Vector physical_covector(state_dof_handler_.n_dofs());
+      for (std::size_t index = 0; index < seed.size(); ++index)
+        physical_covector.add(seed[index], point_sensor_evaluations_[index]);
+      return Covector(state_layout_, {pullback(physical_covector)});
+    }
+
     Primal
     solve_state(const Primal &control) const
     {
@@ -470,6 +529,20 @@ namespace nmopt::compiler::v1::detail
         [kind](const ScalarObservationContribution &contribution) {
           return contribution.operator_kind == kind;
         });
+    }
+
+    static std::vector<std::vector<double>>
+    point_sensor_coordinates_from_plan(const ScalarLoweringPlan &plan)
+    {
+      return std::any_of(
+               plan.observations.begin(),
+               plan.observations.end(),
+               [](const ScalarObservationContribution &contribution) {
+                 return contribution.operator_kind ==
+                        ScalarObservationOperatorKind::point_sensor;
+               })
+               ? plan.point_sensor_coordinates
+               : std::vector<std::vector<double>>{};
     }
 
     static bool
@@ -702,9 +775,10 @@ namespace nmopt::compiler::v1::detail
           local_forcing = 0.0;
           local_desired_state = 0.0;
           const bool observe_cell =
-            observation_material_ids_.empty() ||
-            observation_material_ids_.find(state_cell->material_id()) !=
-              observation_material_ids_.end();
+            !uses_point_sensor_ &&
+            (observation_material_ids_.empty() ||
+             observation_material_ids_.find(state_cell->material_id()) !=
+               observation_material_ids_.end());
 
           for (unsigned int q = 0; q < quadrature.size(); ++q)
             {
@@ -847,6 +921,49 @@ namespace nmopt::compiler::v1::detail
         }
       contract::require(control_cell == control_dof_handler_.end(),
                         "State and control DoF handlers have different cells");
+      if (uses_point_sensor_)
+        assemble_point_sensor_operator(desired_state);
+    }
+
+    void
+    assemble_point_sensor_operator(const dealii::Function<dim> &desired_state)
+    {
+      dealii::MappingQ1<dim> mapping;
+      std::vector<dealii::types::global_dof_index> state_indices(
+        state_fe_.dofs_per_cell);
+      for (const auto &coordinate : point_sensor_coordinates_)
+        {
+          contract::require(coordinate.size() == dim,
+                            "A point sensor coordinate has the wrong mesh dimension");
+          dealii::Point<dim> point;
+          for (unsigned int component = 0; component < dim; ++component)
+            point[component] = coordinate[component];
+          const auto cell_and_reference_point =
+            dealii::GridTools::find_active_cell_around_point(
+              mapping, state_dof_handler_, point);
+          contract::require(cell_and_reference_point.first !=
+                              state_dof_handler_.end(),
+                            "Every point sensor must lie in the compiled mesh");
+          const auto &cell = cell_and_reference_point.first;
+          const auto &reference_point = cell_and_reference_point.second;
+          cell->get_dof_indices(state_indices);
+          const double target = desired_state.value(point);
+          desired_state_norm_ += target * target;
+          Vector point_evaluation(state_dof_handler_.n_dofs());
+          for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
+            {
+              const double phi_i =
+                state_fe_.shape_value(i, reference_point);
+              point_evaluation[state_indices[i]] = phi_i;
+              desired_state_load_[state_indices[i]] += target * phi_i;
+              for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
+                physical_state_tracking_operator_.add(
+                  state_indices[i],
+                  state_indices[j],
+                  phi_i * state_fe_.shape_value(j, reference_point));
+            }
+          point_sensor_evaluations_.push_back(std::move(point_evaluation));
+        }
     }
 
     void
@@ -986,6 +1103,8 @@ namespace nmopt::compiler::v1::detail
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
     const std::set<dealii::types::material_id> observation_material_ids_;
     const bool uses_h1_state_observation_;
+    const std::vector<std::vector<double>> point_sensor_coordinates_;
+    const bool uses_point_sensor_;
     const std::set<dealii::types::boundary_id> robin_boundary_ids_;
 
     dealii::SparsityPattern reconstruction_sparsity_;
@@ -1001,6 +1120,7 @@ namespace nmopt::compiler::v1::detail
     std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     Vector forcing_load_;
     Vector desired_state_load_;
+    std::vector<Vector> point_sensor_evaluations_;
     double desired_state_norm_ = 0.0;
 
     dealii::SparsityPattern reduced_state_sparsity_;

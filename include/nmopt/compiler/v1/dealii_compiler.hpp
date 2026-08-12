@@ -14,6 +14,8 @@
 #include "nmopt/semantic/v1/validation.hpp"
 
 #include <deal.II/grid/tria.h>
+#include <deal.II/grid/grid_tools.h>
+#include <deal.II/fe/mapping_q1.h>
 
 #include <algorithm>
 #include <cmath>
@@ -157,6 +159,8 @@ namespace nmopt::compiler::v1
         has_h1_state_observation(specification);
       const bool uses_weighted_boundary_trace =
         has_weighted_boundary_trace(specification);
+      const bool uses_point_sensor =
+        has_point_sensor_observation(specification);
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *robin_boundary_region =
         selected_robin_boundary_region(specification);
@@ -173,7 +177,7 @@ namespace nmopt::compiler::v1
         !uses_coefficient_identification &&
         !uses_dirichlet_control &&
         (uses_fixed_reconstruction || uses_subdomain_observation ||
-         uses_general_scalar || uses_h1_state_observation);
+         uses_general_scalar || uses_h1_state_observation || uses_point_sensor);
       std::optional<ScalarLoweringPlan> scalar_plan;
       if (uses_assembled_v1_target)
         {
@@ -191,6 +195,9 @@ namespace nmopt::compiler::v1
           specification.id,
           "nonempty_triangulation",
           "Compile on a triangulation with at least one active cell.");
+      if (uses_point_sensor && tracking_region != nullptr)
+        validate_point_sensor_mesh(triangulation, *tracking_region,
+                                   result.diagnostics);
       if (data.provenance.forcing.empty())
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -834,6 +841,8 @@ namespace nmopt::compiler::v1
                                                     : CompiledTargetKind::h1_control_l2_metric)
                                              : uses_homogeneous_dirichlet_continuous_control
                                                ? CompiledTargetKind::continuous_control_l2_metric
+                                             : uses_point_sensor
+                                               ? CompiledTargetKind::point_sensor
                                              : uses_assembled_v1_target
                                                ? (uses_general_scalar
                                                     ? CompiledTargetKind::general_scalar_robin
@@ -889,7 +898,8 @@ namespace nmopt::compiler::v1
       hminus1_control_metric,
       continuous_control_l2_metric,
       coefficient_identification,
-      general_scalar_robin
+      general_scalar_robin,
+      point_sensor
     };
 
     static const semantic::v1::RegionSpec *
@@ -972,6 +982,39 @@ namespace nmopt::compiler::v1
       for (const auto id : region.material_ids)
         ids.insert(static_cast<dealii::types::material_id>(id));
       return ids;
+    }
+
+    template <int dim>
+    static void
+    validate_point_sensor_mesh(
+      const dealii::Triangulation<dim> &triangulation,
+      const semantic::v1::RegionSpec &  region,
+      semantic::v1::ValidationReport &   report)
+    {
+      dealii::MappingQ1<dim> mapping;
+      for (std::size_t index = 0; index < region.point_coordinates.size(); ++index)
+        {
+          const auto &coordinate = region.point_coordinates[index];
+          if (coordinate.size() != dim)
+            {
+              report.add(semantic::v1::DiagnosticCategory::lowerability,
+                         region.id,
+                         "point_sensor_coordinate_dimension",
+                         "Provide sensor coordinates with the compiled mesh dimension.");
+              continue;
+            }
+          dealii::Point<dim> point;
+          for (unsigned int component = 0; component < dim; ++component)
+            point[component] = coordinate[component];
+          const auto cell_and_reference_point =
+            dealii::GridTools::find_active_cell_around_point(
+              mapping, triangulation, point);
+          if (cell_and_reference_point.first == triangulation.end())
+            report.add(semantic::v1::DiagnosticCategory::lowerability,
+                       region.id,
+                       "point_sensor_inside_mesh",
+                       "Place every immutable sensor coordinate inside the compiled mesh.");
+        }
     }
 
     static bool
@@ -1105,6 +1148,19 @@ namespace nmopt::compiler::v1
         [](const semantic::v1::ObservationSpec &observation) {
           return observation.kind ==
                  semantic::v1::ObservationKind::weighted_boundary_trace;
+        });
+    }
+
+    static bool
+    has_point_sensor_observation(
+      const semantic::v1::ProblemSpec &specification)
+    {
+      return std::any_of(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [](const semantic::v1::ObservationSpec &observation) {
+          return observation.kind ==
+                 semantic::v1::ObservationKind::point_sensor;
         });
     }
 
@@ -2284,6 +2340,7 @@ namespace nmopt::compiler::v1
         uses_neumann_conservative_transport(specification);
       const bool weighted_boundary_trace =
         has_weighted_boundary_trace(specification);
+      const bool point_sensor = has_point_sensor_observation(specification);
       const bool complete_residual = general_scalar
         ? count_terms(ResidualTermKind::tensor_diffusion) == 1 &&
             count_terms(ResidualTermKind::conservative_transport) == 1 &&
@@ -2647,6 +2704,98 @@ namespace nmopt::compiler::v1
                   "Restrict the nodal trace control on its declared controlled boundary.");
             }
         }
+      else if (point_sensor)
+        {
+          const auto state_observation = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [state](const semantic::v1::ObservationSpec &observation) {
+              return state != nullptr &&
+                     observation.kind ==
+                       semantic::v1::ObservationKind::point_sensor &&
+                     observation.input_variable_id == state->id;
+            });
+          const auto control_observation = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [&specification](const semantic::v1::ObservationSpec &observation) {
+              return observation.kind ==
+                     semantic::v1::ObservationKind::volume_restriction &&
+                     observation.input_variable_id ==
+                       specification.formulation.control_variable_id;
+            });
+          if (specification.observations.size() != 2 ||
+              state_observation == specification.observations.end() ||
+              control_observation == specification.observations.end())
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "complete_point_sensor_observation_set",
+              "Declare exactly one point-sensor state observation and one full-volume control observation for the first C5.10 target.");
+          if (state_observation != specification.observations.end())
+            {
+              const auto region = find_region(specification,
+                                              state_observation->region_id);
+              if (region == nullptr ||
+                  region->kind != semantic::v1::RegionKind::point_set ||
+                  region->point_coordinates.empty())
+                report.add(
+                  DiagnosticCategory::lowerability,
+                  state_observation->id,
+                  "point_sensor_observation_region",
+                  "Select a non-empty immutable point-set region for the C5.10 state observation.");
+            }
+          const auto point_evaluation_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [state_observation, &specification](const semantic::v1::RequirementPolicySpec &policy) {
+              return state_observation != specification.observations.end() &&
+                     policy.subject_id == state_observation->id &&
+                     policy.kind ==
+                       semantic::v1::RequirementKind::analytic_quadrature_evaluation &&
+                     policy.status ==
+                       semantic::v1::RequirementStatus::selected_discrete_realisation;
+            });
+          if (point_evaluation_policy == specification.requirement_policies.end() ||
+              point_evaluation_policy->selected_policy.find(
+                "FE_Q shape functions are evaluated at immutable physical sensor coordinates") ==
+                std::string::npos)
+            report.add(
+              DiagnosticCategory::lowerability,
+              state_observation == specification.observations.end()
+                ? specification.id
+                : state_observation->id,
+              "point_sensor_evaluation_policy",
+              "Select the registered FE_Q physical-point evaluation and assembled transpose policy; nearest-node and quadrature-coincidence rules are not registered.");
+          const auto point_transposition_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&specification](const semantic::v1::RequirementPolicySpec &policy) {
+              return policy.subject_id == specification.formulation.equation_id &&
+                     policy.kind ==
+                       semantic::v1::RequirementKind::transposition_formulation &&
+                     policy.status == semantic::v1::RequirementStatus::provided;
+            });
+          if (point_transposition_policy == specification.requirement_policies.end() ||
+              point_transposition_policy->selected_policy.find("very weak") ==
+                std::string::npos)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.formulation.equation_id,
+              "point_sensor_transposition_policy",
+              "Select the registered very-weak point-sensor transpose formulation.");
+          if (control_observation != specification.observations.end())
+            {
+              const auto region = find_region(specification,
+                                              control_observation->region_id);
+              if (region == nullptr || !region->is_full_domain)
+                report.add(
+                  DiagnosticCategory::lowerability,
+                  control_observation->id,
+                  "point_sensor_control_observation_region",
+                  "Keep the first point-sensor target's control regularisation on the full volume.");
+            }
+        }
       else
         for (const auto &observation : specification.observations)
           {
@@ -2842,6 +2991,7 @@ namespace nmopt::compiler::v1
           case CompiledTargetKind::direct_volume:
           case CompiledTargetKind::assembled_volume:
           case CompiledTargetKind::general_scalar_robin:
+          case CompiledTargetKind::point_sensor:
             return "FE_DGQ(0) on the state active-cell mesh";
         }
       contract::require(false, "Unknown compiled target kind");
@@ -2897,6 +3047,9 @@ namespace nmopt::compiler::v1
         [&space](const semantic::v1::ObservationSpec &candidate) {
           return candidate.output_space_id == space.id;
         });
+      if (observation != specification.observations.end())
+        if (observation->kind == semantic::v1::ObservationKind::point_sensor)
+          return space.dimension;
       if (observation != specification.observations.end())
         return decision != nullptr &&
                    observation->input_variable_id == decision->id
@@ -3012,13 +3165,17 @@ namespace nmopt::compiler::v1
         uses_partial_dirichlet_control_lifting(specification);
       const bool uses_assembled_v1_target =
         target == CompiledTargetKind::assembled_volume ||
-        target == CompiledTargetKind::general_scalar_robin;
+        target == CompiledTargetKind::general_scalar_robin ||
+        target == CompiledTargetKind::point_sensor;
       const bool uses_general_scalar =
         target == CompiledTargetKind::general_scalar_robin;
       const bool uses_h1_state_observation =
         has_h1_state_observation(specification);
       const bool uses_weighted_boundary_trace =
         target == CompiledTargetKind::weighted_boundary_trace;
+      const bool uses_point_sensor =
+        target == CompiledTargetKind::point_sensor ||
+        has_point_sensor_observation(specification);
       const bool uses_neumann_boundary_control = uses_neumann_target(target);
       const bool uses_neumann_convection =
         uses_neumann_conservative_transport(specification);
@@ -3070,6 +3227,8 @@ namespace nmopt::compiler::v1
               case semantic::v1::DataRole::desired_state:
                 record.representation = uses_h1_state_observation
                                           ? "analytic Function value and gradient at quadrature"
+                                        : uses_point_sensor
+                                          ? "analytic Function value at immutable sensor coordinates"
                                           : "analytic Function at quadrature";
                 record.provenance = data.provenance.desired_state;
                 break;
@@ -3220,7 +3379,9 @@ namespace nmopt::compiler::v1
           "dealii.metric.boundary_mass_tangential_stiffness");
       manifest.semantic_problem_id = specification.id;
       manifest.compiler_id =
-        uses_general_scalar
+        uses_point_sensor
+          ? "nmopt.compiler.v1.dealii.point_sensor"
+        : uses_general_scalar
           ? "nmopt.compiler.v1.dealii.general_scalar_elliptic_robin"
         : uses_neumann_convection
           ? "nmopt.compiler.v1.dealii.neumann_convection_subdomain"
@@ -3262,6 +3423,8 @@ namespace nmopt::compiler::v1
         ? "analytic forcing and desired-state Functions at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
             ") volume quadrature; normalized unit-diffusion zero-reaction Laplacian; Dirichlet trace is the decision block"
+        : uses_point_sensor
+        ? "analytic forcing Function at selected volume quadrature; desired-state Function evaluated at immutable physical sensor coordinates; FE_Q shape evaluation and assembled C_h^T point-load transpose"
         : uses_h1_state_observation
         ? "analytic desired-state Function value and gradient at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
@@ -3297,6 +3460,8 @@ namespace nmopt::compiler::v1
         ? (uses_dirichlet_control_lifting
              ? "full-domain physical H1 state restriction with mass-plus-stiffness pairing"
              : "full-domain H1_0 state restriction with mass-plus-stiffness pairing")
+        : uses_point_sensor
+        ? point_sensor_observation_realisation(tracking_region)
         : uses_weighted_boundary_trace
         ? weighted_boundary_observation_realisation(tracking_region)
         : uses_neumann_boundary_control
@@ -3421,6 +3586,9 @@ namespace nmopt::compiler::v1
       if (uses_weighted_boundary_trace)
         manifest.declared_assumptions.push_back(
           "weighted_boundary_trace: fixed scalar weight multiplies the state trace in value, JVP, and transpose pullback at matching face quadrature; Neumann residual and facewise L2 control metric are unchanged");
+      if (uses_point_sensor)
+        manifest.declared_assumptions.push_back(
+          "point_sensor: immutable physical coordinates; FE_Q shape evaluation defines C_h, and the very-weak adjoint source is the assembled finite-dimensional transpose C_h^T(C_h y-z); nearest-node and quadrature-point coincidence policies are rejected");
       manifest.region_ids = identifiers(specification.regions);
       manifest.space_ids = identifiers(specification.spaces);
       manifest.pairing_ids = identifiers(specification.pairings);
@@ -3479,6 +3647,15 @@ namespace nmopt::compiler::v1
     {
       return "fixed-data weighted boundary trace on boundary ids " +
              boundary_id_list(region);
+    }
+
+    static std::string
+    point_sensor_observation_realisation(
+      const semantic::v1::RegionSpec &region)
+    {
+      return "finite point-sensor evaluation at " +
+             std::to_string(region.point_coordinates.size()) +
+             " immutable physical coordinates with assembled FE_Q transpose";
     }
 
     DealiiCapabilityRegistryV1 capabilities_;

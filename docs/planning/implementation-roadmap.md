@@ -38,14 +38,16 @@ bounded C5.8 and C5.10 implementations have landed, but the
 fixed-boundary, and manifest-dimension defects. P5.3 is not
 acceptance-complete until those findings pass their documented gates. The
 outward-normal face evaluation, immutable point coordinates, and explicit
-exclusions remain the selected bounded policies during remediation.
-The C5.6-style Neumann
-composition and all selected scalar Section 5.11/P5.4 Dirichlet-control
-slices are complete: the first partial controlled boundary, the Section
-5.11.2 complete-boundary $L^{2}(\Gamma)$ transposition parent, both Section
-5.11.1 $H^{1/2}(\Gamma)$ options, and the Section 5.11.3 tangential
-$H^{1}(\Gamma)$ option. A general nonconforming transposition lowerer remains
-unselected.
+exclusions remain the selected bounded policies during remediation. The
+C5.6-style Neumann composition is complete. All selected scalar Section
+5.11/P5.4 Dirichlet-control slices have landed, but the
+[P5.4 remediation review](p5.4-remediation-review.md) found open
+registered-combination, typed-policy, and transformed-observation-dimension
+defects. P5.4 is not acceptance-complete until those findings pass their
+documented gates. The partial fixed-precedence lifting, selected fractional
+and tangential operators, conforming-trace equivalence, and explicit
+exclusions remain the bounded policies during remediation. A general
+nonconforming transposition lowerer remains unselected.
 
 The following pieces exist and are tested:
 
@@ -649,7 +651,16 @@ faces, and the normal-flux structured manifest records the state dimension
 rather than the realized face-quadrature output dimension. Follow that review's
 ordered work units and verification gate before restoring `completed` status.
 
-### P5.4 — Generalize Dirichlet-control transformations and trace metrics
+### P5.4 — Generalize Dirichlet-control transformations and trace metrics — implementation landed, remediation open
+
+**Review status:** the 2026-08-12
+[P5.4 remediation review](p5.4-remediation-review.md) identified three open
+acceptance defects: unregistered Section 5.11 loss/observation/metric
+cross-products can compile under misleading target provenance, the selected
+partition/interface/trace/transposition policies are not machine-checkable,
+and transformed state observations record the independent state-coordinate
+dimension rather than the physical output dimension. Follow that review's
+ordered work units and verification gate before restoring `completed` status.
 
 **Motivation:** C5.11 and C5.13.2 require choices beyond the current complete
 boundary nodal $L^{2}$ lifting: mixed fixed/controlled boundaries, nonzero
@@ -946,10 +957,10 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-P5.2 and all selected scalar Section 5.11/P5.4 Dirichlet-control slices are
-complete. P5.3's first C5.8/C5.10 implementations have landed but have open
-review remediation. P4.1 and P4.2 remain ignored for the current ordered
-implementation run. Continue as follows:
+P5.2 and the C5.6 Neumann composition are complete. The selected P5.3 and P5.4
+implementations have landed but have open review remediation. P4.1 and P4.2
+remain ignored for the current ordered implementation run. Continue as
+follows:
 
 1. P5.1 is complete: its component plan and first registered deal.II target
    verify individual term actions, the nonsymmetric adjoint, Robin value/load
@@ -962,25 +973,36 @@ implementation run. Continue as follows:
    separate bindings, residual, observation, and metric semantics. Exact weak-
    form and observation values, transpose actions, reduced derivatives,
    boundary/material diagnostics, and manifest provenance are verified.
-4. The first P5.4 partial scalar controlled-Dirichlet target is complete: one
+4. The first P5.4 partial scalar controlled-Dirichlet target has landed: one
    disjoint fixed nonzero boundary, fixed-corner precedence, relative-interior
-   control, and an $L^{2}$ trace metric are registered. Sobolev metrics on
-   partial or nonmatching traces remain separate P5.4 follow-ups.
+   control, and an $L^{2}$ trace metric are registered. Its policy and
+   provenance remediation remains open. Sobolev metrics on partial or
+   nonmatching traces remain excluded.
 5. The P5.4 C5.11.2 continuous $L^{2}(\Gamma)$ transposition parent is
-   complete. Its registered lowerer records the conforming
+   implemented. Its registered lowerer records the conforming
    $U_{h}\subset H^{1/2}(\Gamma)$ equivalence, and its independent discrete
    conormal contract verifies $\beta M_{\Gamma,h}u_{h}-q_{h}$. Discontinuous
-   $L^{2}$ Dirichlet data and a general transposition lowerer remain excluded.
-6. The remaining complete-boundary Section 5.11 registrations are complete:
+   $L^{2}$ Dirichlet data and a general transposition lowerer remain excluded;
+   typed transposition and manifest remediation remains open.
+6. The remaining complete-boundary Section 5.11 registrations have landed:
    both $H^{1/2}$ options preserve the distinct loss/metric choice, and the
    tangential $H^{1}$ option uses boundary mass plus projected-gradient
-   stiffness. Their metric, stationarity, Taylor, and manifest contracts pass.
-7. Complete the [P5.3 remediation review](p5.3-remediation-review.md) in its
-   stated order: structure and validate the strong/very-weak policy, enforce
-   complete fixed-Dirichlet coverage for C5.8/C5.10, and record the realized
-   normal-flux observation dimension. Preserve the outward normal,
-   face-quadrature transpose, immutable physical-point evaluation, and current
-   exclusions; do not reopen the broad P4.2 algebra/formulation group.
+   stiffness. Their current positive metric, stationarity, and Taylor
+   contracts pass, but closed registration matching and exact manifest
+   provenance remain open.
+7. Complete the shared typed-policy work in
+   [P5.3 work unit 1](p5.3-remediation-review.md#work-unit-1--structured-transposition-contract)
+   and [P5.4 work unit 1](p5.4-remediation-review.md#work-unit-1--typed-shared-policies)
+   as one compatible semantic/compiler contract. Do not introduce separate
+   transposition schemas.
+8. Complete P5.4 work units 2 and 3: reject unregistered Section 5.11
+   cross-products from one resolved registration and record the physical
+   transformed-observation dimensions.
+9. Complete the remaining P5.3 boundary and manifest work: enforce complete
+   fixed-Dirichlet coverage for C5.8/C5.10 and record the realized normal-flux
+   observation dimension. Preserve the outward normal, face-quadrature
+   transpose, immutable physical-point evaluation, and current exclusions; do
+   not reopen the broad P4.2 algebra/formulation group.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

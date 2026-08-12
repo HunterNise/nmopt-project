@@ -60,6 +60,10 @@ stress the interfaces.
 - [P5.3 remediation review](planning/p5.3-remediation-review.md) records the
   2026-08-12 review evidence and bounded implementation instructions. It is a
   static review; the implementation roadmap owns remediation status.
+- [P5.4 remediation review](planning/p5.4-remediation-review.md) records the
+  2026-08-12 review of the 2026-08-11 Dirichlet-control commits and gives the
+  bounded repair sequence. It is a static review; the implementation roadmap
+  owns remediation status.
 - [Stage B refactor routing](planning/refactor/README.md) tells an agent what
   to read for one bounded refactor batch.
 - [Stage B roadmap](planning/refactor/stage-b-roadmap.md) defines the accepted
@@ -90,6 +94,7 @@ convention before inspecting or changing repository content.
 | Implement selected Chapter 6 methods | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) | [V0 contract](implementation/v0/executable-contract.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [roadmap](planning/implementation-roadmap.md) |
 | Reproduce Chapter 6 examples | [Numerical examples](guides/chapter-6-numerical-examples.md) | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
 | Repair the reviewed P5.3 implementation | [P5.3 remediation review](planning/p5.3-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
+| Repair the reviewed P5.4 implementation | [P5.4 remediation review](planning/p5.4-remediation-review.md) | [P5.3 remediation review](planning/p5.3-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Execute one Stage B refactor batch | [Refactor routing](planning/refactor/README.md) | The current batch in the [Stage B roadmap](planning/refactor/stage-b-roadmap.md), assigned findings, and task-specific authorities above |
 | Review the complete pre-Chapter 5/6 evidence | [Refactor assessment](planning/refactor/assessment.md) | [Assessment plan](planning/refactor/assessment-plan.md) only when the audit method matters |
 | Choose the next implementation task | [Implementation roadmap](planning/implementation-roadmap.md) | The task-specific contract or guide listed above |

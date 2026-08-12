@@ -33,10 +33,12 @@ broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
 are complete. P5.2 is complete: the full-domain $H^{1}_{0}$ state observation,
 weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
 have their own semantic, lowering, and verification boundary. P5.3 is
-implemented for the first bounded C5.10 point-sensor target. Its immutable
-point-set, finite-dimensional FE_Q evaluation, and very-weak transpose policy
-are registered and tested. C5.8 normal-flux observation, alternate
-point-evaluation rules, and a general transposition lowerer remain unselected.
+implemented for the first bounded C5.8 and C5.10 targets. The normal-flux
+target's strong-state, outward-normal face evaluation, and very-weak transpose
+policy, together with the point-set target's immutable coordinates and
+finite-dimensional FE_Q evaluation, are registered and tested. Alternate
+point-evaluation rules, an $H(\mathrm{div})$ flux realization, and a general
+transposition lowerer remain unselected.
 The C5.6-style Neumann
 composition and all selected scalar Section 5.11/P5.4 Dirichlet-control
 slices are complete: the first partial controlled boundary, the Section
@@ -62,7 +64,7 @@ The following pieces exist and are tested:
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
-| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract,dealii_trace_hhalf_metric_contract}.cc` | Four binaries expose forty independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-eight deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, point-sensor mesh placement, and native-size invariants. Independent oracles additionally cover the exact trace Schur complement, tangential stiffness, loss/metric separation, all three remaining Section 5.11 stationarity compositions, and their reduced Taylor tests. |
+| Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract,dealii_trace_hhalf_metric_contract}.cc` | Four binaries expose forty-one independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-nine deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, point-sensor mesh placement, normal-flux orientation and face-transpose behavior, and native-size invariants. Independent oracles additionally cover the exact trace Schur complement, tangential stiffness, loss/metric separation, all three remaining Section 5.11 stationarity compositions, and their reduced Taylor tests. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -590,13 +592,13 @@ reduced objectives/covectors, distinct $L^{2}$/$H^{-1}$ directions, quadratic
 reduced Taylor remainders for both directions, and complete manifest
 provenance. This completes P5.2.
 
-### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy — completed for C5.10
+### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy — completed for C5.8 and C5.10
 
 **Motivation:** C5.8 and C5.10 are not ordinary restriction/trace
 observations. Their adjoints use boundary data or Dirac sources with lower
 regularity. The implemented C5.11.2 boundary-control problem uses a related
-transposition principle; this roadmap item registers the C5.10 point-sensor
-slice while leaving C5.8 normal flux unimplemented.
+transposition principle; this roadmap item registers bounded C5.8 and C5.10
+slices while leaving alternate flux/evaluation formulations unselected.
 
 **Declare and implement:**
 
@@ -610,30 +612,34 @@ slice while leaving C5.8 normal flux unimplemented.
   space. It must identify which domain-regularity assumptions are supplied by
   the model author.
 
-**First registered target:** C5.10 point-sensor observation. Its explicit
-point-evaluation and very-weak transpose policy is registered below; C5.8
-normal flux and every alternate point/transposition policy remain rejected
-until they have their own lowerers. Its adjoint uses the declared
-transpose/very-weak formulation, not an ordinary boundary trace or undeclared
-nodal Dirac approximation.
+**First registered targets:** C5.8 strong-state normal-flux observation and
+C5.10 point-sensor observation. C5.8 selects
+$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$, the outward normal, selected
+boundary-face quadrature, and an assembled very-weak boundary-source
+transpose. C5.10 selects physical point evaluation and its assembled
+very-weak point-load transpose. Alternate flux/evaluation policies and a
+general transposition lowerer remain rejected. Neither adjoint is treated as
+an ordinary boundary trace or undeclared nodal approximation.
 
 **Done when:** the selected observation derivatives pass value/JVP/VJP tests,
 the low-regularity adjoint passes its dual residual test, and the compiled
 product records all regularity, orientation, and evaluation policies.
 
-**Implemented first slice:**
-`make_point_sensor_scalar_diffusion_reaction_problem()` registers the C5.10
-finite point-sensor graph. A `point_set` region owns finite, unique physical
-coordinates and an observation space whose dimension equals the point count.
-The selected strong-state parent is
+**Implemented first slices:**
+`make_normal_flux_scalar_diffusion_reaction_problem()` registers the C5.8
+strong-state normal-flux graph. Its boundary region owns the selected IDs and
+its observation space is an $L^{2}$ face-quadrature output. The selected
+strong-state parent is
 $Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ with
 $T=-\Delta+rI:Y\rightarrow L^{2}(\Omega)$ under a declared convex-or-$C^{2}$
-domain assumption. The deal.II lowerer evaluates `FE_Q` shape functions at
-the immutable physical coordinates and assembles the finite-dimensional map
-$C_{h}$ and its transpose $C_{h}^{\mathsf{T}}$; the adjoint solve therefore
-uses the declared very-weak point-load transpose. Nearest-node evaluation,
-quadrature-point coincidence, normal-flux observations, and alternate
-transposition lowerers remain rejected until separately selected.
+domain assumption. The deal.II lowerer evaluates the outward normal
+derivative with `FEFaceValues` at selected boundary-face quadrature and
+assembles the weighted transpose of the same face map; the adjoint solve
+therefore uses the declared very-weak boundary source. An $H(\mathrm{div})$
+realization and general transposition lowerer remain rejected. The sibling
+`make_point_sensor_scalar_diffusion_reaction_problem()` registers the C5.10
+finite point-sensor graph with finite, unique physical coordinates, its
+physical `FE_Q` evaluation, and its assembled very-weak point-load transpose.
 
 ### P5.4 — Generalize Dirichlet-control transformations and trace metrics
 
@@ -932,7 +938,7 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-P5.2, P5.3's first C5.10 point-sensor slice, and all selected scalar Section
+P5.2, P5.3's first C5.8/C5.10 observation slices, and all selected scalar Section
 5.11/P5.4 Dirichlet-control slices are complete. P4.1 and P4.2 remain ignored
 for the current ordered implementation run. Continue as follows:
 
@@ -960,10 +966,11 @@ for the current ordered implementation run. Continue as follows:
    both $H^{1/2}$ options preserve the distinct loss/metric choice, and the
    tangential $H^{1}$ option uses boundary mass plus projected-gradient
    stiffness. Their metric, stationarity, Taylor, and manifest contracts pass.
-7. P5.3's first target is complete for C5.10 point sensors. Preserve its
-   immutable point-set, FE_Q physical-point evaluation, and very-weak transpose
-   policy. C5.8 normal flux and alternate point/transposition policies need
-   their own lowerers; do not reopen the broad P4.2 algebra/formulation group.
+7. P5.3's first targets are complete for C5.8 normal flux and C5.10 point
+   sensors. Preserve the explicit strong/very-weak policies, the outward
+   normal and face-quadrature transpose for C5.8, and immutable physical-point
+   evaluation for C5.10. Alternate flux/evaluation policies need their own
+   lowerers; do not reopen the broad P4.2 algebra/formulation group.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

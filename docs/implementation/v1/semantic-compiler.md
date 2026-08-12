@@ -52,6 +52,7 @@ or
 | `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
 | `make_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Full-domain $H^{1}_{0}$ state observation with mass-plus-stiffness tracking and an unchanged control $L^{2}$ metric | `nmopt.dealii.h1_state_observation` |
 | `make_point_sensor_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | C5.10 finite point-set observation with immutable physical coordinates, finite-dimensional `FE_Q` evaluation, and an assembled very-weak transpose point load | `nmopt.dealii.point_sensor` |
+| `make_normal_flux_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | C5.8 strong-state normal-flux tracking on selected boundary IDs, outward `FEFaceValues` normal derivatives at face quadrature, and the assembled very-weak boundary-source transpose | `nmopt.dealii.normal_flux` |
 | `make_l2_metric_h1_state_tracking_continuous_control_problem()` and `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Same independent homogeneous-Dirichlet `FE_Q` control layout and energy-tracking graph with separately selected $L^{2}$ or $H^{-1}$ metric; no box | `nmopt.dealii.hminus1_compilation` |
 | `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
 | `make_l2_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` through the declared conforming-trace equivalence | Chapter 5.11.2 $L^{2}$ state/control transposition parent, $H^{2}\cap H^{1}_{0}$ tests, complete-boundary $U_{h}=\mathrm{tr}_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)$, normalized Laplacian, and no trace box | `nmopt.dealii.l2_dirichlet_transposition` |
@@ -136,7 +137,17 @@ finite-dimensional observation space records the point count. The selected
 deal.II plan evaluates `FE_Q` shape functions at those physical coordinates,
 assembles the observation transpose as $C_{h}^{\mathsf{T}}$, and records the
 very-weak point-load policy in the manifest. No nearest-node, quadrature-point
-coincidence, normal-flux, or general transposition fallback is implied.
+coincidence, or general transposition fallback is implied.
+
+`make_normal_flux_scalar_diffusion_reaction_problem()` selects the C5.8
+strong-state normal-flux observation. Its boundary region owns the selected
+boundary IDs, while the semantic policies declare the outward normal,
+$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$, the domain regularity assumption,
+and the very-weak transposition. The deal.II plan evaluates
+$\nabla y\mathbin\cdot n_{\mathrm{out}}$ using `FEFaceValues` at selected face
+quadrature points and assembles the same face map's weighted transpose into
+the tracking objective and adjoint source. An $H(\mathrm{div})$ or general
+transposition lowerer is not registered.
 
 Every enum-bearing semantic aggregate defaults to an explicit `unspecified`
 value. `SemanticValidator` rejects that sentinel structurally, so default or

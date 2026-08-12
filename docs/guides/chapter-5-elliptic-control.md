@@ -331,6 +331,15 @@ $H(\mathrm{div})$ trace policy, and must lower the adjoint through the
 declared transposition policy. P5.3 is required; treating a normal derivative
 as an ordinary boundary trace is incorrect.
 
+The first registered C5.8 slice selects the strong-state policy
+$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ on the declared convex or sufficiently
+smooth domain. Its deal.II realization evaluates
+$\partial_{n}y=\nabla y\mathbin\cdot n_{\mathrm{out}}$ with `FEFaceValues` at
+selected boundary-face quadrature points and assembles the transpose of the
+same face map. The objective uses this face-quadrature $L^{2}$ pairing and the
+adjoint is recorded as the corresponding very-weak boundary source. An
+$H(\mathrm{div})$ realization and alternate flux policies remain unregistered.
+
 ### C5.9 — Transposition policy for low-regularity Dirichlet data
 
 For $-\Delta w=f$ with boundary datum $g\in L^{2}(\Gamma)$, the source uses
@@ -394,7 +403,8 @@ P5.3 must define sensor locations, their discrete evaluation rule, and the
 Dirac/transpose action. In particular, neither nearest-node evaluation nor
 quadrature-point coincidence is an acceptable undeclared policy.
 
-The first registered slice selects the point-sensor alternative. Its semantic
+The first registered point-sensor slice selects the finite point-evaluation
+alternative. Its semantic
 point-set region stores finite, unique physical coordinates and its observation
 space has one coefficient per coordinate. The continuous policy declares
 $Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ and
@@ -403,8 +413,9 @@ assumption. The deal.II realization evaluates `FE_Q` shape functions at each
 physical coordinate to form the finite-dimensional map $C_{h}$ and assembles
 $C_{h}^{\mathsf{T}}(C_{h}y-z_{d})$ as the point-load transpose for the
 very-weak adjoint solve. This is the selected evaluation and transpose policy;
-nearest-node, quadrature-coincidence, normal-flux, and general transposition
-alternatives remain unregistered.
+nearest-node, quadrature-coincidence, and general transposition alternatives
+remain unregistered. The sibling C5.8 slice uses the separately declared
+strong-state normal-flux policy above.
 
 ### C5.11 — Dirichlet boundary control and control-space variants
 

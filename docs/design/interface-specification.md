@@ -314,6 +314,13 @@ finite-dimensional point load. This is a discrete realization policy, not an
 implicit nearest-node approximation or a claim that the continuous Dirac map
 is available on every state space.
 
+For a normal-flux observation, the declaration MUST also identify the outward
+normal convention, the boundary region, the state regularity or
+$H(\mathrm{div})$ capability that makes the flux meaningful, and the selected
+transposition policy for its lower-regularity adjoint. A face-quadrature
+`FE_Q` normal derivative and its assembled transpose are one possible
+realization; they MUST NOT be inferred from an ordinary boundary trace.
+
 ### 3.10 Loss and objective
 
 A loss is a scalar map

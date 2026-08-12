@@ -1354,7 +1354,7 @@ namespace
     auto subdomain_specification = specification;
     subdomain_specification.regions.push_back(
       {"energy_subdomain", "Unsupported H1 observation subdomain",
-       semantic::v1::RegionKind::volume, false, {}, {0}});
+       semantic::v1::RegionKind::volume, false, {}, {0}, {}});
     component_by_id(subdomain_specification.spaces,
                     "state_observation_space")
       .region_id = "energy_subdomain";
@@ -1460,6 +1460,115 @@ namespace
                   "dealii.scalar.observation.h1_state_restriction") !=
           manifest.lowering_handler_records.end(),
       "H1-state observation manifest omitted its observation, data, or metric provenance");
+  }
+
+  template <int dim>
+  void
+  run_point_sensor_contract_test()
+  {
+    static_assert(dim == 2, "The point-sensor oracle is two-dimensional");
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(2);
+
+    const dealii::Functions::ConstantFunction<dim> forcing(0.0);
+    const FirstCoordinateFunction<dim>             desired_state;
+    const std::vector<std::vector<double>> sensor_coordinates{
+      {0.23, 0.37}, {0.71, 0.62}};
+    const auto specification =
+      semantic::v1::make_point_sensor_scalar_diffusion_reaction_problem(
+        sensor_coordinates);
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 2;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(compiler.validate(specification, policy).valid(),
+                      "point-sensor v1 graph did not validate for deal.II");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.2,
+      test_binding_provenance("point_sensor")};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded(),
+                      "point-sensor v1 compilation failed");
+    const auto &model = compilation.problem->executable_model();
+    const auto *point_model =
+      dynamic_cast<const compiler::v1::detail::ScalarComponentModel<dim> *>(
+        &model);
+    contract::require(point_model != nullptr,
+                      "point-sensor compilation did not produce its scalar target");
+
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = compilation.problem->make_reduced_dto().evaluate(control);
+    require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                  0.0,
+                  1e-11,
+                  "point-sensor manufactured state residual");
+    require_close(evaluation.objective_value,
+                  0.5 * (0.23 * 0.23 + 0.71 * 0.71),
+                  1e-11,
+                  "point-sensor tracking value");
+
+    const auto values = point_model->point_sensor_values(evaluation.full_point);
+
+    dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < state_tangent.size();
+         ++index)
+      state_tangent[index] = 0.03 * static_cast<double>(index + 1);
+    dealii::Vector<double> control_tangent(model.variable_layout()->dimension(1));
+    const Primal tangent(model.variable_layout(),
+                         {std::move(state_tangent), std::move(control_tangent)});
+    const Covector sensor_jvp = point_model->point_sensor_jvp(tangent);
+    dealii::Vector<double> sensor_seed_values(2);
+    sensor_seed_values[0] = 1.3;
+    sensor_seed_values[1] = -0.7;
+    const Primal sensor_seed(sensor_jvp.layout(),
+                             {std::move(sensor_seed_values)});
+    const Covector sensor_vjp = point_model->point_sensor_vjp({1.3, -0.7});
+    const Primal state_tangent_block =
+      contract::extract_primal_block(tangent, 0, "state");
+    require_close(contract::pair(sensor_jvp, sensor_seed),
+                  contract::pair(sensor_vjp, state_tangent_block),
+                  1e-11,
+                  "point-sensor evaluation JVP/VJP pairing");
+
+    const Covector expected_state_derivative =
+      point_model->point_sensor_vjp({-0.23, -0.71});
+    const Covector actual_objective_derivative =
+      model.objective_derivative(evaluation.full_point);
+    require_covector_close(
+      contract::extract_covector_block(actual_objective_derivative, 0, "state"),
+      expected_state_derivative,
+      1e-11,
+      "point-sensor very-weak objective transpose");
+
+    const auto &manifest = compilation.problem->manifest();
+    contract::require(
+      manifest.compiler_id == "nmopt.compiler.v1.dealii.point_sensor" &&
+        manifest.observation_realisation.find("immutable physical coordinates") !=
+          std::string::npos &&
+        manifest.data_rule.find("assembled C_h^T point-load transpose") !=
+          std::string::npos &&
+        std::any_of(manifest.declared_assumptions.begin(),
+                    manifest.declared_assumptions.end(),
+                    [](const std::string &assumption) {
+                      return assumption.find("very-weak adjoint source") !=
+                             std::string::npos;
+                    }) &&
+        std::find(manifest.lowering_handler_records.begin(),
+                  manifest.lowering_handler_records.end(),
+                  "state_observation <- dealii.scalar.observation.point_sensor") !=
+          manifest.lowering_handler_records.end(),
+      "point-sensor compilation manifest omitted its finite transpose policy");
   }
 
   template <int dim>
@@ -3933,6 +4042,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          60,
          []() { run_subdomain_observation_contract_test<2>(); }},
+        {"point_sensor",
+         "nmopt.dealii.point_sensor",
+         {"dealii", "compiler", "observation"},
+         60,
+         []() { run_point_sensor_contract_test<2>(); }},
         {"h1_state_observation",
          "nmopt.dealii.h1_state_observation",
          {"dealii", "compiler"},

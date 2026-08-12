@@ -40,6 +40,25 @@ namespace
   }
 
   template <typename Component>
+  const Component &
+  component_by_id(const std::vector<Component> &components,
+                  const std::string            &id)
+  {
+    const auto component = std::find_if(
+      components.begin(), components.end(), [&id](const Component &candidate) {
+        return candidate.id == id;
+      });
+    require(component != components.end(), "semantic test component is missing");
+    require(std::count_if(components.begin(),
+                          components.end(),
+                          [&id](const Component &candidate) {
+                            return candidate.id == id;
+                          }) == 1,
+            "semantic test component is not unique");
+    return *component;
+  }
+
+  template <typename Component>
   std::vector<std::string>
   sorted_component_ids(const std::vector<Component> &components)
   {
@@ -107,6 +126,47 @@ namespace
                        }),
         graph.requirement_policies.end());
     };
+
+    auto point_sensor_specification =
+      nmopt::semantic::v1::make_point_sensor_scalar_diffusion_reaction_problem(
+        {{0.25, 0.35}, {0.7, 0.6}});
+    require(validator.validate(point_sensor_specification).valid(),
+            "the C5.10 point-sensor v1 graph is invalid");
+    const auto point_sensor_region =
+      component_by_id(point_sensor_specification.regions,
+                      "point_sensor_region");
+    const auto point_sensor_space =
+      component_by_id(point_sensor_specification.spaces,
+                      "state_observation_space");
+    const auto point_sensor_observation =
+      component_by_id(point_sensor_specification.observations,
+                      "state_observation");
+    require(point_sensor_region.kind ==
+              nmopt::semantic::v1::RegionKind::point_set &&
+              point_sensor_region.point_coordinates.size() == 2 &&
+              point_sensor_space.dimension == 2 &&
+              point_sensor_observation.kind ==
+                nmopt::semantic::v1::ObservationKind::point_sensor,
+            "the point-sensor graph did not pair physical points with a finite output space");
+    auto missing_point_evaluation = point_sensor_specification;
+    remove_policy(missing_point_evaluation,
+                  "point_sensor_evaluation_policy");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_point_evaluation),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_observation",
+      "point_sensor_evaluation_policy",
+      "the point-sensor graph accepted a missing physical evaluation policy");
+    auto missing_point_transposition = point_sensor_specification;
+    remove_policy(missing_point_transposition,
+                  "point_sensor_transposition_policy");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_point_transposition),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_equation",
+      "point_sensor_transposition_policy",
+      "the point-sensor graph accepted a missing very-weak transposition policy");
+
     auto missing_transposition = l2_dirichlet_specification;
     remove_policy(missing_transposition, "transposition_formulation");
     nmopt::test_support::require_exact_diagnostic(

@@ -32,13 +32,13 @@ ignored for the current ordered implementation run because their scope is too
 broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
 are complete. P5.2 is complete: the full-domain $H^{1}_{0}$ state observation,
 weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
-have their own semantic, lowering, and verification boundary. P5.3 is
-implemented for the first bounded C5.8 and C5.10 targets. The normal-flux
-target's strong-state, outward-normal face evaluation, and very-weak transpose
-policy, together with the point-set target's immutable coordinates and
-finite-dimensional FE_Q evaluation, are registered and tested. Alternate
-point-evaluation rules, an $H(\mathrm{div})$ flux realization, and a general
-transposition lowerer remain unselected.
+have their own semantic, lowering, and verification boundary. P5.3's first
+bounded C5.8 and C5.10 implementations have landed, but the
+[P5.3 remediation review](p5.3-remediation-review.md) found open transposition,
+fixed-boundary, and manifest-dimension defects. P5.3 is not
+acceptance-complete until those findings pass their documented gates. The
+outward-normal face evaluation, immutable point coordinates, and explicit
+exclusions remain the selected bounded policies during remediation.
 The C5.6-style Neumann
 composition and all selected scalar Section 5.11/P5.4 Dirichlet-control
 slices are complete: the first partial controlled boundary, the Section
@@ -592,7 +592,7 @@ reduced objectives/covectors, distinct $L^{2}$/$H^{-1}$ directions, quadratic
 reduced Taylor remainders for both directions, and complete manifest
 provenance. This completes P5.2.
 
-### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy — completed for C5.8 and C5.10
+### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy — implementation landed, remediation open
 
 **Motivation:** C5.8 and C5.10 are not ordinary restriction/trace
 observations. Their adjoints use boundary data or Dirac sources with lower
@@ -640,6 +640,14 @@ realization and general transposition lowerer remain rejected. The sibling
 `make_point_sensor_scalar_diffusion_reaction_problem()` registers the C5.10
 finite point-sensor graph with finite, unique physical coordinates, its
 physical `FE_Q` evaluation, and its assembled very-weak point-load transpose.
+
+**Review status:** the 2026-08-12
+[P5.3 remediation review](p5.3-remediation-review.md) identified three open
+acceptance defects: the transposition declaration is incomplete and
+presence-only validated, P5.3 meshes can have undeclared non-Dirichlet exterior
+faces, and the normal-flux structured manifest records the state dimension
+rather than the realized face-quadrature output dimension. Follow that review's
+ordered work units and verification gate before restoring `completed` status.
 
 ### P5.4 — Generalize Dirichlet-control transformations and trace metrics
 
@@ -938,9 +946,10 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-P5.2, P5.3's first C5.8/C5.10 observation slices, and all selected scalar Section
-5.11/P5.4 Dirichlet-control slices are complete. P4.1 and P4.2 remain ignored
-for the current ordered implementation run. Continue as follows:
+P5.2 and all selected scalar Section 5.11/P5.4 Dirichlet-control slices are
+complete. P5.3's first C5.8/C5.10 implementations have landed but have open
+review remediation. P4.1 and P4.2 remain ignored for the current ordered
+implementation run. Continue as follows:
 
 1. P5.1 is complete: its component plan and first registered deal.II target
    verify individual term actions, the nonsymmetric adjoint, Robin value/load
@@ -966,11 +975,12 @@ for the current ordered implementation run. Continue as follows:
    both $H^{1/2}$ options preserve the distinct loss/metric choice, and the
    tangential $H^{1}$ option uses boundary mass plus projected-gradient
    stiffness. Their metric, stationarity, Taylor, and manifest contracts pass.
-7. P5.3's first targets are complete for C5.8 normal flux and C5.10 point
-   sensors. Preserve the explicit strong/very-weak policies, the outward
-   normal and face-quadrature transpose for C5.8, and immutable physical-point
-   evaluation for C5.10. Alternate flux/evaluation policies need their own
-   lowerers; do not reopen the broad P4.2 algebra/formulation group.
+7. Complete the [P5.3 remediation review](p5.3-remediation-review.md) in its
+   stated order: structure and validate the strong/very-weak policy, enforce
+   complete fixed-Dirichlet coverage for C5.8/C5.10, and record the realized
+   normal-flux observation dimension. Preserve the outward normal,
+   face-quadrature transpose, immutable physical-point evaluation, and current
+   exclusions; do not reopen the broad P4.2 algebra/formulation group.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

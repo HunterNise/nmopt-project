@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -12,7 +13,8 @@ namespace nmopt::semantic::v1
   {
     unspecified = -1,
     volume,
-    boundary
+    boundary,
+    point_set
   };
 
   enum class SpaceTopology
@@ -98,7 +100,8 @@ namespace nmopt::semantic::v1
     h1_state_restriction,
     boundary_trace,
     boundary_restriction,
-    weighted_boundary_trace
+    weighted_boundary_trace,
+    point_sensor
   };
 
   enum class LossKind
@@ -188,6 +191,10 @@ namespace nmopt::semantic::v1
     bool                      is_full_domain = false;
     std::vector<unsigned int> boundary_ids;
     std::vector<unsigned int> material_ids;
+    // Backend-neutral physical coordinates for a point-set region. The
+    // compiler validates their dimension against its concrete mesh dimension
+    // and copies them into its immutable sensor operator.
+    std::vector<std::vector<double>> point_coordinates = {};
   };
 
   struct SpaceSpec
@@ -198,6 +205,9 @@ namespace nmopt::semantic::v1
     SpaceTopology topology = SpaceTopology::unspecified;
     SpaceRole     role = SpaceRole::unspecified;
     bool          is_scalar = true;
+    // A positive dimension is required for finite-dimensional point-sensor
+    // observation spaces. Other semantic spaces leave this unspecified.
+    std::size_t dimension = 0;
   };
 
   struct PairingSpec

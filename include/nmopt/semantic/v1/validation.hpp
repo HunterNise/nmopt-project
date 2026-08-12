@@ -3,6 +3,7 @@
 #include "nmopt/semantic/v1/types.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -330,6 +331,12 @@ namespace nmopt::semantic::v1
     {
       for (const auto &region : specification.regions)
         {
+          if (region.kind != RegionKind::point_set &&
+              !region.point_coordinates.empty())
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "non_point_region_has_no_coordinates",
+                       "Declare physical coordinates only on a point-set region.");
           if (region.kind == RegionKind::volume && !region.boundary_ids.empty())
             report.add(DiagnosticCategory::structural,
                        region.id,
@@ -356,6 +363,57 @@ namespace nmopt::semantic::v1
                        region.id,
                        "boundary_region_has_no_material_ids",
                        "Declare material ids only on a volume region.");
+          if (region.kind == RegionKind::point_set)
+            {
+              if (region.is_full_domain || !region.boundary_ids.empty() ||
+                  !region.material_ids.empty())
+                report.add(DiagnosticCategory::structural,
+                           region.id,
+                           "point_set_region_geometry",
+                           "A point-set region has coordinates only; it is neither a volume nor a boundary region.");
+              if (region.point_coordinates.empty())
+                report.add(DiagnosticCategory::structural,
+                           region.id,
+                           "point_set_coordinates",
+                           "Declare at least one immutable sensor coordinate.");
+              std::size_t coordinate_dimension = 0;
+              for (const auto &coordinate : region.point_coordinates)
+                {
+                  if (coordinate.empty())
+                    report.add(DiagnosticCategory::structural,
+                               region.id,
+                               "point_coordinate_dimension",
+                               "Give every sensor coordinate the same positive dimension.");
+                  else if (coordinate_dimension == 0)
+                    coordinate_dimension = coordinate.size();
+                  else if (coordinate.size() != coordinate_dimension)
+                    report.add(DiagnosticCategory::structural,
+                               region.id,
+                               "point_coordinate_dimension",
+                               "Give every sensor coordinate the same positive dimension.");
+                  if (!std::all_of(coordinate.begin(),
+                                   coordinate.end(),
+                                   [](const double value) {
+                                     return std::isfinite(value);
+                                   }))
+                    report.add(DiagnosticCategory::structural,
+                               region.id,
+                               "finite_point_coordinates",
+                               "Bind finite physical sensor coordinates.");
+                }
+              for (std::size_t first = 0;
+                   first < region.point_coordinates.size();
+                   ++first)
+                for (std::size_t second = first + 1;
+                     second < region.point_coordinates.size();
+                     ++second)
+                  if (region.point_coordinates[first] ==
+                      region.point_coordinates[second])
+                    report.add(DiagnosticCategory::structural,
+                               region.id,
+                               "unique_point_coordinates",
+                               "Declare each sensor coordinate once in the point set.");
+            }
         }
     }
 
@@ -724,9 +782,12 @@ namespace nmopt::semantic::v1
             observation.kind == ObservationKind::boundary_trace ||
             observation.kind == ObservationKind::weighted_boundary_trace ||
             observation.kind == ObservationKind::boundary_restriction;
-          const RegionKind expected_region = boundary_observation
-                                               ? RegionKind::boundary
-                                               : RegionKind::volume;
+          const bool point_observation =
+            observation.kind == ObservationKind::point_sensor;
+          const RegionKind expected_region =
+            boundary_observation ? RegionKind::boundary
+            : point_observation ? RegionKind::point_set
+                                : RegionKind::volume;
           if (!contains(regions, observation.region_id))
             report.add(DiagnosticCategory::structural,
                        observation.id,
@@ -736,9 +797,12 @@ namespace nmopt::semantic::v1
             report.add(DiagnosticCategory::structural,
                        observation.id,
                        boundary_observation ? "observation_boundary_region" :
+                       point_observation ? "observation_point_set_region" :
                                               "observation_volume_region",
                        boundary_observation
                          ? "The registered boundary observation needs a boundary region."
+                       : point_observation
+                         ? "The point-sensor observation needs a point-set region."
                          : "The registered volume restriction needs a volume region.");
           const auto input = variables.find(observation.input_variable_id);
           if (observation.kind == ObservationKind::h1_state_restriction)
@@ -774,6 +838,13 @@ namespace nmopt::semantic::v1
                        observation.id,
                        "boundary_restriction_control_input",
                        "Use the boundary control as the source of its restriction.");
+          if (point_observation &&
+              (input == variables.end() ||
+               input->second->role != VariableRole::state))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "point_sensor_state_input",
+                       "Use a state variable as the source of a point-sensor observation.");
           const auto output_space = spaces.find(observation.output_space_id);
           if (output_space == spaces.end())
             report.add(DiagnosticCategory::structural,
@@ -796,6 +867,18 @@ namespace nmopt::semantic::v1
                        observation.id,
                        "h1_state_restriction_output_topology",
                        "Declare the energy-observation output with H1 topology.");
+          if (point_observation && output_space != spaces.end())
+            {
+              const auto region = regions.find(observation.region_id);
+              const std::size_t point_count =
+                region == regions.end() ? 0 : region->second->point_coordinates.size();
+              if (output_space->second->topology != SpaceTopology::l2 ||
+                  output_space->second->dimension != point_count)
+                report.add(DiagnosticCategory::structural,
+                           observation.id,
+                           "point_sensor_output_dimension",
+                           "Declare an L2 observation space whose finite dimension equals the point-set cardinality.");
+            }
           if (observation.kind == ObservationKind::weighted_boundary_trace)
             {
               if (observation.data_ids.size() != 1)
@@ -1613,6 +1696,47 @@ namespace nmopt::semantic::v1
                          loss.id,
                          "tracking_target_data_region",
                          "Declare the selected target-data realization on the tracking observation region.");
+          }
+
+      for (const auto &observation : specification.observations)
+        if (observation.kind == ObservationKind::point_sensor)
+          {
+            if (!has_policy(observation.id,
+                            RequirementKind::analytic_quadrature_evaluation))
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                observation.id,
+                "point_sensor_evaluation_policy",
+                "Declare the physical point-evaluation and finite-dimensional transpose rule for the sensor map.");
+            if (std::find_if(
+                  specification.requirement_policies.begin(),
+                  specification.requirement_policies.end(),
+                  [&specification](const RequirementPolicySpec &policy) {
+                    return policy.subject_id == specification.formulation.equation_id &&
+                           policy.kind == RequirementKind::transposition_formulation &&
+                           policy.status == RequirementStatus::provided &&
+                           policy.scope == RequirementScope::continuous_semantics &&
+                           !policy.selected_policy.empty();
+                  }) == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                specification.formulation.equation_id,
+                "point_sensor_transposition_policy",
+                "Declare the strong state space, transposition map, residual codomain, and very-weak adjoint policy for point sensors.");
+            if (std::find_if(
+                  specification.requirement_policies.begin(),
+                  specification.requirement_policies.end(),
+                  [&specification](const RequirementPolicySpec &policy) {
+                    return policy.subject_id == specification.formulation.equation_id &&
+                           policy.kind == RequirementKind::domain_regularity &&
+                           policy.status == RequirementStatus::user_assumed &&
+                           !policy.selected_policy.empty();
+                  }) == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                specification.formulation.equation_id,
+                "point_sensor_domain_regularity",
+                "Declare the model author's domain regularity assumption for point evaluation and the very-weak adjoint.");
           }
 
       for (const auto &observation : specification.observations)

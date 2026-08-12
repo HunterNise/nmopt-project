@@ -57,9 +57,9 @@ namespace nmopt::semantic::v1
     specification.id = "scalar_diffusion_reaction_volume_control";
     specification.label = "Scalar diffusion-reaction volume control";
     specification.regions = {
-      {"domain", "Full volume domain", RegionKind::volume, true, {}, {}},
+      {"domain", "Full volume domain", RegionKind::volume, true, {}, {}, {}},
       {"dirichlet_boundary", "Homogeneous Dirichlet boundary", RegionKind::boundary,
-       false, {0}, {}}};
+       false, {0}, {}, {}}};
     specification.spaces = {
       {"state_space", "State", "domain", SpaceTopology::h1, SpaceRole::state},
       {"state_test_space", "State test", "domain", SpaceTopology::h1,
@@ -182,7 +182,7 @@ namespace nmopt::semantic::v1
       .boundary_ids = std::move(fixed_dirichlet_boundary_ids);
     specification.regions.push_back(
       {"robin_boundary", "Robin and transport-outflow boundary",
-       RegionKind::boundary, false, std::move(robin_boundary_ids), {}});
+       RegionKind::boundary, false, std::move(robin_boundary_ids), {}, {}});
 
     reference_detail::component_by_id(specification.data,
                                       "diffusion",
@@ -299,7 +299,7 @@ namespace nmopt::semantic::v1
       specification.label = "Scalar diffusion-reaction with subdomain tracking";
       specification.regions.push_back(
         {"observation_subdomain", "Material subdomain observation region",
-         RegionKind::volume, false, {}, {observed_material_id}});
+         RegionKind::volume, false, {}, {observed_material_id}, {}});
       component_by_id(specification.spaces,
                       "state_observation_space",
                       "space")
@@ -324,6 +324,69 @@ namespace nmopt::semantic::v1
       make_scalar_diffusion_reaction_problem(with_cellwise_box);
     reference_detail::apply_subdomain_tracking_delta(specification,
                                                      observed_material_id);
+    return specification;
+  }
+
+  // P5.3's first registered target is the C5.10 finite point-sensor slice.
+  // Coordinates are semantic data: the deal.II lowerer checks their mesh
+  // dimension and owns the resulting immutable point-evaluation operator.
+  inline ProblemSpec
+  make_point_sensor_scalar_diffusion_reaction_problem(
+    std::vector<std::vector<double>> sensor_coordinates)
+  {
+    ProblemSpec specification = make_scalar_diffusion_reaction_problem();
+    specification.id = "scalar_diffusion_reaction_point_sensor";
+    specification.label = "Scalar diffusion-reaction with point sensors";
+    specification.regions.push_back(
+      {"point_sensor_region", "Immutable point-sensor region",
+       RegionKind::point_set, false, {}, {}, std::move(sensor_coordinates)});
+
+    auto &sensor_region = reference_detail::component_by_id(
+      specification.regions, "point_sensor_region", "region");
+    auto &sensor_space = reference_detail::component_by_id(
+      specification.spaces, "state_observation_space", "space");
+    sensor_space = {"state_observation_space", "Finite point-sensor output",
+                    "point_sensor_region", SpaceTopology::l2,
+                    SpaceRole::observation, true,
+                    sensor_region.point_coordinates.size()};
+    reference_detail::component_by_id(specification.data,
+                                      "desired_state",
+                                      "data")
+      .space_id = "state_observation_space";
+    reference_detail::component_by_id(specification.observations,
+                                      "state_observation",
+                                      "observation") =
+      {"state_observation", "Finite point-sensor state observation",
+       ObservationKind::point_sensor, "state", "point_sensor_region",
+       "state_observation_space", "state_observation_pairing", {}};
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "desired_state_quadrature_policy",
+                                      "requirement policy") =
+      {"desired_state_point_evaluation_policy", "desired_state",
+       RequirementKind::analytic_quadrature_evaluation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "analytic Function evaluated at the immutable sensor coordinates",
+       "point_sensor_region"};
+    specification.requirement_policies.push_back(
+      {"point_sensor_transposition_policy", "state_equation",
+       RequirementKind::transposition_formulation,
+       RequirementStatus::provided, RequirementScope::continuous_semantics,
+       "Y=H2(Omega) cap H1_0(Omega); T=-Delta+rI:Y->L2(Omega) is an isomorphism; the point residual is represented in Y* and its adjoint is very weak",
+       "domain"});
+    specification.requirement_policies.push_back(
+      {"point_sensor_domain_regularity", "state_equation",
+       RequirementKind::domain_regularity, RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "the declared domain is convex or C2 so point evaluation on Y and the very-weak adjoint are meaningful",
+       "domain"});
+    specification.requirement_policies.push_back(
+      {"point_sensor_evaluation_policy", "state_observation",
+       RequirementKind::analytic_quadrature_evaluation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "FE_Q shape functions are evaluated at immutable physical sensor coordinates; the transpose C_h^T is assembled as a finite-dimensional very-weak point load; no nearest-node or quadrature-point coincidence is used",
+       "point_sensor_region"});
     return specification;
   }
 
@@ -606,13 +669,13 @@ namespace nmopt::semantic::v1
     specification.id = "scalar_diffusion_reaction_neumann_boundary_control";
     specification.label = "Scalar diffusion-reaction Neumann boundary control";
     specification.regions = {
-      {"domain", "Full volume domain", RegionKind::volume, true, {}, {}},
+      {"domain", "Full volume domain", RegionKind::volume, true, {}, {}, {}},
       {"dirichlet_boundary", "Homogeneous Dirichlet boundary", RegionKind::boundary,
-       false, {0}, {}},
+       false, {0}, {}, {}},
       {"control_boundary", "Neumann control boundary", RegionKind::boundary,
-       false, {1}, {}},
+       false, {1}, {}, {}},
       {"observation_boundary", "Boundary tracking region", RegionKind::boundary,
-       false, {2}, {}}};
+       false, {2}, {}, {}}};
     specification.spaces = {
       {"state_space", "State", "domain", SpaceTopology::h1, SpaceRole::state},
       {"state_test_space", "State test", "domain", SpaceTopology::h1,
@@ -749,7 +812,7 @@ namespace nmopt::semantic::v1
       specification.regions.end());
     specification.regions.push_back(
       {"observation_subdomain", "Material subdomain observation region",
-       RegionKind::volume, false, {}, {observed_material_id}});
+       RegionKind::volume, false, {}, {observed_material_id}, {}});
 
     reference_detail::component_by_id(specification.spaces,
                                       "state_observation_space",
@@ -900,11 +963,11 @@ namespace nmopt::semantic::v1
       specification.label =
         "Scalar diffusion pure-Neumann boundary control with mean constraint";
       specification.regions = {
-        {"domain", "Full volume domain", RegionKind::volume, true, {}, {}},
+        {"domain", "Full volume domain", RegionKind::volume, true, {}, {}, {}},
         {"control_boundary", "Pure-Neumann control boundary",
-         RegionKind::boundary, false, {0}, {}},
+         RegionKind::boundary, false, {0}, {}, {}},
         {"observation_boundary", "Pure-Neumann boundary tracking region",
-         RegionKind::boundary, false, {0}, {}}};
+         RegionKind::boundary, false, {0}, {}, {}}};
       remove_component_by_id(specification.requirement_policies,
                              "state_fixed_dirichlet",
                              "requirement policy");
@@ -968,7 +1031,7 @@ namespace nmopt::semantic::v1
                       "dirichlet_boundary",
                       "region") =
         {"control_boundary", "Complete controlled Dirichlet boundary",
-         RegionKind::boundary, false, {0}, {}};
+         RegionKind::boundary, false, {0}, {}, {}};
       component_by_id(specification.spaces, "control_space", "space") =
         {"control_space", "Nodal Dirichlet trace control", "control_boundary",
          SpaceTopology::h1, SpaceRole::control};
@@ -1381,7 +1444,7 @@ namespace nmopt::semantic::v1
       .boundary_ids = {1};
     specification.regions.push_back(
       {"fixed_dirichlet_boundary", "Fixed nonzero Dirichlet boundary",
-       RegionKind::boundary, false, {0}, {}});
+       RegionKind::boundary, false, {0}, {}, {}});
     specification.data.push_back(
       {"fixed_dirichlet_data", "Fixed Dirichlet data", DataKind::function,
        DataRole::fixed_dirichlet_lifting, "state_space"});

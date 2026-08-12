@@ -29,7 +29,14 @@ relevant `RF-006` characterization), R2b (`RF-002` through `RF-005` and the
 relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
 `RF-012`), and R3 (`RF-016` through `RF-019`) are complete. P4.1 and P4.2 are
 ignored for the current ordered implementation run because their scope is too
-broad. P5.1 and P5.2 implementations have landed, but the
+broad. The conditional C1 and C2 preparation implementations have landed, but
+the [C1/C2 preparation remediation review](c1-c2-preparation-remediation-review.md)
+found open compilation-input, structured-provenance, realized-space, resolved-
+request, and executable component-lowering defects. C1 and C2 are not
+acceptance-complete until their documented gates pass. Their stable-ID index,
+owned compilation session, shared solve reporting, projection witness,
+independent scalar oracle, and build-cost remeasurement remain retained
+foundations. P5.1 and P5.2 implementations have landed, but the
 [P5.1 remediation review](p5.1-remediation-review.md) found open coefficient-
 data placement and typed boundary-policy defects, while the
 [P5.2 remediation review](p5.2-remediation-review.md) found open selected-
@@ -60,7 +67,7 @@ The following pieces exist and are tested:
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. Their block storage is read-only after construction; checked algebraic updates preserve the declared dimensions. |
 | V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
-| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package and structured manifest; fixed-reconstruction, subdomain-tracking, $H^{1}_{0}$ state-tracking, and general scalar/Robin graphs use stable-ID resolution plus stored component handlers, while specialized registrations retain bounded target strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
+| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package, typed manifest container, and stored scalar handler plan. The reviewed implementation still reconstructs decisions through raw graph flags and target recipes; the [C1/C2 handoff](c1-c2-preparation-remediation-review.md) owns the bounded repair while specialized registrations retain the explicit strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
 | Formulation solves and lifetime | `include/nmopt/contract/linear_solve.hpp`, `include/nmopt/dealii/serial_spd_solver.hpp`, and `include/nmopt/compiler/v1/dealii_types.hpp` | Typed state/adjoint solve reports, one shared serial SPD policy/service for symmetric targets, recorded direct and exact-transpose solves for the P5.1 nonsymmetric target, an owned static-mesh compilation session, and detached reduced services that retain executable/session lifetime. |
@@ -981,41 +988,62 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-The C5.6 Neumann composition is complete. P5.1 through P5.4 have landed
-implementation slices but remain open under their static remediation reviews.
-P4.1 and P4.2 remain ignored for the current ordered implementation run. Keep
-the reviewed numerical formulas and explicit exclusions while proceeding in
-these commit-sized units:
+The C5.6 Neumann composition is complete. Conditional C1/C2 preparation and
+P5.1 through P5.4 have landed implementation slices but remain open under
+their static remediation reviews. P4.1 and P4.2 remain ignored for the current
+ordered implementation run. Keep the reviewed numerical formulas and explicit
+exclusions while proceeding in these commit-sized units:
 
 1. Complete
+   [C1/C2 work unit 1](c1-c2-preparation-remediation-review.md#work-unit-1--one-resolved-compilation-request-and-binding-boundary):
+   produce one checked resolved compilation request and route predictable
+   public binding/session failures through exact diagnostics.
+2. Complete
    [P5.1 work unit 1](p5.1-remediation-review.md#work-unit-1--truthful-p51-data-spaces-and-regions):
    give every general-scalar coefficient and Robin source a truthful semantic
-   space/region and carry that placement through the plan and manifest.
-2. Establish the common typed boundary/orientation/trace realization
+   space/region and carry that placement into the resolved request.
+3. Establish the common typed boundary/orientation/trace realization
    vocabulary and complete
    [P5.1 work unit 2](p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection).
    Do not create target-specific enums for policies shared by later phases.
-3. Complete
+4. Complete
+   [C1/C2 work unit 2](c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly)
+   and [work unit 3](c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination):
+   make scalar residual/data and objective/service contributions execute from
+   the plan, then prove one independently varied recombination.
+5. Complete
    [P5.2 work unit 1](p5.2-remediation-review.md#work-unit-1--typed-p52-trace-and-negative-metric-selections):
    use the shared trace vocabulary, type the named negative metric, and make
    the continuous-control backend apply the declared control boundary.
-4. Complete the compatible transposition and remaining typed-policy work in
+6. Complete the compatible transposition and remaining typed-policy work in
    [P5.3 work unit 1](p5.3-remediation-review.md#work-unit-1--structured-transposition-contract)
    and [P5.4 work unit 1](p5.4-remediation-review.md#work-unit-1--typed-shared-policies).
    There must be one transposition schema and shared realization identifiers,
    not separate P5.3/P5.4 vocabularies.
-5. Complete
+7. Complete
    [P5.2 work unit 2](p5.2-remediation-review.md#work-unit-2--explicit-h1-zero-target-data-assumption):
    require and record the model-author $H^{1}_{0}$ target/zero-trace
    assumption without claiming runtime proof.
-6. Complete P5.4 work unit 2: reject unregistered Section 5.11 cross-products
-   from one resolved structural registration.
-7. Complete the shared realized-observation work in
+8. Complete
+   [P5.4 work unit 2](p5.4-remediation-review.md#work-unit-2--closed-p54-registration-matching)
+   through the closed registration matcher from the resolved C1/C2 request:
+   reject unregistered Section 5.11 cross-products.
+9. Complete
+   [C1/C2 work unit 4](c1-c2-preparation-remediation-review.md#work-unit-4--lossless-structured-compilation-provenance):
+   populate a versioned manifest from resolved decisions and realized services
+   and render compatibility prose from those records.
+10. Complete the common realized-map work in
+   [C1/C2 work unit 5](c1-c2-preparation-remediation-review.md#work-unit-5--common-realized-map-and-space-records),
    [P5.2 work unit 3](p5.2-remediation-review.md#work-unit-3--shared-realized-observation-dimensions),
-   P5.3 work unit 3, and P5.4 work unit 3. Weighted trace, normal flux, and
-   transformed state observations must obtain dimensions from the realized
-   map, not the state-coordinate fallback.
-8. Complete the remaining P5.3 fixed-boundary work: enforce complete
+   [P5.3 work unit 3](p5.3-remediation-review.md#work-unit-3--exact-observation-space-manifest-dimension),
+   and [P5.4 work unit 3](p5.4-remediation-review.md#work-unit-3--realized-transformed-observation-dimensions).
+   Weighted trace, normal flux, and
+   transformed state observations, together with the baseline boundary trace,
+   must obtain dimensions from the realized map rather than an input-coordinate
+   fallback.
+11. Complete the remaining
+   [P5.3 fixed-boundary work](p5.3-remediation-review.md#work-unit-2--complete-p53-fixed-boundaries):
+   enforce complete
    homogeneous-Dirichlet coverage for C5.8/C5.10. Preserve the outward normal,
    face-quadrature transpose, immutable physical-point evaluation, and current
    exclusions; do not reopen the broad P4.2 algebra/formulation group.

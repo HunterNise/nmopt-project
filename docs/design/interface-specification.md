@@ -107,6 +107,13 @@ A region identifies a geometric set.  It MUST declare:
 
 A region owns no PDE term and no finite-element policy.
 
+For a point-set region, the declaration additionally owns an ordered finite
+set of immutable physical coordinates. A point-sensor observation maps the
+declared state to a finite-dimensional observation space with one coefficient
+per coordinate. The coordinate evaluation rule and the transpose/very-weak
+adjoint policy remain explicit requirements of the observation and compiler;
+they are not inferred from mesh nodes or quadrature points.
+
 A boundary partition is a region declaration, for example
 
 $$
@@ -300,6 +307,12 @@ downstream loss or residual.
 
 Typical instances are restriction to a subdomain, boundary trace, normal flux,
 sensor array, time sampling, and actuator output.
+
+For a sensor array, the selected discrete map may evaluate finite-element shape
+functions at the declared physical coordinates and assemble its transpose as a
+finite-dimensional point load. This is a discrete realization policy, not an
+implicit nearest-node approximation or a claim that the continuous Dirac map
+is available on every state space.
 
 ### 3.10 Loss and objective
 

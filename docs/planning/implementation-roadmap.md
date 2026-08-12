@@ -32,10 +32,12 @@ ignored for the current ordered implementation run because their scope is too
 broad. P5.1 and its conditional C1 (`RF-008` through `RF-013`) and C2 gates
 are complete. P5.2 is complete: the full-domain $H^{1}_{0}$ state observation,
 weighted boundary trace, and separately selected discrete $H^{-1}$ metric each
-have their own semantic, lowering, and verification boundary. P5.3 is next and
-still has no registered target: its first bounded decision is between the C5.8
-normal-flux observation and C5.10 point-sensor observation, followed by an
-observation-specific strong/very-weak policy. The C5.6-style Neumann
+have their own semantic, lowering, and verification boundary. P5.3 is
+implemented for the first bounded C5.10 point-sensor target. Its immutable
+point-set, finite-dimensional FE_Q evaluation, and very-weak transpose policy
+are registered and tested. C5.8 normal-flux observation, alternate
+point-evaluation rules, and a general transposition lowerer remain unselected.
+The C5.6-style Neumann
 composition and all selected scalar Section 5.11/P5.4 Dirichlet-control
 slices are complete: the first partial controlled boundary, the Section
 5.11.2 complete-boundary $L^{2}(\Gamma)$ transposition parent, both Section
@@ -618,6 +620,20 @@ ordinary boundary trace or undeclared nodal Dirac approximation.
 the low-regularity adjoint passes its dual residual test, and the compiled
 product records all regularity, orientation, and evaluation policies.
 
+**Implemented first slice:**
+`make_point_sensor_scalar_diffusion_reaction_problem()` registers the C5.10
+finite point-sensor graph. A `point_set` region owns finite, unique physical
+coordinates and an observation space whose dimension equals the point count.
+The selected strong-state parent is
+$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ with
+$T=-\Delta+rI:Y\rightarrow L^{2}(\Omega)$ under a declared convex-or-$C^{2}$
+domain assumption. The deal.II lowerer evaluates `FE_Q` shape functions at
+the immutable physical coordinates and assembles the finite-dimensional map
+$C_{h}$ and its transpose $C_{h}^{\mathsf{T}}$; the adjoint solve therefore
+uses the declared very-weak point-load transpose. Nearest-node evaluation,
+quadrature-point coincidence, normal-flux observations, and alternate
+transposition lowerers remain rejected until separately selected.
+
 ### P5.4 — Generalize Dirichlet-control transformations and trace metrics
 
 **Motivation:** C5.11 and C5.13.2 require choices beyond the current complete
@@ -945,10 +961,10 @@ follows:
    both $H^{1/2}$ options preserve the distinct loss/metric choice, and the
    tangential $H^{1}$ option uses boundary mass plus projected-gradient
    stiffness. Their metric, stationarity, Taylor, and manifest contracts pass.
-7. Next, select P5.3's first target: either the C5.8 normal-flux observation or
-   C5.10 point-sensor observation. Document its strong/very-weak evaluation
-   policy before implementation. Reuse the completed C1/C2
-   boundaries and do not reopen the broad P4.2 algebra/formulation group.
+7. P5.3's first target is complete for C5.10 point sensors. Preserve its
+   immutable point-set, FE_Q physical-point evaluation, and very-weak transpose
+   policy. C5.8 normal flux and alternate point/transposition policies need
+   their own lowerers; do not reopen the broad P4.2 algebra/formulation group.
 
 Follow the [Stage B routing protocol](refactor/README.md) for each gate. Do not
 run S1 before P6.1 reaches the front of the ordered implementation run.

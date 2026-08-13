@@ -29,6 +29,23 @@ namespace nmopt::compiler::v1
     serial_sparse_direct_umfpack
   };
 
+  enum class CompiledFieldShape
+  {
+    unspecified,
+    scalar,
+    vector,
+    tensor,
+    scalar_constant,
+    cellwise_scalar,
+    facewise_scalar
+  };
+
+  enum class CompiledBindingStatus
+  {
+    checked,
+    provenance_only
+  };
+
   struct CompiledSpaceRecord
   {
     std::string             semantic_id;
@@ -45,6 +62,10 @@ namespace nmopt::compiler::v1
     std::size_t        active_cells = 0;
     std::string        provenance;
     MeshLifetimePolicy lifetime = MeshLifetimePolicy::borrowed_immutable;
+    // Stable identity of the mesh structure consumed by lowering.  This is
+    // deliberately separate from caller provenance: two meshes can have the
+    // same source label while producing different discrete operators.
+    std::string        structural_identity;
   };
 
   struct CompiledBindingRecord
@@ -57,6 +78,11 @@ namespace nmopt::compiler::v1
     std::string            representation;
     std::string            evaluation_realisation;
     std::string            provenance;
+    CompiledFieldShape     field_shape = CompiledFieldShape::unspecified;
+    std::string            runtime_representation;
+    std::optional<double>  scalar_value;
+    std::string            value_digest;
+    CompiledBindingStatus  value_status = CompiledBindingStatus::provenance_only;
   };
 
   struct CompiledSolvePolicyRecord
@@ -94,13 +120,71 @@ namespace nmopt::compiler::v1
     std::string projection_metric_id;
   };
 
+  struct CompiledRealisationRecord
+  {
+    std::string              semantic_id;
+    std::string              kind;
+    std::string              realisation_id;
+    std::string              handler_id;
+    std::vector<std::string> input_ids;
+    std::vector<std::string> output_ids;
+    std::string              region_id;
+    semantic::v1::ResidualTermKind residual_kind =
+      semantic::v1::ResidualTermKind::unspecified;
+    semantic::v1::ObservationKind observation_kind =
+      semantic::v1::ObservationKind::unspecified;
+    semantic::v1::LossKind loss_kind = semantic::v1::LossKind::unspecified;
+    semantic::v1::TransformationKind transformation_kind =
+      semantic::v1::TransformationKind::unspecified;
+  };
+
+  struct CompiledPairingRecord
+  {
+    std::string pairing_id;
+    std::string primal_space_id;
+    std::string covector_space_id;
+  };
+
+  struct CompiledAssumptionRecord
+  {
+    std::string id;
+    std::string subject_id;
+    std::string selected_policy;
+  };
+
+  // The single typed decision selected by semantic resolution and compiler
+  // lowerability checks.  Manifest display strings are rendered from this
+  // record and retained only as a compatibility view.
+  struct ResolvedCompilationDecision
+  {
+    std::string                         semantic_problem_id;
+    std::string                         formulation_id;
+    std::string                         target_id;
+    std::string                         execution_id = "assembled";
+    std::vector<CompiledSpaceRecord>    spaces;
+    std::vector<CompiledBindingRecord>  bindings;
+    std::vector<CompiledPairingRecord>  pairings;
+    std::vector<CompiledRealisationRecord> residuals;
+    std::vector<CompiledRealisationRecord> observations;
+    std::vector<CompiledRealisationRecord> losses;
+    std::vector<CompiledRealisationRecord> transformations;
+    CompiledSolvePolicyRecord             state_solve_record;
+    CompiledSolvePolicyRecord             adjoint_solve_record;
+    CompiledMetricRecord                  metric_record;
+    CompiledConstraintRecord              constraint_record;
+    std::optional<semantic::v1::BoundaryRealisationSelection>
+      boundary_realisation;
+    std::vector<CompiledAssumptionRecord> assumptions;
+  };
+
   // This is descriptive provenance, not a second executable configuration.
   // It records the selected compilation choices that affect the discrete
   // model, so a later DTO/OTD or assembled/matrix-free result cannot be
   // mistaken for the same computation.
   struct CompilationManifest
   {
-    unsigned int                         schema_version = 1;
+    unsigned int                         schema_version = 2;
+    ResolvedCompilationDecision           resolved_decision;
     CompiledFormulationRecord            formulation_record;
     CompiledMeshRecord                   mesh_record;
     std::vector<CompiledSpaceRecord>      spaces;

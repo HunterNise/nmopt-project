@@ -400,7 +400,7 @@ namespace
         });
     };
     contract::require(
-      manifest.schema_version == 1 &&
+      manifest.schema_version == 2 &&
         manifest.formulation_record.kind ==
           semantic::v1::FormulationKind::reduced_dto &&
         manifest.formulation_record.execution ==
@@ -417,7 +417,16 @@ namespace
         manifest.state_solve_record.maximum_iterations > 0 &&
         manifest.adjoint_solve_record.maximum_iterations > 0 &&
         !manifest.metric_record.semantic_id.empty() &&
-        !manifest.metric_record.realisation_id.empty(),
+        !manifest.metric_record.realisation_id.empty() &&
+        !manifest.mesh_record.structural_identity.empty() &&
+        manifest.resolved_decision.semantic_problem_id ==
+          manifest.semantic_problem_id &&
+        manifest.resolved_decision.formulation_id ==
+          manifest.formulation_record.semantic_id &&
+        manifest.resolved_decision.spaces.size() == manifest.spaces.size() &&
+        manifest.resolved_decision.bindings.size() == manifest.bindings.size() &&
+        !manifest.resolved_decision.residuals.empty() &&
+        !manifest.resolved_decision.observations.empty(),
       target + " structured manifest is incomplete");
   }
 
@@ -4004,7 +4013,7 @@ namespace
         evaluation.adjoint_solve.maximum_iterations == 419,
       "detached compiled service did not retain its solve policies and reports");
     contract::require(
-      detached.manifest.schema_version == 1 &&
+      detached.manifest.schema_version == 2 &&
         detached.manifest.mesh_record.dimension ==
           static_cast<unsigned int>(dim) &&
         detached.manifest.mesh_record.active_cells == 16 &&
@@ -4019,6 +4028,9 @@ namespace
         detached.manifest.constraint_record.realisation_id == "l2_cellwise" &&
         detached.manifest.constraint_record.projection_metric_id ==
           detached.manifest.metric_record.realisation_id &&
+        !detached.manifest.mesh_record.structural_identity.empty() &&
+        detached.manifest.resolved_decision.semantic_problem_id ==
+          detached.manifest.semantic_problem_id &&
         !detached.manifest.spaces.empty() &&
         !detached.manifest.bindings.empty(),
       "structured compilation manifest omitted resolved session decisions");
@@ -4418,10 +4430,57 @@ namespace
                         compiled_constraint->is_feasible(bounded_control),
                       "v1 compiler did not preserve the declared box constraint");
     const auto &manifest = compilation.problem->manifest();
+    dealii::Triangulation<dim> coarser_triangulation;
+    dealii::GridGenerator::hyper_cube(coarser_triangulation);
+    coarser_triangulation.refine_global(1);
+    const auto coarser_compilation = v1_compiler.compile(
+      specification,
+      coarser_triangulation,
+      data_bindings,
+      compilation_policy,
+      bound_bindings);
+    contract::require(
+      coarser_compilation.succeeded() &&
+        coarser_compilation.problem->manifest().mesh_record.structural_identity !=
+          manifest.mesh_record.structural_identity,
+      "v1 mesh provenance did not distinguish different compiled structures");
     require_constraint_realisation(
       manifest,
       "FE_DGQ(0) coefficientwise l2_cellwise clipping",
       "canonical volume control");
+    const auto diffusion_binding = std::find_if(
+      manifest.bindings.begin(),
+      manifest.bindings.end(),
+      [](const compiler::v1::CompiledBindingRecord &record) {
+        return record.role == semantic::v1::DataRole::diffusion;
+      });
+    const auto lower_binding = std::find_if(
+      manifest.bindings.begin(),
+      manifest.bindings.end(),
+      [](const compiler::v1::CompiledBindingRecord &record) {
+        return record.role == semantic::v1::DataRole::lower_bound;
+      });
+    const auto upper_binding = std::find_if(
+      manifest.bindings.begin(),
+      manifest.bindings.end(),
+      [](const compiler::v1::CompiledBindingRecord &record) {
+        return record.role == semantic::v1::DataRole::upper_bound;
+      });
+    contract::require(
+      diffusion_binding != manifest.bindings.end() &&
+        diffusion_binding->field_shape ==
+          compiler::v1::CompiledFieldShape::scalar_constant &&
+        diffusion_binding->scalar_value.has_value() &&
+        *diffusion_binding->scalar_value == 1.0 &&
+        !diffusion_binding->value_digest.empty() &&
+        lower_binding != manifest.bindings.end() &&
+        lower_binding->scalar_value.has_value() &&
+        *lower_binding->scalar_value == -1.0 &&
+        upper_binding != manifest.bindings.end() &&
+        upper_binding->scalar_value.has_value() &&
+        *upper_binding->scalar_value == 0.05 &&
+        manifest.resolved_decision.target_id.find("compiled_target:") == 0,
+      "v1 compiler did not retain lossless scalar binding provenance");
     contract::require(manifest.semantic_problem_id == specification.id &&
                         manifest.provenance == "DTO" &&
                         manifest.execution == "assembled",

@@ -16,14 +16,20 @@
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/fe/mapping_q1.h>
+#include <deal.II/base/geometry_info.h>
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -726,6 +732,57 @@ namespace nmopt::compiler::v1
       if (!result.diagnostics.valid())
         return result;
 
+      // Resolve the target and all semantic component choices before any
+      // backend model is constructed.  The executable below consumes this
+      // decision; the manifest receives the same record rather than
+      // inferring it from the constructed model.
+      const CompiledTargetKind target_kind = uses_mean_zero_gauge
+                                               ? CompiledTargetKind::pure_neumann
+                                             : uses_weighted_boundary_trace
+                                               ? CompiledTargetKind::weighted_boundary_trace
+                                             : uses_neumann_boundary_control
+                                               ? CompiledTargetKind::neumann_boundary
+                                             : uses_dirichlet_control
+                                               ? (uses_l2_dirichlet_control
+                                                    ? CompiledTargetKind::
+                                                        l2_dirichlet_transposition
+                                                  : uses_normalized_dirichlet_laplace
+                                                    ? (uses_h1_control_regularisation_loss(
+                                                         specification)
+                                                         ? CompiledTargetKind::
+                                                             h1_dirichlet_control
+                                                       : uses_h1_state_observation
+                                                         ? CompiledTargetKind::
+                                                             h1_tracking_hhalf_dirichlet_control
+                                                         : CompiledTargetKind::
+                                                             hhalf_dirichlet_control)
+                                                    : CompiledTargetKind::
+                                                        dirichlet_control)
+                                             : uses_coefficient_identification
+                                               ? CompiledTargetKind::coefficient_identification
+                                             : uses_hminus1_control_metric
+                                               ? CompiledTargetKind::hminus1_control_metric
+                                             : uses_h1_control_regularisation
+                                               ? (uses_h1_control_metric
+                                                    ? CompiledTargetKind::h1_control_h1_metric
+                                                    : CompiledTargetKind::h1_control_l2_metric)
+                                             : uses_homogeneous_dirichlet_continuous_control
+                                               ? CompiledTargetKind::continuous_control_l2_metric
+                                             : uses_point_sensor
+                                               ? CompiledTargetKind::point_sensor
+                                             : uses_normal_flux
+                                               ? CompiledTargetKind::normal_flux
+                                             : uses_assembled_v1_target
+                                               ? (uses_general_scalar
+                                                    ? CompiledTargetKind::general_scalar_robin
+                                                    : CompiledTargetKind::assembled_volume)
+                                               : CompiledTargetKind::direct_volume;
+      const ResolvedCompilationDecision resolved_decision =
+        make_resolved_decision(specification,
+                               policy,
+                               target_kind,
+                               scalar_plan ? &*scalar_plan : nullptr);
+
       const auto fixed_dirichlet_boundary_ids =
         uses_general_scalar && scalar_plan
           ? boundary_ids_from_plan(scalar_plan->dirichlet_boundary_ids)
@@ -1138,47 +1195,6 @@ namespace nmopt::compiler::v1
             }};
           executable = direct;
         }
-      const CompiledTargetKind target_kind = uses_mean_zero_gauge
-                                               ? CompiledTargetKind::pure_neumann
-                                             : uses_weighted_boundary_trace
-                                               ? CompiledTargetKind::weighted_boundary_trace
-                                             : uses_neumann_boundary_control
-                                               ? CompiledTargetKind::neumann_boundary
-                                             : uses_dirichlet_control
-                                               ? (uses_l2_dirichlet_control
-                                                    ? CompiledTargetKind::
-                                                        l2_dirichlet_transposition
-                                                  : uses_normalized_dirichlet_laplace
-                                                    ? (uses_h1_control_regularisation_loss(
-                                                         specification)
-                                                         ? CompiledTargetKind::
-                                                             h1_dirichlet_control
-                                                       : uses_h1_state_observation
-                                                         ? CompiledTargetKind::
-                                                             h1_tracking_hhalf_dirichlet_control
-                                                         : CompiledTargetKind::
-                                                             hhalf_dirichlet_control)
-                                                    : CompiledTargetKind::
-                                                        dirichlet_control)
-                                             : uses_coefficient_identification
-                                               ? CompiledTargetKind::coefficient_identification
-                                             : uses_hminus1_control_metric
-                                               ? CompiledTargetKind::hminus1_control_metric
-                                             : uses_h1_control_regularisation
-                                               ? (uses_h1_control_metric
-                                                    ? CompiledTargetKind::h1_control_h1_metric
-                                                    : CompiledTargetKind::h1_control_l2_metric)
-                                             : uses_homogeneous_dirichlet_continuous_control
-                                               ? CompiledTargetKind::continuous_control_l2_metric
-                                             : uses_point_sensor
-                                               ? CompiledTargetKind::point_sensor
-                                             : uses_normal_flux
-                                               ? CompiledTargetKind::normal_flux
-                                             : uses_assembled_v1_target
-                                               ? (uses_general_scalar
-                                                    ? CompiledTargetKind::general_scalar_robin
-                                                    : CompiledTargetKind::assembled_volume)
-                                               : CompiledTargetKind::direct_volume;
       result.problem = std::make_shared<const CompiledProblemT<Backend>>(
         executable,
         metric,
@@ -1188,6 +1204,7 @@ namespace nmopt::compiler::v1
                       policy,
                       constraint_realisation,
                       target_kind,
+                      resolved_decision,
                       *tracking_region,
                       control_boundary_region,
                       data,
@@ -3608,6 +3625,202 @@ namespace nmopt::compiler::v1
              ", conormal=outward(A grad(y) - b y), trace=FE_Q state trace, face=QGauss";
     }
 
+    static std::uint64_t
+    hash_word(const std::uint64_t hash, const std::uint64_t word)
+    {
+      std::uint64_t result = hash;
+      for (unsigned int byte = 0; byte < sizeof(word); ++byte)
+        {
+          result ^= (word >> (8U * byte)) & 0xffU;
+          result *= 1099511628211ULL;
+        }
+      return result;
+    }
+
+    static std::uint64_t
+    double_bits(const double value)
+    {
+      std::uint64_t bits = 0;
+      static_assert(sizeof(bits) == sizeof(value));
+      std::memcpy(&bits, &value, sizeof(bits));
+      return bits;
+    }
+
+    static std::string
+    hash_text(const std::uint64_t hash)
+    {
+      std::ostringstream stream;
+      stream << "fnv1a64:0x" << std::hex << std::setw(16) << std::setfill('0')
+             << hash;
+      return stream.str();
+    }
+
+    static std::string
+    vector_identity(const dealii::Vector<double> &values)
+    {
+      std::uint64_t hash = 1469598103934665603ULL;
+      hash = hash_word(hash, values.size());
+      for (std::size_t index = 0; index < values.size(); ++index)
+        hash = hash_word(hash, double_bits(values[index]));
+      return hash_text(hash);
+    }
+
+    template <int dim>
+    static std::string
+    mesh_structural_identity(const dealii::Triangulation<dim> &triangulation)
+    {
+      std::uint64_t hash = 1469598103934665603ULL;
+      hash = hash_word(hash, dim);
+      hash = hash_word(hash, triangulation.n_active_cells());
+      for (const auto &cell : triangulation.active_cell_iterators())
+        {
+          hash = hash_word(hash, cell->material_id());
+          for (unsigned int vertex = 0;
+               vertex < dealii::GeometryInfo<dim>::vertices_per_cell;
+               ++vertex)
+            for (unsigned int coordinate = 0; coordinate < dim; ++coordinate)
+              hash = hash_word(hash, double_bits(cell->vertex(vertex)[coordinate]));
+          for (unsigned int face = 0;
+               face < dealii::GeometryInfo<dim>::faces_per_cell;
+               ++face)
+            {
+              hash = hash_word(hash, cell->face(face)->at_boundary() ? 1U : 0U);
+              hash = hash_word(hash, cell->face(face)->boundary_id());
+            }
+        }
+      return hash_text(hash);
+    }
+
+    static CompiledFieldShape
+    compiled_field_shape(const semantic::v1::DataKind kind)
+    {
+      switch (kind)
+        {
+          case semantic::v1::DataKind::function:
+            return CompiledFieldShape::scalar;
+          case semantic::v1::DataKind::vector_function:
+            return CompiledFieldShape::vector;
+          case semantic::v1::DataKind::tensor_function:
+            return CompiledFieldShape::tensor;
+          case semantic::v1::DataKind::scalar_constant:
+            return CompiledFieldShape::scalar_constant;
+          case semantic::v1::DataKind::cellwise_bound:
+            return CompiledFieldShape::cellwise_scalar;
+          case semantic::v1::DataKind::facewise_bound:
+            return CompiledFieldShape::facewise_scalar;
+          case semantic::v1::DataKind::unspecified:
+            return CompiledFieldShape::unspecified;
+        }
+      return CompiledFieldShape::unspecified;
+    }
+
+    static std::string
+    target_id(const CompiledTargetKind target)
+    {
+      return "compiled_target:" + std::to_string(static_cast<int>(target));
+    }
+
+    static std::string
+    enum_id(const int value)
+    {
+      return "semantic_enum:" + std::to_string(value);
+    }
+
+    static std::string
+    handler_for(const ScalarLoweringPlan *plan, const std::string &component_id)
+    {
+      if (plan == nullptr)
+        return "registered-target";
+      for (const auto &term : plan->residual_terms)
+        if (term.component_id == component_id)
+          return term.handler_id;
+      for (const auto &observation : plan->observations)
+        if (observation.component_id == component_id)
+          return observation.handler_id;
+      for (const auto &loss : plan->losses)
+        if (loss.component_id == component_id)
+          return loss.handler_id;
+      return "registered-target";
+    }
+
+    static ResolvedCompilationDecision
+    make_resolved_decision(const semantic::v1::ProblemSpec &specification,
+                           const DealiiDiscretisationPolicy &policy,
+                           const CompiledTargetKind target,
+                           const ScalarLoweringPlan *scalar_plan)
+    {
+      ResolvedCompilationDecision decision;
+      decision.semantic_problem_id = specification.id;
+      decision.formulation_id = specification.formulation.id;
+      decision.target_id = target_id(target);
+      for (const auto &space : specification.spaces)
+        decision.spaces.push_back(
+          {space.id,
+           space.role,
+           compiled_space_runtime_role(space.role),
+           space.region_id,
+           compiled_space_finite_element(space, target, policy),
+           0});
+      for (const auto &pairing : specification.pairings)
+        decision.pairings.push_back(
+          {pairing.id, pairing.primal_space_id, pairing.covector_space_id});
+      for (const auto &term : specification.residual_terms)
+        decision.residuals.push_back(
+          {term.id,
+           enum_id(static_cast<int>(term.kind)),
+           "resolved",
+           handler_for(scalar_plan, term.id),
+           term.variable_ids,
+           term.data_ids,
+           term.region_id,
+           term.kind});
+      for (const auto &observation : specification.observations)
+        decision.observations.push_back(
+          {observation.id,
+           enum_id(static_cast<int>(observation.kind)),
+           "resolved",
+           handler_for(scalar_plan, observation.id),
+           {observation.input_variable_id},
+           {observation.output_space_id},
+           observation.region_id,
+           semantic::v1::ResidualTermKind::unspecified,
+           observation.kind});
+      for (const auto &loss : specification.losses)
+        decision.losses.push_back(
+          {loss.id,
+           enum_id(static_cast<int>(loss.kind)),
+           "resolved",
+           handler_for(scalar_plan, loss.id),
+           {loss.source_observation_id, loss.data_id},
+           {loss.pairing_id},
+           {},
+           semantic::v1::ResidualTermKind::unspecified,
+           semantic::v1::ObservationKind::unspecified,
+           loss.kind});
+      for (const auto &transformation : specification.transformations)
+        decision.transformations.push_back(
+          {transformation.id,
+           enum_id(static_cast<int>(transformation.kind)),
+           "resolved",
+           scalar_plan == nullptr ? "registered-target"
+                                   : scalar_plan->transformation_handler_id,
+           {transformation.input_variable_id,
+            transformation.fixed_data_id,
+            transformation.control_variable_id},
+           {transformation.output_space_id},
+           {},
+           semantic::v1::ResidualTermKind::unspecified,
+           semantic::v1::ObservationKind::unspecified,
+           semantic::v1::LossKind::unspecified,
+           transformation.kind});
+      if (scalar_plan != nullptr)
+        decision.boundary_realisation = scalar_plan->boundary_selection;
+      for (const auto &requirement : specification.requirement_policies)
+        decision.assumptions.push_back(
+          {requirement.id, requirement.subject_id, requirement.selected_policy});
+      return decision;
+    }
+
     template <int dim>
     static CompilationManifest
     make_manifest(
@@ -3615,6 +3828,7 @@ namespace nmopt::compiler::v1
       const DealiiDiscretisationPolicy &policy,
       const ConstraintRealisation       constraint_realisation,
       const CompiledTargetKind          target,
+      const ResolvedCompilationDecision &decision,
       const semantic::v1::RegionSpec &  tracking_region,
       const semantic::v1::RegionSpec *  control_boundary_region,
       const DealiiDataBindings<dim> &    data,
@@ -3628,6 +3842,7 @@ namespace nmopt::compiler::v1
       const ScalarLoweringPlan *          scalar_plan)
     {
       CompilationManifest manifest;
+      manifest.resolved_decision = decision;
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_hhalf_dirichlet_control =
@@ -3695,7 +3910,8 @@ namespace nmopt::compiler::v1
         triangulation.n_active_cells(),
         mesh_provenance,
         owns_mesh ? MeshLifetimePolicy::owned_session
-                  : MeshLifetimePolicy::borrowed_immutable};
+                  : MeshLifetimePolicy::borrowed_immutable,
+        mesh_structural_identity(triangulation)};
       for (const auto &space : specification.spaces)
         manifest.spaces.push_back(
           {space.id,
@@ -3710,6 +3926,9 @@ namespace nmopt::compiler::v1
           record.semantic_id = binding.id;
           record.role = binding.role;
           record.kind = binding.kind;
+          record.field_shape = compiled_field_shape(binding.kind);
+          record.runtime_representation =
+            "semantic DataKind " + std::to_string(static_cast<int>(binding.kind));
           record.space_id = binding.space_id;
           if (!binding.space_id.empty())
             {
@@ -3820,8 +4039,81 @@ namespace nmopt::compiler::v1
                 record.provenance = "unspecified";
                 break;
             }
+          record.runtime_representation = record.representation;
+          const auto record_scalar = [&record](const double value) {
+            record.scalar_value = value;
+            record.value_status = CompiledBindingStatus::checked;
+            record.value_digest = hash_text(double_bits(value));
+          };
+          if (binding.role == semantic::v1::DataRole::diffusion &&
+              !uses_coefficient_identification && !uses_general_scalar &&
+              data.diffusion)
+            record_scalar(*data.diffusion);
+          else if (binding.role == semantic::v1::DataRole::reaction &&
+                   !uses_general_scalar)
+            record_scalar(data.reaction);
+          else if (binding.role == semantic::v1::DataRole::regularisation_weight)
+            record_scalar(data.regularisation_weight);
+          else if (binding.role == semantic::v1::DataRole::lower_bound &&
+                   bounds)
+            std::visit(
+              [&record, &record_scalar](const auto &value) {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, double>)
+                  record_scalar(value);
+                else
+                  {
+                    record.value_digest = vector_identity(value);
+                    record.value_status = CompiledBindingStatus::checked;
+                  }
+              },
+              bounds->lower);
+          else if (binding.role == semantic::v1::DataRole::upper_bound &&
+                   bounds)
+            std::visit(
+              [&record, &record_scalar](const auto &value) {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, double>)
+                  record_scalar(value);
+                else
+                  {
+                    record.value_digest = vector_identity(value);
+                    record.value_status = CompiledBindingStatus::checked;
+                  }
+              },
+              bounds->upper);
+          else if (binding.role == semantic::v1::DataRole::lower_bound &&
+                   facewise_bounds)
+            std::visit(
+              [&record, &record_scalar](const auto &value) {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, double>)
+                  record_scalar(value);
+                else
+                  {
+                    record.value_digest = vector_identity(value);
+                    record.value_status = CompiledBindingStatus::checked;
+                  }
+              },
+              facewise_bounds->lower);
+          else if (binding.role == semantic::v1::DataRole::upper_bound &&
+                   facewise_bounds)
+            std::visit(
+              [&record, &record_scalar](const auto &value) {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, double>)
+                  record_scalar(value);
+                else
+                  {
+                    record.value_digest = vector_identity(value);
+                    record.value_status = CompiledBindingStatus::checked;
+                  }
+              },
+              facewise_bounds->upper);
           manifest.bindings.push_back(std::move(record));
         }
+      manifest.resolved_decision.spaces = manifest.spaces;
+      manifest.resolved_decision.bindings = manifest.bindings;
 
       const std::size_t state_dimension =
         executable.test_layout()->dimension(0);
@@ -3876,6 +4168,12 @@ namespace nmopt::compiler::v1
         constraint_realisation_id(constraint_realisation),
         constraint_realisation == ConstraintRealisation::none ? "none"
                                                                : metric.id()};
+      manifest.resolved_decision.state_solve_record =
+        manifest.state_solve_record;
+      manifest.resolved_decision.adjoint_solve_record =
+        manifest.adjoint_solve_record;
+      manifest.resolved_decision.metric_record = manifest.metric_record;
+      manifest.resolved_decision.constraint_record = manifest.constraint_record;
       if (scalar_plan != nullptr)
         {
           manifest.lowering_handler_records = scalar_plan->provenance;

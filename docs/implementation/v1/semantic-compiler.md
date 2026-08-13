@@ -715,14 +715,22 @@ The P5.1 nonsymmetric target likewise records direct state and exact-transpose
 adjoint solves; it does not misreport its operator as SPD.
 
 Every successful compiled product also carries a versioned, structured
-`CompilationManifest`. Typed subrecords identify the formulation and
-execution, state/test-adjoint/decision/observation spaces, mesh provenance and
-lifetime policy, every data binding, separate state and adjoint solve policies,
-the metric realization and inverse policy, and the constraint realization
-coupled to the actual selected metric. Existing human-readable fields are a
-rendered compatibility view, not a configuration or test-parsing channel. The
-compiler selects a typed internal constraint realization alongside the
-constructed service, then renders it into that view.
+`CompilationManifest` (schema version 2). A `ResolvedCompilationDecision` is
+created after semantic/lowerability checks and before backend model
+construction. It is the single typed record for the selected target,
+formulation, spaces, bindings, pairings, residuals, observations, losses,
+transformations, boundary policy, and declared assumptions. The constructed
+model and the manifest consume that decision; they do not independently select
+those semantic components.
+
+Binding records retain their semantic field shape, concrete runtime
+representation, checked status, scalar value where applicable, and an exact
+FNV-1a identity for vector bounds. Mesh records retain caller/owned lifetime
+and provenance separately from a structural fingerprint covering topology,
+coordinates, material IDs, and boundary IDs. Existing human-readable fields
+are a rendered compatibility view, not a configuration or test-parsing
+channel. The compiler selects a typed internal constraint realization
+alongside the constructed service, then renders it into that view.
 Component-planned products additionally record the exact handler provenance
 used to lower every contribution; tests assert those records rather than
 inferring lowering from display text.

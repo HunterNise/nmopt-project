@@ -626,13 +626,17 @@ Before an executable component is accepted, tests cover:
 7. constraint/lifting/nullspace behavior after the exact same
    `AffineConstraints` and distribution path used in production.
 
-Each output records a compilation manifest containing semantic identifiers,
-FE and mesh selections, quadrature, data rules, pairings/dual
-representation, constraint and lifting realization, nullspace policy, solver
-policy, provenance (DTO or OTD), and declared assumptions. This manifest is
-emitted with solver diagnostics so results can be reproduced and DTO/OTD or
-assembled/matrix-free comparisons cannot be mistaken for the same discrete
-problem.
+Each output records a schema-versioned compilation manifest containing a
+`ResolvedCompilationDecision` selected before backend model construction.
+Typed records cover semantic identifiers, FE and mesh selections, mesh
+structural identity and lifetime, lossless data-binding shape/value identity,
+quadrature, pairings/dual representation, residual/observation/loss and
+transformation realizations, boundary policy, constraint and lifting
+realization, nullspace policy, solver policy, provenance (DTO or OTD), and
+declared assumptions. Human-readable fields are rendered compatibility output
+only. This manifest is emitted with solver diagnostics so results can be
+reproduced and DTO/OTD or assembled/matrix-free comparisons cannot be
+mistaken for the same discrete problem.
 
 ## 13. Acceptance criterion for future features
 

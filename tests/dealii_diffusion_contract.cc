@@ -252,13 +252,20 @@ namespace
   class RightBoundaryNormalFluxFunction final : public dealii::Function<dim>
   {
   public:
+    explicit RightBoundaryNormalFluxFunction(const double scale = 1.0)
+      : scale_(scale)
+    {}
+
     double
     value(const dealii::Point<dim> &point,
           const unsigned int        component = 0) const override
     {
       (void)component;
-      return -point[1] * (1.0 - point[1]);
+      return -scale_ * point[1] * (1.0 - point[1]);
     }
+
+  private:
+    double scale_;
   };
 
   compiler::v1::DealiiBindingProvenance
@@ -420,6 +427,24 @@ namespace
                  (map.input_dimensions.size() == 1 &&
                   map.input_dimensions.front() == map.output_dimension);
         });
+    const auto observation_map_dimensions_match_spaces =
+      std::all_of(
+        manifest.realized_maps.begin(),
+        manifest.realized_maps.end(),
+        [&manifest](const compiler::v1::CompiledRealizedMapRecord &map) {
+          if (std::find(manifest.observation_ids.begin(),
+                        manifest.observation_ids.end(),
+                        map.semantic_id) == manifest.observation_ids.end())
+            return true;
+          const auto space = std::find_if(
+            manifest.spaces.begin(),
+            manifest.spaces.end(),
+            [&map](const compiler::v1::CompiledSpaceRecord &candidate) {
+              return candidate.semantic_id == map.output_space_id;
+            });
+          return space != manifest.spaces.end() &&
+                 space->dimension == map.output_dimension;
+        });
     contract::require(
       std::all_of(manifest.observation_ids.begin(),
                   manifest.observation_ids.end(),
@@ -427,7 +452,8 @@ namespace
         std::all_of(manifest.transformation_ids.begin(),
                     manifest.transformation_ids.end(),
                     has_realized_map) &&
-        control_restrictions_are_coefficient_maps,
+        control_restrictions_are_coefficient_maps &&
+        observation_map_dimensions_match_spaces,
       target + " manifest omitted a realized observation or transformation map");
     contract::require(
       manifest.schema_version == 2 &&
@@ -1769,6 +1795,7 @@ namespace
     contract::require(compilation.succeeded(),
                       "point-sensor v1 compilation failed");
     const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
     const auto *point_model =
       dynamic_cast<const compiler::v1::detail::ScalarComponentModel<dim> *>(
         &model);
@@ -1832,6 +1859,38 @@ namespace
                   1e-10,
                   "point-sensor very-weak adjoint dual residual");
 
+    dealii::Vector<double> direction_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size();
+         ++index)
+      direction_values[index] =
+        (index % 2 == 0 ? 0.04 : -0.03) * static_cast<double>(index + 1);
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const double reduced_directional_derivative =
+      contract::pair(evaluation.reduced_derivative, direction);
+    constexpr double derivative_step = 1e-6;
+    const double centered_reduced_derivative =
+      (reduced.evaluate(shifted(control, direction, derivative_step))
+           .objective_value -
+       reduced.evaluate(shifted(control, direction, -derivative_step))
+           .objective_value) /
+      (2.0 * derivative_step);
+    require_close(centered_reduced_derivative,
+                  reduced_directional_derivative,
+                  2e-7,
+                  "point-sensor reduced objective directional derivative");
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, direction, step))
+                        .objective_value -
+                      evaluation.objective_value -
+                      step * reduced_directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "point-sensor reduced Taylor remainder is not quadratic");
+
     const auto &manifest = compilation.problem->manifest();
     const auto point_map = std::find_if(
       manifest.realized_maps.begin(),
@@ -1894,7 +1953,7 @@ namespace
 
     constexpr double reaction = 0.5;
     const EnergyPolynomialForcing<dim> forcing(reaction);
-    const RightBoundaryNormalFluxFunction<dim> desired_state;
+    const RightBoundaryNormalFluxFunction<dim> desired_state(0.5);
     const auto specification =
       semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem(
         {7}, {0, 7});
@@ -1976,6 +2035,7 @@ namespace
     contract::require(compilation.succeeded(),
                       "normal-flux v1 compilation failed");
     const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
     const auto *normal_flux_model =
       dynamic_cast<const compiler::v1::detail::ScalarComponentModel<dim> *>(
         &model);
@@ -2004,9 +2064,9 @@ namespace
     contract::require(normal_flux_value_vector.l2_norm() > 1e-6,
                       "normal-flux value map was unexpectedly zero");
     require_close(evaluation.objective_value,
-                  0.0,
+                  1.0 / 240.0,
                   2e-10,
-                  "normal-flux outward-orientation tracking value");
+                  "normal-flux nonzero mismatch tracking value");
 
     dealii::Vector<double> state_tangent(model.variable_layout()->dimension(0));
     for (dealii::types::global_dof_index index = 0;
@@ -2040,7 +2100,7 @@ namespace
                             {std::move(zero_state), std::move(zero_control)});
     std::vector<double> objective_seed(normal_flux_values.size());
     for (std::size_t index = 0; index < objective_seed.size(); ++index)
-      objective_seed[index] = -normal_flux_values[index];
+      objective_seed[index] = -0.5 * normal_flux_values[index];
     const Covector expected_objective_state =
       normal_flux_model->normal_flux_vjp(objective_seed);
     const Covector actual_objective = model.objective_derivative(zero_point);
@@ -2062,6 +2122,38 @@ namespace
                   0.0,
                   1e-10,
                   "normal-flux very-weak adjoint dual residual");
+
+    dealii::Vector<double> direction_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size();
+         ++index)
+      direction_values[index] =
+        (index % 2 == 0 ? 0.04 : -0.03) * static_cast<double>(index + 1);
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const double reduced_directional_derivative =
+      contract::pair(evaluation.reduced_derivative, direction);
+    constexpr double derivative_step = 1e-6;
+    const double centered_reduced_derivative =
+      (reduced.evaluate(shifted(control, direction, derivative_step))
+           .objective_value -
+       reduced.evaluate(shifted(control, direction, -derivative_step))
+           .objective_value) /
+      (2.0 * derivative_step);
+    require_close(centered_reduced_derivative,
+                  reduced_directional_derivative,
+                  2e-7,
+                  "normal-flux reduced objective directional derivative");
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, direction, step))
+                        .objective_value -
+                      evaluation.objective_value -
+                      step * reduced_directional_derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(coarse_remainder > 1e-12 &&
+                        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+                      "normal-flux reduced Taylor remainder is not quadratic");
 
     const auto &manifest = compilation.problem->manifest();
     const auto normal_flux_map = std::find_if(
@@ -2624,6 +2716,11 @@ namespace
 
     const auto &weighted_model = weighted.problem->executable_model();
     const auto &comparison_model = comparison.problem->executable_model();
+    const auto *weighted_neumann_model =
+      dynamic_cast<const compiler::v1::detail::NeumannBoundaryControlModel<dim> *>(
+        &weighted_model);
+    contract::require(weighted_neumann_model != nullptr,
+                      "weighted trace compilation did not produce its Neumann target");
     dealii::Vector<double> zero_control_values(
       weighted_model.variable_layout()->dimension(1));
     const Primal zero_control(
@@ -2779,7 +2876,8 @@ namespace
       "weighted trace manifest omitted weight, target, quadrature, or metric provenance");
     contract::require(
       weighted_map != manifest.realized_maps.end() &&
-        weighted_map->output_dimension > 0 &&
+        weighted_map->output_dimension ==
+          weighted_neumann_model->realized_observation_dimension() &&
         weighted_map->output_layout.find("boundary face") != std::string::npos,
       "weighted trace realized map is missing its face-quadrature output");
     const auto weighted_observation_record = std::find_if(

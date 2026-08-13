@@ -4,6 +4,7 @@
 #include "nmopt/semantic/v1/resolved_problem.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <optional>
 #include <set>
 #include <string>
@@ -222,6 +223,12 @@ namespace nmopt::compiler::v1
     std::vector<ScalarDataPlacement>        data_placements;
     std::set<unsigned int>                  robin_boundary_ids;
 
+    enum class Registration
+    {
+      diffusion_reaction,
+      general_tensor_transport_robin
+    };
+
     bool
     has(const ScalarResidualOperatorKind kind) const
     {
@@ -231,6 +238,52 @@ namespace nmopt::compiler::v1
         [kind](const ScalarResidualContribution &contribution) {
           return contribution.operator_kind == kind;
         });
+    }
+
+    std::size_t
+    count(const ScalarResidualOperatorKind kind) const
+    {
+      return static_cast<std::size_t>(std::count_if(
+        residual_terms.begin(),
+        residual_terms.end(),
+        [kind](const ScalarResidualContribution &contribution) {
+          return contribution.operator_kind == kind;
+        }));
+    }
+
+    std::optional<Registration>
+    registration() const
+    {
+      const auto exactly_once = [this](const ScalarResidualOperatorKind kind) {
+        return count(kind) == 1;
+      };
+      const auto absent = [this](const ScalarResidualOperatorKind kind) {
+        return count(kind) == 0;
+      };
+
+      const bool diffusion_reaction =
+        exactly_once(ScalarResidualOperatorKind::diffusion_reaction) &&
+        exactly_once(ScalarResidualOperatorKind::volume_source) &&
+        exactly_once(ScalarResidualOperatorKind::volume_control) &&
+        residual_terms.size() == 3;
+      if (diffusion_reaction)
+        return Registration::diffusion_reaction;
+
+      const bool general_tensor_transport_robin =
+        exactly_once(ScalarResidualOperatorKind::tensor_diffusion) &&
+        exactly_once(ScalarResidualOperatorKind::conservative_transport) &&
+        exactly_once(ScalarResidualOperatorKind::advective_transport) &&
+        exactly_once(ScalarResidualOperatorKind::reaction) &&
+        exactly_once(ScalarResidualOperatorKind::volume_source) &&
+        exactly_once(ScalarResidualOperatorKind::volume_control) &&
+        exactly_once(ScalarResidualOperatorKind::robin_bilinear) &&
+        exactly_once(ScalarResidualOperatorKind::robin_source) &&
+        residual_terms.size() == 8 && absent(
+          ScalarResidualOperatorKind::diffusion_reaction);
+      if (general_tensor_transport_robin)
+        return Registration::general_tensor_transport_robin;
+
+      return std::nullopt;
     }
 
     const ScalarDataPlacement *

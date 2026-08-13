@@ -1916,6 +1916,8 @@ namespace
       nmopt::compiler::v1::residual_assembly_plan(*general_plan.plan);
     const auto canonical_residual_assembly =
       nmopt::compiler::v1::residual_assembly_plan(*planned.plan);
+    auto incomplete_general_residual_assembly = general_residual_assembly;
+    incomplete_general_residual_assembly.residual_terms.pop_back();
     require(general_residual_assembly.has(
               nmopt::compiler::v1::ScalarResidualOperatorKind::tensor_diffusion) &&
               general_residual_assembly.has(
@@ -1931,8 +1933,17 @@ namespace
               general_residual_assembly.placement("diffusion_tensor") != nullptr &&
               general_residual_assembly.placement("robin_source") != nullptr &&
               general_residual_assembly.robin_boundary_ids ==
-                std::set<unsigned int>{1},
-            "scalar residual assembly did not preserve selected typed contributions");
+                std::set<unsigned int>{1} &&
+              general_residual_assembly.registration().has_value() &&
+              *general_residual_assembly.registration() ==
+                nmopt::compiler::v1::ScalarResidualAssemblyPlan::Registration::
+                  general_tensor_transport_robin &&
+              canonical_residual_assembly.registration().has_value() &&
+              *canonical_residual_assembly.registration() ==
+                nmopt::compiler::v1::ScalarResidualAssemblyPlan::Registration::
+                  diffusion_reaction &&
+              !incomplete_general_residual_assembly.registration().has_value(),
+            "scalar residual assembly did not preserve closed typed registrations");
 
     const auto canonical_services =
       nmopt::compiler::v1::service_plan(*planned.plan);

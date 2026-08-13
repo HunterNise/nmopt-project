@@ -491,6 +491,40 @@ namespace
   }
 
   void
+  require_compiled_binding_records_equal(
+    const std::vector<compiler::v1::CompiledBindingRecord> &actual,
+    const std::vector<compiler::v1::CompiledBindingRecord> &expected,
+    const std::string &                                      description)
+  {
+    contract::require(actual.size() == expected.size(),
+                      description + " changed its binding record count");
+    for (const auto &record : actual)
+      {
+        const auto match = std::find_if(
+          expected.begin(),
+          expected.end(),
+          [&record](const compiler::v1::CompiledBindingRecord &candidate) {
+            return candidate.semantic_id == record.semantic_id;
+          });
+        contract::require(match != expected.end(),
+                          description + " lost binding " + record.semantic_id);
+        contract::require(
+          record.role == match->role && record.kind == match->kind &&
+            record.space_id == match->space_id &&
+            record.region_id == match->region_id &&
+            record.representation == match->representation &&
+            record.evaluation_realisation == match->evaluation_realisation &&
+            record.runtime_representation == match->runtime_representation &&
+            record.provenance == match->provenance &&
+            record.field_shape == match->field_shape &&
+            record.scalar_value == match->scalar_value &&
+            record.value_digest == match->value_digest &&
+            record.value_status == match->value_status,
+          description + " changed binding " + record.semantic_id);
+      }
+  }
+
+  void
   run_projection_compatibility_contract_test()
   {
     const auto layout = std::make_shared<const contract::BlockLayout>(
@@ -4848,6 +4882,67 @@ namespace
         coarser_compilation.problem->manifest().mesh_record.structural_identity !=
           manifest.mesh_record.structural_identity,
       "v1 mesh provenance did not distinguish different compiled structures");
+
+    auto relabeled_specification = specification;
+    relabeled_specification.label = "same typed scalar graph, different label";
+    for (auto &region : relabeled_specification.regions)
+      region.label += " (renamed)";
+    for (auto &space : relabeled_specification.spaces)
+      space.label += " (renamed)";
+    const auto relabeled_compilation = v1_compiler.compile(
+      relabeled_specification,
+      triangulation,
+      data_bindings,
+      compilation_policy,
+      bound_bindings);
+    contract::require(relabeled_compilation.succeeded(),
+                      "v1 compiler rejected a label-only graph change");
+    require_compiled_binding_records_equal(
+      relabeled_compilation.problem->manifest().resolved_decision.bindings,
+      manifest.resolved_decision.bindings,
+      "label-only graph change");
+    contract::require(
+      relabeled_compilation.problem->manifest().resolved_decision.target_id ==
+        manifest.resolved_decision.target_id &&
+        relabeled_compilation.problem->manifest().metric_record.realisation_id ==
+          manifest.metric_record.realisation_id,
+      "label-only graph change altered typed execution records");
+
+    const compiler::v1::CellwiseBoxDataBindings changed_bound_bindings{
+      compiler::v1::CellwiseBoundValue{-1.0},
+      compiler::v1::CellwiseBoundValue{0.15}};
+    const auto changed_bound_compilation = v1_compiler.compile(
+      specification,
+      triangulation,
+      data_bindings,
+      compilation_policy,
+      changed_bound_bindings);
+    contract::require(changed_bound_compilation.succeeded(),
+                      "v1 compiler rejected changed bound data");
+    const auto find_binding = [](const compiler::v1::CompilationManifest &record,
+                                 const semantic::v1::DataRole role) {
+      return std::find_if(
+        record.bindings.begin(),
+        record.bindings.end(),
+        [role](const compiler::v1::CompiledBindingRecord &binding) {
+          return binding.role == role;
+        });
+    };
+    const auto original_upper =
+      find_binding(manifest, semantic::v1::DataRole::upper_bound);
+    const auto changed_upper = find_binding(
+      changed_bound_compilation.problem->manifest(),
+      semantic::v1::DataRole::upper_bound);
+    contract::require(
+      original_upper != manifest.bindings.end() &&
+        changed_upper != changed_bound_compilation.problem->manifest().bindings.end() &&
+        original_upper->scalar_value.has_value() &&
+        changed_upper->scalar_value.has_value() &&
+        *original_upper->scalar_value == 0.05 &&
+        *changed_upper->scalar_value == 0.15 &&
+        original_upper->value_digest != changed_upper->value_digest,
+      "v1 manifest did not distinguish changed bound values");
+
     require_constraint_realisation(
       manifest,
       "FE_DGQ(0) coefficientwise l2_cellwise clipping",

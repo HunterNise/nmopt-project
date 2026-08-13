@@ -1046,7 +1046,10 @@ namespace nmopt::compiler::v1
                                policy,
                                target_kind,
                                request,
-                               scalar_plan ? &*scalar_plan : nullptr);
+                               scalar_plan ? &*scalar_plan : nullptr,
+                               data,
+                               bounds,
+                               facewise_bounds);
 
       const auto fixed_dirichlet_boundary_ids =
         uses_general_scalar && scalar_plan
@@ -1541,9 +1544,6 @@ namespace nmopt::compiler::v1
                       uses_homogeneous_dirichlet_continuous_control
                         ? continuous_control_boundary_region
                         : control_boundary_region,
-                      data,
-                      bounds,
-                      facewise_bounds,
                       triangulation,
                       mesh_provenance,
                       owns_mesh,
@@ -4599,6 +4599,225 @@ namespace nmopt::compiler::v1
       return CompiledFieldShape::unspecified;
     }
 
+    template <int dim>
+    static std::vector<CompiledBindingRecord>
+    make_resolved_binding_records(
+      const semantic::v1::ProblemSpec &              specification,
+      const CompiledTargetKind                       target,
+      const ResolvedCompilationRequest &             request,
+      const DealiiDataBindings<dim> &                data,
+      const std::optional<CellwiseBoxDataBindings> & bounds,
+      const std::optional<FacewiseBoxDataBindings> & facewise_bounds)
+    {
+      const bool uses_coefficient_identification =
+        target == CompiledTargetKind::coefficient_identification;
+      const bool uses_general_scalar =
+        target == CompiledTargetKind::general_scalar_robin;
+      const bool uses_h1_state_observation =
+        has_h1_state_observation(specification);
+      const bool uses_point_sensor =
+        target == CompiledTargetKind::point_sensor ||
+        has_point_sensor_observation(specification);
+      const bool uses_normal_flux =
+        target == CompiledTargetKind::normal_flux ||
+        has_normal_flux_observation(specification);
+
+      const auto request_for = [&request](const std::string &semantic_id) {
+        const auto match = std::find_if(
+          request.data_bindings.begin(),
+          request.data_bindings.end(),
+          [&semantic_id](const ResolvedDataBindingRequest &candidate) {
+            return candidate.semantic_id == semantic_id;
+          });
+        return match == request.data_bindings.end() ? nullptr : &*match;
+      };
+      const auto space_region = [&specification](const std::string &space_id) {
+        const auto space = std::find_if(
+          specification.spaces.begin(),
+          specification.spaces.end(),
+          [&space_id](const semantic::v1::SpaceSpec &candidate) {
+            return candidate.id == space_id;
+          });
+        return space == specification.spaces.end() ? std::string{} : space->region_id;
+      };
+
+      std::vector<CompiledBindingRecord> records;
+      records.reserve(specification.data.size());
+      for (const auto &binding : specification.data)
+        {
+          CompiledBindingRecord record;
+          record.semantic_id = binding.id;
+          record.role = binding.role;
+          record.kind = binding.kind;
+          record.field_shape = compiled_field_shape(binding.kind);
+          record.space_id = binding.space_id;
+          record.region_id = space_region(binding.space_id);
+          record.evaluation_realisation = "not applicable";
+          record.runtime_representation =
+            "semantic DataKind " + std::to_string(static_cast<int>(binding.kind));
+          if (const auto *resolved_binding = request_for(binding.id))
+            {
+              record.evaluation_realisation =
+                resolved_binding->evaluation_realisation;
+              record.runtime_representation =
+                resolved_binding->runtime_representation;
+            }
+
+          switch (binding.role)
+            {
+              case semantic::v1::DataRole::forcing:
+                record.representation = "analytic Function at quadrature";
+                record.provenance = data.provenance.forcing;
+                break;
+              case semantic::v1::DataRole::desired_state:
+                record.representation = uses_h1_state_observation
+                                          ? "analytic Function value and gradient at quadrature"
+                                        : uses_point_sensor
+                                          ? "analytic Function value at immutable sensor coordinates"
+                                        : uses_normal_flux
+                                          ? "analytic Function value at selected boundary face quadrature"
+                                          : "analytic Function at quadrature";
+                record.provenance = data.provenance.desired_state;
+                break;
+              case semantic::v1::DataRole::fixed_dirichlet_lifting:
+                record.representation = "Function interpolated at boundary DoFs";
+                record.provenance = data.provenance.fixed_dirichlet_data;
+                break;
+              case semantic::v1::DataRole::diffusion:
+                record.representation = uses_coefficient_identification
+                                          ? "decision parameter"
+                                        : uses_general_scalar
+                                          ? "tensor Function at volume quadrature"
+                                          : "scalar constant";
+                record.provenance = uses_coefficient_identification
+                                      ? specification.formulation.control_variable_id
+                                    : uses_general_scalar
+                                      ? data.general_scalar->provenance.diffusion_tensor
+                                    : data.diffusion
+                                      ? std::to_string(*data.diffusion)
+                                      : "unbound";
+                break;
+              case semantic::v1::DataRole::conservative_transport:
+                record.representation = "vector Function at volume quadrature";
+                record.provenance = uses_general_scalar
+                  ? data.general_scalar->provenance.conservative_transport
+                  : data.conservative_transport->provenance.conservative_transport;
+                break;
+              case semantic::v1::DataRole::advective_transport:
+                record.representation = "vector Function at volume quadrature";
+                record.provenance = data.general_scalar->provenance.advective_transport;
+                break;
+              case semantic::v1::DataRole::reaction:
+                record.representation = uses_general_scalar
+                                          ? "scalar Function at volume quadrature"
+                                          : "scalar constant";
+                record.provenance = uses_general_scalar
+                                      ? data.general_scalar->provenance.reaction
+                                      : std::to_string(data.reaction);
+                break;
+              case semantic::v1::DataRole::robin_coefficient:
+                record.representation = "scalar Function at boundary quadrature";
+                record.provenance = data.general_scalar->provenance.robin_coefficient;
+                break;
+              case semantic::v1::DataRole::robin_source:
+                record.representation = "scalar Function at boundary quadrature";
+                record.provenance = data.general_scalar->provenance.robin_source;
+                break;
+              case semantic::v1::DataRole::observation_weight:
+                record.representation = "scalar Function at boundary face quadrature";
+                record.provenance = data.weighted_trace->provenance;
+                break;
+              case semantic::v1::DataRole::regularisation_weight:
+                record.representation = "scalar constant";
+                record.provenance = std::to_string(data.regularisation_weight);
+                break;
+              case semantic::v1::DataRole::lower_bound:
+              case semantic::v1::DataRole::upper_bound:
+                record.representation =
+                  bound_binding_description(bounds, facewise_bounds);
+                record.provenance = "caller-supplied compiled bound data";
+                break;
+              case semantic::v1::DataRole::unspecified:
+                record.representation = "unspecified";
+                record.provenance = "unspecified";
+                break;
+            }
+
+          const auto record_scalar = [&record](const double value) {
+            record.scalar_value = value;
+            record.value_status = CompiledBindingStatus::checked;
+            record.value_digest = hash_text(double_bits(value));
+          };
+          if (binding.role == semantic::v1::DataRole::diffusion &&
+              !uses_coefficient_identification && !uses_general_scalar &&
+              data.diffusion)
+            record_scalar(*data.diffusion);
+          else if (binding.role == semantic::v1::DataRole::reaction &&
+                   !uses_general_scalar)
+            record_scalar(data.reaction);
+          else if (binding.role == semantic::v1::DataRole::regularisation_weight)
+            record_scalar(data.regularisation_weight);
+          else if (binding.role == semantic::v1::DataRole::lower_bound &&
+                   bounds)
+            std::visit(
+              [&record, &record_scalar](const auto &value) {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, double>)
+                  record_scalar(value);
+                else
+                  {
+                    record.value_digest = vector_identity(value);
+                    record.value_status = CompiledBindingStatus::checked;
+                  }
+              },
+              bounds->lower);
+          else if (binding.role == semantic::v1::DataRole::upper_bound &&
+                   bounds)
+            std::visit(
+              [&record, &record_scalar](const auto &value) {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, double>)
+                  record_scalar(value);
+                else
+                  {
+                    record.value_digest = vector_identity(value);
+                    record.value_status = CompiledBindingStatus::checked;
+                  }
+              },
+              bounds->upper);
+          else if (binding.role == semantic::v1::DataRole::lower_bound &&
+                   facewise_bounds)
+            std::visit(
+              [&record, &record_scalar](const auto &value) {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, double>)
+                  record_scalar(value);
+                else
+                  {
+                    record.value_digest = vector_identity(value);
+                    record.value_status = CompiledBindingStatus::checked;
+                  }
+              },
+              facewise_bounds->lower);
+          else if (binding.role == semantic::v1::DataRole::upper_bound &&
+                   facewise_bounds)
+            std::visit(
+              [&record, &record_scalar](const auto &value) {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, double>)
+                  record_scalar(value);
+                else
+                  {
+                    record.value_digest = vector_identity(value);
+                    record.value_status = CompiledBindingStatus::checked;
+                  }
+              },
+              facewise_bounds->upper);
+          records.push_back(std::move(record));
+        }
+      return records;
+    }
+
     static std::string
     target_id(const CompiledTargetKind target)
     {
@@ -4628,17 +4847,23 @@ namespace nmopt::compiler::v1
       return "registered-target";
     }
 
+    template <int dim>
     static ResolvedCompilationDecision
     make_resolved_decision(const semantic::v1::ProblemSpec &specification,
                            const DealiiDiscretisationPolicy &policy,
                            const CompiledTargetKind target,
                            const ResolvedCompilationRequest &request,
-                           const ScalarLoweringPlan *scalar_plan)
+                           const ScalarLoweringPlan *scalar_plan,
+                           const DealiiDataBindings<dim> &data,
+                           const std::optional<CellwiseBoxDataBindings> &bounds,
+                           const std::optional<FacewiseBoxDataBindings> &facewise_bounds)
     {
       ResolvedCompilationDecision decision;
       decision.semantic_problem_id = specification.id;
       decision.formulation_id = specification.formulation.id;
       decision.target_id = target_id(target);
+      decision.bindings = make_resolved_binding_records<dim>(
+        specification, target, request, data, bounds, facewise_bounds);
       for (const auto &space : specification.spaces)
         decision.spaces.push_back(
           {space.id,
@@ -4940,9 +5165,6 @@ namespace nmopt::compiler::v1
       const ResolvedCompilationRequest  &request,
       const semantic::v1::RegionSpec &  tracking_region,
       const semantic::v1::RegionSpec *  control_boundary_region,
-      const DealiiDataBindings<dim> &    data,
-      const std::optional<CellwiseBoxDataBindings> &bounds,
-      const std::optional<FacewiseBoxDataBindings> &facewise_bounds,
       const dealii::Triangulation<dim> & triangulation,
       const std::string &                mesh_provenance,
       const bool                         owns_mesh,
@@ -5040,209 +5262,23 @@ namespace nmopt::compiler::v1
         owns_mesh ? MeshLifetimePolicy::owned_session
                   : MeshLifetimePolicy::borrowed_immutable,
         mesh_structural_identity(triangulation)};
-      for (const auto &space : specification.spaces)
-        manifest.spaces.push_back(
-          {space.id,
-           space.role,
-           compiled_space_runtime_role(space.role),
-           space.region_id,
-           compiled_space_finite_element(space, target, policy),
-           compiled_space_dimension(specification,
-                                    space,
-                                    executable,
-                                    manifest.realized_spaces)});
-      for (const auto &binding : specification.data)
+      manifest.spaces = decision.spaces;
+      for (auto &space : manifest.spaces)
         {
-          CompiledBindingRecord record;
-          record.semantic_id = binding.id;
-          record.role = binding.role;
-          record.kind = binding.kind;
-          record.field_shape = compiled_field_shape(binding.kind);
-          record.runtime_representation =
-            "semantic DataKind " + std::to_string(static_cast<int>(binding.kind));
-          record.space_id = binding.space_id;
-          if (!binding.space_id.empty())
-            {
-              const auto space = std::find_if(
-                specification.spaces.begin(),
-                specification.spaces.end(),
-                [&binding](const semantic::v1::SpaceSpec &candidate) {
-                  return candidate.id == binding.space_id;
-                });
-              if (space != specification.spaces.end())
-                {
-                  record.region_id = space->region_id;
-                  const auto region = std::find_if(
-                    specification.regions.begin(),
-                    specification.regions.end(),
-                    [&space](const semantic::v1::RegionSpec &candidate) {
-                      return candidate.id == space->region_id;
-                    });
-                  record.evaluation_realisation =
-                    region != specification.regions.end() &&
-                        region->kind == semantic::v1::RegionKind::boundary
-                      ? "boundary_face_quadrature"
-                      : "volume_quadrature";
-                }
-            }
-          else
-            record.evaluation_realisation = "not applicable";
-          switch (binding.role)
-            {
-              case semantic::v1::DataRole::forcing:
-                record.representation = "analytic Function at quadrature";
-                record.provenance = data.provenance.forcing;
-                break;
-              case semantic::v1::DataRole::desired_state:
-                record.representation = uses_h1_state_observation
-                                          ? "analytic Function value and gradient at quadrature"
-                                        : uses_point_sensor
-                                          ? "analytic Function value at immutable sensor coordinates"
-                                        : uses_normal_flux
-                                          ? "analytic Function value at selected boundary face quadrature"
-                                          : "analytic Function at quadrature";
-                record.provenance = data.provenance.desired_state;
-                break;
-              case semantic::v1::DataRole::fixed_dirichlet_lifting:
-                record.representation = "Function interpolated at boundary DoFs";
-                record.provenance = data.provenance.fixed_dirichlet_data;
-                break;
-              case semantic::v1::DataRole::diffusion:
-                record.representation = uses_coefficient_identification
-                                          ? "decision parameter"
-                                        : uses_general_scalar
-                                          ? "tensor Function at volume quadrature"
-                                          : "scalar constant";
-                record.provenance = uses_coefficient_identification
-                                      ? specification.formulation.control_variable_id
-                                    : uses_general_scalar
-                                      ? data.general_scalar->provenance.diffusion_tensor
-                                      : std::to_string(*data.diffusion);
-                break;
-              case semantic::v1::DataRole::conservative_transport:
-                record.representation = "vector Function at volume quadrature";
-                record.provenance = uses_general_scalar
-                  ? data.general_scalar->provenance.conservative_transport
-                  : data.conservative_transport->provenance.conservative_transport;
-                break;
-              case semantic::v1::DataRole::advective_transport:
-                record.representation = "vector Function at volume quadrature";
-                record.provenance =
-                  data.general_scalar->provenance.advective_transport;
-                break;
-              case semantic::v1::DataRole::reaction:
-                record.representation = uses_general_scalar
-                                          ? "scalar Function at volume quadrature"
-                                          : "scalar constant";
-                record.provenance = uses_general_scalar
-                                      ? data.general_scalar->provenance.reaction
-                                      : std::to_string(data.reaction);
-                break;
-              case semantic::v1::DataRole::robin_coefficient:
-                record.representation =
-                  "scalar Function at boundary quadrature";
-                record.provenance =
-                  data.general_scalar->provenance.robin_coefficient;
-                break;
-              case semantic::v1::DataRole::robin_source:
-                record.representation =
-                  "scalar Function at boundary quadrature";
-                record.provenance =
-                  data.general_scalar->provenance.robin_source;
-                break;
-              case semantic::v1::DataRole::observation_weight:
-                record.representation =
-                  "scalar Function at boundary face quadrature";
-                record.provenance = data.weighted_trace->provenance;
-                break;
-              case semantic::v1::DataRole::regularisation_weight:
-                record.representation = "scalar constant";
-                record.provenance = std::to_string(data.regularisation_weight);
-                break;
-              case semantic::v1::DataRole::lower_bound:
-              case semantic::v1::DataRole::upper_bound:
-                record.representation =
-                  bound_binding_description(bounds, facewise_bounds);
-                record.provenance = "caller-supplied compiled bound data";
-                break;
-              case semantic::v1::DataRole::unspecified:
-                record.representation = "unspecified";
-                record.provenance = "unspecified";
-                break;
-            }
-          record.runtime_representation = record.representation;
-          const auto record_scalar = [&record](const double value) {
-            record.scalar_value = value;
-            record.value_status = CompiledBindingStatus::checked;
-            record.value_digest = hash_text(double_bits(value));
-          };
-          if (binding.role == semantic::v1::DataRole::diffusion &&
-              !uses_coefficient_identification && !uses_general_scalar &&
-              data.diffusion)
-            record_scalar(*data.diffusion);
-          else if (binding.role == semantic::v1::DataRole::reaction &&
-                   !uses_general_scalar)
-            record_scalar(data.reaction);
-          else if (binding.role == semantic::v1::DataRole::regularisation_weight)
-            record_scalar(data.regularisation_weight);
-          else if (binding.role == semantic::v1::DataRole::lower_bound &&
-                   bounds)
-            std::visit(
-              [&record, &record_scalar](const auto &value) {
-                using Value = std::decay_t<decltype(value)>;
-                if constexpr (std::is_same_v<Value, double>)
-                  record_scalar(value);
-                else
-                  {
-                    record.value_digest = vector_identity(value);
-                    record.value_status = CompiledBindingStatus::checked;
-                  }
-              },
-              bounds->lower);
-          else if (binding.role == semantic::v1::DataRole::upper_bound &&
-                   bounds)
-            std::visit(
-              [&record, &record_scalar](const auto &value) {
-                using Value = std::decay_t<decltype(value)>;
-                if constexpr (std::is_same_v<Value, double>)
-                  record_scalar(value);
-                else
-                  {
-                    record.value_digest = vector_identity(value);
-                    record.value_status = CompiledBindingStatus::checked;
-                  }
-              },
-              bounds->upper);
-          else if (binding.role == semantic::v1::DataRole::lower_bound &&
-                   facewise_bounds)
-            std::visit(
-              [&record, &record_scalar](const auto &value) {
-                using Value = std::decay_t<decltype(value)>;
-                if constexpr (std::is_same_v<Value, double>)
-                  record_scalar(value);
-                else
-                  {
-                    record.value_digest = vector_identity(value);
-                    record.value_status = CompiledBindingStatus::checked;
-                  }
-              },
-              facewise_bounds->lower);
-          else if (binding.role == semantic::v1::DataRole::upper_bound &&
-                   facewise_bounds)
-            std::visit(
-              [&record, &record_scalar](const auto &value) {
-                using Value = std::decay_t<decltype(value)>;
-                if constexpr (std::is_same_v<Value, double>)
-                  record_scalar(value);
-                else
-                  {
-                    record.value_digest = vector_identity(value);
-                    record.value_status = CompiledBindingStatus::checked;
-                  }
-              },
-              facewise_bounds->upper);
-          manifest.bindings.push_back(std::move(record));
+          const auto semantic_space = std::find_if(
+            specification.spaces.begin(),
+            specification.spaces.end(),
+            [&space](const semantic::v1::SpaceSpec &candidate) {
+              return candidate.id == space.semantic_id;
+            });
+          contract::require(semantic_space != specification.spaces.end(),
+                            "Resolved manifest space is not in the semantic graph");
+          space.dimension = compiled_space_dimension(specification,
+                                                     *semantic_space,
+                                                     executable,
+                                                     manifest.realized_spaces);
         }
+      manifest.bindings = decision.bindings;
       manifest.resolved_decision.spaces = manifest.spaces;
       manifest.resolved_decision.bindings = manifest.bindings;
 

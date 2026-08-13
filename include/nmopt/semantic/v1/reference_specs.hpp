@@ -598,6 +598,29 @@ namespace nmopt::semantic::v1
       {"control_hminus1_metric", "Discrete H-1 control metric",
        MetricKind::hminus1, "control", "control_pairing"};
     specification.formulation.metric_id = "control_hminus1_metric";
+    specification.requirement_policies.push_back(
+      {"hminus1_metric_realisation", "control_hminus1_metric",
+       RequirementKind::metric_realisation,
+       RequirementStatus::selected_discrete_realisation,
+       RequirementScope::discrete_compilation,
+       "M_h K_h^{-1} M_h with inverse M_h^{-1} K_h M_h^{-1}, fixed Dirichlet control boundary, and identity-preconditioned serial-CG inverse actions",
+       "dirichlet_boundary"});
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "hminus1_metric_realisation",
+                                      "requirement policy")
+      .typed_metric_selection = Hminus1MetricRealisationSelection{
+      "hminus1_metric_mass_laplacian_inverse_mass",
+      "control_hminus1_metric",
+      "control_space",
+      "control_space",
+      "control_pairing",
+      "control_pairing",
+      "dirichlet_boundary",
+      "control_metric_solve.laplacian_inverse",
+      "control_metric_solve.mass_inverse",
+      Hminus1MetricOperatorRealisation::mass_laplacian_inverse_mass,
+      Hminus1MetricInverseRealisation::mass_inverse_laplacian_mass_inverse,
+      Hminus1MetricNullspaceRealisation::fixed_dirichlet_no_nullspace};
     return specification;
   }
 
@@ -1050,6 +1073,21 @@ namespace nmopt::semantic::v1
          RequirementScope::continuous_semantics,
          "boundary weight belongs to L-infinity on the observation boundary",
          "observation_boundary"});
+      component_by_id(specification.requirement_policies,
+                      "state_boundary_trace_policy",
+                      "requirement policy")
+        .typed_trace_selection = TraceRealisationSelection{
+        "weighted_state_boundary_trace_fe_qgauss",
+        "state_space",
+        "state_observation_space",
+        "observation_boundary",
+        "boundary_weight",
+        "state_observation_pairing",
+        TraceEvaluationRealisation::fe_q_state_trace,
+        FaceQuadratureRealisation::qgauss_face,
+        TraceWeightRealisation::scalar_pointwise_multiplication,
+        TracePairingRealisation::face_quadrature_weights,
+        TraceTransposeRealisation::same_face_quadrature_pullback};
     }
   } // namespace reference_detail
 

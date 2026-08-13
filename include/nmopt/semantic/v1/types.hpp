@@ -163,7 +163,8 @@ namespace nmopt::semantic::v1
     domain_regularity,
     conforming_trace_subspace,
     fractional_trace_realisation,
-    tangential_gradient_realisation
+    tangential_gradient_realisation,
+    metric_realisation
   };
 
   enum class RequirementStatus
@@ -206,6 +207,81 @@ namespace nmopt::semantic::v1
   {
     unspecified = -1,
     qgauss_face
+  };
+
+  enum class TraceWeightRealisation
+  {
+    unspecified = -1,
+    scalar_pointwise_multiplication
+  };
+
+  enum class TracePairingRealisation
+  {
+    unspecified = -1,
+    face_quadrature_weights
+  };
+
+  enum class TraceTransposeRealisation
+  {
+    unspecified = -1,
+    same_face_quadrature_pullback
+  };
+
+  struct TraceRealisationSelection
+  {
+    std::string                 id;
+    std::string                 source_space_id;
+    std::string                 output_space_id;
+    std::string                 region_id;
+    std::string                 weight_data_id;
+    std::string                 pairing_id;
+    TraceEvaluationRealisation trace_realisation =
+      TraceEvaluationRealisation::unspecified;
+    FaceQuadratureRealisation  face_quadrature_realisation =
+      FaceQuadratureRealisation::unspecified;
+    TraceWeightRealisation     weight_realisation =
+      TraceWeightRealisation::unspecified;
+    TracePairingRealisation    pairing_realisation =
+      TracePairingRealisation::unspecified;
+    TraceTransposeRealisation  transpose_realisation =
+      TraceTransposeRealisation::unspecified;
+  };
+
+  enum class Hminus1MetricOperatorRealisation
+  {
+    unspecified = -1,
+    mass_laplacian_inverse_mass
+  };
+
+  enum class Hminus1MetricInverseRealisation
+  {
+    unspecified = -1,
+    mass_inverse_laplacian_mass_inverse
+  };
+
+  enum class Hminus1MetricNullspaceRealisation
+  {
+    unspecified = -1,
+    fixed_dirichlet_no_nullspace
+  };
+
+  struct Hminus1MetricRealisationSelection
+  {
+    std::string                        id;
+    std::string                        metric_id;
+    std::string                        primal_space_id;
+    std::string                        dual_space_id;
+    std::string                        mass_pairing_id;
+    std::string                        laplacian_pairing_id;
+    std::string                        fixed_boundary_region_id;
+    std::string                        laplacian_solve_policy_id;
+    std::string                        mass_solve_policy_id;
+    Hminus1MetricOperatorRealisation  operator_realisation =
+      Hminus1MetricOperatorRealisation::unspecified;
+    Hminus1MetricInverseRealisation   inverse_realisation =
+      Hminus1MetricInverseRealisation::unspecified;
+    Hminus1MetricNullspaceRealisation nullspace_realisation =
+      Hminus1MetricNullspaceRealisation::unspecified;
   };
 
   // A backend-neutral boundary selection. The first registered general
@@ -401,6 +477,9 @@ namespace nmopt::semantic::v1
     std::string       selected_policy;
     std::string       region_id;
     std::optional<BoundaryRealisationSelection> typed_selection;
+    std::optional<TraceRealisationSelection>     typed_trace_selection;
+    std::optional<Hminus1MetricRealisationSelection>
+      typed_metric_selection;
   };
 
   struct ReducedFormulationSpec

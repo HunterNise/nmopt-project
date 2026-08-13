@@ -241,6 +241,14 @@ compiler copies the selection into the resolved decision and manifest and
 rejects an unsupported operator, isomorphism, observation source, or discrete
 realization.
 
+The bounded P5.2--P5.4 remediation registrations are acceptance-verified:
+weighted traces, normal fluxes, and transformed state observations obtain their
+dimensions from realized map/space records; P5.3 requires complete fixed
+Dirichlet coverage on the selected meshes; and P5.4 cross-products are limited
+to the closed registration set. These records describe the supported slices
+only; the broader C1/C2 plan-owned compiler recombination remains an open
+remediation boundary.
+
 Every enum-bearing semantic aggregate defaults to an explicit `unspecified`
 value. `SemanticValidator` rejects that sentinel structurally, so default or
 incrementally populated aggregates remain safe validation inputs rather than

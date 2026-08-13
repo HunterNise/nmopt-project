@@ -38,30 +38,25 @@ verification gates pass. Their stable-ID index, owned compilation session,
 shared solve reporting, projection witness, independent scalar oracle, and
 build-cost remeasurement remain retained foundations. P5.1 is acceptance-
 complete after its coefficient-placement and typed-boundary remediation gates
-passed. P5.2 implementation has landed, but the
-[P5.2 remediation review](review/chapter-5/p5.2-remediation-review.md) found open selected-
-realization and $H^{1}_{0}$ target-data defects; its weighted-observation
-dimension finding is addressed by the common realized-map/space records.
-P5.2 is not acceptance-complete until its documented gates pass. The
-reviewed operator formulas, exact-transpose solve, energy/weighted
-observation assembly, and negative-metric formulas remain the selected
-bounded behavior during remediation. P5.3's first
-bounded C5.8 and C5.10 implementations have landed, but the
-[P5.3 remediation review](review/chapter-5/p5.3-remediation-review.md) found open transposition
-and fixed-boundary defects; its manifest-dimension finding is addressed by
-the common realized-map/space records. P5.3 is not acceptance-complete until
-those findings pass their documented gates. The
-outward-normal face evaluation, immutable point coordinates, and explicit
-exclusions remain the selected bounded policies during remediation. The
-C5.6-style Neumann composition is complete. All selected scalar Section
-5.11/P5.4 Dirichlet-control slices have landed, but the
-[P5.4 remediation review](review/chapter-5/p5.4-remediation-review.md) found open
-registered-combination and typed-policy defects; its transformed-observation
-dimension finding is addressed by the common realized-map/space records. P5.4
-is not acceptance-complete until those findings pass their documented gates.
-The partial fixed-precedence lifting, selected fractional
+passed. P5.2 is acceptance-complete for its selected bounded registrations.
+The typed trace and negative-metric policies, explicit $H^{1}_{0}$ target-data
+assumption, control-boundary realization, and realized observation-space
+dimensions are covered by the semantic and deal.II contracts. The reviewed
+operator formulas, exact-transpose solve, energy/weighted observation
+assembly, and negative-metric formulas remain the selected bounded behavior.
+P5.3's bounded C5.8 and C5.10 implementations are likewise
+acceptance-complete. The typed transposition contract, complete fixed-boundary
+coverage, custom-ID manufactured checks, realized observation dimensions, and
+point/flux dual-residual, directional, and reduced-Taylor checks pass their
+documented gates. The outward-normal face evaluation, immutable point
+coordinates, and explicit exclusions remain the selected bounded policies.
+The C5.6-style Neumann composition is complete. All selected scalar Section
+5.11/P5.4 Dirichlet-control slices are acceptance-complete for their registered
+combinations. The typed shared policies, closed registration matching, and
+realized transformed-observation dimensions pass the documented semantic and
+deal.II contracts. The partial fixed-precedence lifting, selected fractional
 and tangential operators, conforming-trace equivalence, and explicit
-exclusions remain the bounded policies during remediation. A general
+exclusions remain the bounded policies for these registered slices. A general
 nonconforming transposition lowerer remains unselected.
 
 The following pieces exist and are tested:
@@ -100,7 +95,8 @@ priority.
 
 The accepted scope is:
 
-- finish the open C1/C2 and P5.2–P5.4 remediation gates;
+- finish the open C1/C2 remediation gates; P5.2–P5.4 are acceptance-complete
+  for their registered bounded slices;
 - keep the selected scalar Section 5.11 and Neumann boundary-control slices;
 - skip book Sections 5.12 and 5.13, corresponding to the roadmap's P5.5
   regularised state constraints and P5.6 Stokes/mixed-block work;
@@ -588,7 +584,7 @@ profiles pass, so P5.1 is acceptance-complete. The assembled weak signs,
 nonsymmetric exact transpose, complete mesh partition, and existing
 term/Taylor tests remain retained behavior.
 
-### P5.2 — Add energy-volume and weighted-trace observations, then the selected $H^{-1}$ metric separately — implementation landed, remediation open
+### P5.2 — Add energy-volume and weighted-trace observations, then the selected $H^{-1}$ metric separately — acceptance complete
 
 **Motivation:** C5.5.2 needs state tracking in an energy space, while C5.7
 needs a boundary trace multiplied by declared data. The alternate C5.5.2
@@ -650,17 +646,14 @@ reduced objectives/covectors, distinct $L^{2}$/$H^{-1}$ directions, quadratic
 reduced Taylor remainders for both directions, and complete manifest
 provenance. These implementation slices have landed.
 
-**Review status:** the
-[P5.2 remediation review](review/chapter-5/p5.2-remediation-review.md) found that the weighted-
-trace and negative-metric selections are not typed executable contracts, the
-continuous-control backend ignores the control policy's boundary region, the
-$H^{1}_{0}$ desired-state membership is not required, and the weighted-trace
-manifest dimension falls through to the state dimension. P5.2 remains open
-until all three acceptance findings pass. The mass-plus-stiffness observation,
-weighted pullback, $M_{h}K_{h}^{-1}M_{h}$ action/inverse, and existing
-comparison/Taylor tests remain retained behavior.
+**Acceptance status:** complete for the registered bounded slices. The typed
+trace and negative-metric selections, control-boundary realization, explicit
+$H^{1}_{0}$ target-data assumption, and realized weighted-observation
+dimensions are covered by semantic and deal.II contracts. The mass-plus-
+stiffness observation, weighted pullback, $M_{h}K_{h}^{-1}M_{h}$ action/inverse,
+and comparison/Taylor tests remain retained behavior.
 
-### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy — implementation landed, remediation open
+### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy — acceptance complete
 
 **Motivation:** C5.8 and C5.10 are not ordinary restriction/trace
 observations. Their adjoints use boundary data or Dirac sources with lower
@@ -709,24 +702,22 @@ realization and general transposition lowerer remain rejected. The sibling
 finite point-sensor graph with finite, unique physical coordinates, its
 physical `FE_Q` evaluation, and its assembled very-weak point-load transpose.
 
-**Review status:** the 2026-08-12
-[P5.3 remediation review](review/chapter-5/p5.3-remediation-review.md) identified three open
-acceptance defects: the transposition declaration is incomplete and
-presence-only validated, P5.3 meshes can have undeclared non-Dirichlet exterior
-faces, and the normal-flux structured manifest records the state dimension
-rather than the realized face-quadrature output dimension. Follow that review's
-ordered work units and verification gate before restoring `completed` status.
+**Acceptance status:** complete for the registered C5.8 and C5.10 slices. The
+typed transposition declaration and validation, complete fixed-boundary
+coverage, custom-ID manufactured checks, realized normal-flux dimensions, and
+point/flux dual-residual, directional, and reduced-Taylor checks pass the
+documented verification gate. Outward-normal face evaluation, immutable point
+coordinates, and the explicit rejected alternatives remain unchanged.
 
-### P5.4 — Generalize Dirichlet-control transformations and trace metrics — implementation landed, remediation open
+### P5.4 — Generalize Dirichlet-control transformations and trace metrics — acceptance complete
 
-**Review status:** the 2026-08-12
-[P5.4 remediation review](review/chapter-5/p5.4-remediation-review.md) identified three open
-acceptance defects: unregistered Section 5.11 loss/observation/metric
-cross-products can compile under misleading target provenance, the selected
-partition/interface/trace/transposition policies are not machine-checkable,
-and transformed state observations record the independent state-coordinate
-dimension rather than the physical output dimension. Follow that review's
-ordered work units and verification gate before restoring `completed` status.
+**Acceptance status:** complete for the registered Section 5.11 slices. The
+typed partition/interface/trace/transposition policies, closed registration
+matching for supported combinations, and realized transformed-observation
+dimensions pass the documented semantic and deal.II verification gate. The
+selected fixed-precedence, fractional, tangential, conforming-trace, and
+explicit exclusion policies remain bounded; unregistered cross-products stay
+rejected.
 
 **Motivation:** C5.11 and C5.13.2 require choices beyond the current complete
 boundary nodal $L^{2}$ lifting: mixed fixed/controlled boundaries, nonzero
@@ -1097,14 +1088,16 @@ The C5.6 Neumann composition is complete. P5.1 is acceptance-complete. The
 remediation review documents are
 static evidence; this roadmap is the status ledger. The following C1/C2 and
 cross-phase remediation slices are implemented, but do not by themselves
-restore acceptance status: one checked resolved request, truthful P5.1 data
-placements and boundary realization, plan-owned scalar residual/data and
+restore C1/C2 acceptance status: one checked resolved request, truthful P5.1
+data placements and boundary realization, plan-owned scalar residual/data and
 objective/service lowering, resolved-decision manifest records, and common
-realized-map/space records. The review's “Work unit” names are cross-references
-to those documents, not a separate roadmap vocabulary. C1, C2, and P5.2–P5.4
-remain open until their documented gates pass. P4.1 and P4.2 remain ignored for
-the current ordered implementation run. Keep the reviewed numerical formulas
-and explicit exclusions while proceeding in these commit-sized units:
+realized-map/space records. P5.2–P5.4 are now acceptance-complete for their
+registered bounded slices. The review's “Work unit” names are cross-references
+to those documents, not a separate roadmap vocabulary. C1 and C2 remain open
+until their documented differential and verification gates pass. P4.1 and P4.2
+remain ignored for the current ordered implementation run. Keep the reviewed
+numerical formulas and explicit exclusions while proceeding in these
+commit-sized units:
 
 1. **Completed implementation slice:**
    [C1/C2 work unit 1](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-1--one-resolved-compilation-request-and-binding-boundary):
@@ -1124,53 +1117,33 @@ and explicit exclusions while proceeding in these commit-sized units:
    and [work unit 3](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination):
    make scalar residual/data and objective/service contributions execute from
    the plan, then prove one independently varied recombination.
-5. **Next bounded implementation item:** complete
-   [P5.2 work unit 1](review/chapter-5/p5.2-remediation-review.md#work-unit-1--typed-p52-trace-and-negative-metric-selections):
-   use the shared trace vocabulary, type the named negative metric, and make
-   the continuous-control backend apply the declared control boundary.
-6. **Pending:** complete the compatible transposition and remaining typed-policy work in
-   [P5.3 work unit 1](review/chapter-5/p5.3-remediation-review.md#work-unit-1--structured-transposition-contract)
-   and [P5.4 work unit 1](review/chapter-5/p5.4-remediation-review.md#work-unit-1--typed-shared-policies).
-   There must be one transposition schema and shared realization identifiers,
-   not separate P5.3/P5.4 vocabularies.
-7. **Pending:** complete
-   [P5.2 work unit 2](review/chapter-5/p5.2-remediation-review.md#work-unit-2--explicit-h1-zero-target-data-assumption):
-   require and record the model-author $H^{1}_{0}$ target/zero-trace
-   assumption without claiming runtime proof.
-8. **Pending:** complete
-   [P5.4 work unit 2](review/chapter-5/p5.4-remediation-review.md#work-unit-2--closed-p54-registration-matching)
-   through the closed registration matcher from the resolved C1/C2 request:
-   reject unregistered Section 5.11 cross-products.
-9. **Implemented out of order:**
-   [C1/C2 work unit 4](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-4--lossless-structured-compilation-provenance):
-   populate a versioned manifest from resolved decisions and realized services
-   and render compatibility prose from those records.
-10. **Implemented out of order:** the common realized-map work in
-   [C1/C2 work unit 5](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-5--common-realized-map-and-space-records),
-   [P5.2 work unit 3](review/chapter-5/p5.2-remediation-review.md#work-unit-3--shared-realized-observation-dimensions),
-   [P5.3 work unit 3](review/chapter-5/p5.3-remediation-review.md#work-unit-3--exact-observation-space-manifest-dimension),
-   and [P5.4 work unit 3](review/chapter-5/p5.4-remediation-review.md#work-unit-3--realized-transformed-observation-dimensions).
-   Weighted trace, normal flux, and
-   transformed state observations, together with the baseline boundary trace,
-   must obtain dimensions from the realized map rather than an input-coordinate
-   fallback.
-11. Complete the remaining
-   [P5.3 fixed-boundary work](review/chapter-5/p5.3-remediation-review.md#work-unit-2--complete-p53-fixed-boundaries):
-   enforce complete
-   homogeneous-Dirichlet coverage for C5.8/C5.10. Preserve the outward normal,
-   face-quadrature transpose, immutable physical-point evaluation, and current
-   exclusions; do not reopen the broad P4.2 algebra/formulation group.
+5. **Completed acceptance closure:** P5.2 typed trace/negative-metric
+   selections, the explicit $H^{1}_{0}$ target-data assumption, and control
+   boundary realization; P5.3 typed transposition, complete fixed boundaries,
+   and point/flux acceptance checks; and P5.4 typed policies, closed
+   registration matching, and realized transformed-observation dimensions.
+   The final debug-neutral, debug-dealii, and sanitize-neutral gates are the
+   required evidence for this closure.
+6. **Remaining acceptance work:** close the C1/C2 differential and verification
+   gates documented in the [C1/C2 handoff](review/chapter-5/c1-c2-preparation-remediation-review.md).
+   Keep P4.1 and P4.2 ignored and do not broaden the registered P5 slices.
+7. **Completed supporting evidence:** the resolved-decision manifest and
+   common realized-map/space records now provide the dimensions for weighted
+   trace, normal flux, transformed state observations, and the baseline
+   boundary trace. P5.3 fixed-boundary coverage is complete for C5.8/C5.10;
+   the outward normal, face-quadrature transpose, immutable physical-point
+   evaluation, and current exclusions are retained.
 
-12. Start selected P6.1 with the scalar reduced DTO boundary: direction
+8. After C1/C2 closure, start selected P6.1 with the scalar reduced DTO boundary: direction
     policies, L-BFGS, line searches, reporting, and the exact
     linear-quadratic Hessian-vector action. Keep Newton/truncated Newton
     behind the explicit second-order capability check.
-13. Implement the supplied-OtD execution interface from P6.2. Keep it
+9. Implement the supplied-OtD execution interface from P6.2. Keep it
     separate from `ReducedDTO`; do not add GLS, stabilization, or automatic
     continuous adjoint derivation.
-14. Implement the scalar P6.3 KKT product and diagnostics, then P6.5
+10. Implement the scalar P6.3 KKT product and diagnostics, then P6.5
     complementarity/PDAS for the selected cellwise box representation.
-15. Use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md)
+11. Use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md)
     to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate the bounded P6.4
     preconditioner work only if E6.7.1 is selected and basic serial solves are
     insufficient.

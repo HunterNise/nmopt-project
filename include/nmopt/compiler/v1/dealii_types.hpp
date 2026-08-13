@@ -83,6 +83,14 @@ namespace nmopt::compiler::v1
       weighted_trace_selection;
     std::optional<semantic::v1::Hminus1MetricRealisationSelection>
       hminus1_metric_selection;
+    std::optional<semantic::v1::TranspositionRealisationSelection>
+      transposition_selection;
+    std::optional<semantic::v1::PartialDirichletBoundarySelection>
+      partial_boundary_selection;
+    std::optional<semantic::v1::FractionalTraceMetricRealisationSelection>
+      fractional_metric_selection;
+    std::optional<semantic::v1::BoundaryH1MetricRealisationSelection>
+      boundary_h1_metric_selection;
     std::string continuous_control_boundary_region_id;
   };
 

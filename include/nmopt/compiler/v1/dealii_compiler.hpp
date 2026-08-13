@@ -312,6 +312,18 @@ namespace nmopt::compiler::v1
               policy.subject_id == specification.formulation.metric_id &&
               policy.typed_metric_selection)
             request.hminus1_metric_selection = policy.typed_metric_selection;
+          if (policy.typed_transposition_selection)
+            request.transposition_selection =
+              policy.typed_transposition_selection;
+          if (policy.typed_partial_boundary_selection)
+            request.partial_boundary_selection =
+              policy.typed_partial_boundary_selection;
+          if (policy.typed_fractional_metric_selection)
+            request.fractional_metric_selection =
+              policy.typed_fractional_metric_selection;
+          if (policy.typed_boundary_h1_metric_selection)
+            request.boundary_h1_metric_selection =
+              policy.typed_boundary_h1_metric_selection;
           if (policy.subject_id == specification.formulation.control_variable_id &&
               policy.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
               policy.status ==
@@ -533,12 +545,156 @@ namespace nmopt::compiler::v1
         has_point_sensor_observation(specification);
       const bool uses_normal_flux =
         has_normal_flux_observation(specification);
+      const bool uses_h1_dirichlet_control =
+        uses_normalized_dirichlet_laplace &&
+        uses_h1_control_regularisation_loss(specification);
+      const bool uses_transposition_policy =
+        uses_point_sensor || uses_normal_flux || uses_l2_dirichlet_control;
+      if (uses_transposition_policy)
+        {
+          if (!request.transposition_selection)
+            result.diagnostics.add(
+              semantic::v1::DiagnosticCategory::lowerability,
+              specification.formulation.equation_id,
+              "transposition_realisation_request",
+              "Resolve the typed transposition selection before constructing the registered model.");
+          else
+            {
+              const auto expected_realisation =
+                uses_point_sensor
+                  ? semantic::v1::TranspositionDiscreteRealisation::
+                      fe_q_point_sensor_very_weak
+                : uses_normal_flux
+                  ? semantic::v1::TranspositionDiscreteRealisation::
+                      fe_q_normal_flux_very_weak
+                  : semantic::v1::TranspositionDiscreteRealisation::
+                      conforming_nodal_lifting_equivalence;
+              if (request.transposition_selection->operator_realisation !=
+                    semantic::v1::TranspositionOperatorRealisation::
+                      scalar_diffusion_reaction_dirichlet_laplacian)
+                result.diagnostics.add(
+                  semantic::v1::DiagnosticCategory::lowerability,
+                  specification.formulation.equation_id,
+                  "transposition_operator_realisation",
+                  "The registered lowerer supports only the scalar diffusion-reaction Dirichlet-Laplacian transposition.");
+              if (request.transposition_selection->isomorphism_id !=
+                    "dirichlet_laplacian_isomorphism" ||
+                  request.transposition_selection->subject_equation_id !=
+                    specification.formulation.equation_id)
+                result.diagnostics.add(
+                  semantic::v1::DiagnosticCategory::lowerability,
+                  specification.formulation.equation_id,
+                  "transposition_isomorphism",
+                  "The typed transposition operator must match the selected state equation.");
+              if ((uses_point_sensor || uses_normal_flux) &&
+                  request.transposition_selection->observation_id !=
+                    "state_observation")
+                result.diagnostics.add(
+                  semantic::v1::DiagnosticCategory::lowerability,
+                  specification.formulation.equation_id,
+                  "transposition_observation_source",
+                  "Bind the P5.3 transposition to the selected state observation.");
+              if (request.transposition_selection->discrete_realisation !=
+                  expected_realisation)
+                result.diagnostics.add(
+                  semantic::v1::DiagnosticCategory::lowerability,
+                  specification.formulation.equation_id,
+                  "transposition_discrete_realisation",
+                  "The typed transposition realization does not match the selected registered observation or lifting lowerer.");
+            }
+        }
+      if (uses_partial_dirichlet_control)
+        {
+          if (!request.partial_boundary_selection)
+            result.diagnostics.add(
+              semantic::v1::DiagnosticCategory::lowerability,
+              specification.formulation.state_variable_id,
+              "partial_dirichlet_partition_policy",
+              "Resolve the typed partial Dirichlet boundary partition before constructing the lifting model.");
+          else if (
+            request.partial_boundary_selection->interface_realisation !=
+                semantic::v1::PartialDirichletInterfaceRealisation::
+                  fixed_data_precedence ||
+            request.partial_boundary_selection->trace_realisation !=
+                semantic::v1::PartialDirichletTraceRealisation::
+                  relative_interior_nodal_zero_endpoint ||
+            request.partial_boundary_selection->hanging_realisation !=
+                semantic::v1::PartialDirichletHangingRealisation::unsupported)
+            result.diagnostics.add(
+              semantic::v1::DiagnosticCategory::lowerability,
+              specification.formulation.state_variable_id,
+              "partial_dirichlet_interface_selection",
+              "The registered partial lifting supports only fixed-data precedence with zero-endpoint relative-interior traces and no hanging relation.");
+        }
+      if (uses_hhalf_control_metric)
+        {
+          if (!request.fractional_metric_selection)
+            result.diagnostics.add(
+              semantic::v1::DiagnosticCategory::lowerability,
+              specification.formulation.metric_id,
+              "hhalf_metric_realisation_selection",
+              "Resolve the typed fractional trace metric selection before constructing the metric.");
+          else if (
+            request.fractional_metric_selection->operator_realisation !=
+                semantic::v1::FractionalTraceOperatorRealisation::
+                  volume_mass_plus_stiffness_schur ||
+            request.fractional_metric_selection->apply_realisation !=
+                semantic::v1::FractionalTraceApplyRealisation::
+                  minimum_h1_extension ||
+            request.fractional_metric_selection->inverse_realisation !=
+                semantic::v1::FractionalTraceInverseRealisation::
+                  full_volume_operator_inverse)
+            result.diagnostics.add(
+              semantic::v1::DiagnosticCategory::lowerability,
+              specification.formulation.metric_id,
+              "hhalf_metric_realisation_selection",
+              "The registered lowerer supports only the minimum-extension H1/2 Schur-complement metric.");
+        }
+      if (uses_h1_dirichlet_control)
+        {
+          if (!request.boundary_h1_metric_selection)
+            result.diagnostics.add(
+              semantic::v1::DiagnosticCategory::lowerability,
+              specification.formulation.metric_id,
+              "boundary_h1_metric_realisation_selection",
+              "Resolve the typed boundary H1 metric selection before constructing the metric.");
+          else if (
+            request.boundary_h1_metric_selection->operator_realisation !=
+                semantic::v1::BoundaryH1MetricOperatorRealisation::
+                  boundary_mass_plus_tangential_stiffness ||
+            request.boundary_h1_metric_selection->tangential_gradient_realisation !=
+                semantic::v1::BoundaryH1TangentialGradientRealisation::
+                  projected_ambient_gradient ||
+            request.boundary_h1_metric_selection->nullspace_realisation !=
+                semantic::v1::BoundaryH1MetricNullspaceRealisation::
+                  positive_mass_no_nullspace)
+            result.diagnostics.add(
+              semantic::v1::DiagnosticCategory::lowerability,
+              specification.formulation.metric_id,
+              "boundary_h1_metric_realisation_selection",
+              "The registered lowerer supports only the projected-gradient boundary H1 metric with positive mass.");
+        }
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *robin_boundary_region =
         selected_robin_boundary_region(specification);
+      const auto *partial_fixed_boundary_region =
+        request.partial_boundary_selection
+          ? find_region(specification,
+                        request.partial_boundary_selection
+                          ->fixed_boundary_region_id)
+          : nullptr;
+      const auto *partial_control_boundary_region =
+        request.partial_boundary_selection
+          ? find_region(specification,
+                        request.partial_boundary_selection
+                          ->controlled_boundary_region_id)
+          : nullptr;
       const auto *control_boundary_region =
         uses_dirichlet_control
-          ? selected_dirichlet_control_region(specification)
+          ? (uses_partial_dirichlet_control &&
+             partial_control_boundary_region != nullptr
+               ? partial_control_boundary_region
+               : selected_dirichlet_control_region(specification))
           : selected_neumann_control_region(specification);
       const auto *continuous_control_boundary_region =
         request.continuous_control_boundary_region_id.empty()
@@ -832,6 +988,9 @@ namespace nmopt::compiler::v1
       const auto fixed_dirichlet_boundary_ids =
         uses_general_scalar && scalar_plan
           ? boundary_ids_from_plan(scalar_plan->dirichlet_boundary_ids)
+        : uses_partial_dirichlet_control &&
+            partial_fixed_boundary_region != nullptr
+          ? boundary_ids(*partial_fixed_boundary_region)
         : uses_mean_zero_gauge ||
             (uses_dirichlet_control && !uses_partial_dirichlet_control)
           ? std::set<dealii::types::boundary_id>{}
@@ -839,8 +998,12 @@ namespace nmopt::compiler::v1
       const auto dirichlet_boundary_ids = uses_mean_zero_gauge
                                             ? std::set<dealii::types::boundary_id>{}
                                             : uses_dirichlet_control
-                                              ? selected_dirichlet_control_boundary_ids(
-                                                  specification)
+                                              ? (uses_partial_dirichlet_control &&
+                                                 partial_control_boundary_region != nullptr
+                                                   ? boundary_ids(
+                                                       *partial_control_boundary_region)
+                                                   : selected_dirichlet_control_boundary_ids(
+                                                       specification))
                                             : fixed_dirichlet_boundary_ids;
       const auto continuous_control_boundary_ids =
         uses_homogeneous_dirichlet_continuous_control &&
@@ -3666,6 +3829,8 @@ namespace nmopt::compiler::v1
             return "observation";
           case semantic::v1::SpaceRole::data:
             return "data";
+          case semantic::v1::SpaceRole::auxiliary:
+            return "auxiliary";
           case semantic::v1::SpaceRole::unspecified:
             return "unspecified";
         }
@@ -3690,6 +3855,8 @@ namespace nmopt::compiler::v1
             return "lowered observation coefficients";
           case semantic::v1::SpaceRole::data:
             return "external binding";
+          case semantic::v1::SpaceRole::auxiliary:
+            return "semantic auxiliary space";
           case semantic::v1::SpaceRole::unspecified:
             return "unspecified";
         }
@@ -3975,6 +4142,11 @@ namespace nmopt::compiler::v1
            transformation.kind});
       if (scalar_plan != nullptr)
         decision.boundary_realisation = scalar_plan->boundary_selection;
+      decision.transposition_realisation = request.transposition_selection;
+      decision.partial_boundary_selection = request.partial_boundary_selection;
+      decision.fractional_metric_selection = request.fractional_metric_selection;
+      decision.boundary_h1_metric_selection =
+        request.boundary_h1_metric_selection;
       for (const auto &requirement : specification.requirement_policies)
         decision.assumptions.push_back(
           {requirement.id, requirement.subject_id, requirement.selected_policy});
@@ -4210,6 +4382,11 @@ namespace nmopt::compiler::v1
       manifest.realized_maps = make_realized_maps<dim>(specification, executable);
       manifest.realized_spaces = make_realized_spaces(manifest.realized_maps);
       manifest.resolved_decision.realized_maps = manifest.realized_maps;
+      manifest.transposition_realisation = request.transposition_selection;
+      manifest.partial_boundary_selection = request.partial_boundary_selection;
+      manifest.fractional_metric_selection = request.fractional_metric_selection;
+      manifest.boundary_h1_metric_selection =
+        request.boundary_h1_metric_selection;
       manifest.resolved_decision.realized_spaces = manifest.realized_spaces;
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);

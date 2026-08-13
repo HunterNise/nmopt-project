@@ -595,6 +595,24 @@ namespace
                            });
       };
       nmopt::contract::require(
+        (expected_metric_id == "h1_dirichlet_trace"
+           ? manifest.boundary_h1_metric_selection.has_value() &&
+               manifest.boundary_h1_metric_selection->metric_id ==
+                 "control_h1_metric" &&
+               manifest.boundary_h1_metric_selection->boundary_region_id ==
+                 "control_boundary" &&
+               manifest.boundary_h1_metric_selection
+                   ->tangential_gradient_realisation ==
+                 nmopt::semantic::v1::BoundaryH1TangentialGradientRealisation::
+                   projected_ambient_gradient
+           : manifest.fractional_metric_selection.has_value() &&
+               manifest.fractional_metric_selection->metric_id ==
+                 "control_hhalf_metric" &&
+               manifest.fractional_metric_selection->volume_operator_id ==
+                 "volume_mass_plus_stiffness" &&
+               manifest.fractional_metric_selection->apply_realisation ==
+                 nmopt::semantic::v1::FractionalTraceApplyRealisation::
+                   minimum_h1_extension) &&
         manifest.compiler_id == expected_compiler_id &&
           manifest.metric_record.realisation_id == expected_metric_id &&
           manifest.metric_record.operator_description.find(

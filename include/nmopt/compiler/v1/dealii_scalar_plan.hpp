@@ -126,6 +126,14 @@ namespace nmopt::compiler::v1
     std::string                               transformation_handler_id;
     std::optional<semantic::v1::BoundaryRealisationSelection>
                                                    boundary_selection;
+    std::optional<semantic::v1::TranspositionRealisationSelection>
+                                                   transposition_selection;
+    std::optional<semantic::v1::PartialDirichletBoundarySelection>
+                                                   partial_boundary_selection;
+    std::optional<semantic::v1::FractionalTraceMetricRealisationSelection>
+                                                   fractional_metric_selection;
+    std::optional<semantic::v1::BoundaryH1MetricRealisationSelection>
+                                                   boundary_h1_metric_selection;
     std::vector<ScalarDataPlacement>           data_placements;
     std::set<unsigned int>                    dirichlet_boundary_ids;
     std::set<unsigned int>                    robin_boundary_ids;
@@ -613,6 +621,21 @@ namespace nmopt::compiler::v1
       plan.equation_id = specification.formulation.equation_id;
       plan.metric_id = specification.formulation.metric_id;
       plan.constraint_id = specification.formulation.constraint_id;
+      for (const auto &policy : specification.requirement_policies)
+        {
+          if (policy.typed_transposition_selection)
+            plan.transposition_selection =
+              policy.typed_transposition_selection;
+          if (policy.typed_partial_boundary_selection)
+            plan.partial_boundary_selection =
+              policy.typed_partial_boundary_selection;
+          if (policy.typed_fractional_metric_selection)
+            plan.fractional_metric_selection =
+              policy.typed_fractional_metric_selection;
+          if (policy.typed_boundary_h1_metric_selection)
+            plan.boundary_h1_metric_selection =
+              policy.typed_boundary_h1_metric_selection;
+        }
 
       const auto &equation = problem.equation(plan.equation_id);
       for (const auto &term_id : equation.residual_term_ids)

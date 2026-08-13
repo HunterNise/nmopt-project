@@ -1028,6 +1028,16 @@ namespace
     contract::require(
       manifest.compiler_id ==
           "nmopt.compiler.v1.dealii.l2_dirichlet_transposition" &&
+        manifest.transposition_realisation.has_value() &&
+        manifest.transposition_realisation->id ==
+          "transposition_formulation" &&
+        manifest.transposition_realisation->continuous_parent_space_id ==
+          "control_space" &&
+        manifest.transposition_realisation->equivalence_policy_id ==
+          "conforming_trace_subspace" &&
+        manifest.transposition_realisation->discrete_realisation ==
+          semantic::v1::TranspositionDiscreteRealisation::
+            conforming_nodal_lifting_equivalence &&
         manifest.state_space.find("continuous L2(Omega) parent") !=
           std::string::npos &&
         manifest.control_space.find("U_h=trace(V_h)") != std::string::npos &&
@@ -1294,6 +1304,17 @@ namespace
 
     const auto &manifest = compilation.problem->manifest();
     contract::require(
+      manifest.partial_boundary_selection.has_value() &&
+        manifest.partial_boundary_selection->fixed_boundary_region_id ==
+          "fixed_dirichlet_boundary" &&
+        manifest.partial_boundary_selection->controlled_boundary_region_id ==
+          "control_boundary" &&
+        manifest.partial_boundary_selection->interface_realisation ==
+          semantic::v1::PartialDirichletInterfaceRealisation::
+            fixed_data_precedence &&
+        manifest.partial_boundary_selection->trace_realisation ==
+          semantic::v1::PartialDirichletTraceRealisation::
+            relative_interior_nodal_zero_endpoint &&
       manifest.lifting_realisation.find("ell_0,h + L_D,h") != std::string::npos &&
         manifest.data_rule.find("fixed Dirichlet Function") != std::string::npos &&
         std::any_of(manifest.declared_assumptions.begin(),

@@ -54,8 +54,12 @@ namespace nmopt::compiler::v1
       semantic::v1::ValidationReport report = std::move(resolution.diagnostics);
       if (!report.valid())
         return report;
+      const auto request = resolve_compilation_request(*resolution.problem);
       validate_lowerability(specification, policy, report);
       validate_formulation_capability(specification, report);
+      validate_dirichlet_control_registration(*resolution.problem,
+                                              request,
+                                              report);
       return report;
     }
 
@@ -505,6 +509,12 @@ namespace nmopt::compiler::v1
       const auto request = resolve_compilation_request(*resolution.problem);
       validate_lowerability(specification, policy, result.diagnostics);
       validate_formulation_capability(specification, result.diagnostics);
+      const auto dirichlet_registration =
+        resolve_dirichlet_control_registration(*resolution.problem,
+                                               request);
+      validate_dirichlet_control_registration(*resolution.problem,
+                                              request,
+                                              result.diagnostics);
       if (!result.diagnostics.valid())
         return result;
       const bool uses_fixed_reconstruction =
@@ -528,8 +538,6 @@ namespace nmopt::compiler::v1
       const bool uses_h1_control_regularisation =
         uses_h1_control_regularisation_loss(specification) &&
         !uses_dirichlet_control;
-      const bool uses_hhalf_control_regularisation =
-        uses_hhalf_control_regularisation_loss(specification);
       const bool uses_h1_control_metric =
         selects_h1_control_metric(specification);
       const bool uses_hhalf_control_metric =
@@ -551,8 +559,19 @@ namespace nmopt::compiler::v1
       const bool uses_normal_flux =
         has_normal_flux_observation(specification);
       const bool uses_h1_dirichlet_control =
-        uses_normalized_dirichlet_laplace &&
-        uses_h1_control_regularisation_loss(specification);
+        dirichlet_registration.has_value() &&
+        *dirichlet_registration ==
+          DirichletControlRegistration::h1_control;
+      const bool uses_hhalf_dirichlet_registration =
+        dirichlet_registration.has_value() &&
+        (*dirichlet_registration ==
+           DirichletControlRegistration::hhalf_control ||
+         *dirichlet_registration ==
+           DirichletControlRegistration::h1_tracking_hhalf_control);
+      const bool uses_h1_tracking_hhalf_dirichlet_registration =
+        dirichlet_registration.has_value() &&
+        *dirichlet_registration ==
+          DirichletControlRegistration::h1_tracking_hhalf_control;
       if (uses_h1_state_observation)
         {
           if (!request.h1_target_data_membership_selection)
@@ -1001,21 +1020,8 @@ namespace nmopt::compiler::v1
                                              : uses_neumann_boundary_control
                                                ? CompiledTargetKind::neumann_boundary
                                              : uses_dirichlet_control
-                                               ? (uses_l2_dirichlet_control
-                                                    ? CompiledTargetKind::
-                                                        l2_dirichlet_transposition
-                                                  : uses_normalized_dirichlet_laplace
-                                                    ? (uses_h1_control_regularisation_loss(
-                                                         specification)
-                                                         ? CompiledTargetKind::
-                                                             h1_dirichlet_control
-                                                       : uses_h1_state_observation
-                                                         ? CompiledTargetKind::
-                                                             h1_tracking_hhalf_dirichlet_control
-                                                         : CompiledTargetKind::
-                                                             hhalf_dirichlet_control)
-                                                    : CompiledTargetKind::
-                                                        dirichlet_control)
+                                               ? target_kind_for_dirichlet_registration(
+                                                   *dirichlet_registration)
                                              : uses_coefficient_identification
                                                ? CompiledTargetKind::coefficient_identification
                                              : uses_hminus1_control_metric
@@ -1281,20 +1287,23 @@ namespace nmopt::compiler::v1
           using DirichletModel = detail::DirichletControlLiftingModel<dim>;
           detail::DirichletObjectivePolicy objective_policy;
           objective_policy.state_tracking =
-            uses_h1_state_observation
+            uses_h1_tracking_hhalf_dirichlet_registration
               ? detail::DirichletStateTrackingNormKind::h1
               : detail::DirichletStateTrackingNormKind::l2;
           objective_policy.control_norm =
-            uses_hhalf_control_regularisation
+            dirichlet_registration.has_value() &&
+                *dirichlet_registration ==
+                  DirichletControlRegistration::hhalf_control
               ? detail::DirichletControlNormKind::hhalf
-            : uses_h1_control_regularisation_loss(specification)
+            : uses_h1_dirichlet_control
               ? detail::DirichletControlNormKind::h1
               : detail::DirichletControlNormKind::l2;
           objective_policy.search_metric =
-            uses_hhalf_control_metric
+            uses_hhalf_dirichlet_registration
               ? detail::DirichletControlNormKind::hhalf
-            : uses_h1_control_metric ? detail::DirichletControlNormKind::h1
-                                     : detail::DirichletControlNormKind::l2;
+            : uses_h1_dirichlet_control
+              ? detail::DirichletControlNormKind::h1
+              : detail::DirichletControlNormKind::l2;
           objective_policy.trace_metric_solve = policy.control_metric_solve;
           const auto dirichlet = std::make_shared<DirichletModel>(
             triangulation,
@@ -1308,12 +1317,12 @@ namespace nmopt::compiler::v1
             fixed_dirichlet_boundary_ids,
             data.fixed_dirichlet_data,
             objective_policy);
-          if (uses_hhalf_control_metric)
+          if (uses_hhalf_dirichlet_registration)
             metric = std::make_shared<dealii_backend::TraceHhalfMetric>(
               dirichlet->control_hhalf_metric());
           else
             metric = std::make_shared<dealii_backend::MassMetric>(
-              uses_h1_control_metric
+              uses_h1_dirichlet_control
                 ? dirichlet->control_h1_metric(policy.control_metric_solve)
                 : dirichlet->control_l2_metric(policy.control_metric_solve));
           solvers = contract::StateAdjointSolversT<Backend>{
@@ -1517,6 +1526,7 @@ namespace nmopt::compiler::v1
                       policy,
                       constraint_realisation,
                       target_kind,
+                      dirichlet_registration,
                       resolved_decision,
                       request,
                       *tracking_region,
@@ -1537,6 +1547,16 @@ namespace nmopt::compiler::v1
     }
 
   private:
+    enum class DirichletControlRegistration
+    {
+      complete_nodal_l2,
+      partial_nodal_l2,
+      l2_transposition,
+      hhalf_control,
+      h1_tracking_hhalf_control,
+      h1_control
+    };
+
     enum class ConstraintRealisation
     {
       none,
@@ -2061,6 +2081,485 @@ namespace nmopt::compiler::v1
       const auto transformation = state == nullptr ? nullptr : find_transformation(
         specification, state->physical_field_transform_id);
       return transformation != nullptr && !transformation->fixed_data_id.empty();
+    }
+
+    static CompiledTargetKind
+    target_kind_for_dirichlet_registration(
+      const DirichletControlRegistration registration)
+    {
+      switch (registration)
+        {
+          case DirichletControlRegistration::complete_nodal_l2:
+          case DirichletControlRegistration::partial_nodal_l2:
+            return CompiledTargetKind::dirichlet_control;
+          case DirichletControlRegistration::l2_transposition:
+            return CompiledTargetKind::l2_dirichlet_transposition;
+          case DirichletControlRegistration::hhalf_control:
+            return CompiledTargetKind::hhalf_dirichlet_control;
+          case DirichletControlRegistration::h1_tracking_hhalf_control:
+            return CompiledTargetKind::h1_tracking_hhalf_dirichlet_control;
+          case DirichletControlRegistration::h1_control:
+            return CompiledTargetKind::h1_dirichlet_control;
+        }
+      contract::require(false, "Unknown Dirichlet control registration");
+      return CompiledTargetKind::dirichlet_control;
+    }
+
+    static bool
+    has_residual_signature(
+      const semantic::v1::ResolvedProblemView &resolved,
+      const std::vector<semantic::v1::ResidualTermKind> &expected_kinds)
+    {
+      const auto &specification = resolved.specification();
+      if (specification.residual_terms.size() != expected_kinds.size() ||
+          specification.equations.size() != 1)
+        return false;
+      const auto &equation = resolved.equation(specification.formulation.equation_id);
+      if (equation.residual_term_ids.size() != expected_kinds.size())
+        return false;
+      for (const auto &term_id : equation.residual_term_ids)
+        {
+          const auto &term = resolved.residual_term(term_id);
+          if (term.equation_id != equation.id ||
+              std::find(expected_kinds.begin(), expected_kinds.end(), term.kind) ==
+                expected_kinds.end())
+            return false;
+        }
+      for (const auto kind : expected_kinds)
+        if (std::count_if(
+              specification.residual_terms.begin(),
+              specification.residual_terms.end(),
+              [kind](const semantic::v1::ResidualTermSpec &term) {
+                return term.kind == kind;
+              }) != 1)
+          return false;
+      return true;
+    }
+
+    static bool
+    matches_fractional_metric_registration(
+      const ResolvedCompilationRequest &request,
+      const semantic::v1::MetricSpec &  metric,
+      const semantic::v1::VariableSpec &control,
+      const semantic::v1::VariableSpec &state)
+    {
+      if (!request.fractional_metric_selection)
+        return false;
+      const auto &selection = *request.fractional_metric_selection;
+      return selection.metric_id == metric.id &&
+             selection.control_space_id == control.space_id &&
+             selection.volume_space_id == state.space_id &&
+             selection.operator_realisation ==
+               semantic::v1::FractionalTraceOperatorRealisation::
+                 volume_mass_plus_stiffness_schur &&
+             selection.apply_realisation ==
+               semantic::v1::FractionalTraceApplyRealisation::
+                 minimum_h1_extension &&
+             selection.inverse_realisation ==
+               semantic::v1::FractionalTraceInverseRealisation::
+                 full_volume_operator_inverse;
+    }
+
+    static bool
+    matches_boundary_h1_metric_registration(
+      const ResolvedCompilationRequest &request,
+      const semantic::v1::MetricSpec &  metric,
+      const semantic::v1::VariableSpec &control,
+      const semantic::v1::RegionSpec &  controlled_region)
+    {
+      if (!request.boundary_h1_metric_selection)
+        return false;
+      const auto &selection = *request.boundary_h1_metric_selection;
+      return selection.metric_id == metric.id &&
+             selection.control_space_id == control.space_id &&
+             selection.boundary_region_id == controlled_region.id &&
+             selection.operator_realisation ==
+               semantic::v1::BoundaryH1MetricOperatorRealisation::
+                 boundary_mass_plus_tangential_stiffness &&
+             selection.tangential_gradient_realisation ==
+               semantic::v1::BoundaryH1TangentialGradientRealisation::
+                 projected_ambient_gradient &&
+             selection.nullspace_realisation ==
+               semantic::v1::BoundaryH1MetricNullspaceRealisation::
+                 positive_mass_no_nullspace;
+    }
+
+    static bool
+    matches_transposition_registration(
+      const ResolvedCompilationRequest &request,
+      const semantic::v1::ResolvedProblemView &resolved,
+      const semantic::v1::EquationBlockSpec &equation,
+      const semantic::v1::ObservationSpec &control_observation,
+      const semantic::v1::VariableSpec &control)
+    {
+      if (!request.transposition_selection)
+        return false;
+      const auto &selection = *request.transposition_selection;
+      return selection.subject_equation_id == equation.id &&
+             selection.strong_space_id == equation.test_space_id &&
+             selection.observation_id == control_observation.id &&
+             selection.transpose_source_space_id ==
+               control_observation.output_space_id &&
+             selection.continuous_parent_space_id == control.space_id &&
+             !selection.conforming_trace_space_id.empty() &&
+             !selection.equivalence_policy_id.empty() &&
+             !selection.conormal_policy_id.empty() &&
+             selection.operator_realisation ==
+               semantic::v1::TranspositionOperatorRealisation::
+                 scalar_diffusion_reaction_dirichlet_laplacian &&
+             selection.discrete_realisation ==
+               semantic::v1::TranspositionDiscreteRealisation::
+                 conforming_nodal_lifting_equivalence &&
+             selection.equivalence_realisation ==
+               semantic::v1::TranspositionEquivalenceRealisation::
+                 conforming_lifting_variational_equivalence &&
+             resolved.space(selection.conforming_trace_space_id).topology ==
+               semantic::v1::SpaceTopology::hhalf;
+    }
+
+    static bool
+    matches_partial_registration(
+      const ResolvedCompilationRequest &request,
+      const semantic::v1::ResolvedProblemView &resolved,
+      const semantic::v1::TransformationSpec &transformation,
+      const semantic::v1::RegionSpec &controlled_region)
+    {
+      if (!request.partial_boundary_selection)
+        return false;
+      const auto &selection = *request.partial_boundary_selection;
+      return selection.transformation_id == transformation.id &&
+             selection.controlled_boundary_region_id == controlled_region.id &&
+             !selection.fixed_boundary_region_id.empty() &&
+             selection.requires_complete_exterior &&
+             selection.requires_disjoint_regions &&
+             selection.interface_realisation ==
+               semantic::v1::PartialDirichletInterfaceRealisation::
+                 fixed_data_precedence &&
+             selection.trace_realisation ==
+               semantic::v1::PartialDirichletTraceRealisation::
+                 relative_interior_nodal_zero_endpoint &&
+             selection.hanging_realisation ==
+               semantic::v1::PartialDirichletHangingRealisation::unsupported &&
+             resolved.region(selection.fixed_boundary_region_id).kind ==
+               semantic::v1::RegionKind::boundary;
+    }
+
+    static std::optional<DirichletControlRegistration>
+    resolve_dirichlet_control_registration(
+      const semantic::v1::ResolvedProblemView &resolved,
+      const ResolvedCompilationRequest &        request)
+    {
+      const auto &specification = resolved.specification();
+      if (!uses_dirichlet_control_target(specification))
+        return std::nullopt;
+
+      const auto state = find_variable(
+        specification, specification.formulation.state_variable_id);
+      const auto control = find_variable(
+        specification, specification.formulation.control_variable_id);
+      if (state == nullptr || control == nullptr ||
+          state->role != semantic::v1::VariableRole::state ||
+          control->role != semantic::v1::VariableRole::control ||
+          specification.formulation.constraint_id.size() != 0 ||
+          !specification.constraints.empty() ||
+          specification.observations.size() != 2 ||
+          specification.losses.size() != 2 || specification.metrics.size() != 1)
+        return std::nullopt;
+
+      const auto controlled_policy = std::find_if(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [&specification](const semantic::v1::RequirementPolicySpec &policy) {
+          return policy.subject_id == specification.formulation.state_variable_id &&
+                 policy.kind == semantic::v1::RequirementKind::controlled_dirichlet &&
+                 policy.status ==
+                   semantic::v1::RequirementStatus::selected_discrete_realisation;
+        });
+      if (controlled_policy == specification.requirement_policies.end())
+        return std::nullopt;
+      const auto *controlled_region =
+        find_region(specification, controlled_policy->region_id);
+      if (controlled_region == nullptr ||
+          controlled_region->kind != semantic::v1::RegionKind::boundary ||
+          controlled_region->boundary_ids.empty())
+        return std::nullopt;
+
+      const auto equation = std::find_if(
+        specification.equations.begin(),
+        specification.equations.end(),
+        [&specification](const semantic::v1::EquationBlockSpec &candidate) {
+          return candidate.id == specification.formulation.equation_id;
+        });
+      if (equation == specification.equations.end())
+        return std::nullopt;
+
+      const auto state_space = std::find_if(
+        specification.spaces.begin(),
+        specification.spaces.end(),
+        [state](const semantic::v1::SpaceSpec &space) {
+          return space.id == state->space_id;
+        });
+      const auto test_space = std::find_if(
+        specification.spaces.begin(),
+        specification.spaces.end(),
+        [equation](const semantic::v1::SpaceSpec &space) {
+          return space.id == equation->test_space_id;
+        });
+      const auto control_space = std::find_if(
+        specification.spaces.begin(),
+        specification.spaces.end(),
+        [control](const semantic::v1::SpaceSpec &space) {
+          return space.id == control->space_id;
+        });
+      if (state_space == specification.spaces.end() ||
+          test_space == specification.spaces.end() ||
+          control_space == specification.spaces.end() ||
+          test_space->region_id != state_space->region_id ||
+          !find_region(specification, state_space->region_id)->is_full_domain)
+        return std::nullopt;
+
+      const auto state_observation = std::find_if(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [state](const semantic::v1::ObservationSpec &observation) {
+          return observation.input_variable_id == state->id &&
+                 (observation.kind ==
+                    semantic::v1::ObservationKind::volume_restriction ||
+                  observation.kind ==
+                    semantic::v1::ObservationKind::h1_state_restriction);
+        });
+      const auto control_observation = std::find_if(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [control](const semantic::v1::ObservationSpec &observation) {
+          return observation.input_variable_id == control->id &&
+                 observation.kind ==
+                   semantic::v1::ObservationKind::boundary_restriction;
+        });
+      if (state_observation == specification.observations.end() ||
+          control_observation == specification.observations.end() ||
+          state_observation->region_id != state_space->region_id ||
+          control_observation->region_id != controlled_region->id)
+        return std::nullopt;
+
+      const auto state_observation_space = std::find_if(
+        specification.spaces.begin(),
+        specification.spaces.end(),
+        [state_observation](const semantic::v1::SpaceSpec &space) {
+          return space.id == state_observation->output_space_id;
+        });
+      const auto control_observation_space = std::find_if(
+        specification.spaces.begin(),
+        specification.spaces.end(),
+        [control_observation](const semantic::v1::SpaceSpec &space) {
+          return space.id == control_observation->output_space_id;
+        });
+      if (state_observation_space == specification.spaces.end() ||
+          control_observation_space == specification.spaces.end() ||
+          state_observation_space->region_id != state_observation->region_id ||
+          control_observation_space->region_id != controlled_region->id ||
+          control_space->region_id != controlled_region->id)
+        return std::nullopt;
+
+      const auto tracking_loss = std::find_if(
+        specification.losses.begin(), specification.losses.end(),
+        [state_observation](const semantic::v1::LossSpec &loss) {
+          return loss.kind == semantic::v1::LossKind::quadratic_tracking &&
+                 loss.source_observation_id == state_observation->id;
+        });
+      const auto control_loss = std::find_if(
+        specification.losses.begin(), specification.losses.end(),
+        [control_observation](const semantic::v1::LossSpec &loss) {
+          return loss.kind != semantic::v1::LossKind::quadratic_tracking &&
+                 loss.source_observation_id == control_observation->id;
+        });
+      const auto metric = std::find_if(
+        specification.metrics.begin(), specification.metrics.end(),
+        [&specification](const semantic::v1::MetricSpec &candidate) {
+          return candidate.id == specification.formulation.metric_id;
+        });
+      if (tracking_loss == specification.losses.end() ||
+          control_loss == specification.losses.end() ||
+          metric == specification.metrics.end() ||
+          tracking_loss->pairing_id != state_observation->output_pairing_id ||
+          control_loss->pairing_id != control_observation->output_pairing_id ||
+          metric->variable_id != control->id)
+        return std::nullopt;
+
+      const auto &state_observation_pairing =
+        resolved.pairing(state_observation->output_pairing_id);
+      const auto &control_observation_pairing =
+        resolved.pairing(control_observation->output_pairing_id);
+      const auto &control_pairing = resolved.pairing(metric->pairing_id);
+      if (state_observation_pairing.primal_space_id !=
+            state_observation->output_space_id ||
+          state_observation_pairing.covector_space_id !=
+            state_observation->output_space_id ||
+          control_observation_pairing.primal_space_id !=
+            control_observation->output_space_id ||
+          control_observation_pairing.covector_space_id !=
+            control_observation->output_space_id ||
+          control_pairing.primal_space_id != control->space_id ||
+          control_pairing.covector_space_id != control->space_id)
+        return std::nullopt;
+
+      if (uses_l2_dirichlet_transposition(specification))
+        {
+          if (!specification.transformations.empty() ||
+              state->physical_field_transform_id.size() != 0 ||
+              state_space->topology != semantic::v1::SpaceTopology::l2 ||
+              test_space->topology != semantic::v1::SpaceTopology::h2 ||
+              control_space->topology != semantic::v1::SpaceTopology::l2 ||
+              control_observation_space->topology !=
+                semantic::v1::SpaceTopology::l2 ||
+              state_observation_space->topology !=
+                semantic::v1::SpaceTopology::l2 ||
+              metric->kind != semantic::v1::MetricKind::l2 ||
+              control_loss->kind !=
+                semantic::v1::LossKind::quadratic_control_regularisation ||
+              !has_residual_signature(
+                resolved,
+                {semantic::v1::ResidualTermKind::transposition_laplacian,
+                 semantic::v1::ResidualTermKind::volume_source,
+                 semantic::v1::ResidualTermKind::
+                   dirichlet_transposition_control}) ||
+              !matches_transposition_registration(request,
+                                                   resolved,
+                                                   *equation,
+                                                   *control_observation,
+                                                   *control))
+            return std::nullopt;
+          return DirichletControlRegistration::l2_transposition;
+        }
+
+      if (specification.transformations.size() != 1 ||
+          state->physical_field_transform_id.empty())
+        return std::nullopt;
+      const auto &transformation =
+        resolved.transformation(state->physical_field_transform_id);
+      if (transformation.kind !=
+            semantic::v1::TransformationKind::dirichlet_control_lifting ||
+          transformation.input_variable_id != state->id ||
+          transformation.output_space_id != state->space_id ||
+          transformation.control_variable_id != control->id)
+        return std::nullopt;
+
+      const bool partial = !transformation.fixed_data_id.empty();
+      if (partial != uses_partial_dirichlet_control_lifting(specification))
+        return std::nullopt;
+      if (partial)
+        {
+          if (!matches_partial_registration(request,
+                                            resolved,
+                                            transformation,
+                                            *controlled_region))
+            return std::nullopt;
+        }
+      else if (request.partial_boundary_selection)
+        return std::nullopt;
+
+      if (state_space->topology != semantic::v1::SpaceTopology::h1 ||
+          test_space->topology != semantic::v1::SpaceTopology::h1)
+        return std::nullopt;
+
+      const bool normalized = has_residual_signature(
+        resolved,
+        {semantic::v1::ResidualTermKind::laplacian,
+         semantic::v1::ResidualTermKind::volume_source});
+      const bool diffusion_reaction = has_residual_signature(
+        resolved,
+        {semantic::v1::ResidualTermKind::diffusion_reaction,
+         semantic::v1::ResidualTermKind::volume_source});
+      if (!normalized && !diffusion_reaction)
+        return std::nullopt;
+
+      if (diffusion_reaction &&
+          control_space->topology == semantic::v1::SpaceTopology::h1 &&
+          control_observation_space->topology ==
+            semantic::v1::SpaceTopology::h1 &&
+          state_observation->kind ==
+            semantic::v1::ObservationKind::volume_restriction &&
+          control_loss->kind ==
+            semantic::v1::LossKind::quadratic_control_regularisation &&
+          metric->kind == semantic::v1::MetricKind::l2)
+        return partial ? DirichletControlRegistration::partial_nodal_l2
+                       : DirichletControlRegistration::complete_nodal_l2;
+
+      if (!normalized || partial)
+        return std::nullopt;
+
+      if (control_space->topology == semantic::v1::SpaceTopology::hhalf &&
+          control_observation_space->topology ==
+            semantic::v1::SpaceTopology::hhalf &&
+          state_observation->kind ==
+            semantic::v1::ObservationKind::volume_restriction &&
+          control_loss->kind ==
+            semantic::v1::LossKind::quadratic_hhalf_control_regularisation &&
+          metric->kind == semantic::v1::MetricKind::hhalf &&
+          matches_fractional_metric_registration(request,
+                                                 *metric,
+                                                 *control,
+                                                 *state))
+        return DirichletControlRegistration::hhalf_control;
+
+      if (control_space->topology == semantic::v1::SpaceTopology::hhalf &&
+          control_observation_space->topology ==
+            semantic::v1::SpaceTopology::l2 &&
+          state_observation->kind ==
+            semantic::v1::ObservationKind::h1_state_restriction &&
+          control_loss->kind ==
+            semantic::v1::LossKind::quadratic_control_regularisation &&
+          metric->kind == semantic::v1::MetricKind::hhalf &&
+          matches_fractional_metric_registration(request,
+                                                 *metric,
+                                                 *control,
+                                                 *state) &&
+          request.h1_target_data_membership_selection &&
+          request.h1_target_data_membership_selection->data_id ==
+            tracking_loss->data_id &&
+          request.h1_target_data_membership_selection->observation_space_id ==
+            state_observation->output_space_id &&
+          request.h1_target_data_membership_selection->fixed_boundary_region_id ==
+            controlled_region->id &&
+          request.h1_target_data_membership_selection->regularity_realisation ==
+            semantic::v1::H1TargetDataRegularityRealisation::
+              h1_value_and_weak_gradient &&
+          request.h1_target_data_membership_selection->trace_realisation ==
+            semantic::v1::H1TargetDataTraceRealisation::
+              zero_trace_on_fixed_boundary)
+        return DirichletControlRegistration::h1_tracking_hhalf_control;
+
+      if (control_space->topology == semantic::v1::SpaceTopology::h1 &&
+          control_observation_space->topology ==
+            semantic::v1::SpaceTopology::h1 &&
+          state_observation->kind ==
+            semantic::v1::ObservationKind::volume_restriction &&
+          control_loss->kind ==
+            semantic::v1::LossKind::quadratic_h1_control_regularisation &&
+          metric->kind == semantic::v1::MetricKind::h1 &&
+          matches_boundary_h1_metric_registration(request,
+                                                  *metric,
+                                                  *control,
+                                                  *controlled_region))
+        return DirichletControlRegistration::h1_control;
+
+      return std::nullopt;
+    }
+
+    static void
+    validate_dirichlet_control_registration(
+      const semantic::v1::ResolvedProblemView &resolved,
+      const ResolvedCompilationRequest &        request,
+      semantic::v1::ValidationReport &          report)
+    {
+      const auto &specification = resolved.specification();
+      if (uses_dirichlet_control_target(specification) &&
+          !resolve_dirichlet_control_registration(resolved, request))
+        report.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "section_5_11_registered_signature",
+          "Select one registered Dirichlet composition: complete or partial nodal L2 lifting, conforming L2 transposition, Section 5.11.1 option 1 or 2, or Section 5.11.3 tangential H1 control.");
     }
 
     static std::set<dealii::types::boundary_id>
@@ -3718,12 +4217,18 @@ namespace nmopt::compiler::v1
 
     static std::string
     control_space_description(const CompiledTargetKind       target,
-                              const DealiiDiscretisationPolicy &policy)
+                              const DealiiDiscretisationPolicy &policy,
+                              const std::optional<DirichletControlRegistration> &
+                                registration = std::nullopt)
     {
       switch (target)
         {
           case CompiledTargetKind::dirichlet_control:
-            return "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary";
+            return registration.has_value() &&
+                     *registration ==
+                       DirichletControlRegistration::partial_nodal_l2
+              ? "relative-interior nodal trace coefficients on the partial controlled boundary with fixed endpoint precedence"
+              : "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary";
           case CompiledTargetKind::l2_dirichlet_transposition:
             return "conforming nodal trace FE subspace U_h=trace(V_h) of the continuous L2 boundary control";
           case CompiledTargetKind::hhalf_dirichlet_control:
@@ -4422,6 +4927,7 @@ namespace nmopt::compiler::v1
       const DealiiDiscretisationPolicy &policy,
       const ConstraintRealisation       constraint_realisation,
       const CompiledTargetKind          target,
+      const std::optional<DirichletControlRegistration> &registration,
       const ResolvedCompilationDecision &decision,
       const ResolvedCompilationRequest  &request,
       const semantic::v1::RegionSpec &  tracking_region,
@@ -4452,11 +4958,15 @@ namespace nmopt::compiler::v1
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_hhalf_dirichlet_control =
-        target == CompiledTargetKind::hhalf_dirichlet_control;
+        registration.has_value() &&
+        *registration == DirichletControlRegistration::hhalf_control;
       const bool uses_h1_tracking_hhalf_dirichlet_control =
-        target == CompiledTargetKind::h1_tracking_hhalf_dirichlet_control;
+        registration.has_value() &&
+        *registration ==
+          DirichletControlRegistration::h1_tracking_hhalf_control;
       const bool uses_h1_dirichlet_control =
-        target == CompiledTargetKind::h1_dirichlet_control;
+        registration.has_value() &&
+        *registration == DirichletControlRegistration::h1_control;
       const bool uses_section_5_11_dirichlet_control =
         uses_hhalf_dirichlet_control ||
         uses_h1_tracking_hhalf_dirichlet_control ||
@@ -4466,7 +4976,8 @@ namespace nmopt::compiler::v1
         target == CompiledTargetKind::l2_dirichlet_transposition ||
         uses_section_5_11_dirichlet_control;
       const bool uses_l2_dirichlet_control =
-        target == CompiledTargetKind::l2_dirichlet_transposition;
+        registration.has_value() &&
+        *registration == DirichletControlRegistration::l2_transposition;
       const bool uses_normalized_dirichlet_control =
         uses_l2_dirichlet_control || uses_section_5_11_dirichlet_control;
       const bool uses_partial_dirichlet_control =
@@ -4866,7 +5377,8 @@ namespace nmopt::compiler::v1
                                    ") variational Galerkin coordinates"
                                : "scalar FE_Q(" +
                                    std::to_string(policy.state_degree) + ")";
-      manifest.control_space = control_space_description(target, policy);
+      manifest.control_space =
+        control_space_description(target, policy, registration);
       manifest.quadrature = "QGauss(" +
                             std::to_string(policy.state_degree + 2) + ")";
       manifest.dual_representation = "tested dual coefficients with dot pairing";

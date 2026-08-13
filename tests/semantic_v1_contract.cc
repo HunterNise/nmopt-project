@@ -562,6 +562,37 @@ namespace
     const auto h1_state_report = validator.validate(h1_state_specification);
     require(h1_state_report.valid(),
             "the H1-state tracking v1 graph is invalid");
+    const auto require_h1_target_selection =
+      [](const auto &candidate, const std::string &expected_boundary) {
+        const auto policy = component_by_id(
+          candidate.requirement_policies, "h1_target_data_membership");
+        return policy.status ==
+                   nmopt::semantic::v1::RequirementStatus::user_assumed &&
+               policy.scope ==
+                 nmopt::semantic::v1::RequirementScope::continuous_semantics &&
+               policy.typed_h1_target_data_membership_selection.has_value() &&
+               policy.typed_h1_target_data_membership_selection->data_id ==
+                 "desired_state" &&
+               policy.typed_h1_target_data_membership_selection
+                   ->observation_space_id == "state_observation_space" &&
+               policy.typed_h1_target_data_membership_selection
+                   ->fixed_boundary_region_id == expected_boundary &&
+               policy.typed_h1_target_data_membership_selection
+                   ->regularity_realisation ==
+                 nmopt::semantic::v1::H1TargetDataRegularityRealisation::
+                   h1_value_and_weak_gradient &&
+               policy.typed_h1_target_data_membership_selection
+                   ->trace_realisation ==
+                 nmopt::semantic::v1::H1TargetDataTraceRealisation::
+                   zero_trace_on_fixed_boundary;
+      };
+    require(
+      require_h1_target_selection(h1_state_specification, "dirichlet_boundary"),
+      "the H1-state graph omitted its typed target-data membership assumption");
+    require(
+      require_h1_target_selection(h1_tracking_hhalf_specification,
+                                  "control_boundary"),
+      "the Section 5.11.1 H1-state graph omitted its target-data membership assumption");
 
     auto hminus1_metric_specification =
       nmopt::semantic::v1::
@@ -575,6 +606,83 @@ namespace
                               "control_l2_metric")
                   .kind == nmopt::semantic::v1::MetricKind::l2,
             "the H-1 metric L2 comparison graph is invalid");
+    require(require_h1_target_selection(hminus1_l2_companion,
+                                        "dirichlet_boundary") &&
+              require_h1_target_selection(hminus1_metric_specification,
+                                           "dirichlet_boundary"),
+            "the H1-state comparison factories did not inherit the target-data assumption");
+    auto missing_h1_target_membership = h1_state_specification;
+    remove_policy(missing_h1_target_membership,
+                  "h1_target_data_membership");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_h1_target_membership),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "desired_state",
+      "h1_target_space_membership",
+      "the H1-state graph accepted a missing target-data membership assumption");
+    auto wrong_h1_target_data = h1_state_specification;
+    component_by_id(wrong_h1_target_data.requirement_policies,
+                    "h1_target_data_membership")
+      .typed_h1_target_data_membership_selection->data_id = "forcing";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_h1_target_data),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "desired_state",
+      "h1_target_space_membership",
+      "the H1-state graph accepted the wrong target datum");
+    auto wrong_h1_target_space = h1_state_specification;
+    component_by_id(wrong_h1_target_space.requirement_policies,
+                    "h1_target_data_membership")
+      .typed_h1_target_data_membership_selection
+      ->observation_space_id = "state_space";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_h1_target_space),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "desired_state",
+      "h1_target_space_membership",
+      "the H1-state graph accepted the wrong target observation space");
+    auto missing_h1_target_zero_trace = h1_state_specification;
+    component_by_id(missing_h1_target_zero_trace.requirement_policies,
+                    "h1_target_data_membership")
+      .typed_h1_target_data_membership_selection->trace_realisation =
+      nmopt::semantic::v1::H1TargetDataTraceRealisation::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_h1_target_zero_trace),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "desired_state",
+      "h1_target_zero_trace",
+      "the H1-state graph accepted a missing zero-trace selection");
+    auto wrong_h1_target_boundary = h1_state_specification;
+    component_by_id(wrong_h1_target_boundary.requirement_policies,
+                    "h1_target_data_membership")
+      .typed_h1_target_data_membership_selection->fixed_boundary_region_id =
+      "domain";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_h1_target_boundary),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "desired_state",
+      "h1_target_zero_trace",
+      "the H1-state graph accepted a wrong zero-trace boundary");
+    auto wrong_h1_target_scope = h1_state_specification;
+    component_by_id(wrong_h1_target_scope.requirement_policies,
+                    "h1_target_data_membership")
+      .scope = nmopt::semantic::v1::RequirementScope::both;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_h1_target_scope),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "desired_state",
+      "h1_target_space_membership",
+      "the H1-state graph accepted a target assumption with the wrong scope");
+    auto provided_h1_target_assumption = h1_state_specification;
+    component_by_id(provided_h1_target_assumption.requirement_policies,
+                    "h1_target_data_membership")
+      .status = nmopt::semantic::v1::RequirementStatus::provided;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(provided_h1_target_assumption),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "desired_state",
+      "h1_target_space_membership",
+      "the H1-state graph accepted a target assumption presented as proven");
     const auto hminus1_control_space =
       component_by_id(hminus1_metric_specification.spaces, "control_space");
     const auto hminus1_metric = component_by_id(

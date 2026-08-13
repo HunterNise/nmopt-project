@@ -91,6 +91,8 @@ namespace nmopt::compiler::v1
       fractional_metric_selection;
     std::optional<semantic::v1::BoundaryH1MetricRealisationSelection>
       boundary_h1_metric_selection;
+    std::optional<semantic::v1::H1TargetDataMembershipSelection>
+      h1_target_data_membership_selection;
     std::string continuous_control_boundary_region_id;
   };
 

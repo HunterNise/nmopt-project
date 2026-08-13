@@ -226,6 +226,8 @@ namespace nmopt::compiler::v1
       fractional_metric_selection;
     std::optional<semantic::v1::BoundaryH1MetricRealisationSelection>
       boundary_h1_metric_selection;
+    std::optional<semantic::v1::H1TargetDataMembershipSelection>
+      h1_target_data_membership_selection;
     std::vector<CompiledAssumptionRecord> assumptions;
   };
 
@@ -257,6 +259,8 @@ namespace nmopt::compiler::v1
                                           fractional_metric_selection;
     std::optional<semantic::v1::BoundaryH1MetricRealisationSelection>
                                           boundary_h1_metric_selection;
+    std::optional<semantic::v1::H1TargetDataMembershipSelection>
+                                          h1_target_data_membership_selection;
     std::vector<std::string>              lowering_handler_records;
     // Human-readable rendering retained for logs and source compatibility.
     // Tests and experiment tooling use the structured records above.

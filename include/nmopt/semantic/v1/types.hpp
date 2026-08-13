@@ -165,6 +165,7 @@ namespace nmopt::semantic::v1
     conforming_trace_subspace,
     fractional_trace_realisation,
     tangential_gradient_realisation,
+    target_data_membership,
     metric_realisation
   };
 
@@ -283,6 +284,30 @@ namespace nmopt::semantic::v1
       Hminus1MetricInverseRealisation::unspecified;
     Hminus1MetricNullspaceRealisation nullspace_realisation =
       Hminus1MetricNullspaceRealisation::unspecified;
+  };
+
+  enum class H1TargetDataRegularityRealisation
+  {
+    unspecified = -1,
+    h1_value_and_weak_gradient
+  };
+
+  enum class H1TargetDataTraceRealisation
+  {
+    unspecified = -1,
+    zero_trace_on_fixed_boundary
+  };
+
+  struct H1TargetDataMembershipSelection
+  {
+    std::string                         id;
+    std::string                         data_id;
+    std::string                         observation_space_id;
+    std::string                         fixed_boundary_region_id;
+    H1TargetDataRegularityRealisation  regularity_realisation =
+      H1TargetDataRegularityRealisation::unspecified;
+    H1TargetDataTraceRealisation       trace_realisation =
+      H1TargetDataTraceRealisation::unspecified;
   };
 
   enum class TranspositionOperatorRealisation
@@ -641,6 +666,8 @@ namespace nmopt::semantic::v1
       typed_fractional_metric_selection;
     std::optional<BoundaryH1MetricRealisationSelection>
       typed_boundary_h1_metric_selection;
+    std::optional<H1TargetDataMembershipSelection>
+      typed_h1_target_data_membership_selection;
   };
 
   struct ReducedFormulationSpec

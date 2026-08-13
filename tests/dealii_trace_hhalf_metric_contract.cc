@@ -594,6 +594,24 @@ namespace
                              return record.find(fragment) != std::string::npos;
                            });
       };
+      const bool has_h1_state_observation = std::any_of(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [](const nmopt::semantic::v1::ObservationSpec &observation) {
+          return observation.kind ==
+                 nmopt::semantic::v1::ObservationKind::h1_state_restriction;
+        });
+      nmopt::contract::require(
+        !has_h1_state_observation ||
+          (manifest.h1_target_data_membership_selection.has_value() &&
+           std::any_of(manifest.declared_assumptions.begin(),
+                       manifest.declared_assumptions.end(),
+                       [](const std::string &assumption) {
+                         return assumption.find(
+                                  "h1_target_data_membership: status=user_assumed") ==
+                                0;
+                       })),
+        specification.id + " omitted its typed H1 target-data assumption");
       nmopt::contract::require(
         (expected_metric_id == "h1_dirichlet_trace"
            ? manifest.boundary_h1_metric_selection.has_value() &&

@@ -2280,6 +2280,77 @@ namespace nmopt::semantic::v1
               "Select the fixed-data interface ownership and zero-endpoint controlled trace policy.");
         }
 
+      for (const auto &observation : specification.observations)
+        if (observation.kind == ObservationKind::h1_state_restriction)
+          {
+            const auto target_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [](const RequirementPolicySpec &policy) {
+                return policy.subject_id == "desired_state" &&
+                       policy.kind == RequirementKind::target_data_membership;
+              });
+            if (target_policy == specification.requirement_policies.end() ||
+                target_policy->status != RequirementStatus::user_assumed ||
+                target_policy->scope != RequirementScope::continuous_semantics ||
+                target_policy->selected_policy.empty() ||
+                !target_policy->typed_h1_target_data_membership_selection)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                "desired_state",
+                "h1_target_space_membership",
+                "Declare the model-author H1 target-space membership assumption with user-assumed continuous semantics.");
+            else
+              {
+                const auto &selection =
+                  *target_policy->typed_h1_target_data_membership_selection;
+                const auto observation_space =
+                  find_space(observation.output_space_id);
+                if (selection.id != target_policy->id ||
+                    selection.data_id != "desired_state" ||
+                    selection.observation_space_id !=
+                      observation.output_space_id ||
+                    observation_space == specification.spaces.end() ||
+                    observation_space->topology != SpaceTopology::h1 ||
+                    selection.regularity_realisation !=
+                      H1TargetDataRegularityRealisation::
+                        h1_value_and_weak_gradient)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    "desired_state",
+                    "h1_target_space_membership",
+                    "Bind the H1 target assumption to desired_state, the H1 observation space, and value/weak-gradient data.");
+                else
+                  {
+                    const auto fixed_policy = std::find_if(
+                      specification.requirement_policies.begin(),
+                      specification.requirement_policies.end(),
+                      [&specification](const RequirementPolicySpec &policy) {
+                        return policy.subject_id ==
+                                 specification.formulation.state_variable_id &&
+                               (policy.kind == RequirementKind::fixed_dirichlet ||
+                                policy.kind ==
+                                  RequirementKind::controlled_dirichlet);
+                      });
+                    const auto boundary =
+                      find_region(selection.fixed_boundary_region_id);
+                    if (fixed_policy == specification.requirement_policies.end() ||
+                        selection.fixed_boundary_region_id != fixed_policy->region_id ||
+                        boundary == specification.regions.end() ||
+                        boundary->kind != RegionKind::boundary ||
+                        boundary->boundary_ids.empty() ||
+                        selection.trace_realisation !=
+                          H1TargetDataTraceRealisation::
+                            zero_trace_on_fixed_boundary)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        "desired_state",
+                        "h1_target_zero_trace",
+                        "Bind the H1 target assumption to the selected fixed boundary and declare zero trace there.");
+                  }
+              }
+          }
+
       for (const auto &datum : specification.data)
         if ((datum.role == DataRole::desired_state ||
              datum.role == DataRole::observation_weight) &&

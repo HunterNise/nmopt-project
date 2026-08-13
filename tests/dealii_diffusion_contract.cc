@@ -1650,6 +1650,20 @@ namespace
     const auto &manifest = compilation.problem->manifest();
     require_constraint_realisation(manifest, "none", "H1-state observation");
     contract::require(
+      manifest.h1_target_data_membership_selection.has_value() &&
+        manifest.h1_target_data_membership_selection->data_id ==
+          "desired_state" &&
+        manifest.h1_target_data_membership_selection->observation_space_id ==
+          "state_observation_space" &&
+        manifest.h1_target_data_membership_selection
+            ->fixed_boundary_region_id == "dirichlet_boundary" &&
+        std::any_of(manifest.declared_assumptions.begin(),
+                    manifest.declared_assumptions.end(),
+                    [](const std::string &assumption) {
+                      return assumption.find(
+                               "h1_target_data_membership: status=user_assumed") ==
+                             0;
+                    }) &&
       manifest.compiler_id == "nmopt.compiler.v1.dealii.h1_state_tracking" &&
         manifest.observation_realisation.find("H1_0") != std::string::npos &&
         manifest.observation_realisation.find("mass-plus-stiffness") !=
@@ -3051,7 +3065,21 @@ namespace
                           "L2 comparison-direction Taylor remainder is not quadratic");
 
     const auto &manifest = hminus1_compilation.problem->manifest();
+    const auto &l2_manifest = l2_compilation.problem->manifest();
     contract::require(
+      manifest.h1_target_data_membership_selection.has_value() &&
+        l2_manifest.h1_target_data_membership_selection.has_value() &&
+        manifest.h1_target_data_membership_selection->data_id ==
+          l2_manifest.h1_target_data_membership_selection->data_id &&
+        manifest.h1_target_data_membership_selection
+            ->fixed_boundary_region_id == "dirichlet_boundary" &&
+        std::any_of(manifest.declared_assumptions.begin(),
+                    manifest.declared_assumptions.end(),
+                    [](const std::string &assumption) {
+                      return assumption.find(
+                               "h1_target_data_membership: status=user_assumed") ==
+                             0;
+                    }) &&
       hminus1_compilation.problem->metric().id() == "hminus1_continuous" &&
         l2_compilation.problem->metric().id() == "l2_continuous" &&
         manifest.metric_record.operator_description.find("M_h K_h^{-1} M_h") !=

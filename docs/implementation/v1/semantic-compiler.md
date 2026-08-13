@@ -316,6 +316,16 @@ cellwise $L^{2}$ control metric and regularisation; subdomain energy tracking
 remains separate. The registered $H^{-1}$ metric is instead composed with the
 continuous-control companion described below.
 
+The H1-state registration also carries a typed target-data membership
+assumption. It binds `desired_state` to `state_observation_space` and the
+selected fixed/controlled Dirichlet boundary, and records H1 value/weak-gradient availability
+and zero trace as a continuous-semantic `user_assumed` condition. The compiler
+copies this selection into the resolved decision and manifest and renders its
+status explicitly; it does not claim to prove the property for the bound
+deal.II `Function`. The same assumption is inherited by the L2 and Hminus1
+continuous-control comparison factories. A general H1 target remains a
+separate semantic registration.
+
 ### $H^{-1}$ control metric
 
 The P5.2 comparison factories expose the same independent control coordinates

@@ -324,6 +324,11 @@ namespace nmopt::compiler::v1
           if (policy.typed_boundary_h1_metric_selection)
             request.boundary_h1_metric_selection =
               policy.typed_boundary_h1_metric_selection;
+          if (policy.kind == semantic::v1::RequirementKind::target_data_membership &&
+              policy.subject_id == "desired_state" &&
+              policy.typed_h1_target_data_membership_selection)
+            request.h1_target_data_membership_selection =
+              policy.typed_h1_target_data_membership_selection;
           if (policy.subject_id == specification.formulation.control_variable_id &&
               policy.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
               policy.status ==
@@ -548,6 +553,58 @@ namespace nmopt::compiler::v1
       const bool uses_h1_dirichlet_control =
         uses_normalized_dirichlet_laplace &&
         uses_h1_control_regularisation_loss(specification);
+      if (uses_h1_state_observation)
+        {
+          if (!request.h1_target_data_membership_selection)
+            result.diagnostics.add(
+              semantic::v1::DiagnosticCategory::lowerability,
+              "desired_state",
+              "h1_target_space_membership",
+              "Resolve the model-author H1 target-space membership assumption before constructing the registered model.");
+          else
+            {
+              const auto &selection =
+                *request.h1_target_data_membership_selection;
+              const auto state_boundary_policy = std::find_if(
+                specification.requirement_policies.begin(),
+                specification.requirement_policies.end(),
+                [&specification](const semantic::v1::RequirementPolicySpec &policy) {
+                  return policy.subject_id ==
+                           specification.formulation.state_variable_id &&
+                         (policy.kind ==
+                            semantic::v1::RequirementKind::fixed_dirichlet ||
+                          policy.kind ==
+                            semantic::v1::RequirementKind::controlled_dirichlet) &&
+                         policy.status ==
+                           semantic::v1::RequirementStatus::
+                             selected_discrete_realisation &&
+                         !policy.region_id.empty();
+                });
+              const std::string expected_state_boundary =
+                state_boundary_policy == specification.requirement_policies.end()
+                  ? std::string{}
+                  : state_boundary_policy->region_id;
+              if (selection.data_id != "desired_state" ||
+                  selection.observation_space_id != "state_observation_space" ||
+                  selection.regularity_realisation !=
+                    semantic::v1::H1TargetDataRegularityRealisation::
+                      h1_value_and_weak_gradient)
+                result.diagnostics.add(
+                  semantic::v1::DiagnosticCategory::lowerability,
+                  "desired_state",
+                  "h1_target_space_membership",
+                  "The registered H1-state lowerer requires the declared desired_state H1 value/gradient membership selection.");
+              if (selection.fixed_boundary_region_id != expected_state_boundary ||
+                  selection.trace_realisation !=
+                    semantic::v1::H1TargetDataTraceRealisation::
+                      zero_trace_on_fixed_boundary)
+                result.diagnostics.add(
+                  semantic::v1::DiagnosticCategory::lowerability,
+                  "desired_state",
+                  "h1_target_zero_trace",
+                  "The registered H1-state lowerer requires the declared zero trace on the fixed Dirichlet boundary.");
+            }
+        }
       const bool uses_transposition_policy =
         uses_point_sensor || uses_normal_flux || uses_l2_dirichlet_control;
       if (uses_transposition_policy)
@@ -4147,6 +4204,8 @@ namespace nmopt::compiler::v1
       decision.fractional_metric_selection = request.fractional_metric_selection;
       decision.boundary_h1_metric_selection =
         request.boundary_h1_metric_selection;
+      decision.h1_target_data_membership_selection =
+        request.h1_target_data_membership_selection;
       for (const auto &requirement : specification.requirement_policies)
         decision.assumptions.push_back(
           {requirement.id, requirement.subject_id, requirement.selected_policy});
@@ -4387,6 +4446,8 @@ namespace nmopt::compiler::v1
       manifest.fractional_metric_selection = request.fractional_metric_selection;
       manifest.boundary_h1_metric_selection =
         request.boundary_h1_metric_selection;
+      manifest.h1_target_data_membership_selection =
+        request.h1_target_data_membership_selection;
       manifest.resolved_decision.realized_spaces = manifest.realized_spaces;
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
@@ -4983,13 +5044,27 @@ namespace nmopt::compiler::v1
             boundary_realisation_description(*manifest.boundary_realisation));
         }
       if (uses_h1_state_observation)
-        manifest.declared_assumptions.push_back(
-          std::string(uses_dirichlet_control_lifting
-                        ? "h1_state_observation: full-domain physical H1 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric="
-                        : "h1_state_observation: full-domain H1_0 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric=") +
-          std::string(uses_hminus1_control_metric ? "hminus1_continuous"
-                      : uses_hhalf_control_metric ? "hhalf_dirichlet_trace"
-                                                 : "L2"));
+        {
+          contract::require(
+            manifest.h1_target_data_membership_selection.has_value(),
+            "H1-state manifest needs its typed target-data membership assumption");
+          const auto &selection =
+            *manifest.h1_target_data_membership_selection;
+          manifest.declared_assumptions.push_back(
+            "h1_target_data_membership: status=user_assumed; data=" +
+            selection.data_id + "; observation_space=" +
+            selection.observation_space_id + "; fixed_boundary=" +
+            selection.fixed_boundary_region_id +
+            "; regularity=h1_value_and_weak_gradient; "
+            "trace=zero_trace_on_fixed_boundary");
+          manifest.declared_assumptions.push_back(
+            std::string(uses_dirichlet_control_lifting
+                          ? "h1_state_observation: full-domain physical H1 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric="
+                          : "h1_state_observation: full-domain H1_0 value/gradient quadrature with mass-plus-stiffness loss pullback; control metric=") +
+            std::string(uses_hminus1_control_metric ? "hminus1_continuous"
+                        : uses_hhalf_control_metric ? "hhalf_dirichlet_trace"
+                                                   : "L2"));
+        }
       if (uses_weighted_boundary_trace)
         {
           contract::require(request.weighted_trace_selection.has_value(),

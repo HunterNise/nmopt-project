@@ -598,6 +598,24 @@ namespace nmopt::semantic::v1
                                       "requirement policy")
       .selected_policy =
       "analytic Function value and gradient evaluated at selected volume quadrature";
+    specification.requirement_policies.push_back(
+      {"h1_target_data_membership", "desired_state",
+       RequirementKind::target_data_membership,
+       RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "desired_state belongs to H1_0(Omega) and has zero trace on the selected fixed Dirichlet boundary",
+       "dirichlet_boundary"});
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "h1_target_data_membership",
+                                      "requirement policy")
+      .typed_h1_target_data_membership_selection =
+      H1TargetDataMembershipSelection{
+        "h1_target_data_membership",
+        "desired_state",
+        "state_observation_space",
+        "dirichlet_boundary",
+        H1TargetDataRegularityRealisation::h1_value_and_weak_gradient,
+        H1TargetDataTraceRealisation::zero_trace_on_fixed_boundary};
     return specification;
   }
 
@@ -1495,6 +1513,24 @@ namespace nmopt::semantic::v1
                                       "requirement policy")
       .selected_policy =
       "analytic Function value and gradient evaluated at selected volume quadrature";
+    specification.requirement_policies.push_back(
+      {"h1_target_data_membership", "desired_state",
+       RequirementKind::target_data_membership,
+       RequirementStatus::user_assumed,
+       RequirementScope::continuous_semantics,
+       "desired_state belongs to H1_0(Omega) and has zero trace on the selected fixed Dirichlet boundary",
+       "control_boundary"});
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "h1_target_data_membership",
+                                      "requirement policy")
+      .typed_h1_target_data_membership_selection =
+      H1TargetDataMembershipSelection{
+        "h1_target_data_membership",
+        "desired_state",
+        "state_observation_space",
+        "control_boundary",
+        H1TargetDataRegularityRealisation::h1_value_and_weak_gradient,
+        H1TargetDataTraceRealisation::zero_trace_on_fixed_boundary};
     return specification;
   }
 

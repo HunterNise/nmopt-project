@@ -192,6 +192,15 @@ A data component MUST NOT expose a derivative block.  To estimate a datum, the
 author MUST replace it with a variable block and add all required residual,
 loss, metric, and constraint connections.
 
+For a tracking loss declared on an $H^{1}_{0}$ observation space, the graph
+MUST carry a typed target-data membership policy. It MUST identify the
+`desired_state` datum, the observation space, the selected fixed-Dirichlet
+boundary, the availability of values and weak gradients, and zero-trace
+membership on that boundary. The current registration marks this condition as
+a continuous-semantic `user_assumed` model-author assertion. Validation and
+the compiler record the assertion; they MUST NOT present evaluation of an
+arbitrary analytic Function as a runtime proof of its trace.
+
 ### 3.5 General map
 
 A general map is the universal compositional primitive:

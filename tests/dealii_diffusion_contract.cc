@@ -3483,6 +3483,24 @@ namespace
 
     const auto &manifest = combined.problem->manifest();
     require_constraint_realisation(manifest, "none", "general scalar Robin");
+    const auto has_binding = [&manifest](
+                               const std::string &semantic_id,
+                               const semantic::v1::DataRole role,
+                               const semantic::v1::DataKind kind,
+                               const std::string &space_id,
+                               const std::string &region_id,
+                               const std::string &evaluation) {
+      return std::any_of(
+        manifest.bindings.begin(),
+        manifest.bindings.end(),
+        [&](const compiler::v1::CompiledBindingRecord &binding) {
+          return binding.semantic_id == semantic_id && binding.role == role &&
+                 binding.kind == kind && binding.space_id == space_id &&
+                 binding.region_id == region_id &&
+                 binding.evaluation_realisation == evaluation &&
+                 !binding.provenance.empty();
+        });
+    };
     contract::require(
       manifest.state_solve_record.algorithm ==
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
@@ -3491,6 +3509,42 @@ namespace
         manifest.lowering_handler_records.size() == 13 &&
         manifest.data_rule.find("Robin coefficient and source") !=
           std::string::npos &&
+        has_binding("diffusion_tensor",
+                    semantic::v1::DataRole::diffusion,
+                    semantic::v1::DataKind::tensor_function,
+                    "diffusion_data_space",
+                    "domain",
+                    "volume_quadrature") &&
+        has_binding("conservative_transport",
+                    semantic::v1::DataRole::conservative_transport,
+                    semantic::v1::DataKind::vector_function,
+                    "conservative_transport_data_space",
+                    "domain",
+                    "volume_quadrature") &&
+        has_binding("advective_transport",
+                    semantic::v1::DataRole::advective_transport,
+                    semantic::v1::DataKind::vector_function,
+                    "advective_transport_data_space",
+                    "domain",
+                    "volume_quadrature") &&
+        has_binding("reaction",
+                    semantic::v1::DataRole::reaction,
+                    semantic::v1::DataKind::function,
+                    "reaction_data_space",
+                    "domain",
+                    "volume_quadrature") &&
+        has_binding("robin_coefficient",
+                    semantic::v1::DataRole::robin_coefficient,
+                    semantic::v1::DataKind::function,
+                    "robin_coefficient_data_space",
+                    "robin_boundary",
+                    "boundary_face_quadrature") &&
+        has_binding("robin_source",
+                    semantic::v1::DataRole::robin_source,
+                    semantic::v1::DataKind::function,
+                    "robin_source_data_space",
+                    "robin_boundary",
+                    "boundary_face_quadrature") &&
         std::find(manifest.lowering_handler_records.begin(),
                   manifest.lowering_handler_records.end(),
                   "conservative_transport <- "

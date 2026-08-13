@@ -79,6 +79,17 @@ ledger used by diagnostics; it is not described as a lowerer. Supporting an
 individual kind therefore does not imply arbitrary recombination outside a
 registered plan or target strategy.
 
+The general scalar Robin graph declares six coefficient/data spaces explicitly:
+bounded-function tensor, vector, and scalar spaces on the full volume, plus a
+bounded Robin coefficient space and a boundary $L^{2}$ source space on
+`robin_boundary`. Semantic validation checks those typed ports, including
+ownership of each Robin datum by its residual term. The scalar lowering plan
+copies each resolved datum into a `ScalarDataPlacement` with semantic ID, role,
+field kind, space, region, evaluation realization, and handler ID. General
+scalar model construction consumes those placements before assembling volume
+or boundary operators, and the compiled manifest preserves the same fields
+alongside runtime provenance.
+
 ## Public semantic graph
 
 The compatibility aggregate `include/nmopt/semantic/v1/problem_spec.hpp`

@@ -73,6 +73,7 @@ namespace
   void
   test_semantic_v1_validation()
   {
+    using namespace nmopt::semantic::v1;
     const auto specification =
       nmopt::semantic::v1::make_scalar_diffusion_reaction_problem(true);
     const nmopt::semantic::v1::SemanticValidator validator;
@@ -537,6 +538,114 @@ namespace
       validator.validate(general_scalar_specification);
     require(general_scalar_report.valid(),
             "the P5.1 general scalar Robin graph is invalid");
+
+    const auto require_data_diagnostic =
+      [&validator, &general_scalar_specification](
+        const DataRole role,
+        const char *  capability,
+        const char *  description,
+        const auto &  mutate) {
+        auto broken = general_scalar_specification;
+        mutate(broken);
+        const auto &datum = *std::find_if(
+          broken.data.begin(), broken.data.end(), [role](const DataSpec &candidate) {
+            return candidate.role == role;
+          });
+        nmopt::test_support::require_exact_diagnostic(
+          validator.validate(broken),
+          DiagnosticCategory::structural,
+          datum.id,
+          capability,
+          description);
+      };
+    require_data_diagnostic(
+      DataRole::diffusion,
+      "coefficient_data_space",
+      "v1 semantic validation accepted diffusion data without a space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.data, "diffusion_tensor").space_id.clear();
+      });
+    require_data_diagnostic(
+      DataRole::conservative_transport,
+      "coefficient_data_space",
+      "v1 semantic validation accepted conservative transport data without a space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.data, "conservative_transport").space_id.clear();
+      });
+    require_data_diagnostic(
+      DataRole::advective_transport,
+      "coefficient_data_space",
+      "v1 semantic validation accepted advective transport data without a space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.data, "advective_transport").space_id.clear();
+      });
+    require_data_diagnostic(
+      DataRole::reaction,
+      "coefficient_data_space",
+      "v1 semantic validation accepted reaction data without a space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.data, "reaction").space_id.clear();
+      });
+    require_data_diagnostic(
+      DataRole::robin_coefficient,
+      "coefficient_data_space",
+      "v1 semantic validation accepted Robin coefficient data without a space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.data, "robin_coefficient").space_id.clear();
+      });
+    require_data_diagnostic(
+      DataRole::robin_source,
+      "coefficient_data_space",
+      "v1 semantic validation accepted Robin source data without a space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.data, "robin_source").space_id.clear();
+      });
+    require_data_diagnostic(
+      DataRole::reaction,
+      "coefficient_data_space_shape",
+      "v1 semantic validation accepted reaction data in a non-data space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.data, "reaction").space_id = "control_space";
+      });
+    require_data_diagnostic(
+      DataRole::diffusion,
+      "volume_coefficient_region",
+      "v1 semantic validation accepted volume coefficient data on a boundary",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.spaces, "diffusion_data_space").region_id =
+          "robin_boundary";
+      });
+    require_data_diagnostic(
+      DataRole::robin_coefficient,
+      "robin_coefficient_region",
+      "v1 semantic validation accepted Robin coefficient data on the wrong region",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.spaces, "robin_coefficient_data_space")
+          .region_id = "domain";
+      });
+    require_data_diagnostic(
+      DataRole::robin_source,
+      "coefficient_data_space_shape",
+      "v1 semantic validation accepted Robin source data in state_test_space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.data, "robin_source").space_id = "state_test_space";
+      });
+    require_data_diagnostic(
+      DataRole::robin_source,
+      "robin_source_region",
+      "v1 semantic validation accepted Robin source data on a different region",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.spaces, "robin_source_data_space").region_id =
+          "domain";
+      });
+    require_data_diagnostic(
+      DataRole::robin_source,
+      "robin_source_trace_pairing",
+      "v1 semantic validation accepted Robin source data with the wrong trace space",
+      [](ProblemSpec &broken) {
+        component_by_id(broken.spaces, "robin_source_data_space").topology =
+          SpaceTopology::h1;
+      });
 
     auto wrong_tensor_shape = general_scalar_specification;
     component_by_id(wrong_tensor_shape.data, "diffusion_tensor").kind =
@@ -1120,6 +1229,7 @@ namespace
   void
   test_dealii_scalar_lowering_plan()
   {
+    using namespace nmopt::semantic::v1;
     const nmopt::semantic::v1::SemanticResolver resolver;
     const nmopt::compiler::v1::DealiiScalarLoweringPlanner planner;
     const auto specification =
@@ -1176,11 +1286,63 @@ namespace
     require(general_resolution.succeeded(),
             "general scalar lowering-plan setup did not resolve");
     const auto general_plan = planner.plan(*general_resolution.problem);
+    const auto placement_for_role =
+      [](const auto &placements, const DataRole role) {
+        return std::find_if(
+          placements.begin(),
+          placements.end(),
+          [role](const nmopt::compiler::v1::ScalarDataPlacement &placement) {
+            return placement.role == role;
+          });
+      };
+    const auto diffusion_placement = placement_for_role(
+      general_plan.plan->data_placements, DataRole::diffusion);
+    const auto conservative_placement = placement_for_role(
+      general_plan.plan->data_placements, DataRole::conservative_transport);
+    const auto advective_placement = placement_for_role(
+      general_plan.plan->data_placements, DataRole::advective_transport);
+    const auto reaction_placement = placement_for_role(
+      general_plan.plan->data_placements, DataRole::reaction);
+    const auto robin_coefficient_placement = placement_for_role(
+      general_plan.plan->data_placements, DataRole::robin_coefficient);
+    const auto robin_source_placement = placement_for_role(
+      general_plan.plan->data_placements, DataRole::robin_source);
     require(general_plan.succeeded() &&
               general_plan.plan->residual_terms.size() == 8 &&
+              // The forcing Function is also a residual data port; the six
+              // P5.1 coefficient/Robin ports are checked individually below.
+              general_plan.plan->data_placements.size() == 7 &&
               general_plan.plan->robin_boundary_ids ==
                 std::set<unsigned int>{1} &&
               general_plan.plan->provenance.size() == 13 &&
+              diffusion_placement != general_plan.plan->data_placements.end() &&
+              diffusion_placement->semantic_id == "diffusion_tensor" &&
+              diffusion_placement->space_id == "diffusion_data_space" &&
+              diffusion_placement->region_id == "domain" &&
+              diffusion_placement->kind == DataKind::tensor_function &&
+              diffusion_placement->evaluation ==
+                nmopt::compiler::v1::ScalarDataEvaluationKind::volume_quadrature &&
+              conservative_placement != general_plan.plan->data_placements.end() &&
+              conservative_placement->space_id ==
+                "conservative_transport_data_space" &&
+              conservative_placement->kind == DataKind::vector_function &&
+              advective_placement != general_plan.plan->data_placements.end() &&
+              advective_placement->space_id == "advective_transport_data_space" &&
+              reaction_placement != general_plan.plan->data_placements.end() &&
+              reaction_placement->space_id == "reaction_data_space" &&
+              reaction_placement->kind == DataKind::function &&
+              robin_coefficient_placement !=
+                general_plan.plan->data_placements.end() &&
+              robin_coefficient_placement->space_id ==
+                "robin_coefficient_data_space" &&
+              robin_coefficient_placement->region_id == "robin_boundary" &&
+              robin_coefficient_placement->evaluation ==
+                nmopt::compiler::v1::ScalarDataEvaluationKind::boundary_face_quadrature &&
+              robin_source_placement != general_plan.plan->data_placements.end() &&
+              robin_source_placement->space_id == "robin_source_data_space" &&
+              robin_source_placement->region_id == "robin_boundary" &&
+              robin_source_placement->evaluation ==
+                nmopt::compiler::v1::ScalarDataEvaluationKind::boundary_face_quadrature &&
               std::any_of(
                 general_plan.plan->residual_terms.begin(),
                 general_plan.plan->residual_terms.end(),

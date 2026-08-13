@@ -183,29 +183,56 @@ namespace nmopt::semantic::v1
     specification.regions.push_back(
       {"robin_boundary", "Robin and transport-outflow boundary",
        RegionKind::boundary, false, std::move(robin_boundary_ids), {}, {}});
+    specification.spaces.insert(
+      specification.spaces.end(),
+      {{"diffusion_data_space", "Bounded tensor diffusion data", "domain",
+        SpaceTopology::bounded_function, SpaceRole::data, false},
+       {"conservative_transport_data_space",
+        "Bounded conservative transport data",
+        "domain",
+        SpaceTopology::bounded_function,
+        SpaceRole::data,
+        false},
+       {"advective_transport_data_space", "Bounded advective transport data",
+        "domain",
+        SpaceTopology::bounded_function,
+        SpaceRole::data,
+        false},
+       {"reaction_data_space", "Bounded reaction data", "domain",
+        SpaceTopology::bounded_function, SpaceRole::data, true},
+       {"robin_coefficient_data_space", "Bounded Robin coefficient data",
+        "robin_boundary",
+        SpaceTopology::bounded_function,
+        SpaceRole::data,
+        true},
+       {"robin_source_data_space", "Robin boundary source data",
+        "robin_boundary", SpaceTopology::l2, SpaceRole::data, true}});
 
     reference_detail::component_by_id(specification.data,
                                       "diffusion",
                                       "data") =
       {"diffusion_tensor", "Tensor diffusion coefficient",
-       DataKind::tensor_function, DataRole::diffusion, ""};
+       DataKind::tensor_function, DataRole::diffusion,
+       "diffusion_data_space"};
     reference_detail::component_by_id(specification.data,
                                       "reaction",
                                       "data") =
       {"reaction", "Reaction coefficient Function", DataKind::function,
-       DataRole::reaction, ""};
+       DataRole::reaction, "reaction_data_space"};
     specification.data.push_back(
       {"conservative_transport", "Conservative transport coefficient",
-       DataKind::vector_function, DataRole::conservative_transport, ""});
+       DataKind::vector_function, DataRole::conservative_transport,
+       "conservative_transport_data_space"});
     specification.data.push_back(
       {"advective_transport", "Advective transport coefficient",
-       DataKind::vector_function, DataRole::advective_transport, ""});
+       DataKind::vector_function, DataRole::advective_transport,
+       "advective_transport_data_space"});
     specification.data.push_back(
       {"robin_coefficient", "Robin bilinear coefficient", DataKind::function,
-       DataRole::robin_coefficient, ""});
+       DataRole::robin_coefficient, "robin_coefficient_data_space"});
     specification.data.push_back(
       {"robin_source", "Robin boundary source", DataKind::function,
-       DataRole::robin_source, "state_test_space"});
+       DataRole::robin_source, "robin_source_data_space"});
 
     reference_detail::component_by_id(specification.residual_terms,
                                       "diffusion_reaction",

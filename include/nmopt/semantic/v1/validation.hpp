@@ -114,6 +114,11 @@ namespace nmopt::semantic::v1
       validate_pairings(specification, spaces, report);
       validate_variables(specification, spaces, transformations, report);
       validate_data(specification, spaces, report);
+      validate_general_scalar_data_spaces(specification,
+                                          spaces,
+                                          regions,
+                                          data,
+                                          report);
       validate_transformations(specification,
                                variables,
                                data,
@@ -429,11 +434,11 @@ namespace nmopt::semantic::v1
                        space.id,
                        "space_region_port",
                        "Reference a declared base region.");
-          if (!space.is_scalar)
+          if (!space.is_scalar && space.role != SpaceRole::data)
             report.add(DiagnosticCategory::structural,
                        space.id,
                        "scalar_field_shape",
-                       "The v1 semantic slice currently declares scalar spaces only.");
+                       "Non-scalar semantic fields are currently reserved for declared data spaces.");
         }
     }
 
@@ -549,6 +554,136 @@ namespace nmopt::semantic::v1
               datum.id,
               "observation_weight_data_shape",
               "Represent the fixed scalar observation weight as Function data.");
+        }
+    }
+
+    static void
+    validate_general_scalar_data_spaces(
+      const ProblemSpec &          specification,
+      const Index<SpaceSpec> &     spaces,
+      const Index<RegionSpec> &    regions,
+      const Index<DataSpec> &      data,
+      ValidationReport &           report)
+    {
+      const bool general_scalar = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const ResidualTermSpec &term) {
+          return term.kind == ResidualTermKind::tensor_diffusion;
+        });
+      if (!general_scalar)
+        return;
+
+      const auto full_volume = std::find_if(
+        regions.begin(), regions.end(), [](const auto &entry) {
+          return entry.second->kind == RegionKind::volume &&
+                 entry.second->is_full_domain;
+        });
+
+      const auto term_for_role = [&specification, &data](const DataRole role) {
+        return std::find_if(
+          specification.residual_terms.begin(),
+          specification.residual_terms.end(),
+          [&data, role](const ResidualTermSpec &term) {
+            return std::any_of(
+              term.data_ids.begin(),
+              term.data_ids.end(),
+              [&data, role](const std::string &data_id) {
+                const auto datum = data.find(data_id);
+                return datum != data.end() && datum->second->role == role;
+              });
+          });
+      };
+
+      for (const auto &datum_entry : data)
+        {
+          const auto &datum = *datum_entry.second;
+          const bool coefficient_role =
+            datum.role == DataRole::diffusion ||
+            datum.role == DataRole::conservative_transport ||
+            datum.role == DataRole::advective_transport ||
+            datum.role == DataRole::reaction ||
+            datum.role == DataRole::robin_coefficient ||
+            datum.role == DataRole::robin_source;
+          if (!coefficient_role)
+            continue;
+
+          if (datum.space_id.empty())
+            {
+              report.add(DiagnosticCategory::structural,
+                         datum.id,
+                         "coefficient_data_space",
+                         "Declare the semantic space and region where this coefficient or Robin datum is evaluated.");
+              continue;
+            }
+          const auto space = spaces.find(datum.space_id);
+          if (space == spaces.end())
+            continue;
+
+          const bool expected_scalar =
+            datum.role == DataRole::reaction ||
+            datum.role == DataRole::robin_coefficient ||
+            datum.role == DataRole::robin_source;
+          if (space->second->role != SpaceRole::data ||
+              space->second->is_scalar != expected_scalar)
+            {
+              report.add(DiagnosticCategory::structural,
+                         datum.id,
+                         "coefficient_data_space_shape",
+                         "Use a data space whose role and scalar/tensor field shape match the coefficient datum.");
+              continue;
+            }
+
+          if (datum.role == DataRole::robin_coefficient ||
+              datum.role == DataRole::robin_source)
+            {
+              const auto expected_term = term_for_role(datum.role);
+              const auto expected_region = expected_term ==
+                                                   specification.residual_terms.end()
+                                                 ? regions.end()
+                                                 : regions.find(expected_term->region_id);
+              if (expected_region == regions.end() ||
+                  space->second->region_id != expected_region->first)
+                {
+                  report.add(
+                    DiagnosticCategory::structural,
+                    datum.id,
+                    datum.role == DataRole::robin_coefficient
+                      ? "robin_coefficient_region"
+                      : "robin_source_region",
+                    "Place Robin coefficient and source data on the boundary region owned by their residual term.");
+                }
+              else if (datum.role == DataRole::robin_source &&
+                       space->second->topology != SpaceTopology::l2)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "robin_source_trace_pairing",
+                  "Declare Robin source data in the boundary L2 space used by the selected trace pairing.");
+              else if (datum.role == DataRole::robin_coefficient &&
+                       space->second->topology != SpaceTopology::bounded_function)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "coefficient_data_space",
+                  "Declare the Robin coefficient in a bounded boundary data space.");
+            }
+          else
+            {
+              if (full_volume == regions.end() ||
+                  space->second->region_id != full_volume->first)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "volume_coefficient_region",
+                  "Place tensor, transport, and reaction coefficient data on the full volume domain.");
+              else if (space->second->topology != SpaceTopology::bounded_function)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "coefficient_data_space",
+                  "Declare volume coefficient data in a bounded-function space.");
+            }
         }
     }
 

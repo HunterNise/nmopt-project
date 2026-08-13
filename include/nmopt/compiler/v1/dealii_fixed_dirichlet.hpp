@@ -134,7 +134,8 @@ namespace nmopt::compiler::v1::detail
                              {},
                              {},
                              robin_boundary_ids_from_plan(plan),
-                             &general_scalar_data)
+                             &general_scalar_data,
+                             require_general_scalar_data_placements(plan))
     {
       contract::require(
         has_residual_operator(plan,
@@ -178,7 +179,8 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id>          normal_flux_boundary_ids,
       std::vector<std::vector<double>>              point_sensor_coordinates,
       std::set<dealii::types::boundary_id>          robin_boundary_ids,
-      const DealiiGeneralScalarDataBindings<dim> *  general_scalar_data)
+      const DealiiGeneralScalarDataBindings<dim> *  general_scalar_data,
+      const bool                                    general_scalar_plan_validated = true)
       : state_fe_(state_degree)
       , control_fe_(0)
       , state_dof_handler_(triangulation)
@@ -208,6 +210,8 @@ namespace nmopt::compiler::v1::detail
                         "The assembled v1 target needs a fixed Dirichlet boundary");
       contract::require(!uses_general_scalar_ || !robin_boundary_ids_.empty(),
                         "The general scalar target needs a Robin boundary");
+      contract::require(general_scalar_plan_validated,
+                        "The general scalar target needs resolved coefficient data placements");
       contract::require(!uses_h1_state_observation_ ||
                           observation_material_ids_.empty(),
                         "The registered H1 state observation is full-domain only");
@@ -571,6 +575,78 @@ namespace nmopt::compiler::v1::detail
     }
 
   private:
+    static bool
+    require_general_scalar_data_placements(const ScalarLoweringPlan &plan)
+    {
+      const auto placement_for_role = [&plan](const semantic::v1::DataRole role) {
+        return std::find_if(
+          plan.data_placements.begin(),
+          plan.data_placements.end(),
+          [role](const ScalarDataPlacement &placement) {
+            return placement.role == role;
+          });
+      };
+      const auto valid = [&plan, &placement_for_role](
+                           const semantic::v1::DataRole role,
+                           const semantic::v1::DataKind kind,
+                           const ScalarDataEvaluationKind evaluation) {
+        const auto placement = placement_for_role(role);
+        if (placement == plan.data_placements.end() ||
+            placement->kind != kind || placement->space_id.empty() ||
+            placement->region_id.empty() ||
+            placement->evaluation != evaluation ||
+            placement->handler_id.empty())
+          return false;
+        return true;
+      };
+      if (!valid(semantic::v1::DataRole::diffusion,
+                 semantic::v1::DataKind::tensor_function,
+                 ScalarDataEvaluationKind::volume_quadrature) ||
+          !valid(semantic::v1::DataRole::conservative_transport,
+                 semantic::v1::DataKind::vector_function,
+                 ScalarDataEvaluationKind::volume_quadrature) ||
+          !valid(semantic::v1::DataRole::advective_transport,
+                 semantic::v1::DataKind::vector_function,
+                 ScalarDataEvaluationKind::volume_quadrature) ||
+          !valid(semantic::v1::DataRole::reaction,
+                 semantic::v1::DataKind::function,
+                 ScalarDataEvaluationKind::volume_quadrature) ||
+          !valid(semantic::v1::DataRole::robin_coefficient,
+                 semantic::v1::DataKind::function,
+                 ScalarDataEvaluationKind::boundary_face_quadrature) ||
+          !valid(semantic::v1::DataRole::robin_source,
+                 semantic::v1::DataKind::function,
+                 ScalarDataEvaluationKind::boundary_face_quadrature))
+        return false;
+
+      for (const auto role : {semantic::v1::DataRole::robin_coefficient,
+                              semantic::v1::DataRole::robin_source})
+        {
+          const auto placement = placement_for_role(role);
+          const auto term = std::find_if(
+            plan.residual_terms.begin(),
+            plan.residual_terms.end(),
+            [role, placement](const ScalarResidualContribution &contribution) {
+              return std::any_of(
+                contribution.data_ids.begin(),
+                contribution.data_ids.end(),
+                [placement](const std::string &data_id) {
+                  return data_id == placement->semantic_id;
+                }) &&
+                ((role == semantic::v1::DataRole::robin_coefficient &&
+                  contribution.operator_kind ==
+                    ScalarResidualOperatorKind::robin_bilinear) ||
+                 (role == semantic::v1::DataRole::robin_source &&
+                  contribution.operator_kind ==
+                    ScalarResidualOperatorKind::robin_source));
+            });
+          if (term == plan.residual_terms.end() ||
+              placement->region_id != term->region_id)
+            return false;
+        }
+      return true;
+    }
+
     static bool
     has_residual_operator(const ScalarLoweringPlan &        plan,
                           const ScalarResidualOperatorKind kind)

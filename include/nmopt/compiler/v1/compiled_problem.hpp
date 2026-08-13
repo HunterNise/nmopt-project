@@ -50,7 +50,11 @@ namespace nmopt::compiler::v1
   {
     std::string            semantic_id;
     semantic::v1::DataRole role = semantic::v1::DataRole::unspecified;
+    semantic::v1::DataKind kind = semantic::v1::DataKind::unspecified;
+    std::string            space_id;
+    std::string            region_id;
     std::string            representation;
+    std::string            evaluation_realisation;
     std::string            provenance;
   };
 

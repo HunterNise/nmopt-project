@@ -56,6 +56,24 @@ namespace nmopt::compiler::v1
     fixed_dirichlet_reconstruction
   };
 
+  enum class ScalarDataEvaluationKind
+  {
+    volume_quadrature,
+    boundary_face_quadrature
+  };
+
+  struct ScalarDataPlacement
+  {
+    std::string              semantic_id;
+    semantic::v1::DataRole   role = semantic::v1::DataRole::unspecified;
+    semantic::v1::DataKind    kind = semantic::v1::DataKind::unspecified;
+    std::string              space_id;
+    std::string              region_id;
+    ScalarDataEvaluationKind evaluation =
+      ScalarDataEvaluationKind::volume_quadrature;
+    std::string              handler_id;
+  };
+
   struct ScalarResidualContribution
   {
     std::string                component_id;
@@ -103,6 +121,7 @@ namespace nmopt::compiler::v1
     std::string                               metric_id;
     std::string                               constraint_id;
     std::string                               fixed_data_id;
+    std::vector<ScalarDataPlacement>           data_placements;
     std::set<unsigned int>                    dirichlet_boundary_ids;
     std::set<unsigned int>                    robin_boundary_ids;
     bool                                      tracking_full_domain = true;
@@ -495,6 +514,30 @@ namespace nmopt::compiler::v1
               "Register this residual contribution in the bounded scalar lowering plan.");
           else
             handler->contribute(term, plan);
+        }
+      for (const auto &term_id : equation.residual_term_ids)
+        {
+          const auto &term = problem.residual_term(term_id);
+          for (const auto &data_id : term.data_ids)
+            {
+              const auto &datum = problem.datum(data_id);
+              if (datum.space_id.empty())
+                continue;
+              const auto &space = problem.space(datum.space_id);
+              const auto &region = problem.region(space.region_id);
+              const auto evaluation =
+                region.kind == semantic::v1::RegionKind::boundary
+                  ? ScalarDataEvaluationKind::boundary_face_quadrature
+                  : ScalarDataEvaluationKind::volume_quadrature;
+              plan.data_placements.push_back(
+                {datum.id,
+                 datum.role,
+                 datum.kind,
+                 datum.space_id,
+                 space.region_id,
+                 evaluation,
+                 term.id + " <- dealii.scalar.data." + datum.id});
+            }
         }
       for (const auto &observation : specification.observations)
         {

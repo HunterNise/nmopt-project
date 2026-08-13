@@ -23,7 +23,10 @@ namespace nmopt::semantic::v1
     h1,
     h2,
     hhalf,
-    l2
+    l2,
+    // Bounded coefficient/data fields are distinct from L2 data: the
+    // selected weak form records the regularity assumption explicitly.
+    bounded_function
   };
 
   enum class SpaceRole

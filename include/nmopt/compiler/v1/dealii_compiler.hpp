@@ -3528,6 +3528,51 @@ namespace nmopt::compiler::v1
       return "unbound";
     }
 
+    static std::string
+    general_scalar_data_rule(
+      const std::vector<CompiledBindingRecord> &bindings,
+      const unsigned int                         quadrature_order)
+    {
+      const auto binding_for_role = [&bindings](
+                                      const semantic::v1::DataRole role) {
+        const auto binding = std::find_if(
+          bindings.begin(),
+          bindings.end(),
+          [role](const CompiledBindingRecord &candidate) {
+            return candidate.role == role;
+          });
+        contract::require(binding != bindings.end(),
+                          "The general scalar manifest is missing a data binding");
+        return &*binding;
+      };
+      const auto describe = [](const CompiledBindingRecord &binding) {
+        return binding.representation + " [space=" + binding.space_id +
+               ", region=" + binding.region_id + ", evaluation=" +
+               binding.evaluation_realisation + "]";
+      };
+      const auto diffusion = binding_for_role(semantic::v1::DataRole::diffusion);
+      const auto forcing = binding_for_role(semantic::v1::DataRole::forcing);
+      const auto desired_state =
+        binding_for_role(semantic::v1::DataRole::desired_state);
+      const auto conservative =
+        binding_for_role(semantic::v1::DataRole::conservative_transport);
+      const auto advective =
+        binding_for_role(semantic::v1::DataRole::advective_transport);
+      const auto reaction = binding_for_role(semantic::v1::DataRole::reaction);
+      const auto robin_coefficient =
+        binding_for_role(semantic::v1::DataRole::robin_coefficient);
+      const auto robin_source =
+        binding_for_role(semantic::v1::DataRole::robin_source);
+      return "general scalar data at selected QGauss(" +
+             std::to_string(quadrature_order) + ") quadrature: " +
+             "forcing=" + describe(*forcing) + ", desired_state=" +
+             describe(*desired_state) + ", " + describe(*diffusion) + ", " +
+             describe(*conservative) + ", " +
+             describe(*advective) + ", " + describe(*reaction) +
+             "; Robin coefficient and source: " + describe(*robin_coefficient) +
+             ", " + describe(*robin_source);
+    }
+
     template <int dim>
     static CompilationManifest
     make_manifest(
@@ -3629,6 +3674,34 @@ namespace nmopt::compiler::v1
           CompiledBindingRecord record;
           record.semantic_id = binding.id;
           record.role = binding.role;
+          record.kind = binding.kind;
+          record.space_id = binding.space_id;
+          if (!binding.space_id.empty())
+            {
+              const auto space = std::find_if(
+                specification.spaces.begin(),
+                specification.spaces.end(),
+                [&binding](const semantic::v1::SpaceSpec &candidate) {
+                  return candidate.id == binding.space_id;
+                });
+              if (space != specification.spaces.end())
+                {
+                  record.region_id = space->region_id;
+                  const auto region = std::find_if(
+                    specification.regions.begin(),
+                    specification.regions.end(),
+                    [&space](const semantic::v1::RegionSpec &candidate) {
+                      return candidate.id == space->region_id;
+                    });
+                  record.evaluation_realisation =
+                    region != specification.regions.end() &&
+                        region->kind == semantic::v1::RegionKind::boundary
+                      ? "boundary_face_quadrature"
+                      : "volume_quadrature";
+                }
+            }
+          else
+            record.evaluation_realisation = "not applicable";
           switch (binding.role)
             {
               case semantic::v1::DataRole::forcing:
@@ -3859,9 +3932,7 @@ namespace nmopt::compiler::v1
             std::to_string(policy.state_degree + 2) +
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature")
         : uses_general_scalar
-        ? "tensor diffusion, vector transport, scalar reaction, forcing, and desired-state Functions at selected QGauss(" +
-            std::to_string(policy.state_degree + 2) +
-            ") volume quadrature; Robin coefficient and source Functions at matching face quadrature"
+        ? general_scalar_data_rule(manifest.bindings, policy.state_degree + 2)
         : "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) + ") volume quadrature" +
             (uses_coefficient_identification

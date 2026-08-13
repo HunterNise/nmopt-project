@@ -131,7 +131,7 @@ A space describes a mathematical source or target.  It MUST declare:
 |---|---|
 | Base region | the region on which functions, traces, or values live |
 | Field shape | scalar, vector, tensor, or product-block shape |
-| Topology | for example $L^{2}$, $H^{1}$, $H(\mathrm{div})$, a trace space, or a Bochner space |
+| Topology | for example $L^{2}$, $H^{1}$, $H(\mathrm{div})$, a trace space, a bounded-function coefficient space, or a Bochner space |
 | Role | trial, test, observation, data, control, parameter, or auxiliary |
 | Dual pairing | explicit primal-dual pairing or reference to one |
 | Capabilities | declared trace, product, derivative, restriction, and temporal-trace capabilities |
@@ -169,6 +169,15 @@ MAY feed multiple residual terms, transformations, observations, and losses.
 Data are immutable within one solve.  A data component MUST declare its space,
 region, field shape, and value source.  It MAY feed terms, transformations,
 observations, losses, or constraints.
+
+The v1 general scalar elliptic/Robin slice uses an explicit bounded-function
+topology for tensor, vector, and scalar coefficient fields. Its tensor
+diffusion, conservative transport, advective transport, and reaction data
+live on the full volume region; its Robin coefficient and source live on the
+declared Robin boundary. The Robin source uses boundary $L^{2}$ topology for
+the selected trace pairing. These semantic placements are distinct from the
+backend's quadrature or Function objects and are carried into the resolved
+lowering plan.
 
 A data component MUST NOT expose a derivative block.  To estimate a datum, the
 author MUST replace it with a variable block and add all required residual,

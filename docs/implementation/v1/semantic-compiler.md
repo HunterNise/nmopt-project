@@ -68,6 +68,30 @@ or
 | `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `nmopt.dealii.coefficient_identification` |
 | `make_general_scalar_elliptic_robin_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Tensor diffusion, conservative and advective transport, reaction, volume source/control, and Robin bilinear/source terms with homogeneous fixed Dirichlet data | `nmopt.dealii.general_scalar_robin` |
 
+### Closed Dirichlet registration table
+
+The compiler resolves the following structural signatures before constructing
+`DirichletControlLiftingModel<dim>`. The resolver consumes the resolved
+component graph and typed policy selections; it does not inspect a factory or
+problem identifier.
+
+| Registration | State tracking | Control observation and loss | Search metric | Boundary realization |
+| --- | --- | --- | --- | --- |
+| Complete nodal lifting | volume $L^{2}$ | nodal boundary $L^{2}$ | $L^{2}$ | complete controlled boundary |
+| Partial nodal lifting | volume $L^{2}$ | nodal boundary $L^{2}$ | $L^{2}$ | disjoint fixed/controlled partition with fixed-data precedence |
+| Conforming transposition | continuous $L^{2}$ parent | boundary $L^{2}$ | $L^{2}$ | complete conforming trace subspace and typed transposition equivalence |
+| Section 5.11.1 option 1 | volume $L^{2}$ | boundary $H^{1/2}$ | $H^{1/2}$ | complete controlled boundary and minimum-extension Schur metric |
+| Section 5.11.1 option 2 | volume $H^{1}$ | boundary $L^{2}$ | $H^{1/2}$ | complete controlled boundary and zero-trace target assumption |
+| Section 5.11.3 | volume $L^{2}$ | tangential boundary $H^{1}$ | tangential $H^{1}$ | complete controlled boundary and projected ambient gradients |
+
+The state/test/control/observation topologies, residual formulation,
+observation pairings, loss source, metric variable, and required typed
+realizations are matched as one closed signature. A structurally valid graph
+outside this table receives the lowerability diagnostic
+`section_5_11_registered_signature`; it is never assembled using the nearest
+target. In particular, changing state tracking, control-loss topology, or
+search metric independently does not create an implicit cross-product.
+
 The fixed-reconstruction, subdomain-tracking, $H^{1}_{0}$ state-tracking, and
 general scalar Robin
 registrations use the bounded component path. `SemanticResolver` turns a valid graph into stable-ID

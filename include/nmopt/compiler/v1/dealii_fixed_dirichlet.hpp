@@ -82,11 +82,7 @@ namespace nmopt::compiler::v1::detail
           regularisation_weight,
           state_degree,
           boundary_ids_from_plan(plan),
-          material_ids_from_plan(plan),
-          has_observation_operator(
-            plan, ScalarObservationOperatorKind::h1_state_restriction),
-          normal_flux_boundary_ids_from_plan(plan),
-          point_sensor_coordinates_from_plan(plan),
+          service_plan(plan),
           residual_assembly_plan(plan),
           {},
           nullptr)
@@ -128,12 +124,7 @@ namespace nmopt::compiler::v1::detail
                              regularisation_weight,
                              state_degree,
                              boundary_ids_from_plan(plan),
-                             material_ids_from_plan(plan),
-                             has_observation_operator(
-                               plan,
-                               ScalarObservationOperatorKind::h1_state_restriction),
-                             {},
-                             {},
+                             service_plan(plan),
                              residual_assembly_plan(plan),
                              robin_boundary_ids_from_plan(plan),
                              &general_scalar_data,
@@ -177,10 +168,7 @@ namespace nmopt::compiler::v1::detail
       const double                                  regularisation_weight,
       const unsigned int                            state_degree,
       std::set<dealii::types::boundary_id>          dirichlet_boundary_ids,
-      std::set<dealii::types::material_id>          observation_material_ids,
-      const bool                                    uses_h1_state_observation,
-      std::set<dealii::types::boundary_id>          normal_flux_boundary_ids,
-      std::vector<std::vector<double>>              point_sensor_coordinates,
+      ScalarServicePlan                              service_plan,
       ScalarResidualAssemblyPlan                    residual_assembly,
       std::set<dealii::types::boundary_id>          robin_boundary_ids,
       const DealiiGeneralScalarDataBindings<dim> *  general_scalar_data,
@@ -192,13 +180,17 @@ namespace nmopt::compiler::v1::detail
       , diffusion_(diffusion)
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
+      , service_plan_(std::move(service_plan))
       , residual_assembly_(std::move(residual_assembly))
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
-      , observation_material_ids_(std::move(observation_material_ids))
-      , uses_h1_state_observation_(uses_h1_state_observation)
-      , normal_flux_boundary_ids_(std::move(normal_flux_boundary_ids))
+      , observation_material_ids_(service_plan_.tracking_material_ids.begin(),
+                                  service_plan_.tracking_material_ids.end())
+      , uses_h1_state_observation_(service_plan_.has_observation(
+          ScalarObservationOperatorKind::h1_state_restriction))
+      , normal_flux_boundary_ids_(service_plan_.normal_flux_boundary_ids.begin(),
+                                  service_plan_.normal_flux_boundary_ids.end())
       , uses_normal_flux_(!normal_flux_boundary_ids_.empty())
-      , point_sensor_coordinates_(std::move(point_sensor_coordinates))
+      , point_sensor_coordinates_(service_plan_.point_sensor_coordinates)
       , uses_point_sensor_(!point_sensor_coordinates_.empty())
       , robin_boundary_ids_(std::move(robin_boundary_ids))
     {
@@ -221,6 +213,19 @@ namespace nmopt::compiler::v1::detail
                         "The general scalar target needs a Robin boundary");
       contract::require(general_scalar_plan_validated,
                         "The general scalar target needs resolved coefficient data placements");
+      contract::require(service_plan_.metric ==
+                          ScalarMetricOperatorKind::cellwise_l2,
+                        "The assembled scalar target needs the registered cellwise L2 metric");
+      contract::require(
+        (service_plan_.transformation ==
+         ScalarTransformationOperatorKind::fixed_dirichlet_reconstruction) ==
+          fixed_dirichlet_data.has_value(),
+        "The scalar service plan and fixed-data binding disagree");
+      contract::require(
+        service_plan_.transformation !=
+          ScalarTransformationOperatorKind::fixed_dirichlet_reconstruction ||
+          !service_plan_.fixed_data_id.empty(),
+        "The scalar transformation service needs its fixed-data port");
       contract::require(
         require_residual_data_placements(general_scalar_data),
         "The scalar residual plan has an unresolved data-placement binding");
@@ -276,6 +281,9 @@ namespace nmopt::compiler::v1::detail
     control_l2_metric(
       dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
     {
+      contract::require(service_plan_.metric ==
+                          ScalarMetricOperatorKind::cellwise_l2,
+                        "The scalar service plan selected an unsupported metric");
       return dealii_backend::MassMetric("l2_cellwise",
                                         control_layout_,
                                         control_mass_,
@@ -370,18 +378,25 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective");
       const Vector physical_state = reconstruct(variables.block(0));
-      Vector state_tracking_times_state(state_dof_handler_.n_dofs());
-      physical_state_tracking_operator_.vmult(state_tracking_times_state,
-                                              physical_state);
-      const double state_value =
-        0.5 * (physical_state * state_tracking_times_state) -
-        (desired_state_load_ * physical_state) + 0.5 * desired_state_norm_;
+      double state_value = 0.0;
+      if (has_tracking_loss())
+        {
+          Vector state_tracking_times_state(state_dof_handler_.n_dofs());
+          physical_state_tracking_operator_.vmult(state_tracking_times_state,
+                                                  physical_state);
+          state_value =
+            0.5 * (physical_state * state_tracking_times_state) -
+            (desired_state_load_ * physical_state) + 0.5 * desired_state_norm_;
+        }
 
-      Vector control_mass_times_control(control_dof_handler_.n_dofs());
-      control_mass_->vmult(control_mass_times_control, variables.block(1));
-      const double control_value = 0.5 * regularisation_weight_ *
-                                   (variables.block(1) *
-                                    control_mass_times_control);
+      double control_value = 0.0;
+      if (has_control_regularisation_loss())
+        {
+          Vector control_mass_times_control(control_dof_handler_.n_dofs());
+          control_mass_->vmult(control_mass_times_control, variables.block(1));
+          control_value = 0.5 * regularisation_weight_ *
+                         (variables.block(1) * control_mass_times_control);
+        }
       return state_value + control_value;
     }
 
@@ -390,13 +405,19 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective derivative");
       Vector physical_state(state_dof_handler_.n_dofs());
-      physical_state_tracking_operator_.vmult(
-        physical_state, reconstruct(variables.block(0)));
-      physical_state.add(-1.0, desired_state_load_);
+      if (has_tracking_loss())
+        {
+          physical_state_tracking_operator_.vmult(
+            physical_state, reconstruct(variables.block(0)));
+          physical_state.add(-1.0, desired_state_load_);
+        }
 
       Vector control(control_dof_handler_.n_dofs());
-      control_mass_->vmult(control, variables.block(1));
-      control *= regularisation_weight_;
+      if (has_control_regularisation_loss())
+        {
+          control_mass_->vmult(control, variables.block(1));
+          control *= regularisation_weight_;
+        }
       return Covector(variable_layout_,
                       {pullback(physical_state), std::move(control)});
     }
@@ -611,6 +632,31 @@ namespace nmopt::compiler::v1::detail
                ScalarResidualOperatorKind::advective_transport);
     }
 
+    bool
+    has_tracking_loss() const
+    {
+      return std::any_of(
+        service_plan_.losses.begin(),
+        service_plan_.losses.end(),
+        [this](const ScalarLossContribution &loss) {
+          if (loss.operator_kind != ScalarLossOperatorKind::quadratic_tracking)
+            return false;
+          return std::any_of(
+            service_plan_.observations.begin(),
+            service_plan_.observations.end(),
+            [&loss](const ScalarObservationContribution &observation) {
+              return observation.component_id == loss.observation_id;
+            });
+        });
+    }
+
+    bool
+    has_control_regularisation_loss() const
+    {
+      return service_plan_.has_loss(
+        ScalarLossOperatorKind::quadratic_control_regularisation);
+    }
+
     const ScalarDataPlacement *
     residual_data_placement(const ScalarResidualOperatorKind operator_kind,
                             const semantic::v1::DataRole role) const
@@ -815,48 +861,6 @@ namespace nmopt::compiler::v1::detail
     }
 
     static bool
-    has_observation_operator(const ScalarLoweringPlan &             plan,
-                             const ScalarObservationOperatorKind kind)
-    {
-      return std::any_of(
-        plan.observations.begin(),
-        plan.observations.end(),
-        [kind](const ScalarObservationContribution &contribution) {
-          return contribution.operator_kind == kind;
-        });
-    }
-
-    static std::vector<std::vector<double>>
-    point_sensor_coordinates_from_plan(const ScalarLoweringPlan &plan)
-    {
-      return std::any_of(
-               plan.observations.begin(),
-               plan.observations.end(),
-               [](const ScalarObservationContribution &contribution) {
-                 return contribution.operator_kind ==
-                        ScalarObservationOperatorKind::point_sensor;
-               })
-               ? plan.point_sensor_coordinates
-               : std::vector<std::vector<double>>{};
-    }
-
-    static std::set<dealii::types::boundary_id>
-    normal_flux_boundary_ids_from_plan(const ScalarLoweringPlan &plan)
-    {
-      return std::any_of(
-               plan.observations.begin(),
-               plan.observations.end(),
-               [](const ScalarObservationContribution &contribution) {
-                 return contribution.operator_kind ==
-                        ScalarObservationOperatorKind::normal_flux;
-               })
-               ? std::set<dealii::types::boundary_id>(
-                   plan.normal_flux_boundary_ids.begin(),
-                   plan.normal_flux_boundary_ids.end())
-               : std::set<dealii::types::boundary_id>{};
-    }
-
-    static bool
     has_loss_operator(const ScalarLoweringPlan &    plan,
                       const ScalarLossOperatorKind kind)
     {
@@ -874,15 +878,6 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id> result;
       for (const auto id : plan.dirichlet_boundary_ids)
         result.insert(static_cast<dealii::types::boundary_id>(id));
-      return result;
-    }
-
-    static std::set<dealii::types::material_id>
-    material_ids_from_plan(const ScalarLoweringPlan &plan)
-    {
-      std::set<dealii::types::material_id> result;
-      for (const auto id : plan.tracking_material_ids)
-        result.insert(static_cast<dealii::types::material_id>(id));
       return result;
     }
 
@@ -1075,6 +1070,11 @@ namespace nmopt::compiler::v1::detail
         ScalarResidualOperatorKind::robin_bilinear);
       const bool has_robin_source = residual_assembly_.has(
         ScalarResidualOperatorKind::robin_source);
+      const bool has_tracking = has_tracking_loss();
+      const bool has_volume_observation =
+        service_plan_.has_observation(ScalarObservationOperatorKind::volume_restriction) ||
+        service_plan_.has_observation(
+          ScalarObservationOperatorKind::h1_state_restriction);
 
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
                                               state_fe_.dofs_per_cell);
@@ -1106,7 +1106,8 @@ namespace nmopt::compiler::v1::detail
           local_forcing = 0.0;
           local_desired_state = 0.0;
           const bool observe_cell =
-            !uses_point_sensor_ && !uses_normal_flux_ &&
+            has_tracking && has_volume_observation && !uses_point_sensor_ &&
+            !uses_normal_flux_ &&
             (observation_material_ids_.empty() ||
              observation_material_ids_.find(state_cell->material_id()) !=
                observation_material_ids_.end());
@@ -1279,9 +1280,9 @@ namespace nmopt::compiler::v1::detail
         }
       contract::require(control_cell == control_dof_handler_.end(),
                         "State and control DoF handlers have different cells");
-      if (uses_point_sensor_)
+      if (has_tracking && uses_point_sensor_)
         assemble_point_sensor_operator(desired_state);
-      if (uses_normal_flux_)
+      if (has_tracking && uses_normal_flux_)
         assemble_normal_flux_operator(desired_state);
     }
 
@@ -1522,6 +1523,7 @@ namespace nmopt::compiler::v1::detail
     const double diffusion_;
     const double reaction_;
     const double regularisation_weight_;
+    const ScalarServicePlan service_plan_;
     const ScalarResidualAssemblyPlan residual_assembly_;
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
     const std::set<dealii::types::material_id> observation_material_ids_;

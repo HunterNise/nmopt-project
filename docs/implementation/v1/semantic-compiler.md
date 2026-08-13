@@ -90,6 +90,15 @@ plan-owned residual slice also selects the nonsymmetric direct solve when a
 transport contribution is present. Objective, metric, constraint, and
 specialized-target selection remain separate bounded services.
 
+The scalar compiler also projects the plan into a `ScalarServicePlan`. Its
+observation and loss records select which tracking and regularisation actions
+are assembled, while its metric, constraint, and transformation records select
+the cellwise Riesz service, optional box factory, and fixed-data reconstruction
+port. The compiled scalar target consumes these records for its objective and
+service wiring; changing a selected observation therefore leaves the residual
+assembly unchanged, and changing the search metric does not change the
+objective or adjoint source.
+
 The general scalar Robin graph declares six coefficient/data spaces explicitly:
 bounded-function tensor, vector, and scalar spaces on the full volume, plus a
 bounded Robin coefficient space and a boundary $L^{2}$ source space on

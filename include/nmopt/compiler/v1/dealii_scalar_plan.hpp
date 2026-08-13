@@ -119,8 +119,11 @@ namespace nmopt::compiler::v1
     ScalarTransformationOperatorKind          transformation =
       ScalarTransformationOperatorKind::none;
     std::string                               metric_id;
+    std::string                               metric_handler_id;
     std::string                               constraint_id;
+    std::string                               constraint_handler_id;
     std::string                               fixed_data_id;
+    std::string                               transformation_handler_id;
     std::optional<semantic::v1::BoundaryRealisationSelection>
                                                    boundary_selection;
     std::vector<ScalarDataPlacement>           data_placements;
@@ -135,6 +138,71 @@ namespace nmopt::compiler::v1
     std::string                               point_sensor_evaluation_policy;
     std::vector<std::string>                  provenance;
   };
+
+  // The executable objective/service slice of ScalarLoweringPlan.  It keeps
+  // selected observation and loss ports together with the service factories
+  // and transformation realization that consume them.
+  struct ScalarServicePlan
+  {
+    std::vector<ScalarObservationContribution> observations;
+    std::vector<ScalarLossContribution>        losses;
+    ScalarMetricOperatorKind                   metric =
+      ScalarMetricOperatorKind::cellwise_l2;
+    ScalarConstraintOperatorKind                constraint =
+      ScalarConstraintOperatorKind::none;
+    ScalarTransformationOperatorKind           transformation =
+      ScalarTransformationOperatorKind::none;
+    std::string                                metric_id;
+    std::string                                metric_handler_id;
+    std::string                                constraint_id;
+    std::string                                constraint_handler_id;
+    std::string                                transformation_handler_id;
+    std::string                                fixed_data_id;
+    std::set<unsigned int>                     tracking_material_ids;
+    std::set<unsigned int>                     normal_flux_boundary_ids;
+    std::vector<std::vector<double>>            point_sensor_coordinates;
+
+    bool
+    has_observation(const ScalarObservationOperatorKind kind) const
+    {
+      return std::any_of(
+        observations.begin(),
+        observations.end(),
+        [kind](const ScalarObservationContribution &observation) {
+          return observation.operator_kind == kind;
+        });
+    }
+
+    bool
+    has_loss(const ScalarLossOperatorKind kind) const
+    {
+      return std::any_of(
+        losses.begin(),
+        losses.end(),
+        [kind](const ScalarLossContribution &loss) {
+          return loss.operator_kind == kind;
+        });
+    }
+  };
+
+  inline ScalarServicePlan
+  service_plan(const ScalarLoweringPlan &plan)
+  {
+    return {plan.observations,
+            plan.losses,
+            plan.metric,
+            plan.constraint,
+            plan.transformation,
+            plan.metric_id,
+            plan.metric_handler_id,
+            plan.constraint_id,
+            plan.constraint_handler_id,
+            plan.transformation_handler_id,
+            plan.fixed_data_id,
+            plan.tracking_material_ids,
+            plan.normal_flux_boundary_ids,
+            plan.point_sensor_coordinates};
+  }
 
   // This is the executable residual/data slice of ScalarLoweringPlan.  The
   // observation, metric, constraint, and display records remain in the full
@@ -313,6 +381,7 @@ namespace nmopt::compiler::v1
                ScalarLoweringPlan &            plan) const
     {
       plan.metric = operator_kind_;
+      plan.metric_handler_id = handler_id_;
       plan.provenance.push_back(metric.id + " <- " + handler_id_);
     }
 
@@ -345,6 +414,7 @@ namespace nmopt::compiler::v1
                ScalarLoweringPlan &                plan) const
     {
       plan.constraint = operator_kind_;
+      plan.constraint_handler_id = handler_id_;
       plan.provenance.push_back(constraint.id + " <- " + handler_id_);
     }
 
@@ -377,6 +447,7 @@ namespace nmopt::compiler::v1
                ScalarLoweringPlan &                    plan) const
     {
       plan.transformation = operator_kind_;
+      plan.transformation_handler_id = handler_id_;
       plan.fixed_data_id = transformation.fixed_data_id;
       plan.provenance.push_back(transformation.id + " <- " + handler_id_);
     }

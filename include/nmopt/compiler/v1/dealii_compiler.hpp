@@ -1076,7 +1076,9 @@ namespace nmopt::compiler::v1
               *scalar_plan);
           metric = std::make_shared<dealii_backend::MassMetric>(
             assembled->control_l2_metric(policy.control_metric_solve));
-          if (has_constraint)
+          const bool scalar_plan_has_constraint =
+            scalar_plan->constraint == ScalarConstraintOperatorKind::cellwise_box;
+          if (scalar_plan_has_constraint)
             {
               constraint =
                 std::make_shared<dealii_backend::CellwiseBoxConstraint>(

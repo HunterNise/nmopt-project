@@ -1362,6 +1362,90 @@ namespace
                   "dealii.scalar.residual.diffusion_reaction") !=
           one_manifest.lowering_handler_records.end(),
       "v1 subdomain observation manifest omitted its restriction or data rule");
+
+    // The same residual and metric are recombined with a fixed-data
+    // transformation while only the tracking observation changes.
+    const auto fixed_specification =
+      semantic::v1::make_fixed_dirichlet_scalar_diffusion_reaction_problem();
+    auto fixed_subdomain_specification = fixed_specification;
+    fixed_subdomain_specification.id =
+      "fixed_dirichlet_scalar_diffusion_reaction_subdomain_tracking";
+    fixed_subdomain_specification.regions.push_back(
+      {"observation_subdomain", "Material subdomain observation region",
+       semantic::v1::RegionKind::volume, false, {}, {1}, {}});
+    component_by_id(fixed_subdomain_specification.spaces,
+                    "state_observation_space")
+      .region_id = "observation_subdomain";
+    component_by_id(fixed_subdomain_specification.observations,
+                    "state_observation")
+      .region_id = "observation_subdomain";
+    component_by_id(fixed_subdomain_specification.requirement_policies,
+                    "desired_state_quadrature_policy")
+      .region_id = "observation_subdomain";
+    contract::require(compiler.validate(fixed_specification, policy).valid() &&
+                        compiler.validate(fixed_subdomain_specification, policy)
+                          .valid(),
+                      "fixed reconstruction/subdomain recombination did not validate");
+
+    const dealii::Functions::ConstantFunction<dim> fixed_forcing(0.5);
+    const dealii::Functions::ConstantFunction<dim> fixed_data(1.0);
+    auto fixed_bindings = compiler::v1::DealiiDataBindings<dim>{
+      fixed_forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("fixed_subdomain", true)};
+    fixed_bindings.fixed_dirichlet_data = std::cref(fixed_data);
+    const auto fixed_full = compiler.compile(fixed_specification,
+                                              triangulation,
+                                              fixed_bindings,
+                                              policy);
+    const auto fixed_subdomain = compiler.compile(fixed_subdomain_specification,
+                                                  triangulation,
+                                                  fixed_bindings,
+                                                  policy);
+    contract::require(fixed_full.succeeded() && fixed_subdomain.succeeded(),
+                      "fixed reconstruction/subdomain recombination did not compile");
+
+    const auto &fixed_full_model = fixed_full.problem->executable_model();
+    const auto &fixed_subdomain_model =
+      fixed_subdomain.problem->executable_model();
+    dealii::Vector<double> fixed_full_control_values(
+      fixed_full_model.variable_layout()->dimension(1));
+    dealii::Vector<double> fixed_subdomain_control_values(
+      fixed_subdomain_model.variable_layout()->dimension(1));
+    const Primal fixed_full_control(
+      fixed_full_model.variable_layout()->single_block(1, "control"),
+      {std::move(fixed_full_control_values)});
+    const Primal fixed_subdomain_control(
+      fixed_subdomain_model.variable_layout()->single_block(1, "control"),
+      {std::move(fixed_subdomain_control_values)});
+    const auto fixed_full_evaluation =
+      fixed_full.problem->make_reduced_dto().evaluate(fixed_full_control);
+    const auto fixed_subdomain_evaluation =
+      fixed_subdomain.problem->make_reduced_dto().evaluate(
+        fixed_subdomain_control);
+    require_primal_close(fixed_full_evaluation.state,
+                         fixed_subdomain_evaluation.state,
+                         1e-12,
+                         "fixed observation recombination changed the state solve");
+    require_close(fixed_full_evaluation.objective_value,
+                  0.5,
+                  1e-12,
+                  "fixed full-volume observation objective accounting");
+    contract::require(
+      fixed_subdomain_evaluation.objective_value <
+        fixed_full_evaluation.objective_value - 1e-6,
+      "fixed subdomain observation did not change only the tracking objective");
+    contract::require(
+      fixed_full.problem->manifest().lowering_handler_records ==
+        fixed_subdomain.problem->manifest().lowering_handler_records &&
+        fixed_full.problem->manifest().metric_record.realisation_id ==
+          fixed_subdomain.problem->manifest().metric_record.realisation_id &&
+        fixed_subdomain.problem->manifest().observation_realisation.find(
+          "material-id volume restriction: 1") != std::string::npos,
+      "fixed observation recombination did not preserve unchanged service records");
   }
 
   template <int dim>

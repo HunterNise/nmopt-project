@@ -1394,6 +1394,14 @@ namespace
                 nmopt::compiler::v1::ScalarTransformationOperatorKind::fixed_dirichlet_reconstruction &&
               fixed_plan.plan->fixed_data_id == "fixed_dirichlet_data",
             "fixed reconstruction did not contribute its scalar strategy");
+    const auto fixed_services =
+      nmopt::compiler::v1::service_plan(*fixed_plan.plan);
+    require(fixed_services.transformation ==
+              nmopt::compiler::v1::ScalarTransformationOperatorKind::fixed_dirichlet_reconstruction &&
+              fixed_services.transformation_handler_id ==
+                "dealii.scalar.transformation.fixed_dirichlet" &&
+              fixed_services.fixed_data_id == "fixed_dirichlet_data",
+            "fixed reconstruction service selection lost its transformation factory");
 
     const auto boundary_specification =
       nmopt::semantic::v1::make_neumann_boundary_control_problem();
@@ -1523,6 +1531,28 @@ namespace
               general_residual_assembly.robin_boundary_ids ==
                 std::set<unsigned int>{1},
             "scalar residual assembly did not preserve selected typed contributions");
+
+    const auto canonical_services =
+      nmopt::compiler::v1::service_plan(*planned.plan);
+    const auto general_services =
+      nmopt::compiler::v1::service_plan(*general_plan.plan);
+    require(canonical_services.has_observation(
+              nmopt::compiler::v1::ScalarObservationOperatorKind::volume_restriction) &&
+              canonical_services.has_loss(
+                nmopt::compiler::v1::ScalarLossOperatorKind::quadratic_tracking) &&
+              canonical_services.has_loss(
+                nmopt::compiler::v1::ScalarLossOperatorKind::quadratic_control_regularisation) &&
+              canonical_services.metric ==
+                nmopt::compiler::v1::ScalarMetricOperatorKind::cellwise_l2 &&
+              canonical_services.constraint ==
+                nmopt::compiler::v1::ScalarConstraintOperatorKind::cellwise_box &&
+              canonical_services.metric_handler_id ==
+                "dealii.scalar.metric.cellwise_l2" &&
+              canonical_services.constraint_handler_id ==
+                "dealii.scalar.constraint.cellwise_box" &&
+              general_services.observations.size() == 2 &&
+              general_services.losses.size() == 2,
+            "scalar service plan did not preserve objective and factory selections");
 
     const auto h1_state_specification =
       nmopt::semantic::v1::make_h1_state_tracking_scalar_diffusion_reaction_problem();

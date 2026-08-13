@@ -65,7 +65,8 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id>         dirichlet_boundary_ids,
       const bool                                    use_h1_state_observation = false,
       const bool                                    use_h1_control_regularisation = true,
-      const bool homogeneous_dirichlet_control = false)
+      const bool homogeneous_dirichlet_control = false,
+      std::set<dealii::types::boundary_id>         control_boundary_ids = {})
       : state_fe_(state_degree)
       , control_fe_(state_degree)
       , state_dof_handler_(triangulation)
@@ -74,6 +75,9 @@ namespace nmopt::compiler::v1::detail
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
+      , control_boundary_ids_(control_boundary_ids.empty()
+                               ? dirichlet_boundary_ids_
+                               : std::move(control_boundary_ids))
       , use_h1_state_observation_(use_h1_state_observation)
       , use_h1_control_regularisation_(use_h1_control_regularisation)
       , homogeneous_dirichlet_control_(homogeneous_dirichlet_control)
@@ -88,6 +92,9 @@ namespace nmopt::compiler::v1::detail
                         "State and continuous-control FE degrees must be positive");
       contract::require(!dirichlet_boundary_ids_.empty(),
                         "The continuous-control v1 target needs a fixed Dirichlet boundary");
+      contract::require(!homogeneous_dirichlet_control ||
+                          !control_boundary_ids_.empty(),
+                        "The homogeneous continuous-control target needs a fixed control boundary");
 
       state_dof_handler_.distribute_dofs(state_fe_);
       control_dof_handler_.distribute_dofs(control_fe_);
@@ -130,7 +137,11 @@ namespace nmopt::compiler::v1::detail
 
     dealii_backend::Hminus1Metric
     control_hminus1_metric(
-      dealii_backend::MetricSolveParameters solve_parameters = {}) const
+      dealii_backend::MetricSolveParameters solve_parameters = {},
+      const dealii_backend::Hminus1OperatorRealisation operator_realisation =
+        dealii_backend::Hminus1OperatorRealisation::mass_laplacian_inverse_mass,
+      const dealii_backend::Hminus1InverseRealisation inverse_realisation =
+        dealii_backend::Hminus1InverseRealisation::mass_inverse_laplacian_mass_inverse) const
     {
       contract::require(
         homogeneous_dirichlet_control_,
@@ -139,7 +150,9 @@ namespace nmopt::compiler::v1::detail
                                            control_layout_,
                                            control_mass_,
                                            control_stiffness_,
-                                           solve_parameters);
+                                           solve_parameters,
+                                           operator_realisation,
+                                           inverse_realisation);
     }
 
     Covector
@@ -325,7 +338,7 @@ namespace nmopt::compiler::v1::detail
       dealii::DoFTools::make_hanging_node_constraints(control_dof_handler_,
                                                        control_constraints_);
       if (homogeneous_dirichlet_control_)
-        for (const auto boundary_id : dirichlet_boundary_ids_)
+        for (const auto boundary_id : control_boundary_ids_)
           dealii::VectorTools::interpolate_boundary_values(control_dof_handler_,
                                                             boundary_id,
                                                             zero,
@@ -335,7 +348,7 @@ namespace nmopt::compiler::v1::detail
       std::map<dealii::types::global_dof_index, double>
         control_dirichlet_values;
       if (homogeneous_dirichlet_control_)
-        for (const auto boundary_id : dirichlet_boundary_ids_)
+        for (const auto boundary_id : control_boundary_ids_)
           dealii::VectorTools::interpolate_boundary_values(
             control_dof_handler_, boundary_id, zero, control_dirichlet_values);
       constrained_control_dofs_.assign(control_dof_handler_.n_dofs(), false);
@@ -621,6 +634,7 @@ namespace nmopt::compiler::v1::detail
     const double reaction_;
     const double regularisation_weight_;
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
+    const std::set<dealii::types::boundary_id> control_boundary_ids_;
     const bool use_h1_state_observation_;
     const bool use_h1_control_regularisation_;
     const bool homogeneous_dirichlet_control_;

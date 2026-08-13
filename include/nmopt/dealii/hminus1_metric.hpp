@@ -13,6 +13,16 @@
 
 namespace nmopt::dealii_backend
 {
+  enum class Hminus1OperatorRealisation
+  {
+    mass_laplacian_inverse_mass
+  };
+
+  enum class Hminus1InverseRealisation
+  {
+    mass_inverse_laplacian_mass_inverse
+  };
+
   // Discrete negative-norm metric on an independent H1_0 coefficient space:
   //
   //   G = M K^{-1} M,        G^{-1} = M^{-1} K M^{-1}.
@@ -31,12 +41,18 @@ namespace nmopt::dealii_backend
                   contract::LayoutPtr           layout,
                   std::shared_ptr<const Matrix> mass_matrix,
                   std::shared_ptr<const Matrix> laplace_matrix,
-                  MetricSolveParameters         solve_parameters = {})
+                  MetricSolveParameters         solve_parameters = {},
+                  const Hminus1OperatorRealisation operator_realisation =
+                    Hminus1OperatorRealisation::mass_laplacian_inverse_mass,
+                  const Hminus1InverseRealisation inverse_realisation =
+                    Hminus1InverseRealisation::mass_inverse_laplacian_mass_inverse)
       : id_(std::move(id))
       , layout_(std::move(layout))
       , mass_matrix_(std::move(mass_matrix))
       , laplace_matrix_(std::move(laplace_matrix))
       , solve_parameters_(solve_parameters)
+      , operator_realisation_(operator_realisation)
+      , inverse_realisation_(inverse_realisation)
     {
       contract::require(!id_.empty(),
                         "H-1 metric identifier must not be empty");
@@ -76,6 +92,10 @@ namespace nmopt::dealii_backend
     apply(const Primal &primal) const override
     {
       require_primal(primal);
+      contract::require(
+        operator_realisation_ ==
+          Hminus1OperatorRealisation::mass_laplacian_inverse_mass,
+        "H-1 metric received an unsupported operator realization");
       Vector mass_action(layout_->dimension(0));
       mass_matrix_->vmult(mass_action, primal.block(0));
       const Vector potential = solve(*laplace_matrix_, mass_action, "Laplacian");
@@ -88,6 +108,10 @@ namespace nmopt::dealii_backend
     inverse_apply(const Covector &covector) const override
     {
       require_covector(covector);
+      contract::require(
+        inverse_realisation_ ==
+          Hminus1InverseRealisation::mass_inverse_laplacian_mass_inverse,
+        "H-1 metric received an unsupported inverse realization");
       const Vector mass_representative =
         solve(*mass_matrix_, covector.block(0), "first mass");
       Vector laplace_action(layout_->dimension(0));
@@ -147,5 +171,7 @@ namespace nmopt::dealii_backend
     std::shared_ptr<const Matrix> mass_matrix_;
     std::shared_ptr<const Matrix> laplace_matrix_;
     MetricSolveParameters         solve_parameters_;
+    Hminus1OperatorRealisation    operator_realisation_;
+    Hminus1InverseRealisation     inverse_realisation_;
   };
 } // namespace nmopt::dealii_backend

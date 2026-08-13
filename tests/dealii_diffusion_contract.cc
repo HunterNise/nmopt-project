@@ -2625,6 +2625,20 @@ namespace
         weighted_map->output_dimension > 0 &&
         weighted_map->output_layout.find("boundary face") != std::string::npos,
       "weighted trace realized map is missing its face-quadrature output");
+    const auto weighted_observation_record = std::find_if(
+      manifest.resolved_decision.observations.begin(),
+      manifest.resolved_decision.observations.end(),
+      [](const compiler::v1::CompiledRealisationRecord &record) {
+        return record.semantic_id == "weighted_state_boundary_trace";
+      });
+    contract::require(
+      weighted_observation_record != manifest.resolved_decision.observations.end() &&
+        weighted_observation_record->realisation_id ==
+          "weighted_state_boundary_trace_fe_qgauss" &&
+        std::find(weighted_observation_record->input_ids.begin(),
+                  weighted_observation_record->input_ids.end(),
+                  "boundary_weight") != weighted_observation_record->input_ids.end(),
+      "weighted trace resolved provenance omitted its typed data selection");
   }
 
   template <int dim>
@@ -2914,6 +2928,30 @@ namespace
                         l2_compilation.succeeded(),
                       "H-1/L2 continuous-control comparison compilation failed");
 
+    dealii::Triangulation<dim> incomplete_boundary_triangulation;
+    dealii::GridGenerator::hyper_cube(incomplete_boundary_triangulation);
+    incomplete_boundary_triangulation.refine_global(1);
+    for (auto cell = incomplete_boundary_triangulation.begin_active();
+         cell != incomplete_boundary_triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary())
+          cell->face(face)->set_boundary_id(
+            cell->face(face)->center()[0] < 0.5 ? 0 : 1);
+    const auto incomplete_boundary = compiler.compile(
+      hminus1_specification,
+      incomplete_boundary_triangulation,
+      bindings,
+      policy);
+    test_support::require_exact_diagnostic(
+      incomplete_boundary.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "control",
+      "continuous_control_complete_boundary",
+      "H-1 compilation accepted a continuous-control boundary that did not cover the exterior mesh");
+
     const auto &hminus1_model =
       hminus1_compilation.problem->executable_model();
     const auto &l2_model = l2_compilation.problem->executable_model();
@@ -2997,6 +3035,15 @@ namespace
         l2_compilation.problem->metric().id() == "l2_continuous" &&
         manifest.metric_record.operator_description.find("M_h K_h^{-1} M_h") !=
           std::string::npos &&
+        manifest.metric_record.operator_id ==
+          "mass_laplacian_inverse_mass" &&
+        manifest.metric_record.inverse_operator_id ==
+          "mass_inverse_laplacian_mass_inverse" &&
+        manifest.metric_record.boundary_region_id == "dirichlet_boundary" &&
+        manifest.metric_record.laplacian_solve_policy_id ==
+          "control_metric_solve.laplacian_inverse" &&
+        manifest.metric_record.mass_solve_policy_id ==
+          "control_metric_solve.mass_inverse" &&
         manifest.metric_solve_policy.find("hminus1_continuous") !=
           std::string::npos &&
         manifest.control_space.find("independent homogeneous-Dirichlet") !=

@@ -292,6 +292,32 @@ namespace nmopt::compiler::v1
         "volume_quadrature",
         "dealii::TensorFunction<1, dim>",
         request.requires_conservative_transport_data);
+
+      const auto weighted_observation = std::find_if(
+        specification.observations.begin(), specification.observations.end(),
+        [](const semantic::v1::ObservationSpec &observation) {
+          return observation.kind ==
+                 semantic::v1::ObservationKind::weighted_boundary_trace;
+        });
+      for (const auto &policy : specification.requirement_policies)
+        {
+          if (policy.kind == semantic::v1::RequirementKind::boundary_trace &&
+              weighted_observation != specification.observations.end() &&
+              policy.subject_id == weighted_observation->id &&
+              policy.typed_trace_selection &&
+              policy.typed_trace_selection->weight_data_id != "")
+            request.weighted_trace_selection =
+              policy.typed_trace_selection;
+          if (policy.kind == semantic::v1::RequirementKind::metric_realisation &&
+              policy.subject_id == specification.formulation.metric_id &&
+              policy.typed_metric_selection)
+            request.hminus1_metric_selection = policy.typed_metric_selection;
+          if (policy.subject_id == specification.formulation.control_variable_id &&
+              policy.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
+              policy.status ==
+                semantic::v1::RequirementStatus::selected_discrete_realisation)
+            request.continuous_control_boundary_region_id = policy.region_id;
+        }
       return request;
     }
 
@@ -514,6 +540,11 @@ namespace nmopt::compiler::v1
         uses_dirichlet_control
           ? selected_dirichlet_control_region(specification)
           : selected_neumann_control_region(specification);
+      const auto *continuous_control_boundary_region =
+        request.continuous_control_boundary_region_id.empty()
+          ? nullptr
+          : find_region(specification,
+                        request.continuous_control_boundary_region_id);
       const bool uses_subdomain_observation =
         tracking_region != nullptr && !tracking_region->is_full_domain;
       const bool uses_assembled_v1_target =
@@ -558,6 +589,20 @@ namespace nmopt::compiler::v1
           specification.id,
           "selected_weighted_boundary_trace",
           "Declare a weighted boundary trace before binding observation-weight data.");
+      if (uses_weighted_boundary_trace &&
+          !request.weighted_trace_selection.has_value())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "weighted_trace_realisation_request",
+          "Resolve the typed weighted boundary-trace realization before lowering.");
+      if (uses_hminus1_control_metric &&
+          !request.hminus1_metric_selection.has_value())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.metric_id,
+          "hminus1_metric_realisation_request",
+          "Resolve the typed H-1 metric realization before lowering.");
       if (!uses_normalized_laplacian && !uses_coefficient_identification &&
           !uses_general_scalar &&
           !data.diffusion)
@@ -781,6 +826,7 @@ namespace nmopt::compiler::v1
         make_resolved_decision(specification,
                                policy,
                                target_kind,
+                               request,
                                scalar_plan ? &*scalar_plan : nullptr);
 
       const auto fixed_dirichlet_boundary_ids =
@@ -796,6 +842,11 @@ namespace nmopt::compiler::v1
                                               ? selected_dirichlet_control_boundary_ids(
                                                   specification)
                                             : fixed_dirichlet_boundary_ids;
+      const auto continuous_control_boundary_ids =
+        uses_homogeneous_dirichlet_continuous_control &&
+            continuous_control_boundary_region != nullptr
+          ? boundary_ids(*continuous_control_boundary_region)
+          : std::set<dealii::types::boundary_id>{};
       if (triangulation.has_hanging_nodes())
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -878,6 +929,30 @@ namespace nmopt::compiler::v1
           tracking_region->id,
           "subdomain_observation_material_presence",
           "Select material ids present on the compiled mesh for C5.6 subdomain tracking.");
+      if (uses_homogeneous_dirichlet_continuous_control &&
+          (continuous_control_boundary_region == nullptr ||
+           !controls_complete_exterior_boundary(
+             triangulation, continuous_control_boundary_ids)))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.control_variable_id,
+          "continuous_control_complete_boundary",
+          "Select a homogeneous continuous-control boundary covering every exterior face.");
+      if (uses_homogeneous_dirichlet_continuous_control &&
+          !controls_complete_exterior_boundary(triangulation,
+                                               dirichlet_boundary_ids))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "continuous_state_complete_boundary",
+          "Select a fixed state boundary covering every exterior face for the H1_0 control comparison.");
+      if (uses_homogeneous_dirichlet_continuous_control &&
+          continuous_control_boundary_ids != dirichlet_boundary_ids)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.control_variable_id,
+          "continuous_control_boundary_match",
+          "Use the same resolved fixed boundary ids for the state and continuous control.");
       if (!result.diagnostics.valid())
         return result;
       if (uses_dirichlet_control &&
@@ -942,7 +1017,11 @@ namespace nmopt::compiler::v1
               : std::set<dealii::types::material_id>{},
             uses_neumann_convection
               ? &data.conservative_transport->conservative_transport
-              : nullptr);
+              : nullptr,
+            uses_weighted_boundary_trace
+              ? std::optional<typename BoundaryModel::WeightedTraceRealisation>{
+                  BoundaryModel::WeightedTraceRealisation::fe_q_face_quadrature}
+              : std::nullopt);
           if (uses_mean_zero_gauge && !boundary->forcing_is_compatible())
             {
               result.diagnostics.add(
@@ -963,7 +1042,7 @@ namespace nmopt::compiler::v1
                                            as_mass_metric(*metric)));
               constraint_realisation = ConstraintRealisation::facewise_l2;
             }
-          solvers = {
+          solvers = contract::StateAdjointSolversT<Backend>{
             [boundary, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &control) {
               return boundary->solve_state_with_report(control, solve_policy);
@@ -1017,7 +1096,7 @@ namespace nmopt::compiler::v1
               uses_h1_control_metric
                 ? dirichlet->control_h1_metric(policy.control_metric_solve)
                 : dirichlet->control_l2_metric(policy.control_metric_solve));
-          solvers = {
+          solvers = contract::StateAdjointSolversT<Backend>{
             [dirichlet, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &control) {
               return dirichlet->solve_state_with_report(control, solve_policy);
@@ -1046,16 +1125,30 @@ namespace nmopt::compiler::v1
             dirichlet_boundary_ids,
             uses_h1_state_observation,
             uses_h1_control_regularisation,
-            uses_homogeneous_dirichlet_continuous_control);
+            uses_homogeneous_dirichlet_continuous_control,
+            continuous_control_boundary_ids);
           if (uses_hminus1_control_metric)
-            metric = std::make_shared<dealii_backend::Hminus1Metric>(
-              h1_control->control_hminus1_metric(policy.control_metric_solve));
+            {
+              contract::require(request.hminus1_metric_selection.has_value(),
+                                "Validated H-1 target has no resolved metric selection");
+              contract::require(
+                request.hminus1_metric_selection->operator_realisation ==
+                  semantic::v1::Hminus1MetricOperatorRealisation::mass_laplacian_inverse_mass &&
+                  request.hminus1_metric_selection->inverse_realisation ==
+                    semantic::v1::Hminus1MetricInverseRealisation::mass_inverse_laplacian_mass_inverse,
+                "Validated H-1 target selected an unsupported metric realization");
+              metric = std::make_shared<dealii_backend::Hminus1Metric>(
+                h1_control->control_hminus1_metric(
+                  policy.control_metric_solve,
+                  dealii_backend::Hminus1OperatorRealisation::mass_laplacian_inverse_mass,
+                  dealii_backend::Hminus1InverseRealisation::mass_inverse_laplacian_mass_inverse));
+            }
           else
             metric = std::make_shared<dealii_backend::MassMetric>(
               uses_h1_control_metric
                 ? h1_control->control_h1_metric(policy.control_metric_solve)
                 : h1_control->control_l2_metric(policy.control_metric_solve));
-          solvers = {
+          solvers = contract::StateAdjointSolversT<Backend>{
             [h1_control, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &control) {
               return h1_control->solve_state_with_report(control, solve_policy);
@@ -1092,7 +1185,7 @@ namespace nmopt::compiler::v1
               constraint_realisation =
                 ConstraintRealisation::cellwise_parameter_l2;
             }
-          solvers = {
+          solvers = contract::StateAdjointSolversT<Backend>{
             [coefficient, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &parameter) {
               return coefficient->solve_state_with_report(parameter,
@@ -1144,7 +1237,7 @@ namespace nmopt::compiler::v1
                                   as_mass_metric(*metric)));
               constraint_realisation = ConstraintRealisation::cellwise_l2;
             }
-          solvers = {
+          solvers = contract::StateAdjointSolversT<Backend>{
             [assembled, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &control) {
               return assembled->solve_state_with_report(control, solve_policy);
@@ -1181,7 +1274,7 @@ namespace nmopt::compiler::v1
                                   as_mass_metric(*metric)));
               constraint_realisation = ConstraintRealisation::cellwise_l2;
             }
-          solvers = {
+          solvers = contract::StateAdjointSolversT<Backend>{
             [direct, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &control) {
               return direct->solve_state_with_report(control, solve_policy);
@@ -1205,8 +1298,11 @@ namespace nmopt::compiler::v1
                       constraint_realisation,
                       target_kind,
                       resolved_decision,
+                      request,
                       *tracking_region,
-                      control_boundary_region,
+                      uses_homogeneous_dirichlet_continuous_control
+                        ? continuous_control_boundary_region
+                        : control_boundary_region,
                       data,
                       bounds,
                       facewise_bounds,
@@ -3799,6 +3895,7 @@ namespace nmopt::compiler::v1
     make_resolved_decision(const semantic::v1::ProblemSpec &specification,
                            const DealiiDiscretisationPolicy &policy,
                            const CompiledTargetKind target,
+                           const ResolvedCompilationRequest &request,
                            const ScalarLoweringPlan *scalar_plan)
     {
       ResolvedCompilationDecision decision;
@@ -3827,16 +3924,27 @@ namespace nmopt::compiler::v1
            term.region_id,
            term.kind});
       for (const auto &observation : specification.observations)
-        decision.observations.push_back(
-          {observation.id,
-           enum_id(static_cast<int>(observation.kind)),
-           "resolved",
-           handler_for(scalar_plan, observation.id),
-           {observation.input_variable_id},
-           {observation.output_space_id},
-           observation.region_id,
-           semantic::v1::ResidualTermKind::unspecified,
-           observation.kind});
+        {
+          std::vector<std::string> input_ids{observation.input_variable_id};
+          input_ids.insert(input_ids.end(),
+                           observation.data_ids.begin(),
+                           observation.data_ids.end());
+          std::string realization_id = "resolved";
+          if (observation.kind ==
+                semantic::v1::ObservationKind::weighted_boundary_trace &&
+              request.weighted_trace_selection)
+            realization_id = request.weighted_trace_selection->id;
+          decision.observations.push_back(
+            {observation.id,
+             enum_id(static_cast<int>(observation.kind)),
+             realization_id,
+             handler_for(scalar_plan, observation.id),
+             std::move(input_ids),
+             {observation.output_space_id, observation.output_pairing_id},
+             observation.region_id,
+             semantic::v1::ResidualTermKind::unspecified,
+             observation.kind});
+        }
       for (const auto &loss : specification.losses)
         decision.losses.push_back(
           {loss.id,
@@ -4084,6 +4192,7 @@ namespace nmopt::compiler::v1
       const ConstraintRealisation       constraint_realisation,
       const CompiledTargetKind          target,
       const ResolvedCompilationDecision &decision,
+      const ResolvedCompilationRequest  &request,
       const semantic::v1::RegionSpec &  tracking_region,
       const semantic::v1::RegionSpec *  control_boundary_region,
       const DealiiDataBindings<dim> &    data,
@@ -4156,6 +4265,9 @@ namespace nmopt::compiler::v1
         uses_h1_tracking_hhalf_dirichlet_control;
       const bool uses_hminus1_control_metric =
         target == CompiledTargetKind::hminus1_control_metric;
+      const auto *hminus1_selection =
+        request.hminus1_metric_selection ? &*request.hminus1_metric_selection
+                                         : nullptr;
       const bool uses_coefficient_identification =
         target == CompiledTargetKind::coefficient_identification;
 
@@ -4418,6 +4530,28 @@ namespace nmopt::compiler::v1
           ? "boundary mass plus tangential stiffness Riesz map"
         : uses_h1_control_metric ? "mass plus stiffness Riesz map"
                                  : "mass Riesz map",
+        hminus1_selection == nullptr ? "" : hminus1_selection->primal_space_id,
+        hminus1_selection == nullptr ? "" : hminus1_selection->dual_space_id,
+        hminus1_selection == nullptr ? "" : "mass_laplacian_inverse_mass",
+        hminus1_selection == nullptr
+          ? ""
+          : "mass_inverse_laplacian_mass_inverse",
+        hminus1_selection == nullptr ? "" : hminus1_selection->mass_pairing_id,
+        hminus1_selection == nullptr
+          ? ""
+          : hminus1_selection->laplacian_pairing_id,
+        hminus1_selection == nullptr
+          ? ""
+          : hminus1_selection->fixed_boundary_region_id,
+        hminus1_selection == nullptr
+          ? ""
+          : hminus1_selection->laplacian_solve_policy_id,
+        hminus1_selection == nullptr
+          ? ""
+          : hminus1_selection->mass_solve_policy_id,
+        hminus1_selection == nullptr
+          ? ""
+          : "fixed_dirichlet_no_nullspace",
         {LinearSolveAlgorithm::serial_cg,
          "identity",
          policy.control_metric_solve.maximum_iterations,
@@ -4648,8 +4782,18 @@ namespace nmopt::compiler::v1
         manifest.declared_assumptions.push_back(
           "l2_trace_control_regularisation: alpha/2 u^T M_Gamma u; search metric remains the independent hhalf_dirichlet_trace Riesz map");
       if (uses_hminus1_control_metric)
-        manifest.declared_assumptions.push_back(
-          "hminus1_control_metric: independent homogeneous-Dirichlet FE_Q control coefficients; G_h=M_h K_h^{-1} M_h, G_h^{-1}=M_h^{-1} K_h M_h^{-1}; identity-preconditioned CG and no mean constraint");
+        {
+          contract::require(hminus1_selection != nullptr,
+                            "H-1 manifest needs its typed metric realization");
+          manifest.declared_assumptions.push_back(
+            "hminus1_control_metric: realization=" + hminus1_selection->id +
+            "; boundary=" + hminus1_selection->fixed_boundary_region_id +
+            "; operator=mass_laplacian_inverse_mass; inverse=" +
+            "mass_inverse_laplacian_mass_inverse; laplacian_solve=" +
+            hminus1_selection->laplacian_solve_policy_id +
+            "; mass_solve=" + hminus1_selection->mass_solve_policy_id +
+            "; nullspace=fixed_dirichlet_no_nullspace");
+        }
       if (uses_coefficient_identification)
         manifest.declared_assumptions.push_back(
           "coefficient_identification: positive cellwise physical diffusion parameter; A(m) is reassembled for every state and adjoint solve");
@@ -4670,8 +4814,25 @@ namespace nmopt::compiler::v1
                       : uses_hhalf_control_metric ? "hhalf_dirichlet_trace"
                                                  : "L2"));
       if (uses_weighted_boundary_trace)
+        {
+          contract::require(request.weighted_trace_selection.has_value(),
+                            "Weighted trace manifest needs its typed trace realization");
+          const auto &selection = *request.weighted_trace_selection;
+          manifest.declared_assumptions.push_back(
+            "weighted_boundary_trace: realization=" + selection.id +
+            "; source=" + selection.source_space_id +
+            "; output=" + selection.output_space_id +
+            "; boundary=" + selection.region_id +
+            "; weight=" + selection.weight_data_id +
+            "; pairing=" + selection.pairing_id +
+            "; Neumann residual and facewise L2 control metric are unchanged");
+        }
+      if (has_homogeneous_dirichlet_continuous_control(specification) &&
+          control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(
-          "weighted_boundary_trace: fixed scalar weight multiplies the state trace in value, JVP, and transpose pullback at matching face quadrature; Neumann residual and facewise L2 control metric are unchanged");
+          "continuous_control_boundary: homogeneous FE_Q control boundary " +
+          boundary_id_list(*control_boundary_region) +
+          " is resolved independently and matches the state fixed boundary");
       if (uses_point_sensor)
         manifest.declared_assumptions.push_back(
           "point_sensor: immutable physical coordinates; FE_Q shape evaluation defines C_h, and the very-weak adjoint source is the assembled finite-dimensional transpose C_h^T(C_h y-z); nearest-node and quadrature-point coincidence policies are rejected");

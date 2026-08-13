@@ -79,6 +79,11 @@ namespace nmopt::compiler::v1
     bool                                   requires_observation_weight = false;
     bool                                   requires_general_scalar_data = false;
     bool                                   requires_conservative_transport_data = false;
+    std::optional<semantic::v1::TraceRealisationSelection>
+      weighted_trace_selection;
+    std::optional<semantic::v1::Hminus1MetricRealisationSelection>
+      hminus1_metric_selection;
+    std::string continuous_control_boundary_region_id;
   };
 
   // C5.6 consumes only the conservative transport coefficient in addition

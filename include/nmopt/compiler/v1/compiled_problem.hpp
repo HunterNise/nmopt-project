@@ -106,9 +106,19 @@ namespace nmopt::compiler::v1
 
   struct CompiledMetricRecord
   {
-    std::string semantic_id;
-    std::string realisation_id;
-    std::string operator_description;
+    std::string                 semantic_id;
+    std::string                 realisation_id;
+    std::string                 operator_description;
+    std::string                 primal_space_id;
+    std::string                 dual_space_id;
+    std::string                 operator_id;
+    std::string                 inverse_operator_id;
+    std::string                 mass_pairing_id;
+    std::string                 laplacian_pairing_id;
+    std::string                 boundary_region_id;
+    std::string                 laplacian_solve_policy_id;
+    std::string                 mass_solve_policy_id;
+    std::string                 nullspace_realisation_id;
     CompiledSolvePolicyRecord solve_policy;
   };
 

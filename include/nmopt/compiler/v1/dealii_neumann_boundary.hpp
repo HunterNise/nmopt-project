@@ -30,6 +30,7 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -68,6 +69,11 @@ namespace nmopt::compiler::v1::detail
       volume_restriction
     };
 
+    enum class WeightedTraceRealisation
+    {
+      fe_q_face_quadrature
+    };
+
     NeumannBoundaryControlModel(
       dealii::Triangulation<dim> &                triangulation,
       const dealii::Function<dim> &               forcing,
@@ -85,7 +91,9 @@ namespace nmopt::compiler::v1::detail
       const StateObservation                       state_observation =
         StateObservation::boundary_trace,
       std::set<dealii::types::material_id>         observation_material_ids = {},
-      const dealii::TensorFunction<1, dim> *       conservative_transport = nullptr)
+      const dealii::TensorFunction<1, dim> *       conservative_transport = nullptr,
+      const std::optional<WeightedTraceRealisation> weighted_trace_realisation =
+        std::nullopt)
       : state_fe_(state_degree)
       , state_dof_handler_(triangulation)
       , diffusion_(diffusion)
@@ -98,6 +106,7 @@ namespace nmopt::compiler::v1::detail
       , state_observation_(state_observation)
       , observation_material_ids_(std::move(observation_material_ids))
       , uses_conservative_transport_(conservative_transport != nullptr)
+      , weighted_trace_realisation_(weighted_trace_realisation)
     {
       contract::require(diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
@@ -121,6 +130,12 @@ namespace nmopt::compiler::v1::detail
         "The pure-Neumann mean-zero gauge requires zero reaction");
       contract::require(!control_boundary_ids_.empty(),
                         "The Neumann v1 target needs a marked control boundary");
+      contract::require(
+        observation_weight == nullptr ||
+          (weighted_trace_realisation_ &&
+           *weighted_trace_realisation_ ==
+             WeightedTraceRealisation::fe_q_face_quadrature),
+        "The weighted Neumann trace needs its selected face-quadrature realization");
       contract::require(
         state_observation_ == StateObservation::boundary_trace
           ? !observation_boundary_ids_.empty()
@@ -813,6 +828,7 @@ namespace nmopt::compiler::v1::detail
     const StateObservation state_observation_;
     const std::set<dealii::types::material_id> observation_material_ids_;
     const bool uses_conservative_transport_;
+    const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
     std::size_t control_face_count_ = 0;
     std::size_t observation_sample_count_ = 0;
 

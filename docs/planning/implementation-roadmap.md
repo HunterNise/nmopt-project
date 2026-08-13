@@ -16,9 +16,9 @@ cmake --build --preset debug-neutral
 ctest --preset debug-neutral
 ~~~
 
-Run `debug-dealii` as well for compiler, lowerer, backend, or numerical
-changes. The [build convention](../../conventions/build.md) owns the complete
-profile matrix and cache-recovery guidance.
+Run `debug-dealii` with `--parallel 1` as well for compiler, lowerer, backend,
+or numerical changes. The [build convention](../../conventions/build.md) owns
+the complete profile matrix and cache-recovery guidance.
 
 ## Current handoff state
 

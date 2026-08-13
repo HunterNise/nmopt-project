@@ -773,7 +773,7 @@ cmake --build --preset debug-neutral
 ctest --preset debug-neutral
 
 cmake --preset debug-dealii
-cmake --build --preset debug-dealii
+cmake --build --preset debug-dealii --parallel 1
 ctest --preset debug-dealii
 ```
 

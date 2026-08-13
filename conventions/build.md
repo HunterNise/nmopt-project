@@ -24,7 +24,7 @@ backend test registration must also run:
 
 ```bash
 cmake --preset debug-dealii
-cmake --build --preset debug-dealii
+cmake --build --preset debug-dealii --parallel 1
 ctest --preset debug-dealii
 ```
 
@@ -36,6 +36,12 @@ The persistent profiles are:
 | `debug-dealii` | `build/debug-dealii/` | Full deal.II Debug correctness gate with project warnings. |
 | `sanitize-neutral` | `build/sanitize-neutral/` | Backend-neutral address/undefined-behavior checks. |
 | `release-dealii` | `build/release-dealii/` | Optimized verification and Chapter 6 timing profile. |
+
+Deal.II-enabled builds must always use one build job (`--parallel 1`). The
+deal.II translation units are memory-intensive, and allowing Ninja to compile
+multiple large units concurrently can exhaust a constrained development
+environment. This restriction applies to `debug-dealii` and
+`release-dealii`; backend-neutral profiles may use their normal parallelism.
 
 Warnings are errors in the Debug and sanitizer profiles. Strict conversion and
 shadow warnings remain backend-neutral until the audited deal.II adapter seams

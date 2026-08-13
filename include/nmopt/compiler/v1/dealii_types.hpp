@@ -2,6 +2,7 @@
 
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
+#include "nmopt/semantic/v1/resolved_problem.hpp"
 #include <deal.II/base/function.h>
 #include <deal.II/base/tensor_function.h>
 #include <deal.II/grid/tria.h>
@@ -13,6 +14,7 @@
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace nmopt::compiler::v1
 {
@@ -38,6 +40,45 @@ namespace nmopt::compiler::v1
   struct DealiiConservativeTransportBindingProvenance
   {
     std::string conservative_transport;
+  };
+
+  // These are compiler-owned ports, not semantic component kinds.  A
+  // resolved request records which concrete binding surface consumes each
+  // semantic datum so validation and later manifest construction do not have
+  // to rediscover the relationship from a target name or display text.
+  enum class ResolvedBindingPort
+  {
+    forcing,
+    desired_state,
+    fixed_dirichlet_data,
+    observation_weight,
+    general_scalar_data,
+    conservative_transport_data
+  };
+
+  struct ResolvedDataBindingRequest
+  {
+    ResolvedBindingPort             port;
+    std::string                     semantic_id;
+    semantic::v1::DataRole          role = semantic::v1::DataRole::unspecified;
+    semantic::v1::DataKind          kind = semantic::v1::DataKind::unspecified;
+    std::string                     space_id;
+    std::string                     region_id;
+    std::string                     evaluation_realisation;
+    // The expected concrete deal.II binding type, retained separately from
+    // the semantic DataKind for compiler diagnostics and later provenance.
+    std::string                     runtime_representation;
+    bool                            required = true;
+  };
+
+  struct ResolvedCompilationRequest
+  {
+    std::string                            semantic_problem_id;
+    std::vector<ResolvedDataBindingRequest> data_bindings;
+    bool                                   requires_fixed_dirichlet_data = false;
+    bool                                   requires_observation_weight = false;
+    bool                                   requires_general_scalar_data = false;
+    bool                                   requires_conservative_transport_data = false;
   };
 
   // C5.6 consumes only the conservative transport coefficient in addition

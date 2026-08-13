@@ -545,6 +545,26 @@ namespace
       "fixed_dirichlet_data_binding",
       "v1 compiler did not identify missing fixed-Dirichlet data");
 
+    const dealii::Functions::ConstantFunction<dim> vector_fixed_data(1.0, 2);
+    auto vector_fixed_bindings = compiler::v1::DealiiDataBindings<dim>{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("fixed_dirichlet_vector")};
+    vector_fixed_bindings.fixed_dirichlet_data = std::cref(vector_fixed_data);
+    const auto rejected_fixed_shape = compiler.compile(specification,
+                                                       triangulation,
+                                                       vector_fixed_bindings,
+                                                       policy);
+    test_support::require_exact_diagnostic(
+      rejected_fixed_shape.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "fixed_dirichlet_data",
+      "scalar_function_binding_shape",
+      "v1 compiler did not route fixed-Dirichlet Function shape through the resolved binding request");
+
     auto bindings = compiler::v1::DealiiDataBindings<dim>{
       forcing,
       desired_state,
@@ -3570,6 +3590,48 @@ namespace
       0.1,
       test_binding_provenance("compiler_contract")};
 
+    const dealii::Functions::ConstantFunction<dim> vector_forcing(1.0, 2);
+    const compiler::v1::DealiiDataBindings<dim> vector_forcing_bindings{
+      vector_forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("vector_forcing")};
+    const auto rejected_forcing_shape = compiler.compile(
+      specification,
+      borrowed_mesh,
+      vector_forcing_bindings,
+      {},
+      valid_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_forcing_shape.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "forcing",
+      "scalar_function_binding_shape",
+      "compiler did not route forcing Function shape through the resolved binding request");
+
+    const dealii::Functions::ConstantFunction<dim> vector_desired_state(0.25, 2);
+    const compiler::v1::DealiiDataBindings<dim> vector_desired_state_bindings{
+      forcing,
+      vector_desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("vector_desired_state")};
+    const auto rejected_desired_state_shape = compiler.compile(
+      specification,
+      borrowed_mesh,
+      vector_desired_state_bindings,
+      {},
+      valid_bounds);
+    test_support::require_exact_diagnostic(
+      rejected_desired_state_shape.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "desired_state",
+      "scalar_function_binding_shape",
+      "compiler did not route desired-state Function shape through the resolved binding request");
+
     const compiler::v1::DealiiDataBindings<dim> invalid_diffusion{
       forcing,
       desired_state,
@@ -3728,6 +3790,17 @@ namespace
       0.5,
       0.1,
       test_binding_provenance("compiler_session")};
+
+    const std::shared_ptr<compiler::v1::DealiiCompilationSession<dim>>
+      null_session;
+    const auto rejected_null_session = compiler.compile(
+      specification, null_session, valid_bindings);
+    test_support::require_exact_diagnostic(
+      rejected_null_session.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      specification.id,
+      "compilation_session_presence",
+      "compiler threw instead of returning a null-session lowerability diagnostic");
 
     compiler::v1::DealiiDiscretisationPolicy solve_policy;
     solve_policy.state_solve = {317, 2e-11, 3e-14};

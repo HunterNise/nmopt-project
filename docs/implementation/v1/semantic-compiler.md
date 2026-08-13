@@ -581,6 +581,20 @@ layout-mismatched bound data are `lowerability` diagnostics. `ContractError`
 is reserved for direct low-level constructor misuse and violated internal
 invariants after validated lowering.
 
+The compiler creates one resolved binding request after semantic resolution.
+Each request record names the semantic datum, its declared space and region,
+the runtime binding port and representation, and the selected evaluation
+realization. Ordinary
+forcing, desired-state, and fixed-Dirichlet `Function` bindings, together with
+registered observation and scalar-coefficient Functions, pass through this
+request before model construction. Their scalar component count is checked
+against the resolved port; a multi-component Function is never silently
+reduced to component zero. A null owned compilation session is likewise a
+`lowerability` diagnostic (`compilation_session_presence`). The public
+compiler therefore returns predictable diagnostics for caller-provided
+binding/session errors, while direct low-level constructor misuse retains the
+`ContractError` boundary above.
+
 ## Registered deal.II realization
 
 The compatibility aggregate

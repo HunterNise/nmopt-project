@@ -83,8 +83,16 @@ namespace nmopt::compiler::v1
       std::optional<CellwiseBoxDataBindings> bounds = std::nullopt,
       std::optional<FacewiseBoxDataBindings> facewise_bounds = std::nullopt) const
     {
-      contract::require(static_cast<bool>(session),
-                        "The deal.II compiler needs a compilation session");
+      CompilationResultT<dealii_backend::SerialBackend> result;
+      if (!session)
+        {
+          result.diagnostics.add(
+            semantic::v1::DiagnosticCategory::lowerability,
+            specification.id,
+            "compilation_session_presence",
+            "Supply a non-null owned deal.II compilation session.");
+          return result;
+        }
       return compile_impl(specification,
                           session->mutable_triangulation(),
                           data,
@@ -97,6 +105,335 @@ namespace nmopt::compiler::v1
     }
 
   private:
+    static void
+    append_data_binding_request(
+      ResolvedCompilationRequest &             request,
+      const semantic::v1::ResolvedProblemView &resolved,
+      const std::string &                       data_id,
+      const ResolvedBindingPort                port,
+      const std::string &                       evaluation_realisation,
+      const std::string &                       runtime_representation,
+      const bool                                required)
+    {
+      if (data_id.empty())
+        return;
+      const auto &datum = resolved.datum(data_id);
+
+      std::string region_id;
+      if (!datum.space_id.empty())
+        region_id = resolved.space(datum.space_id).region_id;
+      request.data_bindings.push_back({port,
+                                       datum.id,
+                                       datum.role,
+                                       datum.kind,
+                                       datum.space_id,
+                                       region_id,
+                                       evaluation_realisation,
+                                       runtime_representation,
+                                       required});
+    }
+
+    static std::string
+    data_id_for_term_role(const semantic::v1::ResolvedProblemView &resolved,
+                          const semantic::v1::ResidualTermKind             kind,
+                          const semantic::v1::DataRole                     role)
+    {
+      for (const auto &term : resolved.specification().residual_terms)
+        if (term.kind == kind)
+          for (const auto &data_id : term.data_ids)
+            if (resolved.datum(data_id).role == role)
+              return data_id;
+      return {};
+    }
+
+    static std::string
+    data_id_for_loss_role(const semantic::v1::ResolvedProblemView &resolved,
+                          const semantic::v1::DataRole             role)
+    {
+      for (const auto &loss : resolved.specification().losses)
+        if (resolved.datum(loss.data_id).role == role)
+          return loss.data_id;
+      return {};
+    }
+
+    static ResolvedCompilationRequest
+    resolve_compilation_request(
+      const semantic::v1::ResolvedProblemView &resolved)
+    {
+      const auto &specification = resolved.specification();
+      ResolvedCompilationRequest request;
+      request.semantic_problem_id = specification.id;
+
+      append_data_binding_request(request,
+                                  resolved,
+                                  data_id_for_term_role(
+                                    resolved,
+                                    semantic::v1::ResidualTermKind::volume_source,
+                                    semantic::v1::DataRole::forcing),
+                                  ResolvedBindingPort::forcing,
+                                  "volume_quadrature",
+                                  "dealii::Function<dim>",
+                                  true);
+      append_data_binding_request(request,
+                                  resolved,
+                                  data_id_for_loss_role(
+                                    resolved, semantic::v1::DataRole::desired_state),
+                                  ResolvedBindingPort::desired_state,
+                                  "observation_quadrature",
+                                  "dealii::Function<dim>",
+                                  true);
+
+      request.requires_fixed_dirichlet_data = std::any_of(
+        specification.transformations.begin(),
+        specification.transformations.end(),
+        [](const semantic::v1::TransformationSpec &transformation) {
+          return !transformation.fixed_data_id.empty();
+        });
+      std::string fixed_data_id;
+      for (const auto &transformation : specification.transformations)
+        if (!transformation.fixed_data_id.empty())
+          {
+            fixed_data_id = transformation.fixed_data_id;
+            break;
+          }
+      append_data_binding_request(
+        request,
+        resolved,
+        request.requires_fixed_dirichlet_data
+          ? fixed_data_id
+          : std::string{},
+        ResolvedBindingPort::fixed_dirichlet_data,
+        "dirichlet_boundary_dof_interpolation",
+        "dealii::Function<dim>",
+        request.requires_fixed_dirichlet_data);
+
+      request.requires_observation_weight = std::any_of(
+        specification.observations.begin(),
+        specification.observations.end(),
+        [&resolved](const semantic::v1::ObservationSpec &observation) {
+          return std::any_of(
+            observation.data_ids.begin(),
+            observation.data_ids.end(),
+            [&resolved](const std::string &data_id) {
+              return resolved.datum(data_id).role ==
+                     semantic::v1::DataRole::observation_weight;
+            });
+        });
+      for (const auto &observation : specification.observations)
+        for (const auto &data_id : observation.data_ids)
+          if (resolved.datum(data_id).role ==
+              semantic::v1::DataRole::observation_weight)
+            append_data_binding_request(request,
+                                        resolved,
+                                        data_id,
+                                        ResolvedBindingPort::observation_weight,
+                                        "boundary_face_quadrature",
+                                        "dealii::Function<dim>",
+                                        request.requires_observation_weight);
+
+      request.requires_general_scalar_data = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &term) {
+          return term.kind == semantic::v1::ResidualTermKind::tensor_diffusion;
+        });
+      for (const auto &term : specification.residual_terms)
+        for (const auto &data_id : term.data_ids)
+          if (request.requires_general_scalar_data &&
+              (resolved.datum(data_id).role == semantic::v1::DataRole::diffusion ||
+               resolved.datum(data_id).role ==
+                 semantic::v1::DataRole::conservative_transport ||
+               resolved.datum(data_id).role ==
+                 semantic::v1::DataRole::advective_transport ||
+               resolved.datum(data_id).role == semantic::v1::DataRole::reaction ||
+               resolved.datum(data_id).role ==
+                 semantic::v1::DataRole::robin_coefficient ||
+               resolved.datum(data_id).role ==
+                 semantic::v1::DataRole::robin_source))
+            append_data_binding_request(
+              request,
+              resolved,
+              data_id,
+              ResolvedBindingPort::general_scalar_data,
+              resolved.datum(data_id).role ==
+                    semantic::v1::DataRole::robin_coefficient ||
+                  resolved.datum(data_id).role ==
+                    semantic::v1::DataRole::robin_source
+                ? "boundary_face_quadrature"
+                : "volume_quadrature",
+              resolved.datum(data_id).kind == semantic::v1::DataKind::tensor_function
+                ? "dealii::TensorFunction<2, dim>"
+                : resolved.datum(data_id).kind ==
+                    semantic::v1::DataKind::vector_function
+                  ? "dealii::TensorFunction<1, dim>"
+                  : "dealii::Function<dim>",
+              request.requires_general_scalar_data);
+
+      request.requires_conservative_transport_data = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &term) {
+          return term.kind == semantic::v1::ResidualTermKind::
+                                 conservative_transport;
+        }) && !request.requires_general_scalar_data;
+      append_data_binding_request(
+        request,
+        resolved,
+        data_id_for_term_role(resolved,
+                              semantic::v1::ResidualTermKind::conservative_transport,
+                              semantic::v1::DataRole::conservative_transport),
+        ResolvedBindingPort::conservative_transport_data,
+        "volume_quadrature",
+        "dealii::TensorFunction<1, dim>",
+        request.requires_conservative_transport_data);
+      return request;
+    }
+
+    static const ResolvedDataBindingRequest *
+    find_data_binding_request(const ResolvedCompilationRequest &request,
+                              const semantic::v1::DataRole          role,
+                              const ResolvedBindingPort              port)
+    {
+      const auto match = std::find_if(
+        request.data_bindings.begin(),
+        request.data_bindings.end(),
+        [role, port](const ResolvedDataBindingRequest &candidate) {
+          return candidate.role == role && candidate.port == port;
+        });
+      return match == request.data_bindings.end() ? nullptr : &*match;
+    }
+
+    template <int dim>
+    static void
+    validate_resolved_function_bindings(
+      const ResolvedCompilationRequest &request,
+      const DealiiDataBindings<dim> &    data,
+      semantic::v1::ValidationReport &   report)
+    {
+      using semantic::v1::DataRole;
+      using semantic::v1::DiagnosticCategory;
+
+      const auto require_provenance = [&report](
+                                        const ResolvedDataBindingRequest &binding,
+                                        const std::string &provenance,
+                                        const std::string &capability) {
+        if (provenance.empty())
+          report.add(DiagnosticCategory::lowerability,
+                    binding.semantic_id,
+                    capability,
+                    "Supply a stable provenance label for the resolved Function binding.");
+      };
+
+      const auto require_scalar = [&report](
+                                    const ResolvedDataBindingRequest &binding,
+                                    const unsigned int                n_components,
+                                    const std::string &capability) {
+        if (n_components != 1)
+          report.add(DiagnosticCategory::lowerability,
+                     binding.semantic_id,
+                     capability,
+                     "Bind a one-component scalar Function for the resolved data port.");
+      };
+
+      if (const auto *binding = find_data_binding_request(
+            request, DataRole::forcing, ResolvedBindingPort::forcing))
+        {
+          require_scalar(*binding,
+                         data.forcing.n_components,
+                         "scalar_function_binding_shape");
+          require_provenance(*binding,
+                             data.provenance.forcing,
+                             "forcing_binding_provenance");
+        }
+      if (const auto *binding = find_data_binding_request(
+            request, DataRole::desired_state, ResolvedBindingPort::desired_state))
+        {
+          require_scalar(*binding,
+                         data.desired_state.n_components,
+                         "scalar_function_binding_shape");
+          require_provenance(*binding,
+                             data.provenance.desired_state,
+                             "desired_state_binding_provenance");
+        }
+
+      if (const auto *binding = find_data_binding_request(
+            request,
+            DataRole::fixed_dirichlet_lifting,
+            ResolvedBindingPort::fixed_dirichlet_data);
+          binding != nullptr && request.requires_fixed_dirichlet_data &&
+          data.fixed_dirichlet_data)
+        require_scalar(*binding,
+                       data.fixed_dirichlet_data->get().n_components,
+                       "scalar_function_binding_shape");
+      if (const auto *binding = find_data_binding_request(
+            request,
+            DataRole::fixed_dirichlet_lifting,
+            ResolvedBindingPort::fixed_dirichlet_data);
+          binding != nullptr && request.requires_fixed_dirichlet_data &&
+          data.fixed_dirichlet_data)
+        require_provenance(*binding,
+                           data.provenance.fixed_dirichlet_data,
+                           "fixed_dirichlet_binding_provenance");
+
+      if (const auto *binding = find_data_binding_request(
+            request,
+            DataRole::observation_weight,
+            ResolvedBindingPort::observation_weight);
+          binding != nullptr && request.requires_observation_weight &&
+          data.weighted_trace)
+        require_scalar(*binding,
+                       data.weighted_trace->weight.n_components,
+                       "scalar_boundary_weight_binding");
+      if (const auto *binding = find_data_binding_request(
+            request,
+            DataRole::observation_weight,
+            ResolvedBindingPort::observation_weight);
+          binding != nullptr && request.requires_observation_weight &&
+          data.weighted_trace)
+        require_provenance(*binding,
+                           data.weighted_trace->provenance,
+                           "boundary_weight_binding_provenance");
+
+      if (!request.requires_general_scalar_data || !data.general_scalar)
+        return;
+      for (const auto role : {DataRole::reaction,
+                              DataRole::robin_coefficient,
+                              DataRole::robin_source})
+        {
+          const auto *binding = find_data_binding_request(
+            request, role, ResolvedBindingPort::general_scalar_data);
+          if (binding == nullptr)
+            continue;
+          const auto *function = role == DataRole::reaction
+                                   ? &data.general_scalar->reaction
+                                   : role == DataRole::robin_coefficient
+                                       ? &data.general_scalar->robin_coefficient
+                                       : &data.general_scalar->robin_source;
+          require_scalar(*binding,
+                         function->n_components,
+                         "scalar_coefficient_function_shape");
+          const auto &provenance = role == DataRole::reaction
+                                     ? data.general_scalar->provenance.reaction
+                                     : role == DataRole::robin_coefficient
+                                         ? data.general_scalar->provenance.robin_coefficient
+                                         : data.general_scalar->provenance.robin_source;
+          require_provenance(*binding,
+                             provenance,
+                             "coefficient_binding_provenance");
+        }
+
+      if (request.requires_conservative_transport_data &&
+          data.conservative_transport)
+        if (const auto *binding = find_data_binding_request(
+              request,
+              DataRole::conservative_transport,
+              ResolvedBindingPort::conservative_transport_data))
+          require_provenance(
+            *binding,
+            data.conservative_transport->provenance.conservative_transport,
+            "conservative_transport_binding_provenance");
+    }
+
     template <int dim>
     CompilationResultT<dealii_backend::SerialBackend>
     compile_impl(
@@ -116,6 +453,7 @@ namespace nmopt::compiler::v1
       result.diagnostics = std::move(resolution.diagnostics);
       if (!result.diagnostics.valid())
         return result;
+      const auto request = resolve_compilation_request(*resolution.problem);
       validate_lowerability(specification, policy, result.diagnostics);
       validate_formulation_capability(specification, result.diagnostics);
       if (!result.diagnostics.valid())
@@ -192,6 +530,7 @@ namespace nmopt::compiler::v1
                                    diagnostic.remedy);
           scalar_plan = std::move(planned.plan);
         }
+      validate_resolved_function_bindings(request, data, result.diagnostics);
       if (triangulation.n_active_cells() == 0)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -201,51 +540,18 @@ namespace nmopt::compiler::v1
       if (uses_point_sensor && tracking_region != nullptr)
         validate_point_sensor_mesh(triangulation, *tracking_region,
                                    result.diagnostics);
-      if (data.provenance.forcing.empty())
-        result.diagnostics.add(
-          semantic::v1::DiagnosticCategory::lowerability,
-          "forcing",
-          "forcing_binding_provenance",
-          "Supply a stable provenance label for the forcing Function binding.");
-      if (data.provenance.desired_state.empty())
-        result.diagnostics.add(
-          semantic::v1::DiagnosticCategory::lowerability,
-          "desired_state",
-          "desired_state_binding_provenance",
-          "Supply a stable provenance label for the desired-state Function binding.");
-      if (uses_weighted_boundary_trace && !data.weighted_trace)
+      if (request.requires_observation_weight && !data.weighted_trace)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           "boundary_weight",
           "weighted_boundary_trace_data_binding",
           "Bind the fixed scalar Function consumed by the weighted boundary trace.");
-      if (!uses_weighted_boundary_trace && data.weighted_trace)
+      if (!request.requires_observation_weight && data.weighted_trace)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
           "selected_weighted_boundary_trace",
           "Declare a weighted boundary trace before binding observation-weight data.");
-      if (uses_weighted_boundary_trace && data.weighted_trace &&
-          data.weighted_trace->weight.n_components != 1)
-        result.diagnostics.add(
-          semantic::v1::DiagnosticCategory::lowerability,
-          "boundary_weight",
-          "scalar_boundary_weight_binding",
-          "Bind a scalar Function for the weighted boundary trace.");
-      if (uses_weighted_boundary_trace && data.weighted_trace &&
-          data.weighted_trace->provenance.empty())
-        result.diagnostics.add(
-          semantic::v1::DiagnosticCategory::lowerability,
-          "boundary_weight",
-          "boundary_weight_binding_provenance",
-          "Supply a stable provenance label for the boundary-weight Function binding.");
-      if ((uses_fixed_reconstruction || uses_partial_dirichlet_control) &&
-          data.provenance.fixed_dirichlet_data.empty())
-        result.diagnostics.add(
-          semantic::v1::DiagnosticCategory::lowerability,
-          "fixed_dirichlet_data",
-          "fixed_dirichlet_binding_provenance",
-          "Supply a stable provenance label for the fixed-Dirichlet Function binding.");
       if (!uses_normalized_laplacian && !uses_coefficient_identification &&
           !uses_general_scalar &&
           !data.diffusion)
@@ -270,34 +576,34 @@ namespace nmopt::compiler::v1
           "reaction",
           "nonnegative_finite_reaction_binding",
           "Bind a nonnegative finite reaction coefficient.");
-      if (uses_general_scalar && !data.general_scalar)
+      if (request.requires_general_scalar_data && !data.general_scalar)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
           "general_scalar_coefficient_bindings",
           "Bind tensor diffusion, both vector transports, scalar reaction, Robin coefficient, and Robin source Functions.");
-      if (!uses_general_scalar && data.general_scalar)
+      if (!request.requires_general_scalar_data && data.general_scalar)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
           "selected_general_scalar_target",
           "Remove general scalar coefficient bindings unless the graph selects the P5.1 target.");
-      if (uses_general_scalar && data.general_scalar)
-        validate_general_scalar_bindings(*data.general_scalar,
-                                         result.diagnostics);
-      if (uses_neumann_convection && !data.conservative_transport)
+      if (request.requires_conservative_transport_data &&
+          !data.conservative_transport)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           "conservative_transport",
           "conservative_transport_data_binding",
           "Bind the conservative transport Function selected by the C5.6 Neumann-control composition.");
-      if (!uses_neumann_convection && data.conservative_transport)
+      if (!request.requires_conservative_transport_data &&
+          data.conservative_transport)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
           "selected_neumann_convection_target",
           "Remove conservative transport data unless the graph declares the registered C5.6 composition.");
-      if (uses_neumann_convection && data.conservative_transport &&
+      if (request.requires_conservative_transport_data &&
+          data.conservative_transport &&
           data.conservative_transport->provenance.conservative_transport.empty())
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -329,14 +635,15 @@ namespace nmopt::compiler::v1
           specification.formulation.id,
           "valid_adjoint_solve_policy",
           "Select positive finite adjoint-solve tolerances.");
-      if ((uses_fixed_reconstruction || uses_partial_dirichlet_control) &&
+      if (request.requires_fixed_dirichlet_data &&
           !data.fixed_dirichlet_data)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.formulation.state_variable_id,
           "fixed_dirichlet_data_binding",
           "Bind fixed Dirichlet Function data for the declared reconstruction.");
-      if (!uses_fixed_reconstruction && !uses_partial_dirichlet_control &&
+      if (!request.requires_fixed_dirichlet_data &&
+          !uses_fixed_reconstruction && !uses_partial_dirichlet_control &&
           data.fixed_dirichlet_data)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
@@ -1557,46 +1864,6 @@ namespace nmopt::compiler::v1
                 return false;
             }
       return has_boundary_face;
-    }
-
-    template <int dim>
-    static void
-    validate_general_scalar_bindings(
-      const DealiiGeneralScalarDataBindings<dim> &bindings,
-      semantic::v1::ValidationReport &            report)
-    {
-      using semantic::v1::DiagnosticCategory;
-      const auto require_provenance = [&report](const std::string &component_id,
-                                                const std::string &provenance) {
-        if (provenance.empty())
-          report.add(DiagnosticCategory::lowerability,
-                     component_id,
-                     "coefficient_binding_provenance",
-                     "Supply a stable provenance label for every P5.1 coefficient Function binding.");
-      };
-      require_provenance("diffusion_tensor",
-                         bindings.provenance.diffusion_tensor);
-      require_provenance("conservative_transport",
-                         bindings.provenance.conservative_transport);
-      require_provenance("advective_transport",
-                         bindings.provenance.advective_transport);
-      require_provenance("reaction", bindings.provenance.reaction);
-      require_provenance("robin_coefficient",
-                         bindings.provenance.robin_coefficient);
-      require_provenance("robin_source", bindings.provenance.robin_source);
-
-      const auto require_scalar = [&report](const std::string &component_id,
-                                            const unsigned int n_components) {
-        if (n_components != 1)
-          report.add(DiagnosticCategory::lowerability,
-                     component_id,
-                     "scalar_coefficient_function_shape",
-                     "Bind a one-component scalar Function for this coefficient.");
-      };
-      require_scalar("reaction", bindings.reaction.n_components);
-      require_scalar("robin_coefficient",
-                     bindings.robin_coefficient.n_components);
-      require_scalar("robin_source", bindings.robin_source.n_components);
     }
 
     static void

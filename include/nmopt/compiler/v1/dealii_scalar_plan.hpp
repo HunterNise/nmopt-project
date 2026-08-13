@@ -121,6 +121,8 @@ namespace nmopt::compiler::v1
     std::string                               metric_id;
     std::string                               constraint_id;
     std::string                               fixed_data_id;
+    std::optional<semantic::v1::BoundaryRealisationSelection>
+                                                   boundary_selection;
     std::vector<ScalarDataPlacement>           data_placements;
     std::set<unsigned int>                    dirichlet_boundary_ids;
     std::set<unsigned int>                    robin_boundary_ids;
@@ -515,6 +517,32 @@ namespace nmopt::compiler::v1
           else
             handler->contribute(term, plan);
         }
+      const bool general_scalar = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &term) {
+          return term.kind == semantic::v1::ResidualTermKind::tensor_diffusion;
+        });
+      if (general_scalar)
+        {
+          const auto boundary_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&plan](const semantic::v1::RequirementPolicySpec &policy) {
+              return policy.subject_id == plan.state_variable_id &&
+                     policy.kind ==
+                       semantic::v1::RequirementKind::boundary_partition;
+            });
+          if (boundary_policy == specification.requirement_policies.end() ||
+              !boundary_policy->typed_selection)
+            result.diagnostics.add(
+              DiagnosticCategory::lowerability,
+              plan.state_variable_id,
+              "scalar_boundary_selection",
+              "Register the typed boundary partition, conormal, and trace selection before scalar assembly.");
+          else
+            plan.boundary_selection = *boundary_policy->typed_selection;
+        }
       for (const auto &term_id : equation.residual_term_ids)
         {
           const auto &term = problem.residual_term(term_id);
@@ -625,23 +653,37 @@ namespace nmopt::compiler::v1
             transformation_handler->contribute(transformation, plan);
         }
 
-      for (const auto &requirement : specification.requirement_policies)
-        if (requirement.subject_id == plan.state_variable_id &&
-            requirement.kind == semantic::v1::RequirementKind::fixed_dirichlet)
-          {
-            const auto &region = problem.region(requirement.region_id);
-            plan.dirichlet_boundary_ids.insert(region.boundary_ids.begin(),
-                                               region.boundary_ids.end());
-          }
+      if (plan.boundary_selection)
+        {
+          const auto &fixed_region =
+            problem.region(plan.boundary_selection->fixed_dirichlet_region_id);
+          plan.dirichlet_boundary_ids.insert(fixed_region.boundary_ids.begin(),
+                                             fixed_region.boundary_ids.end());
+          const auto &robin_region =
+            problem.region(plan.boundary_selection->robin_region_id);
+          plan.robin_boundary_ids.insert(robin_region.boundary_ids.begin(),
+                                         robin_region.boundary_ids.end());
+        }
+      else
+        {
+          for (const auto &requirement : specification.requirement_policies)
+            if (requirement.subject_id == plan.state_variable_id &&
+                requirement.kind == semantic::v1::RequirementKind::fixed_dirichlet)
+              {
+                const auto &region = problem.region(requirement.region_id);
+                plan.dirichlet_boundary_ids.insert(region.boundary_ids.begin(),
+                                                   region.boundary_ids.end());
+              }
 
-      for (const auto &term : plan.residual_terms)
-        if (term.operator_kind == ScalarResidualOperatorKind::robin_bilinear ||
-            term.operator_kind == ScalarResidualOperatorKind::robin_source)
-          {
-            const auto &region = problem.region(term.region_id);
-            plan.robin_boundary_ids.insert(region.boundary_ids.begin(),
-                                           region.boundary_ids.end());
-          }
+          for (const auto &term : plan.residual_terms)
+            if (term.operator_kind == ScalarResidualOperatorKind::robin_bilinear ||
+                term.operator_kind == ScalarResidualOperatorKind::robin_source)
+              {
+                const auto &region = problem.region(term.region_id);
+                plan.robin_boundary_ids.insert(region.boundary_ids.begin(),
+                                               region.boundary_ids.end());
+              }
+        }
 
       const auto tracking_loss = std::find_if(
         specification.losses.begin(),

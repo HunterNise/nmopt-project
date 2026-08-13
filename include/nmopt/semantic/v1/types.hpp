@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 // The v1 semantic graph deliberately contains no discretisation-backend
@@ -180,6 +182,53 @@ namespace nmopt::semantic::v1
     both
   };
 
+  enum class NormalOrientation
+  {
+    unspecified = -1,
+    outward,
+    inward
+  };
+
+  enum class ConormalForm
+  {
+    unspecified = -1,
+    diffusion_minus_transport,
+    transport_minus_diffusion
+  };
+
+  enum class TraceEvaluationRealisation
+  {
+    unspecified = -1,
+    fe_q_state_trace
+  };
+
+  enum class FaceQuadratureRealisation
+  {
+    unspecified = -1,
+    qgauss_face
+  };
+
+  // A backend-neutral boundary selection. The first registered general
+  // scalar target uses one fixed region, one Robin/outflow region, and
+  // explicitly empty Neumann and transport-inflow selections.
+  struct BoundaryRealisationSelection
+  {
+    std::string                 id;
+    std::string                 subject_id;
+    std::string                 fixed_dirichlet_region_id;
+    std::string                 robin_region_id;
+    std::vector<std::string>    neumann_region_ids;
+    std::vector<std::string>    transport_inflow_region_ids;
+    std::string                 transport_outflow_region_id;
+    ConormalForm                conormal_form = ConormalForm::unspecified;
+    NormalOrientation           normal_orientation =
+      NormalOrientation::unspecified;
+    TraceEvaluationRealisation trace_realisation =
+      TraceEvaluationRealisation::unspecified;
+    FaceQuadratureRealisation  face_quadrature_realisation =
+      FaceQuadratureRealisation::unspecified;
+  };
+
   enum class FormulationKind
   {
     unspecified = -1,
@@ -323,6 +372,27 @@ namespace nmopt::semantic::v1
 
   struct RequirementPolicySpec
   {
+    RequirementPolicySpec() = default;
+
+    RequirementPolicySpec(std::string                            policy_id,
+                          std::string                            policy_subject_id,
+                          const RequirementKind                  policy_kind,
+                          const RequirementStatus                policy_status,
+                          const RequirementScope                 policy_scope,
+                          std::string                            policy_description,
+                          std::string                            policy_region_id,
+                          std::optional<BoundaryRealisationSelection>
+                            policy_typed_selection = std::nullopt)
+      : id(std::move(policy_id))
+      , subject_id(std::move(policy_subject_id))
+      , kind(policy_kind)
+      , status(policy_status)
+      , scope(policy_scope)
+      , selected_policy(std::move(policy_description))
+      , region_id(std::move(policy_region_id))
+      , typed_selection(std::move(policy_typed_selection))
+    {}
+
     std::string       id;
     std::string       subject_id;
     RequirementKind   kind = RequirementKind::unspecified;
@@ -330,6 +400,7 @@ namespace nmopt::semantic::v1
     RequirementScope  scope = RequirementScope::unspecified;
     std::string       selected_policy;
     std::string       region_id;
+    std::optional<BoundaryRealisationSelection> typed_selection;
   };
 
   struct ReducedFormulationSpec

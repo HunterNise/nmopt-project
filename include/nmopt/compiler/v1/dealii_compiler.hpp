@@ -727,7 +727,9 @@ namespace nmopt::compiler::v1
         return result;
 
       const auto fixed_dirichlet_boundary_ids =
-        uses_mean_zero_gauge ||
+        uses_general_scalar && scalar_plan
+          ? boundary_ids_from_plan(scalar_plan->dirichlet_boundary_ids)
+        : uses_mean_zero_gauge ||
             (uses_dirichlet_control && !uses_partial_dirichlet_control)
           ? std::set<dealii::types::boundary_id>{}
           : selected_dirichlet_boundary_ids(specification);
@@ -753,7 +755,10 @@ namespace nmopt::compiler::v1
       if (uses_general_scalar &&
           (robin_boundary_region == nullptr ||
            !contains_all_boundary_ids(triangulation,
-                                      boundary_ids(*robin_boundary_region))))
+                                      uses_general_scalar && scalar_plan
+                                        ? boundary_ids_from_plan(
+                                            scalar_plan->robin_boundary_ids)
+                                        : boundary_ids(*robin_boundary_region))))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           robin_boundary_region == nullptr ? specification.id :
@@ -763,7 +768,10 @@ namespace nmopt::compiler::v1
       if (uses_general_scalar && robin_boundary_region != nullptr &&
           !forms_complete_boundary_partition(triangulation,
                                              dirichlet_boundary_ids,
-                                             boundary_ids(*robin_boundary_region)))
+                                             uses_general_scalar && scalar_plan
+                                               ? boundary_ids_from_plan(
+                                                   scalar_plan->robin_boundary_ids)
+                                               : boundary_ids(*robin_boundary_region)))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.formulation.state_variable_id,
@@ -1610,6 +1618,15 @@ namespace nmopt::compiler::v1
       for (const auto id : region.boundary_ids)
         ids.insert(static_cast<dealii::types::boundary_id>(id));
       return ids;
+    }
+
+    static std::set<dealii::types::boundary_id>
+    boundary_ids_from_plan(const std::set<unsigned int> &ids)
+    {
+      std::set<dealii::types::boundary_id> result;
+      for (const auto id : ids)
+        result.insert(static_cast<dealii::types::boundary_id>(id));
+      return result;
     }
 
     static bool
@@ -3573,6 +3590,22 @@ namespace nmopt::compiler::v1
              ", " + describe(*robin_source);
     }
 
+    static std::string
+    boundary_realisation_description(
+      const semantic::v1::BoundaryRealisationSelection &selection)
+    {
+      return "boundary selection " + selection.id + ": fixed=" +
+             selection.fixed_dirichlet_region_id + ", robin=" +
+             selection.robin_region_id + ", neumann=" +
+             (selection.neumann_region_ids.empty() ? "empty" : "nonempty") +
+             ", transport_inflow=" +
+             (selection.transport_inflow_region_ids.empty() ? "empty"
+                                                             : "nonempty") +
+             ", transport_outflow=" +
+             selection.transport_outflow_region_id +
+             ", conormal=outward(A grad(y) - b y), trace=FE_Q state trace, face=QGauss";
+    }
+
     template <int dim>
     static CompilationManifest
     make_manifest(
@@ -3842,7 +3875,10 @@ namespace nmopt::compiler::v1
         constraint_realisation == ConstraintRealisation::none ? "none"
                                                                : metric.id()};
       if (scalar_plan != nullptr)
-        manifest.lowering_handler_records = scalar_plan->provenance;
+        {
+          manifest.lowering_handler_records = scalar_plan->provenance;
+          manifest.boundary_realisation = scalar_plan->boundary_selection;
+        }
       if (uses_weighted_boundary_trace)
         manifest.lowering_handler_records.push_back(
           "weighted_state_boundary_trace <- "
@@ -4057,13 +4093,11 @@ namespace nmopt::compiler::v1
           "coefficient_identification: positive cellwise physical diffusion parameter; A(m) is reassembled for every state and adjoint solve");
       if (uses_general_scalar)
         {
-          const auto *robin_region =
-            selected_robin_boundary_region(specification);
-          contract::require(robin_region != nullptr,
-                            "General scalar manifest needs its Robin region");
+          contract::require(manifest.boundary_realisation.has_value(),
+                            "General scalar manifest needs its typed boundary realization");
           manifest.declared_assumptions.push_back(
-            "general_scalar_robin: tensor diffusion, conservative and advective transport, reaction, and Robin terms; Robin boundary ids " +
-            boundary_id_list(*robin_region));
+            "general_scalar_robin: " +
+            boundary_realisation_description(*manifest.boundary_realisation));
         }
       if (uses_h1_state_observation)
         manifest.declared_assumptions.push_back(

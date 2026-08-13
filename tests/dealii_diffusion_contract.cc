@@ -3483,6 +3483,7 @@ namespace
 
     const auto &manifest = combined.problem->manifest();
     require_constraint_realisation(manifest, "none", "general scalar Robin");
+    const auto &boundary_selection = manifest.boundary_realisation;
     const auto has_binding = [&manifest](
                                const std::string &semantic_id,
                                const semantic::v1::DataRole role,
@@ -3502,11 +3503,26 @@ namespace
         });
     };
     contract::require(
-      manifest.state_solve_record.algorithm ==
+        manifest.state_solve_record.algorithm ==
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
         manifest.adjoint_solve_record.algorithm ==
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
         manifest.lowering_handler_records.size() == 13 &&
+        boundary_selection.has_value() &&
+        boundary_selection->id == "scalar_boundary_partition" &&
+        boundary_selection->fixed_dirichlet_region_id == "dirichlet_boundary" &&
+        boundary_selection->robin_region_id == "robin_boundary" &&
+        boundary_selection->neumann_region_ids.empty() &&
+        boundary_selection->transport_inflow_region_ids.empty() &&
+        boundary_selection->transport_outflow_region_id == "robin_boundary" &&
+        boundary_selection->conormal_form ==
+          semantic::v1::ConormalForm::diffusion_minus_transport &&
+        boundary_selection->normal_orientation ==
+          semantic::v1::NormalOrientation::outward &&
+        boundary_selection->trace_realisation ==
+          semantic::v1::TraceEvaluationRealisation::fe_q_state_trace &&
+        boundary_selection->face_quadrature_realisation ==
+          semantic::v1::FaceQuadratureRealisation::qgauss_face &&
         manifest.data_rule.find("Robin coefficient and source") !=
           std::string::npos &&
         has_binding("diffusion_tensor",
@@ -3545,6 +3561,13 @@ namespace
                     "robin_source_data_space",
                     "robin_boundary",
                     "boundary_face_quadrature") &&
+        std::any_of(manifest.declared_assumptions.begin(),
+                    manifest.declared_assumptions.end(),
+                    [](const std::string &assumption) {
+                      return assumption.find(
+                               "general_scalar_robin: boundary selection scalar_boundary_partition") ==
+                             0;
+                    }) &&
         std::find(manifest.lowering_handler_records.begin(),
                   manifest.lowering_handler_records.end(),
                   "conservative_transport <- "

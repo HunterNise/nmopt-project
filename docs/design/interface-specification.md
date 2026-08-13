@@ -123,6 +123,15 @@ $$
 The compiler MUST reject a request for boundary integration or trace evaluation
 on a region that is not declared as a compatible boundary set.
 
+When a selected realization depends on boundary roles, the semantic graph MUST
+carry a typed boundary selection in addition to its human-readable policy
+rendering. The selection identifies fixed-Dirichlet, Robin, Neumann,
+transport-inflow, and transport-outflow regions, together with conormal form,
+normal orientation, state-trace realization, and face-quadrature realization.
+An empty role is represented explicitly by an empty region selection. The
+compiler MUST consume this typed selection; it MUST NOT parse policy prose to
+choose the executed boundary interpretation.
+
 ### 3.2 Space and pairing
 
 A space describes a mathematical source or target.  It MUST declare:

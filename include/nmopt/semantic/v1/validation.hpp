@@ -1957,69 +1957,147 @@ namespace nmopt::semantic::v1
             [](const VariableSpec &variable) {
               return variable.role == VariableRole::state;
             });
-          if (state != specification.variables.end() &&
-              !has_policy(state->id, RequirementKind::boundary_partition))
-            report.add(DiagnosticCategory::analytical_policy,
-                       state->id,
-                       "scalar_boundary_partition_policy",
-                       "Declare the selected fixed, natural, and transport boundary partition.");
-
-          const auto robin = std::find_if(
-            specification.residual_terms.begin(),
-            specification.residual_terms.end(),
-            [](const ResidualTermSpec &term) {
-              return term.kind == ResidualTermKind::robin_bilinear;
-            });
-          if (robin != specification.residual_terms.end())
+          if (state != specification.variables.end())
             {
-              const auto conormal = selected_policy(
-                robin->id, RequirementKind::conormal_flux);
-              if (conormal == specification.requirement_policies.end())
-                report.add(DiagnosticCategory::analytical_policy,
-                           robin->id,
-                           "conormal_flux_convention",
-                           "Declare the selected conormal-flux sign and normal orientation.");
-              else if (conormal->region_id != robin->region_id)
-                report.add(DiagnosticCategory::structural,
-                           robin->id,
-                           "conormal_flux_region",
-                           "Declare the conormal-flux convention on the Robin region.");
-              const auto trace = selected_policy(robin->id,
-                                                 RequirementKind::boundary_trace);
-              if (trace == specification.requirement_policies.end())
-                report.add(DiagnosticCategory::analytical_policy,
-                           robin->id,
-                           "robin_trace_realisation",
-                           "Declare the selected Robin trace and face-quadrature realization.");
-              else if (trace->region_id != robin->region_id)
-                report.add(DiagnosticCategory::structural,
-                           robin->id,
-                           "robin_trace_region",
-                           "Declare the Robin trace policy on its residual boundary region.");
-
-              const auto conservative = std::find_if(
-                specification.residual_terms.begin(),
-                specification.residual_terms.end(),
-                [](const ResidualTermSpec &term) {
-                  return term.kind == ResidualTermKind::conservative_transport;
+              const auto boundary_partition = std::find_if(
+                specification.requirement_policies.begin(),
+                specification.requirement_policies.end(),
+                [&state](const RequirementPolicySpec &policy) {
+                  return policy.subject_id == state->id &&
+                         policy.kind == RequirementKind::boundary_partition;
                 });
-              if (conservative != specification.residual_terms.end())
+              if (boundary_partition == specification.requirement_policies.end())
+                report.add(DiagnosticCategory::analytical_policy,
+                           state->id,
+                           "scalar_boundary_partition_policy",
+                           "Declare the selected fixed, natural, and transport boundary partition.");
+              else
                 {
-                  const auto transport = selected_policy(
-                    conservative->id,
-                    RequirementKind::transport_boundary_trace);
-                  if (transport == specification.requirement_policies.end())
+                  if (boundary_partition->status !=
+                      RequirementStatus::selected_discrete_realisation)
                     report.add(DiagnosticCategory::analytical_policy,
-                               conservative->id,
-                               "transport_boundary_trace_policy",
-                               "Declare the selected transport inflow/outflow trace interpretation.");
-                  else if (transport->region_id != robin->region_id)
+                               boundary_partition->id,
+                               "boundary_partition_policy_status",
+                               "Select the registered discrete boundary partition realization.");
+                  if (boundary_partition->scope != RequirementScope::both)
+                    report.add(DiagnosticCategory::analytical_policy,
+                               boundary_partition->id,
+                               "boundary_partition_policy_scope",
+                               "Declare the boundary partition for both continuous semantics and discrete compilation.");
+                  if (!boundary_partition->typed_selection)
                     report.add(DiagnosticCategory::structural,
-                               conservative->id,
-                               "transport_boundary_trace_region",
-                               "Declare the natural transport trace on the selected Robin region.");
+                               boundary_partition->id,
+                               "boundary_partition_selection",
+                               "Attach the typed boundary partition and conormal selection used by the registered target.");
+                  else
+                    {
+                      const auto &selection = *boundary_partition->typed_selection;
+                      const auto region_for = [&specification](
+                                                const std::string &id) {
+                        return std::find_if(
+                          specification.regions.begin(),
+                          specification.regions.end(),
+                          [&id](const RegionSpec &region) {
+                            return region.id == id;
+                          });
+                      };
+                      const auto is_boundary_region =
+                        [&specification](const auto region) {
+                          return region != specification.regions.end() &&
+                                 region->kind == RegionKind::boundary &&
+                                 !region->boundary_ids.empty();
+                        };
+                      const auto fixed_region =
+                        region_for(selection.fixed_dirichlet_region_id);
+                      const auto robin_region =
+                        region_for(selection.robin_region_id);
+                      const auto outflow_region =
+                        region_for(selection.transport_outflow_region_id);
+                      const auto fixed_policy = std::find_if(
+                        specification.requirement_policies.begin(),
+                        specification.requirement_policies.end(),
+                        [&state](const RequirementPolicySpec &policy) {
+                          return policy.subject_id == state->id &&
+                                 policy.kind == RequirementKind::fixed_dirichlet;
+                        });
+                      const auto robin_term = std::find_if(
+                        specification.residual_terms.begin(),
+                        specification.residual_terms.end(),
+                        [](const ResidualTermSpec &term) {
+                          return term.kind == ResidualTermKind::robin_bilinear;
+                        });
+                      if (selection.id.empty() || selection.subject_id != state->id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_selection",
+                                   "Identify the typed boundary selection for the state variable.");
+                      if (selection.id != boundary_partition->id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_selection",
+                                   "Use the boundary policy ID as the typed selection ID.");
+                      if (!is_boundary_region(fixed_region) ||
+                          !is_boundary_region(robin_region))
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_region",
+                                   "Reference non-empty boundary regions for fixed Dirichlet and Robin roles.");
+                      if (fixed_policy == specification.requirement_policies.end() ||
+                          selection.fixed_dirichlet_region_id != fixed_policy->region_id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_fixed_region",
+                                   "Match the typed fixed-Dirichlet region to the selected state policy.");
+                      if (robin_term == specification.residual_terms.end() ||
+                          selection.robin_region_id != robin_term->region_id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_robin_region",
+                                   "Match the typed Robin region to the Robin residual term.");
+                      if (!selection.neumann_region_ids.empty())
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_neumann_role",
+                                   "Keep the first general scalar registration's Neumann region selection empty.");
+                      if (!selection.transport_inflow_region_ids.empty())
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "transport_inflow_region",
+                                   "Keep the first general scalar registration's transport-inflow selection empty.");
+                      if (!is_boundary_region(outflow_region) ||
+                          selection.transport_outflow_region_id !=
+                            selection.robin_region_id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "transport_outflow_region",
+                                   "Use the Robin region as the selected natural transport outflow.");
+                      if (selection.conormal_form !=
+                          ConormalForm::diffusion_minus_transport)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "conormal_flux_form",
+                                   "Select the outward (A grad(y) - b y) conormal form.");
+                      if (selection.normal_orientation != NormalOrientation::outward)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "conormal_flux_orientation",
+                                   "Select the outward normal orientation.");
+                      if (selection.trace_realisation !=
+                          TraceEvaluationRealisation::fe_q_state_trace)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "robin_trace_realisation",
+                                   "Select the registered FE_Q state trace realization.");
+                      if (selection.face_quadrature_realisation !=
+                          FaceQuadratureRealisation::qgauss_face)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "robin_face_quadrature",
+                                   "Select the registered face QGauss realization.");
+                    }
                 }
             }
+
         }
 
       for (const auto &term : specification.residual_terms)

@@ -135,7 +135,8 @@ namespace nmopt::compiler::v1::detail
                              {},
                              robin_boundary_ids_from_plan(plan),
                              &general_scalar_data,
-                             require_general_scalar_data_placements(plan))
+                             require_general_scalar_data_placements(plan) &&
+                               require_general_scalar_boundary_selection(plan))
     {
       contract::require(
         has_residual_operator(plan,
@@ -575,6 +576,48 @@ namespace nmopt::compiler::v1::detail
     }
 
   private:
+    static bool
+    require_general_scalar_boundary_selection(const ScalarLoweringPlan &plan)
+    {
+      if (!plan.boundary_selection)
+        return false;
+      const auto &selection = *plan.boundary_selection;
+      if (selection.fixed_dirichlet_region_id.empty() ||
+          selection.robin_region_id.empty() ||
+          selection.transport_outflow_region_id != selection.robin_region_id ||
+          !selection.neumann_region_ids.empty() ||
+          !selection.transport_inflow_region_ids.empty() ||
+          selection.conormal_form !=
+            semantic::v1::ConormalForm::diffusion_minus_transport ||
+          selection.normal_orientation !=
+            semantic::v1::NormalOrientation::outward ||
+          selection.trace_realisation !=
+            semantic::v1::TraceEvaluationRealisation::fe_q_state_trace ||
+          selection.face_quadrature_realisation !=
+            semantic::v1::FaceQuadratureRealisation::qgauss_face ||
+          plan.dirichlet_boundary_ids.empty() || plan.robin_boundary_ids.empty())
+        return false;
+
+      const auto robin_bilinear = std::find_if(
+        plan.residual_terms.begin(),
+        plan.residual_terms.end(),
+        [](const ScalarResidualContribution &contribution) {
+          return contribution.operator_kind ==
+                 ScalarResidualOperatorKind::robin_bilinear;
+        });
+      const auto robin_source = std::find_if(
+        plan.residual_terms.begin(),
+        plan.residual_terms.end(),
+        [](const ScalarResidualContribution &contribution) {
+          return contribution.operator_kind ==
+                 ScalarResidualOperatorKind::robin_source;
+        });
+      return robin_bilinear != plan.residual_terms.end() &&
+             robin_source != plan.residual_terms.end() &&
+             robin_bilinear->region_id == selection.robin_region_id &&
+             robin_source->region_id == selection.robin_region_id;
+    }
+
     static bool
     require_general_scalar_data_placements(const ScalarLoweringPlan &plan)
     {

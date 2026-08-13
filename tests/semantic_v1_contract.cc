@@ -657,17 +657,148 @@ namespace
       "coefficient_data_shape",
       "v1 semantic validation accepted a vector-valued tensor diffusion binding");
 
-    auto missing_conormal_policy = general_scalar_specification;
-    for (auto &policy : missing_conormal_policy.requirement_policies)
-      if (policy.kind ==
-          nmopt::semantic::v1::RequirementKind::conormal_flux)
-        policy.status = nmopt::semantic::v1::RequirementStatus::provided;
+    auto missing_boundary_selection = general_scalar_specification;
+    component_by_id(missing_boundary_selection.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection.reset();
     nmopt::test_support::require_exact_diagnostic(
-      validator.validate(missing_conormal_policy),
+      validator.validate(missing_boundary_selection),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "boundary_partition_selection",
+      "v1 semantic validation accepted a missing typed boundary selection");
+
+    auto wrong_fixed_region = general_scalar_specification;
+    component_by_id(wrong_fixed_region.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->fixed_dirichlet_region_id = "robin_boundary";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_fixed_region),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "boundary_partition_fixed_region",
+      "v1 semantic validation accepted a mismatched typed fixed boundary");
+
+    auto wrong_robin_region = general_scalar_specification;
+    component_by_id(wrong_robin_region.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->robin_region_id = "dirichlet_boundary";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_robin_region),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "boundary_partition_robin_region",
+      "v1 semantic validation accepted a mismatched typed Robin boundary");
+
+    auto nonempty_neumann = general_scalar_specification;
+    component_by_id(nonempty_neumann.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->neumann_region_ids = {"dirichlet_boundary"};
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(nonempty_neumann),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "boundary_partition_neumann_role",
+      "v1 semantic validation accepted a Neumann role in the first P5.1 target");
+
+    auto separate_outflow = general_scalar_specification;
+    component_by_id(separate_outflow.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->transport_outflow_region_id = "dirichlet_boundary";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(separate_outflow),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "transport_outflow_region",
+      "v1 semantic validation accepted a separate transport outflow region");
+
+    auto nonempty_inflow = general_scalar_specification;
+    component_by_id(nonempty_inflow.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->transport_inflow_region_ids = {"dirichlet_boundary"};
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(nonempty_inflow),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "transport_inflow_region",
+      "v1 semantic validation accepted a transport inflow role in the first P5.1 target");
+
+    auto inward_normal = general_scalar_specification;
+    component_by_id(inward_normal.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->normal_orientation =
+      nmopt::semantic::v1::NormalOrientation::inward;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(inward_normal),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "conormal_flux_orientation",
+      "v1 semantic validation accepted an inward conormal orientation");
+
+    auto opposite_conormal = general_scalar_specification;
+    component_by_id(opposite_conormal.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->conormal_form =
+      nmopt::semantic::v1::ConormalForm::transport_minus_diffusion;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(opposite_conormal),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "conormal_flux_form",
+      "v1 semantic validation accepted the opposite conormal form");
+
+    auto unsupported_trace = general_scalar_specification;
+    component_by_id(unsupported_trace.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->trace_realisation =
+      nmopt::semantic::v1::TraceEvaluationRealisation::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(unsupported_trace),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "robin_trace_realisation",
+      "v1 semantic validation accepted an unsupported Robin trace realization");
+
+    auto unsupported_quadrature = general_scalar_specification;
+    component_by_id(unsupported_quadrature.requirement_policies,
+                    "scalar_boundary_partition")
+      .typed_selection->face_quadrature_realisation =
+      nmopt::semantic::v1::FaceQuadratureRealisation::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(unsupported_quadrature),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "scalar_boundary_partition",
+      "robin_face_quadrature",
+      "v1 semantic validation accepted an unsupported face quadrature realization");
+
+    auto wrong_boundary_scope = general_scalar_specification;
+    component_by_id(wrong_boundary_scope.requirement_policies,
+                    "scalar_boundary_partition")
+      .scope = nmopt::semantic::v1::RequirementScope::continuous_semantics;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_boundary_scope),
       nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
-      "robin_bilinear",
-      "conormal_flux_convention",
-      "v1 semantic validation did not require a conormal-flux convention");
+      "scalar_boundary_partition",
+      "boundary_partition_policy_scope",
+      "v1 semantic validation accepted the wrong boundary policy scope");
+
+    auto wrong_boundary_status = general_scalar_specification;
+    component_by_id(wrong_boundary_status.requirement_policies,
+                    "scalar_boundary_partition")
+      .status = nmopt::semantic::v1::RequirementStatus::provided;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(wrong_boundary_status),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "scalar_boundary_partition",
+      "boundary_partition_policy_status",
+      "v1 semantic validation accepted the wrong boundary policy status");
+
+    auto display_only_boundary_change = general_scalar_specification;
+    component_by_id(display_only_boundary_change.requirement_policies,
+                    "scalar_boundary_partition")
+      .selected_policy = "arbitrary display text";
+    require(validator.validate(display_only_boundary_change).valid(),
+            "typed boundary lowering changed when its display text changed");
 
     auto missing_lifting_port = fixed_specification;
     missing_lifting_port.transformations.front().fixed_data_id = "missing_data";
@@ -1307,11 +1438,30 @@ namespace
       general_plan.plan->data_placements, DataRole::robin_coefficient);
     const auto robin_source_placement = placement_for_role(
       general_plan.plan->data_placements, DataRole::robin_source);
+    const auto &boundary_selection = general_plan.plan->boundary_selection;
     require(general_plan.succeeded() &&
               general_plan.plan->residual_terms.size() == 8 &&
               // The forcing Function is also a residual data port; the six
               // P5.1 coefficient/Robin ports are checked individually below.
               general_plan.plan->data_placements.size() == 7 &&
+              boundary_selection.has_value() &&
+              boundary_selection->id == "scalar_boundary_partition" &&
+              boundary_selection->subject_id == "state" &&
+              boundary_selection->fixed_dirichlet_region_id ==
+                "dirichlet_boundary" &&
+              boundary_selection->robin_region_id == "robin_boundary" &&
+              boundary_selection->neumann_region_ids.empty() &&
+              boundary_selection->transport_inflow_region_ids.empty() &&
+              boundary_selection->transport_outflow_region_id ==
+                "robin_boundary" &&
+              boundary_selection->conormal_form ==
+                nmopt::semantic::v1::ConormalForm::diffusion_minus_transport &&
+              boundary_selection->normal_orientation ==
+                nmopt::semantic::v1::NormalOrientation::outward &&
+              boundary_selection->trace_realisation ==
+                nmopt::semantic::v1::TraceEvaluationRealisation::fe_q_state_trace &&
+              boundary_selection->face_quadrature_realisation ==
+                nmopt::semantic::v1::FaceQuadratureRealisation::qgauss_face &&
               general_plan.plan->robin_boundary_ids ==
                 std::set<unsigned int>{1} &&
               general_plan.plan->provenance.size() == 13 &&

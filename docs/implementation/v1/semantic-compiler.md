@@ -90,6 +90,15 @@ scalar model construction consumes those placements before assembling volume
 or boundary operators, and the compiled manifest preserves the same fields
 alongside runtime provenance.
 
+Its boundary policy is likewise resolved as a
+`BoundaryRealisationSelection`: fixed Dirichlet is `dirichlet_boundary`, Robin
+and natural transport outflow are `robin_boundary`, Neumann and transport
+inflow are explicitly empty, and the selected realization is the outward
+`(A grad(y) - b y)` conormal with an FE_Q state trace and face QGauss. The
+selection is copied into `ScalarLoweringPlan`, checked by general scalar model
+construction, and retained as a structured manifest record. The
+`selected_policy` strings remain descriptive renderings only.
+
 ## Public semantic graph
 
 The compatibility aggregate `include/nmopt/semantic/v1/problem_spec.hpp`

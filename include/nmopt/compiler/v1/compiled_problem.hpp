@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -108,6 +109,8 @@ namespace nmopt::compiler::v1
     CompiledSolvePolicyRecord             adjoint_solve_record;
     CompiledMetricRecord                  metric_record;
     CompiledConstraintRecord              constraint_record;
+    std::optional<semantic::v1::BoundaryRealisationSelection>
+                                          boundary_realisation;
     std::vector<std::string>              lowering_handler_records;
     // Human-readable rendering retained for logs and source compatibility.
     // Tests and experiment tooling use the structured records above.

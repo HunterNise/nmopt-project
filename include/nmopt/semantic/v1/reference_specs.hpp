@@ -313,6 +313,21 @@ namespace nmopt::semantic::v1
        RequirementScope::both,
        "Robin region is the selected natural transport outflow; remaining exterior faces are fixed Dirichlet",
        "robin_boundary"});
+    reference_detail::component_by_id(specification.requirement_policies,
+                                      "scalar_boundary_partition",
+                                      "requirement policy")
+      .typed_selection = BoundaryRealisationSelection{
+      "scalar_boundary_partition",
+      "state",
+      "dirichlet_boundary",
+      "robin_boundary",
+      {},
+      {},
+      "robin_boundary",
+      ConormalForm::diffusion_minus_transport,
+      NormalOrientation::outward,
+      TraceEvaluationRealisation::fe_q_state_trace,
+      FaceQuadratureRealisation::qgauss_face};
     return specification;
   }
 

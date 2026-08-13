@@ -149,6 +149,19 @@ namespace
               point_sensor_observation.kind ==
                 nmopt::semantic::v1::ObservationKind::point_sensor,
             "the point-sensor graph did not pair physical points with a finite output space");
+    const auto point_transposition_policy = component_by_id(
+      point_sensor_specification.requirement_policies,
+      "point_sensor_transposition_policy");
+    require(point_transposition_policy.typed_transposition_selection.has_value() &&
+              point_transposition_policy.typed_transposition_selection
+                  ->strong_space_id == "transposition_strong_space" &&
+              point_transposition_policy.typed_transposition_selection
+                  ->observation_id == "state_observation" &&
+              point_transposition_policy.typed_transposition_selection
+                  ->discrete_realisation ==
+                nmopt::semantic::v1::TranspositionDiscreteRealisation::
+                  fe_q_point_sensor_very_weak,
+            "the point-sensor graph omitted its typed transposition selection");
     auto missing_point_evaluation = point_sensor_specification;
     remove_policy(missing_point_evaluation,
                   "point_sensor_evaluation_policy");
@@ -167,6 +180,32 @@ namespace
       "state_equation",
       "point_sensor_transposition_policy",
       "the point-sensor graph accepted a missing very-weak transposition policy");
+    auto missing_point_typed_transposition = point_sensor_specification;
+    component_by_id(missing_point_typed_transposition.requirement_policies,
+                    "point_sensor_transposition_policy")
+      .typed_transposition_selection.reset();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_point_typed_transposition),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_equation",
+      "transposition_strong_space",
+      "the point-sensor graph accepted an untyped transposition selection");
+    auto alternate_point_isomorphism = point_sensor_specification;
+    component_by_id(alternate_point_isomorphism.requirement_policies,
+                    "point_sensor_transposition_policy")
+      .typed_transposition_selection->isomorphism_id = "alternate";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(alternate_point_isomorphism),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "state_equation",
+      "transposition_isomorphism",
+      "the point-sensor graph accepted an alternate transposition isomorphism");
+    auto display_only_point_transposition = point_sensor_specification;
+    component_by_id(display_only_point_transposition.requirement_policies,
+                    "point_sensor_transposition_policy")
+      .selected_policy = "arbitrary display text";
+    require(validator.validate(display_only_point_transposition).valid(),
+            "point-sensor transposition resolution depended on display text");
 
     auto normal_flux_specification =
       nmopt::semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem();
@@ -190,6 +229,16 @@ namespace
               normal_flux_observation.kind ==
                 nmopt::semantic::v1::ObservationKind::normal_flux,
             "the normal-flux graph did not declare its boundary output pairing");
+    const auto normal_flux_transposition_policy = component_by_id(
+      normal_flux_specification.requirement_policies,
+      "normal_flux_transposition_policy");
+    require(normal_flux_transposition_policy.typed_transposition_selection
+                  .has_value() &&
+              normal_flux_transposition_policy.typed_transposition_selection
+                  ->discrete_realisation ==
+                nmopt::semantic::v1::TranspositionDiscreteRealisation::
+                  fe_q_normal_flux_very_weak,
+            "the normal-flux graph omitted its typed transposition selection");
     auto missing_normal_flux_orientation = normal_flux_specification;
     remove_policy(missing_normal_flux_orientation,
                   "normal_flux_orientation_policy");
@@ -260,6 +309,38 @@ namespace
       "state_equation",
       "transposition_space_topologies",
       "the transposition graph accepted an H1 continuous state declaration");
+    const auto l2_transposition_policy = component_by_id(
+      l2_dirichlet_specification.requirement_policies,
+      "transposition_formulation");
+    require(l2_transposition_policy.typed_transposition_selection.has_value() &&
+              l2_transposition_policy.typed_transposition_selection
+                  ->continuous_parent_space_id == "control_space" &&
+              l2_transposition_policy.typed_transposition_selection
+                  ->equivalence_realisation ==
+                nmopt::semantic::v1::TranspositionEquivalenceRealisation::
+                  conforming_lifting_variational_equivalence,
+            "the transposition graph omitted its typed equivalence selection");
+    auto missing_l2_typed_transposition = l2_dirichlet_specification;
+    component_by_id(missing_l2_typed_transposition.requirement_policies,
+                    "transposition_formulation")
+      .typed_transposition_selection.reset();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_l2_typed_transposition),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state_equation",
+      "transposition_strong_space",
+      "the transposition graph accepted an untyped formulation selection");
+    auto alternate_l2_equivalence = l2_dirichlet_specification;
+    component_by_id(alternate_l2_equivalence.requirement_policies,
+                    "transposition_formulation")
+      .typed_transposition_selection->equivalence_realisation =
+      nmopt::semantic::v1::TranspositionEquivalenceRealisation::none;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(alternate_l2_equivalence),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "state_equation",
+      "transposition_equivalence",
+      "the transposition graph accepted an alternate lifting equivalence");
 
     auto hhalf_dirichlet_specification =
       nmopt::semantic::v1::make_hhalf_dirichlet_laplace_control_problem();
@@ -287,6 +368,15 @@ namespace
                                 nmopt::semantic::v1::DataRole::reaction;
                      }),
       "the H1/2 graph omitted its normalized Laplacian or fractional geometry");
+    const auto hhalf_metric_policy = component_by_id(
+      hhalf_dirichlet_specification.requirement_policies,
+      "control_hhalf_metric_realisation");
+    require(hhalf_metric_policy.typed_fractional_metric_selection.has_value() &&
+              hhalf_metric_policy.typed_fractional_metric_selection
+                  ->control_space_id == "control_space" &&
+              hhalf_metric_policy.typed_fractional_metric_selection
+                  ->volume_operator_id == "volume_mass_plus_stiffness",
+            "the H1/2 graph omitted its typed fractional metric selection");
 
     auto h1_tracking_hhalf_specification = nmopt::semantic::v1::
       make_h1_tracking_hhalf_dirichlet_laplace_control_problem();
@@ -321,6 +411,17 @@ namespace
                               "control_h1_metric")
                   .kind == nmopt::semantic::v1::MetricKind::h1,
             "the tangential H1 Dirichlet-control graph is invalid");
+    const auto h1_metric_policy = component_by_id(
+      h1_dirichlet_specification.requirement_policies,
+      "control_h1_metric_realisation");
+    require(h1_metric_policy.typed_boundary_h1_metric_selection.has_value() &&
+              h1_metric_policy.typed_boundary_h1_metric_selection
+                  ->boundary_region_id == "control_boundary" &&
+              h1_metric_policy.typed_boundary_h1_metric_selection
+                  ->tangential_gradient_realisation ==
+                nmopt::semantic::v1::BoundaryH1TangentialGradientRealisation::
+                  projected_ambient_gradient,
+            "the tangential H1 graph omitted its typed metric selection");
 
     auto missing_hhalf_realisation = hhalf_dirichlet_specification;
     remove_policy(missing_hhalf_realisation,
@@ -349,6 +450,39 @@ namespace
       "control_h1_metric",
       "boundary_h1_metric_tangential_policy",
       "the boundary H1 metric accepted a missing tangential realization");
+    auto missing_hhalf_typed_selection = hhalf_dirichlet_specification;
+    component_by_id(missing_hhalf_typed_selection.requirement_policies,
+                    "control_hhalf_metric_realisation")
+      .typed_fractional_metric_selection.reset();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_hhalf_typed_selection),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "control_hhalf_metric",
+      "hhalf_metric_realisation_selection",
+      "the fractional metric accepted an untyped realization");
+    auto alternate_hhalf_operator = hhalf_dirichlet_specification;
+    component_by_id(alternate_hhalf_operator.requirement_policies,
+                    "control_hhalf_metric_realisation")
+      .typed_fractional_metric_selection->operator_realisation =
+      nmopt::semantic::v1::FractionalTraceOperatorRealisation::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(alternate_hhalf_operator),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "control_hhalf_metric",
+      "hhalf_metric_realisation_selection",
+      "the fractional metric accepted an alternate operator realization");
+    auto alternate_h1_tangential = h1_dirichlet_specification;
+    component_by_id(alternate_h1_tangential.requirement_policies,
+                    "control_h1_metric_realisation")
+      .typed_boundary_h1_metric_selection->tangential_gradient_realisation =
+      nmopt::semantic::v1::BoundaryH1TangentialGradientRealisation::
+        unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(alternate_h1_tangential),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "control_h1_metric",
+      "boundary_h1_metric_realisation_selection",
+      "the boundary H1 metric accepted an alternate tangential realization");
 
     auto partial_dirichlet_control_specification =
       nmopt::semantic::v1::
@@ -359,6 +493,37 @@ namespace
                             "dirichlet_control_lifting")
                 .fixed_data_id == "fixed_dirichlet_data",
             "the partial Dirichlet-control graph omitted its fixed lifting port");
+    const auto partial_partition_policy = component_by_id(
+      partial_dirichlet_control_specification.requirement_policies,
+      "partial_dirichlet_boundary_partition");
+    require(partial_partition_policy.typed_partial_boundary_selection.has_value() &&
+              partial_partition_policy.typed_partial_boundary_selection
+                  ->fixed_boundary_region_id == "fixed_dirichlet_boundary" &&
+              partial_partition_policy.typed_partial_boundary_selection
+                  ->interface_realisation ==
+                nmopt::semantic::v1::PartialDirichletInterfaceRealisation::
+                  fixed_data_precedence,
+            "the partial Dirichlet graph omitted its typed boundary partition");
+    auto missing_partial_partition = partial_dirichlet_control_specification;
+    remove_policy(missing_partial_partition,
+                  "partial_dirichlet_boundary_partition");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_partial_partition),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "state",
+      "partial_dirichlet_partition_policy",
+      "the partial Dirichlet graph accepted a missing typed boundary partition");
+    auto alternate_partial_interface = partial_dirichlet_control_specification;
+    component_by_id(alternate_partial_interface.requirement_policies,
+                    "partial_dirichlet_boundary_partition")
+      .typed_partial_boundary_selection->interface_realisation =
+      nmopt::semantic::v1::PartialDirichletInterfaceRealisation::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(alternate_partial_interface),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "state",
+      "partial_dirichlet_interface_selection",
+      "the partial Dirichlet graph accepted an alternate interface owner");
 
     auto neumann_convection_specification =
       nmopt::semantic::v1::make_neumann_convection_subdomain_tracking_problem(

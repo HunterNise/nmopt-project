@@ -1489,6 +1489,165 @@ namespace nmopt::semantic::v1
         return selected_policy(subject, kind) !=
                specification.requirement_policies.end();
       };
+      const auto find_space = [&specification](const std::string &id) {
+        return std::find_if(
+          specification.spaces.begin(),
+          specification.spaces.end(),
+          [&id](const SpaceSpec &space) { return space.id == id; });
+      };
+      const auto find_region = [&specification](const std::string &id) {
+        return std::find_if(
+          specification.regions.begin(),
+          specification.regions.end(),
+          [&id](const RegionSpec &region) { return region.id == id; });
+      };
+      const auto validate_transposition_selection =
+        [&specification, &find_space, &report](
+          const RequirementPolicySpec &policy,
+          const std::string &           expected_observation_id,
+          const bool                    require_equivalence) {
+          if (!policy.typed_transposition_selection)
+            {
+              report.add(DiagnosticCategory::analytical_policy,
+                         policy.subject_id,
+                         "transposition_strong_space",
+                         "Declare the typed strong/very-weak transposition selection.");
+              return;
+            }
+          const auto &selection = *policy.typed_transposition_selection;
+          const auto strong_space = find_space(selection.strong_space_id);
+          if (selection.id != policy.id ||
+              selection.subject_equation_id != policy.subject_id ||
+              strong_space == specification.spaces.end() ||
+              strong_space->topology != SpaceTopology::h2)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_strong_space",
+                         "Reference the registered H2 cap H1_0 strong transposition space.");
+              return;
+            }
+          if (selection.isomorphism_id != "dirichlet_laplacian_isomorphism" ||
+              selection.operator_realisation !=
+                TranspositionOperatorRealisation::
+                  scalar_diffusion_reaction_dirichlet_laplacian)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_isomorphism",
+                         "Select the registered diffusion-reaction Dirichlet-Laplacian isomorphism.");
+              return;
+            }
+          const auto range_space = find_space(selection.operator_range_space_id);
+          const auto residual_space =
+            find_space(selection.residual_codomain_space_id);
+          const auto multiplier_space = find_space(selection.multiplier_space_id);
+          if (range_space == specification.spaces.end() ||
+              range_space->topology != SpaceTopology::l2 ||
+              residual_space == specification.spaces.end() ||
+              residual_space->topology != SpaceTopology::l2)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_residual_codomain",
+                         "Reference the declared L2 operator range and residual codomain spaces.");
+              return;
+            }
+          if (multiplier_space == specification.spaces.end() ||
+              multiplier_space->topology != SpaceTopology::l2)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_multiplier_space",
+                         "Reference the declared L2 multiplier space.");
+              return;
+            }
+          const auto observation = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [&expected_observation_id](const ObservationSpec &candidate) {
+              return candidate.id == expected_observation_id;
+            });
+          const auto source_space = find_space(selection.transpose_source_space_id);
+          if (selection.observation_id != expected_observation_id ||
+              observation == specification.observations.end() ||
+              source_space == specification.spaces.end() ||
+              selection.transpose_source_space_id != observation->output_space_id)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_observation_source",
+                         "Bind the transposition source to the selected observation output space.");
+              return;
+            }
+          const auto regularity = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&selection](const RequirementPolicySpec &candidate) {
+              return candidate.id == selection.domain_regularity_policy_id &&
+                     candidate.kind == RequirementKind::domain_regularity &&
+                     candidate.status == RequirementStatus::user_assumed &&
+                     !candidate.selected_policy.empty();
+            });
+          if (regularity == specification.requirement_policies.end())
+            {
+              report.add(DiagnosticCategory::analytical_policy,
+                         policy.subject_id,
+                         "transposition_domain_regularity",
+                         "Reference the model-author domain-regularity assumption for the transposition.");
+              return;
+            }
+          if (selection.discrete_realisation ==
+              TranspositionDiscreteRealisation::unspecified)
+            {
+              report.add(DiagnosticCategory::analytical_policy,
+                         policy.subject_id,
+                         "transposition_discrete_realisation",
+                         "Select the registered discrete transposition realization.");
+              return;
+            }
+          if (require_equivalence &&
+              (selection.continuous_parent_space_id.empty() ||
+               selection.conforming_trace_space_id.empty() ||
+               selection.equivalence_policy_id.empty() ||
+               selection.conormal_policy_id.empty() ||
+               find_space(selection.continuous_parent_space_id) ==
+                 specification.spaces.end() ||
+               find_space(selection.continuous_parent_space_id)->topology !=
+                 SpaceTopology::l2 ||
+               find_space(selection.conforming_trace_space_id) ==
+                 specification.spaces.end() ||
+               find_space(selection.conforming_trace_space_id)->topology !=
+                 SpaceTopology::hhalf ||
+               std::find_if(
+                 specification.requirement_policies.begin(),
+                 specification.requirement_policies.end(),
+                 [&selection](const RequirementPolicySpec &candidate) {
+                   return candidate.id == selection.equivalence_policy_id &&
+                          candidate.kind ==
+                            RequirementKind::conforming_trace_subspace &&
+                          candidate.status ==
+                            RequirementStatus::selected_discrete_realisation &&
+                          candidate.scope == RequirementScope::discrete_compilation;
+                 }) == specification.requirement_policies.end() ||
+               std::find_if(
+                 specification.requirement_policies.begin(),
+                 specification.requirement_policies.end(),
+                 [&selection](const RequirementPolicySpec &candidate) {
+                   return candidate.id == selection.conormal_policy_id &&
+                          candidate.kind == RequirementKind::conormal_flux &&
+                          candidate.status ==
+                            RequirementStatus::selected_discrete_realisation &&
+                          candidate.scope == RequirementScope::discrete_compilation;
+                 }) == specification.requirement_policies.end() ||
+               selection.equivalence_realisation !=
+                 TranspositionEquivalenceRealisation::
+                   conforming_lifting_variational_equivalence))
+            report.add(DiagnosticCategory::structural,
+                       policy.subject_id,
+                       "transposition_equivalence",
+                       "Declare the conforming trace parent, variational equivalence, and lifting-pullback conormal.");
+        };
 
       for (const auto &variable : specification.variables)
         if (variable.role == VariableRole::state)
@@ -1648,6 +1807,35 @@ namespace nmopt::semantic::v1
               specification.formulation.equation_id,
               "transposition_conormal_policy",
               "Select the outward discrete conormal as the lifting pullback of the adjoint residual.");
+          const auto transposition_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&specification](const RequirementPolicySpec &policy) {
+              return policy.id == "transposition_formulation" &&
+                     policy.subject_id == specification.formulation.equation_id;
+            });
+          if (transposition_policy != specification.requirement_policies.end() &&
+              transposition_policy->status == RequirementStatus::provided &&
+              transposition_policy->scope ==
+                RequirementScope::continuous_semantics &&
+              !transposition_policy->selected_policy.empty() &&
+              has_exact_policy(specification.formulation.equation_id,
+                               RequirementKind::domain_regularity,
+                               RequirementStatus::user_assumed,
+                               RequirementScope::continuous_semantics) &&
+              has_exact_policy(
+                specification.formulation.control_variable_id,
+                RequirementKind::conforming_trace_subspace,
+                RequirementStatus::selected_discrete_realisation,
+                RequirementScope::discrete_compilation) &&
+              has_exact_policy(specification.formulation.equation_id,
+                               RequirementKind::conormal_flux,
+                               RequirementStatus::selected_discrete_realisation,
+                               RequirementScope::discrete_compilation))
+            validate_transposition_selection(
+              *transposition_policy,
+              "control_boundary_restriction",
+              true);
         }
 
       for (const auto &metric : specification.metrics)
@@ -1673,14 +1861,58 @@ namespace nmopt::semantic::v1
                 metric.id,
                 "hhalf_metric_search_space",
                 "Declare the selected fractional metric on an H1/2 boundary control space.");
-            if (selected_policy(metric.id,
-                                RequirementKind::fractional_trace_realisation) ==
-                specification.requirement_policies.end())
+            const auto fractional_policy = selected_policy(
+              metric.id, RequirementKind::fractional_trace_realisation);
+            if (fractional_policy == specification.requirement_policies.end())
               report.add(
                 DiagnosticCategory::analytical_policy,
                 metric.id,
                 "hhalf_metric_realisation_policy",
                 "Select a discrete spectral, extension, or auxiliary realization for the H1/2 Riesz map.");
+            else if (!fractional_policy->typed_fractional_metric_selection)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "hhalf_metric_realisation_selection",
+                "Declare the typed minimum-extension H1/2 metric selection.");
+            else
+              {
+                const auto &selection =
+                  *fractional_policy->typed_fractional_metric_selection;
+                const auto volume_space = find_space(selection.volume_space_id);
+                if (selection.id != fractional_policy->id ||
+                    selection.metric_id != metric.id ||
+                    variable == specification.variables.end() ||
+                    selection.control_space_id != variable->space_id ||
+                    volume_space == specification.spaces.end() ||
+                    volume_space->topology != SpaceTopology::h1 ||
+                    selection.trace_inclusion_id != "control_trace_inclusion" ||
+                    selection.volume_operator_id !=
+                      "volume_mass_plus_stiffness" ||
+                    selection.apply_policy_id != "minimum_h1_extension" ||
+                    selection.inverse_policy_id !=
+                      "full_volume_operator_inverse" ||
+                    selection.solve_policy_id != "control_metric_solve")
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hhalf_metric_realisation_selection",
+                    "Reference the registered H1/2 trace inclusion, volume operator, inverse, and solve policy.");
+                else if (
+                  selection.operator_realisation !=
+                    FractionalTraceOperatorRealisation::
+                      volume_mass_plus_stiffness_schur ||
+                  selection.apply_realisation !=
+                    FractionalTraceApplyRealisation::minimum_h1_extension ||
+                  selection.inverse_realisation !=
+                    FractionalTraceInverseRealisation::
+                      full_volume_operator_inverse)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hhalf_metric_realisation_selection",
+                    "Select the registered minimum-extension Schur-complement H1/2 metric realization.");
+              }
           }
 
       for (const auto &metric : specification.metrics)
@@ -1708,16 +1940,47 @@ namespace nmopt::semantic::v1
                                  return candidate.id == space->region_id;
                                });
             if (region != specification.regions.end() &&
-                region->kind == RegionKind::boundary &&
-                selected_policy(
-                  metric.id,
-                  RequirementKind::tangential_gradient_realisation) ==
-                  specification.requirement_policies.end())
-              report.add(
-                DiagnosticCategory::analytical_policy,
-                metric.id,
-                "boundary_h1_metric_tangential_policy",
-                "Select the boundary mass-plus-tangential-stiffness realization for the H1 trace Riesz map.");
+                region->kind == RegionKind::boundary)
+              {
+                const auto tangential_policy = selected_policy(
+                  metric.id, RequirementKind::tangential_gradient_realisation);
+                if (tangential_policy == specification.requirement_policies.end())
+                  report.add(
+                    DiagnosticCategory::analytical_policy,
+                    metric.id,
+                    "boundary_h1_metric_tangential_policy",
+                    "Select the boundary mass-plus-tangential-stiffness realization for the H1 trace Riesz map.");
+                else if (!tangential_policy->typed_boundary_h1_metric_selection)
+                  report.add(
+                    DiagnosticCategory::analytical_policy,
+                    metric.id,
+                    "boundary_h1_metric_realisation_selection",
+                    "Declare the typed boundary H1 metric selection.");
+                else
+                  {
+                    const auto &selection =
+                      *tangential_policy->typed_boundary_h1_metric_selection;
+                    if (selection.id != tangential_policy->id ||
+                        selection.metric_id != metric.id ||
+                        variable == specification.variables.end() ||
+                        selection.control_space_id != variable->space_id ||
+                        selection.boundary_region_id != region->id ||
+                        selection.operator_realisation !=
+                          BoundaryH1MetricOperatorRealisation::
+                            boundary_mass_plus_tangential_stiffness ||
+                        selection.tangential_gradient_realisation !=
+                          BoundaryH1TangentialGradientRealisation::
+                            projected_ambient_gradient ||
+                        selection.nullspace_realisation !=
+                          BoundaryH1MetricNullspaceRealisation::
+                            positive_mass_no_nullspace)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        metric.id,
+                        "boundary_h1_metric_realisation_selection",
+                        "Select the registered projected-gradient boundary H1 metric with positive-mass nullspace policy.");
+                  }
+              }
           }
 
       for (const auto &metric : specification.metrics)
@@ -1922,6 +2185,101 @@ namespace nmopt::semantic::v1
             }
         }
 
+      const bool partial_dirichlet_context =
+        std::any_of(specification.requirement_policies.begin(),
+                    specification.requirement_policies.end(),
+                    [](const RequirementPolicySpec &policy) {
+                      return policy.id == "partial_dirichlet_boundary_partition";
+                    }) ||
+        std::any_of(specification.regions.begin(),
+                    specification.regions.end(),
+                    [](const RegionSpec &region) {
+                      return region.id == "fixed_dirichlet_boundary";
+                    });
+      if (partial_dirichlet_context)
+        {
+          const auto partition_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [](const RequirementPolicySpec &policy) {
+              return policy.id == "partial_dirichlet_boundary_partition" &&
+                     policy.kind == RequirementKind::boundary_partition;
+            });
+          if (partition_policy == specification.requirement_policies.end() ||
+              partition_policy->status !=
+                RequirementStatus::selected_discrete_realisation ||
+              partition_policy->scope != RequirementScope::both)
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.state_variable_id,
+              "partial_dirichlet_partition_policy",
+              "Select the typed fixed/controlled boundary partition in both semantic and discrete scopes.");
+          else if (!partition_policy->typed_partial_boundary_selection)
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.state_variable_id,
+              "partial_dirichlet_partition_policy",
+              "Declare the typed fixed/controlled boundary partition selection.");
+          else
+            {
+              const auto &selection =
+                *partition_policy->typed_partial_boundary_selection;
+              const auto fixed_region =
+                find_region(selection.fixed_boundary_region_id);
+              const auto controlled_region =
+                find_region(selection.controlled_boundary_region_id);
+              if (selection.id != partition_policy->id ||
+                  selection.subject_id != specification.formulation.state_variable_id ||
+                  selection.transformation_id != "dirichlet_control_lifting" ||
+                  fixed_region == specification.regions.end() ||
+                  controlled_region == specification.regions.end() ||
+                  fixed_region->kind != RegionKind::boundary ||
+                  controlled_region->kind != RegionKind::boundary ||
+                  fixed_region->boundary_ids.empty() ||
+                  controlled_region->boundary_ids.empty() ||
+                  selection.fixed_boundary_region_id ==
+                    selection.controlled_boundary_region_id ||
+                  !selection.requires_complete_exterior ||
+                  !selection.requires_disjoint_regions)
+                report.add(
+                  DiagnosticCategory::structural,
+                  specification.formulation.state_variable_id,
+                  "partial_dirichlet_partition_policy",
+                  "Reference non-empty, disjoint fixed and controlled boundary regions with complete-exterior intent.");
+              else if (
+                selection.interface_realisation !=
+                  PartialDirichletInterfaceRealisation::fixed_data_precedence ||
+                selection.trace_realisation !=
+                  PartialDirichletTraceRealisation::
+                    relative_interior_nodal_zero_endpoint ||
+                selection.hanging_realisation !=
+                  PartialDirichletHangingRealisation::unsupported)
+                report.add(
+                  DiagnosticCategory::structural,
+                  specification.formulation.state_variable_id,
+                  "partial_dirichlet_interface_selection",
+                  "Select fixed-data precedence, relative-interior zero-endpoint trace, and rejected hanging relations.");
+            }
+          const auto interface_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [](const RequirementPolicySpec &policy) {
+              return policy.id == "partial_dirichlet_interface_policy" &&
+                     policy.subject_id == "dirichlet_control_lifting";
+            });
+          if (interface_policy == specification.requirement_policies.end() ||
+              interface_policy->status !=
+                RequirementStatus::selected_discrete_realisation ||
+              interface_policy->scope != RequirementScope::discrete_compilation ||
+              interface_policy->region_id != "control_boundary" ||
+              interface_policy->selected_policy.empty())
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              "dirichlet_control_lifting",
+              "partial_dirichlet_interface_selection",
+              "Select the fixed-data interface ownership and zero-endpoint controlled trace policy.");
+        }
+
       for (const auto &datum : specification.data)
         if ((datum.role == DataRole::desired_state ||
              datum.role == DataRole::observation_weight) &&
@@ -1996,21 +2354,27 @@ namespace nmopt::semantic::v1
                 observation.id,
                 "point_sensor_evaluation_policy",
                 "Declare the physical point-evaluation and finite-dimensional transpose rule for the sensor map.");
-            if (std::find_if(
-                  specification.requirement_policies.begin(),
-                  specification.requirement_policies.end(),
-                  [&specification](const RequirementPolicySpec &policy) {
-                    return policy.subject_id == specification.formulation.equation_id &&
-                           policy.kind == RequirementKind::transposition_formulation &&
-                           policy.status == RequirementStatus::provided &&
-                           policy.scope == RequirementScope::continuous_semantics &&
-                           !policy.selected_policy.empty();
-                  }) == specification.requirement_policies.end())
+            const auto point_transposition_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&specification](const RequirementPolicySpec &policy) {
+                return policy.subject_id == specification.formulation.equation_id &&
+                       policy.kind == RequirementKind::transposition_formulation;
+              });
+            if (point_transposition_policy ==
+                  specification.requirement_policies.end() ||
+                point_transposition_policy->status != RequirementStatus::provided ||
+                point_transposition_policy->scope !=
+                  RequirementScope::continuous_semantics ||
+                point_transposition_policy->selected_policy.empty())
               report.add(
                 DiagnosticCategory::analytical_policy,
                 specification.formulation.equation_id,
                 "point_sensor_transposition_policy",
                 "Declare the strong state space, transposition map, residual codomain, and very-weak adjoint policy for point sensors.");
+            else
+              validate_transposition_selection(
+                *point_transposition_policy, observation.id, false);
             if (std::find_if(
                   specification.requirement_policies.begin(),
                   specification.requirement_policies.end(),
@@ -2402,12 +2766,19 @@ namespace nmopt::semantic::v1
                          RequirementScope::continuous_semantics &&
                        !candidate_policy.selected_policy.empty();
               });
-            if (transposition_policy == specification.requirement_policies.end())
+            if (transposition_policy == specification.requirement_policies.end() ||
+                transposition_policy->status != RequirementStatus::provided ||
+                transposition_policy->scope !=
+                  RequirementScope::continuous_semantics ||
+                transposition_policy->selected_policy.empty())
               report.add(
                 DiagnosticCategory::analytical_policy,
                 specification.formulation.equation_id,
                 "normal_flux_transposition_policy",
                 "Declare the strong-state normal-flux adjoint transposition and very-weak formulation.");
+            else
+              validate_transposition_selection(
+                *transposition_policy, observation.id, false);
 
             const auto regularity_policy = std::find_if(
               specification.requirement_policies.begin(),

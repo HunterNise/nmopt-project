@@ -339,6 +339,16 @@ transposition policy for its lower-regularity adjoint. A face-quadrature
 `FE_Q` normal derivative and its assembled transpose are one possible
 realization; they MUST NOT be inferred from an ordinary boundary trace.
 
+The selected P5.3 transposition realization MUST be structured. It names the
+subject equation, strong test space $Y$, operator range, isomorphism,
+residual codomain, multiplier space, observation output and source space,
+domain-regularity policy, and discrete realization. Point sensors and
+normal-flux observations select their respective `FE_Q` very-weak maps. The
+Chapter 5.11.2 realization additionally names the continuous parent space,
+conforming trace space, variational-equivalence policy, and discrete conormal
+policy. These fields select the executable map; display prose only explains
+the selected contract.
+
 A weighted boundary trace is likewise a distinct map realization. Its semantic
 policy MUST name the source and output spaces, boundary region, immutable weight
 datum, face quadrature rule, pairing rule, and transpose realization. The
@@ -436,6 +446,19 @@ the same complete exterior boundary as the state realization. Human-readable
 metric or formula text may explain the choice, but MUST NOT substitute for
 these structured references.
 
+The selected P5.4 metric and boundary policies MUST likewise be typed. A
+fractional trace metric names its control and volume spaces, trace inclusion,
+volume operator, minimum-extension apply action, full-volume inverse action,
+and solve policy. The boundary $H^{1}$ metric names its control space and
+boundary region, selects boundary mass plus tangential stiffness, identifies
+the projected ambient tangential gradient, and declares its positive-mass
+nullspace policy. A partial fixed/controlled Dirichlet partition names the
+state, lifting transformation, fixed and controlled regions, complete and
+disjoint-partition requirements, fixed-data interface ownership, relative-
+interior nodal trace rule, and hanging-node status. An alternate realization
+is a different semantic selection, not a relabeling of the descriptive policy
+string.
+
 ### 3.12 Constraint
 
 A constraint acts on one or more variable blocks.  It MUST declare its source
@@ -473,6 +496,12 @@ MUST state:
 | Status | provided, user-assumed, or selected discrete realization |
 | Policy | concrete gauge, lifting, trace realization, sensor rule, or norm realization |
 | Scope | continuous semantics, discrete compilation, or both |
+
+For transposition, fractional metrics, boundary $H^{1}$ metrics, and partial
+Dirichlet interfaces, a selected discrete realization MUST also be carried by
+the typed requirement-policy payload. Implementations MAY expose a readable
+policy description, but validation and lowering MUST use the structured
+identifiers and enum selections.
 
 The validator MAY reject missing policies.  It MUST NOT turn a provided or
 user-assumed policy into a claim of mathematical proof.

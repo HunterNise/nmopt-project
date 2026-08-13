@@ -189,6 +189,17 @@ quadrature points and assembles the same face map's weighted transpose into
 the tracking objective and adjoint source. An $H(\mathrm{div})$ or general
 transposition lowerer is not registered.
 
+The P5.3 selections are represented by a typed transposition payload rather
+than by the policy description. Point-sensor and normal-flux graphs bind the
+same scalar Dirichlet-Laplacian operator contract to different registered
+very-weak discrete maps. The Chapter 5.11.2 graph also binds its $L^{2}$
+continuous parent, $H^{1/2}$ conforming trace subspace, variational
+equivalence, and discrete conormal policy. Semantic validation checks the
+space, observation-source, regularity, and equivalence references; the
+compiler copies the selection into the resolved decision and manifest and
+rejects an unsupported operator, isomorphism, observation source, or discrete
+realization.
+
 Every enum-bearing semantic aggregate defaults to an explicit `unspecified`
 value. `SemanticValidator` rejects that sentinel structurally, so default or
 incrementally populated aggregates remain safe validation inputs rather than
@@ -605,6 +616,17 @@ diagnostics. Hanging-node trace relations, alternate corner policies,
 fractional or tangential metrics on partial/nonmatching traces, and trace boxes
 remain unregistered. The complete-boundary Section 5.11 Sobolev metrics are
 the registered specializations described above.
+
+The P5.4 policy payloads make the currently registered choices explicit. The
+$H^{1/2}$ trace metric selects the volume mass-plus-stiffness Schur operator,
+minimum-$H^{1}$ extension, full-volume inverse action, and control metric
+solve. The boundary $H^{1}$ metric selects boundary mass plus projected
+tangential stiffness with a positive-mass nullspace policy. The partial
+Dirichlet graph selects fixed-data precedence, relative-interior nodal control
+with zero endpoint extension, and unsupported hanging-node handling. These
+typed selections are copied into the scalar lowering plan, resolved decision,
+and compilation manifest; human-readable policy strings remain explanatory
+provenance only.
 
 ## Validation and diagnostics
 

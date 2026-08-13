@@ -152,6 +152,38 @@ namespace nmopt::compiler::v1
     std::string selected_policy;
   };
 
+  struct CompiledRealizedSpaceRecord
+  {
+    std::string map_id;
+    std::string semantic_id;
+    std::string realization_id;
+    std::size_t dimension = 0;
+    std::string layout;
+    std::string ordering;
+    std::string pairing_id;
+  };
+
+  struct CompiledRealizedMapRecord
+  {
+    std::string              semantic_id;
+    std::vector<std::string> input_space_ids;
+    std::string              source_space_id;
+    std::string              output_space_id;
+    std::vector<std::size_t> input_dimensions;
+    std::size_t              source_dimension = 0;
+    std::size_t              output_dimension = 0;
+    std::string              realization_id;
+    std::string              source_layout;
+    std::string              output_layout;
+    std::string              ordering;
+    std::string              pairing_realization;
+    std::string              transformation_chain;
+    std::string              value_provenance;
+    std::string              jvp_provenance;
+    std::string              vjp_provenance;
+    std::string              pairing_id;
+  };
+
   // The single typed decision selected by semantic resolution and compiler
   // lowerability checks.  Manifest display strings are rendered from this
   // record and retained only as a compatibility view.
@@ -168,6 +200,8 @@ namespace nmopt::compiler::v1
     std::vector<CompiledRealisationRecord> observations;
     std::vector<CompiledRealisationRecord> losses;
     std::vector<CompiledRealisationRecord> transformations;
+    std::vector<CompiledRealizedSpaceRecord> realized_spaces;
+    std::vector<CompiledRealizedMapRecord>   realized_maps;
     CompiledSolvePolicyRecord             state_solve_record;
     CompiledSolvePolicyRecord             adjoint_solve_record;
     CompiledMetricRecord                  metric_record;
@@ -193,6 +227,8 @@ namespace nmopt::compiler::v1
     CompiledSolvePolicyRecord             adjoint_solve_record;
     CompiledMetricRecord                  metric_record;
     CompiledConstraintRecord              constraint_record;
+    std::vector<CompiledRealizedSpaceRecord> realized_spaces;
+    std::vector<CompiledRealizedMapRecord>   realized_maps;
     std::optional<semantic::v1::BoundaryRealisationSelection>
                                           boundary_realisation;
     std::vector<std::string>              lowering_handler_records;

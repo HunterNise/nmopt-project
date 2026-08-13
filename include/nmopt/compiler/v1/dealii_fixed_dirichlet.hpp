@@ -277,6 +277,22 @@ namespace nmopt::compiler::v1::detail
       return control_layout_;
     }
 
+    std::size_t
+    physical_state_dimension() const
+    {
+      return state_dof_handler_.n_dofs();
+    }
+
+    std::size_t
+    realized_observation_dimension() const
+    {
+      if (uses_point_sensor_)
+        return point_sensor_evaluations_.size();
+      if (uses_normal_flux_)
+        return normal_flux_evaluations_.size();
+      return physical_state_dimension();
+    }
+
     dealii_backend::MassMetric
     control_l2_metric(
       dealii_backend::MassMetricSolveParameters solve_parameters = {}) const

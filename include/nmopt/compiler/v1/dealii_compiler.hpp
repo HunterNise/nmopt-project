@@ -3467,18 +3467,73 @@ namespace nmopt::compiler::v1
               std::move(nullspace_policy)};
     }
 
+    template <int dim>
+    static std::size_t
+    physical_state_dimension(
+      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable)
+    {
+      if (const auto *scalar =
+            dynamic_cast<const detail::ScalarComponentModel<dim> *>(&executable))
+        return scalar->physical_state_dimension();
+      if (const auto *neumann =
+            dynamic_cast<const detail::NeumannBoundaryControlModel<dim> *>(
+              &executable))
+        return neumann->physical_state_dimension();
+      if (const auto *dirichlet =
+            dynamic_cast<const detail::DirichletControlLiftingModel<dim> *>(
+              &executable))
+        return dirichlet->physical_state_dimension();
+      return executable.variable_layout()->dimension(0);
+    }
+
+    template <int dim>
+    static std::size_t
+    realized_observation_dimension(
+      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable)
+    {
+      if (const auto *scalar =
+            dynamic_cast<const detail::ScalarComponentModel<dim> *>(&executable))
+        return scalar->realized_observation_dimension();
+      if (const auto *neumann =
+            dynamic_cast<const detail::NeumannBoundaryControlModel<dim> *>(
+              &executable))
+        return neumann->realized_observation_dimension();
+      return physical_state_dimension<dim>(executable);
+    }
+
+    static std::optional<std::size_t>
+    realized_output_dimension(
+      const std::vector<CompiledRealizedSpaceRecord> &realized_spaces,
+      const std::string &                              map_id,
+      const std::string &                              semantic_space_id)
+    {
+      const auto space = std::find_if(
+        realized_spaces.begin(),
+        realized_spaces.end(),
+        [&map_id, &semantic_space_id](
+          const CompiledRealizedSpaceRecord &candidate) {
+          return candidate.map_id == map_id &&
+                 candidate.semantic_id == semantic_space_id &&
+                 candidate.realization_id.find("output:") == 0;
+        });
+      return space == realized_spaces.end()
+               ? std::nullopt
+               : std::optional<std::size_t>(space->dimension);
+    }
+
     static std::size_t
     compiled_space_dimension(
       const semantic::v1::ProblemSpec &specification,
       const semantic::v1::SpaceSpec &  space,
-      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable)
+      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
+      const std::vector<CompiledRealizedSpaceRecord> &realized_spaces)
     {
       const auto state = find_variable(
         specification, specification.formulation.state_variable_id);
-      const auto decision = find_variable(
-        specification, specification.formulation.control_variable_id);
       if (state != nullptr && state->space_id == space.id)
         return executable.variable_layout()->dimension(0);
+      const auto decision = find_variable(
+        specification, specification.formulation.control_variable_id);
       if (decision != nullptr && decision->space_id == space.id)
         return executable.variable_layout()->dimension(1);
       if (!specification.equations.empty() &&
@@ -3491,13 +3546,10 @@ namespace nmopt::compiler::v1
           return candidate.output_space_id == space.id;
         });
       if (observation != specification.observations.end())
-        if (observation->kind == semantic::v1::ObservationKind::point_sensor)
-          return space.dimension;
-      if (observation != specification.observations.end())
-        return decision != nullptr &&
-                   observation->input_variable_id == decision->id
-                 ? executable.variable_layout()->dimension(1)
-                 : executable.variable_layout()->dimension(0);
+        if (const auto dimension = realized_output_dimension(realized_spaces,
+                                                             observation->id,
+                                                             space.id))
+          return *dimension;
       return 0;
     }
 
@@ -3821,6 +3873,209 @@ namespace nmopt::compiler::v1
       return decision;
     }
 
+    static std::string
+    observation_realization_id(const semantic::v1::ObservationKind kind,
+                               const bool                         control_map)
+    {
+      if (control_map)
+        return "coefficient_restriction";
+      switch (kind)
+        {
+          case semantic::v1::ObservationKind::volume_restriction:
+            return "fe_q_coefficient_restriction";
+          case semantic::v1::ObservationKind::h1_state_restriction:
+            return "fe_q_coefficient_h1_restriction";
+          case semantic::v1::ObservationKind::boundary_trace:
+          case semantic::v1::ObservationKind::boundary_restriction:
+          case semantic::v1::ObservationKind::weighted_boundary_trace:
+            return "ordered_boundary_face_quadrature_trace";
+          case semantic::v1::ObservationKind::point_sensor:
+            return "ordered_point_sensor_values";
+          case semantic::v1::ObservationKind::normal_flux:
+            return "ordered_normal_flux_face_quadrature";
+          case semantic::v1::ObservationKind::unspecified:
+            return "unspecified_observation_map";
+        }
+      return "unspecified_observation_map";
+    }
+
+    static std::string
+    observation_output_layout(const semantic::v1::ObservationKind kind,
+                              const bool                         control_map)
+    {
+      if (control_map)
+        return "ordered control coefficient values";
+      switch (kind)
+        {
+          case semantic::v1::ObservationKind::point_sensor:
+            return "ordered scalar sensor values";
+          case semantic::v1::ObservationKind::normal_flux:
+            return "ordered scalar face-quadrature values";
+          case semantic::v1::ObservationKind::boundary_trace:
+          case semantic::v1::ObservationKind::boundary_restriction:
+          case semantic::v1::ObservationKind::weighted_boundary_trace:
+            return "ordered scalar boundary face-quadrature values";
+          case semantic::v1::ObservationKind::volume_restriction:
+          case semantic::v1::ObservationKind::h1_state_restriction:
+            return "scalar FE_Q state coefficients";
+          case semantic::v1::ObservationKind::unspecified:
+            return "unspecified observation values";
+        }
+      return "unspecified observation values";
+    }
+
+    template <int dim>
+    static std::vector<CompiledRealizedMapRecord>
+    make_realized_maps(
+      const semantic::v1::ProblemSpec &specification,
+      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable)
+    {
+      std::vector<CompiledRealizedMapRecord> maps;
+      const std::size_t physical_dimension =
+        physical_state_dimension<dim>(executable);
+      const std::size_t observation_dimension =
+        realized_observation_dimension<dim>(executable);
+      const auto variable_dimension =
+        [&executable](const semantic::v1::VariableSpec *variable) {
+          if (variable == nullptr)
+            return std::size_t{0};
+          return variable->role == semantic::v1::VariableRole::control ||
+                         variable->role == semantic::v1::VariableRole::parameter
+                   ? executable.variable_layout()->dimension(1)
+                   : executable.variable_layout()->dimension(0);
+        };
+      for (const auto &observation : specification.observations)
+        {
+          const auto *input =
+            find_variable(specification, observation.input_variable_id);
+          const std::size_t source_dimension = variable_dimension(input);
+          const bool control_map =
+            input != nullptr &&
+            (input->role == semantic::v1::VariableRole::control ||
+             input->role == semantic::v1::VariableRole::parameter);
+          const std::string source_space_id =
+            input == nullptr ? std::string{} : input->space_id;
+          const std::string transformation_chain =
+            input == nullptr || input->physical_field_transform_id.empty()
+              ? "identity"
+              : input->physical_field_transform_id;
+          const bool finite_sample_map =
+            observation.kind == semantic::v1::ObservationKind::point_sensor ||
+            observation.kind == semantic::v1::ObservationKind::normal_flux ||
+            observation.kind == semantic::v1::ObservationKind::boundary_trace ||
+            observation.kind == semantic::v1::ObservationKind::boundary_restriction ||
+            observation.kind ==
+              semantic::v1::ObservationKind::weighted_boundary_trace;
+          maps.push_back(
+            {observation.id,
+             {source_space_id},
+             source_space_id,
+             observation.output_space_id,
+             {source_dimension},
+             source_dimension,
+             control_map
+               ? source_dimension
+               : finite_sample_map ? observation_dimension : physical_dimension,
+             observation_realization_id(observation.kind, control_map),
+             "independent variable-layout coefficients",
+             observation_output_layout(observation.kind, control_map),
+             control_map
+               ? "declared control coefficient ordering"
+               : finite_sample_map ? "declared mesh traversal and quadrature order"
+                               : "deal.II global state DoF ordering",
+             observation.output_pairing_id.empty()
+               ? "assembled coefficient pairing"
+               : "declared pairing " + observation.output_pairing_id,
+             transformation_chain,
+             observation.kind == semantic::v1::ObservationKind::point_sensor
+               ? "FE_Q shape evaluation at immutable sensor coordinates"
+             : observation.kind == semantic::v1::ObservationKind::normal_flux
+               ? "FEFaceValues outward normal derivative"
+               : "selected observation operator value",
+             "same realized observation operator applied to the tangent",
+             observation.kind == semantic::v1::ObservationKind::normal_flux
+               ? "weighted transpose of ordered face-quadrature flux samples"
+               : "transpose of the realized observation operator",
+             observation.output_pairing_id});
+        }
+      for (const auto &transformation : specification.transformations)
+        {
+          const auto *input =
+            find_variable(specification, transformation.input_variable_id);
+          const auto *control = transformation.control_variable_id.empty()
+                                  ? nullptr
+                                  : find_variable(specification,
+                                                  transformation.control_variable_id);
+          const std::size_t input_dimension = variable_dimension(input);
+          const std::size_t control_dimension = variable_dimension(control);
+          const std::string source_space_id =
+            input == nullptr ? std::string{} : input->space_id;
+          std::vector<std::string> input_space_ids;
+          std::vector<std::size_t> input_dimensions;
+          if (input != nullptr)
+            {
+              input_space_ids.push_back(input->space_id);
+              input_dimensions.push_back(input_dimension);
+            }
+          if (control != nullptr)
+            {
+              input_space_ids.push_back(control->space_id);
+              input_dimensions.push_back(control_dimension);
+            }
+          maps.push_back(
+            {transformation.id,
+             std::move(input_space_ids),
+             source_space_id,
+             transformation.output_space_id,
+             std::move(input_dimensions),
+             input_dimension,
+             physical_dimension,
+             transformation.kind ==
+                 semantic::v1::TransformationKind::fixed_dirichlet_reconstruction
+               ? "fixed_dirichlet_reconstruction"
+               : "dirichlet_control_lifting",
+             "independent variable-layout coefficients",
+             "physical scalar FE_Q coefficients",
+             "deal.II global state DoF ordering",
+             "state-space reconstruction pairing",
+             transformation.control_variable_id.empty()
+               ? "one state input"
+               : "state plus control inputs",
+             "physical field reconstruction",
+             "reconstruction applied to the tangent",
+             "pullback of the physical covector through the reconstruction",
+             {}});
+        }
+      return maps;
+    }
+
+    static std::vector<CompiledRealizedSpaceRecord>
+    make_realized_spaces(const std::vector<CompiledRealizedMapRecord> &maps)
+    {
+      std::vector<CompiledRealizedSpaceRecord> spaces;
+      for (const auto &map : maps)
+        {
+          for (std::size_t index = 0; index < map.input_space_ids.size(); ++index)
+            spaces.push_back(
+              {map.semantic_id,
+               map.input_space_ids[index],
+               "input:" + map.realization_id,
+               map.input_dimensions.at(index),
+               map.source_layout,
+               map.ordering,
+               map.pairing_id});
+          spaces.push_back(
+            {map.semantic_id,
+             map.output_space_id,
+             "output:" + map.realization_id,
+             map.output_dimension,
+             map.output_layout,
+             map.ordering,
+             map.pairing_id});
+        }
+      return spaces;
+    }
+
     template <int dim>
     static CompilationManifest
     make_manifest(
@@ -3843,6 +4098,10 @@ namespace nmopt::compiler::v1
     {
       CompilationManifest manifest;
       manifest.resolved_decision = decision;
+      manifest.realized_maps = make_realized_maps<dim>(specification, executable);
+      manifest.realized_spaces = make_realized_spaces(manifest.realized_maps);
+      manifest.resolved_decision.realized_maps = manifest.realized_maps;
+      manifest.resolved_decision.realized_spaces = manifest.realized_spaces;
       const bool uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
       const bool uses_hhalf_dirichlet_control =
@@ -3919,7 +4178,10 @@ namespace nmopt::compiler::v1
            compiled_space_runtime_role(space.role),
            space.region_id,
            compiled_space_finite_element(space, target, policy),
-           compiled_space_dimension(specification, space, executable)});
+           compiled_space_dimension(specification,
+                                    space,
+                                    executable,
+                                    manifest.realized_spaces)});
       for (const auto &binding : specification.data)
         {
           CompiledBindingRecord record;

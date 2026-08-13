@@ -399,6 +399,36 @@ namespace
           return space.runtime_role == role;
         });
     };
+    const auto has_realized_map = [&manifest](const std::string &id) {
+      return std::any_of(
+        manifest.realized_maps.begin(),
+        manifest.realized_maps.end(),
+        [&id](const compiler::v1::CompiledRealizedMapRecord &map) {
+          return map.semantic_id == id && !map.source_space_id.empty() &&
+                 !map.output_space_id.empty() && map.source_dimension > 0 &&
+                 map.output_dimension > 0 && !map.realization_id.empty() &&
+                 !map.value_provenance.empty() && !map.jvp_provenance.empty() &&
+                 !map.vjp_provenance.empty();
+        });
+    };
+    const auto control_restrictions_are_coefficient_maps =
+      std::all_of(
+        manifest.realized_maps.begin(),
+        manifest.realized_maps.end(),
+        [](const compiler::v1::CompiledRealizedMapRecord &map) {
+          return map.realization_id != "coefficient_restriction" ||
+                 (map.input_dimensions.size() == 1 &&
+                  map.input_dimensions.front() == map.output_dimension);
+        });
+    contract::require(
+      std::all_of(manifest.observation_ids.begin(),
+                  manifest.observation_ids.end(),
+                  has_realized_map) &&
+        std::all_of(manifest.transformation_ids.begin(),
+                    manifest.transformation_ids.end(),
+                    has_realized_map) &&
+        control_restrictions_are_coefficient_maps,
+      target + " manifest omitted a realized observation or transformation map");
     contract::require(
       manifest.schema_version == 2 &&
         manifest.formulation_record.kind ==
@@ -425,6 +455,10 @@ namespace
           manifest.formulation_record.semantic_id &&
         manifest.resolved_decision.spaces.size() == manifest.spaces.size() &&
         manifest.resolved_decision.bindings.size() == manifest.bindings.size() &&
+        manifest.resolved_decision.realized_maps.size() ==
+          manifest.realized_maps.size() &&
+        manifest.resolved_decision.realized_spaces.size() ==
+          manifest.realized_spaces.size() &&
         !manifest.resolved_decision.residuals.empty() &&
         !manifest.resolved_decision.observations.empty(),
       target + " structured manifest is incomplete");
@@ -698,7 +732,19 @@ namespace
       "changed fixed-Dirichlet data reused stale compiled values");
 
     const auto &manifest = compilation.problem->manifest();
+    const auto fixed_map = std::find_if(
+      manifest.realized_maps.begin(),
+      manifest.realized_maps.end(),
+      [](const compiler::v1::CompiledRealizedMapRecord &map) {
+        return map.semantic_id == "fixed_dirichlet_reconstruction";
+      });
     require_constraint_realisation(manifest, "none", "fixed-Dirichlet");
+    contract::require(fixed_map != manifest.realized_maps.end(),
+                      "fixed-Dirichlet realized transformation is missing");
+    contract::require(
+      fixed_map->input_dimensions.size() == 1 &&
+        fixed_map->input_dimensions.front() != fixed_map->output_dimension,
+      "fixed-Dirichlet realized transformation dimensions are not distinct");
     contract::require(
         manifest.lifting_realisation.find("y_phys = P_h y_hat + ell_0,h") !=
         std::string::npos &&
@@ -849,10 +895,19 @@ namespace
                            1e-10,
                            "Dirichlet-control trace metric inverse/apply");
     const auto &manifest = compilation.problem->manifest();
+    const auto dirichlet_map = std::find_if(
+      manifest.realized_maps.begin(),
+      manifest.realized_maps.end(),
+      [](const compiler::v1::CompiledRealizedMapRecord &map) {
+        return map.semantic_id == "dirichlet_control_lifting";
+      });
     require_constraint_realisation(manifest, "none", "Dirichlet-control");
     contract::require(
       manifest.control_space.find("nodal trace") != std::string::npos &&
         manifest.lifting_realisation.find("L_D,h") != std::string::npos &&
+        dirichlet_map != manifest.realized_maps.end() &&
+        dirichlet_map->input_space_ids.size() == 2 &&
+        dirichlet_map->output_dimension > 0 &&
         manifest.metric_solve_policy.find("l2_dirichlet_trace") !=
           std::string::npos &&
         manifest.declared_assumptions.front().find("dirichlet_control_lifting") !=
@@ -1704,8 +1759,18 @@ namespace
                   "point-sensor very-weak adjoint dual residual");
 
     const auto &manifest = compilation.problem->manifest();
+    const auto point_map = std::find_if(
+      manifest.realized_maps.begin(),
+      manifest.realized_maps.end(),
+      [](const compiler::v1::CompiledRealizedMapRecord &map) {
+        return map.semantic_id == "state_observation" &&
+               map.realization_id == "ordered_point_sensor_values";
+      });
     contract::require(
       manifest.compiler_id == "nmopt.compiler.v1.dealii.point_sensor" &&
+        point_map != manifest.realized_maps.end() &&
+        point_map->output_dimension == values.size() &&
+        point_map->output_layout.find("sensor values") != std::string::npos &&
         manifest.observation_realisation.find("immutable physical coordinates") !=
           std::string::npos &&
         manifest.data_rule.find("assembled C_h^T point-load transpose") !=
@@ -1854,8 +1919,19 @@ namespace
                   "normal-flux very-weak adjoint dual residual");
 
     const auto &manifest = compilation.problem->manifest();
+    const auto normal_flux_map = std::find_if(
+      manifest.realized_maps.begin(),
+      manifest.realized_maps.end(),
+      [](const compiler::v1::CompiledRealizedMapRecord &map) {
+        return map.semantic_id == "state_observation" &&
+               map.realization_id == "ordered_normal_flux_face_quadrature";
+      });
     contract::require(
       manifest.compiler_id == "nmopt.compiler.v1.dealii.normal_flux" &&
+        normal_flux_map != manifest.realized_maps.end() &&
+        normal_flux_map->output_dimension == normal_flux_values.size() &&
+        normal_flux_map->pairing_realization.find("declared pairing") !=
+          std::string::npos &&
         manifest.observation_realisation.find("outward normal-flux") !=
           std::string::npos &&
         manifest.data_rule.find("boundary face quadrature") !=
@@ -2511,6 +2587,13 @@ namespace
                            "weighted trace changed the facewise L2 control metric");
 
     const auto &manifest = weighted.problem->manifest();
+    const auto weighted_map = std::find_if(
+      manifest.realized_maps.begin(),
+      manifest.realized_maps.end(),
+      [](const compiler::v1::CompiledRealizedMapRecord &map) {
+        return map.semantic_id == "weighted_state_boundary_trace" &&
+               map.realization_id == "ordered_boundary_face_quadrature_trace";
+      });
     const auto weight_record = std::find_if(
       manifest.bindings.begin(),
       manifest.bindings.end(),
@@ -2537,6 +2620,11 @@ namespace
                   "dealii.neumann.observation.weighted_boundary_trace") !=
           manifest.lowering_handler_records.end(),
       "weighted trace manifest omitted weight, target, quadrature, or metric provenance");
+    contract::require(
+      weighted_map != manifest.realized_maps.end() &&
+        weighted_map->output_dimension > 0 &&
+        weighted_map->output_layout.find("boundary face") != std::string::npos,
+      "weighted trace realized map is missing its face-quadrature output");
   }
 
   template <int dim>

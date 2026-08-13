@@ -162,6 +162,20 @@ namespace nmopt::compiler::v1::detail
       return test_layout_;
     }
 
+    std::size_t
+    physical_state_dimension() const
+    {
+      return state_dof_handler_.n_dofs();
+    }
+
+    std::size_t
+    realized_observation_dimension() const
+    {
+      return state_observation_ == StateObservation::boundary_trace
+               ? observation_sample_count_
+               : physical_state_dimension();
+    }
+
     dealii_backend::MassMetric
     control_l2_metric(
       dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
@@ -687,6 +701,7 @@ namespace nmopt::compiler::v1::detail
                                               phi_i * weight);
                       if (observation_face)
                         {
+                          observation_sample_count_++;
                           desired_state_load_[global_i] +=
                             observation_weight_value * desired_value * phi_i *
                             weight;
@@ -799,6 +814,7 @@ namespace nmopt::compiler::v1::detail
     const std::set<dealii::types::material_id> observation_material_ids_;
     const bool uses_conservative_transport_;
     std::size_t control_face_count_ = 0;
+    std::size_t observation_sample_count_ = 0;
 
     dealii::SparsityPattern state_sparsity_;
     dealii::SparsityPattern control_sparsity_;

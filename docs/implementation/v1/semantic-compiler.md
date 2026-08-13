@@ -731,6 +731,16 @@ coordinates, material IDs, and boundary IDs. Existing human-readable fields
 are a rendered compatibility view, not a configuration or test-parsing
 channel. The compiler selects a typed internal constraint realization
 alongside the constructed service, then renders it into that view.
+
+Bounded observations and physical-field transformations additionally publish
+`CompiledRealizedMapRecord` entries. Each entry records its source and output
+semantic spaces, actual dimensions, layout and ordering, pairing, value/JVP/
+VJP provenance, and any transformation chain. Point sensors expose ordered
+sensor values, normal flux and boundary traces expose ordered face-quadrature
+values, and volume or energy observations expose the realized FE coefficient
+map. The corresponding `CompiledRealizedSpaceRecord` entries are the sole
+source for observation output dimensions; they do not fall back to the input
+variable layout or the semantic space declaration.
 Component-planned products additionally record the exact handler provenance
 used to lower every contribution; tests assert those records rather than
 inferring lowering from display text.

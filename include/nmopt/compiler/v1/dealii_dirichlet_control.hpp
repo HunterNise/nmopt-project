@@ -151,6 +151,12 @@ namespace nmopt::compiler::v1::detail
       return control_layout_;
     }
 
+    std::size_t
+    physical_state_dimension() const
+    {
+      return state_dof_handler_.n_dofs();
+    }
+
     dealii_backend::MassMetric
     control_l2_metric(
       dealii_backend::MassMetricSolveParameters solve_parameters = {}) const

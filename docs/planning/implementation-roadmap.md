@@ -29,34 +29,37 @@ relevant `RF-006` characterization), R2b (`RF-002` through `RF-005` and the
 relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
 `RF-012`), and R3 (`RF-016` through `RF-019`) are complete. P4.1 and P4.2 are
 ignored for the current ordered implementation run because their scope is too
-broad. The conditional C1 and C2 preparation implementations have landed, but
-the [C1/C2 preparation remediation review](review/chapter-5/c1-c2-preparation-remediation-review.md)
-found open compilation-input, structured-provenance, realized-space, resolved-
-request, and executable component-lowering defects. C1 and C2 are not
-acceptance-complete until their documented gates pass. Their stable-ID index,
-owned compilation session, shared solve reporting, projection witness,
-independent scalar oracle, and build-cost remeasurement remain retained
-foundations. P5.1 and P5.2 implementations have landed, but the
-[P5.1 remediation review](review/chapter-5/p5.1-remediation-review.md) found open coefficient-
-data placement and typed boundary-policy defects, while the
+broad. The conditional C1 and C2 preparation implementations have landed.
+Their remediation slices now include one checked resolved request, plan-owned
+scalar residual/data and objective/service lowering, a versioned
+resolved-decision manifest, and common realized-map/space records. C1 and C2
+are not acceptance-complete until their documented differential and
+verification gates pass. Their stable-ID index, owned compilation session,
+shared solve reporting, projection witness, independent scalar oracle, and
+build-cost remeasurement remain retained foundations. P5.1 is acceptance-
+complete after its coefficient-placement and typed-boundary remediation gates
+passed. P5.2 implementation has landed, but the
 [P5.2 remediation review](review/chapter-5/p5.2-remediation-review.md) found open selected-
-realization, $H^{1}_{0}$ target-data, and weighted-observation-dimension
-defects. Neither phase is acceptance-complete until its documented gates
-pass. The reviewed operator formulas, exact-transpose solve, energy/weighted
+realization and $H^{1}_{0}$ target-data defects; its weighted-observation
+dimension finding is addressed by the common realized-map/space records.
+P5.2 is not acceptance-complete until its documented gates pass. The
+reviewed operator formulas, exact-transpose solve, energy/weighted
 observation assembly, and negative-metric formulas remain the selected
 bounded behavior during remediation. P5.3's first
 bounded C5.8 and C5.10 implementations have landed, but the
-[P5.3 remediation review](review/chapter-5/p5.3-remediation-review.md) found open transposition,
-fixed-boundary, and manifest-dimension defects. P5.3 is not
-acceptance-complete until those findings pass their documented gates. The
+[P5.3 remediation review](review/chapter-5/p5.3-remediation-review.md) found open transposition
+and fixed-boundary defects; its manifest-dimension finding is addressed by
+the common realized-map/space records. P5.3 is not acceptance-complete until
+those findings pass their documented gates. The
 outward-normal face evaluation, immutable point coordinates, and explicit
 exclusions remain the selected bounded policies during remediation. The
 C5.6-style Neumann composition is complete. All selected scalar Section
 5.11/P5.4 Dirichlet-control slices have landed, but the
 [P5.4 remediation review](review/chapter-5/p5.4-remediation-review.md) found open
-registered-combination, typed-policy, and transformed-observation-dimension
-defects. P5.4 is not acceptance-complete until those findings pass their
-documented gates. The partial fixed-precedence lifting, selected fractional
+registered-combination and typed-policy defects; its transformed-observation
+dimension finding is addressed by the common realized-map/space records. P5.4
+is not acceptance-complete until those findings pass their documented gates.
+The partial fixed-precedence lifting, selected fractional
 and tangential operators, conforming-trace equivalence, and explicit
 exclusions remain the bounded policies during remediation. A general
 nonconforming transposition lowerer remains unselected.
@@ -97,7 +100,7 @@ priority.
 
 The accepted scope is:
 
-- finish the open C1/C2 and P5.1–P5.4 remediation gates;
+- finish the open C1/C2 and P5.2–P5.4 remediation gates;
 - keep the selected scalar Section 5.11 and Neumann boundary-control slices;
 - skip book Sections 5.12 and 5.13, corresponding to the roadmap's P5.5
   regularised state constraints and P5.6 Stokes/mixed-block work;
@@ -532,7 +535,7 @@ ordered by reusable capability, not by the source chapter's presentation
 order. They must not be implemented as a hierarchy of named textbook problem
 classes.
 
-### P5.1 — Compose general scalar elliptic volume and Robin boundary terms — implementation landed, remediation open
+### P5.1 — Compose general scalar elliptic volume and Robin boundary terms — acceptance complete
 
 **Motivation:** C5.1, C5.5.1, and C5.6 use scalar operators beyond the
 current diffusion-reaction slice. Their differences are residual terms and
@@ -577,13 +580,13 @@ transport transpose, reduced Taylor remainder, manifest, coefficient-shape
 diagnostic, and boundary overlap/completeness diagnostics.
 
 **Review status:** the
-[P5.1 remediation review](review/chapter-5/p5.1-remediation-review.md) found that coefficient
-Functions do not have truthful semantic spaces/regions, the Robin source is
-declared in the volume test space, and the selected boundary/conormal/
-transport/trace realization is still prose while the backend hard-codes a
-specific policy. P5.1 remains open until both acceptance findings pass. The
-assembled weak signs, nonsymmetric exact transpose, complete mesh partition,
-and existing term/Taylor tests remain retained behavior.
+[P5.1 remediation review](review/chapter-5/p5.1-remediation-review.md) findings
+are repaired: coefficient and Robin data have truthful semantic placement,
+and the selected boundary/conormal/transport/trace realization is typed and
+consumed by lowering. The required neutral and deal.II Debug verification
+profiles pass, so P5.1 is acceptance-complete. The assembled weak signs,
+nonsymmetric exact transpose, complete mesh partition, and existing
+term/Taylor tests remain retained behavior.
 
 ### P5.2 — Add energy-volume and weighted-trace observations, then the selected $H^{-1}$ metric separately — implementation landed, remediation open
 
@@ -1090,51 +1093,59 @@ declared conversion policy.
 
 ## Current next-agent sequence
 
-The C5.6 Neumann composition is complete. Conditional C1/C2 preparation and
-P5.1 through P5.4 have landed implementation slices but remain open under
-their static remediation reviews. P4.1 and P4.2 remain ignored for the current
-ordered implementation run. Keep the reviewed numerical formulas and explicit
-exclusions while proceeding in these commit-sized units:
+The C5.6 Neumann composition is complete. P5.1 is acceptance-complete. The
+remediation review documents are
+static evidence; this roadmap is the status ledger. The following C1/C2 and
+cross-phase remediation slices are implemented, but do not by themselves
+restore acceptance status: one checked resolved request, truthful P5.1 data
+placements and boundary realization, plan-owned scalar residual/data and
+objective/service lowering, resolved-decision manifest records, and common
+realized-map/space records. The review's “Work unit” names are cross-references
+to those documents, not a separate roadmap vocabulary. C1, C2, and P5.2–P5.4
+remain open until their documented gates pass. P4.1 and P4.2 remain ignored for
+the current ordered implementation run. Keep the reviewed numerical formulas
+and explicit exclusions while proceeding in these commit-sized units:
 
-1. Complete
+1. **Completed implementation slice:**
    [C1/C2 work unit 1](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-1--one-resolved-compilation-request-and-binding-boundary):
    produce one checked resolved compilation request and route predictable
    public binding/session failures through exact diagnostics.
-2. Complete
+2. **Completed implementation slice:**
    [P5.1 work unit 1](review/chapter-5/p5.1-remediation-review.md#work-unit-1--truthful-p51-data-spaces-and-regions):
    give every general-scalar coefficient and Robin source a truthful semantic
    space/region and carry that placement into the resolved request.
-3. Establish the common typed boundary/orientation/trace realization
+3. **Completed implementation slice:** establish the common typed
+   boundary/orientation/trace realization
    vocabulary and complete
    [P5.1 work unit 2](review/chapter-5/p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection).
    Do not create target-specific enums for policies shared by later phases.
-4. Complete
+4. **Completed implementation slice:**
    [C1/C2 work unit 2](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly)
    and [work unit 3](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination):
    make scalar residual/data and objective/service contributions execute from
    the plan, then prove one independently varied recombination.
-5. Complete
+5. **Next bounded implementation item:** complete
    [P5.2 work unit 1](review/chapter-5/p5.2-remediation-review.md#work-unit-1--typed-p52-trace-and-negative-metric-selections):
    use the shared trace vocabulary, type the named negative metric, and make
    the continuous-control backend apply the declared control boundary.
-6. Complete the compatible transposition and remaining typed-policy work in
+6. **Pending:** complete the compatible transposition and remaining typed-policy work in
    [P5.3 work unit 1](review/chapter-5/p5.3-remediation-review.md#work-unit-1--structured-transposition-contract)
    and [P5.4 work unit 1](review/chapter-5/p5.4-remediation-review.md#work-unit-1--typed-shared-policies).
    There must be one transposition schema and shared realization identifiers,
    not separate P5.3/P5.4 vocabularies.
-7. Complete
+7. **Pending:** complete
    [P5.2 work unit 2](review/chapter-5/p5.2-remediation-review.md#work-unit-2--explicit-h1-zero-target-data-assumption):
    require and record the model-author $H^{1}_{0}$ target/zero-trace
    assumption without claiming runtime proof.
-8. Complete
+8. **Pending:** complete
    [P5.4 work unit 2](review/chapter-5/p5.4-remediation-review.md#work-unit-2--closed-p54-registration-matching)
    through the closed registration matcher from the resolved C1/C2 request:
    reject unregistered Section 5.11 cross-products.
-9. Complete
+9. **Implemented out of order:**
    [C1/C2 work unit 4](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-4--lossless-structured-compilation-provenance):
    populate a versioned manifest from resolved decisions and realized services
    and render compatibility prose from those records.
-10. Complete the common realized-map work in
+10. **Implemented out of order:** the common realized-map work in
    [C1/C2 work unit 5](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-5--common-realized-map-and-space-records),
    [P5.2 work unit 3](review/chapter-5/p5.2-remediation-review.md#work-unit-3--shared-realized-observation-dimensions),
    [P5.3 work unit 3](review/chapter-5/p5.3-remediation-review.md#work-unit-3--exact-observation-space-manifest-dimension),

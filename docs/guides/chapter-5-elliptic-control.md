@@ -339,6 +339,10 @@ selected boundary-face quadrature points and assembles the transpose of the
 same face map. The objective uses this face-quadrature $L^{2}$ pairing and the
 adjoint is recorded as the corresponding very-weak boundary source. An
 $H(\mathrm{div})$ realization and alternate flux policies remain unregistered.
+The registered factory keeps `normal_flux_boundary_ids` and
+`fixed_dirichlet_boundary_ids` as separate inputs, but requires the observed
+IDs to be a subset of the fixed IDs. Compilation also requires the declared
+fixed region to cover every exterior mesh face.
 
 ### C5.9 — Transposition policy for low-regularity Dirichlet data
 
@@ -415,7 +419,9 @@ $C_{h}^{\mathsf{T}}(C_{h}y-z_{d})$ as the point-load transpose for the
 very-weak adjoint solve. This is the selected evaluation and transpose policy;
 nearest-node, quadrature-coincidence, and general transposition alternatives
 remain unregistered. The sibling C5.8 slice uses the separately declared
-strong-state normal-flux policy above.
+strong-state normal-flux policy above. Its factory accepts
+`fixed_dirichlet_boundary_ids` explicitly, and the compiler applies the same
+complete-exterior fixed-boundary requirement as the C5.8 slice.
 
 ### C5.11 — Dirichlet boundary control and control-space variants
 

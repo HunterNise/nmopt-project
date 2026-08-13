@@ -1058,6 +1058,14 @@ namespace nmopt::compiler::v1
             (uses_dirichlet_control && !uses_partial_dirichlet_control)
           ? std::set<dealii::types::boundary_id>{}
           : selected_dirichlet_boundary_ids(specification);
+      if ((uses_point_sensor || uses_normal_flux) &&
+          !controls_complete_exterior_boundary(
+            triangulation, fixed_dirichlet_boundary_ids))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.formulation.state_variable_id,
+          "p53_complete_fixed_dirichlet_boundary",
+          "Select a fixed-Dirichlet boundary region covering every exterior face for the registered P5.3 target.");
       const auto dirichlet_boundary_ids = uses_mean_zero_gauge
                                             ? std::set<dealii::types::boundary_id>{}
                                             : uses_dirichlet_control

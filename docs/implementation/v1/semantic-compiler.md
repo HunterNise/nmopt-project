@@ -213,6 +213,16 @@ quadrature points and assembles the same face map's weighted transpose into
 the tracking objective and adjoint source. An $H(\mathrm{div})$ or general
 transposition lowerer is not registered.
 
+The P5.3 factories keep the fixed and observed boundary selections explicit:
+the point-sensor factory accepts `fixed_dirichlet_boundary_ids` (default
+`{0}`), while the normal-flux factory accepts `normal_flux_boundary_ids`
+(default `{1}`) and `fixed_dirichlet_boundary_ids` (default `{0, 1}`).
+Semantic validation rejects duplicate IDs and requires every normal-flux ID to
+belong to the fixed region. The registered point-sensor and normal-flux
+lowerers additionally require every exterior mesh face to carry a declared
+fixed ID; mesh-dependent failure is reported as the lowerability capability
+`p53_complete_fixed_dirichlet_boundary`.
+
 The P5.3 selections are represented by a typed transposition payload rather
 than by the policy description. Point-sensor and normal-flux graphs bind the
 same scalar Dirichlet-Laplacian operator contract to different registered

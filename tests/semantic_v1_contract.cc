@@ -147,8 +147,26 @@ namespace
               point_sensor_region.point_coordinates.size() == 2 &&
               point_sensor_space.dimension == 2 &&
               point_sensor_observation.kind ==
-                nmopt::semantic::v1::ObservationKind::point_sensor,
+              nmopt::semantic::v1::ObservationKind::point_sensor,
             "the point-sensor graph did not pair physical points with a finite output space");
+    const auto custom_point_sensor_specification =
+      nmopt::semantic::v1::make_point_sensor_scalar_diffusion_reaction_problem(
+        {{0.25, 0.35}}, {7});
+    require(validator.validate(custom_point_sensor_specification).valid() &&
+              component_by_id(custom_point_sensor_specification.regions,
+                              "dirichlet_boundary")
+                  .boundary_ids == std::vector<unsigned int>{7},
+            "the point-sensor factory did not preserve custom fixed boundary ids");
+    auto duplicate_point_fixed_boundary = point_sensor_specification;
+    component_by_id(duplicate_point_fixed_boundary.regions,
+                    "dirichlet_boundary")
+      .boundary_ids = {0, 0};
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(duplicate_point_fixed_boundary),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "dirichlet_boundary",
+      "p53_fixed_dirichlet_boundary_ids",
+      "the point-sensor graph accepted duplicate fixed boundary ids");
     const auto point_transposition_policy = component_by_id(
       point_sensor_specification.requirement_policies,
       "point_sensor_transposition_policy");
@@ -227,8 +245,25 @@ namespace
                 nmopt::semantic::v1::SpaceTopology::l2 &&
               normal_flux_space.region_id == "normal_flux_boundary" &&
               normal_flux_observation.kind ==
-                nmopt::semantic::v1::ObservationKind::normal_flux,
+              nmopt::semantic::v1::ObservationKind::normal_flux,
             "the normal-flux graph did not declare its boundary output pairing");
+    const auto custom_normal_flux_specification =
+      nmopt::semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem(
+        {7}, {0, 7});
+    require(validator.validate(custom_normal_flux_specification).valid() &&
+              component_by_id(custom_normal_flux_specification.regions,
+                              "dirichlet_boundary")
+                  .boundary_ids == std::vector<unsigned int>{0, 7},
+            "the normal-flux factory did not preserve custom fixed boundary ids");
+    auto normal_flux_not_fixed = normal_flux_specification;
+    component_by_id(normal_flux_not_fixed.regions, "normal_flux_boundary")
+      .boundary_ids = {2};
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(normal_flux_not_fixed),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "state_observation",
+      "normal_flux_fixed_boundary_subset",
+      "the normal-flux graph accepted an observed boundary outside the fixed region");
     const auto normal_flux_transposition_policy = component_by_id(
       normal_flux_specification.requirement_policies,
       "normal_flux_transposition_policy");

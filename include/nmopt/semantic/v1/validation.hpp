@@ -1501,6 +1501,68 @@ namespace nmopt::semantic::v1
           specification.regions.end(),
           [&id](const RegionSpec &region) { return region.id == id; });
       };
+      const auto has_duplicate_boundary_ids = [](const RegionSpec &region) {
+        for (std::size_t first = 0; first < region.boundary_ids.size(); ++first)
+          if (std::find(region.boundary_ids.begin() + first + 1,
+                        region.boundary_ids.end(),
+                        region.boundary_ids[first]) != region.boundary_ids.end())
+            return true;
+        return false;
+      };
+      const auto state_fixed_policy = selected_policy(
+        specification.formulation.state_variable_id,
+        RequirementKind::fixed_dirichlet);
+      const auto p53_observations = [&specification]() {
+        std::vector<const ObservationSpec *> observations;
+        for (const auto &observation : specification.observations)
+          if (observation.kind == ObservationKind::point_sensor ||
+              observation.kind == ObservationKind::normal_flux)
+            observations.push_back(&observation);
+        return observations;
+      }();
+      if (!p53_observations.empty() &&
+          state_fixed_policy != specification.requirement_policies.end())
+        {
+          const auto fixed_region = find_region(state_fixed_policy->region_id);
+          if (fixed_region != specification.regions.end() &&
+              has_duplicate_boundary_ids(*fixed_region))
+            report.add(
+              DiagnosticCategory::structural,
+              fixed_region->id,
+              "p53_fixed_dirichlet_boundary_ids",
+              "Declare every P5.3 fixed-Dirichlet boundary id exactly once.");
+
+          for (const auto *observation : p53_observations)
+            if (observation->kind == ObservationKind::normal_flux)
+              {
+                const auto observed_region =
+                  find_region(observation->region_id);
+                if (observed_region != specification.regions.end())
+                  {
+                    if (has_duplicate_boundary_ids(*observed_region))
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observed_region->id,
+                        "p53_normal_flux_boundary_ids",
+                        "Declare every P5.3 normal-flux boundary id exactly once.");
+                    if (fixed_region != specification.regions.end() &&
+                        std::any_of(
+                          observed_region->boundary_ids.begin(),
+                          observed_region->boundary_ids.end(),
+                          [&fixed_region](const unsigned int boundary_id) {
+                            return std::find(fixed_region->boundary_ids.begin(),
+                                              fixed_region->boundary_ids.end(),
+                                              boundary_id) ==
+                                   fixed_region->boundary_ids.end();
+                          }))
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation->id,
+                        "normal_flux_fixed_boundary_subset",
+                        "Declare every normal-flux boundary id inside the selected fixed-Dirichlet boundary region.");
+                  }
+              }
+        }
       const auto validate_transposition_selection =
         [&specification, &find_space, &report](
           const RequirementPolicySpec &policy,

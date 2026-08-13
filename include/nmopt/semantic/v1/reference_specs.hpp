@@ -389,11 +389,16 @@ namespace nmopt::semantic::v1
   // dimension and owns the resulting immutable point-evaluation operator.
   inline ProblemSpec
   make_point_sensor_scalar_diffusion_reaction_problem(
-    std::vector<std::vector<double>> sensor_coordinates)
+    std::vector<std::vector<double>> sensor_coordinates,
+    std::vector<unsigned int>        fixed_dirichlet_boundary_ids = {0})
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
     specification.id = "scalar_diffusion_reaction_point_sensor";
     specification.label = "Scalar diffusion-reaction with point sensors";
+    reference_detail::component_by_id(specification.regions,
+                                      "dirichlet_boundary",
+                                      "region")
+      .boundary_ids = std::move(fixed_dirichlet_boundary_ids);
     specification.regions.push_back(
       {"point_sensor_region", "Immutable point-sensor region",
        RegionKind::point_set, false, {}, {}, std::move(sensor_coordinates)});
@@ -476,7 +481,8 @@ namespace nmopt::semantic::v1
   // explicit requirements rather than being inferred from a boundary trace.
   inline ProblemSpec
   make_normal_flux_scalar_diffusion_reaction_problem(
-    std::vector<unsigned int> normal_flux_boundary_ids = {1})
+    std::vector<unsigned int> normal_flux_boundary_ids = {1},
+    std::vector<unsigned int> fixed_dirichlet_boundary_ids = {0, 1})
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
     specification.id = "scalar_diffusion_reaction_normal_flux";
@@ -484,7 +490,7 @@ namespace nmopt::semantic::v1
     reference_detail::component_by_id(specification.regions,
                                       "dirichlet_boundary",
                                       "region")
-      .boundary_ids = {0, 1};
+      .boundary_ids = std::move(fixed_dirichlet_boundary_ids);
     specification.regions.push_back(
       {"normal_flux_boundary", "Normal-flux observation boundary",
        RegionKind::boundary, false, std::move(normal_flux_boundary_ids), {}, {}});

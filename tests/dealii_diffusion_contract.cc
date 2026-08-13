@@ -1723,6 +1723,45 @@ namespace
       "point_sensor_inside_mesh",
       "point-sensor compiler did not reject an out-of-mesh coordinate");
 
+    dealii::Triangulation<dim> extra_boundary_triangulation;
+    dealii::GridGenerator::hyper_cube(extra_boundary_triangulation);
+    extra_boundary_triangulation.refine_global(2);
+    for (auto cell = extra_boundary_triangulation.begin_active();
+         cell != extra_boundary_triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary())
+          cell->face(face)->set_boundary_id(
+            cell->face(face)->center()[0] < 1e-12 ? 0 : 1);
+    const auto extra_boundary = compiler.compile(
+      specification,
+      extra_boundary_triangulation,
+      bindings,
+      policy);
+    test_support::require_exact_diagnostic(
+      extra_boundary.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "p53_complete_fixed_dirichlet_boundary",
+      "point-sensor compiler did not reject an exterior id outside the fixed region");
+
+    const auto absent_fixed_boundary_specification =
+      semantic::v1::make_point_sensor_scalar_diffusion_reaction_problem(
+        sensor_coordinates, {99});
+    const auto absent_fixed_boundary = compiler.compile(
+      absent_fixed_boundary_specification,
+      triangulation,
+      bindings,
+      policy);
+    test_support::require_exact_diagnostic(
+      absent_fixed_boundary.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "fixed_dirichlet_boundary_presence",
+      "point-sensor compiler did not reject an absent fixed boundary id");
+
     const auto compilation = compiler.compile(specification,
                                               triangulation,
                                               bindings,
@@ -1839,13 +1878,14 @@ namespace
            ++face)
         if (cell->face(face)->at_boundary())
           cell->face(face)->set_boundary_id(
-            cell->face(face)->center()[0] > 1.0 - 1e-12 ? 1 : 0);
+            cell->face(face)->center()[0] > 1.0 - 1e-12 ? 7 : 0);
 
     constexpr double reaction = 0.5;
     const EnergyPolynomialForcing<dim> forcing(reaction);
     const RightBoundaryNormalFluxFunction<dim> desired_state;
     const auto specification =
-      semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem();
+      semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem(
+        {7}, {0, 7});
     compiler::v1::DealiiDiscretisationPolicy policy;
     policy.state_degree = 2;
     const compiler::v1::DealiiCompiler compiler;
@@ -1859,6 +1899,64 @@ namespace
       reaction,
       0.2,
       test_binding_provenance("normal_flux")};
+
+    const auto omitted_fixed_boundary_specification =
+      semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem(
+        {7}, {0});
+    const auto omitted_fixed_boundary = compiler.compile(
+      omitted_fixed_boundary_specification,
+      triangulation,
+      bindings,
+      policy);
+    test_support::require_exact_diagnostic(
+      omitted_fixed_boundary.diagnostics,
+      semantic::v1::DiagnosticCategory::structural,
+      "state_observation",
+      "normal_flux_fixed_boundary_subset",
+      "normal-flux compiler accepted an observed boundary outside the fixed region");
+
+    const auto absent_normal_flux_specification =
+      semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem(
+        {9}, {0, 9});
+    const auto absent_normal_flux = compiler.compile(
+      absent_normal_flux_specification,
+      triangulation,
+      bindings,
+      policy);
+    test_support::require_exact_diagnostic(
+      absent_normal_flux.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "normal_flux_boundary",
+      "normal_flux_boundary_presence",
+      "normal-flux compiler did not reject an absent observed boundary id");
+
+    dealii::Triangulation<dim> extra_boundary_triangulation;
+    dealii::GridGenerator::hyper_cube(extra_boundary_triangulation);
+    extra_boundary_triangulation.refine_global(2);
+    for (auto cell = extra_boundary_triangulation.begin_active();
+         cell != extra_boundary_triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary())
+          {
+            const auto center = cell->face(face)->center();
+            cell->face(face)->set_boundary_id(
+              center[0] > 1.0 - 1e-12 ? 7 :
+              center[1] > 1.0 - 1e-12 ? 2 : 0);
+          }
+    const auto extra_boundary = compiler.compile(
+      specification,
+      extra_boundary_triangulation,
+      bindings,
+      policy);
+    test_support::require_exact_diagnostic(
+      extra_boundary.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "state",
+      "p53_complete_fixed_dirichlet_boundary",
+      "normal-flux compiler did not reject an exterior id outside the fixed region");
     const auto compilation = compiler.compile(specification,
                                               triangulation,
                                               bindings,

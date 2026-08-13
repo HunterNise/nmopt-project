@@ -223,6 +223,13 @@ lowerers additionally require every exterior mesh face to carry a declared
 fixed ID; mesh-dependent failure is reported as the lowerability capability
 `p53_complete_fixed_dirichlet_boundary`.
 
+For P5.3 finite observations, the structured `state_observation_space`
+manifest record uses the realized output dimension, not the state DoF count:
+point sensors report one coefficient per declared coordinate, while
+normal-flux observations report one coefficient per selected face-quadrature
+sample. The value, JVP, realized-map, and manifest-space dimensions are one
+contract.
+
 The P5.3 selections are represented by a typed transposition payload rather
 than by the policy description. Point-sensor and normal-flux graphs bind the
 same scalar Dirichlet-Laplacian operator contract to different registered

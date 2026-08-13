@@ -1840,6 +1840,18 @@ namespace
         return map.semantic_id == "state_observation" &&
                map.realization_id == "ordered_point_sensor_values";
       });
+    const auto point_space = std::find_if(
+      manifest.spaces.begin(),
+      manifest.spaces.end(),
+      [](const compiler::v1::CompiledSpaceRecord &space) {
+        return space.semantic_id == "state_observation_space" &&
+               space.role == semantic::v1::SpaceRole::observation;
+      });
+    contract::require(
+      point_space != manifest.spaces.end() &&
+        point_space->dimension == values.size() &&
+        point_space->dimension == sensor_jvp.block(0).size(),
+      "point-sensor manifest recorded a dimension different from its realized output");
     contract::require(
       manifest.compiler_id == "nmopt.compiler.v1.dealii.point_sensor" &&
         point_map != manifest.realized_maps.end() &&
@@ -2059,6 +2071,18 @@ namespace
         return map.semantic_id == "state_observation" &&
                map.realization_id == "ordered_normal_flux_face_quadrature";
       });
+    const auto normal_flux_space = std::find_if(
+      manifest.spaces.begin(),
+      manifest.spaces.end(),
+      [](const compiler::v1::CompiledSpaceRecord &space) {
+        return space.semantic_id == "state_observation_space" &&
+               space.role == semantic::v1::SpaceRole::observation;
+      });
+    contract::require(
+      normal_flux_space != manifest.spaces.end() &&
+        normal_flux_space->dimension == normal_flux_values.size() &&
+        normal_flux_space->dimension == normal_flux_jvp.block(0).size(),
+      "normal-flux manifest recorded the state dimension instead of its realized face output");
     contract::require(
       manifest.compiler_id == "nmopt.compiler.v1.dealii.normal_flux" &&
         normal_flux_map != manifest.realized_maps.end() &&

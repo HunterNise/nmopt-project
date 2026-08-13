@@ -39,7 +39,8 @@ namespace nmopt::semantic::v1
     control,
     parameter,
     observation,
-    data
+    data,
+    auxiliary
   };
 
   enum class VariableRole
@@ -284,6 +285,158 @@ namespace nmopt::semantic::v1
       Hminus1MetricNullspaceRealisation::unspecified;
   };
 
+  enum class TranspositionOperatorRealisation
+  {
+    unspecified = -1,
+    scalar_diffusion_reaction_dirichlet_laplacian
+  };
+
+  enum class TranspositionDiscreteRealisation
+  {
+    unspecified = -1,
+    fe_q_point_sensor_very_weak,
+    fe_q_normal_flux_very_weak,
+    conforming_nodal_lifting_equivalence
+  };
+
+  enum class TranspositionEquivalenceRealisation
+  {
+    unspecified = -1,
+    none,
+    conforming_lifting_variational_equivalence
+  };
+
+  // Shared strong/very-weak policy for P5.3 observations and the P5.4
+  // transposition-control slice. The string ports identify semantic spaces
+  // and policies; the enums close the currently registered realizations.
+  struct TranspositionRealisationSelection
+  {
+    std::string                       id;
+    std::string                       subject_equation_id;
+    std::string                       strong_space_id;
+    std::string                       operator_range_space_id;
+    std::string                       isomorphism_id;
+    std::string                       residual_codomain_space_id;
+    std::string                       multiplier_space_id;
+    std::string                       observation_id;
+    std::string                       transpose_source_space_id;
+    std::string                       domain_regularity_policy_id;
+    std::string                       continuous_parent_space_id;
+    std::string                       conforming_trace_space_id;
+    std::string                       equivalence_policy_id;
+    std::string                       conormal_policy_id;
+    TranspositionOperatorRealisation operator_realisation =
+      TranspositionOperatorRealisation::unspecified;
+    TranspositionDiscreteRealisation discrete_realisation =
+      TranspositionDiscreteRealisation::unspecified;
+    TranspositionEquivalenceRealisation equivalence_realisation =
+      TranspositionEquivalenceRealisation::unspecified;
+  };
+
+  enum class PartialDirichletInterfaceRealisation
+  {
+    unspecified = -1,
+    fixed_data_precedence
+  };
+
+  enum class PartialDirichletTraceRealisation
+  {
+    unspecified = -1,
+    relative_interior_nodal_zero_endpoint
+  };
+
+  enum class PartialDirichletHangingRealisation
+  {
+    unspecified = -1,
+    unsupported
+  };
+
+  struct PartialDirichletBoundarySelection
+  {
+    std::string                         id;
+    std::string                         subject_id;
+    std::string                         transformation_id;
+    std::string                         fixed_boundary_region_id;
+    std::string                         controlled_boundary_region_id;
+    bool                                requires_complete_exterior = true;
+    bool                                requires_disjoint_regions = true;
+    PartialDirichletInterfaceRealisation interface_realisation =
+      PartialDirichletInterfaceRealisation::unspecified;
+    PartialDirichletTraceRealisation     trace_realisation =
+      PartialDirichletTraceRealisation::unspecified;
+    PartialDirichletHangingRealisation   hanging_realisation =
+      PartialDirichletHangingRealisation::unspecified;
+  };
+
+  enum class FractionalTraceOperatorRealisation
+  {
+    unspecified = -1,
+    volume_mass_plus_stiffness_schur
+  };
+
+  enum class FractionalTraceApplyRealisation
+  {
+    unspecified = -1,
+    minimum_h1_extension
+  };
+
+  enum class FractionalTraceInverseRealisation
+  {
+    unspecified = -1,
+    full_volume_operator_inverse
+  };
+
+  struct FractionalTraceMetricRealisationSelection
+  {
+    std::string                          id;
+    std::string                          metric_id;
+    std::string                          control_space_id;
+    std::string                          volume_space_id;
+    std::string                          trace_inclusion_id;
+    std::string                          volume_operator_id;
+    std::string                          apply_policy_id;
+    std::string                          inverse_policy_id;
+    std::string                          solve_policy_id;
+    FractionalTraceOperatorRealisation   operator_realisation =
+      FractionalTraceOperatorRealisation::unspecified;
+    FractionalTraceApplyRealisation      apply_realisation =
+      FractionalTraceApplyRealisation::unspecified;
+    FractionalTraceInverseRealisation    inverse_realisation =
+      FractionalTraceInverseRealisation::unspecified;
+  };
+
+  enum class BoundaryH1MetricOperatorRealisation
+  {
+    unspecified = -1,
+    boundary_mass_plus_tangential_stiffness
+  };
+
+  enum class BoundaryH1TangentialGradientRealisation
+  {
+    unspecified = -1,
+    projected_ambient_gradient
+  };
+
+  enum class BoundaryH1MetricNullspaceRealisation
+  {
+    unspecified = -1,
+    positive_mass_no_nullspace
+  };
+
+  struct BoundaryH1MetricRealisationSelection
+  {
+    std::string                              id;
+    std::string                              metric_id;
+    std::string                              control_space_id;
+    std::string                              boundary_region_id;
+    BoundaryH1MetricOperatorRealisation     operator_realisation =
+      BoundaryH1MetricOperatorRealisation::unspecified;
+    BoundaryH1TangentialGradientRealisation tangential_gradient_realisation =
+      BoundaryH1TangentialGradientRealisation::unspecified;
+    BoundaryH1MetricNullspaceRealisation    nullspace_realisation =
+      BoundaryH1MetricNullspaceRealisation::unspecified;
+  };
+
   // A backend-neutral boundary selection. The first registered general
   // scalar target uses one fixed region, one Robin/outflow region, and
   // explicitly empty Neumann and transport-inflow selections.
@@ -480,6 +633,14 @@ namespace nmopt::semantic::v1
     std::optional<TraceRealisationSelection>     typed_trace_selection;
     std::optional<Hminus1MetricRealisationSelection>
       typed_metric_selection;
+    std::optional<TranspositionRealisationSelection>
+      typed_transposition_selection;
+    std::optional<PartialDirichletBoundarySelection>
+      typed_partial_boundary_selection;
+    std::optional<FractionalTraceMetricRealisationSelection>
+      typed_fractional_metric_selection;
+    std::optional<BoundaryH1MetricRealisationSelection>
+      typed_boundary_h1_metric_selection;
   };
 
   struct ReducedFormulationSpec

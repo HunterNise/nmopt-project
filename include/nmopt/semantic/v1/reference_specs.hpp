@@ -12,6 +12,21 @@ namespace nmopt::semantic::v1
 {
   namespace reference_detail
   {
+    inline void
+    add_transposition_spaces(ProblemSpec &specification)
+    {
+      specification.spaces.insert(
+        specification.spaces.end(),
+        {{"transposition_strong_space", "Strong transposition test space",
+          "domain", SpaceTopology::h2, SpaceRole::auxiliary},
+         {"transposition_range_space", "Transposition operator range",
+          "domain", SpaceTopology::l2, SpaceRole::auxiliary},
+         {"transposition_residual_space", "Transposition residual codomain",
+          "domain", SpaceTopology::l2, SpaceRole::auxiliary},
+         {"transposition_multiplier_space", "Transposition multiplier space",
+          "domain", SpaceTopology::l2, SpaceRole::auxiliary}});
+    }
+
     template <typename Component>
     Component &
     component_by_id(std::vector<Component> &components,
@@ -385,6 +400,7 @@ namespace nmopt::semantic::v1
 
     auto &sensor_region = reference_detail::component_by_id(
       specification.regions, "point_sensor_region", "region");
+    reference_detail::add_transposition_spaces(specification);
     auto &sensor_space = reference_detail::component_by_id(
       specification.spaces, "state_observation_space", "space");
     sensor_space = {"state_observation_space", "Finite point-sensor output",
@@ -416,6 +432,29 @@ namespace nmopt::semantic::v1
        RequirementStatus::provided, RequirementScope::continuous_semantics,
        "Y=H2(Omega) cap H1_0(Omega); T=-Delta+rI:Y->L2(Omega) is an isomorphism; the point residual is represented in Y* and its adjoint is very weak",
        "domain"});
+    reference_detail::component_by_id(
+      specification.requirement_policies,
+      "point_sensor_transposition_policy",
+      "requirement policy")
+      .typed_transposition_selection = TranspositionRealisationSelection{
+      "point_sensor_transposition_policy",
+      "state_equation",
+      "transposition_strong_space",
+      "transposition_range_space",
+      "dirichlet_laplacian_isomorphism",
+      "transposition_residual_space",
+      "transposition_multiplier_space",
+      "state_observation",
+      "state_observation_space",
+      "point_sensor_domain_regularity",
+      "",
+      "",
+      "",
+      "",
+      TranspositionOperatorRealisation::
+        scalar_diffusion_reaction_dirichlet_laplacian,
+      TranspositionDiscreteRealisation::fe_q_point_sensor_very_weak,
+      TranspositionEquivalenceRealisation::none};
     specification.requirement_policies.push_back(
       {"point_sensor_domain_regularity", "state_equation",
        RequirementKind::domain_regularity, RequirementStatus::user_assumed,
@@ -449,6 +488,7 @@ namespace nmopt::semantic::v1
     specification.regions.push_back(
       {"normal_flux_boundary", "Normal-flux observation boundary",
        RegionKind::boundary, false, std::move(normal_flux_boundary_ids), {}, {}});
+    reference_detail::add_transposition_spaces(specification);
 
     reference_detail::component_by_id(specification.spaces,
                                       "state_observation_space",
@@ -487,6 +527,29 @@ namespace nmopt::semantic::v1
        RequirementStatus::provided, RequirementScope::continuous_semantics,
        "Y=H2(Omega) cap H1_0(Omega); the normal-flux residual is represented in the boundary dual and its adjoint is a very weak L2(Omega) solution",
        "domain"});
+    reference_detail::component_by_id(
+      specification.requirement_policies,
+      "normal_flux_transposition_policy",
+      "requirement policy")
+      .typed_transposition_selection = TranspositionRealisationSelection{
+      "normal_flux_transposition_policy",
+      "state_equation",
+      "transposition_strong_space",
+      "transposition_range_space",
+      "dirichlet_laplacian_isomorphism",
+      "transposition_residual_space",
+      "transposition_multiplier_space",
+      "state_observation",
+      "state_observation_space",
+      "normal_flux_domain_regularity",
+      "",
+      "",
+      "",
+      "",
+      TranspositionOperatorRealisation::
+        scalar_diffusion_reaction_dirichlet_laplacian,
+      TranspositionDiscreteRealisation::fe_q_normal_flux_very_weak,
+      TranspositionEquivalenceRealisation::none};
     specification.requirement_policies.push_back(
       {"normal_flux_domain_regularity", "state_equation",
        RequirementKind::domain_regularity, RequirementStatus::user_assumed,
@@ -1317,6 +1380,25 @@ namespace nmopt::semantic::v1
          RequirementScope::discrete_compilation,
          "Schur complement of the volume H1 mass-plus-stiffness matrix under minimum-energy trace extension",
          "control_boundary"});
+      reference_detail::component_by_id(
+        specification.requirement_policies,
+        "control_hhalf_metric_realisation",
+        "requirement policy")
+        .typed_fractional_metric_selection =
+        FractionalTraceMetricRealisationSelection{
+          "control_hhalf_metric_realisation",
+          "control_hhalf_metric",
+          "control_space",
+          "state_space",
+          "control_trace_inclusion",
+          "volume_mass_plus_stiffness",
+          "minimum_h1_extension",
+          "full_volume_operator_inverse",
+          "control_metric_solve",
+          FractionalTraceOperatorRealisation::
+            volume_mass_plus_stiffness_schur,
+          FractionalTraceApplyRealisation::minimum_h1_extension,
+          FractionalTraceInverseRealisation::full_volume_operator_inverse};
       specification.requirement_policies.push_back(
         {"discrete_conormal_policy", "state_equation",
          RequirementKind::conormal_flux,
@@ -1469,6 +1551,20 @@ namespace nmopt::semantic::v1
        RequirementScope::discrete_compilation,
        "boundary mass plus tangential stiffness assembled on the complete controlled trace",
        "control_boundary"});
+    reference_detail::component_by_id(
+      specification.requirement_policies,
+      "control_h1_metric_realisation",
+      "requirement policy")
+      .typed_boundary_h1_metric_selection =
+      BoundaryH1MetricRealisationSelection{
+        "control_h1_metric_realisation",
+        "control_h1_metric",
+        "control_space",
+        "control_boundary",
+        BoundaryH1MetricOperatorRealisation::
+          boundary_mass_plus_tangential_stiffness,
+        BoundaryH1TangentialGradientRealisation::projected_ambient_gradient,
+        BoundaryH1MetricNullspaceRealisation::positive_mass_no_nullspace};
     return specification;
   }
 
@@ -1509,6 +1605,10 @@ namespace nmopt::semantic::v1
     specification.spaces.push_back(
       {"forcing_space", "L2 volume forcing", "domain", SpaceTopology::l2,
        SpaceRole::data});
+    reference_detail::add_transposition_spaces(specification);
+    specification.spaces.push_back(
+      {"transposition_trace_space", "Conforming boundary trace subspace",
+       "control_boundary", SpaceTopology::hhalf, SpaceRole::auxiliary});
 
     reference_detail::component_by_id(specification.data, "forcing", "data")
       .space_id = "forcing_space";
@@ -1574,6 +1674,30 @@ namespace nmopt::semantic::v1
        RequirementStatus::selected_discrete_realisation,
        RequirementScope::discrete_compilation,
        "analytic Function evaluated at selected volume quadrature", "domain"}};
+    reference_detail::component_by_id(
+      specification.requirement_policies,
+      "transposition_formulation",
+      "requirement policy")
+      .typed_transposition_selection = TranspositionRealisationSelection{
+      "transposition_formulation",
+      "state_equation",
+      "state_test_space",
+      "transposition_range_space",
+      "dirichlet_laplacian_isomorphism",
+      "transposition_residual_space",
+      "transposition_multiplier_space",
+      "control_boundary_restriction",
+      "control_observation_space",
+      "transposition_domain_regularity",
+      "control_space",
+      "transposition_trace_space",
+      "conforming_trace_subspace",
+      "discrete_conormal_policy",
+      TranspositionOperatorRealisation::
+        scalar_diffusion_reaction_dirichlet_laplacian,
+      TranspositionDiscreteRealisation::conforming_nodal_lifting_equivalence,
+      TranspositionEquivalenceRealisation::
+        conforming_lifting_variational_equivalence};
     return specification;
   }
 
@@ -1616,6 +1740,22 @@ namespace nmopt::semantic::v1
        RequirementScope::both,
        "complete disjoint fixed and controlled Dirichlet boundary partition",
        ""});
+    reference_detail::component_by_id(
+      specification.requirement_policies,
+      "partial_dirichlet_boundary_partition",
+      "requirement policy")
+      .typed_partial_boundary_selection =
+      PartialDirichletBoundarySelection{
+        "partial_dirichlet_boundary_partition",
+        "state",
+        "dirichlet_control_lifting",
+        "fixed_dirichlet_boundary",
+        "control_boundary",
+        true,
+        true,
+        PartialDirichletInterfaceRealisation::fixed_data_precedence,
+        PartialDirichletTraceRealisation::relative_interior_nodal_zero_endpoint,
+        PartialDirichletHangingRealisation::unsupported};
     specification.requirement_policies.push_back(
       {"partial_dirichlet_interface_policy", "dirichlet_control_lifting",
        RequirementKind::controlled_dirichlet,

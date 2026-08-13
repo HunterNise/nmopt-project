@@ -1763,13 +1763,164 @@ namespace nmopt::semantic::v1
                 if (region == specification.regions.end() ||
                     region->kind != RegionKind::boundary ||
                     region->boundary_ids.empty())
-                  report.add(
+                    report.add(
                     DiagnosticCategory::structural,
                     metric.id,
                     "hminus1_metric_dirichlet_region",
                     "Select a non-empty boundary region for the Dirichlet H-1 Riesz operator.");
               }
+
+            const auto metric_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&metric](const RequirementPolicySpec &policy) {
+                return policy.subject_id == metric.id &&
+                       policy.kind == RequirementKind::metric_realisation;
+              });
+            if (metric_policy == specification.requirement_policies.end() ||
+                metric_policy->status !=
+                  RequirementStatus::selected_discrete_realisation ||
+                metric_policy->scope != RequirementScope::discrete_compilation ||
+                !metric_policy->typed_metric_selection)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "hminus1_metric_realisation",
+                "Select the typed discrete H-1 operator, inverse, boundary, and solve realization.");
+            else
+              {
+                const auto &selection = *metric_policy->typed_metric_selection;
+                const auto pairing = std::find_if(
+                  specification.pairings.begin(), specification.pairings.end(),
+                  [&metric](const PairingSpec &candidate) {
+                    return candidate.id == metric.pairing_id;
+                  });
+                const auto control = std::find_if(
+                  specification.variables.begin(), specification.variables.end(),
+                  [&metric](const VariableSpec &candidate) {
+                    return candidate.id == metric.variable_id;
+                  });
+                if (selection.id !=
+                      "hminus1_metric_mass_laplacian_inverse_mass" ||
+                    selection.metric_id != metric.id ||
+                    control == specification.variables.end() ||
+                    selection.primal_space_id != control->space_id ||
+                    selection.dual_space_id != control->space_id ||
+                    pairing == specification.pairings.end() ||
+                    selection.mass_pairing_id != pairing->id ||
+                    selection.laplacian_pairing_id != pairing->id)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_operator",
+                    "Select the registered M K^{-1} M operator with the control pairing on both actions.");
+                if (selection.operator_realisation !=
+                    Hminus1MetricOperatorRealisation::mass_laplacian_inverse_mass)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_operator",
+                    "Select the registered mass-laplacian-inverse-mass realization.");
+                if (selection.inverse_realisation !=
+                    Hminus1MetricInverseRealisation::mass_inverse_laplacian_mass_inverse)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_inverse",
+                    "Select the registered mass-inverse-laplacian-mass-inverse action sequence.");
+                if (selection.nullspace_realisation !=
+                    Hminus1MetricNullspaceRealisation::fixed_dirichlet_no_nullspace)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_nullspace",
+                    "Select the fixed-Dirichlet no-nullspace H-1 realization.");
+                if (selection.laplacian_solve_policy_id !=
+                      "control_metric_solve.laplacian_inverse" ||
+                    selection.mass_solve_policy_id !=
+                      "control_metric_solve.mass_inverse")
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_solve_policy",
+                    "Reference the selected control metric solve policy for every H-1 inverse action.");
+                if (boundary_policy != specification.requirement_policies.end() &&
+                    selection.fixed_boundary_region_id != boundary_policy->region_id)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_control_boundary",
+                    "Use the same fixed control boundary region selected by the H-1 search-space policy.");
+              }
           }
+
+      const auto control_variable = std::find_if(
+        specification.variables.begin(), specification.variables.end(),
+        [&specification](const VariableSpec &candidate) {
+          return candidate.id == specification.formulation.control_variable_id;
+        });
+      const auto control_space = std::find_if(
+        specification.spaces.begin(), specification.spaces.end(),
+        [&specification, &control_variable](const SpaceSpec &candidate) {
+          return control_variable != specification.variables.end() &&
+                 candidate.id == control_variable->space_id;
+        });
+      const bool p52_continuous_control =
+        has_policy(specification.formulation.metric_id,
+                   RequirementKind::metric_realisation) ||
+        (control_space != specification.spaces.end() &&
+         control_space->topology == SpaceTopology::h1 &&
+         std::any_of(specification.observations.begin(),
+                     specification.observations.end(),
+                     [](const ObservationSpec &observation) {
+                       return observation.kind ==
+                              ObservationKind::h1_state_restriction;
+                     }));
+      if (p52_continuous_control && control_variable != specification.variables.end())
+        {
+          const auto control_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&control_variable](const RequirementPolicySpec &policy) {
+              return policy.subject_id == control_variable->id &&
+                     policy.kind == RequirementKind::fixed_dirichlet;
+            });
+          const auto state_policy = selected_policy(
+            specification.formulation.state_variable_id,
+            RequirementKind::fixed_dirichlet);
+          if (control_policy == specification.requirement_policies.end() ||
+              control_policy->status !=
+                RequirementStatus::selected_discrete_realisation ||
+              control_policy->scope != RequirementScope::both)
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              control_variable->id,
+              "continuous_control_boundary_policy",
+              "Select the homogeneous continuous-control boundary in both semantic and discrete scopes.");
+          else
+            {
+              const auto region = std::find_if(
+                specification.regions.begin(), specification.regions.end(),
+                [&control_policy](const RegionSpec &candidate) {
+                  return candidate.id == control_policy->region_id;
+                });
+              if (region == specification.regions.end() ||
+                  region->kind != RegionKind::boundary ||
+                  region->boundary_ids.empty())
+                report.add(
+                  DiagnosticCategory::structural,
+                  control_variable->id,
+                  "continuous_control_boundary_region",
+                  "Select a non-empty boundary region for homogeneous continuous control.");
+              if (state_policy != specification.requirement_policies.end() &&
+                  control_policy->region_id != state_policy->region_id)
+                report.add(
+                  DiagnosticCategory::structural,
+                  control_variable->id,
+                  "continuous_control_boundary_match",
+                  "Use the same fixed boundary region for the state and continuous control.");
+            }
+        }
 
       for (const auto &datum : specification.data)
         if ((datum.role == DataRole::desired_state ||
@@ -2126,13 +2277,85 @@ namespace nmopt::semantic::v1
             if (policy == specification.requirement_policies.end())
               report.add(DiagnosticCategory::analytical_policy,
                          observation.id,
-                         "boundary_trace_realisation",
-                         "Declare the selected boundary-trace observation realization.");
+                         observation.kind == ObservationKind::weighted_boundary_trace
+                           ? "weighted_trace_realisation"
+                           : "boundary_trace_realisation",
+                         observation.kind == ObservationKind::weighted_boundary_trace
+                           ? "Declare the typed weighted boundary-trace observation realization."
+                           : "Declare the selected boundary-trace observation realization.");
             else if (policy->region_id != observation.region_id)
               report.add(DiagnosticCategory::structural,
                          observation.id,
                          "boundary_trace_region",
                          "Declare the trace policy on the observation boundary region.");
+            else if (observation.kind == ObservationKind::weighted_boundary_trace)
+              {
+                if (policy->scope != RequirementScope::discrete_compilation ||
+                    !policy->typed_trace_selection)
+                  report.add(
+                    DiagnosticCategory::analytical_policy,
+                    observation.id,
+                    "weighted_trace_realisation",
+                    "Declare the typed weighted trace selection in the discrete compilation scope.");
+                else
+                  {
+                    const auto &selection = *policy->typed_trace_selection;
+                    const auto input = std::find_if(
+                      specification.variables.begin(), specification.variables.end(),
+                      [&observation](const VariableSpec &candidate) {
+                        return candidate.id == observation.input_variable_id;
+                      });
+                    if (selection.id !=
+                          "weighted_state_boundary_trace_fe_qgauss" ||
+                        input == specification.variables.end() ||
+                        selection.source_space_id != input->space_id ||
+                        selection.output_space_id != observation.output_space_id ||
+                        selection.region_id != observation.region_id ||
+                        observation.data_ids.size() != 1 ||
+                        selection.weight_data_id != observation.data_ids.front() ||
+                        selection.pairing_id != observation.output_pairing_id)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_realisation",
+                        "Bind the weighted trace to its state space, output pairing, boundary, and immutable weight datum.");
+                    if (selection.trace_realisation !=
+                        TraceEvaluationRealisation::fe_q_state_trace)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_trace_rule",
+                        "Select the FE_Q state-trace realization for the weighted observation.");
+                    if (selection.face_quadrature_realisation !=
+                        FaceQuadratureRealisation::qgauss_face)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_quadrature",
+                        "Select the face QGauss realization for the weighted observation.");
+                    if (selection.weight_realisation !=
+                        TraceWeightRealisation::scalar_pointwise_multiplication)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_weight_rule",
+                        "Select scalar pointwise multiplication by the immutable observation weight.");
+                    if (selection.pairing_realisation !=
+                        TracePairingRealisation::face_quadrature_weights)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_pairing_rule",
+                        "Select the matching face-quadrature observation pairing.");
+                    if (selection.transpose_realisation !=
+                        TraceTransposeRealisation::same_face_quadrature_pullback)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_transpose_realisation",
+                        "Select the same face-quadrature trace and weight pullback for the transpose.");
+                  }
+              }
           }
         else if (observation.kind == ObservationKind::normal_flux)
           {

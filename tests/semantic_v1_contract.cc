@@ -422,14 +422,69 @@ namespace
                 hminus1_metric.id,
             "the H-1 metric factory did not select its control space and Riesz map");
 
+    const auto hminus1_realisation_policy = component_by_id(
+      hminus1_metric_specification.requirement_policies,
+      "hminus1_metric_realisation");
+    require(hminus1_realisation_policy.typed_metric_selection.has_value() &&
+              hminus1_realisation_policy.typed_metric_selection->metric_id ==
+                "control_hminus1_metric" &&
+              hminus1_realisation_policy.typed_metric_selection
+                  ->fixed_boundary_region_id == "dirichlet_boundary",
+            "the H-1 metric factory omitted its typed operator and boundary selection");
+
     auto missing_hminus1_boundary_policy = hminus1_metric_specification;
-    missing_hminus1_boundary_policy.requirement_policies.pop_back();
+    remove_policy(missing_hminus1_boundary_policy,
+                  "control_homogeneous_dirichlet_policy");
     nmopt::test_support::require_exact_diagnostic(
       validator.validate(missing_hminus1_boundary_policy),
       nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
       "control_hminus1_metric",
       "hminus1_metric_boundary_policy",
       "v1 semantic validation accepted an H-1 metric without its boundary policy");
+
+    auto missing_hminus1_realisation = hminus1_metric_specification;
+    remove_policy(missing_hminus1_realisation, "hminus1_metric_realisation");
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_hminus1_realisation),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "control_hminus1_metric",
+      "hminus1_metric_realisation",
+      "v1 semantic validation accepted an H-1 metric without its typed realization");
+
+    auto alternate_hminus1_operator = hminus1_metric_specification;
+    component_by_id(alternate_hminus1_operator.requirement_policies,
+                    "hminus1_metric_realisation")
+      .typed_metric_selection->operator_realisation =
+      nmopt::semantic::v1::Hminus1MetricOperatorRealisation::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(alternate_hminus1_operator),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "control_hminus1_metric",
+      "hminus1_metric_operator",
+      "v1 semantic validation accepted an alternate H-1 metric operator");
+
+    auto alternate_hminus1_inverse = hminus1_metric_specification;
+    component_by_id(alternate_hminus1_inverse.requirement_policies,
+                    "hminus1_metric_realisation")
+      .typed_metric_selection->inverse_realisation =
+      nmopt::semantic::v1::Hminus1MetricInverseRealisation::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(alternate_hminus1_inverse),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "control_hminus1_metric",
+      "hminus1_metric_inverse",
+      "v1 semantic validation accepted an alternate H-1 inverse sequence");
+
+    auto mismatched_hminus1_boundary = hminus1_metric_specification;
+    component_by_id(mismatched_hminus1_boundary.requirement_policies,
+                    "hminus1_metric_realisation")
+      .typed_metric_selection->fixed_boundary_region_id = "domain";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(mismatched_hminus1_boundary),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "control_hminus1_metric",
+      "hminus1_control_boundary",
+      "v1 semantic validation accepted a mismatched H-1 control boundary");
 
     auto discontinuous_hminus1_search_space = hminus1_metric_specification;
     component_by_id(discontinuous_hminus1_search_space.spaces, "control_space")
@@ -480,6 +535,45 @@ namespace
                             "weighted_state_boundary_trace")
                 .data_ids == std::vector<std::string>{"boundary_weight"},
             "the weighted boundary trace omitted its immutable data port");
+    const auto weighted_trace_policy = component_by_id(
+      weighted_boundary_specification.requirement_policies,
+      "state_boundary_trace_policy");
+    require(weighted_trace_policy.typed_trace_selection.has_value() &&
+              weighted_trace_policy.typed_trace_selection->weight_data_id ==
+                "boundary_weight" &&
+              weighted_trace_policy.typed_trace_selection->pairing_id ==
+                "state_observation_pairing",
+            "the weighted boundary trace omitted its typed map selection");
+
+    auto missing_weight_realisation = weighted_boundary_specification;
+    component_by_id(missing_weight_realisation.requirement_policies,
+                    "state_boundary_trace_policy")
+      .typed_trace_selection.reset();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_weight_realisation),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "weighted_state_boundary_trace",
+      "weighted_trace_realisation",
+      "v1 semantic validation accepted a weighted trace without its typed realization");
+
+    auto alternate_weight_rule = weighted_boundary_specification;
+    component_by_id(alternate_weight_rule.requirement_policies,
+                    "state_boundary_trace_policy")
+      .typed_trace_selection->weight_realisation =
+      nmopt::semantic::v1::TraceWeightRealisation::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(alternate_weight_rule),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "weighted_state_boundary_trace",
+      "weighted_trace_weight_rule",
+      "v1 semantic validation accepted an alternate weighted trace rule");
+
+    auto display_only_weight_change = weighted_boundary_specification;
+    component_by_id(display_only_weight_change.requirement_policies,
+                    "state_boundary_trace_policy")
+      .selected_policy = "arbitrary display text";
+    require(validator.validate(display_only_weight_change).valid(),
+            "weighted trace lowering policy depended on display text");
 
     auto missing_weight_port = weighted_boundary_specification;
     component_by_id(missing_weight_port.observations,

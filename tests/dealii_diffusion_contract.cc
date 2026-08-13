@@ -525,6 +525,63 @@ namespace
   }
 
   void
+  require_resolved_manifest_projection(
+    const compiler::v1::CompilationManifest &manifest,
+    const std::string &                       description)
+  {
+    const auto &decision = manifest.resolved_decision;
+    contract::require(
+      decision.formulation_record.semantic_id ==
+          manifest.formulation_record.semantic_id &&
+        decision.formulation_record.kind == manifest.formulation_record.kind &&
+        decision.formulation_record.execution ==
+          manifest.formulation_record.execution &&
+        decision.formulation_record.dual_representation ==
+          manifest.formulation_record.dual_representation &&
+        decision.mesh_record.dimension == manifest.mesh_record.dimension &&
+        decision.mesh_record.active_cells == manifest.mesh_record.active_cells &&
+        decision.mesh_record.provenance == manifest.mesh_record.provenance &&
+        decision.mesh_record.lifetime == manifest.mesh_record.lifetime &&
+        decision.mesh_record.structural_identity ==
+          manifest.mesh_record.structural_identity &&
+        decision.spaces.size() == manifest.spaces.size() &&
+        decision.bindings.size() == manifest.bindings.size() &&
+        decision.state_solve_record.algorithm ==
+          manifest.state_solve_record.algorithm &&
+        decision.state_solve_record.maximum_iterations ==
+          manifest.state_solve_record.maximum_iterations &&
+        decision.state_solve_record.relative_tolerance ==
+          manifest.state_solve_record.relative_tolerance &&
+        decision.state_solve_record.absolute_tolerance ==
+          manifest.state_solve_record.absolute_tolerance &&
+        decision.state_solve_record.nullspace_policy ==
+          manifest.state_solve_record.nullspace_policy &&
+        decision.state_solve_record.operator_realisation ==
+          manifest.state_solve_record.operator_realisation &&
+        decision.adjoint_solve_record.algorithm ==
+          manifest.adjoint_solve_record.algorithm &&
+        decision.adjoint_solve_record.maximum_iterations ==
+          manifest.adjoint_solve_record.maximum_iterations &&
+        decision.adjoint_solve_record.relative_tolerance ==
+          manifest.adjoint_solve_record.relative_tolerance &&
+        decision.adjoint_solve_record.absolute_tolerance ==
+          manifest.adjoint_solve_record.absolute_tolerance &&
+        decision.adjoint_solve_record.nullspace_policy ==
+          manifest.adjoint_solve_record.nullspace_policy &&
+        decision.adjoint_solve_record.operator_realisation ==
+          manifest.adjoint_solve_record.operator_realisation &&
+        manifest.dual_representation ==
+          decision.formulation_record.dual_representation &&
+        manifest.execution == decision.execution_id &&
+        manifest.metric_solve_policy.find(
+          manifest.metric_record.realisation_id) != std::string::npos &&
+        manifest.state_adjoint_solve_policy.find(
+          manifest.state_solve_record.operator_realisation) !=
+          std::string::npos,
+      description + " was not rendered from its resolved typed records");
+  }
+
+  void
   run_projection_compatibility_contract_test()
   {
     const auto layout = std::make_shared<const contract::BlockLayout>(
@@ -4868,6 +4925,8 @@ namespace
                         compiled_constraint->is_feasible(bounded_control),
                       "v1 compiler did not preserve the declared box constraint");
     const auto &manifest = compilation.problem->manifest();
+    require_resolved_manifest_projection(
+      manifest, "canonical volume control manifest");
     dealii::Triangulation<dim> coarser_triangulation;
     dealii::GridGenerator::hyper_cube(coarser_triangulation);
     coarser_triangulation.refine_global(1);
@@ -4897,6 +4956,9 @@ namespace
       bound_bindings);
     contract::require(relabeled_compilation.succeeded(),
                       "v1 compiler rejected a label-only graph change");
+    require_resolved_manifest_projection(
+      relabeled_compilation.problem->manifest(),
+      "label-only graph change manifest");
     require_compiled_binding_records_equal(
       relabeled_compilation.problem->manifest().resolved_decision.bindings,
       manifest.resolved_decision.bindings,

@@ -1049,7 +1049,10 @@ namespace nmopt::compiler::v1
                                scalar_plan ? &*scalar_plan : nullptr,
                                data,
                                bounds,
-                               facewise_bounds);
+                               facewise_bounds,
+                               triangulation,
+                               mesh_provenance,
+                               owns_mesh);
 
       const auto fixed_dirichlet_boundary_ids =
         uses_general_scalar && scalar_plan
@@ -1533,7 +1536,7 @@ namespace nmopt::compiler::v1
         metric,
         constraint,
         solvers,
-        make_manifest(specification,
+        make_manifest<dim>(specification,
                       policy,
                       constraint_realisation,
                       target_kind,
@@ -1544,9 +1547,6 @@ namespace nmopt::compiler::v1
                       uses_homogeneous_dirichlet_continuous_control
                         ? continuous_control_boundary_region
                         : control_boundary_region,
-                      triangulation,
-                      mesh_provenance,
-                      owns_mesh,
                       *executable,
                       *metric,
                       scalar_plan ? &*scalar_plan : nullptr),
@@ -4204,6 +4204,59 @@ namespace nmopt::compiler::v1
       return {};
     }
 
+    static std::string
+    describe(const CompiledConstraintRecord &record)
+    {
+      if (!record.present || record.realisation_id == "none")
+        return "none";
+      if (record.realisation_id == "l2_cellwise")
+        return "FE_DGQ(0) coefficientwise l2_cellwise clipping";
+      if (record.realisation_id == "l2_cellwise_parameter")
+        return "FE_DGQ(0) coefficientwise l2_cellwise_parameter clipping";
+      if (record.realisation_id == "l2_facewise")
+        return "facewise-constant coefficientwise l2_facewise clipping";
+      contract::require(false, "Unknown compiled constraint record realization");
+      return {};
+    }
+
+    static std::string
+    metric_solve_policy_description(const CompiledMetricRecord &record)
+    {
+      const auto &policy = record.solve_policy;
+      return record.realisation_id + ": " + record.operator_description +
+             "; serial CG with " + policy.preconditioner +
+             " preconditioner, maximum iterations=" +
+             std::to_string(policy.maximum_iterations) +
+             ", relative tolerance=" +
+             std::to_string(policy.relative_tolerance) +
+             ", absolute tolerance=" +
+             std::to_string(policy.absolute_tolerance);
+    }
+
+    static std::string
+    state_adjoint_solve_policy_description(
+      const CompiledSolvePolicyRecord &state,
+      const CompiledSolvePolicyRecord &adjoint)
+    {
+      const auto describe_policy = [](const CompiledSolvePolicyRecord &record) {
+        const std::string algorithm =
+          record.algorithm == LinearSolveAlgorithm::serial_sparse_direct_umfpack
+            ? "serial SparseDirectUMFPACK"
+            : "serial CG with " + record.preconditioner + " preconditioner";
+        return algorithm + " (maximum iterations=" +
+               std::to_string(record.maximum_iterations) +
+               ", relative tolerance=" +
+               std::to_string(record.relative_tolerance) +
+               ", absolute tolerance=" +
+               std::to_string(record.absolute_tolerance) +
+               (record.operator_realisation.empty()
+                  ? std::string{}
+                  : "; " + record.operator_realisation) + ")";
+      };
+      return "state=" + describe_policy(state) +
+             "; adjoint=" + describe_policy(adjoint);
+    }
+
     static const dealii_backend::MassMetric &
     as_mass_metric(const contract::MetricT<dealii_backend::SerialBackend> &metric)
     {
@@ -4293,7 +4346,8 @@ namespace nmopt::compiler::v1
               resolved_maximum_iterations(policy, dimension),
               policy.relative_tolerance,
               policy.absolute_tolerance,
-              std::move(nullspace_policy)};
+              std::move(nullspace_policy),
+              {}};
     }
 
     template <int dim>
@@ -4856,12 +4910,27 @@ namespace nmopt::compiler::v1
                            const ScalarLoweringPlan *scalar_plan,
                            const DealiiDataBindings<dim> &data,
                            const std::optional<CellwiseBoxDataBindings> &bounds,
-                           const std::optional<FacewiseBoxDataBindings> &facewise_bounds)
+                           const std::optional<FacewiseBoxDataBindings> &facewise_bounds,
+                           const dealii::Triangulation<dim> &triangulation,
+                           const std::string &mesh_provenance,
+                           const bool owns_mesh)
     {
       ResolvedCompilationDecision decision;
       decision.semantic_problem_id = specification.id;
       decision.formulation_id = specification.formulation.id;
       decision.target_id = target_id(target);
+      decision.formulation_record = {
+        specification.formulation.id,
+        specification.formulation.kind,
+        ExecutionRealisation::assembled,
+        "tested dual coefficients with dot pairing"};
+      decision.mesh_record = {
+        dim,
+        triangulation.n_active_cells(),
+        mesh_provenance,
+        owns_mesh ? MeshLifetimePolicy::owned_session
+                  : MeshLifetimePolicy::borrowed_immutable,
+        mesh_structural_identity(triangulation)};
       decision.bindings = make_resolved_binding_records<dim>(
         specification, target, request, data, bounds, facewise_bounds);
       for (const auto &space : specification.spaces)
@@ -5165,9 +5234,6 @@ namespace nmopt::compiler::v1
       const ResolvedCompilationRequest  &request,
       const semantic::v1::RegionSpec &  tracking_region,
       const semantic::v1::RegionSpec *  control_boundary_region,
-      const dealii::Triangulation<dim> & triangulation,
-      const std::string &                mesh_provenance,
-      const bool                         owns_mesh,
       const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
       const contract::MetricT<dealii_backend::SerialBackend> &metric,
       const ScalarLoweringPlan *          scalar_plan)
@@ -5250,18 +5316,8 @@ namespace nmopt::compiler::v1
       const bool uses_coefficient_identification =
         target == CompiledTargetKind::coefficient_identification;
 
-      manifest.formulation_record = {
-        specification.formulation.id,
-        specification.formulation.kind,
-        ExecutionRealisation::assembled,
-        "tested dual coefficients with dot pairing"};
-      manifest.mesh_record = {
-        dim,
-        triangulation.n_active_cells(),
-        mesh_provenance,
-        owns_mesh ? MeshLifetimePolicy::owned_session
-                  : MeshLifetimePolicy::borrowed_immutable,
-        mesh_structural_identity(triangulation)};
+      manifest.formulation_record = decision.formulation_record;
+      manifest.mesh_record = decision.mesh_record;
       manifest.spaces = decision.spaces;
       for (auto &space : manifest.spaces)
         {
@@ -5278,8 +5334,8 @@ namespace nmopt::compiler::v1
                                                      executable,
                                                      manifest.realized_spaces);
         }
-      manifest.bindings = decision.bindings;
       manifest.resolved_decision.spaces = manifest.spaces;
+      manifest.bindings = decision.bindings;
       manifest.resolved_decision.bindings = manifest.bindings;
 
       const std::size_t state_dimension =
@@ -5293,9 +5349,18 @@ namespace nmopt::compiler::v1
             0.0,
             0.0,
             uses_mean_zero_gauge ? "one mean-zero Lagrange multiplier"
-                                 : "fixed Dirichlet"};
+                                 : "fixed Dirichlet",
+            {}};
           manifest.state_solve_record = direct_record;
           manifest.adjoint_solve_record = direct_record;
+          manifest.state_solve_record.operator_realisation =
+            uses_mean_zero_gauge
+              ? "augmented symmetric state and adjoint saddle systems"
+            : uses_general_scalar
+              ? "nonsymmetric state operator and its exact transpose"
+            : "nonsymmetric conservative-transport state operator and its exact transpose";
+          manifest.adjoint_solve_record.operator_realisation =
+            manifest.state_solve_record.operator_realisation;
         }
       else
         {
@@ -5311,6 +5376,16 @@ namespace nmopt::compiler::v1
             uses_dirichlet_control_lifting
               ? "homogeneous conforming Galerkin adjoint subspace"
               : "fixed Dirichlet");
+          manifest.state_solve_record.operator_realisation =
+            uses_coefficient_identification
+              ? "parameter-dependent SPD state matrix is reassembled for each state and adjoint solve"
+            : uses_normalized_dirichlet_control
+              ? (uses_l2_dirichlet_control
+                   ? "conforming variational state and adjoint systems selected by transposition equivalence"
+                   : "normalized-Laplacian conforming state and adjoint systems")
+              : "symmetric positive-definite operator";
+          manifest.adjoint_solve_record.operator_realisation =
+            manifest.state_solve_record.operator_realisation;
         }
       manifest.metric_record = {
         specification.formulation.metric_id,
@@ -5350,7 +5425,8 @@ namespace nmopt::compiler::v1
          policy.control_metric_solve.maximum_iterations,
          policy.control_metric_solve.relative_tolerance,
          policy.control_metric_solve.absolute_tolerance,
-         "not applicable"}};
+         "not applicable",
+         {}}};
       manifest.constraint_record = {
         constraint_realisation != ConstraintRealisation::none,
         specification.formulation.constraint_id,
@@ -5363,6 +5439,14 @@ namespace nmopt::compiler::v1
         manifest.adjoint_solve_record;
       manifest.resolved_decision.metric_record = manifest.metric_record;
       manifest.resolved_decision.constraint_record = manifest.constraint_record;
+      manifest.execution = manifest.resolved_decision.execution_id;
+      manifest.dual_representation =
+        manifest.resolved_decision.formulation_record.dual_representation;
+      manifest.metric_solve_policy =
+        metric_solve_policy_description(manifest.metric_record);
+      manifest.constraint_realisation = describe(manifest.constraint_record);
+      manifest.nullspace_policy =
+        manifest.resolved_decision.state_solve_record.nullspace_policy;
       if (scalar_plan != nullptr)
         {
           manifest.lowering_handler_records = scalar_plan->provenance;
@@ -5388,7 +5472,7 @@ namespace nmopt::compiler::v1
         manifest.lowering_handler_records.push_back(
           "h1_trace_metric <- "
           "dealii.metric.boundary_mass_tangential_stiffness");
-      manifest.semantic_problem_id = specification.id;
+      manifest.semantic_problem_id = decision.semantic_problem_id;
       manifest.compiler_id =
         uses_normal_flux
           ? "nmopt.compiler.v1.dealii.normal_flux"
@@ -5486,27 +5570,9 @@ namespace nmopt::compiler::v1
              : boundary_observation_realisation(tracking_region))
         : observation_realisation(tracking_region);
       manifest.metric_solve_policy =
-        std::string("serial CG for ") +
-        (uses_hminus1_control_metric
-           ? "hminus1_continuous M K^-1 M Riesz map"
-         : uses_hhalf_control_metric
-           ? "hhalf_dirichlet_trace minimum-extension Riesz map"
-         : uses_h1_dirichlet_control
-           ? "h1_dirichlet_trace tangential Riesz map"
-         : uses_h1_control_metric ? "h1_continuous Riesz map"
-                                : uses_dirichlet_control_lifting
-                                    ? "l2_dirichlet_trace Riesz map"
-                                : uses_coefficient_identification
-                                    ? "l2_cellwise_parameter Riesz map"
-                                    : "L2 Riesz map") +
-        ": maximum iterations=" +
-        std::to_string(policy.control_metric_solve.maximum_iterations) +
-        ", relative tolerance=" +
-        std::to_string(policy.control_metric_solve.relative_tolerance) +
-        ", absolute tolerance=" +
-        std::to_string(policy.control_metric_solve.absolute_tolerance);
+        metric_solve_policy_description(manifest.metric_record);
       manifest.constraint_realisation =
-        describe(constraint_realisation);
+        describe(manifest.constraint_record);
       manifest.lifting_realisation = uses_mean_zero_gauge
                                        ? "none; pure-Neumann state uses an explicit mean-zero gauge"
                                        : uses_fixed_reconstruction
@@ -5522,22 +5588,11 @@ namespace nmopt::compiler::v1
                                        : uses_assembled_v1_target
                                            ? "y_phys = P_h y_hat; independent FE_Q coordinates and AffineConstraints reconstruction"
                                            : "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
-      manifest.nullspace_policy = uses_mean_zero_gauge
-        ? "one mean-zero Lagrange multiplier; discrete constant-mode compatibility is enforced for forcing and every control state load"
-        : "not applicable: non-empty fixed Dirichlet boundary";
-      manifest.state_adjoint_solve_policy = uses_mean_zero_gauge
-        ? "serial SparseDirectUMFPACK on the augmented symmetric state and adjoint saddle systems"
-        : uses_general_scalar
-          ? "serial SparseDirectUMFPACK on the nonsymmetric state operator and its exact transpose"
-        : uses_neumann_convection
-          ? "serial SparseDirectUMFPACK on the nonsymmetric conservative-transport state operator and its exact transpose"
-        : uses_coefficient_identification
-          ? "serial CG with identity preconditioner; parameter-dependent SPD state matrix is reassembled for each state and adjoint solve"
-        : uses_normalized_dirichlet_control
-          ? (uses_l2_dirichlet_control
-               ? "serial CG with identity preconditioner on the conforming variational state and adjoint systems selected by transposition equivalence"
-               : "serial CG with identity preconditioner on the normalized-Laplacian conforming state and adjoint systems")
-        : "serial CG with identity preconditioner for symmetric positive-definite operator";
+      manifest.nullspace_policy =
+        manifest.state_solve_record.nullspace_policy;
+      manifest.state_adjoint_solve_policy =
+        state_adjoint_solve_policy_description(manifest.state_solve_record,
+                                               manifest.adjoint_solve_record);
       manifest.provenance = "DTO";
       if (uses_neumann_boundary_control && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(

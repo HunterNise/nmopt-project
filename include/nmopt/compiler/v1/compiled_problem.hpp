@@ -93,6 +93,8 @@ namespace nmopt::compiler::v1
     double               relative_tolerance = 0.0;
     double               absolute_tolerance = 0.0;
     std::string          nullspace_policy;
+    // Typed description of the realized operator invocation.
+    std::string          operator_realisation;
   };
 
   struct CompiledFormulationRecord
@@ -203,6 +205,8 @@ namespace nmopt::compiler::v1
     std::string                         formulation_id;
     std::string                         target_id;
     std::string                         execution_id = "assembled";
+    CompiledFormulationRecord           formulation_record;
+    CompiledMeshRecord                  mesh_record;
     std::vector<CompiledSpaceRecord>    spaces;
     std::vector<CompiledBindingRecord>  bindings;
     std::vector<CompiledPairingRecord>  pairings;

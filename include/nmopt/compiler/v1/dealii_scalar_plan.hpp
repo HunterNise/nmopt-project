@@ -136,6 +136,46 @@ namespace nmopt::compiler::v1
     std::vector<std::string>                  provenance;
   };
 
+  // This is the executable residual/data slice of ScalarLoweringPlan.  The
+  // observation, metric, constraint, and display records remain in the full
+  // plan, but scalar equation assembly receives only the resolved residual
+  // contributions and their typed data-placement requests.
+  struct ScalarResidualAssemblyPlan
+  {
+    std::vector<ScalarResidualContribution> residual_terms;
+    std::vector<ScalarDataPlacement>        data_placements;
+    std::set<unsigned int>                  robin_boundary_ids;
+
+    bool
+    has(const ScalarResidualOperatorKind kind) const
+    {
+      return std::any_of(
+        residual_terms.begin(),
+        residual_terms.end(),
+        [kind](const ScalarResidualContribution &contribution) {
+          return contribution.operator_kind == kind;
+        });
+    }
+
+    const ScalarDataPlacement *
+    placement(const std::string &semantic_id) const
+    {
+      const auto match = std::find_if(
+        data_placements.begin(),
+        data_placements.end(),
+        [&semantic_id](const ScalarDataPlacement &candidate) {
+          return candidate.semantic_id == semantic_id;
+        });
+      return match == data_placements.end() ? nullptr : &*match;
+    }
+  };
+
+  inline ScalarResidualAssemblyPlan
+  residual_assembly_plan(const ScalarLoweringPlan &plan)
+  {
+    return {plan.residual_terms, plan.data_placements, plan.robin_boundary_ids};
+  }
+
   class ScalarResidualTermHandler final
   {
   public:

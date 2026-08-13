@@ -79,6 +79,17 @@ ledger used by diagnostics; it is not described as a lowerer. Supporting an
 individual kind therefore does not imply arbitrary recombination outside a
 registered plan or target strategy.
 
+The bounded scalar path projects that full plan into a
+`ScalarResidualAssemblyPlan` before constructing its FE model. This executable
+slice contains only the selected residual contributions, their resolved
+`ScalarDataPlacement` requests, and the selected Robin boundary IDs. Volume
+diffusion/reaction, transport, source, and control actions and Robin
+bilinear/source actions are accumulated from those records independently;
+unselected records do not trigger coefficient or forcing evaluation. The
+plan-owned residual slice also selects the nonsymmetric direct solve when a
+transport contribution is present. Objective, metric, constraint, and
+specialized-target selection remain separate bounded services.
+
 The general scalar Robin graph declares six coefficient/data spaces explicitly:
 bounded-function tensor, vector, and scalar spaces on the full volume, plus a
 bounded Robin coefficient space and a boundary $L^{2}$ source space on

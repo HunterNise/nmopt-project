@@ -1502,6 +1502,28 @@ namespace
                 }),
             "P5.1 general scalar plan omitted a term or Robin boundary contribution");
 
+    const auto general_residual_assembly =
+      nmopt::compiler::v1::residual_assembly_plan(*general_plan.plan);
+    const auto canonical_residual_assembly =
+      nmopt::compiler::v1::residual_assembly_plan(*planned.plan);
+    require(general_residual_assembly.has(
+              nmopt::compiler::v1::ScalarResidualOperatorKind::tensor_diffusion) &&
+              general_residual_assembly.has(
+                nmopt::compiler::v1::ScalarResidualOperatorKind::robin_bilinear) &&
+              general_residual_assembly.has(
+                nmopt::compiler::v1::ScalarResidualOperatorKind::robin_source) &&
+              !general_residual_assembly.has(
+                nmopt::compiler::v1::ScalarResidualOperatorKind::diffusion_reaction) &&
+              canonical_residual_assembly.has(
+                nmopt::compiler::v1::ScalarResidualOperatorKind::diffusion_reaction) &&
+              !canonical_residual_assembly.has(
+                nmopt::compiler::v1::ScalarResidualOperatorKind::tensor_diffusion) &&
+              general_residual_assembly.placement("diffusion_tensor") != nullptr &&
+              general_residual_assembly.placement("robin_source") != nullptr &&
+              general_residual_assembly.robin_boundary_ids ==
+                std::set<unsigned int>{1},
+            "scalar residual assembly did not preserve selected typed contributions");
+
     const auto h1_state_specification =
       nmopt::semantic::v1::make_h1_state_tracking_scalar_diffusion_reaction_problem();
     const auto h1_state_resolution = resolver.resolve(h1_state_specification);

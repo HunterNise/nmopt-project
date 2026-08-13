@@ -87,6 +87,7 @@ namespace nmopt::compiler::v1::detail
             plan, ScalarObservationOperatorKind::h1_state_restriction),
           normal_flux_boundary_ids_from_plan(plan),
           point_sensor_coordinates_from_plan(plan),
+          residual_assembly_plan(plan),
           {},
           nullptr)
     {
@@ -133,6 +134,7 @@ namespace nmopt::compiler::v1::detail
                                ScalarObservationOperatorKind::h1_state_restriction),
                              {},
                              {},
+                             residual_assembly_plan(plan),
                              robin_boundary_ids_from_plan(plan),
                              &general_scalar_data,
                              require_general_scalar_data_placements(plan) &&
@@ -179,6 +181,7 @@ namespace nmopt::compiler::v1::detail
       const bool                                    uses_h1_state_observation,
       std::set<dealii::types::boundary_id>          normal_flux_boundary_ids,
       std::vector<std::vector<double>>              point_sensor_coordinates,
+      ScalarResidualAssemblyPlan                    residual_assembly,
       std::set<dealii::types::boundary_id>          robin_boundary_ids,
       const DealiiGeneralScalarDataBindings<dim> *  general_scalar_data,
       const bool                                    general_scalar_plan_validated = true)
@@ -189,7 +192,7 @@ namespace nmopt::compiler::v1::detail
       , diffusion_(diffusion)
       , reaction_(reaction)
       , regularisation_weight_(regularisation_weight)
-      , uses_general_scalar_(general_scalar_data != nullptr)
+      , residual_assembly_(std::move(residual_assembly))
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
       , observation_material_ids_(std::move(observation_material_ids))
       , uses_h1_state_observation_(uses_h1_state_observation)
@@ -199,9 +202,13 @@ namespace nmopt::compiler::v1::detail
       , uses_point_sensor_(!point_sensor_coordinates_.empty())
       , robin_boundary_ids_(std::move(robin_boundary_ids))
     {
-      contract::require(uses_general_scalar_ || diffusion_ > 0.0,
+      contract::require(!residual_assembly_.has(
+                          ScalarResidualOperatorKind::diffusion_reaction) ||
+                          diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
-      contract::require(uses_general_scalar_ || reaction_ >= 0.0,
+      contract::require(!residual_assembly_.has(
+                          ScalarResidualOperatorKind::diffusion_reaction) ||
+                          reaction_ >= 0.0,
                         "Reaction coefficient must be non-negative");
       contract::require(regularisation_weight_ > 0.0,
                         "Control regularisation weight must be strictly positive");
@@ -209,10 +216,14 @@ namespace nmopt::compiler::v1::detail
                         "State FE degree must be at least one");
       contract::require(!dirichlet_boundary_ids_.empty(),
                         "The assembled v1 target needs a fixed Dirichlet boundary");
-      contract::require(!uses_general_scalar_ || !robin_boundary_ids_.empty(),
+      contract::require(
+        !has_general_scalar_residual() || !robin_boundary_ids_.empty(),
                         "The general scalar target needs a Robin boundary");
       contract::require(general_scalar_plan_validated,
                         "The general scalar target needs resolved coefficient data placements");
+      contract::require(
+        require_residual_data_placements(general_scalar_data),
+        "The scalar residual plan has an unresolved data-placement binding");
       contract::require(!uses_h1_state_observation_ ||
                           observation_material_ids_.empty(),
                         "The registered H1 state observation is full-domain only");
@@ -229,7 +240,7 @@ namespace nmopt::compiler::v1::detail
                                   desired_state,
                                   general_scalar_data);
       assemble_reduced_solve_operators();
-      if (uses_general_scalar_)
+      if (has_nonsymmetric_residual())
         {
           nonsymmetric_solver_ =
             std::make_unique<dealii::SparseDirectUMFPACK>();
@@ -520,7 +531,7 @@ namespace nmopt::compiler::v1::detail
       right_hand_side.add(1.0, control_contribution);
 
       Vector state(independent_state_dofs_.size());
-      if (uses_general_scalar_)
+      if (has_nonsymmetric_residual())
         {
           (void)policy;
           nonsymmetric_solver_->vmult(state, right_hand_side);
@@ -559,7 +570,7 @@ namespace nmopt::compiler::v1::detail
         "Adjoint solve right-hand side has an incompatible state layout");
 
       Vector adjoint(independent_state_dofs_.size());
-      if (uses_general_scalar_)
+      if (has_nonsymmetric_residual())
         {
           (void)policy;
           nonsymmetric_solver_->Tvmult(adjoint,
@@ -576,6 +587,107 @@ namespace nmopt::compiler::v1::detail
     }
 
   private:
+    bool
+    has_general_scalar_residual() const
+    {
+      return residual_assembly_.has(
+               ScalarResidualOperatorKind::tensor_diffusion) ||
+             residual_assembly_.has(
+               ScalarResidualOperatorKind::conservative_transport) ||
+             residual_assembly_.has(
+               ScalarResidualOperatorKind::advective_transport) ||
+             residual_assembly_.has(ScalarResidualOperatorKind::reaction) ||
+             residual_assembly_.has(
+               ScalarResidualOperatorKind::robin_bilinear) ||
+             residual_assembly_.has(ScalarResidualOperatorKind::robin_source);
+    }
+
+    bool
+    has_nonsymmetric_residual() const
+    {
+      return residual_assembly_.has(
+               ScalarResidualOperatorKind::conservative_transport) ||
+             residual_assembly_.has(
+               ScalarResidualOperatorKind::advective_transport);
+    }
+
+    const ScalarDataPlacement *
+    residual_data_placement(const ScalarResidualOperatorKind operator_kind,
+                            const semantic::v1::DataRole role) const
+    {
+      for (const auto &contribution : residual_assembly_.residual_terms)
+        if (contribution.operator_kind == operator_kind)
+          for (const auto &data_id : contribution.data_ids)
+            if (const auto *placement = residual_assembly_.placement(data_id);
+                placement != nullptr && placement->role == role)
+              return placement;
+      return nullptr;
+    }
+
+    bool
+    require_residual_data_placements(
+      const DealiiGeneralScalarDataBindings<dim> *general_scalar_data) const
+    {
+      if (has_general_scalar_residual() != (general_scalar_data != nullptr))
+        return false;
+
+      const auto valid = [this](const ScalarResidualOperatorKind operator_kind,
+                                const semantic::v1::DataRole role,
+                                const semantic::v1::DataKind kind,
+                                const ScalarDataEvaluationKind evaluation) {
+        const auto *placement = residual_data_placement(operator_kind, role);
+        return placement != nullptr && placement->kind == kind &&
+               !placement->space_id.empty() && !placement->region_id.empty() &&
+               placement->evaluation == evaluation &&
+               !placement->handler_id.empty();
+      };
+
+      if (residual_assembly_.has(ScalarResidualOperatorKind::volume_source) &&
+          !valid(ScalarResidualOperatorKind::volume_source,
+                 semantic::v1::DataRole::forcing,
+                 semantic::v1::DataKind::function,
+                 ScalarDataEvaluationKind::volume_quadrature))
+        return false;
+      if (residual_assembly_.has(ScalarResidualOperatorKind::tensor_diffusion) &&
+          !valid(ScalarResidualOperatorKind::tensor_diffusion,
+                 semantic::v1::DataRole::diffusion,
+                 semantic::v1::DataKind::tensor_function,
+                 ScalarDataEvaluationKind::volume_quadrature))
+        return false;
+      if (residual_assembly_.has(
+            ScalarResidualOperatorKind::conservative_transport) &&
+          !valid(ScalarResidualOperatorKind::conservative_transport,
+                 semantic::v1::DataRole::conservative_transport,
+                 semantic::v1::DataKind::vector_function,
+                 ScalarDataEvaluationKind::volume_quadrature))
+        return false;
+      if (residual_assembly_.has(ScalarResidualOperatorKind::advective_transport) &&
+          !valid(ScalarResidualOperatorKind::advective_transport,
+                 semantic::v1::DataRole::advective_transport,
+                 semantic::v1::DataKind::vector_function,
+                 ScalarDataEvaluationKind::volume_quadrature))
+        return false;
+      if (residual_assembly_.has(ScalarResidualOperatorKind::reaction) &&
+          !valid(ScalarResidualOperatorKind::reaction,
+                 semantic::v1::DataRole::reaction,
+                 semantic::v1::DataKind::function,
+                 ScalarDataEvaluationKind::volume_quadrature))
+        return false;
+      if (residual_assembly_.has(ScalarResidualOperatorKind::robin_bilinear) &&
+          !valid(ScalarResidualOperatorKind::robin_bilinear,
+                 semantic::v1::DataRole::robin_coefficient,
+                 semantic::v1::DataKind::function,
+                 ScalarDataEvaluationKind::boundary_face_quadrature))
+        return false;
+      if (residual_assembly_.has(ScalarResidualOperatorKind::robin_source) &&
+          !valid(ScalarResidualOperatorKind::robin_source,
+                 semantic::v1::DataRole::robin_source,
+                 semantic::v1::DataKind::function,
+                 ScalarDataEvaluationKind::boundary_face_quadrature))
+        return false;
+      return true;
+    }
+
     static bool
     require_general_scalar_boundary_selection(const ScalarLoweringPlan &plan)
     {
@@ -945,6 +1057,25 @@ namespace nmopt::compiler::v1::detail
           dealii::update_normal_vectors | dealii::update_quadrature_points |
           dealii::update_JxW_values);
 
+      const bool has_diffusion_reaction = residual_assembly_.has(
+        ScalarResidualOperatorKind::diffusion_reaction);
+      const bool has_tensor_diffusion = residual_assembly_.has(
+        ScalarResidualOperatorKind::tensor_diffusion);
+      const bool has_conservative_transport = residual_assembly_.has(
+        ScalarResidualOperatorKind::conservative_transport);
+      const bool has_advective_transport = residual_assembly_.has(
+        ScalarResidualOperatorKind::advective_transport);
+      const bool has_reaction = residual_assembly_.has(
+        ScalarResidualOperatorKind::reaction);
+      const bool has_volume_source = residual_assembly_.has(
+        ScalarResidualOperatorKind::volume_source);
+      const bool has_volume_control = residual_assembly_.has(
+        ScalarResidualOperatorKind::volume_control);
+      const bool has_robin_bilinear = residual_assembly_.has(
+        ScalarResidualOperatorKind::robin_bilinear);
+      const bool has_robin_source = residual_assembly_.has(
+        ScalarResidualOperatorKind::robin_source);
+
       dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
                                               state_fe_.dofs_per_cell);
       dealii::FullMatrix<double> local_state_tracking(
@@ -983,14 +1114,16 @@ namespace nmopt::compiler::v1::detail
           for (unsigned int q = 0; q < quadrature.size(); ++q)
             {
               const double weight = state_values.JxW(q);
-              const double forcing_value = forcing.value(state_values.quadrature_point(q));
+              const auto &point = state_values.quadrature_point(q);
+              const double forcing_value = has_volume_source
+                                             ? forcing.value(point)
+                                             : 0.0;
               const double desired_value = observe_cell
-                                             ? desired_state.value(
-                                                 state_values.quadrature_point(q))
+                                             ? desired_state.value(point)
                                              : 0.0;
               const dealii::Tensor<1, dim> desired_gradient =
                 observe_cell && uses_h1_state_observation_
-                  ? desired_state.gradient(state_values.quadrature_point(q))
+                  ? desired_state.gradient(point)
                   : dealii::Tensor<1, dim>();
               if (observe_cell)
                 desired_state_norm_ +=
@@ -1000,24 +1133,31 @@ namespace nmopt::compiler::v1::detail
               dealii::Tensor<2, dim> diffusion_tensor;
               dealii::Tensor<1, dim> conservative_transport;
               dealii::Tensor<1, dim> advective_transport;
-              double                reaction_value = reaction_;
-              if (general_scalar_data != nullptr)
+              double reaction_value = 0.0;
+              if (has_tensor_diffusion || has_conservative_transport ||
+                  has_advective_transport || has_reaction)
                 {
-                  const auto &point = state_values.quadrature_point(q);
-                  diffusion_tensor =
-                    general_scalar_data->diffusion_tensor.value(point);
-                  conservative_transport =
-                    general_scalar_data->conservative_transport.value(point);
-                  advective_transport =
-                    general_scalar_data->advective_transport.value(point);
-                  reaction_value = general_scalar_data->reaction.value(point);
+                  contract::require(general_scalar_data != nullptr,
+                                    "The residual plan selected unbound coefficient data");
+                  if (has_tensor_diffusion)
+                    diffusion_tensor =
+                      general_scalar_data->diffusion_tensor.value(point);
+                  if (has_conservative_transport)
+                    conservative_transport =
+                      general_scalar_data->conservative_transport.value(point);
+                  if (has_advective_transport)
+                    advective_transport =
+                      general_scalar_data->advective_transport.value(point);
+                  if (has_reaction)
+                    reaction_value = general_scalar_data->reaction.value(point);
                 }
 
               for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   const auto   grad_i = state_values.shape_grad(i, q);
-                  local_forcing(i) += forcing_value * phi_i * weight;
+                  if (has_volume_source)
+                    local_forcing(i) += forcing_value * phi_i * weight;
                   if (observe_cell)
                     local_desired_state(i) +=
                       (desired_value * phi_i +
@@ -1028,39 +1168,49 @@ namespace nmopt::compiler::v1::detail
                     {
                       const double phi_j = state_values.shape_value(j, q);
                       const auto   grad_j = state_values.shape_grad(j, q);
-                      if (general_scalar_data != nullptr)
-                        {
-                          local_system(i, j) +=
-                            ((diffusion_tensor * grad_j) * grad_i -
-                             phi_j * (conservative_transport * grad_i) +
-                             (advective_transport * grad_j) * phi_i +
-                             reaction_value * phi_i * phi_j) *
-                            weight;
-                        }
-                      else
+                      if (has_diffusion_reaction)
                         local_system(i, j) +=
                           (diffusion_ * (state_values.shape_grad(i, q) *
                                          state_values.shape_grad(j, q)) +
                            reaction_ * phi_i * phi_j) *
                           weight;
+                      if (has_tensor_diffusion)
+                        local_system(i, j) +=
+                          (diffusion_tensor * grad_j) * grad_i * weight;
+                      if (has_conservative_transport)
+                        local_system(i, j) +=
+                          -phi_j * (conservative_transport * grad_i) * weight;
+                      if (has_advective_transport)
+                        local_system(i, j) +=
+                          (advective_transport * grad_j) * phi_i * weight;
+                      if (has_reaction)
+                        local_system(i, j) +=
+                          reaction_value * phi_i * phi_j * weight;
                       if (observe_cell)
                         local_state_tracking(i, j) +=
                           (phi_i * phi_j +
                            (uses_h1_state_observation_ ? grad_i * grad_j : 0.0)) *
                           weight;
                     }
-                  for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
-                    local_control_coupling(i, j) +=
-                      phi_i * control_values.shape_value(j, q) * weight;
+                  if (has_volume_control)
+                    for (unsigned int j = 0;
+                         j < control_fe_.dofs_per_cell;
+                         ++j)
+                      local_control_coupling(i, j) +=
+                        phi_i * control_values.shape_value(j, q) * weight;
                 }
-              for (unsigned int i = 0; i < control_fe_.dofs_per_cell; ++i)
-                for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
-                  local_control_mass(i, j) +=
-                    control_values.shape_value(i, q) *
-                    control_values.shape_value(j, q) * weight;
+              if (has_volume_control)
+                for (unsigned int i = 0; i < control_fe_.dofs_per_cell; ++i)
+                  for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
+                    local_control_mass(i, j) +=
+                      control_values.shape_value(i, q) *
+                      control_values.shape_value(j, q) * weight;
             }
 
-          if (general_scalar_data != nullptr)
+          if (has_robin_bilinear || has_robin_source)
+            {
+              contract::require(general_scalar_data != nullptr,
+                                "The residual plan selected unbound Robin data");
             for (unsigned int face = 0;
                  face < dealii::GeometryInfo<dim>::faces_per_cell;
                  ++face)
@@ -1072,25 +1222,33 @@ namespace nmopt::compiler::v1::detail
                   for (unsigned int q = 0; q < face_quadrature.size(); ++q)
                     {
                       const auto point = state_face_values.quadrature_point(q);
-                      const double robin_coefficient =
-                        general_scalar_data->robin_coefficient.value(point);
-                      const double robin_source =
-                        general_scalar_data->robin_source.value(point);
+                      const double robin_coefficient = has_robin_bilinear
+                                                         ? general_scalar_data
+                                                             ->robin_coefficient
+                                                             .value(point)
+                                                         : 0.0;
+                      const double robin_source = has_robin_source
+                                                    ? general_scalar_data
+                                                        ->robin_source.value(point)
+                                                    : 0.0;
                       const double weight = state_face_values.JxW(q);
                       for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                         {
                           const double phi_i =
                             state_face_values.shape_value(i, q);
-                          local_forcing(i) += robin_source * phi_i * weight;
+                          if (has_robin_source)
+                            local_forcing(i) += robin_source * phi_i * weight;
                           for (unsigned int j = 0;
                                j < state_fe_.dofs_per_cell;
                                ++j)
-                            local_system(i, j) +=
-                              robin_coefficient * phi_i *
-                              state_face_values.shape_value(j, q) * weight;
+                            if (has_robin_bilinear)
+                              local_system(i, j) +=
+                                robin_coefficient * phi_i *
+                                state_face_values.shape_value(j, q) * weight;
                         }
                     }
                 }
+            }
 
           state_cell->get_dof_indices(state_indices);
           control_cell->get_dof_indices(control_indices);
@@ -1364,7 +1522,7 @@ namespace nmopt::compiler::v1::detail
     const double diffusion_;
     const double reaction_;
     const double regularisation_weight_;
-    const bool uses_general_scalar_;
+    const ScalarResidualAssemblyPlan residual_assembly_;
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
     const std::set<dealii::types::material_id> observation_material_ids_;
     const bool uses_h1_state_observation_;

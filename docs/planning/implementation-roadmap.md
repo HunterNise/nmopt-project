@@ -29,12 +29,14 @@ relevant `RF-006` characterization), R2b (`RF-002` through `RF-005` and the
 relevant `RF-006` cases), R2c (the current factual defect in `RF-008` plus
 `RF-012`), and R3 (`RF-016` through `RF-019`) are complete. P4.1 and P4.2 are
 ignored for the current ordered implementation run because their scope is too
-broad. The conditional C1 and C2 preparation implementations have landed.
+broad. The conditional C1 and C2 preparation implementations and remediation
+gates are acceptance-complete.
 Their remediation slices now include one checked resolved request, plan-owned
 scalar residual/data and objective/service lowering, a versioned
-resolved-decision manifest, and common realized-map/space records. C1 and C2
-are not acceptance-complete until their documented differential and
-verification gates pass. Their stable-ID index, owned compilation session,
+resolved-decision manifest, and common realized-map/space records. Independent
+scalar recombination checks and the neutral, deal.II-enabled, and sanitizer
+verification profiles close the documented gates. Their stable-ID index, owned
+compilation session,
 shared solve reporting, projection witness, independent scalar oracle, and
 build-cost remeasurement remain retained foundations. P5.1 is acceptance-
 complete after its coefficient-placement and typed-boundary remediation gates
@@ -65,7 +67,7 @@ The following pieces exist and are tested:
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. Their block storage is read-only after construction; checked algebraic updates preserve the declared dimensions. |
 | V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
-| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package, typed manifest container, and stored scalar handler plan. The reviewed implementation still reconstructs decisions through raw graph flags and target recipes; the [C1/C2 handoff](review/chapter-5/c1-c2-preparation-remediation-review.md) owns the bounded repair while specialized registrations retain the explicit strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
+| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package, typed manifest container, and stored scalar handler plan. The bounded scalar path consumes the resolved request and typed residual/service records; specialized registrations retain the explicit strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
 | Formulation solves and lifetime | `include/nmopt/contract/linear_solve.hpp`, `include/nmopt/dealii/serial_spd_solver.hpp`, and `include/nmopt/compiler/v1/dealii_types.hpp` | Typed state/adjoint solve reports, one shared serial SPD policy/service for symmetric targets, recorded direct and exact-transpose solves for the P5.1 nonsymmetric target, an owned static-mesh compilation session, and detached reduced services that retain executable/session lifetime. |
@@ -95,7 +97,7 @@ priority.
 
 The accepted scope is:
 
-- finish the open C1/C2 remediation gates; P5.2–P5.4 are acceptance-complete
+- keep the C1/C2 remediation gates closed; P5.2–P5.4 are acceptance-complete
   for their registered bounded slices;
 - keep the selected scalar Section 5.11 and Neumann boundary-control slices;
 - skip book Sections 5.12 and 5.13, corresponding to the roadmap's P5.5
@@ -1085,70 +1087,42 @@ declared conversion policy.
 ## Current next-agent sequence
 
 The C5.6 Neumann composition is complete. P5.1 is acceptance-complete. The
-remediation review documents are
-static evidence; this roadmap is the status ledger. The following C1/C2 and
-cross-phase remediation slices are implemented, but do not by themselves
-restore C1/C2 acceptance status: one checked resolved request, truthful P5.1
-data placements and boundary realization, plan-owned scalar residual/data and
-objective/service lowering, resolved-decision manifest records, and common
-realized-map/space records. P5.2–P5.4 are now acceptance-complete for their
-registered bounded slices. The review's “Work unit” names are cross-references
-to those documents, not a separate roadmap vocabulary. C1 and C2 remain open
-until their documented differential and verification gates pass. P4.1 and P4.2
-remain ignored for the current ordered implementation run. Keep the reviewed
-numerical formulas and explicit exclusions while proceeding in these
-commit-sized units:
+remediation review documents are static evidence; this roadmap is the status
+ledger. The C1/C2 remediation slices are implemented and acceptance-complete:
+one checked resolved request, truthful P5.1 data placements and boundary
+realization, plan-owned scalar residual/data and objective/service lowering,
+resolved-decision manifest records, common realized-map/space records, and
+the documented differential and verification gates. P5.2–P5.4 are likewise
+acceptance-complete for their registered bounded slices. The review's “Work
+unit” names are cross-references to those documents, not a separate roadmap
+vocabulary.
 
-1. **Completed implementation slice:**
-   [C1/C2 work unit 1](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-1--one-resolved-compilation-request-and-binding-boundary):
-   produce one checked resolved compilation request and route predictable
-   public binding/session failures through exact diagnostics.
-2. **Completed implementation slice:**
-   [P5.1 work unit 1](review/chapter-5/p5.1-remediation-review.md#work-unit-1--truthful-p51-data-spaces-and-regions):
-   give every general-scalar coefficient and Robin source a truthful semantic
-   space/region and carry that placement into the resolved request.
-3. **Completed implementation slice:** establish the common typed
-   boundary/orientation/trace realization
-   vocabulary and complete
-   [P5.1 work unit 2](review/chapter-5/p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection).
-   Do not create target-specific enums for policies shared by later phases.
-4. **Completed implementation slice:**
-   [C1/C2 work unit 2](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly)
-   and [work unit 3](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination):
-   make scalar residual/data and objective/service contributions execute from
-   the plan, then prove one independently varied recombination.
-5. **Completed acceptance closure:** P5.2 typed trace/negative-metric
-   selections, the explicit $H^{1}_{0}$ target-data assumption, and control
-   boundary realization; P5.3 typed transposition, complete fixed boundaries,
-   and point/flux acceptance checks; and P5.4 typed policies, closed
-   registration matching, and realized transformed-observation dimensions.
-   The final debug-neutral, debug-dealii, and sanitize-neutral gates are the
-   required evidence for this closure.
-6. **Remaining acceptance work:** close the C1/C2 differential and verification
-   gates documented in the [C1/C2 handoff](review/chapter-5/c1-c2-preparation-remediation-review.md).
-   Keep P4.1 and P4.2 ignored and do not broaden the registered P5 slices.
-7. **Completed supporting evidence:** the resolved-decision manifest and
-   common realized-map/space records now provide the dimensions for weighted
-   trace, normal flux, transformed state observations, and the baseline
-   boundary trace. P5.3 fixed-boundary coverage is complete for C5.8/C5.10;
-   the outward normal, face-quadrature transpose, immutable physical-point
-   evaluation, and current exclusions are retained.
+### Completed remediation and acceptance
 
-8. After C1/C2 closure, start selected P6.1 with the scalar reduced DTO boundary: direction
-    policies, L-BFGS, line searches, reporting, and the exact
-    linear-quadratic Hessian-vector action. Keep Newton/truncated Newton
-    behind the explicit second-order capability check.
-9. Implement the supplied-OtD execution interface from P6.2. Keep it
-    separate from `ReducedDTO`; do not add GLS, stabilization, or automatic
-    continuous adjoint derivation.
-10. Implement the scalar P6.3 KKT product and diagnostics, then P6.5
-    complementarity/PDAS for the selected cellwise box representation.
-11. Use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md)
-    to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate the bounded P6.4
-    preconditioner work only if E6.7.1 is selected and basic serial solves are
-    insufficient.
+- **C1/C2 work unit 1:** [one resolved compilation request and binding boundary](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-1--one-resolved-compilation-request-and-binding-boundary), including exact public binding/session diagnostics.
+- **P5.1 work unit 1:** [truthful P5.1 data spaces and regions](review/chapter-5/p5.1-remediation-review.md#work-unit-1--truthful-p51-data-spaces-and-regions), carried into the resolved request.
+- **P5.1 work unit 2:** [typed boundary and conormal selection](review/chapter-5/p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection), with shared boundary, orientation, and trace-realization vocabulary and no target-specific policy enums.
+- **C1/C2 work units 2–3:** [plan-owned scalar residual/data assembly](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly) and [objective/service recombination](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination), including an independently varied recombination.
+- **P5.2–P5.4 acceptance closure:** typed trace and negative-metric selections, target-data assumptions, control-boundary realization, typed transposition, fixed-boundary coverage, point/flux checks, closed registration matching, and realized transformed-observation dimensions. The `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass.
+- **Supporting evidence:** resolved-decision manifest and realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
 
-Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each gate. Do not
-run S1 before P6.1 reaches the front of the ordered implementation run. The
-remaining Stokes, measure-constraint, stabilization, automatic-OtD, and broad
-continuous-bound work is not part of the current ordered run.
+### Future implementation sequence
+
+P4.1 and P4.2 remain ignored for the current ordered implementation run. The
+future work begins with the selected P6.1 scalar reduced DTO boundary:
+
+1. **P6.1:** implement direction policies, L-BFGS, line searches, reporting,
+   and the exact linear-quadratic Hessian-vector action. Keep
+   Newton/truncated Newton behind the explicit second-order capability check.
+2. **P6.2:** implement the supplied-OtD execution interface separately from
+   `ReducedDTO`; do not add GLS, stabilization, or automatic continuous
+   adjoint derivation.
+3. **P6.3/P6.5:** implement the scalar KKT product and diagnostics, then
+   complementarity/PDAS for the selected cellwise box representation.
+4. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
+
+Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
+future gate. Do not run S1 before P6.1 reaches the front of the ordered
+implementation run. The remaining Stokes, measure-constraint, stabilization,
+automatic-OtD, and broad continuous-bound work is not part of the current
+ordered run.

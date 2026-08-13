@@ -295,13 +295,16 @@ latter coercive, and its inverse changes only the search direction.
 |---|---|---|
 | $L^{2}$ metric | $`G=M_{U}`$ in the selected control realization. | **First default.** |
 | $H^{1}$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | Allowed with an explicit coercivity policy and a separately declared compatible constraint, if any. |
-| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default. The named P5.2 realization on independent homogeneous-Dirichlet `FE_Q` coordinates uses $G_h=M_hK_h^{-1}M_h$ and is supported only with its explicit boundary and solve policy. |
+| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default. The named P5.2 realization on independent homogeneous-Dirichlet `FE_Q` coordinates uses $G_h=M_hK_h^{-1}M_h$ and is supported only with its typed primal/dual space, pairing, complete fixed-boundary, nullspace, operator/inverse, and solve-policy references. |
 | Fractional metric | Requires a named discrete realization and spectral/extension/auxiliary problem policy. | Unsupported initially. |
 
 An $H^{1}$ metric includes a positive zero-order term or an explicit
 mean/boundary condition; the seminorm alone is not invertible. A metric
 inverse is a solver operation and must report its tolerance and
-preconditioner policy.
+preconditioner policy. For the P5.2 H^{-1} realization, the compiler must
+reject an untyped or mismatched policy rather than infer the operator from a
+metric display string, and the manifest must preserve the resolved structured
+selection.
 
 ### 7.3 Box constraints
 

@@ -322,7 +322,13 @@ where $K_h$ is the homogeneous-Dirichlet control Laplacian. The boundary
 condition makes $K_h$ coercive without a mean constraint. `Hminus1Metric`
 performs the Laplacian and mass inverse actions with the selected
 identity-preconditioned serial-CG tolerances. The manifest records the control
-space, operator, boundary/no-mean choice, preconditioner, and tolerances.
+space, operator, boundary/no-mean choice, preconditioner, and tolerances. The
+semantic graph also records a typed metric-realization selection: the control
+primal/dual space, mass and Laplacian pairings, fixed boundary region, both
+solve-policy IDs, operator and inverse sequences, and nullspace policy. The
+compiler passes that resolved selection to the backend and rejects an absent
+or mismatched selection; it does not infer the operation from the metric ID or
+display formula.
 
 This bounded target retains the existing positive $L^{2}$ control loss; it
 verifies metric composition and does not claim the source catalogue's
@@ -343,6 +349,11 @@ O_h(y_h)=h\,\gamma y_h.
 
 The graph records the model-author assumption
 $h\in L^{\infty}(\Gamma_o)$ separately from the selected quadrature rule.
+
+The selected map policy names the source and output spaces, observation
+boundary, `boundary_weight` datum, face quadrature, pairing, and the common
+transpose realization. The compiler passes this typed selection to the
+backend, and the manifest records its stable ID and input/data references.
 
 The value and JVP multiply the state trace by the fixed scalar weight, while
 the transpose action multiplies the boundary observation covector by the same

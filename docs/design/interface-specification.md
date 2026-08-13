@@ -339,6 +339,12 @@ transposition policy for its lower-regularity adjoint. A face-quadrature
 `FE_Q` normal derivative and its assembled transpose are one possible
 realization; they MUST NOT be inferred from an ordinary boundary trace.
 
+A weighted boundary trace is likewise a distinct map realization. Its semantic
+policy MUST name the source and output spaces, boundary region, immutable weight
+datum, face quadrature rule, pairing rule, and transpose realization. The
+value, JVP, and transpose-JVP MUST use that same selected face rule; a prose
+label or an untyped weight datum is not sufficient to select the map.
+
 ### 3.10 Loss and objective
 
 A loss is a scalar map
@@ -421,6 +427,14 @@ has no mean constraint. Both elliptic and mass inverse actions MUST use and
 record the selected metric-solve tolerances and preconditioner. Selecting this
 metric changes only direction formation; observations, losses, residuals, and
 adjoint equations remain unchanged.
+
+The H^{-1} choice MUST be carried by a typed metric-realization policy that
+binds the primal and dual spaces, mass and Laplacian pairings, fixed-Dirichlet
+boundary region, both solve policies, operator sequence, inverse sequence, and
+nullspace policy. The continuous control's fixed boundary policy MUST select
+the same complete exterior boundary as the state realization. Human-readable
+metric or formula text may explain the choice, but MUST NOT substitute for
+these structured references.
 
 ### 3.12 Constraint
 

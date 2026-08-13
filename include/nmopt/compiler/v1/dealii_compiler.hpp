@@ -54,12 +54,17 @@ namespace nmopt::compiler::v1
       semantic::v1::ValidationReport report = std::move(resolution.diagnostics);
       if (!report.valid())
         return report;
-      const auto request = resolve_compilation_request(*resolution.problem);
+      auto request = resolve_compilation_request(*resolution.problem);
+      const auto dirichlet_registration =
+        resolve_dirichlet_control_registration(*resolution.problem, request);
+      close_compilation_request(*resolution.problem,
+                                request,
+                                dirichlet_registration);
       validate_lowerability(specification, policy, report);
       validate_formulation_capability(specification, report);
       validate_dirichlet_control_registration(*resolution.problem,
-                                              request,
-                                              report);
+                                               request,
+                                               report);
       return report;
     }
 
@@ -506,72 +511,52 @@ namespace nmopt::compiler::v1
       result.diagnostics = std::move(resolution.diagnostics);
       if (!result.diagnostics.valid())
         return result;
-      const auto request = resolve_compilation_request(*resolution.problem);
+      auto request = resolve_compilation_request(*resolution.problem);
+      const auto dirichlet_registration =
+        resolve_dirichlet_control_registration(*resolution.problem, request);
+      close_compilation_request(*resolution.problem,
+                                request,
+                                dirichlet_registration);
       validate_lowerability(specification, policy, result.diagnostics);
       validate_formulation_capability(specification, result.diagnostics);
-      const auto dirichlet_registration =
-        resolve_dirichlet_control_registration(*resolution.problem,
-                                               request);
       validate_dirichlet_control_registration(*resolution.problem,
                                               request,
                                               result.diagnostics);
       if (!result.diagnostics.valid())
         return result;
       const bool uses_fixed_reconstruction =
-        uses_fixed_dirichlet_reconstruction(specification);
-      const bool uses_dirichlet_control =
-        uses_dirichlet_control_target(specification);
+        request.uses_fixed_reconstruction;
+      const bool uses_dirichlet_control = request.uses_dirichlet_control;
       const bool uses_l2_dirichlet_control =
-        uses_l2_dirichlet_transposition(specification);
-      const bool uses_normalized_dirichlet_laplace =
-        uses_normalized_dirichlet_laplace_control(specification);
-      const bool uses_normalized_laplacian =
-        uses_l2_dirichlet_control || uses_normalized_dirichlet_laplace;
+        request.uses_l2_dirichlet_control;
+      const bool uses_normalized_laplacian = request.uses_normalized_laplacian;
       const bool uses_partial_dirichlet_control =
-        uses_partial_dirichlet_control_lifting(specification);
+        request.uses_partial_dirichlet_control;
       const bool uses_neumann_boundary_control =
-        uses_neumann_control(specification);
-      const bool uses_neumann_convection =
-        uses_neumann_conservative_transport(specification);
-      const bool uses_mean_zero_gauge =
-        uses_mean_zero_multiplier(specification);
+        request.uses_neumann_boundary_control;
+      const bool uses_neumann_convection = request.uses_neumann_convection;
+      const bool uses_mean_zero_gauge = request.uses_mean_zero_gauge;
       const bool uses_h1_control_regularisation =
-        uses_h1_control_regularisation_loss(specification) &&
-        !uses_dirichlet_control;
-      const bool uses_h1_control_metric =
-        selects_h1_control_metric(specification);
-      const bool uses_hhalf_control_metric =
-        selects_hhalf_control_metric(specification);
+        request.uses_h1_control_regularisation;
+      const bool uses_h1_control_metric = request.uses_h1_control_metric;
+      const bool uses_hhalf_control_metric = request.uses_hhalf_control_metric;
       const bool uses_hminus1_control_metric =
-        selects_hminus1_control_metric(specification);
+        request.uses_hminus1_control_metric;
       const bool uses_homogeneous_dirichlet_continuous_control =
-        has_homogeneous_dirichlet_continuous_control(specification);
+        request.uses_homogeneous_dirichlet_continuous_control;
       const bool uses_coefficient_identification =
-        uses_parameter_diffusion_residual(specification);
-      const bool uses_general_scalar =
-        uses_general_scalar_residual(specification);
-      const bool uses_h1_state_observation =
-        has_h1_state_observation(specification);
+        request.uses_coefficient_identification;
+      const bool uses_general_scalar = request.uses_general_scalar;
+      const bool uses_h1_state_observation = request.uses_h1_state_observation;
       const bool uses_weighted_boundary_trace =
-        has_weighted_boundary_trace(specification);
-      const bool uses_point_sensor =
-        has_point_sensor_observation(specification);
-      const bool uses_normal_flux =
-        has_normal_flux_observation(specification);
-      const bool uses_h1_dirichlet_control =
-        dirichlet_registration.has_value() &&
-        *dirichlet_registration ==
-          DirichletControlRegistration::h1_control;
+        request.uses_weighted_boundary_trace;
+      const bool uses_point_sensor = request.uses_point_sensor;
+      const bool uses_normal_flux = request.uses_normal_flux;
+      const bool uses_h1_dirichlet_control = request.uses_h1_dirichlet_control;
       const bool uses_hhalf_dirichlet_registration =
-        dirichlet_registration.has_value() &&
-        (*dirichlet_registration ==
-           DirichletControlRegistration::hhalf_control ||
-         *dirichlet_registration ==
-           DirichletControlRegistration::h1_tracking_hhalf_control);
+        request.uses_hhalf_dirichlet_registration;
       const bool uses_h1_tracking_hhalf_dirichlet_registration =
-        dirichlet_registration.has_value() &&
-        *dirichlet_registration ==
-          DirichletControlRegistration::h1_tracking_hhalf_control;
+        request.uses_h1_tracking_hhalf_dirichlet_registration;
       if (uses_h1_state_observation)
         {
           if (!request.h1_target_data_membership_selection)
@@ -750,44 +735,39 @@ namespace nmopt::compiler::v1
               "boundary_h1_metric_realisation_selection",
               "The registered lowerer supports only the projected-gradient boundary H1 metric with positive mass.");
         }
-      const auto *tracking_region = selected_tracking_region(specification);
+      const auto *tracking_region =
+        request.tracking_region_id.empty()
+          ? nullptr
+          : find_region(specification, request.tracking_region_id);
       const auto *robin_boundary_region =
-        selected_robin_boundary_region(specification);
+        request.robin_boundary_region_id.empty()
+          ? nullptr
+          : find_region(specification, request.robin_boundary_region_id);
       const auto *partial_fixed_boundary_region =
-        request.partial_boundary_selection
-          ? find_region(specification,
-                        request.partial_boundary_selection
-                          ->fixed_boundary_region_id)
-          : nullptr;
+        request.partial_fixed_boundary_region_id.empty()
+          ? nullptr
+          : find_region(specification,
+                        request.partial_fixed_boundary_region_id);
       const auto *partial_control_boundary_region =
-        request.partial_boundary_selection
-          ? find_region(specification,
-                        request.partial_boundary_selection
-                          ->controlled_boundary_region_id)
-          : nullptr;
+        request.partial_control_boundary_region_id.empty()
+          ? nullptr
+          : find_region(specification,
+                        request.partial_control_boundary_region_id);
       const auto *control_boundary_region =
-        uses_dirichlet_control
-          ? (uses_partial_dirichlet_control &&
-             partial_control_boundary_region != nullptr
-               ? partial_control_boundary_region
-               : selected_dirichlet_control_region(specification))
-          : selected_neumann_control_region(specification);
+        request.control_boundary_region_id.empty()
+          ? nullptr
+          : find_region(specification, request.control_boundary_region_id);
+      const auto *fixed_boundary_region =
+        request.fixed_boundary_region_id.empty()
+          ? nullptr
+          : find_region(specification, request.fixed_boundary_region_id);
       const auto *continuous_control_boundary_region =
         request.continuous_control_boundary_region_id.empty()
           ? nullptr
           : find_region(specification,
                         request.continuous_control_boundary_region_id);
-      const bool uses_subdomain_observation =
-        tracking_region != nullptr && !tracking_region->is_full_domain;
       const bool uses_assembled_v1_target =
-        !uses_neumann_boundary_control &&
-        !uses_h1_control_regularisation &&
-        !uses_homogeneous_dirichlet_continuous_control &&
-        !uses_coefficient_identification &&
-        !uses_dirichlet_control &&
-        (uses_fixed_reconstruction || uses_subdomain_observation ||
-         uses_general_scalar || uses_h1_state_observation || uses_point_sensor ||
-         uses_normal_flux);
+        request.uses_assembled_v1_target;
       std::optional<ScalarLoweringPlan> scalar_plan;
       if (uses_assembled_v1_target)
         {
@@ -1013,34 +993,8 @@ namespace nmopt::compiler::v1
       // backend model is constructed.  The executable below consumes this
       // decision; the manifest receives the same record rather than
       // inferring it from the constructed model.
-      const CompiledTargetKind target_kind = uses_mean_zero_gauge
-                                               ? CompiledTargetKind::pure_neumann
-                                             : uses_weighted_boundary_trace
-                                               ? CompiledTargetKind::weighted_boundary_trace
-                                             : uses_neumann_boundary_control
-                                               ? CompiledTargetKind::neumann_boundary
-                                             : uses_dirichlet_control
-                                               ? target_kind_for_dirichlet_registration(
-                                                   *dirichlet_registration)
-                                             : uses_coefficient_identification
-                                               ? CompiledTargetKind::coefficient_identification
-                                             : uses_hminus1_control_metric
-                                               ? CompiledTargetKind::hminus1_control_metric
-                                             : uses_h1_control_regularisation
-                                               ? (uses_h1_control_metric
-                                                    ? CompiledTargetKind::h1_control_h1_metric
-                                                    : CompiledTargetKind::h1_control_l2_metric)
-                                             : uses_homogeneous_dirichlet_continuous_control
-                                               ? CompiledTargetKind::continuous_control_l2_metric
-                                             : uses_point_sensor
-                                               ? CompiledTargetKind::point_sensor
-                                             : uses_normal_flux
-                                               ? CompiledTargetKind::normal_flux
-                                             : uses_assembled_v1_target
-                                               ? (uses_general_scalar
-                                                    ? CompiledTargetKind::general_scalar_robin
-                                                    : CompiledTargetKind::assembled_volume)
-                                               : CompiledTargetKind::direct_volume;
+      const CompiledTargetKind target_kind =
+        target_kind_from_request(request);
       const ResolvedCompilationDecision resolved_decision =
         make_resolved_decision(specification,
                                policy,
@@ -1063,7 +1017,9 @@ namespace nmopt::compiler::v1
         : uses_mean_zero_gauge ||
             (uses_dirichlet_control && !uses_partial_dirichlet_control)
           ? std::set<dealii::types::boundary_id>{}
-          : selected_dirichlet_boundary_ids(specification);
+          : fixed_boundary_region == nullptr
+            ? std::set<dealii::types::boundary_id>{}
+            : boundary_ids(*fixed_boundary_region);
       if ((uses_point_sensor || uses_normal_flux) &&
           !controls_complete_exterior_boundary(
             triangulation, fixed_dirichlet_boundary_ids))
@@ -1079,8 +1035,9 @@ namespace nmopt::compiler::v1
                                                  partial_control_boundary_region != nullptr
                                                    ? boundary_ids(
                                                        *partial_control_boundary_region)
-                                                   : selected_dirichlet_control_boundary_ids(
-                                                       specification))
+                                                   : control_boundary_region == nullptr
+                                                     ? std::set<dealii::types::boundary_id>{}
+                                                     : boundary_ids(*control_boundary_region))
                                             : fixed_dirichlet_boundary_ids;
       const auto continuous_control_boundary_ids =
         uses_homogeneous_dirichlet_continuous_control &&
@@ -2552,6 +2509,245 @@ namespace nmopt::compiler::v1
         return DirichletControlRegistration::h1_control;
 
       return std::nullopt;
+    }
+
+    static ResolvedDirichletRegistration
+    resolved_dirichlet_registration(
+      const std::optional<DirichletControlRegistration> &registration)
+    {
+      if (!registration)
+        return ResolvedDirichletRegistration::none;
+      switch (*registration)
+        {
+          case DirichletControlRegistration::complete_nodal_l2:
+            return ResolvedDirichletRegistration::complete_nodal_l2;
+          case DirichletControlRegistration::partial_nodal_l2:
+            return ResolvedDirichletRegistration::partial_nodal_l2;
+          case DirichletControlRegistration::l2_transposition:
+            return ResolvedDirichletRegistration::l2_transposition;
+          case DirichletControlRegistration::hhalf_control:
+            return ResolvedDirichletRegistration::hhalf_control;
+          case DirichletControlRegistration::h1_tracking_hhalf_control:
+            return ResolvedDirichletRegistration::h1_tracking_hhalf_control;
+          case DirichletControlRegistration::h1_control:
+            return ResolvedDirichletRegistration::h1_control;
+        }
+      contract::require(false, "Unknown resolved Dirichlet registration");
+      return ResolvedDirichletRegistration::none;
+    }
+
+    static CompiledTargetKind
+    target_kind_from_request(const ResolvedCompilationRequest &request)
+    {
+      switch (request.target_family)
+        {
+          case ResolvedTargetFamily::direct_volume:
+            return CompiledTargetKind::direct_volume;
+          case ResolvedTargetFamily::assembled_volume:
+            return CompiledTargetKind::assembled_volume;
+          case ResolvedTargetFamily::neumann_boundary:
+            return CompiledTargetKind::neumann_boundary;
+          case ResolvedTargetFamily::weighted_boundary_trace:
+            return CompiledTargetKind::weighted_boundary_trace;
+          case ResolvedTargetFamily::pure_neumann:
+            return CompiledTargetKind::pure_neumann;
+          case ResolvedTargetFamily::dirichlet_control:
+            return CompiledTargetKind::dirichlet_control;
+          case ResolvedTargetFamily::l2_dirichlet_transposition:
+            return CompiledTargetKind::l2_dirichlet_transposition;
+          case ResolvedTargetFamily::hhalf_dirichlet_control:
+            return CompiledTargetKind::hhalf_dirichlet_control;
+          case ResolvedTargetFamily::h1_tracking_hhalf_dirichlet_control:
+            return CompiledTargetKind::h1_tracking_hhalf_dirichlet_control;
+          case ResolvedTargetFamily::h1_dirichlet_control:
+            return CompiledTargetKind::h1_dirichlet_control;
+          case ResolvedTargetFamily::h1_control_l2_metric:
+            return CompiledTargetKind::h1_control_l2_metric;
+          case ResolvedTargetFamily::h1_control_h1_metric:
+            return CompiledTargetKind::h1_control_h1_metric;
+          case ResolvedTargetFamily::hminus1_control_metric:
+            return CompiledTargetKind::hminus1_control_metric;
+          case ResolvedTargetFamily::continuous_control_l2_metric:
+            return CompiledTargetKind::continuous_control_l2_metric;
+          case ResolvedTargetFamily::coefficient_identification:
+            return CompiledTargetKind::coefficient_identification;
+          case ResolvedTargetFamily::general_scalar_robin:
+            return CompiledTargetKind::general_scalar_robin;
+          case ResolvedTargetFamily::point_sensor:
+            return CompiledTargetKind::point_sensor;
+          case ResolvedTargetFamily::normal_flux:
+            return CompiledTargetKind::normal_flux;
+          case ResolvedTargetFamily::unresolved:
+            break;
+        }
+      contract::require(false, "The compiler request has no resolved target family");
+      return CompiledTargetKind::direct_volume;
+    }
+
+    static void
+    close_compilation_request(
+      const semantic::v1::ResolvedProblemView &resolved,
+      ResolvedCompilationRequest &              request,
+      const std::optional<DirichletControlRegistration> &registration)
+    {
+      const auto &specification = resolved.specification();
+      request.dirichlet_registration =
+        resolved_dirichlet_registration(registration);
+      request.uses_fixed_reconstruction =
+        uses_fixed_dirichlet_reconstruction(specification);
+      request.uses_dirichlet_control =
+        uses_dirichlet_control_target(specification);
+      request.uses_l2_dirichlet_control =
+        uses_l2_dirichlet_transposition(specification);
+      request.uses_normalized_dirichlet_laplace =
+        uses_normalized_dirichlet_laplace_control(specification);
+      request.uses_normalized_laplacian =
+        request.uses_l2_dirichlet_control ||
+        request.uses_normalized_dirichlet_laplace;
+      request.uses_partial_dirichlet_control =
+        uses_partial_dirichlet_control_lifting(specification);
+      request.uses_neumann_boundary_control = uses_neumann_control(specification);
+      request.uses_neumann_convection =
+        uses_neumann_conservative_transport(specification);
+      request.uses_mean_zero_gauge = uses_mean_zero_multiplier(specification);
+      request.uses_h1_control_regularisation =
+        uses_h1_control_regularisation_loss(specification) &&
+        !request.uses_dirichlet_control;
+      request.uses_h1_control_metric = selects_h1_control_metric(specification);
+      request.uses_hhalf_control_metric =
+        selects_hhalf_control_metric(specification);
+      request.uses_hminus1_control_metric =
+        selects_hminus1_control_metric(specification);
+      request.uses_homogeneous_dirichlet_continuous_control =
+        has_homogeneous_dirichlet_continuous_control(specification);
+      request.uses_coefficient_identification =
+        uses_parameter_diffusion_residual(specification);
+      request.uses_general_scalar = uses_general_scalar_residual(specification);
+      request.uses_h1_state_observation = has_h1_state_observation(specification);
+      request.uses_weighted_boundary_trace = has_weighted_boundary_trace(specification);
+      request.uses_point_sensor = has_point_sensor_observation(specification);
+      request.uses_normal_flux = has_normal_flux_observation(specification);
+      request.uses_h1_dirichlet_control =
+        registration && *registration == DirichletControlRegistration::h1_control;
+      request.uses_hhalf_dirichlet_registration =
+        registration &&
+        (*registration == DirichletControlRegistration::hhalf_control ||
+         *registration ==
+           DirichletControlRegistration::h1_tracking_hhalf_control);
+      request.uses_h1_tracking_hhalf_dirichlet_registration =
+        registration &&
+        *registration == DirichletControlRegistration::h1_tracking_hhalf_control;
+
+      const auto *tracking_region = selected_tracking_region(specification);
+      const auto *robin_region = selected_robin_boundary_region(specification);
+      request.tracking_region_id =
+        tracking_region == nullptr ? std::string{} : tracking_region->id;
+      request.robin_boundary_region_id =
+        robin_region == nullptr ? std::string{} : robin_region->id;
+      if (request.partial_boundary_selection)
+        {
+          request.partial_fixed_boundary_region_id =
+            request.partial_boundary_selection->fixed_boundary_region_id;
+          request.partial_control_boundary_region_id =
+            request.partial_boundary_selection->controlled_boundary_region_id;
+        }
+      const auto fixed_policy = std::find_if(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [&specification, &request](const semantic::v1::RequirementPolicySpec &candidate) {
+          return candidate.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
+                 (candidate.subject_id == specification.formulation.state_variable_id ||
+                  (request.uses_partial_dirichlet_control &&
+                   candidate.subject_id == "dirichlet_control_lifting"));
+        });
+      if (fixed_policy != specification.requirement_policies.end())
+        request.fixed_boundary_region_id = fixed_policy->region_id;
+      const auto controlled_policy = std::find_if(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
+          return candidate.subject_id == specification.formulation.state_variable_id &&
+                 candidate.kind == semantic::v1::RequirementKind::controlled_dirichlet;
+        });
+      if (request.uses_dirichlet_control &&
+          controlled_policy != specification.requirement_policies.end())
+        request.control_boundary_region_id = controlled_policy->region_id;
+      else
+        {
+          const auto *neumann_region = selected_neumann_control_region(specification);
+          request.control_boundary_region_id =
+            neumann_region == nullptr ? std::string{} : neumann_region->id;
+        }
+      if (request.uses_partial_dirichlet_control &&
+          !request.partial_control_boundary_region_id.empty())
+        request.control_boundary_region_id =
+          request.partial_control_boundary_region_id;
+      request.uses_subdomain_observation =
+        tracking_region != nullptr && !tracking_region->is_full_domain;
+      request.uses_assembled_v1_target =
+        !request.uses_neumann_boundary_control &&
+        !request.uses_h1_control_regularisation &&
+        !request.uses_homogeneous_dirichlet_continuous_control &&
+        !request.uses_coefficient_identification &&
+        !request.uses_dirichlet_control &&
+        (request.uses_fixed_reconstruction ||
+         request.uses_subdomain_observation || request.uses_general_scalar ||
+         request.uses_h1_state_observation || request.uses_point_sensor ||
+         request.uses_normal_flux);
+
+      if (request.uses_mean_zero_gauge)
+        request.target_family = ResolvedTargetFamily::pure_neumann;
+      else if (request.uses_weighted_boundary_trace)
+        request.target_family = ResolvedTargetFamily::weighted_boundary_trace;
+      else if (request.uses_neumann_boundary_control)
+        request.target_family = ResolvedTargetFamily::neumann_boundary;
+      else if (request.uses_dirichlet_control)
+        switch (request.dirichlet_registration)
+          {
+            case ResolvedDirichletRegistration::complete_nodal_l2:
+            case ResolvedDirichletRegistration::partial_nodal_l2:
+              request.target_family = ResolvedTargetFamily::dirichlet_control;
+              break;
+            case ResolvedDirichletRegistration::l2_transposition:
+              request.target_family =
+                ResolvedTargetFamily::l2_dirichlet_transposition;
+              break;
+            case ResolvedDirichletRegistration::hhalf_control:
+              request.target_family =
+                ResolvedTargetFamily::hhalf_dirichlet_control;
+              break;
+            case ResolvedDirichletRegistration::h1_tracking_hhalf_control:
+              request.target_family =
+                ResolvedTargetFamily::h1_tracking_hhalf_dirichlet_control;
+              break;
+            case ResolvedDirichletRegistration::h1_control:
+              request.target_family = ResolvedTargetFamily::h1_dirichlet_control;
+              break;
+            case ResolvedDirichletRegistration::none:
+              request.target_family = ResolvedTargetFamily::unresolved;
+              break;
+          }
+      else if (request.uses_coefficient_identification)
+        request.target_family = ResolvedTargetFamily::coefficient_identification;
+      else if (request.uses_hminus1_control_metric)
+        request.target_family = ResolvedTargetFamily::hminus1_control_metric;
+      else if (request.uses_h1_control_regularisation)
+        request.target_family = request.uses_h1_control_metric
+                                  ? ResolvedTargetFamily::h1_control_h1_metric
+                                  : ResolvedTargetFamily::h1_control_l2_metric;
+      else if (request.uses_homogeneous_dirichlet_continuous_control)
+        request.target_family =
+          ResolvedTargetFamily::continuous_control_l2_metric;
+      else if (request.uses_point_sensor)
+        request.target_family = ResolvedTargetFamily::point_sensor;
+      else if (request.uses_normal_flux)
+        request.target_family = ResolvedTargetFamily::normal_flux;
+      else if (request.uses_assembled_v1_target)
+        request.target_family = request.uses_general_scalar
+                                  ? ResolvedTargetFamily::general_scalar_robin
+                                  : ResolvedTargetFamily::assembled_volume;
+      else
+        request.target_family = ResolvedTargetFamily::direct_volume;
     }
 
     static void

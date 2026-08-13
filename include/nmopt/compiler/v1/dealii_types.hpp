@@ -71,9 +71,82 @@ namespace nmopt::compiler::v1
     bool                            required = true;
   };
 
+  // The closed compiler request carries the target family selected from the
+  // validated graph.  These are compiler-layer choices, not semantic node
+  // kinds; keeping them here prevents later lowering stages from rebuilding
+  // the same cross-product from ProblemSpec predicates.
+  enum class ResolvedTargetFamily
+  {
+    unresolved,
+    direct_volume,
+    assembled_volume,
+    neumann_boundary,
+    weighted_boundary_trace,
+    pure_neumann,
+    dirichlet_control,
+    l2_dirichlet_transposition,
+    hhalf_dirichlet_control,
+    h1_tracking_hhalf_dirichlet_control,
+    h1_dirichlet_control,
+    h1_control_l2_metric,
+    h1_control_h1_metric,
+    hminus1_control_metric,
+    continuous_control_l2_metric,
+    coefficient_identification,
+    general_scalar_robin,
+    point_sensor,
+    normal_flux
+  };
+
+  enum class ResolvedDirichletRegistration
+  {
+    none,
+    complete_nodal_l2,
+    partial_nodal_l2,
+    l2_transposition,
+    hhalf_control,
+    h1_tracking_hhalf_control,
+    h1_control
+  };
+
   struct ResolvedCompilationRequest
   {
     std::string                            semantic_problem_id;
+    ResolvedTargetFamily                   target_family =
+      ResolvedTargetFamily::unresolved;
+    ResolvedDirichletRegistration          dirichlet_registration =
+      ResolvedDirichletRegistration::none;
+    bool                                   uses_fixed_reconstruction = false;
+    bool                                   uses_dirichlet_control = false;
+    bool                                   uses_l2_dirichlet_control = false;
+    bool                                   uses_normalized_dirichlet_laplace = false;
+    bool                                   uses_normalized_laplacian = false;
+    bool                                   uses_partial_dirichlet_control = false;
+    bool                                   uses_neumann_boundary_control = false;
+    bool                                   uses_neumann_convection = false;
+    bool                                   uses_mean_zero_gauge = false;
+    bool                                   uses_h1_control_regularisation = false;
+    bool                                   uses_h1_control_metric = false;
+    bool                                   uses_hhalf_control_metric = false;
+    bool                                   uses_hminus1_control_metric = false;
+    bool                                   uses_homogeneous_dirichlet_continuous_control = false;
+    bool                                   uses_coefficient_identification = false;
+    bool                                   uses_general_scalar = false;
+    bool                                   uses_h1_state_observation = false;
+    bool                                   uses_weighted_boundary_trace = false;
+    bool                                   uses_point_sensor = false;
+    bool                                   uses_normal_flux = false;
+    bool                                   uses_h1_dirichlet_control = false;
+    bool                                   uses_hhalf_dirichlet_registration = false;
+    bool                                   uses_h1_tracking_hhalf_dirichlet_registration = false;
+    bool                                   uses_subdomain_observation = false;
+    bool                                   uses_assembled_v1_target = false;
+    std::string                            tracking_region_id;
+    std::string                            robin_boundary_region_id;
+    std::string                            fixed_boundary_region_id;
+    std::string                            partial_fixed_boundary_region_id;
+    std::string                            partial_control_boundary_region_id;
+    std::string                            control_boundary_region_id;
     std::vector<ResolvedDataBindingRequest> data_bindings;
     bool                                   requires_fixed_dirichlet_data = false;
     bool                                   requires_observation_weight = false;

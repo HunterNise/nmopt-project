@@ -4970,6 +4970,61 @@ namespace
           manifest.metric_record.realisation_id,
       "label-only graph change altered typed execution records");
 
+    auto reordered_specification = specification;
+    std::reverse(reordered_specification.regions.begin(),
+                 reordered_specification.regions.end());
+    std::reverse(reordered_specification.spaces.begin(),
+                 reordered_specification.spaces.end());
+    std::reverse(reordered_specification.pairings.begin(),
+                 reordered_specification.pairings.end());
+    std::reverse(reordered_specification.variables.begin(),
+                 reordered_specification.variables.end());
+    std::reverse(reordered_specification.data.begin(),
+                 reordered_specification.data.end());
+    std::reverse(reordered_specification.transformations.begin(),
+                 reordered_specification.transformations.end());
+    std::reverse(reordered_specification.residual_terms.begin(),
+                 reordered_specification.residual_terms.end());
+    std::reverse(reordered_specification.observations.begin(),
+                 reordered_specification.observations.end());
+    std::reverse(reordered_specification.losses.begin(),
+                 reordered_specification.losses.end());
+    std::reverse(reordered_specification.metrics.begin(),
+                 reordered_specification.metrics.end());
+    std::reverse(reordered_specification.constraints.begin(),
+                 reordered_specification.constraints.end());
+    std::reverse(reordered_specification.requirement_policies.begin(),
+                 reordered_specification.requirement_policies.end());
+    const auto reordered_compilation = v1_compiler.compile(
+      reordered_specification,
+      triangulation,
+      data_bindings,
+      compilation_policy,
+      bound_bindings);
+    contract::require(reordered_compilation.succeeded(),
+                      "v1 compiler rejected declaration-order permutation");
+    const auto &reordered_manifest = reordered_compilation.problem->manifest();
+    require_compiled_binding_records_equal(
+      reordered_manifest.resolved_decision.bindings,
+      manifest.resolved_decision.bindings,
+      "declaration-order permutation");
+    contract::require(
+      reordered_manifest.resolved_decision.target_id ==
+          manifest.resolved_decision.target_id &&
+        reordered_manifest.formulation_record.semantic_id ==
+          manifest.formulation_record.semantic_id &&
+        reordered_manifest.mesh_record.structural_identity ==
+          manifest.mesh_record.structural_identity &&
+        reordered_manifest.metric_record.realisation_id ==
+          manifest.metric_record.realisation_id &&
+        reordered_manifest.constraint_record.realisation_id ==
+          manifest.constraint_record.realisation_id &&
+        reordered_manifest.state_solve_record.maximum_iterations ==
+          manifest.state_solve_record.maximum_iterations &&
+        reordered_manifest.adjoint_solve_record.maximum_iterations ==
+          manifest.adjoint_solve_record.maximum_iterations,
+      "declaration-order permutation changed the closed compiler selection");
+
     const compiler::v1::CellwiseBoxDataBindings changed_bound_bindings{
       compiler::v1::CellwiseBoundValue{-1.0},
       compiler::v1::CellwiseBoundValue{0.15}};

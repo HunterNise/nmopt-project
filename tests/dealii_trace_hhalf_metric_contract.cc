@@ -4,6 +4,7 @@
 #include "nmopt/semantic/v1/reference_specs.hpp"
 
 #include "test_support/contract_errors.hpp"
+#include "test_support/diagnostics.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
@@ -14,6 +15,7 @@
 #include <deal.II/lac/sparsity_pattern.h>
 
 #include <cmath>
+#include <algorithm>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -661,6 +663,199 @@ namespace
            "nmopt.compiler.v1.dealii.h1_dirichlet_control",
            "tangential stiffness",
            "h1_trace_control_regularisation");
+
+    const auto reject_unregistered = [&] (
+      const nmopt::semantic::v1::ProblemSpec &specification,
+      const std::string &                     description) {
+      const auto report = compiler.validate(specification, policy);
+      nmopt::test_support::require_exact_diagnostic(
+        report,
+        nmopt::semantic::v1::DiagnosticCategory::lowerability,
+        specification.id,
+        "section_5_11_registered_signature",
+        description + " was accepted by validation");
+      const auto compilation =
+        compiler.compile(specification, triangulation, bindings, policy);
+      nmopt::test_support::require_exact_diagnostic(
+        compilation.diagnostics,
+        nmopt::semantic::v1::DiagnosticCategory::lowerability,
+        specification.id,
+        "section_5_11_registered_signature",
+        description + " was accepted by compilation");
+      nmopt::contract::require(!compilation.problem,
+                               description + " produced a compiled problem");
+    };
+
+    auto h1_state_fractional_loss = nmopt::semantic::v1::
+      make_h1_tracking_hhalf_dirichlet_laplace_control_problem();
+    auto &h1_state_fractional_loss_observation_space = *std::find_if(
+      h1_state_fractional_loss.spaces.begin(),
+      h1_state_fractional_loss.spaces.end(),
+      [](const nmopt::semantic::v1::SpaceSpec &space) {
+        return space.id == "control_observation_space";
+      });
+    h1_state_fractional_loss_observation_space.topology =
+      nmopt::semantic::v1::SpaceTopology::hhalf;
+    auto &h1_state_fractional_loss_term = *std::find_if(
+      h1_state_fractional_loss.losses.begin(),
+      h1_state_fractional_loss.losses.end(),
+      [](const nmopt::semantic::v1::LossSpec &loss) {
+        return loss.id == "control_regularisation";
+      });
+    h1_state_fractional_loss_term.kind =
+      nmopt::semantic::v1::LossKind::quadratic_hhalf_control_regularisation;
+    reject_unregistered(h1_state_fractional_loss,
+                        "H1 state tracking with fractional control loss");
+
+    auto l2_state_fractional_metric = nmopt::semantic::v1::
+      make_h1_tracking_hhalf_dirichlet_laplace_control_problem();
+    auto &l2_state_fractional_observation = *std::find_if(
+      l2_state_fractional_metric.observations.begin(),
+      l2_state_fractional_metric.observations.end(),
+      [](const nmopt::semantic::v1::ObservationSpec &observation) {
+        return observation.id == "state_observation";
+      });
+    l2_state_fractional_observation.kind =
+      nmopt::semantic::v1::ObservationKind::volume_restriction;
+    auto &l2_state_fractional_space = *std::find_if(
+      l2_state_fractional_metric.spaces.begin(),
+      l2_state_fractional_metric.spaces.end(),
+      [](const nmopt::semantic::v1::SpaceSpec &space) {
+        return space.id == "state_observation_space";
+      });
+    l2_state_fractional_space.topology =
+      nmopt::semantic::v1::SpaceTopology::l2;
+    l2_state_fractional_metric.requirement_policies.erase(
+      std::remove_if(
+        l2_state_fractional_metric.requirement_policies.begin(),
+        l2_state_fractional_metric.requirement_policies.end(),
+        [](const nmopt::semantic::v1::RequirementPolicySpec &policy_spec) {
+          return policy_spec.kind ==
+                 nmopt::semantic::v1::RequirementKind::target_data_membership;
+        }),
+      l2_state_fractional_metric.requirement_policies.end());
+    reject_unregistered(l2_state_fractional_metric,
+                        "L2 state tracking with the option-2 control loss and metric");
+
+    auto option1_tangential_metric = nmopt::semantic::v1::
+      make_hhalf_dirichlet_laplace_control_problem();
+    auto &option1_metric = *std::find_if(
+      option1_tangential_metric.metrics.begin(),
+      option1_tangential_metric.metrics.end(),
+      [](const nmopt::semantic::v1::MetricSpec &metric) {
+        return metric.id == "control_hhalf_metric";
+      });
+    option1_metric.id = "control_h1_metric";
+    option1_metric.kind = nmopt::semantic::v1::MetricKind::h1;
+    option1_tangential_metric.formulation.metric_id = "control_h1_metric";
+    option1_tangential_metric.requirement_policies.erase(
+      std::remove_if(
+        option1_tangential_metric.requirement_policies.begin(),
+        option1_tangential_metric.requirement_policies.end(),
+        [](const nmopt::semantic::v1::RequirementPolicySpec &policy_spec) {
+          return policy_spec.kind ==
+                 nmopt::semantic::v1::RequirementKind::fractional_trace_realisation;
+        }),
+      option1_tangential_metric.requirement_policies.end());
+    option1_tangential_metric.requirement_policies.push_back(
+      {"control_h1_metric_realisation",
+       "control_h1_metric",
+       nmopt::semantic::v1::RequirementKind::tangential_gradient_realisation,
+       nmopt::semantic::v1::RequirementStatus::selected_discrete_realisation,
+       nmopt::semantic::v1::RequirementScope::discrete_compilation,
+       "boundary mass plus projected tangential stiffness",
+       "control_boundary"});
+    option1_tangential_metric.requirement_policies.back()
+      .typed_boundary_h1_metric_selection =
+      nmopt::semantic::v1::BoundaryH1MetricRealisationSelection{
+        "control_h1_metric_realisation",
+        "control_h1_metric",
+        "control_space",
+        "control_boundary",
+        nmopt::semantic::v1::BoundaryH1MetricOperatorRealisation::
+          boundary_mass_plus_tangential_stiffness,
+        nmopt::semantic::v1::BoundaryH1TangentialGradientRealisation::
+          projected_ambient_gradient,
+        nmopt::semantic::v1::BoundaryH1MetricNullspaceRealisation::
+          positive_mass_no_nullspace};
+    reject_unregistered(option1_tangential_metric,
+                        "option-1 state/loss with a tangential metric");
+
+    auto option3_fractional_metric = nmopt::semantic::v1::
+      make_h1_dirichlet_laplace_control_problem();
+    auto &option3_metric = *std::find_if(
+      option3_fractional_metric.metrics.begin(),
+      option3_fractional_metric.metrics.end(),
+      [](const nmopt::semantic::v1::MetricSpec &metric) {
+        return metric.id == "control_h1_metric";
+      });
+    option3_metric.id = "control_hhalf_metric";
+    option3_metric.kind = nmopt::semantic::v1::MetricKind::hhalf;
+    option3_fractional_metric.formulation.metric_id = "control_hhalf_metric";
+    for (auto &space : option3_fractional_metric.spaces)
+      if (space.id == "control_space" ||
+          space.id == "control_observation_space")
+        space.topology = nmopt::semantic::v1::SpaceTopology::hhalf;
+    option3_fractional_metric.requirement_policies.erase(
+      std::remove_if(
+        option3_fractional_metric.requirement_policies.begin(),
+        option3_fractional_metric.requirement_policies.end(),
+        [](const nmopt::semantic::v1::RequirementPolicySpec &policy_spec) {
+          return policy_spec.kind ==
+                 nmopt::semantic::v1::RequirementKind::tangential_gradient_realisation;
+        }),
+      option3_fractional_metric.requirement_policies.end());
+    option3_fractional_metric.requirement_policies.push_back(
+      {"control_hhalf_metric_realisation",
+       "control_hhalf_metric",
+       nmopt::semantic::v1::RequirementKind::fractional_trace_realisation,
+       nmopt::semantic::v1::RequirementStatus::selected_discrete_realisation,
+       nmopt::semantic::v1::RequirementScope::discrete_compilation,
+       "minimum-extension volume H1 Schur complement",
+       "control_boundary"});
+    option3_fractional_metric.requirement_policies.back()
+      .typed_fractional_metric_selection =
+      nmopt::semantic::v1::FractionalTraceMetricRealisationSelection{
+        "control_hhalf_metric_realisation",
+        "control_hhalf_metric",
+        "control_space",
+        "state_space",
+        "control_trace_inclusion",
+        "volume_mass_plus_stiffness",
+        "minimum_h1_extension",
+        "full_volume_operator_inverse",
+        "control_metric_solve",
+        nmopt::semantic::v1::FractionalTraceOperatorRealisation::
+          volume_mass_plus_stiffness_schur,
+        nmopt::semantic::v1::FractionalTraceApplyRealisation::
+          minimum_h1_extension,
+        nmopt::semantic::v1::FractionalTraceInverseRealisation::
+          full_volume_operator_inverse};
+    reject_unregistered(option3_fractional_metric,
+                        "tangential-loss Section 5.11.3 with a fractional metric");
+
+    auto mismatched_control_observation = nmopt::semantic::v1::
+      make_h1_tracking_hhalf_dirichlet_laplace_control_problem();
+    auto &mismatched_control_observation_space = *std::find_if(
+      mismatched_control_observation.spaces.begin(),
+      mismatched_control_observation.spaces.end(),
+      [](const nmopt::semantic::v1::SpaceSpec &space) {
+        return space.id == "control_observation_space";
+      });
+    mismatched_control_observation_space.topology =
+      nmopt::semantic::v1::SpaceTopology::hhalf;
+    reject_unregistered(mismatched_control_observation,
+                        "control loss with a mismatched observation topology");
+
+    auto renamed_registration = nmopt::semantic::v1::
+      make_hhalf_dirichlet_laplace_control_problem();
+    renamed_registration.id = "renamed_section_5_11_registration";
+    renamed_registration.label = "renamed Section 5.11 registration";
+    verify(renamed_registration,
+           "hhalf_dirichlet_trace",
+           "nmopt.compiler.v1.dealii.hhalf_dirichlet_control",
+           "minimum-volume-H1-extension",
+           "hhalf_trace_control_regularisation");
   }
 } // namespace
 

@@ -3127,7 +3127,7 @@ namespace nmopt::compiler::v1
                    "single_full_volume_region",
                    "The first v1 deal.II lowerer supports exactly one full volume region.");
 
-      validate_registered_graph(specification, report);
+      validate_registered_graph(specification, request, report);
 
       for (const auto &term : specification.residual_terms)
         if (!capabilities_.has_residual_term_lowerer(term.kind))
@@ -3652,6 +3652,7 @@ namespace nmopt::compiler::v1
 
     static void
     validate_registered_graph(const semantic::v1::ProblemSpec &specification,
+                              const ResolvedCompilationRequest &request,
                               semantic::v1::ValidationReport & report)
     {
       using semantic::v1::DataRole;
@@ -3667,25 +3668,25 @@ namespace nmopt::compiler::v1
             return term.kind == kind;
           });
       };
-      const bool boundary_control = uses_neumann_control(specification);
+      const bool boundary_control = request.uses_neumann_boundary_control;
       const bool l2_dirichlet_transposition =
-        uses_l2_dirichlet_transposition(specification);
+        request.uses_l2_dirichlet_control;
       const bool normalized_dirichlet_laplace =
-        uses_normalized_dirichlet_laplace_control(specification);
+        request.uses_normalized_dirichlet_laplace;
       const bool normalized_laplacian =
-        l2_dirichlet_transposition || normalized_dirichlet_laplace;
+        request.uses_normalized_laplacian;
       const bool dirichlet_control =
-        uses_dirichlet_control_target(specification);
+        request.uses_dirichlet_control;
       const bool coefficient_identification =
-        uses_parameter_diffusion_residual(specification);
+        request.uses_coefficient_identification;
       const bool general_scalar =
-        uses_general_scalar_residual(specification);
+        request.uses_general_scalar;
       const bool neumann_convection =
-        uses_neumann_conservative_transport(specification);
+        request.uses_neumann_convection;
       const bool weighted_boundary_trace =
-        has_weighted_boundary_trace(specification);
-      const bool point_sensor = has_point_sensor_observation(specification);
-      const bool normal_flux = has_normal_flux_observation(specification);
+        request.uses_weighted_boundary_trace;
+      const bool point_sensor = request.uses_point_sensor;
+      const bool normal_flux = request.uses_normal_flux;
       const bool complete_residual = general_scalar
         ? count_terms(ResidualTermKind::tensor_diffusion) == 1 &&
             count_terms(ResidualTermKind::conservative_transport) == 1 &&
@@ -3834,9 +3835,9 @@ namespace nmopt::compiler::v1
           });
       };
       const bool h1_control_regularisation =
-        uses_h1_control_regularisation_loss(specification);
+        request.uses_h1_control_regularisation_loss;
       const bool hhalf_control_regularisation =
-        uses_hhalf_control_regularisation_loss(specification);
+        request.uses_hhalf_control_regularisation_loss;
       const bool complete_control_loss = coefficient_identification
         ? count_losses(LossKind::quadratic_parameter_regularisation) == 1 &&
             count_losses(LossKind::quadratic_control_regularisation) == 0 &&
@@ -3986,7 +3987,11 @@ namespace nmopt::compiler::v1
             {
               const auto region = find_region(specification,
                                               control_restriction->region_id);
-              const auto control_region = selected_neumann_control_region(specification);
+              const auto *control_region = request.control_boundary_region_id.empty()
+                                             ? nullptr
+                                             : find_region(
+                                                 specification,
+                                                 request.control_boundary_region_id);
               if (region == nullptr || control_region == nullptr ||
                   region->id != control_region->id)
                 report.add(DiagnosticCategory::lowerability,
@@ -4015,8 +4020,11 @@ namespace nmopt::compiler::v1
               return observation.kind ==
                      semantic::v1::ObservationKind::boundary_restriction;
             });
-          const auto control_region =
-            selected_dirichlet_control_region(specification);
+          const auto *control_region = request.control_boundary_region_id.empty()
+                                         ? nullptr
+                                         : find_region(
+                                             specification,
+                                             request.control_boundary_region_id);
           if (specification.observations.size() != 2 ||
               state_observation == specification.observations.end() ||
               control_restriction == specification.observations.end())

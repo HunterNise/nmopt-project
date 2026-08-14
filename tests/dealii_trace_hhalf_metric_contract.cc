@@ -667,7 +667,7 @@ namespace
     auto display_only_hhalf = nmopt::semantic::v1::
       make_hhalf_dirichlet_laplace_control_problem();
     for (auto &requirement : display_only_hhalf.requirement_policies)
-      requirement.selected_policy = "arbitrary display text";
+      requirement.selected_policy.clear();
     require_valid(compiler.validate(display_only_hhalf, policy),
                   "P5.4 validation depended on policy prose");
     const auto display_only_compilation = compiler.compile(

@@ -1476,11 +1476,10 @@ namespace nmopt::semantic::v1
         return std::find_if(
           specification.requirement_policies.begin(),
           specification.requirement_policies.end(),
-          [&subject, kind](const RequirementPolicySpec &policy) {
-            return policy.subject_id == subject && policy.kind == kind &&
+            [&subject, kind](const RequirementPolicySpec &policy) {
+              return policy.subject_id == subject && policy.kind == kind &&
                    policy.status ==
-                     RequirementStatus::selected_discrete_realisation &&
-                   !policy.selected_policy.empty();
+                     RequirementStatus::selected_discrete_realisation;
           });
       };
       const auto has_policy = [&specification, &selected_policy](
@@ -1859,8 +1858,7 @@ namespace nmopt::semantic::v1
               [&subject, kind, status, scope](
                 const RequirementPolicySpec &policy) {
                 return policy.subject_id == subject && policy.kind == kind &&
-                       policy.status == status && policy.scope == scope &&
-                       !policy.selected_policy.empty();
+                       policy.status == status && policy.scope == scope;
               });
           };
           if (!has_exact_policy(specification.formulation.equation_id,
@@ -1911,7 +1909,6 @@ namespace nmopt::semantic::v1
               transposition_policy->status == RequirementStatus::provided &&
               transposition_policy->scope ==
                 RequirementScope::continuous_semantics &&
-              !transposition_policy->selected_policy.empty() &&
               has_exact_policy(specification.formulation.equation_id,
                                RequirementKind::domain_regularity,
                                RequirementStatus::user_assumed,
@@ -2364,8 +2361,7 @@ namespace nmopt::semantic::v1
               interface_policy->status !=
                 RequirementStatus::selected_discrete_realisation ||
               interface_policy->scope != RequirementScope::discrete_compilation ||
-              interface_policy->region_id != "control_boundary" ||
-              interface_policy->selected_policy.empty())
+              interface_policy->region_id != "control_boundary")
             report.add(
               DiagnosticCategory::analytical_policy,
               "dirichlet_control_lifting",
@@ -2386,7 +2382,6 @@ namespace nmopt::semantic::v1
             if (target_policy == specification.requirement_policies.end() ||
                 target_policy->status != RequirementStatus::user_assumed ||
                 target_policy->scope != RequirementScope::continuous_semantics ||
-                target_policy->selected_policy.empty() ||
                 !target_policy->typed_h1_target_data_membership_selection)
               report.add(
                 DiagnosticCategory::analytical_policy,
@@ -2529,8 +2524,7 @@ namespace nmopt::semantic::v1
                   specification.requirement_policies.end() ||
                 point_transposition_policy->status != RequirementStatus::provided ||
                 point_transposition_policy->scope !=
-                  RequirementScope::continuous_semantics ||
-                point_transposition_policy->selected_policy.empty())
+                  RequirementScope::continuous_semantics)
               report.add(
                 DiagnosticCategory::analytical_policy,
                 specification.formulation.equation_id,
@@ -2927,14 +2921,12 @@ namespace nmopt::semantic::v1
                          RequirementKind::transposition_formulation &&
                        candidate_policy.status == RequirementStatus::provided &&
                        candidate_policy.scope ==
-                         RequirementScope::continuous_semantics &&
-                       !candidate_policy.selected_policy.empty();
+                         RequirementScope::continuous_semantics;
               });
             if (transposition_policy == specification.requirement_policies.end() ||
                 transposition_policy->status != RequirementStatus::provided ||
                 transposition_policy->scope !=
-                  RequirementScope::continuous_semantics ||
-                transposition_policy->selected_policy.empty())
+                  RequirementScope::continuous_semantics)
               report.add(
                 DiagnosticCategory::analytical_policy,
                 specification.formulation.equation_id,

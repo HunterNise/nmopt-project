@@ -1866,7 +1866,7 @@ namespace
     for (auto &requirement : display_only_specification.requirement_policies)
       if (requirement.id == "point_sensor_evaluation_policy" ||
           requirement.id == "point_sensor_transposition_policy")
-        requirement.selected_policy = "arbitrary display text";
+        requirement.selected_policy.clear();
     contract::require(compiler.validate(display_only_specification, policy).valid(),
                       "point-sensor compiler validation depended on policy prose");
     const auto display_only_compilation = compiler.compile(
@@ -2140,7 +2140,7 @@ namespace
       if (requirement.id == "normal_flux_orientation_policy" ||
           requirement.id == "normal_flux_evaluation_policy" ||
           requirement.id == "normal_flux_transposition_policy")
-        requirement.selected_policy = "arbitrary display text";
+        requirement.selected_policy.clear();
     contract::require(compiler.validate(display_only_specification, policy).valid(),
                       "normal-flux compiler validation depended on policy prose");
     const auto display_only_compilation = compiler.compile(

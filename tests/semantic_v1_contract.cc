@@ -233,9 +233,10 @@ namespace
       "transposition_isomorphism",
       "the point-sensor graph accepted an alternate transposition isomorphism");
     auto display_only_point_transposition = point_sensor_specification;
-    component_by_id(display_only_point_transposition.requirement_policies,
-                    "point_sensor_transposition_policy")
-      .selected_policy = "arbitrary display text";
+    for (auto &policy : display_only_point_transposition.requirement_policies)
+      if (policy.id == "point_sensor_evaluation_policy" ||
+          policy.id == "point_sensor_transposition_policy")
+        policy.selected_policy.clear();
     require(validator.validate(display_only_point_transposition).valid(),
             "point-sensor transposition resolution depended on display text");
 
@@ -319,6 +320,14 @@ namespace
       "state_observation",
       "normal_flux_evaluation_policy",
       "the normal-flux graph accepted a missing face evaluation policy");
+    auto display_only_normal_flux = normal_flux_specification;
+    for (auto &policy : display_only_normal_flux.requirement_policies)
+      if (policy.id == "normal_flux_orientation_policy" ||
+          policy.id == "normal_flux_evaluation_policy" ||
+          policy.id == "normal_flux_transposition_policy")
+        policy.selected_policy.clear();
+    require(validator.validate(display_only_normal_flux).valid(),
+            "normal-flux policy resolution depended on display prose");
 
     auto missing_transposition = l2_dirichlet_specification;
     remove_policy(missing_transposition, "transposition_formulation");

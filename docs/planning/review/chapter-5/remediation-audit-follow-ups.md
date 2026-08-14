@@ -93,7 +93,7 @@ actual fused boundary-trace output representation, count that representation
 directly, and publish the record alongside equivalent value/JVP/VJP actions;
 the point-sensor and normal-flux implementations need not be redesigned.
 
-### CH5-AUDIT-004 – typed transposition capability still depends on policy prose
+### CH5-AUDIT-004 – typed transposition capability still depends on policy prose — resolved
 
 **Chapter 6 impact:** does not block starting P6.1. Resolve before P6.2,
 whose supplied-OtD boundary depends directly on unambiguous formulation and
@@ -104,21 +104,19 @@ metric, and boundary-$H^{1}$ selections. Semantic and compiler checks reject
 unsupported enum selections, and the resolved decision and manifest retain
 the typed payloads.
 
-Despite that structure, compiler lowerability still selects P5.3 policy
-capabilities by searching `selected_policy` for English fragments including
-`outward unit normal`, `FE_Q normal derivatives`, `FE_Q shape functions`, and
-`very weak`. Semantic validation also requires several typed policy
-descriptions to be nonempty. A prose-only edit can therefore reject an
-otherwise unchanged typed request, contrary to both remediation reviews and
-the updated interface/compiler documentation. Raw policy prose is also copied
-into manifest assumptions, overlapping the rendering issue in
-`CH5-AUDIT-002`.
+The compiler lowerability path now consumes the resolved typed transposition,
+boundary, metric, and target selections; it does not search `selected_policy`
+for English fragments. Semantic selection presence is likewise determined by
+the selected status/scope and typed payloads. The untyped domain-regularity
+assumption remains an explicit textual declaration because it has no structured
+replacement in the v1 contract.
 
-The P5.3 prose-independent-validation item and the P5.4 prose-independent-
-factory item remain unchecked. The bounded fix is to make the existing typed
-selection and referenced typed policies the only lowerability inputs and to
-render any compatibility description afterward; no new policy schema is
-needed.
+The point-sensor, normal-flux, and Section 5.11 deal.II regressions clear the
+relevant policy descriptions before validation and compilation. The full
+`debug-neutral` (12/12) and `debug-dealii` (41/41) baselines pass, so the P5.3
+prose-independent-validation and P5.4 prose-independent-factory acceptance
+items are closed. Compatibility rendering remains a manifest concern already
+addressed by `CH5-AUDIT-002`.
 
 ### CH5-AUDIT-005 – P5.4 realized-layout and Chapter 5.11.2 Taylor evidence is incomplete
 

@@ -2272,6 +2272,23 @@ namespace
                   0.0,
                   1e-10,
                   "normal-flux manufactured state residual");
+    const auto &nonunit_model = nonunit_compilation.problem->executable_model();
+    dealii::Vector<double> nonunit_control_values(
+      nonunit_model.variable_layout()->dimension(1));
+    const Primal nonunit_control(
+      nonunit_model.variable_layout()->single_block(1, "control"),
+      {std::move(nonunit_control_values)});
+    const auto nonunit_evaluation =
+      nonunit_compilation.problem->make_reduced_dto().evaluate(nonunit_control);
+    require_close(
+      nonunit_model.residual(nonunit_evaluation.full_point).block(0).l2_norm(),
+      0.0,
+      1e-10,
+      "non-unit normal-flux manufactured state residual");
+    require_primal_close(nonunit_evaluation.full_point,
+                         evaluation.full_point,
+                         1e-10,
+                         "non-unit diffusion manufactured state");
 
     const std::vector<double> normal_flux_values =
       normal_flux_model->normal_flux_values(evaluation.full_point);

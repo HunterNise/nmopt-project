@@ -430,6 +430,14 @@ boundary, `boundary_weight` datum, face quadrature, pairing, and the common
 transpose realization. The compiler passes this typed selection to the
 backend, and the manifest records its stable ID and input/data references.
 
+For both the baseline and weighted Neumann targets, the backend owns one
+ordered evaluation table for the selected boundary-face quadrature points.
+The realized observation dimension is the number of entries in that table,
+and the same entries provide the value and JVP actions. Its recorded
+quadrature weights define the output pairing used by the VJP, so the realized
+map record, executable ports, and fused tracking objective share one sample
+ordering rather than independently counting shape-function contributions.
+
 The value and JVP multiply the state trace by the fixed scalar weight, while
 the transpose action multiplies the boundary observation covector by the same
 weight before the state-trace pullback. Consequently the quadratic tracking

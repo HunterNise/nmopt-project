@@ -187,8 +187,60 @@ namespace nmopt::compiler::v1::detail
     realized_observation_dimension() const
     {
       return state_observation_ == StateObservation::boundary_trace
-               ? observation_sample_count_
+               ? observation_evaluations_.size()
                : physical_state_dimension();
+    }
+
+    // The boundary-trace map owns the same ordered face-quadrature samples
+    // used to assemble the tracking objective.  For the weighted target the
+    // stored evaluations include h, so these ports describe y -> h gamma y.
+    std::vector<double>
+    boundary_trace_values(const Primal &variables) const
+    {
+      require_variables(variables, "Boundary-trace value");
+      require_boundary_trace_observation("Boundary-trace values");
+      std::vector<double> values;
+      values.reserve(observation_evaluations_.size());
+      for (const auto &evaluation : observation_evaluations_)
+        values.push_back(evaluation * variables.block(0));
+      return values;
+    }
+
+    Covector
+    boundary_trace_jvp(const Primal &variable_tangent) const
+    {
+      require_variables(variable_tangent, "Boundary-trace JVP tangent");
+      require_boundary_trace_observation("Boundary-trace JVP");
+      Vector values(observation_evaluations_.size());
+      for (std::size_t index = 0; index < observation_evaluations_.size(); ++index)
+        values[index] = observation_evaluations_[index] *
+                        variable_tangent.block(0);
+      const std::size_t observation_dimension = values.size();
+      return Covector(std::make_shared<const contract::BlockLayout>(
+                        "boundary_trace_observation",
+                        std::vector<contract::SpaceId>{{"boundary_trace"}},
+                        std::vector<std::size_t>{observation_dimension}),
+                      {std::move(values)});
+    }
+
+    Covector
+    boundary_trace_vjp(const std::vector<double> &seed) const
+    {
+      require_boundary_trace_observation("Boundary-trace VJP");
+      contract::require(seed.size() == observation_evaluations_.size(),
+                        "Boundary-trace VJP seed has the wrong dimension");
+      Vector physical_covector(state_dof_handler_.n_dofs());
+      for (std::size_t index = 0; index < seed.size(); ++index)
+        physical_covector.add(seed[index] * observation_quadrature_weights_[index],
+                              observation_evaluations_[index]);
+      return Covector(state_layout_, {std::move(physical_covector)});
+    }
+
+    const std::vector<double> &
+    boundary_trace_quadrature_weights() const
+    {
+      require_boundary_trace_observation("Boundary-trace quadrature weights");
+      return observation_quadrature_weights_;
     }
 
     dealii_backend::MassMetric
@@ -413,6 +465,14 @@ namespace nmopt::compiler::v1::detail
     }
 
   private:
+    void
+    require_boundary_trace_observation(const char *operation) const
+    {
+      contract::require(
+        state_observation_ == StateObservation::boundary_trace,
+        std::string(operation) + " needs the boundary-trace observation target");
+    }
+
     void
     require_variables(const Primal &variables, const char *operation) const
     {
@@ -702,8 +762,12 @@ namespace nmopt::compiler::v1::detail
                       ? observation_weight->value(
                           face_values.quadrature_point(q))
                       : 1.0;
+                  std::optional<Vector> observation_evaluation;
                   if (observation_face)
-                    desired_state_norm_ += desired_value * desired_value * weight;
+                    {
+                      desired_state_norm_ += desired_value * desired_value * weight;
+                      observation_evaluation.emplace(state_dof_handler_.n_dofs());
+                    }
                   for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
                     {
                       const auto global_i = state_indices[i];
@@ -716,7 +780,8 @@ namespace nmopt::compiler::v1::detail
                                               phi_i * weight);
                       if (observation_face)
                         {
-                          observation_sample_count_++;
+                          (*observation_evaluation)[global_i] =
+                            observation_weight_value * phi_i;
                           desired_state_load_[global_i] +=
                             observation_weight_value * desired_value * phi_i *
                             weight;
@@ -734,6 +799,12 @@ namespace nmopt::compiler::v1::detail
                                     face_values.shape_value(j, q) * weight);
                             }
                         }
+                    }
+                  if (observation_face)
+                    {
+                      observation_evaluations_.push_back(
+                        std::move(*observation_evaluation));
+                      observation_quadrature_weights_.push_back(weight);
                     }
                 }
               if (control_face)
@@ -830,7 +901,8 @@ namespace nmopt::compiler::v1::detail
     const bool uses_conservative_transport_;
     const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
     std::size_t control_face_count_ = 0;
-    std::size_t observation_sample_count_ = 0;
+    std::vector<Vector> observation_evaluations_;
+    std::vector<double> observation_quadrature_weights_;
 
     dealii::SparsityPattern state_sparsity_;
     dealii::SparsityPattern control_sparsity_;

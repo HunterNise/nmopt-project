@@ -2396,6 +2396,30 @@ namespace
                       "Neumann boundary-control v1 compilation failed");
 
     const auto &model = compilation.problem->executable_model();
+    const auto *neumann_model =
+      dynamic_cast<const compiler::v1::detail::NeumannBoundaryControlModel<dim> *>(
+        &model);
+    contract::require(neumann_model != nullptr,
+                      "Neumann boundary-control did not produce its Neumann target");
+    const dealii::QGauss<dim - 1> boundary_quadrature(policy.state_degree + 2);
+    std::size_t expected_boundary_trace_samples = 0;
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary() &&
+            cell->face(face)->boundary_id() == 2)
+          expected_boundary_trace_samples += boundary_quadrature.size();
+    const auto boundary_trace_values =
+      neumann_model->boundary_trace_values(
+        Primal(model.variable_layout(),
+               {dealii::Vector<double>(model.variable_layout()->dimension(0)),
+                dealii::Vector<double>(model.variable_layout()->dimension(1))}));
+    contract::require(
+      boundary_trace_values.size() == expected_boundary_trace_samples,
+      "Neumann boundary trace dimension did not count ordered face samples");
     const auto reduced = compilation.problem->make_reduced_dto();
     dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
     for (dealii::types::global_dof_index index = 0;
@@ -2518,7 +2542,16 @@ namespace
         manifest.observation_realisation.find("boundary trace") !=
           std::string::npos &&
         manifest.data_rule.find("boundary face quadrature") != std::string::npos &&
-        manifest.constraint_realisation.find("l2_facewise") != std::string::npos,
+        manifest.constraint_realisation.find("l2_facewise") != std::string::npos &&
+        std::any_of(
+          manifest.realized_maps.begin(),
+          manifest.realized_maps.end(),
+          [expected_boundary_trace_samples](
+            const compiler::v1::CompiledRealizedMapRecord &map) {
+            return map.semantic_id == "state_boundary_trace" &&
+                   map.realization_id == "ordered_boundary_face_quadrature_trace" &&
+                   map.output_dimension == expected_boundary_trace_samples;
+          }),
       "Neumann boundary compilation manifest is incomplete");
   }
 
@@ -2867,8 +2900,27 @@ namespace
     const auto *weighted_neumann_model =
       dynamic_cast<const compiler::v1::detail::NeumannBoundaryControlModel<dim> *>(
         &weighted_model);
+    const auto *comparison_neumann_model =
+      dynamic_cast<const compiler::v1::detail::NeumannBoundaryControlModel<dim> *>(
+        &comparison_model);
     contract::require(weighted_neumann_model != nullptr,
                       "weighted trace compilation did not produce its Neumann target");
+    contract::require(comparison_neumann_model != nullptr,
+                      "comparison compilation did not produce its Neumann target");
+    const dealii::QGauss<dim - 1> weighted_boundary_quadrature(
+      policy.state_degree + 2);
+    std::size_t expected_weighted_trace_samples = 0;
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary() &&
+            cell->face(face)->boundary_id() == 2)
+          expected_weighted_trace_samples += weighted_boundary_quadrature.size();
+    contract::require(expected_weighted_trace_samples > 0,
+                      "weighted trace test found no observation boundary samples");
     dealii::Vector<double> zero_control_values(
       weighted_model.variable_layout()->dimension(1));
     const Primal zero_control(
@@ -2920,6 +2972,49 @@ namespace
       comparison_model.residual_vjp(weighted_evaluation.full_point, seed),
       1e-12,
       "weighted trace changed the Neumann residual VJP");
+
+    const auto weighted_trace_values =
+      weighted_neumann_model->boundary_trace_values(
+        weighted_evaluation.full_point);
+    const auto comparison_trace_values =
+      comparison_neumann_model->boundary_trace_values(
+        comparison_evaluation.full_point);
+    contract::require(
+      expected_weighted_trace_samples > 0 &&
+        weighted_trace_values.size() == expected_weighted_trace_samples &&
+        comparison_trace_values.size() == expected_weighted_trace_samples,
+      "boundary-trace actions did not expose the ordered face samples (weighted=" +
+        std::to_string(weighted_trace_values.size()) +
+        ", comparison=" + std::to_string(comparison_trace_values.size()) +
+        ", expected=" + std::to_string(expected_weighted_trace_samples) + ")");
+    for (std::size_t index = 0; index < weighted_trace_values.size(); ++index)
+      require_close(weighted_trace_values[index],
+                    2.0 * comparison_trace_values[index],
+                    1e-12,
+                    "weighted boundary-trace value omitted its weight");
+    const auto weighted_trace_jvp =
+      weighted_neumann_model->boundary_trace_jvp(tangent);
+    const auto &weighted_trace_weights =
+      weighted_neumann_model->boundary_trace_quadrature_weights();
+    contract::require(weighted_trace_weights.size() == weighted_trace_values.size(),
+                      "weighted boundary-trace map omitted its pairing weights");
+    std::vector<double> boundary_trace_seed(weighted_trace_values.size());
+    for (std::size_t index = 0; index < boundary_trace_seed.size(); ++index)
+      boundary_trace_seed[index] = 0.02 * static_cast<double>(index + 1);
+    const auto weighted_trace_vjp =
+      weighted_neumann_model->boundary_trace_vjp(boundary_trace_seed);
+    double weighted_trace_jvp_pairing = 0.0;
+    for (std::size_t index = 0; index < boundary_trace_seed.size(); ++index)
+      weighted_trace_jvp_pairing += weighted_trace_weights[index] *
+                                    weighted_trace_jvp.block(0)[index] *
+                                    boundary_trace_seed[index];
+    require_close(
+      weighted_trace_jvp_pairing,
+      contract::pair(
+        weighted_trace_vjp,
+        contract::extract_primal_block(tangent, 0, "state")),
+      1e-11,
+      "weighted boundary-trace value/JVP/VJP map is inconsistent");
 
     require_close(weighted_evaluation.objective_value,
                   4.0 * comparison_evaluation.objective_value,
@@ -3025,7 +3120,9 @@ namespace
     contract::require(
       weighted_map != manifest.realized_maps.end() &&
         weighted_map->output_dimension ==
-          weighted_neumann_model->realized_observation_dimension() &&
+          weighted_trace_values.size() &&
+        weighted_map->output_dimension == expected_weighted_trace_samples &&
+        weighted_map->output_dimension == weighted_trace_jvp.block(0).size() &&
         weighted_map->output_layout.find("boundary face") != std::string::npos,
       "weighted trace realized map is missing its face-quadrature output");
     const auto weighted_observation_record = std::find_if(

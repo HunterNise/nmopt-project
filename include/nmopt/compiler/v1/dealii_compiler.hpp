@@ -575,8 +575,6 @@ namespace nmopt::compiler::v1
       close_compilation_request(*resolution.problem,
                                 request,
                                 dirichlet_registration);
-      const auto resolved_dirichlet_registration =
-        dirichlet_registration_from_request(request);
       validate_lowerability(specification, request, policy, result.diagnostics);
       validate_formulation_capability(specification, result.diagnostics);
       validate_dirichlet_control_registration(*resolution.problem,
@@ -1049,9 +1047,8 @@ namespace nmopt::compiler::v1
         return result;
 
       // Resolve the target and all semantic component choices before any
-      // backend model is constructed.  The executable below consumes this
-      // decision; the manifest receives the same record rather than
-      // inferring it from the constructed model.
+      // backend model is constructed. The executable consumes the same
+      // closed request and scalar plan captured by this decision.
       const CompiledTargetKind target_kind =
         target_kind_from_request(request);
       const ResolvedCompilationDecision resolved_decision =
@@ -1547,17 +1544,10 @@ namespace nmopt::compiler::v1
           executable = direct;
         }
       const auto finalized_decision = finalize_resolved_decision<dim>(
-        specification,
         policy,
         constraint_realisation,
-        target_kind,
-        resolved_dirichlet_registration,
         resolved_decision,
         request,
-        *tracking_region,
-        uses_homogeneous_dirichlet_continuous_control
-          ? continuous_control_boundary_region
-          : control_boundary_region,
         *executable,
         *metric,
         scalar_plan ? &*scalar_plan : nullptr);
@@ -4361,6 +4351,7 @@ namespace nmopt::compiler::v1
       ids.reserve(components.size());
       for (const auto &component : components)
         ids.push_back(component.id);
+      std::sort(ids.begin(), ids.end());
       return ids;
     }
 
@@ -4583,16 +4574,13 @@ namespace nmopt::compiler::v1
     static std::optional<std::size_t>
     realized_output_dimension(
       const std::vector<CompiledRealizedSpaceRecord> &realized_spaces,
-      const std::string &                              map_id,
       const std::string &                              semantic_space_id)
     {
       const auto space = std::find_if(
         realized_spaces.begin(),
         realized_spaces.end(),
-        [&map_id, &semantic_space_id](
-          const CompiledRealizedSpaceRecord &candidate) {
-          return candidate.map_id == map_id &&
-                 candidate.semantic_id == semantic_space_id &&
+        [&semantic_space_id](const CompiledRealizedSpaceRecord &candidate) {
+          return candidate.semantic_id == semantic_space_id &&
                  candidate.realization_id.find("output:") == 0;
         });
       return space == realized_spaces.end()
@@ -4602,33 +4590,30 @@ namespace nmopt::compiler::v1
 
     static std::size_t
     compiled_space_dimension(
-      const semantic::v1::ProblemSpec &specification,
-      const semantic::v1::SpaceSpec &  space,
+      const CompiledSpaceRecord &space,
       const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
       const std::vector<CompiledRealizedSpaceRecord> &realized_spaces)
     {
-      const auto state = find_variable(
-        specification, specification.formulation.state_variable_id);
-      if (state != nullptr && state->space_id == space.id)
-        return executable.variable_layout()->dimension(0);
-      const auto decision = find_variable(
-        specification, specification.formulation.control_variable_id);
-      if (decision != nullptr && decision->space_id == space.id)
-        return executable.variable_layout()->dimension(1);
-      if (!specification.equations.empty() &&
-          specification.equations.front().test_space_id == space.id)
-        return executable.test_layout()->dimension(0);
-      const auto observation = std::find_if(
-        specification.observations.begin(),
-        specification.observations.end(),
-        [&space](const semantic::v1::ObservationSpec &candidate) {
-          return candidate.output_space_id == space.id;
-        });
-      if (observation != specification.observations.end())
-        if (const auto dimension = realized_output_dimension(realized_spaces,
-                                                             observation->id,
-                                                             space.id))
-          return *dimension;
+      switch (space.role)
+        {
+          case semantic::v1::SpaceRole::state:
+            return executable.variable_layout()->dimension(0);
+          case semantic::v1::SpaceRole::test:
+            return executable.test_layout()->dimension(0);
+          case semantic::v1::SpaceRole::control:
+          case semantic::v1::SpaceRole::parameter:
+            return executable.variable_layout()->dimension(1);
+          case semantic::v1::SpaceRole::observation:
+            if (const auto dimension =
+                  realized_output_dimension(realized_spaces,
+                                            space.semantic_id))
+              return *dimension;
+            return 0;
+          case semantic::v1::SpaceRole::data:
+          case semantic::v1::SpaceRole::auxiliary:
+          case semantic::v1::SpaceRole::unspecified:
+            return 0;
+        }
       return 0;
     }
 
@@ -5127,6 +5112,14 @@ namespace nmopt::compiler::v1
         owns_mesh ? MeshLifetimePolicy::owned_session
                   : MeshLifetimePolicy::borrowed_immutable,
         mesh_structural_identity(triangulation)};
+      for (const auto &region : specification.regions)
+        decision.regions.push_back(
+          {region.id,
+           region.kind,
+           region.is_full_domain,
+           region.boundary_ids,
+           region.material_ids,
+           region.point_coordinates.size()});
       decision.bindings = make_resolved_binding_records<dim>(
         specification, target, request, data, bounds, facewise_bounds);
       for (const auto &space : specification.spaces)
@@ -5202,6 +5195,7 @@ namespace nmopt::compiler::v1
            transformation.kind});
       if (scalar_plan != nullptr)
         decision.boundary_realisation = scalar_plan->boundary_selection;
+      decision.realized_maps = make_resolved_maps(specification);
       decision.transposition_realisation = request.transposition_selection;
       decision.partial_boundary_selection = request.partial_boundary_selection;
       decision.fractional_metric_selection = request.fractional_metric_selection;
@@ -5211,7 +5205,67 @@ namespace nmopt::compiler::v1
         request.h1_target_data_membership_selection;
       for (const auto &requirement : specification.requirement_policies)
         decision.assumptions.push_back(
-          {requirement.id, requirement.subject_id, requirement.selected_policy});
+          {requirement.id,
+           requirement.subject_id,
+           requirement.kind,
+           requirement.status,
+           requirement.scope,
+           requirement.region_id,
+           requirement.status == semantic::v1::RequirementStatus::user_assumed
+             ? requirement.selected_policy
+             : std::string{}});
+      decision.metric_record.semantic_id = specification.formulation.metric_id;
+      decision.constraint_record.semantic_id =
+        specification.formulation.constraint_id;
+
+      auto &inventory = decision.compatibility;
+      inventory.region_ids = identifiers(specification.regions);
+      inventory.space_ids = identifiers(specification.spaces);
+      inventory.pairing_ids = identifiers(specification.pairings);
+      inventory.variable_ids = identifiers(specification.variables);
+      inventory.data_ids = identifiers(specification.data);
+      inventory.transformation_ids = identifiers(specification.transformations);
+      inventory.residual_term_ids = identifiers(specification.residual_terms);
+      inventory.observation_ids = identifiers(specification.observations);
+      inventory.loss_ids = identifiers(specification.losses);
+      inventory.metric_ids = identifiers(specification.metrics);
+      inventory.constraint_ids = identifiers(specification.constraints);
+
+      const auto by_semantic_id = [](const auto &left, const auto &right) {
+        return left.semantic_id < right.semantic_id;
+      };
+      std::sort(decision.regions.begin(),
+                decision.regions.end(),
+                by_semantic_id);
+      std::sort(decision.spaces.begin(), decision.spaces.end(), by_semantic_id);
+      std::sort(decision.bindings.begin(),
+                decision.bindings.end(),
+                by_semantic_id);
+      std::sort(decision.residuals.begin(),
+                decision.residuals.end(),
+                by_semantic_id);
+      std::sort(decision.observations.begin(),
+                decision.observations.end(),
+                by_semantic_id);
+      std::sort(decision.losses.begin(), decision.losses.end(), by_semantic_id);
+      std::sort(decision.transformations.begin(),
+                decision.transformations.end(),
+                by_semantic_id);
+      std::sort(decision.realized_maps.begin(),
+                decision.realized_maps.end(),
+                by_semantic_id);
+      std::sort(decision.pairings.begin(),
+                decision.pairings.end(),
+                [](const CompiledPairingRecord &left,
+                   const CompiledPairingRecord &right) {
+                  return left.pairing_id < right.pairing_id;
+                });
+      std::sort(decision.assumptions.begin(),
+                decision.assumptions.end(),
+                [](const CompiledAssumptionRecord &left,
+                   const CompiledAssumptionRecord &right) {
+                  return left.id < right.id;
+                });
       return decision;
     }
 
@@ -5266,31 +5320,14 @@ namespace nmopt::compiler::v1
       return "unspecified observation values";
     }
 
-    template <int dim>
     static std::vector<CompiledRealizedMapRecord>
-    make_realized_maps(
-      const semantic::v1::ProblemSpec &specification,
-      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable)
+    make_resolved_maps(const semantic::v1::ProblemSpec &specification)
     {
       std::vector<CompiledRealizedMapRecord> maps;
-      const std::size_t physical_dimension =
-        physical_state_dimension<dim>(executable);
-      const std::size_t observation_dimension =
-        realized_observation_dimension<dim>(executable);
-      const auto variable_dimension =
-        [&executable](const semantic::v1::VariableSpec *variable) {
-          if (variable == nullptr)
-            return std::size_t{0};
-          return variable->role == semantic::v1::VariableRole::control ||
-                         variable->role == semantic::v1::VariableRole::parameter
-                   ? executable.variable_layout()->dimension(1)
-                   : executable.variable_layout()->dimension(0);
-        };
       for (const auto &observation : specification.observations)
         {
           const auto *input =
             find_variable(specification, observation.input_variable_id);
-          const std::size_t source_dimension = variable_dimension(input);
           const bool control_map =
             input != nullptr &&
             (input->role == semantic::v1::VariableRole::control ||
@@ -5301,30 +5338,26 @@ namespace nmopt::compiler::v1
             input == nullptr || input->physical_field_transform_id.empty()
               ? "identity"
               : input->physical_field_transform_id;
-          const bool finite_sample_map =
-            observation.kind == semantic::v1::ObservationKind::point_sensor ||
-            observation.kind == semantic::v1::ObservationKind::normal_flux ||
-            observation.kind == semantic::v1::ObservationKind::boundary_trace ||
-            observation.kind == semantic::v1::ObservationKind::boundary_restriction ||
-            observation.kind ==
-              semantic::v1::ObservationKind::weighted_boundary_trace;
           maps.push_back(
             {observation.id,
              {source_space_id},
              source_space_id,
              observation.output_space_id,
-             {source_dimension},
-             source_dimension,
-             control_map
-               ? source_dimension
-               : finite_sample_map ? observation_dimension : physical_dimension,
+             {0},
+             0,
+             0,
              observation_realization_id(observation.kind, control_map),
              "independent variable-layout coefficients",
              observation_output_layout(observation.kind, control_map),
              control_map
                ? "declared control coefficient ordering"
-               : finite_sample_map ? "declared mesh traversal and quadrature order"
-                               : "deal.II global state DoF ordering",
+               : observation.kind == semantic::v1::ObservationKind::point_sensor ||
+                     observation.kind == semantic::v1::ObservationKind::normal_flux ||
+                     observation.kind == semantic::v1::ObservationKind::boundary_trace ||
+                     observation.kind == semantic::v1::ObservationKind::boundary_restriction ||
+                     observation.kind == semantic::v1::ObservationKind::weighted_boundary_trace
+                   ? "declared mesh traversal and quadrature order"
+                   : "deal.II global state DoF ordering",
              observation.output_pairing_id.empty()
                ? "assembled coefficient pairing"
                : "declared pairing " + observation.output_pairing_id,
@@ -5348,30 +5381,21 @@ namespace nmopt::compiler::v1
                                   ? nullptr
                                   : find_variable(specification,
                                                   transformation.control_variable_id);
-          const std::size_t input_dimension = variable_dimension(input);
-          const std::size_t control_dimension = variable_dimension(control);
           const std::string source_space_id =
             input == nullptr ? std::string{} : input->space_id;
           std::vector<std::string> input_space_ids;
-          std::vector<std::size_t> input_dimensions;
           if (input != nullptr)
-            {
-              input_space_ids.push_back(input->space_id);
-              input_dimensions.push_back(input_dimension);
-            }
+            input_space_ids.push_back(input->space_id);
           if (control != nullptr)
-            {
-              input_space_ids.push_back(control->space_id);
-              input_dimensions.push_back(control_dimension);
-            }
+            input_space_ids.push_back(control->space_id);
           maps.push_back(
             {transformation.id,
              std::move(input_space_ids),
              source_space_id,
              transformation.output_space_id,
-             std::move(input_dimensions),
-             input_dimension,
-             physical_dimension,
+             {},
+             0,
+             0,
              transformation.kind ==
                  semantic::v1::TransformationKind::fixed_dirichlet_reconstruction
                ? "fixed_dirichlet_reconstruction"
@@ -5387,6 +5411,96 @@ namespace nmopt::compiler::v1
              "reconstruction applied to the tangent",
              "pullback of the physical covector through the reconstruction",
              {}});
+        }
+      return maps;
+    }
+
+    static const CompiledSpaceRecord *
+    find_compiled_space(const ResolvedCompilationDecision &decision,
+                        const std::string &                 semantic_id)
+    {
+      const auto space = std::find_if(
+        decision.spaces.begin(),
+        decision.spaces.end(),
+        [&semantic_id](const CompiledSpaceRecord &candidate) {
+          return candidate.semantic_id == semantic_id;
+        });
+      return space == decision.spaces.end() ? nullptr : &*space;
+    }
+
+    template <int dim>
+    static std::vector<CompiledRealizedMapRecord>
+    finalize_realized_maps(
+      const ResolvedCompilationDecision &decision,
+      const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable)
+    {
+      auto maps = decision.realized_maps;
+      const std::size_t physical_dimension =
+        physical_state_dimension<dim>(executable);
+      const std::size_t observation_dimension =
+        realized_observation_dimension<dim>(executable);
+      const auto runtime_dimension =
+        [&decision, &executable](const std::string &space_id) {
+          const auto *space = find_compiled_space(decision, space_id);
+          contract::require(space != nullptr,
+                            "A realized map references an unresolved space");
+          switch (space->role)
+            {
+              case semantic::v1::SpaceRole::control:
+              case semantic::v1::SpaceRole::parameter:
+                return executable.variable_layout()->dimension(1);
+              case semantic::v1::SpaceRole::test:
+                return executable.test_layout()->dimension(0);
+              case semantic::v1::SpaceRole::state:
+                return executable.variable_layout()->dimension(0);
+              case semantic::v1::SpaceRole::observation:
+              case semantic::v1::SpaceRole::data:
+              case semantic::v1::SpaceRole::auxiliary:
+              case semantic::v1::SpaceRole::unspecified:
+                return std::size_t{0};
+            }
+          return std::size_t{0};
+        };
+      for (auto &map : maps)
+        {
+          map.input_dimensions.clear();
+          for (const auto &space_id : map.input_space_ids)
+            map.input_dimensions.push_back(runtime_dimension(space_id));
+          map.source_dimension = map.input_dimensions.empty()
+                                   ? 0
+                                   : map.input_dimensions.front();
+          const auto observation = std::find_if(
+            decision.observations.begin(),
+            decision.observations.end(),
+            [&map](const CompiledRealisationRecord &candidate) {
+              return candidate.semantic_id == map.semantic_id;
+            });
+          if (observation == decision.observations.end())
+            {
+              map.output_dimension = physical_dimension;
+              continue;
+            }
+          const auto *source_space =
+            find_compiled_space(decision, map.source_space_id);
+          const bool control_map =
+            source_space != nullptr &&
+            (source_space->role == semantic::v1::SpaceRole::control ||
+             source_space->role == semantic::v1::SpaceRole::parameter);
+          const bool finite_sample_map =
+            observation->observation_kind ==
+                semantic::v1::ObservationKind::point_sensor ||
+            observation->observation_kind ==
+                semantic::v1::ObservationKind::normal_flux ||
+            observation->observation_kind ==
+                semantic::v1::ObservationKind::boundary_trace ||
+            observation->observation_kind ==
+                semantic::v1::ObservationKind::boundary_restriction ||
+            observation->observation_kind ==
+              semantic::v1::ObservationKind::weighted_boundary_trace;
+          map.output_dimension = control_map
+                                   ? map.source_dimension
+                                   : finite_sample_map ? observation_dimension
+                                                       : physical_dimension;
         }
       return maps;
     }
@@ -5421,115 +5535,93 @@ namespace nmopt::compiler::v1
     template <int dim>
     static ResolvedCompilationDecision
     finalize_resolved_decision(
-      const semantic::v1::ProblemSpec &specification,
       const DealiiDiscretisationPolicy &policy,
       const ConstraintRealisation       constraint_realisation,
-      const CompiledTargetKind          target,
-      const std::optional<DirichletControlRegistration> &registration,
       const ResolvedCompilationDecision &decision,
       const ResolvedCompilationRequest  &request,
-      const semantic::v1::RegionSpec &  tracking_region,
-      const semantic::v1::RegionSpec *  control_boundary_region,
       const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
       const contract::MetricT<dealii_backend::SerialBackend> &metric,
       const ScalarLoweringPlan *          scalar_plan)
     {
       CompilationManifest manifest;
       manifest.resolved_decision = decision;
-      manifest.realized_maps = make_realized_maps<dim>(specification, executable);
+      manifest.realized_maps = finalize_realized_maps<dim>(decision, executable);
       manifest.realized_spaces = make_realized_spaces(manifest.realized_maps);
       manifest.resolved_decision.realized_maps = manifest.realized_maps;
-      manifest.transposition_realisation = request.transposition_selection;
-      manifest.partial_boundary_selection = request.partial_boundary_selection;
-      manifest.fractional_metric_selection = request.fractional_metric_selection;
+      manifest.transposition_realisation = decision.transposition_realisation;
+      manifest.partial_boundary_selection = decision.partial_boundary_selection;
+      manifest.fractional_metric_selection = decision.fractional_metric_selection;
       manifest.boundary_h1_metric_selection =
-        request.boundary_h1_metric_selection;
+        decision.boundary_h1_metric_selection;
       manifest.h1_target_data_membership_selection =
-        request.h1_target_data_membership_selection;
+        decision.h1_target_data_membership_selection;
       manifest.resolved_decision.realized_spaces = manifest.realized_spaces;
-      const bool uses_fixed_reconstruction =
-        uses_fixed_dirichlet_reconstruction(specification);
+      const CompiledTargetKind target = target_kind_from_request(request);
+      const auto registration = dirichlet_registration_from_request(request);
+      const bool uses_fixed_reconstruction = request.uses_fixed_reconstruction;
       const bool uses_hhalf_dirichlet_control =
-        registration.has_value() &&
-        *registration == DirichletControlRegistration::hhalf_control;
+        request.dirichlet_registration ==
+        ResolvedDirichletRegistration::hhalf_control;
       const bool uses_h1_tracking_hhalf_dirichlet_control =
-        registration.has_value() &&
-        *registration ==
-          DirichletControlRegistration::h1_tracking_hhalf_control;
-      const bool uses_h1_dirichlet_control =
-        registration.has_value() &&
-        *registration == DirichletControlRegistration::h1_control;
+        request.uses_h1_tracking_hhalf_dirichlet_registration;
+      const bool uses_h1_dirichlet_control = request.uses_h1_dirichlet_control;
       const bool uses_section_5_11_dirichlet_control =
         uses_hhalf_dirichlet_control ||
         uses_h1_tracking_hhalf_dirichlet_control ||
         uses_h1_dirichlet_control;
       const bool uses_dirichlet_control_lifting =
-        target == CompiledTargetKind::dirichlet_control ||
-        target == CompiledTargetKind::l2_dirichlet_transposition ||
-        uses_section_5_11_dirichlet_control;
-      const bool uses_l2_dirichlet_control =
-        registration.has_value() &&
-        *registration == DirichletControlRegistration::l2_transposition;
+        request.uses_dirichlet_control;
+      const bool uses_l2_dirichlet_control = request.uses_l2_dirichlet_control;
       const bool uses_normalized_dirichlet_control =
-        uses_l2_dirichlet_control || uses_section_5_11_dirichlet_control;
+        request.uses_normalized_laplacian;
       const bool uses_partial_dirichlet_control =
-        uses_partial_dirichlet_control_lifting(specification);
-      const bool uses_assembled_v1_target =
-        target == CompiledTargetKind::assembled_volume ||
-        target == CompiledTargetKind::general_scalar_robin ||
-        target == CompiledTargetKind::point_sensor ||
-        target == CompiledTargetKind::normal_flux;
-      const bool uses_general_scalar =
-        target == CompiledTargetKind::general_scalar_robin;
-      const bool uses_h1_state_observation =
-        has_h1_state_observation(specification);
+        request.uses_partial_dirichlet_control;
+      const bool uses_assembled_v1_target = request.uses_assembled_v1_target;
+      const bool uses_general_scalar = request.uses_general_scalar;
+      const bool uses_h1_state_observation = request.uses_h1_state_observation;
       const bool uses_weighted_boundary_trace =
-        target == CompiledTargetKind::weighted_boundary_trace;
-      const bool uses_point_sensor =
-        target == CompiledTargetKind::point_sensor ||
-        has_point_sensor_observation(specification);
-      const bool uses_normal_flux =
-        target == CompiledTargetKind::normal_flux ||
-        has_normal_flux_observation(specification);
-      const bool uses_neumann_boundary_control = uses_neumann_target(target);
-      const bool uses_neumann_convection =
-        uses_neumann_conservative_transport(specification);
-      const bool uses_mean_zero_gauge =
-        target == CompiledTargetKind::pure_neumann;
+        request.uses_weighted_boundary_trace;
+      const bool uses_point_sensor = request.uses_point_sensor;
+      const bool uses_normal_flux = request.uses_normal_flux;
+      const bool uses_neumann_boundary_control =
+        request.uses_neumann_boundary_control;
+      const bool uses_neumann_convection = request.uses_neumann_convection;
+      const bool uses_mean_zero_gauge = request.uses_mean_zero_gauge;
       const bool uses_h1_control_regularisation =
-        uses_h1_control_regularisation_loss(specification);
-      const bool uses_h1_control_metric =
-        target == CompiledTargetKind::h1_control_h1_metric ||
-        uses_h1_dirichlet_control;
-      const bool uses_hhalf_control_metric =
-        uses_hhalf_dirichlet_control ||
-        uses_h1_tracking_hhalf_dirichlet_control;
+        request.uses_h1_control_regularisation_loss;
+      const bool uses_h1_control_metric = request.uses_h1_control_metric;
+      const bool uses_hhalf_control_metric = request.uses_hhalf_control_metric;
       const bool uses_hminus1_control_metric =
-        target == CompiledTargetKind::hminus1_control_metric;
+        request.uses_hminus1_control_metric;
       const auto *hminus1_selection =
         request.hminus1_metric_selection ? &*request.hminus1_metric_selection
                                          : nullptr;
       const bool uses_coefficient_identification =
-        target == CompiledTargetKind::coefficient_identification;
+        request.uses_coefficient_identification;
+      const auto region_by_id = [&decision](const std::string &id) {
+        const auto region = std::find_if(
+          decision.regions.begin(),
+          decision.regions.end(),
+          [&id](const CompiledRegionRecord &candidate) {
+            return candidate.semantic_id == id;
+          });
+        return region == decision.regions.end() ? nullptr : &*region;
+      };
+      const auto *tracking_region = region_by_id(request.tracking_region_id);
+      contract::require(tracking_region != nullptr,
+                        "The closed request omitted its tracking region");
+      const auto *control_boundary_region = region_by_id(
+        request.uses_homogeneous_dirichlet_continuous_control
+          ? request.continuous_control_boundary_region_id
+          : request.control_boundary_region_id);
 
       manifest.formulation_record = decision.formulation_record;
       manifest.mesh_record = decision.mesh_record;
       manifest.spaces = decision.spaces;
       for (auto &space : manifest.spaces)
-        {
-          const auto semantic_space = std::find_if(
-            specification.spaces.begin(),
-            specification.spaces.end(),
-            [&space](const semantic::v1::SpaceSpec &candidate) {
-              return candidate.id == space.semantic_id;
-            });
-          contract::require(semantic_space != specification.spaces.end(),
-                            "Resolved manifest space is not in the semantic graph");
-          space.dimension = compiled_space_dimension(specification,
-                                                     *semantic_space,
-                                                     executable,
-                                                     manifest.realized_spaces);
-        }
+        space.dimension = compiled_space_dimension(space,
+                                                   executable,
+                                                   manifest.realized_spaces);
       manifest.resolved_decision.spaces = manifest.spaces;
       manifest.bindings = decision.bindings;
       manifest.resolved_decision.bindings = manifest.bindings;
@@ -5584,7 +5676,7 @@ namespace nmopt::compiler::v1
             manifest.state_solve_record.operator_realisation;
         }
       manifest.metric_record = {
-        specification.formulation.metric_id,
+        decision.metric_record.semantic_id,
         metric.id(),
         uses_hminus1_control_metric
           ? "M_h K_h^{-1} M_h negative-norm Riesz map"
@@ -5625,7 +5717,7 @@ namespace nmopt::compiler::v1
          {}}};
       manifest.constraint_record = {
         constraint_realisation != ConstraintRealisation::none,
-        specification.formulation.constraint_id,
+        decision.constraint_record.semantic_id,
         constraint_realisation_id(constraint_realisation),
         constraint_realisation == ConstraintRealisation::none ? "none"
                                                                : metric.id()};
@@ -5761,16 +5853,16 @@ namespace nmopt::compiler::v1
              ? "full-domain physical H1 state restriction with mass-plus-stiffness pairing"
              : "full-domain H1_0 state restriction with mass-plus-stiffness pairing")
         : uses_point_sensor
-        ? point_sensor_observation_realisation(tracking_region)
+        ? point_sensor_observation_realisation(*tracking_region)
         : uses_normal_flux
-        ? normal_flux_observation_realisation(tracking_region)
+        ? normal_flux_observation_realisation(*tracking_region)
         : uses_weighted_boundary_trace
-        ? weighted_boundary_observation_realisation(tracking_region)
+        ? weighted_boundary_observation_realisation(*tracking_region)
         : uses_neumann_boundary_control
         ? (uses_neumann_convection
-             ? observation_realisation(tracking_region)
-             : boundary_observation_realisation(tracking_region))
-        : observation_realisation(tracking_region);
+             ? observation_realisation(*tracking_region)
+             : boundary_observation_realisation(*tracking_region))
+        : observation_realisation(*tracking_region);
       manifest.metric_solve_policy =
         metric_solve_policy_description(manifest.metric_record);
       manifest.constraint_realisation =
@@ -5892,7 +5984,7 @@ namespace nmopt::compiler::v1
             "; pairing=" + selection.pairing_id +
             "; Neumann residual and facewise L2 control metric are unchanged");
         }
-      if (has_homogeneous_dirichlet_continuous_control(specification) &&
+      if (request.uses_homogeneous_dirichlet_continuous_control &&
           control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(
           "continuous_control_boundary: homogeneous FE_Q control boundary " +
@@ -5904,20 +5996,26 @@ namespace nmopt::compiler::v1
       if (uses_normal_flux)
         manifest.declared_assumptions.push_back(
           "normal_flux: strong H2 cap H1_0 state with outward unit normal; FE_Q normal derivatives are evaluated at selected boundary face quadrature and their transpose is assembled as the very-weak adjoint boundary source");
-      manifest.region_ids = identifiers(specification.regions);
-      manifest.space_ids = identifiers(specification.spaces);
-      manifest.pairing_ids = identifiers(specification.pairings);
-      manifest.variable_ids = identifiers(specification.variables);
-      manifest.data_ids = identifiers(specification.data);
-      manifest.transformation_ids = identifiers(specification.transformations);
-      manifest.residual_term_ids = identifiers(specification.residual_terms);
-      manifest.observation_ids = identifiers(specification.observations);
-      manifest.loss_ids = identifiers(specification.losses);
-      manifest.metric_ids = identifiers(specification.metrics);
-      manifest.constraint_ids = identifiers(specification.constraints);
-      for (const auto &requirement : specification.requirement_policies)
+      for (const auto &assumption : decision.assumptions)
         manifest.declared_assumptions.push_back(
-          requirement.id + ": " + requirement.selected_policy);
+          assumption.id + ": subject=" + assumption.subject_id +
+          "; kind=" + enum_id(static_cast<int>(assumption.kind)) +
+          "; status=" + enum_id(static_cast<int>(assumption.status)) +
+          "; scope=" + enum_id(static_cast<int>(assumption.scope)) +
+          "; region=" + assumption.region_id);
+      manifest.region_ids = decision.compatibility.region_ids;
+      manifest.space_ids = decision.compatibility.space_ids;
+      manifest.pairing_ids = decision.compatibility.pairing_ids;
+      manifest.variable_ids = decision.compatibility.variable_ids;
+      manifest.data_ids = decision.compatibility.data_ids;
+      manifest.transformation_ids = decision.compatibility.transformation_ids;
+      manifest.residual_term_ids = decision.compatibility.residual_term_ids;
+      manifest.observation_ids = decision.compatibility.observation_ids;
+      manifest.loss_ids = decision.compatibility.loss_ids;
+      manifest.metric_ids = decision.compatibility.metric_ids;
+      manifest.constraint_ids = decision.compatibility.constraint_ids;
+      std::sort(manifest.lowering_handler_records.begin(),
+                manifest.lowering_handler_records.end());
       auto &compatibility = manifest.resolved_decision.compatibility;
       compatibility.compiler_id = manifest.compiler_id;
       compatibility.backend = manifest.backend;
@@ -6011,7 +6109,7 @@ namespace nmopt::compiler::v1
     }
 
     static std::string
-    observation_realisation(const semantic::v1::RegionSpec &region)
+    observation_realisation(const CompiledRegionRecord &region)
     {
       if (region.is_full_domain)
         return "full-domain volume restriction";
@@ -6026,7 +6124,7 @@ namespace nmopt::compiler::v1
     }
 
     static std::string
-    boundary_id_list(const semantic::v1::RegionSpec &region)
+    boundary_id_list(const CompiledRegionRecord &region)
     {
       std::string result;
       for (std::size_t index = 0; index < region.boundary_ids.size(); ++index)
@@ -6039,7 +6137,7 @@ namespace nmopt::compiler::v1
     }
 
     static std::string
-    boundary_observation_realisation(const semantic::v1::RegionSpec &region)
+    boundary_observation_realisation(const CompiledRegionRecord &region)
     {
       return "boundary trace restriction on boundary ids " +
              boundary_id_list(region);
@@ -6047,7 +6145,7 @@ namespace nmopt::compiler::v1
 
     static std::string
     weighted_boundary_observation_realisation(
-      const semantic::v1::RegionSpec &region)
+      const CompiledRegionRecord &region)
     {
       return "fixed-data weighted boundary trace on boundary ids " +
              boundary_id_list(region);
@@ -6055,16 +6153,16 @@ namespace nmopt::compiler::v1
 
     static std::string
     point_sensor_observation_realisation(
-      const semantic::v1::RegionSpec &region)
+      const CompiledRegionRecord &region)
     {
       return "finite point-sensor evaluation at " +
-             std::to_string(region.point_coordinates.size()) +
+             std::to_string(region.point_count) +
              " immutable physical coordinates with assembled FE_Q transpose";
     }
 
     static std::string
     normal_flux_observation_realisation(
-      const semantic::v1::RegionSpec &region)
+      const CompiledRegionRecord &region)
     {
       return "outward normal-flux evaluation on boundary ids " +
              boundary_id_list(region) +

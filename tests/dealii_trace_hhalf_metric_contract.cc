@@ -682,6 +682,17 @@ namespace
       display_only_hhalf, triangulation, bindings, policy);
     require_valid(display_only_compilation.diagnostics,
                   "P5.4 lowering depended on policy prose");
+    const auto display_baseline_compilation = compiler.compile(
+      nmopt::semantic::v1::make_hhalf_dirichlet_laplace_control_problem(),
+      triangulation,
+      bindings,
+      policy);
+    require_valid(display_baseline_compilation.diagnostics,
+                  "P5.4 display-policy comparison baseline failed");
+    nmopt::test_support::require_manifest_compatibility_equal(
+      display_baseline_compilation.problem->manifest(),
+      display_only_compilation.problem->manifest(),
+      "P5.4 display-policy edit");
 
     const auto reject_unregistered = [&] (
       const nmopt::semantic::v1::ProblemSpec &specification,

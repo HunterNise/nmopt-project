@@ -1971,6 +1971,10 @@ namespace
                                               policy);
     contract::require(compilation.succeeded(),
                       "point-sensor v1 compilation failed");
+    test_support::require_manifest_compatibility_equal(
+      compilation.problem->manifest(),
+      display_only_compilation.problem->manifest(),
+      "point-sensor display-policy edit");
     const auto &model = compilation.problem->executable_model();
     const auto reduced = compilation.problem->make_reduced_dto();
     const auto *point_model =
@@ -2248,6 +2252,10 @@ namespace
                                               policy);
     contract::require(compilation.succeeded(),
                       "normal-flux v1 compilation failed");
+    test_support::require_manifest_compatibility_equal(
+      compilation.problem->manifest(),
+      display_only_compilation.problem->manifest(),
+      "normal-flux display-policy edit");
     const auto &model = compilation.problem->executable_model();
     const auto reduced = compilation.problem->make_reduced_dto();
     const auto *normal_flux_model =
@@ -5232,6 +5240,10 @@ namespace
     contract::require(reordered_compilation.succeeded(),
                       "v1 compiler rejected declaration-order permutation");
     const auto &reordered_manifest = reordered_compilation.problem->manifest();
+    test_support::require_manifest_compatibility_equal(
+      manifest,
+      reordered_manifest,
+      "declaration-order permutation");
     require_compiled_binding_records_equal(
       reordered_manifest.resolved_decision.bindings,
       manifest.resolved_decision.bindings,

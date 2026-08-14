@@ -157,11 +157,30 @@ namespace nmopt::compiler::v1
     std::string covector_space_id;
   };
 
+  struct CompiledRegionRecord
+  {
+    std::string               semantic_id;
+    semantic::v1::RegionKind kind = semantic::v1::RegionKind::unspecified;
+    bool                      is_full_domain = false;
+    std::vector<unsigned int> boundary_ids;
+    std::vector<unsigned int> material_ids;
+    std::size_t               point_count = 0;
+  };
+
   struct CompiledAssumptionRecord
   {
-    std::string id;
-    std::string subject_id;
-    std::string selected_policy;
+    std::string                    id;
+    std::string                    subject_id;
+    semantic::v1::RequirementKind kind =
+      semantic::v1::RequirementKind::unspecified;
+    semantic::v1::RequirementStatus status =
+      semantic::v1::RequirementStatus::unspecified;
+    semantic::v1::RequirementScope scope =
+      semantic::v1::RequirementScope::unspecified;
+    std::string region_id;
+    // Only a model-author assumption retains free-form text. Selected
+    // compiler capabilities are represented by the typed records below.
+    std::string model_author_declaration;
   };
 
   // Compatibility text is a rendered view of the typed decision.  It is kept
@@ -242,6 +261,7 @@ namespace nmopt::compiler::v1
     std::string                         execution_id = "assembled";
     CompiledFormulationRecord           formulation_record;
     CompiledMeshRecord                  mesh_record;
+    std::vector<CompiledRegionRecord>   regions;
     std::vector<CompiledSpaceRecord>    spaces;
     std::vector<CompiledBindingRecord>  bindings;
     std::vector<CompiledPairingRecord>  pairings;

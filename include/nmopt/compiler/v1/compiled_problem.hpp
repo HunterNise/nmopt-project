@@ -164,6 +164,41 @@ namespace nmopt::compiler::v1
     std::string selected_policy;
   };
 
+  // Compatibility text is a rendered view of the typed decision.  It is kept
+  // in the decision so manifest construction cannot reconstruct it from the
+  // semantic graph or a target enum.
+  struct CompiledCompatibilityView
+  {
+    std::string              compiler_id;
+    std::string              backend;
+    std::string              execution;
+    std::string              state_space;
+    std::string              control_space;
+    std::string              quadrature;
+    std::string              dual_representation;
+    std::string              data_rule;
+    std::string              observation_realisation;
+    std::string              metric_solve_policy;
+    std::string              constraint_realisation;
+    std::string              lifting_realisation;
+    std::string              nullspace_policy;
+    std::string              state_adjoint_solve_policy;
+    std::string              provenance;
+    std::vector<std::string> lowering_handler_records;
+    std::vector<std::string> region_ids;
+    std::vector<std::string> space_ids;
+    std::vector<std::string> pairing_ids;
+    std::vector<std::string> variable_ids;
+    std::vector<std::string> data_ids;
+    std::vector<std::string> transformation_ids;
+    std::vector<std::string> residual_term_ids;
+    std::vector<std::string> observation_ids;
+    std::vector<std::string> loss_ids;
+    std::vector<std::string> metric_ids;
+    std::vector<std::string> constraint_ids;
+    std::vector<std::string> declared_assumptions;
+  };
+
   struct CompiledRealizedSpaceRecord
   {
     std::string map_id;
@@ -220,6 +255,7 @@ namespace nmopt::compiler::v1
     CompiledSolvePolicyRecord             adjoint_solve_record;
     CompiledMetricRecord                  metric_record;
     CompiledConstraintRecord              constraint_record;
+    CompiledCompatibilityView             compatibility;
     std::optional<semantic::v1::BoundaryRealisationSelection>
       boundary_realisation;
     std::optional<semantic::v1::TranspositionRealisationSelection>
@@ -241,7 +277,7 @@ namespace nmopt::compiler::v1
   // mistaken for the same computation.
   struct CompilationManifest
   {
-    unsigned int                         schema_version = 2;
+    unsigned int                         schema_version = 3;
     ResolvedCompilationDecision           resolved_decision;
     CompiledFormulationRecord            formulation_record;
     CompiledMeshRecord                   mesh_record;

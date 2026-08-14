@@ -1546,25 +1546,27 @@ namespace nmopt::compiler::v1
             }};
           executable = direct;
         }
+      const auto finalized_decision = finalize_resolved_decision<dim>(
+        specification,
+        policy,
+        constraint_realisation,
+        target_kind,
+        resolved_dirichlet_registration,
+        resolved_decision,
+        request,
+        *tracking_region,
+        uses_homogeneous_dirichlet_continuous_control
+          ? continuous_control_boundary_region
+          : control_boundary_region,
+        *executable,
+        *metric,
+        scalar_plan ? &*scalar_plan : nullptr);
       result.problem = std::make_shared<const CompiledProblemT<Backend>>(
         executable,
         metric,
         constraint,
         solvers,
-        make_manifest<dim>(specification,
-                      policy,
-                      constraint_realisation,
-                      target_kind,
-                      resolved_dirichlet_registration,
-                      resolved_decision,
-                      request,
-                      *tracking_region,
-                      uses_homogeneous_dirichlet_continuous_control
-                        ? continuous_control_boundary_region
-                        : control_boundary_region,
-                      *executable,
-                      *metric,
-                      scalar_plan ? &*scalar_plan : nullptr),
+        make_manifest(finalized_decision),
         std::move(lifetime_owner));
       return result;
     }
@@ -5417,8 +5419,8 @@ namespace nmopt::compiler::v1
     }
 
     template <int dim>
-    static CompilationManifest
-    make_manifest(
+    static ResolvedCompilationDecision
+    finalize_resolved_decision(
       const semantic::v1::ProblemSpec &specification,
       const DealiiDiscretisationPolicy &policy,
       const ConstraintRealisation       constraint_realisation,
@@ -5916,6 +5918,95 @@ namespace nmopt::compiler::v1
       for (const auto &requirement : specification.requirement_policies)
         manifest.declared_assumptions.push_back(
           requirement.id + ": " + requirement.selected_policy);
+      auto &compatibility = manifest.resolved_decision.compatibility;
+      compatibility.compiler_id = manifest.compiler_id;
+      compatibility.backend = manifest.backend;
+      compatibility.execution = manifest.execution;
+      compatibility.state_space = manifest.state_space;
+      compatibility.control_space = manifest.control_space;
+      compatibility.quadrature = manifest.quadrature;
+      compatibility.dual_representation = manifest.dual_representation;
+      compatibility.data_rule = manifest.data_rule;
+      compatibility.observation_realisation = manifest.observation_realisation;
+      compatibility.metric_solve_policy = manifest.metric_solve_policy;
+      compatibility.constraint_realisation = manifest.constraint_realisation;
+      compatibility.lifting_realisation = manifest.lifting_realisation;
+      compatibility.nullspace_policy = manifest.nullspace_policy;
+      compatibility.state_adjoint_solve_policy =
+        manifest.state_adjoint_solve_policy;
+      compatibility.provenance = manifest.provenance;
+      compatibility.lowering_handler_records =
+        manifest.lowering_handler_records;
+      compatibility.region_ids = manifest.region_ids;
+      compatibility.space_ids = manifest.space_ids;
+      compatibility.pairing_ids = manifest.pairing_ids;
+      compatibility.variable_ids = manifest.variable_ids;
+      compatibility.data_ids = manifest.data_ids;
+      compatibility.transformation_ids = manifest.transformation_ids;
+      compatibility.residual_term_ids = manifest.residual_term_ids;
+      compatibility.observation_ids = manifest.observation_ids;
+      compatibility.loss_ids = manifest.loss_ids;
+      compatibility.metric_ids = manifest.metric_ids;
+      compatibility.constraint_ids = manifest.constraint_ids;
+      compatibility.declared_assumptions = manifest.declared_assumptions;
+      return manifest.resolved_decision;
+    }
+
+    static CompilationManifest
+    make_manifest(const ResolvedCompilationDecision &decision)
+    {
+      CompilationManifest manifest;
+      manifest.resolved_decision = decision;
+      manifest.formulation_record = decision.formulation_record;
+      manifest.mesh_record = decision.mesh_record;
+      manifest.spaces = decision.spaces;
+      manifest.bindings = decision.bindings;
+      manifest.state_solve_record = decision.state_solve_record;
+      manifest.adjoint_solve_record = decision.adjoint_solve_record;
+      manifest.metric_record = decision.metric_record;
+      manifest.constraint_record = decision.constraint_record;
+      manifest.realized_spaces = decision.realized_spaces;
+      manifest.realized_maps = decision.realized_maps;
+      manifest.boundary_realisation = decision.boundary_realisation;
+      manifest.transposition_realisation = decision.transposition_realisation;
+      manifest.partial_boundary_selection = decision.partial_boundary_selection;
+      manifest.fractional_metric_selection = decision.fractional_metric_selection;
+      manifest.boundary_h1_metric_selection =
+        decision.boundary_h1_metric_selection;
+      manifest.h1_target_data_membership_selection =
+        decision.h1_target_data_membership_selection;
+      const auto &compatibility = decision.compatibility;
+      manifest.lowering_handler_records =
+        compatibility.lowering_handler_records;
+      manifest.semantic_problem_id = decision.semantic_problem_id;
+      manifest.compiler_id = compatibility.compiler_id;
+      manifest.backend = compatibility.backend;
+      manifest.execution = compatibility.execution;
+      manifest.state_space = compatibility.state_space;
+      manifest.control_space = compatibility.control_space;
+      manifest.quadrature = compatibility.quadrature;
+      manifest.dual_representation = compatibility.dual_representation;
+      manifest.data_rule = compatibility.data_rule;
+      manifest.observation_realisation = compatibility.observation_realisation;
+      manifest.metric_solve_policy = compatibility.metric_solve_policy;
+      manifest.constraint_realisation = compatibility.constraint_realisation;
+      manifest.lifting_realisation = compatibility.lifting_realisation;
+      manifest.nullspace_policy = compatibility.nullspace_policy;
+      manifest.state_adjoint_solve_policy =
+        compatibility.state_adjoint_solve_policy;
+      manifest.provenance = compatibility.provenance;
+      manifest.region_ids = compatibility.region_ids;
+      manifest.space_ids = compatibility.space_ids;
+      manifest.pairing_ids = compatibility.pairing_ids;
+      manifest.variable_ids = compatibility.variable_ids;
+      manifest.data_ids = compatibility.data_ids;
+      manifest.transformation_ids = compatibility.transformation_ids;
+      manifest.residual_term_ids = compatibility.residual_term_ids;
+      manifest.observation_ids = compatibility.observation_ids;
+      manifest.loss_ids = compatibility.loss_ids;
+      manifest.metric_ids = compatibility.metric_ids;
+      manifest.constraint_ids = compatibility.constraint_ids;
+      manifest.declared_assumptions = compatibility.declared_assumptions;
       return manifest;
     }
 

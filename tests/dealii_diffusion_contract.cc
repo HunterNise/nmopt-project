@@ -386,6 +386,41 @@ namespace
     const std::string &                       expected,
     const std::string &                       target)
   {
+    const auto &compatibility = manifest.resolved_decision.compatibility;
+    contract::require(
+      manifest.compiler_id == compatibility.compiler_id &&
+        manifest.backend == compatibility.backend &&
+        manifest.execution == compatibility.execution &&
+        manifest.state_space == compatibility.state_space &&
+        manifest.control_space == compatibility.control_space &&
+        manifest.quadrature == compatibility.quadrature &&
+        manifest.dual_representation == compatibility.dual_representation &&
+        manifest.data_rule == compatibility.data_rule &&
+        manifest.observation_realisation ==
+          compatibility.observation_realisation &&
+        manifest.metric_solve_policy == compatibility.metric_solve_policy &&
+        manifest.constraint_realisation ==
+          compatibility.constraint_realisation &&
+        manifest.lifting_realisation == compatibility.lifting_realisation &&
+        manifest.nullspace_policy == compatibility.nullspace_policy &&
+        manifest.state_adjoint_solve_policy ==
+          compatibility.state_adjoint_solve_policy &&
+        manifest.provenance == compatibility.provenance &&
+        manifest.lowering_handler_records ==
+          compatibility.lowering_handler_records &&
+        manifest.region_ids == compatibility.region_ids &&
+        manifest.space_ids == compatibility.space_ids &&
+        manifest.pairing_ids == compatibility.pairing_ids &&
+        manifest.variable_ids == compatibility.variable_ids &&
+        manifest.data_ids == compatibility.data_ids &&
+        manifest.transformation_ids == compatibility.transformation_ids &&
+        manifest.residual_term_ids == compatibility.residual_term_ids &&
+        manifest.observation_ids == compatibility.observation_ids &&
+        manifest.loss_ids == compatibility.loss_ids &&
+        manifest.metric_ids == compatibility.metric_ids &&
+        manifest.constraint_ids == compatibility.constraint_ids &&
+        manifest.declared_assumptions == compatibility.declared_assumptions,
+      target + " manifest compatibility view was not projected from the decision");
     std::string structured_expected = "none";
     if (expected.find("l2_cellwise_parameter") != std::string::npos)
       structured_expected = "l2_cellwise_parameter";
@@ -459,7 +494,7 @@ namespace
         observation_map_dimensions_match_spaces,
       target + " manifest omitted a realized observation or transformation map");
     contract::require(
-      manifest.schema_version == 2 &&
+      manifest.schema_version == 3 &&
         manifest.formulation_record.kind ==
           semantic::v1::FormulationKind::reduced_dto &&
         manifest.formulation_record.execution ==
@@ -3139,6 +3174,8 @@ namespace
                   weighted_observation_record->input_ids.end(),
                   "boundary_weight") != weighted_observation_record->input_ids.end(),
       "weighted trace resolved provenance omitted its typed data selection");
+    require_constraint_realisation(
+      manifest, "none", "weighted boundary-trace manifest projection");
   }
 
   template <int dim>
@@ -4662,7 +4699,7 @@ namespace
         evaluation.adjoint_solve.maximum_iterations == 419,
       "detached compiled service did not retain its solve policies and reports");
     contract::require(
-      detached.manifest.schema_version == 2 &&
+      detached.manifest.schema_version == 3 &&
         detached.manifest.mesh_record.dimension ==
           static_cast<unsigned int>(dim) &&
         detached.manifest.mesh_record.active_cells == 16 &&

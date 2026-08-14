@@ -820,13 +820,16 @@ The P5.1 nonsymmetric target likewise records direct state and exact-transpose
 adjoint solves; it does not misreport its operator as SPD.
 
 Every successful compiled product also carries a versioned, structured
-`CompilationManifest` (schema version 2). A `ResolvedCompilationDecision` is
-created after semantic/lowerability checks and before backend model
-construction. It is the single typed record for the selected target,
-formulation, spaces, bindings, pairings, residuals, observations, losses,
-transformations, boundary policy, and declared assumptions. The constructed
-model and the manifest consume that decision; they do not independently select
-those semantic components.
+`CompilationManifest` (schema version 3). A `ResolvedCompilationDecision` is
+created after semantic/lowerability checks and finalized with realized service
+facts before manifest construction. It is the single typed record for the
+selected target, formulation, spaces, bindings, pairings, residuals,
+observations, losses, transformations, boundary policy, and declared
+assumptions. The constructed model and the manifest consume that decision;
+they do not independently select those semantic components. The manifest
+constructor is a pure descriptive projection of the finalized decision,
+including its compatibility rendering; it does not rescan the raw semantic
+graph or target registration.
 
 Binding records retain their semantic field shape, concrete runtime
 representation, checked status, scalar value where applicable, and an exact

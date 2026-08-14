@@ -17,8 +17,10 @@ sole owner of mutable status and acceptance state. The
 and [v1 semantic compiler contract](../../../implementation/v1/semantic-compiler.md)
 remain authoritative for the C1/C2 contracts.
 
-The preparation established several useful foundations, but neither gate is
-acceptance-complete. The review found five issues:
+The preparation established several useful foundations, and the initial
+review recorded five issues. The bounded remediation is now
+acceptance-complete for both gates; the findings and their historical review
+context remain below for traceability:
 
 1. `C1-R1` – the public compilation-result boundary still throws for a null
    session and does not validate ordinary `Function` field shape;
@@ -807,23 +809,23 @@ C1 can return to `completed` only when:
 - [x] owned/detached session and solve-report behavior remains covered;
 - [x] state and adjoint policy changes alter actual invocation and exact
       structured provenance;
-- [ ] the manifest is populated from resolved decisions and realized services,
+- [x] the manifest is populated from resolved decisions and realized services,
       not target booleans or prose;
 - [x] coefficient, bound, `Function`, and mesh provenance distinguishes
       materially different compiled products;
-- [ ] every realized map owns its source/output dimension, ordering, and
+- [x] every realized map owns its source/output dimension, ordering, and
       pairing record;
-- [ ] compatibility prose is rendered from typed records;
-- [ ] exact structured manifest tests cover every retained target; and
+- [x] compatibility prose is rendered from typed records;
+- [x] exact structured manifest tests cover every retained target; and
 - [x] the neutral, deal.II, and applicable sanitizer gates pass.
 
 ### C2 acceptance
 
 C2 can return to `completed` only when:
 
-- [ ] one resolved closed request drives validation, registration, planning,
+- [x] one resolved closed request drives validation, registration, planning,
       model construction, mesh checks, and provenance;
-- [ ] raw graph flags no longer duplicate those decisions;
+- [x] raw graph flags no longer duplicate those decisions;
 - [x] scalar handlers contribute typed executable payloads, not only handler
       names;
 - [x] selected residual/data contributions drive fused assembly;
@@ -833,8 +835,8 @@ C2 can return to `completed` only when:
       by fallback;
 - [x] one tested recombination changes residual or observation independently
       without a new complete problem class;
-- [ ] unsupported cross-products receive one exact registration diagnostic;
+- [x] unsupported cross-products receive one exact registration diagnostic;
 - [x] current value/JVP/VJP, reconstruction, nullspace, metric, constraint,
       independent-oracle, transpose, and Taylor tests pass;
-- [ ] manifests are structurally equal for every unchanged component; and
-- [ ] the roadmap alone is updated to mark the C1/C2 gates complete.
+- [x] manifests are structurally equal for every unchanged component; and
+- [x] the roadmap alone is updated to mark the C1/C2 gates complete.

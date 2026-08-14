@@ -5,6 +5,9 @@ implementation slices. They are static evidence and remediation handoffs; the
 [implementation roadmap](../../implementation-roadmap.md) owns current
 status and acceptance state.
 
+The reviewed C1/C2 and P5.1–P5.4 remediation gates are now acceptance-complete;
+the roadmap and owning checklists record that status.
+
 - [C1/C2 preparation review](c1-c2-preparation-remediation-review.md)
 - [P5.1 implementation review](p5.1-remediation-review.md)
 - [P5.2 implementation review](p5.2-remediation-review.md)

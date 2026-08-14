@@ -710,7 +710,10 @@ typed transposition declaration and validation, complete fixed-boundary
 coverage, custom-ID manufactured checks, realized normal-flux dimensions, and
 point/flux dual-residual, directional, and reduced-Taylor checks pass the
 documented verification gate. Outward-normal face evaluation, immutable point
-coordinates, and the explicit rejected alternatives remain unchanged.
+coordinates, and the explicit rejected alternatives remain unchanged. The
+post-audit non-unit diffusion regression also solves the manufactured state
+with consistently scaled forcing and checks both the state and discrete
+residual, so operator provenance is exercised by the realized action.
 
 ### P5.4 — Generalize Dirichlet-control transformations and trace metrics — acceptance complete
 
@@ -1105,7 +1108,7 @@ vocabulary.
 - **P5.1 work unit 2:** [typed boundary and conormal selection](review/chapter-5/p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection), with shared boundary, orientation, and trace-realization vocabulary and no target-specific policy enums.
 - **C1/C2 work units 2–3:** [plan-owned scalar residual/data assembly](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly) and [objective/service recombination](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination), including an independently varied recombination.
 - **P5.2–P5.4 acceptance closure:** typed trace and negative-metric selections, target-data assumptions, control-boundary realization, typed transposition, fixed-boundary coverage, point/flux checks, closed registration matching, and realized transformed-observation dimensions. The `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass.
-- **Supporting evidence:** resolved-decision manifest and realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
+- **Supporting evidence:** the closed request and pre-construction decision own target selection, typed regions and requirements, component inventories, and map skeletons; finalization adds only realized service facts, and manifest construction is a pure projection. Full compatibility remains stable under declaration-order and display-prose changes. Realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
 
 ### Future implementation sequence
 

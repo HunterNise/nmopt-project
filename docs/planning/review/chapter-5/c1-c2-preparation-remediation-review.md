@@ -840,3 +840,12 @@ C2 can return to `completed` only when:
       independent-oracle, transpose, and Taylor tests pass;
 - [x] manifests are structurally equal for every unchanged component; and
 - [x] the roadmap alone is updated to mark the C1/C2 gates complete.
+
+**Post-audit closure evidence:** the pre-construction decision owns the typed
+region, requirement, component-inventory, and map-skeleton records. Its
+finalizer consumes the closed request and realized services without receiving
+the raw semantic graph, target enum, or a duplicate registration, and
+`make_manifest()` remains a pure decision projection. Full compatibility is
+unchanged under declaration-order permutations and compiler-policy display-
+prose edits. The final `debug-neutral` (12/12), `debug-dealii` (41/41), and
+`sanitize-neutral` (12/12) gates pass.

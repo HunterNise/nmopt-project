@@ -821,15 +821,26 @@ adjoint solves; it does not misreport its operator as SPD.
 
 Every successful compiled product also carries a versioned, structured
 `CompilationManifest` (schema version 3). A `ResolvedCompilationDecision` is
-created after semantic/lowerability checks and finalized with realized service
-facts before manifest construction. It is the single typed record for the
-selected target, formulation, spaces, bindings, pairings, residuals,
-observations, losses, transformations, boundary policy, and declared
-assumptions. The constructed model and the manifest consume that decision;
-they do not independently select those semantic components. The manifest
-constructor is a pure descriptive projection of the finalized decision,
-including its compatibility rendering; it does not rescan the raw semantic
-graph or target registration.
+created after semantic/lowerability checks and before model construction. It
+captures the closed request, typed semantic inventory, regions, unresolved map
+skeletons, and selected policy payloads. Model construction consumes the same
+closed request and scalar plan recorded by that decision; it does not repeat
+target selection from the raw graph. After construction,
+`finalize_resolved_decision()` fills only executable dimensions and realized
+service records from the decision, closed request, and constructed services.
+Its interface does not receive the raw `ProblemSpec`, target enum, or a second
+Dirichlet registration.
+
+The finalized decision is therefore the single typed provenance record for the
+selected target, formulation, regions, spaces, bindings, pairings, residuals,
+observations, losses, transformations, policies, and realized services. The
+manifest constructor is a pure descriptive projection of that finalized
+decision, including its compatibility rendering; it does not rescan the raw
+semantic graph or target registration. Compiler-selected requirement
+provenance is rendered from typed IDs, kinds, statuses, scopes, and regions.
+Only a `user_assumed` requirement retains its model-author declaration as
+free-form semantic input; compiler capability and compatibility rendering do
+not depend on selected-policy prose.
 
 Binding records retain their semantic field shape, concrete runtime
 representation, checked status, scalar value where applicable, and an exact

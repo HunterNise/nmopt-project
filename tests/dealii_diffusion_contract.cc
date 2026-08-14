@@ -6,6 +6,7 @@
 #include "nmopt/solvers/reduced_gradient.hpp"
 #include "test_support/contract_errors.hpp"
 #include "test_support/diagnostics.hpp"
+#include "test_support/manifest_contracts.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
@@ -1114,7 +1115,8 @@ namespace
     control_values = 1.0;
     const Primal control(model.variable_layout()->single_block(1, "control"),
                          {std::move(control_values)});
-    const auto evaluation = compilation.problem->make_reduced_dto().evaluate(control);
+    const auto reduced = compilation.problem->make_reduced_dto();
+    const auto evaluation = reduced.evaluate(control);
     require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
                   0.0,
                   1e-11,
@@ -1163,7 +1165,35 @@ namespace
       sign_difference.l2_norm() > 1e-6,
       "L2 Dirichlet stationarity test did not distinguish the rejected plus sign");
 
+    dealii::Vector<double> direction_values(control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size();
+         ++index)
+      direction_values[index] =
+        (index % 2 == 0 ? 0.05 : -0.04) * static_cast<double>(index + 1);
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const double derivative =
+      contract::pair(evaluation.reduced_derivative, direction);
+    const auto remainder = [&](const double step) {
+      return std::abs(reduced.evaluate(shifted(control, direction, step))
+                        .objective_value -
+                      evaluation.objective_value - step * derivative);
+    };
+    const double coarse_remainder = remainder(1e-3);
+    const double fine_remainder = remainder(5e-4);
+    contract::require(
+      coarse_remainder > 1e-12 &&
+        fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+      "L2 Dirichlet transposition reduced Taylor remainder is not quadratic");
+
     const auto &manifest = compilation.problem->manifest();
+    test_support::require_dirichlet_manifest_dimensions(
+      manifest,
+      model.variable_layout()->dimension(0),
+      model.test_layout()->dimension(0),
+      model.variable_layout()->dimension(1),
+      dirichlet_model->physical_state_dimension(),
+      "L2 Dirichlet transposition");
     const auto has_assumption = [&manifest](const std::string &prefix) {
       return std::any_of(
         manifest.declared_assumptions.begin(),
@@ -1458,6 +1488,13 @@ namespace
       "changed partial Dirichlet data did not own the interface DoFs");
 
     const auto &manifest = compilation.problem->manifest();
+    test_support::require_dirichlet_manifest_dimensions(
+      manifest,
+      model.variable_layout()->dimension(0),
+      model.test_layout()->dimension(0),
+      model.variable_layout()->dimension(1),
+      dirichlet_model->physical_state_dimension(),
+      "partial Dirichlet-control");
     contract::require(
       manifest.partial_boundary_selection.has_value() &&
         manifest.partial_boundary_selection->fixed_boundary_region_id ==

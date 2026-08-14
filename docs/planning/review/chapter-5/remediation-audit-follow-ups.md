@@ -118,7 +118,7 @@ prose-independent-validation and P5.4 prose-independent-factory acceptance
 items are closed. Compatibility rendering remains a manifest concern already
 addressed by `CH5-AUDIT-002`.
 
-### CH5-AUDIT-005 – P5.4 realized-layout and Chapter 5.11.2 Taylor evidence is incomplete
+### CH5-AUDIT-005 – P5.4 realized-layout and Chapter 5.11.2 Taylor evidence is incomplete — resolved
 
 **Chapter 6 impact:** does not block starting P6.1. Close this evidence gap
 before marking P5.4 complete or using its structured layouts in Chapter 6
@@ -131,20 +131,15 @@ current path keeps the independent state, test, and control dimensions
 separate while assigning the physical reconstructed dimension to state
 observations and the trace-control dimension to control observations.
 
-The P5.4 work unit nevertheless lacks its required target-by-target regression
-evidence. No test locates and compares all five manifest space records for the
-partial target, Chapter 5.11.2, and the three remaining Section 5.11
-registrations, and no test asserts that the physical state-observation
-dimension differs from the independent state dimension on the selected mesh.
-The Chapter 5.11.2 scenario also verifies reconstruction, conormal pullback,
-and stationarity sign but does not perform the required state-recomputed
-reduced Taylor check. The focused P5.3/P5.4 scenarios all pass, so this is an
-acceptance-evidence gap rather than an observed numerical failure.
-
-A bounded closure is to add one shared manifest-dimension assertion to the
-existing P5.4 scenarios and the same reduced directional/Taylor block already
-used by the other Dirichlet registrations to the Chapter 5.11.2 scenario. No
-new executable observation interface is needed.
+The existing P5.4 scenarios now share an assertion over the five canonical
+manifest spaces: independent state, state test, control, physical
+state-observation, and control observation. It is exercised by the partial
+target, Chapter 5.11.2, and all three remaining Section 5.11 registrations;
+the refined mesh also asserts that the physical state layout differs from the
+independent state layout. Chapter 5.11.2 now performs the same reduced,
+state-recomputed directional Taylor check used by the other registrations.
+The focused P5.4 scenarios and both full debug baselines pass, closing this
+acceptance-evidence gap without adding an executable observation interface.
 
 ### CH5-AUDIT-006 – the roadmap declares remediation acceptance beyond the evidence
 

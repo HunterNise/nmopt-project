@@ -5,6 +5,7 @@
 
 #include "test_support/contract_errors.hpp"
 #include "test_support/diagnostics.hpp"
+#include "test_support/manifest_contracts.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
@@ -589,6 +590,13 @@ namespace
                              specification.id + " stationarity composition");
 
       const auto &manifest = compilation.problem->manifest();
+      nmopt::test_support::require_dirichlet_manifest_dimensions(
+        manifest,
+        model.variable_layout()->dimension(0),
+        model.test_layout()->dimension(0),
+        model.variable_layout()->dimension(1),
+        dirichlet->physical_state_dimension(),
+        specification.id);
       const auto contains = [](const std::vector<std::string> &records,
                                const std::string &              fragment) {
         return std::any_of(records.begin(), records.end(),

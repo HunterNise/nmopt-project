@@ -60,7 +60,7 @@ namespace nmopt::compiler::v1
       close_compilation_request(*resolution.problem,
                                 request,
                                 dirichlet_registration);
-      validate_lowerability(specification, policy, report);
+      validate_lowerability(specification, request, policy, report);
       validate_formulation_capability(specification, report);
       validate_dirichlet_control_registration(*resolution.problem,
                                                request,
@@ -517,7 +517,7 @@ namespace nmopt::compiler::v1
       close_compilation_request(*resolution.problem,
                                 request,
                                 dirichlet_registration);
-      validate_lowerability(specification, policy, result.diagnostics);
+      validate_lowerability(specification, request, policy, result.diagnostics);
       validate_formulation_capability(specification, result.diagnostics);
       validate_dirichlet_control_registration(*resolution.problem,
                                               request,
@@ -3097,6 +3097,7 @@ namespace nmopt::compiler::v1
 
     void
     validate_lowerability(const semantic::v1::ProblemSpec & specification,
+                          const ResolvedCompilationRequest &request,
                           const DealiiDiscretisationPolicy &policy,
                           semantic::v1::ValidationReport & report) const
     {
@@ -3195,8 +3196,8 @@ namespace nmopt::compiler::v1
       const bool partial_dirichlet_control =
         uses_partial_dirichlet_control_lifting(specification);
       const bool registered_h1_dirichlet_tracking =
-        normalized_dirichlet_laplace && hhalf_control_metric &&
-        !has_h1_control_regularisation_loss;
+        request.dirichlet_registration ==
+          ResolvedDirichletRegistration::h1_tracking_hhalf_control;
       const auto fixed_policy = std::find_if(
         specification.requirement_policies.begin(),
         specification.requirement_policies.end(),

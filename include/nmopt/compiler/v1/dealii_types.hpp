@@ -150,6 +150,8 @@ namespace nmopt::compiler::v1
     std::string                            partial_fixed_boundary_region_id;
     std::string                            partial_control_boundary_region_id;
     std::string                            control_boundary_region_id;
+    std::string                            transposition_diffusion_data_id;
+    std::string                            transposition_reaction_data_id;
     std::vector<ResolvedDataBindingRequest> data_bindings;
     bool                                   requires_fixed_dirichlet_data = false;
     bool                                   requires_observation_weight = false;

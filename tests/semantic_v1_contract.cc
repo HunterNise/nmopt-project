@@ -176,10 +176,24 @@ namespace
               point_transposition_policy.typed_transposition_selection
                   ->observation_id == "state_observation" &&
               point_transposition_policy.typed_transposition_selection
+                  ->diffusion_data_id == "diffusion" &&
+              point_transposition_policy.typed_transposition_selection
+                  ->reaction_data_id == "reaction" &&
+              point_transposition_policy.typed_transposition_selection
                   ->discrete_realisation ==
                 nmopt::semantic::v1::TranspositionDiscreteRealisation::
                   fe_q_point_sensor_very_weak,
             "the point-sensor graph omitted its typed transposition selection");
+    auto missing_point_diffusion_data = point_sensor_specification;
+    component_by_id(missing_point_diffusion_data.requirement_policies,
+                    "point_sensor_transposition_policy")
+      .typed_transposition_selection->diffusion_data_id.clear();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_point_diffusion_data),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "state_equation",
+      "transposition_diffusion_data",
+      "the point-sensor graph accepted a missing transposition diffusion port");
     auto missing_point_evaluation = point_sensor_specification;
     remove_policy(missing_point_evaluation,
                   "point_sensor_evaluation_policy");
@@ -270,6 +284,10 @@ namespace
     require(normal_flux_transposition_policy.typed_transposition_selection
                   .has_value() &&
               normal_flux_transposition_policy.typed_transposition_selection
+                  ->diffusion_data_id == "diffusion" &&
+              normal_flux_transposition_policy.typed_transposition_selection
+                  ->reaction_data_id == "reaction" &&
+              normal_flux_transposition_policy.typed_transposition_selection
                   ->discrete_realisation ==
                 nmopt::semantic::v1::TranspositionDiscreteRealisation::
                   fe_q_normal_flux_very_weak,
@@ -350,6 +368,10 @@ namespace
     require(l2_transposition_policy.typed_transposition_selection.has_value() &&
               l2_transposition_policy.typed_transposition_selection
                   ->continuous_parent_space_id == "control_space" &&
+              l2_transposition_policy.typed_transposition_selection
+                  ->diffusion_data_id.empty() &&
+              l2_transposition_policy.typed_transposition_selection
+                  ->reaction_data_id.empty() &&
               l2_transposition_policy.typed_transposition_selection
                   ->equivalence_realisation ==
                 nmopt::semantic::v1::TranspositionEquivalenceRealisation::

@@ -236,7 +236,9 @@ same scalar Dirichlet-Laplacian operator contract to different registered
 very-weak discrete maps. The Chapter 5.11.2 graph also binds its $L^{2}$
 continuous parent, $H^{1/2}$ conforming trace subspace, variational
 equivalence, and discrete conormal policy. Semantic validation checks the
-space, observation-source, regularity, and equivalence references; the
+space, observation-source, regularity, equivalence references, and the
+diffusion/reaction data ports defining $T=-\kappa\Delta+rI$; the normalized
+Chapter 5.11.2 Laplacian leaves those ports empty. The
 compiler copies the selection into the resolved decision and manifest and
 rejects an unsupported operator, isomorphism, observation source, or discrete
 realization.

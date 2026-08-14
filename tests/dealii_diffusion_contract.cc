@@ -231,19 +231,22 @@ namespace
   class EnergyPolynomialForcing final : public dealii::Function<dim>
   {
   public:
-    explicit EnergyPolynomialForcing(const double reaction)
-      : reaction_(reaction)
+    explicit EnergyPolynomialForcing(const double reaction,
+                                     const double diffusion = 1.0)
+      : diffusion_(diffusion)
+      , reaction_(reaction)
     {}
 
     double
     value(const dealii::Point<dim> &point,
           const unsigned int        component = 0) const override
     {
-      return -state_.laplacian(point) +
+      return -diffusion_ * state_.laplacian(point) +
              reaction_ * state_.value(point, component);
     }
 
   private:
+    double                diffusion_;
     double                reaction_;
     EnergyPolynomial<dim> state_;
   };
@@ -2020,6 +2023,9 @@ namespace
         point_map->output_layout.find("sensor values") != std::string::npos &&
         manifest.observation_realisation.find("immutable physical coordinates") !=
           std::string::npos &&
+        manifest.transposition_realisation.has_value() &&
+        manifest.transposition_realisation->diffusion_data_id == "diffusion" &&
+        manifest.transposition_realisation->reaction_data_id == "reaction" &&
         manifest.data_rule.find("assembled C_h^T point-load transpose") !=
           std::string::npos &&
         std::any_of(manifest.declared_assumptions.begin(),
@@ -2072,6 +2078,28 @@ namespace
       reaction,
       0.2,
       test_binding_provenance("normal_flux")};
+    const EnergyPolynomialForcing<dim> nonunit_forcing(reaction, 2.0);
+    const compiler::v1::DealiiDataBindings<dim> nonunit_bindings{
+      nonunit_forcing,
+      desired_state,
+      2.0,
+      reaction,
+      0.2,
+      test_binding_provenance("normal_flux_nonunit")};
+    const auto nonunit_compilation = compiler.compile(
+      specification, triangulation, nonunit_bindings, policy);
+    contract::require(
+      nonunit_compilation.succeeded() &&
+        nonunit_compilation.problem->manifest().transposition_realisation
+          .has_value() &&
+        nonunit_compilation.problem->manifest().transposition_realisation
+            ->diffusion_data_id == "diffusion" &&
+        nonunit_compilation.problem->manifest().transposition_realisation
+            ->reaction_data_id == "reaction" &&
+        nonunit_compilation.problem->manifest().data_rule.find(
+          "T=-kappa Delta+rI with kappa <- diffusion and r <- reaction") !=
+          std::string::npos,
+      "normal-flux compiler did not preserve coefficient provenance for non-unit diffusion");
     auto display_only_specification = specification;
     for (auto &requirement : display_only_specification.requirement_policies)
       if (requirement.id == "normal_flux_orientation_policy" ||
@@ -2296,6 +2324,12 @@ namespace
         normal_flux_map->pairing_realization.find("declared pairing") !=
           std::string::npos &&
         manifest.observation_realisation.find("outward normal-flux") !=
+          std::string::npos &&
+        manifest.transposition_realisation.has_value() &&
+        manifest.transposition_realisation->diffusion_data_id == "diffusion" &&
+        manifest.transposition_realisation->reaction_data_id == "reaction" &&
+        manifest.data_rule.find(
+          "T=-kappa Delta+rI with kappa <- diffusion and r <- reaction") !=
           std::string::npos &&
         manifest.data_rule.find("boundary face quadrature") !=
           std::string::npos &&

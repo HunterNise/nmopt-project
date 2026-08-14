@@ -178,6 +178,14 @@ namespace nmopt::compiler::v1
       const auto &specification = resolved.specification();
       ResolvedCompilationRequest request;
       request.semantic_problem_id = specification.id;
+      request.transposition_diffusion_data_id = data_id_for_term_role(
+        resolved,
+        semantic::v1::ResidualTermKind::diffusion_reaction,
+        semantic::v1::DataRole::diffusion);
+      request.transposition_reaction_data_id = data_id_for_term_role(
+        resolved,
+        semantic::v1::ResidualTermKind::diffusion_reaction,
+        semantic::v1::DataRole::reaction);
 
       append_data_binding_request(request,
                                   resolved,
@@ -684,6 +692,20 @@ namespace nmopt::compiler::v1
                   specification.formulation.equation_id,
                   "transposition_isomorphism",
                   "The typed transposition operator must match the selected state equation.");
+              if (request.transposition_selection->diffusion_data_id !=
+                  request.transposition_diffusion_data_id)
+                result.diagnostics.add(
+                  semantic::v1::DiagnosticCategory::lowerability,
+                  specification.formulation.equation_id,
+                  "transposition_diffusion_data",
+                  "The typed transposition operator must bind the diffusion data port selected by the residual.");
+              if (request.transposition_selection->reaction_data_id !=
+                  request.transposition_reaction_data_id)
+                result.diagnostics.add(
+                  semantic::v1::DiagnosticCategory::lowerability,
+                  specification.formulation.equation_id,
+                  "transposition_reaction_data",
+                  "The typed transposition operator must bind the reaction data port selected by the residual.");
               if ((uses_point_sensor || uses_normal_flux) &&
                   request.transposition_selection->observation_id !=
                     "state_observation")
@@ -5694,9 +5716,15 @@ namespace nmopt::compiler::v1
             std::to_string(policy.state_degree + 2) +
             ") volume quadrature; normalized unit-diffusion zero-reaction Laplacian; Dirichlet trace is the decision block"
         : uses_point_sensor
-        ? "analytic forcing Function at selected volume quadrature; desired-state Function evaluated at immutable physical sensor coordinates; FE_Q shape evaluation and assembled C_h^T point-load transpose"
+        ? "analytic forcing Function at selected volume quadrature; scalar operator T=-kappa Delta+rI with kappa <- " +
+            request.transposition_selection->diffusion_data_id +
+            " and r <- " + request.transposition_selection->reaction_data_id +
+            "; desired-state Function evaluated at immutable physical sensor coordinates; FE_Q shape evaluation and assembled C_h^T point-load transpose"
         : uses_normal_flux
-        ? "analytic forcing Function at selected volume quadrature; desired-state Function evaluated at selected boundary face quadrature; FE_Q outward normal derivative and assembled face-map transpose"
+        ? "analytic forcing Function at selected volume quadrature; scalar operator T=-kappa Delta+rI with kappa <- " +
+            request.transposition_selection->diffusion_data_id +
+            " and r <- " + request.transposition_selection->reaction_data_id +
+            "; desired-state Function evaluated at selected boundary face quadrature; FE_Q outward normal derivative and assembled face-map transpose"
         : uses_h1_state_observation
         ? "analytic desired-state Function value and gradient at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +

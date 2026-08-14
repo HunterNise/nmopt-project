@@ -353,6 +353,9 @@ subject equation, strong test space $Y$, operator range, isomorphism,
 residual codomain, multiplier space, observation output and source space,
 domain-regularity policy, and discrete realization. Point sensors and
 normal-flux observations select their respective `FE_Q` very-weak maps. The
+scalar diffusion-reaction realization additionally names the diffusion and
+reaction data ports that define $T=-\kappa\Delta+rI$; a normalized Laplacian
+realization leaves both coefficient ports empty. The
 Chapter 5.11.2 realization additionally names the continuous parent space,
 conforming trace space, variational-equivalence policy, and discrete conormal
 policy. These fields select the executable map; display prose only explains

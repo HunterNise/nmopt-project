@@ -1495,6 +1495,21 @@ namespace nmopt::semantic::v1
           specification.spaces.end(),
           [&id](const SpaceSpec &space) { return space.id == id; });
       };
+      const auto residual_data_id = [&specification](const DataRole role) {
+        for (const auto &term : specification.residual_terms)
+          if (term.kind == ResidualTermKind::diffusion_reaction)
+            for (const auto &data_id : term.data_ids)
+              {
+                const auto data = std::find_if(
+                  specification.data.begin(), specification.data.end(),
+                  [&data_id](const DataSpec &candidate) {
+                    return candidate.id == data_id;
+                  });
+                if (data != specification.data.end() && data->role == role)
+                  return data->id;
+              }
+        return std::string{};
+      };
       const auto find_region = [&specification](const std::string &id) {
         return std::find_if(
           specification.regions.begin(),
@@ -1564,7 +1579,7 @@ namespace nmopt::semantic::v1
               }
         }
       const auto validate_transposition_selection =
-        [&specification, &find_space, &report](
+        [&specification, &find_space, &residual_data_id, &report](
           const RequirementPolicySpec &policy,
           const std::string &           expected_observation_id,
           const bool                    require_equivalence) {
@@ -1600,6 +1615,22 @@ namespace nmopt::semantic::v1
                          "Select the registered diffusion-reaction Dirichlet-Laplacian isomorphism.");
               return;
             }
+          const auto expected_diffusion_data_id =
+            residual_data_id(DataRole::diffusion);
+          const auto expected_reaction_data_id =
+            residual_data_id(DataRole::reaction);
+          if (selection.diffusion_data_id != expected_diffusion_data_id)
+            report.add(
+              DiagnosticCategory::structural,
+              policy.subject_id,
+              "transposition_diffusion_data",
+              "Bind the transposition operator to the diffusion data port selected by the residual, or leave it empty for the normalized Laplacian.");
+          if (selection.reaction_data_id != expected_reaction_data_id)
+            report.add(
+              DiagnosticCategory::structural,
+              policy.subject_id,
+              "transposition_reaction_data",
+              "Bind the transposition operator to the reaction data port selected by the residual, or leave it empty for the normalized Laplacian.");
           const auto range_space = find_space(selection.operator_range_space_id);
           const auto residual_space =
             find_space(selection.residual_codomain_space_id);

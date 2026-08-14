@@ -694,8 +694,9 @@ strong-state normal-flux graph. Its boundary region owns the selected IDs and
 its observation space is an $L^{2}$ face-quadrature output. The selected
 strong-state parent is
 $Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ with
-$T=-\Delta+rI:Y\rightarrow L^{2}(\Omega)$ under a declared convex-or-$C^{2}$
-domain assumption. The deal.II lowerer evaluates the outward normal
+$T=-\kappa\Delta+rI:Y\rightarrow L^{2}(\Omega)$ using the bound diffusion
+and reaction data ports, under a declared convex-or-$C^{2}$ domain assumption.
+The deal.II lowerer evaluates the outward normal
 derivative with `FEFaceValues` at selected boundary-face quadrature and
 assembles the weighted transpose of the same face map; the adjoint solve
 therefore uses the declared very-weak boundary source. An $H(\mathrm{div})$

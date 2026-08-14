@@ -435,7 +435,7 @@ namespace nmopt::semantic::v1
       {"point_sensor_transposition_policy", "state_equation",
        RequirementKind::transposition_formulation,
        RequirementStatus::provided, RequirementScope::continuous_semantics,
-       "Y=H2(Omega) cap H1_0(Omega); T=-Delta+rI:Y->L2(Omega) is an isomorphism; the point residual is represented in Y* and its adjoint is very weak",
+       "Y=H2(Omega) cap H1_0(Omega); T=-kappa Delta+rI:Y->L2(Omega) is an isomorphism with kappa and r bound by the diffusion and reaction data ports; the point residual is represented in Y* and its adjoint is very weak",
        "domain"});
     reference_detail::component_by_id(
       specification.requirement_policies,
@@ -447,6 +447,8 @@ namespace nmopt::semantic::v1
       "transposition_strong_space",
       "transposition_range_space",
       "dirichlet_laplacian_isomorphism",
+      "diffusion",
+      "reaction",
       "transposition_residual_space",
       "transposition_multiplier_space",
       "state_observation",
@@ -531,7 +533,7 @@ namespace nmopt::semantic::v1
       {"normal_flux_transposition_policy", "state_equation",
        RequirementKind::transposition_formulation,
        RequirementStatus::provided, RequirementScope::continuous_semantics,
-       "Y=H2(Omega) cap H1_0(Omega); the normal-flux residual is represented in the boundary dual and its adjoint is a very weak L2(Omega) solution",
+       "Y=H2(Omega) cap H1_0(Omega); T=-kappa Delta+rI:Y->L2(Omega) uses the bound diffusion and reaction data ports; the normal-flux residual is represented in the boundary dual and its adjoint is a very weak L2(Omega) solution",
        "domain"});
     reference_detail::component_by_id(
       specification.requirement_policies,
@@ -543,6 +545,8 @@ namespace nmopt::semantic::v1
       "transposition_strong_space",
       "transposition_range_space",
       "dirichlet_laplacian_isomorphism",
+      "diffusion",
+      "reaction",
       "transposition_residual_space",
       "transposition_multiplier_space",
       "state_observation",
@@ -1726,6 +1730,8 @@ namespace nmopt::semantic::v1
       "state_test_space",
       "transposition_range_space",
       "dirichlet_laplacian_isomorphism",
+      "",
+      "",
       "transposition_residual_space",
       "transposition_multiplier_space",
       "control_boundary_restriction",

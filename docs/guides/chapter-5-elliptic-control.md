@@ -412,9 +412,11 @@ alternative. Its semantic
 point-set region stores finite, unique physical coordinates and its observation
 space has one coefficient per coordinate. The continuous policy declares
 $Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ and
-$T=-\Delta+rI:Y\rightarrow L^{2}(\Omega)$ under a convex-or-$C^{2}$ domain
-assumption. The deal.II realization evaluates `FE_Q` shape functions at each
-physical coordinate to form the finite-dimensional map $C_{h}$ and assembles
+$T=-\kappa\Delta+rI:Y\rightarrow L^{2}(\Omega)$, with $\kappa$ and $r$
+bound through the scalar residual's diffusion and reaction data ports, under a
+convex-or-$C^{2}$ domain assumption. The deal.II realization evaluates `FE_Q`
+shape functions at each physical coordinate to form the finite-dimensional map
+$C_{h}$ and assembles
 $C_{h}^{\mathsf{T}}(C_{h}y-z_{d})$ as the point-load transpose for the
 very-weak adjoint solve. This is the selected evaluation and transpose policy;
 nearest-node, quadrature-coincidence, and general transposition alternatives

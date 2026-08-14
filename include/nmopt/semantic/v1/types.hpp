@@ -341,6 +341,8 @@ namespace nmopt::semantic::v1
     std::string                       strong_space_id;
     std::string                       operator_range_space_id;
     std::string                       isomorphism_id;
+    std::string                       diffusion_data_id;
+    std::string                       reaction_data_id;
     std::string                       residual_codomain_space_id;
     std::string                       multiplier_space_id;
     std::string                       observation_id;

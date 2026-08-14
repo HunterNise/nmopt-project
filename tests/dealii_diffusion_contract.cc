@@ -1824,6 +1824,17 @@ namespace
       0.5,
       0.2,
       test_binding_provenance("point_sensor")};
+    auto display_only_specification = specification;
+    for (auto &requirement : display_only_specification.requirement_policies)
+      if (requirement.id == "point_sensor_evaluation_policy" ||
+          requirement.id == "point_sensor_transposition_policy")
+        requirement.selected_policy = "arbitrary display text";
+    contract::require(compiler.validate(display_only_specification, policy).valid(),
+                      "point-sensor compiler validation depended on policy prose");
+    const auto display_only_compilation = compiler.compile(
+      display_only_specification, triangulation, bindings, policy);
+    contract::require(display_only_compilation.succeeded(),
+                      "point-sensor lowering depended on policy prose");
     auto outside_mesh_specification = specification;
     component_by_id(outside_mesh_specification.regions, "point_sensor_region")
       .point_coordinates.front()[0] = 1.25;
@@ -2061,6 +2072,18 @@ namespace
       reaction,
       0.2,
       test_binding_provenance("normal_flux")};
+    auto display_only_specification = specification;
+    for (auto &requirement : display_only_specification.requirement_policies)
+      if (requirement.id == "normal_flux_orientation_policy" ||
+          requirement.id == "normal_flux_evaluation_policy" ||
+          requirement.id == "normal_flux_transposition_policy")
+        requirement.selected_policy = "arbitrary display text";
+    contract::require(compiler.validate(display_only_specification, policy).valid(),
+                      "normal-flux compiler validation depended on policy prose");
+    const auto display_only_compilation = compiler.compile(
+      display_only_specification, triangulation, bindings, policy);
+    contract::require(display_only_compilation.succeeded(),
+                      "normal-flux lowering depended on policy prose");
 
     const auto omitted_fixed_boundary_specification =
       semantic::v1::make_normal_flux_scalar_diffusion_reaction_problem(

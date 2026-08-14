@@ -664,6 +664,17 @@ namespace
            "tangential stiffness",
            "h1_trace_control_regularisation");
 
+    auto display_only_hhalf = nmopt::semantic::v1::
+      make_hhalf_dirichlet_laplace_control_problem();
+    for (auto &requirement : display_only_hhalf.requirement_policies)
+      requirement.selected_policy = "arbitrary display text";
+    require_valid(compiler.validate(display_only_hhalf, policy),
+                  "P5.4 validation depended on policy prose");
+    const auto display_only_compilation = compiler.compile(
+      display_only_hhalf, triangulation, bindings, policy);
+    require_valid(display_only_compilation.diagnostics,
+                  "P5.4 lowering depended on policy prose");
+
     const auto reject_unregistered = [&] (
       const nmopt::semantic::v1::ProblemSpec &specification,
       const std::string &                     description) {

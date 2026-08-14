@@ -308,6 +308,49 @@ namespace nmopt::compiler::v1
           return observation.kind ==
                  semantic::v1::ObservationKind::weighted_boundary_trace;
         });
+      const auto normal_flux_observation = std::find_if(
+        specification.observations.begin(), specification.observations.end(),
+        [](const semantic::v1::ObservationSpec &observation) {
+          return observation.kind == semantic::v1::ObservationKind::normal_flux;
+        });
+      const auto point_sensor_observation = std::find_if(
+        specification.observations.begin(), specification.observations.end(),
+        [](const semantic::v1::ObservationSpec &observation) {
+          return observation.kind == semantic::v1::ObservationKind::point_sensor;
+        });
+      const auto has_policy = [&specification](
+                                const std::string &subject_id,
+                                const semantic::v1::RequirementKind kind,
+                                const semantic::v1::RequirementStatus status,
+                                const semantic::v1::RequirementScope scope) {
+        return std::any_of(
+          specification.requirement_policies.begin(),
+          specification.requirement_policies.end(),
+          [&subject_id, kind, status, scope](
+            const semantic::v1::RequirementPolicySpec &policy) {
+            return policy.subject_id == subject_id && policy.kind == kind &&
+                   policy.status == status && policy.scope == scope;
+          });
+      };
+      if (normal_flux_observation != specification.observations.end())
+        {
+          request.has_normal_flux_orientation_policy = has_policy(
+            normal_flux_observation->id,
+            semantic::v1::RequirementKind::conormal_flux,
+            semantic::v1::RequirementStatus::selected_discrete_realisation,
+            semantic::v1::RequirementScope::both);
+          request.has_normal_flux_evaluation_policy = has_policy(
+            normal_flux_observation->id,
+            semantic::v1::RequirementKind::analytic_quadrature_evaluation,
+            semantic::v1::RequirementStatus::selected_discrete_realisation,
+            semantic::v1::RequirementScope::discrete_compilation);
+        }
+      if (point_sensor_observation != specification.observations.end())
+        request.has_point_sensor_evaluation_policy = has_policy(
+          point_sensor_observation->id,
+          semantic::v1::RequirementKind::analytic_quadrature_evaluation,
+          semantic::v1::RequirementStatus::selected_discrete_realisation,
+          semantic::v1::RequirementScope::discrete_compilation);
       for (const auto &policy : specification.requirement_policies)
         {
           if (policy.kind == semantic::v1::RequirementKind::boundary_trace &&
@@ -321,16 +364,23 @@ namespace nmopt::compiler::v1
               policy.subject_id == specification.formulation.metric_id &&
               policy.typed_metric_selection)
             request.hminus1_metric_selection = policy.typed_metric_selection;
-          if (policy.typed_transposition_selection)
+          if (policy.kind ==
+                semantic::v1::RequirementKind::transposition_formulation &&
+              policy.typed_transposition_selection)
             request.transposition_selection =
               policy.typed_transposition_selection;
-          if (policy.typed_partial_boundary_selection)
+          if (policy.kind == semantic::v1::RequirementKind::boundary_partition &&
+              policy.typed_partial_boundary_selection)
             request.partial_boundary_selection =
               policy.typed_partial_boundary_selection;
-          if (policy.typed_fractional_metric_selection)
+          if (policy.kind ==
+                semantic::v1::RequirementKind::fractional_trace_realisation &&
+              policy.typed_fractional_metric_selection)
             request.fractional_metric_selection =
               policy.typed_fractional_metric_selection;
-          if (policy.typed_boundary_h1_metric_selection)
+          if (policy.kind ==
+                semantic::v1::RequirementKind::tangential_gradient_realisation &&
+              policy.typed_boundary_h1_metric_selection)
             request.boundary_h1_metric_selection =
               policy.typed_boundary_h1_metric_selection;
           if (policy.kind == semantic::v1::RequirementKind::target_data_membership &&
@@ -517,6 +567,8 @@ namespace nmopt::compiler::v1
       close_compilation_request(*resolution.problem,
                                 request,
                                 dirichlet_registration);
+      const auto resolved_dirichlet_registration =
+        dirichlet_registration_from_request(request);
       validate_lowerability(specification, request, policy, result.diagnostics);
       validate_formulation_capability(specification, result.diagnostics);
       validate_dirichlet_control_registration(*resolution.problem,
@@ -569,25 +621,10 @@ namespace nmopt::compiler::v1
             {
               const auto &selection =
                 *request.h1_target_data_membership_selection;
-              const auto state_boundary_policy = std::find_if(
-                specification.requirement_policies.begin(),
-                specification.requirement_policies.end(),
-                [&specification](const semantic::v1::RequirementPolicySpec &policy) {
-                  return policy.subject_id ==
-                           specification.formulation.state_variable_id &&
-                         (policy.kind ==
-                            semantic::v1::RequirementKind::fixed_dirichlet ||
-                          policy.kind ==
-                            semantic::v1::RequirementKind::controlled_dirichlet) &&
-                         policy.status ==
-                           semantic::v1::RequirementStatus::
-                             selected_discrete_realisation &&
-                         !policy.region_id.empty();
-                });
-              const std::string expected_state_boundary =
-                state_boundary_policy == specification.requirement_policies.end()
-                  ? std::string{}
-                  : state_boundary_policy->region_id;
+              const std::string &expected_state_boundary =
+                request.uses_dirichlet_control
+                  ? request.control_boundary_region_id
+                  : request.fixed_boundary_region_id;
               if (selection.data_id != "desired_state" ||
                   selection.observation_space_id != "state_observation_space" ||
                   selection.regularity_realisation !=
@@ -1262,9 +1299,8 @@ namespace nmopt::compiler::v1
               ? detail::DirichletStateTrackingNormKind::h1
               : detail::DirichletStateTrackingNormKind::l2;
           objective_policy.control_norm =
-            dirichlet_registration.has_value() &&
-                *dirichlet_registration ==
-                  DirichletControlRegistration::hhalf_control
+            request.dirichlet_registration ==
+                ResolvedDirichletRegistration::hhalf_control
               ? detail::DirichletControlNormKind::hhalf
             : uses_h1_dirichlet_control
               ? detail::DirichletControlNormKind::h1
@@ -1497,7 +1533,7 @@ namespace nmopt::compiler::v1
                       policy,
                       constraint_realisation,
                       target_kind,
-                      dirichlet_registration,
+                      resolved_dirichlet_registration,
                       resolved_decision,
                       request,
                       *tracking_region,
@@ -2536,6 +2572,31 @@ namespace nmopt::compiler::v1
       return ResolvedDirichletRegistration::none;
     }
 
+    static std::optional<DirichletControlRegistration>
+    dirichlet_registration_from_request(
+      const ResolvedCompilationRequest &request)
+    {
+      switch (request.dirichlet_registration)
+        {
+          case ResolvedDirichletRegistration::complete_nodal_l2:
+            return DirichletControlRegistration::complete_nodal_l2;
+          case ResolvedDirichletRegistration::partial_nodal_l2:
+            return DirichletControlRegistration::partial_nodal_l2;
+          case ResolvedDirichletRegistration::l2_transposition:
+            return DirichletControlRegistration::l2_transposition;
+          case ResolvedDirichletRegistration::hhalf_control:
+            return DirichletControlRegistration::hhalf_control;
+          case ResolvedDirichletRegistration::h1_tracking_hhalf_control:
+            return DirichletControlRegistration::h1_tracking_hhalf_control;
+          case ResolvedDirichletRegistration::h1_control:
+            return DirichletControlRegistration::h1_control;
+          case ResolvedDirichletRegistration::none:
+            return std::nullopt;
+        }
+      contract::require(false, "Unknown request Dirichlet registration");
+      return std::nullopt;
+    }
+
     static CompiledTargetKind
     target_kind_from_request(const ResolvedCompilationRequest &request)
     {
@@ -2632,15 +2693,14 @@ namespace nmopt::compiler::v1
       request.uses_point_sensor = has_point_sensor_observation(specification);
       request.uses_normal_flux = has_normal_flux_observation(specification);
       request.uses_h1_dirichlet_control =
-        registration && *registration == DirichletControlRegistration::h1_control;
+        request.dirichlet_registration == ResolvedDirichletRegistration::h1_control;
       request.uses_hhalf_dirichlet_registration =
-        registration &&
-        (*registration == DirichletControlRegistration::hhalf_control ||
-         *registration ==
-           DirichletControlRegistration::h1_tracking_hhalf_control);
+        request.dirichlet_registration == ResolvedDirichletRegistration::hhalf_control ||
+        request.dirichlet_registration ==
+          ResolvedDirichletRegistration::h1_tracking_hhalf_control;
       request.uses_h1_tracking_hhalf_dirichlet_registration =
-        registration &&
-        *registration == DirichletControlRegistration::h1_tracking_hhalf_control;
+        request.dirichlet_registration ==
+        ResolvedDirichletRegistration::h1_tracking_hhalf_control;
 
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *robin_region = selected_robin_boundary_region(specification);
@@ -2648,6 +2708,21 @@ namespace nmopt::compiler::v1
         tracking_region == nullptr ? std::string{} : tracking_region->id;
       request.robin_boundary_region_id =
         robin_region == nullptr ? std::string{} : robin_region->id;
+      const auto mean_policy = std::find_if(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
+          return candidate.subject_id ==
+                   specification.formulation.state_variable_id &&
+                 candidate.kind ==
+                   semantic::v1::RequirementKind::mean_zero_multiplier &&
+                 candidate.status ==
+                   semantic::v1::RequirementStatus::selected_discrete_realisation;
+        });
+      request.mean_zero_region_id =
+        mean_policy == specification.requirement_policies.end()
+          ? std::string{}
+          : mean_policy->region_id;
       if (request.partial_boundary_selection)
         {
           request.partial_fixed_boundary_region_id =
@@ -2660,6 +2735,8 @@ namespace nmopt::compiler::v1
         specification.requirement_policies.end(),
         [&specification, &request](const semantic::v1::RequirementPolicySpec &candidate) {
           return candidate.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
+                 candidate.status ==
+                   semantic::v1::RequirementStatus::selected_discrete_realisation &&
                  (candidate.subject_id == specification.formulation.state_variable_id ||
                   (request.uses_partial_dirichlet_control &&
                    candidate.subject_id == "dirichlet_control_lifting"));
@@ -2671,7 +2748,9 @@ namespace nmopt::compiler::v1
         specification.requirement_policies.end(),
         [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
           return candidate.subject_id == specification.formulation.state_variable_id &&
-                 candidate.kind == semantic::v1::RequirementKind::controlled_dirichlet;
+                 candidate.kind == semantic::v1::RequirementKind::controlled_dirichlet &&
+                 candidate.status ==
+                   semantic::v1::RequirementStatus::selected_discrete_realisation;
         });
       if (request.uses_dirichlet_control &&
           controlled_policy != specification.requirement_policies.end())
@@ -2761,45 +2840,13 @@ namespace nmopt::compiler::v1
       semantic::v1::ValidationReport &          report)
     {
       const auto &specification = resolved.specification();
-      if (uses_dirichlet_control_target(specification) &&
-          !resolve_dirichlet_control_registration(resolved, request))
+      if (request.uses_dirichlet_control &&
+          request.dirichlet_registration == ResolvedDirichletRegistration::none)
         report.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
           "section_5_11_registered_signature",
           "Select one registered Dirichlet composition: complete or partial nodal L2 lifting, conforming L2 transposition, Section 5.11.1 option 1 or 2, or Section 5.11.3 tangential H1 control.");
-    }
-
-    static std::set<dealii::types::boundary_id>
-    selected_dirichlet_boundary_ids(
-      const semantic::v1::ProblemSpec &specification)
-    {
-      const auto policy = std::find_if(
-        specification.requirement_policies.begin(),
-        specification.requirement_policies.end(),
-        [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
-          return candidate.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
-                 (candidate.subject_id ==
-                    specification.formulation.state_variable_id ||
-                  (uses_partial_dirichlet_control_lifting(specification) &&
-                   candidate.subject_id == "dirichlet_control_lifting"));
-        });
-      contract::require(policy != specification.requirement_policies.end(),
-                        "Validated v1 problem has no fixed Dirichlet policy");
-      const auto region = find_region(specification, policy->region_id);
-      contract::require(region != nullptr,
-                        "Validated v1 fixed Dirichlet policy has no region");
-      return boundary_ids(*region);
-    }
-
-    static std::set<dealii::types::boundary_id>
-    selected_dirichlet_control_boundary_ids(
-      const semantic::v1::ProblemSpec &specification)
-    {
-      const auto region = selected_dirichlet_control_region(specification);
-      contract::require(region != nullptr,
-                        "Validated v1 problem has no controlled Dirichlet policy");
-      return boundary_ids(*region);
     }
 
     template <int dim>
@@ -3321,19 +3368,10 @@ namespace nmopt::compiler::v1
               specification.formulation.state_variable_id,
               "pure_neumann_registered_residual",
               "Select the mean-zero multiplier only with the registered pure-Neumann boundary-control residual.");
-          const auto mean_policy = std::find_if(
-            specification.requirement_policies.begin(),
-            specification.requirement_policies.end(),
-            [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
-              return candidate.subject_id ==
-                       specification.formulation.state_variable_id &&
-                     candidate.kind ==
-                       semantic::v1::RequirementKind::mean_zero_multiplier;
-            });
-          const auto mean_region =
-            mean_policy == specification.requirement_policies.end()
-              ? nullptr
-              : find_region(specification, mean_policy->region_id);
+          const auto *mean_region = request.mean_zero_region_id.empty()
+                                      ? nullptr
+                                      : find_region(specification,
+                                                    request.mean_zero_region_id);
           if (mean_region == nullptr ||
               mean_region->kind != semantic::v1::RegionKind::volume ||
               !mean_region->is_full_domain)
@@ -3576,17 +3614,7 @@ namespace nmopt::compiler::v1
                   specification.formulation.state_variable_id,
                   "partial_dirichlet_boundary_partition",
                   "Declare disjoint fixed and controlled Dirichlet boundary regions for the partial lifting.");
-              const auto interface_policy = std::find_if(
-                specification.requirement_policies.begin(),
-                specification.requirement_policies.end(),
-                [](const semantic::v1::RequirementPolicySpec &policy) {
-                  return policy.subject_id == "dirichlet_control_lifting" &&
-                         policy.kind ==
-                           semantic::v1::RequirementKind::controlled_dirichlet &&
-                         policy.status == semantic::v1::RequirementStatus::
-                                            selected_discrete_realisation;
-                });
-              if (interface_policy == specification.requirement_policies.end())
+              if (!request.partial_boundary_selection)
                 report.add(
                   DiagnosticCategory::lowerability,
                   "dirichlet_control_lifting",
@@ -4098,19 +4126,7 @@ namespace nmopt::compiler::v1
                   "normal_flux_observation_region",
                   "Select a non-empty declared boundary subset for the C5.8 normal-flux state observation.");
             }
-          const auto orientation_policy = std::find_if(
-            specification.requirement_policies.begin(),
-            specification.requirement_policies.end(),
-            [state_observation, &specification](const semantic::v1::RequirementPolicySpec &policy) {
-              return state_observation != specification.observations.end() &&
-                     policy.subject_id == state_observation->id &&
-                     policy.kind == semantic::v1::RequirementKind::conormal_flux &&
-                     policy.status ==
-                       semantic::v1::RequirementStatus::selected_discrete_realisation &&
-                     policy.selected_policy.find("outward unit normal") !=
-                       std::string::npos;
-            });
-          if (orientation_policy == specification.requirement_policies.end())
+          if (!request.has_normal_flux_orientation_policy)
             report.add(
               DiagnosticCategory::lowerability,
               state_observation == specification.observations.end()
@@ -4118,20 +4134,7 @@ namespace nmopt::compiler::v1
                 : state_observation->id,
               "normal_flux_orientation_policy",
               "Select the registered outward-unit-normal normal-flux convention.");
-          const auto evaluation_policy = std::find_if(
-            specification.requirement_policies.begin(),
-            specification.requirement_policies.end(),
-            [state_observation, &specification](const semantic::v1::RequirementPolicySpec &policy) {
-              return state_observation != specification.observations.end() &&
-                     policy.subject_id == state_observation->id &&
-                     policy.kind ==
-                       semantic::v1::RequirementKind::analytic_quadrature_evaluation &&
-                     policy.status ==
-                       semantic::v1::RequirementStatus::selected_discrete_realisation &&
-                     policy.selected_policy.find("FE_Q normal derivatives") !=
-                       std::string::npos;
-            });
-          if (evaluation_policy == specification.requirement_policies.end())
+          if (!request.has_normal_flux_evaluation_policy)
             report.add(
               DiagnosticCategory::lowerability,
               state_observation == specification.observations.end()
@@ -4139,17 +4142,10 @@ namespace nmopt::compiler::v1
                 : state_observation->id,
               "normal_flux_evaluation_policy",
               "Select the registered FE_Q face-quadrature normal-flux evaluation and transpose policy.");
-          const auto transposition_policy = std::find_if(
-            specification.requirement_policies.begin(),
-            specification.requirement_policies.end(),
-            [&specification](const semantic::v1::RequirementPolicySpec &policy) {
-              return policy.subject_id == specification.formulation.equation_id &&
-                     policy.kind ==
-                       semantic::v1::RequirementKind::transposition_formulation &&
-                     policy.status == semantic::v1::RequirementStatus::provided &&
-                     policy.selected_policy.find("very weak") != std::string::npos;
-            });
-          if (transposition_policy == specification.requirement_policies.end())
+          if (!request.transposition_selection ||
+              request.transposition_selection->discrete_realisation !=
+                semantic::v1::TranspositionDiscreteRealisation::
+                  fe_q_normal_flux_very_weak)
             report.add(
               DiagnosticCategory::lowerability,
               specification.formulation.equation_id,
@@ -4208,21 +4204,7 @@ namespace nmopt::compiler::v1
                   "point_sensor_observation_region",
                   "Select a non-empty immutable point-set region for the C5.10 state observation.");
             }
-          const auto point_evaluation_policy = std::find_if(
-            specification.requirement_policies.begin(),
-            specification.requirement_policies.end(),
-            [state_observation, &specification](const semantic::v1::RequirementPolicySpec &policy) {
-              return state_observation != specification.observations.end() &&
-                     policy.subject_id == state_observation->id &&
-                     policy.kind ==
-                       semantic::v1::RequirementKind::analytic_quadrature_evaluation &&
-                     policy.status ==
-                       semantic::v1::RequirementStatus::selected_discrete_realisation;
-            });
-          if (point_evaluation_policy == specification.requirement_policies.end() ||
-              point_evaluation_policy->selected_policy.find(
-                "FE_Q shape functions are evaluated at immutable physical sensor coordinates") ==
-                std::string::npos)
+          if (!request.has_point_sensor_evaluation_policy)
             report.add(
               DiagnosticCategory::lowerability,
               state_observation == specification.observations.end()
@@ -4230,18 +4212,10 @@ namespace nmopt::compiler::v1
                 : state_observation->id,
               "point_sensor_evaluation_policy",
               "Select the registered FE_Q physical-point evaluation and assembled transpose policy; nearest-node and quadrature-coincidence rules are not registered.");
-          const auto point_transposition_policy = std::find_if(
-            specification.requirement_policies.begin(),
-            specification.requirement_policies.end(),
-            [&specification](const semantic::v1::RequirementPolicySpec &policy) {
-              return policy.subject_id == specification.formulation.equation_id &&
-                     policy.kind ==
-                       semantic::v1::RequirementKind::transposition_formulation &&
-                     policy.status == semantic::v1::RequirementStatus::provided;
-            });
-          if (point_transposition_policy == specification.requirement_policies.end() ||
-              point_transposition_policy->selected_policy.find("very weak") ==
-                std::string::npos)
+          if (!request.transposition_selection ||
+              request.transposition_selection->discrete_realisation !=
+                semantic::v1::TranspositionDiscreteRealisation::
+                  fe_q_point_sensor_very_weak)
             report.add(
               DiagnosticCategory::lowerability,
               specification.formulation.equation_id,

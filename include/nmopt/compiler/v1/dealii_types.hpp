@@ -145,6 +145,7 @@ namespace nmopt::compiler::v1
     bool                                   uses_assembled_v1_target = false;
     std::string                            tracking_region_id;
     std::string                            robin_boundary_region_id;
+    std::string                            mean_zero_region_id;
     std::string                            fixed_boundary_region_id;
     std::string                            partial_fixed_boundary_region_id;
     std::string                            partial_control_boundary_region_id;
@@ -154,6 +155,9 @@ namespace nmopt::compiler::v1
     bool                                   requires_observation_weight = false;
     bool                                   requires_general_scalar_data = false;
     bool                                   requires_conservative_transport_data = false;
+    bool                                   has_normal_flux_orientation_policy = false;
+    bool                                   has_normal_flux_evaluation_policy = false;
+    bool                                   has_point_sensor_evaluation_policy = false;
     std::optional<semantic::v1::TraceRealisationSelection>
       weighted_trace_selection;
     std::optional<semantic::v1::Hminus1MetricRealisationSelection>

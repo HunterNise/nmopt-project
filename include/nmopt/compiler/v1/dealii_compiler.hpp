@@ -2610,8 +2610,12 @@ namespace nmopt::compiler::v1
       request.uses_neumann_convection =
         uses_neumann_conservative_transport(specification);
       request.uses_mean_zero_gauge = uses_mean_zero_multiplier(specification);
+      request.uses_h1_control_regularisation_loss =
+        uses_h1_control_regularisation_loss(specification);
+      request.uses_hhalf_control_regularisation_loss =
+        uses_hhalf_control_regularisation_loss(specification);
       request.uses_h1_control_regularisation =
-        uses_h1_control_regularisation_loss(specification) &&
+        request.uses_h1_control_regularisation_loss &&
         !request.uses_dirichlet_control;
       request.uses_h1_control_metric = selects_h1_control_metric(specification);
       request.uses_hhalf_control_metric =
@@ -3162,59 +3166,60 @@ namespace nmopt::compiler::v1
                      "registered_transformation_lowerer",
                      "Register value, JVP, and VJP lowering for this transformation.");
 
-      const bool mean_zero_gauge = uses_mean_zero_multiplier(specification);
+      const bool mean_zero_gauge = request.uses_mean_zero_gauge;
       const bool has_h1_control_regularisation_loss =
-        uses_h1_control_regularisation_loss(specification);
+        request.uses_h1_control_regularisation_loss;
       const bool h1_control_regularisation =
         has_h1_control_regularisation_loss &&
-        !uses_dirichlet_control_target(specification);
+        !request.uses_dirichlet_control;
       const bool hhalf_control_regularisation =
-        uses_hhalf_control_regularisation_loss(specification);
-      const bool h1_control_metric = selects_h1_control_metric(specification);
+        request.uses_hhalf_control_regularisation_loss;
+      const bool h1_control_metric = request.uses_h1_control_metric;
       const bool hhalf_control_metric =
-        selects_hhalf_control_metric(specification);
+        request.uses_hhalf_control_metric;
       const bool hminus1_control_metric =
-        selects_hminus1_control_metric(specification);
+        request.uses_hminus1_control_metric;
       const bool homogeneous_dirichlet_continuous_control =
-        has_homogeneous_dirichlet_continuous_control(specification);
+        request.uses_homogeneous_dirichlet_continuous_control;
       const bool coefficient_identification =
-        uses_parameter_diffusion_residual(specification);
+        request.uses_coefficient_identification;
       const bool general_scalar =
-        uses_general_scalar_residual(specification);
+        request.uses_general_scalar;
       const bool neumann_convection =
-        uses_neumann_conservative_transport(specification);
+        request.uses_neumann_convection;
       const bool weighted_boundary_trace =
-        has_weighted_boundary_trace(specification);
+        request.uses_weighted_boundary_trace;
       const bool h1_state_observation =
-        has_h1_state_observation(specification);
+        request.uses_h1_state_observation;
       const bool l2_dirichlet_transposition =
-        uses_l2_dirichlet_transposition(specification);
+        request.uses_l2_dirichlet_control;
       const bool normalized_dirichlet_laplace =
-        uses_normalized_dirichlet_laplace_control(specification);
+        request.uses_normalized_dirichlet_laplace;
       const bool dirichlet_control_lifting =
-        uses_dirichlet_control_target(specification);
+        request.uses_dirichlet_control;
       const bool partial_dirichlet_control =
-        uses_partial_dirichlet_control_lifting(specification);
+        request.uses_partial_dirichlet_control;
       const bool registered_h1_dirichlet_tracking =
         request.dirichlet_registration ==
           ResolvedDirichletRegistration::h1_tracking_hhalf_control;
-      const auto fixed_policy = std::find_if(
-        specification.requirement_policies.begin(),
-        specification.requirement_policies.end(),
-        [&specification](const semantic::v1::RequirementPolicySpec &candidate) {
-          return candidate.kind == semantic::v1::RequirementKind::fixed_dirichlet &&
-                 (candidate.subject_id ==
-                    specification.formulation.state_variable_id ||
-                  (uses_partial_dirichlet_control_lifting(specification) &&
-                   candidate.subject_id == "dirichlet_control_lifting"));
-        });
-      const auto boundary = fixed_policy == specification.requirement_policies.end()
-                              ? nullptr
-                              : find_region(specification, fixed_policy->region_id);
-      const auto controlled_boundary =
-        selected_dirichlet_control_region(specification);
-      const auto robin_boundary =
-        selected_robin_boundary_region(specification);
+      const auto *boundary = request.fixed_boundary_region_id.empty()
+                               ? nullptr
+                               : find_region(specification,
+                                             request.fixed_boundary_region_id);
+      const auto *controlled_boundary = request.control_boundary_region_id.empty()
+                                         ? nullptr
+                                         : find_region(
+                                             specification,
+                                             request.control_boundary_region_id);
+      const auto *robin_boundary = request.robin_boundary_region_id.empty()
+                                    ? nullptr
+                                    : find_region(
+                                        specification,
+                                        request.robin_boundary_region_id);
+      const auto *tracking_region = request.tracking_region_id.empty()
+                                      ? nullptr
+                                      : find_region(specification,
+                                                    request.tracking_region_id);
       if (!mean_zero_gauge && !dirichlet_control_lifting &&
           (boundary == nullptr ||
            boundary->kind != semantic::v1::RegionKind::boundary ||
@@ -3225,17 +3230,16 @@ namespace nmopt::compiler::v1
                    "Select a boundary region with at least one fixed Dirichlet id.");
       if (h1_state_observation)
         {
-          const auto tracking_region = selected_tracking_region(specification);
           if (tracking_region == nullptr || !tracking_region->is_full_domain)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
               "h1_state_observation_full_domain",
               "Select the full volume region for the registered H1 state observation.");
-          if (uses_fixed_dirichlet_reconstruction(specification) ||
+          if (request.uses_fixed_reconstruction ||
               (dirichlet_control_lifting &&
                !registered_h1_dirichlet_tracking) ||
-              uses_neumann_control(specification) ||
+              request.uses_neumann_boundary_control ||
               h1_control_regularisation ||
               coefficient_identification ||
               general_scalar)
@@ -3289,9 +3293,9 @@ namespace nmopt::compiler::v1
                            robin_boundary->id,
                            "scalar_boundary_partition_overlap",
                            "Use disjoint fixed-Dirichlet and Robin boundary ids.");
-          if (uses_fixed_dirichlet_reconstruction(specification) ||
-              uses_neumann_control(specification) ||
-              uses_mean_zero_multiplier(specification) ||
+          if (request.uses_fixed_reconstruction ||
+              request.uses_neumann_boundary_control ||
+              request.uses_mean_zero_gauge ||
               h1_control_regularisation || coefficient_identification ||
               dirichlet_control_lifting)
             report.add(
@@ -3299,8 +3303,7 @@ namespace nmopt::compiler::v1
               specification.id,
               "general_scalar_registered_combination",
               "Compose the first general scalar target only with homogeneous fixed Dirichlet data, volume control, full-volume tracking, and one Robin region.");
-          const auto general_tracking_region =
-            selected_tracking_region(specification);
+          const auto *general_tracking_region = tracking_region;
           if (general_tracking_region == nullptr ||
               !general_tracking_region->is_full_domain)
             report.add(
@@ -3312,7 +3315,7 @@ namespace nmopt::compiler::v1
 
       if (mean_zero_gauge)
         {
-          if (!uses_neumann_control(specification))
+          if (!request.uses_neumann_boundary_control)
             report.add(
               DiagnosticCategory::lowerability,
               specification.formulation.state_variable_id,
@@ -3371,16 +3374,14 @@ namespace nmopt::compiler::v1
               specification.formulation.constraint_id,
               "continuous_control_box_constraint",
               "Do not select the cellwise or facewise box with the continuous H1 control realization.");
-          if (uses_fixed_dirichlet_reconstruction(specification) ||
-              uses_neumann_control(specification) || dirichlet_control_lifting)
+          if (request.uses_fixed_reconstruction ||
+              request.uses_neumann_boundary_control || dirichlet_control_lifting)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
               "h1_regularisation_registered_combination",
               "The first H1-control regularisation target supports the homogeneous volume-control graph only.");
-          const auto h1_tracking_region = selected_tracking_region(specification);
-          if (h1_tracking_region == nullptr ||
-              !h1_tracking_region->is_full_domain)
+          if (tracking_region == nullptr || !tracking_region->is_full_domain)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
@@ -3417,18 +3418,15 @@ namespace nmopt::compiler::v1
               specification.formulation.constraint_id,
               "hminus1_metric_constraint",
               "Do not select a coefficientwise box for the coupled H-1 metric.");
-          if (uses_fixed_dirichlet_reconstruction(specification) ||
-              uses_neumann_control(specification) || dirichlet_control_lifting ||
+          if (request.uses_fixed_reconstruction ||
+              request.uses_neumann_boundary_control || dirichlet_control_lifting ||
               mean_zero_gauge || coefficient_identification || general_scalar)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
               "hminus1_metric_registered_combination",
               "Compose the first H-1 metric target only with homogeneous fixed-Dirichlet state data and volume control.");
-          const auto hminus1_tracking_region =
-            selected_tracking_region(specification);
-          if (hminus1_tracking_region == nullptr ||
-              !hminus1_tracking_region->is_full_domain)
+          if (tracking_region == nullptr || !tracking_region->is_full_domain)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
@@ -3450,8 +3448,8 @@ namespace nmopt::compiler::v1
               specification.formulation.constraint_id,
               "continuous_control_box_constraint",
               "Do not select a coefficientwise box on the continuous control layout.");
-          if (uses_fixed_dirichlet_reconstruction(specification) ||
-              uses_neumann_control(specification) || dirichlet_control_lifting ||
+          if (request.uses_fixed_reconstruction ||
+              request.uses_neumann_boundary_control || dirichlet_control_lifting ||
               mean_zero_gauge || coefficient_identification || general_scalar)
             report.add(
               DiagnosticCategory::lowerability,
@@ -3485,18 +3483,15 @@ namespace nmopt::compiler::v1
               specification.formulation.control_variable_id,
               "positive_parameter_constraint",
               "Select the registered positive cellwise parameter box.");
-          if (uses_fixed_dirichlet_reconstruction(specification) ||
-              uses_neumann_control(specification) || h1_control_regularisation ||
+          if (request.uses_fixed_reconstruction ||
+              request.uses_neumann_boundary_control || h1_control_regularisation ||
               dirichlet_control_lifting)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
               "coefficient_identification_registered_combination",
               "The first coefficient-identification target supports the homogeneous full-domain volume graph only.");
-          const auto coefficient_tracking_region =
-            selected_tracking_region(specification);
-          if (coefficient_tracking_region == nullptr ||
-              !coefficient_tracking_region->is_full_domain)
+          if (tracking_region == nullptr || !tracking_region->is_full_domain)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
@@ -3543,8 +3538,8 @@ namespace nmopt::compiler::v1
               specification.formulation.constraint_id,
               "dirichlet_control_box_constraint",
               "The first nodal Dirichlet lifting has no box-constraint realization.");
-          if (uses_fixed_dirichlet_reconstruction(specification) ||
-              uses_neumann_control(specification) || h1_control_regularisation ||
+          if (request.uses_fixed_reconstruction ||
+              request.uses_neumann_boundary_control || h1_control_regularisation ||
               coefficient_identification)
             report.add(
               DiagnosticCategory::lowerability,
@@ -3598,7 +3593,6 @@ namespace nmopt::compiler::v1
                   "partial_dirichlet_interface_policy",
                   "Declare the fixed/controlled corner and interface ownership policy.");
             }
-          const auto tracking_region = selected_tracking_region(specification);
           if (tracking_region == nullptr || !tracking_region->is_full_domain)
             report.add(
               DiagnosticCategory::lowerability,
@@ -3608,17 +3602,16 @@ namespace nmopt::compiler::v1
         }
 
       if (weighted_boundary_trace &&
-          (!uses_neumann_control(specification) || mean_zero_gauge))
+          (!request.uses_neumann_boundary_control || mean_zero_gauge))
         report.add(
           DiagnosticCategory::lowerability,
           specification.id,
           "weighted_boundary_trace_registered_combination",
           "Combine the first weighted boundary trace with the fixed-Dirichlet Neumann-control target.");
 
-      if (!uses_neumann_control(specification))
+      if (!request.uses_neumann_boundary_control)
         return;
-      const auto control_region = selected_neumann_control_region(specification);
-      const auto tracking_region = selected_tracking_region(specification);
+      const auto *control_region = controlled_boundary;
       if (control_region == nullptr ||
           control_region->kind != semantic::v1::RegionKind::boundary ||
           control_region->boundary_ids.empty())

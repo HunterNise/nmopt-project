@@ -125,6 +125,8 @@ namespace nmopt::compiler::v1
     bool                                   uses_neumann_boundary_control = false;
     bool                                   uses_neumann_convection = false;
     bool                                   uses_mean_zero_gauge = false;
+    bool                                   uses_h1_control_regularisation_loss = false;
+    bool                                   uses_hhalf_control_regularisation_loss = false;
     bool                                   uses_h1_control_regularisation = false;
     bool                                   uses_h1_control_metric = false;
     bool                                   uses_hhalf_control_metric = false;

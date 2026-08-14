@@ -10,3 +10,4 @@ status and acceptance state.
 - [P5.2 implementation review](p5.2-remediation-review.md)
 - [P5.3 implementation review](p5.3-remediation-review.md)
 - [P5.4 implementation review](p5.4-remediation-review.md)
+- [Remediation audit follow-ups](remediation-audit-follow-ups.md)

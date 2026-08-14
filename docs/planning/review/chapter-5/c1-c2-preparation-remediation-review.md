@@ -800,22 +800,22 @@ that unrelated remediation units are unstaged, and run `git diff --check`.
 
 C1 can return to `completed` only when:
 
-- [ ] every predictable public compiler input uses the documented diagnostic
+- [x] every predictable public compiler input uses the documented diagnostic
       channel;
-- [ ] ordinary and specialized `Function` bindings validate field shape from
+- [x] ordinary and specialized `Function` bindings validate field shape from
       one resolved binding request;
-- [ ] owned/detached session and solve-report behavior remains covered;
-- [ ] state and adjoint policy changes alter actual invocation and exact
+- [x] owned/detached session and solve-report behavior remains covered;
+- [x] state and adjoint policy changes alter actual invocation and exact
       structured provenance;
 - [ ] the manifest is populated from resolved decisions and realized services,
       not target booleans or prose;
-- [ ] coefficient, bound, `Function`, and mesh provenance distinguishes
+- [x] coefficient, bound, `Function`, and mesh provenance distinguishes
       materially different compiled products;
 - [ ] every realized map owns its source/output dimension, ordering, and
       pairing record;
 - [ ] compatibility prose is rendered from typed records;
 - [ ] exact structured manifest tests cover every retained target; and
-- [ ] the neutral, deal.II, and applicable sanitizer gates pass.
+- [x] the neutral, deal.II, and applicable sanitizer gates pass.
 
 ### C2 acceptance
 
@@ -824,17 +824,17 @@ C2 can return to `completed` only when:
 - [ ] one resolved closed request drives validation, registration, planning,
       model construction, mesh checks, and provenance;
 - [ ] raw graph flags no longer duplicate those decisions;
-- [ ] scalar handlers contribute typed executable payloads, not only handler
+- [x] scalar handlers contribute typed executable payloads, not only handler
       names;
-- [ ] selected residual/data contributions drive fused assembly;
-- [ ] selected observations/losses, transformations, metrics, and constraints
+- [x] selected residual/data contributions drive fused assembly;
+- [x] selected observations/losses, transformations, metrics, and constraints
       construct their bounded services from the plan;
-- [ ] specialized strategies remain explicit and do not enter the scalar plan
+- [x] specialized strategies remain explicit and do not enter the scalar plan
       by fallback;
-- [ ] one tested recombination changes residual or observation independently
+- [x] one tested recombination changes residual or observation independently
       without a new complete problem class;
 - [ ] unsupported cross-products receive one exact registration diagnostic;
-- [ ] current value/JVP/VJP, reconstruction, nullspace, metric, constraint,
+- [x] current value/JVP/VJP, reconstruction, nullspace, metric, constraint,
       independent-oracle, transpose, and Taylor tests pass;
 - [ ] manifests are structurally equal for every unchanged component; and
 - [ ] the roadmap alone is updated to mark the C1/C2 gates complete.

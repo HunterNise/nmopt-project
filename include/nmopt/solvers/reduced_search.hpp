@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/metric_constraint.hpp"
+#include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
 
 #include <algorithm>
@@ -17,6 +18,9 @@ namespace nmopt::solvers
   enum class ReducedStoppingReason
   {
     gradient_tolerance,
+    relative_gradient_tolerance,
+    objective_change_tolerance,
+    step_tolerance,
     maximum_iterations,
     line_search_failure
   };
@@ -28,6 +32,12 @@ namespace nmopt::solvers
       {
         case ReducedStoppingReason::gradient_tolerance:
           return "gradient_tolerance";
+        case ReducedStoppingReason::relative_gradient_tolerance:
+          return "relative_gradient_tolerance";
+        case ReducedStoppingReason::objective_change_tolerance:
+          return "objective_change_tolerance";
+        case ReducedStoppingReason::step_tolerance:
+          return "step_tolerance";
         case ReducedStoppingReason::maximum_iterations:
           return "maximum_iterations";
         case ReducedStoppingReason::line_search_failure:
@@ -47,6 +57,10 @@ namespace nmopt::solvers
     unsigned int maximum_iterations = 100;
     unsigned int maximum_line_search_trials = 20;
     double       gradient_tolerance = 1e-8;
+    // A zero value disables the optional relative/objective/step criteria.
+    double       relative_gradient_tolerance = 0.0;
+    double       objective_change_tolerance = 0.0;
+    double       step_tolerance = 0.0;
     double       initial_step_length = 1.0;
     double       armijo_fraction = 1e-4;
     double       backtracking_factor = 0.5;
@@ -69,14 +83,17 @@ namespace nmopt::solvers
   struct ReducedSolverResultT
   {
     contract::PrimalBlockT<Backend> control;
+    contract::ReducedEvaluationT<Backend> final_evaluation;
     std::vector<double>             objective_history;
     std::vector<double>             gradient_norm_history;
+    std::vector<double>             relative_gradient_norm_history;
     std::size_t                     accepted_iterations;
     std::size_t                     line_search_trial_count;
     std::size_t                     state_solve_count;
     std::size_t                     adjoint_solve_count;
     ReducedStoppingReason           stopping_reason;
     std::vector<double>             step_length_history;
+    std::vector<double>             step_norm_history;
     std::vector<double>             objective_change_history;
     std::size_t                     metric_solve_count;
     std::size_t                     hessian_action_count;

@@ -214,9 +214,12 @@ j_{h}(u+\tau d)\leq
 j_{h}(u)+\sigma\tau j_{h}'(u)[d].
 $$
 
-Reject a non-descent direction before line search. Reports need relative
-gradient norm, objective change, maximum iteration, line-search failure, and
-state/adjoint/metric/Hessian-solve counts as separate fields. Finite
+Reject a non-descent direction before line search. The reduced result records
+the final accepted state, adjoint, covector, objective, absolute and relative
+gradient histories, actual metric step norms, objective changes, maximum
+iteration/line-search failures, and state/adjoint/metric/Hessian-solve counts
+as separate fields. Relative-gradient, objective-change, and step tolerances
+are independently configurable and disabled by zero values. Finite
 differences are derivative checks, not a high-dimensional gradient fallback.
 
 The selected slice does not exhaust the alternatives in Chapter 3. The

@@ -632,18 +632,80 @@ namespace
     require(solver_result.objective_change_history.size() ==
               solver_result.accepted_iterations,
             "Dense reduced gradient objective-change history does not match accepted iterations");
+    require(solver_result.relative_gradient_norm_history.size() ==
+              solver_result.gradient_norm_history.size(),
+            "Dense reduced gradient relative-norm history does not match direction evaluations");
+    require(solver_result.step_norm_history.size() ==
+              solver_result.accepted_iterations,
+            "Dense reduced gradient step-norm history does not match accepted iterations");
+    require(solver_result.final_evaluation.state_solve.converged() &&
+              solver_result.final_evaluation.adjoint_solve.converged(),
+            "Dense reduced gradient result does not retain the final evaluation");
+    require_close(solver_result.final_evaluation.objective_value,
+                  solver_result.objective_history.back(),
+                  1e-14,
+                  "Dense reduced gradient final objective");
+    require(solver_result.final_evaluation.reduced_derivative.layout()->compatible_with(
+              *solver_result.control.layout()),
+            "Dense reduced gradient final covector has the wrong layout");
     for (std::size_t index = 0;
          index < solver_result.accepted_iterations;
          ++index)
       {
         require(solver_result.step_length_history[index] > 0.0,
                 "Dense reduced gradient accepted a nonpositive step");
+        require(solver_result.step_norm_history[index] > 0.0,
+                "Dense reduced gradient accepted a zero metric step");
         require_close(solver_result.objective_change_history[index],
                       solver_result.objective_history[index + 1] -
                         solver_result.objective_history[index],
-                      1e-14,
-                      "Dense reduced gradient objective-change history");
+                        1e-14,
+                        "Dense reduced gradient objective-change history");
       }
+
+    nmopt::solvers::ReducedGradientParameters relative_stopping_parameters =
+      solver_parameters;
+    relative_stopping_parameters.gradient_tolerance = 1e-30;
+    relative_stopping_parameters.relative_gradient_tolerance = 0.5;
+    const nmopt::solvers::ReducedGradientSolver relative_stopping_solver(
+      reduced, metric, relative_stopping_parameters);
+    const auto relative_stopping_result = relative_stopping_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(relative_stopping_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::relative_gradient_tolerance,
+            "Reduced solver did not stop on the relative gradient tolerance");
+    require(relative_stopping_result.relative_gradient_norm_history.back() <=
+              relative_stopping_parameters.relative_gradient_tolerance,
+            "Reduced solver relative gradient tolerance was not enforced");
+
+    nmopt::solvers::ReducedGradientParameters objective_stopping_parameters =
+      solver_parameters;
+    objective_stopping_parameters.gradient_tolerance = 1e-30;
+    objective_stopping_parameters.objective_change_tolerance = 1e6;
+    const nmopt::solvers::ReducedGradientSolver objective_stopping_solver(
+      reduced, metric, objective_stopping_parameters);
+    const auto objective_stopping_result = objective_stopping_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(objective_stopping_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::objective_change_tolerance,
+            "Reduced solver did not stop on the objective-change tolerance");
+    require(objective_stopping_result.accepted_iterations > 0,
+            "Objective-change stopping did not retain an accepted trial");
+
+    nmopt::solvers::ReducedGradientParameters step_stopping_parameters =
+      solver_parameters;
+    step_stopping_parameters.gradient_tolerance = 1e-30;
+    step_stopping_parameters.step_tolerance = 1e6;
+    const nmopt::solvers::ReducedGradientSolver step_stopping_solver(
+      reduced, metric, step_stopping_parameters);
+    const auto step_stopping_result = step_stopping_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(step_stopping_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::step_tolerance,
+            "Reduced solver did not stop on the step tolerance");
+    require(step_stopping_result.step_norm_history.back() <=
+              step_stopping_parameters.step_tolerance,
+            "Reduced solver step tolerance was not enforced");
 
     const nmopt::solvers::ReducedConjugateGradientSolver cg_solver(
       reduced, metric, solver_parameters);

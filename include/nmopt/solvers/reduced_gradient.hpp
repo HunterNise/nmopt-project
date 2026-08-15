@@ -109,6 +109,8 @@ namespace nmopt::solvers
       std::size_t accepted_iterations = 0;
       std::size_t metric_solve_count = 0;
       std::size_t hessian_action_count = 0;
+      double       initial_gradient_norm = 0.0;
+      bool         have_initial_gradient_norm = false;
 
       Primal current_control = initial_control;
       Evaluation current_evaluation = reduced_.evaluate(current_control);
@@ -117,7 +119,9 @@ namespace nmopt::solvers
 
       std::vector<double> objective_history{current_evaluation.objective_value};
       std::vector<double> gradient_norm_history;
+      std::vector<double> relative_gradient_norm_history;
       std::vector<double> step_length_history;
+      std::vector<double> step_norm_history;
       std::vector<double> objective_change_history;
       DirectionPolicy direction_policy = direction_policy_;
       direction_policy.reset();
@@ -142,18 +146,50 @@ namespace nmopt::solvers
               stopping_norm = projected_gradient.metric_norm;
               unit_step_descent_measure = projected_gradient.descent_measure;
             }
+          if (!have_initial_gradient_norm)
+            {
+              initial_gradient_norm = stopping_norm;
+              have_initial_gradient_norm = true;
+            }
+          const double relative_gradient_norm =
+            initial_gradient_norm > 0.0
+              ? stopping_norm / initial_gradient_norm
+              : 0.0;
           gradient_norm_history.push_back(stopping_norm);
+          relative_gradient_norm_history.push_back(relative_gradient_norm);
 
           if (stopping_norm <= parameters_.gradient_tolerance)
             return result(current_control,
+                          std::move(current_evaluation),
                           std::move(objective_history),
                           std::move(gradient_norm_history),
+                          std::move(relative_gradient_norm_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
                           adjoint_solve_count,
                           ReducedGradientStoppingReason::gradient_tolerance,
                           std::move(step_length_history),
+                          std::move(step_norm_history),
+                          std::move(objective_change_history),
+                          metric_solve_count,
+                          hessian_action_count,
+                          direction_policy.reset_count());
+
+          if (parameters_.relative_gradient_tolerance > 0.0 &&
+              relative_gradient_norm <= parameters_.relative_gradient_tolerance)
+            return result(current_control,
+                          std::move(current_evaluation),
+                          std::move(objective_history),
+                          std::move(gradient_norm_history),
+                          std::move(relative_gradient_norm_history),
+                          accepted_iterations,
+                          line_search_trial_count,
+                          state_solve_count,
+                          adjoint_solve_count,
+                          ReducedGradientStoppingReason::relative_gradient_tolerance,
+                          std::move(step_length_history),
+                          std::move(step_norm_history),
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
@@ -164,14 +200,17 @@ namespace nmopt::solvers
 
           if (accepted_iterations == parameters_.maximum_iterations)
             return result(current_control,
+                          std::move(current_evaluation),
                           std::move(objective_history),
                           std::move(gradient_norm_history),
+                          std::move(relative_gradient_norm_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
                           adjoint_solve_count,
                           ReducedGradientStoppingReason::maximum_iterations,
                           std::move(step_length_history),
+                          std::move(step_norm_history),
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
@@ -212,14 +251,17 @@ namespace nmopt::solvers
 
           if (!line_search_result.accepted())
             return result(current_control,
+                          std::move(current_evaluation),
                           std::move(objective_history),
                           std::move(gradient_norm_history),
+                          std::move(relative_gradient_norm_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
                           adjoint_solve_count,
                           ReducedGradientStoppingReason::line_search_failure,
                           std::move(step_length_history),
+                          std::move(step_norm_history),
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
@@ -230,12 +272,55 @@ namespace nmopt::solvers
             std::move(line_search_result.evaluation);
           const double objective_change =
             trial_evaluation.objective_value - current_evaluation.objective_value;
+          Primal actual_update = trial_control;
+          add_scaled_primal(actual_update, -1.0, current_control);
+          const double step_norm = metric_norm(actual_update);
           current_control = std::move(trial_control);
           current_evaluation = std::move(trial_evaluation);
           objective_history.push_back(current_evaluation.objective_value);
           step_length_history.push_back(line_search_result.step_length);
+          step_norm_history.push_back(step_norm);
           objective_change_history.push_back(objective_change);
           ++accepted_iterations;
+
+          if (parameters_.objective_change_tolerance > 0.0 &&
+              std::abs(objective_change) <=
+                parameters_.objective_change_tolerance)
+            return result(current_control,
+                          std::move(current_evaluation),
+                          std::move(objective_history),
+                          std::move(gradient_norm_history),
+                          std::move(relative_gradient_norm_history),
+                          accepted_iterations,
+                          line_search_trial_count,
+                          state_solve_count,
+                          adjoint_solve_count,
+                          ReducedGradientStoppingReason::objective_change_tolerance,
+                          std::move(step_length_history),
+                          std::move(step_norm_history),
+                          std::move(objective_change_history),
+                          metric_solve_count,
+                          hessian_action_count,
+                          direction_policy.reset_count());
+
+          if (parameters_.step_tolerance > 0.0 &&
+              step_norm <= parameters_.step_tolerance)
+            return result(current_control,
+                          std::move(current_evaluation),
+                          std::move(objective_history),
+                          std::move(gradient_norm_history),
+                          std::move(relative_gradient_norm_history),
+                          accepted_iterations,
+                          line_search_trial_count,
+                          state_solve_count,
+                          adjoint_solve_count,
+                          ReducedGradientStoppingReason::step_tolerance,
+                          std::move(step_length_history),
+                          std::move(step_norm_history),
+                          std::move(objective_change_history),
+                          metric_solve_count,
+                          hessian_action_count,
+                          direction_policy.reset_count());
         }
     }
 
@@ -259,6 +344,16 @@ namespace nmopt::solvers
       double metric_norm;
       double descent_measure;
     };
+
+    double
+    metric_norm(const Primal &value) const
+    {
+      const Covector metric_value = metric_.apply(value);
+      const double squared_norm = contract::pair(metric_value, value);
+      contract::require(std::isfinite(squared_norm) && squared_norm >= 0.0,
+                        "Reduced solver metric returned an invalid step norm");
+      return std::sqrt(squared_norm);
+    }
 
     ProjectedGradientData
     evaluate_projected_gradient(const Primal &  control,
@@ -290,6 +385,12 @@ namespace nmopt::solvers
                         "Reduced gradient line-search trials must be positive");
       contract::require(parameters_.gradient_tolerance > 0.0,
                         "Reduced gradient tolerance must be positive");
+      contract::require(parameters_.relative_gradient_tolerance >= 0.0,
+                        "Reduced relative gradient tolerance must be nonnegative");
+      contract::require(parameters_.objective_change_tolerance >= 0.0,
+                        "Reduced objective-change tolerance must be nonnegative");
+      contract::require(parameters_.step_tolerance >= 0.0,
+                        "Reduced step tolerance must be nonnegative");
       contract::require(parameters_.initial_step_length > 0.0,
                         "Reduced gradient initial step must be positive");
       contract::require(parameters_.armijo_fraction > 0.0 &&
@@ -302,28 +403,34 @@ namespace nmopt::solvers
 
     static Result
     result(Primal                         control,
+           Evaluation                     final_evaluation,
            std::vector<double>            objective_history,
            std::vector<double>            gradient_norm_history,
+           std::vector<double>            relative_gradient_norm_history,
            const std::size_t               accepted_iterations,
            const std::size_t               line_search_trial_count,
            const std::size_t               state_solve_count,
            const std::size_t               adjoint_solve_count,
            const ReducedGradientStoppingReason stopping_reason,
            std::vector<double>            step_length_history,
+           std::vector<double>            step_norm_history,
            std::vector<double>            objective_change_history,
            const std::size_t               metric_solve_count,
            const std::size_t               hessian_action_count,
            const std::size_t               direction_reset_count)
     {
       return {std::move(control),
+              std::move(final_evaluation),
               std::move(objective_history),
               std::move(gradient_norm_history),
+              std::move(relative_gradient_norm_history),
               accepted_iterations,
               line_search_trial_count,
               state_solve_count,
               adjoint_solve_count,
               stopping_reason,
               std::move(step_length_history),
+              std::move(step_norm_history),
               std::move(objective_change_history),
               metric_solve_count,
               hessian_action_count,

@@ -175,17 +175,21 @@ $$
   j_{h}(u)+c\langle j_{h}',u_{\alpha}-u\rangle.
 $$
 
-The shared `ReducedSolverResultT` returns accepted-objective and stopping-norm
-histories, one step length and objective change for each accepted iteration,
-accepted-iteration and line-search-trial counts, separate state, adjoint,
-metric inverse-action, and Hessian-action counts, and one stopping reason:
-`gradient_tolerance`, `maximum_iterations`, or `line_search_failure`. Each
-objective trial is evaluated through `ReducedDTOT::evaluate`, so both reported
-formulation solve counts increase once for the initial point and once for every
-line-search trial. The metric count records each direction-forming inverse
-metric action; the Hessian count records each explicit provider application.
-Backend-specific inner iterations remain in the metric or Hessian realization
-policy.
+The shared `ReducedSolverResultT` retains the final accepted
+`ReducedEvaluationT`, accepted-objective and absolute/relative stopping-norm
+histories, one nominal step length, metric step norm, and objective change for
+each accepted iteration, accepted-iteration and line-search-trial counts,
+separate state, adjoint, metric inverse-action, and Hessian-action counts, and
+one stopping reason. The optional relative-gradient, objective-change, and
+step tolerances are disabled when set to zero; enabled criteria report
+`relative_gradient_tolerance`, `objective_change_tolerance`, or
+`step_tolerance`, alongside `gradient_tolerance`, `maximum_iterations`, and
+`line_search_failure`. Each objective trial is evaluated through
+`ReducedDTOT::evaluate`, so both reported formulation solve counts increase
+once for the initial point and once for every line-search trial. The metric
+count records each direction-forming inverse metric action; the Hessian count
+records each explicit provider application. Backend-specific inner iterations
+remain in the metric or Hessian realization policy.
 
 The selected nonlinear-CG policy uses the metric gradient
 $`g_{k}=G^{-1}j_{h}'(u_{k})`$ and the Polak–Ribière+ coefficient

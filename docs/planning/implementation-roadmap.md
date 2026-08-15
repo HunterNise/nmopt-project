@@ -1072,8 +1072,9 @@ remain P6.3.
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
 
 **Status:** selected after P6.1 and the supplied-OtD interface; Unit 1 has
-frozen the normative KKT product boundary. The executable contract, scalar
-reference target, lowerers, and Krylov policies remain to be implemented.
+frozen the normative KKT product boundary. The executable contract and scalar
+reference target are complete; lowerers and Krylov policies remain to be
+implemented.
 
 **Motivation:** All-at-once OCPs are equality-constrained quadratic programs
 with a symmetric indefinite KKT operator. PDAS repeatedly solves related KKT
@@ -1200,6 +1201,12 @@ vocabulary.
   declared assumptions, exposes $Q$, $D$, $D^{\mathsf T}$, KKT, and transpose
   actions, reports residual blocks, and owns explicit multiplier conversion.
   Focused and full `debug-neutral` verification pass (19/19 scenarios).
+- **P6.3 Unit 3 — scalar LQ reference adapters:** the independent reference
+  target now produces the common KKT product from DTO data and from the
+  canonical supplied-OTD block actions. The adapters agree in actions,
+  residuals, and multiplier conversion; the supplied-OTD solution agrees with
+  reduced DTO. Neutral and deal.II-enabled verification pass (21/21 and
+  50/50 scenarios).
 
 ### Future implementation sequence
 

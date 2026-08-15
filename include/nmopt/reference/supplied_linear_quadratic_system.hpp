@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/supplied_otd.hpp"
+#include "nmopt/reference/quadratic_kkt.hpp"
 
 #include <memory>
 #include <utility>
@@ -46,6 +47,19 @@ namespace nmopt::reference
     system() const
     {
       return system_;
+    }
+
+    LinearQuadraticKKTData
+    kkt_data() const
+    {
+      return LinearQuadraticKKTData(data_->A,
+                                    data_->B,
+                                    data_->f,
+                                    data_->C,
+                                    data_->desired_observation,
+                                    data_->observation_weights,
+                                    data_->regularisation_weights,
+                                    data_->alpha);
     }
 
   private:

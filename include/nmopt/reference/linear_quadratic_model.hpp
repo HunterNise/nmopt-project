@@ -2,6 +2,7 @@
 
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
+#include "nmopt/reference/quadratic_kkt.hpp"
 
 #include <utility>
 
@@ -98,6 +99,19 @@ namespace nmopt::reference
     layout() const override
     {
       return control_layout_;
+    }
+
+    LinearQuadraticKKTData
+    kkt_data() const
+    {
+      return LinearQuadraticKKTData(A_,
+                                    B_,
+                                    f_,
+                                    C_,
+                                    desired_observation_,
+                                    observation_weights_,
+                                    regularisation_weights_,
+                                    alpha_);
     }
 
     CovectorBlock

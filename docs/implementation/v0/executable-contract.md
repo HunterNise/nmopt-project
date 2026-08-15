@@ -37,9 +37,13 @@ The public executable and solver headers provide:
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
 | `contract::ReducedHessianT` | An explicit reduced-Hessian capability that applies $`H(u)w`$ as a typed reduced covector; first-order DTO ports do not imply this capability. |
 | `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm, reduced-covector directional derivative, and action counts. |
+| `solvers::ReducedLineSearchResultT` | A typed line-search result carrying the accepted trial DTO, actual step length, trial count, and any Hessian-action count. |
 | `solvers::NonlinearConjugateGradientDirectionPolicyT` | The selected metric-aware Polak–Ribière+ direction policy with typed primal/dual history and deterministic restarts. |
 | `solvers::LimitedMemoryBfgsDirectionPolicyT` | The metric-aware limited-memory BFGS direction policy with bounded typed secant history and explicit curvature resets. |
 | `solvers::NewtonDirectionPolicyT` | The explicit-Hessian Newton direction consumer using metric-preconditioned inner conjugate gradients. |
+| `solvers::ArmijoLineSearchPolicyT` | Backtracking Armijo acceptance using the declared pairing and the actual returned trial displacement. |
+| `solvers::ExactQuadraticLineSearchPolicyT` | One-step exact line search for a positive-curvature explicit reduced Hessian. |
+| `solvers::WolfeLineSearchPolicyT` | Strong Wolfe acceptance using actual trial slopes and declared sufficient-decrease/curvature fractions. |
 | `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric/Hessian action counts, and explicit direction-reset counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
@@ -223,6 +227,17 @@ reference linear-quadratic model supplies the exact action by solving the
 tangent-state and incremental-adjoint systems; no dense reduced Hessian is
 assembled.
 
+The line-search protocol receives a typed current evaluation, a direction, a
+trial-control builder, and a trial evaluator. The builder is responsible for
+the caller's feasibility/projection policy; every acceptance condition then
+uses the actual displacement `$u_{\mathrm{trial}}-u$`, not the nominal scalar
+step times the unprojected direction. Armijo backtracks until sufficient
+decrease holds, exact quadratic search uses
+`$\tau=-j_{h}'[d]/\langle H d,d\rangle$` for positive curvature, and Wolfe
+also checks the actual trial slope against its declared curvature fraction.
+These policies return failure rather than silently accepting a non-descent or
+non-finite trial.
+
 ## Metric and constraint boundary
 
 The backend-neutral concrete metric supplied is a positive diagonal metric.
@@ -266,11 +281,13 @@ The `CTest` scenarios verify:
    metric, constraint, and projected-solver precondition failures;
 11. exact reduced-Hessian finite-difference and symmetry identities, plus the
     explicit-capability Newton convergence path;
-12. dense and deal.II unconstrained/projected Armijo convergence, including
+12. exact quadratic, actual-displacement Armijo, and Wolfe line-search
+    acceptance policies;
+13. dense and deal.II unconstrained/projected Armijo convergence, including
    active-bound and projected-stationarity checks; and
-13. checked acceptance/rejection at the serial deal.II native-size boundary;
+14. checked acceptance/rejection at the serial deal.II native-size boundary;
     and
-14. detached owned reduced-service lifetime and typed state/adjoint solve
+15. detached owned reduced-service lifetime and typed state/adjoint solve
     reports, including sanitizer coverage in the backend-neutral profile.
 
 This establishes the small executable algebra that a deal.II compiler must

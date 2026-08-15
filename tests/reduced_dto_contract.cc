@@ -2,6 +2,7 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/reference/linear_quadratic_model.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
+#include "nmopt/solvers/reduced_line_search.hpp"
 #include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
@@ -360,6 +361,89 @@ namespace
                   pair(second_hessian_action, control_direction),
                   1e-13,
                   "Reduced Hessian symmetry");
+
+    const auto build_trial =
+      [&control, &search_direction](const double step) {
+        return shifted(control, search_direction.direction, step);
+      };
+    const auto evaluate_trial =
+      [&reduced](const PrimalBlock &trial_control) {
+        return reduced.evaluate(trial_control);
+      };
+
+    nmopt::solvers::ArmijoLineSearchParameters armijo_parameters;
+    armijo_parameters.maximum_trials = 20;
+    armijo_parameters.initial_step_length = 10.0;
+    const nmopt::solvers::ArmijoLineSearchPolicy armijo_policy(
+      armijo_parameters);
+    const auto armijo_result = armijo_policy.search(control,
+                                                    evaluation,
+                                                    search_direction,
+                                                    build_trial,
+                                                    evaluate_trial);
+    require(armijo_result.accepted() && armijo_result.trial_count > 0,
+            "Armijo line search did not accept a trial");
+    require(armijo_result.evaluation.objective_value <=
+              evaluation.objective_value,
+            "Armijo line search accepted an objective increase");
+
+    const nmopt::solvers::ExactQuadraticLineSearchPolicy exact_policy(hessian);
+    const auto exact_result = exact_policy.search(control,
+                                                  evaluation,
+                                                  search_direction,
+                                                  build_trial,
+                                                  evaluate_trial);
+    require(exact_result.accepted() && exact_result.trial_count == 1 &&
+              exact_result.hessian_action_count == 1,
+            "Exact quadratic line search did not accept its Hessian step");
+    require(exact_result.evaluation.objective_value <=
+              evaluation.objective_value,
+            "Exact quadratic line search accepted an objective increase");
+
+    nmopt::solvers::WolfeLineSearchParameters wolfe_parameters;
+    wolfe_parameters.maximum_trials = 30;
+    wolfe_parameters.initial_step_length = 10.0;
+    const nmopt::solvers::WolfeLineSearchPolicy wolfe_policy(
+      wolfe_parameters);
+    const auto wolfe_result = wolfe_policy.search(control,
+                                                  evaluation,
+                                                  search_direction,
+                                                  build_trial,
+                                                  evaluate_trial);
+    require(wolfe_result.accepted() && wolfe_result.trial_count > 0,
+            "Wolfe line search did not accept a trial");
+
+    nmopt::solvers::ArmijoLineSearchParameters actual_displacement_parameters;
+    actual_displacement_parameters.maximum_trials = 1;
+    const nmopt::solvers::ArmijoLineSearchPolicy actual_displacement_policy(
+      actual_displacement_parameters);
+    const auto scaled_trial_builder =
+      [&control, &search_direction](const double step) {
+        return shifted(control, search_direction.direction, 0.25 * step);
+      };
+    const auto actual_displacement_result =
+      actual_displacement_policy.search(control,
+                                        evaluation,
+                                        search_direction,
+                                        scaled_trial_builder,
+                                        evaluate_trial);
+    require(actual_displacement_result.accepted() &&
+              actual_displacement_result.trial_count == 1,
+            "Armijo line search did not use the actual trial displacement");
+
+    const nmopt::solvers::ExactQuadraticLineSearchPolicy
+      missing_exact_hessian_policy;
+    nmopt::test_support::require_contract_error(
+      [&missing_exact_hessian_policy, &control, &evaluation, &search_direction,
+       &build_trial, &evaluate_trial]() {
+        (void)missing_exact_hessian_policy.search(control,
+                                                  evaluation,
+                                                  search_direction,
+                                                  build_trial,
+                                                  evaluate_trial);
+      },
+      "Exact quadratic line search requires a reduced Hessian capability",
+      "exact line search missing Hessian capability");
 
     const DiagonalMetric cg_metric(
       "cg_metric", partition.control_layout(), {DenseVector{1.0, 1.0}});

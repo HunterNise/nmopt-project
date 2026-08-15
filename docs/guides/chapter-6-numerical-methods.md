@@ -218,6 +218,13 @@ gradient norm, objective change, maximum iteration, line-search failure, and
 state/adjoint/metric/Hessian-solve counts as separate fields. Finite
 differences are derivative checks, not a high-dimensional gradient fallback.
 
+The line-search boundary is typed around a trial-control builder and evaluator.
+Armijo, exact-quadratic, and Wolfe policies all evaluate acceptance with the
+actual returned displacement, so a projected trial cannot reuse the nominal
+unprojected direction in its pairing. Exact search requires an explicit
+positive-curvature reduced-Hessian capability; first-order DTO ports do not
+provide that capability implicitly.
+
 ### C6.4 — Projected reduced-space methods for box controls
 
 For $a\leq u\leq b$, use the same covector and a metric-qualified projection:

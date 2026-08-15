@@ -373,9 +373,10 @@ the generic PDAS solve.
 
 ## Implementation sequence and verification
 
-1. Extend the reduced solver to selected reduced directions and line searches
-   (P6.1), while retaining the baseline one-state/one-decision DTO boundary.
-2. Add formulation, trial/test, and stabilisation provenance (P6.2). A
+1. Completed: extend the reduced solver to selected reduced directions and
+   line searches (P6.1), while retaining the baseline one-state/one-decision
+   DTO boundary.
+2. Next: add formulation, trial/test, and stabilisation provenance (P6.2). A
    compiler must say whether it differentiates a discrete residual, lowers an
    OTD system, or differentiates a stabilised Lagrangian.
 3. Generalise executable algebra to equality-constrained quadratic KKT

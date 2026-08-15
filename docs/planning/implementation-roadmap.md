@@ -76,7 +76,7 @@ The following pieces exist and are tested:
 | Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
 | deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric,trace_hhalf_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, fractional-trace, and negative-norm layouts. The selected $H^{-1}$ realization applies $M_hK_h^{-1}M_h$; the $H^{1/2}$ realization applies the minimum-volume-$H^{1}$ Schur complement without forming a dense fractional matrix. All inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
-| Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric unconstrained and projected Armijo method over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`. |
+| Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric reduced search loop over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`, with typed direction policies, explicit Hessian/Newton support, configurable Armijo/exact/Wolfe line searches, and uniform action reporting. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
 | Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract,dealii_trace_hhalf_metric_contract}.cc` | Four binaries expose forty-one independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-nine deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, point-sensor mesh placement, normal-flux orientation and face-transpose behavior, and native-size invariants. Independent oracles additionally cover the exact trace Schur complement, tangential stiffness, loss/metric separation, all three remaining Section 5.11 stationarity compositions, and their reduced Taylor tests. |
 
@@ -102,10 +102,10 @@ The accepted scope is:
 - keep the selected scalar Section 5.11 and Neumann boundary-control slices;
 - skip book Sections 5.12 and 5.13, corresponding to the roadmap's P5.5
   regularised state constraints and P5.6 Stokes/mixed-block work;
-- implement all selected P6.1 reduced-space policies, including nonlinear
-  conjugate gradients, L-BFGS, line-search policies, and a Hessian-vector
-  service with Newton/truncated-Newton support where the available derivative
-  contract is sufficient;
+- retain the implemented selected P6.1 reduced-space policies, including
+  nonlinear conjugate gradients, L-BFGS, line-search policies, and a
+  Hessian-vector service with Newton/truncated-Newton support where the
+  available derivative contract is sufficient;
 - add a bounded P6.2 interface for executing an explicitly supplied OtD
   optimality system, without automatic continuous adjoint derivation;
 - implement the scalar equality-constrained KKT product and PDAS services in
@@ -890,7 +890,7 @@ selection.
 
 ### P6.1 — Generalise reduced-space search strategies and line-search policies
 
-**Status:** selected and first priority after Chapter 5 remediation.
+**Status:** implemented for the selected scalar reduced DTO boundary.
 
 **Motivation:** `ReducedGradientSolverT` supplies the first
 steepest-descent/Armijo slice, while Section 6.3 also uses nonlinear CG,
@@ -924,6 +924,17 @@ its declared inequality, and gradient/metric identities plus solve-count
 accounting are verified. BFGS history must neither mix layouts nor silently
 fall back after a failed curvature test. Every selected Hessian-vector path
 also passes symmetry and finite-difference reduced-covector tests.
+
+**Implementation closure:** the shared typed direction/result protocol now
+covers steepest descent, Polak–Ribiere-plus nonlinear CG, and metric-aware
+limited-memory BFGS with declared layout, curvature, and restart behaviour.
+The explicit `ReducedHessianT` capability and exact linear-quadratic provider
+support metric-preconditioned Newton. Exact quadratic, Armijo, and Wolfe
+policies are selectable through the reduced solver and evaluate acceptance
+using the actual trial displacement, including projected trials. The selected
+scalar one-state/one-decision DTO target is verified across the neutral,
+deal.II, sanitizer, and release profiles; projected steepest descent remains
+the only projected direction policy in this slice.
 
 #### Hessian and Newton boundary
 
@@ -1109,24 +1120,23 @@ vocabulary.
 - **C1/C2 work units 2–3:** [plan-owned scalar residual/data assembly](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly) and [objective/service recombination](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination), including an independently varied recombination.
 - **P5.2–P5.4 acceptance closure:** typed trace and negative-metric selections, target-data assumptions, control-boundary realization, typed transposition, fixed-boundary coverage, point/flux checks, closed registration matching, and realized transformed-observation dimensions. The `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass.
 - **Supporting evidence:** the closed request and pre-construction decision own target selection, typed regions and requirements, component inventories, and map skeletons; finalization adds only realized service facts, and manifest construction is a pure projection. Full compatibility remains stable under declaration-order and display-prose changes. Realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
+- **P6.1 reduced-space solver slice:** the selected direction, Hessian/Newton, line-search, reporting, and configurable-composition contracts are implemented for the scalar reduced DTO boundary. The final verification pass covers the neutral, deal.II Debug, sanitizer, and deal.II Release profiles.
 
 ### Future implementation sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
-future work begins with the selected P6.1 scalar reduced DTO boundary:
+selected P6.1 scalar reduced DTO boundary is complete; future work begins
+with P6.2:
 
-1. **P6.1:** implement direction policies, L-BFGS, line searches, reporting,
-   and the exact linear-quadratic Hessian-vector action. Keep
-   Newton/truncated Newton behind the explicit second-order capability check.
-2. **P6.2:** implement the supplied-OtD execution interface separately from
+1. **P6.2:** implement the supplied-OtD execution interface separately from
    `ReducedDTO`; do not add GLS, stabilization, or automatic continuous
    adjoint derivation.
-3. **P6.3/P6.5:** implement the scalar KKT product and diagnostics, then
+2. **P6.3/P6.5:** implement the scalar KKT product and diagnostics, then
    complementarity/PDAS for the selected cellwise box representation.
-4. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
+3. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
 
 Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
-future gate. Do not run S1 before P6.1 reaches the front of the ordered
-implementation run. The remaining Stokes, measure-constraint, stabilization,
-automatic-OtD, and broad continuous-bound work is not part of the current
-ordered run.
+future gate. The next conditional gate is P6.2; do not silently activate S1
+or any of the remaining Stokes, measure-constraint, stabilization,
+automatic-OtD, or broad continuous-bound work. Those remain outside the
+current ordered run.

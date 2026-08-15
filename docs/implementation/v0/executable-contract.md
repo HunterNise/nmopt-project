@@ -47,6 +47,7 @@ The public executable and solver headers provide:
 | `solvers::ExactQuadraticLineSearchPolicyT` | One-step exact line search for a positive-curvature explicit reduced Hessian. |
 | `solvers::WolfeLineSearchPolicyT` | Strong Wolfe acceptance using actual trial slopes and declared sufficient-decrease/curvature fractions. |
 | `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric/Hessian action counts, and explicit direction-reset counts. |
+| `solvers::ReducedTrustRegionResultT` | The trust-region report containing accepted objectives, gradient histories, radius/step histories, actual and predicted reductions, ratios, acceptance flags, and action counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
 | `solvers::ReducedFletcherReevesSolverT` | The same reduced execution loop configured with `FletcherReevesDirectionPolicyT`. |
@@ -57,6 +58,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
 | `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
 | `solvers::ReducedWolfeGradientSolverT` | The reduced steepest-descent loop combined with `WolfeLineSearchPolicyT`. |
+| `solvers::ReducedTrustRegionSolverT` | The unconstrained matrix-free Cauchy trust-region solver consuming `ReducedDTOT`, `MetricT`, and an explicit `ReducedHessianT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
@@ -278,6 +280,24 @@ restarts at the declared layout dimension, and rejects invalid curvature or a
 non-descent recurrence instead of applying nonlinear-CG fallback behaviour.
 `ReducedQuadraticConjugateGradientSolverT` composes it with exact quadratic
 search.
+
+`ReducedTrustRegionSolverT` is a separate globalization boundary rather than
+another line-search policy. It forms the metric Cauchy step
+$`s=-\tau G^{-1}j_{h}'`$, with $`\tau`$ clipped by the current radius, and
+uses the matrix-free quadratic model
+
+$$
+m(s)=j_{h}(u)+\langle j_{h}',s\rangle+
+\frac{1}{2}\langle H(u)s,s\rangle.
+$$
+
+The solver evaluates the actual reduction, computes the actual/predicted ratio,
+accepts or rejects the trial against its threshold, and shrinks or expands the
+radius according to the declared thresholds. Its report keeps one diagnostic
+record per trial, including rejected trials. This first realization is
+unconstrained and uses the explicit Hessian capability; projected trust-region
+steps and a full Newton/truncated-CG trust-region subproblem remain separate
+extensions.
 
 ## Metric and constraint boundary
 

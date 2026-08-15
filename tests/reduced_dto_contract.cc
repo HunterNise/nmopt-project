@@ -3,6 +3,7 @@
 #include "nmopt/reference/linear_quadratic_model.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
 #include "nmopt/solvers/reduced_line_search.hpp"
+#include "nmopt/solvers/reduced_trust_region.hpp"
 #include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
@@ -164,6 +165,37 @@ namespace
 
   private:
     LayoutPtr layout_;
+  };
+
+  class ScaledReducedHessian final : public ReducedHessian
+  {
+  public:
+    ScaledReducedHessian(const ReducedHessian &hessian, const double scale)
+      : hessian_(hessian)
+      , scale_(scale)
+    {
+      require(scale_ > 0.0, "Scaled reduced Hessian factor must be positive");
+    }
+
+    const LayoutPtr &
+    layout() const override
+    {
+      return hessian_.layout();
+    }
+
+    CovectorBlock
+    apply(const PrimalBlock &control,
+          const PrimalBlock &direction) const override
+    {
+      CovectorBlock result = hessian_.apply(control, direction);
+      for (std::size_t block = 0; block < result.n_blocks(); ++block)
+        result.scale_block(block, scale_);
+      return result;
+    }
+
+  private:
+    const ReducedHessian &hessian_;
+    double                 scale_;
   };
 
   void
@@ -878,6 +910,101 @@ namespace
                     exact_fr_result.objective_history[index],
                     1e-12,
                     "Quadratic CG and Fletcher-Reeves objective equivalence");
+
+    nmopt::solvers::ReducedTrustRegionParameters trust_region_parameters;
+    trust_region_parameters.maximum_iterations = 100;
+    trust_region_parameters.maximum_trials_per_iteration = 10;
+    trust_region_parameters.gradient_tolerance = 1e-8;
+    trust_region_parameters.initial_radius = 0.25;
+    trust_region_parameters.minimum_radius = 1e-12;
+    trust_region_parameters.maximum_radius = 4.0;
+    const nmopt::solvers::ReducedTrustRegionSolver trust_region_solver(
+      reduced, metric, hessian, trust_region_parameters);
+    const auto trust_region_result = trust_region_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(trust_region_result.stopping_reason ==
+              nmopt::solvers::ReducedTrustRegionStoppingReason::gradient_tolerance,
+            "Trust-region solver did not reach its gradient tolerance");
+    require(trust_region_result.accepted_iterations > 1,
+            "Trust-region solver did not exercise multiple accepted radii");
+    require(trust_region_result.trial_count ==
+              trust_region_result.accepted_iterations,
+            "Trust-region quadratic target unexpectedly rejected a trial");
+    require(trust_region_result.radius_history.size() ==
+              trust_region_result.trial_count &&
+              trust_region_result.step_norm_history.size() ==
+                trust_region_result.trial_count &&
+              trust_region_result.predicted_reduction_history.size() ==
+                trust_region_result.trial_count &&
+              trust_region_result.actual_reduction_history.size() ==
+                trust_region_result.trial_count &&
+              trust_region_result.reduction_ratio_history.size() ==
+                trust_region_result.trial_count &&
+              trust_region_result.accepted_history.size() ==
+                trust_region_result.trial_count,
+            "Trust-region diagnostics do not match trial count");
+    for (std::size_t trial = 0;
+         trial < trust_region_result.trial_count;
+         ++trial)
+      {
+        require(trust_region_result.accepted_history[trial],
+                "Trust-region quadratic target rejected an exact model step");
+        require(trust_region_result.predicted_reduction_history[trial] > 0.0 &&
+                  trust_region_result.actual_reduction_history[trial] > 0.0,
+                "Trust-region reductions are not positive");
+        require(std::isfinite(trust_region_result.reduction_ratio_history[trial]) &&
+                  trust_region_result.reduction_ratio_history[trial] > 0.0,
+                "Trust-region reduction ratio is not positive and finite");
+        if (trial == 0)
+          require_close(trust_region_result.reduction_ratio_history[trial],
+                        1.0,
+                        1e-10,
+                        "Trust-region initial actual/predicted reduction ratio");
+      }
+    require(trust_region_result.metric_solve_count ==
+              trust_region_result.gradient_norm_history.size() &&
+              trust_region_result.hessian_action_count + 1 ==
+                trust_region_result.gradient_norm_history.size(),
+            "Trust-region action counts do not match its model evaluations");
+    require(trust_region_result.state_solve_count ==
+              trust_region_result.trial_count + 1 &&
+              trust_region_result.adjoint_solve_count ==
+                trust_region_result.trial_count + 1,
+            "Trust-region formulation solve counts miss a trial evaluation");
+
+    const ScaledReducedHessian under_model_hessian(hessian, 0.1);
+    nmopt::solvers::ReducedTrustRegionParameters rejection_parameters =
+      trust_region_parameters;
+    rejection_parameters.step_tolerance = 0.1;
+    rejection_parameters.acceptance_threshold = 0.99;
+    rejection_parameters.shrink_threshold = 0.995;
+    rejection_parameters.expansion_threshold = 0.999;
+    const nmopt::solvers::ReducedTrustRegionSolver rejection_solver(
+      reduced, metric, under_model_hessian, rejection_parameters);
+    const auto rejection_result = rejection_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(rejection_result.stopping_reason ==
+              nmopt::solvers::ReducedTrustRegionStoppingReason::step_tolerance,
+            "Trust-region solver did not stop after a rejected model step: " +
+              std::string(nmopt::solvers::reduced_trust_region_stopping_reason_name(
+                rejection_result.stopping_reason)) +
+              " after " + std::to_string(rejection_result.accepted_iterations) +
+              " accepted iterations");
+    require(rejection_result.trial_count >
+              rejection_result.accepted_iterations,
+            "Trust-region rejection scenario did not reject a trial");
+    bool saw_rejected_trial = false;
+    for (std::size_t trial = 0;
+         trial < rejection_result.accepted_history.size();
+         ++trial)
+      saw_rejected_trial = saw_rejected_trial ||
+                           !rejection_result.accepted_history[trial];
+    require(saw_rejected_trial,
+            "Trust-region rejection diagnostics omitted the rejected trial");
+    require(rejection_result.radius_history.size() > 1 &&
+              rejection_result.radius_history[1] <
+                rejection_result.radius_history[0],
+            "Trust-region radius did not shrink after rejection");
 
     const nmopt::solvers::ReducedLimitedMemoryBfgsSolver lbfgs_solver(
       reduced, metric, solver_parameters);

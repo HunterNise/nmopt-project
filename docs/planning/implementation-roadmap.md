@@ -904,8 +904,11 @@ and reporting; they are not separate problem formulations.
 - Deterministic steepest-descent, nonlinear-CG (PR+ and Fletcher–Reeves
   updates with restart), strict classical quadratic-CG, and limited-memory
   BFGS policies. Store history with primal/dual layout checks and declared
-  curvature/reset behaviour. A trust-region policy belongs to the extension
-  track after a Hessian-vector service is available.
+  curvature/reset behaviour.
+- A separate matrix-free Cauchy trust-region globalization policy with an
+  explicit quadratic model, actual/predicted reduction ratio, radius update,
+  and per-trial acceptance diagnostics. Keep it separate from scalar
+  line-search policies and projection semantics.
 - A typed Hessian-vector service for the selected scalar DTO targets. Start
   with the exact linear-quadratic tangent-state/incremental-adjoint action;
   expose Newton or truncated Newton only for models that provide the required
@@ -939,6 +942,10 @@ deal.II, sanitizer, and release profiles; projected steepest descent remains
 the only projected direction policy in this slice.
 The exact-search PR+/Fletcher–Reeves equivalence and the separate strict
 classical quadratic-CG recurrence are verified on the linear-quadratic target.
+The unconstrained matrix-free Cauchy trust-region solver uses the explicit
+reduced-Hessian action, updates its radius from actual/predicted reduction, and
+records accepted and rejected trial diagnostics; projected trust-region steps
+remain excluded.
 
 #### P6.1 extension ladder
 
@@ -953,8 +960,10 @@ not silently broaden the selected slice:
    and strict classical quadratic-CG are implemented.
 2. **Globalization extension:** add a matrix-free trust-region policy with a
    quadratic model, actual/predicted reduction ratio, radius update, and
-   acceptance diagnostics. It is a separate globalization boundary, not a
-   line-search option.
+   acceptance diagnostics. The unconstrained Cauchy realization for the
+   selected explicit-Hessian scalar DTO is implemented; Newton/truncated-CG
+   subproblem solves and projected trust-region steps remain extensions. It is
+   a separate globalization boundary, not a line-search option.
 3. **Backend and benchmark parity:** provide the selected exact
    linear-quadratic reduced-Hessian action for the deal.II scalar target and
    exercise the iterative policies in the selected Chapter 6 benchmark

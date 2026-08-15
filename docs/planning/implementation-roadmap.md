@@ -937,6 +937,9 @@ using the actual trial displacement, including projected trials. The selected
 scalar one-state/one-decision DTO target is verified across the neutral,
 deal.II, sanitizer, and release profiles; projected steepest descent remains
 the only projected direction policy in this slice.
+The exact-search PR+/Fletcher–Reeves equivalence is verified on the
+linear-quadratic target; a separate classical quadratic-CG direction policy is
+not implied by that equivalence.
 
 #### P6.1 extension ladder
 
@@ -947,8 +950,9 @@ not silently broaden the selected slice:
 
 1. **Near-term iterative closure:** relative-gradient, objective-change, and
    step-size stopping policies, final accepted state/adjoint/covector
-   reporting, and Fletcher–Reeves are implemented. The remaining candidate is
-   either classical quadratic CG or an exact-search PR+ equivalence test.
+   reporting, Fletcher–Reeves, and the exact-search PR+/Fletcher–Reeves
+   equivalence test are implemented. A standalone classical quadratic-CG
+   policy remains a candidate.
 2. **Globalization extension:** add a matrix-free trust-region policy with a
    quadratic model, actual/predicted reduction ratio, radius update, and
    acceptance diagnostics. It is a separate globalization boundary, not a

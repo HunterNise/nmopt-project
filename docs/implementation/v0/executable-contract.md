@@ -49,6 +49,8 @@ The public executable and solver headers provide:
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
 | `solvers::ReducedFletcherReevesSolverT` | The same reduced execution loop configured with `FletcherReevesDirectionPolicyT`. |
+| `solvers::ReducedExactConjugateGradientSolverT` | The reduced PR+ execution loop combined with `ExactQuadraticLineSearchPolicyT`. |
+| `solvers::ReducedExactFletcherReevesSolverT` | The reduced Fletcher–Reeves execution loop combined with `ExactQuadraticLineSearchPolicyT`. |
 | `solvers::ReducedLimitedMemoryBfgsSolverT` | The same reduced execution loop configured with `LimitedMemoryBfgsDirectionPolicyT` for the unconstrained first registration. |
 | `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
 | `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
@@ -262,6 +264,14 @@ select combinations such as exact Newton or Wolfe steepest descent. Trial
 counts are accumulated from the policy result and state/adjoint counts are
 incremented by the evaluator callback, keeping reporting consistent across
 all combinations.
+
+The exact-search nonlinear-CG aliases combine the typed PR+ or
+Fletcher–Reeves direction policy with the explicit positive-curvature
+quadratic line search. For the linear-quadratic reference DTO, exact line
+search makes the two coefficient updates equivalent in exact arithmetic; the
+contract test compares their accepted objective histories and final controls.
+This closes the equivalence path without claiming a separate standalone
+classical quadratic-CG implementation.
 
 ## Metric and constraint boundary
 

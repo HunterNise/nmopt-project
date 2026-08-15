@@ -766,6 +766,59 @@ namespace
                 fr_result.objective_history[index - 1],
               "Dense Fletcher-Reeves objective history is not monotonic");
 
+    nmopt::solvers::ReducedGradientParameters exact_cg_parameters =
+      solver_parameters;
+    exact_cg_parameters.gradient_tolerance = 1e-12;
+    const nmopt::solvers::ExactQuadraticLineSearchPolicy exact_cg_line_search(
+      hessian);
+    const nmopt::solvers::ReducedExactConjugateGradientSolver exact_pr_solver(
+      reduced,
+      metric,
+      exact_cg_parameters,
+      CGPolicy{},
+      exact_cg_line_search);
+    const auto exact_pr_result = exact_pr_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    const nmopt::solvers::ReducedExactFletcherReevesSolver exact_fr_solver(
+      reduced,
+      metric,
+      exact_cg_parameters,
+      FRPolicy{},
+      exact_cg_line_search);
+    const auto exact_fr_result = exact_fr_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(exact_pr_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance &&
+              exact_fr_result.stopping_reason ==
+                nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Exact-search PR+ and Fletcher-Reeves did not reach tolerance");
+    require(exact_pr_result.accepted_iterations > 0 &&
+              exact_pr_result.accepted_iterations ==
+                exact_fr_result.accepted_iterations,
+            "Exact-search PR+ and Fletcher-Reeves used different iteration counts");
+    require(exact_pr_result.line_search_trial_count ==
+              exact_pr_result.accepted_iterations &&
+              exact_fr_result.line_search_trial_count ==
+                exact_fr_result.accepted_iterations,
+            "Exact quadratic CG searches did not use one trial per iteration");
+    require(exact_pr_result.objective_history.size() ==
+              exact_fr_result.objective_history.size(),
+            "Exact-search PR+ and Fletcher-Reeves histories have different sizes");
+    for (std::size_t index = 0;
+         index < exact_pr_result.objective_history.size();
+         ++index)
+      require_close(exact_pr_result.objective_history[index],
+                    exact_fr_result.objective_history[index],
+                    1e-12,
+                    "Exact-search PR+ and Fletcher-Reeves objective equivalence");
+    for (std::size_t entry = 0;
+         entry < exact_pr_result.control.block(0).size();
+         ++entry)
+      require_close(exact_pr_result.control.block(0)[entry],
+                    exact_fr_result.control.block(0)[entry],
+                    1e-10,
+                    "Exact-search PR+ and Fletcher-Reeves control equivalence");
+
     const nmopt::solvers::ReducedLimitedMemoryBfgsSolver lbfgs_solver(
       reduced, metric, solver_parameters);
     const auto lbfgs_result = lbfgs_solver.solve(

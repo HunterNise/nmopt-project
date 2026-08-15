@@ -108,6 +108,10 @@ if(BUILD_TESTING)
     tests/reduced_dto_contract.cc)
 
   nmopt_add_neutral_test(
+    nmopt_supplied_otd_contract_test
+    tests/supplied_otd_contract.cc)
+
+  nmopt_add_neutral_test(
     nmopt_semantic_v1_contract_test
     tests/semantic_v1_contract.cc)
 endif()

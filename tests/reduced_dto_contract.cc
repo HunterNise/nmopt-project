@@ -1212,6 +1212,12 @@ namespace
               trust_region_result.reduction_ratio_history.size() ==
                 trust_region_result.trial_count &&
               trust_region_result.accepted_history.size() ==
+                trust_region_result.trial_count &&
+              trust_region_result.subproblem_status_history.size() ==
+                trust_region_result.trial_count &&
+              trust_region_result.subproblem_iteration_history.size() ==
+                trust_region_result.trial_count &&
+              trust_region_result.subproblem_residual_norm_history.size() ==
                 trust_region_result.trial_count,
             "Trust-region diagnostics do not match trial count");
     for (std::size_t trial = 0;
@@ -1220,6 +1226,9 @@ namespace
       {
         require(trust_region_result.accepted_history[trial],
                 "Trust-region quadratic target rejected an exact model step");
+        require(trust_region_result.subproblem_status_history[trial] ==
+                  nmopt::solvers::ReducedTrustRegionSubproblemStatus::cauchy,
+                "Default trust-region subproblem is not Cauchy");
         require(trust_region_result.predicted_reduction_history[trial] > 0.0 &&
                   trust_region_result.actual_reduction_history[trial] > 0.0,
                 "Trust-region reductions are not positive");
@@ -1242,6 +1251,89 @@ namespace
               trust_region_result.adjoint_solve_count ==
                 trust_region_result.trial_count + 1,
             "Trust-region formulation solve counts miss a trial evaluation");
+
+    nmopt::solvers::ReducedTrustRegionParameters truncated_parameters =
+      trust_region_parameters;
+    truncated_parameters.subproblem_method =
+      nmopt::solvers::ReducedTrustRegionSubproblemMethod::
+        truncated_conjugate_gradient;
+    truncated_parameters.maximum_subproblem_iterations = 10;
+    truncated_parameters.subproblem_relative_tolerance = 1e-12;
+    truncated_parameters.subproblem_absolute_tolerance = 1e-14;
+    truncated_parameters.initial_radius = 100.0;
+    truncated_parameters.maximum_radius = 100.0;
+    const nmopt::solvers::ReducedTrustRegionSolver truncated_solver(
+      reduced, metric, hessian, truncated_parameters);
+    const auto truncated_result = truncated_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(truncated_result.stopping_reason ==
+              nmopt::solvers::ReducedTrustRegionStoppingReason::gradient_tolerance,
+            "Truncated-CG trust-region solver did not reach its gradient tolerance");
+    require(truncated_result.trial_count ==
+              truncated_result.accepted_iterations &&
+              truncated_result.trial_count > 0,
+            "Truncated-CG trust-region solver did not accept its trials");
+    require(truncated_result.subproblem_status_history.size() ==
+              truncated_result.trial_count &&
+              truncated_result.subproblem_iteration_history.size() ==
+                truncated_result.trial_count &&
+              truncated_result.subproblem_residual_norm_history.size() ==
+                truncated_result.trial_count,
+            "Truncated-CG subproblem diagnostics do not match trial count");
+    std::size_t truncated_hessian_actions = 0;
+    bool saw_converged_subproblem = false;
+    for (std::size_t trial = 0;
+         trial < truncated_result.trial_count;
+         ++trial)
+      {
+        require(truncated_result.subproblem_status_history[trial] ==
+                    nmopt::solvers::ReducedTrustRegionSubproblemStatus::
+                      converged ||
+                  truncated_result.subproblem_status_history[trial] ==
+                    nmopt::solvers::ReducedTrustRegionSubproblemStatus::boundary,
+                "Truncated-CG subproblem returned an unexpected status");
+        require(std::isfinite(
+                  truncated_result.subproblem_residual_norm_history[trial]) &&
+                  truncated_result.subproblem_residual_norm_history[trial] >= 0.0,
+                "Truncated-CG residual diagnostic is invalid");
+        truncated_hessian_actions +=
+          truncated_result.subproblem_iteration_history[trial];
+        saw_converged_subproblem =
+          saw_converged_subproblem ||
+          truncated_result.subproblem_status_history[trial] ==
+            nmopt::solvers::ReducedTrustRegionSubproblemStatus::converged;
+        require(truncated_result.accepted_history[trial],
+                "Truncated-CG trust-region target rejected an exact model step");
+        require_close(truncated_result.reduction_ratio_history[trial],
+                      1.0,
+                      1e-10,
+                      "Truncated-CG actual/predicted reduction ratio");
+      }
+    require(saw_converged_subproblem,
+            "Truncated-CG trust-region solver did not converge its subproblem");
+    require(truncated_hessian_actions ==
+              truncated_result.hessian_action_count,
+            "Truncated-CG subproblem actions do not match Hessian actions");
+
+    nmopt::solvers::ReducedTrustRegionParameters boundary_parameters =
+      truncated_parameters;
+    boundary_parameters.maximum_iterations = 1;
+    boundary_parameters.initial_radius = 0.25;
+    boundary_parameters.maximum_radius = 4.0;
+    const nmopt::solvers::ReducedTrustRegionSolver boundary_solver(
+      reduced, metric, hessian, boundary_parameters);
+    const auto boundary_result = boundary_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(boundary_result.trial_count == 1 &&
+              boundary_result.accepted_history.front(),
+            "Truncated-CG boundary trust-region step was not accepted");
+    require(boundary_result.subproblem_status_history.front() ==
+              nmopt::solvers::ReducedTrustRegionSubproblemStatus::boundary,
+            "Truncated-CG trust-region did not report boundary termination");
+    require_close(boundary_result.step_norm_history.front(),
+                  boundary_parameters.initial_radius,
+                  1e-12,
+                  "Truncated-CG boundary step does not fill the radius");
 
     const ScaledReducedHessian under_model_hessian(hessian, 0.1);
     nmopt::solvers::ReducedTrustRegionParameters rejection_parameters =

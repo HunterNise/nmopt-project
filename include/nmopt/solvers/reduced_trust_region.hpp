@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <limits>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -45,6 +47,55 @@ namespace nmopt::solvers
     return "unknown";
   }
 
+  enum class ReducedTrustRegionSubproblemMethod
+  {
+    cauchy,
+    truncated_conjugate_gradient
+  };
+
+  inline const char *
+  reduced_trust_region_subproblem_method_name(
+    const ReducedTrustRegionSubproblemMethod method)
+  {
+    switch (method)
+      {
+        case ReducedTrustRegionSubproblemMethod::cauchy:
+          return "cauchy";
+        case ReducedTrustRegionSubproblemMethod::truncated_conjugate_gradient:
+          return "truncated_conjugate_gradient";
+      }
+    return "unknown";
+  }
+
+  enum class ReducedTrustRegionSubproblemStatus
+  {
+    cauchy,
+    converged,
+    boundary,
+    negative_curvature,
+    iteration_limit
+  };
+
+  inline const char *
+  reduced_trust_region_subproblem_status_name(
+    const ReducedTrustRegionSubproblemStatus status)
+  {
+    switch (status)
+      {
+        case ReducedTrustRegionSubproblemStatus::cauchy:
+          return "cauchy";
+        case ReducedTrustRegionSubproblemStatus::converged:
+          return "converged";
+        case ReducedTrustRegionSubproblemStatus::boundary:
+          return "boundary";
+        case ReducedTrustRegionSubproblemStatus::negative_curvature:
+          return "negative_curvature";
+        case ReducedTrustRegionSubproblemStatus::iteration_limit:
+          return "iteration_limit";
+      }
+    return "unknown";
+  }
+
   struct ReducedTrustRegionParameters
   {
     unsigned int maximum_iterations = 100;
@@ -56,6 +107,11 @@ namespace nmopt::solvers
     double relative_gradient_tolerance = 0.0;
     double objective_change_tolerance = 0.0;
     double step_tolerance = 0.0;
+    ReducedTrustRegionSubproblemMethod subproblem_method =
+      ReducedTrustRegionSubproblemMethod::cauchy;
+    unsigned int maximum_subproblem_iterations = 100;
+    double subproblem_relative_tolerance = 1e-10;
+    double subproblem_absolute_tolerance = 1e-12;
     double initial_radius = 1.0;
     double minimum_radius = 1e-12;
     double maximum_radius = 1e6;
@@ -80,6 +136,10 @@ namespace nmopt::solvers
     std::vector<double>               actual_reduction_history;
     std::vector<double>               reduction_ratio_history;
     std::vector<bool>                 accepted_history;
+    std::vector<ReducedTrustRegionSubproblemStatus>
+      subproblem_status_history;
+    std::vector<std::size_t>          subproblem_iteration_history;
+    std::vector<double>               subproblem_residual_norm_history;
     std::size_t                       accepted_iterations;
     std::size_t                       trial_count;
     std::size_t                       state_solve_count;
@@ -92,10 +152,10 @@ namespace nmopt::solvers
   using ReducedTrustRegionResult =
     ReducedTrustRegionResultT<contract::DenseBackend>;
 
-  // A backend-parametric Cauchy trust-region method for the unconstrained
-  // reduced DTO boundary. The quadratic model is matrix-free: only H(u)g is
-  // requested, where g = G^{-1}j'. Projection and Newton-subproblem solves
-  // remain separate future boundaries.
+  // A backend-parametric trust-region method for the unconstrained reduced DTO
+  // boundary. The default Cauchy step remains available alongside a
+  // matrix-free truncated-CG subproblem solver for explicit linear-quadratic
+  // Hessians. Projection remains a separate future boundary.
   template <typename Backend>
   class ReducedTrustRegionSolverT
   {
@@ -152,6 +212,10 @@ namespace nmopt::solvers
       std::vector<double> actual_reduction_history;
       std::vector<double> reduction_ratio_history;
       std::vector<bool>   accepted_history;
+      std::vector<ReducedTrustRegionSubproblemStatus>
+        subproblem_status_history;
+      std::vector<std::size_t> subproblem_iteration_history;
+      std::vector<double>      subproblem_residual_norm_history;
 
       const auto finish =
         [&](const ReducedTrustRegionStoppingReason stopping_reason) {
@@ -166,6 +230,9 @@ namespace nmopt::solvers
                         std::move(actual_reduction_history),
                         std::move(reduction_ratio_history),
                         std::move(accepted_history),
+                        std::move(subproblem_status_history),
+                        std::move(subproblem_iteration_history),
+                        std::move(subproblem_residual_norm_history),
                         accepted_iterations,
                         trial_count,
                         state_solve_count,
@@ -214,25 +281,19 @@ namespace nmopt::solvers
           if (accepted_iterations == parameters_.maximum_iterations)
             return finish(ReducedTrustRegionStoppingReason::maximum_iterations);
 
-          const Covector hessian_gradient =
-            hessian_.apply(current_control, metric_gradient.gradient);
-          ++hessian_action_count;
-          contract::require(hessian_gradient.layout()->compatible_with(
-                              *metric_.layout()),
-                            "Trust-region Hessian returned an incompatible covector layout");
-          const double gradient_pairing =
-            contract::pair(current_evaluation.reduced_derivative,
-                           metric_gradient.gradient);
-          const double curvature =
-            contract::pair(hessian_gradient, metric_gradient.gradient);
-          contract::require(std::isfinite(gradient_pairing) &&
-                              gradient_pairing > 0.0,
-                            "Trust-region gradient pairing is not positive");
-          contract::require(std::isfinite(curvature) && curvature > 0.0,
-                            "Trust-region model has non-positive curvature");
+          std::optional<Covector> cauchy_hessian_gradient;
+          if (parameters_.subproblem_method ==
+              ReducedTrustRegionSubproblemMethod::cauchy)
+            {
+              cauchy_hessian_gradient =
+                hessian_.apply(current_control, metric_gradient.gradient);
+              ++hessian_action_count;
+              contract::require(
+                cauchy_hessian_gradient->layout()->compatible_with(
+                  *metric_.layout()),
+                "Trust-region Hessian returned an incompatible covector layout");
+            }
 
-          const double unconstrained_cauchy_step =
-            gradient_pairing / curvature;
           bool accepted = false;
           for (unsigned int trial = 0;
                trial < parameters_.maximum_trials_per_iteration;
@@ -241,24 +302,34 @@ namespace nmopt::solvers
               if (radius < parameters_.minimum_radius)
                 return finish(ReducedTrustRegionStoppingReason::radius_too_small);
 
-              const double step_scale = std::min(
-                unconstrained_cauchy_step,
-                radius / gradient_norm);
-              const double step_norm = step_scale * gradient_norm;
-              const double predicted_reduction =
-                step_scale * gradient_pairing -
-                0.5 * step_scale * step_scale * curvature;
-              contract::require(std::isfinite(step_scale) && step_scale > 0.0 &&
-                                  std::isfinite(step_norm) && step_norm > 0.0,
-                                "Trust-region Cauchy step is invalid");
-              contract::require(std::isfinite(predicted_reduction) &&
-                                  predicted_reduction > 0.0,
-                                "Trust-region model predicted non-positive reduction");
+              const SubproblemResult subproblem =
+                parameters_.subproblem_method ==
+                    ReducedTrustRegionSubproblemMethod::cauchy
+                  ? make_cauchy_subproblem(
+                      current_evaluation.reduced_derivative,
+                      metric_gradient,
+                      *cauchy_hessian_gradient,
+                      radius)
+                  : make_truncated_cg_subproblem(
+                      current_control,
+                      current_evaluation.reduced_derivative,
+                      metric_gradient,
+                      radius);
+              if (parameters_.subproblem_method !=
+                  ReducedTrustRegionSubproblemMethod::cauchy)
+                {
+                  metric_solve_count += subproblem.metric_solve_count;
+                  hessian_action_count += subproblem.hessian_action_count;
+                }
+
+              subproblem_status_history.push_back(subproblem.status);
+              subproblem_iteration_history.push_back(
+                subproblem.iteration_count);
+              subproblem_residual_norm_history.push_back(
+                subproblem.residual_norm);
 
               Primal trial_control = current_control;
-              add_scaled_primal(trial_control,
-                                -step_scale,
-                                metric_gradient.gradient);
+              add_scaled_primal(trial_control, 1.0, subproblem.step);
               Evaluation trial_evaluation = reduced_.evaluate(trial_control);
               ++state_solve_count;
               ++adjoint_solve_count;
@@ -266,15 +337,16 @@ namespace nmopt::solvers
                 current_evaluation.objective_value -
                 trial_evaluation.objective_value;
               const double reduction_ratio =
-                actual_reduction / predicted_reduction;
+                actual_reduction / subproblem.predicted_reduction;
               const bool trial_accepted =
                 std::isfinite(actual_reduction) &&
                 std::isfinite(reduction_ratio) &&
                 reduction_ratio >= parameters_.acceptance_threshold;
 
               radius_history.push_back(radius);
-              step_norm_history.push_back(step_norm);
-              predicted_reduction_history.push_back(predicted_reduction);
+              step_norm_history.push_back(subproblem.step_norm);
+              predicted_reduction_history.push_back(
+                subproblem.predicted_reduction);
               actual_reduction_history.push_back(actual_reduction);
               reduction_ratio_history.push_back(reduction_ratio);
               accepted_history.push_back(trial_accepted);
@@ -289,7 +361,7 @@ namespace nmopt::solvers
                   accepted = true;
 
                   if (reduction_ratio > parameters_.expansion_threshold &&
-                      step_norm >= 0.9 * radius)
+                      subproblem.step_norm >= 0.9 * radius)
                     radius = std::min(parameters_.maximum_radius,
                                       parameters_.expansion_factor * radius);
                   else if (reduction_ratio < parameters_.shrink_threshold)
@@ -307,9 +379,9 @@ namespace nmopt::solvers
 
                   if ((automatic_stopping
                          ? parameters_.step_tolerance > 0.0
-                         : parameters_.stopping_criterion ==
+                     : parameters_.stopping_criterion ==
                              ReducedStoppingCriterion::step_norm) &&
-                      step_norm <= parameters_.step_tolerance)
+                      subproblem.step_norm <= parameters_.step_tolerance)
                     return finish(ReducedTrustRegionStoppingReason::step_tolerance);
                   break;
                 }
@@ -326,6 +398,302 @@ namespace nmopt::solvers
     }
 
   private:
+    struct SubproblemResult
+    {
+      Primal                              step;
+      double                              step_norm;
+      double                              predicted_reduction;
+      double                              residual_norm;
+      std::size_t                         iteration_count;
+      std::size_t                         metric_solve_count;
+      std::size_t                         hessian_action_count;
+      ReducedTrustRegionSubproblemStatus  status;
+    };
+
+    double
+    metric_pairing(const Primal &left, const Primal &right) const
+    {
+      const Covector metric_left = metric_.apply(left);
+      const double pairing = contract::pair(metric_left, right);
+      contract::require(std::isfinite(pairing),
+                        "Trust-region metric pairing is not finite");
+      return pairing;
+    }
+
+    SubproblemResult
+    make_cauchy_subproblem(const Covector &reduced_derivative,
+                           const ReducedMetricGradientT<Backend> &metric_gradient,
+                           const Covector &hessian_gradient,
+                           const double radius) const
+    {
+      const double gradient_pairing =
+        contract::pair(reduced_derivative, metric_gradient.gradient);
+      const double curvature =
+        contract::pair(hessian_gradient, metric_gradient.gradient);
+      contract::require(std::isfinite(gradient_pairing) &&
+                          gradient_pairing > 0.0,
+                        "Trust-region gradient pairing is not positive");
+      contract::require(std::isfinite(curvature) && curvature > 0.0,
+                        "Trust-region model has non-positive curvature");
+
+      const double unconstrained_step = gradient_pairing / curvature;
+      const double step_scale = std::min(unconstrained_step,
+                                         radius / metric_gradient.norm);
+      const double step_norm = step_scale * metric_gradient.norm;
+      const double predicted_reduction =
+        step_scale * gradient_pairing -
+        0.5 * step_scale * step_scale * curvature;
+      contract::require(std::isfinite(step_scale) && step_scale > 0.0 &&
+                          std::isfinite(step_norm) && step_norm > 0.0,
+                        "Trust-region Cauchy step is invalid");
+      contract::require(std::isfinite(predicted_reduction) &&
+                          predicted_reduction > 0.0,
+                        "Trust-region model predicted non-positive reduction");
+
+      Primal step = metric_gradient.gradient;
+      scale_primal(step, -step_scale);
+      return {std::move(step),
+              step_norm,
+              predicted_reduction,
+              0.0,
+              0,
+              0,
+              0,
+              ReducedTrustRegionSubproblemStatus::cauchy};
+    }
+
+    SubproblemResult
+    make_boundary_subproblem(const Covector &reduced_derivative,
+                             const Primal &current_step,
+                             const Covector &current_hessian_step,
+                             const Primal &search_direction,
+                             const Covector &hessian_direction,
+                             const double radius,
+                             const std::size_t iteration_count,
+                             const std::size_t metric_solve_count,
+                             const std::size_t hessian_action_count,
+                             const double residual_norm,
+                             const ReducedTrustRegionSubproblemStatus status) const
+    {
+      const double current_norm_squared =
+        metric_pairing(current_step, current_step);
+      const double cross_pairing =
+        metric_pairing(current_step, search_direction);
+      const double direction_norm_squared =
+        metric_pairing(search_direction, search_direction);
+      contract::require(std::isfinite(current_norm_squared) &&
+                          std::isfinite(cross_pairing) &&
+                          std::isfinite(direction_norm_squared) &&
+                          direction_norm_squared > 0.0,
+                        "Trust-region boundary direction has invalid metric norm");
+
+      const double radius_squared = radius * radius;
+      const double raw_discriminant =
+        cross_pairing * cross_pairing -
+        direction_norm_squared * (current_norm_squared - radius_squared);
+      contract::require(std::isfinite(raw_discriminant),
+                        "Trust-region boundary intersection is not finite");
+      const double discriminant = std::max(0.0, raw_discriminant);
+      const double boundary_scale =
+        (-cross_pairing + std::sqrt(discriminant)) /
+        direction_norm_squared;
+      contract::require(std::isfinite(boundary_scale) &&
+                          boundary_scale >= 0.0,
+                        "Trust-region boundary intersection is invalid");
+
+      Primal step = current_step;
+      add_scaled_primal(step, std::min(1.0, boundary_scale), search_direction);
+      Covector hessian_step = current_hessian_step;
+      add_scaled_covector(hessian_step,
+                          std::min(1.0, boundary_scale),
+                          hessian_direction);
+      const double step_norm_squared = metric_pairing(step, step);
+      const double step_norm = std::sqrt(std::max(0.0, step_norm_squared));
+      const double predicted_reduction =
+        -contract::pair(reduced_derivative, step) -
+        0.5 * contract::pair(hessian_step, step);
+      contract::require(std::isfinite(step_norm) && step_norm > 0.0 &&
+                          std::isfinite(predicted_reduction) &&
+                          predicted_reduction > 0.0,
+                        "Trust-region boundary step is invalid");
+      return {std::move(step),
+              step_norm,
+              predicted_reduction,
+              residual_norm,
+              iteration_count,
+              metric_solve_count,
+              hessian_action_count,
+              status};
+    }
+
+    SubproblemResult
+    make_truncated_cg_subproblem(
+      const Primal &control,
+      const Covector &reduced_derivative,
+      const ReducedMetricGradientT<Backend> &metric_gradient,
+      const double radius) const
+    {
+      Covector residual = reduced_derivative;
+      Primal preconditioned_residual = metric_gradient.gradient;
+      const double initial_pairing =
+        contract::pair(residual, preconditioned_residual);
+      contract::require(std::isfinite(initial_pairing) &&
+                          initial_pairing > 0.0,
+                        "Trust-region PCG residual pairing is not positive");
+      const double initial_norm = std::sqrt(initial_pairing);
+      const double target_norm = std::max(
+        parameters_.subproblem_absolute_tolerance,
+        parameters_.subproblem_relative_tolerance * initial_norm);
+      Primal step = Primal::zeros(metric_.layout());
+      Covector hessian_step = Covector::zeros(metric_.layout());
+      if (initial_norm <= target_norm)
+        return {std::move(step),
+                0.0,
+                0.0,
+                initial_norm,
+                0,
+                0,
+                0,
+                ReducedTrustRegionSubproblemStatus::converged};
+
+      Primal search_direction = preconditioned_residual;
+      scale_primal(search_direction, -1.0);
+      double residual_pairing = initial_pairing;
+      std::size_t metric_solve_count = 0;
+      std::size_t hessian_action_count = 0;
+      for (unsigned int iteration = 0;
+           iteration < parameters_.maximum_subproblem_iterations;
+           ++iteration)
+        {
+          const Covector hessian_direction =
+            hessian_.apply(control, search_direction);
+          ++hessian_action_count;
+          contract::require(hessian_direction.layout()->compatible_with(
+                              *metric_.layout()),
+                            "Trust-region Hessian returned an incompatible covector layout");
+          const double curvature =
+            contract::pair(hessian_direction, search_direction);
+          const double direction_norm_squared =
+            metric_pairing(search_direction, search_direction);
+          const double curvature_scale =
+            std::max(direction_norm_squared, std::numeric_limits<double>::min());
+          if (!std::isfinite(curvature) ||
+              curvature <= parameters_.subproblem_absolute_tolerance *
+                             curvature_scale)
+            return make_boundary_subproblem(
+              reduced_derivative,
+              step,
+              hessian_step,
+              search_direction,
+              hessian_direction,
+              radius,
+              iteration + 1,
+              metric_solve_count,
+              hessian_action_count,
+              std::sqrt(residual_pairing),
+              ReducedTrustRegionSubproblemStatus::negative_curvature);
+
+          const double step_length = residual_pairing / curvature;
+          contract::require(std::isfinite(step_length) && step_length > 0.0,
+                            "Trust-region PCG step is invalid");
+          Primal candidate_step = step;
+          add_scaled_primal(candidate_step,
+                            step_length,
+                            search_direction);
+          const double candidate_norm_squared =
+            metric_pairing(candidate_step, candidate_step);
+          if (candidate_norm_squared >= radius * radius)
+            return make_boundary_subproblem(
+              reduced_derivative,
+              step,
+              hessian_step,
+              search_direction,
+              hessian_direction,
+              radius,
+              iteration + 1,
+              metric_solve_count,
+              hessian_action_count,
+              std::sqrt(residual_pairing),
+              ReducedTrustRegionSubproblemStatus::boundary);
+
+          add_scaled_primal(step, step_length, search_direction);
+          add_scaled_covector(hessian_step,
+                              step_length,
+                              hessian_direction);
+          add_scaled_covector(residual, step_length, hessian_direction);
+          const Primal next_preconditioned_residual =
+            metric_.inverse_apply(residual);
+          ++metric_solve_count;
+          const double next_pairing =
+            contract::pair(residual, next_preconditioned_residual);
+          contract::require(std::isfinite(next_pairing) &&
+                              next_pairing >= 0.0,
+                            "Trust-region PCG residual norm is invalid");
+          const double next_norm = std::sqrt(next_pairing);
+          const std::size_t iteration_count = iteration + 1;
+          if (next_norm <= target_norm)
+            {
+              const double step_norm =
+                std::sqrt(std::max(0.0, metric_pairing(step, step)));
+              const double predicted_reduction =
+                -contract::pair(reduced_derivative, step) -
+                0.5 * contract::pair(hessian_step, step);
+              contract::require(std::isfinite(step_norm) && step_norm > 0.0 &&
+                                  std::isfinite(predicted_reduction) &&
+                                  predicted_reduction > 0.0,
+                                "Trust-region PCG converged step is invalid");
+              return {std::move(step),
+                      step_norm,
+                      predicted_reduction,
+                      next_norm,
+                      iteration_count,
+                      metric_solve_count,
+                      hessian_action_count,
+                      ReducedTrustRegionSubproblemStatus::converged};
+            }
+
+          if (iteration_count == parameters_.maximum_subproblem_iterations)
+            {
+              const double step_norm =
+                std::sqrt(std::max(0.0, metric_pairing(step, step)));
+              const double predicted_reduction =
+                -contract::pair(reduced_derivative, step) -
+                0.5 * contract::pair(hessian_step, step);
+              contract::require(std::isfinite(step_norm) && step_norm > 0.0 &&
+                                  std::isfinite(predicted_reduction) &&
+                                  predicted_reduction > 0.0,
+                                "Trust-region PCG iteration-limit step is invalid");
+              return {std::move(step),
+                      step_norm,
+                      predicted_reduction,
+                      next_norm,
+                      iteration_count,
+                      metric_solve_count,
+                      hessian_action_count,
+                      ReducedTrustRegionSubproblemStatus::iteration_limit};
+            }
+
+          const double beta = next_pairing / residual_pairing;
+          contract::require(std::isfinite(beta) && beta >= 0.0,
+                            "Trust-region PCG coefficient is invalid");
+          scale_primal(search_direction, beta);
+          add_scaled_primal(search_direction,
+                            -1.0,
+                            next_preconditioned_residual);
+          residual_pairing = next_pairing;
+        }
+
+      contract::require(false, "Trust-region PCG did not return a subproblem step");
+      return {Primal::zeros(metric_.layout()),
+              0.0,
+              0.0,
+              0.0,
+              0,
+              0,
+              0,
+              ReducedTrustRegionSubproblemStatus::iteration_limit};
+    }
+
     void
     validate_parameters() const
     {
@@ -353,6 +721,18 @@ namespace nmopt::solvers
                         "Trust-region objective-change tolerance must be nonnegative");
       contract::require(parameters_.step_tolerance >= 0.0,
                         "Trust-region step tolerance must be nonnegative");
+      contract::require(parameters_.maximum_subproblem_iterations > 0,
+                        "Trust-region subproblem iteration limit must be positive");
+      contract::require(parameters_.subproblem_relative_tolerance > 0.0,
+                        "Trust-region subproblem relative tolerance must be positive");
+      contract::require(parameters_.subproblem_absolute_tolerance > 0.0,
+                        "Trust-region subproblem absolute tolerance must be positive");
+      contract::require(
+        parameters_.subproblem_method ==
+            ReducedTrustRegionSubproblemMethod::cauchy ||
+          parameters_.subproblem_method ==
+            ReducedTrustRegionSubproblemMethod::truncated_conjugate_gradient,
+        "Trust-region subproblem method is unknown");
       contract::require(parameters_.minimum_radius > 0.0 &&
                           parameters_.initial_radius >= parameters_.minimum_radius &&
                           parameters_.maximum_radius >= parameters_.initial_radius,
@@ -383,6 +763,10 @@ namespace nmopt::solvers
            std::vector<double>            actual_reduction_history,
            std::vector<double>            reduction_ratio_history,
            std::vector<bool>              accepted_history,
+           std::vector<ReducedTrustRegionSubproblemStatus>
+             subproblem_status_history,
+           std::vector<std::size_t>       subproblem_iteration_history,
+           std::vector<double>            subproblem_residual_norm_history,
            const std::size_t              accepted_iterations,
            const std::size_t              trial_count,
            const std::size_t              state_solve_count,
@@ -402,6 +786,9 @@ namespace nmopt::solvers
               std::move(actual_reduction_history),
               std::move(reduction_ratio_history),
               std::move(accepted_history),
+              std::move(subproblem_status_history),
+              std::move(subproblem_iteration_history),
+              std::move(subproblem_residual_norm_history),
               accepted_iterations,
               trial_count,
               state_solve_count,

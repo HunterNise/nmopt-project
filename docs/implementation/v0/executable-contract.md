@@ -50,7 +50,9 @@ The public executable and solver headers provide:
 | `solvers::WolfeLineSearchPolicyT` | Strong Wolfe acceptance using actual trial slopes and declared sufficient-decrease/curvature fractions. |
 | `solvers::WeakWolfeLineSearchPolicyT` | Weak Wolfe acceptance using the one-sided actual-trial-slope condition and declared sufficient-decrease/curvature fractions. |
 | `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric/Hessian action counts, inner Hessian-solve history, and explicit direction-reset counts. |
-| `solvers::ReducedTrustRegionResultT` | The trust-region report containing accepted objectives, gradient histories, radius/step histories, actual and predicted reductions, ratios, acceptance flags, and action counts. |
+| `solvers::ReducedTrustRegionSubproblemMethod` | The selectable Cauchy or truncated-conjugate-gradient reduced trust-region subproblem policy. |
+| `solvers::ReducedTrustRegionSubproblemStatus` | The per-trial trust-region subproblem outcome: Cauchy, residual convergence, boundary, negative curvature, or iteration limit. |
+| `solvers::ReducedTrustRegionResultT` | The trust-region report containing accepted objectives, gradient histories, radius/step histories, actual and predicted reductions, ratios, acceptance flags, subproblem statuses/iterations/residuals, and action counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
 | `solvers::ReducedFletcherReevesSolverT` | The same reduced execution loop configured with `FletcherReevesDirectionPolicyT`. |
@@ -63,7 +65,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
 | `solvers::ReducedWolfeGradientSolverT` | The reduced steepest-descent loop combined with `WolfeLineSearchPolicyT`. |
 | `solvers::ReducedWeakWolfeGradientSolverT` | The reduced steepest-descent loop combined with `WeakWolfeLineSearchPolicyT`. |
-| `solvers::ReducedTrustRegionSolverT` | The unconstrained matrix-free Cauchy trust-region solver consuming `ReducedDTOT`, `MetricT`, and an explicit `ReducedHessianT`. |
+| `solvers::ReducedTrustRegionSolverT` | The unconstrained matrix-free trust-region solver consuming `ReducedDTOT`, `MetricT`, and an explicit `ReducedHessianT`, with selectable Cauchy or truncated-CG subproblems. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
@@ -311,7 +313,8 @@ linear-quadratic reference target; limited-memory BFGS remains the scalable
 choice for high-dimensional PDE controls.
 
 `ReducedTrustRegionSolverT` is a separate globalization boundary rather than
-another line-search policy. It forms the metric Cauchy step
+another line-search policy. Its selectable Cauchy subproblem forms the metric
+step
 $`s=-\tau G^{-1}j_{h}'`$, with $`\tau`$ clipped by the current radius, and
 uses the matrix-free quadratic model
 
@@ -322,11 +325,15 @@ $$
 
 The solver evaluates the actual reduction, computes the actual/predicted ratio,
 accepts or rejects the trial against its threshold, and shrinks or expands the
-radius according to the declared thresholds. Its report keeps one diagnostic
-record per trial, including rejected trials. This first realization is
-unconstrained and uses the explicit Hessian capability; projected trust-region
-steps and a full Newton/truncated-CG trust-region subproblem remain separate
-extensions.
+radius according to the declared thresholds. The
+`truncated_conjugate_gradient` subproblem instead applies the explicit Hessian
+to the preconditioned CG recurrence for $H s=-j_{h}'$, stops on the metric
+residual tolerance, and returns a boundary or negative-curvature step when
+the trust-region sphere is reached. Its iteration limit and status are
+reported per trial. The report keeps one diagnostic record per trial,
+including rejected trials. Both subproblem policies are unconstrained and use
+the explicit Hessian capability; projected trust-region steps remain a
+separate extension.
 
 ## Metric and constraint boundary
 
@@ -375,11 +382,12 @@ The `CTest` scenarios verify:
 12. exact quadratic, actual-displacement Armijo, weak-Wolfe, and strong-Wolfe
     line-search acceptance policies, including exact-Newton and Wolfe solver
     combinations;
-13. dense and deal.II unconstrained/projected Armijo convergence, including
-   active-bound and projected-stationarity checks; and
-14. checked acceptance/rejection at the serial deal.II native-size boundary;
-    and
-15. detached owned reduced-service lifetime and typed state/adjoint solve
+13. unconstrained Cauchy and truncated-CG trust-region convergence,
+    boundary handling, reduction ratios, and subproblem diagnostics;
+14. dense and deal.II unconstrained/projected Armijo convergence, including
+   active-bound and projected-stationarity checks;
+15. checked acceptance/rejection at the serial deal.II native-size boundary;
+16. detached owned reduced-service lifetime and typed state/adjoint solve
     reports, including sanitizer coverage in the backend-neutral profile.
 
 This establishes the small executable algebra that a deal.II compiler must

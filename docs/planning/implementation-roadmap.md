@@ -905,10 +905,11 @@ and reporting; they are not separate problem formulations.
   updates with restart), strict classical quadratic-CG, full-memory BFGS, and
   limited-memory BFGS policies. Store history with primal/dual layout checks
   and declared curvature/reset behaviour.
-- A separate matrix-free Cauchy trust-region globalization policy with an
-  explicit quadratic model, actual/predicted reduction ratio, radius update,
-  and per-trial acceptance diagnostics. Keep it separate from scalar
-  line-search policies and projection semantics.
+- A separate matrix-free trust-region globalization policy with selectable
+  Cauchy and truncated-conjugate-gradient subproblems, an explicit quadratic
+  model, actual/predicted reduction ratio, radius update, and per-trial
+  subproblem/acceptance diagnostics. Keep it separate from scalar line-search
+  policies and projection semantics.
 - A typed Hessian-vector service for the selected scalar DTO targets. Start
   with the exact linear-quadratic tangent-state/incremental-adjoint action;
   expose Newton or truncated Newton only for models that provide the required
@@ -917,7 +918,8 @@ and reporting; they are not separate problem formulations.
 - Exact quadratic, Armijo, weak-Wolfe, and strong-Wolfe line-search policies.
   Acceptance must use declared pairings and the actual projected displacement.
 - A uniform report with accepted objective, covector/gradient norm, step,
-  stop reason, line-search trials, and state/adjoint/metric solve counts.
+  stop reason, line-search trials, trust-region subproblem status, and
+  state/adjoint/metric/Hessian solve counts.
 
 **First registered target:** the existing one-state/one-decision linear DTO
 path, using a mass metric and unconstrained full-memory or limited-memory
@@ -949,10 +951,11 @@ Full-memory and limited-memory BFGS are both selectable; the former retains
 all accepted typed secant pairs while the latter bounds its history.
 Weak-Wolfe and strong-Wolfe line searches are both selectable; their curvature
 conditions use the actual trial displacement.
-The unconstrained matrix-free Cauchy trust-region solver uses the explicit
-reduced-Hessian action, updates its radius from actual/predicted reduction, and
-records accepted and rejected trial diagnostics; projected trust-region steps
-remain excluded. The direct serial deal.II linear-quadratic scalar lowerer now
+The unconstrained matrix-free trust-region solver uses the explicit
+reduced-Hessian action, supports selectable Cauchy and truncated-CG
+subproblems, updates its radius from actual/predicted reduction, and records
+per-trial subproblem plus accepted/rejected trial diagnostics; projected
+trust-region steps remain excluded. The direct serial deal.II linear-quadratic scalar lowerer now
 also supplies the exact tangent-state/incremental-adjoint
 `ReducedHessianT<SerialBackend>` action, with symmetry, finite-difference, and
 reduced-Newton verification. The compiled direct and v1 assembled scalar
@@ -972,13 +975,12 @@ not silently broaden the selected slice:
    exact-search PR+/Fletcher–Reeves equivalence, and strict classical
    quadratic-CG are implemented. The default automatic stopping mode preserves
    the earlier optional-tolerance behavior.
-2. **Globalization extension:** add a matrix-free trust-region policy with a
-   quadratic model, actual/predicted reduction ratio, radius update, and
-   acceptance diagnostics. The unconstrained Cauchy realization for the
-   selected explicit-Hessian scalar DTO is implemented; truncated-CG
-   subproblem solves and projected trust-region steps remain extensions. It is
-   a separate globalization boundary, not a line-search option. The ordinary
-   reduced Newton PCG solve and its diagnostics are part of the selected slice.
+2. **Globalization extension:** the unconstrained matrix-free trust-region
+   policy, including Cauchy and truncated-CG subproblem solves, is implemented
+   for the selected explicit-Hessian scalar DTO. Projected trust-region steps
+   remain an extension. It is a separate globalization boundary, not a
+   line-search option. The ordinary reduced Newton PCG solve and its
+   diagnostics are part of the selected slice.
 3. **Backend and benchmark parity:** the direct serial deal.II and selected
    v1 assembled scalar targets now expose the selected exact
    linear-quadratic reduced-Hessian action; exercise the iterative policies in

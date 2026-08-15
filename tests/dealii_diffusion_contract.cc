@@ -5263,19 +5263,35 @@ namespace
       "reduced_dto_formulation",
       "v1 compiler did not report an unsupported formulation capability");
 
-    auto unsupported_supplied_otd = specification;
-    unsupported_supplied_otd.formulation.kind =
+    auto supplied_otd_specification =
+      semantic::v1::make_scalar_diffusion_reaction_problem(false);
+    supplied_otd_specification.formulation.kind =
       semantic::v1::FormulationKind::all_at_once;
-    unsupported_supplied_otd.formulation.provenance =
+    supplied_otd_specification.formulation.provenance =
       semantic::v1::FormulationProvenance::supplied_otd;
-    const auto supplied_otd_diagnostic =
-      v1_compiler.validate(unsupported_supplied_otd, compilation_policy);
+    const auto supplied_otd_validation =
+      v1_compiler.validate(supplied_otd_specification, compilation_policy);
+    contract::require(supplied_otd_validation.valid(),
+                      "v1 compiler rejected the canonical supplied OTD target");
+    auto mismatched_supplied_otd = supplied_otd_specification;
+    mismatched_supplied_otd.spaces.push_back(
+      {"alternate_state_test_space", "Alternate adjoint test", "domain",
+       semantic::v1::SpaceTopology::h1, semantic::v1::SpaceRole::test});
+    mismatched_supplied_otd.pairings.push_back(
+      {"alternate_state_test_pairing", "Alternate adjoint pairing",
+       "alternate_state_test_space", "alternate_state_test_space"});
+    mismatched_supplied_otd.equations.front().test_space_id =
+      "alternate_state_test_space";
+    mismatched_supplied_otd.equations.front().test_pairing_id =
+      "alternate_state_test_pairing";
+    const auto mismatched_otd_diagnostic =
+      v1_compiler.validate(mismatched_supplied_otd, compilation_policy);
     test_support::require_exact_diagnostic(
-      supplied_otd_diagnostic,
+      mismatched_otd_diagnostic,
       semantic::v1::DiagnosticCategory::formulation_capability,
-      "reduced_dto",
-      "supplied_otd_execution",
-      "v1 compiler did not distinguish the supplied OTD capability");
+      "state_equation",
+      "supplied_otd_adjoint_space",
+      "v1 compiler reported a mismatched supplied OTD adjoint space as valid");
 
     const compiler::v1::DealiiDataBindings<dim> data_bindings{
       forcing,
@@ -5294,6 +5310,80 @@ namespace
                                                   bound_bindings);
     contract::require(compilation.succeeded(),
                       "v1 compiler failed to produce an executable problem");
+
+    const auto supplied_otd_compilation = v1_compiler.compile(
+      supplied_otd_specification,
+      triangulation,
+      data_bindings,
+      compilation_policy);
+    contract::require(
+      supplied_otd_compilation.succeeded() &&
+        !supplied_otd_compilation.problem &&
+        supplied_otd_compilation.supplied_otd_problem,
+      "v1 compiler did not produce the distinct supplied OTD product");
+    const auto &supplied_otd = *supplied_otd_compilation.supplied_otd_problem;
+    const auto supplied_initial =
+      Primal::zeros(supplied_otd.system().variable_layout());
+    const auto supplied_solution = supplied_otd.system().solve(supplied_initial);
+    contract::require(supplied_solution.report.converged() &&
+                        supplied_solution.report.algorithm ==
+                          "serial_sparse_direct_umfpack",
+                      "serial supplied OTD solve did not report direct convergence");
+    const auto supplied_residual =
+      supplied_otd.system().residual(supplied_solution.solution);
+    for (std::size_t block = 0; block < supplied_residual.n_blocks(); ++block)
+      require_close(supplied_residual.block(block).l2_norm(),
+                    0.0,
+                    1e-11,
+                    "serial supplied OTD solution leaves a residual");
+
+    const Primal supplied_control(
+      partition.control_layout(),
+      {supplied_solution.solution.block(
+        supplied_otd.system().block_selection().control_variable)});
+    const auto dto_at_supplied_control = reduced.evaluate(supplied_control);
+    dealii::Vector<double> state_difference =
+      supplied_solution.solution.block(
+        supplied_otd.system().block_selection().state_variable);
+    state_difference.add(-1.0, dto_at_supplied_control.state.block(0));
+    require_close(state_difference.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "serial supplied OTD state differs from reduced DTO");
+    dealii::Vector<double> adjoint_difference =
+      supplied_solution.solution.block(
+        supplied_otd.system().block_selection().adjoint_variable);
+    adjoint_difference.add(-1.0, dto_at_supplied_control.adjoint.block(0));
+    require_close(adjoint_difference.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "serial supplied OTD adjoint differs from reduced DTO");
+    dealii::Vector<double> stationarity_difference =
+      supplied_otd.system().control_stationarity(supplied_solution.solution)
+        .block(0);
+    stationarity_difference.add(
+      -1.0, dto_at_supplied_control.reduced_derivative.block(0));
+    require_close(stationarity_difference.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "serial supplied OTD stationarity differs from reduced DTO");
+    const auto &supplied_manifest = supplied_otd.manifest();
+    contract::require(
+      supplied_manifest.formulation_record.kind ==
+          semantic::v1::FormulationKind::all_at_once &&
+        supplied_manifest.formulation_record.provenance ==
+          semantic::v1::FormulationProvenance::supplied_otd &&
+        supplied_manifest.provenance == "supplied OTD" &&
+        supplied_manifest.supplied_otd_record.present &&
+        supplied_manifest.supplied_otd_record.variable_space_ids ==
+          std::vector<std::string>{"state", "state_test", "control"} &&
+        supplied_manifest.supplied_otd_record.residual_space_ids ==
+          std::vector<std::string>{"state_equation",
+                                   "adjoint_equation",
+                                   "control_stationarity"} &&
+        supplied_manifest.supplied_otd_record.comparison_status.find(
+          "equivalence verified") != std::string::npos,
+      "serial supplied OTD manifest omitted formulation and comparison provenance");
     const auto &compiled_model = compilation.problem->executable_model();
 
     const Primal comparison_point =

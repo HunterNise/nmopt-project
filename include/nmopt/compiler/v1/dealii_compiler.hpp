@@ -62,6 +62,7 @@ namespace nmopt::compiler::v1
                                 dirichlet_registration);
       validate_lowerability(specification, request, policy, report);
       validate_formulation_capability(specification, report);
+      validate_supplied_otd_capability(specification, request, report);
       validate_dirichlet_control_registration(*resolution.problem,
                                                request,
                                                report);
@@ -577,6 +578,9 @@ namespace nmopt::compiler::v1
                                 dirichlet_registration);
       validate_lowerability(specification, request, policy, result.diagnostics);
       validate_formulation_capability(specification, result.diagnostics);
+      validate_supplied_otd_capability(specification,
+                                       request,
+                                       result.diagnostics);
       validate_dirichlet_control_registration(*resolution.problem,
                                               request,
                                               result.diagnostics);
@@ -610,6 +614,11 @@ namespace nmopt::compiler::v1
         request.uses_weighted_boundary_trace;
       const bool uses_point_sensor = request.uses_point_sensor;
       const bool uses_normal_flux = request.uses_normal_flux;
+      const bool uses_supplied_otd =
+        specification.formulation.kind ==
+          semantic::v1::FormulationKind::all_at_once &&
+        specification.formulation.provenance ==
+          semantic::v1::FormulationProvenance::supplied_otd;
       const bool uses_h1_dirichlet_control = request.uses_h1_dirichlet_control;
       const bool uses_hhalf_dirichlet_registration =
         request.uses_hhalf_dirichlet_registration;
@@ -1239,6 +1248,8 @@ namespace nmopt::compiler::v1
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
       std::shared_ptr<const contract::ReducedHessianT<Backend>> reduced_hessian;
+      std::shared_ptr<const contract::SuppliedOTDSystemT<Backend>>
+        supplied_otd_system;
       contract::StateAdjointSolversT<Backend> solvers;
       ConstraintRealisation constraint_realisation = ConstraintRealisation::none;
       if (uses_neumann_boundary_control)
@@ -1545,6 +1556,10 @@ namespace nmopt::compiler::v1
                                                        solve_policy);
             }};
           executable = direct;
+          if (uses_supplied_otd)
+            supplied_otd_system = std::make_shared<
+              const contract::SuppliedOTDSystemT<Backend>>(
+              DirectModel::make_supplied_otd_system(direct));
         }
       const auto finalized_decision = finalize_resolved_decision<dim>(
         policy,
@@ -1553,15 +1568,24 @@ namespace nmopt::compiler::v1
         request,
         *executable,
         *metric,
-        scalar_plan ? &*scalar_plan : nullptr);
-      result.problem = std::make_shared<const CompiledProblemT<Backend>>(
-        executable,
-        metric,
-        constraint,
-        solvers,
-        make_manifest(finalized_decision),
-        std::move(lifetime_owner),
-        std::move(reduced_hessian));
+        scalar_plan ? &*scalar_plan : nullptr,
+        supplied_otd_system ? supplied_otd_system.get() : nullptr);
+      const CompilationManifest manifest = make_manifest(finalized_decision);
+      if (supplied_otd_system)
+        result.supplied_otd_problem = std::make_shared<
+          const CompiledSuppliedOTDProblemT<Backend>>(
+          std::move(supplied_otd_system),
+          manifest,
+          std::move(lifetime_owner));
+      else
+        result.problem = std::make_shared<const CompiledProblemT<Backend>>(
+          executable,
+          metric,
+          constraint,
+          solvers,
+          manifest,
+          std::move(lifetime_owner),
+          std::move(reduced_hessian));
       return result;
     }
 
@@ -4318,18 +4342,16 @@ namespace nmopt::compiler::v1
       semantic::v1::ValidationReport & report)
     {
       using semantic::v1::DiagnosticCategory;
-      if (specification.formulation.kind ==
-            semantic::v1::FormulationKind::all_at_once &&
-          specification.formulation.provenance ==
-            semantic::v1::FormulationProvenance::supplied_otd)
-        report.add(DiagnosticCategory::formulation_capability,
-                   specification.formulation.id,
-                   "supplied_otd_execution",
-                   "The supplied OTD execution product is not registered yet.");
-      else if (specification.formulation.kind !=
+      const bool supplied_otd =
+        specification.formulation.kind ==
+          semantic::v1::FormulationKind::all_at_once &&
+        specification.formulation.provenance ==
+          semantic::v1::FormulationProvenance::supplied_otd;
+      if (!supplied_otd &&
+          (specification.formulation.kind !=
                semantic::v1::FormulationKind::reduced_dto ||
-               specification.formulation.provenance !=
-                 semantic::v1::FormulationProvenance::dto)
+           specification.formulation.provenance !=
+             semantic::v1::FormulationProvenance::dto))
         report.add(DiagnosticCategory::formulation_capability,
                    specification.formulation.id,
                    "reduced_dto_formulation",
@@ -4355,6 +4377,64 @@ namespace nmopt::compiler::v1
                    specification.formulation.id,
                    "l2_coefficientwise_projected_gradient",
                    "Use the registered cellwise or facewise L2 box constraint, or omit the constraint.");
+    }
+
+    static void
+    validate_supplied_otd_capability(
+      const semantic::v1::ProblemSpec & specification,
+      const ResolvedCompilationRequest &request,
+      semantic::v1::ValidationReport &   report)
+    {
+      using semantic::v1::DiagnosticCategory;
+      const bool supplied_otd =
+        specification.formulation.kind ==
+          semantic::v1::FormulationKind::all_at_once &&
+        specification.formulation.provenance ==
+          semantic::v1::FormulationProvenance::supplied_otd;
+      if (!supplied_otd)
+        return;
+
+      if (request.target_family != ResolvedTargetFamily::direct_volume)
+        report.add(
+          DiagnosticCategory::formulation_capability,
+          specification.formulation.id,
+          "supplied_otd_scalar_target",
+          "The first supplied-OTD lowerer supports only the canonical scalar diffusion-reaction target.");
+      if (!specification.formulation.constraint_id.empty())
+        report.add(
+          DiagnosticCategory::formulation_capability,
+          specification.formulation.constraint_id,
+          "supplied_otd_equality_only",
+          "The supplied-OTD execution product currently supports equality optimality blocks without a box constraint.");
+
+      const auto equation = std::find_if(
+        specification.equations.begin(),
+        specification.equations.end(),
+        [&specification](const semantic::v1::EquationBlockSpec &candidate) {
+          return candidate.id == specification.formulation.equation_id;
+        });
+      if (equation == specification.equations.end() ||
+          equation->test_space_id != "state_test_space" ||
+          equation->test_pairing_id != "state_test_pairing")
+        report.add(
+          DiagnosticCategory::formulation_capability,
+          specification.formulation.equation_id,
+          "supplied_otd_adjoint_space",
+          "The supplied-OTD scalar lowerer requires the declared state-test adjoint space and pairing.");
+
+      const auto state = std::find_if(
+        specification.variables.begin(),
+        specification.variables.end(),
+        [&specification](const semantic::v1::VariableSpec &candidate) {
+          return candidate.id == specification.formulation.state_variable_id;
+        });
+      if (state == specification.variables.end() ||
+          state->space_id != "state_space")
+        report.add(
+          DiagnosticCategory::formulation_capability,
+          specification.formulation.state_variable_id,
+          "supplied_otd_state_space",
+          "The supplied-OTD scalar lowerer requires the canonical state trial space.");
     }
 
     template <typename Component>
@@ -5079,6 +5159,61 @@ namespace nmopt::compiler::v1
       return "semantic_enum:" + std::to_string(value);
     }
 
+    template <typename Backend>
+    static CompiledSuppliedOTDRecord
+    make_supplied_otd_record(
+      const contract::SuppliedOTDSystemT<Backend> &system,
+      const unsigned int                            state_degree)
+    {
+      CompiledSuppliedOTDRecord record;
+      record.present = true;
+      record.variable_layout = system.variable_layout()->label();
+      record.residual_layout = system.residual_layout()->label();
+      for (std::size_t block = 0;
+           block < system.variable_layout()->n_blocks();
+           ++block)
+        {
+          record.variable_space_ids.push_back(
+            system.variable_layout()->space(block).value);
+          record.variable_dimensions.push_back(
+            system.variable_layout()->dimension(block));
+          record.residual_space_ids.push_back(
+            system.residual_layout()->space(block).value);
+          record.residual_dimensions.push_back(
+            system.residual_layout()->dimension(block));
+        }
+      const auto &selection = system.block_selection();
+      record.state_variable_block = selection.state_variable;
+      record.adjoint_variable_block = selection.adjoint_variable;
+      record.control_variable_block = selection.control_variable;
+      record.state_equation_block = selection.state_equation;
+      record.adjoint_equation_block = selection.adjoint_equation;
+      record.control_stationarity_block = selection.control_stationarity;
+      record.sign_convention =
+        "L=J-<p,r>; supplied multiplier is the framework adjoint; no sign conversion";
+      record.discretisation_provenance =
+        "deal.II serial FE_Q(" + std::to_string(state_degree) +
+        ") state/test with FE_DGQ(0) control and assembled QGauss(" +
+        std::to_string(state_degree + 2) + ") weak blocks";
+      record.state_block_provenance =
+        "explicit assembled state residual A_h y_h-f_h-B_h u_h";
+      record.adjoint_block_provenance =
+        "explicit assembled adjoint equation A_h^T p_h-M_h y_h+q_h";
+      record.stationarity_block_provenance =
+        "explicit assembled control stationarity B_h^T p_h+alpha N_h u_h";
+      record.value_action_provenance =
+        "application-supplied weak block values; no strong-residual derivation";
+      record.jvp_action_provenance =
+        "explicit block linearisation of the supplied assembled optimality system";
+      record.vjp_action_provenance =
+        "explicit transpose block actions with tested dot pairing";
+      record.solve_provenance =
+        "assembled all-at-once optimality system solved by serial SparseDirectUMFPACK";
+      record.comparison_status =
+        "equivalence verified against ReducedDTO on the canonical scalar target; product remains distinct";
+      return record;
+    }
+
     static std::string
     handler_for(const ScalarLoweringPlan *plan, const std::string &component_id)
     {
@@ -5556,7 +5691,9 @@ namespace nmopt::compiler::v1
       const ResolvedCompilationRequest  &request,
       const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
       const contract::MetricT<dealii_backend::SerialBackend> &metric,
-      const ScalarLoweringPlan *          scalar_plan)
+      const ScalarLoweringPlan *          scalar_plan,
+      const contract::SuppliedOTDSystemT<dealii_backend::SerialBackend> *
+        supplied_otd_system)
     {
       CompilationManifest manifest;
       manifest.resolved_decision = decision;
@@ -5571,6 +5708,14 @@ namespace nmopt::compiler::v1
       manifest.h1_target_data_membership_selection =
         decision.h1_target_data_membership_selection;
       manifest.resolved_decision.realized_spaces = manifest.realized_spaces;
+      if (supplied_otd_system != nullptr)
+        {
+          manifest.supplied_otd_record = make_supplied_otd_record(
+            *supplied_otd_system,
+            policy.state_degree);
+          manifest.resolved_decision.supplied_otd_record =
+            manifest.supplied_otd_record;
+        }
       const CompiledTargetKind target = target_kind_from_request(request);
       const auto registration = dirichlet_registration_from_request(request);
       const bool uses_fixed_reconstruction = request.uses_fixed_reconstruction;
@@ -5902,7 +6047,11 @@ namespace nmopt::compiler::v1
       manifest.state_adjoint_solve_policy =
         state_adjoint_solve_policy_description(manifest.state_solve_record,
                                                manifest.adjoint_solve_record);
-      manifest.provenance = "DTO";
+      manifest.provenance =
+        manifest.formulation_record.provenance ==
+            semantic::v1::FormulationProvenance::supplied_otd
+          ? "supplied OTD"
+          : "DTO";
       if (uses_neumann_boundary_control && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(
           "neumann_control_realisation: facewise-constant FEFaceValues pairing on boundary ids " +
@@ -6071,6 +6220,7 @@ namespace nmopt::compiler::v1
       CompilationManifest manifest;
       manifest.resolved_decision = decision;
       manifest.formulation_record = decision.formulation_record;
+      manifest.supplied_otd_record = decision.supplied_otd_record;
       manifest.mesh_record = decision.mesh_record;
       manifest.spaces = decision.spaces;
       manifest.bindings = decision.bindings;

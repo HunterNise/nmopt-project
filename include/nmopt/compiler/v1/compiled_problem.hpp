@@ -2,6 +2,7 @@
 
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
+#include "nmopt/contract/supplied_otd.hpp"
 #include "nmopt/semantic/v1/validation.hpp"
 
 #include <memory>
@@ -107,6 +108,36 @@ namespace nmopt::compiler::v1
       semantic::v1::FormulationProvenance::unspecified;
     ExecutionRealisation execution = ExecutionRealisation::assembled;
     std::string          dual_representation;
+  };
+
+  // Typed provenance for the separately executable supplied-OTD product.
+  // The callbacks themselves live in SuppliedOTDSystem; this record describes
+  // the block boundary and the evidence attached to that product.
+  struct CompiledSuppliedOTDRecord
+  {
+    bool                     present = false;
+    std::string              variable_layout;
+    std::string              residual_layout;
+    std::vector<std::string> variable_space_ids;
+    std::vector<std::size_t> variable_dimensions;
+    std::vector<std::string> residual_space_ids;
+    std::vector<std::size_t> residual_dimensions;
+    std::size_t              state_variable_block = 0;
+    std::size_t              adjoint_variable_block = 0;
+    std::size_t              control_variable_block = 0;
+    std::size_t              state_equation_block = 0;
+    std::size_t              adjoint_equation_block = 0;
+    std::size_t              control_stationarity_block = 0;
+    std::string              sign_convention;
+    std::string              discretisation_provenance;
+    std::string              state_block_provenance;
+    std::string              adjoint_block_provenance;
+    std::string              stationarity_block_provenance;
+    std::string              value_action_provenance;
+    std::string              jvp_action_provenance;
+    std::string              vjp_action_provenance;
+    std::string              solve_provenance;
+    std::string              comparison_status;
   };
 
   struct CompiledMetricRecord
@@ -263,6 +294,7 @@ namespace nmopt::compiler::v1
     std::string                         target_id;
     std::string                         execution_id = "assembled";
     CompiledFormulationRecord           formulation_record;
+    CompiledSuppliedOTDRecord           supplied_otd_record;
     CompiledMeshRecord                  mesh_record;
     std::vector<CompiledRegionRecord>   regions;
     std::vector<CompiledSpaceRecord>    spaces;
@@ -303,6 +335,7 @@ namespace nmopt::compiler::v1
     unsigned int                         schema_version = 3;
     ResolvedCompilationDecision           resolved_decision;
     CompiledFormulationRecord            formulation_record;
+    CompiledSuppliedOTDRecord            supplied_otd_record;
     CompiledMeshRecord                   mesh_record;
     std::vector<CompiledSpaceRecord>      spaces;
     std::vector<CompiledBindingRecord>    bindings;
@@ -467,16 +500,65 @@ namespace nmopt::compiler::v1
     std::shared_ptr<const ReducedHessian>   reduced_hessian_;
   };
 
+  // A supplied-OTD compilation is a distinct product.  It intentionally does
+  // not expose the reduced DTO service bundle used by CompiledProblemT.
+  template <typename Backend>
+  class CompiledSuppliedOTDProblemT final
+  {
+  public:
+    using System = contract::SuppliedOTDSystemT<Backend>;
+
+    CompiledSuppliedOTDProblemT(std::shared_ptr<const System> system,
+                                CompilationManifest           manifest,
+                                std::shared_ptr<const void>    lifetime_owner = {})
+      : system_(std::move(system))
+      , manifest_(std::move(manifest))
+      , lifetime_owner_(std::move(lifetime_owner))
+    {
+      contract::require(static_cast<bool>(system_),
+                        "A supplied-OTD problem needs an executable system");
+      contract::require(
+        manifest_.formulation_record.kind ==
+            semantic::v1::FormulationKind::all_at_once &&
+          manifest_.formulation_record.provenance ==
+            semantic::v1::FormulationProvenance::supplied_otd,
+        "A supplied-OTD problem needs an all-at-once supplied-OTD manifest");
+      contract::require(manifest_.supplied_otd_record.present,
+                        "A supplied-OTD problem needs typed block provenance");
+    }
+
+    const System &
+    system() const
+    {
+      return *system_;
+    }
+
+    const CompilationManifest &
+    manifest() const
+    {
+      return manifest_;
+    }
+
+  private:
+    std::shared_ptr<const System> system_;
+    CompilationManifest           manifest_;
+    std::shared_ptr<const void>    lifetime_owner_;
+  };
+
   template <typename Backend>
   struct CompilationResultT
   {
     semantic::v1::ValidationReport             diagnostics;
     std::shared_ptr<const CompiledProblemT<Backend>> problem;
+    std::shared_ptr<const CompiledSuppliedOTDProblemT<Backend>>
+      supplied_otd_problem;
 
     bool
     succeeded() const
     {
-      return diagnostics.valid() && static_cast<bool>(problem);
+      return diagnostics.valid() &&
+             (static_cast<bool>(problem) ||
+              static_cast<bool>(supplied_otd_problem));
     }
   };
 } // namespace nmopt::compiler::v1

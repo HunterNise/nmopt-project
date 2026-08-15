@@ -2,6 +2,7 @@
 
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
+#include "nmopt/contract/supplied_otd.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
@@ -22,6 +23,7 @@
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -64,6 +66,7 @@ namespace nmopt::dealii_backend
     using Primal = contract::PrimalBlockT<SerialBackend>;
     using Covector = contract::CovectorBlockT<SerialBackend>;
     using SolveResult = contract::FormulationSolveResultT<SerialBackend>;
+    using SuppliedSystem = contract::SuppliedOTDSystemT<SerialBackend>;
 
     ScalarDiffusionReactionModel(
       dealii::Triangulation<dim> &                triangulation,
@@ -139,6 +142,242 @@ namespace nmopt::dealii_backend
                         control_layout_,
                         control_mass_,
                         solve_parameters);
+    }
+
+    // Build the supplied-OTD product from the explicitly assembled weak
+    // blocks owned by this scalar lowerer.  The returned callbacks do not
+    // call the DTO residual or objective derivative methods.
+    static SuppliedSystem
+    make_supplied_otd_system(
+      std::shared_ptr<const ScalarDiffusionReactionModel> model)
+    {
+      contract::require(static_cast<bool>(model),
+                        "Supplied OTD lowerer needs a scalar model");
+      const std::size_t state_dimension =
+        static_cast<std::size_t>(model->system_matrix_.m());
+      const std::size_t control_dimension =
+        static_cast<std::size_t>(model->control_mass_->m());
+      const auto variable_layout = std::make_shared<const contract::BlockLayout>(
+        "supplied_otd_variables",
+        std::vector<contract::SpaceId>{{"state"},
+                                       {"state_test"},
+                                       {"control"}},
+        std::vector<std::size_t>{state_dimension,
+                                 state_dimension,
+                                 control_dimension});
+      const auto residual_layout = std::make_shared<const contract::BlockLayout>(
+        "supplied_otd_residuals",
+        std::vector<contract::SpaceId>{{"state_equation"},
+                                       {"adjoint_equation"},
+                                       {"control_stationarity"}},
+        std::vector<std::size_t>{state_dimension,
+                                 state_dimension,
+                                 control_dimension});
+      const contract::SuppliedOTDLayout layout(variable_layout,
+                                               residual_layout);
+
+      const auto residual = [model, residual_layout](const Primal &point) {
+        Vector state(model->system_matrix_.m());
+        model->system_matrix_.vmult(state, point.block(0));
+        state.add(-1.0, model->forcing_load_);
+        Vector control_contribution(model->system_matrix_.m());
+        model->control_coupling_.vmult(control_contribution, point.block(2));
+        state.add(-1.0, control_contribution);
+
+        Vector adjoint(model->system_matrix_.m());
+        model->system_matrix_.Tvmult(adjoint, point.block(1));
+        Vector state_objective(model->system_matrix_.m());
+        model->state_mass_.vmult(state_objective, point.block(0));
+        adjoint.add(-1.0, state_objective);
+        adjoint.add(1.0, model->desired_state_load_);
+
+        Vector stationarity(model->control_mass_->m());
+        model->control_coupling_.Tvmult(stationarity, point.block(1));
+        Vector regularisation(model->control_mass_->m());
+        model->control_mass_->vmult(regularisation, point.block(2));
+        stationarity.add(model->regularisation_weight_, regularisation);
+
+        return Covector(residual_layout,
+                        {std::move(state),
+                         std::move(adjoint),
+                         std::move(stationarity)});
+      };
+
+      const auto residual_jvp = [model, residual_layout](const Primal &,
+                                                          const Primal &tangent) {
+        Vector state(model->system_matrix_.m());
+        model->system_matrix_.vmult(state, tangent.block(0));
+        Vector control_contribution(model->system_matrix_.m());
+        model->control_coupling_.vmult(control_contribution, tangent.block(2));
+        state.add(-1.0, control_contribution);
+
+        Vector adjoint(model->system_matrix_.m());
+        model->system_matrix_.Tvmult(adjoint, tangent.block(1));
+        Vector state_objective(model->system_matrix_.m());
+        model->state_mass_.vmult(state_objective, tangent.block(0));
+        adjoint.add(-1.0, state_objective);
+
+        Vector stationarity(model->control_mass_->m());
+        model->control_coupling_.Tvmult(stationarity, tangent.block(1));
+        Vector regularisation(model->control_mass_->m());
+        model->control_mass_->vmult(regularisation, tangent.block(2));
+        stationarity.add(model->regularisation_weight_, regularisation);
+
+        return Covector(residual_layout,
+                        {std::move(state),
+                         std::move(adjoint),
+                         std::move(stationarity)});
+      };
+
+      const auto residual_vjp = [model, variable_layout](const Primal &,
+                                                          const Primal &seed) {
+        Vector state(model->system_matrix_.m());
+        model->system_matrix_.Tvmult(state, seed.block(0));
+        Vector state_objective(model->system_matrix_.m());
+        model->state_mass_.Tvmult(state_objective, seed.block(1));
+        state.add(-1.0, state_objective);
+
+        Vector adjoint(model->system_matrix_.m());
+        model->system_matrix_.vmult(adjoint, seed.block(1));
+        Vector stationarity_adjoint(model->system_matrix_.m());
+        model->control_coupling_.vmult(stationarity_adjoint, seed.block(2));
+        adjoint.add(1.0, stationarity_adjoint);
+
+        Vector control(model->control_mass_->m());
+        model->control_coupling_.Tvmult(control, seed.block(0));
+        control *= -1.0;
+        Vector regularisation(model->control_mass_->m());
+        model->control_mass_->vmult(regularisation, seed.block(2));
+        control.add(model->regularisation_weight_, regularisation);
+
+        return Covector(variable_layout,
+                        {std::move(state),
+                         std::move(adjoint),
+                         std::move(control)});
+      };
+
+      const auto solve = [model, variable_layout](const Primal &) {
+        const auto state_dimension = model->system_matrix_.m();
+        const auto control_dimension = model->control_mass_->m();
+        const auto total_dimension = 2 * state_dimension + control_dimension;
+        dealii::DynamicSparsityPattern dynamic_sparsity(total_dimension,
+                                                         total_dimension);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->system_matrix_,
+                             0,
+                             0,
+                             false);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->control_coupling_,
+                             0,
+                             2 * state_dimension,
+                             false);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->state_mass_,
+                             state_dimension,
+                             0,
+                             false);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->system_matrix_,
+                             state_dimension,
+                             state_dimension,
+                             true);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->control_coupling_,
+                             2 * state_dimension,
+                             state_dimension,
+                             true);
+        add_sparsity_entries(dynamic_sparsity,
+                             *model->control_mass_,
+                             2 * state_dimension,
+                             2 * state_dimension,
+                             false);
+
+        dealii::SparsityPattern sparsity;
+        sparsity.copy_from(dynamic_sparsity);
+        dealii::SparseMatrix<double> optimality_matrix(sparsity);
+        add_matrix_entries(optimality_matrix,
+                           model->system_matrix_,
+                           0,
+                           0,
+                           1.0,
+                           false);
+        add_matrix_entries(optimality_matrix,
+                           model->control_coupling_,
+                           0,
+                           2 * state_dimension,
+                           -1.0,
+                           false);
+        add_matrix_entries(optimality_matrix,
+                           model->state_mass_,
+                           state_dimension,
+                           0,
+                           -1.0,
+                           false);
+        add_matrix_entries(optimality_matrix,
+                           model->system_matrix_,
+                           state_dimension,
+                           state_dimension,
+                           1.0,
+                           true);
+        add_matrix_entries(optimality_matrix,
+                           model->control_coupling_,
+                           2 * state_dimension,
+                           state_dimension,
+                           1.0,
+                           true);
+        add_matrix_entries(optimality_matrix,
+                           *model->control_mass_,
+                           2 * state_dimension,
+                           2 * state_dimension,
+                           model->regularisation_weight_,
+                           false);
+
+        Vector right_hand_side(total_dimension);
+        for (dealii::types::global_dof_index index = 0;
+             index < state_dimension;
+             ++index)
+          {
+            right_hand_side[index] = model->forcing_load_[index];
+            right_hand_side[state_dimension + index] =
+              -model->desired_state_load_[index];
+          }
+        Vector solution(total_dimension);
+        dealii::SparseDirectUMFPACK solver;
+        solver.initialize(optimality_matrix);
+        solver.vmult(solution, right_hand_side);
+
+        Vector state(state_dimension);
+        Vector adjoint(state_dimension);
+        Vector control(control_dimension);
+        for (dealii::types::global_dof_index index = 0;
+             index < state_dimension;
+             ++index)
+          {
+            state[index] = solution[index];
+            adjoint[index] = solution[state_dimension + index];
+          }
+        for (dealii::types::global_dof_index index = 0;
+             index < control_dimension;
+             ++index)
+          control[index] = solution[2 * state_dimension + index];
+
+        return SolveResult(
+          Primal(variable_layout,
+                 {std::move(state), std::move(adjoint), std::move(control)}),
+          contract::LinearSolveReport{"serial_sparse_direct_umfpack",
+                                       "not applicable",
+                                       1,
+                                       1,
+                                       0.0,
+                                       0.0,
+                                       0.0,
+                                       0.0,
+                                       contract::LinearSolveTermination::converged});
+      };
+
+      return SuppliedSystem(
+        layout, residual, residual_jvp, residual_vjp, solve);
     }
 
     CellwiseBoxConstraint
@@ -346,6 +585,36 @@ namespace nmopt::dealii_backend
     }
 
   private:
+    static void
+    add_sparsity_entries(
+      dealii::DynamicSparsityPattern &       target,
+      const dealii::SparseMatrix<double> &   source,
+      const dealii::types::global_dof_index row_offset,
+      const dealii::types::global_dof_index column_offset,
+      const bool                             transpose)
+    {
+      for (dealii::types::global_dof_index row = 0; row < source.m(); ++row)
+        for (auto entry = source.begin(row); entry != source.end(row); ++entry)
+          target.add(row_offset + (transpose ? entry->column() : row),
+                     column_offset + (transpose ? row : entry->column()));
+    }
+
+    static void
+    add_matrix_entries(
+      dealii::SparseMatrix<double> &         target,
+      const dealii::SparseMatrix<double> &   source,
+      const dealii::types::global_dof_index row_offset,
+      const dealii::types::global_dof_index column_offset,
+      const double                           factor,
+      const bool                             transpose)
+    {
+      for (dealii::types::global_dof_index row = 0; row < source.m(); ++row)
+        for (auto entry = source.begin(row); entry != source.end(row); ++entry)
+          target.add(row_offset + (transpose ? entry->column() : row),
+                     column_offset + (transpose ? row : entry->column()),
+                     factor * entry->value());
+    }
+
     void
     require_variables(const Primal &variables, const char *operation) const
     {

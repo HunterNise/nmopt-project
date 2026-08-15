@@ -948,8 +948,9 @@ records accepted and rejected trial diagnostics; projected trust-region steps
 remain excluded. The direct serial deal.II linear-quadratic scalar lowerer now
 also supplies the exact tangent-state/incremental-adjoint
 `ReducedHessianT<SerialBackend>` action, with symmetry, finite-difference, and
-reduced-Newton verification; generic v1 assembled-model exposure and the
-benchmark harness remain separate.
+reduced-Newton verification. The compiled direct and v1 assembled scalar
+targets now expose this optional capability through `CompiledProblemT`; the
+benchmark harness remains separate.
 
 #### P6.1 extension ladder
 
@@ -968,11 +969,10 @@ not silently broaden the selected slice:
    selected explicit-Hessian scalar DTO is implemented; Newton/truncated-CG
    subproblem solves and projected trust-region steps remain extensions. It is
    a separate globalization boundary, not a line-search option.
-3. **Backend and benchmark parity:** the direct serial deal.II scalar target
-   now provides the selected exact linear-quadratic reduced-Hessian action;
-   expose the capability through any selected v1 assembled target and
-   exercise the iterative policies in the selected Chapter 6 benchmark
-   harness.
+3. **Backend and benchmark parity:** the direct serial deal.II and selected
+   v1 assembled scalar targets now expose the selected exact
+   linear-quadratic reduced-Hessian action; exercise the iterative policies in
+   the selected Chapter 6 benchmark harness.
 4. **Lower-priority generic second order:** support nonlinear DTO models only
    when they provide an explicit Lagrangian/reduced Hessian-vector action,
    incremental-adjoint action, or a declared Gauss–Newton approximation.

@@ -796,13 +796,22 @@ only the conservative coefficient and likewise records direct state and
 exact-transpose adjoint solves.
 
 `CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
-and `make_reduced_dto()` expose only backend-neutral ports and formulation
-services. The homogeneous private v0 target, v1 assembled target, mass metric,
-and box constraint stay inside `DealiiCompiler`. Each registered box is
+`reduced_hessian()`, and `make_reduced_dto()` expose only backend-neutral ports
+and formulation services. The Hessian accessor is optional: it is present for
+the exact linear-quadratic direct and assembled scalar targets and absent for
+target families without the declared capability. The homogeneous private v0
+target, v1 assembled target, mass metric, and box constraint stay inside
+`DealiiCompiler`. Each registered box is
 constructed with the actual positive-diagonal `MassMetric` selected by the
 same lowerer and retains that metric's opaque realization witness. Metric
 display IDs remain descriptive provenance and cannot grant clipping support to
 another operator. Solvers have no v1 branches.
+
+The direct and assembled scalar targets expose the exact reduced-Hessian action
+only because their residual operators, state-tracking operators, and control
+regularisation are assembled and linear-quadratic. The action uses the reduced
+tangent-state and transpose-adjoint solves; this does not extend the capability
+to generic nonlinear residuals or objectives.
 
 `DealiiCompilationSession<dim>` exclusively owns a static triangulation moved
 into it and supplies the lifetime token retained by both the compiled problem

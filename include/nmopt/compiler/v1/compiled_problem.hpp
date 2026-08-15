@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/reduced_dto.hpp"
+#include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/semantic/v1/validation.hpp"
 
 #include <memory>
@@ -364,19 +365,22 @@ namespace nmopt::compiler::v1
     using Model = contract::ExecutableModelT<Backend>;
     using Metric = contract::MetricT<Backend>;
     using Constraint = contract::ConstraintT<Backend>;
+    using ReducedHessian = contract::ReducedHessianT<Backend>;
 
     CompiledProblemT(std::shared_ptr<const Model>             executable,
                      std::shared_ptr<const Metric>            metric,
                      std::shared_ptr<const Constraint>        constraint,
                      contract::StateAdjointSolversT<Backend>   solvers,
                      CompilationManifest                       manifest,
-                     std::shared_ptr<const void>               lifetime_owner = {})
+                     std::shared_ptr<const void>               lifetime_owner = {},
+                     std::shared_ptr<const ReducedHessian>     reduced_hessian = {})
       : executable_(std::move(executable))
       , metric_(std::move(metric))
       , constraint_(std::move(constraint))
       , solvers_(std::move(solvers))
       , manifest_(std::move(manifest))
       , lifetime_owner_(std::move(lifetime_owner))
+      , reduced_hessian_(std::move(reduced_hessian))
     {
       contract::require(static_cast<bool>(executable_),
                         "A compiled problem needs an executable model");
@@ -399,6 +403,10 @@ namespace nmopt::compiler::v1
           contract::require(constraint_->supports_projection_in(*metric_),
                             "A compiled problem constraint cannot project in its metric");
         }
+      if (reduced_hessian_)
+        contract::require(
+          reduced_hessian_->layout()->compatible_with(*metric_->layout()),
+          "A compiled problem Hessian does not match its metric");
     }
 
     const Model &
@@ -417,6 +425,12 @@ namespace nmopt::compiler::v1
     constraint() const
     {
       return constraint_ ? constraint_.get() : nullptr;
+    }
+
+    const ReducedHessian *
+    reduced_hessian() const
+    {
+      return reduced_hessian_ ? reduced_hessian_.get() : nullptr;
     }
 
     const contract::StateAdjointSolversT<Backend> &
@@ -448,6 +462,7 @@ namespace nmopt::compiler::v1
     contract::StateAdjointSolversT<Backend> solvers_;
     CompilationManifest                     manifest_;
     std::shared_ptr<const void>             lifetime_owner_;
+    std::shared_ptr<const ReducedHessian>   reduced_hessian_;
   };
 
   template <typename Backend>

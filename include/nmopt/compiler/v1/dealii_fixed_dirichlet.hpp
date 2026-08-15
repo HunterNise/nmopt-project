@@ -3,6 +3,7 @@
 #include "nmopt/compiler/v1/dealii_scalar_plan.hpp"
 #include "nmopt/compiler/v1/dealii_types.hpp"
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
@@ -53,6 +54,7 @@ namespace nmopt::compiler::v1::detail
   template <int dim>
   class ScalarComponentModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
+    , public contract::ReducedHessianT<dealii_backend::SerialBackend>
   {
   public:
     using Backend = dealii_backend::SerialBackend;
@@ -261,6 +263,12 @@ namespace nmopt::compiler::v1::detail
       return control_layout_;
     }
 
+    const contract::LayoutPtr &
+    layout() const override
+    {
+      return control_layout_;
+    }
+
     std::size_t
     physical_state_dimension() const
     {
@@ -420,6 +428,58 @@ namespace nmopt::compiler::v1::detail
         }
       return Covector(variable_layout_,
                       {pullback(physical_state), std::move(control)});
+    }
+
+    Covector
+    apply(const Primal &control, const Primal &direction) const override
+    {
+      contract::require(control.layout()->compatible_with(*control_layout_),
+                        "Reduced Hessian control has an incompatible layout");
+      contract::require(direction.layout()->compatible_with(*control_layout_),
+                        "Reduced Hessian direction has an incompatible layout");
+      contract::require(has_tracking_loss() &&
+                          has_control_regularisation_loss(),
+                        "Reduced Hessian needs tracking and control regularisation losses");
+
+      Vector tangent_rhs(independent_state_dofs_.size());
+      reduced_control_coupling_.vmult(tangent_rhs, direction.block(0));
+      Vector tangent_state(independent_state_dofs_.size());
+      if (has_nonsymmetric_residual())
+        nonsymmetric_solver_->vmult(tangent_state, tangent_rhs);
+      else
+        {
+          const auto report = solve_symmetric_system(reduced_system_matrix_,
+                                                      tangent_state,
+                                                      tangent_rhs,
+                                                      {});
+          contract::require(report.converged(),
+                            "Reduced Hessian tangent solve did not converge");
+        }
+
+      Vector physical_tracking_rhs(state_dof_handler_.n_dofs());
+      physical_state_tracking_operator_.vmult(
+        physical_tracking_rhs, embed_tangent(tangent_state));
+      Vector reduced_adjoint_rhs = pullback(physical_tracking_rhs);
+      Vector incremental_adjoint(independent_state_dofs_.size());
+      if (has_nonsymmetric_residual())
+        nonsymmetric_solver_->Tvmult(incremental_adjoint,
+                                     reduced_adjoint_rhs);
+      else
+        {
+          const auto report = solve_symmetric_system(reduced_system_matrix_,
+                                                      incremental_adjoint,
+                                                      reduced_adjoint_rhs,
+                                                      {});
+          contract::require(report.converged(),
+                            "Reduced Hessian incremental-adjoint solve did not converge");
+        }
+
+      Vector action(control_dof_handler_.n_dofs());
+      reduced_control_coupling_.Tvmult(action, incremental_adjoint);
+      Vector regularisation_action(control_dof_handler_.n_dofs());
+      control_mass_->vmult(regularisation_action, direction.block(0));
+      action.add(regularisation_weight_, regularisation_action);
+      return Covector(control_layout_, {std::move(action)});
     }
 
     // Target-specific diagnostic ports used by the point-sensor contract.

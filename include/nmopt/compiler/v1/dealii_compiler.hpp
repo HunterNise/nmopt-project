@@ -1238,6 +1238,7 @@ namespace nmopt::compiler::v1
       std::shared_ptr<const contract::MetricT<Backend>> metric;
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
+      std::shared_ptr<const contract::ReducedHessianT<Backend>> reduced_hessian;
       contract::StateAdjointSolversT<Backend> solvers;
       ConstraintRealisation constraint_realisation = ConstraintRealisation::none;
       if (uses_neumann_boundary_control)
@@ -1479,6 +1480,7 @@ namespace nmopt::compiler::v1
               data.regularisation_weight,
               policy.state_degree,
               *scalar_plan);
+          reduced_hessian = assembled;
           metric = std::make_shared<dealii_backend::MassMetric>(
             assembled->control_l2_metric(policy.control_metric_solve));
           const bool scalar_plan_has_constraint =
@@ -1518,6 +1520,7 @@ namespace nmopt::compiler::v1
             data.regularisation_weight,
             policy.state_degree,
             dirichlet_boundary_ids);
+          reduced_hessian = direct;
           metric = std::make_shared<dealii_backend::MassMetric>(
             direct->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
@@ -1557,7 +1560,8 @@ namespace nmopt::compiler::v1
         constraint,
         solvers,
         make_manifest(finalized_decision),
-        std::move(lifetime_owner));
+        std::move(lifetime_owner),
+        std::move(reduced_hessian));
       return result;
     }
 

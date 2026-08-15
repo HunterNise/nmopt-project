@@ -866,6 +866,45 @@ namespace
                         fine_remainder <= 0.26 * coarse_remainder + 1e-13,
                       "fixed-Dirichlet reduced Taylor remainder is not quadratic");
 
+    const auto *hessian = compilation.problem->reduced_hessian();
+    contract::require(hessian != nullptr,
+                      "fixed-Dirichlet compiled target omitted its Hessian capability");
+    const Covector hessian_action =
+      hessian->apply(control, control_direction);
+    dealii::Vector<double> second_direction_values(
+      control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < second_direction_values.size();
+         ++index)
+      second_direction_values[index] =
+        (index % 3 == 0 ? -0.02 : 0.03) * static_cast<double>(index + 1);
+    const Primal second_control_direction(
+      control.layout(), {std::move(second_direction_values)});
+    const Covector second_hessian_action =
+      hessian->apply(control, second_control_direction);
+    require_close(contract::pair(hessian_action, second_control_direction),
+                  contract::pair(second_hessian_action, control_direction),
+                  1e-10,
+                  "fixed-Dirichlet compiled Hessian symmetry");
+
+    constexpr double hessian_step = 1e-5;
+    const Covector reduced_derivative_plus =
+      reduced.evaluate(shifted(control, control_direction, hessian_step))
+        .reduced_derivative;
+    const Covector reduced_derivative_minus =
+      reduced.evaluate(shifted(control, control_direction, -hessian_step))
+        .reduced_derivative;
+    Covector hessian_finite_difference = reduced_derivative_plus;
+    hessian_finite_difference.add_scaled_block(
+      0, -1.0, reduced_derivative_minus.block(0));
+    hessian_finite_difference.scale_block(0, 1.0 / (2.0 * hessian_step));
+    hessian_finite_difference.add_scaled_block(
+      0, -1.0, hessian_action.block(0));
+    require_close(hessian_finite_difference.block(0).l2_norm(),
+                  0.0,
+                  2e-8,
+                  "fixed-Dirichlet compiled Hessian finite-difference action");
+
     auto changed_bindings = compiler::v1::DealiiDataBindings<dim>{
       forcing,
       desired_state,

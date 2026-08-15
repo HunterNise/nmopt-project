@@ -189,7 +189,7 @@ line-search option.
 | Nonlinear conjugate gradient | Gradient history and selected Fletcher–Reeves or Polak–Ribière update | The selected slice defaults to metric-aware PR+, exposes Fletcher–Reeves, verifies exact-search quadratic equivalence, and includes a strict classical quadratic-CG policy. |
 | Trust region | Quadratic model, Hessian-vector action, and radius update | Unconstrained metric Cauchy step with actual/predicted reduction diagnostics. |
 | Newton / truncated Newton | Hessian-vector action and inner linear solve | The selected slice uses capability-gated Newton; explicit truncated-Newton termination remains an extension. |
-| BFGS / L-BFGS | Secant history and metric-aware pairings | Start with limited memory; declare memory, curvature test, reset, and initial inverse-metric policy. |
+| Full BFGS / L-BFGS | Secant history and metric-aware pairings | Full memory retains every accepted pair for didactical reference; limited memory declares its cap, curvature test, reset, and initial inverse-metric policy for scalable PDE controls. |
 
 For a linear-quadratic target, the reduced Hessian is constant:
 

@@ -822,6 +822,34 @@ namespace
               nmopt::solvers::LimitedMemoryBfgsUpdateStatus::curvature_reset,
             "L-BFGS curvature reset was not reported");
 
+    using FullBfgsPolicy = nmopt::solvers::FullBfgsDirectionPolicyDense;
+    FullBfgsPolicy full_bfgs_policy({1e-14});
+    const PrimalBlock full_bfgs_control_2(
+      partition.control_layout(), {DenseVector{1.0, 1.0}});
+    const CovectorBlock full_bfgs_derivative_2(
+      partition.control_layout(), {DenseVector{2.0, 2.0}});
+    (void)full_bfgs_policy.next(
+      bfgs_control_0, bfgs_derivative_0, cg_metric);
+    (void)full_bfgs_policy.next(
+      bfgs_control_1, bfgs_derivative_1, cg_metric);
+    const auto full_bfgs_direction = full_bfgs_policy.next(
+      full_bfgs_control_2, full_bfgs_derivative_2, cg_metric);
+    require(full_bfgs_policy.history_size() == 2,
+            "full BFGS did not retain all valid secant pairs");
+    require(full_bfgs_policy.last_update_status() ==
+              nmopt::solvers::FullBfgsUpdateStatus::accepted_pair,
+            "full BFGS did not report an accepted secant pair");
+    require(full_bfgs_direction.directional_derivative < 0.0,
+            "full BFGS direction is not descending");
+    (void)full_bfgs_policy.next(
+      full_bfgs_control_2, full_bfgs_derivative_2, cg_metric);
+    require(full_bfgs_policy.history_size() == 0 &&
+              full_bfgs_policy.reset_count() == 1,
+            "full BFGS did not reset after failed curvature");
+    require(full_bfgs_policy.last_update_status() ==
+              nmopt::solvers::FullBfgsUpdateStatus::curvature_reset,
+            "full BFGS curvature reset was not reported");
+
     nmopt::solvers::ReducedNewtonParameters newton_parameters;
     newton_parameters.maximum_inner_iterations = 10;
     newton_parameters.relative_tolerance = 1e-12;
@@ -1237,6 +1265,26 @@ namespace
       require(lbfgs_result.objective_history[index] <=
                 lbfgs_result.objective_history[index - 1],
               "Dense L-BFGS objective history is not monotonic");
+
+    const nmopt::solvers::ReducedFullBfgsSolver full_bfgs_solver(
+      reduced, metric, solver_parameters);
+    const auto full_bfgs_result = full_bfgs_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(full_bfgs_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Dense full BFGS solver did not reach its tolerance");
+    require(full_bfgs_result.step_length_history.size() ==
+              full_bfgs_result.accepted_iterations,
+            "Dense full BFGS step history does not match accepted iterations");
+    require(full_bfgs_result.direction_reset_count <=
+              full_bfgs_result.accepted_iterations,
+            "Dense full BFGS direction reset count exceeds accepted iterations");
+    for (std::size_t index = 1;
+         index < full_bfgs_result.objective_history.size();
+         ++index)
+      require(full_bfgs_result.objective_history[index] <=
+                full_bfgs_result.objective_history[index - 1],
+              "Dense full BFGS objective history is not monotonic");
 
     const nmopt::solvers::NewtonDirectionPolicyDense exact_newton_direction(
       hessian, newton_parameters);

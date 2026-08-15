@@ -902,9 +902,9 @@ and reporting; they are not separate problem formulations.
 - A typed primal search-direction protocol supplied by a reduced covector and
   declared inverse metric.
 - Deterministic steepest-descent, nonlinear-CG (PR+ and Fletcher–Reeves
-  updates with restart), strict classical quadratic-CG, and limited-memory
-  BFGS policies. Store history with primal/dual layout checks and declared
-  curvature/reset behaviour.
+  updates with restart), strict classical quadratic-CG, full-memory BFGS, and
+  limited-memory BFGS policies. Store history with primal/dual layout checks
+  and declared curvature/reset behaviour.
 - A separate matrix-free Cauchy trust-region globalization policy with an
   explicit quadratic model, actual/predicted reduction ratio, radius update,
   and per-trial acceptance diagnostics. Keep it separate from scalar
@@ -914,14 +914,15 @@ and reporting; they are not separate problem formulations.
   expose Newton or truncated Newton only for models that provide the required
   second-order actions. Do not imply generic nonlinear second-order support
   from a first-order residual JVP/VJP pair.
-- Exact quadratic, Armijo, and later Wolfe line-search policies. Acceptance
-  must use declared pairings and the actual projected displacement.
+- Exact quadratic, Armijo, weak-Wolfe, and strong-Wolfe line-search policies.
+  Acceptance must use declared pairings and the actual projected displacement.
 - A uniform report with accepted objective, covector/gradient norm, step,
   stop reason, line-search trials, and state/adjoint/metric solve counts.
 
 **First registered target:** the existing one-state/one-decision linear DTO
-path, using a mass metric and unconstrained L-BFGS. Keep projected steepest
-descent as the only projected method until box transition/restart tests exist.
+path, using a mass metric and unconstrained full-memory or limited-memory
+BFGS. Keep projected steepest descent as the only projected method until box
+transition/restart tests exist.
 
 **Done when:** each selected direction has a descent test, each accepted trial
 meets its declared inequality, and gradient/metric identities plus solve-count
@@ -931,8 +932,8 @@ also passes symmetry and finite-difference reduced-covector tests.
 
 **Implementation closure:** the shared typed direction/result protocol now
 covers steepest descent, Polak–Ribiere-plus and Fletcher–Reeves nonlinear CG,
-strict classical quadratic-CG, and metric-aware limited-memory BFGS with
-declared layout, curvature, and restart behaviour.
+strict classical quadratic-CG, metric-aware full-memory BFGS, and
+limited-memory BFGS with declared layout, curvature, and restart behaviour.
 The explicit `ReducedHessianT` capability and exact linear-quadratic provider
 support metric-preconditioned Newton. Exact quadratic, Armijo, and Wolfe
 policies are selectable through the reduced solver and evaluate acceptance
@@ -942,6 +943,8 @@ deal.II, sanitizer, and release profiles; projected steepest descent remains
 the only projected direction policy in this slice.
 The exact-search PR+/Fletcher–Reeves equivalence and the separate strict
 classical quadratic-CG recurrence are verified on the linear-quadratic target.
+Full-memory and limited-memory BFGS are both selectable; the former retains
+all accepted typed secant pairs while the latter bounds its history.
 Weak-Wolfe and strong-Wolfe line searches are both selectable; their curvature
 conditions use the actual trial displacement.
 The unconstrained matrix-free Cauchy trust-region solver uses the explicit
@@ -986,9 +989,9 @@ not silently broaden the selected slice:
    projection transition, restart, and metric-coupling tests exist. This does
    not authorize generic continuous-control box semantics.
 
-Full BFGS, quadratic/cubic interpolation line searches, and other textbook
-variants remain optional alternatives rather than prerequisites for the
-selected framework slice.
+Quadratic/cubic interpolation line searches and other textbook variants remain
+optional alternatives rather than prerequisites for the selected framework
+slice.
 
 #### Hessian and Newton boundary
 

@@ -529,6 +529,13 @@ namespace nmopt::solvers
     ReducedLimitedMemoryBfgsSolverT<contract::DenseBackend>;
 
   template <typename Backend>
+  using ReducedFullBfgsSolverT =
+    ReducedSearchSolverT<Backend, FullBfgsDirectionPolicyT<Backend>>;
+
+  using ReducedFullBfgsSolver =
+    ReducedFullBfgsSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
   using ReducedWolfeGradientSolverT =
     ReducedSearchSolverT<Backend,
                          SteepestDescentDirectionPolicyT<Backend>,

@@ -42,6 +42,7 @@ The public executable and solver headers provide:
 | `solvers::FletcherReevesDirectionPolicyT` | The metric-aware Fletcher–Reeves direction policy with the same typed history and deterministic restart protocol. |
 | `solvers::QuadraticConjugateGradientDirectionPolicyT` | The strict classical quadratic-CG recurrence with metric-gradient history, periodic dimension restarts, and contract-checked descent. |
 | `solvers::LimitedMemoryBfgsDirectionPolicyT` | The metric-aware limited-memory BFGS direction policy with bounded typed secant history and explicit curvature resets. |
+| `solvers::FullBfgsDirectionPolicyT` | The metric-aware full-memory BFGS direction policy retaining every accepted typed secant pair and applying the full two-loop update. |
 | `solvers::NewtonDirectionPolicyT` | The explicit-Hessian Newton direction consumer using metric-preconditioned inner conjugate gradients. |
 | `solvers::ArmijoLineSearchPolicyT` | Backtracking Armijo acceptance using the declared pairing and the actual returned trial displacement. |
 | `solvers::ExactQuadraticLineSearchPolicyT` | One-step exact line search for a positive-curvature explicit reduced Hessian. |
@@ -56,6 +57,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedExactFletcherReevesSolverT` | The reduced Fletcher–Reeves execution loop combined with `ExactQuadraticLineSearchPolicyT`. |
 | `solvers::ReducedQuadraticConjugateGradientSolverT` | The strict classical quadratic-CG recurrence combined with `ExactQuadraticLineSearchPolicyT`. |
 | `solvers::ReducedLimitedMemoryBfgsSolverT` | The same reduced execution loop configured with `LimitedMemoryBfgsDirectionPolicyT` for the unconstrained first registration. |
+| `solvers::ReducedFullBfgsSolverT` | The same reduced execution loop configured with `FullBfgsDirectionPolicyT` for the unconstrained linear-quadratic reference target. |
 | `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
 | `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
 | `solvers::ReducedWolfeGradientSolverT` | The reduced steepest-descent loop combined with `WolfeLineSearchPolicyT`. |
@@ -291,6 +293,17 @@ restarts at the declared layout dimension, and rejects invalid curvature or a
 non-descent recurrence instead of applying nonlinear-CG fallback behaviour.
 `ReducedQuadraticConjugateGradientSolverT` composes it with exact quadratic
 search.
+
+The full-memory BFGS policy uses the same typed secant representation as
+limited-memory BFGS but retains every accepted pair instead of applying a
+memory cap. It therefore exposes the textbook full-memory update while
+remaining backend-parametric: the implementation applies the two-loop
+recursion to the declared metric inverse and does not require a separate
+dense-matrix backend capability. The curvature tolerance and reset semantics
+are the same as for limited-memory BFGS. The corresponding
+`ReducedFullBfgsSolverT` is registered for the unconstrained
+linear-quadratic reference target; limited-memory BFGS remains the scalable
+choice for high-dimensional PDE controls.
 
 `ReducedTrustRegionSolverT` is a separate globalization boundary rather than
 another line-search policy. It forms the metric Cauchy step

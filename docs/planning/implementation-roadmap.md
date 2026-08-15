@@ -1071,8 +1071,9 @@ remain P6.3.
 
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
 
-**Status:** selected after P6.1 and the supplied-OtD interface; required by
-the selected PDAS path.
+**Status:** selected after P6.1 and the supplied-OtD interface; Unit 1 has
+frozen the normative KKT product boundary. The executable contract, scalar
+reference target, lowerers, and Krylov policies remain to be implemented.
 
 **Motivation:** All-at-once OCPs are equality-constrained quadratic programs
 with a symmetric indefinite KKT operator. PDAS repeatedly solves related KKT
@@ -1189,6 +1190,11 @@ vocabulary.
 - **P5.2–P5.4 acceptance closure:** typed trace and negative-metric selections, target-data assumptions, control-boundary realization, typed transposition, fixed-boundary coverage, point/flux checks, closed registration matching, and realized transformed-observation dimensions. The `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass.
 - **Supporting evidence:** the closed request and pre-construction decision own target selection, typed regions and requirements, component inventories, and map skeletons; finalization adds only realized service facts, and manifest construction is a pure projection. Full compatibility remains stable under declaration-order and display-prose changes. Realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
 - **P6.1 reduced-space solver slice:** the selected direction, Hessian/Newton, line-search, reporting, and configurable-composition contracts are implemented for the scalar reduced DTO boundary. The final verification pass covers the neutral, deal.II Debug, sanitizer, and deal.II Release profiles.
+- **P6.3 Unit 1 — normative KKT boundary:** the reusable $Q$, $D$, and KKT
+  action, typed primal/multiplier/residual layouts, explicit multiplier-to-
+  adjoint conversion, rank/kernel assumptions, and MINRES/GMRES compatibility
+  rules are frozen in the interface specification. No executable KKT product
+  or solver has been added yet.
 
 ### Future implementation sequence
 

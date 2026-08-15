@@ -818,6 +818,76 @@ $$
 This difference is expected for some Petrov–Galerkin, stabilized,
 time-stepping, quadrature, observation, and lifting choices.
 
+### 7.3 Equality-constrained quadratic KKT products
+
+An all-at-once equality-constrained quadratic product is a formulation-level
+composition of a primal quadratic operator and a linear equality operator. Let
+the primal space be $`X_{h}`$, the residual-multiplier space be
+$`\Lambda_{h}`$, and the equality residual space be $`Z_{h}^{\ast}`$. The
+product declares
+
+$$
+Q_{h}:X_{h}\to X_{h}^{\ast},
+\qquad
+D_{h}:X_{h}\to Z_{h}^{\ast},
+$$
+
+with the quadratic and equality data represented by $`h_{h}\in X_{h}^{\ast}`$
+and $`f_{h}\in Z_{h}^{\ast}`$. Its KKT residual is
+
+```math
+\begin{bmatrix}
+Q_{h}x_{h}-h_{h}+D_{h}^{\ast}\lambda_{h}\\
+D_{h}x_{h}-f_{h}
+\end{bmatrix}=0,
+```
+
+and its block action on an increment is
+
+```math
+\begin{bmatrix}
+Q_{h} & D_{h}^{\ast}\\
+D_{h} & 0
+\end{bmatrix}
+\begin{bmatrix}
+\delta x_{h}\\
+\delta\lambda_{h}
+\end{bmatrix}.
+```
+
+The product MUST declare typed layouts for the primal, multiplier, equality
+residual, and KKT residual blocks. It MUST expose the actions of $`Q_{h}`$,
+$`D_{h}`$, and $`D_{h}^{\ast}`$, together with the KKT block action and the
+corresponding transpose action. An assembled matrix MAY be a lowerer
+optimisation; it is not the product contract.
+
+The product MUST record the multiplier convention and any conversion between
+the KKT multiplier and the framework adjoint. For the selected scalar target,
+the symmetric book multiplier is $`\lambda_{h}=-p_{h}`$; this is a declared
+conversion, not a solver-wide sign rule. DTO and supplied-OTD formulation
+builders MAY produce the same KKT product shape, but their provenance and
+construction evidence remain distinct in the manifest.
+
+The formulation MUST declare the assumptions needed by the selected solve
+policy, including the rank or compatibility condition for $D_{h}$ and the
+positive-definiteness of $Q_{h}$ on $\ker(D_{h})$. If those assumptions are not
+declared or the requested product cannot provide the required pairing, the
+compiler MUST return a formulation diagnostic rather than select a
+Schur-complement or Krylov policy by implication.
+
+KKT feasibility, stationarity, multiplier conversion, and linear-solve
+termination are separate reported quantities. The product MUST NOT identify
+the state or control with a particular PDE mass matrix, and a solver MUST NOT
+request a PDE family or control placement. Box complementarity, active-set
+selection, and multiplier classification belong to the later PDAS product;
+they are not part of this quadratic KKT contract.
+
+For a KKT action that is symmetric in its declared pairing, MINRES MAY be
+selected only with a compatible symmetric positive-definite preconditioner.
+GMRES is the policy for a declared nonsymmetric action. Variable-work
+preconditioners and flexible GMRES belong to the separate preconditioning
+extension and MUST not be inferred from a generic KKT product name.
+
 ## 8. Cases that remain cross-cutting
 
 The following cannot be made local to one term.  The stated protocol is

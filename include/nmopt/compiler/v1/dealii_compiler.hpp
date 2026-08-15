@@ -4318,12 +4318,22 @@ namespace nmopt::compiler::v1
       semantic::v1::ValidationReport & report)
     {
       using semantic::v1::DiagnosticCategory;
-      if (specification.formulation.kind !=
-          semantic::v1::FormulationKind::reduced_dto)
+      if (specification.formulation.kind ==
+            semantic::v1::FormulationKind::all_at_once &&
+          specification.formulation.provenance ==
+            semantic::v1::FormulationProvenance::supplied_otd)
+        report.add(DiagnosticCategory::formulation_capability,
+                   specification.formulation.id,
+                   "supplied_otd_execution",
+                   "The supplied OTD execution product is not registered yet.");
+      else if (specification.formulation.kind !=
+               semantic::v1::FormulationKind::reduced_dto ||
+               specification.formulation.provenance !=
+                 semantic::v1::FormulationProvenance::dto)
         report.add(DiagnosticCategory::formulation_capability,
                    specification.formulation.id,
                    "reduced_dto_formulation",
-                   "Select the v1 reduced DTO formulation; all-at-once is not available.");
+                   "Select the registered v1 DTO formulation; the requested provenance or execution shape is not available.");
       if (specification.variables.size() != 2 ||
           specification.equations.size() != 1)
         report.add(DiagnosticCategory::formulation_capability,
@@ -5107,6 +5117,7 @@ namespace nmopt::compiler::v1
       decision.formulation_record = {
         specification.formulation.id,
         specification.formulation.kind,
+        specification.formulation.provenance,
         ExecutionRealisation::assembled,
         "tested dual coefficients with dot pairing"};
       decision.mesh_record = {

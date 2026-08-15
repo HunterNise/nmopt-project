@@ -100,9 +100,11 @@ namespace nmopt::compiler::v1
 
   struct CompiledFormulationRecord
   {
-    std::string                   semantic_id;
-    semantic::v1::FormulationKind kind =
+    std::string                         semantic_id;
+    semantic::v1::FormulationKind       kind =
       semantic::v1::FormulationKind::unspecified;
+    semantic::v1::FormulationProvenance provenance =
+      semantic::v1::FormulationProvenance::unspecified;
     ExecutionRealisation execution = ExecutionRealisation::assembled;
     std::string          dual_representation;
   };

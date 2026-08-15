@@ -148,9 +148,15 @@ namespace nmopt::semantic::v1
        RequirementStatus::selected_discrete_realisation,
        RequirementScope::discrete_compilation,
        "analytic Function evaluated at selected volume quadrature", "domain"}};
-    specification.formulation = {"reduced_dto", FormulationKind::reduced_dto,
-                                  "state", "control", "state_equation",
-                                  "control_l2_metric", ""};
+    specification.formulation = {
+      "reduced_dto",
+      FormulationKind::reduced_dto,
+      FormulationProvenance::dto,
+      "state",
+      "control",
+      "state_equation",
+      "control_l2_metric",
+      ""};
 
     if (with_cellwise_box)
       {
@@ -989,9 +995,15 @@ namespace nmopt::semantic::v1
        RequirementScope::discrete_compilation,
        "analytic Function evaluated at selected boundary face quadrature",
        "observation_boundary"}};
-    specification.formulation = {"reduced_dto", FormulationKind::reduced_dto,
-                                  "state", "control", "state_equation",
-                                  "control_l2_metric", ""};
+    specification.formulation = {
+      "reduced_dto",
+      FormulationKind::reduced_dto,
+      FormulationProvenance::dto,
+      "state",
+      "control",
+      "state_equation",
+      "control_l2_metric",
+      ""};
 
     if (with_facewise_box)
       {

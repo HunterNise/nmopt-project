@@ -492,6 +492,13 @@ namespace nmopt::semantic::v1
     all_at_once
   };
 
+  enum class FormulationProvenance
+  {
+    unspecified = -1,
+    dto,
+    supplied_otd
+  };
+
   struct RegionSpec
   {
     std::string               id;
@@ -674,16 +681,18 @@ namespace nmopt::semantic::v1
 
   struct ReducedFormulationSpec
   {
-    std::string     id;
-    FormulationKind kind = FormulationKind::unspecified;
-    std::string     state_variable_id;
-    // This is the binary reduced DTO decision port. It may identify either a
-    // control or a parameter variable; the field name is retained for source
-    // compatibility with the first control-only semantic slice.
-    std::string     control_variable_id;
-    std::string     equation_id;
-    std::string     metric_id;
-    std::string     constraint_id;
+    std::string           id;
+    FormulationKind       kind = FormulationKind::unspecified;
+    FormulationProvenance provenance = FormulationProvenance::unspecified;
+    std::string            state_variable_id;
+    // This is the primary decision-variable port for the narrow DTO and
+    // supplied-OTD scalar formulations. It may identify either a control or a
+    // parameter variable; the field name is retained for source compatibility
+    // with the first control-only semantic slice.
+    std::string            control_variable_id;
+    std::string            equation_id;
+    std::string            metric_id;
+    std::string            constraint_id;
   };
 
   // This is a composition root, not a PDE-model class. The v1 compiler only

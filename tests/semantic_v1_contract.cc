@@ -1537,6 +1537,9 @@ namespace
             "default requirement-policy enums are not safe");
     require(ReducedFormulationSpec{}.kind == FormulationKind::unspecified,
             "default formulation kind is not safe");
+    require(ReducedFormulationSpec{}.provenance ==
+              FormulationProvenance::unspecified,
+            "default formulation provenance is not safe");
 
     const SemanticValidator validator;
     nmopt::test_support::require_exact_diagnostic(
@@ -1642,6 +1645,10 @@ namespace
        }},
       {"reduced_dto", "formulation_kind", [](ProblemSpec &specification) {
          specification.formulation.kind = FormulationKind::unspecified;
+       }},
+      {"reduced_dto", "formulation_provenance", [](ProblemSpec &specification) {
+         specification.formulation.provenance =
+           FormulationProvenance::unspecified;
        }}};
 
     for (const auto &test_case : cases)
@@ -1655,6 +1662,13 @@ namespace
           test_case.capability,
           "partially populated semantic component was not diagnosed");
       }
+
+    auto supplied_otd =
+      nmopt::semantic::v1::make_scalar_diffusion_reaction_problem(true);
+    supplied_otd.formulation.kind = FormulationKind::all_at_once;
+    supplied_otd.formulation.provenance = FormulationProvenance::supplied_otd;
+    require(validator.validate(supplied_otd).valid(),
+            "a typed supplied OTD formulation was rejected structurally");
   }
 
   void

@@ -498,6 +498,8 @@ namespace
       manifest.schema_version == 3 &&
         manifest.formulation_record.kind ==
           semantic::v1::FormulationKind::reduced_dto &&
+        manifest.formulation_record.provenance ==
+          semantic::v1::FormulationProvenance::dto &&
         manifest.formulation_record.execution ==
           compiler::v1::ExecutionRealisation::assembled &&
         manifest.mesh_record.dimension > 0 &&
@@ -573,6 +575,8 @@ namespace
       decision.formulation_record.semantic_id ==
           manifest.formulation_record.semantic_id &&
         decision.formulation_record.kind == manifest.formulation_record.kind &&
+        decision.formulation_record.provenance ==
+          manifest.formulation_record.provenance &&
         decision.formulation_record.execution ==
           manifest.formulation_record.execution &&
         decision.formulation_record.dual_representation ==
@@ -5258,6 +5262,20 @@ namespace
       "reduced_dto",
       "reduced_dto_formulation",
       "v1 compiler did not report an unsupported formulation capability");
+
+    auto unsupported_supplied_otd = specification;
+    unsupported_supplied_otd.formulation.kind =
+      semantic::v1::FormulationKind::all_at_once;
+    unsupported_supplied_otd.formulation.provenance =
+      semantic::v1::FormulationProvenance::supplied_otd;
+    const auto supplied_otd_diagnostic =
+      v1_compiler.validate(unsupported_supplied_otd, compilation_policy);
+    test_support::require_exact_diagnostic(
+      supplied_otd_diagnostic,
+      semantic::v1::DiagnosticCategory::formulation_capability,
+      "reduced_dto",
+      "supplied_otd_execution",
+      "v1 compiler did not distinguish the supplied OTD capability");
 
     const compiler::v1::DealiiDataBindings<dim> data_bindings{
       forcing,

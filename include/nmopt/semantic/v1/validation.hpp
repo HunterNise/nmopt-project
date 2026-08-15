@@ -321,6 +321,13 @@ namespace nmopt::semantic::v1
         "formulation",
         "formulation_kind",
         report);
+      require_specified(
+        specification.formulation.provenance !=
+          FormulationProvenance::unspecified,
+        specification.formulation.id,
+        "formulation",
+        "formulation_provenance",
+        report);
     }
 
     static bool
@@ -1418,6 +1425,12 @@ namespace nmopt::semantic::v1
                    "formulation",
                    "stable_component_identity",
                    "Give the reduced formulation a non-empty identifier.");
+      if (formulation.provenance == FormulationProvenance::supplied_otd &&
+          formulation.kind != FormulationKind::all_at_once)
+        report.add(DiagnosticCategory::structural,
+                   formulation.id,
+                   "supplied_otd_execution_shape",
+                   "Use the all-at-once execution shape for a supplied OTD product.");
       if (state == variables.end() || state->second->role != VariableRole::state)
         report.add(DiagnosticCategory::structural,
                    formulation.id,

@@ -818,6 +818,15 @@ $$
 This difference is expected for some Petrov–Galerkin, stabilized,
 time-stepping, quadrature, observation, and lifting choices.
 
+For the selected canonical supplied-OTD shape, a reusable adapter MAY lower
+the supplied blocks to the common quadratic KKT boundary. It takes the
+negative supplied adjoint-equation JVP as the primal quadratic action, the
+state-equation JVP as the equality action, and the supplied residual VJP as
+the equality transpose. The adapter MUST retain the supplied block selection
+and the declared conversion $`\lambda_{h}=-p_{h}`$; it MUST NOT relabel the
+result as a DTO derivative. Non-canonical supplied-OTD block shapes require
+their own declared adapter or formulation diagnostic.
+
 ### 7.3 Equality-constrained quadratic KKT products
 
 An all-at-once equality-constrained quadratic product is a formulation-level

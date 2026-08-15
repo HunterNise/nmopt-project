@@ -94,7 +94,7 @@ namespace
     const LinearQuadraticModel dto = make_dto_target();
     const SuppliedLinearQuadraticSystem supplied = make_supplied_target();
     const Product dto_product = make_dto_kkt_product(dto.kkt_data());
-    const Product supplied_product =
+    const Product supplied_product = nmopt::contract::
       make_canonical_supplied_otd_kkt_product(supplied.system());
 
     const DenseVector state{0.2, -0.3};
@@ -128,7 +128,7 @@ namespace
   {
     const LinearQuadraticModel dto = make_dto_target();
     const SuppliedLinearQuadraticSystem supplied = make_supplied_target();
-    const Product product =
+    const Product product = nmopt::contract::
       make_canonical_supplied_otd_kkt_product(supplied.system());
 
     const auto supplied_result = supplied.system().solve(

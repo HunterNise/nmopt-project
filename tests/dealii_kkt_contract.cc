@@ -1,4 +1,5 @@
 #include "nmopt/dealii/scalar_diffusion_reaction_kkt.hpp"
+#include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
@@ -17,6 +18,7 @@ namespace
   using Backend = nmopt::dealii_backend::SerialBackend;
   using KKT = nmopt::dealii_backend::ScalarDiffusionReactionKKT<2>;
   using Product = KKT::Product;
+  using SuppliedSystem = KKT::Model::SuppliedSystem;
   using Vector = dealii::Vector<double>;
   using BlockVector = dealii::BlockVector<double>;
 
@@ -210,6 +212,102 @@ namespace
                     1e-12,
                     "assembled control right-hand side");
   }
+
+  void
+  test_supplied_otd_bridge_matches_dto_product()
+  {
+    dealii::Triangulation<2> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation, 0.0, 1.0);
+    triangulation.refine_global(1);
+    const auto model = make_model(triangulation);
+    const KKT dto_kkt(model);
+    const SuppliedSystem supplied =
+      KKT::Model::make_supplied_otd_system(model);
+    const Product supplied_product =
+      nmopt::contract::make_canonical_supplied_otd_kkt_product(supplied);
+
+    const std::size_t state_dimension = dto_kkt.product().layout().primal->dimension(0);
+    const std::size_t control_dimension = dto_kkt.product().layout().primal->dimension(1);
+    Vector state(state_dimension);
+    Vector control(control_dimension);
+    Vector multiplier(state_dimension);
+    for (std::size_t index = 0; index < state_dimension; ++index)
+      {
+        state[index] = 0.12 + 0.01 * static_cast<double>(index);
+        multiplier[index] = -0.08 + 0.015 * static_cast<double>(index);
+      }
+    for (std::size_t index = 0; index < control_dimension; ++index)
+      control[index] = -0.06 + 0.025 * static_cast<double>(index);
+
+    const Product::Point dto_point =
+      make_point(dto_kkt.product(), state, control, multiplier);
+    const Product::Point supplied_point =
+      make_point(supplied_product, state, control, multiplier);
+    const auto dto_action = dto_kkt.product().apply_kkt(dto_point);
+    const auto supplied_action = supplied_product.apply_kkt(supplied_point);
+    require_vector_close(supplied_action.stationarity.block(0),
+                         dto_action.stationarity.block(0),
+                         1e-12,
+                         "supplied-OTD KKT state action differs from DTO");
+    require_vector_close(supplied_action.stationarity.block(1),
+                         dto_action.stationarity.block(1),
+                         1e-12,
+                         "supplied-OTD KKT control action differs from DTO");
+    require_vector_close(supplied_action.equality.block(0),
+                         dto_action.equality.block(0),
+                         1e-12,
+                         "supplied-OTD KKT equality action differs from DTO");
+
+    const auto dto_residual = dto_kkt.product().residual(dto_point);
+    const auto supplied_residual = supplied_product.residual(supplied_point);
+    require_vector_close(supplied_residual.stationarity.block(0),
+                         dto_residual.stationarity.block(0),
+                         1e-12,
+                         "supplied-OTD KKT state residual differs from DTO");
+    require_vector_close(supplied_residual.stationarity.block(1),
+                         dto_residual.stationarity.block(1),
+                         1e-12,
+                         "supplied-OTD KKT control residual differs from DTO");
+    require_vector_close(supplied_residual.equality.block(0),
+                         dto_residual.equality.block(0),
+                         1e-12,
+                         "supplied-OTD KKT equality residual differs from DTO");
+
+    const auto supplied_adjoint =
+      supplied_product.multiplier_to_adjoint(supplied_point.multiplier);
+    const auto dto_adjoint =
+      dto_kkt.product().multiplier_to_adjoint(dto_point.multiplier);
+    require_vector_close(supplied_adjoint.block(0),
+                         dto_adjoint.block(0),
+                         1e-12,
+                         "supplied-OTD multiplier conversion differs from DTO");
+
+    const auto solution = supplied.solve(
+      SuppliedSystem::Primal::zeros(supplied.variable_layout()));
+    nmopt::contract::require(solution.report.converged(),
+                             "supplied-OTD bridge solve did not converge");
+    const auto &selection = supplied.block_selection();
+    Vector solved_state = solution.solution.block(selection.state_variable);
+    Vector solved_adjoint = solution.solution.block(selection.adjoint_variable);
+    Vector solved_control = solution.solution.block(selection.control_variable);
+    Vector solved_multiplier = solved_adjoint;
+    solved_multiplier *= -1.0;
+    const Product::Point solved_point = make_point(
+      supplied_product, solved_state, solved_control, solved_multiplier);
+    const auto solved_residual = supplied_product.residual(solved_point);
+    require_close(solved_residual.stationarity.block(0).l2_norm(),
+                  0.0,
+                  1e-10,
+                  "supplied-OTD bridge state solution residual");
+    require_close(solved_residual.stationarity.block(1).l2_norm(),
+                  0.0,
+                  1e-10,
+                  "supplied-OTD bridge control solution residual");
+    require_close(solved_residual.equality.block(0).l2_norm(),
+                  0.0,
+                  1e-10,
+                  "supplied-OTD bridge equality solution residual");
+  }
 } // namespace
 
 int
@@ -222,7 +320,12 @@ main(const int argc, char **argv)
          "nmopt.dealii.scalar_dto_kkt_blocks",
          {"dealii", "contract", "kkt", "assembled"},
          60,
-         test_named_block_assembly_matches_product}};
+         test_named_block_assembly_matches_product},
+        {"scalar_supplied_otd_kkt_bridge",
+         "nmopt.dealii.scalar_supplied_otd_kkt_bridge",
+         {"dealii", "contract", "kkt", "supplied-otd"},
+         60,
+         test_supplied_otd_bridge_matches_dto_product}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

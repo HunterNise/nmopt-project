@@ -1071,9 +1071,9 @@ remain P6.3.
 
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
 
-**Status:** selected after P6.1 and the supplied-OtD interface; Units 1–4 have
+**Status:** selected after P6.1 and the supplied-OtD interface; Units 1–5 have
 frozen and exercised the normative KKT product boundary through the serial
-scalar DTO lowerer. Krylov policies and the supplied-OTD bridge remain to be
+scalar DTO and canonical supplied-OTD lowerers. Krylov policies remain to be
 implemented.
 
 **Motivation:** All-at-once OCPs are equality-constrained quadratic programs
@@ -1215,15 +1215,23 @@ vocabulary.
   transpose provenance; the assembled action, transpose, and right-hand side
   agree with the backend-neutral product. The focused scenario is registered
   in the full deal.II gate (21/21 neutral and 51/51 deal.II scenarios pass).
+- **P6.3 Unit 5 — supplied-OTD KKT bridge:** the reusable
+  `make_canonical_supplied_otd_kkt_product` adapter now lives at the
+  backend-neutral contract boundary. The reference and serial deal.II targets
+  use the same adapter; DTO and supplied-OTD actions, residuals, multiplier
+  conversion, and the supplied direct solution agree. Focused and prior
+  regression scenarios pass; the full gates now pass 21/21 neutral and 52/52
+  deal.II scenarios.
 
 ### Future implementation sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
 selected P6.1 scalar reduced DTO boundary and the canonical P6.2 supplied-
-OTD slice are complete; future work begins with P6.3:
+OTD slice are complete; current work continues with P6.3:
 
-1. **P6.3/P6.5:** implement the scalar KKT product and diagnostics, then
-   complementarity/PDAS for the selected cellwise box representation.
+1. **P6.3/P6.5:** add Krylov policies and diagnostics to the scalar KKT
+   products, then implement complementarity/PDAS for the selected cellwise
+   box representation.
 2. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
 3. **P6.1 extension track:** after the required P6.2/P6.3/P6.5 gates and
    selected benchmark evidence, activate the [P6.1 extension ladder](#p61-extension-ladder)

@@ -435,9 +435,11 @@ the generic PDAS solve.
    the selected canonical supplied-OTD slice (P6.2). The compiler records
    whether the product is DTO or supplied OTD; it does not derive automatic
    continuous adjoints or claim generic stabilised-Lagrangian coverage.
-3. Next: generalise executable algebra to equality-constrained quadratic KKT
-   products (P6.3), then add mixed Stokes blocks through P5.6.
-4. Add block preconditioner and Krylov policies (P6.4) as deterministic
+3. Completed: generalise executable algebra to equality-constrained quadratic
+   KKT products (P6.3), including the canonical supplied-OTD bridge and the
+   serial DTO assembled/matrix-free comparison.
+4. Next: add MINRES/GMRES policies and diagnostics to the KKT boundary, then
+   add block preconditioner policies (P6.4) as deterministic
    operator actions before an assembly-only hierarchy.
 5. Add complementarity, selection, and PDAS (P6.5), then build the
    regularised mixed constraint.

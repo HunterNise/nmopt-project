@@ -331,6 +331,36 @@ namespace
       1e-15,
       "Steepest-descent direction sign");
 
+    const ReducedHessian &hessian = model;
+    const CovectorBlock hessian_action =
+      hessian.apply(control, control_direction);
+    CovectorBlock reduced_derivative_difference =
+      reduced.evaluate(shifted(control, control_direction, epsilon))
+        .reduced_derivative;
+    for (std::size_t block = 0;
+         block < reduced_derivative_difference.n_blocks();
+         ++block)
+      {
+        reduced_derivative_difference.add_scaled_block(
+          block, -1.0, evaluation.reduced_derivative.block(block));
+        reduced_derivative_difference.scale_block(block, 1.0 / epsilon);
+        for (std::size_t entry = 0;
+             entry < reduced_derivative_difference.block(block).size();
+             ++entry)
+          require_close(reduced_derivative_difference.block(block)[entry],
+                        hessian_action.block(block)[entry],
+                        2e-7,
+                        "Reduced Hessian finite-difference action");
+      }
+    const PrimalBlock second_hessian_direction(
+      partition.control_layout(), {DenseVector{0.35, -0.2}});
+    const CovectorBlock second_hessian_action =
+      hessian.apply(control, second_hessian_direction);
+    require_close(pair(hessian_action, second_hessian_direction),
+                  pair(second_hessian_action, control_direction),
+                  1e-13,
+                  "Reduced Hessian symmetry");
+
     const DiagonalMetric cg_metric(
       "cg_metric", partition.control_layout(), {DenseVector{1.0, 1.0}});
     using CGPolicy =
@@ -417,6 +447,41 @@ namespace
     require(bfgs_policy.last_update_status() ==
               nmopt::solvers::LimitedMemoryBfgsUpdateStatus::curvature_reset,
             "L-BFGS curvature reset was not reported");
+
+    nmopt::solvers::ReducedNewtonParameters newton_parameters;
+    newton_parameters.maximum_inner_iterations = 10;
+    newton_parameters.relative_tolerance = 1e-12;
+    newton_parameters.absolute_tolerance = 1e-14;
+    newton_parameters.curvature_tolerance = 1e-14;
+    nmopt::solvers::ReducedSolverParameters newton_solver_parameters;
+    newton_solver_parameters.gradient_tolerance = 1e-8;
+    newton_solver_parameters.initial_step_length = 10.0;
+    const nmopt::solvers::NewtonDirectionPolicyDense newton_policy(
+      hessian, newton_parameters);
+    const nmopt::solvers::ReducedNewtonSolver newton_solver(
+      reduced, metric, newton_solver_parameters, newton_policy);
+    const auto newton_result = newton_solver.solve(control);
+    require(newton_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Reduced Newton solver did not reach its tolerance");
+    require(newton_result.hessian_action_count > 0,
+            "Reduced Newton solver did not report Hessian actions");
+    require(newton_result.step_length_history.size() ==
+              newton_result.accepted_iterations,
+            "Reduced Newton step history does not match accepted iterations");
+    require(newton_result.metric_solve_count >
+              newton_result.hessian_action_count,
+            "Reduced Newton did not report metric preconditioning actions");
+
+    const nmopt::solvers::NewtonDirectionPolicyDense missing_hessian_policy;
+    const nmopt::solvers::ReducedNewtonSolver missing_hessian_solver(
+      reduced, metric, newton_solver_parameters, missing_hessian_policy);
+    nmopt::test_support::require_contract_error(
+      [&missing_hessian_solver, &control]() {
+        (void)missing_hessian_solver.solve(control);
+      },
+      "Newton direction requires a reduced Hessian capability",
+      "Newton missing Hessian capability");
 
     nmopt::test_support::require_contract_error(
       [&partition, &metric]() {

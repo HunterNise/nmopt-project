@@ -1,11 +1,13 @@
 #pragma once
 
 #include "nmopt/contract/metric_constraint.hpp"
+#include "nmopt/contract/reduced_hessian.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <deque>
+#include <limits>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -56,6 +58,8 @@ namespace nmopt::solvers
     contract::PrimalBlockT<Backend> direction;
     double                          gradient_norm;
     double                          directional_derivative;
+    std::size_t                     metric_solve_count;
+    std::size_t                     hessian_action_count;
   };
 
   using ReducedSearchDirection =
@@ -75,6 +79,7 @@ namespace nmopt::solvers
     std::vector<double>             step_length_history;
     std::vector<double>             objective_change_history;
     std::size_t                     metric_solve_count;
+    std::size_t                     hessian_action_count;
     std::size_t                     direction_reset_count;
   };
 
@@ -158,7 +163,8 @@ namespace nmopt::solvers
   ReducedSearchDirectionT<Backend>
   make_steepest_descent_direction_from_metric_gradient(
     const contract::CovectorBlockT<Backend> &reduced_derivative,
-    ReducedMetricGradientT<Backend>          metric_gradient)
+    ReducedMetricGradientT<Backend>          metric_gradient,
+    const std::size_t                        metric_solve_count = 1)
   {
     contract::PrimalBlockT<Backend> direction = metric_gradient.gradient;
     scale_primal(direction, -1.0);
@@ -170,7 +176,9 @@ namespace nmopt::solvers
 
     return {std::move(direction),
             metric_gradient.norm,
-            directional_derivative};
+            directional_derivative,
+            metric_solve_count,
+            0};
   }
 
   template <typename Backend>
@@ -323,7 +331,9 @@ namespace nmopt::solvers
                         "Nonlinear CG could not produce a descent direction");
       return {std::move(direction),
               current_gradient.norm,
-              directional_derivative};
+              directional_derivative,
+              1,
+              0};
     }
 
     std::size_t
@@ -515,7 +525,9 @@ namespace nmopt::solvers
       last_status_ = LimitedMemoryBfgsUpdateStatus::accepted_pair;
       return {std::move(inverse_hessian_action),
               current_gradient.norm,
-              directional_derivative};
+              directional_derivative,
+              2,
+              0};
     }
 
     std::size_t
@@ -573,4 +585,189 @@ namespace nmopt::solvers
 
   using LimitedMemoryBfgsDirectionPolicyDense =
     LimitedMemoryBfgsDirectionPolicyT<contract::DenseBackend>;
+
+  struct ReducedNewtonParameters
+  {
+    unsigned int maximum_inner_iterations = 100;
+    double       relative_tolerance = 1e-10;
+    double       absolute_tolerance = 1e-12;
+    double       curvature_tolerance = 1e-14;
+  };
+
+  // Newton is available only when a model supplies the explicit reduced
+  // Hessian capability. The inner solve is metric-preconditioned CG for the
+  // covector equation H d = -j'. It never manufactures a Hessian from the
+  // first-order DTO ports.
+  template <typename Backend>
+  class NewtonDirectionPolicyT
+  {
+  public:
+    using Direction = ReducedSearchDirectionT<Backend>;
+    using Primal = contract::PrimalBlockT<Backend>;
+    using Covector = contract::CovectorBlockT<Backend>;
+
+    NewtonDirectionPolicyT() = default;
+
+    NewtonDirectionPolicyT(
+      const contract::ReducedHessianT<Backend> &hessian,
+      ReducedNewtonParameters                    parameters = {})
+      : hessian_(&hessian)
+      , parameters_(parameters)
+    {
+      validate_parameters();
+    }
+
+    void
+    reset()
+    {}
+
+    Direction
+    next(const Primal &control,
+         const Covector &reduced_derivative,
+         const contract::MetricT<Backend> &metric)
+    {
+      contract::require(hessian_ != nullptr,
+                        "Newton direction requires a reduced Hessian capability");
+      validate_parameters();
+      contract::require(control.layout()->compatible_with(*metric.layout()),
+                        "Newton control does not match metric");
+      contract::require(control.layout()->compatible_with(*hessian_->layout()),
+                        "Newton control does not match reduced Hessian layout");
+
+      const ReducedMetricGradientT<Backend> current_gradient =
+        make_metric_gradient(reduced_derivative, metric);
+
+      Covector residual = reduced_derivative;
+      for (std::size_t block = 0; block < residual.n_blocks(); ++block)
+        residual.scale_block(block, -1.0);
+
+      Primal preconditioned_residual = metric.inverse_apply(residual);
+      std::size_t metric_solve_count = 1;
+      const double initial_squared_norm =
+        contract::pair(residual, preconditioned_residual);
+      contract::require(std::isfinite(initial_squared_norm) &&
+                          initial_squared_norm >= 0.0,
+                        "Newton inner solve returned an invalid initial residual norm");
+
+      const double initial_norm = std::sqrt(initial_squared_norm);
+      const double target_norm = std::max(
+        parameters_.absolute_tolerance,
+        parameters_.relative_tolerance * initial_norm);
+      Primal newton_direction = Primal::zeros(metric.layout());
+      std::size_t hessian_action_count = 0;
+
+      if (initial_norm > target_norm)
+        {
+          Primal search_direction = preconditioned_residual;
+          double residual_preconditioned_pairing = initial_squared_norm;
+          bool converged = false;
+
+          for (unsigned int iteration = 0;
+               iteration < parameters_.maximum_inner_iterations;
+               ++iteration)
+            {
+              const Covector hessian_direction =
+                hessian_->apply(control, search_direction);
+              ++hessian_action_count;
+              contract::require(hessian_direction.layout()->compatible_with(
+                                  *metric.layout()),
+                                "Reduced Hessian returned an incompatible covector layout");
+
+              const double curvature =
+                contract::pair(hessian_direction, search_direction);
+              const double direction_norm_squared = contract::pair(
+                metric.apply(search_direction), search_direction);
+              contract::require(std::isfinite(direction_norm_squared) &&
+                                  direction_norm_squared > 0.0,
+                                "Newton inner CG produced a zero search direction");
+              const double curvature_scale =
+                std::max(direction_norm_squared,
+                         std::numeric_limits<double>::min());
+              contract::require(
+                std::isfinite(curvature) &&
+                  curvature > parameters_.curvature_tolerance * curvature_scale,
+                "Newton reduced Hessian is not positive curvature for CG");
+
+              const double step =
+                residual_preconditioned_pairing / curvature;
+              contract::require(std::isfinite(step) && step > 0.0,
+                                "Newton inner CG returned an invalid step");
+              add_scaled_primal(newton_direction, step, search_direction);
+              add_scaled_covector(residual, -step, hessian_direction);
+
+              Primal next_preconditioned_residual =
+                metric.inverse_apply(residual);
+              ++metric_solve_count;
+              const double next_pairing =
+                contract::pair(residual, next_preconditioned_residual);
+              contract::require(std::isfinite(next_pairing) &&
+                                  next_pairing >= 0.0,
+                                "Newton inner solve returned an invalid residual norm");
+              const double next_norm = std::sqrt(next_pairing);
+              if (next_norm <= target_norm)
+                {
+                  converged = true;
+                  break;
+                }
+
+              contract::require(
+                iteration + 1 < parameters_.maximum_inner_iterations,
+                "Newton inner CG reached its iteration limit");
+              const double beta = next_pairing /
+                                  residual_preconditioned_pairing;
+              contract::require(std::isfinite(beta) && beta >= 0.0,
+                                "Newton inner CG returned an invalid coefficient");
+              scale_primal(search_direction, beta);
+              add_scaled_primal(search_direction,
+                                1.0,
+                                next_preconditioned_residual);
+              residual_preconditioned_pairing = next_pairing;
+            }
+
+          contract::require(converged,
+                            "Newton inner CG did not converge");
+        }
+
+      const double directional_derivative =
+        contract::pair(reduced_derivative, newton_direction);
+      contract::require(std::isfinite(directional_derivative) &&
+                          directional_derivative <= 0.0,
+                        "Newton reduced Hessian did not produce a descent direction");
+      return {std::move(newton_direction),
+              current_gradient.norm,
+              directional_derivative,
+              metric_solve_count,
+              hessian_action_count};
+    }
+
+    std::size_t
+    reset_count() const noexcept
+    {
+      return 0;
+    }
+
+  private:
+    void
+    validate_parameters() const
+    {
+      contract::require(parameters_.maximum_inner_iterations > 0,
+                        "Newton inner iteration limit must be positive");
+      contract::require(parameters_.relative_tolerance > 0.0 &&
+                          parameters_.relative_tolerance < 1.0,
+                        "Newton relative tolerance must lie in (0, 1)");
+      contract::require(parameters_.absolute_tolerance > 0.0,
+                        "Newton absolute tolerance must be positive");
+      contract::require(parameters_.curvature_tolerance > 0.0,
+                        "Newton curvature tolerance must be positive");
+    }
+
+    const contract::ReducedHessianT<Backend> *hessian_ = nullptr;
+    ReducedNewtonParameters                    parameters_;
+  };
+
+  template <typename Backend>
+  using NewtonDirectionPolicy = NewtonDirectionPolicyT<Backend>;
+
+  using NewtonDirectionPolicyDense =
+    NewtonDirectionPolicyT<contract::DenseBackend>;
 } // namespace nmopt::solvers

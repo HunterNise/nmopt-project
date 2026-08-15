@@ -35,13 +35,16 @@ The public executable and solver headers provide:
 | `Constraint` | Feasibility and projection coupled to an actual compatible metric realization. |
 | `LinearSolveReport` and `FormulationSolveResultT` | Backend-neutral state/adjoint convergence, tolerance, and work evidence paired with a solved primal block. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
-| `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm and reduced-covector directional derivative. |
+| `contract::ReducedHessianT` | An explicit reduced-Hessian capability that applies $`H(u)w`$ as a typed reduced covector; first-order DTO ports do not imply this capability. |
+| `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm, reduced-covector directional derivative, and action counts. |
 | `solvers::NonlinearConjugateGradientDirectionPolicyT` | The selected metric-aware Polak–Ribière+ direction policy with typed primal/dual history and deterministic restarts. |
 | `solvers::LimitedMemoryBfgsDirectionPolicyT` | The metric-aware limited-memory BFGS direction policy with bounded typed secant history and explicit curvature resets. |
-| `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric action counts, and explicit direction-reset counts. |
+| `solvers::NewtonDirectionPolicyT` | The explicit-Hessian Newton direction consumer using metric-preconditioned inner conjugate gradients. |
+| `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric/Hessian action counts, and explicit direction-reset counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
 | `solvers::ReducedLimitedMemoryBfgsSolverT` | The same reduced execution loop configured with `LimitedMemoryBfgsDirectionPolicyT` for the unconstrained first registration. |
+| `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
@@ -125,8 +128,10 @@ short-lived reference use. Its compiled constructor owns the executable and
 an optional backend-session lifetime token, so a reduced service detached from
 its `CompiledProblemT` remains valid.
 
-Mixed partitions, multiple equation blocks, nonlinear all-at-once Newton,
-OTD, and Hessian-vector actions are intentionally outside this v0 contract.
+Mixed partitions, multiple equation blocks, nonlinear all-at-once Newton, OTD,
+and generic nonlinear second-order actions are intentionally outside this v0
+contract. The explicit `ReducedHessianT` capability is the narrow exception
+for selected models that provide their own exact or declared Hessian action.
 The historical `StateControlPartitionT` name denotes this binary decision
 port; a v1 coefficient lowerer may give its layout the semantic identifier
 `parameter` without changing the backend-neutral value/JVP/VJP core.
@@ -135,7 +140,8 @@ port; a v1 coefficient lowerer may give its layout the semantic identifier
 
 `solvers::ReducedGradientSolverT` is the first generic optimizer.
 `ReducedSearchDirectionT` stores the primal direction $`d`$, its metric
-gradient norm, and $`j_{h}'[d]`$. The initial steepest-descent policy forms
+gradient norm, $`j_{h}'[d]`$, and the metric/Hessian action counts used to form
+it. The initial steepest-descent policy forms
 $`g=G^{-1}j_{h}'`$ and supplies $`d=-g`$ to the solver. An unconstrained
 trial is therefore $`u^{+}=u+\alpha d`$ and is accepted only when it satisfies
 
@@ -165,14 +171,15 @@ $$
 
 The shared `ReducedSolverResultT` returns accepted-objective and stopping-norm
 histories, one step length and objective change for each accepted iteration,
-accepted-iteration and line-search-trial counts, separate state, adjoint, and
-metric inverse-action counts, and one stopping reason:
+accepted-iteration and line-search-trial counts, separate state, adjoint,
+metric inverse-action, and Hessian-action counts, and one stopping reason:
 `gradient_tolerance`, `maximum_iterations`, or `line_search_failure`. Each
 objective trial is evaluated through `ReducedDTOT::evaluate`, so both reported
 formulation solve counts increase once for the initial point and once for every
 line-search trial. The metric count records each direction-forming inverse
-metric action; backend-specific inner iterations remain in the metric's own
-realisation policy.
+metric action; the Hessian count records each explicit provider application.
+Backend-specific inner iterations remain in the metric or Hessian realization
+policy.
 
 The selected nonlinear-CG policy uses the metric gradient
 $`g_{k}=G^{-1}j_{h}'(u_{k})`$ and the Polak–Ribière+ coefficient
@@ -206,6 +213,15 @@ policy also exposes whether the latest update was initial, accepted, or a
 curvature reset. Layout mismatches are rejected rather than silently
 discarded. The first registered `ReducedLimitedMemoryBfgsSolverT` integration
 is the unconstrained one-state/one-decision reduced DTO with the mass metric.
+
+The Newton policy requires a `ReducedHessianT` capability and solves
+`$H(u)d=-j_{h}'(u)$` with metric-preconditioned inner conjugate gradients. It
+rejects an absent capability, incompatible layouts, non-positive Hessian
+curvature, and an unconverged inner solve. Each Hessian-vector application
+and metric inverse action is returned in the shared solver report. The
+reference linear-quadratic model supplies the exact action by solving the
+tangent-state and incremental-adjoint systems; no dense reduced Hessian is
+assembled.
 
 ## Metric and constraint boundary
 
@@ -248,11 +264,13 @@ The `CTest` scenarios verify:
    pairing under checked algebraic updates;
 10. exact `ContractError` messages for representative partition, callback,
    metric, constraint, and projected-solver precondition failures;
-11. dense and deal.II unconstrained/projected Armijo convergence, including
+11. exact reduced-Hessian finite-difference and symmetry identities, plus the
+    explicit-capability Newton convergence path;
+12. dense and deal.II unconstrained/projected Armijo convergence, including
    active-bound and projected-stationarity checks; and
-12. checked acceptance/rejection at the serial deal.II native-size boundary;
+13. checked acceptance/rejection at the serial deal.II native-size boundary;
     and
-13. detached owned reduced-service lifetime and typed state/adjoint solve
+14. detached owned reduced-service lifetime and typed state/adjoint solve
     reports, including sanitizer coverage in the backend-neutral profile.
 
 This establishes the small executable algebra that a deal.II compiler must

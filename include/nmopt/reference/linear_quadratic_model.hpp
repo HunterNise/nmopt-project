@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/contract/reduced_hessian.hpp"
 
 #include <utility>
 
@@ -15,7 +16,8 @@ namespace nmopt::reference
   //
   // This is an executable algebraic stand-in for the first FE compiler output.
   // It is intentionally not a PDE compiler or an alternative discretisation.
-  class LinearQuadraticModel final : public ExecutableModel
+  class LinearQuadraticModel final : public ExecutableModel,
+                                     public ReducedHessian
   {
   public:
     LinearQuadraticModel(DenseMatrix A,
@@ -90,6 +92,36 @@ namespace nmopt::reference
     control_layout() const
     {
       return control_layout_;
+    }
+
+    const LayoutPtr &
+    layout() const override
+    {
+      return control_layout_;
+    }
+
+    CovectorBlock
+    apply(const PrimalBlock &control,
+          const PrimalBlock &direction) const override
+    {
+      require(control.layout()->compatible_with(*control_layout_) &&
+                direction.layout()->compatible_with(*control_layout_),
+              "Reference reduced Hessian received incompatible controls");
+
+      DenseVector state_tangent =
+        A_.solve(B_.vmult(direction.block(0)));
+      DenseVector observation = C_.vmult(state_tangent);
+      for (std::size_t index = 0; index < observation.size(); ++index)
+        observation[index] *= observation_weights_[index];
+
+      DenseVector incremental_adjoint =
+        A_.transpose().solve(C_.transpose_vmult(observation));
+      DenseVector control_action = B_.transpose_vmult(incremental_adjoint);
+      for (std::size_t index = 0; index < control_action.size(); ++index)
+        control_action[index] += alpha_ * regularisation_weights_[index] *
+                                 direction.block(0)[index];
+
+      return CovectorBlock(control_layout_, {std::move(control_action)});
     }
 
     CovectorBlock

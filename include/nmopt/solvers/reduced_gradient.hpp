@@ -69,6 +69,7 @@ namespace nmopt::solvers
       std::size_t line_search_trial_count = 0;
       std::size_t accepted_iterations = 0;
       std::size_t metric_solve_count = 0;
+      std::size_t hessian_action_count = 0;
 
       Primal current_control = initial_control;
       Evaluation current_evaluation = reduced_.evaluate(current_control);
@@ -88,7 +89,8 @@ namespace nmopt::solvers
             direction_policy.next(current_control,
                                   current_evaluation.reduced_derivative,
                                   metric_);
-          ++metric_solve_count;
+          metric_solve_count += direction.metric_solve_count;
+          hessian_action_count += direction.hessian_action_count;
           double stopping_norm = direction.gradient_norm;
           double unit_step_descent_measure = direction.directional_derivative;
           if (constraint_ != nullptr)
@@ -114,6 +116,7 @@ namespace nmopt::solvers
                           std::move(step_length_history),
                           std::move(objective_change_history),
                           metric_solve_count,
+                          hessian_action_count,
                           direction_policy.reset_count());
 
           contract::require(unit_step_descent_measure < 0.0,
@@ -131,6 +134,7 @@ namespace nmopt::solvers
                           std::move(step_length_history),
                           std::move(objective_change_history),
                           metric_solve_count,
+                          hessian_action_count,
                           direction_policy.reset_count());
 
           double step_length = parameters_.initial_step_length;
@@ -191,6 +195,7 @@ namespace nmopt::solvers
                           std::move(step_length_history),
                           std::move(objective_change_history),
                           metric_solve_count,
+                          hessian_action_count,
                           direction_policy.reset_count());
         }
     }
@@ -254,6 +259,7 @@ namespace nmopt::solvers
            std::vector<double>            step_length_history,
            std::vector<double>            objective_change_history,
            const std::size_t               metric_solve_count,
+           const std::size_t               hessian_action_count,
            const std::size_t               direction_reset_count)
     {
       return {std::move(control),
@@ -267,6 +273,7 @@ namespace nmopt::solvers
               std::move(step_length_history),
               std::move(objective_change_history),
               metric_solve_count,
+              hessian_action_count,
               direction_reset_count};
     }
 
@@ -296,4 +303,10 @@ namespace nmopt::solvers
 
   using ReducedLimitedMemoryBfgsSolver =
     ReducedLimitedMemoryBfgsSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
+  using ReducedNewtonSolverT =
+    ReducedSearchSolverT<Backend, NewtonDirectionPolicyT<Backend>>;
+
+  using ReducedNewtonSolver = ReducedNewtonSolverT<contract::DenseBackend>;
 } // namespace nmopt::solvers

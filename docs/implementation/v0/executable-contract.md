@@ -46,6 +46,7 @@ The public executable and solver headers provide:
 | `solvers::ArmijoLineSearchPolicyT` | Backtracking Armijo acceptance using the declared pairing and the actual returned trial displacement. |
 | `solvers::ExactQuadraticLineSearchPolicyT` | One-step exact line search for a positive-curvature explicit reduced Hessian. |
 | `solvers::WolfeLineSearchPolicyT` | Strong Wolfe acceptance using actual trial slopes and declared sufficient-decrease/curvature fractions. |
+| `solvers::WeakWolfeLineSearchPolicyT` | Weak Wolfe acceptance using the one-sided actual-trial-slope condition and declared sufficient-decrease/curvature fractions. |
 | `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric/Hessian action counts, and explicit direction-reset counts. |
 | `solvers::ReducedTrustRegionResultT` | The trust-region report containing accepted objectives, gradient histories, radius/step histories, actual and predicted reductions, ratios, acceptance flags, and action counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
@@ -58,6 +59,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
 | `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
 | `solvers::ReducedWolfeGradientSolverT` | The reduced steepest-descent loop combined with `WolfeLineSearchPolicyT`. |
+| `solvers::ReducedWeakWolfeGradientSolverT` | The reduced steepest-descent loop combined with `WeakWolfeLineSearchPolicyT`. |
 | `solvers::ReducedTrustRegionSolverT` | The unconstrained matrix-free Cauchy trust-region solver consuming `ReducedDTOT`, `MetricT`, and an explicit `ReducedHessianT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
@@ -261,13 +263,14 @@ assembled.
 The line-search protocol receives a typed current evaluation, a direction, a
 trial-control builder, and a trial evaluator. The builder is responsible for
 the caller's feasibility/projection policy; every acceptance condition then
-uses the actual displacement `$u_{\mathrm{trial}}-u$`, not the nominal scalar
+uses the actual displacement $`u_{\mathrm{trial}}-u`$, not the nominal scalar
 step times the unprojected direction. Armijo backtracks until sufficient
 decrease holds, exact quadratic search uses
-`$\tau=-j_{h}'[d]/\langle H d,d\rangle$` for positive curvature, and Wolfe
-also checks the actual trial slope against its declared curvature fraction.
-These policies return failure rather than silently accepting a non-descent or
-non-finite trial.
+$`\tau=-j_{h}'[d]/\langle H d,d\rangle`$ for positive curvature, weak Wolfe
+requires the actual trial slope to be at least its curvature fraction times
+the actual initial slope, and strong Wolfe bounds the absolute trial slope by
+that fraction. These policies return failure rather than silently accepting a
+non-descent or non-finite trial.
 
 `ReducedSearchSolverT` delegates trial construction and evaluation to the
 selected line-search policy. Its default Armijo policy is initialized from
@@ -350,8 +353,9 @@ The `CTest` scenarios verify:
    metric, constraint, and projected-solver precondition failures;
 11. exact reduced-Hessian finite-difference and symmetry identities, plus the
     explicit-capability Newton convergence path;
-12. exact quadratic, actual-displacement Armijo, and Wolfe line-search
-    acceptance policies, including exact-Newton and Wolfe solver combinations;
+12. exact quadratic, actual-displacement Armijo, weak-Wolfe, and strong-Wolfe
+    line-search acceptance policies, including exact-Newton and Wolfe solver
+    combinations;
 13. dense and deal.II unconstrained/projected Armijo convergence, including
    active-bound and projected-stationarity checks; and
 14. checked acceptance/rejection at the serial deal.II native-size boundary;

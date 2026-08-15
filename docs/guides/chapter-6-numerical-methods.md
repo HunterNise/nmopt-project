@@ -215,6 +215,17 @@ j_{h}(u+\tau d)\leq
 j_{h}(u)+\sigma\tau j_{h}'(u)[d].
 $$
 
+The weak Wolfe curvature condition is
+
+$$
+j_{h}'(u+\tau d)[d]\geq c_{2}j_{h}'(u)[d]
+$$
+
+The strong Wolfe variant
+instead uses the absolute value of the trial slope. Both are selectable
+policies in the reduced solver, and both pair slopes with the actual returned
+displacement.
+
 Reject a non-descent direction before line search. The reduced result records
 the final accepted state, adjoint, covector, objective, absolute and relative
 gradient histories, actual metric step norms, objective changes, maximum
@@ -238,9 +249,10 @@ require stronger derivative or active-set contracts; they are not inferred
 from the current first-order or projection interfaces.
 
 The line-search boundary is typed around a trial-control builder and evaluator.
-Armijo, exact-quadratic, and Wolfe policies all evaluate acceptance with the
-actual returned displacement, so a projected trial cannot reuse the nominal
-unprojected direction in its pairing. Exact search requires an explicit
+Armijo, exact-quadratic, weak-Wolfe, and strong-Wolfe policies all evaluate
+acceptance with the actual returned displacement, so a projected trial cannot
+reuse the nominal unprojected direction in its pairing. Exact search requires
+an explicit
 positive-curvature reduced-Hessian capability; first-order DTO ports do not
 provide that capability implicitly.
 

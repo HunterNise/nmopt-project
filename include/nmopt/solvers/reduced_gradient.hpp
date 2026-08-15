@@ -538,6 +538,15 @@ namespace nmopt::solvers
     ReducedWolfeGradientSolverT<contract::DenseBackend>;
 
   template <typename Backend>
+  using ReducedWeakWolfeGradientSolverT =
+    ReducedSearchSolverT<Backend,
+                         SteepestDescentDirectionPolicyT<Backend>,
+                         WeakWolfeLineSearchPolicyT<Backend>>;
+
+  using ReducedWeakWolfeGradientSolver =
+    ReducedWeakWolfeGradientSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
   using ReducedNewtonSolverT =
     ReducedSearchSolverT<Backend, NewtonDirectionPolicyT<Backend>>;
 

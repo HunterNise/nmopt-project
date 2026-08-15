@@ -329,6 +329,8 @@ namespace nmopt::solvers
     double       curvature_fraction = 0.9;
   };
 
+  using WeakWolfeLineSearchParameters = WolfeLineSearchParameters;
+
   template <typename Backend>
   class WolfeLineSearchPolicyT
   {
@@ -423,4 +425,100 @@ namespace nmopt::solvers
 
   using WolfeLineSearchPolicy =
     WolfeLineSearchPolicyT<contract::DenseBackend>;
+
+  template <typename Backend>
+  class WeakWolfeLineSearchPolicyT
+  {
+  public:
+    using Result = ReducedLineSearchResultT<Backend>;
+    using Primal = contract::PrimalBlockT<Backend>;
+    using Evaluation = contract::ReducedEvaluationT<Backend>;
+
+    WeakWolfeLineSearchPolicyT(
+      WeakWolfeLineSearchParameters parameters = {})
+      : parameters_(parameters)
+    {
+      validate_parameters();
+    }
+
+    Result
+    search(const Primal &       current_control,
+           const Evaluation &   current_evaluation,
+           const ReducedSearchDirectionT<Backend> &direction,
+           const ReducedTrialControlBuilderT<Backend> &build_trial_control,
+           const ReducedTrialEvaluatorT<Backend> &     evaluate_trial) const
+    {
+      detail::validate_line_search_inputs(current_control,
+                                          current_evaluation,
+                                          direction,
+                                          build_trial_control,
+                                          evaluate_trial,
+                                          "Weak Wolfe line search");
+
+      double step_length = parameters_.initial_step_length;
+      for (unsigned int trial = 0; trial < parameters_.maximum_trials; ++trial)
+        {
+          Primal trial_control = build_trial_control(step_length);
+          contract::require(trial_control.layout()->compatible_with(
+                              *current_control.layout()),
+                            "Weak Wolfe trial control has an incompatible layout");
+          Evaluation trial_evaluation = evaluate_trial(trial_control);
+          contract::require(trial_evaluation.reduced_derivative.layout()->compatible_with(
+                              *current_control.layout()),
+                            "Weak Wolfe trial derivative has an incompatible layout");
+
+          Primal actual_update = trial_control;
+          add_scaled_primal(actual_update, -1.0, current_control);
+          const double actual_initial_slope =
+            contract::pair(current_evaluation.reduced_derivative, actual_update);
+          const double actual_trial_slope =
+            contract::pair(trial_evaluation.reduced_derivative, actual_update);
+          contract::require(std::isfinite(actual_initial_slope) &&
+                              std::isfinite(actual_trial_slope),
+                            "Weak Wolfe trial produced a non-finite slope");
+          const double sufficient_decrease_bound =
+            current_evaluation.objective_value +
+            parameters_.sufficient_decrease_fraction * actual_initial_slope;
+          if (actual_initial_slope < 0.0 &&
+              std::isfinite(trial_evaluation.objective_value) &&
+              trial_evaluation.objective_value <= sufficient_decrease_bound &&
+              actual_trial_slope >=
+                parameters_.curvature_fraction * actual_initial_slope)
+            return detail::accepted(trial_control,
+                                    std::move(trial_evaluation),
+                                    step_length,
+                                    trial + 1);
+          step_length *= parameters_.backtracking_factor;
+        }
+
+      return detail::failure(current_control,
+                             current_evaluation,
+                             parameters_.maximum_trials);
+    }
+
+  private:
+    void
+    validate_parameters() const
+    {
+      contract::require(parameters_.maximum_trials > 0,
+                        "Weak Wolfe line-search trial limit must be positive");
+      contract::require(parameters_.initial_step_length > 0.0,
+                        "Weak Wolfe line-search initial step must be positive");
+      contract::require(parameters_.backtracking_factor > 0.0 &&
+                          parameters_.backtracking_factor < 1.0,
+                        "Weak Wolfe line-search backtracking factor must lie in (0, 1)");
+      contract::require(parameters_.sufficient_decrease_fraction > 0.0 &&
+                          parameters_.sufficient_decrease_fraction < 1.0,
+                        "Weak Wolfe sufficient-decrease fraction must lie in (0, 1)");
+      contract::require(parameters_.curvature_fraction >
+                          parameters_.sufficient_decrease_fraction &&
+                          parameters_.curvature_fraction < 1.0,
+                        "Weak Wolfe curvature fraction must lie between sufficient decrease and 1");
+    }
+
+    WeakWolfeLineSearchParameters parameters_;
+  };
+
+  using WeakWolfeLineSearchPolicy =
+    WeakWolfeLineSearchPolicyT<contract::DenseBackend>;
 } // namespace nmopt::solvers

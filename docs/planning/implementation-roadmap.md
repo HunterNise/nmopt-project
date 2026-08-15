@@ -942,6 +942,8 @@ deal.II, sanitizer, and release profiles; projected steepest descent remains
 the only projected direction policy in this slice.
 The exact-search PR+/Fletcher–Reeves equivalence and the separate strict
 classical quadratic-CG recurrence are verified on the linear-quadratic target.
+Weak-Wolfe and strong-Wolfe line searches are both selectable; their curvature
+conditions use the actual trial displacement.
 The unconstrained matrix-free Cauchy trust-region solver uses the explicit
 reduced-Hessian action, updates its radius from actual/predicted reduction, and
 records accepted and rejected trial diagnostics; projected trust-region steps

@@ -617,6 +617,34 @@ namespace
     require(wolfe_result.accepted() && wolfe_result.trial_count > 0,
             "Wolfe line search did not accept a trial");
 
+    nmopt::solvers::WeakWolfeLineSearchParameters weak_wolfe_parameters;
+    weak_wolfe_parameters.maximum_trials = 30;
+    weak_wolfe_parameters.initial_step_length = 10.0;
+    const nmopt::solvers::WeakWolfeLineSearchPolicy weak_wolfe_policy(
+      weak_wolfe_parameters);
+    const auto weak_wolfe_result = weak_wolfe_policy.search(control,
+                                                            evaluation,
+                                                            search_direction,
+                                                            build_trial,
+                                                            evaluate_trial);
+    require(weak_wolfe_result.accepted() && weak_wolfe_result.trial_count > 0,
+            "Weak Wolfe line search did not accept a trial");
+    require(weak_wolfe_result.evaluation.objective_value <=
+              evaluation.objective_value,
+            "Weak Wolfe line search accepted an objective increase");
+    PrimalBlock weak_wolfe_update = weak_wolfe_result.control;
+    nmopt::solvers::add_scaled_primal(weak_wolfe_update, -1.0, control);
+    const double weak_wolfe_initial_slope =
+      pair(evaluation.reduced_derivative, weak_wolfe_update);
+    const double weak_wolfe_trial_slope =
+      pair(weak_wolfe_result.evaluation.reduced_derivative,
+           weak_wolfe_update);
+    require(weak_wolfe_initial_slope < 0.0 &&
+              weak_wolfe_trial_slope >=
+                weak_wolfe_parameters.curvature_fraction *
+                  weak_wolfe_initial_slope,
+            "Weak Wolfe line search did not satisfy its one-sided curvature condition");
+
     nmopt::solvers::ArmijoLineSearchParameters actual_displacement_parameters;
     actual_displacement_parameters.maximum_trials = 1;
     const nmopt::solvers::ArmijoLineSearchPolicy actual_displacement_policy(
@@ -1263,6 +1291,23 @@ namespace
       require(wolfe_solver_result.objective_history[index] <=
                 wolfe_solver_result.objective_history[index - 1],
               "Dense Wolfe objective history is not monotonic");
+
+    const nmopt::solvers::WeakWolfeLineSearchPolicy weak_wolfe_solver_line_search(
+      weak_wolfe_parameters);
+    const nmopt::solvers::ReducedWeakWolfeGradientSolver weak_wolfe_solver(
+      reduced,
+      metric,
+      solver_parameters,
+      wolfe_direction_policy,
+      weak_wolfe_solver_line_search);
+    const auto weak_wolfe_solver_result = weak_wolfe_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(weak_wolfe_solver_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Dense weak Wolfe solver did not reach its tolerance");
+    require(weak_wolfe_solver_result.state_solve_count ==
+              weak_wolfe_solver_result.line_search_trial_count + 1,
+            "Dense weak Wolfe solve count misses a trial evaluation");
 
     const CellwiseBoxConstraint projected_bounds(
       partition.control_layout(), {DenseVector{-1.0, -0.2}},

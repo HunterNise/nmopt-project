@@ -106,8 +106,9 @@ The accepted scope is:
   nonlinear conjugate gradients, L-BFGS, line-search policies, and a
   Hessian-vector service with Newton/truncated-Newton support where the
   available derivative contract is sufficient;
-- add a bounded P6.2 interface for executing an explicitly supplied OtD
-  optimality system, without automatic continuous adjoint derivation;
+- complete the bounded P6.2 interface for executing the selected canonical
+  scalar supplied-OtD optimality system, without automatic continuous adjoint
+  derivation;
 - implement the scalar equality-constrained KKT product and PDAS services in
   P6.3 and P6.5;
 - treat P6.4 preconditioning, other continuous-control bound policies, and
@@ -1035,8 +1036,9 @@ differences unless a separate finite-difference policy is explicitly selected.
 
 ### P6.2 — Record formulation provenance and execute supplied OtD systems
 
-**Status:** selected only as a supplied-OtD execution interface. Stabilization,
-GLS, stabilized Lagrangians, and automatic OtD derivation are excluded.
+**Status:** completed for the selected canonical scalar supplied-OtD execution
+slice. Stabilization, GLS, stabilized Lagrangians, automatic OtD derivation,
+and non-canonical OTD targets remain excluded.
 
 **Motivation:** Section 6.2 shows that OtD, DtO, and GLS-stabilised variants
 can be distinct discrete systems even when they share a continuous PDE. The
@@ -1062,6 +1064,10 @@ interface, not introduce a PDE-specific OTD class.
 **Done when:** the manifest distinguishes DTO and supplied OTD, the supplied
 blocks pass their value/JVP/VJP or block-linearization tests, and a
 mismatched-adjoint-space request cannot be reported as a DTO optimum.
+
+The completed slice is exposed as a distinct `CompiledSuppliedOTDProblemT` and
+lowers the canonical serial scalar target. Generic all-at-once/KKT products
+remain P6.3.
 
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
 
@@ -1187,22 +1193,19 @@ vocabulary.
 ### Future implementation sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
-selected P6.1 scalar reduced DTO boundary is complete; future work begins
-with P6.2:
+selected P6.1 scalar reduced DTO boundary and the canonical P6.2 supplied-
+OTD slice are complete; future work begins with P6.3:
 
-1. **P6.2:** implement the supplied-OtD execution interface separately from
-   `ReducedDTO`; do not add GLS, stabilization, or automatic continuous
-   adjoint derivation.
-2. **P6.3/P6.5:** implement the scalar KKT product and diagnostics, then
+1. **P6.3/P6.5:** implement the scalar KKT product and diagnostics, then
    complementarity/PDAS for the selected cellwise box representation.
-3. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
-4. **P6.1 extension track:** after the required P6.2/P6.3/P6.5 gates and
+2. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
+3. **P6.1 extension track:** after the required P6.2/P6.3/P6.5 gates and
    selected benchmark evidence, activate the [P6.1 extension ladder](#p61-extension-ladder)
    in order. Generic nonlinear second order and projected directions remain
    lower priority than the selected scalar formulation and KKT/PDAS paths.
 
 Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
-future gate. The next conditional gate is P6.2; do not silently activate S1
+future gate. The next conditional gate is P6.3; do not silently activate S1
 or any of the remaining Stokes, measure-constraint, stabilization,
 automatic-OtD, or broad continuous-bound work. Those remain outside the
 current ordered run.

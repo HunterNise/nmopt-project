@@ -136,11 +136,12 @@ conflate:
    equations retain strong consistency but contain explicit state–adjoint and
    control–adjoint stabilisation couplings.
 
-The first vertical slice is item 2: model every stabilisation contribution in
-the discrete residual and verify its JVP/VJP pairing. Items 1 and 3 require
-formulation provenance and are P6.2 work. A state-solver option named
-“GLS” is insufficient because it hides whether the discrete objective was
-differentiated.
+The first vertical slice in this numerical discussion is item 2: model every
+stabilisation contribution in the discrete residual and verify its JVP/VJP
+pairing. That remains outside the completed canonical P6.2 slice. Items 1 and
+3 require broader formulation provenance beyond the selected supplied-OTD
+target. A state-solver option named “GLS” is insufficient because it hides
+whether the discrete objective was differentiated.
 
 #### Stokes discretisation
 
@@ -430,10 +431,11 @@ the generic PDAS solve.
 1. Completed: extend the reduced solver to selected reduced directions and
    line searches (P6.1), while retaining the baseline one-state/one-decision
    DTO boundary.
-2. Next: add formulation, trial/test, and stabilisation provenance (P6.2). A
-   compiler must say whether it differentiates a discrete residual, lowers an
-   OTD system, or differentiates a stabilised Lagrangian.
-3. Generalise executable algebra to equality-constrained quadratic KKT
+2. Completed: add formulation, trial/test, and supplied-system provenance for
+   the selected canonical supplied-OTD slice (P6.2). The compiler records
+   whether the product is DTO or supplied OTD; it does not derive automatic
+   continuous adjoints or claim generic stabilised-Lagrangian coverage.
+3. Next: generalise executable algebra to equality-constrained quadratic KKT
    products (P6.3), then add mixed Stokes blocks through P5.6.
 4. Add block preconditioner and Krylov policies (P6.4) as deterministic
    operator actions before an assembly-only hierarchy.

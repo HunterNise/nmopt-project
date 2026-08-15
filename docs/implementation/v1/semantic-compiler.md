@@ -919,6 +919,9 @@ partitions beyond the registered homogeneous fixed/Robin split, alternate
 partial controlled-Dirichlet interface policies, fractional or tangential
 metrics on partial/nonmatching trace spaces, trace boxes,
 continuous-control bounds, continuous or transformed coefficient parameters,
-matrix-free execution, all-at-once/OTD, multiple equations, or multiple
-optimisation variables. Each requires its own semantic declaration, registered
-lowerer, capability diagnostic, and value/JVP/VJP/reduced tests.
+matrix-free execution, non-canonical all-at-once/OTD products, multiple
+equations, or multiple optimisation variables. The canonical scalar
+supplied-OTD product is registered separately as an all-at-once formulation
+and exposed through `CompiledSuppliedOTDProblemT`; other all-at-once/OTD
+choices still require their own semantic declaration, registered lowerer,
+capability diagnostic, and value/JVP/VJP/reduced tests.

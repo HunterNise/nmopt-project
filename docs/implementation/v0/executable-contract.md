@@ -38,7 +38,8 @@ The public executable and solver headers provide:
 | `contract::ReducedHessianT` | An explicit reduced-Hessian capability that applies $`H(u)w`$ as a typed reduced covector; first-order DTO ports do not imply this capability. |
 | `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm, reduced-covector directional derivative, and action counts. |
 | `solvers::ReducedLineSearchResultT` | A typed line-search result carrying the accepted trial DTO, actual step length, trial count, and any Hessian-action count. |
-| `solvers::NonlinearConjugateGradientDirectionPolicyT` | The selected metric-aware Polak–Ribière+ direction policy with typed primal/dual history and deterministic restarts. |
+| `solvers::NonlinearConjugateGradientDirectionPolicyT` | The default metric-aware Polak–Ribière+ direction policy with typed primal/dual history and deterministic restarts. |
+| `solvers::FletcherReevesDirectionPolicyT` | The metric-aware Fletcher–Reeves direction policy with the same typed history and deterministic restart protocol. |
 | `solvers::LimitedMemoryBfgsDirectionPolicyT` | The metric-aware limited-memory BFGS direction policy with bounded typed secant history and explicit curvature resets. |
 | `solvers::NewtonDirectionPolicyT` | The explicit-Hessian Newton direction consumer using metric-preconditioned inner conjugate gradients. |
 | `solvers::ArmijoLineSearchPolicyT` | Backtracking Armijo acceptance using the declared pairing and the actual returned trial displacement. |
@@ -47,6 +48,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric/Hessian action counts, and explicit direction-reset counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
+| `solvers::ReducedFletcherReevesSolverT` | The same reduced execution loop configured with `FletcherReevesDirectionPolicyT`. |
 | `solvers::ReducedLimitedMemoryBfgsSolverT` | The same reduced execution loop configured with `LimitedMemoryBfgsDirectionPolicyT` for the unconstrained first registration. |
 | `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
 | `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
@@ -191,7 +193,7 @@ count records each direction-forming inverse metric action; the Hessian count
 records each explicit provider application. Backend-specific inner iterations
 remain in the metric or Hessian realization policy.
 
-The selected nonlinear-CG policy uses the metric gradient
+The default nonlinear-CG policy uses the metric gradient
 $`g_{k}=G^{-1}j_{h}'(u_{k})`$ and the Polak–Ribière+ coefficient
 
 $$
@@ -202,12 +204,21 @@ $$
 d_{k}=-g_{k}+\beta_{k}d_{k-1}.
 $$
 
-It restarts on the first direction, after the declared interval (one full
-layout dimension by default), when the previous curvature denominator is too
-small or non-finite, when the Polak–Ribière+ coefficient is nonpositive, or
-when the resulting direction is not descending. Previous covectors,
-gradients, and directions retain their layouts and are checked before every
-update.
+The selectable `FletcherReevesDirectionPolicyT` instead uses
+
+$$
+\beta_{k}=\frac{\langle j_{h}'(u_{k}),g_{k}\rangle}
+               {\langle j_{h}'(u_{k-1}),g_{k-1}\rangle},
+\qquad
+d_{k}=-g_{k}+\beta_{k}d_{k-1}.
+$$
+
+Both policies restart on the first direction, after the declared interval
+(one full layout dimension by default), when the previous curvature
+denominator is too small or non-finite, when the selected coefficient is
+nonpositive, or when the resulting direction is not descending. Previous
+covectors, gradients, and directions retain their layouts and are checked
+before every update.
 
 The selected limited-memory BFGS policy stores at most the configured number
 of typed secant pairs. For a new iterate it forms the primal displacement

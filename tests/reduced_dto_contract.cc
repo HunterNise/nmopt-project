@@ -477,6 +477,28 @@ namespace
     (void)cg_policy.next(control, third_cg_derivative, cg_metric);
     require(cg_policy.restart_count() == 1,
             "Nonlinear CG did not perform its configured periodic restart");
+
+    using FRPolicy =
+      nmopt::solvers::FletcherReevesDirectionPolicyDense;
+    FRPolicy fr_policy({10, 1e-14});
+    const auto first_fr_direction =
+      fr_policy.next(control, first_cg_derivative, cg_metric);
+    const auto second_fr_direction =
+      fr_policy.next(control, second_cg_derivative, cg_metric);
+    require_close(first_fr_direction.direction.block(0)[0],
+                  -1.0,
+                  1e-15,
+                  "Fletcher-Reeves initial direction");
+    require_close(second_fr_direction.direction.block(0)[0],
+                  -3.0,
+                  1e-15,
+                  "Fletcher-Reeves coefficient");
+    require_close(second_fr_direction.direction.block(0)[1],
+                  -1.0,
+                  1e-15,
+                  "Fletcher-Reeves direction update");
+    require(second_fr_direction.directional_derivative < 0.0,
+            "Fletcher-Reeves direction is not descending");
     CGPolicy negative_beta_policy({10, 1e-14});
     (void)negative_beta_policy.next(control, first_cg_derivative, cg_metric);
     (void)negative_beta_policy.next(
@@ -726,6 +748,23 @@ namespace
       require(cg_result.objective_history[index] <=
                 cg_result.objective_history[index - 1],
               "Dense nonlinear CG objective history is not monotonic");
+
+    const nmopt::solvers::ReducedFletcherReevesSolver fr_solver(
+      reduced, metric, solver_parameters);
+    const auto fr_result = fr_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(fr_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Dense Fletcher-Reeves solver did not reach its tolerance");
+    require(fr_result.metric_solve_count ==
+              fr_result.gradient_norm_history.size(),
+            "Dense Fletcher-Reeves metric solve count does not match direction evaluations");
+    for (std::size_t index = 1;
+         index < fr_result.objective_history.size();
+         ++index)
+      require(fr_result.objective_history[index] <=
+                fr_result.objective_history[index - 1],
+              "Dense Fletcher-Reeves objective history is not monotonic");
 
     const nmopt::solvers::ReducedLimitedMemoryBfgsSolver lbfgs_solver(
       reduced, metric, solver_parameters);

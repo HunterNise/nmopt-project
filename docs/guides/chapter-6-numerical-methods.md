@@ -186,7 +186,7 @@ from scalar line-search policies; it is not an alternate PDE formulation.
 | Method | Required direction service | First general policy |
 | --- | --- | --- |
 | Steepest descent | $d=-G^{-1}j_{h}'$ | Existing reduced Armijo solver. |
-| Nonlinear conjugate gradient | Gradient history and selected Fletcher–Reeves or Polak–Ribière update | The selected slice uses metric-aware PR+; Fletcher–Reeves and explicit quadratic CG are extension candidates. |
+| Nonlinear conjugate gradient | Gradient history and selected Fletcher–Reeves or Polak–Ribière update | The selected slice defaults to metric-aware PR+ and also exposes Fletcher–Reeves; explicit quadratic CG remains an extension candidate. |
 | Newton / truncated Newton | Hessian-vector action and inner linear solve | The selected slice uses capability-gated Newton; explicit truncated-Newton termination remains an extension. |
 | BFGS / L-BFGS | Secant history and metric-aware pairings | Start with limited memory; declare memory, curvature test, reset, and initial inverse-metric policy. |
 
@@ -223,13 +223,13 @@ are independently configurable and disabled by zero values. Finite
 differences are derivative checks, not a high-dimensional gradient fallback.
 
 The selected slice does not exhaust the alternatives in Chapter 3. The
-near-term iterative extensions are Fletcher–Reeves, explicit quadratic CG or
-an exact-search PR+ equivalence test, and the relative/objective/step stopping
-policies. Trust-region globalization is the next larger extension. Generic
-nonlinear second-order actions and projected nonlinear-CG/L-BFGS directions
-are lower-priority tracks that require stronger derivative or active-set
-contracts; they are not inferred from the current first-order or projection
-interfaces.
+relative/objective/step stopping policies and Fletcher–Reeves are now
+available alongside the default PR+ policy. The remaining near-term iterative
+extension is explicit quadratic CG or an exact-search PR+ equivalence test.
+Trust-region globalization is the next larger extension. Generic nonlinear
+second-order actions and projected nonlinear-CG/L-BFGS directions are
+lower-priority tracks that require stronger derivative or active-set contracts;
+they are not inferred from the current first-order or projection interfaces.
 
 The line-search boundary is typed around a trial-control builder and evaluator.
 Armijo, exact-quadratic, and Wolfe policies all evaluate acceptance with the

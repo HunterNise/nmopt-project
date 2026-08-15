@@ -461,6 +461,13 @@ namespace nmopt::solvers
     ReducedConjugateGradientSolverT<contract::DenseBackend>;
 
   template <typename Backend>
+  using ReducedFletcherReevesSolverT =
+    ReducedSearchSolverT<Backend, FletcherReevesDirectionPolicyT<Backend>>;
+
+  using ReducedFletcherReevesSolver =
+    ReducedFletcherReevesSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
   using ReducedLimitedMemoryBfgsSolverT =
     ReducedSearchSolverT<Backend, LimitedMemoryBfgsDirectionPolicyT<Backend>>;
 

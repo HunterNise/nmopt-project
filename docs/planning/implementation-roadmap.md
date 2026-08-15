@@ -901,12 +901,11 @@ and reporting; they are not separate problem formulations.
 
 - A typed primal search-direction protocol supplied by a reduced covector and
   declared inverse metric.
-- Deterministic steepest-descent, nonlinear-CG (selected PR+ update and
-  restart), and limited-memory BFGS policies. Store history with primal/dual
-  layout checks and declared curvature/reset behaviour. Fletcher–Reeves and
-  an explicit quadratic-CG policy remain extension candidates. A trust-region
-  policy belongs to the extension track after a Hessian-vector service is
-  available.
+- Deterministic steepest-descent, nonlinear-CG (PR+ and Fletcher–Reeves
+  updates with restart), and limited-memory BFGS policies. Store history with
+  primal/dual layout checks and declared curvature/reset behaviour. An explicit
+  quadratic-CG policy remains an extension candidate. A trust-region policy
+  belongs to the extension track after a Hessian-vector service is available.
 - A typed Hessian-vector service for the selected scalar DTO targets. Start
   with the exact linear-quadratic tangent-state/incremental-adjoint action;
   expose Newton or truncated Newton only for models that provide the required
@@ -928,8 +927,9 @@ fall back after a failed curvature test. Every selected Hessian-vector path
 also passes symmetry and finite-difference reduced-covector tests.
 
 **Implementation closure:** the shared typed direction/result protocol now
-covers steepest descent, Polak–Ribiere-plus nonlinear CG, and metric-aware
-limited-memory BFGS with declared layout, curvature, and restart behaviour.
+covers steepest descent, Polak–Ribiere-plus and Fletcher–Reeves nonlinear CG,
+and metric-aware limited-memory BFGS with declared layout, curvature, and
+restart behaviour.
 The explicit `ReducedHessianT` capability and exact linear-quadratic provider
 support metric-preconditioned Newton. Exact quadratic, Armijo, and Wolfe
 policies are selectable through the reduced solver and evaluate acceptance
@@ -945,10 +945,10 @@ every alternative described in Chapter 3 has been implemented. The following
 extensions are intentionally recorded so that a later implementation does
 not silently broaden the selected slice:
 
-1. **Near-term iterative closure:** add relative-gradient, objective-change,
-   and step-size stopping policies; return the final accepted state, adjoint,
-   and reduced covector; add Fletcher–Reeves; and either implement classical
-   quadratic CG or record an exact-search PR+ equivalence test.
+1. **Near-term iterative closure:** relative-gradient, objective-change, and
+   step-size stopping policies, final accepted state/adjoint/covector
+   reporting, and Fletcher–Reeves are implemented. The remaining candidate is
+   either classical quadratic CG or an exact-search PR+ equivalence test.
 2. **Globalization extension:** add a matrix-free trust-region policy with a
    quadratic model, actual/predicted reduction ratio, radius update, and
    acceptance diagnostics. It is a separate globalization boundary, not a

@@ -945,7 +945,11 @@ classical quadratic-CG recurrence are verified on the linear-quadratic target.
 The unconstrained matrix-free Cauchy trust-region solver uses the explicit
 reduced-Hessian action, updates its radius from actual/predicted reduction, and
 records accepted and rejected trial diagnostics; projected trust-region steps
-remain excluded.
+remain excluded. The direct serial deal.II linear-quadratic scalar lowerer now
+also supplies the exact tangent-state/incremental-adjoint
+`ReducedHessianT<SerialBackend>` action, with symmetry, finite-difference, and
+reduced-Newton verification; generic v1 assembled-model exposure and the
+benchmark harness remain separate.
 
 #### P6.1 extension ladder
 
@@ -964,8 +968,9 @@ not silently broaden the selected slice:
    selected explicit-Hessian scalar DTO is implemented; Newton/truncated-CG
    subproblem solves and projected trust-region steps remain extensions. It is
    a separate globalization boundary, not a line-search option.
-3. **Backend and benchmark parity:** provide the selected exact
-   linear-quadratic reduced-Hessian action for the deal.II scalar target and
+3. **Backend and benchmark parity:** the direct serial deal.II scalar target
+   now provides the selected exact linear-quadratic reduced-Hessian action;
+   expose the capability through any selected v1 assembled target and
    exercise the iterative policies in the selected Chapter 6 benchmark
    harness.
 4. **Lower-priority generic second order:** support nonlinear DTO models only

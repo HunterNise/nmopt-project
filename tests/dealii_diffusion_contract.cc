@@ -5019,6 +5019,65 @@ namespace
                   2e-7,
                   "deal.II reduced DTO derivative");
 
+    const contract::ReducedHessianT<Backend> &hessian = model;
+    const Covector hessian_action =
+      hessian.apply(control, control_direction);
+    const Primal second_control_direction = [&partition]() {
+      dealii::Vector<double> values(partition.control_layout()->dimension(0));
+      for (dealii::types::global_dof_index i = 0; i < values.size(); ++i)
+        values[i] = (i % 3 == 0 ? -0.02 : 0.03) *
+                    static_cast<double>(i + 1);
+      return Primal(partition.control_layout(), {std::move(values)});
+    }();
+    const Covector second_hessian_action =
+      hessian.apply(control, second_control_direction);
+    require_close(contract::pair(hessian_action, second_control_direction),
+                  contract::pair(second_hessian_action, control_direction),
+                  1e-10,
+                  "deal.II reduced Hessian symmetry");
+
+    constexpr double hessian_step = 1e-5;
+    const Covector reduced_derivative_plus =
+      reduced.evaluate(shifted(control, control_direction, hessian_step))
+        .reduced_derivative;
+    const Covector reduced_derivative_minus =
+      reduced.evaluate(shifted(control, control_direction, -hessian_step))
+        .reduced_derivative;
+    Covector hessian_finite_difference = reduced_derivative_plus;
+    hessian_finite_difference.add_scaled_block(
+      0, -1.0, reduced_derivative_minus.block(0));
+    hessian_finite_difference.scale_block(0, 1.0 / (2.0 * hessian_step));
+    hessian_finite_difference.add_scaled_block(
+      0, -1.0, hessian_action.block(0));
+    require_close(hessian_finite_difference.block(0).l2_norm(),
+                  0.0,
+                  2e-8,
+                  "deal.II reduced Hessian finite-difference action");
+
+    nmopt::solvers::ReducedNewtonParameters newton_parameters;
+    newton_parameters.maximum_inner_iterations = 100;
+    newton_parameters.relative_tolerance = 1e-8;
+    newton_parameters.absolute_tolerance = 1e-10;
+    const nmopt::solvers::NewtonDirectionPolicyT<Backend> newton_direction(
+      hessian, newton_parameters);
+    nmopt::solvers::ReducedSolverParameters newton_solver_parameters;
+    newton_solver_parameters.maximum_iterations = 20;
+    newton_solver_parameters.maximum_line_search_trials = 30;
+    newton_solver_parameters.gradient_tolerance = 1e-6;
+    newton_solver_parameters.initial_step_length = 1.0;
+    const nmopt::solvers::ReducedNewtonSolverT<Backend> newton_solver(
+      reduced, metric, newton_solver_parameters, newton_direction);
+    const auto newton_result = newton_solver.solve(control);
+    contract::require(
+      newton_result.stopping_reason ==
+        nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+      "deal.II reduced Newton solver did not reach its tolerance");
+    contract::require(newton_result.hessian_action_count > 0,
+                      "deal.II reduced Newton solver did not use its Hessian");
+    contract::require(newton_result.state_solve_count ==
+                        newton_result.line_search_trial_count + 1,
+                      "deal.II reduced Newton solve count misses a trial evaluation");
+
     nmopt::solvers::ReducedGradientParameters solver_parameters;
     solver_parameters.maximum_iterations = 100;
     solver_parameters.maximum_line_search_trials = 30;

@@ -75,6 +75,22 @@ or non-diagonal `MassMetric` cannot obtain clipping capability by reusing the
 constraint, so the bounds are `FE_DGQ(0)` cell coefficients on this control
 mesh; it is not a nodal, continuous-control, or $H^{1}$ projection.
 
+For this linear-quadratic target, `ScalarDiffusionReactionModel` also exposes
+the exact `ReducedHessianT<SerialBackend>` action. For a control direction
+$`w`$, it applies
+
+```math
+\begin{aligned}
+A_{h}\delta y &= B_{h}w,\\
+A_{h}^{\ast}\delta p &= M_{y}\delta y,\\
+H_{h}w &= \alpha M_{u}w+B_{h}^{\ast}\delta p.
+\end{aligned}
+```
+
+The tangent-state and incremental-adjoint solves use the same serial SPD
+solve boundary as the DTO state and adjoint services. This is an exact
+linear-quadratic capability, not a generic second-derivative implementation.
+
 ## Affine constraints and coordinate policy
 
 The lowerer creates and retains `AffineConstraints` for the homogeneous
@@ -104,9 +120,11 @@ The deal.II `CTest` case assembles a refined two-dimensional mesh and verifies:
 2. residual JVP/VJP adjoint consistency;
 3. residual finite-difference JVP consistency; and
 4. the reduced DTO derivative by a state-recomputed Taylor difference;
-5. control mass-metric inverse/apply and pairing consistency; and
-6. unconstrained and box-projected reduced Armijo convergence, including
-   a feasible active-bound control and projected stationarity.
+5. control mass-metric inverse/apply and pairing consistency;
+6. exact reduced-Hessian symmetry and centered finite-difference action; and
+7. unconstrained and box-projected reduced Armijo convergence, including
+   a feasible active-bound control and projected stationarity; and
+8. reduced Newton convergence through the deal.II Hessian capability.
 
 The test runs through the real deal.II `DoFHandler`, `FEValues`, `FEFace`-independent
 volume assembly, `AffineConstraints`, sparse matrices, and CG solves.
@@ -119,11 +137,12 @@ the following:
 - inhomogeneous, controlled, periodic, or hanging essential conditions;
 - Neumann/Robin terms, boundary controls, and boundary observations;
 - vector, mixed, DG state, nonmatching meshes, or distributed MPI vectors;
-- variable/nonlinear coefficients, nonlinear state solves, and second
-  derivatives;
+- variable/nonlinear coefficients, nonlinear state solves, and generic
+  nonlinear second derivatives;
 - $H^{1}$, $H^{-1}$, fractional, or other non-$L^{2}$ metric realizations;
 - continuous-control, nodal, or non-$L^{2}$ box projection;
-- time dependence, matrix-free execution, OTD, or KKT Newton.
+- time dependence, matrix-free execution, OTD, KKT Newton, or generic
+  nonlinear Hessian actions.
 
 These are extensions of the contract, not branches to insert into this
 lowerer or its reduced DTO solver.

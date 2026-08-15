@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
@@ -56,6 +57,7 @@ namespace nmopt::dealii_backend
   template <int dim>
   class ScalarDiffusionReactionModel final
     : public contract::ExecutableModelT<SerialBackend>
+    , public contract::ReducedHessianT<SerialBackend>
   {
   public:
     using Vector = dealii::Vector<double>;
@@ -119,6 +121,12 @@ namespace nmopt::dealii_backend
 
     const contract::LayoutPtr &
     control_layout() const
+    {
+      return control_layout_;
+    }
+
+    const contract::LayoutPtr &
+    layout() const override
     {
       return control_layout_;
     }
@@ -240,6 +248,40 @@ namespace nmopt::dealii_backend
       control_mass_->vmult(control, variables.block(1));
       control *= regularisation_weight_;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
+    }
+
+    Covector
+    apply(const Primal &control, const Primal &direction) const override
+    {
+      contract::require(control.layout()->compatible_with(*control_layout_),
+                        "Reduced Hessian control has an incompatible layout");
+      contract::require(direction.layout()->compatible_with(*control_layout_),
+                        "Reduced Hessian direction has an incompatible layout");
+
+      Vector tangent_rhs(state_dof_handler_.n_dofs());
+      control_coupling_.vmult(tangent_rhs, direction.block(0));
+      Vector tangent_state(state_dof_handler_.n_dofs());
+      const auto tangent_report =
+        solve_symmetric_system(tangent_state, tangent_rhs, {});
+      contract::require(tangent_report.converged(),
+                        "Reduced Hessian tangent solve did not converge");
+      state_constraints_.distribute(tangent_state);
+
+      Vector incremental_adjoint_rhs(state_dof_handler_.n_dofs());
+      state_mass_.vmult(incremental_adjoint_rhs, tangent_state);
+      Vector incremental_adjoint(state_dof_handler_.n_dofs());
+      const auto incremental_adjoint_report = solve_symmetric_system(
+        incremental_adjoint, incremental_adjoint_rhs, {});
+      contract::require(incremental_adjoint_report.converged(),
+                        "Reduced Hessian incremental-adjoint solve did not converge");
+      state_constraints_.distribute(incremental_adjoint);
+
+      Vector action(control_dof_handler_.n_dofs());
+      control_coupling_.Tvmult(action, incremental_adjoint);
+      Vector regularisation_action(control_dof_handler_.n_dofs());
+      control_mass_->vmult(regularisation_action, direction.block(0));
+      action.add(regularisation_weight_, regularisation_action);
+      return Covector(control_layout_, {std::move(action)});
     }
 
     Primal

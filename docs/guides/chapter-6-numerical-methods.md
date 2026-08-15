@@ -177,16 +177,17 @@ framework, $g=G^{-1}j_{h}'(u)$ is the gradient for the selected metric $G$.
 The portable steepest direction is therefore $d=-g$, not bare coefficient
 negation.
 
-The chapter introduction also names trust-region methods, but gives no
-Chapter 6-specific trust-region construction. Treat one as a later
-reduced-Hessian policy, after the Newton Hessian-vector service exists; it is
-not an alternate PDE formulation.
+The chapter introduction also names trust-region methods. They are not part
+of the selected P6.1 slice; they are a deferred reduced-Hessian globalization
+extension now that the explicit Hessian-vector boundary exists. A future
+implementation must keep the trust-region model and radius updates separate
+from scalar line-search policies; it is not an alternate PDE formulation.
 
 | Method | Required direction service | First general policy |
 | --- | --- | --- |
 | Steepest descent | $d=-G^{-1}j_{h}'$ | Existing reduced Armijo solver. |
-| Nonlinear conjugate gradient | Gradient history and selected Fletcher–Reeves or Polak–Ribière update | Store typed primal directions/covectors and restart deterministically. |
-| Newton / truncated Newton | Hessian-vector action and inner linear solve | Use tangent-state and tangent-adjoint solves; never assemble a dense reduced Hessian. |
+| Nonlinear conjugate gradient | Gradient history and selected Fletcher–Reeves or Polak–Ribière update | The selected slice uses metric-aware PR+; Fletcher–Reeves and explicit quadratic CG are extension candidates. |
+| Newton / truncated Newton | Hessian-vector action and inner linear solve | The selected slice uses capability-gated Newton; explicit truncated-Newton termination remains an extension. |
 | BFGS / L-BFGS | Secant history and metric-aware pairings | Start with limited memory; declare memory, curvature test, reset, and initial inverse-metric policy. |
 
 For a linear-quadratic target, the reduced Hessian is constant:
@@ -218,6 +219,15 @@ gradient norm, objective change, maximum iteration, line-search failure, and
 state/adjoint/metric/Hessian-solve counts as separate fields. Finite
 differences are derivative checks, not a high-dimensional gradient fallback.
 
+The selected slice does not exhaust the alternatives in Chapter 3. The
+near-term iterative extensions are Fletcher–Reeves, explicit quadratic CG or
+an exact-search PR+ equivalence test, and the relative/objective/step stopping
+policies. Trust-region globalization is the next larger extension. Generic
+nonlinear second-order actions and projected nonlinear-CG/L-BFGS directions
+are lower-priority tracks that require stronger derivative or active-set
+contracts; they are not inferred from the current first-order or projection
+interfaces.
+
 The line-search boundary is typed around a trial-control builder and evaluator.
 Armijo, exact-quadratic, and Wolfe policies all evaluate acceptance with the
 actual returned displacement, so a projected trial cannot reuse the nominal
@@ -241,9 +251,10 @@ book's coefficient clipping is exact only under a selected discretisation and
 projection policy. It is exact for cellwise `FE_DGQ(0)` $L^{2}$ boxes;
 continuous FE, trace, and $H^{1}$ controls need their own projection contract.
 
-The first extension should implement and verify projected steepest descent
-before projected nonlinear CG or L-BFGS, because restarts and descent
-guarantees change at active-set transitions.
+The selected slice implements and verifies projected steepest descent only.
+Projected nonlinear CG, projected L-BFGS, and active-set-aware trust-region
+steps are possible later extensions, but they require restart, active-set
+transition, and metric-coupling tests before they can be enabled.
 
 ### C6.6 — All-at-once methods for unconstrained OCPs
 

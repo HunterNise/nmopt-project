@@ -901,10 +901,12 @@ and reporting; they are not separate problem formulations.
 
 - A typed primal search-direction protocol supplied by a reduced covector and
   declared inverse metric.
-- Deterministic steepest-descent, nonlinear-CG (selected update and restart),
-  and limited-memory BFGS policies. Store history with primal/dual layout
-  checks and declared curvature/reset behaviour. Add a trust-region policy
-  only after a Hessian-vector service is available.
+- Deterministic steepest-descent, nonlinear-CG (selected PR+ update and
+  restart), and limited-memory BFGS policies. Store history with primal/dual
+  layout checks and declared curvature/reset behaviour. Fletcher–Reeves and
+  an explicit quadratic-CG policy remain extension candidates. A trust-region
+  policy belongs to the extension track after a Hessian-vector service is
+  available.
 - A typed Hessian-vector service for the selected scalar DTO targets. Start
   with the exact linear-quadratic tangent-state/incremental-adjoint action;
   expose Newton or truncated Newton only for models that provide the required
@@ -919,8 +921,8 @@ and reporting; they are not separate problem formulations.
 path, using a mass metric and unconstrained L-BFGS. Keep projected steepest
 descent as the only projected method until box transition/restart tests exist.
 
-**Done when:** each direction has a descent test, each accepted trial meets
-its declared inequality, and gradient/metric identities plus solve-count
+**Done when:** each selected direction has a descent test, each accepted trial
+meets its declared inequality, and gradient/metric identities plus solve-count
 accounting are verified. BFGS history must neither mix layouts nor silently
 fall back after a failed curvature test. Every selected Hessian-vector path
 also passes symmetry and finite-difference reduced-covector tests.
@@ -935,6 +937,38 @@ using the actual trial displacement, including projected trials. The selected
 scalar one-state/one-decision DTO target is verified across the neutral,
 deal.II, sanitizer, and release profiles; projected steepest descent remains
 the only projected direction policy in this slice.
+
+#### P6.1 extension ladder
+
+The status above closes the selected scalar P6.1 slice; it does not claim that
+every alternative described in Chapter 3 has been implemented. The following
+extensions are intentionally recorded so that a later implementation does
+not silently broaden the selected slice:
+
+1. **Near-term iterative closure:** add relative-gradient, objective-change,
+   and step-size stopping policies; return the final accepted state, adjoint,
+   and reduced covector; add Fletcher–Reeves; and either implement classical
+   quadratic CG or record an exact-search PR+ equivalence test.
+2. **Globalization extension:** add a matrix-free trust-region policy with a
+   quadratic model, actual/predicted reduction ratio, radius update, and
+   acceptance diagnostics. It is a separate globalization boundary, not a
+   line-search option.
+3. **Backend and benchmark parity:** provide the selected exact
+   linear-quadratic reduced-Hessian action for the deal.II scalar target and
+   exercise the iterative policies in the selected Chapter 6 benchmark
+   harness.
+4. **Lower-priority generic second order:** support nonlinear DTO models only
+   when they provide an explicit Lagrangian/reduced Hessian-vector action,
+   incremental-adjoint action, or a declared Gauss–Newton approximation.
+   First-order JVP/VJP ports must not imply this capability.
+5. **Lower-priority projected directions:** add projected Fletcher–Reeves or
+   PR+, projected L-BFGS, and active-set-aware trust-region steps only after
+   projection transition, restart, and metric-coupling tests exist. This does
+   not authorize generic continuous-control box semantics.
+
+Full BFGS, quadratic/cubic interpolation line searches, and other textbook
+variants remain optional alternatives rather than prerequisites for the
+selected framework slice.
 
 #### Hessian and Newton boundary
 
@@ -1134,6 +1168,10 @@ with P6.2:
 2. **P6.3/P6.5:** implement the scalar KKT product and diagnostics, then
    complementarity/PDAS for the selected cellwise box representation.
 3. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
+4. **P6.1 extension track:** after the required P6.2/P6.3/P6.5 gates and
+   selected benchmark evidence, activate the [P6.1 extension ladder](#p61-extension-ladder)
+   in order. Generic nonlinear second order and projected directions remain
+   lower priority than the selected scalar formulation and KKT/PDAS paths.
 
 Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
 future gate. The next conditional gate is P6.2; do not silently activate S1

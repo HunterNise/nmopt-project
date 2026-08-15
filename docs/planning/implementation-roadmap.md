@@ -1071,9 +1071,9 @@ remain P6.3.
 
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
 
-**Status:** selected after P6.1 and the supplied-OtD interface; Unit 1 has
-frozen the normative KKT product boundary. The executable contract and scalar
-reference target are complete; lowerers and Krylov policies remain to be
+**Status:** selected after P6.1 and the supplied-OtD interface; Units 1–4 have
+frozen and exercised the normative KKT product boundary through the serial
+scalar DTO lowerer. Krylov policies and the supplied-OTD bridge remain to be
 implemented.
 
 **Motivation:** All-at-once OCPs are equality-constrained quadratic programs
@@ -1094,9 +1094,10 @@ preconditioners.
   formulation/layout compatibility and residual diagnostics.
 
 **First registered target:** serial scalar linear-quadratic DTO with a
-volume-control matrix-free/assembled-equivalence test. Do not require a
-scalar PDE name or identify control and state mass matrices in the generic
-product.
+volume-control matrix-free/assembled-equivalence test. The serial deal.II
+realization may expose the assembled operator as named state/control/
+multiplier blocks with per-block source provenance. Do not require a scalar
+PDE name or identify control and state mass matrices in the generic product.
 
 **Done when:** KKT block action and transpose signs pass, its solution agrees
 with reduced DTO on the same target, and it reports feasibility, stationarity,
@@ -1207,6 +1208,13 @@ vocabulary.
   residuals, and multiplier conversion; the supplied-OTD solution agrees with
   reduced DTO. Neutral and deal.II-enabled verification pass (21/21 and
   50/50 scenarios).
+- **P6.3 Unit 4 — serial DTO block lowerer:**
+  `ScalarDiffusionReactionKKT` now realizes the scalar deal.II DTO product with
+  an explicit `BlockSparseMatrix` ordered as `[state, control, multiplier]`.
+  Each of its nine blocks records its objective/residual source, sign, and
+  transpose provenance; the assembled action, transpose, and right-hand side
+  agree with the backend-neutral product. The focused scenario is registered
+  in the full deal.II gate (21/21 neutral and 51/51 deal.II scenarios pass).
 
 ### Future implementation sequence
 

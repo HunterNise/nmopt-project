@@ -148,6 +148,10 @@ if(NMOPT_ENABLE_DEAL_II)
       tests/dealii_diffusion_contract.cc)
 
     nmopt_add_dealii_test(
+      nmopt_dealii_kkt_contract_test
+      tests/dealii_kkt_contract.cc)
+
+    nmopt_add_dealii_test(
       nmopt_dealii_trace_hhalf_metric_contract_test
       tests/dealii_trace_hhalf_metric_contract.cc)
   endif()

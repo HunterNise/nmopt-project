@@ -39,6 +39,9 @@
 
 namespace nmopt::dealii_backend
 {
+  template <int dim>
+  class ScalarDiffusionReactionKKT;
+
   // V0 deal.II lowerer:
   //
   //   -div(k grad y) + c y = f + u,
@@ -585,6 +588,8 @@ namespace nmopt::dealii_backend
     }
 
   private:
+    friend class ScalarDiffusionReactionKKT<dim>;
+
     static void
     add_sparsity_entries(
       dealii::DynamicSparsityPattern &       target,

@@ -861,6 +861,17 @@ $`D_{h}`$, and $`D_{h}^{\ast}`$, together with the KKT block action and the
 corresponding transpose action. An assembled matrix MAY be a lowerer
 optimisation; it is not the product contract.
 
+For the selected serial scalar lowerer, an assembled realization MAY expose
+the KKT operator as a named three-by-three block matrix with ordering
+`[state, control, multiplier]` and row roles
+`[state_stationarity, control_stationarity, equality]`. The realization MUST
+keep the source and sign of each nonzero block explicit: the state and
+control objective Hessian blocks come from the objective derivative, while
+the multiplier columns and equality row come from the residual JVP/VJP
+pair. Zero objective cross-blocks and the zero multiplier block remain named
+blocks. This is lowerer provenance and verification evidence; it does not
+add deal.II or assembled-storage requirements to the generic product.
+
 The product MUST record the multiplier convention and any conversion between
 the KKT multiplier and the framework adjoint. For the selected scalar target,
 the symmetric book multiplier is $`\lambda_{h}=-p_{h}`$; this is a declared

@@ -15,6 +15,36 @@
 
 namespace nmopt::solvers
 {
+  enum class ReducedStoppingCriterion
+  {
+    // Preserve the historical policy: absolute gradient stopping is always
+    // active and every positive optional tolerance is an additional stop.
+    automatic,
+    gradient_norm,
+    relative_gradient_norm,
+    objective_change,
+    step_norm
+  };
+
+  inline const char *
+  reduced_stopping_criterion_name(const ReducedStoppingCriterion criterion)
+  {
+    switch (criterion)
+      {
+        case ReducedStoppingCriterion::automatic:
+          return "automatic";
+        case ReducedStoppingCriterion::gradient_norm:
+          return "gradient_norm";
+        case ReducedStoppingCriterion::relative_gradient_norm:
+          return "relative_gradient_norm";
+        case ReducedStoppingCriterion::objective_change:
+          return "objective_change";
+        case ReducedStoppingCriterion::step_norm:
+          return "step_norm";
+      }
+    return "unknown";
+  }
+
   enum class ReducedStoppingReason
   {
     gradient_tolerance,
@@ -57,6 +87,8 @@ namespace nmopt::solvers
     unsigned int maximum_iterations = 100;
     unsigned int maximum_line_search_trials = 20;
     double       gradient_tolerance = 1e-8;
+    ReducedStoppingCriterion stopping_criterion =
+      ReducedStoppingCriterion::automatic;
     // A zero value disables the optional relative/objective/step criteria.
     double       relative_gradient_tolerance = 0.0;
     double       objective_change_tolerance = 0.0;

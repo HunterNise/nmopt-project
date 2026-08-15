@@ -158,7 +158,13 @@ namespace nmopt::solvers
           gradient_norm_history.push_back(stopping_norm);
           relative_gradient_norm_history.push_back(relative_gradient_norm);
 
-          if (stopping_norm <= parameters_.gradient_tolerance)
+          const bool automatic_stopping =
+            parameters_.stopping_criterion ==
+            ReducedStoppingCriterion::automatic;
+          if ((automatic_stopping ||
+               parameters_.stopping_criterion ==
+                 ReducedStoppingCriterion::gradient_norm) &&
+              stopping_norm <= parameters_.gradient_tolerance)
             return result(current_control,
                           std::move(current_evaluation),
                           std::move(objective_history),
@@ -176,7 +182,10 @@ namespace nmopt::solvers
                           hessian_action_count,
                           direction_policy.reset_count());
 
-          if (parameters_.relative_gradient_tolerance > 0.0 &&
+          if ((automatic_stopping
+                 ? parameters_.relative_gradient_tolerance > 0.0
+                 : parameters_.stopping_criterion ==
+                     ReducedStoppingCriterion::relative_gradient_norm) &&
               relative_gradient_norm <= parameters_.relative_gradient_tolerance)
             return result(current_control,
                           std::move(current_evaluation),
@@ -283,7 +292,10 @@ namespace nmopt::solvers
           objective_change_history.push_back(objective_change);
           ++accepted_iterations;
 
-          if (parameters_.objective_change_tolerance > 0.0 &&
+          if ((automatic_stopping
+                 ? parameters_.objective_change_tolerance > 0.0
+                 : parameters_.stopping_criterion ==
+                     ReducedStoppingCriterion::objective_change) &&
               std::abs(objective_change) <=
                 parameters_.objective_change_tolerance)
             return result(current_control,
@@ -303,7 +315,10 @@ namespace nmopt::solvers
                           hessian_action_count,
                           direction_policy.reset_count());
 
-          if (parameters_.step_tolerance > 0.0 &&
+          if ((automatic_stopping
+                 ? parameters_.step_tolerance > 0.0
+                 : parameters_.stopping_criterion ==
+                     ReducedStoppingCriterion::step_norm) &&
               step_norm <= parameters_.step_tolerance)
             return result(current_control,
                           std::move(current_evaluation),
@@ -385,6 +400,18 @@ namespace nmopt::solvers
                         "Reduced gradient line-search trials must be positive");
       contract::require(parameters_.gradient_tolerance > 0.0,
                         "Reduced gradient tolerance must be positive");
+      if (parameters_.stopping_criterion ==
+          ReducedStoppingCriterion::relative_gradient_norm)
+        contract::require(parameters_.relative_gradient_tolerance > 0.0,
+                          "Selected relative-gradient tolerance must be positive");
+      if (parameters_.stopping_criterion ==
+          ReducedStoppingCriterion::objective_change)
+        contract::require(parameters_.objective_change_tolerance > 0.0,
+                          "Selected objective-change tolerance must be positive");
+      if (parameters_.stopping_criterion ==
+          ReducedStoppingCriterion::step_norm)
+        contract::require(parameters_.step_tolerance > 0.0,
+                          "Selected step tolerance must be positive");
       contract::require(parameters_.relative_gradient_tolerance >= 0.0,
                         "Reduced relative gradient tolerance must be nonnegative");
       contract::require(parameters_.objective_change_tolerance >= 0.0,

@@ -199,6 +199,14 @@ count records each direction-forming inverse metric action; the Hessian count
 records each explicit provider application. Backend-specific inner iterations
 remain in the metric or Hessian realization policy.
 
+`ReducedSolverParameters::stopping_criterion` makes the stopping policy
+explicit for didactical comparisons. Its default `automatic` value preserves
+the compatibility behavior above, while `gradient_norm`,
+`relative_gradient_norm`, `objective_change`, and `step_norm` select exactly
+one corresponding tolerance; `maximum_iterations` remains an unconditional
+safety cap. The same selector is available on the unconstrained trust-region
+parameters.
+
 The default nonlinear-CG policy uses the metric gradient
 $`g_{k}=G^{-1}j_{h}'(u_{k})`$ and the Polak–Ribière+ coefficient
 

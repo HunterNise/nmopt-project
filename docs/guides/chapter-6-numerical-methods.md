@@ -220,8 +220,12 @@ the final accepted state, adjoint, covector, objective, absolute and relative
 gradient histories, actual metric step norms, objective changes, maximum
 iteration/line-search failures, and state/adjoint/metric/Hessian-solve counts
 as separate fields. Relative-gradient, objective-change, and step tolerances
-are independently configurable and disabled by zero values. Finite
-differences are derivative checks, not a high-dimensional gradient fallback.
+are independently configurable and disabled by zero values. For didactical
+comparisons, `ReducedStoppingCriterion` can explicitly select one of these
+criteria or the absolute gradient norm; its default automatic mode preserves
+the legacy behavior in which positive optional tolerances are additional
+stops. Finite differences are derivative checks, not a high-dimensional
+gradient fallback.
 
 The selected slice does not exhaust the alternatives in Chapter 3. The
 relative/objective/step stopping policies and Fletcher–Reeves are now

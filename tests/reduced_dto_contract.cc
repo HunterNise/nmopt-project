@@ -929,6 +929,9 @@ namespace
       solver_parameters;
     relative_stopping_parameters.gradient_tolerance = 1e-30;
     relative_stopping_parameters.relative_gradient_tolerance = 0.5;
+    relative_stopping_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::relative_gradient_norm;
+    relative_stopping_parameters.gradient_tolerance = 1e6;
     const nmopt::solvers::ReducedGradientSolver relative_stopping_solver(
       reduced, metric, relative_stopping_parameters);
     const auto relative_stopping_result = relative_stopping_solver.solve(
@@ -944,6 +947,9 @@ namespace
       solver_parameters;
     objective_stopping_parameters.gradient_tolerance = 1e-30;
     objective_stopping_parameters.objective_change_tolerance = 1e6;
+    objective_stopping_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::objective_change;
+    objective_stopping_parameters.gradient_tolerance = 1e6;
     const nmopt::solvers::ReducedGradientSolver objective_stopping_solver(
       reduced, metric, objective_stopping_parameters);
     const auto objective_stopping_result = objective_stopping_solver.solve(
@@ -958,6 +964,9 @@ namespace
       solver_parameters;
     step_stopping_parameters.gradient_tolerance = 1e-30;
     step_stopping_parameters.step_tolerance = 1e6;
+    step_stopping_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::step_norm;
+    step_stopping_parameters.gradient_tolerance = 1e6;
     const nmopt::solvers::ReducedGradientSolver step_stopping_solver(
       reduced, metric, step_stopping_parameters);
     const auto step_stopping_result = step_stopping_solver.solve(
@@ -1147,6 +1156,9 @@ namespace
     const ScaledReducedHessian under_model_hessian(hessian, 0.1);
     nmopt::solvers::ReducedTrustRegionParameters rejection_parameters =
       trust_region_parameters;
+    rejection_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::step_norm;
+    rejection_parameters.gradient_tolerance = 1e6;
     rejection_parameters.step_tolerance = 0.1;
     rejection_parameters.acceptance_threshold = 0.99;
     rejection_parameters.shrink_threshold = 0.995;

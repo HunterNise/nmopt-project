@@ -50,6 +50,8 @@ namespace nmopt::solvers
     unsigned int maximum_iterations = 100;
     unsigned int maximum_trials_per_iteration = 10;
     double       gradient_tolerance = 1e-8;
+    ReducedStoppingCriterion stopping_criterion =
+      ReducedStoppingCriterion::automatic;
     // A zero value disables the optional relative/objective/step criteria.
     double relative_gradient_tolerance = 0.0;
     double objective_change_tolerance = 0.0;
@@ -191,10 +193,19 @@ namespace nmopt::solvers
           gradient_norm_history.push_back(gradient_norm);
           relative_gradient_norm_history.push_back(relative_gradient_norm);
 
-          if (gradient_norm <= parameters_.gradient_tolerance)
+          const bool automatic_stopping =
+            parameters_.stopping_criterion ==
+            ReducedStoppingCriterion::automatic;
+          if ((automatic_stopping ||
+               parameters_.stopping_criterion ==
+                 ReducedStoppingCriterion::gradient_norm) &&
+              gradient_norm <= parameters_.gradient_tolerance)
             return finish(ReducedTrustRegionStoppingReason::gradient_tolerance);
 
-          if (parameters_.relative_gradient_tolerance > 0.0 &&
+          if ((automatic_stopping
+                 ? parameters_.relative_gradient_tolerance > 0.0
+                 : parameters_.stopping_criterion ==
+                     ReducedStoppingCriterion::relative_gradient_norm) &&
               relative_gradient_norm <=
                 parameters_.relative_gradient_tolerance)
             return finish(
@@ -285,13 +296,19 @@ namespace nmopt::solvers
                     radius = std::max(parameters_.minimum_radius,
                                       parameters_.shrink_factor * radius);
 
-                  if (parameters_.objective_change_tolerance > 0.0 &&
+                  if ((automatic_stopping
+                         ? parameters_.objective_change_tolerance > 0.0
+                         : parameters_.stopping_criterion ==
+                             ReducedStoppingCriterion::objective_change) &&
                       actual_reduction <=
                         parameters_.objective_change_tolerance)
                     return finish(
                       ReducedTrustRegionStoppingReason::objective_change_tolerance);
 
-                  if (parameters_.step_tolerance > 0.0 &&
+                  if ((automatic_stopping
+                         ? parameters_.step_tolerance > 0.0
+                         : parameters_.stopping_criterion ==
+                             ReducedStoppingCriterion::step_norm) &&
                       step_norm <= parameters_.step_tolerance)
                     return finish(ReducedTrustRegionStoppingReason::step_tolerance);
                   break;
@@ -318,6 +335,18 @@ namespace nmopt::solvers
                         "Trust-region trial limit must be positive");
       contract::require(parameters_.gradient_tolerance > 0.0,
                         "Trust-region gradient tolerance must be positive");
+      if (parameters_.stopping_criterion ==
+          ReducedStoppingCriterion::relative_gradient_norm)
+        contract::require(parameters_.relative_gradient_tolerance > 0.0,
+                          "Selected relative-gradient tolerance must be positive");
+      if (parameters_.stopping_criterion ==
+          ReducedStoppingCriterion::objective_change)
+        contract::require(parameters_.objective_change_tolerance > 0.0,
+                          "Selected objective-change tolerance must be positive");
+      if (parameters_.stopping_criterion ==
+          ReducedStoppingCriterion::step_norm)
+        contract::require(parameters_.step_tolerance > 0.0,
+                          "Selected step tolerance must be positive");
       contract::require(parameters_.relative_gradient_tolerance >= 0.0,
                         "Trust-region relative gradient tolerance must be nonnegative");
       contract::require(parameters_.objective_change_tolerance >= 0.0,

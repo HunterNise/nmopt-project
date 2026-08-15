@@ -959,10 +959,12 @@ every alternative described in Chapter 3 has been implemented. The following
 extensions are intentionally recorded so that a later implementation does
 not silently broaden the selected slice:
 
-1. **Near-term iterative closure:** relative-gradient, objective-change, and
-   step-size stopping policies, final accepted state/adjoint/covector
-   reporting, Fletcher–Reeves, exact-search PR+/Fletcher–Reeves equivalence,
-   and strict classical quadratic-CG are implemented.
+1. **Near-term iterative closure:** selectable relative-gradient,
+   objective-change, step-size, and absolute-gradient stopping policies,
+   final accepted state/adjoint/covector reporting, Fletcher–Reeves,
+   exact-search PR+/Fletcher–Reeves equivalence, and strict classical
+   quadratic-CG are implemented. The default automatic stopping mode preserves
+   the earlier optional-tolerance behavior.
 2. **Globalization extension:** add a matrix-free trust-region policy with a
    quadratic model, actual/predicted reduction ratio, radius update, and
    acceptance diagnostics. The unconstrained Cauchy realization for the

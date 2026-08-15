@@ -933,7 +933,7 @@ fall back after a failed curvature test. Every selected Hessian-vector path
 also passes symmetry and finite-difference reduced-covector tests.
 
 **Implementation closure:** the shared typed direction/result protocol now
-covers steepest descent, Polak–Ribiere-plus and Fletcher–Reeves nonlinear CG,
+covers steepest descent, Polak–Ribière-plus and Fletcher–Reeves nonlinear CG,
 strict classical quadratic-CG, metric-aware full-memory BFGS, and
 limited-memory BFGS with declared layout, curvature, and restart behaviour.
 The explicit `ReducedHessianT` capability and exact linear-quadratic provider
@@ -1003,7 +1003,7 @@ slice.
 P6.1 has three separable layers:
 
 1. A **Newton optimizer** is a generic consumer. It receives a reduced
-   covector and a service that applies $`H(u)w`$, solves the reduced Newton
+   covector and a service that applies $H(u)w$, solves the reduced Newton
    system, possibly approximately, and performs globalization. It contains no
    PDE-specific formulas.
 2. A **Hessian-vector provider** is a model capability. For the selected

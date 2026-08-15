@@ -35,7 +35,7 @@ The public executable and solver headers provide:
 | `Constraint` | Feasibility and projection coupled to an actual compatible metric realization. |
 | `LinearSolveReport` and `FormulationSolveResultT` | Backend-neutral state/adjoint convergence, tolerance, and work evidence paired with a solved primal block. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
-| `contract::ReducedHessianT` | An explicit reduced-Hessian capability that applies $`H(u)w`$ as a typed reduced covector; first-order DTO ports do not imply this capability. |
+| `contract::ReducedHessianT` | An explicit reduced-Hessian capability that applies $H(u)w$ as a typed reduced covector; first-order DTO ports do not imply this capability. |
 | `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm, reduced-covector directional derivative, and action counts. |
 | `solvers::ReducedHessianSolveDiagnostics` | A typed report of the reduced-Hessian inner PCG iterations and initial/final preconditioned residual norms. |
 | `solvers::ReducedLineSearchResultT` | A typed line-search result carrying the accepted trial DTO, actual step length, trial count, and any Hessian-action count. |
@@ -243,9 +243,9 @@ before every update.
 
 The selected limited-memory BFGS policy stores at most the configured number
 of typed secant pairs. For a new iterate it forms the primal displacement
-`$s_{k}=u_{k}-u_{k-1}$` and covector difference
-`$y_{k}=j_{h}'(u_{k})-j_{h}'(u_{k-1})$`, accepts the pair only when
-`$\langle y_{k},s_{k}\rangle$` is finite and larger than the configured
+$`s_{k}=u_{k}-u_{k-1}`$ and covector difference
+$`y_{k}=j_{h}'(u_{k})-j_{h}'(u_{k-1})`$, accepts the pair only when
+$`\langle y_{k},s_{k}\rangle`$ is finite and larger than the configured
 curvature tolerance, and applies the standard two-loop recursion. Its initial
 inverse-Hessian action is the declared metric inverse, so the resulting
 direction remains metric-aware without identifying covectors and primal
@@ -315,7 +315,7 @@ choice for high-dimensional PDE controls.
 `ReducedTrustRegionSolverT` is a separate globalization boundary rather than
 another line-search policy. Its selectable Cauchy subproblem forms the metric
 step
-$`s=-\tau G^{-1}j_{h}'`$, with $`\tau`$ clipped by the current radius, and
+$`s=-\tau G^{-1}j_{h}'`$, with $\tau$ clipped by the current radius, and
 uses the matrix-free quadratic model
 
 $$
@@ -327,7 +327,7 @@ The solver evaluates the actual reduction, computes the actual/predicted ratio,
 accepts or rejects the trial against its threshold, and shrinks or expands the
 radius according to the declared thresholds. The
 `truncated_conjugate_gradient` subproblem instead applies the explicit Hessian
-to the preconditioned CG recurrence for $H s=-j_{h}'$, stops on the metric
+to the preconditioned CG recurrence for $`H s=-j_{h}'`$, stops on the metric
 residual tolerance, and returns a boundary or negative-curvature step when
 the trust-region sphere is reached. Its iteration limit and status are
 reported per trial. The report keeps one diagnostic record per trial,

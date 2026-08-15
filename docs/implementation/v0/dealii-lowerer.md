@@ -77,7 +77,7 @@ mesh; it is not a nodal, continuous-control, or $H^{1}$ projection.
 
 For this linear-quadratic target, `ScalarDiffusionReactionModel` also exposes
 the exact `ReducedHessianT<SerialBackend>` action. For a control direction
-$`w`$, it applies
+$w$, it applies
 
 ```math
 \begin{aligned}

@@ -1195,6 +1195,11 @@ vocabulary.
   adjoint conversion, rank/kernel assumptions, and MINRES/GMRES compatibility
   rules are frozen in the interface specification. No executable KKT product
   or solver has been added yet.
+- **P6.3 Unit 2 — backend-neutral KKT product:**
+  `EqualityConstrainedQuadraticKKTProductT` now validates typed layouts and
+  declared assumptions, exposes $Q$, $D$, $D^{\mathsf T}$, KKT, and transpose
+  actions, reports residual blocks, and owns explicit multiplier conversion.
+  Focused and full `debug-neutral` verification pass (19/19 scenarios).
 
 ### Future implementation sequence
 

@@ -116,6 +116,10 @@ if(BUILD_TESTING)
     tests/supplied_linear_quadratic_otd_contract.cc)
 
   nmopt_add_neutral_test(
+    nmopt_quadratic_kkt_contract_test
+    tests/quadratic_kkt_contract.cc)
+
+  nmopt_add_neutral_test(
     nmopt_semantic_v1_contract_test
     tests/semantic_v1_contract.cc)
 endif()

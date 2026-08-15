@@ -1,66 +1,19 @@
 #pragma once
 
 #include "nmopt/contract/reduced_dto.hpp"
+#include "nmopt/solvers/reduced_search.hpp"
 
 #include <cmath>
 #include <cstddef>
-#include <string>
 #include <utility>
 #include <vector>
 
 namespace nmopt::solvers
 {
-  enum class ReducedGradientStoppingReason
-  {
-    gradient_tolerance,
-    maximum_iterations,
-    line_search_failure
-  };
-
-  inline const char *
-  reduced_gradient_stopping_reason_name(
-    const ReducedGradientStoppingReason reason)
-  {
-    switch (reason)
-      {
-        case ReducedGradientStoppingReason::gradient_tolerance:
-          return "gradient_tolerance";
-        case ReducedGradientStoppingReason::maximum_iterations:
-          return "maximum_iterations";
-        case ReducedGradientStoppingReason::line_search_failure:
-          return "line_search_failure";
-      }
-    return "unknown";
-  }
-
-  struct ReducedGradientParameters
-  {
-    unsigned int maximum_iterations = 100;
-    unsigned int maximum_line_search_trials = 20;
-    double       gradient_tolerance = 1e-8;
-    double       initial_step_length = 1.0;
-    double       armijo_fraction = 1e-4;
-    double       backtracking_factor = 0.5;
-  };
-
-  template <typename Backend>
-  struct ReducedGradientResultT
-  {
-    contract::PrimalBlockT<Backend> control;
-    std::vector<double>             objective_history;
-    std::vector<double>             gradient_norm_history;
-    std::size_t                     accepted_iterations;
-    std::size_t                     line_search_trial_count;
-    std::size_t                     state_solve_count;
-    std::size_t                     adjoint_solve_count;
-    ReducedGradientStoppingReason   stopping_reason;
-  };
-
-  using ReducedGradientResult = ReducedGradientResultT<contract::DenseBackend>;
-
   // An unconstrained reduced-space method. The metric identifies the reduced
-  // covector j' with g = G^{-1} j'; Armijo accepts u - alpha g when
-  // j(u - alpha g) <= j(u) - c alpha <j', g>.
+  // covector j' with g = G^{-1} j'; the direction protocol supplies d = -g.
+  // Armijo accepts u + alpha d when j(u + alpha d) <=
+  // j(u) + c <j', alpha d>.
   template <typename Backend>
   class ReducedGradientSolverT
   {
@@ -109,6 +62,7 @@ namespace nmopt::solvers
       std::size_t adjoint_solve_count = 0;
       std::size_t line_search_trial_count = 0;
       std::size_t accepted_iterations = 0;
+      std::size_t metric_solve_count = 0;
 
       Primal current_control = initial_control;
       Evaluation current_evaluation = reduced_.evaluate(current_control);
@@ -117,19 +71,22 @@ namespace nmopt::solvers
 
       std::vector<double> objective_history{current_evaluation.objective_value};
       std::vector<double> gradient_norm_history;
+      std::vector<double> step_length_history;
+      std::vector<double> objective_change_history;
 
       for (;;)
         {
-          const GradientData gradient =
-            evaluate_gradient(current_evaluation.reduced_derivative);
-          double stopping_norm = gradient.metric_norm;
-          double unit_step_descent_measure = -gradient.descent_measure;
+          const ReducedSearchDirectionT<Backend> direction =
+            evaluate_direction(current_evaluation.reduced_derivative);
+          ++metric_solve_count;
+          double stopping_norm = direction.gradient_norm;
+          double unit_step_descent_measure = direction.directional_derivative;
           if (constraint_ != nullptr)
             {
               const ProjectedGradientData projected_gradient =
                 evaluate_projected_gradient(current_control,
                                             current_evaluation.reduced_derivative,
-                                            gradient.direction);
+                                            direction.direction);
               stopping_norm = projected_gradient.metric_norm;
               unit_step_descent_measure = projected_gradient.descent_measure;
             }
@@ -143,7 +100,10 @@ namespace nmopt::solvers
                           line_search_trial_count,
                           state_solve_count,
                           adjoint_solve_count,
-                          ReducedGradientStoppingReason::gradient_tolerance);
+                          ReducedGradientStoppingReason::gradient_tolerance,
+                          std::move(step_length_history),
+                          std::move(objective_change_history),
+                          metric_solve_count);
 
           contract::require(unit_step_descent_measure < 0.0,
                             "Reduced gradient did not produce a descent direction");
@@ -156,7 +116,10 @@ namespace nmopt::solvers
                           line_search_trial_count,
                           state_solve_count,
                           adjoint_solve_count,
-                          ReducedGradientStoppingReason::maximum_iterations);
+                          ReducedGradientStoppingReason::maximum_iterations,
+                          std::move(step_length_history),
+                          std::move(objective_change_history),
+                          metric_solve_count);
 
           double step_length = parameters_.initial_step_length;
           bool   accepted = false;
@@ -165,7 +128,9 @@ namespace nmopt::solvers
                ++trial)
             {
               Primal trial_control = current_control;
-              add_scaled(trial_control, -step_length, gradient.direction);
+              add_scaled_primal(trial_control,
+                                step_length,
+                                direction.direction);
               if (constraint_ != nullptr)
                 {
                   trial_control = constraint_->project_in(trial_control, metric_);
@@ -178,7 +143,7 @@ namespace nmopt::solvers
               ++line_search_trial_count;
 
               Primal update = trial_control;
-              add_scaled(update, -1.0, current_control);
+              add_scaled_primal(update, -1.0, current_control);
               const double armijo_decrease =
                 contract::pair(current_evaluation.reduced_derivative, update);
               const double armijo_bound = current_evaluation.objective_value +
@@ -187,9 +152,14 @@ namespace nmopt::solvers
               if (armijo_decrease < 0.0 &&
                   trial_evaluation.objective_value <= armijo_bound)
                 {
+                  const double objective_change =
+                    trial_evaluation.objective_value -
+                    current_evaluation.objective_value;
                   current_control = std::move(trial_control);
                   current_evaluation = std::move(trial_evaluation);
                   objective_history.push_back(current_evaluation.objective_value);
+                  step_length_history.push_back(step_length);
+                  objective_change_history.push_back(objective_change);
                   ++accepted_iterations;
                   accepted = true;
                   break;
@@ -205,52 +175,39 @@ namespace nmopt::solvers
                           line_search_trial_count,
                           state_solve_count,
                           adjoint_solve_count,
-                          ReducedGradientStoppingReason::line_search_failure);
+                          ReducedGradientStoppingReason::line_search_failure,
+                          std::move(step_length_history),
+                          std::move(objective_change_history),
+                          metric_solve_count);
         }
     }
 
   private:
-    struct GradientData
-    {
-      Primal direction;
-      double metric_norm;
-      double descent_measure;
-    };
-
     struct ProjectedGradientData
     {
       double metric_norm;
       double descent_measure;
     };
 
-    GradientData
-    evaluate_gradient(const Covector &reduced_derivative) const
+    ReducedSearchDirectionT<Backend>
+    evaluate_direction(const Covector &reduced_derivative) const
     {
-      Primal gradient = reduced_.gradient_direction(reduced_derivative, metric_);
-      const Covector metric_gradient = metric_.apply(gradient);
-      const double metric_norm_squared = contract::pair(metric_gradient, gradient);
-      contract::require(metric_norm_squared >= 0.0,
-                        "Reduced gradient metric returned a negative squared norm");
-
-      const double descent_measure = contract::pair(reduced_derivative, gradient);
-      contract::require(descent_measure >= 0.0,
-                        "Reduced gradient metric returned a negative descent measure");
-      return {std::move(gradient), std::sqrt(metric_norm_squared), descent_measure};
+      return make_steepest_descent_direction(reduced_derivative, metric_);
     }
 
     ProjectedGradientData
     evaluate_projected_gradient(const Primal &  control,
                                 const Covector &reduced_derivative,
-                                const Primal &  gradient) const
+                                const Primal &  direction) const
     {
       Primal projected_control = control;
-      add_scaled(projected_control, -1.0, gradient);
+      add_scaled_primal(projected_control, 1.0, direction);
       projected_control = constraint_->project_in(projected_control, metric_);
       contract::require(constraint_->is_feasible(projected_control),
                         "Reduced gradient projection returned an infeasible control");
 
       Primal update = projected_control;
-      add_scaled(update, -1.0, control);
+      add_scaled_primal(update, -1.0, control);
       const Covector metric_update = metric_.apply(update);
       const double metric_norm_squared = contract::pair(metric_update, update);
       contract::require(metric_norm_squared >= 0.0,
@@ -278,16 +235,6 @@ namespace nmopt::solvers
                         "Reduced gradient backtracking factor must lie in (0, 1)");
     }
 
-    static void
-    add_scaled(Primal &target, const double factor, const Primal &source)
-    {
-      contract::require_compatible(target,
-                                   source,
-                                   "Reduced gradient update has incompatible layouts");
-      for (std::size_t block = 0; block < target.n_blocks(); ++block)
-        target.add_scaled_block(block, factor, source.block(block));
-    }
-
     static Result
     result(Primal                         control,
            std::vector<double>            objective_history,
@@ -296,7 +243,10 @@ namespace nmopt::solvers
            const std::size_t               line_search_trial_count,
            const std::size_t               state_solve_count,
            const std::size_t               adjoint_solve_count,
-           const ReducedGradientStoppingReason stopping_reason)
+           const ReducedGradientStoppingReason stopping_reason,
+           std::vector<double>            step_length_history,
+           std::vector<double>            objective_change_history,
+           const std::size_t               metric_solve_count)
     {
       return {std::move(control),
               std::move(objective_history),
@@ -305,7 +255,10 @@ namespace nmopt::solvers
               line_search_trial_count,
               state_solve_count,
               adjoint_solve_count,
-              stopping_reason};
+              stopping_reason,
+              std::move(step_length_history),
+              std::move(objective_change_history),
+              metric_solve_count};
     }
 
     const contract::ReducedDTOT<Backend> &reduced_;

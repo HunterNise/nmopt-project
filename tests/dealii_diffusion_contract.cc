@@ -5051,6 +5051,15 @@ namespace
     contract::require(solver_result.line_search_trial_count + 1 ==
                         solver_result.state_solve_count,
                       "deal.II reduced gradient solve count misses a trial evaluation");
+    contract::require(solver_result.metric_solve_count ==
+                        solver_result.gradient_norm_history.size(),
+                      "deal.II reduced gradient metric solve count does not match direction evaluations");
+    contract::require(solver_result.step_length_history.size() ==
+                        solver_result.accepted_iterations,
+                      "deal.II reduced gradient step history does not match accepted iterations");
+    contract::require(solver_result.objective_change_history.size() ==
+                        solver_result.accepted_iterations,
+                      "deal.II reduced gradient objective-change history does not match accepted iterations");
 
     const auto bounds = model.control_l2_box_constraint(-1.0, 0.05, metric);
     dealii::Vector<double> bounded_control_values(
@@ -5070,6 +5079,12 @@ namespace
     contract::require(projected_result.gradient_norm_history.back() <=
                         solver_parameters.gradient_tolerance,
                       "deal.II projected reduced gradient final norm exceeds tolerance");
+    contract::require(projected_result.metric_solve_count ==
+                        projected_result.gradient_norm_history.size(),
+                      "deal.II projected reduced gradient metric solve count does not match direction evaluations");
+    contract::require(projected_result.step_length_history.size() ==
+                        projected_result.accepted_iterations,
+                      "deal.II projected reduced gradient step history does not match accepted iterations");
     bool upper_bound_is_active = false;
     for (dealii::types::global_dof_index index = 0;
          index < projected_result.control.block(0).size();

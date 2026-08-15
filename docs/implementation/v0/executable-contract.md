@@ -35,6 +35,8 @@ The public executable and solver headers provide:
 | `Constraint` | Feasibility and projection coupled to an actual compatible metric realization. |
 | `LinearSolveReport` and `FormulationSolveResultT` | Backend-neutral state/adjoint convergence, tolerance, and work evidence paired with a solved primal block. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
+| `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm and reduced-covector directional derivative. |
+| `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, and formulation/metric action counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
@@ -127,13 +129,14 @@ port; a v1 coefficient lowerer may give its layout the semantic identifier
 
 ## First reduced solver
 
-`solvers::ReducedGradientSolverT` is the first generic optimizer. Given the
-DTO covector $`j_{h}'`$ and a declared metric $`G`$, it forms
-$`g=G^{-1}j_{h}'`$ and attempts the unconstrained update
-$`u^{+}=u-\alpha g`$. A trial is accepted only when it satisfies
+`solvers::ReducedGradientSolverT` is the first generic optimizer.
+`ReducedSearchDirectionT` stores the primal direction $`d`$, its metric
+gradient norm, and $`j_{h}'[d]`$. The initial steepest-descent policy forms
+$`g=G^{-1}j_{h}'`$ and supplies $`d=-g`$ to the solver. An unconstrained
+trial is therefore $`u^{+}=u+\alpha d`$ and is accepted only when it satisfies
 
 $$
-  j_{h}(u-\alpha g) \leq j_{h}(u)-c\alpha\langle j_{h}',g\rangle.
+  j_{h}(u+\alpha d) \leq j_{h}(u)+c\langle j_{h}',\alpha d\rangle.
 $$
 
 The constraint-qualified constructor accepts a `ConstraintT` only when its
@@ -156,12 +159,16 @@ $$
   j_{h}(u)+c\langle j_{h}',u_{\alpha}-u\rangle.
 $$
 
-The solver returns accepted-objective and stopping-norm histories,
-accepted-iteration and line-search-trial counts, state/adjoint solve counts,
-and one stopping reason: `gradient_tolerance`, `maximum_iterations`, or
-`line_search_failure`. Each objective trial is evaluated through
-`ReducedDTOT::evaluate`, so both reported solve counts increase once for the
-initial point and once for every line-search trial.
+The shared `ReducedSolverResultT` returns accepted-objective and stopping-norm
+histories, one step length and objective change for each accepted iteration,
+accepted-iteration and line-search-trial counts, separate state, adjoint, and
+metric inverse-action counts, and one stopping reason:
+`gradient_tolerance`, `maximum_iterations`, or `line_search_failure`. Each
+objective trial is evaluated through `ReducedDTOT::evaluate`, so both reported
+formulation solve counts increase once for the initial point and once for every
+line-search trial. The metric count records each direction-forming inverse
+metric action; backend-specific inner iterations remain in the metric's own
+realisation policy.
 
 ## Metric and constraint boundary
 

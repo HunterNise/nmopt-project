@@ -316,6 +316,20 @@ namespace
                   pair(evaluation.reduced_derivative, control_direction),
                   1e-13,
                   "Metric inverse/apply consistency");
+    const auto search_direction =
+      nmopt::solvers::make_steepest_descent_direction(
+        evaluation.reduced_derivative, metric);
+    require(search_direction.directional_derivative < 0.0,
+            "Steepest-descent search direction is not descending");
+    require_close(search_direction.gradient_norm,
+                  std::sqrt(pair(reconstructed, direction)),
+                  1e-15,
+                  "Steepest-descent direction metric norm");
+    require_close(
+      pair(evaluation.reduced_derivative, search_direction.direction),
+      -pair(evaluation.reduced_derivative, direction),
+      1e-15,
+      "Steepest-descent direction sign");
 
     nmopt::test_support::require_contract_error(
       [&partition, &metric]() {
@@ -373,6 +387,27 @@ namespace
     require(solver_result.state_solve_count >
               solver_result.objective_history.size(),
             "Dense reduced gradient test did not exercise Armijo backtracking");
+    require(solver_result.metric_solve_count ==
+              solver_result.gradient_norm_history.size(),
+            "Dense reduced gradient metric solve count does not match direction evaluations");
+    require(solver_result.step_length_history.size() ==
+              solver_result.accepted_iterations,
+            "Dense reduced gradient step history does not match accepted iterations");
+    require(solver_result.objective_change_history.size() ==
+              solver_result.accepted_iterations,
+            "Dense reduced gradient objective-change history does not match accepted iterations");
+    for (std::size_t index = 0;
+         index < solver_result.accepted_iterations;
+         ++index)
+      {
+        require(solver_result.step_length_history[index] > 0.0,
+                "Dense reduced gradient accepted a nonpositive step");
+        require_close(solver_result.objective_change_history[index],
+                      solver_result.objective_history[index + 1] -
+                        solver_result.objective_history[index],
+                      1e-14,
+                      "Dense reduced gradient objective-change history");
+      }
 
     const CellwiseBoxConstraint projected_bounds(
       partition.control_layout(), {DenseVector{-1.0, -0.2}},
@@ -403,6 +438,12 @@ namespace
     require(projected_result.gradient_norm_history.back() <=
               solver_parameters.gradient_tolerance,
             "Projected reduced gradient final norm exceeds the tolerance");
+    require(projected_result.metric_solve_count ==
+              projected_result.gradient_norm_history.size(),
+            "Projected reduced gradient metric solve count does not match direction evaluations");
+    require(projected_result.step_length_history.size() ==
+              projected_result.accepted_iterations,
+            "Projected reduced gradient step history does not match accepted iterations");
     require(!recording_bounds.projected_controls().empty(),
             "Projected reduced gradient did not request a projection");
     for (const PrimalBlock &projected_control :

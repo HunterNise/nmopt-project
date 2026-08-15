@@ -935,8 +935,10 @@ covers steepest descent, Polak–Ribiere-plus and Fletcher–Reeves nonlinear CG
 strict classical quadratic-CG, metric-aware full-memory BFGS, and
 limited-memory BFGS with declared layout, curvature, and restart behaviour.
 The explicit `ReducedHessianT` capability and exact linear-quadratic provider
-support metric-preconditioned Newton. Exact quadratic, Armijo, and Wolfe
-policies are selectable through the reduced solver and evaluate acceptance
+support metric-preconditioned Newton. Its inner PCG reports preconditioned
+residual norms and iteration counts per direction evaluation. Exact
+quadratic, Armijo, and Wolfe policies are selectable through the reduced solver
+and evaluate acceptance
 using the actual trial displacement, including projected trials. The selected
 scalar one-state/one-decision DTO target is verified across the neutral,
 deal.II, sanitizer, and release profiles; projected steepest descent remains
@@ -973,9 +975,10 @@ not silently broaden the selected slice:
 2. **Globalization extension:** add a matrix-free trust-region policy with a
    quadratic model, actual/predicted reduction ratio, radius update, and
    acceptance diagnostics. The unconstrained Cauchy realization for the
-   selected explicit-Hessian scalar DTO is implemented; Newton/truncated-CG
+   selected explicit-Hessian scalar DTO is implemented; truncated-CG
    subproblem solves and projected trust-region steps remain extensions. It is
-   a separate globalization boundary, not a line-search option.
+   a separate globalization boundary, not a line-search option. The ordinary
+   reduced Newton PCG solve and its diagnostics are part of the selected slice.
 3. **Backend and benchmark parity:** the direct serial deal.II and selected
    v1 assembled scalar targets now expose the selected exact
    linear-quadratic reduced-Hessian action; exercise the iterative policies in

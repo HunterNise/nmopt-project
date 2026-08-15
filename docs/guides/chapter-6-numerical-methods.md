@@ -202,6 +202,17 @@ $A\delta y=Bw$, solve $A^{\mathsf T}\delta p=W\delta y$, and return
 $\beta Nw+B^{\mathsf T}\delta p$. This is the matrix-free Hessian action for
 CG/Newton and the source's reduced-Hessian system.
 
+The reduced Newton direction solves the covector equation
+$`H d=-j_{h}'`$ with metric-preconditioned conjugate gradients. Its residual
+norm is $`\sqrt{\langle r,G^{-1}r\rangle}`$, where
+$`r=H d+j_{h}'`$; the inverse metric is therefore the preconditioner, not a
+conversion that identifies primal and dual coefficients. The
+`ReducedHessianSolveDiagnostics` report records the initial and final norms
+and the number of inner Hessian actions for each direction evaluation. On the
+linear-quadratic target, the Hessian action is exact and constant, so these
+reports make the PCG solve independently inspectable without assembling a
+dense reduced Hessian.
+
 For a positive-curvature linear-quadratic direction, exact line search is
 
 $$

@@ -7,6 +7,7 @@
 #include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <exception>
 #include <iostream>
@@ -874,6 +875,39 @@ namespace
     require(newton_result.metric_solve_count >
               newton_result.hessian_action_count,
             "Reduced Newton did not report metric preconditioning actions");
+    require(newton_result.hessian_solve_history.size() ==
+              newton_result.gradient_norm_history.size(),
+            "Reduced Newton PCG history is not aligned with direction evaluations");
+    std::size_t reported_hessian_actions = 0;
+    bool saw_inner_pcg = false;
+    for (const auto &diagnostics : newton_result.hessian_solve_history)
+      {
+        require(diagnostics.initial_residual_norm >= 0.0 &&
+                  std::isfinite(diagnostics.initial_residual_norm) &&
+                  diagnostics.final_residual_norm >= 0.0 &&
+                  std::isfinite(diagnostics.final_residual_norm),
+                "Reduced Newton PCG residual diagnostics are invalid");
+        require(diagnostics.iteration_count <=
+                  newton_parameters.maximum_inner_iterations,
+                "Reduced Newton PCG iteration count exceeds its limit");
+        const double target_residual = std::max(
+          newton_parameters.absolute_tolerance,
+          newton_parameters.relative_tolerance *
+            diagnostics.initial_residual_norm);
+        require(diagnostics.final_residual_norm <=
+                  target_residual + 1e-12,
+                "Reduced Newton PCG final residual exceeds its target");
+        reported_hessian_actions += diagnostics.iteration_count;
+        saw_inner_pcg = saw_inner_pcg || diagnostics.iteration_count > 0;
+      }
+    require(saw_inner_pcg,
+            "Reduced Newton did not expose a nontrivial PCG solve");
+    require(reported_hessian_actions == newton_result.hessian_action_count,
+            "Reduced Newton PCG diagnostics do not match Hessian actions");
+    require(newton_result.metric_solve_count ==
+              2 * newton_result.gradient_norm_history.size() +
+                newton_result.hessian_action_count,
+            "Reduced Newton PCG diagnostics do not match metric actions");
 
     const nmopt::solvers::NewtonDirectionPolicyDense missing_hessian_policy;
     const nmopt::solvers::ReducedNewtonSolver missing_hessian_solver(

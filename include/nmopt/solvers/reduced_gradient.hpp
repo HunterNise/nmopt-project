@@ -120,6 +120,7 @@ namespace nmopt::solvers
       std::vector<double> objective_history{current_evaluation.objective_value};
       std::vector<double> gradient_norm_history;
       std::vector<double> relative_gradient_norm_history;
+      std::vector<ReducedHessianSolveDiagnostics> hessian_solve_history;
       std::vector<double> step_length_history;
       std::vector<double> step_norm_history;
       std::vector<double> objective_change_history;
@@ -135,6 +136,7 @@ namespace nmopt::solvers
                                   metric_);
           metric_solve_count += direction.metric_solve_count;
           hessian_action_count += direction.hessian_action_count;
+          hessian_solve_history.push_back(direction.hessian_solve);
           double stopping_norm = direction.gradient_norm;
           double unit_step_descent_measure = direction.directional_derivative;
           if (constraint_ != nullptr)
@@ -170,6 +172,7 @@ namespace nmopt::solvers
                           std::move(objective_history),
                           std::move(gradient_norm_history),
                           std::move(relative_gradient_norm_history),
+                          std::move(hessian_solve_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
@@ -192,6 +195,7 @@ namespace nmopt::solvers
                           std::move(objective_history),
                           std::move(gradient_norm_history),
                           std::move(relative_gradient_norm_history),
+                          std::move(hessian_solve_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
@@ -213,6 +217,7 @@ namespace nmopt::solvers
                           std::move(objective_history),
                           std::move(gradient_norm_history),
                           std::move(relative_gradient_norm_history),
+                          std::move(hessian_solve_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
@@ -264,6 +269,7 @@ namespace nmopt::solvers
                           std::move(objective_history),
                           std::move(gradient_norm_history),
                           std::move(relative_gradient_norm_history),
+                          std::move(hessian_solve_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
@@ -303,6 +309,7 @@ namespace nmopt::solvers
                           std::move(objective_history),
                           std::move(gradient_norm_history),
                           std::move(relative_gradient_norm_history),
+                          std::move(hessian_solve_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
@@ -325,6 +332,7 @@ namespace nmopt::solvers
                           std::move(objective_history),
                           std::move(gradient_norm_history),
                           std::move(relative_gradient_norm_history),
+                          std::move(hessian_solve_history),
                           accepted_iterations,
                           line_search_trial_count,
                           state_solve_count,
@@ -434,6 +442,7 @@ namespace nmopt::solvers
            std::vector<double>            objective_history,
            std::vector<double>            gradient_norm_history,
            std::vector<double>            relative_gradient_norm_history,
+           std::vector<ReducedHessianSolveDiagnostics> hessian_solve_history,
            const std::size_t               accepted_iterations,
            const std::size_t               line_search_trial_count,
            const std::size_t               state_solve_count,
@@ -451,6 +460,7 @@ namespace nmopt::solvers
               std::move(objective_history),
               std::move(gradient_norm_history),
               std::move(relative_gradient_norm_history),
+              std::move(hessian_solve_history),
               accepted_iterations,
               line_search_trial_count,
               state_solve_count,

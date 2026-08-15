@@ -98,6 +98,16 @@ namespace nmopt::solvers
     double       backtracking_factor = 0.5;
   };
 
+  // The inner reduced-Hessian solve uses the preconditioned residual norm
+  // sqrt(<r, G^{-1} r>) with r = H d + j'. First-order direction policies
+  // leave this report at its zero-valued default.
+  struct ReducedHessianSolveDiagnostics
+  {
+    std::size_t iteration_count = 0;
+    double       initial_residual_norm = 0.0;
+    double       final_residual_norm = 0.0;
+  };
+
   template <typename Backend>
   struct ReducedSearchDirectionT
   {
@@ -106,6 +116,7 @@ namespace nmopt::solvers
     double                          directional_derivative;
     std::size_t                     metric_solve_count;
     std::size_t                     hessian_action_count;
+    ReducedHessianSolveDiagnostics  hessian_solve;
   };
 
   using ReducedSearchDirection =
@@ -119,6 +130,7 @@ namespace nmopt::solvers
     std::vector<double>             objective_history;
     std::vector<double>             gradient_norm_history;
     std::vector<double>             relative_gradient_norm_history;
+    std::vector<ReducedHessianSolveDiagnostics> hessian_solve_history;
     std::size_t                     accepted_iterations;
     std::size_t                     line_search_trial_count;
     std::size_t                     state_solve_count;
@@ -227,7 +239,8 @@ namespace nmopt::solvers
             metric_gradient.norm,
             directional_derivative,
             metric_solve_count,
-            0};
+            0,
+            {}};
   }
 
   template <typename Backend>
@@ -449,7 +462,8 @@ namespace nmopt::solvers
               current_gradient.norm,
               directional_derivative,
               1,
-              0};
+              0,
+              {}};
     }
 
     std::size_t
@@ -661,7 +675,8 @@ namespace nmopt::solvers
               current_gradient.norm,
               directional_derivative,
               2,
-              0};
+              0,
+              {}};
     }
 
     std::size_t
@@ -865,7 +880,8 @@ namespace nmopt::solvers
               current_gradient.norm,
               directional_derivative,
               2,
-              0};
+              0,
+              {}};
     }
 
     std::size_t
@@ -978,7 +994,9 @@ namespace nmopt::solvers
         residual.scale_block(block, -1.0);
 
       Primal preconditioned_residual = metric.inverse_apply(residual);
-      std::size_t metric_solve_count = 1;
+      // One inverse action formed the metric gradient norm above; this one
+      // preconditions the initial PCG residual.
+      std::size_t metric_solve_count = 2;
       const double initial_squared_norm =
         contract::pair(residual, preconditioned_residual);
       contract::require(std::isfinite(initial_squared_norm) &&
@@ -991,6 +1009,8 @@ namespace nmopt::solvers
         parameters_.relative_tolerance * initial_norm);
       Primal newton_direction = Primal::zeros(metric.layout());
       std::size_t hessian_action_count = 0;
+      std::size_t inner_iteration_count = 0;
+      double       final_residual_norm = initial_norm;
 
       if (initial_norm > target_norm)
         {
@@ -1005,6 +1025,7 @@ namespace nmopt::solvers
               const Covector hessian_direction =
                 hessian_->apply(control, search_direction);
               ++hessian_action_count;
+              ++inner_iteration_count;
               contract::require(hessian_direction.layout()->compatible_with(
                                   *metric.layout()),
                                 "Reduced Hessian returned an incompatible covector layout");
@@ -1040,6 +1061,7 @@ namespace nmopt::solvers
                                   next_pairing >= 0.0,
                                 "Newton inner solve returned an invalid residual norm");
               const double next_norm = std::sqrt(next_pairing);
+              final_residual_norm = next_norm;
               if (next_norm <= target_norm)
                 {
                   converged = true;
@@ -1073,7 +1095,10 @@ namespace nmopt::solvers
               current_gradient.norm,
               directional_derivative,
               metric_solve_count,
-              hessian_action_count};
+              hessian_action_count,
+              {inner_iteration_count,
+               initial_norm,
+               final_residual_norm}};
     }
 
     std::size_t

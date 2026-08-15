@@ -37,6 +37,7 @@ The public executable and solver headers provide:
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
 | `contract::ReducedHessianT` | An explicit reduced-Hessian capability that applies $`H(u)w`$ as a typed reduced covector; first-order DTO ports do not imply this capability. |
 | `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm, reduced-covector directional derivative, and action counts. |
+| `solvers::ReducedHessianSolveDiagnostics` | A typed report of the reduced-Hessian inner PCG iterations and initial/final preconditioned residual norms. |
 | `solvers::ReducedLineSearchResultT` | A typed line-search result carrying the accepted trial DTO, actual step length, trial count, and any Hessian-action count. |
 | `solvers::NonlinearConjugateGradientDirectionPolicyT` | The default metric-aware Polak–Ribière+ direction policy with typed primal/dual history and deterministic restarts. |
 | `solvers::FletcherReevesDirectionPolicyT` | The metric-aware Fletcher–Reeves direction policy with the same typed history and deterministic restart protocol. |
@@ -48,7 +49,7 @@ The public executable and solver headers provide:
 | `solvers::ExactQuadraticLineSearchPolicyT` | One-step exact line search for a positive-curvature explicit reduced Hessian. |
 | `solvers::WolfeLineSearchPolicyT` | Strong Wolfe acceptance using actual trial slopes and declared sufficient-decrease/curvature fractions. |
 | `solvers::WeakWolfeLineSearchPolicyT` | Weak Wolfe acceptance using the one-sided actual-trial-slope condition and declared sufficient-decrease/curvature fractions. |
-| `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric/Hessian action counts, and explicit direction-reset counts. |
+| `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric/Hessian action counts, inner Hessian-solve history, and explicit direction-reset counts. |
 | `solvers::ReducedTrustRegionResultT` | The trust-region report containing accepted objectives, gradient histories, radius/step histories, actual and predicted reductions, ratios, acceptance flags, and action counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
@@ -254,13 +255,17 @@ discarded. The first registered `ReducedLimitedMemoryBfgsSolverT` integration
 is the unconstrained one-state/one-decision reduced DTO with the mass metric.
 
 The Newton policy requires a `ReducedHessianT` capability and solves
-`$H(u)d=-j_{h}'(u)$` with metric-preconditioned inner conjugate gradients. It
-rejects an absent capability, incompatible layouts, non-positive Hessian
-curvature, and an unconverged inner solve. Each Hessian-vector application
-and metric inverse action is returned in the shared solver report. The
-reference linear-quadratic model supplies the exact action by solving the
-tangent-state and incremental-adjoint systems; no dense reduced Hessian is
-assembled.
+$`H(u)d=-j_{h}'(u)`$ with metric-preconditioned inner conjugate gradients. The
+residual is a reduced covector and its stopping norm is
+$`\sqrt{\langle r,G^{-1}r\rangle}`$, where $`r=H(u)d+j_{h}'(u)`$; the metric
+inverse is the preconditioner and each accepted PCG iteration applies the
+reduced Hessian once. It rejects an absent capability, incompatible layouts,
+non-positive Hessian curvature, and an unconverged inner solve. Each
+direction returns `ReducedHessianSolveDiagnostics`, and the reduced solver
+retains one report per direction evaluation alongside the aggregate
+Hessian/metric action counts. The reference linear-quadratic model supplies
+the exact action by solving the tangent-state and incremental-adjoint systems;
+no dense reduced Hessian is assembled.
 
 The line-search protocol receives a typed current evaluation, a direction, a
 trial-control builder, and a trial evaluator. The builder is responsible for
@@ -364,8 +369,9 @@ The `CTest` scenarios verify:
    pairing under checked algebraic updates;
 10. exact `ContractError` messages for representative partition, callback,
    metric, constraint, and projected-solver precondition failures;
-11. exact reduced-Hessian finite-difference and symmetry identities, plus the
-    explicit-capability Newton convergence path;
+11. exact reduced-Hessian finite-difference and symmetry identities, the
+    explicit-capability Newton convergence path, and its PCG residual/action
+    diagnostics;
 12. exact quadratic, actual-displacement Armijo, weak-Wolfe, and strong-Wolfe
     line-search acceptance policies, including exact-Newton and Wolfe solver
     combinations;

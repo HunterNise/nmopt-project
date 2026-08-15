@@ -85,7 +85,8 @@ namespace nmopt::solvers
       for (;;)
         {
           const ReducedSearchDirectionT<Backend> direction =
-            direction_policy.next(current_evaluation.reduced_derivative,
+            direction_policy.next(current_control,
+                                  current_evaluation.reduced_derivative,
                                   metric_);
           ++metric_solve_count;
           double stopping_norm = direction.gradient_norm;
@@ -112,7 +113,8 @@ namespace nmopt::solvers
                           ReducedGradientStoppingReason::gradient_tolerance,
                           std::move(step_length_history),
                           std::move(objective_change_history),
-                          metric_solve_count);
+                          metric_solve_count,
+                          direction_policy.reset_count());
 
           contract::require(unit_step_descent_measure < 0.0,
                             "Reduced gradient did not produce a descent direction");
@@ -128,7 +130,8 @@ namespace nmopt::solvers
                           ReducedGradientStoppingReason::maximum_iterations,
                           std::move(step_length_history),
                           std::move(objective_change_history),
-                          metric_solve_count);
+                          metric_solve_count,
+                          direction_policy.reset_count());
 
           double step_length = parameters_.initial_step_length;
           bool   accepted = false;
@@ -187,7 +190,8 @@ namespace nmopt::solvers
                           ReducedGradientStoppingReason::line_search_failure,
                           std::move(step_length_history),
                           std::move(objective_change_history),
-                          metric_solve_count);
+                          metric_solve_count,
+                          direction_policy.reset_count());
         }
     }
 
@@ -249,7 +253,8 @@ namespace nmopt::solvers
            const ReducedGradientStoppingReason stopping_reason,
            std::vector<double>            step_length_history,
            std::vector<double>            objective_change_history,
-           const std::size_t               metric_solve_count)
+           const std::size_t               metric_solve_count,
+           const std::size_t               direction_reset_count)
     {
       return {std::move(control),
               std::move(objective_history),
@@ -261,7 +266,8 @@ namespace nmopt::solvers
               stopping_reason,
               std::move(step_length_history),
               std::move(objective_change_history),
-              metric_solve_count};
+              metric_solve_count,
+              direction_reset_count};
     }
 
     const contract::ReducedDTOT<Backend> &reduced_;
@@ -283,4 +289,11 @@ namespace nmopt::solvers
   using ReducedGradientSolver = ReducedGradientSolverT<contract::DenseBackend>;
   using ReducedConjugateGradientSolver =
     ReducedConjugateGradientSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
+  using ReducedLimitedMemoryBfgsSolverT =
+    ReducedSearchSolverT<Backend, LimitedMemoryBfgsDirectionPolicyT<Backend>>;
+
+  using ReducedLimitedMemoryBfgsSolver =
+    ReducedLimitedMemoryBfgsSolverT<contract::DenseBackend>;
 } // namespace nmopt::solvers

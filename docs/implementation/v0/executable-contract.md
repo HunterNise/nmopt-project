@@ -37,9 +37,11 @@ The public executable and solver headers provide:
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
 | `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm and reduced-covector directional derivative. |
 | `solvers::NonlinearConjugateGradientDirectionPolicyT` | The selected metric-aware Polak–Ribière+ direction policy with typed primal/dual history and deterministic restarts. |
-| `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, and formulation/metric action counts. |
+| `solvers::LimitedMemoryBfgsDirectionPolicyT` | The metric-aware limited-memory BFGS direction policy with bounded typed secant history and explicit curvature resets. |
+| `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, formulation/metric action counts, and explicit direction-reset counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
+| `solvers::ReducedLimitedMemoryBfgsSolverT` | The same reduced execution loop configured with `LimitedMemoryBfgsDirectionPolicyT` for the unconstrained first registration. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
@@ -189,6 +191,21 @@ small or non-finite, when the Polak–Ribière+ coefficient is nonpositive, or
 when the resulting direction is not descending. Previous covectors,
 gradients, and directions retain their layouts and are checked before every
 update.
+
+The selected limited-memory BFGS policy stores at most the configured number
+of typed secant pairs. For a new iterate it forms the primal displacement
+`$s_{k}=u_{k}-u_{k-1}$` and covector difference
+`$y_{k}=j_{h}'(u_{k})-j_{h}'(u_{k-1})$`, accepts the pair only when
+`$\langle y_{k},s_{k}\rangle$` is finite and larger than the configured
+curvature tolerance, and applies the standard two-loop recursion. Its initial
+inverse-Hessian action is the declared metric inverse, so the resulting
+direction remains metric-aware without identifying covectors and primal
+vectors. A rejected pair clears the secant history, returns the current
+steepest direction, and increments the typed direction-reset count; the
+policy also exposes whether the latest update was initial, accepted, or a
+curvature reset. Layout mismatches are rejected rather than silently
+discarded. The first registered `ReducedLimitedMemoryBfgsSolverT` integration
+is the unconstrained one-state/one-decision reduced DTO with the mass metric.
 
 ## Metric and constraint boundary
 

@@ -343,9 +343,9 @@ namespace
     const CovectorBlock third_cg_derivative(
       partition.control_layout(), {DenseVector{0.5, 0.5}});
     const auto first_cg_direction =
-      cg_policy.next(first_cg_derivative, cg_metric);
+      cg_policy.next(control, first_cg_derivative, cg_metric);
     const auto second_cg_direction =
-      cg_policy.next(second_cg_derivative, cg_metric);
+      cg_policy.next(control, second_cg_derivative, cg_metric);
     require_close(first_cg_direction.direction.block(0)[0],
                   -1.0,
                   1e-15,
@@ -360,18 +360,19 @@ namespace
                   "Nonlinear CG Polak-Ribiere update");
     require(second_cg_direction.directional_derivative < 0.0,
             "Nonlinear CG Polak-Ribiere direction is not descending");
-    (void)cg_policy.next(third_cg_derivative, cg_metric);
+    (void)cg_policy.next(control, third_cg_derivative, cg_metric);
     require(cg_policy.restart_count() == 1,
             "Nonlinear CG did not perform its configured periodic restart");
     CGPolicy negative_beta_policy({10, 1e-14});
-    (void)negative_beta_policy.next(first_cg_derivative, cg_metric);
+    (void)negative_beta_policy.next(control, first_cg_derivative, cg_metric);
     (void)negative_beta_policy.next(
+      control,
       CovectorBlock(partition.control_layout(), {DenseVector{0.5, 0.0}}),
       cg_metric);
     require(negative_beta_policy.restart_count() == 1,
             "Nonlinear CG did not restart after a nonpositive coefficient");
     nmopt::test_support::require_contract_error(
-      [&cg_policy]() {
+      [&cg_policy, &control]() {
         const auto incompatible_layout = std::make_shared<const BlockLayout>(
           "incompatible_cg_layout",
           std::vector<SpaceId>{{"control"}},
@@ -383,10 +384,39 @@ namespace
         const CovectorBlock incompatible_derivative(
           incompatible_layout,
           {DenseVector{1.0, 1.0, 1.0}});
-        (void)cg_policy.next(incompatible_derivative, incompatible_metric);
+        (void)cg_policy.next(control, incompatible_derivative, incompatible_metric);
       },
       "Nonlinear CG derivative history has an incompatible layout",
       "nonlinear CG history layout mismatch");
+
+    using BfgsPolicy =
+      nmopt::solvers::LimitedMemoryBfgsDirectionPolicyDense;
+    BfgsPolicy bfgs_policy({2, 1e-14});
+    const PrimalBlock bfgs_control_0(
+      partition.control_layout(), {DenseVector{0.0, 0.0}});
+    const PrimalBlock bfgs_control_1(
+      partition.control_layout(), {DenseVector{1.0, 0.0}});
+    const CovectorBlock bfgs_derivative_0(
+      partition.control_layout(), {DenseVector{1.0, 0.0}});
+    const CovectorBlock bfgs_derivative_1(
+      partition.control_layout(), {DenseVector{2.0, 0.0}});
+    (void)bfgs_policy.next(bfgs_control_0, bfgs_derivative_0, cg_metric);
+    const auto bfgs_direction =
+      bfgs_policy.next(bfgs_control_1, bfgs_derivative_1, cg_metric);
+    require(bfgs_policy.history_size() == 1,
+            "L-BFGS did not retain a valid secant pair");
+    require(bfgs_policy.last_update_status() ==
+              nmopt::solvers::LimitedMemoryBfgsUpdateStatus::accepted_pair,
+            "L-BFGS did not report an accepted secant pair");
+    require(bfgs_direction.directional_derivative < 0.0,
+            "L-BFGS direction is not descending");
+    (void)bfgs_policy.next(bfgs_control_1, bfgs_derivative_1, cg_metric);
+    require(bfgs_policy.history_size() == 0 &&
+              bfgs_policy.reset_count() == 1,
+            "L-BFGS did not reset after failed curvature");
+    require(bfgs_policy.last_update_status() ==
+              nmopt::solvers::LimitedMemoryBfgsUpdateStatus::curvature_reset,
+            "L-BFGS curvature reset was not reported");
 
     nmopt::test_support::require_contract_error(
       [&partition, &metric]() {
@@ -485,6 +515,26 @@ namespace
       require(cg_result.objective_history[index] <=
                 cg_result.objective_history[index - 1],
               "Dense nonlinear CG objective history is not monotonic");
+
+    const nmopt::solvers::ReducedLimitedMemoryBfgsSolver lbfgs_solver(
+      reduced, metric, solver_parameters);
+    const auto lbfgs_result = lbfgs_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(lbfgs_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Dense L-BFGS solver did not reach its tolerance");
+    require(lbfgs_result.step_length_history.size() ==
+              lbfgs_result.accepted_iterations,
+            "Dense L-BFGS step history does not match accepted iterations");
+    require(lbfgs_result.direction_reset_count <=
+              lbfgs_result.accepted_iterations,
+            "Dense L-BFGS direction reset count exceeds accepted iterations");
+    for (std::size_t index = 1;
+         index < lbfgs_result.objective_history.size();
+         ++index)
+      require(lbfgs_result.objective_history[index] <=
+                lbfgs_result.objective_history[index - 1],
+              "Dense L-BFGS objective history is not monotonic");
 
     const CellwiseBoxConstraint projected_bounds(
       partition.control_layout(), {DenseVector{-1.0, -0.2}},

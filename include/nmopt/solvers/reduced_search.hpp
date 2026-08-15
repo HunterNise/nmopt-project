@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <deque>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -74,6 +75,7 @@ namespace nmopt::solvers
     std::vector<double>             step_length_history;
     std::vector<double>             objective_change_history;
     std::size_t                     metric_solve_count;
+    std::size_t                     direction_reset_count;
   };
 
   using ReducedSolverResult = ReducedSolverResultT<contract::DenseBackend>;
@@ -111,6 +113,19 @@ namespace nmopt::solvers
 
   template <typename Backend>
   inline void
+  add_scaled_covector(contract::CovectorBlockT<Backend> &      target,
+                      const double                             factor,
+                      const contract::CovectorBlockT<Backend> &source)
+  {
+    contract::require_compatible(target,
+                                  source,
+                                  "Reduced search covector update has incompatible layouts");
+    for (std::size_t block = 0; block < target.n_blocks(); ++block)
+      target.add_scaled_block(block, factor, source.block(block));
+  }
+
+  template <typename Backend>
+  inline void
   scale_primal(contract::PrimalBlockT<Backend> &target, const double factor)
   {
     for (std::size_t block = 0; block < target.n_blocks(); ++block)
@@ -141,13 +156,10 @@ namespace nmopt::solvers
 
   template <typename Backend>
   ReducedSearchDirectionT<Backend>
-  make_steepest_descent_direction(
+  make_steepest_descent_direction_from_metric_gradient(
     const contract::CovectorBlockT<Backend> &reduced_derivative,
-    const contract::MetricT<Backend> &       metric)
+    ReducedMetricGradientT<Backend>          metric_gradient)
   {
-    ReducedMetricGradientT<Backend> metric_gradient =
-      make_metric_gradient(reduced_derivative, metric);
-
     contract::PrimalBlockT<Backend> direction = metric_gradient.gradient;
     scale_primal(direction, -1.0);
     const double directional_derivative =
@@ -162,6 +174,17 @@ namespace nmopt::solvers
   }
 
   template <typename Backend>
+  ReducedSearchDirectionT<Backend>
+  make_steepest_descent_direction(
+    const contract::CovectorBlockT<Backend> &reduced_derivative,
+    const contract::MetricT<Backend> &       metric)
+  {
+    return make_steepest_descent_direction_from_metric_gradient(
+      reduced_derivative,
+      make_metric_gradient(reduced_derivative, metric));
+  }
+
+  template <typename Backend>
   class SteepestDescentDirectionPolicyT
   {
   public:
@@ -172,10 +195,17 @@ namespace nmopt::solvers
     {}
 
     Direction
-    next(const contract::CovectorBlockT<Backend> &reduced_derivative,
+    next(const contract::PrimalBlockT<Backend> &,
+         const contract::CovectorBlockT<Backend> &reduced_derivative,
          const contract::MetricT<Backend> &       metric)
     {
       return make_steepest_descent_direction(reduced_derivative, metric);
+    }
+
+    std::size_t
+    reset_count() const noexcept
+    {
+      return 0;
     }
   };
 
@@ -220,7 +250,9 @@ namespace nmopt::solvers
     }
 
     Direction
-    next(const Covector &reduced_derivative, const contract::MetricT<Backend> &metric)
+    next(const Primal &,
+         const Covector &reduced_derivative,
+         const contract::MetricT<Backend> &metric)
     {
       const ReducedMetricGradientT<Backend> current_gradient =
         make_metric_gradient(reduced_derivative, metric);
@@ -300,6 +332,12 @@ namespace nmopt::solvers
       return restart_count_;
     }
 
+    std::size_t
+    reset_count() const noexcept
+    {
+      return restart_count_;
+    }
+
   private:
     std::size_t
     effective_restart_interval(const contract::LayoutPtr &layout) const
@@ -327,4 +365,212 @@ namespace nmopt::solvers
 
   using NonlinearConjugateGradientDirectionPolicyDense =
     NonlinearConjugateGradientDirectionPolicyT<contract::DenseBackend>;
+
+  struct LimitedMemoryBfgsParameters
+  {
+    unsigned int memory_size = 5;
+    double       curvature_tolerance = 1e-14;
+  };
+
+  enum class LimitedMemoryBfgsUpdateStatus
+  {
+    initial,
+    accepted_pair,
+    curvature_reset
+  };
+
+  inline const char *
+  limited_memory_bfgs_update_status_name(
+    const LimitedMemoryBfgsUpdateStatus status)
+  {
+    switch (status)
+      {
+        case LimitedMemoryBfgsUpdateStatus::initial:
+          return "initial";
+        case LimitedMemoryBfgsUpdateStatus::accepted_pair:
+          return "accepted_pair";
+        case LimitedMemoryBfgsUpdateStatus::curvature_reset:
+          return "curvature_reset";
+      }
+    return "unknown";
+  }
+
+  // The initial inverse-Hessian policy is the declared metric inverse. Each
+  // stored pair is (s, y) with primal displacement s and covector difference
+  // y, and the two-loop recursion uses only the declared primal-dual pairing.
+  template <typename Backend>
+  class LimitedMemoryBfgsDirectionPolicyT
+  {
+  public:
+    using Direction = ReducedSearchDirectionT<Backend>;
+    using Primal = contract::PrimalBlockT<Backend>;
+    using Covector = contract::CovectorBlockT<Backend>;
+
+    LimitedMemoryBfgsDirectionPolicyT(
+      LimitedMemoryBfgsParameters parameters = {})
+      : parameters_(parameters)
+    {
+      contract::require(parameters_.memory_size > 0,
+                        "L-BFGS memory size must be positive");
+      contract::require(parameters_.curvature_tolerance > 0.0,
+                        "L-BFGS curvature tolerance must be positive");
+    }
+
+    void
+    reset()
+    {
+      previous_control_.reset();
+      previous_derivative_.reset();
+      history_.clear();
+      reset_count_ = 0;
+      last_status_ = LimitedMemoryBfgsUpdateStatus::initial;
+    }
+
+    Direction
+    next(const Primal &control,
+         const Covector &reduced_derivative,
+         const contract::MetricT<Backend> &metric)
+    {
+      contract::require(control.layout()->compatible_with(*metric.layout()),
+                        "L-BFGS control does not match metric");
+      const ReducedMetricGradientT<Backend> current_gradient =
+        make_metric_gradient(reduced_derivative, metric);
+
+      if (!previous_control_.has_value())
+        {
+          previous_control_ = control;
+          previous_derivative_ = reduced_derivative;
+          last_status_ = LimitedMemoryBfgsUpdateStatus::initial;
+          return make_steepest_descent_direction_from_metric_gradient(
+            reduced_derivative, current_gradient);
+        }
+
+      contract::require(control.layout()->compatible_with(
+                          *previous_control_->layout()),
+                        "L-BFGS control history has an incompatible layout");
+      contract::require(reduced_derivative.layout()->compatible_with(
+                          *previous_derivative_->layout()),
+                        "L-BFGS covector history has an incompatible layout");
+
+      Primal displacement = control;
+      add_scaled_primal(displacement, -1.0, *previous_control_);
+      Covector covector_difference =
+        contract::subtract(reduced_derivative, *previous_derivative_);
+      const double curvature =
+        contract::pair(covector_difference, displacement);
+      if (!std::isfinite(curvature) ||
+          curvature <= parameters_.curvature_tolerance)
+        {
+          clear_history_after_reset();
+          update_previous(control, reduced_derivative);
+          last_status_ = LimitedMemoryBfgsUpdateStatus::curvature_reset;
+          return make_steepest_descent_direction_from_metric_gradient(
+            reduced_derivative, current_gradient);
+        }
+
+      if (history_.size() == parameters_.memory_size)
+        history_.pop_front();
+      history_.push_back(
+        {std::move(displacement),
+         std::move(covector_difference),
+         1.0 / curvature});
+
+      Covector q = reduced_derivative;
+      std::vector<double> alpha(history_.size());
+      for (std::size_t reverse = history_.size(); reverse > 0; --reverse)
+        {
+          const std::size_t index = reverse - 1;
+          const SecantPair &pair = history_[index];
+          alpha[index] = pair.inverse_curvature *
+                         contract::pair(q, pair.displacement);
+          add_scaled_covector(q, -alpha[index], pair.covector_difference);
+        }
+
+      Primal inverse_hessian_action = metric.inverse_apply(q);
+      for (std::size_t index = 0; index < history_.size(); ++index)
+        {
+          const SecantPair &pair = history_[index];
+          const double beta = pair.inverse_curvature *
+                              contract::pair(pair.covector_difference,
+                                             inverse_hessian_action);
+          add_scaled_primal(inverse_hessian_action,
+                            alpha[index] - beta,
+                            pair.displacement);
+        }
+
+      scale_primal(inverse_hessian_action, -1.0);
+      const double directional_derivative =
+        contract::pair(reduced_derivative, inverse_hessian_action);
+      if (!std::isfinite(directional_derivative) ||
+          directional_derivative >= 0.0)
+        {
+          clear_history_after_reset();
+          update_previous(control, reduced_derivative);
+          last_status_ = LimitedMemoryBfgsUpdateStatus::curvature_reset;
+          return make_steepest_descent_direction_from_metric_gradient(
+            reduced_derivative, current_gradient);
+        }
+
+      update_previous(control, reduced_derivative);
+      last_status_ = LimitedMemoryBfgsUpdateStatus::accepted_pair;
+      return {std::move(inverse_hessian_action),
+              current_gradient.norm,
+              directional_derivative};
+    }
+
+    std::size_t
+    history_size() const noexcept
+    {
+      return history_.size();
+    }
+
+    std::size_t
+    reset_count() const noexcept
+    {
+      return reset_count_;
+    }
+
+    LimitedMemoryBfgsUpdateStatus
+    last_update_status() const noexcept
+    {
+      return last_status_;
+    }
+
+  private:
+    struct SecantPair
+    {
+      Primal   displacement;
+      Covector covector_difference;
+      double   inverse_curvature;
+    };
+
+    void
+    clear_history_after_reset()
+    {
+      history_.clear();
+      ++reset_count_;
+    }
+
+    void
+    update_previous(const Primal &control, const Covector &reduced_derivative)
+    {
+      previous_control_ = control;
+      previous_derivative_ = reduced_derivative;
+    }
+
+    LimitedMemoryBfgsParameters parameters_;
+    std::optional<Primal>       previous_control_;
+    std::optional<Covector>     previous_derivative_;
+    std::deque<SecantPair>      history_;
+    std::size_t                 reset_count_ = 0;
+    LimitedMemoryBfgsUpdateStatus last_status_ =
+      LimitedMemoryBfgsUpdateStatus::initial;
+  };
+
+  template <typename Backend>
+  using LimitedMemoryBfgsDirectionPolicy =
+    LimitedMemoryBfgsDirectionPolicyT<Backend>;
+
+  using LimitedMemoryBfgsDirectionPolicyDense =
+    LimitedMemoryBfgsDirectionPolicyT<contract::DenseBackend>;
 } // namespace nmopt::solvers

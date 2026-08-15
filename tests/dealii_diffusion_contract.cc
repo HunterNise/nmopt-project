@@ -5061,6 +5061,26 @@ namespace
                         solver_result.accepted_iterations,
                       "deal.II reduced gradient objective-change history does not match accepted iterations");
 
+    const nmopt::solvers::ReducedLimitedMemoryBfgsSolverT<Backend>
+      lbfgs_solver(reduced, metric, solver_parameters);
+    const auto lbfgs_result = lbfgs_solver.solve(control);
+    contract::require(
+      lbfgs_result.stopping_reason ==
+        nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+      "deal.II L-BFGS solver did not reach its tolerance");
+    contract::require(lbfgs_result.step_length_history.size() ==
+                        lbfgs_result.accepted_iterations,
+                      "deal.II L-BFGS step history does not match accepted iterations");
+    contract::require(lbfgs_result.direction_reset_count <=
+                        lbfgs_result.accepted_iterations,
+                      "deal.II L-BFGS direction reset count exceeds accepted iterations");
+    for (std::size_t index = 1;
+         index < lbfgs_result.objective_history.size();
+         ++index)
+      contract::require(lbfgs_result.objective_history[index] <=
+                          lbfgs_result.objective_history[index - 1],
+                        "deal.II L-BFGS objective history is not monotonic");
+
     const auto bounds = model.control_l2_box_constraint(-1.0, 0.05, metric);
     dealii::Vector<double> bounded_control_values(
       partition.control_layout()->dimension(0));

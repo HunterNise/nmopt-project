@@ -56,6 +56,178 @@ namespace
     }
   };
 
+  class AlternateQuadraticModel final
+    : public ExecutableModelT<AlternateDenseBackend>
+    , public ReducedHessianT<AlternateDenseBackend>
+  {
+  public:
+    using Backend = AlternateDenseBackend;
+    using Primal = PrimalBlockT<Backend>;
+    using Covector = CovectorBlockT<Backend>;
+
+    AlternateQuadraticModel()
+      : variable_layout_(std::make_shared<const BlockLayout>(
+          "alternate_variables",
+          std::vector<SpaceId>{{"state"}, {"control"}},
+          std::vector<std::size_t>{2, 2}))
+      , test_layout_(std::make_shared<const BlockLayout>(
+          "alternate_state_test",
+          std::vector<SpaceId>{{"state_test"}},
+          std::vector<std::size_t>{2}))
+      , state_layout_(variable_layout_->single_block(0, "state"))
+      , control_layout_(variable_layout_->single_block(1, "control"))
+      , target_({1.0, -2.0})
+    {}
+
+    const LayoutPtr &
+    variable_layout() const override
+    {
+      return variable_layout_;
+    }
+
+    const LayoutPtr &
+    test_layout() const override
+    {
+      return test_layout_;
+    }
+
+    const LayoutPtr &
+    layout() const override
+    {
+      return control_layout_;
+    }
+
+    Covector
+    residual(const Primal &variables) const override
+    {
+      require(variables.layout()->compatible_with(*variable_layout_),
+              "Alternate residual received incompatible variables");
+      DenseVector value = variables.block(0);
+      value.add_scaled(-1.0, variables.block(1));
+      return Covector(test_layout_, {std::move(value)});
+    }
+
+    Covector
+    residual_jvp(const Primal &variables,
+                 const Primal &variable_tangent) const override
+    {
+      require(variables.layout()->compatible_with(*variable_layout_) &&
+                variable_tangent.layout()->compatible_with(*variable_layout_),
+              "Alternate residual JVP received incompatible variables");
+      DenseVector value = variable_tangent.block(0);
+      value.add_scaled(-1.0, variable_tangent.block(1));
+      return Covector(test_layout_, {std::move(value)});
+    }
+
+    Covector
+    residual_vjp(const Primal &variables,
+                 const PrimalBlockT<Backend> &test_seed) const override
+    {
+      require(variables.layout()->compatible_with(*variable_layout_) &&
+                test_seed.layout()->compatible_with(*test_layout_),
+              "Alternate residual VJP received incompatible variables");
+      DenseVector control = test_seed.block(0);
+      control.scale(-1.0);
+      return Covector(variable_layout_, {test_seed.block(0), std::move(control)});
+    }
+
+    double
+    objective(const Primal &variables) const override
+    {
+      require(variables.layout()->compatible_with(*variable_layout_),
+              "Alternate objective received incompatible variables");
+      DenseVector difference = variables.block(1);
+      difference.add_scaled(-1.0, target_);
+      return 0.5 * dot(difference, difference);
+    }
+
+    Covector
+    objective_derivative(const Primal &variables) const override
+    {
+      require(variables.layout()->compatible_with(*variable_layout_),
+              "Alternate objective derivative received incompatible variables");
+      DenseVector control = variables.block(1);
+      control.add_scaled(-1.0, target_);
+      return Covector(variable_layout_, {DenseVector(2), std::move(control)});
+    }
+
+    Covector
+    apply(const Primal &control, const Primal &direction) const override
+    {
+      require(control.layout()->compatible_with(*control_layout_) &&
+                direction.layout()->compatible_with(*control_layout_),
+              "Alternate Hessian received incompatible controls");
+      return Covector(control_layout_, {direction.block(0)});
+    }
+
+    FormulationSolveResultT<Backend>
+    solve_state(const Primal &control) const
+    {
+      require(control.layout()->compatible_with(*control_layout_),
+              "Alternate state solve received incompatible control");
+      return FormulationSolveResultT<Backend>(
+        Primal(state_layout_, {control.block(0)}));
+    }
+
+    FormulationSolveResultT<Backend>
+    solve_adjoint(const Primal &full_point,
+                  const Covector &state_rhs) const
+    {
+      require(full_point.layout()->compatible_with(*variable_layout_) &&
+                state_rhs.layout()->compatible_with(*state_layout_),
+              "Alternate adjoint solve received incompatible arguments");
+      return FormulationSolveResultT<Backend>(Primal::zeros(test_layout_));
+    }
+
+  private:
+    LayoutPtr   variable_layout_;
+    LayoutPtr   test_layout_;
+    LayoutPtr   state_layout_;
+    LayoutPtr   control_layout_;
+    DenseVector target_;
+  };
+
+  class AlternateIdentityMetric final : public MetricT<AlternateDenseBackend>
+  {
+  public:
+    explicit AlternateIdentityMetric(LayoutPtr layout)
+      : layout_(std::move(layout))
+    {}
+
+    const std::string &
+    id() const override
+    {
+      static const std::string id = "alternate_identity";
+      return id;
+    }
+
+    const LayoutPtr &
+    layout() const override
+    {
+      return layout_;
+    }
+
+    CovectorBlockT<AlternateDenseBackend>
+    apply(const PrimalBlockT<AlternateDenseBackend> &primal) const override
+    {
+      require(primal.layout()->compatible_with(*layout_),
+              "Alternate metric received incompatible primal");
+      return CovectorBlockT<AlternateDenseBackend>(layout_, {primal.block(0)});
+    }
+
+    PrimalBlockT<AlternateDenseBackend>
+    inverse_apply(
+      const CovectorBlockT<AlternateDenseBackend> &covector) const override
+    {
+      require(covector.layout()->compatible_with(*layout_),
+              "Alternate metric received incompatible covector");
+      return PrimalBlockT<AlternateDenseBackend>(layout_, {covector.block(0)});
+    }
+
+  private:
+    LayoutPtr layout_;
+  };
+
   void
   require_close(const double actual,
                 const double expected,
@@ -1202,6 +1374,55 @@ namespace
                   5.0,
                   1e-15,
                   "Backend-parametric covector subtraction");
+
+    AlternateQuadraticModel model;
+    using Backend = AlternateDenseBackend;
+    using AlternatePrimal = PrimalBlockT<Backend>;
+    using AlternateCovector = CovectorBlockT<Backend>;
+    using AlternatePartition = StateControlPartitionT<Backend>;
+    using AlternateSolvers = StateAdjointSolversT<Backend>;
+    const AlternatePartition partition(model, 0, 1);
+    const AlternateSolvers solvers{
+      [&model](const AlternatePrimal &control) {
+        return model.solve_state(control);
+      },
+      [&model](const AlternatePrimal &full_point,
+               const AlternateCovector &state_rhs) {
+        return model.solve_adjoint(full_point, state_rhs);
+      }};
+    const ReducedDTOT<Backend> reduced(model, partition, solvers);
+    const AlternateIdentityMetric metric(partition.control_layout());
+
+    nmopt::solvers::ReducedTrustRegionParameters trust_region_parameters;
+    trust_region_parameters.maximum_iterations = 20;
+    trust_region_parameters.gradient_tolerance = 1e-10;
+    trust_region_parameters.initial_radius = 0.5;
+    trust_region_parameters.maximum_radius = 8.0;
+    const nmopt::solvers::ReducedTrustRegionSolverT<Backend> solver(
+      reduced, metric, model, trust_region_parameters);
+    const AlternatePrimal initial_control(
+      partition.control_layout(), {DenseVector{0.0, 0.0}});
+    const auto result = solver.solve(initial_control);
+
+    require(result.stopping_reason ==
+              nmopt::solvers::ReducedTrustRegionStoppingReason::gradient_tolerance,
+            "Alternate backend trust-region solver did not converge");
+    require(result.accepted_iterations > 1,
+            "Alternate backend trust-region solver accepted too few steps");
+    require(result.trial_count == result.accepted_iterations,
+            "Alternate backend trust-region solver unexpectedly rejected a trial");
+    require(result.metric_solve_count == result.gradient_norm_history.size(),
+            "Alternate backend trust-region metric count is inconsistent");
+    require(result.hessian_action_count + 1 ==
+              result.gradient_norm_history.size(),
+            "Alternate backend trust-region Hessian count is inconsistent");
+    require(result.state_solve_count == result.trial_count + 1 &&
+              result.adjoint_solve_count == result.trial_count + 1,
+            "Alternate backend trust-region solve counts are inconsistent");
+    require_close(result.control.block(0)[0], 1.0, 1e-8,
+                  "Alternate backend trust-region first control");
+    require_close(result.control.block(0)[1], -2.0, 1e-8,
+                  "Alternate backend trust-region second control");
   }
 
   void

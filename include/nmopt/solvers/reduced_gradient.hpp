@@ -14,8 +14,10 @@ namespace nmopt::solvers
   // covector j' with g = G^{-1} j'; the direction protocol supplies d = -g.
   // Armijo accepts u + alpha d when j(u + alpha d) <=
   // j(u) + c <j', alpha d>.
-  template <typename Backend>
-  class ReducedGradientSolverT
+  template <typename Backend,
+            typename DirectionPolicy =
+              SteepestDescentDirectionPolicyT<Backend>>
+  class ReducedSearchSolverT
   {
   public:
     using Primal = contract::PrimalBlockT<Backend>;
@@ -23,24 +25,28 @@ namespace nmopt::solvers
     using Evaluation = contract::ReducedEvaluationT<Backend>;
     using Result = ReducedGradientResultT<Backend>;
 
-    ReducedGradientSolverT(const contract::ReducedDTOT<Backend> &reduced,
-                           const contract::MetricT<Backend> &    metric,
-                           ReducedGradientParameters              parameters = {})
+    ReducedSearchSolverT(const contract::ReducedDTOT<Backend> &reduced,
+                         const contract::MetricT<Backend> &    metric,
+                         ReducedSolverParameters               parameters = {},
+                         DirectionPolicy                        direction_policy = {})
       : reduced_(reduced)
       , metric_(metric)
       , parameters_(parameters)
+      , direction_policy_(std::move(direction_policy))
     {
       validate_parameters();
     }
 
-    ReducedGradientSolverT(const contract::ReducedDTOT<Backend> &reduced,
-                           const contract::MetricT<Backend> &    metric,
-                           const contract::ConstraintT<Backend> & constraint,
-                           ReducedGradientParameters              parameters = {})
+    ReducedSearchSolverT(const contract::ReducedDTOT<Backend> &reduced,
+                         const contract::MetricT<Backend> &    metric,
+                         const contract::ConstraintT<Backend> & constraint,
+                         ReducedSolverParameters               parameters = {},
+                         DirectionPolicy                        direction_policy = {})
       : reduced_(reduced)
       , metric_(metric)
       , constraint_(&constraint)
       , parameters_(parameters)
+      , direction_policy_(std::move(direction_policy))
     {
       validate_parameters();
       contract::require(constraint_->layout()->compatible_with(*metric_.layout()),
@@ -73,11 +79,14 @@ namespace nmopt::solvers
       std::vector<double> gradient_norm_history;
       std::vector<double> step_length_history;
       std::vector<double> objective_change_history;
+      DirectionPolicy direction_policy = direction_policy_;
+      direction_policy.reset();
 
       for (;;)
         {
           const ReducedSearchDirectionT<Backend> direction =
-            evaluate_direction(current_evaluation.reduced_derivative);
+            direction_policy.next(current_evaluation.reduced_derivative,
+                                  metric_);
           ++metric_solve_count;
           double stopping_norm = direction.gradient_norm;
           double unit_step_descent_measure = direction.directional_derivative;
@@ -189,12 +198,6 @@ namespace nmopt::solvers
       double descent_measure;
     };
 
-    ReducedSearchDirectionT<Backend>
-    evaluate_direction(const Covector &reduced_derivative) const
-    {
-      return make_steepest_descent_direction(reduced_derivative, metric_);
-    }
-
     ProjectedGradientData
     evaluate_projected_gradient(const Primal &  control,
                                 const Covector &reduced_derivative,
@@ -264,8 +267,20 @@ namespace nmopt::solvers
     const contract::ReducedDTOT<Backend> &reduced_;
     const contract::MetricT<Backend> &    metric_;
     const contract::ConstraintT<Backend> * constraint_ = nullptr;
-    ReducedGradientParameters              parameters_;
+    ReducedSolverParameters                parameters_;
+    DirectionPolicy                         direction_policy_;
   };
 
+  template <typename Backend>
+  using ReducedGradientSolverT =
+    ReducedSearchSolverT<Backend, SteepestDescentDirectionPolicyT<Backend>>;
+
+  template <typename Backend>
+  using ReducedConjugateGradientSolverT =
+    ReducedSearchSolverT<Backend,
+                         NonlinearConjugateGradientDirectionPolicyT<Backend>>;
+
   using ReducedGradientSolver = ReducedGradientSolverT<contract::DenseBackend>;
+  using ReducedConjugateGradientSolver =
+    ReducedConjugateGradientSolverT<contract::DenseBackend>;
 } // namespace nmopt::solvers

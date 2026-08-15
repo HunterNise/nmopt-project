@@ -2,9 +2,10 @@
 
 #include "nmopt/contract/metric_constraint.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <string>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -89,6 +90,13 @@ namespace nmopt::solvers
     ReducedGradientResultT<contract::DenseBackend>;
 
   template <typename Backend>
+  struct ReducedMetricGradientT
+  {
+    contract::PrimalBlockT<Backend> gradient;
+    double                          norm;
+  };
+
+  template <typename Backend>
   inline void
   add_scaled_primal(contract::PrimalBlockT<Backend> &      target,
                     const double                           factor,
@@ -110,10 +118,9 @@ namespace nmopt::solvers
   }
 
   template <typename Backend>
-  ReducedSearchDirectionT<Backend>
-  make_steepest_descent_direction(
-    const contract::CovectorBlockT<Backend> &reduced_derivative,
-    const contract::MetricT<Backend> &       metric)
+  ReducedMetricGradientT<Backend>
+  make_metric_gradient(const contract::CovectorBlockT<Backend> &reduced_derivative,
+                       const contract::MetricT<Backend> &       metric)
   {
     contract::require(reduced_derivative.layout()->compatible_with(
                         *metric.layout()),
@@ -129,7 +136,19 @@ namespace nmopt::solvers
                         metric_norm_squared >= 0.0,
                       "Reduced search metric returned an invalid squared norm");
 
-    contract::PrimalBlockT<Backend> direction = gradient;
+    return {std::move(gradient), std::sqrt(metric_norm_squared)};
+  }
+
+  template <typename Backend>
+  ReducedSearchDirectionT<Backend>
+  make_steepest_descent_direction(
+    const contract::CovectorBlockT<Backend> &reduced_derivative,
+    const contract::MetricT<Backend> &       metric)
+  {
+    ReducedMetricGradientT<Backend> metric_gradient =
+      make_metric_gradient(reduced_derivative, metric);
+
+    contract::PrimalBlockT<Backend> direction = metric_gradient.gradient;
     scale_primal(direction, -1.0);
     const double directional_derivative =
       contract::pair(reduced_derivative, direction);
@@ -138,7 +157,174 @@ namespace nmopt::solvers
                       "Reduced search metric returned a non-descent direction");
 
     return {std::move(direction),
-            std::sqrt(metric_norm_squared),
+            metric_gradient.norm,
             directional_derivative};
   }
+
+  template <typename Backend>
+  class SteepestDescentDirectionPolicyT
+  {
+  public:
+    using Direction = ReducedSearchDirectionT<Backend>;
+
+    void
+    reset()
+    {}
+
+    Direction
+    next(const contract::CovectorBlockT<Backend> &reduced_derivative,
+         const contract::MetricT<Backend> &       metric)
+    {
+      return make_steepest_descent_direction(reduced_derivative, metric);
+    }
+  };
+
+  using SteepestDescentDirectionPolicy =
+    SteepestDescentDirectionPolicyT<contract::DenseBackend>;
+
+  struct NonlinearConjugateGradientParameters
+  {
+    // Zero selects one restart interval equal to the total coefficient count
+    // of the current reduced layout.
+    unsigned int restart_interval = 0;
+    double       curvature_tolerance = 1e-14;
+  };
+
+  // The selected nonlinear-CG policy is Polak–Ribière+ in the declared metric.
+  // It stores the previous covector, metric gradient, and primal direction so
+  // primal/dual layout compatibility is checked at every update.
+  template <typename Backend>
+  class NonlinearConjugateGradientDirectionPolicyT
+  {
+  public:
+    using Direction = ReducedSearchDirectionT<Backend>;
+    using Primal = contract::PrimalBlockT<Backend>;
+    using Covector = contract::CovectorBlockT<Backend>;
+
+    NonlinearConjugateGradientDirectionPolicyT(
+      NonlinearConjugateGradientParameters parameters = {})
+      : parameters_(parameters)
+    {
+      contract::require(parameters_.curvature_tolerance > 0.0,
+                        "Nonlinear CG curvature tolerance must be positive");
+    }
+
+    void
+    reset()
+    {
+      previous_derivative_.reset();
+      previous_gradient_.reset();
+      previous_direction_.reset();
+      directions_since_restart_ = 0;
+      restart_count_ = 0;
+    }
+
+    Direction
+    next(const Covector &reduced_derivative, const contract::MetricT<Backend> &metric)
+    {
+      const ReducedMetricGradientT<Backend> current_gradient =
+        make_metric_gradient(reduced_derivative, metric);
+      const bool has_history = previous_derivative_.has_value();
+      bool       restart = !has_history;
+      double     beta = 0.0;
+
+      if (has_history)
+        {
+          contract::require(reduced_derivative.layout()->compatible_with(
+                              *previous_derivative_->layout()),
+                            "Nonlinear CG derivative history has an incompatible layout");
+          contract::require(current_gradient.gradient.layout()->compatible_with(
+                              *previous_gradient_->layout()),
+                            "Nonlinear CG gradient history has an incompatible layout");
+          contract::require(previous_direction_->layout()->compatible_with(
+                              *current_gradient.gradient.layout()),
+                            "Nonlinear CG direction history has an incompatible layout");
+
+          const std::size_t restart_interval = effective_restart_interval(
+            current_gradient.gradient.layout());
+          restart = directions_since_restart_ >= restart_interval;
+
+          const double denominator =
+            contract::pair(*previous_derivative_, *previous_gradient_);
+          const double numerator =
+            contract::pair(reduced_derivative, current_gradient.gradient) -
+            contract::pair(*previous_derivative_, current_gradient.gradient);
+          const double scale = std::max(1.0, std::abs(denominator));
+          if (!std::isfinite(denominator) ||
+              denominator <= parameters_.curvature_tolerance * scale ||
+              !std::isfinite(numerator))
+            restart = true;
+          else
+            {
+              beta = numerator / denominator;
+              if (!std::isfinite(beta) || beta <= 0.0)
+                restart = true;
+            }
+        }
+
+      Primal direction = current_gradient.gradient;
+      scale_primal(direction, -1.0);
+      if (!restart)
+        add_scaled_primal(direction, beta, *previous_direction_);
+
+      double directional_derivative =
+        contract::pair(reduced_derivative, direction);
+      if (!std::isfinite(directional_derivative) ||
+          directional_derivative >= 0.0)
+        {
+          restart = true;
+          direction = current_gradient.gradient;
+          scale_primal(direction, -1.0);
+          directional_derivative =
+            contract::pair(reduced_derivative, direction);
+        }
+
+      if (has_history && restart)
+        ++restart_count_;
+      directions_since_restart_ = restart ? 1 : directions_since_restart_ + 1;
+      previous_derivative_ = reduced_derivative;
+      previous_gradient_ = current_gradient.gradient;
+      previous_direction_ = direction;
+
+      contract::require(std::isfinite(directional_derivative) &&
+                          directional_derivative <= 0.0,
+                        "Nonlinear CG could not produce a descent direction");
+      return {std::move(direction),
+              current_gradient.norm,
+              directional_derivative};
+    }
+
+    std::size_t
+    restart_count() const noexcept
+    {
+      return restart_count_;
+    }
+
+  private:
+    std::size_t
+    effective_restart_interval(const contract::LayoutPtr &layout) const
+    {
+      if (parameters_.restart_interval > 0)
+        return parameters_.restart_interval;
+
+      std::size_t dimension = 0;
+      for (std::size_t block = 0; block < layout->n_blocks(); ++block)
+        dimension += layout->dimension(block);
+      return std::max<std::size_t>(1, dimension);
+    }
+
+    NonlinearConjugateGradientParameters parameters_;
+    std::optional<Covector>             previous_derivative_;
+    std::optional<Primal>               previous_gradient_;
+    std::optional<Primal>               previous_direction_;
+    std::size_t                         directions_since_restart_ = 0;
+    std::size_t                         restart_count_ = 0;
+  };
+
+  template <typename Backend>
+  using NonlinearConjugateGradientDirectionPolicy =
+    NonlinearConjugateGradientDirectionPolicyT<Backend>;
+
+  using NonlinearConjugateGradientDirectionPolicyDense =
+    NonlinearConjugateGradientDirectionPolicyT<contract::DenseBackend>;
 } // namespace nmopt::solvers

@@ -36,8 +36,10 @@ The public executable and solver headers provide:
 | `LinearSolveReport` and `FormulationSolveResultT` | Backend-neutral state/adjoint convergence, tolerance, and work evidence paired with a solved primal block. |
 | `ReducedDTO` | The state–adjoint–reduced-covector workflow for one state and one binary decision block. |
 | `solvers::ReducedSearchDirectionT` | A typed primal search direction with its metric gradient norm and reduced-covector directional derivative. |
+| `solvers::NonlinearConjugateGradientDirectionPolicyT` | The selected metric-aware Polak–Ribière+ direction policy with typed primal/dual history and deterministic restarts. |
 | `solvers::ReducedSolverResultT` | The shared reduced-solver report containing accepted objectives, gradient norms, accepted steps, objective changes, stopping state, and formulation/metric action counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
+| `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
@@ -169,6 +171,24 @@ formulation solve counts increase once for the initial point and once for every
 line-search trial. The metric count records each direction-forming inverse
 metric action; backend-specific inner iterations remain in the metric's own
 realisation policy.
+
+The selected nonlinear-CG policy uses the metric gradient
+$`g_{k}=G^{-1}j_{h}'(u_{k})`$ and the Polak–Ribière+ coefficient
+
+$$
+\beta_{k}=\max\left(0,
+\frac{\langle j_{h}'(u_{k})-j_{h}'(u_{k-1}),g_{k}\rangle}
+     {\langle j_{h}'(u_{k-1}),g_{k-1}\rangle}\right),
+\qquad
+d_{k}=-g_{k}+\beta_{k}d_{k-1}.
+$$
+
+It restarts on the first direction, after the declared interval (one full
+layout dimension by default), when the previous curvature denominator is too
+small or non-finite, when the Polak–Ribière+ coefficient is nonpositive, or
+when the resulting direction is not descending. Previous covectors,
+gradients, and directions retain their layouts and are checked before every
+update.
 
 ## Metric and constraint boundary
 

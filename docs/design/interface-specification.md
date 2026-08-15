@@ -764,6 +764,35 @@ $$
 
 plus constraints as appropriate.
 
+The formulation provenance and executable block shape are separate protocol
+choices.  `DTO` identifies a discrete residual/objective pair whose
+derivatives are taken after compilation.  `supplied OTD` identifies an
+application-provided discrete optimality system whose state, adjoint, and
+control-stationarity blocks are supplied directly.  `reduced` and
+`all-at-once` describe how those blocks are executed; an all-at-once shape
+does not by itself establish OTD provenance.
+
+The selected supplied-OTD interface is deliberately an execution boundary,
+not an automatic continuous-adjoint derivation facility.  Its product MUST
+declare:
+
+- the primal, adjoint, and control block layouts and their trial/test
+  pairings;
+- the quadrature and discretisation provenance for each supplied weak block;
+- value and block-linearisation actions, including every requested transpose
+  action;
+- the sign convention and any conversion between the supplied multiplier and
+  the framework adjoint; and
+- the comparison status relative to a DTO product.
+
+The executor MAY assemble, linearize, solve, and report the supplied blocks,
+but MUST NOT reconstruct them from a strong residual or present them as an
+exact discrete DTO derivative without an explicit equivalence result.  A
+supplied-OTD product is therefore a distinct formulation product and MUST NOT
+be represented as a `ReducedDTO` instance.  A request whose supplied adjoint
+space, pairing, or sign conversion does not match the declared product MUST
+return a formulation diagnostic.
+
 The executable result MUST be marked as OTD and record its discretisation
 policy.  It MUST NOT be presented as the exact discrete adjoint unless the
 author has established the equivalence.

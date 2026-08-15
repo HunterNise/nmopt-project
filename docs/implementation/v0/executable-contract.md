@@ -40,6 +40,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedLineSearchResultT` | A typed line-search result carrying the accepted trial DTO, actual step length, trial count, and any Hessian-action count. |
 | `solvers::NonlinearConjugateGradientDirectionPolicyT` | The default metric-aware Polak–Ribière+ direction policy with typed primal/dual history and deterministic restarts. |
 | `solvers::FletcherReevesDirectionPolicyT` | The metric-aware Fletcher–Reeves direction policy with the same typed history and deterministic restart protocol. |
+| `solvers::QuadraticConjugateGradientDirectionPolicyT` | The strict classical quadratic-CG recurrence with metric-gradient history, periodic dimension restarts, and contract-checked descent. |
 | `solvers::LimitedMemoryBfgsDirectionPolicyT` | The metric-aware limited-memory BFGS direction policy with bounded typed secant history and explicit curvature resets. |
 | `solvers::NewtonDirectionPolicyT` | The explicit-Hessian Newton direction consumer using metric-preconditioned inner conjugate gradients. |
 | `solvers::ArmijoLineSearchPolicyT` | Backtracking Armijo acceptance using the declared pairing and the actual returned trial displacement. |
@@ -51,6 +52,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedFletcherReevesSolverT` | The same reduced execution loop configured with `FletcherReevesDirectionPolicyT`. |
 | `solvers::ReducedExactConjugateGradientSolverT` | The reduced PR+ execution loop combined with `ExactQuadraticLineSearchPolicyT`. |
 | `solvers::ReducedExactFletcherReevesSolverT` | The reduced Fletcher–Reeves execution loop combined with `ExactQuadraticLineSearchPolicyT`. |
+| `solvers::ReducedQuadraticConjugateGradientSolverT` | The strict classical quadratic-CG recurrence combined with `ExactQuadraticLineSearchPolicyT`. |
 | `solvers::ReducedLimitedMemoryBfgsSolverT` | The same reduced execution loop configured with `LimitedMemoryBfgsDirectionPolicyT` for the unconstrained first registration. |
 | `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
 | `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
@@ -270,8 +272,12 @@ Fletcher–Reeves direction policy with the explicit positive-curvature
 quadratic line search. For the linear-quadratic reference DTO, exact line
 search makes the two coefficient updates equivalent in exact arithmetic; the
 contract test compares their accepted objective histories and final controls.
-This closes the equivalence path without claiming a separate standalone
-classical quadratic-CG implementation.
+The separate `QuadraticConjugateGradientDirectionPolicyT` keeps the classical
+recurrence explicit: it uses the Fletcher–Reeves coefficient, periodically
+restarts at the declared layout dimension, and rejects invalid curvature or a
+non-descent recurrence instead of applying nonlinear-CG fallback behaviour.
+`ReducedQuadraticConjugateGradientSolverT` composes it with exact quadratic
+search.
 
 ## Metric and constraint boundary
 

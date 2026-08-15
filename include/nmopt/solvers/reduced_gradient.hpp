@@ -486,6 +486,15 @@ namespace nmopt::solvers
     ReducedExactFletcherReevesSolverT<contract::DenseBackend>;
 
   template <typename Backend>
+  using ReducedQuadraticConjugateGradientSolverT =
+    ReducedSearchSolverT<Backend,
+                         QuadraticConjugateGradientDirectionPolicyT<Backend>,
+                         ExactQuadraticLineSearchPolicyT<Backend>>;
+
+  using ReducedQuadraticConjugateGradientSolver =
+    ReducedQuadraticConjugateGradientSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
   using ReducedLimitedMemoryBfgsSolverT =
     ReducedSearchSolverT<Backend, LimitedMemoryBfgsDirectionPolicyT<Backend>>;
 

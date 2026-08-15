@@ -248,7 +248,8 @@ namespace nmopt::solvers
   enum class NonlinearConjugateGradientUpdate
   {
     polak_ribiere_plus,
-    fletcher_reeves
+    fletcher_reeves,
+    classical_quadratic
   };
 
   inline const char *
@@ -261,14 +262,17 @@ namespace nmopt::solvers
           return "polak_ribiere_plus";
         case NonlinearConjugateGradientUpdate::fletcher_reeves:
           return "fletcher_reeves";
+        case NonlinearConjugateGradientUpdate::classical_quadratic:
+          return "classical_quadratic";
       }
     return "unknown";
   }
 
   // The default nonlinear-CG policy is Polak–Ribière+ in the declared metric.
-  // The same typed implementation is specialized below for Fletcher–Reeves.
-  // Both variants store the previous covector, metric gradient, and primal
-  // direction so primal/dual layout compatibility is checked at every update.
+  // The same typed implementation is specialized below for Fletcher–Reeves
+  // and classical quadratic CG. All variants store the previous covector,
+  // metric gradient, and primal direction so primal/dual layout compatibility
+  // is checked at every update.
   template <typename Backend,
             NonlinearConjugateGradientUpdate Update =
               NonlinearConjugateGradientUpdate::polak_ribiere_plus>
@@ -324,27 +328,52 @@ namespace nmopt::solvers
             current_gradient.gradient.layout());
           restart = directions_since_restart_ >= restart_interval;
 
-          const double denominator =
-            contract::pair(*previous_derivative_, *previous_gradient_);
-          double numerator = 0.0;
           if constexpr (Update ==
-                        NonlinearConjugateGradientUpdate::fletcher_reeves)
-            numerator =
-              contract::pair(reduced_derivative, current_gradient.gradient);
-          else
-            numerator =
-              contract::pair(reduced_derivative, current_gradient.gradient) -
-              contract::pair(*previous_derivative_, current_gradient.gradient);
-          const double scale = std::max(1.0, std::abs(denominator));
-          if (!std::isfinite(denominator) ||
-              denominator <= parameters_.curvature_tolerance * scale ||
-              !std::isfinite(numerator))
-            restart = true;
+                        NonlinearConjugateGradientUpdate::classical_quadratic)
+            {
+              if (!restart)
+                {
+                  const double denominator =
+                    contract::pair(*previous_derivative_, *previous_gradient_);
+                  const double numerator =
+                    contract::pair(reduced_derivative,
+                                   current_gradient.gradient);
+                  const double scale = std::max(1.0, std::abs(denominator));
+                  contract::require(
+                    std::isfinite(denominator) &&
+                      denominator > parameters_.curvature_tolerance * scale &&
+                      std::isfinite(numerator) && numerator > 0.0,
+                    "Classical quadratic CG requires positive finite gradient curvature");
+                  beta = numerator / denominator;
+                }
+            }
           else
             {
-              beta = numerator / denominator;
-              if (!std::isfinite(beta) || beta <= 0.0)
+              const double denominator =
+                contract::pair(*previous_derivative_, *previous_gradient_);
+              double numerator = 0.0;
+              if constexpr (Update ==
+                            NonlinearConjugateGradientUpdate::fletcher_reeves)
+                numerator =
+                  contract::pair(reduced_derivative,
+                                 current_gradient.gradient);
+              else
+                numerator =
+                  contract::pair(reduced_derivative,
+                                 current_gradient.gradient) -
+                  contract::pair(*previous_derivative_,
+                                 current_gradient.gradient);
+              const double scale = std::max(1.0, std::abs(denominator));
+              if (!std::isfinite(denominator) ||
+                  denominator <= parameters_.curvature_tolerance * scale ||
+                  !std::isfinite(numerator))
                 restart = true;
+              else
+                {
+                  beta = numerator / denominator;
+                  if (!std::isfinite(beta) || beta <= 0.0)
+                    restart = true;
+                }
             }
         }
 
@@ -358,11 +387,20 @@ namespace nmopt::solvers
       if (!std::isfinite(directional_derivative) ||
           directional_derivative >= 0.0)
         {
-          restart = true;
-          direction = current_gradient.gradient;
-          scale_primal(direction, -1.0);
-          directional_derivative =
-            contract::pair(reduced_derivative, direction);
+          if constexpr (Update ==
+                        NonlinearConjugateGradientUpdate::classical_quadratic)
+            contract::require(
+              std::isfinite(directional_derivative) &&
+                directional_derivative < 0.0,
+              "Classical quadratic CG could not produce a descent direction");
+          else
+            {
+              restart = true;
+              direction = current_gradient.gradient;
+              scale_primal(direction, -1.0);
+              directional_derivative =
+                contract::pair(reduced_derivative, direction);
+            }
         }
 
       if (has_history && restart)
@@ -430,6 +468,15 @@ namespace nmopt::solvers
 
   using FletcherReevesDirectionPolicyDense =
     FletcherReevesDirectionPolicyT<contract::DenseBackend>;
+
+  template <typename Backend>
+  using QuadraticConjugateGradientDirectionPolicyT =
+    NonlinearConjugateGradientDirectionPolicyT<
+      Backend,
+      NonlinearConjugateGradientUpdate::classical_quadratic>;
+
+  using QuadraticConjugateGradientDirectionPolicyDense =
+    QuadraticConjugateGradientDirectionPolicyT<contract::DenseBackend>;
 
   struct LimitedMemoryBfgsParameters
   {

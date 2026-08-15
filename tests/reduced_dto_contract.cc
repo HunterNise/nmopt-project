@@ -499,6 +499,42 @@ namespace
                   "Fletcher-Reeves direction update");
     require(second_fr_direction.directional_derivative < 0.0,
             "Fletcher-Reeves direction is not descending");
+
+    using QCGPolicy =
+      nmopt::solvers::QuadraticConjugateGradientDirectionPolicyDense;
+    QCGPolicy qcg_policy({2, 1e-14});
+    const auto first_qcg_direction =
+      qcg_policy.next(control, first_cg_derivative, cg_metric);
+    const auto second_qcg_direction =
+      qcg_policy.next(control, second_cg_derivative, cg_metric);
+    require_close(first_qcg_direction.direction.block(0)[0],
+                  -1.0,
+                  1e-15,
+                  "Quadratic CG initial direction");
+    require_close(second_qcg_direction.direction.block(0)[0],
+                  -3.0,
+                  1e-15,
+                  "Quadratic CG coefficient");
+    require_close(second_qcg_direction.direction.block(0)[1],
+                  -1.0,
+                  1e-15,
+                  "Quadratic CG direction update");
+    require(second_qcg_direction.directional_derivative < 0.0,
+            "Quadratic CG direction is not descending");
+    (void)qcg_policy.next(control, third_cg_derivative, cg_metric);
+    require(qcg_policy.restart_count() == 1,
+            "Quadratic CG did not perform its configured periodic restart");
+    QCGPolicy invalid_qcg_policy({10, 1e-14});
+    (void)invalid_qcg_policy.next(control, first_cg_derivative, cg_metric);
+    nmopt::test_support::require_contract_error(
+      [&invalid_qcg_policy, &control, &cg_metric]() {
+        (void)invalid_qcg_policy.next(
+          control,
+          CovectorBlock(control.layout(), {DenseVector{-1.0, 0.0}}),
+          cg_metric);
+      },
+      "Classical quadratic CG could not produce a descent direction",
+      "quadratic CG rejects a non-descent recurrence");
     CGPolicy negative_beta_policy({10, 1e-14});
     (void)negative_beta_policy.next(control, first_cg_derivative, cg_metric);
     (void)negative_beta_policy.next(
@@ -818,6 +854,30 @@ namespace
                     exact_fr_result.control.block(0)[entry],
                     1e-10,
                     "Exact-search PR+ and Fletcher-Reeves control equivalence");
+
+    const nmopt::solvers::ReducedQuadraticConjugateGradientSolver qcg_solver(
+      reduced,
+      metric,
+      exact_cg_parameters,
+      QCGPolicy{},
+      exact_cg_line_search);
+    const auto qcg_result = qcg_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(qcg_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Dense quadratic CG solver did not reach tolerance");
+    require(qcg_result.accepted_iterations ==
+              exact_fr_result.accepted_iterations &&
+              qcg_result.line_search_trial_count ==
+                qcg_result.accepted_iterations,
+            "Dense quadratic CG did not use the exact quadratic recurrence");
+    for (std::size_t index = 0;
+         index < qcg_result.objective_history.size();
+         ++index)
+      require_close(qcg_result.objective_history[index],
+                    exact_fr_result.objective_history[index],
+                    1e-12,
+                    "Quadratic CG and Fletcher-Reeves objective equivalence");
 
     const nmopt::solvers::ReducedLimitedMemoryBfgsSolver lbfgs_solver(
       reduced, metric, solver_parameters);

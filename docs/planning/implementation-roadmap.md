@@ -902,10 +902,10 @@ and reporting; they are not separate problem formulations.
 - A typed primal search-direction protocol supplied by a reduced covector and
   declared inverse metric.
 - Deterministic steepest-descent, nonlinear-CG (PR+ and Fletcher–Reeves
-  updates with restart), and limited-memory BFGS policies. Store history with
-  primal/dual layout checks and declared curvature/reset behaviour. An explicit
-  quadratic-CG policy remains an extension candidate. A trust-region policy
-  belongs to the extension track after a Hessian-vector service is available.
+  updates with restart), strict classical quadratic-CG, and limited-memory
+  BFGS policies. Store history with primal/dual layout checks and declared
+  curvature/reset behaviour. A trust-region policy belongs to the extension
+  track after a Hessian-vector service is available.
 - A typed Hessian-vector service for the selected scalar DTO targets. Start
   with the exact linear-quadratic tangent-state/incremental-adjoint action;
   expose Newton or truncated Newton only for models that provide the required
@@ -928,8 +928,8 @@ also passes symmetry and finite-difference reduced-covector tests.
 
 **Implementation closure:** the shared typed direction/result protocol now
 covers steepest descent, Polak–Ribiere-plus and Fletcher–Reeves nonlinear CG,
-and metric-aware limited-memory BFGS with declared layout, curvature, and
-restart behaviour.
+strict classical quadratic-CG, and metric-aware limited-memory BFGS with
+declared layout, curvature, and restart behaviour.
 The explicit `ReducedHessianT` capability and exact linear-quadratic provider
 support metric-preconditioned Newton. Exact quadratic, Armijo, and Wolfe
 policies are selectable through the reduced solver and evaluate acceptance
@@ -937,9 +937,8 @@ using the actual trial displacement, including projected trials. The selected
 scalar one-state/one-decision DTO target is verified across the neutral,
 deal.II, sanitizer, and release profiles; projected steepest descent remains
 the only projected direction policy in this slice.
-The exact-search PR+/Fletcher–Reeves equivalence is verified on the
-linear-quadratic target; a separate classical quadratic-CG direction policy is
-not implied by that equivalence.
+The exact-search PR+/Fletcher–Reeves equivalence and the separate strict
+classical quadratic-CG recurrence are verified on the linear-quadratic target.
 
 #### P6.1 extension ladder
 
@@ -950,9 +949,8 @@ not silently broaden the selected slice:
 
 1. **Near-term iterative closure:** relative-gradient, objective-change, and
    step-size stopping policies, final accepted state/adjoint/covector
-   reporting, Fletcher–Reeves, and the exact-search PR+/Fletcher–Reeves
-   equivalence test are implemented. A standalone classical quadratic-CG
-   policy remains a candidate.
+   reporting, Fletcher–Reeves, exact-search PR+/Fletcher–Reeves equivalence,
+   and strict classical quadratic-CG are implemented.
 2. **Globalization extension:** add a matrix-free trust-region policy with a
    quadratic model, actual/predicted reduction ratio, radius update, and
    acceptance diagnostics. It is a separate globalization boundary, not a

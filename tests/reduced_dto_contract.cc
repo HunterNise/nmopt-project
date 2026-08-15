@@ -685,6 +685,60 @@ namespace
                 lbfgs_result.objective_history[index - 1],
               "Dense L-BFGS objective history is not monotonic");
 
+    const nmopt::solvers::NewtonDirectionPolicyDense exact_newton_direction(
+      hessian, newton_parameters);
+    const nmopt::solvers::ExactQuadraticLineSearchPolicy exact_newton_line_search(
+      hessian);
+    const nmopt::solvers::ReducedExactNewtonSolver exact_newton_solver(
+      reduced,
+      metric,
+      solver_parameters,
+      exact_newton_direction,
+      exact_newton_line_search);
+    const auto exact_newton_result = exact_newton_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(exact_newton_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Dense exact Newton solver did not reach its tolerance");
+    require(exact_newton_result.line_search_trial_count ==
+              exact_newton_result.accepted_iterations,
+            "Dense exact Newton did not use one exact trial per accepted iteration");
+    require(exact_newton_result.state_solve_count ==
+              exact_newton_result.line_search_trial_count + 1,
+            "Dense exact Newton solve count misses a trial evaluation");
+    require(exact_newton_result.hessian_action_count >
+              exact_newton_result.accepted_iterations,
+            "Dense exact Newton did not report line-search Hessian actions");
+
+    nmopt::solvers::WolfeLineSearchParameters wolfe_solver_line_parameters;
+    wolfe_solver_line_parameters.maximum_trials = 30;
+    wolfe_solver_line_parameters.initial_step_length = 10.0;
+    const nmopt::solvers::SteepestDescentDirectionPolicy wolfe_direction_policy;
+    const nmopt::solvers::WolfeLineSearchPolicy wolfe_solver_line_search(
+      wolfe_solver_line_parameters);
+    const nmopt::solvers::ReducedWolfeGradientSolver wolfe_solver(
+      reduced,
+      metric,
+      solver_parameters,
+      wolfe_direction_policy,
+      wolfe_solver_line_search);
+    const auto wolfe_solver_result = wolfe_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(wolfe_solver_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Dense Wolfe solver did not reach its tolerance");
+    require(wolfe_solver_result.hessian_action_count == 0,
+            "Dense Wolfe solver unexpectedly reported Hessian actions");
+    require(wolfe_solver_result.state_solve_count ==
+              wolfe_solver_result.line_search_trial_count + 1,
+            "Dense Wolfe solve count misses a trial evaluation");
+    for (std::size_t index = 1;
+         index < wolfe_solver_result.objective_history.size();
+         ++index)
+      require(wolfe_solver_result.objective_history[index] <=
+                wolfe_solver_result.objective_history[index - 1],
+              "Dense Wolfe objective history is not monotonic");
+
     const CellwiseBoxConstraint projected_bounds(
       partition.control_layout(), {DenseVector{-1.0, -0.2}},
       {DenseVector{1.0, 0.5}}, metric);

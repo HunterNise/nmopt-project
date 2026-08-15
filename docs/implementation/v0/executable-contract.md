@@ -49,6 +49,8 @@ The public executable and solver headers provide:
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
 | `solvers::ReducedLimitedMemoryBfgsSolverT` | The same reduced execution loop configured with `LimitedMemoryBfgsDirectionPolicyT` for the unconstrained first registration. |
 | `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
+| `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
+| `solvers::ReducedWolfeGradientSolverT` | The reduced steepest-descent loop combined with `WolfeLineSearchPolicyT`. |
 
 The unsuffixed public aliases select the dense reference backend. The
 corresponding types with a T suffix are backend-parametric, for example
@@ -238,6 +240,14 @@ also checks the actual trial slope against its declared curvature fraction.
 These policies return failure rather than silently accepting a non-descent or
 non-finite trial.
 
+`ReducedSearchSolverT` delegates trial construction and evaluation to the
+selected line-search policy. Its default Armijo policy is initialized from
+the legacy `ReducedSolverParameters` fields, while explicit policy instances
+select combinations such as exact Newton or Wolfe steepest descent. Trial
+counts are accumulated from the policy result and state/adjoint counts are
+incremented by the evaluator callback, keeping reporting consistent across
+all combinations.
+
 ## Metric and constraint boundary
 
 The backend-neutral concrete metric supplied is a positive diagonal metric.
@@ -282,7 +292,7 @@ The `CTest` scenarios verify:
 11. exact reduced-Hessian finite-difference and symmetry identities, plus the
     explicit-capability Newton convergence path;
 12. exact quadratic, actual-displacement Armijo, and Wolfe line-search
-    acceptance policies;
+    acceptance policies, including exact-Newton and Wolfe solver combinations;
 13. dense and deal.II unconstrained/projected Armijo convergence, including
    active-bound and projected-stationarity checks; and
 14. checked acceptance/rejection at the serial deal.II native-size boundary;

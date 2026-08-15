@@ -1,10 +1,12 @@
 #pragma once
 
 #include "nmopt/contract/reduced_dto.hpp"
+#include "nmopt/solvers/reduced_line_search.hpp"
 #include "nmopt/solvers/reduced_search.hpp"
 
 #include <cmath>
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -16,7 +18,8 @@ namespace nmopt::solvers
   // j(u) + c <j', alpha d>.
   template <typename Backend,
             typename DirectionPolicy =
-              SteepestDescentDirectionPolicyT<Backend>>
+              SteepestDescentDirectionPolicyT<Backend>,
+            typename LineSearchPolicy = ArmijoLineSearchPolicyT<Backend>>
   class ReducedSearchSolverT
   {
   public:
@@ -33,6 +36,21 @@ namespace nmopt::solvers
       , metric_(metric)
       , parameters_(parameters)
       , direction_policy_(std::move(direction_policy))
+      , line_search_policy_(default_line_search_policy(parameters))
+    {
+      validate_parameters();
+    }
+
+    ReducedSearchSolverT(const contract::ReducedDTOT<Backend> &reduced,
+                         const contract::MetricT<Backend> &    metric,
+                         ReducedSolverParameters               parameters,
+                         DirectionPolicy                        direction_policy,
+                         LineSearchPolicy                        line_search_policy)
+      : reduced_(reduced)
+      , metric_(metric)
+      , parameters_(parameters)
+      , direction_policy_(std::move(direction_policy))
+      , line_search_policy_(std::move(line_search_policy))
     {
       validate_parameters();
     }
@@ -47,6 +65,27 @@ namespace nmopt::solvers
       , constraint_(&constraint)
       , parameters_(parameters)
       , direction_policy_(std::move(direction_policy))
+      , line_search_policy_(default_line_search_policy(parameters))
+    {
+      validate_parameters();
+      contract::require(constraint_->layout()->compatible_with(*metric_.layout()),
+                        "Reduced gradient constraint does not match metric");
+      contract::require(constraint_->supports_projection_in(metric_),
+                        "Reduced gradient constraint cannot project in this metric");
+    }
+
+    ReducedSearchSolverT(const contract::ReducedDTOT<Backend> &reduced,
+                         const contract::MetricT<Backend> &    metric,
+                         const contract::ConstraintT<Backend> & constraint,
+                         ReducedSolverParameters               parameters,
+                         DirectionPolicy                        direction_policy,
+                         LineSearchPolicy                        line_search_policy)
+      : reduced_(reduced)
+      , metric_(metric)
+      , constraint_(&constraint)
+      , parameters_(parameters)
+      , direction_policy_(std::move(direction_policy))
+      , line_search_policy_(std::move(line_search_policy))
     {
       validate_parameters();
       contract::require(constraint_->layout()->compatible_with(*metric_.layout()),
@@ -82,6 +121,7 @@ namespace nmopt::solvers
       std::vector<double> objective_change_history;
       DirectionPolicy direction_policy = direction_policy_;
       direction_policy.reset();
+      LineSearchPolicy line_search_policy = line_search_policy_;
 
       for (;;)
         {
@@ -137,53 +177,40 @@ namespace nmopt::solvers
                           hessian_action_count,
                           direction_policy.reset_count());
 
-          double step_length = parameters_.initial_step_length;
-          bool   accepted = false;
-          for (unsigned int trial = 0;
-               trial < parameters_.maximum_line_search_trials;
-               ++trial)
-            {
-              Primal trial_control = current_control;
-              add_scaled_primal(trial_control,
-                                step_length,
-                                direction.direction);
-              if (constraint_ != nullptr)
-                {
-                  trial_control = constraint_->project_in(trial_control, metric_);
-                  contract::require(constraint_->is_feasible(trial_control),
-                                    "Reduced gradient projection returned an infeasible control");
-                }
-              Evaluation trial_evaluation = reduced_.evaluate(trial_control);
-              ++state_solve_count;
-              ++adjoint_solve_count;
-              ++line_search_trial_count;
+          const auto build_trial_control = [this,
+                                            &current_control,
+                                            &direction](const double step_length) {
+            Primal trial_control = current_control;
+            add_scaled_primal(trial_control,
+                              step_length,
+                              direction.direction);
+            if (constraint_ != nullptr)
+              {
+                trial_control = constraint_->project_in(trial_control, metric_);
+                contract::require(constraint_->is_feasible(trial_control),
+                                  "Reduced gradient projection returned an infeasible control");
+              }
+            return trial_control;
+          };
+          const auto evaluate_trial = [this,
+                                       &state_solve_count,
+                                       &adjoint_solve_count](
+                                         const Primal &trial_control) {
+            Evaluation trial_evaluation = reduced_.evaluate(trial_control);
+            ++state_solve_count;
+            ++adjoint_solve_count;
+            return trial_evaluation;
+          };
+          auto line_search_result = line_search_policy.search(
+            current_control,
+            current_evaluation,
+            direction,
+            build_trial_control,
+            evaluate_trial);
+          line_search_trial_count += line_search_result.trial_count;
+          hessian_action_count += line_search_result.hessian_action_count;
 
-              Primal update = trial_control;
-              add_scaled_primal(update, -1.0, current_control);
-              const double armijo_decrease =
-                contract::pair(current_evaluation.reduced_derivative, update);
-              const double armijo_bound = current_evaluation.objective_value +
-                                          parameters_.armijo_fraction *
-                                            armijo_decrease;
-              if (armijo_decrease < 0.0 &&
-                  trial_evaluation.objective_value <= armijo_bound)
-                {
-                  const double objective_change =
-                    trial_evaluation.objective_value -
-                    current_evaluation.objective_value;
-                  current_control = std::move(trial_control);
-                  current_evaluation = std::move(trial_evaluation);
-                  objective_history.push_back(current_evaluation.objective_value);
-                  step_length_history.push_back(step_length);
-                  objective_change_history.push_back(objective_change);
-                  ++accepted_iterations;
-                  accepted = true;
-                  break;
-                }
-              step_length *= parameters_.backtracking_factor;
-            }
-
-          if (!accepted)
+          if (!line_search_result.accepted())
             return result(current_control,
                           std::move(objective_history),
                           std::move(gradient_norm_history),
@@ -197,10 +224,36 @@ namespace nmopt::solvers
                           metric_solve_count,
                           hessian_action_count,
                           direction_policy.reset_count());
+
+          Primal trial_control = std::move(line_search_result.control);
+          Evaluation trial_evaluation =
+            std::move(line_search_result.evaluation);
+          const double objective_change =
+            trial_evaluation.objective_value - current_evaluation.objective_value;
+          current_control = std::move(trial_control);
+          current_evaluation = std::move(trial_evaluation);
+          objective_history.push_back(current_evaluation.objective_value);
+          step_length_history.push_back(line_search_result.step_length);
+          objective_change_history.push_back(objective_change);
+          ++accepted_iterations;
         }
     }
 
   private:
+    static LineSearchPolicy
+    default_line_search_policy(const ReducedSolverParameters &parameters)
+    {
+      if constexpr (std::is_same_v<LineSearchPolicy,
+                                   ArmijoLineSearchPolicyT<Backend>>)
+        return LineSearchPolicy(ArmijoLineSearchParameters{
+          parameters.maximum_line_search_trials,
+          parameters.initial_step_length,
+          parameters.armijo_fraction,
+          parameters.backtracking_factor});
+      else
+        return LineSearchPolicy{};
+    }
+
     struct ProjectedGradientData
     {
       double metric_norm;
@@ -282,11 +335,14 @@ namespace nmopt::solvers
     const contract::ConstraintT<Backend> * constraint_ = nullptr;
     ReducedSolverParameters                parameters_;
     DirectionPolicy                         direction_policy_;
+    LineSearchPolicy                        line_search_policy_;
   };
 
   template <typename Backend>
   using ReducedGradientSolverT =
-    ReducedSearchSolverT<Backend, SteepestDescentDirectionPolicyT<Backend>>;
+    ReducedSearchSolverT<Backend,
+                         SteepestDescentDirectionPolicyT<Backend>,
+                         ArmijoLineSearchPolicyT<Backend>>;
 
   template <typename Backend>
   using ReducedConjugateGradientSolverT =
@@ -305,8 +361,26 @@ namespace nmopt::solvers
     ReducedLimitedMemoryBfgsSolverT<contract::DenseBackend>;
 
   template <typename Backend>
+  using ReducedWolfeGradientSolverT =
+    ReducedSearchSolverT<Backend,
+                         SteepestDescentDirectionPolicyT<Backend>,
+                         WolfeLineSearchPolicyT<Backend>>;
+
+  using ReducedWolfeGradientSolver =
+    ReducedWolfeGradientSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
   using ReducedNewtonSolverT =
     ReducedSearchSolverT<Backend, NewtonDirectionPolicyT<Backend>>;
 
   using ReducedNewtonSolver = ReducedNewtonSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
+  using ReducedExactNewtonSolverT =
+    ReducedSearchSolverT<Backend,
+                         NewtonDirectionPolicyT<Backend>,
+                         ExactQuadraticLineSearchPolicyT<Backend>>;
+
+  using ReducedExactNewtonSolver =
+    ReducedExactNewtonSolverT<contract::DenseBackend>;
 } // namespace nmopt::solvers

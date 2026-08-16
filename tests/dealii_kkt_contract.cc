@@ -273,21 +273,24 @@ namespace
                          1e-12,
                          "supplied-OTD KKT equality residual differs from DTO");
 
-    Product::Seed dto_seed{
-      Product::Primal(dto_kkt.product().layout().stationarity,
-                      {Vector(state_dimension), Vector(control_dimension)}),
-      Product::Primal(dto_kkt.product().layout().equality,
-                      {Vector(state_dimension)})};
+    Vector stationarity_state(state_dimension);
+    Vector stationarity_control(control_dimension);
+    Vector equality_seed(state_dimension);
     for (std::size_t index = 0; index < state_dimension; ++index)
       {
-        dto_seed.stationarity.block(0)[index] =
+        stationarity_state[index] =
           0.04 - 0.006 * static_cast<double>(index);
-        dto_seed.equality.block(0)[index] =
+        equality_seed[index] =
           -0.03 + 0.009 * static_cast<double>(index);
       }
     for (std::size_t index = 0; index < control_dimension; ++index)
-      dto_seed.stationarity.block(1)[index] =
+      stationarity_control[index] =
         0.05 + 0.008 * static_cast<double>(index);
+    const Product::Seed dto_seed{
+      Product::Primal(dto_kkt.product().layout().stationarity,
+                      {stationarity_state, stationarity_control}),
+      Product::Primal(dto_kkt.product().layout().equality,
+                      {equality_seed})};
     const Product::Seed supplied_seed{
       Product::Primal(supplied_product.layout().stationarity,
                       {dto_seed.stationarity.block(0),

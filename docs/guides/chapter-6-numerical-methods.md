@@ -414,6 +414,19 @@ selection/restriction operators. It may begin with exact cellwise boxes; it
 must not classify a continuous-FE dual vector pointwise without a declared
 Riesz or interpolation policy.
 
+The selected first realization uses the cellwise $L^{2}$ Riesz map to convert
+the dual multiplier to its coefficient representative before applying the
+classification inequalities. Thus the comparison is between declared
+cellwise primal quantities, not between a raw dual covector and a primal
+coefficient vector. Its PDAS subproblem fixes active control coefficients,
+restricts the remaining primal variables, and reuses the generic P6.3 KKT
+product; it does not add box multipliers to the reduced DTO interface.
+
+The selected path covers only two-sided cellwise-discontinuous volume-control
+boxes on the state mesh. Continuous-control bounds, facewise bounds,
+quadrature-point inequalities, the Lavrentiev-regularised mixed constraint,
+and measure-valued state constraints remain separate extensions.
+
 The source also applies PDAS to the Lavrentiev-regularised mixed constraint
 
 $$

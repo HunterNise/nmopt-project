@@ -917,6 +917,70 @@ symmetry. A solve report MUST retain the linear-solver termination separately
 from the KKT stationarity and equality/feasibility residual norms, and the
 multiplier-to-adjoint conversion remains owned by the product.
 
+### 7.4 Typed box complementarity and primal-dual active sets
+
+A box-complementarity product is a separate formulation service from the
+projection operation in Section 3.12. It acts on a declared primal control
+space $`U_{h}`$ and its compatible dual $`U_{h}^{\ast}`$, and MUST record the
+lower and upper bound representations, the multiplier representation, and the
+operations used to compare primal and dual quantities. A box constraint MUST
+NOT be treated as a multiplier-bearing complementarity constraint merely
+because it already provides coefficientwise projection.
+
+For the selected first realization, $`U_{h}`$ is the cellwise-discontinuous
+piecewise-constant volume-control space on the state mesh. The bounds are
+coefficientwise values in that same layout, and the declared pairing is the
+cellwise $`L^{2}`$ pairing with a positive diagonal Riesz map
+
+$$
+R_{u,h}:U_{h}\to U_{h}^{\ast}.
+$$
+
+The box multiplier $`\mu_{h}`$ is a dual covector. Active-set classification
+MUST first apply the declared dual-to-primal representative
+$`R_{u,h}^{-1}\mu_{h}`$; it MUST NOT compare raw dual coefficients with primal
+control coefficients. The classification parameter $`c>0`$ is interpreted in
+that selected representative. For the framework Lagrangian sign, with
+control stationarity $`j_{h}'(u_{h})+\mu_{h}=0`$, define
+
+```math
+\begin{aligned}
+\widehat\mu_{h} &= R_{u,h}^{-1}\mu_{h},\\
+\mathcal A^{+} &= \{i:\widehat\mu_{h,i}+c(u_{h,i}-b_{h,i})>0\},\\
+\mathcal A^{-} &= \{i:\widehat\mu_{h,i}+c(u_{h,i}-a_{h,i})<0\},\\
+\mathcal I &= \{i:\widehat\mu_{h,i}+c(u_{h,i}-b_{h,i})\leq 0 \leq\widehat\mu_{h,i}+c(u_{h,i}-a_{h,i})\}.
+\end{aligned}
+```
+
+The three sets MUST be disjoint and exhaustive. A typed selection service
+MUST expose the selected representation and provide restriction and
+prolongation actions for the free primal variables and the active control
+coordinates. It MUST reject incompatible layouts, missing bound data,
+nonpositive classification parameters, and any representation that has no
+declared primal/dual conversion. Continuous finite-element controls,
+facewise controls, quadrature-point inequalities, and state-derived
+constraints require separate policies and are not covered by this
+realization.
+
+A PDAS service MUST consume an equality-constrained quadratic KKT product
+through the contract in Section 7.3. For a selected active set it fixes the
+active control coordinates at their declared lower or upper values, composes
+the corresponding restricted quadratic and equality actions, and solves the
+resulting equality-constrained subproblem through the P6.3 KKT service. The
+full primal point is reconstructed before reclassification. The original KKT
+multiplier-to-framework-adjoint conversion remains unchanged; the box
+multiplier is recovered from the control stationarity covector on active
+coordinates and is zero on inactive coordinates.
+
+Every iteration MUST report primal feasibility, dual feasibility,
+complementarity, control stationarity, equality feasibility, active-set
+changes, and the underlying KKT linear-solve result separately. PDAS MAY stop
+only when the active sets are unchanged and the declared full-KKT residual
+tolerances are satisfied. Stable active sets alone MUST NOT be reported as
+convergence. Failure to construct or solve a restricted KKT product MUST be a
+formulation or solve diagnostic, not a silent fallback to projected reduced
+optimization.
+
 ## 8. Cases that remain cross-cutting
 
 The following cannot be made local to one term.  The stated protocol is

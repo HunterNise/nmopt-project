@@ -45,8 +45,10 @@ The selected S1 preparation gate is acceptance-complete. Its checked
 value/state and derivative/adjoint stages provide value-only rejected trials,
 the accepted-iteration audit records the declared work and acceptance data,
 and the reduced experiment envelope binds the solver report to compilation,
-policy, and run-environment provenance. The selected P6.1 policy surface
-remains subject to its separate implementation-review remediation.
+policy, and run-environment provenance. The selected P6.1 policy surface is
+acceptance-complete for its scalar reduced DTO boundary after the R1-R8
+remediation closure; its projected and second-order exclusions remain
+explicit.
 The typed trace and negative-metric policies, explicit $H^{1}_{0}$ target-data
 assumption, control-boundary realization, and realized observation-space
 dimensions are covered by the semantic and deal.II contracts. The reviewed
@@ -899,10 +901,9 @@ selection.
 
 ### P6.1 — Generalise reduced-space search strategies and line-search policies
 
-**Status:** implementation present for the selected scalar reduced DTO
-boundary; S1 preparation is acceptance-complete, and acceptance is pending the
-[P6.1 implementation review](review/chapter-6/p6.1-implementation-review.md)
-remediation.
+**Status:** acceptance-complete for the selected scalar reduced DTO
+boundary; S1 preparation is acceptance-complete. The broader projected and
+generic nonlinear-second-order variants remain excluded by the selected scope.
 
 **Motivation:** `ReducedGradientSolverT` supplies the first
 steepest-descent/Armijo slice, while Section 6.3 also uses nonlinear CG,
@@ -981,11 +982,10 @@ benchmark harness remains separate.
 #### P6.1 extension ladder
 
 The implemented surface above covers the selected scalar P6.1 policy slice;
-S1 preparation is acceptance-complete, but P6.1 acceptance remains pending its
-implementation-review remediation; this does not claim that every alternative
-described in Chapter 3 has been implemented. The following extensions are
-intentionally recorded so that a later implementation does not silently
-broaden the selected slice:
+S1 preparation and P6.1 acceptance are complete for that slice. This does not
+claim that every alternative described in Chapter 3 has been implemented. The
+following extensions are intentionally recorded so that a later implementation
+does not silently broaden the selected slice:
 
 1. **Near-term iterative closure:** selectable relative-gradient,
    objective-change, step-size, and absolute-gradient stopping policies,
@@ -1222,13 +1222,19 @@ vocabulary.
 - **P5.1 work unit 2:** [typed boundary and conormal selection](review/chapter-5/p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection), with shared boundary, orientation, and trace-realization vocabulary and no target-specific policy enums.
 - **C1/C2 work units 2–3:** [plan-owned scalar residual/data assembly](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly) and [objective/service recombination](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination), including an independently varied recombination.
 - **P5.2–P5.4 acceptance closure:** typed trace and negative-metric selections, target-data assumptions, control-boundary realization, typed transposition, fixed-boundary coverage, point/flux checks, closed registration matching, and realized transformed-observation dimensions. The `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass.
+- **P6.1 remediation closure:** R1-R8 are closed for the selected scalar
+  reduced DTO slice. Projection is restricted to the selected steepest-descent
+  boundary; exact-search, second-order, stationary-stop, truncated-CG, BFGS
+  accounting, and compiled-Hessian evidence contracts are covered. The full
+  gates pass 36/36 `debug-neutral`, 71/71 `debug-dealii`, 36/36
+  `sanitize-neutral`, and 71/71 `release-dealii` scenarios.
 - **Supporting evidence:** the closed request and pre-construction decision own target selection, typed regions and requirements, component inventories, and map skeletons; finalization adds only realized service facts, and manifest construction is a pure projection. Full compatibility remains stable under declaration-order and display-prose changes. Realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
 
 ### Chapter 6 implementation evidence pending remediation
 
-The P6.1, P6.3, and P6.5 implementation surfaces below are not
-acceptance-complete. P6.2 is acceptance-complete for its selected canonical
-scalar supplied-OTD slice; its historical review remains static evidence.
+The P6.3 and P6.5 implementation surfaces below are not
+acceptance-complete. P6.2 and the selected P6.1 scalar reduced DTO slice are
+acceptance-complete; their historical reviews remain static evidence.
 The remaining open findings and cross-batch dependency order
 are recorded in the
 [Chapter 6 review index](review/chapter-6/README.md) and the
@@ -1241,7 +1247,7 @@ are recorded in the
   manifest, policy snapshot, and run environment. The focused and full
   `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass; the
   final profile counts are 36/36, 71/71, and 36/36 respectively.
-- **P6.1 reduced-space solver slice:** the selected direction, Hessian/Newton, line-search, reporting, and configurable-composition contracts are implemented for the scalar reduced DTO boundary. The final verification pass covers the neutral, deal.II Debug, sanitizer, and deal.II Release profiles.
+- **P6.1 reduced-space solver slice:** the selected direction, Hessian/Newton, line-search, reporting, and configurable-composition contracts are implemented and acceptance-complete for the scalar reduced DTO boundary. The final verification pass covers 36/36 `debug-neutral`, 71/71 `debug-dealii`, 36/36 `sanitize-neutral`, and 71/71 `release-dealii` scenarios.
 - **P6.3 Unit 1 — normative KKT boundary:** the reusable $Q$, $D$, and KKT
   action, typed primal/multiplier/residual layouts, explicit multiplier-to-
   adjoint conversion, rank/kernel assumptions, and MINRES/GMRES compatibility
@@ -1299,8 +1305,9 @@ are recorded in the
 ### Current remediation and benchmark sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
-selected P6.1, P6.3, and P6.5 implementation surfaces are present but not
-acceptance-complete; S1 and the selected P6.2 supplied-OTD slice are closed.
+selected P6.3 and P6.5 implementation surfaces are present but not
+acceptance-complete; S1, P6.1, and the selected P6.2 supplied-OTD slice are
+closed.
 The sequence below incorporates the
 [integration remediation order](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order)
 for the remaining review findings:
@@ -1310,13 +1317,12 @@ The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 regression baselines for the existing scenario inventory; they do not close
 the review findings, whose missing or stronger scenarios are not yet present.
 
-1. close the P6.1 findings exercised by the selected B1/B2 benchmarks;
-2. close the P6.3 review findings for the selected DTO and supplied-OTD KKT
+1. close the P6.3 review findings for the selected DTO and supplied-OTD KKT
    product, solver, pairing, and ownership boundaries;
-3. repair the P6.5 restricted active subproblem, algebra, compilation, and
+2. repair the P6.5 restricted active subproblem, algebra, compilation, and
    ownership boundaries;
-4. compile one shared box-data product for projection and complementarity;
-5. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
+3. compile one shared box-data product for projection and complementarity;
+4. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
    run the selected B1 and B2 benchmarks through the declared artifact path.
 
 B3 and B4 remain desirable follow-ups under the authoritative

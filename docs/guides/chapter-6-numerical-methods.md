@@ -219,6 +219,12 @@ option.
 | Newton / truncated Newton | Hessian-vector action and inner linear solve | The selected slice uses capability-gated Newton; explicit truncated-Newton termination remains an extension. |
 | Full BFGS / L-BFGS | Secant history and metric-aware pairings | Full memory retains every accepted pair for didactical reference; limited memory declares its cap, curvature test, reset, and initial inverse-metric policy for scalable PDE controls. |
 
+The BFGS direction policies expose their inverse-metric work in the
+direction result. An initial or curvature-reset direction performs one
+inverse-metric action; a direction formed after accepting a secant pair
+performs two, one for the metric gradient and one for the two-loop recursion.
+L-BFGS history eviction does not add hidden metric actions.
+
 For the trust-region subproblem, the Cauchy policy minimizes the quadratic
 model along the metric steepest direction. The truncated-CG policy instead
 solves $`H s=-j_{h}'`$ inside $`\lVert s\rVert_{G}\leq\Delta`$ using the

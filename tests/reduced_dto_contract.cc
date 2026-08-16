@@ -401,6 +401,55 @@ namespace
     LayoutPtr layout_;
   };
 
+  class CountingMetric final : public Metric
+  {
+  public:
+    explicit CountingMetric(const Metric &metric)
+      : metric_(metric)
+    {}
+
+    const std::string &
+    id() const override
+    {
+      return metric_.id();
+    }
+
+    const LayoutPtr &
+    layout() const override
+    {
+      return metric_.layout();
+    }
+
+    CovectorBlock
+    apply(const PrimalBlock &primal) const override
+    {
+      return metric_.apply(primal);
+    }
+
+    PrimalBlock
+    inverse_apply(const CovectorBlock &covector) const override
+    {
+      ++inverse_apply_count_;
+      return metric_.inverse_apply(covector);
+    }
+
+    std::size_t
+    inverse_apply_count() const noexcept
+    {
+      return inverse_apply_count_;
+    }
+
+    void
+    reset_count() const noexcept
+    {
+      inverse_apply_count_ = 0;
+    }
+
+  private:
+    const Metric &        metric_;
+    mutable std::size_t   inverse_apply_count_ = 0;
+  };
+
   class ScaledReducedHessian final : public ReducedHessian
   {
   public:
@@ -969,6 +1018,7 @@ namespace
 
     using BfgsPolicy =
       nmopt::solvers::LimitedMemoryBfgsDirectionPolicyDense;
+    CountingMetric bfgs_metric(cg_metric);
     BfgsPolicy bfgs_policy({2, 1e-14});
     const PrimalBlock bfgs_control_0(
       partition.control_layout(), {DenseVector{0.0, 0.0}});
@@ -978,9 +1028,16 @@ namespace
       partition.control_layout(), {DenseVector{1.0, 0.0}});
     const CovectorBlock bfgs_derivative_1(
       partition.control_layout(), {DenseVector{2.0, 0.0}});
-    (void)bfgs_policy.next(bfgs_control_0, bfgs_derivative_0, cg_metric);
+    const auto bfgs_initial_direction =
+      bfgs_policy.next(bfgs_control_0, bfgs_derivative_0, bfgs_metric);
+    require(bfgs_metric.inverse_apply_count() == 1 &&
+              bfgs_initial_direction.metric_solve_count == 1,
+            "L-BFGS initial direction did not use one inverse-metric action");
     const auto bfgs_direction =
-      bfgs_policy.next(bfgs_control_1, bfgs_derivative_1, cg_metric);
+      bfgs_policy.next(bfgs_control_1, bfgs_derivative_1, bfgs_metric);
+    require(bfgs_metric.inverse_apply_count() == 3 &&
+              bfgs_direction.metric_solve_count == 2,
+            "L-BFGS accepted pair did not use two inverse-metric actions");
     require(bfgs_policy.history_size() == 1,
             "L-BFGS did not retain a valid secant pair");
     require(bfgs_policy.last_update_status() ==
@@ -988,7 +1045,11 @@ namespace
             "L-BFGS did not report an accepted secant pair");
     require(bfgs_direction.directional_derivative < 0.0,
             "L-BFGS direction is not descending");
-    (void)bfgs_policy.next(bfgs_control_1, bfgs_derivative_1, cg_metric);
+    const auto bfgs_reset_direction =
+      bfgs_policy.next(bfgs_control_1, bfgs_derivative_1, bfgs_metric);
+    require(bfgs_metric.inverse_apply_count() == 4 &&
+              bfgs_reset_direction.metric_solve_count == 1,
+            "L-BFGS curvature reset did not use one inverse-metric action");
     require(bfgs_policy.history_size() == 0 &&
               bfgs_policy.reset_count() == 1,
             "L-BFGS did not reset after failed curvature");
@@ -996,18 +1057,82 @@ namespace
               nmopt::solvers::LimitedMemoryBfgsUpdateStatus::curvature_reset,
             "L-BFGS curvature reset was not reported");
 
+    const PrimalBlock eviction_control_2(
+      partition.control_layout(), {DenseVector{2.0, 0.0}});
+    const PrimalBlock eviction_control_3(
+      partition.control_layout(), {DenseVector{3.0, 0.0}});
+    const CovectorBlock eviction_derivative_2(
+      partition.control_layout(), {DenseVector{3.0, 0.0}});
+    const CovectorBlock eviction_derivative_3(
+      partition.control_layout(), {DenseVector{4.0, 0.0}});
+    bfgs_metric.reset_count();
+    BfgsPolicy eviction_policy({2, 1e-14});
+    (void)eviction_policy.next(
+      bfgs_control_0, bfgs_derivative_0, bfgs_metric);
+    require(bfgs_metric.inverse_apply_count() == 1,
+            "L-BFGS eviction sequence initial action count is wrong");
+    (void)eviction_policy.next(
+      bfgs_control_1, bfgs_derivative_1, bfgs_metric);
+    (void)eviction_policy.next(
+      eviction_control_2, eviction_derivative_2, bfgs_metric);
+    require(eviction_policy.history_size() == 2 &&
+              bfgs_metric.inverse_apply_count() == 5,
+            "L-BFGS did not accumulate two actions per retained pair");
+    (void)eviction_policy.next(
+      eviction_control_3, eviction_derivative_3, bfgs_metric);
+    require(eviction_policy.history_size() == 2 &&
+              eviction_policy.last_update_status() ==
+                nmopt::solvers::LimitedMemoryBfgsUpdateStatus::accepted_pair &&
+              bfgs_metric.inverse_apply_count() == 7,
+            "L-BFGS eviction changed the inverse-metric action count");
+
+    BfgsPolicy layout_policy({2, 1e-14});
+    (void)layout_policy.next(
+      bfgs_control_0, bfgs_derivative_0, cg_metric);
+    const auto incompatible_bfgs_layout = std::make_shared<const BlockLayout>(
+      "incompatible_bfgs_layout",
+      std::vector<SpaceId>{{"alternate_control"}},
+      std::vector<std::size_t>{2});
+    const DiagonalMetric incompatible_bfgs_metric(
+      "incompatible_bfgs_metric",
+      incompatible_bfgs_layout,
+      {DenseVector{1.0, 1.0}});
+    const PrimalBlock incompatible_bfgs_control(
+      incompatible_bfgs_layout, {DenseVector{1.0, 0.0}});
+    const CovectorBlock incompatible_bfgs_derivative(
+      incompatible_bfgs_layout, {DenseVector{2.0, 0.0}});
+    nmopt::test_support::require_contract_error(
+      [&layout_policy, &incompatible_bfgs_control,
+       &incompatible_bfgs_derivative, &incompatible_bfgs_metric]() {
+        (void)layout_policy.next(incompatible_bfgs_control,
+                                 incompatible_bfgs_derivative,
+                                 incompatible_bfgs_metric);
+      },
+      "L-BFGS control history has an incompatible layout",
+      "L-BFGS history layout mismatch");
+
     using FullBfgsPolicy = nmopt::solvers::FullBfgsDirectionPolicyDense;
+    CountingMetric full_bfgs_metric(cg_metric);
     FullBfgsPolicy full_bfgs_policy({1e-14});
     const PrimalBlock full_bfgs_control_2(
       partition.control_layout(), {DenseVector{1.0, 1.0}});
     const CovectorBlock full_bfgs_derivative_2(
       partition.control_layout(), {DenseVector{2.0, 2.0}});
-    (void)full_bfgs_policy.next(
-      bfgs_control_0, bfgs_derivative_0, cg_metric);
-    (void)full_bfgs_policy.next(
-      bfgs_control_1, bfgs_derivative_1, cg_metric);
+    const auto full_bfgs_initial_direction = full_bfgs_policy.next(
+      bfgs_control_0, bfgs_derivative_0, full_bfgs_metric);
+    require(full_bfgs_metric.inverse_apply_count() == 1 &&
+              full_bfgs_initial_direction.metric_solve_count == 1,
+            "full BFGS initial direction did not use one inverse-metric action");
+    const auto full_bfgs_second_direction = full_bfgs_policy.next(
+      bfgs_control_1, bfgs_derivative_1, full_bfgs_metric);
+    require(full_bfgs_metric.inverse_apply_count() == 3 &&
+              full_bfgs_second_direction.metric_solve_count == 2,
+            "full BFGS accepted pair did not use two inverse-metric actions");
     const auto full_bfgs_direction = full_bfgs_policy.next(
-      full_bfgs_control_2, full_bfgs_derivative_2, cg_metric);
+      full_bfgs_control_2, full_bfgs_derivative_2, full_bfgs_metric);
+    require(full_bfgs_metric.inverse_apply_count() == 5 &&
+              full_bfgs_direction.metric_solve_count == 2,
+            "full BFGS second accepted pair did not use two inverse-metric actions");
     require(full_bfgs_policy.history_size() == 2,
             "full BFGS did not retain all valid secant pairs");
     require(full_bfgs_policy.last_update_status() ==
@@ -1015,8 +1140,11 @@ namespace
             "full BFGS did not report an accepted secant pair");
     require(full_bfgs_direction.directional_derivative < 0.0,
             "full BFGS direction is not descending");
-    (void)full_bfgs_policy.next(
-      full_bfgs_control_2, full_bfgs_derivative_2, cg_metric);
+    const auto full_bfgs_reset_direction = full_bfgs_policy.next(
+      full_bfgs_control_2, full_bfgs_derivative_2, full_bfgs_metric);
+    require(full_bfgs_metric.inverse_apply_count() == 6 &&
+              full_bfgs_reset_direction.metric_solve_count == 1,
+            "full BFGS curvature reset did not use one inverse-metric action");
     require(full_bfgs_policy.history_size() == 0 &&
               full_bfgs_policy.reset_count() == 1,
             "full BFGS did not reset after failed curvature");

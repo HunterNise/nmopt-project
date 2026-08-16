@@ -59,7 +59,8 @@ namespace
       DenseVector{0.25, -1.0},
       DenseVector{1.5, 0.75},
       DenseVector{2.0, 3.0},
-      0.4);
+      0.4,
+      nmopt::reference::make_reference_supplied_otd_declaration());
   }
 
   Product::Point

@@ -56,7 +56,8 @@ namespace
       DenseVector{0.25, -1.0},
       DenseVector{1.5, 0.75},
       DenseVector{2.0, 3.0},
-      0.4);
+      0.4,
+      nmopt::reference::make_reference_supplied_otd_declaration());
   }
 
   LinearQuadraticModel
@@ -77,6 +78,26 @@ namespace
   test_explicit_supplied_blocks()
   {
     const SuppliedLinearQuadraticSystem target = make_supplied_target();
+    const auto &declaration = target.declaration();
+    require(declaration.id == "reference_linear_quadratic_supplied_otd" &&
+              declaration.state_block.role ==
+                nmopt::semantic::v1::SuppliedOTDBlockRole::state &&
+              declaration.adjoint_block.role ==
+                nmopt::semantic::v1::SuppliedOTDBlockRole::adjoint &&
+              declaration.control_stationarity_block.role ==
+                nmopt::semantic::v1::SuppliedOTDBlockRole::control_stationarity &&
+              declaration.state_block.test_pairing_id ==
+                "state_test_pairing" &&
+              declaration.adjoint_block.test_pairing_id ==
+                "state_test_pairing" &&
+              declaration.control_stationarity_block.test_pairing_id ==
+                "control_pairing" &&
+              declaration.multiplier_conversion ==
+                nmopt::semantic::v1::SuppliedOTDMultiplierConversion::identity &&
+              declaration.comparison_status ==
+                nmopt::semantic::v1::SuppliedOTDComparisonStatus::equivalent_under_declared_conversion &&
+              !declaration.comparison_evidence.empty(),
+            "reference supplied OTD product did not retain its typed declaration");
     const SuppliedOTDSystem &system = target.system();
     const PrimalBlock point(
       system.variable_layout(),

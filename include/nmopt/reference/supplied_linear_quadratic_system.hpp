@@ -2,6 +2,7 @@
 
 #include "nmopt/contract/supplied_otd.hpp"
 #include "nmopt/reference/quadratic_kkt.hpp"
+#include "nmopt/semantic/v1/types.hpp"
 
 #include <memory>
 #include <utility>
@@ -10,6 +11,75 @@
 namespace nmopt::reference
 {
   using namespace nmopt::contract;
+
+  inline semantic::v1::SuppliedOTDDeclaration
+  make_reference_supplied_otd_declaration()
+  {
+    semantic::v1::SuppliedOTDDeclaration declaration;
+    declaration.id = "reference_linear_quadratic_supplied_otd";
+    declaration.state_variable_id = "state";
+    declaration.adjoint_variable_id = "adjoint";
+    declaration.control_variable_id = "control";
+    declaration.state_block = {
+      "state_block",
+      "Reference supplied state equation block",
+      semantic::v1::SuppliedOTDBlockRole::state,
+      "state",
+      "state_equation",
+      "state_space",
+      "state_test_space",
+      "state",
+      "state_equation",
+      "state_pairing",
+      "state_test_pairing",
+      "dense linear-quadratic state block",
+      "explicit dense state residual A y-f-B u"};
+    declaration.adjoint_block = {
+      "adjoint_block",
+      "Reference supplied adjoint equation block",
+      semantic::v1::SuppliedOTDBlockRole::adjoint,
+      "adjoint",
+      "adjoint_equation",
+      "state_test_space",
+      "state_test_space",
+      "state_test",
+      "adjoint_equation",
+      "state_test_pairing",
+      "state_test_pairing",
+      "dense linear-quadratic adjoint block",
+      "explicit dense adjoint equation A^T p-C^T W(C y-d)"};
+    declaration.control_stationarity_block = {
+      "control_stationarity_block",
+      "Reference supplied control-stationarity block",
+      semantic::v1::SuppliedOTDBlockRole::control_stationarity,
+      "control",
+      "control_stationarity",
+      "control_space",
+      "control_space",
+      "control",
+      "control_stationarity",
+      "control_pairing",
+      "control_pairing",
+      "dense linear-quadratic control block",
+      "explicit dense stationarity B^T p+alpha R u"};
+    declaration.multiplier_convention =
+      semantic::v1::SuppliedOTDMultiplierConvention::framework_adjoint;
+    declaration.multiplier_conversion =
+      semantic::v1::SuppliedOTDMultiplierConversion::identity;
+    declaration.value_action_provenance =
+      "reference application-supplied dense weak block values";
+    declaration.jvp_action_provenance =
+      "reference explicit dense block linearisation";
+    declaration.vjp_action_provenance =
+      "reference explicit dense transpose block actions";
+    declaration.solve_provenance =
+      "reference assembled all-at-once dense Gaussian solve";
+    declaration.comparison_status =
+      semantic::v1::SuppliedOTDComparisonStatus::equivalent_under_declared_conversion;
+    declaration.comparison_evidence =
+      "verified by scenarios nmopt.supplied_otd_reference.explicit_blocks and nmopt.supplied_otd_reference.matches_reduced_dto";
+    return declaration;
+  }
 
   // Reference supplied-OTD target:
   //
@@ -31,7 +101,8 @@ namespace nmopt::reference
                                   DenseVector desired_observation,
                                   DenseVector observation_weights,
                                   DenseVector regularisation_weights,
-                                  const double alpha)
+                                  const double alpha,
+                                  semantic::v1::SuppliedOTDDeclaration declaration)
       : data_(std::make_shared<const Data>(std::move(A),
                                            std::move(B),
                                            std::move(f),
@@ -40,13 +111,22 @@ namespace nmopt::reference
                                            std::move(observation_weights),
                                            std::move(regularisation_weights),
                                            alpha))
+      , declaration_(std::move(declaration))
       , system_(make_system(data_))
-    {}
+    {
+      validate_declaration(declaration_, *data_);
+    }
 
     const SuppliedOTDSystem &
     system() const
     {
       return system_;
+    }
+
+    const semantic::v1::SuppliedOTDDeclaration &
+    declaration() const
+    {
+      return declaration_;
     }
 
     LinearQuadraticKKTData
@@ -131,6 +211,80 @@ namespace nmopt::reference
       LayoutPtr   variable_layout;
       LayoutPtr   residual_layout;
     };
+
+    static void
+    validate_declaration(const semantic::v1::SuppliedOTDDeclaration &declaration,
+                         const Data &                              data)
+    {
+      require(!declaration.id.empty(),
+              "Reference supplied OTD declaration needs an id");
+      require(declaration.state_variable_id == "state" &&
+                declaration.adjoint_variable_id == "adjoint" &&
+                declaration.control_variable_id == "control",
+              "Reference supplied OTD declaration has incompatible variables");
+      const auto validate_block = [](const semantic::v1::SuppliedOTDBlockSpec &block,
+                                     const semantic::v1::SuppliedOTDBlockRole role,
+                                     const std::string &variable_id,
+                                     const std::string &residual_id,
+                                     const std::string &runtime_variable_id,
+                                     const std::string &runtime_residual_id) {
+        require(!block.id.empty() && !block.label.empty() &&
+                  block.role == role && block.variable_id == variable_id &&
+                  block.residual_id == residual_id &&
+                  !block.variable_space_id.empty() &&
+                  !block.residual_space_id.empty() &&
+                  block.runtime_variable_space_id == runtime_variable_id &&
+                  block.runtime_residual_space_id == runtime_residual_id &&
+                  !block.trial_pairing_id.empty() &&
+                  !block.test_pairing_id.empty() &&
+                  !block.discretisation_provenance.empty() &&
+                  !block.action_provenance.empty(),
+                "Reference supplied OTD declaration has an incomplete block");
+      };
+      validate_block(declaration.state_block,
+                     semantic::v1::SuppliedOTDBlockRole::state,
+                     "state",
+                     "state_equation",
+                     "state",
+                     "state_equation");
+      validate_block(declaration.adjoint_block,
+                     semantic::v1::SuppliedOTDBlockRole::adjoint,
+                     "adjoint",
+                     "adjoint_equation",
+                     "state_test",
+                     "adjoint_equation");
+      validate_block(declaration.control_stationarity_block,
+                     semantic::v1::SuppliedOTDBlockRole::control_stationarity,
+                     "control",
+                     "control_stationarity",
+                     "control",
+                     "control_stationarity");
+      require(data.variable_layout->space(0).value ==
+                declaration.state_block.runtime_variable_space_id &&
+                data.variable_layout->space(1).value ==
+                  declaration.adjoint_block.runtime_variable_space_id &&
+                data.variable_layout->space(2).value ==
+                  declaration.control_stationarity_block.runtime_variable_space_id &&
+                data.residual_layout->space(0).value ==
+                  declaration.state_block.runtime_residual_space_id &&
+                data.residual_layout->space(1).value ==
+                  declaration.adjoint_block.runtime_residual_space_id &&
+                data.residual_layout->space(2).value ==
+                  declaration.control_stationarity_block.runtime_residual_space_id,
+              "Reference supplied OTD declaration disagrees with its layouts");
+      require(declaration.multiplier_convention ==
+                semantic::v1::SuppliedOTDMultiplierConvention::framework_adjoint &&
+                declaration.multiplier_conversion ==
+                  semantic::v1::SuppliedOTDMultiplierConversion::identity &&
+                !declaration.value_action_provenance.empty() &&
+                !declaration.jvp_action_provenance.empty() &&
+                !declaration.vjp_action_provenance.empty() &&
+                !declaration.solve_provenance.empty() &&
+                declaration.comparison_status ==
+                  semantic::v1::SuppliedOTDComparisonStatus::equivalent_under_declared_conversion &&
+                !declaration.comparison_evidence.empty(),
+              "Reference supplied OTD declaration has incomplete provenance");
+    }
 
     static DenseVector
     weighted_observation(const Data &data, const DenseVector &state)
@@ -325,6 +479,7 @@ namespace nmopt::reference
     }
 
     std::shared_ptr<const Data> data_;
+    semantic::v1::SuppliedOTDDeclaration declaration_;
     SuppliedOTDSystem           system_;
   };
 } // namespace nmopt::reference

@@ -41,11 +41,12 @@ shared solve reporting, projection witness, independent scalar oracle, and
 build-cost remeasurement remain retained foundations. P5.1 is acceptance-
 complete after its coefficient-placement and typed-boundary remediation gates
 passed. P5.2 is acceptance-complete for its selected bounded registrations.
-The conditional S1 preparation gate was not closed before the selected P6.1
-surface was implemented. Its direction and line-search policy portion is
-present, but the `RF-014` evaluation split and value-only trial path and the
-`RF-015` accepted-iteration audit and experiment-envelope work remain open.
-S1 is therefore the first Chapter 6 remediation prerequisite.
+The selected S1 preparation gate is acceptance-complete. Its checked
+value/state and derivative/adjoint stages provide value-only rejected trials,
+the accepted-iteration audit records the declared work and acceptance data,
+and the reduced experiment envelope binds the solver report to compilation,
+policy, and run-environment provenance. The selected P6.1 policy surface
+remains subject to its separate implementation-review remediation.
 The typed trace and negative-metric policies, explicit $H^{1}_{0}$ target-data
 assumption, control-boundary realization, and realized observation-space
 dimensions are covered by the semantic and deal.II contracts. The reviewed
@@ -107,8 +108,8 @@ The accepted scope is:
 - keep the selected scalar Section 5.11 and Neumann boundary-control slices;
 - skip book Sections 5.12 and 5.13, corresponding to the roadmap's P5.5
   regularised state constraints and P5.6 Stokes/mixed-block work;
-- close the selected S1 preparation gate before P6.1 defect remediation or
-  benchmark activation, without adding unselected solver variants;
+- retain the closed selected S1 preparation gate before P6.1 benchmark
+  activation, without adding unselected solver variants;
 - retain the implemented selected P6.1 reduced-space policies, including
   nonlinear conjugate gradients, L-BFGS, line-search policies, and a
   Hessian-vector service with Newton/truncated-Newton support where the
@@ -899,9 +900,7 @@ selection.
 ### P6.1 — Generalise reduced-space search strategies and line-search policies
 
 **Status:** implementation present for the selected scalar reduced DTO
-boundary; acceptance is pending the
-[S1 preparation remediation](review/chapter-6/s1-preparation-remediation-review.md)
-and the
+boundary; S1 preparation is acceptance-complete, and acceptance is pending the
 [P6.1 implementation review](review/chapter-6/p6.1-implementation-review.md)
 remediation.
 
@@ -978,7 +977,8 @@ benchmark harness remains separate.
 #### P6.1 extension ladder
 
 The implemented surface above covers the selected scalar P6.1 policy slice;
-it does not close S1 or P6.1 acceptance, nor claim that every alternative
+S1 preparation is acceptance-complete, but P6.1 acceptance remains pending its
+implementation-review remediation; this does not claim that every alternative
 described in Chapter 3 has been implemented. The following extensions are
 intentionally recorded so that a later implementation does not silently
 broaden the selected slice:
@@ -1049,10 +1049,8 @@ differences unless a separate finite-difference policy is explicitly selected.
 
 ### P6.2 — Record formulation provenance and execute supplied OtD systems
 
-**Status:** implementation present for the selected canonical scalar
-supplied-OtD execution slice; acceptance is pending the
-[P6.2 implementation review](review/chapter-6/p6.2-implementation-review.md)
-remediation. Stabilization, GLS, stabilized Lagrangians, automatic OtD
+**Status:** acceptance-complete for the selected canonical scalar supplied-OtD
+execution slice. Stabilization, GLS, stabilized Lagrangians, automatic OtD
 derivation, and non-canonical OTD targets remain excluded.
 
 **Motivation:** Section 6.2 shows that OtD, DtO, and GLS-stabilised variants
@@ -1224,22 +1222,21 @@ vocabulary.
 
 ### Chapter 6 implementation evidence pending remediation
 
-The P6.1, P6.2, P6.3, and P6.5 implementation surfaces below are not
-acceptance-complete. Their open findings and the cross-batch dependency order
+The P6.1, P6.3, and P6.5 implementation surfaces below are not
+acceptance-complete. P6.2 is acceptance-complete for its selected canonical
+scalar supplied-OTD slice; its historical review remains static evidence.
+The remaining open findings and cross-batch dependency order
 are recorded in the
 [Chapter 6 review index](review/chapter-6/README.md) and the
 [integration and benchmark readiness review](review/chapter-6/integration-benchmark-review.md).
 
-- **S1 reduced-method preparation:** partially implemented. The selected
-  direction and line-search policies exist, but reduced evaluation still
-  couples value/state work to derivative/adjoint augmentation, rejected
-  Armijo trials still perform adjoint solves, and the result surface lacks the
-  required typed accepted-iteration audit and outer experiment envelope. S1
-  remains open until the `RF-014` and `RF-015` exit checks in the
-  [Stage B roadmap](review/pre-ch5-ch6/stage-b-roadmap.md#s1--prepare-selected-p61-reduced-methods),
-  as decomposed by the
-  [S1 remediation handoff](review/chapter-6/s1-preparation-remediation-review.md),
-  pass.
+- **S1 preparation closure:** the selected reduced DTO path now separates
+  value/state work from derivative/adjoint augmentation, performs rejected
+  Armijo trials without adjoint solves, records one typed accepted-iteration
+  audit record per accepted step, and binds the report to a compilation
+  manifest, policy snapshot, and run environment. The focused and full
+  `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass; the
+  final profile counts are 36/36, 71/71, and 36/36 respectively.
 - **P6.1 reduced-space solver slice:** the selected direction, Hessian/Newton, line-search, reporting, and configurable-composition contracts are implemented for the scalar reduced DTO boundary. The final verification pass covers the neutral, deal.II Debug, sanitizer, and deal.II Release profiles.
 - **P6.3 Unit 1 — normative KKT boundary:** the reusable $Q$, $D$, and KKT
   action, typed primal/multiplier/residual layouts, explicit multiplier-to-
@@ -1286,37 +1283,36 @@ are recorded in the
   inactive-box agreement with the unconstrained KKT solution and active-box
   stabilization. The final gates pass 32/32 sanitizer-neutral and 66/66
   Debug deal.II scenarios.
+- **P6.2 remediation closure:** the supplied semantic declaration is typed and
+  rejects DTO-label mutation; the owned supplied-OTD session retains its
+  mesh through callback and teardown; native value/JVP/VJP, finite-difference,
+  transpose-pairing, and DTO comparison evidence is exercised by named
+  scenarios; and the dense reference product retains the same complete typed
+  declaration contract as the compiled product. The final profile gates pass
+  36/36 `debug-neutral`, 71/71 `debug-dealii`, and 36/36
+  `sanitize-neutral` scenarios.
 
 ### Current remediation and benchmark sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
-selected P6.1, P6.2, P6.3, and P6.5 implementation surfaces are present but
-not acceptance-complete. The sequence below incorporates the
+selected P6.1, P6.3, and P6.5 implementation surfaces are present but not
+acceptance-complete; S1 and the selected P6.2 supplied-OTD slice are closed.
+The sequence below incorporates the
 [integration remediation order](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order)
-and the previously unclosed
-[S1 prerequisite](review/chapter-6/s1-preparation-remediation-review.md):
+for the remaining review findings:
 
 The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 `sanitize-neutral` 32/32, and `debug-dealii` 66/66. These are
 regression baselines for the existing scenario inventory; they do not close
 the review findings, whose missing or stronger scenarios are not yet present.
 
-1. close S1 before P6.1 remediation: split value/state evaluation from
-   derivative/adjoint augmentation, make rejected Armijo trials value-only,
-   retain an explicitly valid accepted record, add typed accepted-iteration
-   audit records and exact separated work counts, and pair solver reports with
-   compiler provenance and the run environment in an outer experiment
-   envelope. Preserve the existing covector, metric, constraint, and
-   projected-displacement semantics; retain rather than reimplement the
-   selected direction and line-search policies already present;
-2. close the P6.1 findings exercised by the selected B1/B2 benchmarks;
-3. repair the P6.2 semantic provenance and owned-session boundary;
-4. register and validate the P6.3 DTO KKT product before repairing its
-   supplied-OTD bridge;
-5. repair the P6.5 restricted active subproblem, algebra, compilation, and
+1. close the P6.1 findings exercised by the selected B1/B2 benchmarks;
+2. close the P6.3 review findings for the selected DTO and supplied-OTD KKT
+   product, solver, pairing, and ownership boundaries;
+3. repair the P6.5 restricted active subproblem, algebra, compilation, and
    ownership boundaries;
-6. compile one shared box-data product for projection and complementarity;
-7. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
+4. compile one shared box-data product for projection and complementarity;
+5. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
    run the selected B1 and B2 benchmarks through the declared artifact path.
 
 B3 and B4 remain desirable follow-ups under the authoritative
@@ -1326,7 +1322,6 @@ bounded P6.4 preconditioner may be activated only if a separately selected B5
 run demonstrates that direct or basic serial solves are inadequate.
 
 Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
-remediation gate. S1 is explicitly activated only for the bounded `RF-014`
-and `RF-015` preparation work above. Do not silently activate any Stokes,
+remaining remediation gate. Do not silently activate any Stokes,
 measure-constraint, stabilization, automatic-OtD, continuous-control box, or
 other excluded work.

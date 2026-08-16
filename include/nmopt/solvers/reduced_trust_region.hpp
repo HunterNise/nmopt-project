@@ -581,20 +581,24 @@ namespace nmopt::solvers
                         "Trust-region boundary intersection is invalid");
 
       Primal step = current_step;
-      add_scaled_primal(step, std::min(1.0, boundary_scale), search_direction);
+      add_scaled_primal(step, boundary_scale, search_direction);
       Covector hessian_step = current_hessian_step;
       add_scaled_covector(hessian_step,
-                          std::min(1.0, boundary_scale),
+                          boundary_scale,
                           hessian_direction);
       const double step_norm_squared = metric_pairing(step, step);
       const double step_norm = std::sqrt(std::max(0.0, step_norm_squared));
       const double predicted_reduction =
         -contract::pair(reduced_derivative, step) -
         0.5 * contract::pair(hessian_step, step);
-      contract::require(std::isfinite(step_norm) && step_norm > 0.0 &&
-                          std::isfinite(predicted_reduction) &&
+      contract::require(std::isfinite(step_norm) && step_norm > 0.0,
+                        "Trust-region boundary step norm is invalid");
+      contract::require(std::abs(step_norm - radius) <=
+                          1e-10 * std::max(1.0, radius),
+                        "Trust-region boundary step does not fill the radius");
+      contract::require(std::isfinite(predicted_reduction) &&
                           predicted_reduction > 0.0,
-                        "Trust-region boundary step is invalid");
+                        "Trust-region boundary step has non-positive predicted reduction");
       return {std::move(step),
               step_norm,
               predicted_reduction,
@@ -647,13 +651,7 @@ namespace nmopt::solvers
                             "Trust-region Hessian returned an incompatible covector layout");
           const double curvature =
             contract::pair(hessian_direction, search_direction);
-          const double direction_norm_squared =
-            metric_pairing(search_direction, search_direction);
-          const double curvature_scale =
-            std::max(direction_norm_squared, std::numeric_limits<double>::min());
-          if (!std::isfinite(curvature) ||
-              curvature <= parameters_.subproblem_absolute_tolerance *
-                             curvature_scale)
+          if (!std::isfinite(curvature) || curvature <= 0.0)
             return make_boundary_subproblem(
               reduced_derivative,
               step,

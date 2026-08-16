@@ -432,6 +432,35 @@ namespace
     double                 scale_;
   };
 
+  class NegativeIdentityReducedHessian final : public ReducedHessian
+  {
+  public:
+    explicit NegativeIdentityReducedHessian(LayoutPtr layout)
+      : layout_(std::move(layout))
+    {}
+
+    const LayoutPtr &
+    layout() const override
+    {
+      return layout_;
+    }
+
+    CovectorBlock
+    apply(const PrimalBlock &control,
+          const PrimalBlock &direction) const override
+    {
+      require(control.layout()->compatible_with(*layout_) &&
+                direction.layout()->compatible_with(*layout_),
+              "Negative identity Hessian received incompatible controls");
+      DenseVector result = direction.block(0);
+      result.scale(-1.0);
+      return CovectorBlock(layout_, {std::move(result)});
+    }
+
+  private:
+    LayoutPtr layout_;
+  };
+
   void
   test_block_layout_invariant()
   {
@@ -1649,10 +1678,16 @@ namespace
     boundary_parameters.maximum_iterations = 1;
     boundary_parameters.initial_radius = 0.25;
     boundary_parameters.maximum_radius = 4.0;
+    const PrimalBlock boundary_initial_control(
+      partition.control_layout(), {DenseVector{1.0, -1.0}});
+    const auto boundary_initial_evaluation =
+      reduced.evaluate(boundary_initial_control);
+    const auto boundary_initial_direction =
+      nmopt::solvers::make_steepest_descent_direction(
+        boundary_initial_evaluation.reduced_derivative, metric);
     const nmopt::solvers::ReducedTrustRegionSolver boundary_solver(
       reduced, metric, hessian, boundary_parameters);
-    const auto boundary_result = boundary_solver.solve(
-      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    const auto boundary_result = boundary_solver.solve(boundary_initial_control);
     require(boundary_result.trial_count == 1 &&
               boundary_result.accepted_history.front(),
             "Truncated-CG boundary trust-region step was not accepted");
@@ -1663,6 +1698,88 @@ namespace
                   boundary_parameters.initial_radius,
                   1e-12,
                   "Truncated-CG boundary step does not fill the radius");
+
+    nmopt::solvers::ReducedTrustRegionParameters above_one_boundary_parameters =
+      boundary_parameters;
+    above_one_boundary_parameters.initial_radius = 2.0;
+    above_one_boundary_parameters.maximum_radius = 2.0;
+    require(above_one_boundary_parameters.initial_radius >
+              boundary_initial_direction.gradient_norm,
+            "Above-one boundary test radius does not exceed the initial CG direction norm");
+    const nmopt::solvers::ReducedTrustRegionSolver above_one_boundary_solver(
+      reduced, metric, hessian, above_one_boundary_parameters);
+    const auto above_one_boundary_result =
+      above_one_boundary_solver.solve(boundary_initial_control);
+    require(above_one_boundary_result.trial_count == 1 &&
+              above_one_boundary_result.accepted_history.front() &&
+              above_one_boundary_result.subproblem_status_history.front() ==
+                nmopt::solvers::ReducedTrustRegionSubproblemStatus::boundary,
+            "Truncated-CG above-one boundary step was not accepted as a boundary step");
+    require_close(above_one_boundary_result.step_norm_history.front(),
+                  above_one_boundary_parameters.initial_radius,
+                  1e-10,
+                  "Truncated-CG above-one boundary step does not fill the radius");
+    require(above_one_boundary_result.predicted_reduction_history.front() > 0.0 &&
+              above_one_boundary_result.actual_reduction_history.front() > 0.0,
+            "Truncated-CG above-one boundary reductions are not positive");
+    require_close(above_one_boundary_result.reduction_ratio_history.front(),
+                  1.0,
+                  1e-10,
+                  "Truncated-CG above-one boundary reduction ratio");
+
+    nmopt::solvers::ReducedTrustRegionParameters nonzero_step_boundary_parameters =
+      above_one_boundary_parameters;
+    nonzero_step_boundary_parameters.initial_radius = 2.04;
+    nonzero_step_boundary_parameters.maximum_radius = 2.04;
+    const nmopt::solvers::ReducedTrustRegionSolver nonzero_step_boundary_solver(
+      reduced, metric, hessian, nonzero_step_boundary_parameters);
+    const auto nonzero_step_boundary_result =
+      nonzero_step_boundary_solver.solve(boundary_initial_control);
+    require(nonzero_step_boundary_result.trial_count == 1 &&
+              nonzero_step_boundary_result.accepted_history.front() &&
+              nonzero_step_boundary_result.subproblem_status_history.front() ==
+                nmopt::solvers::ReducedTrustRegionSubproblemStatus::boundary &&
+              nonzero_step_boundary_result.subproblem_iteration_history.front() > 1,
+            "Truncated-CG did not reach the boundary after a nonzero current CG step");
+    require_close(nonzero_step_boundary_result.step_norm_history.front(),
+                  nonzero_step_boundary_parameters.initial_radius,
+                  1e-10,
+                  "Truncated-CG nonzero-step boundary does not fill the radius");
+    require(nonzero_step_boundary_result.predicted_reduction_history.front() > 0.0 &&
+              nonzero_step_boundary_result.actual_reduction_history.front() > 0.0,
+            "Truncated-CG nonzero-step boundary reductions are not positive");
+
+    const NegativeIdentityReducedHessian negative_model_hessian(
+      partition.control_layout());
+    const CovectorBlock negative_hessian_action =
+      negative_model_hessian.apply(boundary_initial_control,
+                                   boundary_initial_direction.direction);
+    require(pair(negative_hessian_action,
+                 boundary_initial_direction.direction) < 0.0,
+            "Negative-curvature test Hessian is not negative along the initial CG direction");
+    nmopt::solvers::ReducedTrustRegionParameters negative_curvature_parameters =
+      boundary_parameters;
+    negative_curvature_parameters.initial_radius = 2.0;
+    negative_curvature_parameters.maximum_radius = 2.0;
+    require(negative_curvature_parameters.initial_radius >
+              boundary_initial_direction.gradient_norm,
+            "Negative-curvature boundary test radius does not exceed the initial CG direction norm");
+    const nmopt::solvers::ReducedTrustRegionSolver negative_curvature_solver(
+      reduced, metric, negative_model_hessian, negative_curvature_parameters);
+    const auto negative_curvature_result =
+      negative_curvature_solver.solve(boundary_initial_control);
+    require(negative_curvature_result.trial_count == 1 &&
+              negative_curvature_result.accepted_history.front() &&
+              negative_curvature_result.subproblem_status_history.front() ==
+                nmopt::solvers::ReducedTrustRegionSubproblemStatus::negative_curvature,
+            "Truncated-CG above-one negative-curvature step was not accepted");
+    require_close(negative_curvature_result.step_norm_history.front(),
+                  negative_curvature_parameters.initial_radius,
+                  1e-10,
+                  "Truncated-CG negative-curvature step does not fill the radius");
+    require(negative_curvature_result.predicted_reduction_history.front() > 0.0 &&
+              negative_curvature_result.actual_reduction_history.front() > 0.0,
+            "Truncated-CG negative-curvature reductions are not positive");
 
     const ScaledReducedHessian under_model_hessian(hessian, 0.1);
     nmopt::solvers::ReducedTrustRegionParameters rejection_parameters =

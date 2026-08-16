@@ -226,7 +226,10 @@ inverse metric as preconditioner. It terminates when the preconditioned
 residual reaches its tolerance, intersects the trust-region boundary, detects
 non-positive curvature, or reaches its iteration limit. The selected
 subproblem status and residual history are retained per trial, including
-trials rejected by the outer reduction-ratio policy.
+trials rejected by the outer reduction-ratio policy. Boundary and
+negative-curvature exits use the full positive intersection parameter along
+the current CG direction; the returned step is therefore checked to have
+metric norm equal to the current radius even when that parameter exceeds one.
 
 If a nonzero outer residual is already below the requested inner tolerance,
 the Newton and truncated-CG policies still perform one inner action before
@@ -234,6 +237,11 @@ reporting convergence. This forcing step prevents a loose inner absolute
 tolerance from returning a zero direction or zero predicted reduction to a
 nonstationary outer iteration; stationary outer iterates are handled by the
 solver's outer stopping logic.
+
+The inner residual tolerances do not reclassify a positive-curvature action
+as negative curvature; curvature termination is based on the sign of the
+quadratic curvature, so a loose residual tolerance still receives its
+required positive-curvature action.
 
 When objective-change or step-only stopping is selected, a numerically
 stationary iterate returns the typed `stationary` outcome before the solver

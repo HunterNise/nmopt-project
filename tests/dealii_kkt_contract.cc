@@ -383,6 +383,106 @@ namespace
                          1e-8,
                          "DTO and supplied-OTD GMRES multipliers differ");
   }
+
+  void
+  test_serial_operator_uses_declared_pairings()
+  {
+    using ContractProduct =
+      nmopt::contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
+    const auto primal = std::make_shared<const nmopt::contract::BlockLayout>(
+      "pairing_primal",
+      std::vector<nmopt::contract::SpaceId>{{"primal_0"}, {"primal_1"}},
+      std::vector<std::size_t>{1, 1});
+    const auto multiplier = std::make_shared<const nmopt::contract::BlockLayout>(
+      "pairing_multiplier",
+      std::vector<nmopt::contract::SpaceId>{{"multiplier"}},
+      std::vector<std::size_t>{1});
+    const auto adjoint = std::make_shared<const nmopt::contract::BlockLayout>(
+      "pairing_adjoint",
+      std::vector<nmopt::contract::SpaceId>{{"adjoint"}},
+      std::vector<std::size_t>{1});
+    const auto stationarity =
+      std::make_shared<const nmopt::contract::BlockLayout>(
+        "pairing_stationarity",
+        std::vector<nmopt::contract::SpaceId>{{"stationarity_0"},
+                                              {"stationarity_1"}},
+        std::vector<std::size_t>{1, 1});
+    const auto equality = std::make_shared<const nmopt::contract::BlockLayout>(
+      "pairing_equality",
+      std::vector<nmopt::contract::SpaceId>{{"equality"}},
+      std::vector<std::size_t>{1});
+    const ContractProduct::Layout layout(
+      primal,
+      multiplier,
+      adjoint,
+      stationarity,
+      equality,
+      {"permuted_primal_stationarity", {0, 1}, {1, 0}, {"p0_s1", "p1_s0"}},
+      {"multiplier_equality", {0}, {0}, {"m_e"}});
+    const auto quadratic_action = [stationarity](const ContractProduct::Primal &value) {
+      return ContractProduct::Covector(
+        stationarity,
+        {value.block(0), value.block(1)});
+    };
+    const auto equality_action = [equality](const ContractProduct::Primal &value) {
+      return ContractProduct::Covector(equality, {value.block(0)});
+    };
+    const auto multiplier_action =
+      [stationarity](const ContractProduct::Primal &value) {
+        return ContractProduct::Covector(
+          stationarity,
+          {value.block(0), value.block(0)});
+      };
+    const auto transpose_action = [primal, multiplier](
+                                    const ContractProduct::Seed &seed) {
+      return ContractProduct::TransposeResult{
+        ContractProduct::Covector(
+          primal,
+          {seed.stationarity.block(0), seed.stationarity.block(1)}),
+        ContractProduct::Covector(multiplier, {seed.equality.block(0)})};
+    };
+    const ContractProduct::MultiplierConversion conversion{
+      "pairing test multiplier conversion",
+      [adjoint](const ContractProduct::Primal &value) {
+        return ContractProduct::Primal(adjoint, {value.block(0)});
+      },
+      [multiplier](const ContractProduct::Primal &value) {
+        return ContractProduct::Primal(multiplier, {value.block(0)});
+      }};
+    const nmopt::contract::QuadraticKKTAssumptions assumptions{
+      true,
+      true,
+      "pairing test rank",
+      "pairing test kernel positivity",
+      true,
+      true,
+      "pairing test transpose declarations"};
+    const ContractProduct product(
+      layout,
+      quadratic_action,
+      equality_action,
+      multiplier_action,
+      transpose_action,
+      ContractProduct::Covector(stationarity, {Vector(1), Vector(1)}),
+      ContractProduct::Covector(equality, {Vector(1)}),
+      conversion,
+      assumptions,
+      nmopt::contract::QuadraticKKTSymmetry::symmetric_indefinite);
+
+    nmopt::dealii_backend::SerialQuadraticKKTOperator operator_view(product);
+    Vector source(3);
+    source[0] = 1.0;
+    source[1] = 2.0;
+    source[2] = 3.0;
+    Vector destination(3);
+    operator_view.vmult(destination, source);
+    require_close(destination[0], 2.0 + 3.0, 1e-12,
+                  "serial KKT operator ignored the declared stationarity pairing");
+    require_close(destination[1], 1.0 + 3.0, 1e-12,
+                  "serial KKT operator used the physical stationarity order");
+    require_close(destination[2], 1.0, 1e-12,
+                  "serial KKT operator ignored the declared equality pairing");
+  }
 } // namespace
 
 int
@@ -405,7 +505,12 @@ main(const int argc, char **argv)
          "nmopt.dealii.scalar_krylov_cross_path",
          {"dealii", "contract", "kkt", "solver", "supplied-otd"},
          60,
-         test_krylov_solvers_cross_dto_and_supplied_otd}};
+         test_krylov_solvers_cross_dto_and_supplied_otd},
+        {"serial_operator_pairings",
+         "nmopt.dealii.serial_operator_pairings",
+         {"dealii", "contract", "kkt", "solver", "pairing"},
+         30,
+         test_serial_operator_uses_declared_pairings}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

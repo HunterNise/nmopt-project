@@ -148,7 +148,15 @@ namespace nmopt::reference
       multiplier_layout,
       adjoint_layout,
       stationarity_layout,
-      equality_layout);
+      equality_layout,
+      {"reference_primal_stationarity",
+       {0, 1},
+       {0, 1},
+       {"state_stationarity", "control_stationarity"}},
+      {"reference_multiplier_equality",
+       {0},
+       {0},
+       {"state_equation"}});
 
     const auto quadratic_action = [data, stationarity_layout](
                                     const EqualityConstrainedQuadraticKKTProduct::Primal &
@@ -216,7 +224,10 @@ namespace nmopt::reference
       true,
       true,
       "reference A is declared full row rank",
-      "reference quadratic objective is positive on ker(D)"};
+      "reference quadratic objective is positive on ker(D)",
+      true,
+      true,
+      "reference DTO D-transpose and KKT-transpose actions are exact under the listed block pairings"};
 
     return EqualityConstrainedQuadraticKKTProduct(
       layout,

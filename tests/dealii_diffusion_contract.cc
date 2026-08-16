@@ -4654,11 +4654,16 @@ namespace
         !record.equality_layout.empty() &&
         !record.primal_stationarity_pairing.empty() &&
         !record.multiplier_equality_pairing.empty() &&
+        record.primal_stationarity_pairing_ids.size() == 2 &&
+        record.multiplier_equality_pairing_ids.size() == 1 &&
         record.multiplier_conversion.find("negative") != std::string::npos &&
         record.rank_condition_declared && record.kernel_positivity_declared &&
         record.symmetry == "symmetric_indefinite" &&
         record.solver_policy.find("MINRES") != std::string::npos &&
         record.preconditioner == "identity baseline" &&
+        record.d_transpose_consistency_declared &&
+        record.kkt_transpose_consistency_declared &&
+        !record.transpose_consistency_policy.empty() &&
         record.action_provenance.size() == 5 &&
         record.assembled_block_provenance.size() == 6 &&
         manifest.resolved_decision.kkt_record.product_id == record.product_id,

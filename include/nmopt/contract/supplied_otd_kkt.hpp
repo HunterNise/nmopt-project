@@ -134,7 +134,16 @@ namespace nmopt::contract
                                           multiplier_layout,
                                           adjoint_layout,
                                           stationarity_layout,
-                                          equality_layout);
+                                          equality_layout,
+                                          {"supplied_primal_stationarity",
+                                           {0, 1},
+                                           {0, 1},
+                                           {"state_stationarity",
+                                            "control_stationarity"}},
+                                          {"supplied_multiplier_equality",
+                                           {0},
+                                           {0},
+                                           {"state_equation"}});
 
     const auto zero_point = [supplied] {
       return Primal::zeros(supplied->variable_layout());
@@ -231,7 +240,10 @@ namespace nmopt::contract
       true,
       true,
       "canonical supplied OTD equality block declares full row rank",
-      "canonical supplied OTD quadratic objective is positive on ker(D)"};
+      "canonical supplied OTD quadratic objective is positive on ker(D)",
+      true,
+      true,
+      "canonical supplied OTD D-transpose and KKT-transpose actions are exact under the listed block pairings"};
 
     return Product(
       layout,

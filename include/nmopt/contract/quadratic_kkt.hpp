@@ -2,9 +2,11 @@
 
 #include "nmopt/contract/layout.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace nmopt::contract
 {
@@ -20,6 +22,17 @@ namespace nmopt::contract
     bool        kernel_positivity_declared = false;
     std::string rank_policy;
     std::string kernel_policy;
+    bool        d_transpose_consistency_declared = false;
+    bool        kkt_transpose_consistency_declared = false;
+    std::string transpose_consistency_policy;
+  };
+
+  struct QuadraticKKTBlockPairing
+  {
+    std::string              id;
+    std::vector<std::size_t> domain_blocks;
+    std::vector<std::size_t> range_blocks;
+    std::vector<std::string> pairing_ids;
   };
 
   template <typename Backend>
@@ -30,22 +43,89 @@ namespace nmopt::contract
     LayoutPtr adjoint;
     LayoutPtr stationarity;
     LayoutPtr equality;
+    QuadraticKKTBlockPairing primal_stationarity_pairing;
+    QuadraticKKTBlockPairing multiplier_equality_pairing;
 
     QuadraticKKTLayoutT(LayoutPtr primal_layout,
                         LayoutPtr multiplier_layout,
                         LayoutPtr adjoint_layout,
                         LayoutPtr stationarity_layout,
-                        LayoutPtr equality_layout)
+                        LayoutPtr equality_layout,
+                        QuadraticKKTBlockPairing primal_stationarity = {},
+                        QuadraticKKTBlockPairing multiplier_equality = {})
       : primal(std::move(primal_layout))
       , multiplier(std::move(multiplier_layout))
       , adjoint(std::move(adjoint_layout))
       , stationarity(std::move(stationarity_layout))
       , equality(std::move(equality_layout))
+      , primal_stationarity_pairing(std::move(primal_stationarity))
+      , multiplier_equality_pairing(std::move(multiplier_equality))
     {
       require(static_cast<bool>(primal) && static_cast<bool>(multiplier) &&
                 static_cast<bool>(adjoint) && static_cast<bool>(stationarity) &&
                 static_cast<bool>(equality),
               "Quadratic KKT layouts must all be present");
+      validate_pairing(primal_stationarity_pairing,
+                       *primal,
+                       *stationarity,
+                       "primal/stationarity");
+      validate_pairing(multiplier_equality_pairing,
+                       *multiplier,
+                       *equality,
+                       "multiplier/equality");
+    }
+
+    bool
+    has_complete_pairings() const
+    {
+      return !primal_stationarity_pairing.id.empty() &&
+             !multiplier_equality_pairing.id.empty();
+    }
+
+  private:
+    static void
+    validate_pairing(const QuadraticKKTBlockPairing &pairing,
+                     const BlockLayout &             domain,
+                     const BlockLayout &             range,
+                     const char *                    name)
+    {
+      const std::string prefix = "Quadratic KKT " + std::string(name) +
+                                 " pairing ";
+      require(!pairing.id.empty(), prefix + "needs an identifier");
+      require(pairing.domain_blocks.size() == domain.n_blocks() &&
+                pairing.range_blocks.size() == range.n_blocks() &&
+                pairing.pairing_ids.size() == domain.n_blocks(),
+              prefix + "needs a complete block map");
+
+      std::vector<bool> domain_seen(domain.n_blocks(), false);
+      std::vector<bool> range_seen(range.n_blocks(), false);
+      for (std::size_t index = 0; index < pairing.domain_blocks.size(); ++index)
+        {
+          const std::size_t domain_block = pairing.domain_blocks[index];
+          const std::size_t range_block = pairing.range_blocks[index];
+          require(domain_block < domain.n_blocks() &&
+                    range_block < range.n_blocks(),
+                  prefix + "contains an out-of-range block");
+          require(!domain_seen[domain_block] && !range_seen[range_block],
+                  prefix + "must be one-to-one");
+          require(domain.dimension(domain_block) == range.dimension(range_block),
+                  prefix + "has incompatible block dimensions");
+          require(!pairing.pairing_ids[index].empty(),
+                  prefix + "needs an identifier for every block pair");
+          require(std::find(pairing.pairing_ids.begin(),
+                            pairing.pairing_ids.begin() + index,
+                            pairing.pairing_ids[index]) ==
+                    pairing.pairing_ids.begin() + index,
+                  prefix + "pairing identifiers must be unique");
+          domain_seen[domain_block] = true;
+          range_seen[range_block] = true;
+        }
+
+      require(std::all_of(domain_seen.begin(), domain_seen.end(),
+                          [](const bool value) { return value; }) &&
+                std::all_of(range_seen.begin(), range_seen.end(),
+                            [](const bool value) { return value; }),
+              prefix + "must cover every domain and range block");
     }
   };
 
@@ -159,6 +239,17 @@ namespace nmopt::contract
               "Quadratic KKT product needs a declared kernel-positivity condition");
       require(!assumptions_.kernel_policy.empty(),
               "Quadratic KKT kernel positivity needs a policy");
+      if (symmetry_ == QuadraticKKTSymmetry::symmetric_indefinite)
+        {
+          require(layout_.has_complete_pairings(),
+                  "Symmetric quadratic KKT product needs validated domain-range pairings");
+          require(assumptions_.d_transpose_consistency_declared,
+                  "Symmetric quadratic KKT product needs declared D-transpose consistency");
+          require(assumptions_.kkt_transpose_consistency_declared,
+                  "Symmetric quadratic KKT product needs declared KKT-transpose consistency");
+          require(!assumptions_.transpose_consistency_policy.empty(),
+                  "Symmetric quadratic KKT transpose consistency needs a policy");
+        }
     }
 
     const Layout &
@@ -182,7 +273,10 @@ namespace nmopt::contract
     bool
     supports_minres() const
     {
-      return symmetry_ == QuadraticKKTSymmetry::symmetric_indefinite;
+      return symmetry_ == QuadraticKKTSymmetry::symmetric_indefinite &&
+             layout_.has_complete_pairings() &&
+             assumptions_.d_transpose_consistency_declared &&
+             assumptions_.kkt_transpose_consistency_declared;
     }
 
     Covector

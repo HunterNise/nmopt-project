@@ -61,14 +61,24 @@ namespace
   make_product(const QuadraticKKTSymmetry symmetry =
                  QuadraticKKTSymmetry::symmetric_indefinite,
                const bool rank_declared = true,
-               const bool kernel_declared = true)
+               const bool kernel_declared = true,
+               const bool d_transpose_declared = true,
+               const bool kkt_transpose_declared = true)
   {
     const auto target = std::make_shared<const TestTarget>();
     const Product::Layout layout(target->primal,
                                  target->multiplier,
                                  target->adjoint,
                                  target->stationarity,
-                                 target->equality);
+                                 target->equality,
+                                 {"test_primal_stationarity",
+                                  {0},
+                                  {0},
+                                  {"test_primal_pairing"}},
+                                 {"test_multiplier_equality",
+                                  {0},
+                                  {0},
+                                  {"test_multiplier_pairing"}});
 
     const auto quadratic_action = [target](const Product::Primal &primal) {
       return Product::Covector(
@@ -110,7 +120,10 @@ namespace
       rank_declared,
       kernel_declared,
       "declared full row rank",
-      "declared positive on ker(D)"};
+      "declared positive on ker(D)",
+      d_transpose_declared,
+      kkt_transpose_declared,
+      "test D-transpose and KKT-transpose actions are declared exact"};
 
     return Product(layout,
                    quadratic_action,
@@ -209,6 +222,76 @@ namespace
       [&] { (void)symmetric.apply_q(wrong_primal); },
       "Quadratic KKT Q input has an incompatible layout",
       "KKT Q action accepted an incompatible primal layout");
+
+    const auto target = std::make_shared<const TestTarget>();
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)Product::Layout(target->primal,
+                              target->multiplier,
+                              target->adjoint,
+                              target->stationarity,
+                              target->equality);
+      },
+      "Quadratic KKT primal/stationarity pairing needs an identifier",
+      "KKT layout accepted a missing primal/stationarity pairing");
+
+    const auto incompatible_stationarity =
+      std::make_shared<const BlockLayout>(
+        "incompatible_stationarity",
+        std::vector<SpaceId>{{"stationarity"}},
+        std::vector<std::size_t>{4});
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)Product::Layout(
+          target->primal,
+          target->multiplier,
+          target->adjoint,
+          incompatible_stationarity,
+          target->equality,
+          {"bad_primal_stationarity", {0}, {0}, {"bad_pairing"}},
+          {"test_multiplier_equality", {0}, {0}, {"test_pairing"}});
+      },
+      "Quadratic KKT primal/stationarity pairing has incompatible block dimensions",
+      "KKT layout accepted incompatible primal/stationarity dimensions");
+
+    const auto incompatible_equality = std::make_shared<const BlockLayout>(
+      "incompatible_equality",
+      std::vector<SpaceId>{{"equality"}},
+      std::vector<std::size_t>{3});
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)Product::Layout(
+          target->primal,
+          target->multiplier,
+          target->adjoint,
+          target->stationarity,
+          incompatible_equality,
+          {"test_primal_stationarity", {0}, {0}, {"test_pairing"}},
+          {"bad_multiplier_equality", {0}, {0}, {"bad_pairing"}});
+      },
+      "Quadratic KKT multiplier/equality pairing has incompatible block dimensions",
+      "KKT layout accepted incompatible multiplier/equality dimensions");
+
+    nmopt::test_support::require_contract_error(
+      [] {
+        (void)make_product(QuadraticKKTSymmetry::symmetric_indefinite,
+                           true,
+                           true,
+                           false,
+                           true);
+      },
+      "Symmetric quadratic KKT product needs declared D-transpose consistency",
+      "KKT product accepted undeclared D-transpose consistency");
+    nmopt::test_support::require_contract_error(
+      [] {
+        (void)make_product(QuadraticKKTSymmetry::symmetric_indefinite,
+                           true,
+                           true,
+                           true,
+                           false);
+      },
+      "Symmetric quadratic KKT product needs declared KKT-transpose consistency",
+      "KKT product accepted undeclared KKT-transpose consistency");
   }
 
   void

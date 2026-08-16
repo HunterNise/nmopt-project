@@ -154,6 +154,8 @@ namespace nmopt::compiler::v1
     std::string              equality_layout;
     std::string              primal_stationarity_pairing;
     std::string              multiplier_equality_pairing;
+    std::vector<std::string> primal_stationarity_pairing_ids;
+    std::vector<std::string> multiplier_equality_pairing_ids;
     std::string              multiplier_conversion;
     bool                     rank_condition_declared = false;
     std::string              rank_policy;
@@ -162,6 +164,9 @@ namespace nmopt::compiler::v1
     std::string              symmetry;
     std::string              solver_policy;
     std::string              preconditioner;
+    bool                     d_transpose_consistency_declared = false;
+    bool                     kkt_transpose_consistency_declared = false;
+    std::string              transpose_consistency_policy;
     std::vector<std::string> action_provenance;
     std::vector<std::string> assembled_block_provenance;
   };
@@ -461,7 +466,16 @@ namespace nmopt::compiler::v1
                                           multiplier_layout,
                                           adjoint_layout,
                                           stationarity_layout,
-                                          equality_layout);
+                                          equality_layout,
+                                          {"compiled_primal_stationarity",
+                                           {0, 1},
+                                           {0, 1},
+                                           {"state_stationarity",
+                                            "control_stationarity"}},
+                                          {"compiled_multiplier_equality",
+                                           {0},
+                                           {0},
+                                           {"state_equation"}});
     const Primal zero = Primal::zeros(primal_layout);
 
     const auto quadratic_action = [executable, zero](const Primal &primal) {
@@ -511,7 +525,10 @@ namespace nmopt::compiler::v1
       true,
       true,
       "canonical scalar DTO equality Jacobian is full row rank",
-      "canonical scalar DTO quadratic objective is positive on the equality-Jacobian kernel"};
+      "canonical scalar DTO quadratic objective is positive on the equality-Jacobian kernel",
+      true,
+      true,
+      "canonical scalar DTO D-transpose and KKT-transpose actions are declared exact under the listed block pairings"};
 
     return std::make_shared<const Product>(
       layout,

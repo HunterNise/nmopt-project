@@ -68,7 +68,10 @@ namespace
       true,
       true,
       "serial scalar equality plus active control rows have declared rank",
-      "serial scalar objective is positive on the augmented equality kernel"};
+      "serial scalar objective is positive on the augmented equality kernel",
+      true,
+      true,
+      "serial PDAS D-transpose and KKT-transpose actions are declared exact"};
     return policy;
   }
 

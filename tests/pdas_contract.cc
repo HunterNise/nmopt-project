@@ -54,7 +54,16 @@ namespace
                                  target->multiplier,
                                  target->adjoint,
                                  target->stationarity,
-                                 target->equality);
+                                 target->equality,
+                                 {"pdas_primal_stationarity",
+                                  {0, 1},
+                                  {0, 1},
+                                  {"state_stationarity",
+                                   "control_stationarity"}},
+                                 {"pdas_multiplier_equality",
+                                  {0},
+                                  {0},
+                                  {"state_equation"}});
 
     const auto quadratic_action = [target](const Product::Primal &primal) {
       return Product::Covector(
@@ -98,7 +107,13 @@ namespace
         return Product::Primal(target->multiplier, {std::move(value)});
       }};
     const QuadraticKKTAssumptions assumptions{
-      true, true, "full row rank", "positive on the equality kernel"};
+      true,
+      true,
+      "full row rank",
+      "positive on the equality kernel",
+      true,
+      true,
+      "PDAS base D-transpose and KKT-transpose actions are declared exact"};
 
     return Product(
       layout,
@@ -318,7 +333,10 @@ namespace
     return {true,
             true,
             "base equality plus selected active control rows have declared rank",
-            "objective is positive on the augmented equality kernel"};
+            "objective is positive on the augmented equality kernel",
+            true,
+            true,
+            "PDAS D-transpose and KKT-transpose actions are declared exact"};
   }
 
   void

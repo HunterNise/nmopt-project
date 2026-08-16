@@ -6370,6 +6370,10 @@ namespace nmopt::compiler::v1
       record.multiplier_equality_pairing =
         "multiplier '" + record.multiplier_layout + "' <-> equality '" +
         record.equality_layout + "'";
+      record.primal_stationarity_pairing_ids =
+        layout.primal_stationarity_pairing.pairing_ids;
+      record.multiplier_equality_pairing_ids =
+        layout.multiplier_equality_pairing.pairing_ids;
       record.multiplier_conversion =
         "KKT multiplier equals negative framework adjoint";
       record.rank_condition_declared = product.assumptions().rank_condition_declared;
@@ -6382,6 +6386,12 @@ namespace nmopt::compiler::v1
       record.solver_policy =
         "MINRES for the declared symmetric-indefinite product; GMRES requires a later explicit nonsymmetric target";
       record.preconditioner = "identity baseline";
+      record.d_transpose_consistency_declared =
+        product.assumptions().d_transpose_consistency_declared;
+      record.kkt_transpose_consistency_declared =
+        product.assumptions().kkt_transpose_consistency_declared;
+      record.transpose_consistency_policy =
+        product.assumptions().transpose_consistency_policy;
       record.action_provenance = {
         "Q <- objective_derivative(primal) - objective_derivative(zero)",
         "D <- residual_jvp(zero, primal)",

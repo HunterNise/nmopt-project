@@ -225,11 +225,22 @@ namespace nmopt::contract
         "pdas_multiplier",
         "pdas_box_multiplier",
         selection_.active_size());
+      QuadraticKKTBlockPairing multiplier_equality_pairing =
+        base_.layout().multiplier_equality_pairing;
+      multiplier_equality_pairing.id = "pdas_multiplier_equality";
+      multiplier_equality_pairing.domain_blocks.push_back(
+        base_.layout().multiplier->n_blocks());
+      multiplier_equality_pairing.range_blocks.push_back(
+        base_.layout().equality->n_blocks());
+      multiplier_equality_pairing.pairing_ids.push_back(
+        "pdas_active_box_pairing");
       const typename Product::Layout layout(base_.layout().primal,
                                             multiplier_layout,
                                             base_.layout().adjoint,
                                             base_.layout().stationarity,
-                                            equality_layout);
+                                            equality_layout,
+                                            base_.layout().primal_stationarity_pairing,
+                                            std::move(multiplier_equality_pairing));
 
       const auto base_zero = Point{
         Primal::zeros(base_.layout().primal),

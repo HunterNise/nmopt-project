@@ -740,7 +740,13 @@ symmetric-indefinite policy, and identity preconditioner baseline. A direct scal
 DTO, constrained target, or supplied
 OTD request receives the stable `compiled_quadratic_kkt`
 `formulation_capability` diagnostic before product construction; the compiler
-does not infer a KKT product from DTO or supplied-OTD labels alone.
+does not infer a KKT product from DTO or supplied-OTD labels alone. The common
+KKT contract requires complete one-to-one primal/stationarity and
+multiplier/equality block pairings, plus declared evidence for the
+$D^{\mathsf T}$ and full-transpose actions, before a symmetric product can
+advertise MINRES compatibility. The serial solver packs range blocks through
+those pairings rather than relying on equal flattened dimensions or incidental
+layout order.
 
 Caller-provided compilation data use the same predictable boundary. Missing
 or nonfinite scalar bindings, nonpositive diffusion/regularisation, missing

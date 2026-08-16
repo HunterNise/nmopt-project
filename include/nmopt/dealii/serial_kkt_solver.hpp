@@ -68,7 +68,7 @@ namespace nmopt::dealii_backend
       contract::require(destination.size() == range_dimension_,
                         "Serial KKT operator destination has the wrong dimension");
       const auto action = product_.apply_kkt(point(source));
-      flatten(destination, action);
+      flatten(destination, action, product_);
     }
 
     void
@@ -79,7 +79,7 @@ namespace nmopt::dealii_backend
         Product::Primal::zeros(product_.layout().primal),
         Product::Primal::zeros(product_.layout().multiplier)};
       const auto zero_residual = product_.residual(zero_point);
-      flatten(value, zero_residual, -1.0);
+      flatten(value, zero_residual, product_, -1.0);
     }
 
     Product::Point
@@ -145,23 +145,46 @@ namespace nmopt::dealii_backend
     }
 
     static void
-    flatten(Vector &value, const Product::Residual &residual, const double factor)
+    append_paired(Vector &value,
+                  std::size_t &offset,
+                  const contract::CovectorBlockT<SerialBackend> &blocks,
+                  const contract::QuadraticKKTBlockPairing &pairing,
+                  const double factor)
+    {
+      for (std::size_t index = 0; index < pairing.domain_blocks.size(); ++index)
+        append(value,
+               offset,
+               blocks.block(pairing.range_blocks[index]),
+               factor);
+    }
+
+    static void
+    flatten(Vector &value,
+            const Product::Residual &residual,
+            const Product &         product,
+            const double            factor)
     {
       std::size_t offset = 0;
-      for (std::size_t block = 0;
-           block < residual.stationarity.n_blocks();
-           ++block)
-        append(value, offset, residual.stationarity.block(block), factor);
-      for (std::size_t block = 0; block < residual.equality.n_blocks(); ++block)
-        append(value, offset, residual.equality.block(block), factor);
+      append_paired(value,
+                    offset,
+                    residual.stationarity,
+                    product.layout().primal_stationarity_pairing,
+                    factor);
+      append_paired(value,
+                    offset,
+                    residual.equality,
+                    product.layout().multiplier_equality_pairing,
+                    factor);
       contract::require(offset == value.size(),
                         "Serial KKT action packing did not fill its output");
     }
 
     static void
-    flatten(Vector &value, const Product::Residual &residual)
+    flatten(Vector &value,
+            const Product::Residual &residual,
+            const Product &         product)
     {
-      flatten(value, residual, 1.0);
+      flatten(value, residual, product, 1.0);
     }
 
     const Product &product_;

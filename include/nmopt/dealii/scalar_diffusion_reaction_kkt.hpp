@@ -150,7 +150,16 @@ namespace nmopt::dealii_backend
                                    multiplier_layout,
                                    adjoint_layout,
                                    stationarity_layout,
-                                   equality_layout);
+                                   equality_layout,
+                                   {"scalar_primal_stationarity",
+                                    {0, 1},
+                                    {0, 1},
+                                    {"state_stationarity",
+                                     "control_stationarity"}},
+                                   {"scalar_multiplier_equality",
+                                    {0},
+                                    {0},
+                                    {"state_equation"}});
 
       const auto quadratic_action = [model, stationarity_layout](
                                       const Product::Primal &primal) {
@@ -233,7 +242,10 @@ namespace nmopt::dealii_backend
         true,
         true,
         "serial scalar diffusion-reaction equality Jacobian is full row rank",
-        "quadratic objective is positive on the equality-Jacobian kernel"};
+        "quadratic objective is positive on the equality-Jacobian kernel",
+        true,
+        true,
+        "serial scalar DTO D-transpose and KKT-transpose actions are exact under the listed block pairings"};
 
       return Product(
         layout,

@@ -212,6 +212,8 @@ namespace nmopt::dealii_backend
                                  control_dimension});
       const contract::SuppliedOTDLayout layout(variable_layout,
                                                residual_layout);
+      const auto quadratic_kkt_validity =
+        contract::make_canonical_supplied_otd_quadratic_kkt_validity();
 
       const auto residual = [model, residual_layout](const Primal &point) {
         Vector state(model->system_matrix_.m());
@@ -414,7 +416,12 @@ namespace nmopt::dealii_backend
       };
 
       return SuppliedSystem(
-        layout, residual, residual_jvp, residual_vjp, solve);
+        layout,
+        residual,
+        residual_jvp,
+        residual_vjp,
+        solve,
+        quadratic_kkt_validity);
     }
 
     CellwiseBoxConstraint

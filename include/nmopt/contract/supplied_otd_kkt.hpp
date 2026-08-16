@@ -13,6 +13,80 @@ namespace nmopt::contract
 {
   namespace detail
   {
+    inline bool
+    same_block_selection(const SuppliedOTDBlockSelection &left,
+                         const SuppliedOTDBlockSelection &right)
+    {
+      return left.state_variable == right.state_variable &&
+             left.adjoint_variable == right.adjoint_variable &&
+             left.control_variable == right.control_variable &&
+             left.state_equation == right.state_equation &&
+             left.adjoint_equation == right.adjoint_equation &&
+             left.control_stationarity == right.control_stationarity;
+    }
+
+    template <typename Backend>
+    void
+    validate_canonical_supplied_otd_quadratic_kkt_validity(
+      const SuppliedOTDSystemT<Backend> &system)
+    {
+      const auto &validity = system.quadratic_kkt_validity();
+      require(validity.block_selection_declared,
+              "Canonical supplied OTD KKT adapter needs a declared block selection");
+      require(same_block_selection(validity.block_selection,
+                                   system.block_selection()),
+              "Canonical supplied OTD KKT adapter block selection does not match the system");
+      require(validity.affine_residual_declared,
+              "Canonical supplied OTD KKT adapter needs an affine residual declaration");
+      require(validity.constant_jvp_declared,
+              "Canonical supplied OTD KKT adapter needs a constant-JVP declaration");
+      require(validity.block_signs ==
+                SuppliedOTDQuadraticKKTBlockSigns::canonical,
+              "Canonical supplied OTD KKT adapter needs canonical block-sign declarations");
+      require(validity.d_pairing_declared,
+              "Canonical supplied OTD KKT adapter needs a D pairing declaration");
+      require(validity.d_transpose_pairing_declared,
+              "Canonical supplied OTD KKT adapter needs a D-transpose pairing declaration");
+      require(validity.kkt_transpose_declared,
+              "Canonical supplied OTD KKT adapter needs a KKT-transpose declaration");
+      require(validity.symmetry_declared,
+              "Canonical supplied OTD KKT adapter needs symmetry evidence");
+      require(validity.rank_condition_declared,
+              "Canonical supplied OTD KKT adapter needs a rank declaration");
+      require(validity.kernel_positivity_declared,
+              "Canonical supplied OTD KKT adapter needs a kernel-positivity declaration");
+      require(validity.multiplier_conversion_kind ==
+                SuppliedOTDQuadraticKKTMultiplierConversion::
+                  lambda_equals_negative_adjoint,
+              "Canonical supplied OTD KKT adapter needs a compatible multiplier-conversion declaration");
+      require(validity.primal_stationarity_pairing_ids.size() == 2,
+              "Canonical supplied OTD KKT adapter needs two primal/stationarity pairings");
+      require(validity.multiplier_equality_pairing_ids.size() == 1,
+              "Canonical supplied OTD KKT adapter needs one multiplier/equality pairing");
+      for (const auto &pairing_id :
+           validity.primal_stationarity_pairing_ids)
+        require(!pairing_id.empty(),
+                "Canonical supplied OTD KKT adapter needs nonempty pairing identifiers");
+      for (const auto &pairing_id :
+           validity.multiplier_equality_pairing_ids)
+        require(!pairing_id.empty(),
+                "Canonical supplied OTD KKT adapter needs nonempty pairing identifiers");
+      require(!validity.linearization_policy.empty(),
+              "Canonical supplied OTD KKT adapter needs a linearization policy");
+      require(!validity.sign_policy.empty(),
+              "Canonical supplied OTD KKT adapter needs a sign policy");
+      require(!validity.pairing_policy.empty(),
+              "Canonical supplied OTD KKT adapter needs a pairing policy");
+      require(!validity.symmetry_policy.empty(),
+              "Canonical supplied OTD KKT adapter needs a symmetry policy");
+      require(!validity.rank_policy.empty(),
+              "Canonical supplied OTD KKT adapter needs a rank policy");
+      require(!validity.kernel_policy.empty(),
+              "Canonical supplied OTD KKT adapter needs a kernel policy");
+      require(!validity.multiplier_conversion.empty(),
+              "Canonical supplied OTD KKT adapter needs a multiplier-conversion policy");
+    }
+
     template <typename Backend>
     PrimalBlockT<Backend>
     make_canonical_supplied_point(
@@ -113,8 +187,10 @@ namespace nmopt::contract
     using Primal = PrimalBlockT<Backend>;
     using Covector = CovectorBlockT<Backend>;
 
+    detail::validate_canonical_supplied_otd_quadratic_kkt_validity(system);
     const auto supplied =
       std::make_shared<const SuppliedOTDSystemT<Backend>>(system);
+    const auto &validity = supplied->quadratic_kkt_validity();
     const auto &selection = supplied->block_selection();
     const auto &variables = supplied->variable_layout();
     const auto &residuals = supplied->residual_layout();
@@ -138,12 +214,11 @@ namespace nmopt::contract
                                           {"supplied_primal_stationarity",
                                            {0, 1},
                                            {0, 1},
-                                           {"state_stationarity",
-                                            "control_stationarity"}},
+                                           validity.primal_stationarity_pairing_ids},
                                           {"supplied_multiplier_equality",
                                            {0},
                                            {0},
-                                           {"state_equation"}});
+                                           validity.multiplier_equality_pairing_ids});
 
     const auto zero_point = [supplied] {
       return Primal::zeros(supplied->variable_layout());
@@ -225,7 +300,7 @@ namespace nmopt::contract
     Vector equality_rhs = zero_residual.block(selection.state_equation);
     Backend::scale(equality_rhs, -1.0);
     const typename Product::MultiplierConversion conversion{
-      "canonical supplied OTD multiplier lambda equals negative framework adjoint",
+      validity.multiplier_conversion,
       [adjoint_layout](const Primal &multiplier) {
         Vector value = multiplier.block(0);
         Backend::scale(value, -1.0);
@@ -237,13 +312,13 @@ namespace nmopt::contract
         return Primal(multiplier_layout, {std::move(value)});
       }};
     const QuadraticKKTAssumptions assumptions{
-      true,
-      true,
-      "canonical supplied OTD equality block declares full row rank",
-      "canonical supplied OTD quadratic objective is positive on ker(D)",
-      true,
-      true,
-      "canonical supplied OTD D-transpose and KKT-transpose actions are exact under the listed block pairings"};
+      validity.rank_condition_declared,
+      validity.kernel_positivity_declared,
+      validity.rank_policy,
+      validity.kernel_policy,
+      validity.d_transpose_pairing_declared,
+      validity.kkt_transpose_declared,
+      validity.pairing_policy};
 
     return Product(
       layout,
@@ -256,6 +331,6 @@ namespace nmopt::contract
       typename Product::Covector(equality_layout, {std::move(equality_rhs)}),
       conversion,
       assumptions,
-      QuadraticKKTSymmetry::symmetric_indefinite);
+      validity.symmetry);
   }
 } // namespace nmopt::contract

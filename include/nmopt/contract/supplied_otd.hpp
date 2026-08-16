@@ -1,11 +1,13 @@
 #pragma once
 
 #include "nmopt/contract/linear_solve.hpp"
+#include "nmopt/contract/quadratic_kkt.hpp"
 
 #include <cstddef>
 #include <functional>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace nmopt::contract
 {
@@ -22,6 +24,91 @@ namespace nmopt::contract
     std::size_t adjoint_equation = 1;
     std::size_t control_stationarity = 2;
   };
+
+  enum class SuppliedOTDQuadraticKKTBlockSigns
+  {
+    canonical,
+    incompatible
+  };
+
+  enum class SuppliedOTDQuadraticKKTMultiplierConversion
+  {
+    lambda_equals_negative_adjoint,
+    incompatible
+  };
+
+  // A supplied-OTD system is not automatically a quadratic KKT product.
+  // This declaration is the formulation-owned evidence required before the
+  // canonical adapter can select its affine blocks and solver policy.
+  struct SuppliedOTDQuadraticKKTValidity
+  {
+    SuppliedOTDBlockSelection block_selection;
+
+    bool block_selection_declared = false;
+    bool affine_residual_declared = false;
+    bool constant_jvp_declared = false;
+    bool d_pairing_declared = false;
+    bool d_transpose_pairing_declared = false;
+    bool kkt_transpose_declared = false;
+    bool symmetry_declared = false;
+    bool rank_condition_declared = false;
+    bool kernel_positivity_declared = false;
+
+    SuppliedOTDQuadraticKKTBlockSigns block_signs =
+      SuppliedOTDQuadraticKKTBlockSigns::incompatible;
+    SuppliedOTDQuadraticKKTMultiplierConversion multiplier_conversion_kind =
+      SuppliedOTDQuadraticKKTMultiplierConversion::incompatible;
+
+    QuadraticKKTSymmetry symmetry =
+      QuadraticKKTSymmetry::symmetric_indefinite;
+
+    std::vector<std::string> primal_stationarity_pairing_ids;
+    std::vector<std::string> multiplier_equality_pairing_ids;
+
+    std::string linearization_policy;
+    std::string sign_policy;
+    std::string pairing_policy;
+    std::string symmetry_policy;
+    std::string rank_policy;
+    std::string kernel_policy;
+    std::string multiplier_conversion;
+  };
+
+  inline SuppliedOTDQuadraticKKTValidity
+  make_canonical_supplied_otd_quadratic_kkt_validity()
+  {
+    SuppliedOTDQuadraticKKTValidity validity;
+    validity.block_selection_declared = true;
+    validity.affine_residual_declared = true;
+    validity.constant_jvp_declared = true;
+    validity.d_pairing_declared = true;
+    validity.d_transpose_pairing_declared = true;
+    validity.kkt_transpose_declared = true;
+    validity.symmetry_declared = true;
+    validity.rank_condition_declared = true;
+    validity.kernel_positivity_declared = true;
+    validity.block_signs = SuppliedOTDQuadraticKKTBlockSigns::canonical;
+    validity.multiplier_conversion_kind =
+      SuppliedOTDQuadraticKKTMultiplierConversion::lambda_equals_negative_adjoint;
+    validity.primal_stationarity_pairing_ids = {
+      "state_stationarity", "control_stationarity"};
+    validity.multiplier_equality_pairing_ids = {"state_equation"};
+    validity.linearization_policy =
+      "supplied residual is affine and its JVP is point-independent";
+    validity.sign_policy =
+      "canonical supplied OTD blocks use negative adjoint equation and lambda=-p";
+    validity.pairing_policy =
+      "state/control and multiplier/equality blocks use the listed pairings";
+    validity.symmetry_policy =
+      "canonical supplied OTD KKT actions are symmetric under the listed pairings";
+    validity.rank_policy =
+      "canonical supplied OTD equality block has full row rank";
+    validity.kernel_policy =
+      "canonical supplied OTD quadratic objective is positive on ker(D)";
+    validity.multiplier_conversion =
+      "canonical supplied OTD multiplier lambda equals negative framework adjoint";
+    return validity;
+  }
 
   class SuppliedOTDLayout
   {
@@ -112,12 +199,14 @@ namespace nmopt::contract
                        ResidualAction residual,
                        LinearizedAction residual_jvp,
                        TransposeAction residual_vjp,
-                       SolveAction solve)
+                       SolveAction solve,
+                       SuppliedOTDQuadraticKKTValidity quadratic_kkt_validity = {})
       : layout_(std::move(layout))
       , residual_(std::move(residual))
       , residual_jvp_(std::move(residual_jvp))
       , residual_vjp_(std::move(residual_vjp))
       , solve_(std::move(solve))
+      , quadratic_kkt_validity_(std::move(quadratic_kkt_validity))
     {
       require(static_cast<bool>(residual_),
               "Supplied OTD system needs a residual action");
@@ -145,6 +234,12 @@ namespace nmopt::contract
     block_selection() const
     {
       return layout_.selection();
+    }
+
+    const SuppliedOTDQuadraticKKTValidity &
+    quadratic_kkt_validity() const
+    {
+      return quadratic_kkt_validity_;
     }
 
     Covector
@@ -235,6 +330,7 @@ namespace nmopt::contract
     LinearizedAction  residual_jvp_;
     TransposeAction   residual_vjp_;
     SolveAction       solve_;
+    SuppliedOTDQuadraticKKTValidity quadratic_kkt_validity_;
   };
 
   using SuppliedOTDSystem = SuppliedOTDSystemT<DenseBackend>;

@@ -2,6 +2,7 @@
 #include "nmopt/reference/linear_quadratic_model.hpp"
 #include "nmopt/reference/quadratic_kkt.hpp"
 #include "nmopt/reference/supplied_linear_quadratic_system.hpp"
+#include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
 #include <cmath>
@@ -61,6 +62,63 @@ namespace
       DenseVector{2.0, 3.0},
       0.4,
       nmopt::reference::make_reference_supplied_otd_declaration());
+  }
+
+  SuppliedOTDSystem
+  make_validity_test_system(
+    SuppliedOTDQuadraticKKTValidity validity =
+      make_canonical_supplied_otd_quadratic_kkt_validity(),
+    const bool point_dependent_jvp = false)
+  {
+    const auto variable_layout = std::make_shared<const BlockLayout>(
+      "validity_test_variables",
+      std::vector<SpaceId>{{"validity_state"},
+                           {"validity_adjoint"},
+                           {"validity_control"}},
+      std::vector<std::size_t>{1, 1, 1});
+    const auto residual_layout = std::make_shared<const BlockLayout>(
+      "validity_test_residuals",
+      std::vector<SpaceId>{{"validity_state_equation"},
+                           {"validity_adjoint_equation"},
+                           {"validity_control_stationarity"}},
+      std::vector<std::size_t>{1, 1, 1});
+    const SuppliedOTDLayout layout(variable_layout, residual_layout);
+
+    const auto residual = [residual_layout](const PrimalBlock &point) {
+      return CovectorBlock(
+        residual_layout,
+        {DenseVector{point.block(0)[0]},
+         DenseVector{point.block(1)[0]},
+         DenseVector{point.block(2)[0]}});
+    };
+    const auto residual_jvp =
+      [residual_layout, point_dependent_jvp](const PrimalBlock &point,
+                                             const PrimalBlock &tangent) {
+        const double factor =
+          point_dependent_jvp ? 1.0 + point.block(0)[0] : 1.0;
+        return CovectorBlock(
+          residual_layout,
+          {DenseVector{factor * tangent.block(0)[0]},
+           DenseVector{factor * tangent.block(1)[0]},
+           DenseVector{factor * tangent.block(2)[0]}});
+      };
+    const auto residual_vjp = [variable_layout](const PrimalBlock &,
+                                                 const PrimalBlock &seed) {
+      return CovectorBlock(
+        variable_layout,
+        {seed.block(0), seed.block(1), seed.block(2)});
+    };
+    const auto solve = [variable_layout](const PrimalBlock &) {
+      return SuppliedOTDSystem::SolveResult(
+        PrimalBlock::zeros(variable_layout));
+    };
+
+    return SuppliedOTDSystem(layout,
+                             residual,
+                             residual_jvp,
+                             residual_vjp,
+                             solve,
+                             std::move(validity));
   }
 
   Product::Point
@@ -190,6 +248,89 @@ namespace
       evaluation.reduced_derivative.block(0),
       "KKT stationarity disagrees with reduced DTO derivative");
   }
+
+  void
+  test_supplied_otd_validity_diagnostics()
+  {
+    const auto require_adapter_error =
+      [](const SuppliedOTDSystem &system,
+         const std::string &        message,
+         const std::string &        description) {
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)nmopt::contract::make_canonical_supplied_otd_kkt_product(
+              system);
+          },
+          message,
+          description);
+      };
+
+    require_adapter_error(
+      make_validity_test_system(SuppliedOTDQuadraticKKTValidity{}),
+      "Canonical supplied OTD KKT adapter needs a declared block selection",
+      "supplied adapter accepted an undeclared validity block");
+
+    auto point_dependent = make_canonical_supplied_otd_quadratic_kkt_validity();
+    point_dependent.constant_jvp_declared = false;
+    require_adapter_error(
+      make_validity_test_system(std::move(point_dependent), true),
+      "Canonical supplied OTD KKT adapter needs a constant-JVP declaration",
+      "supplied adapter accepted a point-dependent JVP without a declaration");
+
+    auto bad_signs = make_canonical_supplied_otd_quadratic_kkt_validity();
+    bad_signs.block_signs =
+      SuppliedOTDQuadraticKKTBlockSigns::incompatible;
+    require_adapter_error(
+      make_validity_test_system(std::move(bad_signs)),
+      "Canonical supplied OTD KKT adapter needs canonical block-sign declarations",
+      "supplied adapter accepted incompatible canonical block signs");
+
+    auto missing_symmetry =
+      make_canonical_supplied_otd_quadratic_kkt_validity();
+    missing_symmetry.symmetry_declared = false;
+    require_adapter_error(
+      make_validity_test_system(std::move(missing_symmetry)),
+      "Canonical supplied OTD KKT adapter needs symmetry evidence",
+      "supplied adapter accepted undeclared symmetry evidence");
+
+    auto missing_rank = make_canonical_supplied_otd_quadratic_kkt_validity();
+    missing_rank.rank_condition_declared = false;
+    require_adapter_error(
+      make_validity_test_system(std::move(missing_rank)),
+      "Canonical supplied OTD KKT adapter needs a rank declaration",
+      "supplied adapter accepted an undeclared rank condition");
+
+    auto missing_kernel =
+      make_canonical_supplied_otd_quadratic_kkt_validity();
+    missing_kernel.kernel_positivity_declared = false;
+    require_adapter_error(
+      make_validity_test_system(std::move(missing_kernel)),
+      "Canonical supplied OTD KKT adapter needs a kernel-positivity declaration",
+      "supplied adapter accepted an undeclared kernel condition");
+
+    auto missing_conversion =
+      make_canonical_supplied_otd_quadratic_kkt_validity();
+    missing_conversion.multiplier_conversion_kind =
+      SuppliedOTDQuadraticKKTMultiplierConversion::incompatible;
+    require_adapter_error(
+      make_validity_test_system(std::move(missing_conversion)),
+      "Canonical supplied OTD KKT adapter needs a compatible multiplier-conversion declaration",
+      "supplied adapter accepted an incompatible multiplier conversion");
+
+    auto nonsymmetric =
+      make_canonical_supplied_otd_quadratic_kkt_validity();
+    nonsymmetric.symmetry = QuadraticKKTSymmetry::nonsymmetric;
+    nonsymmetric.symmetry_policy =
+      "declared nonsymmetric supplied KKT actions require GMRES";
+    const Product nonsymmetric_product =
+      nmopt::contract::make_canonical_supplied_otd_kkt_product(
+        make_validity_test_system(std::move(nonsymmetric)));
+    require(nonsymmetric_product.symmetry() ==
+              QuadraticKKTSymmetry::nonsymmetric,
+            "declared nonsymmetric supplied adapter changed its symmetry");
+    require(!nonsymmetric_product.supports_minres(),
+            "declared nonsymmetric supplied adapter accepted MINRES");
+  }
 } // namespace
 
 int
@@ -207,7 +348,12 @@ main(const int argc, char **argv)
          "nmopt.quadratic_kkt_reference.supplied_adapter_matches_reduced_dto_solution",
          {"backend-neutral", "formulation", "kkt", "reference"},
          30,
-         test_supplied_adapter_matches_reduced_dto_solution}};
+         test_supplied_adapter_matches_reduced_dto_solution},
+        {"supplied_otd_validity_diagnostics",
+         "nmopt.quadratic_kkt_reference.supplied_otd_validity_diagnostics",
+         {"backend-neutral", "formulation", "kkt", "reference"},
+         30,
+         test_supplied_otd_validity_diagnostics}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

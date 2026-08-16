@@ -343,6 +343,8 @@ namespace nmopt::reference
     {
       const SuppliedOTDLayout layout(data->variable_layout,
                                      data->residual_layout);
+      const auto quadratic_kkt_validity =
+        make_canonical_supplied_otd_quadratic_kkt_validity();
 
       const auto residual = [data](const PrimalBlock &point) {
         DenseVector state = data->A.vmult(point.block(0));
@@ -475,7 +477,12 @@ namespace nmopt::reference
       };
 
       return SuppliedOTDSystem(
-        layout, residual, residual_jvp, residual_vjp, solve);
+        layout,
+        residual,
+        residual_jvp,
+        residual_vjp,
+        solve,
+        quadratic_kkt_validity);
     }
 
     std::shared_ptr<const Data> data_;

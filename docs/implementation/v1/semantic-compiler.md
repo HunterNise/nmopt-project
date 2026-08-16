@@ -717,6 +717,16 @@ retains the typed declaration alongside its runtime layout projection. A DTO
 graph with only its formulation kind and provenance changed is therefore
 rejected before lowering.
 
+The canonical supplied-OTD-to-quadratic-KKT adapter has a second, typed
+`SuppliedOTDQuadraticKKTValidity` declaration on the supplied system. It must
+explicitly identify the selected blocks, the affine residual and
+point-independent JVP guarantee, canonical block signs, D/D-transpose and
+full-KKT pairings, symmetry evidence, rank and kernel assumptions, and the
+`lambda=-p` multiplier conversion. The adapter does not sample a callback to
+infer constancy or symmetry. An undeclared or incompatible validity record is
+a formulation contract error; a declared nonsymmetric record is retained as
+GMRES-only and cannot advertise MINRES compatibility.
+
 | Category | Produced by | Examples in v1 |
 | --- | --- | --- |
 | `structural` | `SemanticValidator` | incomplete nodes, missing labels or ports, incompatible pairings, orphan/duplicate term edges, and variable-space mismatches |

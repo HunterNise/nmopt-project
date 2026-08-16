@@ -512,9 +512,9 @@ namespace nmopt::compiler::v1
     CompiledSuppliedOTDProblemT(std::shared_ptr<const System> system,
                                 CompilationManifest           manifest,
                                 std::shared_ptr<const void>    lifetime_owner = {})
-      : system_(std::move(system))
+      : lifetime_owner_(std::move(lifetime_owner))
+      , system_(std::move(system))
       , manifest_(std::move(manifest))
-      , lifetime_owner_(std::move(lifetime_owner))
     {
       contract::require(static_cast<bool>(system_),
                         "A supplied-OTD problem needs an executable system");
@@ -544,9 +544,11 @@ namespace nmopt::compiler::v1
     }
 
   private:
+    // The owner must be declared first so reverse member destruction tears
+    // down callback-held systems before the session and its mesh.
+    std::shared_ptr<const void>    lifetime_owner_;
     std::shared_ptr<const System> system_;
     CompilationManifest           manifest_;
-    std::shared_ptr<const void>    lifetime_owner_;
   };
 
   template <typename Backend>

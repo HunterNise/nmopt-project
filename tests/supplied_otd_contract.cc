@@ -1,4 +1,5 @@
 #include "nmopt/contract/supplied_otd.hpp"
+#include "nmopt/compiler/v1/compiled_problem.hpp"
 #include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
@@ -55,6 +56,41 @@ namespace
       require_close(vector[index], expected[index], message);
   }
 
+  struct LifetimeState
+  {
+    bool owner_alive = true;
+    bool callback_destroyed_after_owner = false;
+  };
+
+  struct CallbackLifetimeProbe
+  {
+    explicit CallbackLifetimeProbe(std::shared_ptr<LifetimeState> lifetime_state)
+      : state(std::move(lifetime_state))
+    {}
+
+    ~CallbackLifetimeProbe()
+    {
+      if (state && !state->owner_alive)
+        state->callback_destroyed_after_owner = true;
+    }
+
+    std::shared_ptr<LifetimeState> state;
+  };
+
+  struct SuppliedOTDLifetimeOwner
+  {
+    explicit SuppliedOTDLifetimeOwner(std::shared_ptr<LifetimeState> lifetime_state)
+      : state(std::move(lifetime_state))
+    {}
+
+    ~SuppliedOTDLifetimeOwner()
+    {
+      state->owner_alive = false;
+    }
+
+    std::shared_ptr<LifetimeState> state;
+  };
+
   Primal
   shifted(const Primal &point, const Primal &tangent)
   {
@@ -65,13 +101,15 @@ namespace
   }
 
   System
-  make_system()
+  make_system(
+    std::shared_ptr<const CallbackLifetimeProbe> lifetime_probe = {})
   {
     const auto data = std::make_shared<const TestOperators>();
     const SuppliedOTDLayout layout(data->variable_layout,
                                    data->residual_layout);
 
-    const auto residual = [data](const Primal &point) {
+    const auto residual = [data, lifetime_probe](const Primal &point) {
+      (void)lifetime_probe;
       DenseVector state = data->state_state.vmult(point.block(0));
       state.add_scaled(1.0, data->state_adjoint.vmult(point.block(1)));
       state.add_scaled(1.0, data->state_control.vmult(point.block(2)));
@@ -98,7 +136,9 @@ namespace
       return residual(tangent);
     };
 
-    const auto residual_vjp = [data](const Primal &, const Primal &seed) {
+    const auto residual_vjp = [data, lifetime_probe](const Primal &,
+                                                     const Primal &seed) {
+      (void)lifetime_probe;
       DenseVector state =
         data->state_state.transpose_vmult(seed.block(0));
       state.add_scaled(1.0,
@@ -126,7 +166,8 @@ namespace
                        std::move(control)});
     };
 
-    const auto solve = [data](const Primal &) {
+    const auto solve = [data, lifetime_probe](const Primal &) {
+      (void)lifetime_probe;
       const LinearSolveReport report{"test_direct",
                                      "not applicable",
                                      1,
@@ -143,6 +184,56 @@ namespace
     };
 
     return System(layout, residual, residual_jvp, residual_vjp, solve);
+  }
+
+  void
+  test_compiled_supplied_otd_owned_product_lifetime()
+  {
+    const auto lifetime_state = std::make_shared<LifetimeState>();
+    auto product = [&]() {
+      const auto probe = std::make_shared<const CallbackLifetimeProbe>(
+        lifetime_state);
+      auto system = std::make_shared<const System>(make_system(probe));
+
+      nmopt::compiler::v1::CompilationManifest manifest;
+      manifest.formulation_record.kind =
+        nmopt::semantic::v1::FormulationKind::all_at_once;
+      manifest.formulation_record.provenance =
+        nmopt::semantic::v1::FormulationProvenance::supplied_otd;
+      manifest.supplied_otd_record.present = true;
+      manifest.supplied_otd_record.declaration =
+        nmopt::semantic::v1::SuppliedOTDDeclaration{};
+
+      return std::make_shared<const nmopt::compiler::v1::CompiledSuppliedOTDProblemT<
+        DenseBackend>>(
+        std::move(system),
+        std::move(manifest),
+        std::make_shared<const SuppliedOTDLifetimeOwner>(lifetime_state));
+    }();
+
+    const auto &system = product->system();
+    const Primal point(
+      system.variable_layout(),
+      {DenseVector{1.0, -2.0}, DenseVector{0.5, 1.0}, DenseVector{2.0}});
+    const Primal tangent(
+      system.variable_layout(),
+      {DenseVector{0.2, -0.4}, DenseVector{-0.3, 0.5}, DenseVector{0.7}});
+    const Primal residual_seed(
+      system.residual_layout(),
+      {DenseVector{0.4, -0.8}, DenseVector{1.3, -0.2}, DenseVector{0.6}});
+
+    (void)system.residual(point);
+    (void)system.residual_jvp(point, tangent);
+    (void)system.residual_vjp(point, residual_seed);
+    const auto solve = system.solve(point);
+    require(solve.report.converged(),
+            "owned supplied OTD product did not retain its solve action");
+
+    product.reset();
+    require(!lifetime_state->owner_alive,
+            "owned supplied OTD product did not release its lifetime owner");
+    require(!lifetime_state->callback_destroyed_after_owner,
+            "owned supplied OTD callbacks outlived their lifetime owner");
   }
 
   void
@@ -272,7 +363,12 @@ main(const int argc, char **argv)
          "nmopt.supplied_otd.invalid_layouts",
          {"backend-neutral", "formulation", "supplied-otd"},
          30,
-         test_supplied_otd_rejects_invalid_layouts}};
+         test_supplied_otd_rejects_invalid_layouts},
+        {"compiled_owned_product_lifetime",
+         "nmopt.supplied_otd.compiled_owned_product_lifetime",
+         {"backend-neutral", "formulation", "supplied-otd", "ownership"},
+         30,
+         test_compiled_supplied_otd_owned_product_lifetime}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

@@ -5608,6 +5608,59 @@ namespace
                         manifest.execution == "assembled",
                       "v1 compiler did not record its compilation manifest");
   }
+
+  template <int dim>
+  void
+  run_supplied_otd_owned_session_lifetime_contract_test()
+  {
+    const compiler::v1::DealiiCompiler compiler;
+    const auto specification =
+      semantic::v1::make_scalar_diffusion_reaction_supplied_otd_problem(false);
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const compiler::v1::DealiiDataBindings<dim> data_bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("supplied_otd_owned_session")};
+
+    auto product = [&]() {
+      auto mesh = std::make_unique<dealii::Triangulation<dim>>();
+      dealii::GridGenerator::hyper_cube(*mesh);
+      mesh->refine_global(1);
+      auto session =
+        std::make_shared<compiler::v1::DealiiCompilationSession<dim>>(
+          std::move(mesh), "test.supplied_otd.owned_session");
+      const auto compilation =
+        compiler.compile(specification, session, data_bindings);
+      contract::require(
+        compilation.succeeded() && !compilation.problem &&
+          compilation.supplied_otd_problem,
+        "owned-session compiler did not produce the supplied OTD product");
+      return compilation.supplied_otd_problem;
+    }();
+
+    const auto &supplied_otd = *product;
+    contract::require(
+      supplied_otd.manifest().mesh_record.lifetime ==
+        compiler::v1::MeshLifetimePolicy::owned_session,
+      "supplied OTD owned-session manifest lost its mesh lifetime policy");
+
+    const auto &system = supplied_otd.system();
+    const Primal point = Primal::zeros(system.variable_layout());
+    const Primal tangent = Primal::zeros(system.variable_layout());
+    const Primal residual_seed = Primal::zeros(system.residual_layout());
+    (void)system.residual(point);
+    (void)system.residual_jvp(point, tangent);
+    (void)system.residual_vjp(point, residual_seed);
+    const auto solve = system.solve(point);
+    contract::require(solve.report.converged(),
+                      "owned-session supplied OTD solve did not converge");
+
+    product.reset();
+  }
 } // namespace
 
 int
@@ -5731,6 +5784,11 @@ main(const int argc, char **argv)
          {"dealii", "contract", "solver"},
          30,
          run_serial_spd_reporting_contract_test},
+        {"supplied_otd_owned_session_lifetime",
+         "nmopt.dealii.supplied_otd_owned_session_lifetime",
+         {"dealii", "compiler", "formulation", "supplied-otd", "ownership"},
+         60,
+         []() { run_supplied_otd_owned_session_lifetime_contract_test<2>(); }},
         {"backend_size_conversion",
          "nmopt.dealii.backend_size_conversion",
          {"dealii", "contract", "adapter"},

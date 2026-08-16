@@ -427,6 +427,14 @@ boxes on the state mesh. Continuous-control bounds, facewise bounds,
 quadrature-point inequalities, the Lavrentiev-regularised mixed constraint,
 and measure-valued state constraints remain separate extensions.
 
+The selected path is implemented. The backend-neutral contract supplies the
+metric-aware multiplier representation, active-set maps, active equality KKT
+subproblems, and full PDAS diagnostics. The serial deal.II realization owns
+the diagonal cellwise mass metric used by the conversion callbacks and
+verifies inactive-box agreement with the unconstrained KKT solution together
+with active-box stabilization. These tests do not extend the policy to
+continuous controls or the regularised mixed observation.
+
 The source also applies PDAS to the Lavrentiev-regularised mixed constraint
 
 $$
@@ -455,8 +463,9 @@ the generic PDAS solve.
    the selected serial slice uses an identity preconditioner and reports
    stationarity and feasibility independently. P6.4 preconditioner families
    remain conditional.
-5. Next: add complementarity, selection, and PDAS (P6.5), then build the
-   regularised mixed constraint.
+5. Completed: add typed complementarity, selection, and PDAS (P6.5) for the
+   selected cellwise box path. The regularised mixed constraint remains a
+   separate extension.
 
 | Capability | Required verification |
 | --- | --- |

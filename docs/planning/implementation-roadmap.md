@@ -1140,8 +1140,8 @@ scope is later reopened.
 
 ### P6.5 — Add typed complementarity, selection, and PDAS services
 
-**Status:** selected after P6.3, initially for cellwise $L^{2}$ control boxes.
-Continuous-control and other bound semantics remain separate optional
+**Status:** complete for the selected cellwise-discontinuous $L^{2}$ control
+boxes. Continuous-control and other bound semantics remain separate optional
 extensions.
 
 **Motivation:** Section 6.8 treats control boxes and regularised mixed
@@ -1170,6 +1170,15 @@ complementarity, stationarity, active-set change, and KKT diagnostics; an
 active manufactured case stabilises at correct bounds; and no continuous
 control coefficient or multiplier is classified pointwise without its
 declared conversion policy.
+
+**Implemented:** the backend-neutral path provides typed box bounds, an
+explicit metric dual-to-primal representation, cellwise active-set
+restriction/prolongation, active equality-row KKT composition over P6.3, and
+PDAS iteration reports with stable-set and full-KKT stopping conditions. The
+serial deal.II path owns the selected diagonal mass metric while exposing the
+same typed complementarity contract, and exercises real serial MINRES solves
+for inactive and active boxes. The regularised mixed observation and
+continuous-control box semantics remain out of scope as declared above.
 
 ## Current next-agent sequence
 
@@ -1229,23 +1238,31 @@ vocabulary.
   termination separately from stationarity and equality residuals. Both
   methods solve the DTO and canonical supplied-OTD products and agree on the
   state, control, and multiplier solution.
+- **P6.5 — typed complementarity and PDAS:** the selected cellwise box path
+  is complete. Backend-neutral contracts cover metric-aware multiplier
+  conversion, active-set restriction/prolongation, active equality KKT
+  composition, PDAS iteration diagnostics, and explicit stopping reasons.
+  `SerialCellwiseBoxComplementarity` owns the serial deal.II mass metric used
+  by its conversion callbacks, and the real serial MINRES path verifies both
+  inactive-box agreement with the unconstrained KKT solution and active-box
+  stabilization. The final gates pass 32/32 sanitizer-neutral and 66/66
+  Debug deal.II scenarios.
 
 ### Future implementation sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
-selected P6.1 scalar reduced DTO boundary and the canonical P6.2 supplied-
-OTD slice are complete; current work continues with P6.5:
+selected P6.1 scalar reduced DTO boundary, canonical P6.2 supplied-OTD slice,
+P6.3 KKT path, and selected P6.5 complementarity/PDAS path are complete. The
+current work continues with the Chapter 6 benchmark gate:
 
-1. **P6.5:** implement complementarity/PDAS for the selected cellwise box
-   representation.
-2. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
-3. **P6.1 extension track:** after the required P6.2/P6.3/P6.5 gates and
+1. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
+2. **P6.1 extension track:** after the required P6.2/P6.3/P6.5 gates and
    selected benchmark evidence, activate the [P6.1 extension ladder](#p61-extension-ladder)
    in order. Generic nonlinear second order and projected directions remain
    lower priority than the selected scalar formulation and KKT/PDAS paths.
 
 Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
-future gate. The next conditional gate is P6.3; do not silently activate S1
+future gate. The next gate is benchmark selection; do not silently activate S1
 or any of the remaining Stokes, measure-constraint, stabilization,
 automatic-OtD, or broad continuous-bound work. Those remain outside the
 current ordered run.

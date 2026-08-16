@@ -1,7 +1,9 @@
 #include "nmopt/contract/reduced_dto.hpp"
+#include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
+#include "nmopt/dealii/serial_kkt_solver.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
 #include "test_support/contract_errors.hpp"
@@ -5929,7 +5931,15 @@ namespace
       0.1,
       test_binding_provenance("supplied_otd_owned_session")};
 
-    auto product = [&]() {
+    using KKTProduct =
+      contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
+    struct DetachedKKT
+    {
+      std::shared_ptr<const KKTProduct> product;
+      compiler::v1::CompilationManifest manifest;
+    };
+
+    auto detached = [&]() {
       auto mesh = std::make_unique<dealii::Triangulation<dim>>();
       dealii::GridGenerator::hyper_cube(*mesh);
       mesh->refine_global(1);
@@ -5942,27 +5952,50 @@ namespace
         compilation.succeeded() && !compilation.problem &&
           compilation.supplied_otd_problem,
         "owned-session compiler did not produce the supplied OTD product");
-      return compilation.supplied_otd_problem;
+      const auto &supplied_otd = *compilation.supplied_otd_problem;
+      const auto supplied_initial =
+        Primal::zeros(supplied_otd.system().variable_layout());
+      const auto supplied_solve =
+        supplied_otd.system().solve(supplied_initial);
+      contract::require(supplied_solve.report.converged(),
+                        "owned-session supplied OTD solve did not converge");
+      return DetachedKKT{
+        std::make_shared<const KKTProduct>(
+          contract::make_canonical_supplied_otd_kkt_product(
+            supplied_otd.system())),
+        supplied_otd.manifest()};
     }();
 
-    const auto &supplied_otd = *product;
+    const auto &product = *detached.product;
     contract::require(
-      supplied_otd.manifest().mesh_record.lifetime ==
+      detached.manifest.mesh_record.lifetime ==
         compiler::v1::MeshLifetimePolicy::owned_session,
       "supplied OTD owned-session manifest lost its mesh lifetime policy");
 
-    const auto &system = supplied_otd.system();
-    const Primal point = Primal::zeros(system.variable_layout());
-    const Primal tangent = Primal::zeros(system.variable_layout());
-    const Primal residual_seed = Primal::zeros(system.residual_layout());
-    (void)system.residual(point);
-    (void)system.residual_jvp(point, tangent);
-    (void)system.residual_vjp(point, residual_seed);
-    const auto solve = system.solve(point);
-    contract::require(solve.report.converged(),
-                      "owned-session supplied OTD solve did not converge");
+    const KKTProduct::Point point{
+      KKTProduct::Primal::zeros(product.layout().primal),
+      KKTProduct::Primal::zeros(product.layout().multiplier)};
+    const auto residual = product.residual(point);
+    const auto transpose = product.apply_kkt_transpose(
+      {KKTProduct::Primal::zeros(product.layout().stationarity),
+       KKTProduct::Primal::zeros(product.layout().equality)});
+    const auto adjoint = product.multiplier_to_adjoint(point.multiplier);
+    contract::require(
+      residual.stationarity.layout()->compatible_with(
+        *product.layout().stationarity) &&
+        residual.equality.layout()->compatible_with(*product.layout().equality) &&
+        transpose.primal.layout()->compatible_with(*product.layout().primal) &&
+        transpose.multiplier.layout()->compatible_with(
+          *product.layout().multiplier) &&
+        adjoint.layout()->compatible_with(*product.layout().adjoint),
+      "detached supplied KKT bridge lost a typed action or conversion");
 
-    product.reset();
+    contract::QuadraticKKTSolverPolicy solve_policy;
+    solve_policy.maximum_iterations = 100;
+    const auto kkt_solve =
+      dealii_backend::solve_serial_quadratic_kkt(product, solve_policy);
+    contract::require(kkt_solve.report.converged(),
+                      "detached supplied KKT bridge solve did not converge");
   }
 } // namespace
 

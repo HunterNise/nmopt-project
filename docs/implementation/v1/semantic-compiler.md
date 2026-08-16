@@ -860,6 +860,13 @@ prevents caller mesh mutation. The source-compatible triangulation-reference
 overload remains an explicitly borrowed, immutable-lifetime path recorded as
 such in the manifest.
 
+The supplied-OTD lowerer propagates that same owner token into the executable
+system. The canonical supplied-OTD KKT bridge retains the token on the
+detached quadratic product as well as in its callback-held system copy, so
+residual, transpose, conversion, and serial-solve actions remain valid after
+the compilation result and session handles are released. Callback-held
+resources are destroyed before the owner token.
+
 All iterative state and adjoint targets use the shared serial SPD solve
 service with independently selected typed policies. Its result reports
 convergence, iterations, requested tolerance, and achieved residual. The

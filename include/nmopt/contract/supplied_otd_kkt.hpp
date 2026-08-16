@@ -331,6 +331,7 @@ namespace nmopt::contract
       typename Product::Covector(equality_layout, {std::move(equality_rhs)}),
       conversion,
       assumptions,
-      validity.symmetry);
+      validity.symmetry,
+      supplied->lifetime_owner());
   }
 } // namespace nmopt::contract

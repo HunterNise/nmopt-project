@@ -153,7 +153,8 @@ namespace nmopt::dealii_backend
     // call the DTO residual or objective derivative methods.
     static SuppliedSystem
     make_supplied_otd_system(
-      std::shared_ptr<const ScalarDiffusionReactionModel> model)
+      std::shared_ptr<const ScalarDiffusionReactionModel> model,
+      std::shared_ptr<const void>                         lifetime_owner = {})
     {
       semantic::v1::SuppliedOTDDeclaration legacy_declaration;
       legacy_declaration.state_block.variable_space_id = "state";
@@ -174,13 +175,16 @@ namespace nmopt::dealii_backend
         "control";
       legacy_declaration.control_stationarity_block.runtime_residual_space_id =
         "control_stationarity";
-      return make_supplied_otd_system(model, legacy_declaration);
+      return make_supplied_otd_system(model,
+                                      legacy_declaration,
+                                      std::move(lifetime_owner));
     }
 
     static SuppliedSystem
     make_supplied_otd_system(
       std::shared_ptr<const ScalarDiffusionReactionModel> model,
-      const semantic::v1::SuppliedOTDDeclaration &         declaration)
+      const semantic::v1::SuppliedOTDDeclaration &         declaration,
+      std::shared_ptr<const void>                         lifetime_owner = {})
     {
       contract::require(static_cast<bool>(model),
                         "Supplied OTD lowerer needs a scalar model");
@@ -421,7 +425,8 @@ namespace nmopt::dealii_backend
         residual_jvp,
         residual_vjp,
         solve,
-        quadratic_kkt_validity);
+        quadratic_kkt_validity,
+        std::move(lifetime_owner));
     }
 
     CellwiseBoxConstraint

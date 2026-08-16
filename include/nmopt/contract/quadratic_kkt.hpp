@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -201,8 +202,10 @@ namespace nmopt::contract
       Covector                      equality_rhs,
       MultiplierConversion           multiplier_conversion,
       QuadraticKKTAssumptions        assumptions,
-      const QuadraticKKTSymmetry     symmetry)
-      : layout_(std::move(layout))
+      const QuadraticKKTSymmetry     symmetry,
+      std::shared_ptr<const void>    lifetime_owner = {})
+      : lifetime_owner_(std::move(lifetime_owner))
+      , layout_(std::move(layout))
       , quadratic_action_(std::move(quadratic_action))
       , equality_action_(std::move(equality_action))
       , multiplier_action_(std::move(multiplier_action))
@@ -262,6 +265,12 @@ namespace nmopt::contract
     assumptions() const
     {
       return assumptions_;
+    }
+
+    const std::shared_ptr<const void> &
+    lifetime_owner() const
+    {
+      return lifetime_owner_;
     }
 
     QuadraticKKTSymmetry
@@ -413,6 +422,9 @@ namespace nmopt::contract
         target.add_scaled_block(block, factor, source.block(block));
     }
 
+    // Keep an explicit owner at the product boundary. This makes detached
+    // bridges retain compiled-session resources independently of callbacks.
+    std::shared_ptr<const void>   lifetime_owner_;
     Layout                       layout_;
     QuadraticAction              quadratic_action_;
     EqualityAction               equality_action_;

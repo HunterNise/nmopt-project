@@ -1571,7 +1571,9 @@ namespace nmopt::compiler::v1
             supplied_otd_system = std::make_shared<
               const contract::SuppliedOTDSystemT<Backend>>(
               DirectModel::make_supplied_otd_system(
-                direct, *specification.supplied_otd_declaration));
+                direct,
+                *specification.supplied_otd_declaration,
+                lifetime_owner));
         }
       auto finalized_decision = finalize_resolved_decision<dim>(
         policy,

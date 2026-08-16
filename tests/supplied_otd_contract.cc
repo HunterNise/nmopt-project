@@ -1,4 +1,5 @@
 #include "nmopt/contract/supplied_otd.hpp"
+#include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "nmopt/compiler/v1/compiled_problem.hpp"
 #include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
@@ -102,7 +103,8 @@ namespace
 
   System
   make_system(
-    std::shared_ptr<const CallbackLifetimeProbe> lifetime_probe = {})
+    std::shared_ptr<const CallbackLifetimeProbe> lifetime_probe = {},
+    std::shared_ptr<const void>                 lifetime_owner = {})
   {
     const auto data = std::make_shared<const TestOperators>();
     const SuppliedOTDLayout layout(data->variable_layout,
@@ -183,7 +185,13 @@ namespace
         report);
     };
 
-    return System(layout, residual, residual_jvp, residual_vjp, solve);
+    return System(layout,
+                  residual,
+                  residual_jvp,
+                  residual_vjp,
+                  solve,
+                  make_canonical_supplied_otd_quadratic_kkt_validity(),
+                  std::move(lifetime_owner));
   }
 
   void
@@ -234,6 +242,37 @@ namespace
             "owned supplied OTD product did not release its lifetime owner");
     require(!lifetime_state->callback_destroyed_after_owner,
             "owned supplied OTD callbacks outlived their lifetime owner");
+  }
+
+  void
+  test_supplied_otd_kkt_bridge_owned_lifetime()
+  {
+    const auto lifetime_state = std::make_shared<LifetimeState>();
+    using Product = EqualityConstrainedQuadraticKKTProduct;
+    auto product = [&]() {
+      const auto owner = std::make_shared<const SuppliedOTDLifetimeOwner>(
+        lifetime_state);
+      const auto probe = std::make_shared<const CallbackLifetimeProbe>(
+        lifetime_state);
+      const System system = make_system(probe, owner);
+      return std::make_unique<Product>(
+        make_canonical_supplied_otd_kkt_product(system));
+    }();
+
+    const Product::Point point{
+      Product::Primal::zeros(product->layout().primal),
+      Product::Primal::zeros(product->layout().multiplier)};
+    (void)product->residual(point);
+    (void)product->apply_kkt_transpose(
+      {Product::Primal::zeros(product->layout().stationarity),
+       Product::Primal::zeros(product->layout().equality)});
+    (void)product->multiplier_to_adjoint(point.multiplier);
+
+    product.reset();
+    require(!lifetime_state->owner_alive,
+            "supplied KKT bridge did not release its lifetime owner");
+    require(!lifetime_state->callback_destroyed_after_owner,
+            "supplied KKT bridge callbacks outlived their lifetime owner");
   }
 
   void
@@ -368,7 +407,12 @@ main(const int argc, char **argv)
          "nmopt.supplied_otd.compiled_owned_product_lifetime",
          {"backend-neutral", "formulation", "supplied-otd", "ownership"},
          30,
-         test_compiled_supplied_otd_owned_product_lifetime}};
+         test_compiled_supplied_otd_owned_product_lifetime},
+        {"kkt_bridge_owned_lifetime",
+         "nmopt.supplied_otd.kkt_bridge_owned_lifetime",
+         {"backend-neutral", "formulation", "supplied-otd", "kkt", "ownership"},
+         30,
+         test_supplied_otd_kkt_bridge_owned_lifetime}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

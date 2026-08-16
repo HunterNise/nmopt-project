@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -200,8 +201,10 @@ namespace nmopt::contract
                        LinearizedAction residual_jvp,
                        TransposeAction residual_vjp,
                        SolveAction solve,
-                       SuppliedOTDQuadraticKKTValidity quadratic_kkt_validity = {})
-      : layout_(std::move(layout))
+                       SuppliedOTDQuadraticKKTValidity quadratic_kkt_validity = {},
+                       std::shared_ptr<const void> lifetime_owner = {})
+      : lifetime_owner_(std::move(lifetime_owner))
+      , layout_(std::move(layout))
       , residual_(std::move(residual))
       , residual_jvp_(std::move(residual_jvp))
       , residual_vjp_(std::move(residual_vjp))
@@ -240,6 +243,12 @@ namespace nmopt::contract
     quadratic_kkt_validity() const
     {
       return quadratic_kkt_validity_;
+    }
+
+    const std::shared_ptr<const void> &
+    lifetime_owner() const
+    {
+      return lifetime_owner_;
     }
 
     Covector
@@ -325,11 +334,14 @@ namespace nmopt::contract
       return value;
     }
 
-    SuppliedOTDLayout layout_;
-    ResidualAction    residual_;
-    LinearizedAction  residual_jvp_;
-    TransposeAction   residual_vjp_;
-    SolveAction       solve_;
+    // Declare the owner first so callback-held resources are destroyed before
+    // the owner token during reverse member destruction.
+    std::shared_ptr<const void>       lifetime_owner_;
+    SuppliedOTDLayout                 layout_;
+    ResidualAction                    residual_;
+    LinearizedAction                  residual_jvp_;
+    TransposeAction                   residual_vjp_;
+    SolveAction                       solve_;
     SuppliedOTDQuadraticKKTValidity quadratic_kkt_validity_;
   };
 

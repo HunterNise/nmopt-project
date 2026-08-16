@@ -1053,6 +1053,24 @@ namespace
                 newton_result.hessian_action_count,
             "Reduced Newton PCG diagnostics do not match metric actions");
 
+    nmopt::solvers::ReducedNewtonParameters loose_newton_parameters =
+      newton_parameters;
+    loose_newton_parameters.absolute_tolerance = 1e6;
+    loose_newton_parameters.relative_tolerance = 0.9;
+    nmopt::solvers::NewtonDirectionPolicyDense loose_newton_policy(
+      hessian, loose_newton_parameters);
+    const auto loose_newton_direction = loose_newton_policy.next(
+      control, evaluation.reduced_derivative, metric);
+    const double loose_newton_target = std::max(
+      loose_newton_parameters.absolute_tolerance,
+      loose_newton_parameters.relative_tolerance *
+        loose_newton_direction.hessian_solve.initial_residual_norm);
+    require(loose_newton_direction.directional_derivative < 0.0 &&
+              loose_newton_direction.hessian_solve.iteration_count > 0 &&
+              loose_newton_direction.hessian_solve.final_residual_norm <=
+                loose_newton_target + 1e-12,
+            "Newton loose inner tolerance returned an unusable zero direction");
+
     const nmopt::solvers::NewtonDirectionPolicyDense missing_hessian_policy;
     const nmopt::solvers::ReducedNewtonSolver missing_hessian_solver(
       reduced, metric, newton_solver_parameters, missing_hessian_policy);
@@ -1509,6 +1527,22 @@ namespace
     require(truncated_hessian_actions ==
               truncated_result.hessian_action_count,
             "Truncated-CG subproblem actions do not match Hessian actions");
+
+    nmopt::solvers::ReducedTrustRegionParameters loose_truncated_parameters =
+      truncated_parameters;
+    loose_truncated_parameters.subproblem_absolute_tolerance = 1e6;
+    loose_truncated_parameters.subproblem_relative_tolerance = 0.9;
+    loose_truncated_parameters.maximum_iterations = 1;
+    const nmopt::solvers::ReducedTrustRegionSolver loose_truncated_solver(
+      reduced, metric, hessian, loose_truncated_parameters);
+    const auto loose_truncated_result = loose_truncated_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(loose_truncated_result.trial_count == 1 &&
+              loose_truncated_result.accepted_history.front() &&
+              loose_truncated_result.step_norm_history.front() > 0.0 &&
+              loose_truncated_result.predicted_reduction_history.front() > 0.0 &&
+              std::isfinite(loose_truncated_result.reduction_ratio_history.front()),
+            "Truncated-CG loose inner tolerance returned a zero predicted reduction");
 
     nmopt::solvers::ReducedTrustRegionParameters boundary_parameters =
       truncated_parameters;

@@ -1091,7 +1091,11 @@ namespace nmopt::solvers
       std::size_t inner_iteration_count = 0;
       double       final_residual_norm = initial_norm;
 
-      if (initial_norm > target_norm)
+      // A nonzero outer residual must receive at least one inner action even
+      // when the requested inner tolerance is already satisfied. This
+      // forcing step prevents a loose inner absolute tolerance from
+      // returning a zero direction to a nonstationary outer iteration.
+      if (initial_norm > 0.0)
         {
           Primal search_direction = preconditioned_residual;
           double residual_preconditioned_pairing = initial_squared_norm;

@@ -228,6 +228,13 @@ non-positive curvature, or reaches its iteration limit. The selected
 subproblem status and residual history are retained per trial, including
 trials rejected by the outer reduction-ratio policy.
 
+If a nonzero outer residual is already below the requested inner tolerance,
+the Newton and truncated-CG policies still perform one inner action before
+reporting convergence. This forcing step prevents a loose inner absolute
+tolerance from returning a zero direction or zero predicted reduction to a
+nonstationary outer iteration; an exactly stationary iterate is handled by
+the outer gradient stopping criterion.
+
 For a linear-quadratic target, the reduced Hessian is constant:
 
 ```math

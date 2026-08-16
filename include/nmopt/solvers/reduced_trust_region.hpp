@@ -613,16 +613,11 @@ namespace nmopt::solvers
         parameters_.subproblem_relative_tolerance * initial_norm);
       Primal step = Primal::zeros(metric_.layout());
       Covector hessian_step = Covector::zeros(metric_.layout());
-      if (initial_norm <= target_norm)
-        return {std::move(step),
-                0.0,
-                0.0,
-                initial_norm,
-                0,
-                0,
-                0,
-                ReducedTrustRegionSubproblemStatus::converged};
 
+      // A nonzero outer residual must receive at least one inner action even
+      // when the requested inner tolerance is already satisfied. This
+      // forcing step prevents a loose inner absolute tolerance from creating
+      // a zero predicted reduction and an unusable trust-region ratio.
       Primal search_direction = preconditioned_residual;
       scale_primal(search_direction, -1.0);
       double residual_pairing = initial_pairing;

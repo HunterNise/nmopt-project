@@ -149,6 +149,12 @@ namespace nmopt::semantic::v1
                            metrics,
                            constraints,
                            report);
+      validate_supplied_otd_declaration(specification,
+                                        variables,
+                                        spaces,
+                                        pairings,
+                                        equations,
+                                        report);
       validate_policies(specification, report);
       return report;
     }
@@ -1408,6 +1414,273 @@ namespace nmopt::semantic::v1
                    loss.id,
                    "loss_data_role",
                    "Use desired-state data for tracking and a scalar regularisation weight for a decision-variable loss.");
+    }
+
+    static void
+    validate_supplied_otd_block(const SuppliedOTDBlockSpec & block,
+                                const SuppliedOTDBlockRole    expected_role,
+                                const Index<SpaceSpec> &      spaces,
+                                const Index<PairingSpec> &    pairings,
+                                ValidationReport &            report)
+    {
+      const std::string component_id = block.id.empty() ? "supplied_otd" : block.id;
+      if (block.id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_block_identity",
+                   "Give every supplied OTD block a non-empty identifier.");
+      if (block.label.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_block_label",
+                   "Give every supplied OTD block a non-empty label.");
+      require_specified(block.role != SuppliedOTDBlockRole::unspecified,
+                        component_id,
+                        "supplied OTD block",
+                        "supplied_otd_block_role",
+                        report);
+      if (block.role != SuppliedOTDBlockRole::unspecified &&
+          block.role != expected_role)
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_block_role",
+                   "Declare the state, adjoint, and control-stationarity blocks in their matching roles.");
+      if (block.variable_id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_variable_block",
+                   "Name the variable block supplied by the application.");
+      if (block.residual_id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_residual_block",
+                   "Name the residual block supplied by the application.");
+
+      const auto require_space = [&](const std::string &space_id,
+                                     const char *       capability) {
+        if (space_id.empty() || !contains(spaces, space_id))
+          report.add(DiagnosticCategory::structural,
+                     component_id,
+                     capability,
+                     "Reference a declared semantic space for every supplied OTD block.");
+      };
+      require_space(block.variable_space_id, "supplied_otd_variable_space");
+      require_space(block.residual_space_id, "supplied_otd_residual_space");
+      if (block.runtime_variable_space_id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_runtime_variable_space",
+                   "Declare a non-empty runtime identifier for every supplied OTD variable block.");
+      if (block.runtime_residual_space_id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_runtime_residual_space",
+                   "Declare a non-empty runtime identifier for every supplied OTD residual block.");
+
+      const auto require_pairing = [&](const std::string &pairing_id,
+                                       const std::string &space_id,
+                                       const char *       capability) {
+        const auto pairing = pairings.find(pairing_id);
+        if (pairing == pairings.end())
+          {
+            report.add(DiagnosticCategory::structural,
+                       component_id,
+                       capability,
+                       "Reference a declared trial/test pairing for every supplied OTD block.");
+            return;
+          }
+        if (!pairing_matches_space(*pairing->second, space_id))
+          report.add(DiagnosticCategory::structural,
+                     component_id,
+                     capability,
+                     "The supplied OTD pairing must act on the block's declared space.");
+      };
+      require_pairing(block.trial_pairing_id,
+                      block.variable_space_id,
+                      "supplied_otd_trial_pairing");
+      require_pairing(block.test_pairing_id,
+                      block.residual_space_id,
+                      "supplied_otd_test_pairing");
+      if (block.discretisation_provenance.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_discretisation_provenance",
+                   "Declare the discretisation and quadrature provenance for every supplied OTD block.");
+      if (block.action_provenance.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_block_action_provenance",
+                   "Declare how every supplied OTD block action is realised.");
+    }
+
+    static void
+    validate_supplied_otd_declaration(
+      const ProblemSpec &                  specification,
+      const Index<VariableSpec> &           variables,
+      const Index<SpaceSpec> &              spaces,
+      const Index<PairingSpec> &            pairings,
+      const Index<EquationBlockSpec> &      equations,
+      ValidationReport &                    report)
+    {
+      const bool supplied_otd =
+        specification.formulation.provenance == FormulationProvenance::supplied_otd;
+      if (!supplied_otd)
+        {
+          if (specification.supplied_otd_declaration)
+            report.add(
+              DiagnosticCategory::structural,
+              specification.formulation.id,
+              "unselected_supplied_otd_declaration",
+              "Attach a supplied OTD declaration only to a supplied-OTD formulation.");
+          return;
+        }
+
+      if (!specification.supplied_otd_declaration)
+        {
+          report.add(
+            DiagnosticCategory::structural,
+            specification.formulation.id,
+            "supplied_otd_declaration",
+            "Supply a complete typed state, adjoint, and stationarity declaration for the OTD product.");
+          return;
+        }
+
+      const auto &declaration = *specification.supplied_otd_declaration;
+      if (declaration.id.empty())
+        report.add(DiagnosticCategory::structural,
+                   "supplied_otd",
+                   "supplied_otd_declaration_identity",
+                   "Give the supplied OTD declaration a non-empty identifier.");
+      if (declaration.state_variable_id !=
+          specification.formulation.state_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_state_variable",
+                   "Bind the supplied OTD state block to the formulation state variable.");
+      if (declaration.control_variable_id !=
+          specification.formulation.control_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_control_variable",
+                   "Bind the supplied OTD stationarity block to the formulation decision variable.");
+      if (declaration.adjoint_variable_id.empty() ||
+          declaration.adjoint_variable_id == declaration.state_variable_id ||
+          declaration.adjoint_variable_id == declaration.control_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_adjoint_variable",
+                   "Give the supplied OTD adjoint block a distinct non-empty variable identifier.");
+
+      validate_supplied_otd_block(declaration.state_block,
+                                  SuppliedOTDBlockRole::state,
+                                  spaces,
+                                  pairings,
+                                  report);
+      validate_supplied_otd_block(declaration.adjoint_block,
+                                  SuppliedOTDBlockRole::adjoint,
+                                  spaces,
+                                  pairings,
+                                  report);
+      validate_supplied_otd_block(declaration.control_stationarity_block,
+                                  SuppliedOTDBlockRole::control_stationarity,
+                                  spaces,
+                                  pairings,
+                                  report);
+
+      if (declaration.state_block.variable_id != declaration.state_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.state_block.id,
+                   "supplied_otd_state_block_variable",
+                   "Bind the declared state block to the supplied OTD state variable.");
+      if (declaration.state_block.residual_id !=
+          specification.formulation.equation_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.state_block.id,
+                   "supplied_otd_state_block_residual",
+                   "Bind the supplied OTD state block to the formulation state equation.");
+      if (declaration.adjoint_block.variable_id !=
+          declaration.adjoint_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.adjoint_block.id,
+                   "supplied_otd_adjoint_block_variable",
+                   "Bind the declared adjoint block to the supplied OTD adjoint variable.");
+      if (declaration.control_stationarity_block.variable_id !=
+          declaration.control_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.control_stationarity_block.id,
+                   "supplied_otd_stationarity_variable",
+                   "Bind the declared stationarity block to the formulation decision variable.");
+
+      const auto state = variables.find(declaration.state_variable_id);
+      if (state != variables.end() &&
+          declaration.state_block.variable_space_id != state->second->space_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.state_block.id,
+                   "supplied_otd_state_space",
+                   "The supplied OTD state block must use the declared state variable space.");
+      const auto control = variables.find(declaration.control_variable_id);
+      if (control != variables.end() &&
+          declaration.control_stationarity_block.variable_space_id !=
+            control->second->space_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.control_stationarity_block.id,
+                   "supplied_otd_control_space",
+                   "The supplied OTD stationarity block must use the declared decision-variable space.");
+      if (declaration.state_block.residual_id.empty() ||
+          !contains(equations, declaration.state_block.residual_id))
+        report.add(DiagnosticCategory::structural,
+                   declaration.state_block.id,
+                   "supplied_otd_state_equation",
+                   "Reference the declared state equation from the supplied OTD state block.");
+
+      const std::unordered_set<std::string> runtime_variable_spaces{
+        declaration.state_block.runtime_variable_space_id,
+        declaration.adjoint_block.runtime_variable_space_id,
+        declaration.control_stationarity_block.runtime_variable_space_id};
+      const std::unordered_set<std::string> runtime_residual_spaces{
+        declaration.state_block.runtime_residual_space_id,
+        declaration.adjoint_block.runtime_residual_space_id,
+        declaration.control_stationarity_block.runtime_residual_space_id};
+      if (runtime_variable_spaces.size() != 3 ||
+          runtime_residual_spaces.size() != 3)
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_runtime_layout_identifiers",
+                   "Use distinct runtime identifiers for the three supplied OTD variable and residual blocks.");
+
+      require_specified(
+        declaration.multiplier_convention !=
+          SuppliedOTDMultiplierConvention::unspecified,
+        declaration.id,
+        "supplied OTD declaration",
+        "supplied_otd_multiplier_convention",
+        report);
+      require_specified(
+        declaration.multiplier_conversion !=
+          SuppliedOTDMultiplierConversion::unspecified,
+        declaration.id,
+        "supplied OTD declaration",
+        "supplied_otd_multiplier_conversion",
+        report);
+      if (declaration.value_action_provenance.empty() ||
+          declaration.jvp_action_provenance.empty() ||
+          declaration.vjp_action_provenance.empty() ||
+          declaration.solve_provenance.empty())
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_action_provenance",
+                   "Declare value, JVP, VJP, and solve provenance for the supplied OTD product.");
+      require_specified(
+        declaration.comparison_status != SuppliedOTDComparisonStatus::unspecified,
+        declaration.id,
+        "supplied OTD declaration",
+        "supplied_otd_comparison_status",
+        report);
+      if (declaration.comparison_evidence.empty())
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_comparison_evidence",
+                   "Record the evidence supporting the typed DTO comparison status.");
     }
 
     static void

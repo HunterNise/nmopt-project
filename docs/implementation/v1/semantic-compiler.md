@@ -706,6 +706,17 @@ provenance only.
 `compiler::v1::DealiiCompiler::validate()` appends compiler-specific checks
 to the same `ValidationReport`.
 
+The supplied-OTD route has an explicit `SuppliedOTDDeclaration` on the
+semantic `ProblemSpec`. It names state, adjoint, and control-stationarity
+blocks; each block carries its semantic variable/residual spaces, trial and
+test pairings, runtime layout identifiers, and discretisation/action
+provenance. The declaration also carries the multiplier convention and
+conversion, typed DTO comparison status, and action-level provenance. The
+canonical scalar lowerer consumes this declaration and the compiled manifest
+retains the typed declaration alongside its runtime layout projection. A DTO
+graph with only its formulation kind and provenance changed is therefore
+rejected before lowering.
+
 | Category | Produced by | Examples in v1 |
 | --- | --- | --- |
 | `structural` | `SemanticValidator` | incomplete nodes, missing labels or ports, incompatible pairings, orphan/duplicate term edges, and variable-space mismatches |

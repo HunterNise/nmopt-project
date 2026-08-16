@@ -1540,6 +1540,14 @@ namespace
     require(ReducedFormulationSpec{}.provenance ==
               FormulationProvenance::unspecified,
             "default formulation provenance is not safe");
+    require(SuppliedOTDBlockSpec{}.role == SuppliedOTDBlockRole::unspecified &&
+              SuppliedOTDDeclaration{}.multiplier_convention ==
+                SuppliedOTDMultiplierConvention::unspecified &&
+              SuppliedOTDDeclaration{}.multiplier_conversion ==
+                SuppliedOTDMultiplierConversion::unspecified &&
+              SuppliedOTDDeclaration{}.comparison_status ==
+                SuppliedOTDComparisonStatus::unspecified,
+            "default supplied OTD declaration enums are not safe");
 
     const SemanticValidator validator;
     nmopt::test_support::require_exact_diagnostic(
@@ -1664,11 +1672,54 @@ namespace
       }
 
     auto supplied_otd =
-      nmopt::semantic::v1::make_scalar_diffusion_reaction_problem(true);
-    supplied_otd.formulation.kind = FormulationKind::all_at_once;
-    supplied_otd.formulation.provenance = FormulationProvenance::supplied_otd;
+      nmopt::semantic::v1::make_scalar_diffusion_reaction_supplied_otd_problem(
+        true);
     require(validator.validate(supplied_otd).valid(),
             "a typed supplied OTD formulation was rejected structurally");
+  }
+
+  void
+  test_semantic_v1_supplied_otd_declaration()
+  {
+    using namespace nmopt::semantic::v1;
+    const SemanticValidator validator;
+    const auto canonical =
+      make_scalar_diffusion_reaction_supplied_otd_problem();
+    require(canonical.supplied_otd_declaration.has_value() &&
+              canonical.supplied_otd_declaration->comparison_status ==
+                SuppliedOTDComparisonStatus::equivalent_under_declared_conversion,
+            "canonical supplied OTD factory did not retain typed provenance");
+    require(validator.validate(canonical).valid(),
+            "canonical supplied OTD declaration was rejected");
+
+    auto dto_label_mutation = make_scalar_diffusion_reaction_problem();
+    dto_label_mutation.formulation.kind = FormulationKind::all_at_once;
+    dto_label_mutation.formulation.provenance = FormulationProvenance::supplied_otd;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(dto_label_mutation),
+      DiagnosticCategory::structural,
+      "reduced_dto",
+      "supplied_otd_declaration",
+      "DTO formulation labels were sufficient to enter the supplied OTD path");
+
+    auto missing_pairing = canonical;
+    missing_pairing.supplied_otd_declaration->adjoint_block.test_pairing_id.clear();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_pairing),
+      DiagnosticCategory::structural,
+      "adjoint_block",
+      "supplied_otd_test_pairing",
+      "supplied OTD declaration accepted a missing test pairing");
+
+    auto missing_conversion = canonical;
+    missing_conversion.supplied_otd_declaration->multiplier_conversion =
+      SuppliedOTDMultiplierConversion::unspecified;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_conversion),
+      DiagnosticCategory::structural,
+      "canonical_scalar_supplied_otd",
+      "supplied_otd_multiplier_conversion",
+      "supplied OTD declaration accepted a missing multiplier conversion");
   }
 
   void
@@ -2082,6 +2133,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "semantic"},
          30,
          test_semantic_v1_incomplete_components},
+        {"supplied_otd_declaration",
+         "nmopt.semantic.v1_supplied_otd_declaration",
+         {"backend-neutral", "semantic"},
+         30,
+         test_semantic_v1_supplied_otd_declaration},
         {"reference_delta_stability",
          "nmopt.semantic.v1_reference_delta_stability",
          {"backend-neutral", "semantic"},

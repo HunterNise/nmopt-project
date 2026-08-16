@@ -478,10 +478,11 @@ the generic PDAS solve.
 1. Completed: extend the reduced solver to selected reduced directions and
    line searches (P6.1), while retaining the baseline one-state/one-decision
    DTO boundary.
-2. Completed: add formulation, trial/test, and supplied-system provenance for
-   the selected canonical supplied-OTD slice (P6.2). The compiler records
-   whether the product is DTO or supplied OTD; it does not derive automatic
-   continuous adjoints or claim generic stabilised-Lagrangian coverage.
+2. Completed: add the explicit formulation, trial/test, and supplied-system
+   declaration for the selected canonical supplied-OTD slice (P6.2). The
+   compiler records whether the product is DTO or supplied OTD; it does not
+   derive automatic continuous adjoints or claim generic stabilised-Lagrangian
+   coverage.
 3. Completed: generalise executable algebra to equality-constrained quadratic
    KKT products (P6.3), including the canonical supplied-OTD bridge and the
    serial DTO assembled/matrix-free comparison.

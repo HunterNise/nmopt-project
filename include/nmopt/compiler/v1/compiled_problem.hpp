@@ -116,6 +116,7 @@ namespace nmopt::compiler::v1
   struct CompiledSuppliedOTDRecord
   {
     bool                     present = false;
+    std::optional<semantic::v1::SuppliedOTDDeclaration> declaration;
     std::string              variable_layout;
     std::string              residual_layout;
     std::vector<std::string> variable_space_ids;
@@ -525,6 +526,9 @@ namespace nmopt::compiler::v1
         "A supplied-OTD problem needs an all-at-once supplied-OTD manifest");
       contract::require(manifest_.supplied_otd_record.present,
                         "A supplied-OTD problem needs typed block provenance");
+      contract::require(
+        manifest_.supplied_otd_record.declaration.has_value(),
+        "A supplied-OTD problem needs its typed formulation declaration");
     }
 
     const System &

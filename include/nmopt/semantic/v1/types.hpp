@@ -499,6 +499,36 @@ namespace nmopt::semantic::v1
     supplied_otd
   };
 
+  enum class SuppliedOTDBlockRole
+  {
+    unspecified = -1,
+    state,
+    adjoint,
+    control_stationarity
+  };
+
+  enum class SuppliedOTDMultiplierConvention
+  {
+    unspecified = -1,
+    framework_adjoint,
+    negative_framework_adjoint
+  };
+
+  enum class SuppliedOTDMultiplierConversion
+  {
+    unspecified = -1,
+    identity,
+    negate
+  };
+
+  enum class SuppliedOTDComparisonStatus
+  {
+    unspecified = -1,
+    not_compared,
+    different,
+    equivalent_under_declared_conversion
+  };
+
   struct RegionSpec
   {
     std::string               id;
@@ -695,6 +725,53 @@ namespace nmopt::semantic::v1
     std::string            constraint_id;
   };
 
+  // An application-supplied OTD product is a distinct semantic declaration,
+  // not a pair of formulation labels applied to a DTO graph.  The block
+  // records deliberately name both the semantic spaces/pairings and the
+  // supplied action provenance; a compiler may lower only a registered
+  // declaration whose fields it understands.
+  struct SuppliedOTDBlockSpec
+  {
+    std::string                  id;
+    std::string                  label;
+    SuppliedOTDBlockRole         role = SuppliedOTDBlockRole::unspecified;
+    std::string                  variable_id;
+    std::string                  residual_id;
+    std::string                  variable_space_id;
+    std::string                  residual_space_id;
+    // Runtime layout identifiers are kept separate because distinct weak
+    // blocks may share one semantic test space while BlockLayout requires
+    // unique block identifiers.
+    std::string                  runtime_variable_space_id;
+    std::string                  runtime_residual_space_id;
+    std::string                  trial_pairing_id;
+    std::string                  test_pairing_id;
+    std::string                  discretisation_provenance;
+    std::string                  action_provenance;
+  };
+
+  struct SuppliedOTDDeclaration
+  {
+    std::string             id;
+    std::string             state_variable_id;
+    std::string             adjoint_variable_id;
+    std::string             control_variable_id;
+    SuppliedOTDBlockSpec    state_block;
+    SuppliedOTDBlockSpec    adjoint_block;
+    SuppliedOTDBlockSpec    control_stationarity_block;
+    SuppliedOTDMultiplierConvention multiplier_convention =
+      SuppliedOTDMultiplierConvention::unspecified;
+    SuppliedOTDMultiplierConversion multiplier_conversion =
+      SuppliedOTDMultiplierConversion::unspecified;
+    std::string value_action_provenance;
+    std::string jvp_action_provenance;
+    std::string vjp_action_provenance;
+    std::string solve_provenance;
+    SuppliedOTDComparisonStatus comparison_status =
+      SuppliedOTDComparisonStatus::unspecified;
+    std::string comparison_evidence;
+  };
+
   // This is a composition root, not a PDE-model class. The v1 compiler only
   // accepts the explicitly represented narrow stationary volume-control
   // graph; extensions add semantic node kinds and registered lowerers.
@@ -716,6 +793,7 @@ namespace nmopt::semantic::v1
     std::vector<ConstraintSpec>        constraints;
     std::vector<RequirementPolicySpec> requirement_policies;
     ReducedFormulationSpec              formulation;
+    std::optional<SuppliedOTDDeclaration> supplied_otd_declaration;
   };
 
   enum class DiagnosticCategory

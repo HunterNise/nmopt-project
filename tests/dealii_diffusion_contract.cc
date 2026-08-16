@@ -5147,9 +5147,9 @@ namespace
     contract::require(solver_result.gradient_norm_history.back() <=
                         solver_parameters.gradient_tolerance,
                       "deal.II reduced gradient final norm exceeds tolerance");
-    contract::require(solver_result.state_solve_count ==
-                        solver_result.adjoint_solve_count,
-                      "deal.II reduced gradient solve counts do not match");
+    contract::require(solver_result.adjoint_solve_count ==
+                        solver_result.accepted_iterations + 1,
+                      "deal.II reduced gradient adjoint count includes rejected trials");
     contract::require(solver_result.line_search_trial_count + 1 ==
                         solver_result.state_solve_count,
                       "deal.II reduced gradient solve count misses a trial evaluation");
@@ -5264,11 +5264,7 @@ namespace
       "v1 compiler did not report an unsupported formulation capability");
 
     auto supplied_otd_specification =
-      semantic::v1::make_scalar_diffusion_reaction_problem(false);
-    supplied_otd_specification.formulation.kind =
-      semantic::v1::FormulationKind::all_at_once;
-    supplied_otd_specification.formulation.provenance =
-      semantic::v1::FormulationProvenance::supplied_otd;
+      semantic::v1::make_scalar_diffusion_reaction_supplied_otd_problem(false);
     const auto supplied_otd_validation =
       v1_compiler.validate(supplied_otd_specification, compilation_policy);
     contract::require(supplied_otd_validation.valid(),
@@ -5280,16 +5276,20 @@ namespace
     mismatched_supplied_otd.pairings.push_back(
       {"alternate_state_test_pairing", "Alternate adjoint pairing",
        "alternate_state_test_space", "alternate_state_test_space"});
-    mismatched_supplied_otd.equations.front().test_space_id =
-      "alternate_state_test_space";
-    mismatched_supplied_otd.equations.front().test_pairing_id =
-      "alternate_state_test_pairing";
+    mismatched_supplied_otd.supplied_otd_declaration->adjoint_block
+      .variable_space_id = "alternate_state_test_space";
+    mismatched_supplied_otd.supplied_otd_declaration->adjoint_block
+      .residual_space_id = "alternate_state_test_space";
+    mismatched_supplied_otd.supplied_otd_declaration->adjoint_block
+      .trial_pairing_id = "alternate_state_test_pairing";
+    mismatched_supplied_otd.supplied_otd_declaration->adjoint_block
+      .test_pairing_id = "alternate_state_test_pairing";
     const auto mismatched_otd_diagnostic =
       v1_compiler.validate(mismatched_supplied_otd, compilation_policy);
     test_support::require_exact_diagnostic(
       mismatched_otd_diagnostic,
       semantic::v1::DiagnosticCategory::formulation_capability,
-      "state_equation",
+      "adjoint_block",
       "supplied_otd_adjoint_space",
       "v1 compiler reported a mismatched supplied OTD adjoint space as valid");
 
@@ -5375,6 +5375,14 @@ namespace
           semantic::v1::FormulationProvenance::supplied_otd &&
         supplied_manifest.provenance == "supplied OTD" &&
         supplied_manifest.supplied_otd_record.present &&
+        supplied_manifest.supplied_otd_record.declaration.has_value() &&
+        supplied_manifest.supplied_otd_record.declaration->id ==
+          "canonical_scalar_supplied_otd" &&
+        supplied_manifest.supplied_otd_record.declaration->adjoint_block
+            .test_pairing_id == "state_test_pairing" &&
+        supplied_manifest.supplied_otd_record.declaration
+            ->multiplier_conversion ==
+          semantic::v1::SuppliedOTDMultiplierConversion::identity &&
         supplied_manifest.supplied_otd_record.variable_space_ids ==
           std::vector<std::string>{"state", "state_test", "control"} &&
         supplied_manifest.supplied_otd_record.residual_space_ids ==

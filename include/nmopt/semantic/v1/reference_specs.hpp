@@ -181,6 +181,87 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
+  // The canonical supplied-OTD target is an explicit formulation declaration,
+  // not a DTO graph whose two formulation labels were changed after the fact.
+  // Its three weak blocks remain bounded to the scalar registered lowerer, but
+  // their spaces, pairings, provenance, multiplier conversion, and comparison
+  // state are part of the application-facing semantic request.
+  inline ProblemSpec
+  make_scalar_diffusion_reaction_supplied_otd_problem(
+    const bool with_cellwise_box = false)
+  {
+    ProblemSpec specification =
+      make_scalar_diffusion_reaction_problem(with_cellwise_box);
+    specification.formulation.id = "supplied_otd";
+    specification.formulation.kind = FormulationKind::all_at_once;
+    specification.formulation.provenance = FormulationProvenance::supplied_otd;
+
+    SuppliedOTDDeclaration declaration;
+    declaration.id = "canonical_scalar_supplied_otd";
+    declaration.state_variable_id = "state";
+    declaration.adjoint_variable_id = "adjoint";
+    declaration.control_variable_id = "control";
+    declaration.state_block = {
+      "state_block",
+      "Supplied state equation block",
+      SuppliedOTDBlockRole::state,
+      "state",
+      "state_equation",
+      "state_space",
+      "state_test_space",
+      "state",
+      "state_equation",
+      "state_pairing",
+      "state_test_pairing",
+      "FE_Q state/test spaces with selected volume quadrature",
+      "explicit assembled state residual A_h y_h-f_h-B_h u_h"};
+    declaration.adjoint_block = {
+      "adjoint_block",
+      "Supplied adjoint equation block",
+      SuppliedOTDBlockRole::adjoint,
+      "adjoint",
+      "adjoint_equation",
+      "state_test_space",
+      "state_test_space",
+      "state_test",
+      "adjoint_equation",
+      "state_test_pairing",
+      "state_test_pairing",
+      "FE_Q supplied adjoint space with selected volume quadrature",
+      "explicit assembled adjoint equation A_h^T p_h-M_h y_h+q_h"};
+    declaration.control_stationarity_block = {
+      "control_stationarity_block",
+      "Supplied control-stationarity block",
+      SuppliedOTDBlockRole::control_stationarity,
+      "control",
+      "control_stationarity",
+      "control_space",
+      "control_space",
+      "control",
+      "control_stationarity",
+      "control_pairing",
+      "control_pairing",
+      "FE_DGQ(0) control space with selected volume quadrature",
+      "explicit assembled control stationarity B_h^T p_h+alpha N_h u_h"};
+    declaration.multiplier_convention =
+      SuppliedOTDMultiplierConvention::framework_adjoint;
+    declaration.multiplier_conversion = SuppliedOTDMultiplierConversion::identity;
+    declaration.value_action_provenance =
+      "application-supplied weak block values; no strong-residual derivation";
+    declaration.jvp_action_provenance =
+      "explicit block linearisation of the supplied assembled optimality system";
+    declaration.vjp_action_provenance =
+      "explicit transpose block actions with tested dot pairing";
+    declaration.solve_provenance =
+      "assembled all-at-once optimality system solved by the registered direct solver";
+    declaration.comparison_status =
+      SuppliedOTDComparisonStatus::equivalent_under_declared_conversion;
+    declaration.comparison_evidence =
+      "canonical scalar state, adjoint, and stationarity values agree with the reduced DTO at the registered solution";
+    specification.supplied_otd_declaration = std::move(declaration);
+    return specification;
+  }
+
   // P5.1's first registered target is a recombination of scalar residual
   // components. It deliberately keeps the existing volume-control,
   // observation, loss, metric, and optional cellwise-box declarations while

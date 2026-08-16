@@ -7,6 +7,7 @@
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
+#include "nmopt/semantic/v1/types.hpp"
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
@@ -154,6 +155,33 @@ namespace nmopt::dealii_backend
     make_supplied_otd_system(
       std::shared_ptr<const ScalarDiffusionReactionModel> model)
     {
+      semantic::v1::SuppliedOTDDeclaration legacy_declaration;
+      legacy_declaration.state_block.variable_space_id = "state";
+      legacy_declaration.state_block.residual_space_id = "state_equation";
+      legacy_declaration.state_block.runtime_variable_space_id = "state";
+      legacy_declaration.state_block.runtime_residual_space_id =
+        "state_equation";
+      legacy_declaration.adjoint_block.variable_space_id = "state_test";
+      legacy_declaration.adjoint_block.residual_space_id = "adjoint_equation";
+      legacy_declaration.adjoint_block.runtime_variable_space_id = "state_test";
+      legacy_declaration.adjoint_block.runtime_residual_space_id =
+        "adjoint_equation";
+      legacy_declaration.control_stationarity_block.variable_space_id =
+        "control";
+      legacy_declaration.control_stationarity_block.residual_space_id =
+        "control_stationarity";
+      legacy_declaration.control_stationarity_block.runtime_variable_space_id =
+        "control";
+      legacy_declaration.control_stationarity_block.runtime_residual_space_id =
+        "control_stationarity";
+      return make_supplied_otd_system(model, legacy_declaration);
+    }
+
+    static SuppliedSystem
+    make_supplied_otd_system(
+      std::shared_ptr<const ScalarDiffusionReactionModel> model,
+      const semantic::v1::SuppliedOTDDeclaration &         declaration)
+    {
       contract::require(static_cast<bool>(model),
                         "Supplied OTD lowerer needs a scalar model");
       const std::size_t state_dimension =
@@ -162,17 +190,23 @@ namespace nmopt::dealii_backend
         static_cast<std::size_t>(model->control_mass_->m());
       const auto variable_layout = std::make_shared<const contract::BlockLayout>(
         "supplied_otd_variables",
-        std::vector<contract::SpaceId>{{"state"},
-                                       {"state_test"},
-                                       {"control"}},
+        std::vector<contract::SpaceId>{{declaration.state_block
+                                          .runtime_variable_space_id},
+                                       {declaration.adjoint_block
+                                          .runtime_variable_space_id},
+                                       {declaration.control_stationarity_block
+                                          .runtime_variable_space_id}},
         std::vector<std::size_t>{state_dimension,
                                  state_dimension,
                                  control_dimension});
       const auto residual_layout = std::make_shared<const contract::BlockLayout>(
         "supplied_otd_residuals",
-        std::vector<contract::SpaceId>{{"state_equation"},
-                                       {"adjoint_equation"},
-                                       {"control_stationarity"}},
+        std::vector<contract::SpaceId>{{declaration.state_block
+                                          .runtime_residual_space_id},
+                                       {declaration.adjoint_block
+                                          .runtime_residual_space_id},
+                                       {declaration.control_stationarity_block
+                                          .runtime_residual_space_id}},
         std::vector<std::size_t>{state_dimension,
                                  state_dimension,
                                  control_dimension});

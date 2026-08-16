@@ -10,6 +10,7 @@
 #include <deque>
 #include <limits>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -108,6 +109,80 @@ namespace nmopt::solvers
     double       final_residual_norm = 0.0;
   };
 
+  // Policy-specific acceptance evidence is kept beside, rather than hidden
+  // behind, the compatibility histories. Line searches populate the fields
+  // that their acceptance predicate uses; trust-region records carry their
+  // own model evidence below.
+  struct ReducedAcceptanceEvidence
+  {
+    std::string policy_name;
+    double      sufficient_decrease_bound =
+      std::numeric_limits<double>::quiet_NaN();
+    double      trial_slope = std::numeric_limits<double>::quiet_NaN();
+    double      curvature_value = std::numeric_limits<double>::quiet_NaN();
+  };
+
+  struct ReducedLineSearchPolicySnapshot
+  {
+    std::string policy_name;
+    std::size_t maximum_trials = 0;
+    double      initial_step_length = std::numeric_limits<double>::quiet_NaN();
+    double      backtracking_factor = std::numeric_limits<double>::quiet_NaN();
+    double      sufficient_decrease_fraction =
+      std::numeric_limits<double>::quiet_NaN();
+    double      curvature_fraction = std::numeric_limits<double>::quiet_NaN();
+    double      armijo_fraction = std::numeric_limits<double>::quiet_NaN();
+    double      curvature_tolerance = std::numeric_limits<double>::quiet_NaN();
+    double      objective_tolerance = std::numeric_limits<double>::quiet_NaN();
+  };
+
+  struct ReducedIterationWork
+  {
+    std::size_t state_solve_count = 0;
+    std::size_t adjoint_solve_count = 0;
+    std::size_t metric_solve_count = 0;
+    std::size_t hessian_action_count = 0;
+    std::size_t direction_reset_count = 0;
+  };
+
+  inline ReducedIterationWork
+  reduced_iteration_work_difference(const ReducedIterationWork &after,
+                                    const ReducedIterationWork &before)
+  {
+    return {after.state_solve_count - before.state_solve_count,
+            after.adjoint_solve_count - before.adjoint_solve_count,
+            after.metric_solve_count - before.metric_solve_count,
+            after.hessian_action_count - before.hessian_action_count,
+            after.direction_reset_count - before.direction_reset_count};
+  }
+
+  template <typename Backend>
+  struct ReducedAcceptedIterationCommonT
+  {
+    std::size_t                    iteration = 0;
+    std::string                    policy_name;
+    double                         objective_before = 0.0;
+    double                         objective_after = 0.0;
+    double                         objective_change = 0.0;
+    double                         requested_step_parameter = 0.0;
+    double                         actual_step_norm = 0.0;
+    double                         actual_descent_pairing = 0.0;
+    double                         absolute_stationarity = 0.0;
+    double                         relative_stationarity = 0.0;
+    std::size_t                    trial_count = 0;
+    ReducedIterationWork           per_iteration_work;
+    ReducedIterationWork           cumulative_work;
+    ReducedHessianSolveDiagnostics hessian_solve;
+    contract::ReducedEvaluationT<Backend> accepted_evaluation;
+  };
+
+  template <typename Backend>
+  struct ReducedAcceptedIterationRecordT
+  {
+    ReducedAcceptedIterationCommonT<Backend> common;
+    ReducedAcceptanceEvidence     acceptance_evidence;
+  };
+
   template <typename Backend>
   struct ReducedSearchDirectionT
   {
@@ -142,6 +217,10 @@ namespace nmopt::solvers
     std::size_t                     metric_solve_count;
     std::size_t                     hessian_action_count;
     std::size_t                     direction_reset_count;
+    ReducedSolverParameters          parameters;
+    std::string                     policy_name;
+    ReducedLineSearchPolicySnapshot policy_parameters;
+    std::vector<ReducedAcceptedIterationRecordT<Backend>> iteration_records;
   };
 
   using ReducedSolverResult = ReducedSolverResultT<contract::DenseBackend>;

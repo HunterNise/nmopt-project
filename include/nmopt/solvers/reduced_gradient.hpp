@@ -124,12 +124,19 @@ namespace nmopt::solvers
       std::vector<double> step_length_history;
       std::vector<double> step_norm_history;
       std::vector<double> objective_change_history;
+      std::vector<ReducedAcceptedIterationRecordT<Backend>> iteration_records;
       DirectionPolicy direction_policy = direction_policy_;
       direction_policy.reset();
       LineSearchPolicy line_search_policy = line_search_policy_;
 
       for (;;)
         {
+          const ReducedIterationWork work_before{
+            state_solve_count,
+            adjoint_solve_count,
+            metric_solve_count,
+            hessian_action_count,
+            direction_policy.reset_count()};
           const ReducedSearchDirectionT<Backend> direction =
             direction_policy.next(current_control,
                                   current_evaluation.reduced_derivative,
@@ -183,7 +190,8 @@ namespace nmopt::solvers
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
-                          direction_policy.reset_count());
+                          direction_policy.reset_count(),
+                          std::move(iteration_records));
 
           if ((automatic_stopping
                  ? parameters_.relative_gradient_tolerance > 0.0
@@ -206,7 +214,8 @@ namespace nmopt::solvers
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
-                          direction_policy.reset_count());
+                          direction_policy.reset_count(),
+                          std::move(iteration_records));
 
           contract::require(unit_step_descent_measure < 0.0,
                             "Reduced gradient did not produce a descent direction");
@@ -228,7 +237,8 @@ namespace nmopt::solvers
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
-                          direction_policy.reset_count());
+                          direction_policy.reset_count(),
+                          std::move(iteration_records));
 
           const auto build_trial_control = [this,
                                             &current_control,
@@ -286,7 +296,8 @@ namespace nmopt::solvers
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
-                          direction_policy.reset_count());
+                          direction_policy.reset_count(),
+                          std::move(iteration_records));
 
           Primal trial_control = std::move(line_search_result.control);
           Evaluation trial_evaluation =
@@ -296,6 +307,16 @@ namespace nmopt::solvers
           Primal actual_update = trial_control;
           add_scaled_primal(actual_update, -1.0, current_control);
           const double step_norm = metric_norm(actual_update);
+          const double actual_descent_pairing =
+            contract::pair(current_evaluation.reduced_derivative, actual_update);
+          contract::require(std::isfinite(actual_descent_pairing),
+                            "Reduced line-search accepted a non-finite descent pairing");
+          const ReducedIterationWork work_after{
+            state_solve_count,
+            adjoint_solve_count,
+            metric_solve_count,
+            hessian_action_count,
+            direction_policy.reset_count()};
           current_control = std::move(trial_control);
           current_evaluation = std::move(trial_evaluation);
           objective_history.push_back(current_evaluation.objective_value);
@@ -303,6 +324,25 @@ namespace nmopt::solvers
           step_norm_history.push_back(step_norm);
           objective_change_history.push_back(objective_change);
           ++accepted_iterations;
+
+          iteration_records.push_back(
+            ReducedAcceptedIterationRecordT<Backend>{
+              {accepted_iterations,
+               line_search_result.acceptance_evidence.policy_name,
+               objective_history[objective_history.size() - 2],
+               current_evaluation.objective_value,
+               objective_change,
+               line_search_result.step_length,
+               step_norm,
+               actual_descent_pairing,
+               stopping_norm,
+               relative_gradient_norm,
+               line_search_result.trial_count,
+               reduced_iteration_work_difference(work_after, work_before),
+               work_after,
+               direction.hessian_solve,
+               current_evaluation},
+              std::move(line_search_result.acceptance_evidence)});
 
           if ((automatic_stopping
                  ? parameters_.objective_change_tolerance > 0.0
@@ -326,7 +366,8 @@ namespace nmopt::solvers
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
-                          direction_policy.reset_count());
+                          direction_policy.reset_count(),
+                          std::move(iteration_records));
 
           if ((automatic_stopping
                  ? parameters_.step_tolerance > 0.0
@@ -349,7 +390,8 @@ namespace nmopt::solvers
                           std::move(objective_change_history),
                           metric_solve_count,
                           hessian_action_count,
-                          direction_policy.reset_count());
+                          direction_policy.reset_count(),
+                          std::move(iteration_records));
         }
     }
 
@@ -442,7 +484,7 @@ namespace nmopt::solvers
                         "Reduced gradient backtracking factor must lie in (0, 1)");
     }
 
-    static Result
+    Result
     result(Primal                         control,
            Evaluation                     final_evaluation,
            std::vector<double>            objective_history,
@@ -459,8 +501,39 @@ namespace nmopt::solvers
            std::vector<double>            objective_change_history,
            const std::size_t               metric_solve_count,
            const std::size_t               hessian_action_count,
-           const std::size_t               direction_reset_count)
+           const std::size_t               direction_reset_count,
+           std::vector<ReducedAcceptedIterationRecordT<Backend>>
+             iteration_records) const
     {
+      contract::require(iteration_records.size() == accepted_iterations,
+                        "Reduced search iteration records are incomplete");
+      for (std::size_t index = 0; index < accepted_iterations; ++index)
+        {
+          const auto &record = iteration_records[index].common;
+          contract::require(record.iteration == index + 1 &&
+                              record.objective_before ==
+                                objective_history[index] &&
+                              record.objective_after ==
+                                objective_history[index + 1] &&
+                              record.objective_change ==
+                                objective_change_history[index] &&
+                              record.requested_step_parameter ==
+                                step_length_history[index] &&
+                              record.actual_step_norm == step_norm_history[index] &&
+                              record.absolute_stationarity ==
+                                gradient_norm_history[index] &&
+                              record.relative_stationarity ==
+                                relative_gradient_norm_history[index] &&
+                              record.hessian_solve.iteration_count ==
+                                hessian_solve_history[index].iteration_count &&
+                              record.hessian_solve.initial_residual_norm ==
+                                hessian_solve_history[index].initial_residual_norm &&
+                              record.hessian_solve.final_residual_norm ==
+                                hessian_solve_history[index].final_residual_norm &&
+                              record.accepted_evaluation.objective_value ==
+                                objective_history[index + 1],
+                            "Reduced search compatibility histories disagree with audit records");
+        }
       return {std::move(control),
               std::move(final_evaluation),
               std::move(objective_history),
@@ -477,7 +550,11 @@ namespace nmopt::solvers
               std::move(objective_change_history),
               metric_solve_count,
               hessian_action_count,
-              direction_reset_count};
+              direction_reset_count,
+              parameters_,
+              reduced_line_search_policy_name(line_search_policy_),
+              reduced_line_search_policy_snapshot(line_search_policy_),
+              std::move(iteration_records)};
     }
 
     const contract::ReducedDTOT<Backend> &reduced_;

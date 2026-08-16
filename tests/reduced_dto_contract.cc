@@ -663,6 +663,10 @@ namespace
     require(trial_state_calls == armijo_result.trial_count &&
               trial_adjoint_calls == 1,
             "Armijo line search did not defer derivative work until acceptance");
+    require(armijo_result.acceptance_evidence.policy_name == "armijo" &&
+              std::isfinite(armijo_result.acceptance_evidence.sufficient_decrease_bound) &&
+              armijo_result.acceptance_evidence.trial_slope < 0.0,
+            "Armijo line search did not report its acceptance evidence");
 
     const nmopt::solvers::ExactQuadraticLineSearchPolicy exact_policy(hessian);
     const std::size_t exact_state_calls = trial_state_calls;
@@ -682,6 +686,10 @@ namespace
     require(trial_state_calls == exact_state_calls + 1 &&
               trial_adjoint_calls == exact_adjoint_calls + 1,
             "Exact quadratic line search did not augment its accepted value once");
+    require(exact_result.acceptance_evidence.policy_name == "exact_quadratic" &&
+              std::isfinite(exact_result.acceptance_evidence.curvature_value) &&
+              exact_result.acceptance_evidence.curvature_value > 0.0,
+            "Exact quadratic line search did not report its curvature evidence");
 
     nmopt::solvers::WolfeLineSearchParameters wolfe_parameters;
     wolfe_parameters.maximum_trials = 30;
@@ -702,6 +710,10 @@ namespace
               trial_adjoint_calls ==
                 wolfe_adjoint_calls + wolfe_result.trial_count,
             "Wolfe line search did not retain derivative work for every trial");
+    require(wolfe_result.acceptance_evidence.policy_name == "strong_wolfe" &&
+              std::isfinite(wolfe_result.acceptance_evidence.sufficient_decrease_bound) &&
+              std::isfinite(wolfe_result.acceptance_evidence.trial_slope),
+            "Wolfe line search did not report its acceptance evidence");
 
     nmopt::solvers::WeakWolfeLineSearchParameters weak_wolfe_parameters;
     weak_wolfe_parameters.maximum_trials = 30;
@@ -726,6 +738,10 @@ namespace
               trial_adjoint_calls ==
                 weak_wolfe_adjoint_calls + weak_wolfe_result.trial_count,
             "Weak Wolfe line search did not retain derivative work for every trial");
+    require(weak_wolfe_result.acceptance_evidence.policy_name == "weak_wolfe" &&
+              std::isfinite(weak_wolfe_result.acceptance_evidence.sufficient_decrease_bound) &&
+              std::isfinite(weak_wolfe_result.acceptance_evidence.trial_slope),
+            "Weak Wolfe line search did not report its acceptance evidence");
     PrimalBlock weak_wolfe_update = weak_wolfe_result.control;
     nmopt::solvers::add_scaled_primal(weak_wolfe_update, -1.0, control);
     const double weak_wolfe_initial_slope =
@@ -1093,6 +1109,17 @@ namespace
                   solver_result.objective_history.back(),
                   1e-14,
                   "Dense reduced gradient final objective");
+    require(solver_result.parameters.maximum_iterations ==
+              solver_parameters.maximum_iterations &&
+              solver_result.policy_name == "armijo" &&
+              solver_result.policy_parameters.policy_name == "armijo" &&
+              solver_result.policy_parameters.maximum_trials ==
+                solver_parameters.maximum_line_search_trials &&
+              solver_result.policy_parameters.armijo_fraction ==
+                solver_parameters.armijo_fraction &&
+              solver_result.iteration_records.size() ==
+                solver_result.accepted_iterations,
+            "Dense reduced gradient result does not retain its audit snapshot");
     require(solver_result.final_evaluation.reduced_derivative.layout()->compatible_with(
               *solver_result.control.layout()),
             "Dense reduced gradient final covector has the wrong layout");
@@ -1107,8 +1134,22 @@ namespace
         require_close(solver_result.objective_change_history[index],
                       solver_result.objective_history[index + 1] -
                         solver_result.objective_history[index],
-                        1e-14,
-                        "Dense reduced gradient objective-change history");
+                      1e-14,
+                      "Dense reduced gradient objective-change history");
+        const auto &record = solver_result.iteration_records[index];
+        require(record.common.iteration == index + 1 &&
+                  record.common.policy_name == "armijo" &&
+                  record.common.trial_count > 0 &&
+                  record.common.actual_step_norm == solver_result.step_norm_history[index] &&
+                  record.common.per_iteration_work.state_solve_count ==
+                    record.common.trial_count &&
+                  record.common.per_iteration_work.adjoint_solve_count == 1 &&
+                  record.common.per_iteration_work.metric_solve_count == 1 &&
+                  record.acceptance_evidence.trial_slope < 0.0 &&
+                  std::isfinite(record.acceptance_evidence.sufficient_decrease_bound) &&
+                  record.common.accepted_evaluation.objective_value ==
+                    solver_result.objective_history[index + 1],
+                "Dense reduced gradient accepted-iteration audit is incomplete");
       }
 
     nmopt::solvers::ReducedGradientParameters relative_stopping_parameters =
@@ -1347,6 +1388,31 @@ namespace
               trust_region_result.adjoint_solve_count ==
                 trust_region_result.accepted_iterations + 1,
             "Trust-region formulation solve counts miss a trial evaluation");
+    require(trust_region_result.parameters.subproblem_method ==
+              trust_region_parameters.subproblem_method &&
+              trust_region_result.policy_name == "trust_region_cauchy" &&
+              trust_region_result.iteration_records.size() ==
+                trust_region_result.accepted_iterations,
+            "Trust-region result does not retain its audit snapshot");
+    for (std::size_t index = 0;
+         index < trust_region_result.accepted_iterations;
+         ++index)
+      {
+        const auto &record = trust_region_result.iteration_records[index];
+        require(record.common.iteration == index + 1 &&
+                  record.common.policy_name == "trust_region_cauchy" &&
+                  record.common.trial_count > 0 &&
+                  record.common.per_iteration_work.state_solve_count == 1 &&
+                  record.common.per_iteration_work.adjoint_solve_count == 1 &&
+                  record.common.per_iteration_work.metric_solve_count == 1 &&
+                  record.radius > 0.0 &&
+                  record.predicted_reduction > 0.0 &&
+                  record.actual_reduction > 0.0 &&
+                  std::isfinite(record.reduction_ratio) &&
+                  record.common.accepted_evaluation.objective_value ==
+                    trust_region_result.objective_history[index + 1],
+                "Trust-region accepted-iteration audit is incomplete");
+      }
 
     nmopt::solvers::ReducedTrustRegionParameters truncated_parameters =
       trust_region_parameters;

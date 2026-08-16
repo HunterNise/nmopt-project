@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -54,6 +55,7 @@ namespace nmopt::solvers
     double                              step_length;
     std::size_t                         trial_count;
     std::size_t                         hessian_action_count;
+    ReducedAcceptanceEvidence            acceptance_evidence;
 
     bool
     accepted() const noexcept
@@ -107,14 +109,18 @@ namespace nmopt::solvers
     failure(const contract::PrimalBlockT<Backend> &       current_control,
             const contract::ReducedEvaluationT<Backend> & current_evaluation,
             const std::size_t                             trial_count,
-            const std::size_t                             hessian_action_count = 0)
+            const std::size_t                             hessian_action_count,
+            const char *                                  policy_name)
     {
+      ReducedAcceptanceEvidence evidence;
+      evidence.policy_name = policy_name;
       return {ReducedLineSearchStatus::failure,
               current_control,
               current_evaluation,
               0.0,
               trial_count,
-              hessian_action_count};
+              hessian_action_count,
+              std::move(evidence)};
     }
 
     template <typename Backend>
@@ -123,14 +129,16 @@ namespace nmopt::solvers
              contract::ReducedEvaluationT<Backend>        evaluation,
              const double                                 step_length,
              const std::size_t                             trial_count,
-             const std::size_t                             hessian_action_count = 0)
+             const std::size_t                             hessian_action_count,
+             ReducedAcceptanceEvidence                     acceptance_evidence)
     {
       return {ReducedLineSearchStatus::accepted,
               control,
               std::move(evaluation),
               step_length,
               trial_count,
-              hessian_action_count};
+              hessian_action_count,
+              std::move(acceptance_evidence)};
     }
   } // namespace detail
 
@@ -155,6 +163,20 @@ namespace nmopt::solvers
       : parameters_(parameters)
     {
       validate_parameters();
+    }
+
+    ReducedLineSearchPolicySnapshot
+    snapshot() const
+    {
+      return {"armijo",
+              parameters_.maximum_trials,
+              parameters_.initial_step_length,
+              parameters_.backtracking_factor,
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              parameters_.armijo_fraction,
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN()};
     }
 
     Result
@@ -208,14 +230,20 @@ namespace nmopt::solvers
             return detail::accepted(trial_control,
                                     std::move(trial_evaluation),
                                     step_length,
-                                    trial + 1);
+                                    trial + 1,
+                                    0,
+                                    ReducedAcceptanceEvidence{
+                                      "armijo", armijo_bound, actual_slope,
+                                      std::numeric_limits<double>::quiet_NaN()});
             }
           step_length *= parameters_.backtracking_factor;
         }
 
       return detail::failure(current_control,
                              current_evaluation,
-                             parameters_.maximum_trials);
+                             parameters_.maximum_trials,
+                             0,
+                             "armijo");
     }
 
   private:
@@ -264,6 +292,20 @@ namespace nmopt::solvers
       , parameters_(parameters)
     {
       validate_parameters();
+    }
+
+    ReducedLineSearchPolicySnapshot
+    snapshot() const
+    {
+      return {"exact_quadratic",
+              1,
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              parameters_.curvature_tolerance,
+              parameters_.objective_tolerance};
     }
 
     Result
@@ -330,9 +372,18 @@ namespace nmopt::solvers
                                 std::move(trial_evaluation),
                                 step_length,
                                 1,
-                                1);
+                                1,
+                                ReducedAcceptanceEvidence{
+                                  "exact_quadratic",
+                                  objective_bound,
+                                  actual_slope,
+                                  curvature});
         }
-      return detail::failure(current_control, current_evaluation, 1, 1);
+      return detail::failure(current_control,
+                             current_evaluation,
+                             1,
+                             1,
+                             "exact_quadratic");
     }
 
   private:
@@ -375,6 +426,20 @@ namespace nmopt::solvers
       : parameters_(parameters)
     {
       validate_parameters();
+    }
+
+    ReducedLineSearchPolicySnapshot
+    snapshot() const
+    {
+      return {"strong_wolfe",
+              parameters_.maximum_trials,
+              parameters_.initial_step_length,
+              parameters_.backtracking_factor,
+              parameters_.sufficient_decrease_fraction,
+              parameters_.curvature_fraction,
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN()};
     }
 
     Result
@@ -431,13 +496,22 @@ namespace nmopt::solvers
             return detail::accepted(trial_control,
                                     std::move(trial_evaluation),
                                     step_length,
-                                    trial + 1);
+                                    trial + 1,
+                                    0,
+                                    ReducedAcceptanceEvidence{
+                                      "strong_wolfe",
+                                      sufficient_decrease_bound,
+                                      actual_trial_slope,
+                                      parameters_.curvature_fraction *
+                                        std::abs(actual_initial_slope)});
           step_length *= parameters_.backtracking_factor;
         }
 
       return detail::failure(current_control,
                              current_evaluation,
-                             parameters_.maximum_trials);
+                             parameters_.maximum_trials,
+                             0,
+                             "strong_wolfe");
     }
 
   private:
@@ -479,6 +553,20 @@ namespace nmopt::solvers
       : parameters_(parameters)
     {
       validate_parameters();
+    }
+
+    ReducedLineSearchPolicySnapshot
+    snapshot() const
+    {
+      return {"weak_wolfe",
+              parameters_.maximum_trials,
+              parameters_.initial_step_length,
+              parameters_.backtracking_factor,
+              parameters_.sufficient_decrease_fraction,
+              parameters_.curvature_fraction,
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN()};
     }
 
     Result
@@ -535,13 +623,22 @@ namespace nmopt::solvers
             return detail::accepted(trial_control,
                                     std::move(trial_evaluation),
                                     step_length,
-                                    trial + 1);
+                                    trial + 1,
+                                    0,
+                                    ReducedAcceptanceEvidence{
+                                      "weak_wolfe",
+                                      sufficient_decrease_bound,
+                                      actual_trial_slope,
+                                      parameters_.curvature_fraction *
+                                        actual_initial_slope});
           step_length *= parameters_.backtracking_factor;
         }
 
       return detail::failure(current_control,
                              current_evaluation,
-                             parameters_.maximum_trials);
+                             parameters_.maximum_trials,
+                             0,
+                             "weak_wolfe");
     }
 
   private:
@@ -569,4 +666,80 @@ namespace nmopt::solvers
 
   using WeakWolfeLineSearchPolicy =
     WeakWolfeLineSearchPolicyT<contract::DenseBackend>;
+
+  template <typename Policy>
+  inline ReducedLineSearchPolicySnapshot
+  reduced_line_search_policy_snapshot(const Policy &)
+  {
+    ReducedLineSearchPolicySnapshot snapshot;
+    snapshot.policy_name = "custom_line_search";
+    return snapshot;
+  }
+
+  template <typename Backend>
+  inline ReducedLineSearchPolicySnapshot
+  reduced_line_search_policy_snapshot(const ArmijoLineSearchPolicyT<Backend> &policy)
+  {
+    return policy.snapshot();
+  }
+
+  template <typename Backend>
+  inline ReducedLineSearchPolicySnapshot
+  reduced_line_search_policy_snapshot(
+    const ExactQuadraticLineSearchPolicyT<Backend> &policy)
+  {
+    return policy.snapshot();
+  }
+
+  template <typename Backend>
+  inline ReducedLineSearchPolicySnapshot
+  reduced_line_search_policy_snapshot(const WolfeLineSearchPolicyT<Backend> &policy)
+  {
+    return policy.snapshot();
+  }
+
+  template <typename Backend>
+  inline ReducedLineSearchPolicySnapshot
+  reduced_line_search_policy_snapshot(
+    const WeakWolfeLineSearchPolicyT<Backend> &policy)
+  {
+    return policy.snapshot();
+  }
+
+  template <typename Policy>
+  inline std::string
+  reduced_line_search_policy_name(const Policy &)
+  {
+    return "custom_line_search";
+  }
+
+  template <typename Backend>
+  inline std::string
+  reduced_line_search_policy_name(const ArmijoLineSearchPolicyT<Backend> &)
+  {
+    return "armijo";
+  }
+
+  template <typename Backend>
+  inline std::string
+  reduced_line_search_policy_name(
+    const ExactQuadraticLineSearchPolicyT<Backend> &)
+  {
+    return "exact_quadratic";
+  }
+
+  template <typename Backend>
+  inline std::string
+  reduced_line_search_policy_name(const WolfeLineSearchPolicyT<Backend> &)
+  {
+    return "strong_wolfe";
+  }
+
+  template <typename Backend>
+  inline std::string
+  reduced_line_search_policy_name(
+    const WeakWolfeLineSearchPolicyT<Backend> &)
+  {
+    return "weak_wolfe";
+  }
 } // namespace nmopt::solvers

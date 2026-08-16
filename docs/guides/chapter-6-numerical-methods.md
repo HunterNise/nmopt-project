@@ -188,6 +188,17 @@ because their curvature predicates require a trial slope. Trust-region
 reduction-ratio trials follow the value-only path and augment only after
 acceptance.
 
+The terminal report is an audit boundary as well as a convergence result. It
+retains the final accepted evaluation, the solver-parameter and policy
+snapshot, the typed stopping reason, and one typed record for every accepted
+iteration. A reduced line-search record includes the before/after objective,
+requested and actual step data, stationarity measures, acceptance evidence,
+per-iteration and cumulative work, inner Hessian diagnostics, direction-reset
+information, and the accepted evaluation. A trust-region record adds the
+radius, predicted and actual reductions, reduction ratio, and subproblem
+diagnostics. The older parallel histories remain compatibility views and are
+checked against these records when the terminal report is assembled.
+
 The book writes directions in Euclidean coefficient coordinates. In this
 framework, $g=G^{-1}j_{h}'(u)$ is the gradient for the selected metric $G$.
 The portable steepest direction is therefore $d=-g$, not bare coefficient

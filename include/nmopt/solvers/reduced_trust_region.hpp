@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <limits>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -96,6 +97,19 @@ namespace nmopt::solvers
     return "unknown";
   }
 
+  template <typename Backend>
+  struct ReducedTrustRegionIterationRecordT
+  {
+    ReducedAcceptedIterationCommonT<Backend> common;
+    double                         radius = 0.0;
+    double                         predicted_reduction = 0.0;
+    double                         actual_reduction = 0.0;
+    double                         reduction_ratio = 0.0;
+    ReducedTrustRegionSubproblemStatus subproblem_status;
+    std::size_t                    subproblem_iteration_count = 0;
+    double                         subproblem_residual_norm = 0.0;
+  };
+
   struct ReducedTrustRegionParameters
   {
     unsigned int maximum_iterations = 100;
@@ -147,6 +161,9 @@ namespace nmopt::solvers
     std::size_t                       metric_solve_count;
     std::size_t                       hessian_action_count;
     ReducedTrustRegionStoppingReason  stopping_reason;
+    ReducedTrustRegionParameters       parameters;
+    std::string                        policy_name;
+    std::vector<ReducedTrustRegionIterationRecordT<Backend>> iteration_records;
   };
 
   using ReducedTrustRegionResult =
@@ -216,6 +233,7 @@ namespace nmopt::solvers
         subproblem_status_history;
       std::vector<std::size_t> subproblem_iteration_history;
       std::vector<double>      subproblem_residual_norm_history;
+      std::vector<ReducedTrustRegionIterationRecordT<Backend>> iteration_records;
 
       const auto finish =
         [&](const ReducedTrustRegionStoppingReason stopping_reason) {
@@ -239,11 +257,18 @@ namespace nmopt::solvers
                         adjoint_solve_count,
                         metric_solve_count,
                         hessian_action_count,
-                        stopping_reason);
+                        stopping_reason,
+                        std::move(iteration_records));
         };
 
       for (;;)
         {
+          const ReducedIterationWork work_before{
+            state_solve_count,
+            adjoint_solve_count,
+            metric_solve_count,
+            hessian_action_count,
+            0};
           const ReducedMetricGradientT<Backend> metric_gradient =
             make_metric_gradient(current_evaluation.reduced_derivative, metric_);
           ++metric_solve_count;
@@ -356,11 +381,51 @@ namespace nmopt::solvers
                   Evaluation trial_evaluation =
                     reduced_.augment_derivative(trial_value);
                   ++adjoint_solve_count;
+                  Primal actual_update = subproblem.step;
+                  const double actual_descent_pairing =
+                    contract::pair(current_evaluation.reduced_derivative,
+                                   actual_update);
+                  contract::require(std::isfinite(actual_descent_pairing),
+                                    "Trust-region accepted a non-finite descent pairing");
+                  const ReducedIterationWork work_after{
+                    state_solve_count,
+                    adjoint_solve_count,
+                    metric_solve_count,
+                    hessian_action_count,
+                    0};
                   current_control = std::move(trial_control);
                   current_evaluation = std::move(trial_evaluation);
                   objective_history.push_back(current_evaluation.objective_value);
                   ++accepted_iterations;
                   accepted = true;
+
+                  iteration_records.push_back(
+                    ReducedTrustRegionIterationRecordT<Backend>{
+                      {accepted_iterations,
+                       std::string("trust_region_") +
+                         reduced_trust_region_subproblem_method_name(
+                           parameters_.subproblem_method),
+                       objective_history[objective_history.size() - 2],
+                       current_evaluation.objective_value,
+                       current_evaluation.objective_value -
+                         objective_history[objective_history.size() - 2],
+                       radius,
+                       subproblem.step_norm,
+                       actual_descent_pairing,
+                       gradient_norm,
+                       relative_gradient_norm,
+                       trial + 1,
+                       reduced_iteration_work_difference(work_after, work_before),
+                       work_after,
+                       {},
+                       current_evaluation},
+                      radius,
+                      subproblem.predicted_reduction,
+                      actual_reduction,
+                      reduction_ratio,
+                      subproblem.status,
+                      subproblem.iteration_count,
+                      subproblem.residual_norm});
 
                   if (reduction_ratio > parameters_.expansion_threshold &&
                       subproblem.step_norm >= 0.9 * radius)
@@ -753,7 +818,7 @@ namespace nmopt::solvers
                         "Trust-region expansion factor must exceed one");
     }
 
-    static Result
+    Result
     result(Primal                         control,
            Evaluation                     final_evaluation,
            std::vector<double>            objective_history,
@@ -775,8 +840,34 @@ namespace nmopt::solvers
            const std::size_t              adjoint_solve_count,
            const std::size_t              metric_solve_count,
            const std::size_t              hessian_action_count,
-           const ReducedTrustRegionStoppingReason stopping_reason)
+           const ReducedTrustRegionStoppingReason stopping_reason,
+           std::vector<ReducedTrustRegionIterationRecordT<Backend>>
+             iteration_records) const
     {
+      contract::require(iteration_records.size() == accepted_iterations,
+                        "Trust-region iteration records are incomplete");
+      for (std::size_t index = 0; index < accepted_iterations; ++index)
+        {
+          const auto &audit_record = iteration_records[index];
+          const auto &record = audit_record.common;
+          contract::require(record.iteration == index + 1 &&
+                              record.objective_before ==
+                                objective_history[index] &&
+                              record.objective_after ==
+                                objective_history[index + 1] &&
+                              record.objective_change ==
+                                record.objective_after -
+                                  record.objective_before &&
+                              record.absolute_stationarity ==
+                                gradient_norm_history[index] &&
+                              record.relative_stationarity ==
+                                relative_gradient_norm_history[index] &&
+                              record.accepted_evaluation.objective_value ==
+                                objective_history[index + 1] &&
+                              audit_record.predicted_reduction > 0.0 &&
+                              audit_record.actual_reduction > 0.0,
+                            "Trust-region compatibility histories disagree with audit records");
+        }
       return {std::move(control),
               std::move(final_evaluation),
               std::move(objective_history),
@@ -797,7 +888,12 @@ namespace nmopt::solvers
               adjoint_solve_count,
               metric_solve_count,
               hessian_action_count,
-              stopping_reason};
+              stopping_reason,
+              parameters_,
+              std::string("trust_region_") +
+                reduced_trust_region_subproblem_method_name(
+                  parameters_.subproblem_method),
+              std::move(iteration_records)};
     }
 
     const contract::ReducedDTOT<Backend> &   reduced_;

@@ -336,6 +336,63 @@ namespace
     return value;
   }
 
+  void
+  require_compiled_hessian_evidence(
+    const compiler::v1::CompiledProblemT<Backend> &problem,
+    const std::string                            &target)
+  {
+    const auto &model = problem.executable_model();
+    const auto *hessian = problem.reduced_hessian();
+    contract::require(hessian != nullptr,
+                      target + " compiled target omitted its Hessian capability");
+
+    const auto reduced = problem.make_reduced_dto();
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+
+    dealii::Vector<double> direction_values(control.layout()->dimension(0));
+    dealii::Vector<double> second_direction_values(
+      control.layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < direction_values.size();
+         ++index)
+      {
+        direction_values[index] =
+          (index % 2 == 0 ? 0.04 : -0.03) * static_cast<double>(index + 1);
+        second_direction_values[index] =
+          (index % 3 == 0 ? -0.02 : 0.03) * static_cast<double>(index + 1);
+      }
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const Primal second_direction(
+      control.layout(), {std::move(second_direction_values)});
+    const Covector hessian_action = hessian->apply(control, direction);
+    const Covector second_hessian_action =
+      hessian->apply(control, second_direction);
+    require_close(contract::pair(hessian_action, second_direction),
+                  contract::pair(second_hessian_action, direction),
+                  1e-10,
+                  target + " compiled Hessian symmetry");
+
+    constexpr double hessian_step = 1e-5;
+    const Covector reduced_derivative_plus =
+      reduced.evaluate(shifted(control, direction, hessian_step))
+        .reduced_derivative;
+    const Covector reduced_derivative_minus =
+      reduced.evaluate(shifted(control, direction, -hessian_step))
+        .reduced_derivative;
+    Covector hessian_finite_difference = reduced_derivative_plus;
+    hessian_finite_difference.add_scaled_block(
+      0, -1.0, reduced_derivative_minus.block(0));
+    hessian_finite_difference.scale_block(0, 1.0 / (2.0 * hessian_step));
+    hessian_finite_difference.add_scaled_block(
+      0, -1.0, hessian_action.block(0));
+    require_close(hessian_finite_difference.block(0).l2_norm(),
+                  0.0,
+                  2e-8,
+                  target + " compiled Hessian finite-difference action");
+  }
+
   template <int dim>
   void
   run_continuous_control_component_contract_test()
@@ -1608,6 +1665,8 @@ namespace
                                                 policy);
     contract::require(material_one.succeeded() && material_zero.succeeded(),
                       "material-subdomain v1 compilation failed");
+    require_compiled_hessian_evidence(*material_one.problem,
+                                      "subdomain observation");
 
     const auto &one_model = material_one.problem->executable_model();
     const auto &zero_model = material_zero.problem->executable_model();
@@ -1821,6 +1880,8 @@ namespace
                                               policy);
     contract::require(compilation.succeeded(),
                       "H1-state observation v1 compilation failed");
+    require_compiled_hessian_evidence(*compilation.problem,
+                                      "H1 state observation");
     const auto &model = compilation.problem->executable_model();
     const auto reduced = compilation.problem->make_reduced_dto();
     dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
@@ -2014,6 +2075,7 @@ namespace
                                               policy);
     contract::require(compilation.succeeded(),
                       "point-sensor v1 compilation failed");
+    require_compiled_hessian_evidence(*compilation.problem, "point sensor");
     test_support::require_manifest_compatibility_equal(
       compilation.problem->manifest(),
       display_only_compilation.problem->manifest(),
@@ -2295,6 +2357,7 @@ namespace
                                               policy);
     contract::require(compilation.succeeded(),
                       "normal-flux v1 compilation failed");
+    require_compiled_hessian_evidence(*compilation.problem, "normal flux");
     test_support::require_manifest_compatibility_equal(
       compilation.problem->manifest(),
       display_only_compilation.problem->manifest(),
@@ -3370,6 +3433,9 @@ namespace
                                                         policy);
     contract::require(h1_metric_compilation.succeeded(),
                       "H1-control metric v1 compilation failed");
+    contract::require(compilation.problem->reduced_hessian() == nullptr &&
+                        h1_metric_compilation.problem->reduced_hessian() == nullptr,
+                      "continuous H1-control targets unexpectedly exposed a reduced Hessian");
 
     const auto &model = compilation.problem->executable_model();
     const auto reduced = compilation.problem->make_reduced_dto();
@@ -4205,6 +4271,8 @@ namespace
                         robin_bilinear_only.succeeded() &&
                         robin_source_only.succeeded() && combined.succeeded(),
                       "P5.1 coefficient recombination did not compile");
+    require_compiled_hessian_evidence(*combined.problem,
+                                      "nonsymmetric general scalar");
 
     const auto &base_model = base.problem->executable_model();
     dealii::Vector<double> state_values(

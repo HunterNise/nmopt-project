@@ -267,6 +267,25 @@ $A\delta y=Bw$, solve $A^{\mathsf T}\delta p=W\delta y$, and return
 $\beta Nw+B^{\mathsf T}\delta p$. This is the matrix-free Hessian action for
 CG/Newton and the source's reduced-Hessian system.
 
+The compiled deal.II capability remains optional at the product boundary. Its
+coverage matrix exercises both the symmetry and centered finite-difference
+reduced-covector checks for every assembled scalar family that receives the
+provider:
+
+| Compiled target | Provider status | Scenario |
+| --- | --- | --- |
+| Fixed-Dirichlet volume | exposed and checked | `fixed_dirichlet` |
+| Material-subdomain volume | exposed and checked | `subdomain_observation` |
+| Full-domain $H^1$ state observation | exposed and checked | `h1_state_observation` |
+| Point sensor | exposed and checked | `point_sensor` |
+| Normal flux | exposed and checked | `normal_flux` |
+| Nonsymmetric general scalar tensor/transport/Robin | exposed and checked | `general_scalar_robin` |
+| Continuous H1-control targets | intentionally absent | `h1_control` |
+
+The direct serial deal.II scalar target has the same two action checks in its
+canonical volume scenario. Other compiled target families do not acquire a
+Hessian merely from sharing first-order residual infrastructure.
+
 The reduced Newton direction solves the covector equation
 $`H d=-j_{h}'`$ with metric-preconditioned conjugate gradients. Its residual
 norm is $`\sqrt{\langle r,G^{-1}r\rangle}`$, where

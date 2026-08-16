@@ -972,6 +972,10 @@ also supplies the exact tangent-state/incremental-adjoint
 `ReducedHessianT<SerialBackend>` action, with symmetry, finite-difference, and
 reduced-Newton verification. The compiled direct and v1 assembled scalar
 targets now expose this optional capability through `CompiledProblemT`; the
+compiled v1 coverage matrix verifies symmetry and centered finite-difference
+reduced-covector actions for fixed volume, material subdomain, H1 state,
+point-sensor, normal-flux, and nonsymmetric general-scalar targets, while
+continuous H1-control targets explicitly retain the absent capability; the
 benchmark harness remains separate.
 
 #### P6.1 extension ladder

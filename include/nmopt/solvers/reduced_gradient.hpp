@@ -219,6 +219,32 @@ namespace nmopt::solvers
                           direction_policy.reset_count(),
                           std::move(iteration_records));
 
+          const bool post_step_stopping =
+            parameters_.stopping_criterion ==
+                ReducedStoppingCriterion::objective_change ||
+            parameters_.stopping_criterion ==
+              ReducedStoppingCriterion::step_norm;
+          if (post_step_stopping &&
+              reduced_is_numerically_stationary(stopping_norm))
+            return result(current_control,
+                          std::move(current_evaluation),
+                          std::move(objective_history),
+                          std::move(gradient_norm_history),
+                          std::move(relative_gradient_norm_history),
+                          std::move(hessian_solve_history),
+                          accepted_iterations,
+                          line_search_trial_count,
+                          state_solve_count,
+                          adjoint_solve_count,
+                          ReducedGradientStoppingReason::stationary,
+                          std::move(step_length_history),
+                          std::move(step_norm_history),
+                          std::move(objective_change_history),
+                          metric_solve_count,
+                          hessian_action_count,
+                          direction_policy.reset_count(),
+                          std::move(iteration_records));
+
           contract::require(unit_step_descent_measure < 0.0,
                             "Reduced gradient did not produce a descent direction");
 

@@ -1346,6 +1346,34 @@ namespace
                     1e-10,
                     "Exact-search PR+ and Fletcher-Reeves control equivalence");
 
+    nmopt::solvers::ReducedGradientParameters stationary_gradient_parameters =
+      solver_parameters;
+    stationary_gradient_parameters.gradient_tolerance = 1e-30;
+    stationary_gradient_parameters.objective_change_tolerance = 1e-12;
+    stationary_gradient_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::objective_change;
+    const nmopt::solvers::ReducedGradientSolver stationary_objective_solver(
+      reduced, metric, stationary_gradient_parameters);
+    const auto stationary_objective_result = stationary_objective_solver.solve(
+      exact_pr_result.control);
+    require(stationary_objective_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::stationary &&
+              stationary_objective_result.accepted_iterations == 0 &&
+              stationary_objective_result.line_search_trial_count == 0,
+            "Reduced objective-change stopping did not report a stationary initial iterate");
+
+    stationary_gradient_parameters.step_tolerance = 1e-12;
+    stationary_gradient_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::step_norm;
+    const nmopt::solvers::ReducedGradientSolver stationary_step_solver(
+      reduced, metric, stationary_gradient_parameters);
+    const auto stationary_step_result = stationary_step_solver.solve(
+      exact_pr_result.control);
+    require(stationary_step_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::stationary &&
+              stationary_step_result.accepted_iterations == 0,
+            "Reduced step-only stopping did not report a stationary initial iterate");
+
     const nmopt::solvers::ReducedQuadraticConjugateGradientSolver qcg_solver(
       reduced,
       metric,
@@ -1370,6 +1398,25 @@ namespace
                     1e-12,
                     "Quadratic CG and Fletcher-Reeves objective equivalence");
 
+    nmopt::solvers::ReducedGradientParameters stationary_after_step_parameters =
+      stationary_gradient_parameters;
+    stationary_after_step_parameters.objective_change_tolerance = 1e-30;
+    stationary_after_step_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::objective_change;
+    const nmopt::solvers::ReducedExactConjugateGradientSolver
+      stationary_after_step_solver(
+        reduced,
+        metric,
+        stationary_after_step_parameters,
+        CGPolicy{},
+        exact_cg_line_search);
+    const auto stationary_after_step_result = stationary_after_step_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(stationary_after_step_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::stationary &&
+              stationary_after_step_result.accepted_iterations > 0,
+            "Reduced objective-change stopping did not report stationarity after an accepted step");
+
     nmopt::solvers::ReducedTrustRegionParameters trust_region_parameters;
     trust_region_parameters.maximum_iterations = 100;
     trust_region_parameters.maximum_trials_per_iteration = 10;
@@ -1377,6 +1424,59 @@ namespace
     trust_region_parameters.initial_radius = 0.25;
     trust_region_parameters.minimum_radius = 1e-12;
     trust_region_parameters.maximum_radius = 4.0;
+
+    nmopt::solvers::ReducedTrustRegionParameters stationary_trust_parameters =
+      trust_region_parameters;
+    stationary_trust_parameters.gradient_tolerance = 1e-30;
+    stationary_trust_parameters.objective_change_tolerance = 1e-12;
+    stationary_trust_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::objective_change;
+    const nmopt::solvers::ReducedTrustRegionSolver stationary_trust_objective_solver(
+      reduced, metric, hessian, stationary_trust_parameters);
+    const auto stationary_trust_objective_result =
+      stationary_trust_objective_solver.solve(exact_pr_result.control);
+    require(stationary_trust_objective_result.stopping_reason ==
+              nmopt::solvers::ReducedTrustRegionStoppingReason::stationary &&
+              stationary_trust_objective_result.accepted_iterations == 0 &&
+              stationary_trust_objective_result.trial_count == 0,
+            "Trust-region objective-change stopping did not report a stationary initial iterate");
+
+    stationary_trust_parameters.step_tolerance = 1e-12;
+    stationary_trust_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::step_norm;
+    const nmopt::solvers::ReducedTrustRegionSolver stationary_trust_step_solver(
+      reduced, metric, hessian, stationary_trust_parameters);
+    const auto stationary_trust_step_result =
+      stationary_trust_step_solver.solve(exact_pr_result.control);
+    require(stationary_trust_step_result.stopping_reason ==
+              nmopt::solvers::ReducedTrustRegionStoppingReason::stationary &&
+              stationary_trust_step_result.accepted_iterations == 0 &&
+              stationary_trust_step_result.trial_count == 0,
+            "Trust-region step-only stopping did not report a stationary initial iterate");
+
+    nmopt::solvers::ReducedTrustRegionParameters stationary_trust_after_step_parameters =
+      trust_region_parameters;
+    stationary_trust_after_step_parameters.stopping_criterion =
+      nmopt::solvers::ReducedStoppingCriterion::objective_change;
+    stationary_trust_after_step_parameters.gradient_tolerance = 1e-30;
+    stationary_trust_after_step_parameters.objective_change_tolerance = 1e-30;
+    stationary_trust_after_step_parameters.subproblem_method =
+      nmopt::solvers::ReducedTrustRegionSubproblemMethod::truncated_conjugate_gradient;
+    stationary_trust_after_step_parameters.maximum_subproblem_iterations = 10;
+    stationary_trust_after_step_parameters.subproblem_relative_tolerance = 1e-12;
+    stationary_trust_after_step_parameters.subproblem_absolute_tolerance = 1e-14;
+    stationary_trust_after_step_parameters.initial_radius = 100.0;
+    stationary_trust_after_step_parameters.maximum_radius = 100.0;
+    const nmopt::solvers::ReducedTrustRegionSolver stationary_trust_after_step_solver(
+      reduced, metric, hessian, stationary_trust_after_step_parameters);
+    const auto stationary_trust_after_step_result =
+      stationary_trust_after_step_solver.solve(
+        PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(stationary_trust_after_step_result.stopping_reason ==
+              nmopt::solvers::ReducedTrustRegionStoppingReason::stationary &&
+              stationary_trust_after_step_result.accepted_iterations > 0,
+            "Trust-region objective-change stopping did not report stationarity after an accepted step");
+
     const nmopt::solvers::ReducedTrustRegionSolver trust_region_solver(
       reduced, metric, hessian, trust_region_parameters);
     const auto trust_region_result = trust_region_solver.solve(

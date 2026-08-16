@@ -50,6 +50,7 @@ namespace nmopt::solvers
   {
     gradient_tolerance,
     relative_gradient_tolerance,
+    stationary,
     objective_change_tolerance,
     step_tolerance,
     maximum_iterations,
@@ -65,6 +66,8 @@ namespace nmopt::solvers
           return "gradient_tolerance";
         case ReducedStoppingReason::relative_gradient_tolerance:
           return "relative_gradient_tolerance";
+        case ReducedStoppingReason::stationary:
+          return "stationary";
         case ReducedStoppingReason::objective_change_tolerance:
           return "objective_change_tolerance";
         case ReducedStoppingReason::step_tolerance:
@@ -75,6 +78,13 @@ namespace nmopt::solvers
           return "line_search_failure";
       }
     return "unknown";
+  }
+
+  inline bool
+  reduced_is_numerically_stationary(const double norm) noexcept
+  {
+    return std::isfinite(norm) &&
+           norm <= 100.0 * std::numeric_limits<double>::epsilon();
   }
 
   inline const char *

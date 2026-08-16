@@ -232,8 +232,15 @@ If a nonzero outer residual is already below the requested inner tolerance,
 the Newton and truncated-CG policies still perform one inner action before
 reporting convergence. This forcing step prevents a loose inner absolute
 tolerance from returning a zero direction or zero predicted reduction to a
-nonstationary outer iteration; an exactly stationary iterate is handled by
-the outer gradient stopping criterion.
+nonstationary outer iteration; stationary outer iterates are handled by the
+solver's outer stopping logic.
+
+When objective-change or step-only stopping is selected, a numerically
+stationary iterate returns the typed `stationary` outcome before the solver
+requires a descent direction or trust-region subproblem. This covers both a
+stationary initial control and stationarity reached after an accepted update;
+the exclusive objective-change and step-only criteria retain their existing
+behavior away from stationarity.
 
 For a linear-quadratic target, the reduced Hessian is constant:
 

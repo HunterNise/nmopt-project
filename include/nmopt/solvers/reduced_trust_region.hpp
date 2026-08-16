@@ -17,6 +17,7 @@ namespace nmopt::solvers
   {
     gradient_tolerance,
     relative_gradient_tolerance,
+    stationary,
     objective_change_tolerance,
     step_tolerance,
     maximum_iterations,
@@ -34,6 +35,8 @@ namespace nmopt::solvers
           return "gradient_tolerance";
         case ReducedTrustRegionStoppingReason::relative_gradient_tolerance:
           return "relative_gradient_tolerance";
+        case ReducedTrustRegionStoppingReason::stationary:
+          return "stationary";
         case ReducedTrustRegionStoppingReason::objective_change_tolerance:
           return "objective_change_tolerance";
         case ReducedTrustRegionStoppingReason::step_tolerance:
@@ -302,6 +305,15 @@ namespace nmopt::solvers
                 parameters_.relative_gradient_tolerance)
             return finish(
               ReducedTrustRegionStoppingReason::relative_gradient_tolerance);
+
+          const bool post_step_stopping =
+            parameters_.stopping_criterion ==
+                ReducedStoppingCriterion::objective_change ||
+            parameters_.stopping_criterion ==
+              ReducedStoppingCriterion::step_norm;
+          if (post_step_stopping &&
+              reduced_is_numerically_stationary(gradient_norm))
+            return finish(ReducedTrustRegionStoppingReason::stationary);
 
           if (accepted_iterations == parameters_.maximum_iterations)
             return finish(ReducedTrustRegionStoppingReason::maximum_iterations);

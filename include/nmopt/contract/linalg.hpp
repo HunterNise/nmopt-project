@@ -255,6 +255,18 @@ namespace nmopt::contract
     }
 
     static double
+    value(const Vector &vector, const std::size_t index)
+    {
+      return vector[index];
+    }
+
+    static void
+    set_value(Vector &vector, const std::size_t index, const double value)
+    {
+      vector[index] = value;
+    }
+
+    static double
     dot(const Vector &left, const Vector &right)
     {
       return nmopt::contract::dot(left, right);

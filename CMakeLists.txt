@@ -124,6 +124,10 @@ if(BUILD_TESTING)
     tests/quadratic_kkt_reference_contract.cc)
 
   nmopt_add_neutral_test(
+    nmopt_complementarity_contract_test
+    tests/complementarity_contract.cc)
+
+  nmopt_add_neutral_test(
     nmopt_semantic_v1_contract_test
     tests/semantic_v1_contract.cc)
 endif()

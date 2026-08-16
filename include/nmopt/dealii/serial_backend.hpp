@@ -51,6 +51,18 @@ namespace nmopt::dealii_backend
     }
 
     static double
+    value(const Vector &vector, const std::size_t index)
+    {
+      return vector[checked_native_size(index)];
+    }
+
+    static void
+    set_value(Vector &vector, const std::size_t index, const double value)
+    {
+      vector[checked_native_size(index)] = value;
+    }
+
+    static double
     dot(const Vector &left, const Vector &right)
     {
       return left * right;

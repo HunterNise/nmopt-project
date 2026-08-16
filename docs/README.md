@@ -67,6 +67,9 @@ stress the interfaces.
   preparation and selected Chapter 5 implementation remediation reviews. They
   give the bounded repair sequences; the implementation roadmap owns
   remediation status.
+- [Chapter 6 reviews](planning/review/chapter-6/README.md) index the incremental
+  P6 implementation review and remediation handoffs; the implementation
+  roadmap remains the mutable status ledger.
 - [Pre-Chapter 5/6 review routing](planning/review/pre-ch5-ch6/README.md) tells
   an agent what to read for one bounded review batch.
 - [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md) defines the accepted
@@ -102,6 +105,7 @@ convention before inspecting or changing repository content.
 | Repair the reviewed P5.2 implementation | [P5.2 remediation review](planning/review/chapter-5/p5.2-remediation-review.md) | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [selected policies](implementation/implementation-readiness-review.md) |
 | Repair the reviewed P5.3 implementation | [P5.3 remediation review](planning/review/chapter-5/p5.3-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.4 implementation | [P5.4 remediation review](planning/review/chapter-5/p5.4-remediation-review.md) | [P5.3 remediation review](planning/review/chapter-5/p5.3-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
+| Review the Chapter 6 implementation | [Chapter 6 reviews](planning/review/chapter-6/README.md) | [Chapter 6 methods](guides/chapter-6-numerical-methods.md), [implementation roadmap](planning/implementation-roadmap.md), and the relevant executable/compiler contract |
 | Execute one Stage B review batch | [Pre-Chapter 5/6 review routing](planning/review/pre-ch5-ch6/README.md) | The current batch in the [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), assigned findings, and task-specific authorities above |
 | Review the complete pre-Chapter 5/6 evidence | [Pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md) | [Assessment plan](planning/review/pre-ch5-ch6/assessment-plan.md) only when the audit method matters |
 | Choose the next implementation task | [Implementation roadmap](planning/implementation-roadmap.md) | The task-specific contract or guide listed above |

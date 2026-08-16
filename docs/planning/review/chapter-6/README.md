@@ -9,6 +9,9 @@ handoff.
 The P6.1 review covers its complete 22-commit history from `ff773d5` through
 `de4dd2f`. It records four open P1 defects, three open P2 evidence or
 edge-policy gaps, and one implementation defect resolved within the reviewed
-history. P6.2 is the next review batch.
+history. The P6.2 review covers its six commits from `0533db2` through
+`c8ef6fc`; it records three open P1 defects and one open P2 verification gap.
+P6.3 is the next review batch.
 
 - [P6.1 implementation review](p6.1-implementation-review.md)
+- [P6.2 implementation review](p6.2-implementation-review.md)

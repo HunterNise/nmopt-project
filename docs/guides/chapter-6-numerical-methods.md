@@ -173,6 +173,14 @@ $j_{h}(u)=J_{h}(y(u),u)$. Every reduced iteration must:
 5. report accepted state, adjoint, covector, objective, step, and solve
    counts.
 
+The reduced DTO executable boundary separates value work from derivative work.
+`evaluate_value(control)` performs one checked state solve and returns a value
+record containing the state, full point, control, objective, and state-solve
+evidence. `augment_derivative(value)` validates that record against the same
+compiled service and adds one adjoint solve plus the reduced covector without
+repeating the state solve or objective evaluation. `evaluate(control)` remains
+the compatibility composition of these two stages.
+
 The book writes directions in Euclidean coefficient coordinates. In this
 framework, $g=G^{-1}j_{h}'(u)$ is the gradient for the selected metric $G$.
 The portable steepest direction is therefore $d=-g$, not bare coefficient

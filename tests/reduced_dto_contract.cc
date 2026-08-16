@@ -229,6 +229,66 @@ namespace
     LayoutPtr layout_;
   };
 
+  class CountingLinearQuadraticModel final : public ExecutableModel
+  {
+  public:
+    explicit CountingLinearQuadraticModel(const LinearQuadraticModel &model)
+      : model_(model)
+    {}
+
+    const LayoutPtr &
+    variable_layout() const override
+    {
+      return model_.variable_layout();
+    }
+
+    const LayoutPtr &
+    test_layout() const override
+    {
+      return model_.test_layout();
+    }
+
+    CovectorBlock
+    residual(const PrimalBlock &variables) const override
+    {
+      return model_.residual(variables);
+    }
+
+    CovectorBlock
+    residual_jvp(const PrimalBlock &variables,
+                 const PrimalBlock &variable_tangent) const override
+    {
+      return model_.residual_jvp(variables, variable_tangent);
+    }
+
+    CovectorBlock
+    residual_vjp(const PrimalBlock &variables,
+                 const PrimalBlock &test_seed) const override
+    {
+      return model_.residual_vjp(variables, test_seed);
+    }
+
+    double
+    objective(const PrimalBlock &variables) const override
+    {
+      ++objective_calls;
+      return model_.objective(variables);
+    }
+
+    CovectorBlock
+    objective_derivative(const PrimalBlock &variables) const override
+    {
+      ++objective_derivative_calls;
+      return model_.objective_derivative(variables);
+    }
+
+    mutable std::size_t objective_calls = 0;
+    mutable std::size_t objective_derivative_calls = 0;
+
+  private:
+    const LinearQuadraticModel &model_;
+  };
+
   void
   require_close(const double actual,
                 const double expected,
@@ -1533,6 +1593,94 @@ namespace
   }
 
   void
+  test_staged_reduced_evaluation()
+  {
+    const LinearQuadraticModel base_model(
+      DenseMatrix(2, 2, {4.0, -1.0, -1.0, 3.0}),
+      DenseMatrix(2, 2, {1.0, 0.5, -0.25, 2.0}),
+      DenseVector{1.0, -0.5},
+      DenseMatrix(2, 2, {1.0, 0.0, 0.5, 1.0}),
+      DenseVector{0.25, -1.0},
+      DenseVector{1.5, 0.75},
+      DenseVector{2.0, 3.0},
+      0.4);
+    const CountingLinearQuadraticModel model(base_model);
+    const StateControlPartition partition(model, 0, 1);
+
+    std::size_t state_calls   = 0;
+    std::size_t adjoint_calls = 0;
+    const StateAdjointSolvers solvers{
+      [&base_model, &state_calls](const PrimalBlock &control) {
+        ++state_calls;
+        return FormulationSolveResultT<DenseBackend>(
+          base_model.solve_state(control));
+      },
+      [&base_model, &adjoint_calls](const PrimalBlock &full_point,
+                                    const CovectorBlock &state_rhs) {
+        ++adjoint_calls;
+        return FormulationSolveResultT<DenseBackend>(
+          base_model.solve_adjoint(full_point, state_rhs));
+      }};
+    const ReducedDTO reduced(model, partition, solvers);
+    const PrimalBlock control(partition.control_layout(),
+                              {DenseVector{0.4, -0.3}});
+
+    const ReducedValueEvaluation value = reduced.evaluate_value(control);
+    require(state_calls == 1 && adjoint_calls == 0,
+            "Reduced value evaluation performed unexpected solve work");
+    require(model.objective_calls == 1 &&
+              model.objective_derivative_calls == 0,
+            "Reduced value evaluation performed unexpected objective work");
+    require(value.state_solve.converged(),
+            "Reduced value evaluation did not retain state solve evidence");
+
+    const ReducedEvaluation staged = reduced.augment_derivative(value);
+    require(state_calls == 1 && adjoint_calls == 1,
+            "Reduced derivative augmentation repeated the state solve");
+    require(model.objective_calls == 1 &&
+              model.objective_derivative_calls == 1,
+            "Reduced derivative augmentation repeated objective evaluation");
+    require(staged.adjoint_solve.converged(),
+            "Reduced derivative augmentation did not retain adjoint evidence");
+    require_close(staged.objective_value,
+                  value.objective_value,
+                  0.0,
+                  "Staged reduced evaluation objective reuse");
+
+    const ReducedEvaluation compatibility = reduced.evaluate(control);
+    require(state_calls == 2 && adjoint_calls == 2,
+            "Compatibility reduced evaluation did not compose both stages");
+    require(model.objective_calls == 2 &&
+              model.objective_derivative_calls == 2,
+            "Compatibility reduced evaluation changed objective work");
+    require_close(compatibility.objective_value,
+                  staged.objective_value,
+                  0.0,
+                  "Compatibility reduced evaluation objective");
+    require_close(pair(compatibility.reduced_derivative,
+                       PrimalBlock(partition.control_layout(),
+                                   {DenseVector{1.0, -2.0}})),
+                  pair(staged.reduced_derivative,
+                       PrimalBlock(partition.control_layout(),
+                                   {DenseVector{1.0, -2.0}})),
+                  1e-15,
+                  "Compatibility reduced evaluation derivative");
+
+    const ReducedDTO foreign(model, partition, solvers);
+    const ReducedValueEvaluation foreign_value =
+      foreign.evaluate_value(control);
+    const std::size_t adjoint_calls_before_rejection = adjoint_calls;
+    nmopt::test_support::require_contract_error(
+      [&reduced, &foreign_value]() {
+        (void)reduced.augment_derivative(foreign_value);
+      },
+      "Reduced DTO value evaluation belongs to another service",
+      "foreign reduced value evaluation");
+    require(adjoint_calls == adjoint_calls_before_rejection,
+            "Rejected foreign value evaluation invoked the adjoint solve");
+  }
+
+  void
   test_owned_reduced_service_lifetime()
   {
     auto detached = []() {
@@ -1695,6 +1843,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "contract"},
          30,
          test_v0_contract},
+        {"staged_reduced_evaluation",
+         "nmopt.contract.staged_reduced_evaluation",
+         {"backend-neutral", "contract", "reduced"},
+         30,
+         test_staged_reduced_evaluation},
         {"backend_parameterisation",
          "nmopt.contract.backend_parameterisation",
          {"backend-neutral", "contract"},

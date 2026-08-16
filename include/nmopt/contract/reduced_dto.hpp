@@ -4,6 +4,7 @@
 #include "nmopt/contract/linear_solve.hpp"
 #include "nmopt/contract/metric_constraint.hpp"
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -110,6 +111,44 @@ namespace nmopt::contract
   using StateAdjointSolvers = StateAdjointSolversT<DenseBackend>;
 
   template <typename Backend>
+  class ReducedDTOT;
+
+  template <typename Backend>
+  struct ReducedValueEvaluationT
+  {
+    PrimalBlockT<Backend> state;
+    PrimalBlockT<Backend> full_point;
+    PrimalBlockT<Backend> control;
+    double                objective_value;
+    LinearSolveReport     state_solve;
+
+  private:
+    friend class ReducedDTOT<Backend>;
+
+    ReducedValueEvaluationT(
+      PrimalBlockT<Backend>       state_value,
+      PrimalBlockT<Backend>       full_point_value,
+      PrimalBlockT<Backend>       control_value,
+      const double                objective,
+      LinearSolveReport           state_report,
+      std::shared_ptr<const void> evaluation_token,
+      std::shared_ptr<const void> lifetime_owner)
+      : state(std::move(state_value))
+      , full_point(std::move(full_point_value))
+      , control(std::move(control_value))
+      , objective_value(objective)
+      , state_solve(std::move(state_report))
+      , evaluation_token_(std::move(evaluation_token))
+      , lifetime_owner_(std::move(lifetime_owner))
+    {}
+
+    std::shared_ptr<const void> evaluation_token_;
+    std::shared_ptr<const void> lifetime_owner_;
+  };
+
+  using ReducedValueEvaluation = ReducedValueEvaluationT<DenseBackend>;
+
+  template <typename Backend>
   struct ReducedEvaluationT
   {
     PrimalBlockT<Backend>   state;
@@ -133,6 +172,7 @@ namespace nmopt::contract
       : model_(&model)
       , partition_(std::move(partition))
       , solvers_(std::move(solvers))
+      , evaluation_token_(std::make_shared<const std::size_t>(0))
     {
       require(static_cast<bool>(solvers_.solve_state),
               "Reduced DTO requires a state solve operation");
@@ -152,6 +192,7 @@ namespace nmopt::contract
       , partition_(std::move(partition))
       , solvers_(std::move(solvers))
       , lifetime_owner_(std::move(lifetime_owner))
+      , evaluation_token_(std::make_shared<const std::size_t>(0))
     {
       require(static_cast<bool>(owned_model_),
               "Owned reduced DTO requires an executable model");
@@ -161,8 +202,8 @@ namespace nmopt::contract
               "Reduced DTO requires an adjoint solve operation");
     }
 
-    ReducedEvaluationT<Backend>
-    evaluate(const PrimalBlockT<Backend> &control) const
+    ReducedValueEvaluationT<Backend>
+    evaluate_value(const PrimalBlockT<Backend> &control) const
     {
       require(control.layout()->compatible_with(*partition_.control_layout()),
               "Control does not match the reduced DTO control layout");
@@ -176,13 +217,43 @@ namespace nmopt::contract
               "State solver returned an incompatible state layout");
 
       PrimalBlockT<Backend> full_point = partition_.compose(state, control);
+      const double objective_value = model_->objective(full_point);
+
+      return ReducedValueEvaluationT<Backend>(
+        std::move(state),
+        std::move(full_point),
+        control,
+        objective_value,
+        std::move(state_result.report),
+        evaluation_token_,
+        lifetime_owner_);
+    }
+
+    ReducedEvaluationT<Backend>
+    augment_derivative(const ReducedValueEvaluationT<Backend> &value) const
+    {
+      require(value.evaluation_token_ == evaluation_token_,
+              "Reduced DTO value evaluation belongs to another service");
+      require(value.lifetime_owner_ == lifetime_owner_,
+              "Reduced DTO value evaluation has an incompatible lifetime owner");
+      require(value.control.layout()->compatible_with(
+                *partition_.control_layout()),
+              "Reduced DTO value evaluation has an incompatible control layout");
+      require(value.state.layout()->compatible_with(*partition_.state_layout()),
+              "Reduced DTO value evaluation has an incompatible state layout");
+      require(value.full_point.layout()->compatible_with(
+                *model_->variable_layout()),
+              "Reduced DTO value evaluation has an incompatible full-point layout");
+      require(same_control(value.state, value.control, value.full_point),
+              "Reduced DTO value evaluation control does not match its full point");
+
       CovectorBlockT<Backend> objective_derivative =
-        model_->objective_derivative(full_point);
+        model_->objective_derivative(value.full_point);
       CovectorBlockT<Backend> state_rhs =
         partition_.state_component(objective_derivative);
 
       FormulationSolveResultT<Backend> adjoint_result =
-        solvers_.solve_adjoint(full_point, state_rhs);
+        solvers_.solve_adjoint(value.full_point, state_rhs);
       require(adjoint_result.report.converged(),
               "Adjoint solve did not converge under its declared policy");
       PrimalBlockT<Backend> adjoint = std::move(adjoint_result.solution);
@@ -190,19 +261,24 @@ namespace nmopt::contract
               "Adjoint solver returned an incompatible test-space layout");
 
       CovectorBlockT<Backend> residual_pullback =
-        model_->residual_vjp(full_point, adjoint);
+        model_->residual_vjp(value.full_point, adjoint);
       CovectorBlockT<Backend> reduced_derivative =
         subtract(partition_.control_component(objective_derivative),
                  partition_.control_component(residual_pullback));
-      const double objective_value = model_->objective(full_point);
 
-      return {std::move(state),
+      return {value.state,
               std::move(adjoint),
-              std::move(full_point),
+              value.full_point,
               std::move(reduced_derivative),
-              objective_value,
-              std::move(state_result.report),
+              value.objective_value,
+              value.state_solve,
               std::move(adjoint_result.report)};
+    }
+
+    ReducedEvaluationT<Backend>
+    evaluate(const PrimalBlockT<Backend> &control) const
+    {
+      return augment_derivative(evaluate_value(control));
     }
 
     PrimalBlockT<Backend>
@@ -218,11 +294,41 @@ namespace nmopt::contract
     }
 
   private:
+    bool
+    same_control(const PrimalBlockT<Backend> &state,
+                 const PrimalBlockT<Backend> &control,
+                 const PrimalBlockT<Backend> &full_point) const
+    {
+      require(state.layout()->compatible_with(*partition_.state_layout()),
+              "Reduced DTO value state does not match the state layout");
+      require(control.layout()->compatible_with(*partition_.control_layout()),
+              "Reduced DTO value control does not match the control layout");
+      require(full_point.layout()->compatible_with(*model_->variable_layout()),
+              "Reduced DTO value full point does not match the variable layout");
+
+      const PrimalBlockT<Backend> expected_full_point =
+        partition_.compose(state, control);
+      if (!expected_full_point.layout()->compatible_with(*full_point.layout()))
+        return false;
+
+      for (std::size_t block = 0; block < full_point.n_blocks(); ++block)
+        {
+          typename Backend::Vector difference = full_point.block(block);
+          Backend::add_scaled(difference,
+                              -1.0,
+                              expected_full_point.block(block));
+          if (Backend::dot(difference, difference) != 0.0)
+            return false;
+        }
+      return true;
+    }
+
     std::shared_ptr<const ExecutableModelT<Backend>> owned_model_;
     const ExecutableModelT<Backend> *                model_ = nullptr;
     StateControlPartitionT<Backend>                  partition_;
     StateAdjointSolversT<Backend>                    solvers_;
     std::shared_ptr<const void>                      lifetime_owner_;
+    std::shared_ptr<const void>                      evaluation_token_;
   };
 
   using ReducedDTO = ReducedDTOT<DenseBackend>;

@@ -128,7 +128,7 @@ if(BUILD_TESTING)
     tests/complementarity_contract.cc)
 
   nmopt_add_neutral_test(
-    nmopt_active_set_kkt_contract_test
+    nmopt_pdas_contract_test
     tests/pdas_contract.cc)
 
   nmopt_add_neutral_test(

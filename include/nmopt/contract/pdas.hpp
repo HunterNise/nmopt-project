@@ -2,8 +2,12 @@
 
 #include "nmopt/contract/complementarity.hpp"
 #include "nmopt/contract/quadratic_kkt.hpp"
+#include "nmopt/contract/quadratic_kkt_solver.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -363,5 +367,336 @@ namespace nmopt::contract
     std::optional<Product>       active_product_;
   };
 
+  enum class PDASStoppingReason
+  {
+    converged,
+    maximum_iterations,
+    kkt_solve_failed
+  };
+
+  struct PDASPolicy
+  {
+    std::size_t maximum_iterations = 50;
+    double      classification_parameter = 1.0;
+    double      primal_feasibility_tolerance = 1e-10;
+    double      dual_feasibility_tolerance = 1e-10;
+    double      complementarity_tolerance = 1e-10;
+    double      stationarity_tolerance = 1e-10;
+    double      equality_tolerance = 1e-10;
+    QuadraticKKTAssumptions active_set_assumptions;
+  };
+
+  inline bool
+  valid(const PDASPolicy &policy)
+  {
+    return policy.maximum_iterations > 0 &&
+           std::isfinite(policy.classification_parameter) &&
+           policy.classification_parameter > 0.0 &&
+           std::isfinite(policy.primal_feasibility_tolerance) &&
+           policy.primal_feasibility_tolerance > 0.0 &&
+           std::isfinite(policy.dual_feasibility_tolerance) &&
+           policy.dual_feasibility_tolerance > 0.0 &&
+           std::isfinite(policy.complementarity_tolerance) &&
+           policy.complementarity_tolerance > 0.0 &&
+           std::isfinite(policy.stationarity_tolerance) &&
+           policy.stationarity_tolerance > 0.0 &&
+           std::isfinite(policy.equality_tolerance) &&
+           policy.equality_tolerance > 0.0;
+  }
+
+  template <typename Backend>
+  inline double
+  pdas_block_norm(const BlockValuesT<Backend> &values)
+  {
+    double squared_norm = 0.0;
+    for (std::size_t block = 0; block < values.n_blocks(); ++block)
+      squared_norm += Backend::dot(values.block(block), values.block(block));
+    return std::sqrt(squared_norm);
+  }
+
+  template <typename Backend>
+  struct PDASIterationReportT
+  {
+    using Selection = ActiveSetSelectionT<Backend>;
+
+    std::size_t             iteration = 0;
+    Selection               selection;
+    std::size_t             active_set_changes = 0;
+    bool                    active_set_stable = false;
+    double                  primal_violation = 0.0;
+    double                  dual_violation = 0.0;
+    double                  complementarity_residual = 0.0;
+    double                  stationarity_residual = 0.0;
+    double                  equality_residual = 0.0;
+    bool                    primal_feasible = false;
+    bool                    dual_feasible = false;
+    bool                    complementarity_converged = false;
+    bool                    kkt_residuals_converged = false;
+    QuadraticKKTSolveReport kkt_solve;
+  };
+
+  template <typename Backend>
+  struct PDASSolveResultT
+  {
+    using Product = EqualityConstrainedQuadraticKKTProductT<Backend>;
+    using Covector = CovectorBlockT<Backend>;
+    using IterationReport = PDASIterationReportT<Backend>;
+
+    typename Product::Point solution;
+    Covector                box_multiplier;
+    std::vector<IterationReport> iterations;
+    PDASStoppingReason      stopping_reason;
+
+    bool
+    converged() const
+    {
+      return stopping_reason == PDASStoppingReason::converged;
+    }
+  };
+
+  template <typename Backend>
+  class PDASSolverT final
+  {
+  public:
+    using Product = EqualityConstrainedQuadraticKKTProductT<Backend>;
+    using Complementarity = BoxComplementarityT<Backend>;
+    using Primal = PrimalBlockT<Backend>;
+    using Covector = CovectorBlockT<Backend>;
+    using Point = typename Product::Point;
+    using SolveResult = QuadraticKKTSolveResultT<Backend>;
+    using IterationReport = PDASIterationReportT<Backend>;
+    using Result = PDASSolveResultT<Backend>;
+    using SolveAction = std::function<SolveResult(const Product &)>;
+
+    PDASSolverT(const Product &       product,
+                const Complementarity &complementarity,
+                const std::size_t     control_block,
+                SolveAction           solve_action)
+      : product_(product)
+      , complementarity_(complementarity)
+      , control_block_(control_block)
+      , solve_action_(std::move(solve_action))
+    {
+      require(static_cast<bool>(solve_action_),
+              "PDAS solver needs a KKT solve action");
+      require(control_block_ < product_.layout().primal->n_blocks(),
+              "PDAS control block exceeds the KKT primal layout");
+      require(control_block_ < product_.layout().stationarity->n_blocks(),
+              "PDAS control block exceeds the KKT stationarity layout");
+      require(same_block_shape<Backend>(product_.layout().primal,
+                                        product_.layout().stationarity),
+              "PDAS KKT primal and stationarity block shapes differ");
+      require(product_.layout().primal->dimension(control_block_) ==
+                complementarity_.layout()->dimension(0),
+              "PDAS control block has an incompatible complementarity layout");
+    }
+
+    Result
+    solve(const Point &initial_point,
+          const Covector &initial_box_multiplier,
+          const PDASPolicy &policy) const
+    {
+      require(valid(policy), "PDAS policy is invalid");
+      require(initial_point.primal.layout()->compatible_with(
+                *product_.layout().primal),
+              "PDAS initial point has an incompatible primal layout");
+      require(initial_point.multiplier.layout()->compatible_with(
+                *product_.layout().multiplier),
+              "PDAS initial point has an incompatible multiplier layout");
+      require_complementarity_layout(
+        initial_box_multiplier,
+        complementarity_.layout(),
+        "PDAS initial box multiplier");
+      const Primal initial_control(
+        complementarity_.layout(),
+        {initial_point.primal.block(control_block_)});
+      require(complementarity_.bounds().is_feasible(initial_control),
+              "PDAS initial control must be feasible");
+
+      Point current = initial_point;
+      Covector current_box_multiplier = initial_box_multiplier;
+      auto selection = complementarity_.classify(
+        Primal(complementarity_.layout(),
+               {current.primal.block(control_block_)}),
+        current_box_multiplier,
+        policy.classification_parameter);
+      std::vector<IterationReport> reports;
+
+      for (std::size_t iteration = 0;
+           iteration < policy.maximum_iterations;
+           ++iteration)
+        {
+          ActiveSetKKTSubproblemT<Backend> subproblem(
+            product_,
+            complementarity_,
+            selection,
+            control_block_,
+            policy.active_set_assumptions);
+          const SolveResult kkt_result = solve_action_(subproblem.product());
+          const Point base_solution =
+            subproblem.to_base_point(kkt_result.solution);
+          const auto residual = product_.residual(base_solution);
+          const Covector box_multiplier = make_box_multiplier(
+            residual.stationarity,
+            selection);
+          const auto next_selection = complementarity_.classify(
+            Primal(complementarity_.layout(),
+                   {base_solution.primal.block(control_block_)}),
+            box_multiplier,
+            policy.classification_parameter);
+          IterationReport report = make_report(
+            iteration,
+            selection,
+            next_selection,
+            base_solution.primal.block(control_block_),
+            box_multiplier,
+            residual,
+            kkt_result.report,
+            policy);
+          reports.push_back(report);
+
+          const bool converged =
+            kkt_result.report.converged() &&
+            report.active_set_stable &&
+            report.kkt_residuals_converged;
+          if (converged)
+            return Result{base_solution,
+                          box_multiplier,
+                          std::move(reports),
+                          PDASStoppingReason::converged};
+          if (!kkt_result.report.converged())
+            return Result{base_solution,
+                          box_multiplier,
+                          std::move(reports),
+                          PDASStoppingReason::kkt_solve_failed};
+
+          current = base_solution;
+          current_box_multiplier = box_multiplier;
+          selection = next_selection;
+        }
+
+      return Result{current,
+                    current_box_multiplier,
+                    std::move(reports),
+                    PDASStoppingReason::maximum_iterations};
+    }
+
+  private:
+    using Vector = typename Backend::Vector;
+    using Residual = typename Product::Residual;
+
+    Covector
+    make_box_multiplier(const Covector &stationarity,
+                        const ActiveSetSelectionT<Backend> &selection) const
+    {
+      require(stationarity.n_blocks() > control_block_,
+              "PDAS stationarity has no control block");
+      Vector values = Backend::zeros(complementarity_.layout()->dimension(0));
+      const Vector &raw = stationarity.block(control_block_);
+      for (std::size_t selected = 0;
+           selected < selection.active_indices().size();
+           ++selected)
+        {
+          const std::size_t index = selection.active_indices()[selected];
+          Backend::set_value(values,
+                             index,
+                             -Backend::value(raw, index));
+        }
+      return Covector(complementarity_.layout(), {std::move(values)});
+    }
+
+    IterationReport
+    make_report(const std::size_t                   iteration,
+                const ActiveSetSelectionT<Backend> &selection,
+                const ActiveSetSelectionT<Backend> &next_selection,
+                const Vector &                      point_control,
+                const Covector &                    box_multiplier,
+                const Residual &                    residual,
+                const QuadraticKKTSolveReport &     kkt_solve,
+                const PDASPolicy &                  policy) const
+    {
+      require(residual.stationarity.n_blocks() > control_block_,
+              "PDAS residual stationarity has no control block");
+      const Primal representative =
+        complementarity_.multiplier_to_primal(box_multiplier);
+      double primal_violation = 0.0;
+      double dual_violation = 0.0;
+      double complementarity_residual = 0.0;
+      for (std::size_t index = 0;
+           index < complementarity_.layout()->dimension(0);
+           ++index)
+        {
+          const double value = Backend::value(point_control, index);
+          const double multiplier =
+            Backend::value(representative.block(0), index);
+          const double lower = Backend::value(
+            complementarity_.bounds().lower().block(0), index);
+          const double upper = Backend::value(
+            complementarity_.bounds().upper().block(0), index);
+          primal_violation = std::max(
+            primal_violation,
+            std::max(lower - value, value - upper));
+          if (value <= lower)
+            dual_violation = std::max(dual_violation, multiplier);
+          else if (value >= upper)
+            dual_violation = std::max(dual_violation, -multiplier);
+          else
+            dual_violation = std::max(dual_violation, std::abs(multiplier));
+          complementarity_residual = std::max(
+            complementarity_residual,
+            std::max(std::abs(std::max(multiplier, 0.0) * (upper - value)),
+                     std::abs(std::min(multiplier, 0.0) * (value - lower))));
+        }
+
+      std::vector<Vector> stationarity_blocks =
+        copy_blocks(residual.stationarity);
+      Vector &control_stationarity = stationarity_blocks.at(control_block_);
+      Backend::add_scaled(control_stationarity,
+                          1.0,
+                          box_multiplier.block(0));
+      const Covector constrained_stationarity(
+        residual.stationarity.layout(), std::move(stationarity_blocks));
+      const double stationarity_residual =
+        pdas_block_norm(constrained_stationarity);
+      const double equality_residual = pdas_block_norm(residual.equality);
+      const bool primal_feasible =
+        primal_violation <= policy.primal_feasibility_tolerance;
+      const bool dual_feasible =
+        dual_violation <= policy.dual_feasibility_tolerance;
+      const bool complementarity_converged =
+        complementarity_residual <= policy.complementarity_tolerance;
+      const bool kkt_residuals_converged =
+        primal_feasible && dual_feasible && complementarity_converged &&
+        stationarity_residual <= policy.stationarity_tolerance &&
+        equality_residual <= policy.equality_tolerance;
+
+      std::size_t active_set_changes = 0;
+      for (std::size_t index = 0; index < selection.activities().size(); ++index)
+        if (selection.activities()[index] != next_selection.activities()[index])
+          ++active_set_changes;
+
+      return IterationReport{iteration,
+                             selection,
+                             active_set_changes,
+                             selection == next_selection,
+                             primal_violation,
+                             dual_violation,
+                             complementarity_residual,
+                             stationarity_residual,
+                             equality_residual,
+                             primal_feasible,
+                             dual_feasible,
+                             complementarity_converged,
+                             kkt_residuals_converged,
+                             kkt_solve};
+    }
+
+    const Product &        product_;
+    const Complementarity &complementarity_;
+    std::size_t            control_block_;
+    SolveAction            solve_action_;
+  };
+
   using ActiveSetKKTSubproblem = ActiveSetKKTSubproblemT<DenseBackend>;
+  using PDASSolver = PDASSolverT<DenseBackend>;
 } // namespace nmopt::contract

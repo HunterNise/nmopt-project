@@ -429,6 +429,197 @@ namespace
       "Quadratic KKT product needs a declared rank condition",
       "active KKT subproblem accepted undeclared assumptions");
   }
+
+  Point
+  zero_point(const Product &product)
+  {
+    return Point{Product::Primal::zeros(product.layout().primal),
+                 Product::Primal::zeros(product.layout().multiplier)};
+  }
+
+  Covector
+  zero_box_multiplier(const LayoutPtr &layout)
+  {
+    return Covector(layout, {DenseVector(layout->dimension(0), 0.0)});
+  }
+
+  PDASPolicy
+  valid_policy()
+  {
+    PDASPolicy policy;
+    policy.active_set_assumptions = active_set_assumptions();
+    return policy;
+  }
+
+  QuadraticKKTSolveResult
+  nonconverged_solve(const Product &product)
+  {
+    auto result = solve_dense(product);
+    result.report.residuals_converged = false;
+    return result;
+  }
+
+  void
+  test_inactive_box_agrees_with_unconstrained_kkt()
+  {
+    const Problem problem;
+    const auto complementarity = make_complementarity(problem, 2.0, 2.0);
+    const PDASSolver solver(problem.product,
+                            complementarity,
+                            1,
+                            solve_dense);
+    const auto result = solver.solve(zero_point(problem.product),
+                                     zero_box_multiplier(
+                                       problem.control_layout),
+                                     valid_policy());
+
+    require(result.converged(),
+            "PDAS did not converge for the inactive-box case");
+    require(result.stopping_reason == PDASStoppingReason::converged,
+            "PDAS returned the wrong inactive-box stopping reason");
+    require(result.iterations.size() == 1,
+            "inactive-box PDAS needed more than one KKT solve");
+    require(result.iterations.front().selection.active_size() == 0,
+            "inactive-box PDAS selected an active set");
+    require(result.iterations.front().active_set_stable,
+            "inactive-box PDAS did not report a stable set");
+    require(result.iterations.front().kkt_residuals_converged,
+            "inactive-box PDAS did not report full KKT convergence");
+    require_close(result.solution.primal.block(1)[0], 1.0,
+                  "inactive-box PDAS returned the wrong first control");
+    require_close(result.solution.primal.block(1)[1], 0.125,
+                  "inactive-box PDAS returned the wrong second control");
+    require_close(result.box_multiplier.block(0)[0], 0.0,
+                  "inactive-box PDAS returned a nonzero first multiplier");
+    require_close(result.box_multiplier.block(0)[1], 0.0,
+                  "inactive-box PDAS returned a nonzero second multiplier");
+  }
+
+  void
+  test_active_box_adds_kkt_rows_and_reports_diagnostics()
+  {
+    const Problem problem;
+    const auto complementarity = make_complementarity(problem, 0.5, 1.0);
+    const PDASSolver solver(problem.product,
+                            complementarity,
+                            1,
+                            solve_dense);
+    const auto result = solver.solve(zero_point(problem.product),
+                                     zero_box_multiplier(
+                                       problem.control_layout),
+                                     valid_policy());
+
+    require(result.converged(),
+            "PDAS did not converge for the active-box case");
+    require(result.iterations.size() == 2,
+            "active-box PDAS did not re-solve after changing its set");
+    require(result.iterations[0].active_set_changes == 1,
+            "active-box PDAS reported the wrong first set change count");
+    require(result.iterations[1].active_set_stable,
+            "active-box PDAS did not stabilize its active set");
+    require(result.iterations[1].selection.activities() ==
+              std::vector<BoxActivity>{BoxActivity::upper,
+                                       BoxActivity::inactive},
+            "active-box PDAS selected the wrong final set");
+    require(result.iterations[1].primal_feasible &&
+              result.iterations[1].dual_feasible &&
+              result.iterations[1].complementarity_converged,
+            "active-box PDAS did not report complementarity diagnostics");
+    require(result.iterations[1].kkt_residuals_converged,
+            "active-box PDAS did not report full KKT convergence");
+    require_close(result.solution.primal.block(0)[0], 0.5,
+                  "active-box PDAS returned the wrong active state");
+    require_close(result.solution.primal.block(0)[1], 0.125,
+                  "active-box PDAS returned the wrong inactive state");
+    require_close(result.solution.primal.block(1)[0], 0.5,
+                  "active-box PDAS returned the wrong active control");
+    require_close(result.solution.primal.block(1)[1], 0.125,
+                  "active-box PDAS returned the wrong inactive control");
+    require_close(result.box_multiplier.block(0)[0], 1.0,
+                  "active-box PDAS returned the wrong active multiplier");
+    require_close(result.box_multiplier.block(0)[1], 0.0,
+                  "active-box PDAS returned a nonzero inactive multiplier");
+  }
+
+  void
+  test_invalid_pdas_inputs()
+  {
+    const Problem problem;
+    const auto complementarity = make_complementarity(problem, 0.5, 1.0);
+    const PDASSolver solver(problem.product,
+                            complementarity,
+                            1,
+                            solve_dense);
+    PDASPolicy invalid;
+    invalid.maximum_iterations = 0;
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)solver.solve(zero_point(problem.product),
+                           zero_box_multiplier(problem.control_layout),
+                           invalid);
+      },
+      "PDAS policy is invalid",
+      "PDAS accepted a zero iteration limit");
+
+    const auto infeasible = Point{
+      Product::Primal(problem.product.layout().primal,
+                      {DenseVector{0.0, 0.0}, DenseVector{0.0, 2.0}}),
+      Product::Primal::zeros(problem.product.layout().multiplier)};
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)solver.solve(infeasible,
+                           zero_box_multiplier(problem.control_layout),
+                           valid_policy());
+      },
+      "PDAS initial control must be feasible",
+      "PDAS accepted an infeasible initial control");
+
+    PDASPolicy undeclared_assumptions;
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)solver.solve(zero_point(problem.product),
+                           zero_box_multiplier(problem.control_layout),
+                           undeclared_assumptions);
+      },
+      "Quadratic KKT product needs a declared rank condition",
+      "PDAS constructed an active KKT product without assumptions");
+  }
+
+  void
+  test_pdas_stopping_reasons()
+  {
+    const Problem problem;
+    const auto complementarity = make_complementarity(problem, 0.5, 1.0);
+    PDASPolicy one_iteration = valid_policy();
+    one_iteration.maximum_iterations = 1;
+    const PDASSolver solver(problem.product,
+                            complementarity,
+                            1,
+                            solve_dense);
+    const auto maximum_result = solver.solve(
+      zero_point(problem.product),
+      zero_box_multiplier(problem.control_layout),
+      one_iteration);
+    require(maximum_result.stopping_reason ==
+              PDASStoppingReason::maximum_iterations,
+            "PDAS returned the wrong maximum-iteration stopping reason");
+    require(maximum_result.iterations.size() == 1,
+            "PDAS returned the wrong maximum-iteration report count");
+
+    const PDASSolver failing_solver(problem.product,
+                                    complementarity,
+                                    1,
+                                    nonconverged_solve);
+    const auto failed_result = failing_solver.solve(
+      zero_point(problem.product),
+      zero_box_multiplier(problem.control_layout),
+      valid_policy());
+    require(failed_result.stopping_reason ==
+              PDASStoppingReason::kkt_solve_failed,
+            "PDAS returned the wrong KKT-failure stopping reason");
+    require(!failed_result.iterations.front().kkt_solve.converged(),
+            "PDAS hid the failed KKT solve in its iteration report");
+  }
 } // namespace
 
 int
@@ -451,7 +642,27 @@ main(const int argc, char **argv)
          "nmopt.active_set_kkt.invalid_active_subproblem_inputs",
          {"backend-neutral", "formulation", "kkt", "active-set", "negative"},
          30,
-         test_invalid_active_subproblem_inputs}};
+         test_invalid_active_subproblem_inputs},
+        {"inactive_box_agrees_with_unconstrained_kkt",
+         "nmopt.pdas.inactive_box_agrees_with_unconstrained_kkt",
+         {"backend-neutral", "formulation", "kkt", "pdas"},
+         30,
+         test_inactive_box_agrees_with_unconstrained_kkt},
+        {"active_box_adds_kkt_rows_and_reports_diagnostics",
+         "nmopt.pdas.active_box_adds_kkt_rows_and_reports_diagnostics",
+         {"backend-neutral", "formulation", "kkt", "pdas", "active-set"},
+         30,
+         test_active_box_adds_kkt_rows_and_reports_diagnostics},
+        {"invalid_pdas_inputs",
+         "nmopt.pdas.invalid_pdas_inputs",
+         {"backend-neutral", "formulation", "kkt", "pdas", "negative"},
+         30,
+         test_invalid_pdas_inputs},
+        {"pdas_stopping_reasons",
+         "nmopt.pdas.pdas_stopping_reasons",
+         {"backend-neutral", "formulation", "kkt", "pdas", "solver"},
+         30,
+         test_pdas_stopping_reasons}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

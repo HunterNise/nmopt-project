@@ -1,0 +1,367 @@
+#pragma once
+
+#include "nmopt/contract/complementarity.hpp"
+#include "nmopt/contract/quadratic_kkt.hpp"
+
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace nmopt::contract
+{
+  template <typename Backend>
+  inline bool
+  same_block_shape(const LayoutPtr &left, const LayoutPtr &right)
+  {
+    if (left->n_blocks() != right->n_blocks())
+      return false;
+    for (std::size_t block = 0; block < left->n_blocks(); ++block)
+      if (left->dimension(block) != right->dimension(block))
+        return false;
+    return true;
+  }
+
+  template <typename Backend>
+  inline std::vector<typename Backend::Vector>
+  copy_blocks(const BlockValuesT<Backend> &values)
+  {
+    std::vector<typename Backend::Vector> blocks;
+    blocks.reserve(values.n_blocks());
+    for (std::size_t block = 0; block < values.n_blocks(); ++block)
+      blocks.push_back(values.block(block));
+    return blocks;
+  }
+
+  template <typename Backend>
+  inline std::string
+  unique_appended_space_id(const LayoutPtr &layout, std::string stem)
+  {
+    std::string candidate = std::move(stem);
+    std::size_t suffix = 0;
+    while (true)
+      {
+        bool collision = false;
+        for (std::size_t block = 0; block < layout->n_blocks(); ++block)
+          if (layout->space(block).value == candidate)
+            {
+              collision = true;
+              break;
+            }
+        if (!collision)
+          return candidate;
+        ++suffix;
+        candidate = "pdas_active_box_" + std::to_string(suffix);
+      }
+  }
+
+  template <typename Backend>
+  inline LayoutPtr
+  append_layout_block(const LayoutPtr &base,
+                      const std::string &label,
+                      const std::string &space_stem,
+                      const std::size_t dimension)
+  {
+    require(dimension > 0, "PDAS active layout needs a positive dimension");
+    std::vector<SpaceId> spaces;
+    std::vector<std::size_t> dimensions;
+    spaces.reserve(base->n_blocks() + 1);
+    dimensions.reserve(base->n_blocks() + 1);
+    for (std::size_t block = 0; block < base->n_blocks(); ++block)
+      {
+        spaces.push_back(base->space(block));
+        dimensions.push_back(base->dimension(block));
+      }
+    spaces.push_back(
+      SpaceId{unique_appended_space_id<Backend>(base, space_stem)});
+    dimensions.push_back(dimension);
+    return std::make_shared<const BlockLayout>(
+      label, std::move(spaces), std::move(dimensions));
+  }
+
+  template <typename Backend>
+  class ActiveSetKKTSubproblemT final
+  {
+  public:
+    using Product = EqualityConstrainedQuadraticKKTProductT<Backend>;
+    using Complementarity = BoxComplementarityT<Backend>;
+    using Selection = ActiveSetSelectionT<Backend>;
+    using Primal = typename Product::Primal;
+    using Covector = typename Product::Covector;
+    using Point = typename Product::Point;
+    using Vector = typename Backend::Vector;
+
+    ActiveSetKKTSubproblemT(
+      const Product &       base,
+      const Complementarity &complementarity,
+      const Selection &     selection,
+      const std::size_t     control_block,
+      QuadraticKKTAssumptions active_set_assumptions)
+      : base_(base)
+      , selection_(selection)
+      , control_block_(control_block)
+    {
+      validate_base(complementarity);
+      active_values_ = make_active_values(complementarity);
+      if (selection_.active_size() > 0)
+        active_product_.emplace(
+          make_active_product(std::move(active_set_assumptions)));
+    }
+
+    const Product &
+    product() const
+    {
+      return active_product_ ? *active_product_ : base_;
+    }
+
+    bool
+    has_active_constraints() const
+    {
+      return selection_.active_size() > 0;
+    }
+
+    const Selection &
+    selection() const
+    {
+      return selection_;
+    }
+
+    const Vector &
+    active_values() const
+    {
+      return active_values_;
+    }
+
+    Point
+    to_base_point(const Point &point) const
+    {
+      require(point.primal.layout()->compatible_with(
+                *base_.layout().primal),
+              "PDAS KKT solution has an incompatible primal layout");
+      if (!active_product_)
+        {
+          require(point.multiplier.layout()->compatible_with(
+                    *base_.layout().multiplier),
+                  "PDAS KKT solution has an incompatible multiplier layout");
+          return point;
+        }
+
+      require(point.multiplier.layout()->compatible_with(
+                *active_product_->layout().multiplier),
+              "PDAS active KKT solution has an incompatible multiplier layout");
+      std::vector<Vector> multiplier_blocks;
+      multiplier_blocks.reserve(base_.layout().multiplier->n_blocks());
+      for (std::size_t block = 0;
+           block < base_.layout().multiplier->n_blocks();
+           ++block)
+        multiplier_blocks.push_back(point.multiplier.block(block));
+      return Point{
+        point.primal,
+        Primal(base_.layout().multiplier, std::move(multiplier_blocks))};
+    }
+
+  private:
+    void
+    validate_base(const Complementarity &complementarity) const
+    {
+      require(control_block_ < base_.layout().primal->n_blocks(),
+              "PDAS control block exceeds the KKT primal layout");
+      require(control_block_ < base_.layout().stationarity->n_blocks(),
+              "PDAS control block exceeds the KKT stationarity layout");
+      require(same_block_shape<Backend>(base_.layout().primal,
+                                        base_.layout().stationarity),
+              "PDAS KKT primal and stationarity block shapes differ");
+      require(base_.layout().primal->dimension(control_block_) ==
+                complementarity.layout()->dimension(0),
+              "PDAS control block has an incompatible complementarity layout");
+      require(selection_.layout()->compatible_with(
+                *complementarity.layout()),
+              "PDAS selection has an incompatible complementarity layout");
+    }
+
+    Vector
+    make_active_values(const Complementarity &complementarity) const
+    {
+      Vector values = Backend::zeros(selection_.active_size());
+      for (std::size_t selected = 0;
+           selected < selection_.active_indices().size();
+           ++selected)
+        {
+          const std::size_t index = selection_.active_indices()[selected];
+          const double value =
+            selection_.activities()[index] == BoxActivity::upper
+              ? Backend::value(complementarity.bounds().upper().block(0), index)
+              : Backend::value(complementarity.bounds().lower().block(0), index);
+          Backend::set_value(values, selected, value);
+        }
+      return values;
+    }
+
+    static std::vector<Vector>
+    negate_blocks(const BlockValuesT<Backend> &values)
+    {
+      std::vector<Vector> blocks = copy_blocks(values);
+      for (auto &block : blocks)
+        Backend::scale(block, -1.0);
+      return blocks;
+    }
+
+    Product
+    make_active_product(QuadraticKKTAssumptions assumptions) const
+    {
+      const LayoutPtr equality_layout = append_layout_block<Backend>(
+        base_.layout().equality,
+        "pdas_equality",
+        "pdas_active_box",
+        selection_.active_size());
+      const LayoutPtr multiplier_layout = append_layout_block<Backend>(
+        base_.layout().multiplier,
+        "pdas_multiplier",
+        "pdas_box_multiplier",
+        selection_.active_size());
+      const typename Product::Layout layout(base_.layout().primal,
+                                            multiplier_layout,
+                                            base_.layout().adjoint,
+                                            base_.layout().stationarity,
+                                            equality_layout);
+
+      const auto base_zero = Point{
+        Primal::zeros(base_.layout().primal),
+        Primal::zeros(base_.layout().multiplier)};
+      const auto base_zero_residual = base_.residual(base_zero);
+      const Vector active_values = active_values_;
+      const Selection selection = selection_;
+      const std::size_t control_block = control_block_;
+
+      const auto quadratic_action = [this](const Primal &primal) {
+        return base_.apply_q(primal);
+      };
+
+      const auto equality_action = [this,
+                                    equality_layout,
+                                    selection,
+                                    control_block](const Primal &primal) {
+        const Covector base_value = base_.apply_d(primal);
+        std::vector<Vector> blocks = copy_blocks(base_value);
+        blocks.push_back(selection.restrict_active(
+          primal.block(control_block)));
+        return Covector(equality_layout, std::move(blocks));
+      };
+
+      const auto multiplier_action = [this,
+                                     multiplier_layout,
+                                     selection,
+                                     control_block](const Primal &multiplier) {
+        const std::size_t base_blocks =
+          base_.layout().multiplier->n_blocks();
+        std::vector<Vector> base_multiplier_blocks;
+        base_multiplier_blocks.reserve(base_blocks);
+        for (std::size_t block = 0; block < base_blocks; ++block)
+          base_multiplier_blocks.push_back(multiplier.block(block));
+        const Primal base_multiplier(base_.layout().multiplier,
+                                     std::move(base_multiplier_blocks));
+        const Covector base_value = base_.apply_d_transpose(base_multiplier);
+        std::vector<Vector> blocks = copy_blocks(base_value);
+        Vector &control = blocks.at(control_block);
+        const Vector &active = multiplier.block(base_blocks);
+        for (std::size_t selected = 0;
+             selected < selection.active_indices().size();
+             ++selected)
+          Backend::set_value(control,
+                             selection.active_indices()[selected],
+                             Backend::value(active, selected));
+        return Covector(base_.layout().stationarity, std::move(blocks));
+      };
+
+      const auto transpose_action = [this,
+                                     equality_layout,
+                                     multiplier_layout,
+                                     selection,
+                                     control_block](const typename Product::Seed &seed) {
+        const std::size_t base_equality_blocks =
+          base_.layout().equality->n_blocks();
+        std::vector<Vector> base_equality_values;
+        base_equality_values.reserve(base_equality_blocks);
+        for (std::size_t block = 0; block < base_equality_blocks; ++block)
+          base_equality_values.push_back(seed.equality.block(block));
+        const Primal base_stationarity(
+          base_.layout().stationarity,
+          copy_blocks(seed.stationarity));
+        const Primal base_equality(base_.layout().equality,
+                                   std::move(base_equality_values));
+        const auto base_result = base_.apply_kkt_transpose(
+          typename Product::Seed{base_stationarity, base_equality});
+
+        std::vector<Vector> primal_blocks = copy_blocks(base_result.primal);
+        Vector &control = primal_blocks.at(control_block);
+        const Vector &active_seed = seed.equality.block(base_equality_blocks);
+        for (std::size_t selected = 0;
+             selected < selection.active_indices().size();
+             ++selected)
+          {
+            const std::size_t index = selection.active_indices()[selected];
+            const double value = Backend::value(control, index) +
+                                 Backend::value(active_seed, selected);
+            Backend::set_value(control, index, value);
+          }
+
+        std::vector<Vector> multiplier_blocks =
+          copy_blocks(base_result.multiplier);
+        multiplier_blocks.push_back(selection.restrict_active(
+          seed.stationarity.block(control_block)));
+        return typename Product::TransposeResult{
+          Covector(base_.layout().primal, std::move(primal_blocks)),
+          Covector(multiplier_layout, std::move(multiplier_blocks))};
+      };
+
+      std::vector<Vector> stationarity_rhs =
+        negate_blocks(base_zero_residual.stationarity);
+      std::vector<Vector> equality_rhs =
+        negate_blocks(base_zero_residual.equality);
+      equality_rhs.push_back(active_values);
+
+      const auto multiplier_conversion =
+        typename Product::MultiplierConversion{
+          "base KKT multiplier conversion with separate PDAS box multiplier",
+          [this](const Primal &multiplier) {
+            const std::size_t base_blocks =
+              base_.layout().multiplier->n_blocks();
+            std::vector<Vector> blocks;
+            blocks.reserve(base_blocks);
+            for (std::size_t block = 0; block < base_blocks; ++block)
+              blocks.push_back(multiplier.block(block));
+            return base_.multiplier_to_adjoint(
+              Primal(base_.layout().multiplier, std::move(blocks)));
+          },
+          [this, multiplier_layout](const Primal &adjoint) {
+            const Primal base_multiplier =
+              base_.adjoint_to_multiplier(adjoint);
+            std::vector<Vector> blocks = copy_blocks(base_multiplier);
+            blocks.push_back(Backend::zeros(selection_.active_size()));
+            return Primal(multiplier_layout, std::move(blocks));
+          }};
+
+      return Product(
+        layout,
+        quadratic_action,
+        equality_action,
+        multiplier_action,
+        transpose_action,
+        Covector(base_.layout().stationarity, std::move(stationarity_rhs)),
+        Covector(equality_layout, std::move(equality_rhs)),
+        multiplier_conversion,
+        std::move(assumptions),
+        base_.symmetry());
+    }
+
+    const Product &              base_;
+    Selection                    selection_;
+    std::size_t                  control_block_;
+    Vector                       active_values_;
+    std::optional<Product>       active_product_;
+  };
+
+  using ActiveSetKKTSubproblem = ActiveSetKKTSubproblemT<DenseBackend>;
+} // namespace nmopt::contract

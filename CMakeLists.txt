@@ -128,6 +128,10 @@ if(BUILD_TESTING)
     tests/complementarity_contract.cc)
 
   nmopt_add_neutral_test(
+    nmopt_active_set_kkt_contract_test
+    tests/pdas_contract.cc)
+
+  nmopt_add_neutral_test(
     nmopt_semantic_v1_contract_test
     tests/semantic_v1_contract.cc)
 endif()

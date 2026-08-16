@@ -904,9 +904,18 @@ they are not part of this quadratic KKT contract.
 
 For a KKT action that is symmetric in its declared pairing, MINRES MAY be
 selected only with a compatible symmetric positive-definite preconditioner.
-GMRES is the policy for a declared nonsymmetric action. Variable-work
+GMRES MUST be used for a declared nonsymmetric action and MAY also be used
+for a symmetric action. Variable-work
 preconditioners and flexible GMRES belong to the separate preconditioning
 extension and MUST not be inferred from a generic KKT product name.
+
+A KKT solver policy MUST name MINRES or GMRES, declare iteration and
+tolerance limits, and be checked against the product before execution.
+MINRES MUST be rejected for a product that does not declare symmetric-
+indefinite compatibility; GMRES remains available for either declared
+symmetry. A solve report MUST retain the linear-solver termination separately
+from the KKT stationarity and equality/feasibility residual norms, and the
+multiplier-to-adjoint conversion remains owned by the product.
 
 ## 8. Cases that remain cross-cutting
 

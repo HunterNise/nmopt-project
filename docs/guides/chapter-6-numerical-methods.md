@@ -438,10 +438,11 @@ the generic PDAS solve.
 3. Completed: generalise executable algebra to equality-constrained quadratic
    KKT products (P6.3), including the canonical supplied-OTD bridge and the
    serial DTO assembled/matrix-free comparison.
-4. Next: add MINRES/GMRES policies and diagnostics to the KKT boundary, then
-   add block preconditioner policies (P6.4) as deterministic
-   operator actions before an assembly-only hierarchy.
-5. Add complementarity, selection, and PDAS (P6.5), then build the
+4. Completed: add MINRES/GMRES policies and diagnostics to the KKT boundary;
+   the selected serial slice uses an identity preconditioner and reports
+   stationarity and feasibility independently. P6.4 preconditioner families
+   remain conditional.
+5. Next: add complementarity, selection, and PDAS (P6.5), then build the
    regularised mixed constraint.
 
 | Capability | Required verification |

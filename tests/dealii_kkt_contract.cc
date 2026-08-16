@@ -308,6 +308,81 @@ namespace
                   1e-10,
                   "supplied-OTD bridge equality solution residual");
   }
+
+  void
+  test_krylov_solvers_cross_dto_and_supplied_otd()
+  {
+    dealii::Triangulation<2> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation, 0.0, 1.0);
+    triangulation.refine_global(1);
+    const auto model = make_model(triangulation);
+    const KKT dto_kkt(model);
+    const SuppliedSystem supplied =
+      KKT::Model::make_supplied_otd_system(model);
+    const Product supplied_product =
+      nmopt::contract::make_canonical_supplied_otd_kkt_product(supplied);
+
+    nmopt::contract::QuadraticKKTSolverPolicy minres_policy;
+    minres_policy.maximum_iterations = 500;
+    minres_policy.relative_tolerance = 1e-11;
+    minres_policy.absolute_tolerance = 1e-13;
+    const auto dto_minres = dto_kkt.solve(minres_policy);
+    const auto supplied_minres =
+      nmopt::dealii_backend::solve_serial_quadratic_kkt(supplied_product,
+                                                         minres_policy);
+    nmopt::contract::require(dto_minres.report.converged(),
+                             "serial DTO MINRES did not converge");
+    nmopt::contract::require(supplied_minres.report.converged(),
+                             "serial supplied-OTD MINRES did not converge");
+    nmopt::contract::require(
+      dto_minres.report.linear_solve.algorithm == "serial_minres" &&
+        supplied_minres.report.linear_solve.algorithm == "serial_minres",
+      "MINRES solve report did not identify its algorithm");
+
+    nmopt::contract::QuadraticKKTSolverPolicy gmres_policy = minres_policy;
+    gmres_policy.method =
+      nmopt::contract::QuadraticKKTSolverMethod::gmres;
+    gmres_policy.gmres_maximum_basis = 12;
+    const auto dto_gmres =
+      nmopt::dealii_backend::solve_serial_quadratic_kkt(dto_kkt.product(),
+                                                         gmres_policy);
+    const auto supplied_gmres =
+      nmopt::dealii_backend::solve_serial_quadratic_kkt(supplied_product,
+                                                         gmres_policy);
+    nmopt::contract::require(dto_gmres.report.converged(),
+                             "serial DTO GMRES did not converge");
+    nmopt::contract::require(supplied_gmres.report.converged(),
+                             "serial supplied-OTD GMRES did not converge");
+    nmopt::contract::require(
+      dto_gmres.report.linear_solve.algorithm == "serial_gmres" &&
+        supplied_gmres.report.linear_solve.algorithm == "serial_gmres",
+      "GMRES solve report did not identify its algorithm");
+
+    require_vector_close(dto_minres.solution.primal.block(0),
+                         supplied_minres.solution.primal.block(0),
+                         1e-8,
+                         "DTO and supplied-OTD MINRES state solutions differ");
+    require_vector_close(dto_minres.solution.primal.block(1),
+                         supplied_minres.solution.primal.block(1),
+                         1e-8,
+                         "DTO and supplied-OTD MINRES control solutions differ");
+    require_vector_close(dto_minres.solution.multiplier.block(0),
+                         supplied_minres.solution.multiplier.block(0),
+                         1e-8,
+                         "DTO and supplied-OTD MINRES multipliers differ");
+    require_vector_close(dto_gmres.solution.primal.block(0),
+                         supplied_gmres.solution.primal.block(0),
+                         1e-8,
+                         "DTO and supplied-OTD GMRES state solutions differ");
+    require_vector_close(dto_gmres.solution.primal.block(1),
+                         supplied_gmres.solution.primal.block(1),
+                         1e-8,
+                         "DTO and supplied-OTD GMRES control solutions differ");
+    require_vector_close(dto_gmres.solution.multiplier.block(0),
+                         supplied_gmres.solution.multiplier.block(0),
+                         1e-8,
+                         "DTO and supplied-OTD GMRES multipliers differ");
+  }
 } // namespace
 
 int
@@ -325,7 +400,12 @@ main(const int argc, char **argv)
          "nmopt.dealii.scalar_supplied_otd_kkt_bridge",
          {"dealii", "contract", "kkt", "supplied-otd"},
          60,
-         test_supplied_otd_bridge_matches_dto_product}};
+         test_supplied_otd_bridge_matches_dto_product},
+        {"scalar_krylov_cross_path",
+         "nmopt.dealii.scalar_krylov_cross_path",
+         {"dealii", "contract", "kkt", "solver", "supplied-otd"},
+         60,
+         test_krylov_solvers_cross_dto_and_supplied_otd}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

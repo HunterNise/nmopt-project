@@ -2,6 +2,7 @@
 
 #include "nmopt/contract/quadratic_kkt.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
+#include "nmopt/dealii/serial_kkt_solver.hpp"
 
 #include <deal.II/lac/block_sparse_matrix.h>
 #include <deal.II/lac/block_sparsity_pattern.h>
@@ -51,6 +52,7 @@ namespace nmopt::dealii_backend
     using Model = ScalarDiffusionReactionModel<dim>;
     using Product = contract::EqualityConstrainedQuadraticKKTProductT<
       SerialBackend>;
+    using SolveResult = contract::QuadraticKKTSolveResultT<SerialBackend>;
     using Vector = dealii::Vector<double>;
     using BlockVector = dealii::BlockVector<double>;
 
@@ -67,6 +69,12 @@ namespace nmopt::dealii_backend
     product() const
     {
       return product_;
+    }
+
+    SolveResult
+    solve(const contract::QuadraticKKTSolverPolicy &policy) const
+    {
+      return solve_serial_quadratic_kkt(product_, policy);
     }
 
     const dealii::BlockSparseMatrix<double> &

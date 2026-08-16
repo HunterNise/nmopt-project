@@ -1,4 +1,5 @@
 #include "nmopt/contract/quadratic_kkt.hpp"
+#include "nmopt/contract/quadratic_kkt_solver.hpp"
 #include "test_support/contract_errors.hpp"
 #include "test_support/scenario_dispatch.hpp"
 
@@ -209,6 +210,40 @@ namespace
       "Quadratic KKT Q input has an incompatible layout",
       "KKT Q action accepted an incompatible primal layout");
   }
+
+  void
+  test_kkt_solver_policy_compatibility()
+  {
+    const Product symmetric = make_product();
+    QuadraticKKTSolverPolicy minres_policy;
+    validate(symmetric, minres_policy);
+
+    QuadraticKKTSolverPolicy gmres_policy;
+    gmres_policy.method = QuadraticKKTSolverMethod::gmres;
+    validate(symmetric, gmres_policy);
+
+    const Product nonsymmetric =
+      make_product(QuadraticKKTSymmetry::nonsymmetric);
+    validate(nonsymmetric, gmres_policy);
+    nmopt::test_support::require_contract_error(
+      [&] { validate(nonsymmetric, minres_policy); },
+      "MINRES requires a symmetric-indefinite KKT product",
+      "KKT policy accepted MINRES for a nonsymmetric product");
+
+    QuadraticKKTSolverPolicy invalid_policy;
+    invalid_policy.relative_tolerance = 0.0;
+    nmopt::test_support::require_contract_error(
+      [&] { validate(symmetric, invalid_policy); },
+      "Quadratic KKT solver policy needs positive finite tolerances",
+      "KKT policy accepted a non-positive tolerance");
+
+    invalid_policy = {};
+    invalid_policy.gmres_maximum_basis = 2;
+    nmopt::test_support::require_contract_error(
+      [&] { validate(symmetric, invalid_policy); },
+      "Quadratic KKT solver policy needs a GMRES basis of at least three vectors",
+      "KKT policy accepted an undersized GMRES basis");
+  }
 } // namespace
 
 int
@@ -226,7 +261,12 @@ main(const int argc, char **argv)
          "nmopt.quadratic_kkt.diagnostics_and_multiplier_conversion",
          {"backend-neutral", "formulation", "kkt"},
          30,
-         test_kkt_diagnostics_and_multiplier_conversion}};
+         test_kkt_diagnostics_and_multiplier_conversion},
+        {"solver_policy_compatibility",
+         "nmopt.quadratic_kkt.solver_policy_compatibility",
+         {"backend-neutral", "formulation", "kkt", "solver"},
+         30,
+         test_kkt_solver_policy_compatibility}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

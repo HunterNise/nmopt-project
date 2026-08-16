@@ -1071,10 +1071,11 @@ remain P6.3.
 
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
 
-**Status:** selected after P6.1 and the supplied-OtD interface; Units 1–5 have
-frozen and exercised the normative KKT product boundary through the serial
-scalar DTO and canonical supplied-OTD lowerers. Krylov policies remain to be
-implemented.
+**Status:** complete for the selected serial scalar DTO and canonical
+supplied-OTD slice. Units 1–6 froze and exercised the normative KKT product
+boundary, including explicit block lowerings, multiplier conversion, MINRES,
+GMRES, and independent stationarity/equality residual reporting. P6.4
+preconditioner composition remains conditional.
 
 **Motivation:** All-at-once OCPs are equality-constrained quadratic programs
 with a symmetric indefinite KKT operator. PDAS repeatedly solves related KKT
@@ -1222,16 +1223,21 @@ vocabulary.
   conversion, and the supplied direct solution agree. Focused and prior
   regression scenarios pass; the full gates now pass 21/21 neutral and 52/52
   deal.II scenarios.
+- **P6.3 Unit 6 — Krylov policies and cross-path solve:** the contract now
+  validates MINRES/GMRES policy compatibility, while the serial deal.II
+  adapter packs typed KKT products only at the solver seam and reports linear
+  termination separately from stationarity and equality residuals. Both
+  methods solve the DTO and canonical supplied-OTD products and agree on the
+  state, control, and multiplier solution.
 
 ### Future implementation sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
 selected P6.1 scalar reduced DTO boundary and the canonical P6.2 supplied-
-OTD slice are complete; current work continues with P6.3:
+OTD slice are complete; current work continues with P6.5:
 
-1. **P6.3/P6.5:** add Krylov policies and diagnostics to the scalar KKT
-   products, then implement complementarity/PDAS for the selected cellwise
-   box representation.
+1. **P6.5:** implement complementarity/PDAS for the selected cellwise box
+   representation.
 2. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
 3. **P6.1 extension track:** after the required P6.2/P6.3/P6.5 gates and
    selected benchmark evidence, activate the [P6.1 extension ladder](#p61-extension-ladder)

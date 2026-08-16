@@ -6,6 +6,11 @@ Chapter 6 implementation commits. The
 owner of mutable feature status, acceptance state, and the current agent
 handoff.
 
+The S1 preparation review records the current-state audit of the prerequisite
+that should have preceded P6.1. S1 has no dedicated historical commit range:
+its selected policy concepts are present, but the `RF-014` evaluation split
+and `RF-015` audit/provenance envelope remain open.
+
 The P6.1 review covers its complete 22-commit history from `ff773d5` through
 `de4dd2f`. It records four open P1 defects, three open P2 evidence or
 edge-policy gaps, and one implementation defect resolved within the reviewed
@@ -21,6 +26,7 @@ batches into five P1 integration/benchmark blockers and two P2 evidence or
 status-ledger gaps. No Chapter 6 benchmark is runnable under the frozen
 benchmark contract at the reviewed head. P6.4 remains correctly conditional.
 
+- [S1 preparation remediation review](s1-preparation-remediation-review.md)
 - [P6.1 implementation review](p6.1-implementation-review.md)
 - [P6.2 implementation review](p6.2-implementation-review.md)
 - [P6.3 implementation review](p6.3-implementation-review.md)

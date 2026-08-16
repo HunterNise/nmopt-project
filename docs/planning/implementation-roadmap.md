@@ -41,6 +41,11 @@ shared solve reporting, projection witness, independent scalar oracle, and
 build-cost remeasurement remain retained foundations. P5.1 is acceptance-
 complete after its coefficient-placement and typed-boundary remediation gates
 passed. P5.2 is acceptance-complete for its selected bounded registrations.
+The conditional S1 preparation gate was not closed before the selected P6.1
+surface was implemented. Its direction and line-search policy portion is
+present, but the `RF-014` evaluation split and value-only trial path and the
+`RF-015` accepted-iteration audit and experiment-envelope work remain open.
+S1 is therefore the first Chapter 6 remediation prerequisite.
 The typed trace and negative-metric policies, explicit $H^{1}_{0}$ target-data
 assumption, control-boundary realization, and realized observation-space
 dimensions are covered by the semantic and deal.II contracts. The reviewed
@@ -102,6 +107,8 @@ The accepted scope is:
 - keep the selected scalar Section 5.11 and Neumann boundary-control slices;
 - skip book Sections 5.12 and 5.13, corresponding to the roadmap's P5.5
   regularised state constraints and P5.6 Stokes/mixed-block work;
+- close the selected S1 preparation gate before P6.1 defect remediation or
+  benchmark activation, without adding unselected solver variants;
 - retain the implemented selected P6.1 reduced-space policies, including
   nonlinear conjugate gradients, L-BFGS, line-search policies, and a
   Hessian-vector service with Newton/truncated-Newton support where the
@@ -893,6 +900,8 @@ selection.
 
 **Status:** implementation present for the selected scalar reduced DTO
 boundary; acceptance is pending the
+[S1 preparation remediation](review/chapter-6/s1-preparation-remediation-review.md)
+and the
 [P6.1 implementation review](review/chapter-6/p6.1-implementation-review.md)
 remediation.
 
@@ -968,10 +977,11 @@ benchmark harness remains separate.
 
 #### P6.1 extension ladder
 
-The status above closes the selected scalar P6.1 slice; it does not claim that
-every alternative described in Chapter 3 has been implemented. The following
-extensions are intentionally recorded so that a later implementation does
-not silently broaden the selected slice:
+The implemented surface above covers the selected scalar P6.1 policy slice;
+it does not close S1 or P6.1 acceptance, nor claim that every alternative
+described in Chapter 3 has been implemented. The following extensions are
+intentionally recorded so that a later implementation does not silently
+broaden the selected slice:
 
 1. **Near-term iterative closure:** selectable relative-gradient,
    objective-change, step-size, and absolute-gradient stopping policies,
@@ -1220,6 +1230,16 @@ are recorded in the
 [Chapter 6 review index](review/chapter-6/README.md) and the
 [integration and benchmark readiness review](review/chapter-6/integration-benchmark-review.md).
 
+- **S1 reduced-method preparation:** partially implemented. The selected
+  direction and line-search policies exist, but reduced evaluation still
+  couples value/state work to derivative/adjoint augmentation, rejected
+  Armijo trials still perform adjoint solves, and the result surface lacks the
+  required typed accepted-iteration audit and outer experiment envelope. S1
+  remains open until the `RF-014` and `RF-015` exit checks in the
+  [Stage B roadmap](review/pre-ch5-ch6/stage-b-roadmap.md#s1--prepare-selected-p61-reduced-methods),
+  as decomposed by the
+  [S1 remediation handoff](review/chapter-6/s1-preparation-remediation-review.md),
+  pass.
 - **P6.1 reduced-space solver slice:** the selected direction, Hessian/Newton, line-search, reporting, and configurable-composition contracts are implemented for the scalar reduced DTO boundary. The final verification pass covers the neutral, deal.II Debug, sanitizer, and deal.II Release profiles.
 - **P6.3 Unit 1 — normative KKT boundary:** the reusable $Q$, $D$, and KKT
   action, typed primal/multiplier/residual layouts, explicit multiplier-to-
@@ -1271,22 +1291,32 @@ are recorded in the
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
 selected P6.1, P6.2, P6.3, and P6.5 implementation surfaces are present but
-not acceptance-complete. Follow the detailed
-[integration remediation order](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order):
+not acceptance-complete. The sequence below incorporates the
+[integration remediation order](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order)
+and the previously unclosed
+[S1 prerequisite](review/chapter-6/s1-preparation-remediation-review.md):
 
 The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 `sanitize-neutral` 32/32, and `debug-dealii` 66/66. These are
 regression baselines for the existing scenario inventory; they do not close
 the review findings, whose missing or stronger scenarios are not yet present.
 
-1. close the P6.1 findings exercised by the selected B1/B2 benchmarks;
-2. repair the P6.2 semantic provenance and owned-session boundary;
-3. register and validate the P6.3 DTO KKT product before repairing its
+1. close S1 before P6.1 remediation: split value/state evaluation from
+   derivative/adjoint augmentation, make rejected Armijo trials value-only,
+   retain an explicitly valid accepted record, add typed accepted-iteration
+   audit records and exact separated work counts, and pair solver reports with
+   compiler provenance and the run environment in an outer experiment
+   envelope. Preserve the existing covector, metric, constraint, and
+   projected-displacement semantics; retain rather than reimplement the
+   selected direction and line-search policies already present;
+2. close the P6.1 findings exercised by the selected B1/B2 benchmarks;
+3. repair the P6.2 semantic provenance and owned-session boundary;
+4. register and validate the P6.3 DTO KKT product before repairing its
    supplied-OTD bridge;
-4. repair the P6.5 restricted active subproblem, algebra, compilation, and
+5. repair the P6.5 restricted active subproblem, algebra, compilation, and
    ownership boundaries;
-5. compile one shared box-data product for projection and complementarity;
-6. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
+6. compile one shared box-data product for projection and complementarity;
+7. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
    run the selected B1 and B2 benchmarks through the declared artifact path.
 
 B3 and B4 remain desirable follow-ups under the authoritative
@@ -1296,6 +1326,7 @@ bounded P6.4 preconditioner may be activated only if a separately selected B5
 run demonstrates that direct or basic serial solves are inadequate.
 
 Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
-remediation gate. Do not silently activate S1 or any Stokes,
+remediation gate. S1 is explicitly activated only for the bounded `RF-014`
+and `RF-015` preparation work above. Do not silently activate any Stokes,
 measure-constraint, stabilization, automatic-OtD, continuous-control box, or
 other excluded work.

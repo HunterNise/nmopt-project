@@ -20,6 +20,12 @@ namespace nmopt::compiler::v1
 {
   class DealiiCompiler;
 
+  enum class CompilationProduct
+  {
+    reduced_dto,
+    quadratic_kkt
+  };
+
   struct DealiiBindingProvenance
   {
     std::string forcing;

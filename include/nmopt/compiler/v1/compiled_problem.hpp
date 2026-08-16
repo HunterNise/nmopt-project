@@ -2,6 +2,7 @@
 
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
+#include "nmopt/contract/quadratic_kkt.hpp"
 #include "nmopt/contract/supplied_otd.hpp"
 #include "nmopt/semantic/v1/validation.hpp"
 
@@ -139,6 +140,30 @@ namespace nmopt::compiler::v1
     std::string              vjp_action_provenance;
     std::string              solve_provenance;
     std::string              comparison_status;
+  };
+
+  struct CompiledKKTRecord
+  {
+    bool                     present = false;
+    std::string              product_id;
+    std::string              construction_realisation;
+    std::string              primal_layout;
+    std::string              multiplier_layout;
+    std::string              adjoint_layout;
+    std::string              stationarity_layout;
+    std::string              equality_layout;
+    std::string              primal_stationarity_pairing;
+    std::string              multiplier_equality_pairing;
+    std::string              multiplier_conversion;
+    bool                     rank_condition_declared = false;
+    std::string              rank_policy;
+    bool                     kernel_positivity_declared = false;
+    std::string              kernel_policy;
+    std::string              symmetry;
+    std::string              solver_policy;
+    std::string              preconditioner;
+    std::vector<std::string> action_provenance;
+    std::vector<std::string> assembled_block_provenance;
   };
 
   struct CompiledMetricRecord
@@ -296,6 +321,7 @@ namespace nmopt::compiler::v1
     std::string                         execution_id = "assembled";
     CompiledFormulationRecord           formulation_record;
     CompiledSuppliedOTDRecord           supplied_otd_record;
+    CompiledKKTRecord                   kkt_record;
     CompiledMeshRecord                  mesh_record;
     std::vector<CompiledRegionRecord>   regions;
     std::vector<CompiledSpaceRecord>    spaces;
@@ -333,10 +359,11 @@ namespace nmopt::compiler::v1
   // mistaken for the same computation.
   struct CompilationManifest
   {
-    unsigned int                         schema_version = 3;
+    unsigned int                         schema_version = 4;
     ResolvedCompilationDecision           resolved_decision;
     CompiledFormulationRecord            formulation_record;
     CompiledSuppliedOTDRecord            supplied_otd_record;
+    CompiledKKTRecord                    kkt_record;
     CompiledMeshRecord                   mesh_record;
     std::vector<CompiledSpaceRecord>      spaces;
     std::vector<CompiledBindingRecord>    bindings;
@@ -389,6 +416,154 @@ namespace nmopt::compiler::v1
     std::vector<std::string> metric_ids;
     std::vector<std::string> constraint_ids;
     std::vector<std::string> declared_assumptions;
+  };
+
+  namespace compiled_kkt_detail
+  {
+    template <typename Backend>
+    contract::PrimalBlockT<Backend>
+    copy_primal(const contract::PrimalBlockT<Backend> &source,
+                const contract::LayoutPtr              &layout)
+    {
+      std::vector<typename Backend::Vector> blocks;
+      blocks.reserve(source.n_blocks());
+      for (std::size_t block = 0; block < source.n_blocks(); ++block)
+        blocks.push_back(source.block(block));
+      return contract::PrimalBlockT<Backend>(layout, std::move(blocks));
+    }
+
+    template <typename Values>
+    void
+    negate(Values &value)
+    {
+      for (std::size_t block = 0; block < value.n_blocks(); ++block)
+        value.scale_block(block, -1.0);
+    }
+  } // namespace compiled_kkt_detail
+
+  template <typename Backend>
+  std::shared_ptr<const contract::EqualityConstrainedQuadraticKKTProductT<Backend>>
+  make_compiled_dto_kkt_product(
+    std::shared_ptr<const contract::ExecutableModelT<Backend>> executable)
+  {
+    contract::require(static_cast<bool>(executable),
+                      "A compiled DTO KKT product needs an executable model");
+    using Product = contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
+    using Primal = contract::PrimalBlockT<Backend>;
+    using Covector = contract::CovectorBlockT<Backend>;
+
+    const auto primal_layout = executable->variable_layout();
+    const auto multiplier_layout = executable->test_layout();
+    const auto adjoint_layout = executable->test_layout();
+    const auto stationarity_layout = executable->variable_layout();
+    const auto equality_layout = executable->test_layout();
+    const typename Product::Layout layout(primal_layout,
+                                          multiplier_layout,
+                                          adjoint_layout,
+                                          stationarity_layout,
+                                          equality_layout);
+    const Primal zero = Primal::zeros(primal_layout);
+
+    const auto quadratic_action = [executable, zero](const Primal &primal) {
+      return contract::subtract(executable->objective_derivative(primal),
+                                executable->objective_derivative(zero));
+    };
+    const auto equality_action = [executable, zero](const Primal &primal) {
+      return executable->residual_jvp(zero, primal);
+    };
+    const auto multiplier_action = [executable, zero](const Primal &multiplier) {
+      return executable->residual_vjp(zero, multiplier);
+    };
+    const auto transpose_action = [executable,
+                                   zero,
+                                   quadratic_action,
+                                   equality_action](const typename Product::Seed &seed) {
+      const Primal stationarity_seed = seed.stationarity;
+      Covector primal_action = quadratic_action(stationarity_seed);
+      const Covector equality_pullback =
+        executable->residual_vjp(zero, seed.equality);
+      for (std::size_t block = 0; block < primal_action.n_blocks(); ++block)
+        primal_action.add_scaled_block(block,
+                                       1.0,
+                                       equality_pullback.block(block));
+      return typename Product::TransposeResult{
+        primal_action,
+        equality_action(stationarity_seed)};
+    };
+
+    Covector stationarity_rhs = executable->objective_derivative(zero);
+    compiled_kkt_detail::negate(stationarity_rhs);
+    Covector equality_rhs = executable->residual(zero);
+    compiled_kkt_detail::negate(equality_rhs);
+    const typename Product::MultiplierConversion conversion{
+      "KKT multiplier equals negative framework adjoint",
+      [adjoint_layout](const Primal &multiplier) {
+        Primal result = multiplier;
+        compiled_kkt_detail::negate(result);
+        return compiled_kkt_detail::copy_primal(result, adjoint_layout);
+      },
+      [multiplier_layout](const Primal &adjoint) {
+        Primal result = adjoint;
+        compiled_kkt_detail::negate(result);
+        return compiled_kkt_detail::copy_primal(result, multiplier_layout);
+      }};
+    const contract::QuadraticKKTAssumptions assumptions{
+      true,
+      true,
+      "canonical scalar DTO equality Jacobian is full row rank",
+      "canonical scalar DTO quadratic objective is positive on the equality-Jacobian kernel"};
+
+    return std::make_shared<const Product>(
+      layout,
+      quadratic_action,
+      equality_action,
+      multiplier_action,
+      transpose_action,
+      std::move(stationarity_rhs),
+      std::move(equality_rhs),
+      conversion,
+      assumptions,
+      contract::QuadraticKKTSymmetry::symmetric_indefinite);
+  }
+
+  template <typename Backend>
+  class CompiledQuadraticKKTProblemT final
+  {
+  public:
+    using Product = contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
+
+    CompiledQuadraticKKTProblemT(std::shared_ptr<const Product> product,
+                                 CompilationManifest manifest,
+                                 std::shared_ptr<const void> lifetime_owner = {})
+      : lifetime_owner_(std::move(lifetime_owner))
+      , product_(std::move(product))
+      , manifest_(std::move(manifest))
+    {
+      contract::require(static_cast<bool>(product_),
+                        "A compiled KKT problem needs a product");
+      contract::require(manifest_.kkt_record.present,
+                        "A compiled KKT problem needs a KKT manifest record");
+      contract::require(
+        manifest_.resolved_decision.kkt_record.present,
+        "A compiled KKT problem needs a resolved KKT manifest record");
+    }
+
+    const Product &
+    product() const
+    {
+      return *product_;
+    }
+
+    const CompilationManifest &
+    manifest() const
+    {
+      return manifest_;
+    }
+
+  private:
+    std::shared_ptr<const void> lifetime_owner_;
+    std::shared_ptr<const Product> product_;
+    CompilationManifest            manifest_;
   };
 
   // The compiler product contains only the backend-neutral executable ports.
@@ -556,6 +731,8 @@ namespace nmopt::compiler::v1
   {
     semantic::v1::ValidationReport             diagnostics;
     std::shared_ptr<const CompiledProblemT<Backend>> problem;
+    std::shared_ptr<const CompiledQuadraticKKTProblemT<Backend>>
+      kkt_problem;
     std::shared_ptr<const CompiledSuppliedOTDProblemT<Backend>>
       supplied_otd_problem;
 
@@ -564,6 +741,7 @@ namespace nmopt::compiler::v1
     {
       return diagnostics.valid() &&
              (static_cast<bool>(problem) ||
+              static_cast<bool>(kkt_problem) ||
               static_cast<bool>(supplied_otd_problem));
     }
   };

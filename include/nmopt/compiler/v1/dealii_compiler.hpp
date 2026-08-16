@@ -48,7 +48,8 @@ namespace nmopt::compiler::v1
 
     semantic::v1::ValidationReport
     validate(const semantic::v1::ProblemSpec &  specification,
-             const DealiiDiscretisationPolicy & policy) const
+             const DealiiDiscretisationPolicy & policy,
+             const CompilationProduct product = CompilationProduct::reduced_dto) const
     {
       auto resolution = semantic::v1::SemanticResolver().resolve(specification);
       semantic::v1::ValidationReport report = std::move(resolution.diagnostics);
@@ -66,6 +67,7 @@ namespace nmopt::compiler::v1
       validate_dirichlet_control_registration(*resolution.problem,
                                                request,
                                                report);
+      validate_product_capability(specification, request, product, report);
       return report;
     }
 
@@ -76,7 +78,8 @@ namespace nmopt::compiler::v1
             const DealiiDataBindings<dim> &     data,
             const DealiiDiscretisationPolicy &  policy = {},
             std::optional<CellwiseBoxDataBindings> bounds = std::nullopt,
-            std::optional<FacewiseBoxDataBindings> facewise_bounds = std::nullopt) const
+            std::optional<FacewiseBoxDataBindings> facewise_bounds = std::nullopt,
+            const CompilationProduct product = CompilationProduct::reduced_dto) const
     {
       return compile_impl(specification,
                           triangulation,
@@ -86,7 +89,8 @@ namespace nmopt::compiler::v1
                           std::move(facewise_bounds),
                           {},
                           "caller-owned triangulation",
-                          false);
+                          false,
+                          product);
     }
 
     template <int dim>
@@ -97,7 +101,8 @@ namespace nmopt::compiler::v1
       const DealiiDataBindings<dim> &data,
       const DealiiDiscretisationPolicy &policy = {},
       std::optional<CellwiseBoxDataBindings> bounds = std::nullopt,
-      std::optional<FacewiseBoxDataBindings> facewise_bounds = std::nullopt) const
+      std::optional<FacewiseBoxDataBindings> facewise_bounds = std::nullopt,
+      const CompilationProduct product = CompilationProduct::reduced_dto) const
     {
       CompilationResultT<dealii_backend::SerialBackend> result;
       if (!session)
@@ -117,7 +122,8 @@ namespace nmopt::compiler::v1
                           std::move(facewise_bounds),
                           session,
                           session->mesh_provenance(),
-                          true);
+                          true,
+                          product);
     }
 
   private:
@@ -562,7 +568,8 @@ namespace nmopt::compiler::v1
             std::optional<FacewiseBoxDataBindings> facewise_bounds,
             std::shared_ptr<const void>             lifetime_owner,
             std::string                             mesh_provenance,
-            const bool                              owns_mesh) const
+            const bool                              owns_mesh,
+            const CompilationProduct               product) const
     {
       using Backend = dealii_backend::SerialBackend;
       CompilationResultT<Backend> result;
@@ -584,6 +591,10 @@ namespace nmopt::compiler::v1
       validate_dirichlet_control_registration(*resolution.problem,
                                               request,
                                               result.diagnostics);
+      validate_product_capability(specification,
+                                  request,
+                                  product,
+                                  result.diagnostics);
       if (!result.diagnostics.valid())
         return result;
       const bool uses_fixed_reconstruction =
@@ -1562,7 +1573,7 @@ namespace nmopt::compiler::v1
               DirectModel::make_supplied_otd_system(
                 direct, *specification.supplied_otd_declaration));
         }
-      const auto finalized_decision = finalize_resolved_decision<dim>(
+      auto finalized_decision = finalize_resolved_decision<dim>(
         policy,
         constraint_realisation,
         resolved_decision,
@@ -1574,8 +1585,21 @@ namespace nmopt::compiler::v1
         specification.supplied_otd_declaration
           ? &*specification.supplied_otd_declaration
           : nullptr);
+      std::shared_ptr<const contract::EqualityConstrainedQuadraticKKTProductT<Backend>>
+        kkt_product;
+      if (product == CompilationProduct::quadratic_kkt)
+        {
+          kkt_product = make_compiled_dto_kkt_product<Backend>(executable);
+          finalized_decision.kkt_record = make_kkt_record(*kkt_product);
+        }
       const CompilationManifest manifest = make_manifest(finalized_decision);
-      if (supplied_otd_system)
+      if (kkt_product)
+        result.kkt_problem = std::make_shared<
+          const CompiledQuadraticKKTProblemT<Backend>>(
+          std::move(kkt_product),
+          manifest,
+          std::move(lifetime_owner));
+      else if (supplied_otd_system)
         result.supplied_otd_problem = std::make_shared<
           const CompiledSuppliedOTDProblemT<Backend>>(
           std::move(supplied_otd_system),
@@ -4384,6 +4408,32 @@ namespace nmopt::compiler::v1
     }
 
     static void
+    validate_product_capability(
+      const semantic::v1::ProblemSpec &       specification,
+      const ResolvedCompilationRequest &     request,
+      const CompilationProduct                product,
+      semantic::v1::ValidationReport &        report)
+    {
+      if (product != CompilationProduct::quadratic_kkt)
+        return;
+
+      const bool canonical_scalar_dto =
+        specification.id == "scalar_diffusion_reaction_fixed_dirichlet" &&
+        request.uses_assembled_v1_target &&
+        specification.formulation.kind ==
+          semantic::v1::FormulationKind::reduced_dto &&
+        specification.formulation.provenance ==
+          semantic::v1::FormulationProvenance::dto &&
+        specification.formulation.constraint_id.empty();
+      if (!canonical_scalar_dto)
+        report.add(
+          semantic::v1::DiagnosticCategory::formulation_capability,
+          specification.formulation.id,
+          "compiled_quadratic_kkt",
+          "Request the canonical unconstrained scalar DTO target before constructing a compiled quadratic KKT product.");
+    }
+
+    static void
     validate_supplied_otd_capability(
       const semantic::v1::ProblemSpec & specification,
       const ResolvedCompilationRequest &request,
@@ -6298,6 +6348,56 @@ namespace nmopt::compiler::v1
       return manifest.resolved_decision;
     }
 
+    static CompiledKKTRecord
+    make_kkt_record(
+      const contract::EqualityConstrainedQuadraticKKTProductT<
+        dealii_backend::SerialBackend> &product)
+    {
+      const auto &layout = product.layout();
+      CompiledKKTRecord record;
+      record.present = true;
+      record.product_id = "compiled.scalar.dto.kkt";
+      record.construction_realisation =
+        "compiler-owned adapter from canonical DTO objective/residual action ports";
+      record.primal_layout = layout.primal->label();
+      record.multiplier_layout = layout.multiplier->label();
+      record.adjoint_layout = layout.adjoint->label();
+      record.stationarity_layout = layout.stationarity->label();
+      record.equality_layout = layout.equality->label();
+      record.primal_stationarity_pairing =
+        "primal '" + record.primal_layout + "' <-> stationarity '" +
+        record.stationarity_layout + "'";
+      record.multiplier_equality_pairing =
+        "multiplier '" + record.multiplier_layout + "' <-> equality '" +
+        record.equality_layout + "'";
+      record.multiplier_conversion =
+        "KKT multiplier equals negative framework adjoint";
+      record.rank_condition_declared = product.assumptions().rank_condition_declared;
+      record.rank_policy = product.assumptions().rank_policy;
+      record.kernel_positivity_declared =
+        product.assumptions().kernel_positivity_declared;
+      record.kernel_policy = product.assumptions().kernel_policy;
+      record.symmetry = product.supports_minres() ? "symmetric_indefinite"
+                                                  : "nonsymmetric";
+      record.solver_policy =
+        "MINRES for the declared symmetric-indefinite product; GMRES requires a later explicit nonsymmetric target";
+      record.preconditioner = "identity baseline";
+      record.action_provenance = {
+        "Q <- objective_derivative(primal) - objective_derivative(zero)",
+        "D <- residual_jvp(zero, primal)",
+        "D^T <- residual_vjp(zero, multiplier)",
+        "KKT transpose <- Q + residual_vjp applied to the equality seed",
+        "RHS <- negative objective_derivative(zero) and residual(zero)"};
+      record.assembled_block_provenance = {
+        "Q[0,0] <- assembled state-tracking Hessian",
+        "Q[1,1] <- assembled control-regularisation Hessian",
+        "Q[0,1] and Q[1,0] <- zero canonical cross blocks",
+        "D[0,0] <- assembled state residual Jacobian",
+        "D[0,1] <- assembled volume-control residual coupling",
+        "D^T <- exact coefficient transpose of the assembled D blocks"};
+      return record;
+    }
+
     static CompilationManifest
     make_manifest(const ResolvedCompilationDecision &decision)
     {
@@ -6305,6 +6405,7 @@ namespace nmopt::compiler::v1
       manifest.resolved_decision = decision;
       manifest.formulation_record = decision.formulation_record;
       manifest.supplied_otd_record = decision.supplied_otd_record;
+      manifest.kkt_record = decision.kkt_record;
       manifest.mesh_record = decision.mesh_record;
       manifest.spaces = decision.spaces;
       manifest.bindings = decision.bindings;

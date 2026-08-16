@@ -552,7 +552,7 @@ namespace
         observation_map_dimensions_match_spaces,
       target + " manifest omitted a realized observation or transformation map");
     contract::require(
-      manifest.schema_version == 3 &&
+      manifest.schema_version == 4 &&
         manifest.formulation_record.kind ==
           semantic::v1::FormulationKind::reduced_dto &&
         manifest.formulation_record.provenance ==
@@ -4597,6 +4597,112 @@ namespace
 
   template <int dim>
   void
+  run_compiled_dto_kkt_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+
+    const auto specification =
+      semantic::v1::make_fixed_dirichlet_scalar_diffusion_reaction_problem();
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const dealii::Functions::ConstantFunction<dim> fixed_dirichlet_data(0.0);
+    auto bindings = compiler::v1::DealiiDataBindings<dim>{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("compiled_dto_kkt", true)};
+    bindings.fixed_dirichlet_data = std::cref(fixed_dirichlet_data);
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+
+    const auto validation = compiler.validate(
+      specification,
+      policy,
+      compiler::v1::CompilationProduct::quadratic_kkt);
+    contract::require(validation.valid(),
+                      "canonical DTO KKT target did not validate");
+
+    const auto compilation = compiler.compile(
+      specification,
+      triangulation,
+      bindings,
+      policy,
+      std::nullopt,
+      std::nullopt,
+      compiler::v1::CompilationProduct::quadratic_kkt);
+    contract::require(
+      compilation.succeeded() && compilation.kkt_problem &&
+        !compilation.problem && !compilation.supplied_otd_problem,
+      "compiler did not produce the distinct canonical DTO KKT product");
+
+    const auto &kkt = *compilation.kkt_problem;
+    const auto &product = kkt.product();
+    using KKTProduct = contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
+    const auto &manifest = kkt.manifest();
+    const auto &record = manifest.kkt_record;
+    contract::require(
+      record.present && record.product_id == "compiled.scalar.dto.kkt" &&
+        record.construction_realisation.find("canonical DTO") !=
+          std::string::npos &&
+        !record.primal_layout.empty() && !record.multiplier_layout.empty() &&
+        !record.adjoint_layout.empty() && !record.stationarity_layout.empty() &&
+        !record.equality_layout.empty() &&
+        !record.primal_stationarity_pairing.empty() &&
+        !record.multiplier_equality_pairing.empty() &&
+        record.multiplier_conversion.find("negative") != std::string::npos &&
+        record.rank_condition_declared && record.kernel_positivity_declared &&
+        record.symmetry == "symmetric_indefinite" &&
+        record.solver_policy.find("MINRES") != std::string::npos &&
+        record.preconditioner == "identity baseline" &&
+        record.action_provenance.size() == 5 &&
+        record.assembled_block_provenance.size() == 6 &&
+        manifest.resolved_decision.kkt_record.product_id == record.product_id,
+      "compiled DTO KKT manifest omitted its structured product boundary");
+
+    const auto zero_primal = Primal::zeros(product.layout().primal);
+    const auto zero_multiplier = Primal::zeros(product.layout().multiplier);
+    const KKTProduct::Point point{zero_primal, zero_multiplier};
+    const auto residual = product.residual(point);
+    contract::require(
+      residual.stationarity.layout()->compatible_with(
+        *product.layout().stationarity) &&
+        residual.equality.layout()->compatible_with(*product.layout().equality),
+      "compiled DTO KKT residual did not retain its declared layouts");
+    const auto transpose = product.apply_kkt_transpose(
+      {Primal::zeros(product.layout().stationarity),
+       Primal::zeros(product.layout().equality)});
+    contract::require(
+      transpose.primal.layout()->compatible_with(*product.layout().primal) &&
+        transpose.multiplier.layout()->compatible_with(
+          *product.layout().multiplier) &&
+        product.supports_minres(),
+      "compiled DTO KKT action or solver symmetry declaration is incomplete");
+
+    const auto constrained_specification =
+      semantic::v1::make_scalar_diffusion_reaction_problem();
+    const auto rejected = compiler.compile(
+      constrained_specification,
+      triangulation,
+      bindings,
+      policy,
+      std::nullopt,
+      std::nullopt,
+      compiler::v1::CompilationProduct::quadratic_kkt);
+    test_support::require_exact_diagnostic(
+      rejected.diagnostics,
+      semantic::v1::DiagnosticCategory::formulation_capability,
+      "reduced_dto",
+      "compiled_quadratic_kkt",
+      "compiler inferred a KKT product for a noncanonical DTO target");
+  }
+
+  template <int dim>
+  void
   run_compiler_diagnostics_contract_test()
   {
     const compiler::v1::DealiiCompiler compiler;
@@ -4872,7 +4978,7 @@ namespace
         evaluation.adjoint_solve.maximum_iterations == 419,
       "detached compiled service did not retain its solve policies and reports");
     contract::require(
-      detached.manifest.schema_version == 3 &&
+      detached.manifest.schema_version == 4 &&
         detached.manifest.mesh_record.dimension ==
           static_cast<unsigned int>(dim) &&
         detached.manifest.mesh_record.active_cells == 16 &&
@@ -5866,6 +5972,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler"},
          180,
          []() { run_canonical_volume_control_contract_test<2>(); }},
+        {"compiled_dto_kkt",
+         "nmopt.dealii.compiled_dto_kkt",
+         {"dealii", "compiler", "kkt"},
+         60,
+         []() { run_compiled_dto_kkt_contract_test<2>(); }},
         {"fixed_dirichlet",
          "nmopt.dealii.fixed_dirichlet",
          {"dealii", "compiler"},

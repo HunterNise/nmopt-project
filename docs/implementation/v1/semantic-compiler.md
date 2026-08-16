@@ -729,6 +729,19 @@ rejected before lowering.
 as diagnostics; the compiler does not substitute another residual,
 observation, metric, constraint, or formulation.
 
+The explicit `CompilationProduct::quadratic_kkt` request is a separate
+compiler product boundary. In the current v1 registration it is accepted only
+for the unconstrained fixed-Dirichlet scalar DTO target and returns
+`CompiledQuadraticKKTProblemT<Backend>`, never a reduced DTO or supplied-OTD
+product. Its product owns the canonical primal, multiplier, adjoint,
+stationarity, and equality layouts, action provenance, multiplier conversion,
+rank/kernel declarations, exact assembled-block provenance,
+symmetric-indefinite policy, and identity preconditioner baseline. A direct scalar
+DTO, constrained target, or supplied
+OTD request receives the stable `compiled_quadratic_kkt`
+`formulation_capability` diagnostic before product construction; the compiler
+does not infer a KKT product from DTO or supplied-OTD labels alone.
+
 Caller-provided compilation data use the same predictable boundary. Missing
 or nonfinite scalar bindings, nonpositive diffusion/regularisation, missing
 Function provenance labels, invalid solve policies, empty or unsupported
@@ -840,7 +853,7 @@ The P5.1 nonsymmetric target likewise records direct state and exact-transpose
 adjoint solves; it does not misreport its operator as SPD.
 
 Every successful compiled product also carries a versioned, structured
-`CompilationManifest` (schema version 3). A `ResolvedCompilationDecision` is
+`CompilationManifest` (schema version 4). A `ResolvedCompilationDecision` is
 created after semantic/lowerability checks and before model construction. It
 captures the closed request, typed semantic inventory, regions, unresolved map
 skeletons, and selected policy payloads. Model construction consumes the same

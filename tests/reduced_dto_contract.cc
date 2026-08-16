@@ -1702,6 +1702,69 @@ namespace
       require(projected_result.objective_history[index] <=
                 projected_result.objective_history[index - 1],
               "Projected reduced gradient objective history is not monotonic");
+
+    const nmopt::solvers::ReducedWolfeGradientSolver projected_wolfe_solver(
+      reduced, metric, recording_bounds, solver_parameters);
+    const auto projected_wolfe_result = projected_wolfe_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{0.4, 0.4}}));
+    require(projected_wolfe_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Projected strong-Wolfe reduced gradient solver did not reach stationarity");
+    require(projected_wolfe_result.control.layout()->compatible_with(
+              *partition.control_layout()),
+            "Projected strong-Wolfe reduced gradient returned an incompatible control");
+
+    const nmopt::solvers::ReducedWeakWolfeGradientSolver
+      projected_weak_wolfe_solver(
+        reduced, metric, recording_bounds, solver_parameters);
+    const auto projected_weak_wolfe_result = projected_weak_wolfe_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{0.4, 0.4}}));
+    require(projected_weak_wolfe_result.stopping_reason ==
+              nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
+            "Projected weak-Wolfe reduced gradient solver did not reach stationarity");
+
+    const auto expect_projected_policy_rejection =
+      [&reduced, &metric, &recording_bounds, &solver_parameters](auto *solver_tag,
+                                                                  const char *label) {
+        using Solver = std::remove_pointer_t<decltype(solver_tag)>;
+        nmopt::test_support::require_contract_error(
+          [&reduced, &metric, &recording_bounds, &solver_parameters]() {
+            Solver rejected_solver(reduced,
+                                   metric,
+                                   recording_bounds,
+                                   solver_parameters);
+            (void)rejected_solver;
+          },
+          "Projected reduced solver supports only steepest descent with Armijo, weak Wolfe, or strong Wolfe line search",
+          label);
+      };
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedConjugateGradientSolver *>(nullptr),
+      "projected nonlinear CG rejection");
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedFletcherReevesSolver *>(nullptr),
+      "projected Fletcher-Reeves rejection");
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedQuadraticConjugateGradientSolver *>(nullptr),
+      "projected quadratic CG rejection");
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedLimitedMemoryBfgsSolver *>(nullptr),
+      "projected L-BFGS rejection");
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedFullBfgsSolver *>(nullptr),
+      "projected full BFGS rejection");
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedNewtonSolver *>(nullptr),
+      "projected Newton rejection");
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedExactConjugateGradientSolver *>(nullptr),
+      "projected exact nonlinear CG rejection");
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedExactFletcherReevesSolver *>(nullptr),
+      "projected exact Fletcher-Reeves rejection");
+    expect_projected_policy_rejection(
+      static_cast<nmopt::solvers::ReducedExactNewtonSolver *>(nullptr),
+      "projected exact Newton rejection");
   }
 
   void

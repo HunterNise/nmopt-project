@@ -68,6 +68,7 @@ namespace nmopt::solvers
       , line_search_policy_(default_line_search_policy(parameters))
     {
       validate_parameters();
+      validate_projection_policy();
       contract::require(constraint_->layout()->compatible_with(*metric_.layout()),
                         "Reduced gradient constraint does not match metric");
       contract::require(constraint_->supports_projection_in(metric_),
@@ -88,6 +89,7 @@ namespace nmopt::solvers
       , line_search_policy_(std::move(line_search_policy))
     {
       validate_parameters();
+      validate_projection_policy();
       contract::require(constraint_->layout()->compatible_with(*metric_.layout()),
                         "Reduced gradient constraint does not match metric");
       contract::require(constraint_->supports_projection_in(metric_),
@@ -396,6 +398,21 @@ namespace nmopt::solvers
     }
 
   private:
+    void
+    validate_projection_policy() const
+    {
+      contract::require(
+        std::is_same_v<DirectionPolicy,
+                       SteepestDescentDirectionPolicyT<Backend>> &&
+          (std::is_same_v<LineSearchPolicy,
+                          ArmijoLineSearchPolicyT<Backend>> ||
+           std::is_same_v<LineSearchPolicy,
+                          WolfeLineSearchPolicyT<Backend>> ||
+           std::is_same_v<LineSearchPolicy,
+                          WeakWolfeLineSearchPolicyT<Backend>>),
+        "Projected reduced solver supports only steepest descent with Armijo, weak Wolfe, or strong Wolfe line search");
+    }
+
     static LineSearchPolicy
     default_line_search_policy(const ReducedSolverParameters &parameters)
     {

@@ -352,6 +352,26 @@ namespace nmopt::solvers
                         "Exact quadratic trial value has an incompatible layout");
       Primal actual_update = trial_control;
       add_scaled_primal(actual_update, -1.0, current_control);
+      Primal expected_update = direction.direction;
+      scale_primal(expected_update, step_length);
+      contract::require_compatible(
+        actual_update,
+        expected_update,
+        "Exact quadratic trial has an incompatible straight-line update");
+      for (std::size_t block = 0; block < actual_update.n_blocks(); ++block)
+        for (std::size_t entry = 0;
+             entry < actual_update.block(block).size();
+             ++entry)
+          {
+            const double actual_value = actual_update.block(block)[entry];
+            const double expected_value = expected_update.block(block)[entry];
+            const double scale =
+              std::max({1.0, std::abs(actual_value), std::abs(expected_value)});
+            contract::require(
+              std::isfinite(actual_value) && std::isfinite(expected_value) &&
+                std::abs(actual_value - expected_value) <= 1e-12 * scale,
+              "Exact quadratic line search requires the trial builder to return the straight-line step");
+          }
       const double actual_slope =
         contract::pair(current_evaluation.reduced_derivative, actual_update);
       const double objective_bound =

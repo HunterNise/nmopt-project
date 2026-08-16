@@ -691,6 +691,24 @@ namespace
               std::isfinite(exact_result.acceptance_evidence.curvature_value) &&
               exact_result.acceptance_evidence.curvature_value > 0.0,
             "Exact quadratic line search did not report its curvature evidence");
+    PrimalBlock exact_update = exact_result.control;
+    nmopt::solvers::add_scaled_primal(exact_update, -1.0, control);
+    PrimalBlock expected_exact_update = search_direction.direction;
+    nmopt::solvers::scale_primal(expected_exact_update,
+                                 exact_result.step_length);
+    for (std::size_t block = 0; block < exact_update.n_blocks(); ++block)
+      for (std::size_t entry = 0;
+           entry < exact_update.block(block).size();
+           ++entry)
+        require_close(exact_update.block(block)[entry],
+                      expected_exact_update.block(block)[entry],
+                      1e-12,
+                      "Exact quadratic line search reported the wrong displacement");
+    require_close(pair(exact_result.evaluation.reduced_derivative,
+                       search_direction.direction),
+                  0.0,
+                  1e-12,
+                  "Exact quadratic line search did not reach the one-dimensional stationary point");
 
     nmopt::solvers::WolfeLineSearchParameters wolfe_parameters;
     wolfe_parameters.maximum_trials = 30;
@@ -774,6 +792,20 @@ namespace
     require(actual_displacement_result.accepted() &&
               actual_displacement_result.trial_count == 1,
             "Armijo line search did not use the actual trial displacement");
+
+    nmopt::test_support::require_contract_error(
+      [&exact_policy, &control, &evaluation, &search_direction,
+       &scaled_trial_builder, &evaluate_trial_value,
+       &augment_trial_derivative]() {
+        (void)exact_policy.search(control,
+                                  evaluation,
+                                  search_direction,
+                                  scaled_trial_builder,
+                                  evaluate_trial_value,
+                                  augment_trial_derivative);
+      },
+      "Exact quadratic line search requires the trial builder to return the straight-line step",
+      "exact line search rejects a transformed trial");
 
     const nmopt::solvers::ExactQuadraticLineSearchPolicy
       missing_exact_hessian_policy;

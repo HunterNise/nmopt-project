@@ -891,7 +891,10 @@ selection.
 
 ### P6.1 — Generalise reduced-space search strategies and line-search policies
 
-**Status:** implemented for the selected scalar reduced DTO boundary.
+**Status:** implementation present for the selected scalar reduced DTO
+boundary; acceptance is pending the
+[P6.1 implementation review](review/chapter-6/p6.1-implementation-review.md)
+remediation.
 
 **Motivation:** `ReducedGradientSolverT` supplies the first
 steepest-descent/Armijo slice, while Section 6.3 also uses nonlinear CG,
@@ -933,7 +936,7 @@ accounting are verified. BFGS history must neither mix layouts nor silently
 fall back after a failed curvature test. Every selected Hessian-vector path
 also passes symmetry and finite-difference reduced-covector tests.
 
-**Implementation closure:** the shared typed direction/result protocol now
+**Implemented surface:** the shared typed direction/result protocol now
 covers steepest descent, Polak–Ribière-plus and Fletcher–Reeves nonlinear CG,
 strict classical quadratic-CG, metric-aware full-memory BFGS, and
 limited-memory BFGS with declared layout, curvature, and restart behaviour.
@@ -1036,9 +1039,11 @@ differences unless a separate finite-difference policy is explicitly selected.
 
 ### P6.2 — Record formulation provenance and execute supplied OtD systems
 
-**Status:** completed for the selected canonical scalar supplied-OtD execution
-slice. Stabilization, GLS, stabilized Lagrangians, automatic OtD derivation,
-and non-canonical OTD targets remain excluded.
+**Status:** implementation present for the selected canonical scalar
+supplied-OtD execution slice; acceptance is pending the
+[P6.2 implementation review](review/chapter-6/p6.2-implementation-review.md)
+remediation. Stabilization, GLS, stabilized Lagrangians, automatic OtD
+derivation, and non-canonical OTD targets remain excluded.
 
 **Motivation:** Section 6.2 shows that OtD, DtO, and GLS-stabilised variants
 can be distinct discrete systems even when they share a continuous PDE. The
@@ -1065,17 +1070,20 @@ interface, not introduce a PDE-specific OTD class.
 blocks pass their value/JVP/VJP or block-linearization tests, and a
 mismatched-adjoint-space request cannot be reported as a DTO optimum.
 
-The completed slice is exposed as a distinct `CompiledSuppliedOTDProblemT` and
+The implemented surface is exposed as a distinct
+`CompiledSuppliedOTDProblemT` and
 lowers the canonical serial scalar target. Generic all-at-once/KKT products
 remain P6.3.
 
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
 
-**Status:** complete for the selected serial scalar DTO and canonical
-supplied-OTD slice. Units 1–6 froze and exercised the normative KKT product
-boundary, including explicit block lowerings, multiplier conversion, MINRES,
-GMRES, and independent stationarity/equality residual reporting. P6.4
-preconditioner composition remains conditional.
+**Status:** implementation present for the selected serial scalar DTO and
+canonical supplied-OTD slice; acceptance is pending the
+[P6.3 implementation review](review/chapter-6/p6.3-implementation-review.md)
+remediation. Units 1–6 froze and exercised the normative KKT product boundary,
+including explicit block lowerings, multiplier conversion, MINRES, GMRES, and
+independent stationarity/equality residual reporting. P6.4 preconditioner
+composition remains conditional.
 
 **Motivation:** All-at-once OCPs are equality-constrained quadratic programs
 with a symmetric indefinite KKT operator. PDAS repeatedly solves related KKT
@@ -1140,9 +1148,11 @@ scope is later reopened.
 
 ### P6.5 — Add typed complementarity, selection, and PDAS services
 
-**Status:** complete for the selected cellwise-discontinuous $L^{2}$ control
-boxes. Continuous-control and other bound semantics remain separate optional
-extensions.
+**Status:** implementation present for the selected cellwise-discontinuous
+$L^{2}$ control boxes; acceptance is pending the
+[P6.5 implementation review](review/chapter-6/p6.5-implementation-review.md)
+remediation. Continuous-control and other bound semantics remain separate
+optional extensions.
 
 **Motivation:** Section 6.8 treats control boxes and regularised mixed
 state-control bounds with semismooth primal-dual active sets. The current
@@ -1171,7 +1181,7 @@ active manufactured case stabilises at correct bounds; and no continuous
 control coefficient or multiplier is classified pointwise without its
 declared conversion policy.
 
-**Implemented:** the backend-neutral path provides typed box bounds, an
+**Implemented surface:** the backend-neutral path provides typed box bounds, an
 explicit metric dual-to-primal representation, cellwise active-set
 restriction/prolongation, active equality-row KKT composition over P6.3, and
 PDAS iteration reports with stable-set and full-KKT stopping conditions. The
@@ -1201,6 +1211,15 @@ vocabulary.
 - **C1/C2 work units 2–3:** [plan-owned scalar residual/data assembly](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly) and [objective/service recombination](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination), including an independently varied recombination.
 - **P5.2–P5.4 acceptance closure:** typed trace and negative-metric selections, target-data assumptions, control-boundary realization, typed transposition, fixed-boundary coverage, point/flux checks, closed registration matching, and realized transformed-observation dimensions. The `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass.
 - **Supporting evidence:** the closed request and pre-construction decision own target selection, typed regions and requirements, component inventories, and map skeletons; finalization adds only realized service facts, and manifest construction is a pure projection. Full compatibility remains stable under declaration-order and display-prose changes. Realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
+
+### Chapter 6 implementation evidence pending remediation
+
+The P6.1, P6.2, P6.3, and P6.5 implementation surfaces below are not
+acceptance-complete. Their open findings and the cross-batch dependency order
+are recorded in the
+[Chapter 6 review index](review/chapter-6/README.md) and the
+[integration and benchmark readiness review](review/chapter-6/integration-benchmark-review.md).
+
 - **P6.1 reduced-space solver slice:** the selected direction, Hessian/Newton, line-search, reporting, and configurable-composition contracts are implemented for the scalar reduced DTO boundary. The final verification pass covers the neutral, deal.II Debug, sanitizer, and deal.II Release profiles.
 - **P6.3 Unit 1 — normative KKT boundary:** the reusable $Q$, $D$, and KKT
   action, typed primal/multiplier/residual layouts, explicit multiplier-to-
@@ -1238,31 +1257,45 @@ vocabulary.
   termination separately from stationarity and equality residuals. Both
   methods solve the DTO and canonical supplied-OTD products and agree on the
   state, control, and multiplier solution.
-- **P6.5 — typed complementarity and PDAS:** the selected cellwise box path
-  is complete. Backend-neutral contracts cover metric-aware multiplier
-  conversion, active-set restriction/prolongation, active equality KKT
-  composition, PDAS iteration diagnostics, and explicit stopping reasons.
+- **P6.5 — typed complementarity and PDAS:** the selected cellwise box
+  implementation is present. Backend-neutral contracts cover metric-aware
+  multiplier conversion, active-set restriction/prolongation, active equality
+  KKT composition, PDAS iteration diagnostics, and explicit stopping reasons.
   `SerialCellwiseBoxComplementarity` owns the serial deal.II mass metric used
   by its conversion callbacks, and the real serial MINRES path verifies both
   inactive-box agreement with the unconstrained KKT solution and active-box
   stabilization. The final gates pass 32/32 sanitizer-neutral and 66/66
   Debug deal.II scenarios.
 
-### Future implementation sequence
+### Current remediation and benchmark sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
-selected P6.1 scalar reduced DTO boundary, canonical P6.2 supplied-OTD slice,
-P6.3 KKT path, and selected P6.5 complementarity/PDAS path are complete. The
-current work continues with the Chapter 6 benchmark gate:
+selected P6.1, P6.2, P6.3, and P6.5 implementation surfaces are present but
+not acceptance-complete. Follow the detailed
+[integration remediation order](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order):
 
-1. **Chapter 6 benchmarks:** use the separate [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md) to run E6.5.1, E6.5.2, and E6.9.1/E6.9.2. Activate bounded P6.4 preconditioner work only if E6.7.1 is selected and basic serial solves are insufficient.
-2. **P6.1 extension track:** after the required P6.2/P6.3/P6.5 gates and
-   selected benchmark evidence, activate the [P6.1 extension ladder](#p61-extension-ladder)
-   in order. Generic nonlinear second order and projected directions remain
-   lower priority than the selected scalar formulation and KKT/PDAS paths.
+The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
+`sanitize-neutral` 32/32, and `debug-dealii` 66/66. These are
+regression baselines for the existing scenario inventory; they do not close
+the review findings, whose missing or stronger scenarios are not yet present.
+
+1. close the P6.1 findings exercised by the selected B1/B2 benchmarks;
+2. repair the P6.2 semantic provenance and owned-session boundary;
+3. register and validate the P6.3 DTO KKT product before repairing its
+   supplied-OTD bridge;
+4. repair the P6.5 restricted active subproblem, algebra, compilation, and
+   ownership boundaries;
+5. compile one shared box-data product for projection and complementarity;
+6. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
+   run the selected B1 and B2 benchmarks through the declared artifact path.
+
+B3 and B4 remain desirable follow-ups under the authoritative
+[benchmark-suite roadmap](chapter-6-benchmark-suite-roadmap.md); they are not
+part of the current acceptance gate. B5/B6 and P6.4 remain conditional. A
+bounded P6.4 preconditioner may be activated only if a separately selected B5
+run demonstrates that direct or basic serial solves are inadequate.
 
 Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
-future gate. The next gate is benchmark selection; do not silently activate S1
-or any of the remaining Stokes, measure-constraint, stabilization,
-automatic-OtD, or broad continuous-bound work. Those remain outside the
-current ordered run.
+remediation gate. Do not silently activate S1 or any Stokes,
+measure-constraint, stabilization, automatic-OtD, continuous-control box, or
+other excluded work.

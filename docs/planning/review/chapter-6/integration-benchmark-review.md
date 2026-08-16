@@ -40,6 +40,11 @@ the reviewed head.
 | `C6-B2` – no Release benchmark evidence or reproducible result record exists | P2 | absent |
 | `C6-I5` – the mutable roadmap completion claims conflict with the review evidence | P2 | open |
 
+The authoritative benchmark-suite roadmap already resolves the benchmark
+selection: B1 and B2 are selected, B3 and B4 remain desirable follow-ups, and
+B5 is conditional. The accompanying pre-remediation roadmap update corrects
+the conflicting benchmark-first handoff; it does not promote B3 or B4.
+
 ## Integrated capability assessment
 
 The implementation has useful pieces at each layer, but the seams remain
@@ -246,9 +251,9 @@ The scenario choices are also not frozen. E6.5.1 still needs a declared
 forcing replacement or recovered source value; E6.5.2 needs a selected
 fixed-step or Armijo policy; and the framework-native E6.9.1 case needs a
 declared mesh and an explicit record that its cellwise `DG0` control differs
-from the source's continuous `Q1` control. The benchmark roadmap labels B3/B4
-“desirable,” while the implementation roadmap's next sequence instructs the
-agent to run E6.9.1/E6.9.2; the required queue therefore needs one explicit
+from the source's continuous `Q1` control. The authoritative benchmark roadmap
+labels B3/B4 “desirable.” The conflicting implementation-roadmap instruction
+to run E6.9.1/E6.9.2 must therefore be corrected rather than treated as a new
 selection decision.
 
 ### Required outcome and tests
@@ -257,8 +262,8 @@ After the relevant method remediation, implement the problem-library L0–L2
 boundaries needed by the selected scenarios, then implement B0 as a thin
 consumer of compiler and solver services. Freeze source replacements,
 discretization differences, algorithms, tolerances, outputs, and provenance
-before running B1 or B2. Explicitly decide whether B3 and B4 are current
-acceptance targets or remain desirable follow-ups.
+before running B1 or B2. Retain B3 and B4 as desirable follow-ups unless their
+authoritative selection status is changed explicitly.
 
 Test schema validation, deterministic serialization, manifest/scenario
 identity, exact rerun configuration, output collision handling, and rejection
@@ -272,13 +277,13 @@ composition must compile to the same resolved decision.
 | B0 common harness | not started | no recipe implementation, scenario schema, runner, serialization, or measurements |
 | B1 E6.5.1 distributed Laplace | method pieces only | B0/L0/L1 absent; forcing replacement unfrozen; P6.1 action-count, stopping, and compiled-Hessian evidence relevant to the required record remains open |
 | B2 E6.5.2 Graetz boundary control | compiler target and method pieces only | B0/L0/L2 absent; four frozen scenarios and BFGS step policy absent; no field/history report |
-| B3 E6.9.1 symmetric box Laplace | direct manufactured prototype only | P6.3/P6.5 compiled, pairing, subproblem, algebra, ownership, and shared-box gates; B0 absent; target selection unresolved |
-| B4 E6.9.2 asymmetric box Laplace | not started | B3 plus spatially varying bound recipe/scenario; target selection unresolved |
+| B3 E6.9.1 symmetric box Laplace | desirable follow-up with a direct manufactured prototype | P6.3/P6.5 compiled, pairing, subproblem, algebra, ownership, and shared-box gates; B0 absent |
+| B4 E6.9.2 asymmetric box Laplace | desirable follow-up; not started | B3 plus spatially varying bound recipe/scenario |
 | B5 E6.7.1 all-at-once Laplace | conditional and unselected | P6.3 acceptance and B0 first; P6.4 remains conditional on measured basic-solve inadequacy |
 | B6 E6.7.2 diffusion-reaction | not started follow-up | B5 |
 
 P6.4 is therefore correctly left unimplemented. It must not be activated by
-this audit or used to postpone B0–B3. Only a selected B5 run that demonstrates
+this audit or used to postpone B0–B2. Only a selected B5 run that demonstrates
 inadequate direct/basic serial behavior can open the bounded preconditioner
 work.
 
@@ -358,9 +363,9 @@ recorded exclusions.
 6. Compile one shared box-data product for projection and complementarity
    comparisons (`C6-I4`).
 7. Implement the minimum L0–L2 problem recipes and B0 harness, then freeze B1
-   and B2. Decide explicitly whether B3/B4 join the current acceptance gate.
+   and B2. Retain B3/B4 as desirable follow-ups.
 8. Run B1 and B2 through Debug correctness and `release-dealii` reproduction;
-   if selected, run repaired B3 and then B4 through the same artifact path.
+   do not promote B3/B4 without an explicit benchmark-roadmap change.
 9. Leave B5/B6 and P6.4 conditional. Activate one bounded P6.4 target only
    after a selected B5 measurement demonstrates the need.
 

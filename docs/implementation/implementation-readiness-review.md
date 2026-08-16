@@ -639,7 +639,12 @@ realization, nullspace policy, solver policy, provenance (DTO or OTD), and
 declared assumptions. Human-readable fields are rendered compatibility output
 only. This manifest is emitted with solver diagnostics so results can be
 reproduced and DTO/OTD or assembled/matrix-free comparisons cannot be
-mistaken for the same discrete problem.
+mistaken for the same discrete problem. The selected Chapter 6 reduced path
+binds that manifest to a typed solver-policy snapshot, typed reduced report,
+and caller-supplied run-environment record through an in-memory experiment
+envelope. The envelope owns copies of those values and does not extend the
+compiled service lifetime; serialization, timing, and comparative-run
+orchestration remain outer-layer responsibilities.
 
 ## 13. Acceptance criterion for future features
 

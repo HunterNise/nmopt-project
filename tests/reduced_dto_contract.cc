@@ -1,5 +1,6 @@
 #include "nmopt/contract/metric_constraint.hpp"
 #include "nmopt/contract/reduced_dto.hpp"
+#include "nmopt/experiment/reduced_envelope.hpp"
 #include "nmopt/reference/linear_quadratic_model.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
 #include "nmopt/solvers/reduced_line_search.hpp"
@@ -1836,6 +1837,131 @@ namespace
   }
 
   void
+  test_experiment_envelope()
+  {
+    using CompiledProblem =
+      nmopt::compiler::v1::CompiledProblemT<DenseBackend>;
+    using Envelope =
+      nmopt::experiment::ReducedSearchExperimentEnvelopeT<DenseBackend>;
+    using Manifest = nmopt::compiler::v1::CompilationManifest;
+    using Environment = nmopt::experiment::RunEnvironmentRecord;
+
+    const auto envelope = []() {
+      auto model = std::make_shared<LinearQuadraticModel>(
+        DenseMatrix(2, 2, {4.0, -1.0, -1.0, 3.0}),
+        DenseMatrix(2, 2, {1.0, 0.5, -0.25, 2.0}),
+        DenseVector{1.0, -0.5},
+        DenseMatrix(2, 2, {1.0, 0.0, 0.5, 1.0}),
+        DenseVector{0.25, -1.0},
+        DenseVector{1.5, 0.75},
+        DenseVector{2.0, 3.0},
+        0.4);
+      auto metric = std::make_shared<DiagonalMetric>(
+        "l2_cellwise",
+        model->control_layout(),
+        std::vector<DenseVector>{DenseVector{2.0, 5.0}});
+      const StateAdjointSolvers solvers{
+        [model](const PrimalBlock &control) {
+          return model->solve_state(control);
+        },
+        [model](const PrimalBlock &full_point,
+                const CovectorBlock &state_rhs) {
+          return model->solve_adjoint(full_point, state_rhs);
+        }};
+
+      Manifest manifest;
+      manifest.semantic_problem_id = "reference.scalar.reduced.envelope";
+      manifest.compiler_id = "reference";
+      manifest.backend = "dense";
+      manifest.execution = "assembled";
+      manifest.provenance = "DTO";
+      manifest.mesh_record.provenance = "manufactured scalar mesh";
+      manifest.mesh_record.structural_identity = "mesh-a";
+      manifest.formulation_record.semantic_id = "reduced_dto";
+      manifest.formulation_record.kind =
+        nmopt::semantic::v1::FormulationKind::reduced_dto;
+      manifest.formulation_record.provenance =
+        nmopt::semantic::v1::FormulationProvenance::dto;
+
+      CompiledProblem compiled_problem(
+        model,
+        metric,
+        std::shared_ptr<const Constraint>{},
+        solvers,
+        manifest);
+      const auto reduced = compiled_problem.make_reduced_dto();
+      nmopt::solvers::ReducedSolverParameters parameters;
+      parameters.gradient_tolerance = 1e-8;
+      parameters.initial_step_length = 2.0;
+      const nmopt::solvers::ReducedGradientSolver solver(
+        reduced, compiled_problem.metric(), parameters);
+      const PrimalBlock control(model->control_layout(),
+                                {DenseVector{1.0, -1.0}});
+      auto report = solver.solve(control);
+      const auto policy =
+        nmopt::experiment::make_reduced_search_policy_snapshot(report);
+      Environment environment{"revision-a",
+                              "debug-neutral",
+                              "GNU",
+                              "test-version",
+                              "libstdc++",
+                              "test-os",
+                              "x86_64",
+                              "test-host"};
+      return Envelope(compiled_problem.manifest(),
+                      policy,
+                      std::move(report),
+                      std::move(environment));
+    }();
+
+    require(envelope.compilation_manifest().semantic_problem_id ==
+              "reference.scalar.reduced.envelope" &&
+              envelope.compilation_manifest().mesh_record.structural_identity ==
+                "mesh-a",
+            "Experiment envelope did not retain the detached compilation manifest");
+    require(envelope.solver_policy().solver_name == "reduced_search" &&
+              envelope.solver_policy().policy_name == "armijo" &&
+              envelope.solver_policy().line_search_parameters.policy_name ==
+                "armijo" &&
+              envelope.report().policy_name ==
+                envelope.solver_policy().policy_name,
+            "Experiment envelope did not retain its typed policy snapshot");
+    require(envelope.environment().source_revision == "revision-a" &&
+              envelope.environment().build_profile == "debug-neutral" &&
+              envelope.environment().hardware == "test-host",
+            "Experiment envelope did not retain its environment record");
+
+    auto changed_manifest = envelope.compilation_manifest();
+    changed_manifest.mesh_record.structural_identity = "mesh-b";
+    require(changed_manifest.mesh_record.structural_identity !=
+              envelope.compilation_manifest().mesh_record.structural_identity,
+            "Experiment envelope manifest identity did not distinguish products");
+
+    auto changed_policy = envelope.solver_policy();
+    changed_policy.line_search_parameters.backtracking_factor = 0.25;
+    require(changed_policy.line_search_parameters.backtracking_factor !=
+              envelope.solver_policy().line_search_parameters.backtracking_factor,
+            "Experiment policy snapshot did not retain an independent change");
+
+    auto changed_environment = envelope.environment();
+    changed_environment.hardware = "other-host";
+    require(changed_environment.hardware != envelope.environment().hardware,
+            "Experiment environment record did not retain an independent change");
+
+    nmopt::test_support::require_contract_error(
+      [&envelope]() {
+        Manifest missing_identifier = envelope.compilation_manifest();
+        missing_identifier.semantic_problem_id.clear();
+        (void)Envelope(missing_identifier,
+                       envelope.solver_policy(),
+                       envelope.report(),
+                       envelope.environment());
+      },
+      "An experiment envelope needs a compilation manifest identifier",
+      "experiment envelope missing manifest identifier");
+  }
+
+  void
   test_backend_parameterisation()
   {
     const auto layout = std::make_shared<const BlockLayout>(
@@ -1969,6 +2095,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "contract", "ownership"},
          30,
          test_owned_reduced_service_lifetime},
+        {"experiment_envelope",
+         "nmopt.contract.experiment_envelope",
+         {"backend-neutral", "contract", "ownership"},
+         30,
+         test_experiment_envelope},
         {"projection_compatibility",
          "nmopt.contract.projection_compatibility",
          {"backend-neutral", "contract", "constraint"},

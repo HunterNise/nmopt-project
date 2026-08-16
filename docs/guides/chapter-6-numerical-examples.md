@@ -15,6 +15,14 @@ manifest, mesh generator/version, quadrature and target-data policy, linear
 solver/preconditioner tolerances, hardware, and wall-clock definition. Times
 and iteration counts are not cross-platform correctness criteria.
 
+Before serialization or comparative-run orchestration exists, the in-memory
+[`ReducedExperimentEnvelopeT`](../../include/nmopt/experiment/reduced_envelope.hpp)
+binds one copied `CompilationManifest`, one typed solver-policy snapshot, one
+typed reduced report, and one caller-supplied `RunEnvironmentRecord`. The
+envelope owns values rather than a compiled problem or reduced DTO service, so
+the provenance remains available after the executable service is detached.
+Timing collection and artifact serialization remain outside this contract.
+
 The source has a few notation inconsistencies, noted rather than silently
 normalised. In particular, it uses both $\alpha$ and $\beta$ for a
 regularisation coefficient in some captions and tables. Equation and section

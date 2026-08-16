@@ -310,6 +310,7 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`types.hpp`](../../include/nmopt/semantic/v1/types.hpp) | Narrow deal.II-free v1 graph types | Semantic component ports |
 | [`validation.hpp`](../../include/nmopt/semantic/v1/validation.hpp) | Structural and policy diagnostics | Semantic validation |
 | [`compiled_problem.hpp`](../../include/nmopt/compiler/v1/compiled_problem.hpp) | Backend-generic compiled package and manifest | Solver-facing compiled ports and provenance |
+| [`reduced_envelope.hpp`](../../include/nmopt/experiment/reduced_envelope.hpp) | In-memory manifest, policy, report, and environment association | Detached Chapter 6 experiment provenance |
 | [`dealii_compiler.hpp`](../../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks plus private v0 comparison or v1 assembled targets |
 | [`dealii_fixed_dirichlet.hpp`](../../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
 | [`dealii_dirichlet_control.hpp`](../../include/nmopt/compiler/v1/dealii_dirichlet_control.hpp) | V1 controlled physical-state target | Complete-boundary nodal lifting, trace metric, and state/control pullbacks |

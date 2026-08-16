@@ -330,12 +330,11 @@ namespace nmopt::solvers
 
               Primal trial_control = current_control;
               add_scaled_primal(trial_control, 1.0, subproblem.step);
-              Evaluation trial_evaluation = reduced_.evaluate(trial_control);
+              const auto trial_value = reduced_.evaluate_value(trial_control);
               ++state_solve_count;
-              ++adjoint_solve_count;
               const double actual_reduction =
                 current_evaluation.objective_value -
-                trial_evaluation.objective_value;
+                trial_value.objective_value;
               const double reduction_ratio =
                 actual_reduction / subproblem.predicted_reduction;
               const bool trial_accepted =
@@ -354,6 +353,9 @@ namespace nmopt::solvers
 
               if (trial_accepted)
                 {
+                  Evaluation trial_evaluation =
+                    reduced_.augment_derivative(trial_value);
+                  ++adjoint_solve_count;
                   current_control = std::move(trial_control);
                   current_evaluation = std::move(trial_evaluation);
                   objective_history.push_back(current_evaluation.objective_value);

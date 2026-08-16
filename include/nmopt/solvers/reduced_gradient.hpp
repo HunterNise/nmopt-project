@@ -245,12 +245,17 @@ namespace nmopt::solvers
               }
             return trial_control;
           };
-          const auto evaluate_trial = [this,
-                                       &state_solve_count,
-                                       &adjoint_solve_count](
-                                         const Primal &trial_control) {
-            Evaluation trial_evaluation = reduced_.evaluate(trial_control);
+          const auto evaluate_trial_value = [this,
+                                             &state_solve_count](
+                                               const Primal &trial_control) {
+            auto trial_value = reduced_.evaluate_value(trial_control);
             ++state_solve_count;
+            return trial_value;
+          };
+          const auto augment_trial_derivative = [this,
+                                                 &adjoint_solve_count](
+                                                   const auto &trial_value) {
+            auto trial_evaluation = reduced_.augment_derivative(trial_value);
             ++adjoint_solve_count;
             return trial_evaluation;
           };
@@ -259,7 +264,8 @@ namespace nmopt::solvers
             current_evaluation,
             direction,
             build_trial_control,
-            evaluate_trial);
+            evaluate_trial_value,
+            augment_trial_derivative);
           line_search_trial_count += line_search_result.trial_count;
           hessian_action_count += line_search_result.hessian_action_count;
 

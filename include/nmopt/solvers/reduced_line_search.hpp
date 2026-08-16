@@ -36,9 +36,14 @@ namespace nmopt::solvers
     std::function<contract::PrimalBlockT<Backend>(double)>;
 
   template <typename Backend>
-  using ReducedTrialEvaluatorT = std::function<
-    contract::ReducedEvaluationT<Backend>(
+  using ReducedTrialValueEvaluatorT = std::function<
+    contract::ReducedValueEvaluationT<Backend>(
       const contract::PrimalBlockT<Backend> &)>;
+
+  template <typename Backend>
+  using ReducedTrialDerivativeAugmenterT = std::function<
+    contract::ReducedEvaluationT<Backend>(
+      const contract::ReducedValueEvaluationT<Backend> &)>;
 
   template <typename Backend>
   struct ReducedLineSearchResultT
@@ -69,7 +74,9 @@ namespace nmopt::solvers
       const contract::ReducedEvaluationT<Backend> & current_evaluation,
       const ReducedSearchDirectionT<Backend> &      direction,
       const ReducedTrialControlBuilderT<Backend> &  build_trial_control,
-      const ReducedTrialEvaluatorT<Backend> &       evaluate_trial,
+      const ReducedTrialValueEvaluatorT<Backend> &  evaluate_trial_value,
+      const ReducedTrialDerivativeAugmenterT<Backend> &
+        augment_trial_derivative,
       const char *                                  policy_name)
     {
       contract::require(current_control.layout()->compatible_with(
@@ -83,9 +90,12 @@ namespace nmopt::solvers
       contract::require(static_cast<bool>(build_trial_control),
                         std::string(policy_name) +
                           " requires a trial-control builder");
-      contract::require(static_cast<bool>(evaluate_trial),
+      contract::require(static_cast<bool>(evaluate_trial_value),
                         std::string(policy_name) +
-                          " requires a trial evaluator");
+                          " requires a trial value evaluator");
+      contract::require(static_cast<bool>(augment_trial_derivative),
+                        std::string(policy_name) +
+                          " requires a trial derivative augmenter");
       contract::require(std::isfinite(direction.directional_derivative) &&
                           direction.directional_derivative < 0.0,
                         std::string(policy_name) +
@@ -152,13 +162,16 @@ namespace nmopt::solvers
            const Evaluation &   current_evaluation,
            const ReducedSearchDirectionT<Backend> &direction,
            const ReducedTrialControlBuilderT<Backend> &build_trial_control,
-           const ReducedTrialEvaluatorT<Backend> &     evaluate_trial) const
+           const ReducedTrialValueEvaluatorT<Backend> &evaluate_trial_value,
+           const ReducedTrialDerivativeAugmenterT<Backend> &
+             augment_trial_derivative) const
     {
       detail::validate_line_search_inputs(current_control,
                                           current_evaluation,
                                           direction,
                                           build_trial_control,
-                                          evaluate_trial,
+                                          evaluate_trial_value,
+                                          augment_trial_derivative,
                                           "Armijo line search");
 
       double step_length = parameters_.initial_step_length;
@@ -168,10 +181,10 @@ namespace nmopt::solvers
           contract::require(trial_control.layout()->compatible_with(
                               *current_control.layout()),
                             "Armijo trial control has an incompatible layout");
-          Evaluation trial_evaluation = evaluate_trial(trial_control);
-          contract::require(trial_evaluation.reduced_derivative.layout()->compatible_with(
+          const auto trial_value = evaluate_trial_value(trial_control);
+          contract::require(trial_value.control.layout()->compatible_with(
                               *current_control.layout()),
-                            "Armijo trial derivative has an incompatible layout");
+                            "Armijo trial value has an incompatible layout");
 
           Primal actual_update = trial_control;
           add_scaled_primal(actual_update, -1.0, current_control);
@@ -183,12 +196,20 @@ namespace nmopt::solvers
             current_evaluation.objective_value +
             parameters_.armijo_fraction * actual_slope;
           if (actual_slope < 0.0 &&
-              std::isfinite(trial_evaluation.objective_value) &&
-              trial_evaluation.objective_value <= armijo_bound)
+              std::isfinite(trial_value.objective_value) &&
+              trial_value.objective_value <= armijo_bound)
+            {
+              Evaluation trial_evaluation =
+                augment_trial_derivative(trial_value);
+              contract::require(
+                trial_evaluation.reduced_derivative.layout()->compatible_with(
+                  *current_control.layout()),
+                "Armijo accepted trial derivative has an incompatible layout");
             return detail::accepted(trial_control,
                                     std::move(trial_evaluation),
                                     step_length,
                                     trial + 1);
+            }
           step_length *= parameters_.backtracking_factor;
         }
 
@@ -250,13 +271,16 @@ namespace nmopt::solvers
            const Evaluation &   current_evaluation,
            const ReducedSearchDirectionT<Backend> &direction,
            const ReducedTrialControlBuilderT<Backend> &build_trial_control,
-           const ReducedTrialEvaluatorT<Backend> &     evaluate_trial) const
+           const ReducedTrialValueEvaluatorT<Backend> &evaluate_trial_value,
+           const ReducedTrialDerivativeAugmenterT<Backend> &
+             augment_trial_derivative) const
     {
       detail::validate_line_search_inputs(current_control,
                                           current_evaluation,
                                           direction,
                                           build_trial_control,
-                                          evaluate_trial,
+                                          evaluate_trial_value,
+                                          augment_trial_derivative,
                                           "Exact quadratic line search");
       contract::require(hessian_ != nullptr,
                         "Exact quadratic line search requires a reduced Hessian capability");
@@ -280,10 +304,10 @@ namespace nmopt::solvers
       contract::require(trial_control.layout()->compatible_with(
                           *current_control.layout()),
                         "Exact quadratic trial control has an incompatible layout");
-      Evaluation trial_evaluation = evaluate_trial(trial_control);
-      contract::require(trial_evaluation.reduced_derivative.layout()->compatible_with(
+      const auto trial_value = evaluate_trial_value(trial_control);
+      contract::require(trial_value.control.layout()->compatible_with(
                           *current_control.layout()),
-                        "Exact quadratic trial derivative has an incompatible layout");
+                        "Exact quadratic trial value has an incompatible layout");
       Primal actual_update = trial_control;
       add_scaled_primal(actual_update, -1.0, current_control);
       const double actual_slope =
@@ -293,13 +317,21 @@ namespace nmopt::solvers
         parameters_.objective_tolerance *
           std::max(1.0, std::abs(current_evaluation.objective_value));
       if (std::isfinite(actual_slope) && actual_slope < 0.0 &&
-          std::isfinite(trial_evaluation.objective_value) &&
-          trial_evaluation.objective_value <= objective_bound)
+          std::isfinite(trial_value.objective_value) &&
+          trial_value.objective_value <= objective_bound)
+        {
+          Evaluation trial_evaluation =
+            augment_trial_derivative(trial_value);
+          contract::require(
+            trial_evaluation.reduced_derivative.layout()->compatible_with(
+              *current_control.layout()),
+            "Exact quadratic accepted trial derivative has an incompatible layout");
         return detail::accepted(trial_control,
                                 std::move(trial_evaluation),
                                 step_length,
                                 1,
                                 1);
+        }
       return detail::failure(current_control, current_evaluation, 1, 1);
     }
 
@@ -350,13 +382,16 @@ namespace nmopt::solvers
            const Evaluation &   current_evaluation,
            const ReducedSearchDirectionT<Backend> &direction,
            const ReducedTrialControlBuilderT<Backend> &build_trial_control,
-           const ReducedTrialEvaluatorT<Backend> &     evaluate_trial) const
+           const ReducedTrialValueEvaluatorT<Backend> &evaluate_trial_value,
+           const ReducedTrialDerivativeAugmenterT<Backend> &
+             augment_trial_derivative) const
     {
       detail::validate_line_search_inputs(current_control,
                                           current_evaluation,
                                           direction,
                                           build_trial_control,
-                                          evaluate_trial,
+                                          evaluate_trial_value,
+                                          augment_trial_derivative,
                                           "Wolfe line search");
 
       double step_length = parameters_.initial_step_length;
@@ -366,7 +401,12 @@ namespace nmopt::solvers
           contract::require(trial_control.layout()->compatible_with(
                               *current_control.layout()),
                             "Wolfe trial control has an incompatible layout");
-          Evaluation trial_evaluation = evaluate_trial(trial_control);
+          const auto trial_value = evaluate_trial_value(trial_control);
+          contract::require(trial_value.control.layout()->compatible_with(
+                              *current_control.layout()),
+                            "Wolfe trial value has an incompatible layout");
+          Evaluation trial_evaluation =
+            augment_trial_derivative(trial_value);
           contract::require(trial_evaluation.reduced_derivative.layout()->compatible_with(
                               *current_control.layout()),
                             "Wolfe trial derivative has an incompatible layout");
@@ -446,13 +486,16 @@ namespace nmopt::solvers
            const Evaluation &   current_evaluation,
            const ReducedSearchDirectionT<Backend> &direction,
            const ReducedTrialControlBuilderT<Backend> &build_trial_control,
-           const ReducedTrialEvaluatorT<Backend> &     evaluate_trial) const
+           const ReducedTrialValueEvaluatorT<Backend> &evaluate_trial_value,
+           const ReducedTrialDerivativeAugmenterT<Backend> &
+             augment_trial_derivative) const
     {
       detail::validate_line_search_inputs(current_control,
                                           current_evaluation,
                                           direction,
                                           build_trial_control,
-                                          evaluate_trial,
+                                          evaluate_trial_value,
+                                          augment_trial_derivative,
                                           "Weak Wolfe line search");
 
       double step_length = parameters_.initial_step_length;
@@ -462,7 +505,12 @@ namespace nmopt::solvers
           contract::require(trial_control.layout()->compatible_with(
                               *current_control.layout()),
                             "Weak Wolfe trial control has an incompatible layout");
-          Evaluation trial_evaluation = evaluate_trial(trial_control);
+          const auto trial_value = evaluate_trial_value(trial_control);
+          contract::require(trial_value.control.layout()->compatible_with(
+                              *current_control.layout()),
+                            "Weak Wolfe trial value has an incompatible layout");
+          Evaluation trial_evaluation =
+            augment_trial_derivative(trial_value);
           contract::require(trial_evaluation.reduced_derivative.layout()->compatible_with(
                               *current_control.layout()),
                             "Weak Wolfe trial derivative has an incompatible layout");

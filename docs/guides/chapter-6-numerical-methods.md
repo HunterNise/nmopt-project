@@ -181,6 +181,13 @@ compiled service and adds one adjoint solve plus the reduced covector without
 repeating the state solve or objective evaluation. `evaluate(control)` remains
 the compatibility composition of these two stages.
 
+The selected policies expose their information request at the solver seam:
+Armijo and exact-quadratic trials request value/state data and augment only an
+accepted value, while weak and strong Wolfe trials augment every tested value
+because their curvature predicates require a trial slope. Trust-region
+reduction-ratio trials follow the value-only path and augment only after
+acceptance.
+
 The book writes directions in Euclidean coefficient coordinates. In this
 framework, $g=G^{-1}j_{h}'(u)$ is the gradient for the selected metric $G$.
 The portable steepest direction is therefore $d=-g$, not bare coefficient

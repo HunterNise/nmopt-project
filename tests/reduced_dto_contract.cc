@@ -631,9 +631,17 @@ namespace
       [&control, &search_direction](const double step) {
         return shifted(control, search_direction.direction, step);
       };
-    const auto evaluate_trial =
-      [&reduced](const PrimalBlock &trial_control) {
-        return reduced.evaluate(trial_control);
+    std::size_t trial_state_calls   = 0;
+    std::size_t trial_adjoint_calls = 0;
+    const auto evaluate_trial_value =
+      [&reduced, &trial_state_calls](const PrimalBlock &trial_control) {
+        ++trial_state_calls;
+        return reduced.evaluate_value(trial_control);
+      };
+    const auto augment_trial_derivative =
+      [&reduced, &trial_adjoint_calls](const ReducedValueEvaluation &value) {
+        ++trial_adjoint_calls;
+        return reduced.augment_derivative(value);
       };
 
     nmopt::solvers::ArmijoLineSearchParameters armijo_parameters;
@@ -645,54 +653,79 @@ namespace
                                                     evaluation,
                                                     search_direction,
                                                     build_trial,
-                                                    evaluate_trial);
+                                                    evaluate_trial_value,
+                                                    augment_trial_derivative);
     require(armijo_result.accepted() && armijo_result.trial_count > 0,
             "Armijo line search did not accept a trial");
     require(armijo_result.evaluation.objective_value <=
               evaluation.objective_value,
             "Armijo line search accepted an objective increase");
+    require(trial_state_calls == armijo_result.trial_count &&
+              trial_adjoint_calls == 1,
+            "Armijo line search did not defer derivative work until acceptance");
 
     const nmopt::solvers::ExactQuadraticLineSearchPolicy exact_policy(hessian);
+    const std::size_t exact_state_calls = trial_state_calls;
+    const std::size_t exact_adjoint_calls = trial_adjoint_calls;
     const auto exact_result = exact_policy.search(control,
                                                   evaluation,
                                                   search_direction,
                                                   build_trial,
-                                                  evaluate_trial);
+                                                  evaluate_trial_value,
+                                                  augment_trial_derivative);
     require(exact_result.accepted() && exact_result.trial_count == 1 &&
               exact_result.hessian_action_count == 1,
             "Exact quadratic line search did not accept its Hessian step");
     require(exact_result.evaluation.objective_value <=
               evaluation.objective_value,
             "Exact quadratic line search accepted an objective increase");
+    require(trial_state_calls == exact_state_calls + 1 &&
+              trial_adjoint_calls == exact_adjoint_calls + 1,
+            "Exact quadratic line search did not augment its accepted value once");
 
     nmopt::solvers::WolfeLineSearchParameters wolfe_parameters;
     wolfe_parameters.maximum_trials = 30;
     wolfe_parameters.initial_step_length = 10.0;
     const nmopt::solvers::WolfeLineSearchPolicy wolfe_policy(
       wolfe_parameters);
+    const std::size_t wolfe_state_calls = trial_state_calls;
+    const std::size_t wolfe_adjoint_calls = trial_adjoint_calls;
     const auto wolfe_result = wolfe_policy.search(control,
                                                   evaluation,
                                                   search_direction,
                                                   build_trial,
-                                                  evaluate_trial);
+                                                  evaluate_trial_value,
+                                                  augment_trial_derivative);
     require(wolfe_result.accepted() && wolfe_result.trial_count > 0,
             "Wolfe line search did not accept a trial");
+    require(trial_state_calls == wolfe_state_calls + wolfe_result.trial_count &&
+              trial_adjoint_calls ==
+                wolfe_adjoint_calls + wolfe_result.trial_count,
+            "Wolfe line search did not retain derivative work for every trial");
 
     nmopt::solvers::WeakWolfeLineSearchParameters weak_wolfe_parameters;
     weak_wolfe_parameters.maximum_trials = 30;
     weak_wolfe_parameters.initial_step_length = 10.0;
     const nmopt::solvers::WeakWolfeLineSearchPolicy weak_wolfe_policy(
       weak_wolfe_parameters);
+    const std::size_t weak_wolfe_state_calls = trial_state_calls;
+    const std::size_t weak_wolfe_adjoint_calls = trial_adjoint_calls;
     const auto weak_wolfe_result = weak_wolfe_policy.search(control,
                                                             evaluation,
                                                             search_direction,
                                                             build_trial,
-                                                            evaluate_trial);
+                                                            evaluate_trial_value,
+                                                            augment_trial_derivative);
     require(weak_wolfe_result.accepted() && weak_wolfe_result.trial_count > 0,
             "Weak Wolfe line search did not accept a trial");
     require(weak_wolfe_result.evaluation.objective_value <=
               evaluation.objective_value,
             "Weak Wolfe line search accepted an objective increase");
+    require(trial_state_calls ==
+              weak_wolfe_state_calls + weak_wolfe_result.trial_count &&
+              trial_adjoint_calls ==
+                weak_wolfe_adjoint_calls + weak_wolfe_result.trial_count,
+            "Weak Wolfe line search did not retain derivative work for every trial");
     PrimalBlock weak_wolfe_update = weak_wolfe_result.control;
     nmopt::solvers::add_scaled_primal(weak_wolfe_update, -1.0, control);
     const double weak_wolfe_initial_slope =
@@ -719,7 +752,8 @@ namespace
                                         evaluation,
                                         search_direction,
                                         scaled_trial_builder,
-                                        evaluate_trial);
+                                        evaluate_trial_value,
+                                        augment_trial_derivative);
     require(actual_displacement_result.accepted() &&
               actual_displacement_result.trial_count == 1,
             "Armijo line search did not use the actual trial displacement");
@@ -728,12 +762,13 @@ namespace
       missing_exact_hessian_policy;
     nmopt::test_support::require_contract_error(
       [&missing_exact_hessian_policy, &control, &evaluation, &search_direction,
-       &build_trial, &evaluate_trial]() {
+       &build_trial, &evaluate_trial_value, &augment_trial_derivative]() {
         (void)missing_exact_hessian_policy.search(control,
                                                   evaluation,
                                                   search_direction,
                                                   build_trial,
-                                                  evaluate_trial);
+                                                  evaluate_trial_value,
+                                                  augment_trial_derivative);
       },
       "Exact quadratic line search requires a reduced Hessian capability",
       "exact line search missing Hessian capability");
@@ -1027,11 +1062,12 @@ namespace
     require(solver_result.gradient_norm_history.back() <=
               solver_parameters.gradient_tolerance,
             "Dense reduced gradient final norm exceeds the configured tolerance");
-    require(solver_result.state_solve_count == solver_result.adjoint_solve_count,
-            "Dense reduced gradient solve counts do not match");
     require(solver_result.line_search_trial_count + 1 ==
               solver_result.state_solve_count,
-            "Dense reduced gradient solve count misses a trial evaluation");
+            "Dense reduced gradient state count misses a trial evaluation");
+    require(solver_result.accepted_iterations + 1 ==
+              solver_result.adjoint_solve_count,
+            "Dense reduced gradient adjoint count includes rejected trials");
     require(solver_result.state_solve_count >
               solver_result.objective_history.size(),
             "Dense reduced gradient test did not exercise Armijo backtracking");
@@ -1309,7 +1345,7 @@ namespace
     require(trust_region_result.state_solve_count ==
               trust_region_result.trial_count + 1 &&
               trust_region_result.adjoint_solve_count ==
-                trust_region_result.trial_count + 1,
+                trust_region_result.accepted_iterations + 1,
             "Trust-region formulation solve counts miss a trial evaluation");
 
     nmopt::solvers::ReducedTrustRegionParameters truncated_parameters =
@@ -1493,6 +1529,9 @@ namespace
     require(exact_newton_result.state_solve_count ==
               exact_newton_result.line_search_trial_count + 1,
             "Dense exact Newton solve count misses a trial evaluation");
+    require(exact_newton_result.adjoint_solve_count ==
+              exact_newton_result.accepted_iterations + 1,
+            "Dense exact Newton adjoint count includes rejected trials");
     require(exact_newton_result.hessian_action_count >
               exact_newton_result.accepted_iterations,
             "Dense exact Newton did not report line-search Hessian actions");
@@ -1519,6 +1558,9 @@ namespace
     require(wolfe_solver_result.state_solve_count ==
               wolfe_solver_result.line_search_trial_count + 1,
             "Dense Wolfe solve count misses a trial evaluation");
+    require(wolfe_solver_result.adjoint_solve_count ==
+              wolfe_solver_result.line_search_trial_count + 1,
+            "Dense Wolfe adjoint count misses a trial derivative");
     for (std::size_t index = 1;
          index < wolfe_solver_result.objective_history.size();
          ++index)
@@ -1542,6 +1584,9 @@ namespace
     require(weak_wolfe_solver_result.state_solve_count ==
               weak_wolfe_solver_result.line_search_trial_count + 1,
             "Dense weak Wolfe solve count misses a trial evaluation");
+    require(weak_wolfe_solver_result.adjoint_solve_count ==
+              weak_wolfe_solver_result.line_search_trial_count + 1,
+            "Dense weak Wolfe adjoint count misses a trial derivative");
 
     const CellwiseBoxConstraint projected_bounds(
       partition.control_layout(), {DenseVector{-1.0, -0.2}},
@@ -1796,7 +1841,7 @@ namespace
               result.gradient_norm_history.size(),
             "Alternate backend trust-region Hessian count is inconsistent");
     require(result.state_solve_count == result.trial_count + 1 &&
-              result.adjoint_solve_count == result.trial_count + 1,
+              result.adjoint_solve_count == result.accepted_iterations + 1,
             "Alternate backend trust-region solve counts are inconsistent");
     require_close(result.control.block(0)[0], 1.0, 1e-8,
                   "Alternate backend trust-region first control");

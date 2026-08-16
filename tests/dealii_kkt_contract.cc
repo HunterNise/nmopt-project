@@ -273,6 +273,44 @@ namespace
                          1e-12,
                          "supplied-OTD KKT equality residual differs from DTO");
 
+    Product::Seed dto_seed{
+      Product::Primal(dto_kkt.product().layout().stationarity,
+                      {Vector(state_dimension), Vector(control_dimension)}),
+      Product::Primal(dto_kkt.product().layout().equality,
+                      {Vector(state_dimension)})};
+    for (std::size_t index = 0; index < state_dimension; ++index)
+      {
+        dto_seed.stationarity.block(0)[index] =
+          0.04 - 0.006 * static_cast<double>(index);
+        dto_seed.equality.block(0)[index] =
+          -0.03 + 0.009 * static_cast<double>(index);
+      }
+    for (std::size_t index = 0; index < control_dimension; ++index)
+      dto_seed.stationarity.block(1)[index] =
+        0.05 + 0.008 * static_cast<double>(index);
+    const Product::Seed supplied_seed{
+      Product::Primal(supplied_product.layout().stationarity,
+                      {dto_seed.stationarity.block(0),
+                       dto_seed.stationarity.block(1)}),
+      Product::Primal(supplied_product.layout().equality,
+                      {dto_seed.equality.block(0)})};
+    const auto dto_transpose =
+      dto_kkt.product().apply_kkt_transpose(dto_seed);
+    const auto supplied_transpose =
+      supplied_product.apply_kkt_transpose(supplied_seed);
+    require_vector_close(supplied_transpose.primal.block(0),
+                         dto_transpose.primal.block(0),
+                         1e-12,
+                         "supplied-OTD transposed state action differs from DTO");
+    require_vector_close(supplied_transpose.primal.block(1),
+                         dto_transpose.primal.block(1),
+                         1e-12,
+                         "supplied-OTD transposed control action differs from DTO");
+    require_vector_close(supplied_transpose.multiplier.block(0),
+                         dto_transpose.multiplier.block(0),
+                         1e-12,
+                         "supplied-OTD transposed multiplier differs from DTO");
+
     const auto supplied_adjoint =
       supplied_product.multiplier_to_adjoint(supplied_point.multiplier);
     const auto dto_adjoint =
@@ -349,6 +387,34 @@ namespace
     const auto supplied_gmres =
       nmopt::dealii_backend::solve_serial_quadratic_kkt(supplied_product,
                                                          gmres_policy);
+    const auto check_report =
+      [](const Product &product, const auto &result, const char *description) {
+        const auto residual = product.residual(result.solution);
+        const double stationarity_residual =
+          nmopt::dealii_backend::block_norm(residual.stationarity);
+        const double equality_residual =
+          nmopt::dealii_backend::block_norm(residual.equality);
+        require_close(result.report.stationarity_residual,
+                      stationarity_residual,
+                      1e-12,
+                      std::string(description) + " stationarity report");
+        require_close(result.report.equality_residual,
+                      equality_residual,
+                      1e-12,
+                      std::string(description) + " equality report");
+        const bool residuals_converged =
+          stationarity_residual <=
+            result.report.linear_solve.requested_tolerance &&
+          equality_residual <=
+            result.report.linear_solve.requested_tolerance;
+        nmopt::contract::require(
+          result.report.residuals_converged == residuals_converged,
+          std::string(description) + " residual convergence flag");
+      };
+    check_report(dto_kkt.product(), dto_minres, "DTO MINRES");
+    check_report(supplied_product, supplied_minres, "supplied MINRES");
+    check_report(dto_kkt.product(), dto_gmres, "DTO GMRES");
+    check_report(supplied_product, supplied_gmres, "supplied GMRES");
     nmopt::contract::require(dto_gmres.report.converged(),
                              "serial DTO GMRES did not converge");
     nmopt::contract::require(supplied_gmres.report.converged(),
@@ -357,6 +423,24 @@ namespace
       dto_gmres.report.linear_solve.algorithm == "serial_gmres" &&
         supplied_gmres.report.linear_solve.algorithm == "serial_gmres",
       "GMRES solve report did not identify its algorithm");
+
+    nmopt::contract::QuadraticKKTSolverPolicy limited_policy = minres_policy;
+    limited_policy.maximum_iterations = 1;
+    limited_policy.relative_tolerance = 1e-14;
+    limited_policy.absolute_tolerance = 1e-16;
+    const auto limited =
+      nmopt::dealii_backend::solve_serial_quadratic_kkt(
+        dto_kkt.product(), limited_policy);
+    check_report(dto_kkt.product(), limited, "limited MINRES");
+    nmopt::contract::require(
+      !limited.report.linear_solve.converged() &&
+        limited.report.linear_solve.termination ==
+          nmopt::contract::LinearSolveTermination::failed &&
+        limited.report.linear_solve.maximum_iterations == 1 &&
+        limited.report.linear_solve.iterations <=
+          limited.report.linear_solve.maximum_iterations &&
+        !limited.report.converged(),
+      "iteration-limited KKT solve did not report linear failure separately");
 
     require_vector_close(dto_minres.solution.primal.block(0),
                          supplied_minres.solution.primal.block(0),

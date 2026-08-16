@@ -173,6 +173,29 @@ namespace
                           supplied_product.residual(supplied_point),
                           "DTO and supplied-OTD KKT residuals disagree");
 
+    const Product::Seed seed{
+      Product::Primal(dto_product.layout().stationarity,
+                      {DenseVector{0.7, -0.2}, DenseVector{-0.4, 0.9}}),
+      Product::Primal(dto_product.layout().equality,
+                      {DenseVector{0.3, -0.8}})};
+    const auto dto_transpose = dto_product.apply_kkt_transpose(seed);
+    const auto supplied_transpose =
+      supplied_product.apply_kkt_transpose(
+        {Product::Primal(supplied_product.layout().stationarity,
+                         {seed.stationarity.block(0),
+                          seed.stationarity.block(1)}),
+         Product::Primal(supplied_product.layout().equality,
+                         {seed.equality.block(0)})});
+    require_vector_close(dto_transpose.primal.block(0),
+                         supplied_transpose.primal.block(0),
+                         "DTO and supplied-OTD transposed state actions disagree");
+    require_vector_close(dto_transpose.primal.block(1),
+                         supplied_transpose.primal.block(1),
+                         "DTO and supplied-OTD transposed control actions disagree");
+    require_vector_close(dto_transpose.multiplier.block(0),
+                         supplied_transpose.multiplier.block(0),
+                         "DTO and supplied-OTD transposed multiplier signs disagree");
+
     const auto dto_adjoint = dto_product.multiplier_to_adjoint(
       dto_point.multiplier);
     const auto supplied_adjoint = supplied_product.multiplier_to_adjoint(

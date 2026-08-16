@@ -756,7 +756,10 @@ multiplier/equality block pairings, plus declared evidence for the
 $D^{\mathsf T}$ and full-transpose actions, before a symmetric product can
 advertise MINRES compatibility. The serial solver packs range blocks through
 those pairings rather than relying on equal flattened dimensions or incidental
-layout order.
+layout order. Solver validation checks the GMRES restart basis only when GMRES
+is selected; MINRES does not inherit an irrelevant GMRES-basis restriction.
+Serial KKT results retain linear termination/report separately from
+independently recomputed stationarity and equality residual fields.
 
 Caller-provided compilation data use the same predictable boundary. Missing
 or nonfinite scalar bindings, nonpositive diffusion/regularisation, missing

@@ -300,9 +300,15 @@ namespace
     const Product symmetric = make_product();
     QuadraticKKTSolverPolicy minres_policy;
     validate(symmetric, minres_policy);
+    minres_policy.gmres_maximum_basis = 2;
+    require(valid(minres_policy),
+            "MINRES validity depends on its unused GMRES basis");
+    validate(symmetric, minres_policy);
 
     QuadraticKKTSolverPolicy gmres_policy;
     gmres_policy.method = QuadraticKKTSolverMethod::gmres;
+    require(valid(gmres_policy),
+            "valid GMRES policy was rejected by policy validity");
     validate(symmetric, gmres_policy);
 
     const Product nonsymmetric =
@@ -321,11 +327,30 @@ namespace
       "KKT policy accepted a non-positive tolerance");
 
     invalid_policy = {};
+    invalid_policy.method = QuadraticKKTSolverMethod::gmres;
     invalid_policy.gmres_maximum_basis = 2;
     nmopt::test_support::require_contract_error(
       [&] { validate(symmetric, invalid_policy); },
       "Quadratic KKT solver policy needs a GMRES basis of at least three vectors",
       "KKT policy accepted an undersized GMRES basis");
+  }
+
+  void
+  test_kkt_solver_report_conjunction()
+  {
+    QuadraticKKTSolveReport linear_converged_residual_failed;
+    linear_converged_residual_failed.linear_solve.termination =
+      LinearSolveTermination::converged;
+    linear_converged_residual_failed.residuals_converged = false;
+    require(!linear_converged_residual_failed.converged(),
+            "KKT report accepted a failed residual after linear convergence");
+
+    QuadraticKKTSolveReport linear_failed_residual_converged;
+    linear_failed_residual_converged.linear_solve.termination =
+      LinearSolveTermination::failed;
+    linear_failed_residual_converged.residuals_converged = true;
+    require(!linear_failed_residual_converged.converged(),
+            "KKT report accepted a failed linear solve");
   }
 } // namespace
 
@@ -349,7 +374,12 @@ main(const int argc, char **argv)
          "nmopt.quadratic_kkt.solver_policy_compatibility",
          {"backend-neutral", "formulation", "kkt", "solver"},
          30,
-         test_kkt_solver_policy_compatibility}};
+         test_kkt_solver_policy_compatibility},
+        {"solver_report_conjunction",
+         "nmopt.quadratic_kkt.solver_report_conjunction",
+         {"backend-neutral", "formulation", "kkt", "solver"},
+         30,
+         test_kkt_solver_report_conjunction}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

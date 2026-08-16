@@ -31,7 +31,8 @@ namespace nmopt::contract
            policy.relative_tolerance > 0.0 &&
            std::isfinite(policy.absolute_tolerance) &&
            policy.absolute_tolerance > 0.0 &&
-           policy.gmres_maximum_basis >= 3;
+           (policy.method != QuadraticKKTSolverMethod::gmres ||
+            policy.gmres_maximum_basis >= 3);
   }
 
   template <typename Backend>
@@ -44,8 +45,10 @@ namespace nmopt::contract
               std::isfinite(policy.absolute_tolerance) &&
               policy.absolute_tolerance > 0.0,
             "Quadratic KKT solver policy needs positive finite tolerances");
-    require(policy.gmres_maximum_basis >= 3,
-            "Quadratic KKT solver policy needs a GMRES basis of at least three vectors");
+    if (policy.method == QuadraticKKTSolverMethod::gmres)
+      require(
+        policy.gmres_maximum_basis >= 3,
+        "Quadratic KKT solver policy needs a GMRES basis of at least three vectors");
     if (policy.method == QuadraticKKTSolverMethod::minres)
       require(product.supports_minres(),
               "MINRES requires a symmetric-indefinite KKT product");

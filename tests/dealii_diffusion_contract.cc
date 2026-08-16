@@ -5367,7 +5367,131 @@ namespace
                   0.0,
                   1e-11,
                   "serial supplied OTD stationarity differs from reduced DTO");
+    const auto &supplied_system = supplied_otd.system();
+    dealii::Vector<double> adjoint_tangent(
+      model.variable_layout()->dimension(0));
+    for (dealii::types::global_dof_index index = 0;
+         index < adjoint_tangent.size();
+         ++index)
+      adjoint_tangent[index] = -0.017 * static_cast<double>(index + 1);
+    const Primal supplied_tangent(
+      supplied_system.variable_layout(),
+      {tangent.block(0), std::move(adjoint_tangent), tangent.block(1)});
+    const Primal supplied_comparison_point =
+      shifted(supplied_solution.solution, supplied_tangent, 0.37);
+    contract::require(
+      supplied_otd.manifest().supplied_otd_record.declaration.has_value() &&
+        supplied_otd.manifest().supplied_otd_record.declaration
+            ->multiplier_conversion ==
+          semantic::v1::SuppliedOTDMultiplierConversion::identity,
+      "serial supplied OTD DTO comparison used an undeclared multiplier conversion");
+    const Covector supplied_comparison_residual =
+      supplied_system.residual(supplied_comparison_point);
+    for (std::size_t block = 0;
+         block < supplied_comparison_residual.n_blocks();
+         ++block)
+      contract::require(
+        supplied_comparison_residual.block(block).l2_norm() > 1e-10,
+        "serial supplied OTD manufactured point did not activate every block");
+
+    constexpr double supplied_derivative_step = 1e-7;
+    const Covector supplied_jvp =
+      supplied_system.residual_jvp(supplied_comparison_point,
+                                   supplied_tangent);
+    const Covector supplied_comparison_residual_plus = supplied_system.residual(
+      shifted(supplied_comparison_point,
+              supplied_tangent,
+              supplied_derivative_step));
+    const Covector supplied_comparison_residual_minus = supplied_system.residual(
+      shifted(supplied_comparison_point,
+              supplied_tangent,
+              -supplied_derivative_step));
+    for (std::size_t block = 0;
+         block < supplied_comparison_residual.n_blocks();
+         ++block)
+      {
+        dealii::Vector<double> finite_difference =
+          supplied_comparison_residual_plus.block(block);
+        finite_difference.add(-1.0,
+                              supplied_comparison_residual_minus.block(block));
+        finite_difference *= 0.5 / supplied_derivative_step;
+        finite_difference.add(-1.0, supplied_jvp.block(block));
+        require_close(finite_difference.l2_norm(),
+                      0.0,
+                      1e-7,
+                      "serial supplied OTD JVP finite difference");
+      }
+
+    dealii::Vector<double> seed_state(model.variable_layout()->dimension(0));
+    dealii::Vector<double> seed_adjoint(model.variable_layout()->dimension(0));
+    dealii::Vector<double> seed_control(model.variable_layout()->dimension(1));
+    for (dealii::types::global_dof_index index = 0;
+         index < seed_state.size();
+         ++index)
+      {
+        seed_state[index] = 0.013 * static_cast<double>(index + 1);
+        seed_adjoint[index] = -0.021 * static_cast<double>(index + 1);
+      }
+    for (dealii::types::global_dof_index index = 0;
+         index < seed_control.size();
+         ++index)
+      seed_control[index] = 0.031 * static_cast<double>(index + 1);
+    const Primal supplied_residual_seed(
+      supplied_system.residual_layout(),
+      {std::move(seed_state),
+       std::move(seed_adjoint),
+       std::move(seed_control)});
+    const Covector supplied_vjp = supplied_system.residual_vjp(
+      supplied_comparison_point, supplied_residual_seed);
+    require_close(contract::pair(supplied_jvp, supplied_residual_seed),
+                  contract::pair(supplied_vjp, supplied_tangent),
+                  1e-10,
+                  "serial supplied OTD JVP/VJP pairing");
+
+    const Primal dto_comparison_point(
+      model.variable_layout(),
+      {supplied_comparison_point.block(0),
+       supplied_comparison_point.block(2)});
+    const Primal dto_multiplier(model.test_layout(),
+                                {supplied_comparison_point.block(1)});
+    const Covector dto_state_residual = model.residual(dto_comparison_point);
+    const Covector dto_objective_derivative =
+      model.objective_derivative(dto_comparison_point);
+    const Covector dto_residual_pullback =
+      model.residual_vjp(dto_comparison_point, dto_multiplier);
+    dealii::Vector<double> expected_adjoint = dto_residual_pullback.block(0);
+    expected_adjoint.add(-1.0, dto_objective_derivative.block(0));
+    dealii::Vector<double> expected_stationarity =
+      dto_objective_derivative.block(1);
+    expected_stationarity.add(-1.0, dto_residual_pullback.block(1));
+    dealii::Vector<double> dto_state_difference =
+      supplied_comparison_residual.block(0);
+    dto_state_difference.add(-1.0, dto_state_residual.block(0));
+    dealii::Vector<double> dto_adjoint_difference =
+      supplied_comparison_residual.block(1);
+    dto_adjoint_difference.add(-1.0, expected_adjoint);
+    dealii::Vector<double> dto_stationarity_difference =
+      supplied_comparison_residual.block(2);
+    dto_stationarity_difference.add(-1.0, expected_stationarity);
+    require_close(dto_state_difference.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "serial supplied OTD state action differs from DTO");
+    require_close(dto_adjoint_difference.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "serial supplied OTD adjoint action differs from DTO");
+    require_close(dto_stationarity_difference.l2_norm(),
+                  0.0,
+                  1e-11,
+                  "serial supplied OTD stationarity action differs from DTO");
+
     const auto &supplied_manifest = supplied_otd.manifest();
+    const std::string expected_comparison_status =
+      "equivalence verified under declared conversion: "
+      "verified by scenario nmopt.dealii.canonical_volume_control: "
+      "manufactured-point block, JVP finite-difference, transpose-pairing, "
+      "and DTO-action comparisons";
     contract::require(
       supplied_manifest.formulation_record.kind ==
           semantic::v1::FormulationKind::all_at_once &&
@@ -5389,8 +5513,8 @@ namespace
           std::vector<std::string>{"state_equation",
                                    "adjoint_equation",
                                    "control_stationarity"} &&
-        supplied_manifest.supplied_otd_record.comparison_status.find(
-          "equivalence verified") != std::string::npos,
+        supplied_manifest.supplied_otd_record.comparison_status ==
+          expected_comparison_status,
       "serial supplied OTD manifest omitted formulation and comparison provenance");
     const auto &compiled_model = compilation.problem->executable_model();
 

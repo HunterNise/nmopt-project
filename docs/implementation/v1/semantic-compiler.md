@@ -898,6 +898,15 @@ bounds and compares residual, objective, objective derivative, and reduced
 derivative. That second check is a compiler wiring and packaging regression,
 not an independent assembly oracle.
 
+The same scenario also exercises the separate supplied-OTD product at a
+nonzero manufactured point. It checks every residual block, centered finite
+differences for all JVP blocks, the full residual JVP/VJP pairing with an
+independent seed, and state/adjoint/stationarity actions reconstructed from
+the DTO residual, objective derivative, and pullback under the declared
+multiplier conversion. The supplied-OTD manifest records this as evidence
+established by the named scenario; it does not imply that every compilation
+performed the comparison.
+
 Seven backend-neutral semantic scenarios validate every registered factory,
 representative structural or policy failures, incomplete aggregates,
 whole-graph closure, two-sided pairing compatibility, and order-independent

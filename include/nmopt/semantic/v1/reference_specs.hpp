@@ -257,7 +257,7 @@ namespace nmopt::semantic::v1
     declaration.comparison_status =
       SuppliedOTDComparisonStatus::equivalent_under_declared_conversion;
     declaration.comparison_evidence =
-      "canonical scalar state, adjoint, and stationarity values agree with the reduced DTO at the registered solution";
+      "verified by scenario nmopt.dealii.canonical_volume_control: manufactured-point block, JVP finite-difference, transpose-pairing, and DTO-action comparisons";
     specification.supplied_otd_declaration = std::move(declaration);
     return specification;
   }

@@ -333,14 +333,14 @@ namespace
     return {true,
             true,
             "base equality plus selected active control rows have declared rank",
-            "objective is positive on the augmented equality kernel",
+            "objective is positive on the restricted equality kernel",
             true,
             true,
             "PDAS D-transpose and KKT-transpose actions are declared exact"};
   }
 
   void
-  test_active_subproblem_adds_rows_and_preserves_solution()
+  test_active_subproblem_restricts_free_coordinates_and_reconstructs_solution()
   {
     const Problem problem;
     const auto complementarity = make_complementarity(problem, 0.5, 1.0);
@@ -356,18 +356,24 @@ namespace
 
     require(subproblem.has_active_constraints(),
             "active KKT subproblem did not retain active constraints");
-    require(active_product.layout().equality->n_blocks() == 2,
-            "active KKT subproblem did not append an equality block");
-    require(active_product.layout().equality->dimension(1) == 1,
-            "active KKT subproblem appended the wrong equality dimension");
-    require(active_product.layout().multiplier->n_blocks() == 2,
-            "active KKT subproblem did not append a multiplier block");
+    require(active_product.layout().primal->n_blocks() == 2,
+            "active KKT subproblem did not retain the state and free control blocks");
+    require(active_product.layout().primal->dimension(1) == 1,
+            "active KKT subproblem retained the wrong free control dimension");
+    require(active_product.layout().stationarity->dimension(1) == 1,
+            "active KKT subproblem retained the wrong free stationarity dimension");
+    require(active_product.layout().equality->n_blocks() == 1,
+            "active KKT subproblem changed the base equality layout");
+    require(active_product.layout().multiplier->n_blocks() == 1,
+            "active KKT subproblem changed the base multiplier layout");
     const Point active_zero{
       Product::Primal::zeros(active_product.layout().primal),
       Product::Primal::zeros(active_product.layout().multiplier)};
     const auto active_zero_residual = active_product.residual(active_zero);
-    require_close(active_zero_residual.equality.block(1)[0], -0.5,
-                  "active KKT subproblem used the wrong bound value");
+    require_close(active_zero_residual.equality.block(0)[0], -0.5,
+                  "active KKT subproblem used the wrong affine equality shift");
+    require_close(active_zero_residual.stationarity.block(1)[0], -0.25,
+                  "active KKT subproblem used the wrong affine stationarity shift");
 
     const auto solved = solve_dense(active_product);
     require(solved.report.converged(),
@@ -382,29 +388,36 @@ namespace
     require_close(base_solution.primal.block(1)[1], 0.125,
                   "active KKT subproblem returned the wrong inactive control");
 
-    const auto equality_action = active_product.apply_d(base_solution.primal);
+    const auto equality_action = problem.product.apply_d(base_solution.primal);
     require_close(equality_action.block(0)[0], 0.0,
                   "active KKT subproblem changed the base equality action");
     require_close(equality_action.block(0)[1], 0.0,
                   "active KKT subproblem changed the base equality action");
-    require_close(equality_action.block(1)[0], 0.5,
-                  "active KKT subproblem selected the wrong control row");
 
-    auto transpose_seed = Product::Primal::zeros(active_product.layout().stationarity);
-    auto equality_seed = Product::Primal::zeros(active_product.layout().equality);
-    equality_seed.add_scaled_block(1, 1.0, DenseVector{1.0});
-    const auto transpose = active_product.apply_kkt_transpose(
-      Product::Seed{std::move(transpose_seed), std::move(equality_seed)});
-    require_close(transpose.primal.block(1)[0], 1.0,
-                  "active KKT transpose omitted the active equality row");
-
-    auto active_multiplier =
-      Product::Primal::zeros(active_product.layout().multiplier);
-    active_multiplier.add_scaled_block(1, 1.0, DenseVector{1.0});
-    const auto multiplier_action =
-      active_product.apply_d_transpose(active_multiplier);
-    require_close(multiplier_action.block(1)[0], 1.0,
-                  "active KKT multiplier action omitted the active row");
+    const Point mixed_point{
+      Product::Primal(active_product.layout().primal,
+                      {DenseVector{0.2, -0.1}, DenseVector{0.7}}),
+      Product::Primal(active_product.layout().multiplier,
+                      {DenseVector{0.3, -0.2}})};
+    const Product::Seed mixed_seed{
+      Product::Primal(active_product.layout().stationarity,
+                      {DenseVector{0.4, -0.5}, DenseVector{0.6}}),
+      Product::Primal(active_product.layout().equality,
+                      {DenseVector{0.7, -0.8}})};
+    const auto mixed_action = active_product.apply_kkt(mixed_point);
+    const auto mixed_transpose = active_product.apply_kkt_transpose(mixed_seed);
+    const double transpose_left =
+      pair(mixed_action.stationarity, mixed_seed.stationarity) +
+      pair(mixed_action.equality, mixed_seed.equality);
+    const double transpose_right =
+      pair(mixed_transpose.primal, mixed_point.primal) +
+      pair(mixed_transpose.multiplier, mixed_point.multiplier);
+    require_close(transpose_left,
+                  transpose_right,
+                  "active KKT restricted action/transpose pairing");
+    require_close(mixed_transpose.primal.block(1)[0],
+                  1.4,
+                  "active KKT restricted transpose used the wrong free control action");
   }
 
   void
@@ -514,7 +527,7 @@ namespace
   }
 
   void
-  test_active_box_adds_kkt_rows_and_reports_diagnostics()
+  test_active_box_restricted_kkt_reports_diagnostics()
   {
     const Problem problem;
     const auto complementarity = make_complementarity(problem, 0.5, 1.0);
@@ -646,11 +659,11 @@ main(const int argc, char **argv)
   try
     {
       const std::vector<nmopt::test_support::Scenario> scenarios{
-        {"active_subproblem_adds_rows_and_preserves_solution",
-         "nmopt.active_set_kkt.active_subproblem_adds_rows_and_preserves_solution",
+        {"active_subproblem_restricts_free_coordinates_and_reconstructs_solution",
+         "nmopt.active_set_kkt.active_subproblem_restricts_free_coordinates_and_reconstructs_solution",
          {"backend-neutral", "formulation", "kkt", "active-set"},
          30,
-         test_active_subproblem_adds_rows_and_preserves_solution},
+         test_active_subproblem_restricts_free_coordinates_and_reconstructs_solution},
         {"inactive_subproblem_reuses_base_product",
          "nmopt.active_set_kkt.inactive_subproblem_reuses_base_product",
          {"backend-neutral", "formulation", "kkt", "active-set"},
@@ -666,11 +679,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "formulation", "kkt", "pdas"},
          30,
          test_inactive_box_agrees_with_unconstrained_kkt},
-        {"active_box_adds_kkt_rows_and_reports_diagnostics",
-         "nmopt.pdas.active_box_adds_kkt_rows_and_reports_diagnostics",
+        {"active_box_restricted_kkt_reports_diagnostics",
+         "nmopt.pdas.active_box_restricted_kkt_reports_diagnostics",
          {"backend-neutral", "formulation", "kkt", "pdas", "active-set"},
          30,
-         test_active_box_adds_kkt_rows_and_reports_diagnostics},
+         test_active_box_restricted_kkt_reports_diagnostics},
         {"invalid_pdas_inputs",
          "nmopt.pdas.invalid_pdas_inputs",
          {"backend-neutral", "formulation", "kkt", "pdas", "negative"},

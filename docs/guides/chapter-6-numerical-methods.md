@@ -501,8 +501,8 @@ quadrature-point inequalities, the Lavrentiev-regularised mixed constraint,
 and measure-valued state constraints remain separate extensions.
 
 The selected path is implemented. The backend-neutral contract supplies the
-metric-aware multiplier representation, active-set maps, active equality KKT
-subproblems, and full PDAS diagnostics. The serial deal.II realization owns
+metric-aware multiplier representation, active-set maps, restricted free-
+coordinate KKT subproblems, and full PDAS diagnostics. The serial deal.II realization owns
 the diagonal cellwise mass metric used by the conversion callbacks and
 verifies inactive-box agreement with the unconstrained KKT solution together
 with active-box stabilization. These tests do not extend the policy to

@@ -1298,8 +1298,9 @@ are recorded in the
   solver-report branches, and the portable deal.II transpose-seed setup.
 - **P6.5 — typed complementarity and PDAS:** the selected cellwise box
   implementation is present. Backend-neutral contracts cover metric-aware
-  multiplier conversion, active-set restriction/prolongation, active equality
-  KKT composition, PDAS iteration diagnostics, and explicit stopping reasons.
+  multiplier conversion, active-set restriction/prolongation, restricted
+  free-coordinate KKT composition, PDAS iteration diagnostics, and explicit
+  stopping reasons.
   `SerialCellwiseBoxComplementarity` owns the serial deal.II mass metric used
   by its conversion callbacks, and the real serial MINRES path verifies both
   inactive-box agreement with the unconstrained KKT solution and active-box

@@ -40,52 +40,6 @@ namespace nmopt::contract
   }
 
   template <typename Backend>
-  inline std::string
-  unique_appended_space_id(const LayoutPtr &layout, std::string stem)
-  {
-    std::string candidate = std::move(stem);
-    std::size_t suffix = 0;
-    while (true)
-      {
-        bool collision = false;
-        for (std::size_t block = 0; block < layout->n_blocks(); ++block)
-          if (layout->space(block).value == candidate)
-            {
-              collision = true;
-              break;
-            }
-        if (!collision)
-          return candidate;
-        ++suffix;
-        candidate = "pdas_active_box_" + std::to_string(suffix);
-      }
-  }
-
-  template <typename Backend>
-  inline LayoutPtr
-  append_layout_block(const LayoutPtr &base,
-                      const std::string &label,
-                      const std::string &space_stem,
-                      const std::size_t dimension)
-  {
-    require(dimension > 0, "PDAS active layout needs a positive dimension");
-    std::vector<SpaceId> spaces;
-    std::vector<std::size_t> dimensions;
-    spaces.reserve(base->n_blocks() + 1);
-    dimensions.reserve(base->n_blocks() + 1);
-    for (std::size_t block = 0; block < base->n_blocks(); ++block)
-      {
-        spaces.push_back(base->space(block));
-        dimensions.push_back(base->dimension(block));
-      }
-    spaces.push_back(
-      SpaceId{unique_appended_space_id<Backend>(base, space_stem)});
-    dimensions.push_back(dimension);
-    return std::make_shared<const BlockLayout>(
-      label, std::move(spaces), std::move(dimensions));
-  }
-
-  template <typename Backend>
   class ActiveSetKKTSubproblemT final
   {
   public:
@@ -110,8 +64,11 @@ namespace nmopt::contract
       validate_base(complementarity);
       active_values_ = make_active_values(complementarity);
       if (selection_.active_size() > 0)
-        active_product_.emplace(
-          make_active_product(std::move(active_set_assumptions)));
+        {
+          initialize_restriction_layouts();
+          active_product_.emplace(
+            make_active_product(std::move(active_set_assumptions)));
+        }
     }
 
     const Product &
@@ -141,29 +98,26 @@ namespace nmopt::contract
     Point
     to_base_point(const Point &point) const
     {
-      require(point.primal.layout()->compatible_with(
-                *base_.layout().primal),
-              "PDAS KKT solution has an incompatible primal layout");
       if (!active_product_)
         {
+          require(point.primal.layout()->compatible_with(
+                    *base_.layout().primal),
+                  "PDAS KKT solution has an incompatible primal layout");
           require(point.multiplier.layout()->compatible_with(
                     *base_.layout().multiplier),
                   "PDAS KKT solution has an incompatible multiplier layout");
           return point;
         }
 
+      require(point.primal.layout()->compatible_with(
+                *restricted_primal_layout_),
+              "PDAS active KKT solution has an incompatible primal layout");
       require(point.multiplier.layout()->compatible_with(
-                *active_product_->layout().multiplier),
+                *base_.layout().multiplier),
               "PDAS active KKT solution has an incompatible multiplier layout");
-      std::vector<Vector> multiplier_blocks;
-      multiplier_blocks.reserve(base_.layout().multiplier->n_blocks());
-      for (std::size_t block = 0;
-           block < base_.layout().multiplier->n_blocks();
-           ++block)
-        multiplier_blocks.push_back(point.multiplier.block(block));
       return Point{
-        point.primal,
-        Primal(base_.layout().multiplier, std::move(multiplier_blocks))};
+        expand_primal(point.primal, active_values_),
+        point.multiplier};
     }
 
   private:
@@ -212,150 +166,250 @@ namespace nmopt::contract
       return blocks;
     }
 
+    void
+    initialize_restriction_layouts()
+    {
+      reduced_block_for_base_.clear();
+      reduced_block_for_base_.reserve(base_.layout().primal->n_blocks());
+      std::size_t next_block = 0;
+      for (std::size_t block = 0;
+           block < base_.layout().primal->n_blocks();
+           ++block)
+        {
+          if (block == control_block_ && selection_.free_size() == 0)
+            {
+              reduced_block_for_base_.push_back(std::nullopt);
+              continue;
+            }
+          reduced_block_for_base_.push_back(next_block++);
+        }
+
+      restricted_primal_layout_ = make_restricted_layout(
+        base_.layout().primal, "pdas_restricted_primal");
+      restricted_stationarity_layout_ = make_restricted_layout(
+        base_.layout().stationarity, "pdas_restricted_stationarity");
+    }
+
+    LayoutPtr
+    make_restricted_layout(const LayoutPtr &base,
+                           const std::string &label) const
+    {
+      std::vector<SpaceId> spaces;
+      std::vector<std::size_t> dimensions;
+      spaces.reserve(base->n_blocks());
+      dimensions.reserve(base->n_blocks());
+
+      std::string free_control_space = "pdas_free_control";
+      std::size_t suffix = 0;
+      while (true)
+        {
+          bool collision = false;
+          for (std::size_t block = 0; block < base->n_blocks(); ++block)
+            if (block != control_block_ &&
+                base->space(block).value == free_control_space)
+              {
+                collision = true;
+                break;
+              }
+          if (!collision)
+            break;
+          free_control_space = "pdas_free_control_" +
+                               std::to_string(++suffix);
+        }
+
+      for (std::size_t block = 0; block < base->n_blocks(); ++block)
+        {
+          if (block == control_block_ && selection_.free_size() == 0)
+            continue;
+          if (block == control_block_)
+            {
+              spaces.push_back(SpaceId{free_control_space});
+              dimensions.push_back(selection_.free_size());
+            }
+          else
+            {
+              spaces.push_back(base->space(block));
+              dimensions.push_back(base->dimension(block));
+            }
+        }
+
+      require(!spaces.empty(),
+              "PDAS restricted KKT product needs a free or state block");
+      return std::make_shared<const BlockLayout>(
+        label, std::move(spaces), std::move(dimensions));
+    }
+
+    QuadraticKKTBlockPairing
+    make_restricted_pairing(
+      const QuadraticKKTBlockPairing &base_pairing) const
+    {
+      QuadraticKKTBlockPairing pairing = base_pairing;
+      pairing.id += "_restricted";
+      pairing.domain_blocks.clear();
+      pairing.range_blocks.clear();
+      pairing.pairing_ids.clear();
+
+      for (std::size_t pair = 0;
+           pair < base_pairing.domain_blocks.size();
+           ++pair)
+        {
+          const std::size_t domain_block = base_pairing.domain_blocks[pair];
+          const std::size_t range_block = base_pairing.range_blocks[pair];
+          if (selection_.free_size() == 0 &&
+              (domain_block == control_block_ ||
+               range_block == control_block_))
+            continue;
+          require(domain_block < reduced_block_for_base_.size() &&
+                    range_block < reduced_block_for_base_.size() &&
+                    reduced_block_for_base_[domain_block].has_value() &&
+                    reduced_block_for_base_[range_block].has_value(),
+                  "PDAS restricted KKT pairing lost a free block");
+          pairing.domain_blocks.push_back(
+            *reduced_block_for_base_[domain_block]);
+          pairing.range_blocks.push_back(
+            *reduced_block_for_base_[range_block]);
+          pairing.pairing_ids.push_back(base_pairing.pairing_ids[pair]);
+        }
+      return pairing;
+    }
+
+    Primal
+    expand_primal(const Primal &restricted,
+                  const Vector &active_values) const
+    {
+      require(restricted.layout()->compatible_with(
+                *restricted_primal_layout_),
+              "PDAS restricted primal has an incompatible layout");
+      require(Backend::size(active_values) == selection_.active_size(),
+              "PDAS active values have the wrong size");
+
+      std::vector<Vector> blocks;
+      blocks.reserve(base_.layout().primal->n_blocks());
+      for (std::size_t block = 0;
+           block < base_.layout().primal->n_blocks();
+           ++block)
+        {
+          if (block == control_block_)
+            {
+              Vector free_values = Backend::zeros(selection_.free_size());
+              if (selection_.free_size() > 0)
+                free_values = restricted.block(
+                  *reduced_block_for_base_[block]);
+              blocks.push_back(
+                selection_.prolong(free_values, active_values));
+            }
+          else
+            blocks.push_back(
+              restricted.block(*reduced_block_for_base_[block]));
+        }
+      return Primal(base_.layout().primal, std::move(blocks));
+    }
+
+    Covector
+    restrict_stationarity(const Covector &value) const
+    {
+      require(value.layout()->compatible_with(
+                *base_.layout().stationarity),
+              "PDAS base stationarity has an incompatible layout");
+      std::vector<Vector> blocks;
+      blocks.reserve(restricted_stationarity_layout_->n_blocks());
+      for (std::size_t block = 0;
+           block < base_.layout().stationarity->n_blocks();
+           ++block)
+        {
+          if (block == control_block_)
+            {
+              if (selection_.free_size() > 0)
+                blocks.push_back(selection_.restrict_free(
+                  value.block(block)));
+            }
+          else
+            blocks.push_back(value.block(block));
+        }
+      return Covector(restricted_stationarity_layout_, std::move(blocks));
+    }
+
+    Covector
+    restrict_primal(const Covector &value) const
+    {
+      require(value.layout()->compatible_with(*base_.layout().primal),
+              "PDAS base primal covector has an incompatible layout");
+      std::vector<Vector> blocks;
+      blocks.reserve(restricted_primal_layout_->n_blocks());
+      for (std::size_t block = 0;
+           block < base_.layout().primal->n_blocks();
+           ++block)
+        {
+          if (block == control_block_)
+            {
+              if (selection_.free_size() > 0)
+                blocks.push_back(selection_.restrict_free(
+                  value.block(block)));
+            }
+          else
+            blocks.push_back(value.block(block));
+        }
+      return Covector(restricted_primal_layout_, std::move(blocks));
+    }
+
     Product
     make_active_product(QuadraticKKTAssumptions assumptions) const
     {
-      const LayoutPtr equality_layout = append_layout_block<Backend>(
-        base_.layout().equality,
-        "pdas_equality",
-        "pdas_active_box",
-        selection_.active_size());
-      const LayoutPtr multiplier_layout = append_layout_block<Backend>(
-        base_.layout().multiplier,
-        "pdas_multiplier",
-        "pdas_box_multiplier",
-        selection_.active_size());
-      QuadraticKKTBlockPairing multiplier_equality_pairing =
-        base_.layout().multiplier_equality_pairing;
-      multiplier_equality_pairing.id = "pdas_multiplier_equality";
-      multiplier_equality_pairing.domain_blocks.push_back(
-        base_.layout().multiplier->n_blocks());
-      multiplier_equality_pairing.range_blocks.push_back(
-        base_.layout().equality->n_blocks());
-      multiplier_equality_pairing.pairing_ids.push_back(
-        "pdas_active_box_pairing");
-      const typename Product::Layout layout(base_.layout().primal,
-                                            multiplier_layout,
+      const typename Product::Layout layout(restricted_primal_layout_,
+                                            base_.layout().multiplier,
                                             base_.layout().adjoint,
-                                            base_.layout().stationarity,
-                                            equality_layout,
-                                            base_.layout().primal_stationarity_pairing,
-                                            std::move(multiplier_equality_pairing));
+                                            restricted_stationarity_layout_,
+                                            base_.layout().equality,
+                                            make_restricted_pairing(
+                                              base_.layout().primal_stationarity_pairing),
+                                            base_.layout().multiplier_equality_pairing);
 
-      const auto base_zero = Point{
-        Primal::zeros(base_.layout().primal),
+      const auto base_active_point = Point{
+        expand_primal(Primal::zeros(restricted_primal_layout_), active_values_),
         Primal::zeros(base_.layout().multiplier)};
-      const auto base_zero_residual = base_.residual(base_zero);
-      const Vector active_values = active_values_;
-      const Selection selection = selection_;
-      const std::size_t control_block = control_block_;
+      const auto base_zero_residual = base_.residual(base_active_point);
 
       const auto quadratic_action = [this](const Primal &primal) {
-        return base_.apply_q(primal);
+        const Vector zero_active = Backend::zeros(selection_.active_size());
+        return restrict_stationarity(
+          base_.apply_q(expand_primal(primal, zero_active)));
       };
 
-      const auto equality_action = [this,
-                                    equality_layout,
-                                    selection,
-                                    control_block](const Primal &primal) {
-        const Covector base_value = base_.apply_d(primal);
-        std::vector<Vector> blocks = copy_blocks(base_value);
-        blocks.push_back(selection.restrict_active(
-          primal.block(control_block)));
-        return Covector(equality_layout, std::move(blocks));
+      const auto equality_action = [this](const Primal &primal) {
+        const Vector zero_active = Backend::zeros(selection_.active_size());
+        return base_.apply_d(expand_primal(primal, zero_active));
       };
 
-      const auto multiplier_action = [this,
-                                     multiplier_layout,
-                                     selection,
-                                     control_block](const Primal &multiplier) {
-        const std::size_t base_blocks =
-          base_.layout().multiplier->n_blocks();
-        std::vector<Vector> base_multiplier_blocks;
-        base_multiplier_blocks.reserve(base_blocks);
-        for (std::size_t block = 0; block < base_blocks; ++block)
-          base_multiplier_blocks.push_back(multiplier.block(block));
-        const Primal base_multiplier(base_.layout().multiplier,
-                                     std::move(base_multiplier_blocks));
-        const Covector base_value = base_.apply_d_transpose(base_multiplier);
-        std::vector<Vector> blocks = copy_blocks(base_value);
-        Vector &control = blocks.at(control_block);
-        const Vector &active = multiplier.block(base_blocks);
-        for (std::size_t selected = 0;
-             selected < selection.active_indices().size();
-             ++selected)
-          Backend::set_value(control,
-                             selection.active_indices()[selected],
-                             Backend::value(active, selected));
-        return Covector(base_.layout().stationarity, std::move(blocks));
+      const auto multiplier_action = [this](const Primal &multiplier) {
+        return restrict_stationarity(base_.apply_d_transpose(multiplier));
       };
 
-      const auto transpose_action = [this,
-                                     equality_layout,
-                                     multiplier_layout,
-                                     selection,
-                                     control_block](const typename Product::Seed &seed) {
-        const std::size_t base_equality_blocks =
-          base_.layout().equality->n_blocks();
-        std::vector<Vector> base_equality_values;
-        base_equality_values.reserve(base_equality_blocks);
-        for (std::size_t block = 0; block < base_equality_blocks; ++block)
-          base_equality_values.push_back(seed.equality.block(block));
-        const Primal base_stationarity(
-          base_.layout().stationarity,
-          copy_blocks(seed.stationarity));
-        const Primal base_equality(base_.layout().equality,
-                                   std::move(base_equality_values));
+      const auto transpose_action = [this](const typename Product::Seed &seed) {
+        const Vector zero_active = Backend::zeros(selection_.active_size());
         const auto base_result = base_.apply_kkt_transpose(
-          typename Product::Seed{base_stationarity, base_equality});
-
-        std::vector<Vector> primal_blocks = copy_blocks(base_result.primal);
-        Vector &control = primal_blocks.at(control_block);
-        const Vector &active_seed = seed.equality.block(base_equality_blocks);
-        for (std::size_t selected = 0;
-             selected < selection.active_indices().size();
-             ++selected)
-          {
-            const std::size_t index = selection.active_indices()[selected];
-            const double value = Backend::value(control, index) +
-                                 Backend::value(active_seed, selected);
-            Backend::set_value(control, index, value);
-          }
-
-        std::vector<Vector> multiplier_blocks =
-          copy_blocks(base_result.multiplier);
-        multiplier_blocks.push_back(selection.restrict_active(
-          seed.stationarity.block(control_block)));
+          typename Product::Seed{
+            expand_primal(seed.stationarity, zero_active),
+            seed.equality});
         return typename Product::TransposeResult{
-          Covector(base_.layout().primal, std::move(primal_blocks)),
-          Covector(multiplier_layout, std::move(multiplier_blocks))};
+          restrict_primal(base_result.primal),
+          base_result.multiplier};
       };
 
-      std::vector<Vector> stationarity_rhs =
-        negate_blocks(base_zero_residual.stationarity);
-      std::vector<Vector> equality_rhs =
+      const Covector restricted_stationarity_residual =
+        restrict_stationarity(base_zero_residual.stationarity);
+      const std::vector<Vector> stationarity_rhs =
+        negate_blocks(restricted_stationarity_residual);
+      const std::vector<Vector> equality_rhs =
         negate_blocks(base_zero_residual.equality);
-      equality_rhs.push_back(active_values);
 
       const auto multiplier_conversion =
         typename Product::MultiplierConversion{
-          "base KKT multiplier conversion with separate PDAS box multiplier",
+          "base KKT multiplier conversion on restricted free coordinates",
           [this](const Primal &multiplier) {
-            const std::size_t base_blocks =
-              base_.layout().multiplier->n_blocks();
-            std::vector<Vector> blocks;
-            blocks.reserve(base_blocks);
-            for (std::size_t block = 0; block < base_blocks; ++block)
-              blocks.push_back(multiplier.block(block));
-            return base_.multiplier_to_adjoint(
-              Primal(base_.layout().multiplier, std::move(blocks)));
+            return base_.multiplier_to_adjoint(multiplier);
           },
-          [this, multiplier_layout](const Primal &adjoint) {
-            const Primal base_multiplier =
-              base_.adjoint_to_multiplier(adjoint);
-            std::vector<Vector> blocks = copy_blocks(base_multiplier);
-            blocks.push_back(Backend::zeros(selection_.active_size()));
-            return Primal(multiplier_layout, std::move(blocks));
+          [this](const Primal &adjoint) {
+            return base_.adjoint_to_multiplier(adjoint);
           }};
 
       return Product(
@@ -364,17 +418,22 @@ namespace nmopt::contract
         equality_action,
         multiplier_action,
         transpose_action,
-        Covector(base_.layout().stationarity, std::move(stationarity_rhs)),
-        Covector(equality_layout, std::move(equality_rhs)),
+        Covector(restricted_stationarity_layout_,
+                 std::move(stationarity_rhs)),
+        Covector(base_.layout().equality, std::move(equality_rhs)),
         multiplier_conversion,
         std::move(assumptions),
-        base_.symmetry());
+        base_.symmetry(),
+        base_.lifetime_owner());
     }
 
     const Product &              base_;
     Selection                    selection_;
     std::size_t                  control_block_;
     Vector                       active_values_;
+    std::vector<std::optional<std::size_t>> reduced_block_for_base_;
+    LayoutPtr                    restricted_primal_layout_;
+    LayoutPtr                    restricted_stationarity_layout_;
     std::optional<Product>       active_product_;
   };
 

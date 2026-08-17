@@ -96,8 +96,11 @@ benchmark activation gate therefore remains open and this is recorded as an
 unstabilized-Galerkin limitation rather than hidden by changing the freeze.
 The runner now also writes a structured `solver-trace.csv` sidecar for each
 run's Armijo trials and final-state `fields.vtu`/`control.vtu` sidecars for the
-selected deal.II applications; plot/report generation remains a separate
-pending unit.
+selected deal.II applications. The repository-local
+`tools/chapter6_report.py` generator now projects the persisted artifact and
+sidecars into a CSV/Markdown summary and dependency-free SVG objective and
+Armijo plots. It reports absent trace or field sidecars explicitly; it does
+not rerun the solver or turn development outputs into source-scale evidence.
 The `to-be-recorded` source revision remains the generic default for
 non-frozen scenarios; B1 and B2 now carry the frozen numerical-examples
 catalogue revision.

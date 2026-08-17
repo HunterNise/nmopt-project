@@ -91,6 +91,24 @@ mesh. B2 contains the final state and adjoint on the volume mesh, while its
 facewise control is exported separately as `control.vtu` on the controlled
 boundary faces. These are final-state artifacts, not per-iteration output.
 
+### Report generation
+
+The repository-local `tools/chapter6_report.py` script creates a deterministic
+summary from one or more runner output directories. It uses only the Python
+standard library and does not rerun the solver:
+
+```bash
+python3 tools/chapter6_report.py \
+  --input runs \
+  --output runs/chapter-6-report
+```
+
+The report directory contains `summary.csv`, `summary.md`,
+`objective-history.svg`, and `armijo-trials.svg`. The plots use the persisted
+solver histories and `solver-trace.csv` sidecars when present. The summary
+also identifies runs that predate those sidecars or the ParaView fields, so
+missing evidence remains visible rather than being silently reconstructed.
+
 ## B0 acceptance
 
 B0 is ready for executable integration when:

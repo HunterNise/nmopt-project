@@ -32,3 +32,4 @@ benchmark contract at the reviewed head. P6.4 remains correctly conditional.
 - [P6.3 implementation review](p6.3-implementation-review.md)
 - [P6.5 implementation review](p6.5-implementation-review.md)
 - [Chapter 6 integration and benchmark readiness review](integration-benchmark-review.md)
+- [Current remediation findings](remediation-findings.md)

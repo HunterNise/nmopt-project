@@ -354,33 +354,33 @@ confirm that unrelated P6.1 remediation remains unstaged, and run
 
 S1 can be marked complete in the implementation roadmap only when:
 
-- [ ] the reduced DTO exposes checked value/state and derivative/adjoint
+- [x] the reduced DTO exposes checked value/state and derivative/adjoint
       stages;
-- [ ] the compatibility full evaluation produces the same mathematical
+- [x] the compatibility full evaluation produces the same mathematical
       result without repeating work;
-- [ ] an accepted value record cannot be augmented under an incompatible
+- [x] an accepted value record cannot be augmented under an incompatible
       control, layout, model, or lifetime;
-- [ ] rejected Armijo trials perform state solves and no adjoint solves;
-- [ ] Armijo, exact-quadratic, and trust-region accepted values are augmented
+- [x] rejected Armijo trials perform state solves and no adjoint solves;
+- [x] Armijo, exact-quadratic, and trust-region accepted values are augmented
       once without a repeated state solve;
-- [ ] Wolfe trials retain the derivative work required by their curvature
+- [x] Wolfe trials retain the derivative work required by their curvature
       predicate;
-- [ ] state, adjoint, metric, Hessian, inner-solve, and trial counts match
+- [x] state, adjoint, metric, Hessian, inner-solve, and trial counts match
       independent callback-level oracles;
-- [ ] every accepted step has one typed record sufficient to audit its
+- [x] every accepted step has one typed record sufficient to audit its
       acceptance and stopping decisions;
-- [ ] the terminal report retains the final accepted state, adjoint, reduced
+- [x] the terminal report retains the final accepted state, adjoint, reduced
       covector, objective, policy snapshot, and typed outcome;
-- [ ] expected algorithm outcomes and invalid contract wiring use their
+- [x] expected algorithm outcomes and invalid contract wiring use their
       distinct documented channels;
-- [ ] one outer envelope pairs the structured C1 manifest, policy snapshot,
+- [x] one outer envelope pairs the structured C1 manifest, policy snapshot,
       report, and environment without coupling the generic solver to the
       compiler;
-- [ ] projected-displacement, covector, metric, constraint, Hessian-capability,
+- [x] projected-displacement, covector, metric, constraint, Hessian-capability,
       and selected-policy semantics remain intact;
-- [ ] all focused and required neutral, deal.II Debug, and sanitizer profiles
+- [x] all focused and required neutral, deal.II Debug, and sanitizer profiles
       pass; and
-- [ ] the implementation roadmap alone is updated to mark S1 complete and to
+- [x] the implementation roadmap alone is updated to mark S1 complete and to
       hand off to P6.1 remediation.
 
 ## Expected state after S1

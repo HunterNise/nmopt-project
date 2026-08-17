@@ -1328,6 +1328,21 @@ namespace
               solver_result.iteration_records.size() ==
                 solver_result.accepted_iterations,
             "Dense reduced gradient result does not retain its audit snapshot");
+    std::size_t accepted_trial_count = 0;
+    for (const auto &trial : solver_result.line_search_trials)
+      {
+        require(trial.iteration > 0 &&
+                  trial.trial < solver_parameters.maximum_line_search_trials,
+                "Dense reduced gradient trace has an invalid trial index");
+        require(trial.objective_finite && trial.slope_negative,
+                "Dense reduced gradient accepted trace has invalid predicates");
+        if (trial.accepted)
+          ++accepted_trial_count;
+      }
+    require(solver_result.line_search_trials.size() ==
+              solver_result.line_search_trial_count &&
+              accepted_trial_count == solver_result.accepted_iterations,
+            "Dense reduced gradient trace does not match line-search work");
     require(solver_result.final_evaluation.reduced_derivative.layout()->compatible_with(
               *solver_result.control.layout()),
             "Dense reduced gradient final covector has the wrong layout");

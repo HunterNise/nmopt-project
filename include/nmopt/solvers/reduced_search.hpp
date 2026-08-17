@@ -132,6 +132,20 @@ namespace nmopt::solvers
     double      curvature_value = std::numeric_limits<double>::quiet_NaN();
   };
 
+  struct ReducedLineSearchTrialRecord
+  {
+    std::size_t trial = 0;
+    std::size_t iteration = 0;
+    double      step_length = 0.0;
+    double      objective_value = std::numeric_limits<double>::quiet_NaN();
+    double      actual_slope = std::numeric_limits<double>::quiet_NaN();
+    double      sufficient_decrease_bound =
+      std::numeric_limits<double>::quiet_NaN();
+    bool objective_finite = false;
+    bool slope_negative = false;
+    bool accepted = false;
+  };
+
   struct ReducedLineSearchPolicySnapshot
   {
     std::string policy_name;
@@ -231,6 +245,7 @@ namespace nmopt::solvers
     std::string                     policy_name;
     ReducedLineSearchPolicySnapshot policy_parameters;
     std::vector<ReducedAcceptedIterationRecordT<Backend>> iteration_records;
+    std::vector<ReducedLineSearchTrialRecord>             line_search_trials;
   };
 
   using ReducedSolverResult = ReducedSolverResultT<contract::DenseBackend>;

@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <locale>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -301,6 +302,33 @@ namespace
                                path.string() + "'");
   }
 
+  template <typename Report>
+  void
+  write_solver_trace(const std::filesystem::path &path, const Report &report)
+  {
+    nmopt::application::runner::prepare_artifact_path(path);
+    std::ofstream output(path);
+    if (!output)
+      throw std::runtime_error("could not open solver trace '" +
+                               path.string() + "'");
+    output.imbue(std::locale::classic());
+    output << "iteration,trial,step_length,objective_value,actual_slope,"
+               "sufficient_decrease_bound,objective_finite,slope_negative,"
+               "accepted\n";
+    output.precision(17);
+    for (const auto &trial : report.line_search_trials)
+      output << trial.iteration << ',' << trial.trial << ','
+             << trial.step_length << ',' << trial.objective_value << ','
+             << trial.actual_slope << ','
+             << trial.sufficient_decrease_bound << ','
+             << (trial.objective_finite ? "true" : "false") << ','
+             << (trial.slope_negative ? "true" : "false") << ','
+             << (trial.accepted ? "true" : "false") << '\n';
+    if (!output)
+      throw std::runtime_error("could not write solver trace '" +
+                               path.string() + "'");
+  }
+
   void
   run_b1(const nmopt::application::runner::CommandLineOptions &options)
   {
@@ -358,6 +386,8 @@ namespace
                method_slug,
                "beta-" + std::string(beta_slug)});
             write_artifact(path, result.document);
+            write_solver_trace(path.parent_path() / "solver-trace.csv",
+                               result.artifact.envelope().report());
             std::cout << "B1 wrote " << path.string() << '\n';
           }
       }
@@ -412,6 +442,8 @@ namespace
           options.output_directory,
           {"chapter-6.b2.graetz-flow", case_slug});
         write_artifact(path, result.document);
+        write_solver_trace(path.parent_path() / "solver-trace.csv",
+                           result.artifact.envelope().report());
         std::cout << "B2 wrote " << path.string() << '\n';
       }
   }

@@ -69,12 +69,19 @@ Artifact paths are deterministic and owned by the runner:
 ```text
 runs/chapter-6.b1.distributed-laplace/<method>/beta-<value>/artifact.kv
 runs/chapter-6.b2.graetz-flow/<case>/artifact.kv
+<each run directory>/solver-trace.csv
 ```
 
 The B1 `<method>` values are `steepest-descent` and `l-bfgs`; the B2 `<case>`
 values are `wings-constant`, `full-constant`, `wings-parabolic`, and
 `full-parabolic`. The per-run `identity.output_id` must include the same
 method/regularisation or case suffix used by the path.
+
+`solver-trace.csv` is a structured Armijo trial trace. It records the outer
+optimization iteration, trial index, step length, trial objective, actual
+descent slope, sufficient-decrease bound, and the finite/slope/acceptance
+predicates. It is intended for diagnosing line-search behavior; it is not a
+field or visualization export.
 
 ## B0 acceptance
 

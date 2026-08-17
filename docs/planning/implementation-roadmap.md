@@ -89,7 +89,14 @@ artifact per run, and the frozen B2 four-case batch now has the same runner
 boundary and artifact projection. Development sweeps have produced all six B1
 artifacts and all four B2 artifacts. The B2 wings case needs refinement 1 as
 the minimum development mesh because refinement 0 has no cell in the selected
-material region; neither development sweep closes source-scale acceptance.
+material region. The `release-dealii` runner now produces all ten source-scale
+artifacts and its 97-test contract suite passes, but every source-scale B2 case
+currently stops at zero accepted iterations with `line_search_failure`; the
+benchmark activation gate therefore remains open and this is recorded as an
+unstabilized-Galerkin limitation rather than hidden by changing the freeze.
+The runner now also writes a structured `solver-trace.csv` sidecar for each
+run's Armijo trials; state/control/adjoint field export and visualization
+artifacts remain a separate pending unit.
 The `to-be-recorded` source revision remains the generic default for
 non-frozen scenarios; B1 and B2 now carry the frozen numerical-examples
 catalogue revision.

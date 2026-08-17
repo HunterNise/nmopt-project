@@ -10,6 +10,7 @@
 #include <limits>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace nmopt::solvers
 {
@@ -56,6 +57,7 @@ namespace nmopt::solvers
     std::size_t                         trial_count;
     std::size_t                         hessian_action_count;
     ReducedAcceptanceEvidence            acceptance_evidence;
+    std::vector<ReducedLineSearchTrialRecord> trial_records;
 
     bool
     accepted() const noexcept
@@ -120,7 +122,8 @@ namespace nmopt::solvers
               0.0,
               trial_count,
               hessian_action_count,
-              std::move(evidence)};
+              std::move(evidence),
+              {}};
     }
 
     template <typename Backend>
@@ -138,7 +141,8 @@ namespace nmopt::solvers
               step_length,
               trial_count,
               hessian_action_count,
-              std::move(acceptance_evidence)};
+              std::move(acceptance_evidence),
+              {}};
     }
   } // namespace detail
 
@@ -197,6 +201,8 @@ namespace nmopt::solvers
                                           "Armijo line search");
 
       double step_length = parameters_.initial_step_length;
+      std::vector<ReducedLineSearchTrialRecord> trial_records;
+      trial_records.reserve(parameters_.maximum_trials);
       for (unsigned int trial = 0; trial < parameters_.maximum_trials; ++trial)
         {
           Primal trial_control = build_trial_control(step_length);
@@ -217,9 +223,22 @@ namespace nmopt::solvers
           const double armijo_bound =
             current_evaluation.objective_value +
             parameters_.armijo_fraction * actual_slope;
-          if (actual_slope < 0.0 &&
-              std::isfinite(trial_value.objective_value) &&
-              trial_value.objective_value <= armijo_bound)
+          const bool objective_finite =
+            std::isfinite(trial_value.objective_value);
+          const bool slope_negative = actual_slope < 0.0;
+          const bool accepted =
+            slope_negative && objective_finite &&
+            trial_value.objective_value <= armijo_bound;
+          trial_records.push_back({trial,
+                                   0,
+                                   step_length,
+                                   trial_value.objective_value,
+                                   actual_slope,
+                                   armijo_bound,
+                                   objective_finite,
+                                   slope_negative,
+                                   accepted});
+          if (accepted)
             {
               Evaluation trial_evaluation =
                 augment_trial_derivative(trial_value);
@@ -227,23 +246,28 @@ namespace nmopt::solvers
                 trial_evaluation.reduced_derivative.layout()->compatible_with(
                   *current_control.layout()),
                 "Armijo accepted trial derivative has an incompatible layout");
-            return detail::accepted(trial_control,
-                                    std::move(trial_evaluation),
-                                    step_length,
-                                    trial + 1,
-                                    0,
-                                    ReducedAcceptanceEvidence{
-                                      "armijo", armijo_bound, actual_slope,
-                                      std::numeric_limits<double>::quiet_NaN()});
+              auto result = detail::accepted(
+                trial_control,
+                std::move(trial_evaluation),
+                step_length,
+                trial + 1,
+                0,
+                ReducedAcceptanceEvidence{
+                  "armijo", armijo_bound, actual_slope,
+                  std::numeric_limits<double>::quiet_NaN()});
+              result.trial_records = std::move(trial_records);
+              return result;
             }
           step_length *= parameters_.backtracking_factor;
         }
 
-      return detail::failure(current_control,
-                             current_evaluation,
-                             parameters_.maximum_trials,
-                             0,
-                             "armijo");
+      auto result = detail::failure(current_control,
+                                    current_evaluation,
+                                    parameters_.maximum_trials,
+                                    0,
+                                    "armijo");
+      result.trial_records = std::move(trial_records);
+      return result;
     }
 
   private:

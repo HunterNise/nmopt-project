@@ -192,6 +192,9 @@ namespace
             "B1 scenario is not linked to the distributed recipe");
     require(b1.solver.parameters.maximum_line_search_trials == 5,
             "B1 did not retain its source line-search trial limit");
+    require(std::abs(b1.solver.parameters.gradient_tolerance - 1.0e-8) <
+              1.0e-15,
+            "B1 did not retain its declared L-BFGS stopping tolerance");
     require(std::abs(b1.solver.parameters.armijo_fraction - 1.0e-5) < 1.0e-15,
             "B1 did not retain its source Armijo fraction");
     require(b1.solver.declared_minimum_step_length == 0.01,
@@ -214,6 +217,12 @@ namespace
     require(recovered.problem.data.forcing_provenance ==
               "chapter-6.e6.5.1.recovered-forcing",
             "B1 did not retain recovered forcing provenance");
+
+    const auto steepest = nmopt::application::chapter6::make_b1_scenario(
+      nmopt::application::chapter6::ReducedMethod::steepest_descent);
+    require(std::abs(steepest.solver.parameters.gradient_tolerance - 1.0e-3) <
+              1.0e-15,
+            "B1 did not retain the source steepest-descent tolerance");
 
     const auto b2 = nmopt::application::chapter6::make_b2_scenario(
       nmopt::application::chapter6::GraetzCase::observation_full_parabolic_target);

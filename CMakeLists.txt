@@ -170,6 +170,10 @@ if(NMOPT_ENABLE_DEAL_II)
     nmopt_add_dealii_test(
       nmopt_dealii_trace_hhalf_metric_contract_test
       tests/dealii/dealii_trace_hhalf_metric_contract.cc)
+
+    nmopt_add_dealii_test(
+      nmopt_application_chapter6_b1_dealii_contract_test
+      tests/application/chapter6_b1_dealii_contract.cc)
   endif()
 endif()
 

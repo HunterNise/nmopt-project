@@ -376,6 +376,12 @@ directory, lower a PDE, or implement an optimization algorithm. An agent can
 therefore assemble the typed scenario and provide the two application-specific
 callbacks without reading the harness implementation.
 
+The selected B1 deal.II integration is a separate backend-specific header,
+`include/nmopt/application/dealii/chapter6_b1.hpp`. It supplies the
+application-owned target function, mesh-session factory, runtime data-binding
+factory, and reduced-solver execution adapter. It is intentionally not
+included by the backend-neutral `application.hpp` umbrella header.
+
 ## Agent checklist
 
 Before implementation, an agent should be able to answer these questions from

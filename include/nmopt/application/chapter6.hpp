@@ -269,6 +269,8 @@ namespace nmopt::application::chapter6
     SolverOptions solver;
     solver.method = method;
     solver.parameters.maximum_line_search_trials = 5;
+    solver.parameters.gradient_tolerance =
+      method == ReducedMethod::steepest_descent ? 1.0e-3 : 1.0e-8;
     solver.parameters.armijo_fraction = 1.0e-5;
     solver.parameters.backtracking_factor = 0.7;
     solver.declared_minimum_step_length =

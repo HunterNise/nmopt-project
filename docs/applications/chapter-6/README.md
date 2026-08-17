@@ -143,7 +143,7 @@ coefficients, the owned mesh session, and the selected solver product.
 | Initial control | Zero control in the selected control layout |
 | Methods | Steepest descent and L-BFGS from the same initial control |
 | Source line search | Armijo $\rho=0.7$, $\sigma=10^{-5}$, at most five rescalings; encode any unavailable minimum-step rule explicitly |
-| Source stopping | Steepest-descent tolerance $10^{-3}$; BFGS stopping/reproduction rule must be recorded separately |
+| Source stopping | Steepest-descent tolerance $10^{-3}$; the current factory declares $10^{-8}$ for L-BFGS and records it separately from the source rule |
 | Mesh | Source square/triangular mesh when available; development refinement must be labeled as such |
 
 The current public `ReducedSolverParameters` defaults do not equal all source
@@ -158,6 +158,49 @@ policy as typed options and preserve the policy snapshot in its artifact.
 - finite-difference verification of the linear-quadratic Hessian action; and
 - the qualitative source trend that L-BFGS is substantially faster than
   steepest descent, without treating runtime as a portable correctness value.
+
+### B1 backend execution adapter
+
+The deal.II-specific adapter is declared in
+`include/nmopt/application/dealii/chapter6_b1.hpp`. For the manufactured
+forcing choice, the complete assembly is:
+
+```cpp
+#include "nmopt/application/dealii/chapter6_b1.hpp"
+
+const auto scenario =
+  nmopt::application::chapter6::make_b1_scenario(method);
+const auto specification =
+  nmopt::application::chapter6::make_b1_problem_spec(scenario);
+
+nmopt::application::chapter6::dealii::B1ManufacturedDataT<2> data;
+const auto runtime =
+  nmopt::application::chapter6::dealii::make_b1_manufactured_runtime_data(
+    scenario, data);
+const auto session =
+  nmopt::application::chapter6::dealii::make_b1_compilation_session<2>(
+    scenario);
+nmopt::application::chapter6::dealii::B1ReducedExecutionAdapterT<2> execute{
+  beta, runtime, session, environment};
+
+using Runner =
+  nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
+    decltype(scenario)>;
+const auto result = Runner(scenario).run(
+  [](const auto &parameters) {
+    return nmopt::application::chapter6::make_b1_problem_spec(parameters);
+  },
+  execute);
+```
+
+The adapter binds forcing, the polynomial desired state, diffusion, reaction,
+and the per-run regularization value; creates the owned square-domain mesh
+session; compiles the assembled reduced DTO; and dispatches either steepest
+descent or limited-memory BFGS. The returned detached envelope contains the
+compiler manifest, typed solver report, policy snapshot, and environment.
+Additional artifact fields record the B1 method, regularization, histories,
+stopping reason, and solve counts. Recovered forcing uses a caller-owned
+`B1RuntimeDataT<dim>` instead of `B1ManufacturedDataT<dim>`.
 
 ## B2 — Graetz-flow boundary control
 

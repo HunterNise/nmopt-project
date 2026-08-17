@@ -4794,6 +4794,25 @@ namespace
       solve.converged() && !solve.iterations.empty() &&
         solve.iterations.back().kkt_solve.converged(),
       "compiled DTO PDAS product did not execute its owned KKT service");
+    contract::require(
+      solve.iterations.back().selection.active_size() == 0,
+      "compiled DTO inactive PDAS product selected an active set");
+
+    const auto direct_kkt = dealii_backend::solve_serial_quadratic_kkt(
+      pdas.product(), pdas.kkt_solver_policy());
+    contract::require(
+      direct_kkt.report.converged(),
+      "compiled DTO inactive reference KKT solve did not converge");
+    require_primal_close(
+      solve.solution.primal,
+      direct_kkt.solution.primal,
+      1e-9,
+      "compiled DTO inactive PDAS primal disagrees with direct KKT");
+    require_primal_close(
+      solve.solution.multiplier,
+      direct_kkt.solution.multiplier,
+      1e-9,
+      "compiled DTO inactive PDAS equality multiplier disagrees with direct KKT");
 
     using Solver = contract::PDASSolverT<Backend>;
     using BoxMultiplier = contract::CovectorBlockT<Backend>;

@@ -11,6 +11,11 @@ It will document:
 - experiment provenance and report records; and
 - diagnostics and supported capability combinations.
 
+The generic assembly workflow and current option defaults are documented in
+the [application API reference](application-api.md). Concrete capability
+combinations and Chapter 5/6 recipe choices will be added as separate
+reference units; this document does not replace those application contracts.
+
 The reference documents describe existing public contracts. They do not replace
 the normative [interface specification](../design/interface-specification.md),
 the [v1 compiler record](../implementation/v1/semantic-compiler.md), or the

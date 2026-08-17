@@ -4814,6 +4814,207 @@ namespace
       1e-9,
       "compiled DTO inactive PDAS equality multiplier disagrees with direct KKT");
 
+    const auto run_active_case = [&](const contract::BoxActivity expected_activity) {
+      const std::size_t control_dimension =
+        pdas.product().layout().primal->dimension(1);
+      dealii::Vector<double> lower(control_dimension);
+      dealii::Vector<double> upper(control_dimension);
+      lower = -100.0;
+      upper = 100.0;
+      dealii::Vector<double> initial_control(control_dimension);
+      initial_control = 0.0;
+      const double reference_control = solve.solution.primal.block(1)[0];
+      const double margin = std::max(0.25, 0.25 * std::abs(reference_control));
+      double active_bound = 0.0;
+      if (expected_activity == contract::BoxActivity::lower)
+        {
+          active_bound = reference_control + margin;
+          lower[0] = active_bound;
+          initial_control[0] = upper[0];
+        }
+      else
+        {
+          active_bound = reference_control - margin;
+          upper[0] = active_bound;
+          initial_control[0] = lower[0];
+        }
+
+      const compiler::v1::CellwiseBoxDataBindings active_bounds{
+        compiler::v1::CellwiseBoundValue{std::move(lower)},
+        compiler::v1::CellwiseBoundValue{std::move(upper)}};
+      const auto active_compilation = compiler.compile(
+        specification,
+        triangulation,
+        data_bindings,
+        policy,
+        active_bounds,
+        std::nullopt,
+        compiler::v1::CompilationProduct::pdas);
+      contract::require(
+        active_compilation.succeeded() && active_compilation.pdas_problem,
+        "compiled DTO active PDAS case did not compile");
+      const auto &active_pdas = *active_compilation.pdas_problem;
+      const auto active_solver = active_pdas.make_solver(
+        [&active_pdas](const Product &product) {
+          return dealii_backend::solve_serial_quadratic_kkt(
+            product, active_pdas.kkt_solver_policy());
+        });
+      const auto active_initial = Product::Point{
+        Primal(active_pdas.product().layout().primal,
+               {Backend::zeros(active_pdas.product().layout().primal->dimension(0)),
+                std::move(initial_control)}),
+        Primal::zeros(active_pdas.product().layout().multiplier)};
+      const auto active_result = active_solver.solve(
+        active_initial,
+        Covector::zeros(active_pdas.complementarity().layout()),
+        active_pdas.pdas_policy());
+
+      contract::require(
+        active_result.converged() && !active_result.iterations.empty(),
+        "compiled DTO active PDAS case did not converge");
+      bool saw_active_set_change = false;
+      for (const auto &iteration : active_result.iterations)
+        saw_active_set_change =
+          saw_active_set_change || iteration.active_set_changes > 0;
+      contract::require(
+        saw_active_set_change,
+        "compiled DTO active PDAS case did not report an active-set change");
+
+      const auto &final_report = active_result.iterations.back();
+      contract::require(
+        final_report.selection.active_size() == 1 &&
+          final_report.selection.activities().at(0) == expected_activity,
+        "compiled DTO active PDAS case selected the wrong final active set");
+      for (std::size_t index = 1; index < control_dimension; ++index)
+        contract::require(
+          final_report.selection.activities().at(index) ==
+            contract::BoxActivity::inactive,
+          "compiled DTO active PDAS case activated an unconstrained control");
+      require_close(
+        active_result.solution.primal.block(1)[0],
+        active_bound,
+        1e-8,
+        "compiled DTO active PDAS case returned the wrong bound value");
+
+      const auto represented_box_multiplier =
+        active_pdas.complementarity().multiplier_to_primal(
+          active_result.box_multiplier);
+      const double active_multiplier = represented_box_multiplier.block(0)[0];
+      if (expected_activity == contract::BoxActivity::lower)
+        contract::require(
+          active_multiplier < -1e-8,
+          "compiled DTO lower-active PDAS multiplier has the wrong sign");
+      else
+        contract::require(
+          active_multiplier > 1e-8,
+          "compiled DTO upper-active PDAS multiplier has the wrong sign");
+      for (std::size_t index = 1; index < control_dimension; ++index)
+        require_close(
+          represented_box_multiplier.block(0)[index],
+          0.0,
+          1e-10,
+          "compiled DTO PDAS reported a nonzero inactive box multiplier");
+
+      const auto residual = active_pdas.product().residual(
+        active_result.solution);
+      double stationarity_squared = 0.0;
+      for (std::size_t block = 0;
+           block < residual.stationarity.n_blocks();
+           ++block)
+        {
+          dealii::Vector<double> constrained = residual.stationarity.block(block);
+          if (block == 1)
+            constrained.add(1.0, active_result.box_multiplier.block(0));
+          stationarity_squared += constrained.l2_norm() * constrained.l2_norm();
+        }
+      double equality_squared = 0.0;
+      for (std::size_t block = 0; block < residual.equality.n_blocks(); ++block)
+        equality_squared += residual.equality.block(block).l2_norm() *
+                            residual.equality.block(block).l2_norm();
+      const double recovered_stationarity = std::sqrt(stationarity_squared);
+      const double recovered_equality = std::sqrt(equality_squared);
+      require_close(final_report.stationarity_residual,
+                    recovered_stationarity,
+                    1e-12,
+                    "compiled DTO PDAS stationarity report was not recovered");
+      require_close(final_report.equality_residual,
+                    recovered_equality,
+                    1e-12,
+                    "compiled DTO PDAS equality report was not recovered");
+      const auto &active_policy = active_pdas.pdas_policy();
+      contract::require(
+        std::isfinite(final_report.primal_violation) &&
+          std::isfinite(final_report.dual_violation) &&
+          std::isfinite(final_report.complementarity_residual) &&
+          std::isfinite(final_report.stationarity_residual) &&
+          std::isfinite(final_report.equality_residual) &&
+          final_report.primal_violation <=
+            active_policy.primal_feasibility_tolerance &&
+          final_report.dual_violation <=
+            active_policy.dual_feasibility_tolerance &&
+          final_report.complementarity_residual <=
+            active_policy.complementarity_tolerance &&
+          final_report.stationarity_residual <=
+            active_policy.stationarity_tolerance &&
+          final_report.equality_residual <= active_policy.equality_tolerance &&
+          final_report.primal_feasible && final_report.dual_feasible &&
+          final_report.complementarity_converged &&
+          final_report.kkt_residuals_converged &&
+          final_report.active_set_stable && final_report.kkt_solve.converged() &&
+          final_report.kkt_solve.linear_solve.converged(),
+        "compiled DTO active PDAS diagnostics were incomplete");
+
+      const contract::ActiveSetKKTSubproblemT<Backend> active_subproblem(
+        active_pdas.product(),
+        active_pdas.complementarity(),
+        final_report.selection,
+        1,
+        active_policy.active_set_assumptions);
+      const auto &active_product = active_subproblem.product();
+      dealii::Vector<double> point_state(active_product.layout().primal->dimension(0));
+      dealii::Vector<double> point_control(active_product.layout().primal->dimension(1));
+      dealii::Vector<double> point_multiplier(active_product.layout().multiplier->dimension(0));
+      dealii::Vector<double> seed_state(active_product.layout().stationarity->dimension(0));
+      dealii::Vector<double> seed_control(active_product.layout().stationarity->dimension(1));
+      dealii::Vector<double> seed_equality(active_product.layout().equality->dimension(0));
+      for (std::size_t index = 0; index < point_state.size(); ++index)
+        point_state[index] = 0.11 + 0.01 * static_cast<double>(index);
+      for (std::size_t index = 0; index < point_control.size(); ++index)
+        point_control[index] = -0.23 + 0.02 * static_cast<double>(index);
+      for (std::size_t index = 0; index < point_multiplier.size(); ++index)
+        point_multiplier[index] = 0.31 - 0.01 * static_cast<double>(index);
+      for (std::size_t index = 0; index < seed_state.size(); ++index)
+        seed_state[index] = -0.17 + 0.015 * static_cast<double>(index);
+      for (std::size_t index = 0; index < seed_control.size(); ++index)
+        seed_control[index] = 0.29 - 0.02 * static_cast<double>(index);
+      for (std::size_t index = 0; index < seed_equality.size(); ++index)
+        seed_equality[index] = 0.07 + 0.025 * static_cast<double>(index);
+      const Product::Point mixed_point{
+        Primal(active_product.layout().primal,
+               {std::move(point_state), std::move(point_control)}),
+        Primal(active_product.layout().multiplier,
+               {std::move(point_multiplier)})};
+      const Product::Seed mixed_seed{
+        Primal(active_product.layout().stationarity,
+               {std::move(seed_state), std::move(seed_control)}),
+        Primal(active_product.layout().equality,
+               {std::move(seed_equality)})};
+      const auto mixed_action = active_product.apply_kkt(mixed_point);
+      const auto mixed_transpose = active_product.apply_kkt_transpose(mixed_seed);
+      const double transpose_left =
+        contract::pair(mixed_action.stationarity, mixed_seed.stationarity) +
+        contract::pair(mixed_action.equality, mixed_seed.equality);
+      const double transpose_right =
+        contract::pair(mixed_transpose.primal, mixed_point.primal) +
+        contract::pair(mixed_transpose.multiplier, mixed_point.multiplier);
+      require_close(transpose_left,
+                    transpose_right,
+                    1e-9,
+                    "compiled DTO active PDAS action/transpose pairing");
+    };
+    run_active_case(contract::BoxActivity::lower);
+    run_active_case(contract::BoxActivity::upper);
+
     using Solver = contract::PDASSolverT<Backend>;
     using BoxMultiplier = contract::CovectorBlockT<Backend>;
     struct DetachedCompiledPDAS

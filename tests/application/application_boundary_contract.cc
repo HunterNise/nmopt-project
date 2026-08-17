@@ -1,6 +1,8 @@
 #include "nmopt/application/application.hpp"
 #include "../support/scenario_dispatch.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -134,6 +136,94 @@ namespace
       }
     require(duplicate_rejected, "catalog accepted a duplicate stable id");
   }
+
+  void
+  test_chapter5_recipe_records_build_registered_graphs()
+  {
+    const auto distributed =
+      nmopt::application::chapter5::make_scalar_distributed_recipe();
+    const auto distributed_spec =
+      distributed(nmopt::application::chapter5::ScalarDistributedControlParameters{
+        true});
+    require(distributed.metadata().id ==
+              nmopt::application::chapter5::scalar_distributed_recipe_id,
+            "Chapter 5 distributed recipe has the wrong stable ID");
+    require(distributed_spec.id ==
+              "scalar_diffusion_reaction_volume_control",
+            "distributed recipe did not select the scalar reference graph");
+    require(!distributed_spec.constraints.empty(),
+            "distributed recipe did not retain its cellwise box choice");
+
+    const auto general = nmopt::application::chapter5::make_general_scalar_recipe();
+    const auto general_spec = general(
+      nmopt::application::chapter5::GeneralScalarParameters{{0}, {1}, false});
+    require(general_spec.id == "general_scalar_elliptic_robin_volume_control",
+            "general recipe did not select the Robin graph");
+    require(std::any_of(general_spec.data.begin(),
+                        general_spec.data.end(),
+                        [](const auto &data) {
+                          return data.id == "robin_coefficient";
+                        }),
+            "general recipe lost the Robin data port");
+
+    const auto neumann =
+      nmopt::application::chapter5::make_neumann_convection_recipe();
+    const auto neumann_spec = neumann(
+      nmopt::application::chapter5::NeumannConvectionParameters{1, false});
+    require(neumann_spec.id == "scalar_convection_neumann_subdomain_control",
+            "Neumann recipe did not select the C5.6 graph");
+    require(std::any_of(neumann_spec.data.begin(),
+                        neumann_spec.data.end(),
+                        [](const auto &data) {
+                          return data.role ==
+                                 nmopt::semantic::v1::DataRole::conservative_transport;
+                        }),
+            "Neumann recipe lost its transport data port");
+  }
+
+  void
+  test_chapter6_scenario_records_freeze_b1_and_b2_choices()
+  {
+    const auto b1 = nmopt::application::chapter6::make_b1_scenario(
+      nmopt::application::chapter6::ReducedMethod::limited_memory_bfgs);
+    require(b1.metadata.recipe_id ==
+              nmopt::application::chapter6::b1_recipe_id,
+            "B1 scenario is not linked to the distributed recipe");
+    require(b1.solver.parameters.maximum_line_search_trials == 5,
+            "B1 did not retain its source line-search trial limit");
+    require(std::abs(b1.solver.parameters.armijo_fraction - 1.0e-5) < 1.0e-15,
+            "B1 did not retain its source Armijo fraction");
+    require(b1.solver.declared_minimum_step_length == 0.01,
+            "B1 did not retain the L-BFGS minimum-step declaration");
+    require(b1.experiment.harness.deterministic,
+            "B1 did not retain the deterministic B0 harness policy");
+
+    const auto b2 = nmopt::application::chapter6::make_b2_scenario(
+      nmopt::application::chapter6::GraetzCase::observation_full_parabolic_target);
+    require(b2.metadata.recipe_id ==
+              nmopt::application::chapter6::b2_recipe_id,
+            "B2 scenario is not linked to the Neumann recipe");
+    require(b2.problem.graetz_case ==
+              nmopt::application::chapter6::GraetzCase::observation_full_parabolic_target,
+            "B2 did not retain its observation/target case");
+    require(b2.problem.fixed_temperature == 1.0,
+            "B2 did not retain the fixed temperature");
+    require(b2.problem.data.conservative_transport_provenance ==
+              "chapter-6.e6.5.2.graetz-transport",
+            "B2 did not retain transport provenance");
+  }
+
+  void
+  test_chapter6_catalog_discovers_standard_scenarios()
+  {
+    const auto catalog = nmopt::application::chapter6::make_catalog();
+    require(catalog.entries().size() == 2,
+            "Chapter 6 catalog did not retain B1 and B2");
+    require(catalog.find("chapter-6.b1.distributed-laplace") != nullptr,
+            "Chapter 6 catalog cannot discover B1");
+    require(catalog.find("chapter-6.b2.graetz-flow") != nullptr,
+            "Chapter 6 catalog cannot discover B2");
+  }
 } // namespace
 
 int
@@ -156,7 +246,22 @@ main(const int argc, char **argv)
          "nmopt.application.catalog_discovers_metadata_and_rejects_duplicates",
          {"backend-neutral", "application", "contract", "negative"},
          30,
-         test_catalog_discovers_metadata_and_rejects_duplicates}};
+         test_catalog_discovers_metadata_and_rejects_duplicates},
+        {"chapter5_recipe_records_build_registered_graphs",
+         "nmopt.application.chapter5_recipe_records_build_registered_graphs",
+         {"backend-neutral", "application", "semantic", "contract"},
+         30,
+         test_chapter5_recipe_records_build_registered_graphs},
+        {"chapter6_scenario_records_freeze_b1_and_b2_choices",
+         "nmopt.application.chapter6_scenario_records_freeze_b1_and_b2_choices",
+         {"backend-neutral", "application", "benchmark", "contract"},
+         30,
+         test_chapter6_scenario_records_freeze_b1_and_b2_choices},
+        {"chapter6_catalog_discovers_standard_scenarios",
+         "nmopt.application.chapter6_catalog_discovers_standard_scenarios",
+         {"backend-neutral", "application", "benchmark", "contract"},
+         30,
+         test_chapter6_catalog_discovers_standard_scenarios}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

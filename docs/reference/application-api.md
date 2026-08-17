@@ -396,6 +396,17 @@ not patch a homogeneous graph at execution time. Its owned session realizes
 the rectangle, boundary labels, and material-ID observation region, and its
 execution adapter dispatches the selected full-BFGS reduced run.
 
+## Headless executable boundary
+
+The repository's `nmopt_runner` executable is the headless orchestration
+boundary for benchmark runs. It owns command-line selection, the output root,
+artifact-directory creation, and file writing; it does not own a second
+compiler or optimization loop. The current boundary exposes `--list` for
+metadata discovery and `--output DIRECTORY` for the runner-owned artifact root.
+Benchmark execution commands are registered by their benchmark integration
+units and must consume the typed scenario and execution-adapter interfaces
+described above.
+
 ## Agent checklist
 
 Before implementation, an agent should be able to answer these questions from

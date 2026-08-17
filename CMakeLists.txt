@@ -154,6 +154,10 @@ if(NMOPT_ENABLE_DEAL_II)
   add_library(nmopt_dealii_contract INTERFACE)
   target_link_libraries(nmopt_dealii_contract INTERFACE nmopt_contract)
 
+  nmopt_add_dealii_executable(
+    nmopt_runner
+    apps/nmopt-runner/main.cc)
+
   if(BUILD_TESTING)
     nmopt_add_dealii_test(
       nmopt_dealii_diffusion_contract_test

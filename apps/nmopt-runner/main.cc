@@ -364,7 +364,16 @@ namespace
               nmopt::application::chapter6::dealii::
                 make_b1_compilation_session<2>(scenario);
             const auto environment = make_environment(scenario);
-            Adapter execute{beta, runtime, session, environment};
+            const auto path = runner::artifact_path(
+              options.output_directory,
+              {"chapter-6.b1.distributed-laplace",
+               method_slug,
+               "beta-" + std::string(beta_slug)});
+            Adapter execute{beta,
+                            runtime,
+                            session,
+                            environment,
+                            path.parent_path()};
             Runner runner(scenario);
             const auto result = runner.run(
               [](const auto &parameters) {
@@ -380,11 +389,6 @@ namespace
                 return evidence;
               });
 
-            const auto path = runner::artifact_path(
-              options.output_directory,
-              {"chapter-6.b1.distributed-laplace",
-               method_slug,
-               "beta-" + std::string(beta_slug)});
             write_artifact(path, result.document);
             write_solver_trace(path.parent_path() / "solver-trace.csv",
                                result.artifact.envelope().report());
@@ -424,7 +428,10 @@ namespace
           nmopt::application::chapter6::dealii::
             make_b2_compilation_session<2>(scenario);
         const auto environment = make_environment(scenario);
-        Adapter execute{runtime, session, environment};
+        const auto path = runner::artifact_path(
+          options.output_directory,
+          {"chapter-6.b2.graetz-flow", case_slug});
+        Adapter execute{runtime, session, environment, path.parent_path()};
         Runner runner(scenario);
         const auto result = runner.run(
           [](const auto &parameters) {
@@ -438,9 +445,6 @@ namespace
             return evidence;
           });
 
-        const auto path = runner::artifact_path(
-          options.output_directory,
-          {"chapter-6.b2.graetz-flow", case_slug});
         write_artifact(path, result.document);
         write_solver_trace(path.parent_path() / "solver-trace.csv",
                            result.artifact.envelope().report());

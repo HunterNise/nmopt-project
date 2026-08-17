@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <functional>
 #include <iomanip>
 #include <memory>
@@ -297,10 +298,12 @@ namespace nmopt::application::chapter6::dealii
     B2ReducedExecutionAdapterT(
       const B2RuntimeDataT<dim> &runtime,
       std::shared_ptr<compiler::v1::DealiiCompilationSession<dim>> session,
-      experiment::RunEnvironmentRecord environment)
+      experiment::RunEnvironmentRecord environment,
+      std::filesystem::path          field_output_directory = {})
       : runtime_(&runtime)
       , session_(std::move(session))
       , environment_(std::move(environment))
+      , field_output_directory_(std::move(field_output_directory))
     {
       if (runtime_ == nullptr || !session_)
         throw std::invalid_argument(
@@ -350,8 +353,34 @@ namespace nmopt::application::chapter6::dealii
           compilation.problem->metric(),
           scenario.solver.parameters)
           .solve(initial_control);
+      if (scenario.experiment.retain_fields &&
+          !field_output_directory_.empty())
+        {
+          const auto *model = dynamic_cast<const
+            compiler::v1::detail::NeumannBoundaryControlModel<dim> *>(
+            &compilation.problem->executable_model());
+          if (model == nullptr)
+            throw std::runtime_error(
+              "B2 field output needs the Neumann boundary model");
+          model->write_field_output(field_output_directory_,
+                                    report.final_evaluation.state,
+                                    report.control,
+                                    report.final_evaluation.adjoint);
+        }
       const auto solver_policy =
         experiment::make_reduced_search_policy_snapshot(report);
+
+      std::vector<std::string> selected_fields{
+        "objective_history",
+        "gradient_norm_history",
+        "step_length_history",
+        "objective_change_history",
+        "solve_counts"};
+      if (scenario.experiment.retain_fields)
+        {
+          selected_fields.insert(selected_fields.end(),
+                                 {"state", "control", "adjoint"});
+        }
 
       std::vector<benchmark::ArtifactField> fields{
         {"b2.graetz_case", graetz_case_name(scenario.problem.graetz_case)},
@@ -386,16 +415,12 @@ namespace nmopt::application::chapter6::dealii
 
       Envelope envelope{compilation.problem->manifest(),
                         solver_policy,
-                        report,
-                        environment_};
+              report,
+              environment_};
       return {std::move(envelope),
               std::move(compilation.diagnostics),
               {},
-              {"objective_history",
-               "gradient_norm_history",
-               "step_length_history",
-               "objective_change_history",
-               "solve_counts"},
+              std::move(selected_fields),
               std::move(fields)};
     }
 
@@ -403,5 +428,6 @@ namespace nmopt::application::chapter6::dealii
     const B2RuntimeDataT<dim> *runtime_;
     std::shared_ptr<compiler::v1::DealiiCompilationSession<dim>> session_;
     experiment::RunEnvironmentRecord environment_;
+    std::filesystem::path field_output_directory_;
   };
 } // namespace nmopt::application::chapter6::dealii

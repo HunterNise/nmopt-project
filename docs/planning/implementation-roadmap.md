@@ -95,8 +95,9 @@ currently stops at zero accepted iterations with `line_search_failure`; the
 benchmark activation gate therefore remains open and this is recorded as an
 unstabilized-Galerkin limitation rather than hidden by changing the freeze.
 The runner now also writes a structured `solver-trace.csv` sidecar for each
-run's Armijo trials; state/control/adjoint field export and visualization
-artifacts remain a separate pending unit.
+run's Armijo trials and final-state `fields.vtu`/`control.vtu` sidecars for the
+selected deal.II applications; plot/report generation remains a separate
+pending unit.
 The `to-be-recorded` source revision remains the generic default for
 non-frozen scenarios; B1 and B2 now carry the frozen numerical-examples
 catalogue revision.

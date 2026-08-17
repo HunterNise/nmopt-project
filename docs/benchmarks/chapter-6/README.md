@@ -70,6 +70,8 @@ Artifact paths are deterministic and owned by the runner:
 runs/chapter-6.b1.distributed-laplace/<method>/beta-<value>/artifact.kv
 runs/chapter-6.b2.graetz-flow/<case>/artifact.kv
 <each run directory>/solver-trace.csv
+<each run directory>/fields.vtu
+<each B2 run directory>/control.vtu
 ```
 
 The B1 `<method>` values are `steepest-descent` and `l-bfgs`; the B2 `<case>`
@@ -82,6 +84,12 @@ optimization iteration, trial index, step length, trial objective, actual
 descent slope, sufficient-decrease bound, and the finite/slope/acceptance
 predicates. It is intended for diagnosing line-search behavior; it is not a
 field or visualization export.
+
+`fields.vtu` is a serial deal.II VTU export readable by ParaView. B1 contains
+the final state, adjoint, and cellwise control fields on the shared volume
+mesh. B2 contains the final state and adjoint on the volume mesh, while its
+facewise control is exported separately as `control.vtu` on the controlled
+boundary faces. These are final-state artifacts, not per-iteration output.
 
 ## B0 acceptance
 

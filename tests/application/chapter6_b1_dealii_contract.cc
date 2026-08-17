@@ -2,6 +2,8 @@
 #include "../support/scenario_dispatch.hpp"
 
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <stdexcept>
@@ -33,6 +35,11 @@ namespace
         scenario, manufactured_data);
     const auto session =
       chapter6::dealii::make_b1_compilation_session<2>(scenario);
+    const auto field_output_directory =
+      std::filesystem::temp_directory_path() /
+      ("nmopt-b1-fields-contract-" +
+       std::to_string(static_cast<int>(method)));
+    std::filesystem::remove_all(field_output_directory);
     chapter6::dealii::B1ReducedExecutionAdapterT<2> execute{
       1.0e-2,
       runtime,
@@ -44,7 +51,8 @@ namespace
        "test-standard-library",
        "test-os",
        "test-architecture",
-       "test-hardware"}};
+       "test-hardware"},
+      field_output_directory};
 
     using HeadlessRunner =
       nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
@@ -68,6 +76,16 @@ namespace
             "B1 dealii adapter omitted regularisation evidence");
     require(result.document.find("solver.method=") != std::string::npos,
             "B1 dealii adapter omitted solver-method evidence");
+    require(std::filesystem::exists(field_output_directory / "fields.vtu"),
+            "B1 dealii adapter did not write field output");
+    std::ifstream fields(field_output_directory / "fields.vtu");
+    const std::string field_document((std::istreambuf_iterator<char>(fields)),
+                                     std::istreambuf_iterator<char>());
+    require(field_document.find("Name=\"state\"") != std::string::npos &&
+              field_document.find("Name=\"control\"") != std::string::npos &&
+              field_document.find("Name=\"adjoint\"") != std::string::npos,
+            "B1 field output omitted a retained field");
+    std::filesystem::remove_all(field_output_directory);
   }
 } // namespace
 

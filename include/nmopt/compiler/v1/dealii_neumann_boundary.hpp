@@ -23,16 +23,21 @@
 #include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
+#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <locale>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -300,6 +305,108 @@ namespace nmopt::compiler::v1::detail
           state.layout()->compatible_with(*test_layout_),
         "State mean received an incompatible state or adjoint layout");
       return mean_constraint_ * state.block(0);
+    }
+
+    void
+    write_field_output(const std::filesystem::path &directory,
+                       const Primal &                 state,
+                       const Primal &                 control,
+                       const Primal &                 adjoint) const
+    {
+      static_assert(dim == 2,
+                    "Neumann field output currently supports two dimensions");
+      contract::require(state.layout()->compatible_with(*state_layout_),
+                        "Field output state has an incompatible layout");
+      contract::require(control.layout()->compatible_with(*control_layout_),
+                        "Field output control has an incompatible layout");
+      contract::require(adjoint.layout()->compatible_with(*test_layout_),
+                        "Field output adjoint has an incompatible layout");
+      contract::require(control.block(0).size() == control_face_count_,
+                        "Field output control has an incompatible size");
+
+      std::filesystem::create_directories(directory);
+      dealii::DataOut<dim> data_out;
+      data_out.attach_dof_handler(state_dof_handler_);
+      data_out.add_data_vector(state.block(0), "state");
+      data_out.add_data_vector(adjoint.block(0), "adjoint");
+      data_out.build_patches();
+
+      std::ofstream fields_output(directory / "fields.vtu");
+      if (!fields_output)
+        throw std::runtime_error("could not open Neumann field output");
+      fields_output.imbue(std::locale::classic());
+      data_out.write_vtu(fields_output);
+      if (!fields_output)
+        throw std::runtime_error("could not write Neumann field output");
+
+      std::vector<dealii::Point<dim>> face_points;
+      std::vector<double>             face_controls;
+      face_points.reserve(control_face_count_ *
+                          dealii::GeometryInfo<dim>::vertices_per_face);
+      face_controls.reserve(control_face_count_);
+      std::size_t control_index = 0;
+      for (auto cell = state_dof_handler_.begin_active();
+           cell != state_dof_handler_.end();
+           ++cell)
+        for (unsigned int face = 0;
+             face < dealii::GeometryInfo<dim>::faces_per_cell;
+             ++face)
+          if (is_control_face(cell, face))
+            {
+              for (unsigned int vertex = 0;
+                   vertex < dealii::GeometryInfo<dim>::vertices_per_face;
+                   ++vertex)
+                face_points.push_back(cell->face(face)->vertex(vertex));
+              face_controls.push_back(control.block(0)[control_index]);
+              ++control_index;
+            }
+      contract::require(control_index == control_face_count_,
+                        "Neumann field output control ordering changed");
+
+      std::ofstream control_output(directory / "control.vtu");
+      if (!control_output)
+        throw std::runtime_error("could not open Neumann control output");
+      control_output.imbue(std::locale::classic());
+      control_output << "<?xml version=\"1.0\"?>\n"
+                     << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" "
+                        "byte_order=\"LittleEndian\">\n"
+                     << "<UnstructuredGrid>\n"
+                     << "<Piece NumberOfPoints=\"" << face_points.size()
+                     << "\" NumberOfCells=\"" << face_controls.size()
+                     << "\">\n"
+                     << "<PointData>\n</PointData>\n"
+                     << "<CellData Scalars=\"control\">\n"
+                     << "<DataArray type=\"Float64\" Name=\"control\" "
+                        "format=\"ascii\">\n";
+      control_output.precision(17);
+      for (const double value : face_controls)
+        control_output << value << ' ';
+      control_output << "\n</DataArray>\n</CellData>\n"
+                     << "<Points>\n"
+                     << "<DataArray type=\"Float64\" NumberOfComponents=\"3\" "
+                        "format=\"ascii\">\n";
+      for (const auto &point : face_points)
+        control_output << point[0] << ' ' << point[1] << " 0 ";
+      control_output << "\n</DataArray>\n</Points>\n"
+                     << "<Cells>\n"
+                     << "<DataArray type=\"Int32\" Name=\"connectivity\" "
+                        "format=\"ascii\">\n";
+      for (std::size_t cell = 0; cell < face_controls.size(); ++cell)
+        control_output << cell * 2 << ' ' << cell * 2 + 1 << ' ';
+      control_output << "\n</DataArray>\n"
+                     << "<DataArray type=\"Int32\" Name=\"offsets\" "
+                        "format=\"ascii\">\n";
+      for (std::size_t cell = 0; cell < face_controls.size(); ++cell)
+        control_output << (cell + 1) * 2 << ' ';
+      control_output << "\n</DataArray>\n"
+                     << "<DataArray type=\"UInt8\" Name=\"types\" "
+                        "format=\"ascii\">\n";
+      for (std::size_t cell = 0; cell < face_controls.size(); ++cell)
+        control_output << "3 ";
+      control_output << "\n</DataArray>\n</Cells>\n"
+                     << "</Piece>\n</UnstructuredGrid>\n</VTKFile>\n";
+      if (!control_output)
+        throw std::runtime_error("could not write Neumann control output");
     }
 
     Covector

@@ -26,15 +26,20 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparsity_pattern.h>
+#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <memory>
+#include <filesystem>
+#include <fstream>
+#include <locale>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -455,6 +460,38 @@ namespace nmopt::dealii_backend
     state_constraints() const
     {
       return state_constraints_;
+    }
+
+    void
+    write_field_output(const std::filesystem::path &directory,
+                       const Primal &                 state,
+                       const Primal &                 control,
+                       const Primal &                 adjoint) const
+    {
+      contract::require(state.layout()->compatible_with(*state_layout_),
+                        "Field output state has an incompatible layout");
+      contract::require(control.layout()->compatible_with(*control_layout_),
+                        "Field output control has an incompatible layout");
+      contract::require(adjoint.layout()->compatible_with(*test_layout_),
+                        "Field output adjoint has an incompatible layout");
+
+      std::filesystem::create_directories(directory);
+      dealii::DataOut<dim> data_out;
+      data_out.attach_dof_handler(state_dof_handler_);
+      data_out.add_data_vector(state.block(0), "state");
+      data_out.add_data_vector(adjoint.block(0), "adjoint");
+      data_out.add_data_vector(control_dof_handler_,
+                               control.block(0),
+                               "control");
+      data_out.build_patches();
+
+      std::ofstream output(directory / "fields.vtu");
+      if (!output)
+        throw std::runtime_error("could not open scalar field output");
+      output.imbue(std::locale::classic());
+      data_out.write_vtu(output);
+      if (!output)
+        throw std::runtime_error("could not write scalar field output");
     }
 
     Covector

@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -34,6 +36,11 @@ namespace
         scenario, manufactured_data);
     const auto session =
       chapter6::dealii::make_b2_compilation_session<2>(scenario);
+    const auto field_output_directory =
+      std::filesystem::temp_directory_path() /
+      ("nmopt-b2-fields-contract-" +
+       std::to_string(static_cast<int>(graetz_case)));
+    std::filesystem::remove_all(field_output_directory);
 
     const auto specification = chapter6::make_b2_problem_spec(scenario);
     const auto fixed_objective = [&] {
@@ -100,7 +107,8 @@ namespace
        "test-standard-library",
        "test-os",
        "test-architecture",
-       "test-hardware"}};
+       "test-hardware"},
+      field_output_directory};
 
     using HeadlessRunner =
       nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
@@ -144,8 +152,23 @@ namespace
               std::string::npos,
             "B2 deal.II adapter omitted fixed-temperature evidence");
     require(result.document.find("solver.method=bfgs\n") !=
-              std::string::npos,
+            std::string::npos,
             "B2 deal.II adapter omitted solver-method evidence");
+    require(std::filesystem::exists(field_output_directory / "fields.vtu") &&
+              std::filesystem::exists(field_output_directory / "control.vtu"),
+            "B2 deal.II adapter did not write field output");
+    std::ifstream fields(field_output_directory / "fields.vtu");
+    std::ifstream control(field_output_directory / "control.vtu");
+    const std::string field_document((std::istreambuf_iterator<char>(fields)),
+                                     std::istreambuf_iterator<char>());
+    const std::string control_document(
+      (std::istreambuf_iterator<char>(control)),
+      std::istreambuf_iterator<char>());
+    require(field_document.find("Name=\"state\"") != std::string::npos &&
+              field_document.find("Name=\"adjoint\"") != std::string::npos &&
+              control_document.find("Name=\"control\"") != std::string::npos,
+            "B2 field output omitted a retained field");
+    std::filesystem::remove_all(field_output_directory);
   }
 } // namespace
 

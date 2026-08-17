@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <iomanip>
 #include <memory>
 #include <optional>
@@ -206,11 +207,13 @@ namespace nmopt::application::chapter6::dealii
       const double                  regularisation,
       const B1RuntimeDataT<dim> &runtime,
       std::shared_ptr<compiler::v1::DealiiCompilationSession<dim>> session,
-      experiment::RunEnvironmentRecord environment)
+      experiment::RunEnvironmentRecord environment,
+      std::filesystem::path          field_output_directory = {})
       : regularisation_(regularisation)
       , runtime_(&runtime)
       , session_(std::move(session))
       , environment_(std::move(environment))
+      , field_output_directory_(std::move(field_output_directory))
     {
       if (runtime_ == nullptr || !session_)
         throw std::invalid_argument(
@@ -282,8 +285,34 @@ namespace nmopt::application::chapter6::dealii
         }
 
       const auto &report_value = *report;
+      if (scenario.experiment.retain_fields &&
+          !field_output_directory_.empty())
+        {
+          const auto *model = dynamic_cast<const
+            nmopt::dealii_backend::ScalarDiffusionReactionModel<dim> *>(
+            &compilation.problem->executable_model());
+          if (model == nullptr)
+            throw std::runtime_error(
+              "B1 field output needs the direct scalar diffusion model");
+          model->write_field_output(field_output_directory_,
+                                    report_value.final_evaluation.state,
+                                    report_value.control,
+                                    report_value.final_evaluation.adjoint);
+        }
       const auto solver_policy =
         experiment::make_reduced_search_policy_snapshot(report_value);
+
+      std::vector<std::string> selected_fields{
+        "objective_history",
+        "gradient_norm_history",
+        "step_length_history",
+        "objective_change_history",
+        "solve_counts"};
+      if (scenario.experiment.retain_fields)
+        {
+          selected_fields.insert(selected_fields.end(),
+                                 {"state", "control", "adjoint"});
+        }
 
       std::vector<benchmark::ArtifactField> fields{
         {"b1.forcing_selection", b1_forcing_selection(scenario)},
@@ -324,16 +353,12 @@ namespace nmopt::application::chapter6::dealii
 
       Envelope envelope{compilation.problem->manifest(),
                         solver_policy,
-                        std::move(*report),
-                        environment_};
+              std::move(*report),
+              environment_};
       return {std::move(envelope),
               std::move(compilation.diagnostics),
               {},
-              {"objective_history",
-               "gradient_norm_history",
-               "step_length_history",
-               "objective_change_history",
-               "solve_counts"},
+              std::move(selected_fields),
               std::move(fields)};
     }
 
@@ -355,5 +380,6 @@ namespace nmopt::application::chapter6::dealii
     const B1RuntimeDataT<dim> *                               runtime_;
     std::shared_ptr<compiler::v1::DealiiCompilationSession<dim>> session_;
     experiment::RunEnvironmentRecord                             environment_;
+    std::filesystem::path                                         field_output_directory_;
   };
 } // namespace nmopt::application::chapter6::dealii

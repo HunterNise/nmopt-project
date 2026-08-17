@@ -4764,6 +4764,49 @@ namespace
           *supplied_product.layout().multiplier) &&
         supplied_product.supports_minres(),
       "compiled supplied-OTD KKT product lost its typed executable boundary");
+
+    struct DetachedSuppliedKKT
+    {
+      KKTProduct                              product;
+      contract::QuadraticKKTSolverPolicy      solver_policy;
+    };
+    const auto detached_supplied = [&] {
+      auto mesh = std::make_unique<dealii::Triangulation<dim>>();
+      dealii::GridGenerator::hyper_cube(*mesh);
+      mesh->refine_global(1);
+      const auto session =
+        std::make_shared<compiler::v1::DealiiCompilationSession<dim>>(
+          std::move(mesh), "test.compiled_supplied_otd_kkt.owned_session");
+      const dealii::Functions::ConstantFunction<dim> detached_forcing(1.0);
+      const dealii::Functions::ConstantFunction<dim> detached_desired(0.25);
+      const compiler::v1::DealiiDataBindings<dim> detached_bindings{
+        detached_forcing,
+        detached_desired,
+        1.0,
+        0.5,
+        0.1,
+        test_binding_provenance("compiled_supplied_otd_kkt_detached")};
+      const auto detached_compilation = compiler.compile(
+        semantic::v1::make_scalar_diffusion_reaction_supplied_otd_problem(),
+        session,
+        detached_bindings,
+        policy,
+        std::nullopt,
+        std::nullopt,
+        compiler::v1::CompilationProduct::quadratic_kkt);
+      contract::require(detached_compilation.succeeded() &&
+                          detached_compilation.kkt_problem,
+                        "detached supplied-OTD KKT compilation failed");
+      return DetachedSuppliedKKT{
+        detached_compilation.kkt_problem->product(),
+        policy.pdas_kkt_solver};
+    }();
+    const auto detached_result = dealii_backend::solve_serial_quadratic_kkt(
+      detached_supplied.product, detached_supplied.solver_policy);
+    contract::require(
+      detached_result.report.converged() &&
+        detached_result.report.linear_solve.converged(),
+      "detached supplied-OTD KKT product lost its owned executable session");
   }
 
   template <int dim>

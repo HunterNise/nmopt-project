@@ -118,7 +118,9 @@ The P6.3 remediation commits are `06fa551`, `5aa196c`, `3d20acb`, `01dd59a`,
 - the supplied-OTD bridge ownership scenario;
 - all four deal.II KKT scenarios; and
 - the compiled DTO and supplied-OTD KKT compiler routes and detached
-  supplied-session scenarios.
+  supplied-session scenarios. The compiled-KKT scenario also detaches the
+  supplied-OTD product from an owned compilation session and solves it after
+  the session, mesh, and source bindings leave scope.
 
 The full `debug-neutral` and `debug-dealii` profiles passed 43/43 and 81/81.
 The previously recorded sanitizer gate passed 43/43; a fresh default CTest

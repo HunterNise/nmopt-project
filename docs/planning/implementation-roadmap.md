@@ -54,7 +54,9 @@ remediation closure. Its distinct compiled DTO product, typed domain/range
 pairings, canonical supplied-OTD validity declaration, transitive supplied
 session ownership, transpose/report evidence, and MINRES/GMRES policy checks
 are covered by the current contract and deal.II gates. The selected P6.5
-surface remains acceptance-pending.
+surface is acceptance-complete after the P6.5 R1–R7 and C6-I4 remediation
+closure. The final gates pass 43/43 `debug-neutral`, 81/81 `debug-dealii`,
+and 43/43 `sanitize-neutral` scenarios.
 The typed trace and negative-metric policies, explicit $H^{1}_{0}$ target-data
 assumption, control-boundary realization, and realized observation-space
 dimensions are covered by the semantic and deal.II contracts. The reviewed
@@ -1166,11 +1168,10 @@ scope is later reopened.
 
 ### P6.5 — Add typed complementarity, selection, and PDAS services
 
-**Status:** implementation present for the selected cellwise-discontinuous
-$L^{2}$ control boxes; acceptance is pending the
-[P6.5 implementation review](review/chapter-6/p6.5-implementation-review.md)
-remediation. Continuous-control and other bound semantics remain separate
-optional extensions.
+**Status:** acceptance-complete for the selected cellwise-discontinuous
+$L^{2}$ control boxes after the P6.5 R1–R7 and C6-I4 remediation closure.
+Continuous-control and other bound semantics remain separate optional
+extensions.
 
 **Motivation:** Section 6.8 treats control boxes and regularised mixed
 state-control bounds with semismooth primal-dual active sets. The current
@@ -1201,12 +1202,14 @@ declared conversion policy.
 
 **Implemented surface:** the backend-neutral path provides typed box bounds, an
 explicit metric dual-to-primal representation, cellwise active-set
-restriction/prolongation, active equality-row KKT composition over P6.3, and
-PDAS iteration reports with stable-set and full-KKT stopping conditions. The
-serial deal.II path owns the selected diagonal mass metric while exposing the
-same typed complementarity contract, and exercises real serial MINRES solves
-for inactive and active boxes. The regularised mixed observation and
-continuous-control box semantics remain out of scope as declared above.
+restriction/prolongation, restricted free-coordinate KKT composition over
+P6.3, and PDAS iteration reports with stable-set and full-KKT stopping
+conditions. The serial deal.II path owns the selected diagonal mass metric
+and the compiled cellwise-box product shares one owner-bearing box-data token
+between projection and complementarity, with bound/layout/metric provenance
+recorded in the manifest. Real serial MINRES solves cover inactive and active
+boxes. The regularised mixed observation and continuous-control box semantics
+remain out of scope as declared above.
 
 ## Current next-agent sequence
 
@@ -1236,14 +1239,15 @@ vocabulary.
   `sanitize-neutral`, and 71/71 `release-dealii` scenarios.
 - **Supporting evidence:** the closed request and pre-construction decision own target selection, typed regions and requirements, component inventories, and map skeletons; finalization adds only realized service facts, and manifest construction is a pure projection. Full compatibility remains stable under declaration-order and display-prose changes. Realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
 
-### Chapter 6 implementation evidence and pending remediation
+### Chapter 6 implementation evidence and remediation closure
 
 The selected P6.3 implementation surface is acceptance-complete. The P6.5
-implementation surface below remains acceptance-pending. P6.2 and the
+implementation surface below is acceptance-complete after the P6.5 R1–R7 and
+C6-I4 remediation closure. P6.2 and the
 selected P6.1 scalar reduced DTO slice are likewise acceptance-complete; their
 historical reviews remain static evidence.
-The remaining open findings and cross-batch dependency order
-are recorded in the
+The historical findings and cross-batch benchmark dependency order are
+recorded in the
 [Chapter 6 review index](review/chapter-6/README.md) and the
 [integration and benchmark readiness review](review/chapter-6/integration-benchmark-review.md).
 
@@ -1296,24 +1300,19 @@ are recorded in the
   `sanitize-neutral`. The coverage includes compiler registration, typed
   pairings, supplied-OTD validity, detached ownership, transpose actions,
   solver-report branches, and the portable deal.II transpose-seed setup.
-- **P6.5 — typed complementarity and PDAS:** the selected cellwise box
-  implementation is present. Backend-neutral contracts cover metric-aware
-  multiplier conversion, active-set restriction/prolongation, restricted
-  free-coordinate KKT composition, PDAS iteration diagnostics, and explicit
-  stopping reasons.
-  `SerialCellwiseBoxComplementarity` owns the serial deal.II mass metric used
-  by its conversion callbacks, and the real serial MINRES path verifies both
-  inactive-box agreement with the unconstrained KKT solution and active-box
-  stabilization. The final gates pass 32/32 sanitizer-neutral and 66/66
-  Debug deal.II scenarios.
-- **P6.5-R3 compiler product:** `CompilationProduct::pdas` now returns a
-  distinct owner-bearing scalar PDAS product for the registered cellwise-box
-  DTO and canonical supplied-OTD routes. Its typed manifest records bounds,
-  multiplier realization, active-set assumptions, residual/classification
-  policy, inner KKT policy, and exclusions; continuous controls, unsupported
-  constraint families, mismatched metric realizations, and invalid active-row
-  assumptions are rejected before construction. Runtime ownership hardening
-  and expanded non-finite/native evidence remain open in the later P6.5 units.
+- **P6.5 remediation closure:** the selected cellwise box implementation now
+  covers metric-aware multiplier conversion, restricted free-coordinate
+  active-set KKT composition, PDAS diagnostics and stopping reasons, detached
+  ownership, and non-finite input/output rejection. `CompilationProduct::pdas`
+  returns a distinct owner-bearing product, while
+  `CompiledCellwiseBoxDataT` is the shared immutable product for projection
+  and complementarity. Its token, exact bounds, layout, metric identity,
+  digest, and provenance are preserved in the compiled manifest; changed
+  bounds are rejected before comparison. Inactive compiled PDAS agrees with
+  the direct KKT reference, and active compiled acceptance covers both bound
+  sides, stationarity, residuals, flags, set changes, and action-transpose
+  behavior. The final gates pass 43/43 `debug-neutral`, 81/81
+  `debug-dealii`, and 43/43 `sanitize-neutral` scenarios.
 - **P6.2 remediation closure:** the supplied semantic declaration is typed and
   rejects DTO-label mutation; the owned supplied-OTD session retains its
   mesh through callback and teardown; native value/JVP/VJP, finite-difference,
@@ -1326,22 +1325,19 @@ are recorded in the
 ### Current remediation and benchmark sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
-selected P6.3 implementation surface is acceptance-complete; P6.5 remains
-acceptance-pending. S1, P6.1, and the selected P6.2 supplied-OTD slice are
-closed.
-The sequence below incorporates the
-[integration remediation order](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order)
-for the remaining review findings:
+selected P6.3 and P6.5 implementation surfaces are acceptance-complete. S1,
+P6.1, and the selected P6.2 supplied-OTD slice are closed. The P6.5
+remediation sequence is closed; the remaining sequence is benchmark work
+under the separate Chapter 6 benchmark contract.
+The sequence below retains the benchmark activation order from the
+[integration and benchmark readiness review](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order):
 
 The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 `sanitize-neutral` 32/32, and `debug-dealii` 66/66. These are
 regression baselines for the existing scenario inventory; they do not close
 the review findings, whose missing or stronger scenarios are not yet present.
 
-1. repair the P6.5 restricted active subproblem, algebra, compilation, and
-   ownership boundaries;
-2. compile one shared box-data product for projection and complementarity;
-3. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
+1. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
    run the selected B1 and B2 benchmarks through the declared artifact path.
 
 B3 and B4 remain desirable follow-ups under the authoritative

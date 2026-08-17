@@ -83,6 +83,11 @@ measurements, and selected output fields around that envelope. It deliberately
 does not execute a solver or write files. Use `release-dealii` for reproduction
 runs and smaller development meshes for local iteration.
 
+`application::benchmark::BenchmarkArtifactWriter` renders the captured record
+as deterministic escaped `key=value` lines to a caller-owned stream. The
+headless runner remains responsible for choosing paths and creating the
+scenario artifact directory.
+
 ## B1 — distributed Laplace control
 
 ### Scenario selection

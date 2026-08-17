@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -282,6 +283,51 @@ namespace
       }
     require(rejected, "B0 harness accepted invalid timing evidence");
   }
+
+  void
+  test_b0_artifact_writer_is_deterministic_and_escapes_values()
+  {
+    const auto scenario = nmopt::application::chapter6::make_b1_scenario();
+    const nmopt::application::benchmark::BenchmarkHarnessT<decltype(scenario)>
+      harness(scenario);
+    struct DetachedEnvelope
+    {};
+    const auto artifact = harness.finalize(DetachedEnvelope{});
+
+    const nmopt::application::benchmark::BenchmarkArtifactWriter writer;
+    const std::vector<nmopt::application::benchmark::ArtifactField> fields{
+      {"result.objective", "1=2\nnext"},
+      {"result.status", "ok"}};
+    const auto first = writer.render(artifact, fields);
+    const auto second = writer.render(artifact, fields);
+    require(first == second,
+            "B0 artifact writer did not produce deterministic output");
+    require(first.find("result.objective=1\\=2\\nnext\n") !=
+              std::string::npos,
+            "B0 artifact writer did not escape field values");
+    require(first.find("identity.scenario_id=chapter-6.b1.distributed-laplace\n") !=
+              std::string::npos,
+            "B0 artifact writer omitted the scenario identity");
+
+    std::ostringstream stream;
+    writer.write(stream, artifact, fields);
+    require(stream.str() == first,
+            "B0 artifact stream writer disagrees with render");
+
+    bool duplicate_rejected = false;
+    try
+      {
+        (void)writer.render(
+          artifact,
+          {{"duplicate", "a"}, {"duplicate", "b"}});
+      }
+    catch (const std::invalid_argument &)
+      {
+        duplicate_rejected = true;
+      }
+    require(duplicate_rejected,
+            "B0 artifact writer accepted duplicate field keys");
+  }
 } // namespace
 
 int
@@ -324,7 +370,12 @@ main(const int argc, char **argv)
          "nmopt.application.b0_harness_captures_deterministic_artifact_boundary",
          {"backend-neutral", "application", "benchmark", "contract", "negative"},
          30,
-         test_b0_harness_captures_deterministic_artifact_boundary}};
+         test_b0_harness_captures_deterministic_artifact_boundary},
+        {"b0_artifact_writer_is_deterministic_and_escapes_values",
+         "nmopt.application.b0_artifact_writer_is_deterministic_and_escapes_values",
+         {"backend-neutral", "application", "benchmark", "contract", "negative"},
+         30,
+         test_b0_artifact_writer_is_deterministic_and_escapes_values}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

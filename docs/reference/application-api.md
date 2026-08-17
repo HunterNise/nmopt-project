@@ -351,6 +351,12 @@ solver, lower a PDE, or serialize files. Those operations belong to the
 headless runner and artifact writer. This keeps B0 from becoming a second
 compiler or optimizer.
 
+`application::benchmark::BenchmarkArtifactWriter` is the deterministic text
+writer for the captured boundary. It emits canonical `key=value` lines with
+stable ordering, escaped values, diagnostics, measurements, selected fields,
+and caller-supplied artifact fields. It writes to a caller-owned stream; path
+selection and directory creation remain orchestration concerns.
+
 ## Agent checklist
 
 Before implementation, an agent should be able to answer these questions from

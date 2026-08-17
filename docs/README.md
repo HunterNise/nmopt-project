@@ -22,6 +22,23 @@ architectural boundaries.
 - [Theoretical formalism](design/theoretical-formalism.md) records the
   mathematical model and strong-to-variational bridge.
 
+### Public reference
+
+- [Public API reference](reference/README.md) is the entry point for exact
+  `ProblemSpec`, compiler, solver, and experiment configuration contracts.
+
+### Applications and benchmarks
+
+- [Application recipes](applications/README.md) describes how concrete Chapter
+  5/6 applications are assembled from the public API.
+- [Benchmark specifications](benchmarks/README.md) describes frozen Chapter 6
+  experiment contracts.
+
+### Decisions
+
+- [Repository organization](decisions/001-repository-organization.md) records
+  the directory and authority boundaries for the application work.
+
 ### Implemented generations and selected policies
 
 The documents under `implementation/` describe concrete implemented contracts,
@@ -89,6 +106,8 @@ convention before inspecting or changing repository content.
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
 | New contributor or agent | [System blueprint](design/system-blueprint.md) | Root `AGENTS.md`, the [implementation roadmap](planning/implementation-roadmap.md), and the [interface specification](design/interface-specification.md) |
+| Author a Chapter 5/6 application | [Application recipes](applications/README.md) | [Public API reference](reference/README.md), the relevant Chapter guide, and the [v1 compiler](implementation/v1/semantic-compiler.md) |
+| Add or reproduce a Chapter 6 benchmark | [Benchmark specifications](benchmarks/README.md) | [Chapter 6 benchmark roadmap](planning/chapter-6-benchmark-suite-roadmap.md), [numerical examples](guides/chapter-6-numerical-examples.md), and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
 | Understand the whole system and its code correspondence | [System blueprint](design/system-blueprint.md) | [Interface specification](design/interface-specification.md) and [v0 executable contract](implementation/v0/executable-contract.md) |
 | Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Architecture](design/architecture.md) and [selected policies](implementation/implementation-readiness-review.md) |
 | Change the backend-neutral executable API | [V0 executable contract](implementation/v0/executable-contract.md) | [Selected policies](implementation/implementation-readiness-review.md) and [roadmap](planning/implementation-roadmap.md) |

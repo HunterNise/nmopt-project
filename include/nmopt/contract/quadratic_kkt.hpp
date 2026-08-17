@@ -273,6 +273,23 @@ namespace nmopt::contract
       return lifetime_owner_;
     }
 
+    EqualityConstrainedQuadraticKKTProductT
+    with_lifetime_owner(std::shared_ptr<const void> lifetime_owner) const
+    {
+      return EqualityConstrainedQuadraticKKTProductT(
+        layout_,
+        quadratic_action_,
+        equality_action_,
+        multiplier_action_,
+        transpose_action_,
+        stationarity_rhs_,
+        equality_rhs_,
+        multiplier_conversion_,
+        assumptions_,
+        symmetry_,
+        std::move(lifetime_owner));
+    }
+
     QuadraticKKTSymmetry
     symmetry() const
     {

@@ -16,10 +16,11 @@ namespace
     LayoutPtr layout = std::make_shared<const BlockLayout>(
       "control", std::vector<SpaceId>{{"control"}},
       std::vector<std::size_t>{4});
-    DiagonalMetric metric{
-      "l2_cellwise",
-      layout,
-      {DenseVector{2.0, 4.0, 1.0, 3.0}}};
+    std::shared_ptr<const Metric> metric =
+      std::make_shared<const DiagonalMetric>(
+        "l2_cellwise",
+        layout,
+        std::vector<DenseVector>{DenseVector{2.0, 4.0, 1.0, 3.0}});
     BoxBounds bounds{
       layout,
       PrimalBlock(layout, {DenseVector{0.0, -1.0, 0.0, 0.0}}),
@@ -126,8 +127,9 @@ namespace
       "Box lower bound exceeds upper bound",
       "box bounds accepted reversed limits");
 
-    const DiagonalMetric metric(
-      "l2_cellwise", layout, {DenseVector{1.0, 1.0}});
+    const std::shared_ptr<const Metric> metric =
+      std::make_shared<const DiagonalMetric>(
+      "l2_cellwise", layout, std::vector<DenseVector>{DenseVector{1.0, 1.0}});
     const BoxBounds bounds(
       layout,
       PrimalBlock(layout, {DenseVector{0.0, 0.0}}),
@@ -159,6 +161,39 @@ namespace
       "Active-set free restriction input has the wrong size",
       "active-set restriction accepted the wrong vector size");
   }
+
+  void
+  test_metric_representation_owns_metric_and_validates_witness()
+  {
+    BoxComplementarity detached = [&] {
+      Fixture fixture;
+      return fixture.complementarity;
+    }();
+
+    const auto primal = PrimalBlock(
+      detached.layout(), {DenseVector{0.25, 0.5, 0.75, 1.0}});
+    const auto multiplier = detached.primal_to_multiplier(primal);
+    const auto round_trip = detached.multiplier_to_primal(multiplier);
+    const auto selection = detached.classify(primal, multiplier, 1.0);
+    require_equal(round_trip.block(0)[0], 0.25,
+                  "owned metric representation changed entry 0");
+    require_equal(round_trip.block(0)[3], 1.0,
+                  "owned metric representation changed entry 3");
+    require(selection.active_size() == 0,
+            "owned metric representation changed classification");
+
+    Fixture fixture;
+    auto representation = make_metric_multiplier_representation(fixture.metric);
+    const auto other_metric = std::make_shared<const DiagonalMetric>(
+      "other_l2_cellwise",
+      fixture.layout,
+      std::vector<DenseVector>{DenseVector{2.0, 4.0, 1.0, 3.0}});
+    representation.metric_witness = other_metric->realisation_witness();
+    nmopt::test_support::require_contract_error(
+      [&] { (void)BoxComplementarity(fixture.bounds, representation); },
+      "Box multiplier representation metric witness does not match its owner",
+      "box complementarity accepted a mismatched metric witness");
+  }
 } // namespace
 
 int
@@ -181,7 +216,12 @@ main(const int argc, char **argv)
          "nmopt.complementarity.invalid_contract_inputs",
          {"backend-neutral", "contract", "complementarity", "negative"},
          30,
-         test_invalid_contract_inputs}};
+         test_invalid_contract_inputs},
+        {"metric_representation_owns_metric_and_validates_witness",
+         "nmopt.complementarity.metric_representation_owns_metric_and_validates_witness",
+         {"backend-neutral", "contract", "complementarity", "ownership", "negative"},
+         30,
+         test_metric_representation_owns_metric_and_validates_witness}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

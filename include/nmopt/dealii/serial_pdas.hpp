@@ -92,7 +92,8 @@ namespace nmopt::dealii_backend
       return Complementarity(
         contract::BoxBoundsT<SerialBackend>(
           layout, lower_block, upper_block),
-        contract::make_metric_multiplier_representation(*metric_));
+        contract::make_metric_multiplier_representation(
+          std::shared_ptr<const contract::MetricT<SerialBackend>>(metric_)));
     }
 
     std::shared_ptr<const MassMetric> metric_;

@@ -4795,6 +4795,72 @@ namespace
         solve.iterations.back().kkt_solve.converged(),
       "compiled DTO PDAS product did not execute its owned KKT service");
 
+    using Solver = contract::PDASSolverT<Backend>;
+    using BoxMultiplier = contract::CovectorBlockT<Backend>;
+    struct DetachedCompiledPDAS
+    {
+      Product       product;
+      Solver        solver;
+      BoxMultiplier initial_box_multiplier;
+      contract::PDASPolicy policy;
+    };
+
+    const auto detached = [&] {
+      auto detached_mesh = std::make_unique<dealii::Triangulation<dim>>();
+      dealii::GridGenerator::hyper_cube(*detached_mesh);
+      detached_mesh->refine_global(1);
+      const auto detached_session =
+        std::make_shared<compiler::v1::DealiiCompilationSession<dim>>(
+          std::move(detached_mesh), "test.compiled_pdas.owned_session");
+      const dealii::Functions::ConstantFunction<dim> detached_forcing(1.0);
+      const dealii::Functions::ConstantFunction<dim> detached_desired(0.25);
+      const compiler::v1::DealiiDataBindings<dim> detached_bindings{
+        detached_forcing,
+        detached_desired,
+        1.0,
+        0.5,
+        0.1,
+        test_binding_provenance("compiled_pdas_detached")};
+      const auto detached_specification =
+        semantic::v1::make_scalar_diffusion_reaction_problem(true);
+      const auto detached_compilation = compiler.compile(
+        detached_specification,
+        detached_session,
+        detached_bindings,
+        policy,
+        bounds,
+        std::nullopt,
+        compiler::v1::CompilationProduct::pdas);
+      contract::require(detached_compilation.succeeded() &&
+                          detached_compilation.pdas_problem,
+                        "compiled PDAS detachment setup failed");
+      const auto compiled = detached_compilation.pdas_problem;
+      const auto kkt_policy = compiled->kkt_solver_policy();
+      const auto pdas_policy = compiled->pdas_policy();
+      const auto product = compiled->product();
+      const auto initial_box_multiplier =
+        BoxMultiplier::zeros(compiled->complementarity().layout());
+      const auto solver = compiled->make_solver(
+        [kkt_policy](const Product &detached_product) {
+          return dealii_backend::solve_serial_quadratic_kkt(
+            detached_product, kkt_policy);
+        });
+      return DetachedCompiledPDAS{product,
+                                  solver,
+                                  initial_box_multiplier,
+                                  pdas_policy};
+    }();
+
+    const auto detached_result = detached.solver.solve(
+      Product::Point{Primal::zeros(detached.product.layout().primal),
+                     Primal::zeros(detached.product.layout().multiplier)},
+      detached.initial_box_multiplier,
+      detached.policy);
+    contract::require(
+      detached_result.converged() &&
+        !detached_result.iterations.empty(),
+      "detached compiled PDAS solver did not retain its executable ownership");
+
     const auto supplied_specification =
       semantic::v1::make_scalar_diffusion_reaction_supplied_otd_problem(true);
     const auto supplied_validation = compiler.validate(

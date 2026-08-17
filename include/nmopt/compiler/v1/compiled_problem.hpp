@@ -662,6 +662,9 @@ namespace nmopt::compiler::v1
       contract::require(metric_->layout()->compatible_with(
                           *complementarity_->layout()),
                         "A compiled PDAS metric does not match its box layout");
+      if (lifetime_owner_)
+        product_ = std::make_shared<const Product>(
+          product_->with_lifetime_owner(lifetime_owner_));
     }
 
     const Product &

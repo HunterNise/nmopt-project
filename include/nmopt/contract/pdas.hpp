@@ -57,7 +57,7 @@ namespace nmopt::contract
       const Selection &     selection,
       const std::size_t     control_block,
       QuadraticKKTAssumptions active_set_assumptions)
-      : base_(base)
+      : base_(std::make_shared<const Product>(base))
       , selection_(selection)
       , control_block_(control_block)
     {
@@ -74,7 +74,7 @@ namespace nmopt::contract
     const Product &
     product() const
     {
-      return active_product_ ? *active_product_ : base_;
+      return active_product_ ? *active_product_ : *base_;
     }
 
     bool
@@ -101,10 +101,10 @@ namespace nmopt::contract
       if (!active_product_)
         {
           require(point.primal.layout()->compatible_with(
-                    *base_.layout().primal),
+                    *base_->layout().primal),
                   "PDAS KKT solution has an incompatible primal layout");
           require(point.multiplier.layout()->compatible_with(
-                    *base_.layout().multiplier),
+                    *base_->layout().multiplier),
                   "PDAS KKT solution has an incompatible multiplier layout");
           return point;
         }
@@ -113,7 +113,7 @@ namespace nmopt::contract
                 *restricted_primal_layout_),
               "PDAS active KKT solution has an incompatible primal layout");
       require(point.multiplier.layout()->compatible_with(
-                *base_.layout().multiplier),
+                *base_->layout().multiplier),
               "PDAS active KKT solution has an incompatible multiplier layout");
       return Point{
         expand_primal(point.primal, active_values_),
@@ -124,14 +124,14 @@ namespace nmopt::contract
     void
     validate_base(const Complementarity &complementarity) const
     {
-      require(control_block_ < base_.layout().primal->n_blocks(),
+      require(control_block_ < base_->layout().primal->n_blocks(),
               "PDAS control block exceeds the KKT primal layout");
-      require(control_block_ < base_.layout().stationarity->n_blocks(),
+      require(control_block_ < base_->layout().stationarity->n_blocks(),
               "PDAS control block exceeds the KKT stationarity layout");
-      require(same_block_shape<Backend>(base_.layout().primal,
-                                        base_.layout().stationarity),
+      require(same_block_shape<Backend>(base_->layout().primal,
+                                        base_->layout().stationarity),
               "PDAS KKT primal and stationarity block shapes differ");
-      require(base_.layout().primal->dimension(control_block_) ==
+      require(base_->layout().primal->dimension(control_block_) ==
                 complementarity.layout()->dimension(0),
               "PDAS control block has an incompatible complementarity layout");
       require(selection_.layout()->compatible_with(
@@ -170,10 +170,10 @@ namespace nmopt::contract
     initialize_restriction_layouts()
     {
       reduced_block_for_base_.clear();
-      reduced_block_for_base_.reserve(base_.layout().primal->n_blocks());
+      reduced_block_for_base_.reserve(base_->layout().primal->n_blocks());
       std::size_t next_block = 0;
       for (std::size_t block = 0;
-           block < base_.layout().primal->n_blocks();
+           block < base_->layout().primal->n_blocks();
            ++block)
         {
           if (block == control_block_ && selection_.free_size() == 0)
@@ -185,9 +185,9 @@ namespace nmopt::contract
         }
 
       restricted_primal_layout_ = make_restricted_layout(
-        base_.layout().primal, "pdas_restricted_primal");
+        base_->layout().primal, "pdas_restricted_primal");
       restricted_stationarity_layout_ = make_restricted_layout(
-        base_.layout().stationarity, "pdas_restricted_stationarity");
+        base_->layout().stationarity, "pdas_restricted_stationarity");
     }
 
     LayoutPtr
@@ -284,9 +284,9 @@ namespace nmopt::contract
               "PDAS active values have the wrong size");
 
       std::vector<Vector> blocks;
-      blocks.reserve(base_.layout().primal->n_blocks());
+      blocks.reserve(base_->layout().primal->n_blocks());
       for (std::size_t block = 0;
-           block < base_.layout().primal->n_blocks();
+           block < base_->layout().primal->n_blocks();
            ++block)
         {
           if (block == control_block_)
@@ -302,19 +302,19 @@ namespace nmopt::contract
             blocks.push_back(
               restricted.block(*reduced_block_for_base_[block]));
         }
-      return Primal(base_.layout().primal, std::move(blocks));
+      return Primal(base_->layout().primal, std::move(blocks));
     }
 
     Covector
     restrict_stationarity(const Covector &value) const
     {
       require(value.layout()->compatible_with(
-                *base_.layout().stationarity),
+                *base_->layout().stationarity),
               "PDAS base stationarity has an incompatible layout");
       std::vector<Vector> blocks;
       blocks.reserve(restricted_stationarity_layout_->n_blocks());
       for (std::size_t block = 0;
-           block < base_.layout().stationarity->n_blocks();
+           block < base_->layout().stationarity->n_blocks();
            ++block)
         {
           if (block == control_block_)
@@ -332,12 +332,12 @@ namespace nmopt::contract
     Covector
     restrict_primal(const Covector &value) const
     {
-      require(value.layout()->compatible_with(*base_.layout().primal),
+      require(value.layout()->compatible_with(*base_->layout().primal),
               "PDAS base primal covector has an incompatible layout");
       std::vector<Vector> blocks;
       blocks.reserve(restricted_primal_layout_->n_blocks());
       for (std::size_t block = 0;
-           block < base_.layout().primal->n_blocks();
+           block < base_->layout().primal->n_blocks();
            ++block)
         {
           if (block == control_block_)
@@ -352,46 +352,144 @@ namespace nmopt::contract
       return Covector(restricted_primal_layout_, std::move(blocks));
     }
 
+    struct ActiveProductState
+    {
+      std::shared_ptr<const Product>              base;
+      Selection                                  selection;
+      std::size_t                                control_block;
+      Vector                                     active_values;
+      std::vector<std::optional<std::size_t>>   reduced_block_for_base;
+      LayoutPtr                                  restricted_primal_layout;
+      LayoutPtr                                  restricted_stationarity_layout;
+
+      Primal
+      expand_primal(const Primal &restricted,
+                    const Vector &active) const
+      {
+        require(restricted.layout()->compatible_with(
+                  *restricted_primal_layout),
+                "PDAS restricted primal has an incompatible layout");
+        require(Backend::size(active) == selection.active_size(),
+                "PDAS active values have the wrong size");
+
+        std::vector<Vector> blocks;
+        blocks.reserve(base->layout().primal->n_blocks());
+        for (std::size_t block = 0;
+             block < base->layout().primal->n_blocks();
+             ++block)
+          {
+            if (block == control_block)
+              {
+                Vector free_values = Backend::zeros(selection.free_size());
+                if (selection.free_size() > 0)
+                  free_values = restricted.block(
+                    *reduced_block_for_base[block]);
+                blocks.push_back(selection.prolong(free_values, active));
+              }
+            else
+              blocks.push_back(
+                restricted.block(*reduced_block_for_base[block]));
+          }
+        return Primal(base->layout().primal, std::move(blocks));
+      }
+
+      Covector
+      restrict_stationarity(const Covector &value) const
+      {
+        require(value.layout()->compatible_with(
+                  *base->layout().stationarity),
+                "PDAS base stationarity has an incompatible layout");
+        std::vector<Vector> blocks;
+        blocks.reserve(restricted_stationarity_layout->n_blocks());
+        for (std::size_t block = 0;
+             block < base->layout().stationarity->n_blocks();
+             ++block)
+          {
+            if (block == control_block)
+              {
+                if (selection.free_size() > 0)
+                  blocks.push_back(selection.restrict_free(value.block(block)));
+              }
+            else
+              blocks.push_back(value.block(block));
+          }
+        return Covector(restricted_stationarity_layout, std::move(blocks));
+      }
+
+      Covector
+      restrict_primal(const Covector &value) const
+      {
+        require(value.layout()->compatible_with(*base->layout().primal),
+                "PDAS base primal covector has an incompatible layout");
+        std::vector<Vector> blocks;
+        blocks.reserve(restricted_primal_layout->n_blocks());
+        for (std::size_t block = 0;
+             block < base->layout().primal->n_blocks();
+             ++block)
+          {
+            if (block == control_block)
+              {
+                if (selection.free_size() > 0)
+                  blocks.push_back(selection.restrict_free(value.block(block)));
+              }
+            else
+              blocks.push_back(value.block(block));
+          }
+        return Covector(restricted_primal_layout, std::move(blocks));
+      }
+    };
+
     Product
     make_active_product(QuadraticKKTAssumptions assumptions) const
     {
       const typename Product::Layout layout(restricted_primal_layout_,
-                                            base_.layout().multiplier,
-                                            base_.layout().adjoint,
+                                            base_->layout().multiplier,
+                                            base_->layout().adjoint,
                                             restricted_stationarity_layout_,
-                                            base_.layout().equality,
+                                            base_->layout().equality,
                                             make_restricted_pairing(
-                                              base_.layout().primal_stationarity_pairing),
-                                            base_.layout().multiplier_equality_pairing);
+                                              base_->layout().primal_stationarity_pairing),
+                                            base_->layout().multiplier_equality_pairing);
 
       const auto base_active_point = Point{
         expand_primal(Primal::zeros(restricted_primal_layout_), active_values_),
-        Primal::zeros(base_.layout().multiplier)};
-      const auto base_zero_residual = base_.residual(base_active_point);
+        Primal::zeros(base_->layout().multiplier)};
+      const auto base_zero_residual = base_->residual(base_active_point);
 
-      const auto quadratic_action = [this](const Primal &primal) {
-        const Vector zero_active = Backend::zeros(selection_.active_size());
-        return restrict_stationarity(
-          base_.apply_q(expand_primal(primal, zero_active)));
+      const auto state = std::make_shared<const ActiveProductState>(
+        ActiveProductState{base_,
+                           selection_,
+                           control_block_,
+                           active_values_,
+                           reduced_block_for_base_,
+                           restricted_primal_layout_,
+                           restricted_stationarity_layout_});
+
+      const auto quadratic_action = [state](const Primal &primal) {
+        const Vector zero_active = Backend::zeros(state->selection.active_size());
+        return state->restrict_stationarity(
+          state->base->apply_q(state->expand_primal(primal, zero_active)));
       };
 
-      const auto equality_action = [this](const Primal &primal) {
-        const Vector zero_active = Backend::zeros(selection_.active_size());
-        return base_.apply_d(expand_primal(primal, zero_active));
+      const auto equality_action = [state](const Primal &primal) {
+        const Vector zero_active = Backend::zeros(state->selection.active_size());
+        return state->base->apply_d(
+          state->expand_primal(primal, zero_active));
       };
 
-      const auto multiplier_action = [this](const Primal &multiplier) {
-        return restrict_stationarity(base_.apply_d_transpose(multiplier));
+      const auto multiplier_action = [state](const Primal &multiplier) {
+        return state->restrict_stationarity(
+          state->base->apply_d_transpose(multiplier));
       };
 
-      const auto transpose_action = [this](const typename Product::Seed &seed) {
-        const Vector zero_active = Backend::zeros(selection_.active_size());
-        const auto base_result = base_.apply_kkt_transpose(
+      const auto transpose_action = [state](const typename Product::Seed &seed) {
+        const Vector zero_active = Backend::zeros(state->selection.active_size());
+        const auto base_result = state->base->apply_kkt_transpose(
           typename Product::Seed{
-            expand_primal(seed.stationarity, zero_active),
+            state->expand_primal(seed.stationarity, zero_active),
             seed.equality});
         return typename Product::TransposeResult{
-          restrict_primal(base_result.primal),
+          state->restrict_primal(base_result.primal),
           base_result.multiplier};
       };
 
@@ -405,11 +503,11 @@ namespace nmopt::contract
       const auto multiplier_conversion =
         typename Product::MultiplierConversion{
           "base KKT multiplier conversion on restricted free coordinates",
-          [this](const Primal &multiplier) {
-            return base_.multiplier_to_adjoint(multiplier);
+          [state](const Primal &multiplier) {
+            return state->base->multiplier_to_adjoint(multiplier);
           },
-          [this](const Primal &adjoint) {
-            return base_.adjoint_to_multiplier(adjoint);
+          [state](const Primal &adjoint) {
+            return state->base->adjoint_to_multiplier(adjoint);
           }};
 
       return Product(
@@ -420,14 +518,14 @@ namespace nmopt::contract
         transpose_action,
         Covector(restricted_stationarity_layout_,
                  std::move(stationarity_rhs)),
-        Covector(base_.layout().equality, std::move(equality_rhs)),
+        Covector(base_->layout().equality, std::move(equality_rhs)),
         multiplier_conversion,
         std::move(assumptions),
-        base_.symmetry(),
-        base_.lifetime_owner());
+        base_->symmetry(),
+        state);
     }
 
-    const Product &              base_;
+    std::shared_ptr<const Product> base_;
     Selection                    selection_;
     std::size_t                  control_block_;
     Vector                       active_values_;
@@ -539,25 +637,25 @@ namespace nmopt::contract
     using SolveAction = std::function<SolveResult(const Product &)>;
 
     PDASSolverT(const Product &       product,
-                const Complementarity &complementarity,
-                const std::size_t     control_block,
-                SolveAction           solve_action)
-      : product_(product)
-      , complementarity_(complementarity)
+      const Complementarity &complementarity,
+      const std::size_t     control_block,
+      SolveAction           solve_action)
+      : product_(std::make_shared<const Product>(product))
+      , complementarity_(std::make_shared<const Complementarity>(complementarity))
       , control_block_(control_block)
       , solve_action_(std::move(solve_action))
     {
       require(static_cast<bool>(solve_action_),
               "PDAS solver needs a KKT solve action");
-      require(control_block_ < product_.layout().primal->n_blocks(),
+      require(control_block_ < product_->layout().primal->n_blocks(),
               "PDAS control block exceeds the KKT primal layout");
-      require(control_block_ < product_.layout().stationarity->n_blocks(),
+      require(control_block_ < product_->layout().stationarity->n_blocks(),
               "PDAS control block exceeds the KKT stationarity layout");
-      require(same_block_shape<Backend>(product_.layout().primal,
-                                        product_.layout().stationarity),
+      require(same_block_shape<Backend>(product_->layout().primal,
+                                        product_->layout().stationarity),
               "PDAS KKT primal and stationarity block shapes differ");
-      require(product_.layout().primal->dimension(control_block_) ==
-                complementarity_.layout()->dimension(0),
+      require(product_->layout().primal->dimension(control_block_) ==
+                complementarity_->layout()->dimension(0),
               "PDAS control block has an incompatible complementarity layout");
     }
 
@@ -568,25 +666,25 @@ namespace nmopt::contract
     {
       require(valid(policy), "PDAS policy is invalid");
       require(initial_point.primal.layout()->compatible_with(
-                *product_.layout().primal),
+                *product_->layout().primal),
               "PDAS initial point has an incompatible primal layout");
       require(initial_point.multiplier.layout()->compatible_with(
-                *product_.layout().multiplier),
+                *product_->layout().multiplier),
               "PDAS initial point has an incompatible multiplier layout");
       require_complementarity_layout(
         initial_box_multiplier,
-        complementarity_.layout(),
+        complementarity_->layout(),
         "PDAS initial box multiplier");
       const Primal initial_control(
-        complementarity_.layout(),
+        complementarity_->layout(),
         {initial_point.primal.block(control_block_)});
-      require(complementarity_.bounds().is_feasible(initial_control),
+      require(complementarity_->bounds().is_feasible(initial_control),
               "PDAS initial control must be feasible");
 
       Point current = initial_point;
       Covector current_box_multiplier = initial_box_multiplier;
-      auto selection = complementarity_.classify(
-        Primal(complementarity_.layout(),
+      auto selection = complementarity_->classify(
+        Primal(complementarity_->layout(),
                {current.primal.block(control_block_)}),
         current_box_multiplier,
         policy.classification_parameter);
@@ -597,20 +695,20 @@ namespace nmopt::contract
            ++iteration)
         {
           ActiveSetKKTSubproblemT<Backend> subproblem(
-            product_,
-            complementarity_,
+            *product_,
+            *complementarity_,
             selection,
             control_block_,
             policy.active_set_assumptions);
           const SolveResult kkt_result = solve_action_(subproblem.product());
           const Point base_solution =
             subproblem.to_base_point(kkt_result.solution);
-          const auto residual = product_.residual(base_solution);
+          const auto residual = product_->residual(base_solution);
           const Covector box_multiplier = make_box_multiplier(
             residual.stationarity,
             selection);
-          const auto next_selection = complementarity_.classify(
-            Primal(complementarity_.layout(),
+          const auto next_selection = complementarity_->classify(
+            Primal(complementarity_->layout(),
                    {base_solution.primal.block(control_block_)}),
             box_multiplier,
             policy.classification_parameter);
@@ -661,7 +759,7 @@ namespace nmopt::contract
     {
       require(stationarity.n_blocks() > control_block_,
               "PDAS stationarity has no control block");
-      Vector values = Backend::zeros(complementarity_.layout()->dimension(0));
+      Vector values = Backend::zeros(complementarity_->layout()->dimension(0));
       const Vector &raw = stationarity.block(control_block_);
       for (std::size_t selected = 0;
            selected < selection.active_indices().size();
@@ -672,7 +770,7 @@ namespace nmopt::contract
                              index,
                              -Backend::value(raw, index));
         }
-      return Covector(complementarity_.layout(), {std::move(values)});
+      return Covector(complementarity_->layout(), {std::move(values)});
     }
 
     IterationReport
@@ -688,21 +786,21 @@ namespace nmopt::contract
       require(residual.stationarity.n_blocks() > control_block_,
               "PDAS residual stationarity has no control block");
       const Primal representative =
-        complementarity_.multiplier_to_primal(box_multiplier);
+        complementarity_->multiplier_to_primal(box_multiplier);
       double primal_violation = 0.0;
       double dual_violation = 0.0;
       double complementarity_residual = 0.0;
       for (std::size_t index = 0;
-           index < complementarity_.layout()->dimension(0);
+           index < complementarity_->layout()->dimension(0);
            ++index)
         {
           const double value = Backend::value(point_control, index);
           const double multiplier =
             Backend::value(representative.block(0), index);
           const double lower = Backend::value(
-            complementarity_.bounds().lower().block(0), index);
+            complementarity_->bounds().lower().block(0), index);
           const double upper = Backend::value(
-            complementarity_.bounds().upper().block(0), index);
+            complementarity_->bounds().upper().block(0), index);
           primal_violation = std::max(
             primal_violation,
             std::max(lower - value, value - upper));
@@ -761,8 +859,8 @@ namespace nmopt::contract
                              kkt_solve};
     }
 
-    const Product &        product_;
-    const Complementarity &complementarity_;
+    std::shared_ptr<const Product>         product_;
+    std::shared_ptr<const Complementarity> complementarity_;
     std::size_t            control_block_;
     SolveAction            solve_action_;
   };

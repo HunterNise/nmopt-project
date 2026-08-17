@@ -324,7 +324,9 @@ namespace
                     {DenseVector{-2.0, -2.0}}),
         PrimalBlock(problem.control_layout,
                     {DenseVector{upper_first, upper_second}})),
-      make_metric_multiplier_representation(problem.metric));
+      make_metric_multiplier_representation(
+        std::shared_ptr<const Metric>(
+          std::make_shared<const DiagonalMetric>(problem.metric))));
   }
 
   QuadraticKKTAssumptions
@@ -435,8 +437,8 @@ namespace
                                             {});
     require(!subproblem.has_active_constraints(),
             "inactive KKT subproblem reported active constraints");
-    require(&subproblem.product() == &problem.product,
-            "inactive KKT subproblem unnecessarily replaced the base product");
+    require(&subproblem.product() != &problem.product,
+            "inactive KKT subproblem did not retain a value-semantic product");
     require(subproblem.product().layout().equality->n_blocks() == 1,
             "inactive KKT subproblem changed the base equality layout");
   }
@@ -617,6 +619,86 @@ namespace
   }
 
   void
+  test_detached_active_product_owns_builder_state()
+  {
+    const Product detached = [] {
+      Problem problem;
+      const auto complementarity = make_complementarity(problem, 0.5, 1.0);
+      const ActiveSetSelection selection(
+        problem.control_layout,
+        {BoxActivity::upper, BoxActivity::inactive});
+      const ActiveSetKKTSubproblem subproblem(problem.product,
+                                              complementarity,
+                                              selection,
+                                              1,
+                                              active_set_assumptions());
+      return subproblem.product();
+    }();
+
+    const auto residual = detached.residual(zero_point(detached));
+    require(residual.stationarity.n_blocks() == 2,
+            "detached active product lost its stationarity layout");
+    const auto zero_primal = Product::Primal::zeros(detached.layout().primal);
+    const auto zero_multiplier =
+      Product::Primal::zeros(detached.layout().multiplier);
+    const auto quadratic = detached.apply_q(zero_primal);
+    const auto equality = detached.apply_d(zero_primal);
+    const auto multiplier = detached.apply_d_transpose(zero_multiplier);
+    require(quadratic.layout()->compatible_with(*detached.layout().stationarity) &&
+              equality.layout()->compatible_with(*detached.layout().equality) &&
+              multiplier.layout()->compatible_with(
+                *detached.layout().stationarity),
+            "detached active product lost a restricted KKT action");
+    const auto full_action = detached.apply_kkt(zero_point(detached));
+    require(full_action.stationarity.layout()->compatible_with(
+              *detached.layout().stationarity),
+            "detached active product lost its full KKT action");
+    const Product::Seed seed{
+      Product::Primal::zeros(detached.layout().stationarity),
+      Product::Primal::zeros(detached.layout().equality)};
+    const auto transpose = detached.apply_kkt_transpose(seed);
+    require(transpose.primal.layout()->compatible_with(
+              *detached.layout().primal),
+            "detached active product lost its transpose action");
+    const auto adjoint = detached.multiplier_to_adjoint(
+      Product::Primal::zeros(detached.layout().multiplier));
+    require(adjoint.layout()->compatible_with(*detached.layout().adjoint),
+            "detached active product lost its multiplier conversion");
+    const auto solved = solve_dense(detached);
+    require(solved.report.converged(),
+            "detached active product dense solve did not converge");
+  }
+
+  void
+  test_detached_pdas_solver_owns_inputs()
+  {
+    struct DetachedSolver
+    {
+      Product    product;
+      PDASSolver solver;
+      Covector   box_multiplier;
+    };
+
+    const auto detached = [] {
+      Problem problem;
+      const auto complementarity = make_complementarity(problem, 0.5, 1.0);
+      return DetachedSolver{problem.product,
+                            PDASSolver(problem.product,
+                                       complementarity,
+                                       1,
+                                       solve_dense),
+                            zero_box_multiplier(problem.control_layout)};
+    }();
+
+    const auto result = detached.solver.solve(
+      zero_point(detached.product), detached.box_multiplier, valid_policy());
+    require(result.converged(),
+            "detached PDAS solver did not converge after its inputs were released");
+    require_close(result.solution.primal.block(1)[0], 0.5,
+                  "detached PDAS solver returned the wrong active control");
+  }
+
+  void
   test_pdas_stopping_reasons()
   {
     const Problem problem;
@@ -689,6 +771,16 @@ main(const int argc, char **argv)
          {"backend-neutral", "formulation", "kkt", "pdas", "negative"},
          30,
          test_invalid_pdas_inputs},
+        {"detached_active_product_owns_builder_state",
+         "nmopt.active_set_kkt.detached_active_product_owns_builder_state",
+         {"backend-neutral", "formulation", "kkt", "active-set", "ownership"},
+         30,
+         test_detached_active_product_owns_builder_state},
+        {"detached_pdas_solver_owns_inputs",
+         "nmopt.pdas.detached_pdas_solver_owns_inputs",
+         {"backend-neutral", "formulation", "kkt", "pdas", "ownership"},
+         30,
+         test_detached_pdas_solver_owns_inputs},
         {"pdas_stopping_reasons",
          "nmopt.pdas.pdas_stopping_reasons",
          {"backend-neutral", "formulation", "kkt", "pdas", "solver"},

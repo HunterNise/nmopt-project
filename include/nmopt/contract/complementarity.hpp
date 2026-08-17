@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -40,6 +41,7 @@ namespace nmopt::contract
     std::string     description;
     ToPrimalAction  to_primal;
     ToDualAction    to_dual;
+    std::shared_ptr<const MetricT<Backend>> metric_owner;
     MetricRealisationWitness metric_witness;
   };
 
@@ -48,21 +50,26 @@ namespace nmopt::contract
 
   template <typename Backend>
   BoxMultiplierRepresentationT<Backend>
-  make_metric_multiplier_representation(const MetricT<Backend> &metric)
+  make_metric_multiplier_representation(
+    std::shared_ptr<const MetricT<Backend>> metric)
   {
     using Representation = BoxMultiplierRepresentationT<Backend>;
     using Primal = typename Representation::Primal;
     using Covector = typename Representation::Covector;
+    require(static_cast<bool>(metric),
+            "Metric multiplier representation needs an owned metric");
+    const auto metric_witness = metric->realisation_witness();
 
     return Representation{
-      metric.layout(),
-      metric.layout(),
-      "metric Riesz map '" + metric.id() + "'",
-      [&metric](const Covector &covector) {
-        return metric.inverse_apply(covector);
+      metric->layout(),
+      metric->layout(),
+      "metric Riesz map '" + metric->id() + "'",
+      [metric](const Covector &covector) {
+        return metric->inverse_apply(covector);
       },
-      [&metric](const Primal &primal) { return metric.apply(primal); },
-      metric.realisation_witness()};
+      [metric](const Primal &primal) { return metric->apply(primal); },
+      std::move(metric),
+      metric_witness};
   }
 
   template <typename Backend>
@@ -284,6 +291,8 @@ namespace nmopt::contract
               "Box multiplier representation needs a primal layout");
       require(static_cast<bool>(representation_.dual_layout),
               "Box multiplier representation needs a dual layout");
+      require(static_cast<bool>(representation_.metric_owner),
+              "Box multiplier representation needs an owned metric");
       require(bounds_.layout()->compatible_with(
                 *representation_.primal_layout),
               "Box multiplier primal representation has an incompatible layout");
@@ -296,6 +305,12 @@ namespace nmopt::contract
               "Box multiplier representation needs a dual-to-primal action");
       require(static_cast<bool>(representation_.to_dual),
               "Box multiplier representation needs a primal-to-dual action");
+      require(representation_.metric_owner->layout()->compatible_with(
+                *representation_.primal_layout),
+              "Box multiplier representation metric has an incompatible layout");
+      require(representation_.metric_witness.matches(
+                representation_.metric_owner->realisation_witness()),
+              "Box multiplier representation metric witness does not match its owner");
     }
 
     const LayoutPtr &

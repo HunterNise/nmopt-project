@@ -1623,7 +1623,7 @@ namespace nmopt::compiler::v1
               return result;
             }
           pdas_complementarity = make_pdas_complementarity(
-            *kkt_product, *bounds, *metric);
+            *kkt_product, *bounds, metric);
           finalized_decision.kkt_record = make_kkt_record(
             *kkt_product, static_cast<bool>(supplied_otd_system));
           finalized_decision.pdas_record = make_pdas_record(
@@ -4779,18 +4779,21 @@ namespace nmopt::compiler::v1
       const contract::EqualityConstrainedQuadraticKKTProductT<
         dealii_backend::SerialBackend> &product,
       const CellwiseBoxDataBindings &bounds,
-      const contract::MetricT<dealii_backend::SerialBackend> &metric)
+      std::shared_ptr<const contract::MetricT<dealii_backend::SerialBackend>>
+        metric)
     {
       using Backend = dealii_backend::SerialBackend;
       using Primal = contract::PrimalBlockT<Backend>;
       using Complementarity = contract::BoxComplementarityT<Backend>;
+      contract::require(static_cast<bool>(metric),
+                        "Compiled PDAS needs an owned metric");
       contract::require(product.layout().primal->n_blocks() == 2,
                         "Compiled PDAS needs state and control KKT blocks");
       const auto control_layout =
         product.layout().primal->single_block(1, "compiled_pdas_control");
-      contract::require(metric.layout()->compatible_with(*control_layout),
+      contract::require(metric->layout()->compatible_with(*control_layout),
                         "Compiled PDAS metric does not match its control block");
-      const auto &mass_metric = as_mass_metric(metric);
+      const auto &mass_metric = as_mass_metric(*metric);
       contract::require(
         mass_metric.supports_coefficientwise_box_projection(),
         "Compiled PDAS needs a positive diagonal L2 metric realization");
@@ -4804,7 +4807,7 @@ namespace nmopt::compiler::v1
           control_layout,
           Primal(control_layout, {lower}),
           Primal(control_layout, {upper})),
-        contract::make_metric_multiplier_representation(metric));
+        contract::make_metric_multiplier_representation(std::move(metric)));
     }
 
     static bool

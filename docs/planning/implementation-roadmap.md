@@ -78,6 +78,18 @@ and tangential operators, conforming-trace equivalence, and explicit
 exclusions remain the bounded policies for these registered slices. A general
 nonconforming transposition lowerer remains unselected.
 
+The application layer has now reached the contract boundary for the current
+Chapter 5/6 sequence. The local application work provides the L0 recipe,
+scenario, metadata, and catalog records; the selected L1 scalar and L2
+Neumann/convection recipes; the B0 in-memory harness, deterministic artifact
+writer, and callback runner; and the typed B1/B2 scenario and deal.II
+execution-adapter surfaces. These additions are covered by application
+contract tests and selected backend-enabled manufactured runs. They do not yet
+constitute benchmark activation: there is no `apps/nmopt-runner` executable,
+benchmark-owned specification set, persisted artifact path, complete B1
+regularisation sweep, or complete B2 case batch. The `to-be-recorded` source
+revision defaults remain a freeze-time obligation.
+
 The following pieces exist and are tested:
 
 | Layer | Existing artifact | Meaning |
@@ -96,6 +108,9 @@ The following pieces exist and are tested:
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric reduced search loop over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`, with typed direction policies, explicit Hessian/Newton support, configurable Armijo/exact/Wolfe line searches, and uniform action reporting. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
 | Tests | `tests/{reduced_dto_contract,semantic_v1_contract,dealii_diffusion_contract,dealii_trace_hhalf_metric_contract}.cc` | Four binaries expose forty-one independently named, labeled, and time-bounded CTest scenarios: five dense/backend contract cases, seven semantic graph/resolution/lowering-plan cases, and twenty-nine deal.II compiler/lowering/adapter cases. Negative checks identify exact diagnostics or contract failures, including block/layout, graph-closure, coefficient shape, boundary partition, binding, solve-policy, manifest-realization, lifetime, projection-coupling, observation topology/region, point-sensor mesh placement, normal-flux orientation and face-transpose behavior, and native-size invariants. Independent oracles additionally cover the exact trace Schur complement, tangential stiffness, loss/metric separation, all three remaining Section 5.11 stationarity compositions, and their reduced Taylor tests. |
+| Application recipe/scenario boundary | `include/nmopt/application/{recipe,scenario,catalog,chapter5,chapter6}.hpp` | Typed L0–L2 recipes and frozen B1/B2 scenario records that produce backend-neutral `ProblemSpec` values without owning meshes, compilers, solvers, or run output. |
+| B0 application boundary | `include/nmopt/application/{harness,artifact_writer,runner}.hpp` | Deterministic in-memory benchmark identity, detached evidence, artifact rendering, and callback orchestration. Filesystem selection and executable orchestration remain outside the header API. |
+| B1/B2 application adapters | `include/nmopt/application/dealii/chapter6_{b1,b2}.hpp` | Owned-session deal.II compilation and reduced-space execution adapters with typed runtime bindings and solver/manifest evidence for selected manufactured cases. |
 
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
@@ -1341,8 +1356,18 @@ The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 regression baselines for the existing scenario inventory; they do not close
 the review findings, whose missing or stronger scenarios are not yet present.
 
-1. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
-   run the selected B1 and B2 benchmarks through the declared artifact path.
+The contract portion of the previous application step is implemented in the
+current application work. The remaining benchmark activation sequence is:
+
+1. freeze the benchmark-owned B0–B2 specifications, provenance, artifact
+   naming, and acceptance evidence, including replacement of the placeholder
+   source revisions;
+2. add the planned `apps/nmopt-runner` executable and CMake integration for
+   output-path ownership and deterministic artifact persistence;
+3. run the B1 regularisation sweep for both selected reduced-space methods;
+4. run all four frozen B2 Graetz observation/target cases; and
+5. record the source-sized `release-dealii` artifacts, numerical evidence,
+   limitations, and the resulting benchmark handoff.
 
 B3 and B4 remain desirable follow-ups under the authoritative
 [benchmark-suite roadmap](chapter-6-benchmark-suite-roadmap.md); they are not

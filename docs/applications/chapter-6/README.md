@@ -113,6 +113,23 @@ z_d(x) = 10 x_1(1-x_1) x_2(1-x_2),  x in (0,1)^2.
 The source does not fully specify `f`. Select either the recovered source
 forcing or a manufactured replacement and store that choice in the scenario
 record. Absolute objective values from different choices are not comparable.
+The default `make_b1_scenario()` selects the explicitly named manufactured-zero
+forcing replacement; pass `B1ForcingSelection::recovered_source` only when the
+recovered function and provenance are available.
+
+The semantic graph is assembled through the Chapter 5 recipe rather than by
+repeating graph construction in the benchmark adapter:
+
+```cpp
+const auto scenario =
+  nmopt::application::chapter6::make_b1_scenario(method);
+const auto specification =
+  nmopt::application::chapter6::make_b1_problem_spec(scenario);
+```
+
+`make_b1_problem_spec(...)` only returns the backend-neutral `ProblemSpec`.
+The execution adapter still supplies forcing and target functions, scalar
+coefficients, the owned mesh session, and the selected solver product.
 
 ### Frozen inputs
 
@@ -120,6 +137,7 @@ record. Absolute objective values from different choices are not comparable.
 | --- | --- |
 | Domain | $(0,1)^2$ |
 | State equation | $-\Delta y=f+u$, homogeneous Dirichlet boundary |
+| Forcing | `B1ForcingSelection::manufactured_zero` by default, or an explicitly named recovered source; provenance is mandatory |
 | Diffusion/reaction | Diffusion `1`, reaction `0` unless the recovered source says otherwise |
 | Regularization sweep | $\beta=10^{-1},10^{-2},10^{-3}$; retain $10^{-6}$ only for the source field illustration |
 | Initial control | Zero control in the selected control layout |

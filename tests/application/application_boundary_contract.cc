@@ -198,6 +198,22 @@ namespace
             "B1 did not retain the L-BFGS minimum-step declaration");
     require(b1.experiment.harness.deterministic,
             "B1 did not retain the deterministic B0 harness policy");
+    require(b1.problem.forcing_selection ==
+              nmopt::application::chapter6::B1ForcingSelection::manufactured_zero,
+            "B1 did not make its manufactured forcing choice explicit");
+    require(b1.problem.data.forcing_provenance ==
+              "chapter-6.e6.5.1.manufactured-zero-forcing",
+            "B1 did not retain manufactured forcing provenance");
+
+    const auto recovered = nmopt::application::chapter6::make_b1_scenario(
+      nmopt::application::chapter6::ReducedMethod::steepest_descent,
+      nmopt::application::chapter6::B1ForcingSelection::recovered_source);
+    require(recovered.problem.forcing_selection ==
+              nmopt::application::chapter6::B1ForcingSelection::recovered_source,
+            "B1 did not retain the recovered forcing choice");
+    require(recovered.problem.data.forcing_provenance ==
+              "chapter-6.e6.5.1.recovered-forcing",
+            "B1 did not retain recovered forcing provenance");
 
     const auto b2 = nmopt::application::chapter6::make_b2_scenario(
       nmopt::application::chapter6::GraetzCase::observation_full_parabolic_target);
@@ -212,6 +228,40 @@ namespace
     require(b2.problem.data.conservative_transport_provenance ==
               "chapter-6.e6.5.2.graetz-transport",
             "B2 did not retain transport provenance");
+  }
+
+  void
+  test_b1_scenario_assembles_distributed_problem_spec()
+  {
+    const auto scenario = nmopt::application::chapter6::make_b1_scenario(
+      nmopt::application::chapter6::ReducedMethod::limited_memory_bfgs);
+    const auto specification =
+      nmopt::application::chapter6::make_b1_problem_spec(scenario);
+    require(specification.id ==
+              "scalar_diffusion_reaction_volume_control",
+            "B1 spec assembly selected the wrong semantic graph");
+    require(specification.formulation.id == "reduced_dto" &&
+              specification.formulation.kind ==
+                nmopt::semantic::v1::FormulationKind::reduced_dto,
+            "B1 spec assembly did not preserve the reduced-DTO product");
+    require(std::any_of(specification.data.begin(),
+                        specification.data.end(),
+                        [](const auto &data) {
+                          return data.id == "forcing";
+                        }),
+            "B1 spec assembly lost the forcing port");
+    require(std::any_of(specification.data.begin(),
+                        specification.data.end(),
+                        [](const auto &data) {
+                          return data.id == "desired_state";
+                        }),
+            "B1 spec assembly lost the desired-state port");
+
+    const auto parameter_spec =
+      nmopt::application::chapter6::make_b1_problem_spec(scenario.problem);
+    require(parameter_spec.id == specification.id &&
+              parameter_spec.variables.size() == specification.variables.size(),
+            "B1 parameter and scenario spec assembly disagree");
   }
 
   void
@@ -348,8 +398,7 @@ namespace
         built = true;
         require(!parameters.regularisation_sweep.empty(),
                 "B0 runner did not pass typed problem parameters");
-        return nmopt::semantic::v1::make_scalar_diffusion_reaction_problem(
-          parameters.recipe.with_cellwise_box);
+        return nmopt::application::chapter6::make_b1_problem_spec(parameters);
       },
       [&executed](const auto &specification, const auto &received_scenario) {
         executed = true;
@@ -414,6 +463,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "application", "benchmark", "contract"},
          30,
          test_chapter6_scenario_records_freeze_b1_and_b2_choices},
+        {"b1_scenario_assembles_distributed_problem_spec",
+         "nmopt.application.b1_scenario_assembles_distributed_problem_spec",
+         {"backend-neutral", "application", "benchmark", "semantic", "contract"},
+         30,
+         test_b1_scenario_assembles_distributed_problem_spec},
         {"chapter6_catalog_discovers_standard_scenarios",
          "nmopt.application.chapter6_catalog_discovers_standard_scenarios",
          {"backend-neutral", "application", "benchmark", "contract"},

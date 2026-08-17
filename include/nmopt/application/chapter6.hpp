@@ -96,6 +96,12 @@ namespace nmopt::application::chapter6
     std::string conservative_transport_provenance;
   };
 
+  enum class B1ForcingSelection
+  {
+    recovered_source,
+    manufactured_zero
+  };
+
   struct B1ProblemParameters
   {
     chapter5::ScalarDistributedControlParameters recipe;
@@ -108,6 +114,7 @@ namespace nmopt::application::chapter6
       "",
       ""};
     std::vector<double> regularisation_sweep = {1.0e-1, 1.0e-2, 1.0e-3};
+    B1ForcingSelection forcing_selection = B1ForcingSelection::manufactured_zero;
   };
 
   enum class GraetzCase
@@ -194,6 +201,16 @@ namespace nmopt::application::chapter6
       if (!std::isfinite(value) || value <= 0.0)
         throw std::invalid_argument(
           "B1 regularisation sweep values must be positive and finite");
+    if (scenario.problem.data.forcing_provenance.empty())
+      throw std::invalid_argument("B1 needs forcing provenance");
+    switch (scenario.problem.forcing_selection)
+      {
+        case B1ForcingSelection::recovered_source:
+        case B1ForcingSelection::manufactured_zero:
+          break;
+        default:
+          throw std::invalid_argument("B1 has an unknown forcing selection");
+      }
     if (scenario.solver.method != ReducedMethod::steepest_descent &&
         scenario.solver.method != ReducedMethod::limited_memory_bfgs)
       throw std::invalid_argument(
@@ -202,6 +219,19 @@ namespace nmopt::application::chapter6
         scenario.compile.execution != ExecutionSelection::assembled)
       throw std::invalid_argument(
         "B1 freezes the assembled reduced-DTO product");
+  }
+
+  inline semantic::v1::ProblemSpec
+  make_b1_problem_spec(const B1ProblemParameters &parameters)
+  {
+    return chapter5::make_scalar_distributed_recipe()(parameters.recipe);
+  }
+
+  inline semantic::v1::ProblemSpec
+  make_b1_problem_spec(const B1Scenario &scenario)
+  {
+    validate_b1(scenario);
+    return make_b1_problem_spec(scenario.problem);
   }
 
   inline void
@@ -225,8 +255,17 @@ namespace nmopt::application::chapter6
   }
 
   inline B1Scenario
-  make_b1_scenario(const ReducedMethod method = ReducedMethod::steepest_descent)
+  make_b1_scenario(
+    const ReducedMethod       method = ReducedMethod::steepest_descent,
+    const B1ForcingSelection forcing = B1ForcingSelection::manufactured_zero)
   {
+    B1ProblemParameters problem;
+    problem.forcing_selection = forcing;
+    problem.data.forcing_provenance =
+      forcing == B1ForcingSelection::manufactured_zero
+        ? "chapter-6.e6.5.1.manufactured-zero-forcing"
+        : "chapter-6.e6.5.1.recovered-forcing";
+
     SolverOptions solver;
     solver.method = method;
     solver.parameters.maximum_line_search_trials = 5;
@@ -241,8 +280,8 @@ namespace nmopt::application::chapter6
        "Reduced-space comparison of steepest descent and L-BFGS",
        "chapter-6",
        b1_recipe_id,
-       {"B0 harness", "source forcing must be recovered or manufactured"}},
-      {},
+       {"B0 harness", "manufactured or recovered forcing is recorded"}},
+      std::move(problem),
       {},
       std::move(solver),
       {"chapter-6.b1.distributed-laplace",

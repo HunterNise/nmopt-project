@@ -3,6 +3,7 @@
 /build/*
 /build-*/
 /cmake-build-*/
+/runs/
 compile_commands.json
 
 # Editor and operating-system files

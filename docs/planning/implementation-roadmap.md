@@ -83,13 +83,13 @@ Chapter 5/6 sequence. The local application work provides the L0 recipe,
 scenario, metadata, and catalog records; the selected L1 scalar and L2
 Neumann/convection recipes; the B0 in-memory harness, deterministic artifact
 writer, and callback runner; and the typed B1/B2 scenario and deal.II
-execution-adapter surfaces. These additions are covered by application
-contract tests and selected backend-enabled manufactured runs. They do not yet
-constitute benchmark activation: there is no `apps/nmopt-runner` executable,
-benchmark-owned specification set, persisted artifact path, complete B1
-regularisation sweep, or complete B2 case batch. The `to-be-recorded` source
-revision remains the generic default for non-frozen scenarios; B1 and B2 now
-carry the frozen numerical-examples catalogue revision.
+execution-adapter surfaces. The headless `apps/nmopt-runner` boundary now
+executes the frozen B1 regularisation/method matrix and writes one deterministic
+artifact per run; a refinement-0 development sweep has produced all six B1
+artifacts. Source-scale B1 acceptance and the B2 case batch remain pending.
+The `to-be-recorded` source revision remains the generic default for
+non-frozen scenarios; B1 and B2 now carry the frozen numerical-examples
+catalogue revision.
 
 The following pieces exist and are tested:
 

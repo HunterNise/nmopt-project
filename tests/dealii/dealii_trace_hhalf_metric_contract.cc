@@ -3,10 +3,10 @@
 #include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
 #include "nmopt/semantic/v1/reference_specs.hpp"
 
-#include "test_support/contract_errors.hpp"
-#include "test_support/diagnostics.hpp"
-#include "test_support/manifest_contracts.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/contract_errors.hpp"
+#include "../support/diagnostics.hpp"
+#include "../support/manifest_contracts.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
 #include <deal.II/grid/grid_generator.h>

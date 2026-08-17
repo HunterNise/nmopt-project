@@ -1,8 +1,8 @@
 #include "nmopt/contract/supplied_otd.hpp"
 #include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "nmopt/compiler/v1/compiled_problem.hpp"
-#include "test_support/contract_errors.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/contract_errors.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <cmath>
 #include <iostream>

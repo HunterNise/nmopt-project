@@ -1,7 +1,7 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/reference/linear_quadratic_model.hpp"
 #include "nmopt/reference/supplied_linear_quadratic_system.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <array>
 #include <cmath>

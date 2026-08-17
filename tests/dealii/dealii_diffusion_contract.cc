@@ -7,10 +7,10 @@
 #include "nmopt/dealii/serial_kkt_solver.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
-#include "test_support/contract_errors.hpp"
-#include "test_support/diagnostics.hpp"
-#include "test_support/manifest_contracts.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/contract_errors.hpp"
+#include "../support/diagnostics.hpp"
+#include "../support/manifest_contracts.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
 #include <deal.II/dofs/dof_handler.h>

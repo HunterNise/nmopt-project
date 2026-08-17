@@ -1,7 +1,7 @@
 #include "nmopt/contract/quadratic_kkt.hpp"
 #include "nmopt/contract/quadratic_kkt_solver.hpp"
-#include "test_support/contract_errors.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/contract_errors.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <cmath>
 #include <iostream>

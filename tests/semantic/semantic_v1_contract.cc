@@ -1,8 +1,8 @@
 #include "nmopt/contract/linalg.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_plan.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
-#include "test_support/diagnostics.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/diagnostics.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <algorithm>
 #include <exception>

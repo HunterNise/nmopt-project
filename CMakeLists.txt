@@ -105,35 +105,35 @@ endfunction()
 if(BUILD_TESTING)
   nmopt_add_neutral_test(
     nmopt_reduced_dto_contract_test
-    tests/reduced_dto_contract.cc)
+    tests/contract/reduced_dto_contract.cc)
 
   nmopt_add_neutral_test(
     nmopt_supplied_otd_contract_test
-    tests/supplied_otd_contract.cc)
+    tests/contract/supplied_otd_contract.cc)
 
   nmopt_add_neutral_test(
     nmopt_supplied_otd_reference_contract_test
-    tests/supplied_linear_quadratic_otd_contract.cc)
+    tests/contract/supplied_linear_quadratic_otd_contract.cc)
 
   nmopt_add_neutral_test(
     nmopt_quadratic_kkt_contract_test
-    tests/quadratic_kkt_contract.cc)
+    tests/contract/quadratic_kkt_contract.cc)
 
   nmopt_add_neutral_test(
     nmopt_quadratic_kkt_reference_contract_test
-    tests/quadratic_kkt_reference_contract.cc)
+    tests/contract/quadratic_kkt_reference_contract.cc)
 
   nmopt_add_neutral_test(
     nmopt_complementarity_contract_test
-    tests/complementarity_contract.cc)
+    tests/contract/complementarity_contract.cc)
 
   nmopt_add_neutral_test(
     nmopt_pdas_contract_test
-    tests/pdas_contract.cc)
+    tests/contract/pdas_contract.cc)
 
   nmopt_add_neutral_test(
     nmopt_semantic_v1_contract_test
-    tests/semantic_v1_contract.cc)
+    tests/semantic/semantic_v1_contract.cc)
 endif()
 
 if(NMOPT_ENABLE_DEAL_II)
@@ -153,19 +153,19 @@ if(NMOPT_ENABLE_DEAL_II)
   if(BUILD_TESTING)
     nmopt_add_dealii_test(
       nmopt_dealii_diffusion_contract_test
-      tests/dealii_diffusion_contract.cc)
+      tests/dealii/dealii_diffusion_contract.cc)
 
     nmopt_add_dealii_test(
       nmopt_dealii_kkt_contract_test
-      tests/dealii_kkt_contract.cc)
+      tests/dealii/dealii_kkt_contract.cc)
 
     nmopt_add_dealii_test(
       nmopt_dealii_pdas_contract_test
-      tests/dealii_pdas_contract.cc)
+      tests/dealii/dealii_pdas_contract.cc)
 
     nmopt_add_dealii_test(
       nmopt_dealii_trace_hhalf_metric_contract_test
-      tests/dealii_trace_hhalf_metric_contract.cc)
+      tests/dealii/dealii_trace_hhalf_metric_contract.cc)
   endif()
 endif()
 

@@ -5,8 +5,8 @@
 #include "nmopt/solvers/reduced_gradient.hpp"
 #include "nmopt/solvers/reduced_line_search.hpp"
 #include "nmopt/solvers/reduced_trust_region.hpp"
-#include "test_support/contract_errors.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/contract_errors.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <algorithm>
 #include <cmath>

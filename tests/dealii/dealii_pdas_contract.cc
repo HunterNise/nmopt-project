@@ -2,7 +2,7 @@
 #include "nmopt/dealii/scalar_diffusion_reaction_kkt.hpp"
 #include "nmopt/dealii/serial_kkt_solver.hpp"
 #include "nmopt/dealii/serial_pdas.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
 #include <deal.II/grid/grid_generator.h>

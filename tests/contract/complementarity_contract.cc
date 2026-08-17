@@ -1,6 +1,6 @@
 #include "nmopt/contract/complementarity.hpp"
-#include "test_support/contract_errors.hpp"
-#include "test_support/scenario_dispatch.hpp"
+#include "../support/contract_errors.hpp"
+#include "../support/scenario_dispatch.hpp"
 
 #include <cmath>
 #include <iostream>

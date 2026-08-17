@@ -30,14 +30,27 @@ The S1 checklist in
 is complete. The remediation work units are `4765cfb`, `7245c31`, `150f532`,
 and `1aaefbe`. Current verification passes:
 
-- `debug-neutral`: 43/43;
-- `debug-dealii`: 81/81; and
-- `sanitize-neutral`: 43/43.
+- `debug-neutral`: 44/44;
+- `debug-dealii`: 82/82; and
+- `sanitize-neutral`: 44/44.
 
 The focused scenarios cover staged value/derivative evaluation, incompatible
 value-record rejection, detached reduced-service lifetime, policy-specific
 trial work, accepted-iteration audit records, projection compatibility, and
 the compilation/provenance envelope.
+
+### CH6-F4 optimized-profile verification
+
+After the optimized profile build completed, the serialized
+`release-dealii` CTest gate passed:
+
+```text
+ctest --preset release-dealii --output-on-failure --parallel 1
+100% tests passed, 0 tests failed out of 82
+```
+
+This is optimized contract verification, not benchmark evidence; benchmark
+results remain owned by the separate B0–B2 work.
 
 ## Open and deferred findings
 
@@ -46,7 +59,7 @@ the compilation/provenance envelope.
 | `CH6-F1` | Benchmark acceptance | Open | The B0 harness and selected B1/B2 executable benchmark scenarios are not yet present. Reconcile this separately from implementation-remediation closure using the [benchmark roadmap](../../chapter-6-benchmark-suite-roadmap.md). |
 | `CH6-F2` | P6.4 preconditioning | Deferred | P6.4 remains conditional and is not a Chapter 6 remediation prerequisite. Activate it only if a selected all-at-once benchmark demonstrates that direct or basic serial solves are inadequate. |
 | `CH6-F3` | P6.1 diagnostic evidence | Closed | Added the focused `nmopt.reduced.exact_quadratic_line_search_nonpositive_curvature_diagnostic` scenario. It constructs a negative-curvature reduced Hessian and asserts the exact `Exact quadratic line search requires positive curvature` diagnostic; P6.1 checklist item 10 is now checked. |
-| `CH6-F4` | Supplemental release verification | Open, non-blocking | The attempted `release-dealii` build was interrupted after substantial progress without reaching CTest. The required P6.1 Debug and sanitizer gates pass; independently rerun the optimized profile before relying on the roadmap's release count. |
+| `CH6-F4` | Supplemental release verification | Closed | The completed `release-dealii` profile passes its serialized CTest gate: 82/82 scenarios, with no failures. This closes the supplemental optimized-profile verification item; it does not substitute for the separate B0–B2 benchmark evidence. |
 | `CH6-F5` | P6.3 compiler boundary | Closed | `CompilationProduct::quadratic_kkt` now validates and returns the canonical supplied-OTD KKT product through the same distinct owner-bearing compiler result boundary as DTO. The KKT manifest preserves supplied-OTD provenance, typed layouts/pairings, conversion, assumptions, and solver policy; unsupported targets retain the stable formulation diagnostic. |
 
 ## P6.1 verification state
@@ -55,9 +68,8 @@ All P6.1 checklist items are checked in
 [p6.1-implementation-review.md](p6.1-implementation-review.md). The P6.1
 remediation commits are `8865591`, `9c9de52`, `b80463a`, `5494e49`,
 `b92c8d5`, `726edeb`, `8cd4fb4`, and `bdfaa9d`. Current completed profile
-evidence is 44/44 `debug-neutral`; the previously recorded
-`debug-dealii` and `sanitize-neutral` profiles pass 81/81 and 43/43
-scenarios. The focused current execution
+evidence is 44/44 `debug-neutral`, 82/82 `debug-dealii`, and 44/44
+`sanitize-neutral` scenarios. The focused current execution
 `nmopt.reduced.exact_quadratic_line_search_nonpositive_curvature_diagnostic`
 passes and asserts the stable positive-curvature diagnostic directly.
 
@@ -95,10 +107,10 @@ Focused current executions passed:
 - `nmopt.dealii.canonical_volume_control`; and
 - `nmopt.dealii.supplied_otd_owned_session_lifetime`.
 
-The required current profile counts are 43/43 `debug-neutral`, 81/81
-`debug-dealii`, and 43/43 `sanitize-neutral`. The P6.3 review is recorded
-below; the remaining open/deferred findings `CH6-F1`, `CH6-F2`, `CH6-F3`, and
-`CH6-F4` remain independent of this P6.2 closure.
+The required current profile counts are 44/44 `debug-neutral`, 82/82
+`debug-dealii`, and 44/44 `sanitize-neutral`. The P6.3 review is recorded
+below; the remaining open/deferred findings `CH6-F1` and `CH6-F2` remain
+independent of this P6.2 closure.
 
 ## P6.3 verification state
 
@@ -122,12 +134,12 @@ The P6.3 remediation commits are `06fa551`, `5aa196c`, `3d20acb`, `01dd59a`,
   supplied-OTD product from an owned compilation session and solves it after
   the session, mesh, and source bindings leave scope.
 
-The full `debug-neutral` and `debug-dealii` profiles passed 43/43 and 81/81.
-The previously recorded sanitizer gate passed 43/43; a fresh default CTest
+The full `debug-neutral` and `debug-dealii` profiles passed 44/44 and 82/82.
+The sanitizer gate passed 44/44; a fresh default CTest
 invocation is blocked by this runner's LeakSanitizer/ptrace restriction, while
 the same profile with leak detection disabled passed. This is an environment
-limitation, not a new code finding. The next review unit is P6.5, but P6.3's
-compiler-boundary finding should remain open until its scope is resolved.
+limitation, not a new code finding. The P6.3 compiler-boundary finding is
+closed; the separate optimized-profile evidence is recorded above.
 
 ## P6.5 verification state
 
@@ -150,10 +162,10 @@ focused scenarios:
 
 Focused current executions passed all ten backend-neutral PDAS/active-set
 scenarios, both native deal.II PDAS scenarios, and the compiled deal.II
-`compiled_pdas` scenario. The current profile evidence is 43/43
-`debug-neutral`, 81/81 `debug-dealii`, and 43/43 `sanitize-neutral`; the fresh
+`compiled_pdas` scenario. The current profile evidence is 44/44
+`debug-neutral`, 82/82 `debug-dealii`, and 44/44 `sanitize-neutral`; the fresh
 default sanitizer invocation has the runner's LeakSanitizer/ptrace limitation
 and passes with leak detection disabled.
 
-No new P6.5 implementation finding was identified. `CH6-F4` remains a
-separate, non-blocking optimized-profile verification item.
+No new P6.5 implementation finding was identified. The optimized-profile
+verification is recorded above and does not change the selected P6.5 scope.

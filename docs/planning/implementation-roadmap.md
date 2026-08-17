@@ -55,8 +55,9 @@ pairings, canonical supplied-OTD validity declaration, transitive supplied
 session ownership, transpose/report evidence, and MINRES/GMRES policy checks
 are covered by the current contract and deal.II gates. The selected P6.5
 surface is acceptance-complete after the P6.5 R1–R7 and C6-I4 remediation
-closure. The final gates pass 43/43 `debug-neutral`, 81/81 `debug-dealii`,
-and 43/43 `sanitize-neutral` scenarios.
+closure. The final gates pass 44/44 `debug-neutral`, 82/82 `debug-dealii`,
+and 44/44 `sanitize-neutral` scenarios; the completed optimized
+`release-dealii` gate passes 82/82 scenarios.
 The typed trace and negative-metric policies, explicit $H^{1}_{0}$ target-data
 assumption, control-boundary realization, and realized observation-space
 dimensions are covered by the semantic and deal.II contracts. The reviewed
@@ -1310,8 +1311,12 @@ recorded in the
   bounds are rejected before comparison. Inactive compiled PDAS agrees with
   the direct KKT reference, and active compiled acceptance covers both bound
   sides, stationarity, residuals, flags, set changes, and action-transpose
-  behavior. The final gates pass 43/43 `debug-neutral`, 81/81
-  `debug-dealii`, and 43/43 `sanitize-neutral` scenarios.
+  behavior. The final gates pass 44/44 `debug-neutral`, 82/82
+  `debug-dealii`, and 44/44 `sanitize-neutral` scenarios.
+- **Supplemental optimized verification:** the completed serialized
+  `release-dealii` CTest gate passes 82/82 scenarios. This closes the
+  non-blocking release verification item; it is contract evidence only and
+  does not replace the separate B0–B2 benchmark runs.
 - **P6.2 remediation closure:** the supplied semantic declaration is typed and
   rejects DTO-label mutation; the owned supplied-OTD session retains its
   mesh through callback and teardown; native value/JVP/VJP, finite-difference,

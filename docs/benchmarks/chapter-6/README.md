@@ -183,6 +183,23 @@ The trend is evidence, not a portable numerical tolerance. Failure to achieve
 the trend must be reported as a benchmark limitation rather than hidden by
 changing the frozen formulation.
 
+### Current B1 status
+
+The six source-scale framework-native runs execute with valid diagnostics and
+show the selected qualitative trends: decreasing $\beta$ lowers the final
+objective, and L-BFGS is substantially faster than steepest descent for
+$\beta=10^{-1}$. The lower-$\beta$ runs reach the generic iteration limit or a
+floating-point line-search floor before the configured gradient tolerance; this
+is an execution-policy limitation, not a failed PDE compilation.
+
+These runs are not absolute source-value reproductions because the frozen B1
+forcing is manufactured zero forcing. The current artifact directories contain
+the serialized `artifact.kv` records, but the source-scale records predate the
+later `solver-trace.csv` and VTU sidecar exports, and they do not yet contain
+the required finite-difference Hessian evidence. B1 is therefore a sound
+framework validation path, but its acceptance handoff remains open until the
+evidence set is refreshed or the missing evidence is supplied.
+
 ## B2 — E6.5.2 Graetz-flow boundary control
 
 ### Identity and source policy
@@ -209,6 +226,14 @@ The four frozen cases are:
 | `chapter-6.b2.graetz-flow.full-constant` | full downstream region | $2$ |
 | `chapter-6.b2.graetz-flow.wings-parabolic` | downstream wings | $4x_{2}(1-x_{2})$ |
 | `chapter-6.b2.graetz-flow.full-parabolic` | full downstream region | $4x_{2}(1-x_{2})$ |
+
+The source boundary partition, recovered from Figure 6.4, is different from
+the current adapter labeling: $\Gamma_{D}$ is the left edge plus the first
+unit of the top and bottom walls, $\Gamma_{c}$ is the remaining top and bottom
+wall, and $\Gamma_{\mathrm{out}}$ is the right edge. The current adapter marks
+only the left edge as fixed and assigns every other exterior face to the
+control boundary. It therefore does not yet realize the source three-region
+partition.
 
 The runtime provenance strings are fixed as follows:
 
@@ -251,6 +276,24 @@ must contain:
 GLS and other stabilization policies are excluded. If the unstabilized
 Galerkin realization is inadequate, the artifact and handoff must report that
 limitation without changing the frozen scenario.
+
+### Current B2 status
+
+The source-scale runs compile and serialize valid artifacts, but all four stop
+at zero accepted iterations with `line_search_failure`. A refinement sweep
+shows that the initial objective grows from an innocuous coarse-mesh value to
+approximately $10^{5}$ at refinement 2 and $10^{7}$ at the source-scale
+refinement, whereas the source table reports initial objectives between about
+$29$ and $317$.
+
+The solver traces show finite trial objectives and negative directional slopes;
+the first B2 search direction is therefore not rejected as non-descent. The
+Armijo trials simply remain far outside the sufficient-decrease bound. This
+behavior cannot yet be attributed solely to the excluded unstabilized Galerkin
+realization, because the current boundary partition is already inconsistent
+with the source geometry. The boundary partition and the normal-flux
+convention must be resolved before changing line-search policy or treating the
+source-scale failure as a final benchmark limitation.
 
 ## Activation gate
 

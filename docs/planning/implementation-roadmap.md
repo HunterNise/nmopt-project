@@ -87,13 +87,20 @@ execution-adapter surfaces. The headless `apps/nmopt-runner` boundary now
 executes the frozen B1 regularisation/method matrix and writes one deterministic
 artifact per run, and the frozen B2 four-case batch now has the same runner
 boundary and artifact projection. Development sweeps have produced all six B1
-artifacts and all four B2 artifacts. The B2 wings case needs refinement 1 as
-the minimum development mesh because refinement 0 has no cell in the selected
-material region. The `release-dealii` runner now produces all ten source-scale
-artifacts and its 97-test contract suite passes, but every source-scale B2 case
-currently stops at zero accepted iterations with `line_search_failure`; the
-benchmark activation gate therefore remains open and this is recorded as an
-unstabilized-Galerkin limitation rather than hidden by changing the freeze.
+artifacts and all four B2 artifacts. B1 executes as a valid framework-native
+validation path under its manufactured-zero-forcing policy, but its current
+source-scale artifact set still needs the later sidecars and finite-difference
+Hessian evidence required by the benchmark contract. The B2 wings case needs
+refinement 1 as the minimum development mesh because refinement 0 has no cell
+in the selected material region. The `release-dealii` runner now produces all
+ten source-scale artifacts and its 97-test contract suite passes, but every
+source-scale B2 case currently stops at zero accepted iterations with
+`line_search_failure`. Comparison with Figure 6.4 of the source book now shows
+that the current B2 adapter also assigns the upstream wall and outlet faces to
+the control boundary instead of realizing the source's fixed/control/outflow
+partition. The benchmark activation gate therefore remains open pending a
+boundary/formulation investigation; the failure must not yet be classified as
+solely an unstabilized-Galerkin limitation.
 The runner now also writes a structured `solver-trace.csv` sidecar for each
 run's Armijo trials and final-state `fields.vtu`/`control.vtu` sidecars for the
 selected deal.II applications. The repository-local
@@ -1383,14 +1390,14 @@ implemented. The current benchmark handoff is:
    and the headless `apps/nmopt-runner` boundary are implemented and tested.
 2. The complete six-run B1 matrix and four-run B2 matrix have been executed in
    both refinement-1 development form and source-scale `release-dealii` form.
-3. The source-scale artifact set records the B2 limitation: all four cases
-   stop with zero accepted iterations and `line_search_failure`. The frozen
-   Galerkin formulation and the exclusion of stabilization remain unchanged.
-4. The next benchmark decision is whether to retain this as an explicit
-   limitation and leave the activation gate open, or authorize a separately
-   scoped investigation of the B2 formulation/solver behavior. No B3/B4
-   promotion or conditional B5/B6/P6.4 work follows automatically from these
-   results.
+3. B1 is suitable for continued application-layer validation, but its current
+   source-scale handoff needs refreshed fields/traces and the declared
+   finite-difference Hessian evidence.
+4. B2 requires a separately scoped investigation of its three-region boundary
+   realization and normal-flux convention before its line-search behavior can
+   be interpreted. The frozen Galerkin formulation and the exclusion of
+   stabilization remain unchanged. No B3/B4 promotion or conditional
+   B5/B6/P6.4 work follows automatically from these results.
 
 B3 and B4 remain desirable follow-ups under the authoritative
 [benchmark-suite roadmap](chapter-6-benchmark-suite-roadmap.md); they are not

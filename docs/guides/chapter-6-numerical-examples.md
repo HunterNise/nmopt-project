@@ -90,11 +90,22 @@ y&=1 && \text{on }\Gamma_{D}, \\
   $\Omega_{0}^{1}=\{x:x_{1}>1,\ x_{2}<0.3\ \text{or}\ x_{2}>0.7\}$ and
   $\Omega_{0}^{2}=\{x:x_{1}>1\}$; target choices are $z_{d}^{1}=2$ and
   $z_{d}^{2}=4x_{2}(1-x_{2})$.
+- **Boundary geometry (Figure 6.4):** $\Gamma_{D}$ contains the left edge
+  and the upstream portions of the top and bottom walls for $0\leq x_{1}\leq 1$;
+  $\Gamma_{c}$ contains the downstream wall portions for $1\leq x_{1}\leq 4$;
+  and $\Gamma_{\mathrm{out}}$ is the right edge $x_{1}=4$.
 - **Discretisation:** `P1` triangular finite elements; 11,028 vertices and
   21,653 triangles; reported $N_{y}=N_{p}=10{,}907$ and $N_{u}=243$.
 - **Method:** BFGS for all scenarios. The nearby text attributes high
   iteration counts to a constant step but does not state its value; a
   reproduction must declare a fixed-step or line-search policy.
+
+The book does not provide the mesh connectivity, boundary-node subdivision,
+or the exact basis and quadrature used for the $N_{u}=243$ control degrees of
+freedom. It also does not fully disambiguate whether the boundary notation
+$\partial_{n}y-(b\mathbin\cdot n)y$ uses an ordinary or diffusion-weighted
+normal derivative. Exact numerical parity therefore requires the source mesh
+and implementation, or an explicit framework-native realization policy.
 
 | Case | Observation | Target | Iterations | $J_{h}(u_{0})$ | $J_{h}(\hat u)$ | Reduction | Relative gradient |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |

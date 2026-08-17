@@ -76,6 +76,14 @@ namespace
             "B1 dealii adapter omitted regularisation evidence");
     require(result.document.find("solver.method=") != std::string::npos,
             "B1 dealii adapter omitted solver-method evidence");
+    require(result.document.find(
+              "b1.hessian_evidence=centered_finite_difference\n") !=
+              std::string::npos,
+            "B1 dealii adapter omitted Hessian evidence method");
+    require(result.document.find(
+              "b1.hessian_finite_difference_passed=true\n") !=
+              std::string::npos,
+            "B1 dealii adapter omitted Hessian finite-difference evidence");
     require(std::filesystem::exists(field_output_directory / "fields.vtu"),
             "B1 dealii adapter did not write field output");
     std::ifstream fields(field_output_directory / "fields.vtu");

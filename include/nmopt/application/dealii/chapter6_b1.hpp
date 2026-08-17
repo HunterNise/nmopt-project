@@ -199,6 +199,92 @@ namespace nmopt::application::chapter6::dealii
     return output.str();
   }
 
+  template <typename Backend>
+  struct B1HessianEvidenceT
+  {
+    double direction_norm;
+    double symmetry_error;
+    double finite_difference_step;
+    double finite_difference_error;
+  };
+
+  template <typename Backend>
+  contract::PrimalBlockT<Backend>
+  b1_shifted_control(const contract::PrimalBlockT<Backend> &control,
+                     const contract::PrimalBlockT<Backend> &direction,
+                     const double                            step)
+  {
+    contract::require(control.layout()->compatible_with(*direction.layout()),
+                      "B1 Hessian evidence uses incompatible control directions");
+    contract::PrimalBlockT<Backend> shifted = control;
+    shifted.add_scaled_block(0, step, direction.block(0));
+    return shifted;
+  }
+
+  template <typename Backend>
+  B1HessianEvidenceT<Backend>
+  make_b1_hessian_evidence(
+    const compiler::v1::CompiledProblemT<Backend> &problem,
+    const contract::PrimalBlockT<Backend> &        control)
+  {
+    const auto *hessian = problem.reduced_hessian();
+    contract::require(hessian != nullptr,
+                      "B1 compiled target omitted its reduced Hessian");
+
+    using Primal = contract::PrimalBlockT<Backend>;
+    using Covector = contract::CovectorBlockT<Backend>;
+    using Vector = typename Backend::Vector;
+
+    Vector direction_values(control.layout()->dimension(0));
+    Vector second_direction_values(control.layout()->dimension(0));
+    for (std::size_t index = 0; index < direction_values.size(); ++index)
+      {
+        direction_values[index] =
+          (index % 2 == 0 ? 0.04 : -0.03) * static_cast<double>(index + 1);
+        second_direction_values[index] =
+          (index % 3 == 0 ? -0.02 : 0.03) * static_cast<double>(index + 1);
+      }
+    const Primal direction(control.layout(), {std::move(direction_values)});
+    const Primal second_direction(
+      control.layout(), {std::move(second_direction_values)});
+
+    const Covector hessian_action = hessian->apply(control, direction);
+    const Covector second_hessian_action =
+      hessian->apply(control, second_direction);
+    const double symmetry_error = std::abs(
+      contract::pair(hessian_action, second_direction) -
+      contract::pair(second_hessian_action, direction));
+
+    constexpr double finite_difference_step = 1.0e-5;
+    const auto reduced = problem.make_reduced_dto();
+    const Covector reduced_derivative_plus =
+      reduced.evaluate(b1_shifted_control(
+                         control, direction, finite_difference_step))
+        .reduced_derivative;
+    const Covector reduced_derivative_minus =
+      reduced.evaluate(b1_shifted_control(
+                         control, direction, -finite_difference_step))
+        .reduced_derivative;
+    Covector finite_difference = reduced_derivative_plus;
+    finite_difference.add_scaled_block(
+      0, -1.0, reduced_derivative_minus.block(0));
+    finite_difference.scale_block(0, 1.0 / (2.0 * finite_difference_step));
+    finite_difference.add_scaled_block(0, -1.0, hessian_action.block(0));
+    const double finite_difference_error =
+      finite_difference.block(0).l2_norm();
+
+    contract::require(std::isfinite(symmetry_error) && symmetry_error <= 1.0e-10,
+                      "B1 reduced Hessian symmetry evidence failed");
+    contract::require(std::isfinite(finite_difference_error) &&
+                        finite_difference_error <= 2.0e-8,
+                      "B1 reduced Hessian finite-difference evidence failed");
+
+    return {direction.block(0).l2_norm(),
+            symmetry_error,
+            finite_difference_step,
+            finite_difference_error};
+  }
+
   template <int dim>
   class B1ReducedExecutionAdapterT final
   {
@@ -259,6 +345,8 @@ namespace nmopt::application::chapter6::dealii
         compilation.problem->executable_model(), 0, 1);
       const auto initial_control =
         contract::PrimalBlockT<Backend>::zeros(partition.control_layout());
+      const auto hessian_evidence =
+        make_b1_hessian_evidence(*compilation.problem, initial_control);
 
       std::optional<solvers::ReducedSolverResultT<Backend>> report;
       switch (scenario.solver.method)
@@ -307,7 +395,8 @@ namespace nmopt::application::chapter6::dealii
         "gradient_norm_history",
         "step_length_history",
         "objective_change_history",
-        "solve_counts"};
+        "solve_counts",
+        "hessian_evidence"};
       if (scenario.experiment.retain_fields)
         {
           selected_fields.insert(selected_fields.end(),
@@ -317,6 +406,16 @@ namespace nmopt::application::chapter6::dealii
       std::vector<benchmark::ArtifactField> fields{
         {"b1.forcing_selection", b1_forcing_selection(scenario)},
         {"b1.regularisation_weight", b1_number(regularisation_)},
+        {"b1.hessian_evidence", "centered_finite_difference"},
+        {"b1.hessian_direction_norm",
+         b1_number(hessian_evidence.direction_norm)},
+        {"b1.hessian_symmetry_error",
+         b1_number(hessian_evidence.symmetry_error)},
+        {"b1.hessian_finite_difference_step",
+         b1_number(hessian_evidence.finite_difference_step)},
+        {"b1.hessian_finite_difference_error",
+         b1_number(hessian_evidence.finite_difference_error)},
+        {"b1.hessian_finite_difference_passed", "true"},
         {"solver.method", b1_method_name(scenario.solver.method)},
         {"solver.initial_control", scenario.solver.initial_control},
         {"solver.policy", report_value.policy_name},

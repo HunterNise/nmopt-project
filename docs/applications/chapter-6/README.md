@@ -85,8 +85,13 @@ runs and smaller development meshes for local iteration.
 
 `application::benchmark::BenchmarkArtifactWriter` renders the captured record
 as deterministic escaped `key=value` lines to a caller-owned stream. The
-headless runner remains responsible for choosing paths and creating the
-scenario artifact directory.
+`application::benchmark::HeadlessBenchmarkRunnerT<Scenario>` connects the
+remaining steps: it calls a problem builder with `scenario.problem`, passes the
+resulting `ProblemSpec` and scenario to the execution adapter, captures runner
+wall time, finalizes the harness artifact, and renders it with the writer.
+The execution adapter supplies backend compilation, solver reports, detached
+experiment data, and non-wall-clock measurements. Path selection and scenario
+artifact-directory creation remain outside this API.
 
 ## B1 — distributed Laplace control
 

@@ -328,6 +328,59 @@ namespace
     require(duplicate_rejected,
             "B0 artifact writer accepted duplicate field keys");
   }
+
+  void
+  test_b0_runner_delegates_build_and_execution_callbacks()
+  {
+    const auto scenario = nmopt::application::chapter6::make_b1_scenario();
+    using Runner =
+      nmopt::application::benchmark::HeadlessBenchmarkRunnerT<decltype(scenario)>;
+    struct DetachedEnvelope
+    {
+      int marker = 0;
+    };
+
+    bool built = false;
+    bool executed = false;
+    Runner runner(scenario);
+    const auto result = runner.run(
+      [&built](const auto &parameters) {
+        built = true;
+        require(!parameters.regularisation_sweep.empty(),
+                "B0 runner did not pass typed problem parameters");
+        return nmopt::semantic::v1::make_scalar_diffusion_reaction_problem(
+          parameters.recipe.with_cellwise_box);
+      },
+      [&executed](const auto &specification, const auto &received_scenario) {
+        executed = true;
+        require(specification.id ==
+                  "scalar_diffusion_reaction_volume_control",
+                "B0 runner passed the wrong ProblemSpec to execution");
+        require(received_scenario.metadata.id ==
+                  "chapter-6.b1.distributed-laplace",
+                "B0 runner passed the wrong scenario to execution");
+        using Evidence =
+          nmopt::application::benchmark::BenchmarkExecutionEvidenceT<
+            DetachedEnvelope>;
+        return Evidence{DetachedEnvelope{11},
+                         nmopt::semantic::v1::ValidationReport{},
+                         {},
+                         {"objective", "control"},
+                         {{"compile.product", "reduced_dto"},
+                          {"compile.execution", "assembled"}}};
+      });
+
+    require(built && executed,
+            "B0 runner did not invoke both orchestration callbacks");
+    require(result.artifact.envelope().marker == 11,
+            "B0 runner lost the execution envelope");
+    require(result.artifact.measurements().timing_collected &&
+              result.artifact.measurements().wall_seconds >= 0.0,
+            "B0 runner did not capture orchestration timing");
+    require(result.document.find("compile.product=reduced_dto\n") !=
+              std::string::npos,
+            "B0 runner did not render execution evidence");
+  }
 } // namespace
 
 int
@@ -375,7 +428,12 @@ main(const int argc, char **argv)
          "nmopt.application.b0_artifact_writer_is_deterministic_and_escapes_values",
          {"backend-neutral", "application", "benchmark", "contract", "negative"},
          30,
-         test_b0_artifact_writer_is_deterministic_and_escapes_values}};
+         test_b0_artifact_writer_is_deterministic_and_escapes_values},
+        {"b0_runner_delegates_build_and_execution_callbacks",
+         "nmopt.application.b0_runner_delegates_build_and_execution_callbacks",
+         {"backend-neutral", "application", "benchmark", "contract"},
+         30,
+         test_b0_runner_delegates_build_and_execution_callbacks}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

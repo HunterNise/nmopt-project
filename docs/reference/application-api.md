@@ -357,6 +357,25 @@ stable ordering, escaped values, diagnostics, measurements, selected fields,
 and caller-supplied artifact fields. It writes to a caller-owned stream; path
 selection and directory creation remain orchestration concerns.
 
+`application::benchmark::HeadlessBenchmarkRunnerT<Scenario>` provides that
+orchestration boundary. Its `run(build_problem, execute)` call performs four
+steps in order:
+
+1. invoke `build_problem(scenario.problem)` to obtain the public `ProblemSpec`;
+2. invoke `execute(specification, scenario)` to obtain
+   `BenchmarkExecutionEvidenceT<Envelope>`;
+3. capture runner wall time when the scenario requests timing measurements and
+   finalize the evidence through `BenchmarkHarnessT`; and
+4. render the detached artifact with `BenchmarkArtifactWriter`.
+
+The execution callback owns backend compilation, solver invocation, and
+construction of the detached envelope. It also supplies validation
+diagnostics, non-wall-clock measurements, selected fields, and any additional
+artifact fields. The runner does not choose a filesystem path, create a
+directory, lower a PDE, or implement an optimization algorithm. An agent can
+therefore assemble the typed scenario and provide the two application-specific
+callbacks without reading the harness implementation.
+
 ## Agent checklist
 
 Before implementation, an agent should be able to answer these questions from

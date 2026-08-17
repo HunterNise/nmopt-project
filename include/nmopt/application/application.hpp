@@ -7,4 +7,5 @@
 #include "nmopt/application/harness.hpp"
 #include "nmopt/application/metadata.hpp"
 #include "nmopt/application/recipe.hpp"
+#include "nmopt/application/runner.hpp"
 #include "nmopt/application/scenario.hpp"

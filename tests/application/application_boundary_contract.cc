@@ -237,6 +237,8 @@ namespace
     require(b2.problem.data.conservative_transport_provenance ==
               "chapter-6.e6.5.2.graetz-transport",
             "B2 did not retain transport provenance");
+    require(b2.metadata.id == "chapter-6.b2.graetz-flow.full-parabolic",
+            "B2 did not assign a stable case-specific scenario ID");
   }
 
   void
@@ -274,15 +276,72 @@ namespace
   }
 
   void
+  test_b2_scenarios_assemble_fixed_temperature_problem_specs()
+  {
+    const auto validator = nmopt::semantic::v1::SemanticValidator{};
+    for (const auto graetz_case :
+         nmopt::application::chapter6::b2_case_order)
+      {
+        const auto scenario =
+          nmopt::application::chapter6::make_b2_scenario(graetz_case);
+        const auto specification =
+          nmopt::application::chapter6::make_b2_problem_spec(scenario);
+        require(specification.id ==
+                  "scalar_convection_neumann_subdomain_control",
+                "B2 spec assembly selected the wrong semantic graph");
+        const auto fixed_data = std::find_if(
+          specification.data.begin(),
+          specification.data.end(),
+          [](const auto &data) { return data.id == "fixed_dirichlet_data"; });
+        require(fixed_data != specification.data.end() &&
+                  fixed_data->role ==
+                    nmopt::semantic::v1::DataRole::fixed_dirichlet_lifting,
+                "B2 spec assembly lost the fixed-data lifting port");
+        const auto reconstruction = std::find_if(
+          specification.transformations.begin(),
+          specification.transformations.end(),
+          [](const auto &transformation) {
+            return transformation.id == "fixed_dirichlet_reconstruction";
+          });
+        require(reconstruction != specification.transformations.end() &&
+                  reconstruction->fixed_data_id == "fixed_dirichlet_data" &&
+                  reconstruction->kind ==
+                    nmopt::semantic::v1::TransformationKind::fixed_dirichlet_reconstruction,
+                "B2 spec assembly lost the fixed-data reconstruction");
+        const auto state = std::find_if(
+          specification.variables.begin(),
+          specification.variables.end(),
+          [](const auto &variable) { return variable.id == "state"; });
+        require(state != specification.variables.end() &&
+                  state->physical_field_transform_id ==
+                    "fixed_dirichlet_reconstruction",
+                "B2 state variable is not connected to fixed reconstruction");
+        require(validator.validate(specification).valid(),
+                "B2 fixed-temperature semantic graph is invalid");
+      }
+  }
+
+  void
   test_chapter6_catalog_discovers_standard_scenarios()
   {
     const auto catalog = nmopt::application::chapter6::make_catalog();
-    require(catalog.entries().size() == 2,
-            "Chapter 6 catalog did not retain B1 and B2");
+    require(catalog.entries().size() == 5,
+            "Chapter 6 catalog did not retain B1 and all B2 cases");
     require(catalog.find("chapter-6.b1.distributed-laplace") != nullptr,
             "Chapter 6 catalog cannot discover B1");
-    require(catalog.find("chapter-6.b2.graetz-flow") != nullptr,
-            "Chapter 6 catalog cannot discover B2");
+    for (const auto graetz_case :
+         nmopt::application::chapter6::b2_case_order)
+      {
+        const auto id = std::string("chapter-6.b2.graetz-flow") +
+                        (graetz_case ==
+                           nmopt::application::chapter6::GraetzCase::observation_wings_constant_target
+                           ? ""
+                           : "." + std::string(
+                                     nmopt::application::chapter6::graetz_case_name(
+                                       graetz_case)));
+        require(catalog.find(id) != nullptr,
+                "Chapter 6 catalog cannot discover a B2 case");
+      }
   }
 
   void
@@ -477,6 +536,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "application", "benchmark", "semantic", "contract"},
          30,
          test_b1_scenario_assembles_distributed_problem_spec},
+        {"b2_scenarios_assemble_fixed_temperature_problem_specs",
+         "nmopt.application.b2_scenarios_assemble_fixed_temperature_problem_specs",
+         {"backend-neutral", "application", "benchmark", "semantic", "contract"},
+         30,
+         test_b2_scenarios_assemble_fixed_temperature_problem_specs},
         {"chapter6_catalog_discovers_standard_scenarios",
          "nmopt.application.chapter6_catalog_discovers_standard_scenarios",
          {"backend-neutral", "application", "benchmark", "contract"},

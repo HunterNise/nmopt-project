@@ -4,6 +4,8 @@
 #include "nmopt/application/scenario.hpp"
 #include "nmopt/solvers/reduced_search.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <optional>
 #include <stdexcept>
@@ -125,6 +127,30 @@ namespace nmopt::application::chapter6
     observation_full_parabolic_target
   };
 
+  inline constexpr std::array<GraetzCase, 4> b2_case_order = {
+    GraetzCase::observation_wings_constant_target,
+    GraetzCase::observation_full_constant_target,
+    GraetzCase::observation_wings_parabolic_target,
+    GraetzCase::observation_full_parabolic_target};
+
+  inline const char *
+  graetz_case_name(const GraetzCase graetz_case)
+  {
+    switch (graetz_case)
+      {
+        case GraetzCase::observation_wings_constant_target:
+          return "wings-constant";
+        case GraetzCase::observation_full_constant_target:
+          return "full-constant";
+        case GraetzCase::observation_wings_parabolic_target:
+          return "wings-parabolic";
+        case GraetzCase::observation_full_parabolic_target:
+          return "full-parabolic";
+        default:
+          throw std::invalid_argument("B2 has an unknown Graetz case");
+      }
+  }
+
   struct B2ProblemParameters
   {
     chapter5::NeumannConvectionParameters recipe;
@@ -138,9 +164,6 @@ namespace nmopt::application::chapter6
       "chapter-6.e6.5.2.graetz-transport"};
     GraetzCase graetz_case = GraetzCase::observation_wings_constant_target;
     double     fixed_temperature = 1.0;
-    // The current semantic graph seed is homogeneous. The execution adapter
-    // must add and validate the explicit fixed-data graph port before binding
-    // this nonzero source boundary value.
   };
 
   using B1Scenario =
@@ -254,6 +277,53 @@ namespace nmopt::application::chapter6
         "B2 freezes the assembled reduced-DTO product");
   }
 
+  inline void
+  add_b2_fixed_dirichlet_reconstruction(
+    semantic::v1::ProblemSpec &specification)
+  {
+    specification.data.push_back(
+      {"fixed_dirichlet_data",
+       "Fixed Dirichlet data",
+       semantic::v1::DataKind::function,
+       semantic::v1::DataRole::fixed_dirichlet_lifting,
+       "state_space"});
+    specification.transformations = {
+      {"fixed_dirichlet_reconstruction",
+       "Fixed Dirichlet reconstruction",
+       semantic::v1::TransformationKind::fixed_dirichlet_reconstruction,
+       "state",
+       "state_space",
+       "fixed_dirichlet_data",
+       ""}};
+    std::find_if(specification.variables.begin(),
+                 specification.variables.end(),
+                 [](const auto &variable) { return variable.id == "state"; })
+      ->physical_field_transform_id = "fixed_dirichlet_reconstruction";
+    std::find_if(specification.requirement_policies.begin(),
+                 specification.requirement_policies.end(),
+                 [](const auto &policy) {
+                   return policy.id == "state_fixed_dirichlet";
+                 })
+      ->selected_policy =
+      "P_h independent FE_Q coordinates plus nodal fixed Dirichlet lifting";
+  }
+
+  inline semantic::v1::ProblemSpec
+  make_b2_problem_spec(const B2ProblemParameters &parameters)
+  {
+    auto specification =
+      chapter5::make_neumann_convection_recipe()(parameters.recipe);
+    add_b2_fixed_dirichlet_reconstruction(specification);
+    return specification;
+  }
+
+  inline semantic::v1::ProblemSpec
+  make_b2_problem_spec(const B2Scenario &scenario)
+  {
+    validate_b2(scenario);
+    return make_b2_problem_spec(scenario.problem);
+  }
+
   inline B1Scenario
   make_b1_scenario(
     const ReducedMethod       method = ReducedMethod::steepest_descent,
@@ -304,8 +374,12 @@ namespace nmopt::application::chapter6
     B2ProblemParameters problem;
     problem.graetz_case = graetz_case;
 
+    std::string scenario_id = "chapter-6.b2.graetz-flow";
+    if (graetz_case != GraetzCase::observation_wings_constant_target)
+      scenario_id += "." + std::string(graetz_case_name(graetz_case));
+
     B2Scenario scenario{
-      {"chapter-6.b2.graetz-flow",
+      {scenario_id,
        "E6.5.2 Graetz-flow boundary control",
        "Facewise Neumann control with downstream subdomain tracking",
        "chapter-6",
@@ -314,7 +388,7 @@ namespace nmopt::application::chapter6
       std::move(problem),
       {},
       {ReducedMethod::bfgs, {}, std::nullopt, "zero"},
-      {"chapter-6.b2.graetz-flow",
+      {scenario_id,
        "E6.5.2 equation (6.65), Table 6.2, Figures 6.4-6.5",
        "to-be-recorded",
        "release-dealii",
@@ -329,9 +403,9 @@ namespace nmopt::application::chapter6
   {
     ApplicationCatalog catalog;
     const auto b1 = make_b1_scenario();
-    const auto b2 = make_b2_scenario();
     catalog.add(b1.metadata);
-    catalog.add(b2.metadata);
+    for (const auto graetz_case : b2_case_order)
+      catalog.add(make_b2_scenario(graetz_case).metadata);
     return catalog;
   }
 } // namespace nmopt::application::chapter6

@@ -206,20 +206,27 @@ stopping reason, and solve counts. Recovered forcing uses a caller-owned
 
 ### Scenario selection
 
-Use the planned
-`scalar-neumann-convection-subdomain` recipe, seeded by
+Use the `scalar-neumann-convection-subdomain` recipe, seeded by
 `make_neumann_convection_subdomain_tracking_problem(observed_material_id,
-with_facewise_box=false)`. The state has scalar conservative transport, fixed
-temperature on the declared Dirichlet boundary, controlled Neumann flux on a
-marked boundary, insulated outflow, and volume observation on a downstream
-material region. The control is facewise and the metric is `l2_facewise`.
+with_facewise_box=false)`. The public B2 helper adds the nonzero fixed-data
+port and lifting policy before compilation, so an adapter only needs to
+assemble the typed scenario and bind the declared runtime functions:
 
-The current semantic graph seed starts with homogeneous fixed Dirichlet data.
-Because B2 requires the nonzero boundary value `1`, the recipe record must
-add the explicit fixed-data semantic port and selected lifting policy before
-passing `fixed_dirichlet_data` to the compiler. Passing a fixed-data function
-to a graph that does not declare that port is an error, not a harmless
-override.
+```cpp
+const auto scenario =
+  nmopt::application::chapter6::make_b2_scenario(
+    nmopt::application::chapter6::GraetzCase::observation_wings_constant_target);
+const auto specification =
+  nmopt::application::chapter6::make_b2_problem_spec(scenario);
+```
+
+The resulting state has scalar conservative transport, fixed temperature on
+the declared Dirichlet boundary, controlled Neumann flux on a marked
+boundary, insulated outflow, and volume observation on a downstream material
+region. The control is facewise and the metric is `l2_facewise`. The helper
+declares `fixed_dirichlet_data` as a `fixed_dirichlet_lifting` function and
+connects it through `fixed_dirichlet_reconstruction`; passing that function
+to a graph without the declared port remains an error.
 
 The four scenarios are the Cartesian product of two observation regions and
 two targets:
@@ -234,6 +241,10 @@ two targets:
 The material-ID realization of these regions must be frozen in the mesh
 record. It must not be replaced by a runtime geometric predicate that is
 absent from the semantic graph.
+
+The four case records are discoverable through `make_catalog()`. The default
+case keeps the stable ID `chapter-6.b2.graetz-flow`; the other cases append
+`full-constant`, `wings-parabolic`, or `full-parabolic` to that ID.
 
 ### Frozen inputs and bindings
 

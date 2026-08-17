@@ -156,6 +156,13 @@ namespace nmopt::contract
     virtual const LayoutPtr &
     layout() const = 0;
 
+    virtual const std::shared_ptr<const void> &
+    box_data_token() const
+    {
+      static const std::shared_ptr<const void> no_box_data;
+      return no_box_data;
+    }
+
     virtual bool
     is_feasible(const PrimalBlockT<Backend> &primal) const = 0;
 

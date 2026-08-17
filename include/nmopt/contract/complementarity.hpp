@@ -296,9 +296,12 @@ namespace nmopt::contract
     using Bounds = BoxBoundsT<Backend>;
     using Representation = BoxMultiplierRepresentationT<Backend>;
 
-    BoxComplementarityT(Bounds bounds, Representation representation)
+    BoxComplementarityT(Bounds                         bounds,
+                        Representation                 representation,
+                        std::shared_ptr<const void>    box_data_token = {})
       : bounds_(std::move(bounds))
       , representation_(std::move(representation))
+      , box_data_token_(std::move(box_data_token))
     {
       require(static_cast<bool>(representation_.primal_layout),
               "Box multiplier representation needs a primal layout");
@@ -342,6 +345,12 @@ namespace nmopt::contract
     multiplier_representation() const
     {
       return representation_;
+    }
+
+    const std::shared_ptr<const void> &
+    box_data_token() const
+    {
+      return box_data_token_;
     }
 
     Primal
@@ -416,8 +425,9 @@ namespace nmopt::contract
     }
 
   private:
-    Bounds          bounds_;
-    Representation  representation_;
+    Bounds                       bounds_;
+    Representation               representation_;
+    std::shared_ptr<const void>  box_data_token_;
   };
 
   using BoxComplementarity = BoxComplementarityT<DenseBackend>;

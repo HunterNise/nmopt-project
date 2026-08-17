@@ -1,6 +1,7 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
+#include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/dealii/serial_kkt_solver.hpp"
@@ -4774,6 +4775,63 @@ namespace
         manifest.resolved_decision.pdas_record.product_id ==
           record.product_id,
       "compiled DTO PDAS manifest omitted its structured product boundary");
+
+    const auto &box_data = pdas.box_data();
+    const auto *projection = dynamic_cast<
+      const dealii_backend::CellwiseBoxConstraint *>(pdas.constraint());
+    contract::require(
+      projection != nullptr &&
+        projection->supports_projection_in(pdas.metric()) &&
+        projection->box_data_token() == box_data.token() &&
+        pdas.complementarity().box_data_token() == box_data.token() &&
+        record.box_data_token == box_data.token_id() &&
+        record.bounds_digest == box_data.bounds_digest() &&
+        record.control_ordering == box_data.layout_signature() &&
+        record.data_provenance == box_data.data_provenance() &&
+        manifest.constraint_record.box_data_token == box_data.token_id() &&
+        manifest.constraint_record.bounds_digest == box_data.bounds_digest() &&
+        manifest.constraint_record.control_layout == box_data.layout_signature() &&
+        manifest.constraint_record.metric_identity == pdas.metric().id(),
+      "compiled DTO projection and complementarity did not share box data");
+    for (std::size_t index = 0;
+         index < box_data.layout()->dimension(0);
+         ++index)
+      {
+        require_close(
+          box_data.lower().block(0)[index],
+          pdas.complementarity().bounds().lower().block(0)[index],
+          0.0,
+          "compiled DTO shared lower box data");
+        require_close(
+          box_data.upper().block(0)[index],
+          pdas.complementarity().bounds().upper().block(0)[index],
+          0.0,
+          "compiled DTO shared upper box data");
+      }
+    const compiler::v1::CellwiseBoxDataBindings changed_bounds{
+      compiler::v1::CellwiseBoundValue{-9.0},
+      compiler::v1::CellwiseBoundValue{10.0}};
+    const auto changed_compilation = compiler.compile(
+      specification,
+      triangulation,
+      data_bindings,
+      policy,
+      changed_bounds,
+      std::nullopt,
+      compiler::v1::CompilationProduct::pdas);
+    contract::require(
+      changed_compilation.succeeded() && changed_compilation.pdas_problem &&
+        changed_compilation.pdas_problem->box_data().token_id() !=
+          box_data.token_id(),
+      "compiled DTO changed bounds did not receive a distinct box token");
+    test_support::require_contract_error(
+      [&box_data, &changed_compilation] {
+        contract::require(
+          box_data.compatible_with(changed_compilation.pdas_problem->box_data()),
+          "compiled box data token mismatch");
+      },
+      "compiled box data token mismatch",
+      "compiled DTO changed bounds were not rejected before comparison");
 
     using Product = contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
     using Primal = Product::Primal;

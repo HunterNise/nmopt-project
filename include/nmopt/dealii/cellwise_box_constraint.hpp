@@ -24,11 +24,13 @@ namespace nmopt::dealii_backend
     CellwiseBoxConstraint(contract::LayoutPtr layout,
                           Vector              lower,
                           Vector              upper,
-                          const MassMetric &  projection_metric)
+                          const MassMetric &  projection_metric,
+                          std::shared_ptr<const void> box_data_token = {})
       : layout_(std::move(layout))
       , lower_(std::move(lower))
       , upper_(std::move(upper))
       , projection_metric_(projection_metric.realisation_witness())
+      , box_data_token_(std::move(box_data_token))
     {
       contract::require(static_cast<bool>(layout_),
                         "Cellwise box constraint needs a layout");
@@ -61,6 +63,12 @@ namespace nmopt::dealii_backend
     layout() const override
     {
       return layout_;
+    }
+
+    const std::shared_ptr<const void> &
+    box_data_token() const override
+    {
+      return box_data_token_;
     }
 
     bool
@@ -121,5 +129,6 @@ namespace nmopt::dealii_backend
     Vector              lower_;
     Vector              upper_;
     contract::MetricRealisationWitness projection_metric_;
+    std::shared_ptr<const void>         box_data_token_;
   };
 } // namespace nmopt::dealii_backend

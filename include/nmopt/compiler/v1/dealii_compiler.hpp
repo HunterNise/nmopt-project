@@ -1261,6 +1261,7 @@ namespace nmopt::compiler::v1
       contract::require(tracking_region != nullptr,
                         "Validated v1 problem has no tracking observation region");
       std::shared_ptr<const contract::MetricT<Backend>> metric;
+      std::shared_ptr<const CompiledCellwiseBoxDataT<Backend>> box_data;
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
       std::shared_ptr<const contract::ReducedHessianT<Backend>> reduced_hessian;
@@ -1460,11 +1461,15 @@ namespace nmopt::compiler::v1
             coefficient->parameter_l2_metric(policy.control_metric_solve));
           if (has_constraint)
             {
+              box_data = make_cellwise_box_data(
+                metric->layout(),
+                *bounds,
+                metric,
+                specification.formulation.constraint_id,
+                "compiler.v1.cellwise_parameter_box");
               constraint =
                 std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-                  make_parameter_constraint(*coefficient,
-                                            *bounds,
-                                            as_mass_metric(*metric)));
+                  make_constraint(*box_data, as_mass_metric(*metric)));
               constraint_realisation =
                 ConstraintRealisation::cellwise_parameter_l2;
             }
@@ -1514,11 +1519,15 @@ namespace nmopt::compiler::v1
             scalar_plan->constraint == ScalarConstraintOperatorKind::cellwise_box;
           if (scalar_plan_has_constraint)
             {
+              box_data = make_cellwise_box_data(
+                metric->layout(),
+                *bounds,
+                metric,
+                specification.formulation.constraint_id,
+                "compiler.v1.cellwise_box");
               constraint =
                 std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-                  make_constraint(*assembled,
-                                  *bounds,
-                                  as_mass_metric(*metric)));
+                  make_constraint(*box_data, as_mass_metric(*metric)));
               constraint_realisation = ConstraintRealisation::cellwise_l2;
             }
           solvers = contract::StateAdjointSolversT<Backend>{
@@ -1552,11 +1561,15 @@ namespace nmopt::compiler::v1
             direct->control_l2_metric(policy.control_metric_solve));
           if (has_constraint)
             {
+              box_data = make_cellwise_box_data(
+                metric->layout(),
+                *bounds,
+                metric,
+                specification.formulation.constraint_id,
+                "compiler.v1.cellwise_box");
               constraint =
                 std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-                  make_constraint(*direct,
-                                  *bounds,
-                                  as_mass_metric(*metric)));
+                  make_constraint(*box_data, as_mass_metric(*metric)));
               constraint_realisation = ConstraintRealisation::cellwise_l2;
             }
           solvers = contract::StateAdjointSolversT<Backend>{
@@ -1622,18 +1635,33 @@ namespace nmopt::compiler::v1
                 "Select a concrete positive-diagonal cellwise L2 metric before constructing the PDAS multiplier conversion.");
               return result;
             }
+          contract::require(static_cast<bool>(box_data),
+                            "Compiled PDAS needs its shared cellwise box data");
           pdas_complementarity = make_pdas_complementarity(
-            *kkt_product, *bounds, metric);
+            *kkt_product, *box_data, metric);
           finalized_decision.kkt_record = make_kkt_record(
             *kkt_product, static_cast<bool>(supplied_otd_system));
           finalized_decision.pdas_record = make_pdas_record(
             *kkt_product,
             *pdas_complementarity,
+            *box_data,
             *metric,
             policy,
             static_cast<bool>(supplied_otd_system));
         }
-      const CompilationManifest manifest = make_manifest(finalized_decision);
+      CompilationManifest manifest = make_manifest(finalized_decision);
+      if (box_data)
+        {
+          manifest.constraint_record.box_data_token = box_data->token_id();
+          manifest.constraint_record.bounds_digest = box_data->bounds_digest();
+          manifest.constraint_record.control_layout =
+            box_data->layout_signature();
+          manifest.constraint_record.metric_identity = metric->id();
+          manifest.constraint_record.data_provenance =
+            box_data->data_provenance();
+          manifest.resolved_decision.constraint_record =
+            manifest.constraint_record;
+        }
       if (pdas_complementarity)
         result.pdas_problem = std::make_shared<const
           CompiledPDASProblemT<Backend>>(
@@ -1644,7 +1672,9 @@ namespace nmopt::compiler::v1
           policy.pdas,
           policy.pdas_kkt_solver,
           manifest,
-          std::move(lifetime_owner));
+          std::move(lifetime_owner),
+          std::move(box_data),
+          std::move(constraint));
       else if (kkt_product)
         result.kkt_problem = std::make_shared<
           const CompiledQuadraticKKTProblemT<Backend>>(
@@ -1665,7 +1695,8 @@ namespace nmopt::compiler::v1
           solvers,
           manifest,
           std::move(lifetime_owner),
-          std::move(reduced_hessian));
+          std::move(reduced_hessian),
+          std::move(box_data));
       return result;
     }
 
@@ -3207,46 +3238,47 @@ namespace nmopt::compiler::v1
               std::holds_alternative<dealii::Vector<double>>(bounds.upper));
     }
 
-    template <typename Model>
-    static dealii_backend::CellwiseBoxConstraint
-    make_constraint(
-      const Model &                    executable,
-      const CellwiseBoxDataBindings &  bounds,
-      const dealii_backend::MassMetric &projection_metric)
+    static std::shared_ptr<const CompiledCellwiseBoxDataT<
+      dealii_backend::SerialBackend>>
+    make_cellwise_box_data(
+      const contract::LayoutPtr &layout,
+      const CellwiseBoxDataBindings &bounds,
+      std::shared_ptr<const contract::MetricT<dealii_backend::SerialBackend>>
+        metric,
+      std::string semantic_id,
+      std::string data_provenance)
     {
+      using Backend = dealii_backend::SerialBackend;
+      using Primal = contract::PrimalBlockT<Backend>;
+      contract::require(static_cast<bool>(layout),
+                        "Compiled cellwise box data needs a control layout");
       contract::require(valid_bound_representation(bounds),
-                        "The v1 cellwise box needs compatible bound data");
-      if (std::holds_alternative<double>(bounds.lower))
-        return executable.control_l2_box_constraint(
-          std::get<double>(bounds.lower),
-          std::get<double>(bounds.upper),
-          projection_metric);
-      return executable.control_l2_box_constraint(
-        std::get<dealii::Vector<double>>(bounds.lower),
-        std::get<dealii::Vector<double>>(bounds.upper),
-        projection_metric);
+                        "The compiled cellwise box needs compatible bound data");
+      const std::size_t dimension = layout->dimension(0);
+      dealii::Vector<double> lower = make_pdas_bound_vector(
+        bounds.lower, dimension, "lower");
+      dealii::Vector<double> upper = make_pdas_bound_vector(
+        bounds.upper, dimension, "upper");
+      return std::make_shared<const CompiledCellwiseBoxDataT<Backend>>(
+        layout,
+        Primal(layout, {std::move(lower)}),
+        Primal(layout, {std::move(upper)}),
+        std::move(metric),
+        std::move(semantic_id),
+        std::move(data_provenance));
     }
 
-    template <typename Model>
     static dealii_backend::CellwiseBoxConstraint
-    make_parameter_constraint(
-      const Model &                    executable,
-      const CellwiseBoxDataBindings &  bounds,
-      const dealii_backend::MassMetric &projection_metric)
+    make_constraint(
+      const CompiledCellwiseBoxDataT<dealii_backend::SerialBackend> &box_data,
+      const dealii_backend::MassMetric &                             projection_metric)
     {
-      contract::require(valid_bound_representation(bounds),
-                        "The v1 parameter box needs compatible bound data");
-      contract::require(has_strictly_positive_lower_bound(bounds),
-                        "The v1 parameter box needs a strictly positive lower bound");
-      if (std::holds_alternative<double>(bounds.lower))
-        return executable.parameter_l2_box_constraint(
-          std::get<double>(bounds.lower),
-          std::get<double>(bounds.upper),
-          projection_metric);
-      return executable.parameter_l2_box_constraint(
-        std::get<dealii::Vector<double>>(bounds.lower),
-        std::get<dealii::Vector<double>>(bounds.upper),
-        projection_metric);
+      return dealii_backend::CellwiseBoxConstraint(
+        box_data.layout(),
+        box_data.lower().block(0),
+        box_data.upper().block(0),
+        projection_metric,
+        box_data.token());
     }
 
     template <typename Model>
@@ -4778,7 +4810,7 @@ namespace nmopt::compiler::v1
     make_pdas_complementarity(
       const contract::EqualityConstrainedQuadraticKKTProductT<
         dealii_backend::SerialBackend> &product,
-      const CellwiseBoxDataBindings &bounds,
+      const CompiledCellwiseBoxDataT<dealii_backend::SerialBackend> &box_data,
       std::shared_ptr<const contract::MetricT<dealii_backend::SerialBackend>>
         metric)
     {
@@ -4793,21 +4825,25 @@ namespace nmopt::compiler::v1
         product.layout().primal->single_block(1, "compiled_pdas_control");
       contract::require(metric->layout()->compatible_with(*control_layout),
                         "Compiled PDAS metric does not match its control block");
+      contract::require(box_data.layout()->compatible_with(*control_layout),
+                        "Compiled PDAS shared box does not match its control block");
+      contract::require(box_data.metric_owner()->realisation_witness().matches(
+                          metric->realisation_witness()),
+                        "Compiled PDAS shared box does not match its metric");
       const auto &mass_metric = as_mass_metric(*metric);
       contract::require(
         mass_metric.supports_coefficientwise_box_projection(),
         "Compiled PDAS needs a positive diagonal L2 metric realization");
-      const std::size_t dimension = control_layout->dimension(0);
-      dealii::Vector<double> lower = make_pdas_bound_vector(
-        bounds.lower, dimension, "lower");
-      dealii::Vector<double> upper = make_pdas_bound_vector(
-        bounds.upper, dimension, "upper");
+      dealii::Vector<double> lower = box_data.lower().block(0);
+      dealii::Vector<double> upper = box_data.upper().block(0);
       return std::make_shared<const Complementarity>(
         contract::BoxBoundsT<Backend>(
           control_layout,
           Primal(control_layout, {lower}),
           Primal(control_layout, {upper})),
-        contract::make_metric_multiplier_representation(std::move(metric)));
+        contract::make_metric_multiplier_representation(
+          box_data.metric_owner()),
+        box_data.token());
     }
 
     static bool
@@ -6195,7 +6231,12 @@ namespace nmopt::compiler::v1
         decision.constraint_record.semantic_id,
         constraint_realisation_id(constraint_realisation),
         constraint_realisation == ConstraintRealisation::none ? "none"
-                                                               : metric.id()};
+                                                               : metric.id(),
+        {},
+        {},
+        {},
+        {},
+        {}};
       manifest.resolved_decision.state_solve_record =
         manifest.state_solve_record;
       manifest.resolved_decision.adjoint_solve_record =
@@ -6598,6 +6639,7 @@ namespace nmopt::compiler::v1
         dealii_backend::SerialBackend> &product,
       const contract::BoxComplementarityT<dealii_backend::SerialBackend>
         &complementarity,
+      const CompiledCellwiseBoxDataT<dealii_backend::SerialBackend> &box_data,
       const contract::MetricT<dealii_backend::SerialBackend> &metric,
       const DealiiDiscretisationPolicy &policy,
       const bool supplied_otd)
@@ -6618,6 +6660,10 @@ namespace nmopt::compiler::v1
                               " (" +
                               std::to_string(product.layout().primal->dimension(1)) +
                               " coefficients)";
+      record.box_data_token = box_data.token_id();
+      record.bounds_digest = box_data.bounds_digest();
+      record.control_ordering = box_data.layout_signature();
+      record.data_provenance = box_data.data_provenance();
       record.multiplier_representation =
         complementarity.multiplier_representation().description;
       record.metric_realisation = metric.id();

@@ -224,6 +224,64 @@ namespace
     require(catalog.find("chapter-6.b2.graetz-flow") != nullptr,
             "Chapter 6 catalog cannot discover B2");
   }
+
+  void
+  test_b0_harness_captures_deterministic_artifact_boundary()
+  {
+    const auto scenario = nmopt::application::chapter6::make_b1_scenario();
+    using Harness =
+      nmopt::application::benchmark::BenchmarkHarnessT<decltype(scenario)>;
+    struct DetachedEnvelope
+    {
+      int marker = 0;
+    };
+
+    Harness harness(scenario);
+    nmopt::application::benchmark::BenchmarkMeasurements measurements;
+    measurements.timing_collected = true;
+    measurements.wall_seconds = 1.25;
+    measurements.cpu_seconds = 0.75;
+    measurements.memory_collected = true;
+    measurements.peak_memory_bytes = 4096;
+
+    const auto artifact = harness.finalize(
+      DetachedEnvelope{7},
+      nmopt::semantic::v1::ValidationReport{},
+      measurements,
+      {"state", "control", "objective"});
+
+    require(artifact.identity().scenario_id ==
+              "chapter-6.b1.distributed-laplace",
+            "B0 artifact lost the scenario identity");
+    require(artifact.identity().recipe_id ==
+              nmopt::application::chapter6::b1_recipe_id,
+            "B0 artifact lost the recipe identity");
+    require(artifact.identity().deterministic,
+            "B0 artifact lost deterministic harness metadata");
+    require(artifact.measurements().wall_seconds == 1.25 &&
+              artifact.measurements().peak_memory_bytes == 4096,
+            "B0 artifact lost measurement metadata");
+    require(artifact.envelope().marker == 7,
+            "B0 artifact lost the detached experiment envelope");
+    require(artifact.selected_fields().size() == 3,
+            "B0 artifact lost selected output fields");
+
+    nmopt::application::benchmark::BenchmarkMeasurements invalid_measurements;
+    invalid_measurements.timing_collected = true;
+    invalid_measurements.wall_seconds = -1.0;
+    bool rejected = false;
+    try
+      {
+        (void)harness.finalize(DetachedEnvelope{},
+                               nmopt::semantic::v1::ValidationReport{},
+                               invalid_measurements);
+      }
+    catch (const std::invalid_argument &)
+      {
+        rejected = true;
+      }
+    require(rejected, "B0 harness accepted invalid timing evidence");
+  }
 } // namespace
 
 int
@@ -261,7 +319,12 @@ main(const int argc, char **argv)
          "nmopt.application.chapter6_catalog_discovers_standard_scenarios",
          {"backend-neutral", "application", "benchmark", "contract"},
          30,
-         test_chapter6_catalog_discovers_standard_scenarios}};
+         test_chapter6_catalog_discovers_standard_scenarios},
+        {"b0_harness_captures_deterministic_artifact_boundary",
+         "nmopt.application.b0_harness_captures_deterministic_artifact_boundary",
+         {"backend-neutral", "application", "benchmark", "contract", "negative"},
+         30,
+         test_b0_harness_captures_deterministic_artifact_boundary}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

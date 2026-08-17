@@ -334,6 +334,23 @@ The envelope owns values only and does not retain the compiled executable
 service. This permits a run record to be serialized or archived after the
 solver lifetime ends.
 
+For Chapter 6 benchmark runs, wrap the detached envelope with
+`application::benchmark::BenchmarkHarnessT<Scenario>`. The harness projects
+scenario metadata into a deterministic `BenchmarkIdentity` and
+`finalize(...)` creates a `BenchmarkArtifactT<Envelope>` containing:
+
+- the scenario and recipe IDs, source reference/revision, build profile, and
+  artifact directory;
+- the complete compiler `ValidationReport`;
+- the detached experiment envelope;
+- optional wall-clock, CPU, and peak-memory measurements; and
+- the explicitly selected output fields.
+
+The harness validates identity and measurement shape but does not execute a
+solver, lower a PDE, or serialize files. Those operations belong to the
+headless runner and artifact writer. This keeps B0 from becoming a second
+compiler or optimizer.
+
 ## Agent checklist
 
 Before implementation, an agent should be able to answer these questions from

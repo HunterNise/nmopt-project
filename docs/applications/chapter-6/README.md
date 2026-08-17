@@ -77,8 +77,11 @@ At minimum, B0 must produce:
 The in-memory
 `experiment::ReducedSearchExperimentEnvelopeT<Backend>` is the association
 boundary for reduced runs. It owns values only; artifact serialization is a
-harness concern. Use `release-dealii` for reproduction runs and smaller
-development meshes for local iteration.
+harness concern. `application::benchmark::BenchmarkHarnessT<Scenario>` adds
+the deterministic scenario identity, complete validation diagnostics,
+measurements, and selected output fields around that envelope. It deliberately
+does not execute a solver or write files. Use `release-dealii` for reproduction
+runs and smaller development meshes for local iteration.
 
 ## B1 — distributed Laplace control
 

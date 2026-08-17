@@ -1097,10 +1097,9 @@ remain P6.3.
 
 ### P6.3 — Add reusable equality-constrained quadratic KKT products
 
-**Status:** implementation present for the selected serial scalar DTO and
-canonical supplied-OTD slice; acceptance is pending the
-[P6.3 implementation review](review/chapter-6/p6.3-implementation-review.md)
-remediation. Units 1–6 froze and exercised the normative KKT product boundary,
+**Status:** acceptance-complete for the selected serial scalar DTO and
+canonical supplied-OTD slice. Units 1–6 froze and exercised the normative KKT
+product boundary,
 including explicit block lowerings, multiplier conversion, MINRES, GMRES, and
 independent stationarity/equality residual reporting. P6.4 preconditioner
 composition remains conditional.

@@ -4707,6 +4707,63 @@ namespace
       "reduced_dto",
       "compiled_quadratic_kkt",
       "compiler inferred a KKT product for a noncanonical DTO target");
+
+    const auto supplied_specification =
+      semantic::v1::make_scalar_diffusion_reaction_supplied_otd_problem();
+    const auto supplied_bindings = compiler::v1::DealiiDataBindings<dim>{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("compiled_supplied_otd_kkt")};
+    const auto supplied_validation = compiler.validate(
+      supplied_specification,
+      policy,
+      compiler::v1::CompilationProduct::quadratic_kkt);
+    contract::require(supplied_validation.valid(),
+                      "canonical supplied-OTD KKT target did not validate");
+    const auto supplied_compilation = compiler.compile(
+      supplied_specification,
+      triangulation,
+      supplied_bindings,
+      policy,
+      std::nullopt,
+      std::nullopt,
+      compiler::v1::CompilationProduct::quadratic_kkt);
+    contract::require(
+      supplied_compilation.succeeded() && supplied_compilation.kkt_problem &&
+        !supplied_compilation.problem &&
+        !supplied_compilation.pdas_problem &&
+        !supplied_compilation.supplied_otd_problem,
+      "compiler did not produce the supplied-OTD KKT product through its KKT boundary");
+
+    const auto &supplied_kkt = *supplied_compilation.kkt_problem;
+    const auto &supplied_manifest = supplied_kkt.manifest();
+    const auto &supplied_record = supplied_manifest.kkt_record;
+    contract::require(
+      supplied_manifest.formulation_record.provenance ==
+          semantic::v1::FormulationProvenance::supplied_otd &&
+        supplied_manifest.supplied_otd_record.present &&
+        supplied_manifest.supplied_otd_record.declaration.has_value() &&
+        supplied_record.present &&
+        supplied_record.product_id == "compiled.scalar.supplied_otd.kkt" &&
+        supplied_record.construction_realisation.find("supplied-OTD") !=
+          std::string::npos &&
+        supplied_manifest.resolved_decision.kkt_record.product_id ==
+          supplied_record.product_id,
+      "compiled supplied-OTD KKT manifest lost formulation provenance");
+    const auto &supplied_product = supplied_kkt.product();
+    const auto supplied_transpose = supplied_product.apply_kkt_transpose(
+      {Primal::zeros(supplied_product.layout().stationarity),
+       Primal::zeros(supplied_product.layout().equality)});
+    contract::require(
+      supplied_transpose.primal.layout()->compatible_with(
+        *supplied_product.layout().primal) &&
+        supplied_transpose.multiplier.layout()->compatible_with(
+          *supplied_product.layout().multiplier) &&
+        supplied_product.supports_minres(),
+      "compiled supplied-OTD KKT product lost its typed executable boundary");
   }
 
   template <int dim>

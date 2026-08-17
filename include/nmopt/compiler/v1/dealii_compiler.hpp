@@ -1611,8 +1611,15 @@ namespace nmopt::compiler::v1
         pdas_complementarity;
       if (product == CompilationProduct::quadratic_kkt)
         {
-          kkt_product = make_compiled_dto_kkt_product<Backend>(executable);
-          finalized_decision.kkt_record = make_kkt_record(*kkt_product);
+          if (supplied_otd_system)
+            kkt_product = std::make_shared<const
+              contract::EqualityConstrainedQuadraticKKTProductT<Backend>>(
+              contract::make_canonical_supplied_otd_kkt_product(
+                *supplied_otd_system));
+          else
+            kkt_product = make_compiled_dto_kkt_product<Backend>(executable);
+          finalized_decision.kkt_record = make_kkt_record(
+            *kkt_product, static_cast<bool>(supplied_otd_system));
         }
       else if (product == CompilationProduct::pdas)
         {
@@ -4579,12 +4586,20 @@ namespace nmopt::compiler::v1
         specification.formulation.provenance ==
           semantic::v1::FormulationProvenance::dto &&
         specification.formulation.constraint_id.empty();
-      if (!canonical_scalar_dto)
+      const bool canonical_scalar_supplied_otd =
+        specification.id == "scalar_diffusion_reaction_volume_control" &&
+        request.target_family == ResolvedTargetFamily::direct_volume &&
+        specification.formulation.kind ==
+          semantic::v1::FormulationKind::all_at_once &&
+        specification.formulation.provenance ==
+          semantic::v1::FormulationProvenance::supplied_otd &&
+        specification.formulation.constraint_id.empty();
+      if (!canonical_scalar_dto && !canonical_scalar_supplied_otd)
         report.add(
           semantic::v1::DiagnosticCategory::formulation_capability,
           specification.formulation.id,
           "compiled_quadratic_kkt",
-          "Request the canonical unconstrained scalar DTO target before constructing a compiled quadratic KKT product.");
+          "Request the canonical unconstrained scalar DTO or supplied-OTD target before constructing a compiled quadratic KKT product.");
     }
 
     static void

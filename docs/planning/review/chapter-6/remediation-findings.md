@@ -47,7 +47,7 @@ the compilation/provenance envelope.
 | `CH6-F2` | P6.4 preconditioning | Deferred | P6.4 remains conditional and is not a Chapter 6 remediation prerequisite. Activate it only if a selected all-at-once benchmark demonstrates that direct or basic serial solves are inadequate. |
 | `CH6-F3` | P6.1 diagnostic evidence | Closed | Added the focused `nmopt.reduced.exact_quadratic_line_search_nonpositive_curvature_diagnostic` scenario. It constructs a negative-curvature reduced Hessian and asserts the exact `Exact quadratic line search requires positive curvature` diagnostic; P6.1 checklist item 10 is now checked. |
 | `CH6-F4` | Supplemental release verification | Open, non-blocking | The attempted `release-dealii` build was interrupted after substantial progress without reaching CTest. The required P6.1 Debug and sanitizer gates pass; independently rerun the optimized profile before relying on the roadmap's release count. |
-| `CH6-F5` | P6.3 compiler boundary | Open | `CompilationProduct::quadratic_kkt` registers only the canonical unconstrained scalar DTO target and emits `compiled_quadratic_kkt` for supplied-OTD requests. The supplied KKT bridge has typed validity and direct contract coverage, but no canonical supplied-OTD KKT product is returned through the semantic/compiler KKT boundary. Resolve this scope mismatch by either adding the registered supplied route and manifest projection required by P6.3-R1 or narrowing the P6.3 acceptance wording and recording the supplied bridge as a separate boundary. |
+| `CH6-F5` | P6.3 compiler boundary | Closed | `CompilationProduct::quadratic_kkt` now validates and returns the canonical supplied-OTD KKT product through the same distinct owner-bearing compiler result boundary as DTO. The KKT manifest preserves supplied-OTD provenance, typed layouts/pairings, conversion, assumptions, and solver policy; unsupported targets retain the stable formulation diagnostic. |
 
 ## P6.1 verification state
 
@@ -102,14 +102,13 @@ below; the remaining open/deferred findings `CH6-F1`, `CH6-F2`, `CH6-F3`, and
 
 ## P6.3 verification state
 
-P6.3 checklist items 3–8 and 12 are checked in
+All P6.3 checklist items are checked in
 [p6.3-implementation-review.md](p6.3-implementation-review.md). Items 1–2
-remain open under `CH6-F5`: the remediation registers a distinct compiled DTO
-KKT product, but the compiler explicitly rejects supplied-OTD requests for
-`CompilationProduct::quadratic_kkt`. The supplied-OTD KKT bridge is a separate
-typed direct adapter and is also used inside the registered PDAS route; that
-does not establish the missing standalone supplied-OTD compiler KKT product
-required by the historical P6.3-R1 handoff.
+are now closed: the remediation registers both the distinct compiled DTO KKT
+product and the canonical supplied-OTD KKT product through
+`CompilationProduct::quadratic_kkt`. The supplied-OTD KKT bridge remains a
+typed adapter owned by the returned compiler product, while the manifest
+retains its distinct formulation provenance and KKT construction record.
 
 The P6.3 remediation commits are `06fa551`, `5aa196c`, `3d20acb`, `01dd59a`,
 `3968414`, `4415044`, and `559737f`. Focused current executions passed:
@@ -118,7 +117,8 @@ The P6.3 remediation commits are `06fa551`, `5aa196c`, `3d20acb`, `01dd59a`,
 - all three dense DTO/supplied-OTD reference scenarios;
 - the supplied-OTD bridge ownership scenario;
 - all four deal.II KKT scenarios; and
-- the compiled DTO KKT and detached supplied-session scenarios.
+- the compiled DTO and supplied-OTD KKT compiler routes and detached
+  supplied-session scenarios.
 
 The full `debug-neutral` and `debug-dealii` profiles passed 43/43 and 81/81.
 The previously recorded sanitizer gate passed 43/43; a fresh default CTest
@@ -153,8 +153,5 @@ scenarios, both native deal.II PDAS scenarios, and the compiled deal.II
 default sanitizer invocation has the runner's LeakSanitizer/ptrace limitation
 and passes with leak detection disabled.
 
-No new P6.5 implementation finding was identified. The overall unit remains
-pending `CH6-F5`, because the P6.3 standalone supplied-OTD KKT compiler
-boundary is an explicit prerequisite in the historical acceptance order.
-`CH6-F4` remains a separate, non-blocking optimized-profile verification
-item.
+No new P6.5 implementation finding was identified. `CH6-F4` remains a
+separate, non-blocking optimized-profile verification item.

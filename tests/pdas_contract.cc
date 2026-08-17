@@ -492,6 +492,85 @@ namespace
     return result;
   }
 
+  QuadraticKKTSolveResult
+  nonfinite_solution(const Product &product, const double value)
+  {
+    std::vector<DenseVector> primal_blocks;
+    primal_blocks.reserve(product.layout().primal->n_blocks());
+    for (std::size_t block = 0;
+         block < product.layout().primal->n_blocks();
+         ++block)
+      primal_blocks.emplace_back(product.layout().primal->dimension(block),
+                                 value);
+    std::vector<DenseVector> multiplier_blocks;
+    multiplier_blocks.reserve(product.layout().multiplier->n_blocks());
+    for (std::size_t block = 0;
+         block < product.layout().multiplier->n_blocks();
+         ++block)
+      multiplier_blocks.emplace_back(
+        product.layout().multiplier->dimension(block), value);
+    return {Point{Product::Primal(product.layout().primal,
+                                  std::move(primal_blocks)),
+                  Product::Primal(product.layout().multiplier,
+                                  std::move(multiplier_blocks))},
+            {}};
+  }
+
+  Product
+  make_nonfinite_residual_product(const Product &prototype,
+                                  const bool     stationarity,
+                                  const double   value)
+  {
+    const Product::Layout layout = prototype.layout();
+    const auto quadratic_action =
+      [layout, stationarity, value](const Product::Primal &) {
+        const double q_value = stationarity ? value : 0.0;
+        return Product::Covector(
+          layout.stationarity,
+          {DenseVector(layout.stationarity->dimension(0), q_value),
+           DenseVector(layout.stationarity->dimension(1), q_value)});
+      };
+    const auto equality_action =
+      [layout, stationarity, value](const Product::Primal &) {
+        const double d_value = stationarity ? 0.0 : value;
+        return Product::Covector(
+          layout.equality,
+          {DenseVector(layout.equality->dimension(0), d_value)});
+      };
+    const auto multiplier_action = [layout](const Product::Primal &) {
+      return Product::Covector::zeros(layout.stationarity);
+    };
+    const auto transpose_action = [layout](const Product::Seed &) {
+      return Product::TransposeResult{
+        Product::Covector::zeros(layout.primal),
+        Product::Covector::zeros(layout.multiplier)};
+    };
+    const Product::MultiplierConversion conversion{
+      "non-finite residual test conversion",
+      [layout](const Product::Primal &multiplier) {
+        return Product::Primal(layout.adjoint, {multiplier.block(0)});
+      },
+      [layout](const Product::Primal &adjoint) {
+        return Product::Primal(layout.multiplier, {adjoint.block(0)});
+      }};
+    return Product(layout,
+                   quadratic_action,
+                   equality_action,
+                   multiplier_action,
+                   transpose_action,
+                   Product::Covector::zeros(layout.stationarity),
+                   Product::Covector::zeros(layout.equality),
+                   conversion,
+                   prototype.assumptions(),
+                   prototype.symmetry());
+  }
+
+  QuadraticKKTSolveResult
+  zero_solution(const Product &product)
+  {
+    return {zero_point(product), {}};
+  }
+
   void
   test_inactive_box_agrees_with_unconstrained_kkt()
   {
@@ -699,6 +778,107 @@ namespace
   }
 
   void
+  test_nonfinite_inputs_and_pdas_outputs_are_rejected()
+  {
+    const std::vector<double> nonfinite_values{
+      std::numeric_limits<double>::quiet_NaN(),
+      std::numeric_limits<double>::infinity(),
+      -std::numeric_limits<double>::infinity()};
+    const Problem problem;
+    const auto complementarity = make_complementarity(problem, 2.0, 2.0);
+    const PDASSolver solver(problem.product,
+                            complementarity,
+                            1,
+                            solve_dense);
+
+    for (const double value : nonfinite_values)
+      {
+        const Point nonfinite_initial{
+          Product::Primal(problem.product.layout().primal,
+                          {DenseVector{0.0, 0.0}, DenseVector{value, 0.0}}),
+          Product::Primal::zeros(problem.product.layout().multiplier)};
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)solver.solve(nonfinite_initial,
+                               zero_box_multiplier(problem.control_layout),
+                               valid_policy());
+          },
+          "PDAS initial primal point contains a non-finite value",
+          "PDAS accepted a non-finite initial control");
+
+        const Covector nonfinite_box_multiplier(
+          problem.control_layout, {DenseVector{value, 0.0}});
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)solver.solve(zero_point(problem.product),
+                               nonfinite_box_multiplier,
+                               valid_policy());
+          },
+          "PDAS initial box multiplier contains a non-finite value",
+          "PDAS accepted a non-finite initial box multiplier");
+
+        const PDASSolver nonfinite_solver(
+          problem.product,
+          complementarity,
+          1,
+          [value](const Product &product) {
+            return nonfinite_solution(product, value);
+          });
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)nonfinite_solver.solve(
+              zero_point(problem.product),
+              zero_box_multiplier(problem.control_layout),
+              valid_policy());
+          },
+          "PDAS KKT solution primal contains a non-finite value",
+          "PDAS accepted a non-finite KKT solution");
+      }
+
+    for (const bool stationarity : {true, false})
+      {
+        const Product nonfinite_product =
+          make_nonfinite_residual_product(problem.product,
+                                          stationarity,
+                                          std::numeric_limits<double>::quiet_NaN());
+        const PDASSolver nonfinite_solver(nonfinite_product,
+                                          complementarity,
+                                          1,
+                                          zero_solution);
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)nonfinite_solver.solve(
+              zero_point(nonfinite_product),
+              zero_box_multiplier(problem.control_layout),
+              valid_policy());
+          },
+          stationarity ? "PDAS stationarity residual contains a non-finite value"
+                       : "PDAS equality residual contains a non-finite value",
+          "PDAS reported a non-finite residual block");
+      }
+
+    const PDASSolver nonfinite_report_solver(
+      problem.product,
+      complementarity,
+      1,
+      [](const Product &product) {
+        auto result = zero_solution(product);
+        result.report.stationarity_residual =
+          std::numeric_limits<double>::quiet_NaN();
+        return result;
+      });
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)nonfinite_report_solver.solve(
+          zero_point(problem.product),
+          zero_box_multiplier(problem.control_layout),
+          valid_policy());
+      },
+      "PDAS KKT stationarity residual is non-finite",
+      "PDAS accepted a non-finite KKT solve report");
+  }
+
+  void
   test_pdas_stopping_reasons()
   {
     const Problem problem;
@@ -781,6 +961,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "formulation", "kkt", "pdas", "ownership"},
          30,
          test_detached_pdas_solver_owns_inputs},
+        {"nonfinite_inputs_and_pdas_outputs_are_rejected",
+         "nmopt.pdas.nonfinite_inputs_and_pdas_outputs_are_rejected",
+         {"backend-neutral", "formulation", "kkt", "pdas", "negative"},
+         30,
+         test_nonfinite_inputs_and_pdas_outputs_are_rejected},
         {"pdas_stopping_reasons",
          "nmopt.pdas.pdas_stopping_reasons",
          {"backend-neutral", "formulation", "kkt", "pdas", "solver"},

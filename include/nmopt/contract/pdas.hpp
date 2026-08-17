@@ -671,10 +671,16 @@ namespace nmopt::contract
       require(initial_point.multiplier.layout()->compatible_with(
                 *product_->layout().multiplier),
               "PDAS initial point has an incompatible multiplier layout");
+      require_finite_block_values(initial_point.primal,
+                                  "PDAS initial primal point");
+      require_finite_block_values(initial_point.multiplier,
+                                  "PDAS initial equality multiplier");
       require_complementarity_layout(
         initial_box_multiplier,
         complementarity_->layout(),
         "PDAS initial box multiplier");
+      require_finite_block_values(initial_box_multiplier,
+                                  "PDAS initial box multiplier");
       const Primal initial_control(
         complementarity_->layout(),
         {initial_point.primal.block(control_block_)});
@@ -701,9 +707,18 @@ namespace nmopt::contract
             control_block_,
             policy.active_set_assumptions);
           const SolveResult kkt_result = solve_action_(subproblem.product());
+          require_finite_block_values(kkt_result.solution.primal,
+                                      "PDAS KKT solution primal");
+          require_finite_block_values(kkt_result.solution.multiplier,
+                                      "PDAS KKT solution equality multiplier");
+          require_finite_solve_report(kkt_result.report);
           const Point base_solution =
             subproblem.to_base_point(kkt_result.solution);
           const auto residual = product_->residual(base_solution);
+          require_finite_block_values(residual.stationarity,
+                                      "PDAS stationarity residual");
+          require_finite_block_values(residual.equality,
+                                      "PDAS equality residual");
           const Covector box_multiplier = make_box_multiplier(
             residual.stationarity,
             selection);
@@ -753,6 +768,23 @@ namespace nmopt::contract
     using Vector = typename Backend::Vector;
     using Residual = typename Product::Residual;
 
+    static void
+    require_finite_solve_report(const QuadraticKKTSolveReport &report)
+    {
+      require(std::isfinite(report.stationarity_residual),
+              "PDAS KKT stationarity residual is non-finite");
+      require(std::isfinite(report.equality_residual),
+              "PDAS KKT equality residual is non-finite");
+      require(std::isfinite(report.linear_solve.relative_tolerance),
+              "PDAS linear solve relative tolerance is non-finite");
+      require(std::isfinite(report.linear_solve.absolute_tolerance),
+              "PDAS linear solve absolute tolerance is non-finite");
+      require(std::isfinite(report.linear_solve.requested_tolerance),
+              "PDAS linear solve requested tolerance is non-finite");
+      require(std::isfinite(report.linear_solve.achieved_residual),
+              "PDAS linear solve achieved residual is non-finite");
+    }
+
     Covector
     make_box_multiplier(const Covector &stationarity,
                         const ActiveSetSelectionT<Backend> &selection) const
@@ -770,7 +802,9 @@ namespace nmopt::contract
                              index,
                              -Backend::value(raw, index));
         }
-      return Covector(complementarity_->layout(), {std::move(values)});
+      Covector result(complementarity_->layout(), {std::move(values)});
+      require_finite_block_values(result, "PDAS box multiplier");
+      return result;
     }
 
     IterationReport
@@ -787,6 +821,10 @@ namespace nmopt::contract
               "PDAS residual stationarity has no control block");
       const Primal representative =
         complementarity_->multiplier_to_primal(box_multiplier);
+      require_finite_block_values(
+        box_multiplier, "PDAS reported box multiplier");
+      require_finite_block_values(
+        representative, "PDAS represented box multiplier");
       double primal_violation = 0.0;
       double dual_violation = 0.0;
       double complementarity_residual = 0.0;
@@ -827,6 +865,16 @@ namespace nmopt::contract
       const double stationarity_residual =
         pdas_block_norm(constrained_stationarity);
       const double equality_residual = pdas_block_norm(residual.equality);
+      require(std::isfinite(primal_violation),
+              "PDAS primal feasibility residual is non-finite");
+      require(std::isfinite(dual_violation),
+              "PDAS dual feasibility residual is non-finite");
+      require(std::isfinite(complementarity_residual),
+              "PDAS complementarity residual is non-finite");
+      require(std::isfinite(stationarity_residual),
+              "PDAS stationarity residual is non-finite");
+      require(std::isfinite(equality_residual),
+              "PDAS equality residual is non-finite");
       const bool primal_feasible =
         primal_violation <= policy.primal_feasibility_tolerance;
       const bool dual_feasible =

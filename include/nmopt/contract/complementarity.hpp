@@ -49,6 +49,18 @@ namespace nmopt::contract
     BoxMultiplierRepresentationT<DenseBackend>;
 
   template <typename Backend>
+  void
+  require_finite_block_values(const BlockValuesT<Backend> &values,
+                              const char *                  description)
+  {
+    for (std::size_t block = 0; block < values.n_blocks(); ++block)
+      for (std::size_t index = 0; index < values.layout()->dimension(block);
+           ++index)
+        require(std::isfinite(Backend::value(values.block(block), index)),
+                std::string(description) + " contains a non-finite value");
+  }
+
+  template <typename Backend>
   BoxMultiplierRepresentationT<Backend>
   make_metric_multiplier_representation(
     std::shared_ptr<const MetricT<Backend>> metric)
@@ -124,6 +136,7 @@ namespace nmopt::contract
       require_complementarity_layout(primal,
                                      layout_,
                                      "Box feasibility primal");
+      require_finite_block_values(primal, "Box feasibility primal");
       for (std::size_t block = 0; block < layout_->n_blocks(); ++block)
         for (std::size_t index = 0; index < layout_->dimension(block); ++index)
           {
@@ -337,10 +350,14 @@ namespace nmopt::contract
       require_complementarity_layout(multiplier,
                                      representation_.dual_layout,
                                      "Box multiplier dual-to-primal input");
+      require_finite_block_values(
+        multiplier, "Box multiplier dual-to-primal input");
       Primal result = representation_.to_primal(multiplier);
       require_complementarity_layout(result,
                                      bounds_.layout(),
                                      "Box multiplier dual-to-primal result");
+      require_finite_block_values(
+        result, "Box multiplier dual-to-primal result");
       return result;
     }
 
@@ -350,10 +367,14 @@ namespace nmopt::contract
       require_complementarity_layout(primal,
                                      bounds_.layout(),
                                      "Box multiplier primal-to-dual input");
+      require_finite_block_values(
+        primal, "Box multiplier primal-to-dual input");
       Covector result = representation_.to_dual(primal);
       require_complementarity_layout(result,
                                      representation_.dual_layout,
                                      "Box multiplier primal-to-dual result");
+      require_finite_block_values(
+        result, "Box multiplier primal-to-dual result");
       return result;
     }
 
@@ -365,6 +386,7 @@ namespace nmopt::contract
       require_complementarity_layout(primal,
                                      bounds_.layout(),
                                      "Box classification primal");
+      require_finite_block_values(primal, "Box classification primal");
       require(std::isfinite(c) && c > 0.0,
               "Box classification parameter must be positive and finite");
       const Primal representative = multiplier_to_primal(multiplier);

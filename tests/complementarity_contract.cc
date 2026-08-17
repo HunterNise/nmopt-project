@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -143,6 +144,80 @@ namespace
       [&] { (void)complementarity.classify(primal, multiplier, 0.0); },
       "Box classification parameter must be positive and finite",
       "box classification accepted a zero parameter");
+
+    const std::vector<double> nonfinite_values{
+      std::numeric_limits<double>::quiet_NaN(),
+      std::numeric_limits<double>::infinity(),
+      -std::numeric_limits<double>::infinity()};
+    for (const double value : nonfinite_values)
+      {
+        const PrimalBlock nonfinite_primal(
+          layout, {DenseVector{value, 0.5}});
+        nmopt::test_support::require_contract_error(
+          [&] { (void)bounds.is_feasible(nonfinite_primal); },
+          "Box feasibility primal contains a non-finite value",
+          "box feasibility accepted a non-finite primal");
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)complementarity.primal_to_multiplier(nonfinite_primal);
+          },
+          "Box multiplier primal-to-dual input contains a non-finite value",
+          "box conversion accepted a non-finite primal input");
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)complementarity.classify(
+              nonfinite_primal, multiplier, 1.0);
+          },
+          "Box classification primal contains a non-finite value",
+          "box classification accepted a non-finite primal");
+
+        const CovectorBlock nonfinite_multiplier(
+          layout, {DenseVector{value, 0.0}});
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)complementarity.multiplier_to_primal(nonfinite_multiplier);
+          },
+          "Box multiplier dual-to-primal input contains a non-finite value",
+          "box conversion accepted a non-finite multiplier input");
+        nmopt::test_support::require_contract_error(
+          [&] {
+            (void)complementarity.classify(
+              primal, nonfinite_multiplier, 1.0);
+          },
+          "Box multiplier dual-to-primal input contains a non-finite value",
+          "box classification accepted a non-finite multiplier");
+      }
+
+    auto nonfinite_to_primal = make_metric_multiplier_representation(metric);
+    nonfinite_to_primal.to_primal = [layout](const CovectorBlock &) {
+      return PrimalBlock(
+        layout,
+        {DenseVector{std::numeric_limits<double>::quiet_NaN(), 0.0}});
+    };
+    const BoxComplementarity nonfinite_primal_conversion(
+      bounds, std::move(nonfinite_to_primal));
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)nonfinite_primal_conversion.multiplier_to_primal(multiplier);
+      },
+      "Box multiplier dual-to-primal result contains a non-finite value",
+      "box conversion accepted a non-finite primal result");
+
+    auto nonfinite_to_multiplier =
+      make_metric_multiplier_representation(metric);
+    nonfinite_to_multiplier.to_dual = [layout](const PrimalBlock &) {
+      return CovectorBlock(
+        layout,
+        {DenseVector{std::numeric_limits<double>::infinity(), 0.0}});
+    };
+    const BoxComplementarity nonfinite_multiplier_conversion(
+      bounds, std::move(nonfinite_to_multiplier));
+    nmopt::test_support::require_contract_error(
+      [&] {
+        (void)nonfinite_multiplier_conversion.primal_to_multiplier(primal);
+      },
+      "Box multiplier primal-to-dual result contains a non-finite value",
+      "box conversion accepted a non-finite multiplier result");
 
     const auto wrong_layout = std::make_shared<const BlockLayout>(
       "wrong", std::vector<SpaceId>{{"wrong"}},

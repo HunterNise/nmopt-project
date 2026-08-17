@@ -37,6 +37,31 @@ The persistent profiles are:
 | `sanitize-neutral` | `build/sanitize-neutral/` | Backend-neutral address/undefined-behavior checks. |
 | `release-dealii` | `build/release-dealii/` | Optimized verification and Chapter 6 timing profile. |
 
+## Tooling and profile cost
+
+Use `python3` explicitly for repository Python scripts. The unversioned
+`python` command is not guaranteed to exist across Linux distributions and
+may refer to a different Python major version when it is provided. Check the
+selected interpreter before running a script when the environment is
+uncertain:
+
+```bash
+which python3
+python3 --version
+```
+
+Report generation and refinement-1 development runs do not require the
+optimized profile. Reuse or build the Debug deal.II runner for those tasks:
+
+```bash
+cmake --build --preset debug-dealii --target nmopt_runner
+```
+
+The `release-dealii` build is optimized and can take substantially longer on
+a local machine. Build it only when refreshing source-scale reproduction
+artifacts or the optimized verification gate; do not rebuild it merely to
+regenerate reports or inspect existing debug artifacts.
+
 Deal.II-enabled builds must always use one build job (`--parallel 1`). The
 deal.II translation units are memory-intensive, and allowing Ninja to compile
 multiple large units concurrently can exhaust a constrained development

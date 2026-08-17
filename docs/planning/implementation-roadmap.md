@@ -49,6 +49,12 @@ policy, and run-environment provenance. The selected P6.1 policy surface is
 acceptance-complete for its scalar reduced DTO boundary after the R1-R8
 remediation closure; its projected and second-order exclusions remain
 explicit.
+The selected P6.3 scalar KKT surface is acceptance-complete after the R1-R5
+remediation closure. Its distinct compiled DTO product, typed domain/range
+pairings, canonical supplied-OTD validity declaration, transitive supplied
+session ownership, transpose/report evidence, and MINRES/GMRES policy checks
+are covered by the current contract and deal.II gates. The selected P6.5
+surface remains acceptance-pending.
 The typed trace and negative-metric policies, explicit $H^{1}_{0}$ target-data
 assumption, control-boundary realization, and realized observation-space
 dimensions are covered by the semantic and deal.II contracts. The reviewed
@@ -1230,11 +1236,12 @@ vocabulary.
   `sanitize-neutral`, and 71/71 `release-dealii` scenarios.
 - **Supporting evidence:** the closed request and pre-construction decision own target selection, typed regions and requirements, component inventories, and map skeletons; finalization adds only realized service facts, and manifest construction is a pure projection. Full compatibility remains stable under declaration-order and display-prose changes. Realized map/space records cover weighted traces, normal flux, transformed state observations, and the baseline boundary trace. The outward normal, face-quadrature transpose, immutable physical-point evaluation, and current exclusions remain explicit.
 
-### Chapter 6 implementation evidence pending remediation
+### Chapter 6 implementation evidence and pending remediation
 
-The P6.3 and P6.5 implementation surfaces below are not
-acceptance-complete. P6.2 and the selected P6.1 scalar reduced DTO slice are
-acceptance-complete; their historical reviews remain static evidence.
+The selected P6.3 implementation surface is acceptance-complete. The P6.5
+implementation surface below remains acceptance-pending. P6.2 and the
+selected P6.1 scalar reduced DTO slice are likewise acceptance-complete; their
+historical reviews remain static evidence.
 The remaining open findings and cross-batch dependency order
 are recorded in the
 [Chapter 6 review index](review/chapter-6/README.md) and the
@@ -1251,8 +1258,8 @@ are recorded in the
 - **P6.3 Unit 1 — normative KKT boundary:** the reusable $Q$, $D$, and KKT
   action, typed primal/multiplier/residual layouts, explicit multiplier-to-
   adjoint conversion, rank/kernel assumptions, and MINRES/GMRES compatibility
-  rules are frozen in the interface specification. No executable KKT product
-  or solver has been added yet.
+  rules are frozen in the interface specification and realized by the
+  executable KKT product and solver units below.
 - **P6.3 Unit 2 — backend-neutral KKT product:**
   `EqualityConstrainedQuadraticKKTProductT` now validates typed layouts and
   declared assumptions, exposes $Q$, $D$, $D^{\mathsf T}$, KKT, and transpose
@@ -1284,6 +1291,11 @@ are recorded in the
   termination separately from stationarity and equality residuals. Both
   methods solve the DTO and canonical supplied-OTD products and agree on the
   state, control, and multiplier solution.
+- **P6.3 remediation closure:** the current head passes the focused and full
+  P6.3 contract gates: 39/39 `debug-neutral`, 76/76 `debug-dealii`, and 39/39
+  `sanitize-neutral`. The coverage includes compiler registration, typed
+  pairings, supplied-OTD validity, detached ownership, transpose actions,
+  solver-report branches, and the portable deal.II transpose-seed setup.
 - **P6.5 — typed complementarity and PDAS:** the selected cellwise box
   implementation is present. Backend-neutral contracts cover metric-aware
   multiplier conversion, active-set restriction/prolongation, active equality
@@ -1305,8 +1317,8 @@ are recorded in the
 ### Current remediation and benchmark sequence
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
-selected P6.3 and P6.5 implementation surfaces are present but not
-acceptance-complete; S1, P6.1, and the selected P6.2 supplied-OTD slice are
+selected P6.3 implementation surface is acceptance-complete; P6.5 remains
+acceptance-pending. S1, P6.1, and the selected P6.2 supplied-OTD slice are
 closed.
 The sequence below incorporates the
 [integration remediation order](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order)
@@ -1317,12 +1329,10 @@ The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 regression baselines for the existing scenario inventory; they do not close
 the review findings, whose missing or stronger scenarios are not yet present.
 
-1. close the P6.3 review findings for the selected DTO and supplied-OTD KKT
-   product, solver, pairing, and ownership boundaries;
-2. repair the P6.5 restricted active subproblem, algebra, compilation, and
+1. repair the P6.5 restricted active subproblem, algebra, compilation, and
    ownership boundaries;
-3. compile one shared box-data product for projection and complementarity;
-4. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
+2. compile one shared box-data product for projection and complementarity;
+3. implement the minimum L0–L2 problem recipes and B0 harness, then freeze and
    run the selected B1 and B2 benchmarks through the declared artifact path.
 
 B3 and B4 remain desirable follow-ups under the authoritative

@@ -45,18 +45,21 @@ the compilation/provenance envelope.
 | --- | --- | --- | --- |
 | `CH6-F1` | Benchmark acceptance | Open | The B0 harness and selected B1/B2 executable benchmark scenarios are not yet present. Reconcile this separately from implementation-remediation closure using the [benchmark roadmap](../../chapter-6-benchmark-suite-roadmap.md). |
 | `CH6-F2` | P6.4 preconditioning | Deferred | P6.4 remains conditional and is not a Chapter 6 remediation prerequisite. Activate it only if a selected all-at-once benchmark demonstrates that direct or basic serial solves are inadequate. |
-| `CH6-F3` | P6.1 diagnostic evidence | Open | P6.1 checklist item 10 has stable implementation diagnostics for missing Hessian, incompatible layouts, and non-positive curvature, but no focused test directly asserts the exact-quadratic non-positive-curvature diagnostic. Add that test before checking the item. |
+| `CH6-F3` | P6.1 diagnostic evidence | Closed | Added the focused `nmopt.reduced.exact_quadratic_line_search_nonpositive_curvature_diagnostic` scenario. It constructs a negative-curvature reduced Hessian and asserts the exact `Exact quadratic line search requires positive curvature` diagnostic; P6.1 checklist item 10 is now checked. |
 | `CH6-F4` | Supplemental release verification | Open, non-blocking | The attempted `release-dealii` build was interrupted after substantial progress without reaching CTest. The required P6.1 Debug and sanitizer gates pass; independently rerun the optimized profile before relying on the roadmap's release count. |
 | `CH6-F5` | P6.3 compiler boundary | Open | `CompilationProduct::quadratic_kkt` registers only the canonical unconstrained scalar DTO target and emits `compiled_quadratic_kkt` for supplied-OTD requests. The supplied KKT bridge has typed validity and direct contract coverage, but no canonical supplied-OTD KKT product is returned through the semantic/compiler KKT boundary. Resolve this scope mismatch by either adding the registered supplied route and manifest projection required by P6.3-R1 or narrowing the P6.3 acceptance wording and recording the supplied bridge as a separate boundary. |
 
 ## P6.1 verification state
 
-Checklist items 1–9 and 11 are checked in
+All P6.1 checklist items are checked in
 [p6.1-implementation-review.md](p6.1-implementation-review.md). The P6.1
 remediation commits are `8865591`, `9c9de52`, `b80463a`, `5494e49`,
 `b92c8d5`, `726edeb`, `8cd4fb4`, and `bdfaa9d`. Current completed profile
-evidence is 43/43 `debug-neutral`, 81/81 `debug-dealii`, and 43/43
-`sanitize-neutral` scenarios.
+evidence is 44/44 `debug-neutral`; the previously recorded
+`debug-dealii` and `sanitize-neutral` profiles pass 81/81 and 43/43
+scenarios. The focused current execution
+`nmopt.reduced.exact_quadratic_line_search_nonpositive_curvature_diagnostic`
+passes and asserts the stable positive-curvature diagnostic directly.
 
 The P6.2 remediation checklist was assessed independently of the S1 and P6.1
 closures and was not inferred solely from the roadmap's aggregate Chapter 6

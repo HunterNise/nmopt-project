@@ -2179,6 +2179,64 @@ namespace
   }
 
   void
+  test_exact_quadratic_line_search_nonpositive_curvature_diagnostic()
+  {
+    const LinearQuadraticModel model(
+      DenseMatrix(2, 2, {4.0, -1.0, -1.0, 3.0}),
+      DenseMatrix(2, 2, {1.0, 0.5, -0.25, 2.0}),
+      DenseVector{1.0, -0.5},
+      DenseMatrix(2, 2, {1.0, 0.0, 0.5, 1.0}),
+      DenseVector{0.25, -1.0},
+      DenseVector{1.5, 0.75},
+      DenseVector{2.0, 3.0},
+      0.4);
+    const StateControlPartition partition(model, 0, 1);
+    const StateAdjointSolvers solvers{
+      [&model](const PrimalBlock &control) { return model.solve_state(control); },
+      [&model](const PrimalBlock &full_point, const CovectorBlock &state_rhs) {
+        return model.solve_adjoint(full_point, state_rhs);
+      }};
+    const ReducedDTO reduced(model, partition, solvers);
+    const PrimalBlock control(partition.control_layout(),
+                              {DenseVector{0.4, -0.3}});
+    const ReducedEvaluation evaluation = reduced.evaluate(control);
+    const DiagonalMetric metric(
+      "l2_cellwise", partition.control_layout(), {DenseVector{2.0, 5.0}});
+    const auto search_direction = nmopt::solvers::make_steepest_descent_direction(
+      evaluation.reduced_derivative, metric);
+    const auto build_trial =
+      [&control, &search_direction](const double step) {
+        return shifted(control, search_direction.direction, step);
+      };
+    const auto evaluate_trial_value =
+      [&reduced](const PrimalBlock &trial_control) {
+        return reduced.evaluate_value(trial_control);
+      };
+    const auto augment_trial_derivative =
+      [&reduced](const ReducedValueEvaluation &value) {
+        return reduced.augment_derivative(value);
+      };
+    const NegativeIdentityReducedHessian negative_hessian(
+      partition.control_layout());
+    const nmopt::solvers::ExactQuadraticLineSearchPolicy exact_policy(
+      negative_hessian);
+
+    nmopt::test_support::require_contract_error(
+      [&exact_policy, &control, &evaluation, &search_direction,
+       &build_trial, &evaluate_trial_value,
+       &augment_trial_derivative]() {
+        (void)exact_policy.search(control,
+                                  evaluation,
+                                  search_direction,
+                                  build_trial,
+                                  evaluate_trial_value,
+                                  augment_trial_derivative);
+      },
+      "Exact quadratic line search requires positive curvature",
+      "exact line search non-positive curvature");
+  }
+
+  void
   test_staged_reduced_evaluation()
   {
     const LinearQuadraticModel base_model(
@@ -2554,6 +2612,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "contract"},
          30,
          test_v0_contract},
+        {"exact_quadratic_line_search_nonpositive_curvature_diagnostic",
+         "nmopt.reduced.exact_quadratic_line_search_nonpositive_curvature_diagnostic",
+         {"backend-neutral", "contract", "reduced", "negative"},
+         30,
+         test_exact_quadratic_line_search_nonpositive_curvature_diagnostic},
         {"staged_reduced_evaluation",
          "nmopt.contract.staged_reduced_evaluation",
          {"backend-neutral", "contract", "reduced"},

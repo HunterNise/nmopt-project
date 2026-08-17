@@ -88,7 +88,8 @@ contract tests and selected backend-enabled manufactured runs. They do not yet
 constitute benchmark activation: there is no `apps/nmopt-runner` executable,
 benchmark-owned specification set, persisted artifact path, complete B1
 regularisation sweep, or complete B2 case batch. The `to-be-recorded` source
-revision defaults remain a freeze-time obligation.
+revision remains the generic default for non-frozen scenarios; B1 and B2 now
+carry the frozen numerical-examples catalogue revision.
 
 The following pieces exist and are tested:
 

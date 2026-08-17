@@ -10,4 +10,5 @@ lowerer or optimizer.
 
 The [Chapter 6 benchmark suite roadmap](../planning/chapter-6-benchmark-suite-roadmap.md)
 owns benchmark selection and sequence. These documents will own the detailed
-scenario contracts once implementation begins.
+scenario contracts. The selected B0–B2 contracts are in the
+[Chapter 6 benchmark specifications](chapter-6/README.md).

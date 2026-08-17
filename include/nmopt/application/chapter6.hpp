@@ -15,6 +15,9 @@
 
 namespace nmopt::application::chapter6
 {
+  inline constexpr const char *chapter6_numerical_examples_source_revision =
+    "1aaefbe473f9941a89d1df36192251511c052933";
+
   inline constexpr const char *b1_recipe_id =
     chapter5::scalar_distributed_recipe_id;
   inline constexpr const char *b2_recipe_id =
@@ -358,7 +361,7 @@ namespace nmopt::application::chapter6
       std::move(solver),
       {"chapter-6.b1.distributed-laplace",
        "E6.5.1 equations (6.64), Figures 6.2-6.3",
-       "to-be-recorded",
+       chapter6_numerical_examples_source_revision,
        "release-dealii",
        true,
        {true, true, true, false, "runs"}}};
@@ -390,7 +393,7 @@ namespace nmopt::application::chapter6
       {ReducedMethod::bfgs, {}, std::nullopt, "zero"},
       {scenario_id,
        "E6.5.2 equation (6.65), Table 6.2, Figures 6.4-6.5",
-       "to-be-recorded",
+       chapter6_numerical_examples_source_revision,
        "release-dealii",
        true,
        {true, true, true, false, "runs"}}};

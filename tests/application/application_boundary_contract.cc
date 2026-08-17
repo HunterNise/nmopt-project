@@ -201,6 +201,10 @@ namespace
             "B1 did not retain the L-BFGS minimum-step declaration");
     require(b1.experiment.harness.deterministic,
             "B1 did not retain the deterministic B0 harness policy");
+    require(b1.experiment.source_revision ==
+              nmopt::application::chapter6::
+                chapter6_numerical_examples_source_revision,
+            "B1 did not retain the frozen source catalogue revision");
     require(b1.problem.forcing_selection ==
               nmopt::application::chapter6::B1ForcingSelection::manufactured_zero,
             "B1 did not make its manufactured forcing choice explicit");
@@ -237,6 +241,10 @@ namespace
     require(b2.problem.data.conservative_transport_provenance ==
               "chapter-6.e6.5.2.graetz-transport",
             "B2 did not retain transport provenance");
+    require(b2.experiment.source_revision ==
+              nmopt::application::chapter6::
+                chapter6_numerical_examples_source_revision,
+            "B2 did not retain the frozen source catalogue revision");
     require(b2.metadata.id == "chapter-6.b2.graetz-flow.full-parabolic",
             "B2 did not assign a stable case-specific scenario ID");
   }

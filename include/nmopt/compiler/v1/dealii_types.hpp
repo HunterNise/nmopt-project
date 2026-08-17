@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nmopt/contract/pdas.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 #include "nmopt/semantic/v1/resolved_problem.hpp"
@@ -23,7 +24,8 @@ namespace nmopt::compiler::v1
   enum class CompilationProduct
   {
     reduced_dto,
-    quadratic_kkt
+    quadratic_kkt,
+    pdas
   };
 
   struct DealiiBindingProvenance
@@ -337,6 +339,23 @@ namespace nmopt::compiler::v1
     dealii_backend::MassMetricSolveParameters control_metric_solve = {};
     dealii_backend::SPDLinearSolvePolicy       state_solve = {};
     dealii_backend::SPDLinearSolvePolicy       adjoint_solve = {};
+    contract::PDASPolicy                        pdas = [] {
+      contract::PDASPolicy value;
+      value.active_set_assumptions = {
+        true,
+        true,
+        "compiled scalar PDAS active-row rank is inherited from the registered KKT target",
+        "compiled scalar PDAS free-coordinate quadratic is positive on the active-row kernel",
+        true,
+        true,
+        "compiled scalar PDAS restricted action and transpose preserve the registered KKT pairings"};
+      return value;
+    }();
+    contract::QuadraticKKTSolverPolicy          pdas_kkt_solver = [] {
+      contract::QuadraticKKTSolverPolicy value;
+      value.maximum_iterations = 200;
+      return value;
+    }();
   };
 
   // Owns one static triangulation exclusively for the lifetime of compiled

@@ -9,6 +9,7 @@
 #include "nmopt/compiler/v1/dealii_neumann_boundary.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_plan.hpp"
 #include "nmopt/compiler/v1/dealii_types.hpp"
+#include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "nmopt/dealii/facewise_box_constraint.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/semantic/v1/validation.hpp"
@@ -63,11 +64,13 @@ namespace nmopt::compiler::v1
                                 dirichlet_registration);
       validate_lowerability(specification, request, policy, report);
       validate_formulation_capability(specification, report);
-      validate_supplied_otd_capability(specification, request, report);
+      validate_supplied_otd_capability(
+        specification, request, product, report);
       validate_dirichlet_control_registration(*resolution.problem,
                                                request,
                                                report);
-      validate_product_capability(specification, request, product, report);
+      validate_product_capability(
+        specification, request, policy, product, report);
       return report;
     }
 
@@ -587,12 +590,14 @@ namespace nmopt::compiler::v1
       validate_formulation_capability(specification, result.diagnostics);
       validate_supplied_otd_capability(specification,
                                        request,
+                                       product,
                                        result.diagnostics);
       validate_dirichlet_control_registration(*resolution.problem,
                                               request,
                                               result.diagnostics);
       validate_product_capability(specification,
                                   request,
+                                  policy,
                                   product,
                                   result.diagnostics);
       if (!result.diagnostics.valid())
@@ -1589,13 +1594,58 @@ namespace nmopt::compiler::v1
           : nullptr);
       std::shared_ptr<const contract::EqualityConstrainedQuadraticKKTProductT<Backend>>
         kkt_product;
+      std::shared_ptr<const contract::BoxComplementarityT<Backend>>
+        pdas_complementarity;
       if (product == CompilationProduct::quadratic_kkt)
         {
           kkt_product = make_compiled_dto_kkt_product<Backend>(executable);
           finalized_decision.kkt_record = make_kkt_record(*kkt_product);
         }
+      else if (product == CompilationProduct::pdas)
+        {
+          if (supplied_otd_system)
+            kkt_product = std::make_shared<const
+              contract::EqualityConstrainedQuadraticKKTProductT<Backend>>(
+              contract::make_canonical_supplied_otd_kkt_product(
+                *supplied_otd_system));
+          else
+            kkt_product = make_compiled_dto_kkt_product<Backend>(executable);
+          const auto *mass_metric =
+            dynamic_cast<const dealii_backend::MassMetric *>(metric.get());
+          if (mass_metric == nullptr ||
+              !mass_metric->supports_coefficientwise_box_projection())
+            {
+              result.diagnostics.add(
+                semantic::v1::DiagnosticCategory::formulation_capability,
+                specification.formulation.metric_id,
+                "compiled_pdas_metric_realisation",
+                "Select a concrete positive-diagonal cellwise L2 metric before constructing the PDAS multiplier conversion.");
+              return result;
+            }
+          pdas_complementarity = make_pdas_complementarity(
+            *kkt_product, *bounds, *metric);
+          finalized_decision.kkt_record = make_kkt_record(
+            *kkt_product, static_cast<bool>(supplied_otd_system));
+          finalized_decision.pdas_record = make_pdas_record(
+            *kkt_product,
+            *pdas_complementarity,
+            *metric,
+            policy,
+            static_cast<bool>(supplied_otd_system));
+        }
       const CompilationManifest manifest = make_manifest(finalized_decision);
-      if (kkt_product)
+      if (pdas_complementarity)
+        result.pdas_problem = std::make_shared<const
+          CompiledPDASProblemT<Backend>>(
+          std::move(kkt_product),
+          std::move(pdas_complementarity),
+          metric,
+          1,
+          policy.pdas,
+          policy.pdas_kkt_solver,
+          manifest,
+          std::move(lifetime_owner));
+      else if (kkt_product)
         result.kkt_problem = std::make_shared<
           const CompiledQuadraticKKTProblemT<Backend>>(
           std::move(kkt_product),
@@ -4413,9 +4463,79 @@ namespace nmopt::compiler::v1
     validate_product_capability(
       const semantic::v1::ProblemSpec &       specification,
       const ResolvedCompilationRequest &     request,
+      const DealiiDiscretisationPolicy &      policy,
       const CompilationProduct                product,
       semantic::v1::ValidationReport &        report)
     {
+      if (product == CompilationProduct::pdas)
+        {
+          const bool reduced_dto =
+            specification.formulation.kind ==
+              semantic::v1::FormulationKind::reduced_dto &&
+            specification.formulation.provenance ==
+              semantic::v1::FormulationProvenance::dto;
+          const bool supplied_otd =
+            specification.formulation.kind ==
+              semantic::v1::FormulationKind::all_at_once &&
+            specification.formulation.provenance ==
+              semantic::v1::FormulationProvenance::supplied_otd;
+          const auto constraint = std::find_if(
+            specification.constraints.begin(),
+            specification.constraints.end(),
+            [&specification](const semantic::v1::ConstraintSpec &candidate) {
+              return candidate.id == specification.formulation.constraint_id;
+            });
+          const bool cellwise_box =
+            constraint != specification.constraints.end() &&
+            constraint->kind == semantic::v1::ConstraintKind::cellwise_box;
+          if (!(request.target_family == ResolvedTargetFamily::direct_volume &&
+                (reduced_dto || supplied_otd) && cellwise_box))
+            report.add(
+              semantic::v1::DiagnosticCategory::formulation_capability,
+              specification.formulation.id,
+              "compiled_pdas_cellwise_box",
+              "Request the registered scalar distributed-control DTO or supplied-OTD target with a cellwise L2 box constraint.");
+
+          if (request.uses_h1_control_metric ||
+              request.uses_hhalf_control_metric ||
+              request.uses_hminus1_control_metric)
+            report.add(
+              semantic::v1::DiagnosticCategory::formulation_capability,
+              specification.formulation.metric_id,
+              "compiled_pdas_metric_realisation",
+              "Select the registered positive-diagonal cellwise L2 metric for the PDAS multiplier conversion.");
+
+          if (!contract::valid(policy.pdas))
+            report.add(
+              semantic::v1::DiagnosticCategory::formulation_capability,
+              specification.formulation.id,
+              "compiled_pdas_policy",
+              "Supply finite positive PDAS iteration and residual tolerances.");
+          const auto &assumptions = policy.pdas.active_set_assumptions;
+          if (!assumptions.rank_condition_declared ||
+              assumptions.rank_policy.empty())
+            report.add(
+              semantic::v1::DiagnosticCategory::formulation_capability,
+              specification.formulation.id,
+              "compiled_pdas_active_row_rank",
+              "Declare the active-row rank condition and its policy before constructing the PDAS product.");
+          if (!assumptions.kernel_positivity_declared ||
+              assumptions.kernel_policy.empty())
+            report.add(
+              semantic::v1::DiagnosticCategory::formulation_capability,
+              specification.formulation.id,
+              "compiled_pdas_kernel_positivity",
+              "Declare positive definiteness on the restricted active-set kernel before constructing the PDAS product.");
+          if (!contract::valid(policy.pdas_kkt_solver) ||
+              policy.pdas_kkt_solver.maximum_iterations == 0)
+            report.add(
+              semantic::v1::DiagnosticCategory::formulation_capability,
+              specification.formulation.id,
+              "compiled_pdas_inner_kkt_solver",
+              "Supply a valid inner quadratic KKT solver policy with a positive iteration limit.");
+          return;
+        }
+
       if (product != CompilationProduct::quadratic_kkt)
         return;
 
@@ -4439,6 +4559,7 @@ namespace nmopt::compiler::v1
     validate_supplied_otd_capability(
       const semantic::v1::ProblemSpec & specification,
       const ResolvedCompilationRequest &request,
+      const CompilationProduct            product,
       semantic::v1::ValidationReport &   report)
     {
       using semantic::v1::DiagnosticCategory;
@@ -4467,7 +4588,8 @@ namespace nmopt::compiler::v1
           specification.formulation.id,
           "supplied_otd_scalar_target",
           "The first supplied-OTD lowerer supports only the canonical scalar diffusion-reaction target.");
-      if (!specification.formulation.constraint_id.empty())
+      if (!specification.formulation.constraint_id.empty() &&
+          product != CompilationProduct::pdas)
         report.add(
           DiagnosticCategory::formulation_capability,
           specification.formulation.constraint_id,
@@ -4629,6 +4751,60 @@ namespace nmopt::compiler::v1
         mass_metric != nullptr,
         "A coefficientwise constraint requires its concrete mass metric");
       return *mass_metric;
+    }
+
+    static dealii::Vector<double>
+    make_pdas_bound_vector(const CellwiseBoundValue &value,
+                           const std::size_t           dimension,
+                           const char *                description)
+    {
+      if (std::holds_alternative<double>(value))
+        {
+          dealii::Vector<double> result(
+            dealii_backend::SerialBackend::checked_native_size(dimension));
+          result = std::get<double>(value);
+          return result;
+        }
+
+      const auto &bound = std::get<dealii::Vector<double>>(value);
+      contract::require(
+        static_cast<std::size_t>(bound.size()) == dimension,
+        std::string("PDAS ") + description + " bound has the wrong layout");
+      return bound;
+    }
+
+    static std::shared_ptr<const contract::BoxComplementarityT<
+      dealii_backend::SerialBackend>>
+    make_pdas_complementarity(
+      const contract::EqualityConstrainedQuadraticKKTProductT<
+        dealii_backend::SerialBackend> &product,
+      const CellwiseBoxDataBindings &bounds,
+      const contract::MetricT<dealii_backend::SerialBackend> &metric)
+    {
+      using Backend = dealii_backend::SerialBackend;
+      using Primal = contract::PrimalBlockT<Backend>;
+      using Complementarity = contract::BoxComplementarityT<Backend>;
+      contract::require(product.layout().primal->n_blocks() == 2,
+                        "Compiled PDAS needs state and control KKT blocks");
+      const auto control_layout =
+        product.layout().primal->single_block(1, "compiled_pdas_control");
+      contract::require(metric.layout()->compatible_with(*control_layout),
+                        "Compiled PDAS metric does not match its control block");
+      const auto &mass_metric = as_mass_metric(metric);
+      contract::require(
+        mass_metric.supports_coefficientwise_box_projection(),
+        "Compiled PDAS needs a positive diagonal L2 metric realization");
+      const std::size_t dimension = control_layout->dimension(0);
+      dealii::Vector<double> lower = make_pdas_bound_vector(
+        bounds.lower, dimension, "lower");
+      dealii::Vector<double> upper = make_pdas_bound_vector(
+        bounds.upper, dimension, "upper");
+      return std::make_shared<const Complementarity>(
+        contract::BoxBoundsT<Backend>(
+          control_layout,
+          Primal(control_layout, {lower}),
+          Primal(control_layout, {upper})),
+        contract::make_metric_multiplier_representation(metric));
     }
 
     static bool
@@ -6353,14 +6529,17 @@ namespace nmopt::compiler::v1
     static CompiledKKTRecord
     make_kkt_record(
       const contract::EqualityConstrainedQuadraticKKTProductT<
-        dealii_backend::SerialBackend> &product)
+        dealii_backend::SerialBackend> &product,
+      const bool supplied_otd = false)
     {
       const auto &layout = product.layout();
       CompiledKKTRecord record;
       record.present = true;
-      record.product_id = "compiled.scalar.dto.kkt";
-      record.construction_realisation =
-        "compiler-owned adapter from canonical DTO objective/residual action ports";
+      record.product_id = supplied_otd ? "compiled.scalar.supplied_otd.kkt"
+                                       : "compiled.scalar.dto.kkt";
+      record.construction_realisation = supplied_otd
+        ? "compiler-owned adapter from the canonical supplied-OTD KKT bridge"
+        : "compiler-owned adapter from canonical DTO objective/residual action ports";
       record.primal_layout = layout.primal->label();
       record.multiplier_layout = layout.multiplier->label();
       record.adjoint_layout = layout.adjoint->label();
@@ -6410,6 +6589,75 @@ namespace nmopt::compiler::v1
       return record;
     }
 
+    static CompiledPDASRecord
+    make_pdas_record(
+      const contract::EqualityConstrainedQuadraticKKTProductT<
+        dealii_backend::SerialBackend> &product,
+      const contract::BoxComplementarityT<dealii_backend::SerialBackend>
+        &complementarity,
+      const contract::MetricT<dealii_backend::SerialBackend> &metric,
+      const DealiiDiscretisationPolicy &policy,
+      const bool supplied_otd)
+    {
+      const auto &active_set = policy.pdas.active_set_assumptions;
+      CompiledPDASRecord record;
+      record.present = true;
+      record.product_id = supplied_otd
+                            ? "compiled.scalar.supplied_otd.pdas"
+                            : "compiled.scalar.dto.pdas";
+      record.construction_realisation = supplied_otd
+        ? "compiler-owned cellwise box product over the canonical supplied-OTD KKT bridge"
+        : "compiler-owned cellwise box product over the canonical DTO KKT product";
+      record.bound_source = "semantic cellwise_box constraint and caller-supplied lower/upper data";
+      record.bound_realisation = "FE_DGQ(0) coefficientwise two-sided bounds";
+      record.control_block = 1;
+      record.control_layout = product.layout().primal->space(1).value +
+                              " (" +
+                              std::to_string(product.layout().primal->dimension(1)) +
+                              " coefficients)";
+      record.multiplier_representation =
+        complementarity.multiplier_representation().description;
+      record.metric_realisation = metric.id();
+      const auto *mass_metric =
+        dynamic_cast<const dealii_backend::MassMetric *>(&metric);
+      record.positive_diagonal_metric_declared =
+        mass_metric != nullptr &&
+        mass_metric->supports_coefficientwise_box_projection();
+      record.classification_parameter = policy.pdas.classification_parameter;
+      record.maximum_iterations = policy.pdas.maximum_iterations;
+      record.primal_feasibility_tolerance =
+        policy.pdas.primal_feasibility_tolerance;
+      record.dual_feasibility_tolerance =
+        policy.pdas.dual_feasibility_tolerance;
+      record.complementarity_tolerance =
+        policy.pdas.complementarity_tolerance;
+      record.stationarity_tolerance = policy.pdas.stationarity_tolerance;
+      record.equality_tolerance = policy.pdas.equality_tolerance;
+      record.inner_kkt_solver =
+        policy.pdas_kkt_solver.method ==
+            contract::QuadraticKKTSolverMethod::minres
+          ? "serial MINRES"
+          : "serial GMRES";
+      record.inner_kkt_maximum_iterations =
+        policy.pdas_kkt_solver.maximum_iterations;
+      record.inner_kkt_relative_tolerance =
+        policy.pdas_kkt_solver.relative_tolerance;
+      record.inner_kkt_absolute_tolerance =
+        policy.pdas_kkt_solver.absolute_tolerance;
+      record.active_set_rank_condition_declared =
+        active_set.rank_condition_declared;
+      record.active_set_rank_policy = active_set.rank_policy;
+      record.active_set_kernel_positivity_declared =
+        active_set.kernel_positivity_declared;
+      record.active_set_kernel_policy = active_set.kernel_policy;
+      record.exclusions = {
+        "continuous control layouts",
+        "facewise or quadrature-point bounds",
+        "mixed or state constraints",
+        "non-positive-diagonal or non-L2 multiplier metrics"};
+      return record;
+    }
+
     static CompilationManifest
     make_manifest(const ResolvedCompilationDecision &decision)
     {
@@ -6418,6 +6666,7 @@ namespace nmopt::compiler::v1
       manifest.formulation_record = decision.formulation_record;
       manifest.supplied_otd_record = decision.supplied_otd_record;
       manifest.kkt_record = decision.kkt_record;
+      manifest.pdas_record = decision.pdas_record;
       manifest.mesh_record = decision.mesh_record;
       manifest.spaces = decision.spaces;
       manifest.bindings = decision.bindings;

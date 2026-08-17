@@ -4710,6 +4710,170 @@ namespace
 
   template <int dim>
   void
+  run_compiled_pdas_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+
+    const dealii::Functions::ConstantFunction<dim> forcing(1.0);
+    const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
+    const compiler::v1::DealiiDataBindings<dim> data_bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.5,
+      0.1,
+      test_binding_provenance("compiled_pdas")};
+    const compiler::v1::CellwiseBoxDataBindings bounds{
+      compiler::v1::CellwiseBoundValue{-10.0},
+      compiler::v1::CellwiseBoundValue{10.0}};
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    const auto specification =
+      semantic::v1::make_scalar_diffusion_reaction_problem(true);
+
+    const auto validation = compiler.validate(
+      specification, policy, compiler::v1::CompilationProduct::pdas);
+    contract::require(validation.valid(),
+                      "canonical DTO PDAS target did not validate");
+    const auto compilation = compiler.compile(
+      specification,
+      triangulation,
+      data_bindings,
+      policy,
+      bounds,
+      std::nullopt,
+      compiler::v1::CompilationProduct::pdas);
+    contract::require(
+      compilation.succeeded() && compilation.pdas_problem &&
+        !compilation.problem && !compilation.kkt_problem &&
+        !compilation.supplied_otd_problem,
+      "compiler did not produce the distinct canonical DTO PDAS product");
+
+    const auto &pdas = *compilation.pdas_problem;
+    const auto &manifest = pdas.manifest();
+    const auto &record = manifest.pdas_record;
+    contract::require(
+      record.present && record.product_id == "compiled.scalar.dto.pdas" &&
+        record.bound_source.find("cellwise_box") != std::string::npos &&
+        record.bound_realisation.find("FE_DGQ(0)") != std::string::npos &&
+        record.control_block == 1 &&
+        record.multiplier_representation.find("metric Riesz map") !=
+          std::string::npos &&
+        record.positive_diagonal_metric_declared &&
+        record.classification_parameter ==
+          policy.pdas.classification_parameter &&
+        record.maximum_iterations == policy.pdas.maximum_iterations &&
+        record.inner_kkt_solver == "serial MINRES" &&
+        record.inner_kkt_maximum_iterations ==
+          policy.pdas_kkt_solver.maximum_iterations &&
+        record.active_set_rank_condition_declared &&
+        record.active_set_kernel_positivity_declared &&
+        manifest.resolved_decision.pdas_record.product_id ==
+          record.product_id,
+      "compiled DTO PDAS manifest omitted its structured product boundary");
+
+    using Product = contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
+    using Primal = Product::Primal;
+    const auto initial = Product::Point{
+      Primal::zeros(pdas.product().layout().primal),
+      Primal::zeros(pdas.product().layout().multiplier)};
+    const auto initial_box_multiplier =
+      contract::CovectorBlockT<Backend>::zeros(pdas.complementarity().layout());
+    const auto solver = pdas.make_solver(
+      [&pdas](const Product &product) {
+        return dealii_backend::solve_serial_quadratic_kkt(
+          product, pdas.kkt_solver_policy());
+      });
+    const auto solve = solver.solve(initial,
+                                    initial_box_multiplier,
+                                    pdas.pdas_policy());
+    contract::require(
+      solve.converged() && !solve.iterations.empty() &&
+        solve.iterations.back().kkt_solve.converged(),
+      "compiled DTO PDAS product did not execute its owned KKT service");
+
+    const auto supplied_specification =
+      semantic::v1::make_scalar_diffusion_reaction_supplied_otd_problem(true);
+    const auto supplied_validation = compiler.validate(
+      supplied_specification,
+      policy,
+      compiler::v1::CompilationProduct::pdas);
+    contract::require(supplied_validation.valid(),
+                      "canonical supplied-OTD PDAS target did not validate");
+    dealii::Triangulation<dim> supplied_triangulation;
+    dealii::GridGenerator::hyper_cube(supplied_triangulation);
+    supplied_triangulation.refine_global(1);
+    const auto supplied_compilation = compiler.compile(
+      supplied_specification,
+      supplied_triangulation,
+      data_bindings,
+      policy,
+      bounds,
+      std::nullopt,
+      compiler::v1::CompilationProduct::pdas);
+    contract::require(
+      supplied_compilation.succeeded() && supplied_compilation.pdas_problem &&
+        supplied_compilation.pdas_problem->manifest()
+              .formulation_record.provenance ==
+          semantic::v1::FormulationProvenance::supplied_otd &&
+        supplied_compilation.pdas_problem->manifest().pdas_record.product_id ==
+          "compiled.scalar.supplied_otd.pdas",
+      "compiler did not preserve the supplied-OTD route through the PDAS product");
+
+    auto unsupported_policy = policy;
+    unsupported_policy.pdas.active_set_assumptions.rank_condition_declared =
+      false;
+    const auto rejected_assumptions = compiler.validate(
+      specification,
+      unsupported_policy,
+      compiler::v1::CompilationProduct::pdas);
+    test_support::require_exact_diagnostic(
+      rejected_assumptions,
+      semantic::v1::DiagnosticCategory::formulation_capability,
+      specification.formulation.id,
+      "compiled_pdas_active_row_rank",
+      "compiler accepted invalid PDAS active-row assumptions");
+
+    const auto continuous_specification =
+      semantic::v1::make_h1_regularised_scalar_diffusion_reaction_problem();
+    const auto rejected_continuous = compiler.validate(
+      continuous_specification,
+      policy,
+      compiler::v1::CompilationProduct::pdas);
+    test_support::require_exact_diagnostic(
+      rejected_continuous,
+      semantic::v1::DiagnosticCategory::formulation_capability,
+      continuous_specification.formulation.id,
+      "compiled_pdas_cellwise_box",
+      "compiler inferred a PDAS product for continuous control");
+
+    auto mismatched_metric = specification;
+    const auto selected_metric = std::find_if(
+      mismatched_metric.metrics.begin(),
+      mismatched_metric.metrics.end(),
+      [&mismatched_metric](const semantic::v1::MetricSpec &candidate) {
+        return candidate.id == mismatched_metric.formulation.metric_id;
+      });
+    contract::require(selected_metric != mismatched_metric.metrics.end(),
+                      "compiled PDAS test could not find its selected metric");
+    selected_metric->kind = semantic::v1::MetricKind::h1;
+    const auto rejected_metric = compiler.validate(
+      mismatched_metric,
+      policy,
+      compiler::v1::CompilationProduct::pdas);
+    test_support::require_exact_diagnostic(
+      rejected_metric,
+      semantic::v1::DiagnosticCategory::formulation_capability,
+      mismatched_metric.formulation.metric_id,
+      "compiled_pdas_metric_realisation",
+      "compiler accepted a PDAS metric without the selected multiplier realization");
+  }
+
+  template <int dim>
+  void
   run_compiler_diagnostics_contract_test()
   {
     const compiler::v1::DealiiCompiler compiler;
@@ -6015,6 +6179,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler", "kkt"},
          60,
          []() { run_compiled_dto_kkt_contract_test<2>(); }},
+        {"compiled_pdas",
+         "nmopt.dealii.compiled_pdas",
+         {"dealii", "compiler", "pdas", "active-set"},
+         120,
+         []() { run_compiled_pdas_contract_test<2>(); }},
         {"fixed_dirichlet",
          "nmopt.dealii.fixed_dirichlet",
          {"dealii", "compiler"},

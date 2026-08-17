@@ -734,10 +734,10 @@ GMRES-only and cannot advertise MINRES compatibility.
 | `lowerability` | `DealiiCompiler`, `DealiiCapabilityRegistryV1`, and the selected lowering planner or target strategy | matrix-free execution, zero `FE_Q` degree, unregistered or unhandled node kind, missing bound or fixed-lifting binding, incomplete controlled boundary |
 | `formulation_capability` | `DealiiCompiler` | all-at-once formulation or a multi-block DTO request |
 
-`CompilationResultT<Backend>` returns the report and only contains a
-`CompiledProblemT<Backend>` when it is valid. Unsupported choices are reported
-as diagnostics; the compiler does not substitute another residual,
-observation, metric, constraint, or formulation.
+`CompilationResultT<Backend>` returns the report and contains only the selected
+compiled product when it is valid. Unsupported choices are reported as
+diagnostics; the compiler does not substitute another residual, observation,
+metric, constraint, or formulation.
 
 The explicit `CompilationProduct::quadratic_kkt` request is a separate
 compiler product boundary. In the current v1 registration it is accepted only
@@ -760,6 +760,20 @@ layout order. Solver validation checks the GMRES restart basis only when GMRES
 is selected; MINRES does not inherit an irrelevant GMRES-basis restriction.
 Serial KKT results retain linear termination/report separately from
 independently recomputed stationarity and equality residual fields.
+
+The explicit `CompilationProduct::pdas` request is a second distinct
+formulation boundary. It is registered only for the scalar distributed-control
+DTO and canonical supplied-OTD targets with a cellwise `FE_DGQ(0)` box and the
+positive-diagonal cellwise $L^{2}$ metric. It returns
+`CompiledPDASProblemT<Backend>`, which owns the common KKT product, typed box
+complementarity, metric owner, active-set policy, and inner KKT policy. Its
+manifest records the selected bound source and control block, multiplier
+representation, classification and residual tolerances, active-row rank and
+kernel assumptions, inner solver, and explicit exclusions. The supplied-OTD
+route is lowered through the canonical supplied-OTD KKT bridge before the box
+service is constructed. Continuous controls, facewise or quadrature-point
+bounds, unsupported constraint families, and non-cellwise multiplier metrics
+receive stable `compiled_pdas_*` formulation diagnostics before construction.
 
 Caller-provided compilation data use the same predictable boundary. Missing
 or nonfinite scalar bindings, nonpositive diffusion/regularisation, missing

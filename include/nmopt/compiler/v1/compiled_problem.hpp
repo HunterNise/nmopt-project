@@ -3,6 +3,7 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/contract/quadratic_kkt.hpp"
+#include "nmopt/contract/pdas.hpp"
 #include "nmopt/contract/supplied_otd.hpp"
 #include "nmopt/semantic/v1/validation.hpp"
 
@@ -171,6 +172,36 @@ namespace nmopt::compiler::v1
     std::vector<std::string> assembled_block_provenance;
   };
 
+  struct CompiledPDASRecord
+  {
+    bool                     present = false;
+    std::string              product_id;
+    std::string              construction_realisation;
+    std::string              bound_source;
+    std::string              bound_realisation;
+    std::size_t              control_block = 0;
+    std::string              control_layout;
+    std::string              multiplier_representation;
+    std::string              metric_realisation;
+    bool                     positive_diagonal_metric_declared = false;
+    double                   classification_parameter = 0.0;
+    std::size_t              maximum_iterations = 0;
+    double                   primal_feasibility_tolerance = 0.0;
+    double                   dual_feasibility_tolerance = 0.0;
+    double                   complementarity_tolerance = 0.0;
+    double                   stationarity_tolerance = 0.0;
+    double                   equality_tolerance = 0.0;
+    std::string              inner_kkt_solver;
+    std::size_t              inner_kkt_maximum_iterations = 0;
+    double                   inner_kkt_relative_tolerance = 0.0;
+    double                   inner_kkt_absolute_tolerance = 0.0;
+    bool                     active_set_rank_condition_declared = false;
+    std::string              active_set_rank_policy;
+    bool                     active_set_kernel_positivity_declared = false;
+    std::string              active_set_kernel_policy;
+    std::vector<std::string> exclusions;
+  };
+
   struct CompiledMetricRecord
   {
     std::string                 semantic_id;
@@ -327,6 +358,7 @@ namespace nmopt::compiler::v1
     CompiledFormulationRecord           formulation_record;
     CompiledSuppliedOTDRecord           supplied_otd_record;
     CompiledKKTRecord                   kkt_record;
+    CompiledPDASRecord                  pdas_record;
     CompiledMeshRecord                  mesh_record;
     std::vector<CompiledRegionRecord>   regions;
     std::vector<CompiledSpaceRecord>    spaces;
@@ -369,6 +401,7 @@ namespace nmopt::compiler::v1
     CompiledFormulationRecord            formulation_record;
     CompiledSuppliedOTDRecord            supplied_otd_record;
     CompiledKKTRecord                    kkt_record;
+    CompiledPDASRecord                   pdas_record;
     CompiledMeshRecord                   mesh_record;
     std::vector<CompiledSpaceRecord>      spaces;
     std::vector<CompiledBindingRecord>    bindings;
@@ -583,6 +616,112 @@ namespace nmopt::compiler::v1
     CompilationManifest            manifest_;
   };
 
+  template <typename Backend>
+  class CompiledPDASProblemT final
+  {
+  public:
+    using Product = contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
+    using Complementarity = contract::BoxComplementarityT<Backend>;
+    using Metric = contract::MetricT<Backend>;
+    using Solver = contract::PDASSolverT<Backend>;
+
+    CompiledPDASProblemT(
+      std::shared_ptr<const Product>          product,
+      std::shared_ptr<const Complementarity> complementarity,
+      std::shared_ptr<const Metric>           metric,
+      const std::size_t                       control_block,
+      contract::PDASPolicy                   pdas_policy,
+      contract::QuadraticKKTSolverPolicy     kkt_solver_policy,
+      CompilationManifest                    manifest,
+      std::shared_ptr<const void>             lifetime_owner = {})
+      : lifetime_owner_(std::move(lifetime_owner))
+      , metric_(std::move(metric))
+      , product_(std::move(product))
+      , complementarity_(std::move(complementarity))
+      , control_block_(control_block)
+      , pdas_policy_(std::move(pdas_policy))
+      , kkt_solver_policy_(std::move(kkt_solver_policy))
+      , manifest_(std::move(manifest))
+    {
+      contract::require(static_cast<bool>(product_),
+                        "A compiled PDAS problem needs a KKT product");
+      contract::require(static_cast<bool>(complementarity_),
+                        "A compiled PDAS problem needs box complementarity");
+      contract::require(static_cast<bool>(metric_),
+                        "A compiled PDAS problem needs its metric owner");
+      contract::require(manifest_.pdas_record.present,
+                        "A compiled PDAS problem needs a PDAS manifest record");
+      contract::require(
+        manifest_.resolved_decision.pdas_record.present,
+        "A compiled PDAS problem needs a resolved PDAS manifest record");
+      contract::require(control_block_ < product_->layout().primal->n_blocks(),
+                        "A compiled PDAS control block is outside the KKT layout");
+      contract::require(product_->layout().primal->dimension(control_block_) ==
+                          complementarity_->layout()->dimension(0),
+                        "A compiled PDAS complementarity layout does not match its control block");
+      contract::require(metric_->layout()->compatible_with(
+                          *complementarity_->layout()),
+                        "A compiled PDAS metric does not match its box layout");
+    }
+
+    const Product &
+    product() const
+    {
+      return *product_;
+    }
+
+    const Complementarity &
+    complementarity() const
+    {
+      return *complementarity_;
+    }
+
+    const Metric &
+    metric() const
+    {
+      return *metric_;
+    }
+
+    const contract::PDASPolicy &
+    pdas_policy() const
+    {
+      return pdas_policy_;
+    }
+
+    const contract::QuadraticKKTSolverPolicy &
+    kkt_solver_policy() const
+    {
+      return kkt_solver_policy_;
+    }
+
+    Solver
+    make_solver(typename Solver::SolveAction solve_action) const
+    {
+      return Solver(*product_,
+                    *complementarity_,
+                    control_block_,
+                    std::move(solve_action));
+    }
+
+    const CompilationManifest &
+    manifest() const
+    {
+      return manifest_;
+    }
+
+  private:
+    // The metric is declared before the complementarity so callback-held
+    // metric references are destroyed after the complementarity object.
+    std::shared_ptr<const void>             lifetime_owner_;
+    std::shared_ptr<const Metric>            metric_;
+    std::shared_ptr<const Product>           product_;
+    std::shared_ptr<const Complementarity>  complementarity_;
+    std::size_t                              control_block_;
+    contract::PDASPolicy                     pdas_policy_;
+    contract::QuadraticKKTSolverPolicy       kkt_solver_policy_;
+    CompilationManifest                      manifest_;
+  };
+
   // The compiler product contains only the backend-neutral executable ports.
   // A concrete lowerer stays private to its compiler and supplies the model,
   // metric, optional constraint, and formulation services below.
@@ -750,6 +889,7 @@ namespace nmopt::compiler::v1
     std::shared_ptr<const CompiledProblemT<Backend>> problem;
     std::shared_ptr<const CompiledQuadraticKKTProblemT<Backend>>
       kkt_problem;
+    std::shared_ptr<const CompiledPDASProblemT<Backend>> pdas_problem;
     std::shared_ptr<const CompiledSuppliedOTDProblemT<Backend>>
       supplied_otd_problem;
 
@@ -759,6 +899,7 @@ namespace nmopt::compiler::v1
       return diagnostics.valid() &&
              (static_cast<bool>(problem) ||
               static_cast<bool>(kkt_problem) ||
+              static_cast<bool>(pdas_problem) ||
               static_cast<bool>(supplied_otd_problem));
     }
   };

@@ -1306,6 +1306,14 @@ are recorded in the
   inactive-box agreement with the unconstrained KKT solution and active-box
   stabilization. The final gates pass 32/32 sanitizer-neutral and 66/66
   Debug deal.II scenarios.
+- **P6.5-R3 compiler product:** `CompilationProduct::pdas` now returns a
+  distinct owner-bearing scalar PDAS product for the registered cellwise-box
+  DTO and canonical supplied-OTD routes. Its typed manifest records bounds,
+  multiplier realization, active-set assumptions, residual/classification
+  policy, inner KKT policy, and exclusions; continuous controls, unsupported
+  constraint families, mismatched metric realizations, and invalid active-row
+  assumptions are rejected before construction. Runtime ownership hardening
+  and expanded non-finite/native evidence remain open in the later P6.5 units.
 - **P6.2 remediation closure:** the supplied semantic declaration is typed and
   rejects DTO-label mutation; the owned supplied-OTD session retains its
   mesh through callback and teardown; native value/JVP/VJP, finite-difference,

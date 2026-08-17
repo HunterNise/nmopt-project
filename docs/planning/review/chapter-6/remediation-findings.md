@@ -52,11 +52,30 @@ ctest --preset release-dealii --output-on-failure --parallel 1
 This is optimized contract verification, not benchmark evidence; benchmark
 results remain owned by the separate B0–B2 work.
 
+### B0–B2 execution and reporting surface
+
+The current application head now provides the selected B0 harness, the
+headless `apps/nmopt-runner` executable, and the frozen B1/B2 execution
+adapters. The complete six-run B1 matrix and four-run B2 matrix have been
+executed. The generated evidence is organized as follows:
+
+- source-scale `release-dealii` artifacts: `runs/chapter-6.b1.distributed-laplace/`
+  and `runs/chapter-6.b2.graetz-flow/`;
+- refinement-1 development artifacts with `solver-trace.csv`, `fields.vtu`,
+  and B2 `control.vtu`: `runs/debug/`;
+- combined CSV/Markdown/SVG report: `runs/chapter-6-report/`.
+
+This closes the B0–B2 implementation and execution-plumbing gap, but it does
+not close benchmark acceptance. Every source-scale B2 case currently stops
+with zero accepted iterations and `line_search_failure`. The result is
+retained as an explicit unstabilized-Galerkin limitation; stabilization is
+outside the frozen benchmark scope.
+
 ## Open and deferred findings
 
 | ID | Scope | Status | Finding and next action |
 | --- | --- | --- | --- |
-| `CH6-F1` | Benchmark acceptance | Open | The B0 harness and selected B1/B2 executable benchmark scenarios are not yet present. Reconcile this separately from implementation-remediation closure using the [benchmark roadmap](../../chapter-6-benchmark-suite-roadmap.md). |
+| `CH6-F1` | Benchmark acceptance | Open | The B0 harness and selected B1/B2 executable benchmark scenarios are implemented and exercised, with source-scale artifacts and a reproducible report under `runs/`. Acceptance remains open because every source-scale B2 case stops with zero accepted iterations and `line_search_failure`. Decide whether to retain this as the documented limitation or authorize a separately scoped B2 formulation/solver investigation; do not silently add stabilization. |
 | `CH6-F2` | P6.4 preconditioning | Deferred | P6.4 remains conditional and is not a Chapter 6 remediation prerequisite. Activate it only if a selected all-at-once benchmark demonstrates that direct or basic serial solves are inadequate. |
 | `CH6-F3` | P6.1 diagnostic evidence | Closed | Added the focused `nmopt.reduced.exact_quadratic_line_search_nonpositive_curvature_diagnostic` scenario. It constructs a negative-curvature reduced Hessian and asserts the exact `Exact quadratic line search requires positive curvature` diagnostic; P6.1 checklist item 10 is now checked. |
 | `CH6-F4` | Supplemental release verification | Closed | The completed `release-dealii` profile passes its serialized CTest gate: 82/82 scenarios, with no failures. This closes the supplemental optimized-profile verification item; it does not substitute for the separate B0–B2 benchmark evidence. |

@@ -95,7 +95,8 @@ boundary faces. These are final-state artifacts, not per-iteration output.
 
 The repository-local `tools/chapter6_report.py` script creates a deterministic
 summary from one or more runner output directories. It uses only the Python
-standard library and does not rerun the solver:
+standard library and does not rerun the solver. Use the repository Python
+tooling convention when invoking it:
 
 ```bash
 python3 tools/chapter6_report.py \

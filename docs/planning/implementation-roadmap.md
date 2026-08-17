@@ -101,6 +101,11 @@ selected deal.II applications. The repository-local
 sidecars into a CSV/Markdown summary and dependency-free SVG objective and
 Armijo plots. It reports absent trace or field sidecars explicitly; it does
 not rerun the solver or turn development outputs into source-scale evidence.
+The current local evidence is organized under `runs/`: source-scale
+`release-dealii` artifacts are under the frozen B1/B2 paths, refinement-1
+development artifacts with trace and VTU sidecars are under `runs/debug/`, and
+the combined report is under `runs/chapter-6-report/`. These generated outputs
+are ignored runtime artifacts, not committed source files.
 The `to-be-recorded` source revision remains the generic default for
 non-frozen scenarios; B1 and B2 now carry the frozen numerical-examples
 catalogue revision.
@@ -1371,18 +1376,21 @@ The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 regression baselines for the existing scenario inventory; they do not close
 the review findings, whose missing or stronger scenarios are not yet present.
 
-The contract portion of the previous application step is implemented in the
-current application work. The remaining benchmark activation sequence is:
+The selected B0–B2 application and benchmark-execution units are now
+implemented. The current benchmark handoff is:
 
-1. freeze the benchmark-owned B0–B2 specifications, provenance, artifact
-   naming, and acceptance evidence, including replacement of the placeholder
-   source revisions;
-2. add the planned `apps/nmopt-runner` executable and CMake integration for
-   output-path ownership and deterministic artifact persistence;
-3. run the B1 regularisation sweep for both selected reduced-space methods;
-4. run all four frozen B2 Graetz observation/target cases; and
-5. record the source-sized `release-dealii` artifacts, numerical evidence,
-   limitations, and the resulting benchmark handoff.
+1. B0 specifications, provenance, artifact naming, deterministic persistence,
+   and the headless `apps/nmopt-runner` boundary are implemented and tested.
+2. The complete six-run B1 matrix and four-run B2 matrix have been executed in
+   both refinement-1 development form and source-scale `release-dealii` form.
+3. The source-scale artifact set records the B2 limitation: all four cases
+   stop with zero accepted iterations and `line_search_failure`. The frozen
+   Galerkin formulation and the exclusion of stabilization remain unchanged.
+4. The next benchmark decision is whether to retain this as an explicit
+   limitation and leave the activation gate open, or authorize a separately
+   scoped investigation of the B2 formulation/solver behavior. No B3/B4
+   promotion or conditional B5/B6/P6.4 work follows automatically from these
+   results.
 
 B3 and B4 remain desirable follow-ups under the authoritative
 [benchmark-suite roadmap](chapter-6-benchmark-suite-roadmap.md); they are not

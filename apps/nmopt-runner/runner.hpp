@@ -13,6 +13,7 @@ namespace nmopt::application::runner
   {
     bool                  list = false;
     bool                  run_b1 = false;
+    bool                  run_b2 = false;
     bool                  help = false;
     std::filesystem::path output_directory = "runs";
     std::string            framework_revision;
@@ -42,10 +43,11 @@ namespace nmopt::application::runner
               throw std::invalid_argument(
                 "--benchmark needs a benchmark identifier");
             const std::string_view benchmark(argv[++index]);
-            if (benchmark != "b1")
+            if (benchmark != "b1" && benchmark != "b2")
               throw std::invalid_argument(
-                "only benchmark 'b1' is registered in this runner unit");
-            options.run_b1 = true;
+                "only benchmarks 'b1' and 'b2' are registered in this runner unit");
+            options.run_b1 = benchmark == "b1";
+            options.run_b2 = benchmark == "b2";
             continue;
           }
         if (argument == "--output")
@@ -91,15 +93,19 @@ namespace nmopt::application::runner
                                     std::string(argument) + "'");
       }
 
-    if (options.list && options.run_b1)
+    if (options.list && (options.run_b1 || options.run_b2))
       throw std::invalid_argument(
         "--list and --benchmark cannot be selected together");
-    if (!options.help && !options.list && !options.run_b1)
+    if (options.run_b1 && options.run_b2)
       throw std::invalid_argument(
-        "select --list, --benchmark b1, or --help");
-    if (options.run_b1 && options.framework_revision.empty())
+        "select only one benchmark per runner invocation");
+    if (!options.help && !options.list && !options.run_b1 && !options.run_b2)
       throw std::invalid_argument(
-        "B1 runs require --framework-revision for provenance");
+        "select --list, --benchmark b1/b2, or --help");
+    if ((options.run_b1 || options.run_b2) &&
+        options.framework_revision.empty())
+      throw std::invalid_argument(
+        "benchmark runs require --framework-revision for provenance");
     return options;
   }
 

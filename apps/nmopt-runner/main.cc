@@ -1,5 +1,6 @@
 #include "nmopt/application/application.hpp"
 #include "nmopt/application/dealii/chapter6_b1.hpp"
+#include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "runner.hpp"
 
 #include <cmath>
@@ -45,10 +46,13 @@ namespace
     output << "Usage: nmopt_runner --list [--output DIRECTORY]\n"
            << "       nmopt_runner --benchmark b1 --framework-revision REV"
               " [--output DIRECTORY] [--refinement N]\n"
+           << "       nmopt_runner --benchmark b2 --framework-revision REV"
+              " [--output DIRECTORY] [--refinement N]\n"
            << "       nmopt_runner --help\n"
            << "\n"
            << "--list             list registered Chapter 5/6 application entries\n"
            << "--benchmark b1     run the frozen B1 matrix (six artifacts)\n"
+           << "--benchmark b2     run the frozen B2 case batch (four artifacts)\n"
            << "--output DIRECTORY set the runner-owned artifact root (default: runs)\n"
            << "--framework-revision REV\n"
            << "                   record the framework revision in each artifact\n"
@@ -106,6 +110,13 @@ namespace
   }
 
   std::string
+  b2_mesh_provenance(const unsigned int refinement)
+  {
+    return "chapter-6.e6.5.2.framework-native-rectangle-r" +
+           std::to_string(refinement);
+  }
+
+  std::string
   b1_number(const double value)
   {
     std::ostringstream output;
@@ -114,8 +125,9 @@ namespace
     return output.str();
   }
 
+  template <typename Scenario>
   nmopt::experiment::RunEnvironmentRecord
-  make_b1_environment(const nmopt::application::chapter6::B1Scenario &scenario)
+  make_environment(const Scenario &scenario)
   {
 #if defined(__clang__)
     const std::string compiler = "clang";
@@ -150,24 +162,16 @@ namespace
             hardware == nullptr ? "unspecified" : hardware};
   }
 
-  void
-  add_b1_artifact_fields(
+  using Chapter6Evidence =
     nmopt::application::benchmark::BenchmarkExecutionEvidenceT<
-      nmopt::application::chapter6::dealii::Envelope> &evidence,
-    const nmopt::application::chapter6::B1Scenario &scenario,
-    const nmopt::application::chapter6::ReducedMethod method,
-    const double beta,
-    const std::string &framework_revision)
+      nmopt::application::chapter6::dealii::Envelope>;
+
+  void
+  add_common_artifact_fields(Chapter6Evidence &evidence,
+                             const std::string &framework_revision)
   {
     const auto &manifest = evidence.envelope.compilation_manifest();
-    evidence.fields.push_back({"benchmark.method", b1_method_slug(method)});
-    evidence.fields.push_back({"benchmark.regularisation", b1_number(beta)});
-    evidence.fields.push_back(
-      {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
-    evidence.fields.push_back({
-      "benchmark.mesh_mode",
-      scenario.compile.mesh.refinement == 7 ? "source-scale-native"
-                                            : "development"});
+    const auto &environment = evidence.envelope.environment();
     evidence.fields.push_back({"provenance.framework_revision",
                                framework_revision});
     evidence.fields.push_back({
@@ -177,11 +181,6 @@ namespace
                                manifest.mesh_record.provenance});
     evidence.fields.push_back({"provenance.mesh_structural_identity",
                                manifest.mesh_record.structural_identity});
-    evidence.fields.push_back({"provenance.forcing",
-                               scenario.problem.data.forcing_provenance});
-    evidence.fields.push_back({"provenance.desired_state",
-                               scenario.problem.data.desired_state_provenance});
-    const auto &environment = evidence.envelope.environment();
     evidence.fields.push_back({"provenance.compiler", environment.compiler});
     evidence.fields.push_back({"provenance.compiler_version",
                                environment.compiler_version});
@@ -233,6 +232,62 @@ namespace
   }
 
   void
+  add_b1_artifact_fields(
+    nmopt::application::benchmark::BenchmarkExecutionEvidenceT<
+      nmopt::application::chapter6::dealii::Envelope> &evidence,
+    const nmopt::application::chapter6::B1Scenario &scenario,
+    const nmopt::application::chapter6::ReducedMethod method,
+    const double beta,
+    const std::string &framework_revision)
+  {
+    add_common_artifact_fields(evidence, framework_revision);
+    evidence.fields.push_back({"benchmark.method", b1_method_slug(method)});
+    evidence.fields.push_back({"benchmark.regularisation", b1_number(beta)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
+    evidence.fields.push_back({
+      "benchmark.mesh_mode",
+      scenario.compile.mesh.refinement == 7 ? "source-scale-native"
+                                            : "development"});
+    evidence.fields.push_back({"provenance.forcing",
+                               scenario.problem.data.forcing_provenance});
+    evidence.fields.push_back({"provenance.desired_state",
+                               scenario.problem.data.desired_state_provenance});
+  }
+
+  void
+  add_b2_artifact_fields(
+    Chapter6Evidence &evidence,
+    const nmopt::application::chapter6::B2Scenario &scenario,
+    const std::string &framework_revision)
+  {
+    const auto  case_slug = nmopt::application::chapter6::graetz_case_name(
+      scenario.problem.graetz_case);
+    evidence.fields.push_back({"benchmark.graetz_case", case_slug});
+    evidence.fields.push_back({"benchmark.fixed_temperature",
+                               b1_number(scenario.problem.fixed_temperature)});
+    evidence.fields.push_back({"benchmark.regularisation",
+                               b1_number(
+                                 scenario.problem.data.regularisation_weight)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
+    evidence.fields.push_back({
+      "benchmark.mesh_mode",
+      scenario.compile.mesh.refinement == 7 ? "source-scale-native"
+                                            : "development"});
+    add_common_artifact_fields(evidence, framework_revision);
+    evidence.fields.push_back({"provenance.forcing",
+                               scenario.problem.data.forcing_provenance});
+    evidence.fields.push_back({"provenance.desired_state",
+                               scenario.problem.data.desired_state_provenance});
+    evidence.fields.push_back({"provenance.fixed_temperature",
+                               scenario.problem.data.fixed_dirichlet_data_provenance});
+    evidence.fields.push_back({"provenance.conservative_transport",
+                               scenario.problem.data.conservative_transport_provenance});
+    evidence.fields.push_back({"provenance.observation_case", case_slug});
+  }
+
+  void
   write_artifact(const std::filesystem::path &path, const std::string &document)
   {
     nmopt::application::runner::prepare_artifact_path(path);
@@ -280,7 +335,7 @@ namespace
             const auto session =
               nmopt::application::chapter6::dealii::
                 make_b1_compilation_session<2>(scenario);
-            const auto environment = make_b1_environment(scenario);
+            const auto environment = make_environment(scenario);
             Adapter execute{beta, runtime, session, environment};
             Runner runner(scenario);
             const auto result = runner.run(
@@ -307,6 +362,59 @@ namespace
           }
       }
   }
+
+  void
+  run_b2(const nmopt::application::runner::CommandLineOptions &options)
+  {
+    using namespace nmopt::application;
+    using namespace chapter6;
+    using Runner = benchmark::HeadlessBenchmarkRunnerT<B2Scenario>;
+    using Adapter =
+      nmopt::application::chapter6::dealii::B2ReducedExecutionAdapterT<2>;
+
+    for (const auto graetz_case : b2_case_order)
+      {
+        auto scenario = make_b2_scenario(graetz_case);
+        const auto case_slug = graetz_case_name(graetz_case);
+        scenario.compile.mesh.refinement = options.refinement;
+        scenario.compile.mesh.mesh_provenance =
+          b2_mesh_provenance(options.refinement);
+        scenario.experiment.harness.artifact_directory =
+          options.output_directory.string();
+        scenario.experiment.scenario_output_id =
+          "chapter-6.b2.graetz-flow." + std::string(case_slug);
+
+        nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data(
+          graetz_case,
+          scenario.problem.fixed_temperature);
+        const auto runtime =
+          nmopt::application::chapter6::dealii::
+            make_b2_manufactured_runtime_data<2>(scenario, data);
+        const auto session =
+          nmopt::application::chapter6::dealii::
+            make_b2_compilation_session<2>(scenario);
+        const auto environment = make_environment(scenario);
+        Adapter execute{runtime, session, environment};
+        Runner runner(scenario);
+        const auto result = runner.run(
+          [](const auto &parameters) {
+            return chapter6::make_b2_problem_spec(parameters);
+          },
+          [&](const auto &specification, const auto &run_scenario) {
+            auto evidence = execute(specification, run_scenario);
+            add_b2_artifact_fields(evidence,
+                                   run_scenario,
+                                   options.framework_revision);
+            return evidence;
+          });
+
+        const auto path = runner::artifact_path(
+          options.output_directory,
+          {"chapter-6.b2.graetz-flow", case_slug});
+        write_artifact(path, result.document);
+        std::cout << "B2 wrote " << path.string() << '\n';
+      }
+  }
 } // namespace
 
 int
@@ -325,6 +433,12 @@ main(const int argc, char **argv)
       if (options.run_b1)
         {
           run_b1(options);
+          return 0;
+        }
+
+      if (options.run_b2)
+        {
+          run_b2(options);
           return 0;
         }
 

@@ -85,8 +85,11 @@ Neumann/convection recipes; the B0 in-memory harness, deterministic artifact
 writer, and callback runner; and the typed B1/B2 scenario and deal.II
 execution-adapter surfaces. The headless `apps/nmopt-runner` boundary now
 executes the frozen B1 regularisation/method matrix and writes one deterministic
-artifact per run; a refinement-0 development sweep has produced all six B1
-artifacts. Source-scale B1 acceptance and the B2 case batch remain pending.
+artifact per run, and the frozen B2 four-case batch now has the same runner
+boundary and artifact projection. Development sweeps have produced all six B1
+artifacts and all four B2 artifacts. The B2 wings case needs refinement 1 as
+the minimum development mesh because refinement 0 has no cell in the selected
+material region; neither development sweep closes source-scale acceptance.
 The `to-be-recorded` source revision remains the generic default for
 non-frozen scenarios; B1 and B2 now carry the frozen numerical-examples
 catalogue revision.

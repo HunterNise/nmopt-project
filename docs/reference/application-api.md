@@ -382,16 +382,19 @@ application-owned target function, mesh-session factory, runtime data-binding
 factory, and reduced-solver execution adapter. It is intentionally not
 included by the backend-neutral `application.hpp` umbrella header.
 
-The B2 semantic boundary is assembled with
+The B2 semantic and deal.II boundaries are assembled with
 `chapter6::make_b2_scenario(GraetzCase)` and
 `chapter6::make_b2_problem_spec(scenario)`. The four values in
 `chapter6::b2_case_order` cover wings/full observation and constant/parabolic
 targets; `chapter6::make_catalog()` registers each case with a unique stable
 scenario ID. The helper adds the declared `fixed_dirichlet_data` lifting port
 and `fixed_dirichlet_reconstruction` transformation to the Chapter 5
-convection recipe. The forthcoming deal.II adapter must bind that function,
-the conservative transport field, and the remaining scalar runtime data; it
-must not patch a homogeneous graph at execution time.
+convection recipe. The deal.II adapter in
+`include/nmopt/application/dealii/chapter6_b2.hpp` binds that function, the
+conservative transport field, and the remaining scalar runtime data; it must
+not patch a homogeneous graph at execution time. Its owned session realizes
+the rectangle, boundary labels, and material-ID observation region, and its
+execution adapter dispatches the selected full-BFGS reduced run.
 
 ## Agent checklist
 

@@ -93,7 +93,9 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::material_id>         observation_material_ids = {},
       const dealii::TensorFunction<1, dim> *       conservative_transport = nullptr,
       const std::optional<WeightedTraceRealisation> weighted_trace_realisation =
-        std::nullopt)
+        std::nullopt,
+      std::optional<std::reference_wrapper<const dealii::Function<dim>>>
+        fixed_dirichlet_data = std::nullopt)
       : state_fe_(state_degree)
       , state_dof_handler_(triangulation)
       , diffusion_(diffusion)
@@ -107,6 +109,7 @@ namespace nmopt::compiler::v1::detail
       , observation_material_ids_(std::move(observation_material_ids))
       , uses_conservative_transport_(conservative_transport != nullptr)
       , weighted_trace_realisation_(weighted_trace_realisation)
+      , has_fixed_dirichlet_data_(fixed_dirichlet_data.has_value())
     {
       contract::require(diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
@@ -147,7 +150,7 @@ namespace nmopt::compiler::v1::detail
         "The C5.6 volume observation does not consume boundary-weight data");
 
       state_dof_handler_.distribute_dofs(state_fe_);
-      build_constraints();
+      build_constraints(fixed_dirichlet_data);
       control_face_count_ = count_control_faces();
       contract::require(control_face_count_ > 0,
                         "The selected Neumann boundary has no active boundary faces");
@@ -305,11 +308,13 @@ namespace nmopt::compiler::v1::detail
       require_variables(variables, "Residual");
       Vector value(state_dof_handler_.n_dofs());
       system_matrix_.vmult(value, variables.block(0));
+      value.add(1.0, fixed_state_load_);
       value.add(-1.0, forcing_load_);
 
       Vector control_contribution(state_dof_handler_.n_dofs());
       control_coupling_.vmult(control_contribution, variables.block(1));
       value.add(-1.0, control_contribution);
+      zero_constrained_entries(value);
       return Covector(test_layout_, {std::move(value)});
     }
 
@@ -324,6 +329,7 @@ namespace nmopt::compiler::v1::detail
       Vector control_contribution(state_dof_handler_.n_dofs());
       control_coupling_.vmult(control_contribution, variable_tangent.block(1));
       value.add(-1.0, control_contribution);
+      zero_constrained_entries(value);
       return Covector(test_layout_, {std::move(value)});
     }
 
@@ -337,6 +343,7 @@ namespace nmopt::compiler::v1::detail
 
       Vector state(state_dof_handler_.n_dofs());
       system_matrix_.Tvmult(state, test_seed.block(0));
+      zero_constrained_entries(state);
       Vector control(control_face_count_);
       control_coupling_.Tvmult(control, test_seed.block(0));
       control *= -1.0;
@@ -391,6 +398,7 @@ namespace nmopt::compiler::v1::detail
       contract::require(control.layout()->compatible_with(*control_layout_),
                         "State solve control has an incompatible layout");
       Vector right_hand_side = forcing_load_;
+      right_hand_side.add(-1.0, fixed_state_load_);
       Vector control_contribution(state_dof_handler_.n_dofs());
       control_coupling_.vmult(control_contribution, control.block(0));
       right_hand_side.add(1.0, control_contribution);
@@ -460,11 +468,26 @@ namespace nmopt::compiler::v1::detail
         report = solve_symmetric_system(adjoint,
                                         state_objective_derivative.block(0),
                                         policy);
-      state_constraints_.distribute(adjoint);
+      if (has_fixed_dirichlet_data_)
+        zero_constrained_entries(adjoint);
+      else
+        state_constraints_.distribute(adjoint);
       return {Primal(test_layout_, {std::move(adjoint)}), std::move(report)};
     }
 
   private:
+    void
+    zero_constrained_entries(Vector &values) const
+    {
+      if (!has_fixed_dirichlet_data_)
+        return;
+      for (dealii::types::global_dof_index index = 0;
+           index < values.size();
+           ++index)
+        if (constrained_state_dofs_.at(index))
+          values[index] = 0.0;
+    }
+
     void
     require_boundary_trace_observation(const char *operation) const
     {
@@ -521,16 +544,20 @@ namespace nmopt::compiler::v1::detail
     }
 
     void
-    build_constraints()
+    build_constraints(
+      const std::optional<std::reference_wrapper<const dealii::Function<dim>>>
+        fixed_dirichlet_data)
     {
       state_constraints_.clear();
       dealii::DoFTools::make_hanging_node_constraints(state_dof_handler_,
                                                        state_constraints_);
       dealii::Functions::ZeroFunction<dim> zero;
+      const dealii::Function<dim> &physical_dirichlet_data =
+        fixed_dirichlet_data ? fixed_dirichlet_data->get() : zero;
       for (const auto boundary_id : dirichlet_boundary_ids_)
         dealii::VectorTools::interpolate_boundary_values(state_dof_handler_,
                                                           boundary_id,
-                                                          zero,
+                                                          physical_dirichlet_data,
                                                           state_constraints_);
       state_constraints_.close();
 
@@ -538,11 +565,15 @@ namespace nmopt::compiler::v1::detail
       for (const auto boundary_id : dirichlet_boundary_ids_)
         dealii::VectorTools::interpolate_boundary_values(state_dof_handler_,
                                                           boundary_id,
-                                                          zero,
+                                                          physical_dirichlet_data,
                                                           dirichlet_values);
+      fixed_state_values_.reinit(state_dof_handler_.n_dofs());
       constrained_state_dofs_.assign(state_dof_handler_.n_dofs(), false);
       for (const auto &entry : dirichlet_values)
-        constrained_state_dofs_.at(entry.first) = true;
+        {
+          constrained_state_dofs_.at(entry.first) = true;
+          fixed_state_values_[entry.first] = entry.second;
+        }
       for (dealii::types::global_dof_index index = 0;
            index < state_dof_handler_.n_dofs();
            ++index)
@@ -607,6 +638,7 @@ namespace nmopt::compiler::v1::detail
       control_mass_->reinit(control_mass_sparsity_);
 
       forcing_load_.reinit(state_size);
+      fixed_state_load_.reinit(state_size);
       desired_state_load_.reinit(state_size);
       mean_constraint_.reinit(state_size);
       constant_mode_.reinit(state_size);
@@ -647,6 +679,8 @@ namespace nmopt::compiler::v1::detail
           local_forcing = 0.0;
           local_desired_state = 0.0;
           local_mean_constraint = 0.0;
+          double fixed_tracking_value = 0.0;
+          double fixed_desired_value = 0.0;
           for (unsigned int q = 0; q < volume_quadrature.size(); ++q)
             {
               const double weight = state_values.JxW(q);
@@ -688,7 +722,25 @@ namespace nmopt::compiler::v1::detail
             {
               const auto global_i = state_indices[i];
               if (constrained_state_dofs_.at(global_i))
-                continue;
+                {
+                  if (is_observation_cell(cell))
+                    {
+                      fixed_desired_value +=
+                        local_desired_state(i) * fixed_state_values_[global_i];
+                      for (unsigned int j = 0;
+                           j < state_fe_.dofs_per_cell;
+                           ++j)
+                        {
+                          const auto global_j = state_indices[j];
+                          if (constrained_state_dofs_.at(global_j))
+                            fixed_tracking_value +=
+                              fixed_state_values_[global_i] *
+                              local_state_tracking(i, j) *
+                              fixed_state_values_[global_j];
+                        }
+                    }
+                  continue;
+                }
               forcing_load_[global_i] += local_forcing(i);
               mean_constraint_[global_i] += local_mean_constraint(i);
               if (is_observation_cell(cell))
@@ -696,7 +748,16 @@ namespace nmopt::compiler::v1::detail
               for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
                 {
                   const auto global_j = state_indices[j];
-                  if (!constrained_state_dofs_.at(global_j))
+                  if (constrained_state_dofs_.at(global_j))
+                    {
+                      fixed_state_load_[global_i] +=
+                        local_system(i, j) * fixed_state_values_[global_j];
+                      if (is_observation_cell(cell))
+                        desired_state_load_[global_i] -=
+                          local_state_tracking(i, j) *
+                          fixed_state_values_[global_j];
+                    }
+                  else
                     {
                       system_matrix_.add(global_i, global_j, local_system(i, j));
                       if (is_observation_cell(cell))
@@ -706,6 +767,9 @@ namespace nmopt::compiler::v1::detail
                     }
                 }
             }
+          if (is_observation_cell(cell))
+            desired_state_norm_ +=
+              fixed_tracking_value - 2.0 * fixed_desired_value;
         }
 
       if (!uses_mean_zero_gauge())
@@ -900,6 +964,7 @@ namespace nmopt::compiler::v1::detail
     const std::set<dealii::types::material_id> observation_material_ids_;
     const bool uses_conservative_transport_;
     const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
+    const bool has_fixed_dirichlet_data_;
     std::size_t control_face_count_ = 0;
     std::vector<Vector> observation_evaluations_;
     std::vector<double> observation_quadrature_weights_;
@@ -916,6 +981,8 @@ namespace nmopt::compiler::v1::detail
     std::unique_ptr<dealii::SparseDirectUMFPACK> nonsymmetric_solver_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     Vector forcing_load_;
+    Vector fixed_state_values_;
+    Vector fixed_state_load_;
     Vector desired_state_load_;
     Vector mean_constraint_;
     Vector constant_mode_;

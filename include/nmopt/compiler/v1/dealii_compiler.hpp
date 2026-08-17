@@ -1303,7 +1303,9 @@ namespace nmopt::compiler::v1
             uses_weighted_boundary_trace
               ? std::optional<typename BoundaryModel::WeightedTraceRealisation>{
                   BoundaryModel::WeightedTraceRealisation::fe_q_face_quadrature}
-              : std::nullopt);
+              : std::nullopt,
+            uses_fixed_reconstruction ? data.fixed_dirichlet_data
+                                       : std::nullopt);
           if (uses_mean_zero_gauge && !boundary->forcing_is_compatible())
             {
               result.diagnostics.add(

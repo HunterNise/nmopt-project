@@ -128,10 +128,10 @@ namespace nmopt::application::chapter6
   };
 
   inline constexpr std::array<GraetzCase, 4> b2_case_order = {
-    GraetzCase::observation_wings_constant_target,
-    GraetzCase::observation_full_constant_target,
-    GraetzCase::observation_wings_parabolic_target,
-    GraetzCase::observation_full_parabolic_target};
+    {GraetzCase::observation_wings_constant_target,
+     GraetzCase::observation_full_constant_target,
+     GraetzCase::observation_wings_parabolic_target,
+     GraetzCase::observation_full_parabolic_target}};
 
   inline const char *
   graetz_case_name(const GraetzCase graetz_case)

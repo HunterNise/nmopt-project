@@ -150,6 +150,49 @@ The current public `ReducedSolverParameters` defaults do not equal all source
 line-search values. A B1 scenario must therefore supply the intended solver
 policy as typed options and preserve the policy snapshot in its artifact.
 
+### B2 backend execution adapter
+
+The deal.II-specific adapter is declared in
+`include/nmopt/application/dealii/chapter6_b2.hpp`. It supplies the two
+dimensional rectangle mesh, material-ID observation realization, boundary
+labels, zero forcing, the selected target function, fixed temperature, and
+the conservative transport field. The complete manufactured-data path is:
+
+```cpp
+#include "nmopt/application/dealii/chapter6_b2.hpp"
+
+const auto scenario =
+  nmopt::application::chapter6::make_b2_scenario(graetz_case);
+const auto specification =
+  nmopt::application::chapter6::make_b2_problem_spec(scenario);
+
+nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data{
+  graetz_case, scenario.problem.fixed_temperature};
+const auto runtime =
+  nmopt::application::chapter6::dealii::make_b2_manufactured_runtime_data(
+    scenario, data);
+const auto session =
+  nmopt::application::chapter6::dealii::make_b2_compilation_session<2>(
+    scenario);
+nmopt::application::chapter6::dealii::B2ReducedExecutionAdapterT<2> execute{
+  runtime, session, environment};
+
+using Runner =
+  nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
+    decltype(scenario)>;
+const auto result = Runner(scenario).run(
+  [](const auto &parameters) {
+    return nmopt::application::chapter6::make_b2_problem_spec(parameters);
+  },
+  execute);
+```
+
+The adapter binds every declared port, including `fixed_dirichlet_data` and
+`conservative_transport`, compiles the assembled reduced DTO, and dispatches
+full BFGS from zero facewise control. `B2RuntimeDataT<dim>` is the extension
+point for recovered forcing, targets, or transport fields; the caller owns
+all referenced Function objects for the duration of compilation and solving.
+
 ### Required evidence
 
 - objective and tracking reduction for every regularization value;

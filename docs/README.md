@@ -71,9 +71,11 @@ stress the interfaces.
 
 ### Planning and review evidence
 
-- [Implementation roadmap](planning/implementation-roadmap.md) is the sole
-  owner of mutable feature status, implementation task order, acceptance
-  state, and current agent handoff.
+- [Implementation roadmap](planning/implementation-roadmap.md) owns mutable
+  compiler, solver, lowering, backend, and implementation status.
+- [Application roadmap](planning/application-roadmap.md) owns mutable
+  application-layer status, runner/artifact work, visualization, and B0–B2
+  execution handoffs.
 - [Chapter 5 problem library roadmap](planning/chapter-5-problem-library-roadmap.md)
   owns reusable, parameterized standard-problem recipes; feature status
   remains in the implementation roadmap.
@@ -119,6 +121,7 @@ convention before inspecting or changing repository content.
 | Implement selected Chapter 6 methods | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) | [V0 contract](implementation/v0/executable-contract.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [roadmap](planning/implementation-roadmap.md) |
 | Explore standard Chapter 5 problems | [Chapter 5 problem library](planning/chapter-5-problem-library-roadmap.md) | [Chapter 5 guide](guides/chapter-5-elliptic-control.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [implementation roadmap](planning/implementation-roadmap.md) |
 | Reproduce Chapter 6 examples | [Chapter 6 benchmark suite](planning/chapter-6-benchmark-suite-roadmap.md) | [Numerical examples](guides/chapter-6-numerical-examples.md) and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
+| Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Application recipes](applications/README.md), [benchmark specifications](benchmarks/README.md), and the [public application API](reference/application-api.md) |
 | Repair the reviewed C1/C2 preparation | [Chapter 5 reviews](planning/review/chapter-5/README.md) | [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), [pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.1 implementation | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.2 implementation | [P5.2 remediation review](planning/review/chapter-5/p5.2-remediation-review.md) | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [selected policies](implementation/implementation-readiness-review.md) |
@@ -127,5 +130,5 @@ convention before inspecting or changing repository content.
 | Review the Chapter 6 implementation | [Chapter 6 reviews](planning/review/chapter-6/README.md) | [Chapter 6 methods](guides/chapter-6-numerical-methods.md), [implementation roadmap](planning/implementation-roadmap.md), and the relevant executable/compiler contract |
 | Execute one Stage B review batch | [Pre-Chapter 5/6 review routing](planning/review/pre-ch5-ch6/README.md) | The current batch in the [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), assigned findings, and task-specific authorities above |
 | Review the complete pre-Chapter 5/6 evidence | [Pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md) | [Assessment plan](planning/review/pre-ch5-ch6/assessment-plan.md) only when the audit method matters |
-| Choose the next implementation task | [Implementation roadmap](planning/implementation-roadmap.md) | The task-specific contract or guide listed above |
+| Choose the next implementation task | [Implementation roadmap](planning/implementation-roadmap.md) | The task-specific compiler, solver, backend, or semantic contract listed above |
 | Edit Markdown or LaTeX | [Documentation conventions](../conventions/documentation.md) | The document being changed |

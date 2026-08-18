@@ -2,10 +2,16 @@
 
 ## Purpose
 
-This is the ranked continuation plan after the v0 executable contract and the
-first serial deal.II lowerer. It is intentionally dependency-ordered: finish
+This is the ranked continuation plan for compiler, solver, lowering, semantic,
+and backend implementation after the v0 executable contract and the first
+serial deal.II lowerer. It is intentionally dependency-ordered: finish
 the useful vertical slice before broadening the semantic language, and broaden
 the semantic language before adding advanced PDE variants.
+
+The application layer has a separate [application roadmap](application-roadmap.md).
+That roadmap owns runner configuration, generated run organization, native
+deal.II output, post-processing, and B0–B2 execution acceptance. This document
+records those topics only when they are implementation dependencies.
 
 The fast baseline before and after every task is the explicit backend-neutral
 Debug profile:
@@ -1380,7 +1386,7 @@ recorded in the
   36/36 `debug-neutral`, 71/71 `debug-dealii`, and 36/36
   `sanitize-neutral` scenarios.
 
-### Current remediation and benchmark sequence
+### Current remediation and benchmark dependencies
 
 P4.1 and P4.2 remain ignored for the current ordered implementation run. The
 selected P6.3 and P6.5 implementation surfaces are acceptance-complete. S1,
@@ -1395,27 +1401,18 @@ The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 regression baselines for the existing scenario inventory; they do not close
 the review findings, whose missing or stronger scenarios are not yet present.
 
-The selected B0–B2 application and benchmark-execution units are now
-implemented. The current benchmark handoff is:
-
-1. B0 specifications, provenance, artifact naming, deterministic persistence,
-   and the headless `apps/nmopt-runner` boundary are implemented and tested.
-2. The complete six-run B1 matrix and four-run B2 matrix have been executed in
-   both refinement-1 development form and source-scale `release-dealii` form.
-3. B1 is suitable for continued application-layer validation, but its current
-   source-scale handoff needs refreshed fields/traces and the declared
-   finite-difference Hessian evidence.
-4. B2 requires a separately scoped investigation of its three-region boundary
-   realization and normal-flux convention before its line-search behavior can
-   be interpreted. The frozen Galerkin formulation and the exclusion of
-   stabilization remain unchanged. No B3/B4 promotion or conditional
-   B5/B6/P6.4 work follows automatically from these results.
+The selected B0–B2 application and benchmark-execution units are tracked in
+the [application roadmap](application-roadmap.md). The implementation
+dependencies are complete for the selected scalar reduced-DTO path; remaining
+application acceptance work must not be used to silently activate new compiler
+or solver capabilities.
 
 B3 and B4 remain desirable follow-ups under the authoritative
-[benchmark-suite roadmap](chapter-6-benchmark-suite-roadmap.md); they are not
-part of the current acceptance gate. B5/B6 and P6.4 remain conditional. A
-bounded P6.4 preconditioner may be activated only if a separately selected B5
-run demonstrates that direct or basic serial solves are inadequate.
+[benchmark-suite roadmap](chapter-6-benchmark-suite-roadmap.md), but are not
+part of the current implementation sequence. B5/B6 and P6.4 remain
+conditional. A bounded P6.4 preconditioner may be activated only if a
+separately selected B5 run demonstrates that direct or basic serial solves are
+inadequate.
 
 Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
 remaining remediation gate. Do not silently activate any Stokes,

@@ -6,6 +6,17 @@
 /runs/
 compile_commands.json
 
+# Python caches and test/coverage outputs
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
 # Editor and operating-system files
 .vscode/
 .idea/

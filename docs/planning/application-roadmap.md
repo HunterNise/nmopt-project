@@ -75,14 +75,16 @@ The current deterministic report tool uses only the standard library:
 
 ```bash
 python3 tools/chapter6_report.py \
-  --input runs \
+  --run-manifest runs/chapter-6/b1/authoritative/run-manifest.json \
   --output runs/chapter-6-report
 ```
 
-The A7 post-processing tool uses `meshio` and `matplotlib` to read native
+The report should select one authoritative run set through its
+`run-manifest.json`; `--input` remains available for legacy or aggregate
+inspection. The A7 post-processing tool uses `meshio` and `matplotlib` to read native
 deal.II VTU files and produce derived state, control, and adjoint plots. Both
 single-artifact and run-root modes are available; aggregate report integration
-remains separate and must not become a prerequisite for the runner.
+is now manifest-aware and must not become a prerequisite for the runner.
 
 ## Application boundaries
 
@@ -243,17 +245,18 @@ they must not reconstruct the mesh or finite-element fields.
 
 ### A4 — Define records, diagnostics, and provenance
 
-**Status:** run-set manifest, artifact inventory, and failure records
-implemented; report selection and manifest consumption remain planned.
+**Status:** run-set manifest, artifact inventory, failure records, and
+manifest-aware report selection implemented.
 
 The runner writes `run-manifest.json` before execution and updates it after
 each artifact. It records the expected matrix, command, benchmark, run kind,
 build profile, framework revision, refinement override, completion state, and
 per-artifact success or failure. `artifact.kv` remains the deterministic
 per-artifact projection containing the accepted-iteration history, measurement
-flags, environment, compilation manifest, and benchmark fields. A later report
-unit will use the run manifest to select an explicit run set instead of relying
-only on recursive discovery below `runs/`.
+flags, environment, compilation manifest, and benchmark fields. The Chapter 6
+report accepts `--run-manifest`, automatically consumes a manifest when `--input`
+points directly at a run set, and retains missing or failed inventory records
+with their diagnostics in `summary.csv` and `summary.md`.
 
 ### A5 — Refresh B1 reproduction evidence
 
@@ -275,8 +278,9 @@ Galerkin limitation without silently activating stabilization.
 
 ### A7 — Add Python post-processing
 
-**Status:** profile-driven single-artifact renderer and run-root processing
-implemented; combined visualization/report integration remains planned.
+**Status:** profile-driven single-artifact renderer, run-root processing, and
+manifest-aware report integration implemented; combined visualization/report
+orchestration remains planned.
 
 The first supported post-processing backend is Python with `meshio` and
 `matplotlib`. It should read only native VTU files and runner records and
@@ -326,10 +330,10 @@ Known limitations:
 Next unit:
 ```
 
-The next remaining application unit is A4 report integration: consume
-`run-manifest.json` when selecting a run set and retain explicit missing or
-failed artifact records in generated reports. It must stop before beginning
-the source-scale B1/B2 refresh.
+The next remaining application unit is A5 B1 reproduction evidence: refresh the
+six source-scale artifacts under the authorized `release-dealii` profile,
+retain the native fields and solver traces, and generate the report from that
+run manifest only. This handoff must stop before the B2 reproduction refresh.
 
 ## Exclusions
 

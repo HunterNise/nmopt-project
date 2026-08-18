@@ -12,15 +12,19 @@ from __future__ import annotations
 import argparse
 import csv
 import html
+import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Iterable, Optional, Sequence
 
 
 SUMMARY_FIELDS = (
     "benchmark",
     "output_id",
+    "artifact_path",
+    "artifact_status",
+    "diagnostic",
     "run_directory",
     "method_or_case",
     "regularisation",
@@ -39,12 +43,37 @@ SUMMARY_FIELDS = (
 
 
 @dataclass(frozen=True)
+class ManifestArtifact:
+    relative_path: str
+    status: str
+    diagnostic: str
+
+
+@dataclass(frozen=True)
+class RunManifest:
+    path: Path
+    status: str
+    benchmark: str
+    run_kind: str
+    build_profile: str
+    framework_revision: str
+    artifacts: tuple[ManifestArtifact, ...]
+
+
+@dataclass(frozen=True)
 class Run:
     artifact_path: Path
     values: dict[str, str]
     objective_history: tuple[float, ...]
     gradient_history: tuple[float, ...]
     trace: tuple[dict[str, str], ...]
+    artifact_status: str = "ok"
+    diagnostic: str = ""
+    relative_artifact_path: str = ""
+    fallback_benchmark: str = ""
+    fallback_output_id: str = ""
+    fallback_method_or_case: str = "unknown"
+    fallback_regularisation: str = "n/a"
 
     @property
     def directory(self) -> Path:
@@ -52,11 +81,11 @@ class Run:
 
     @property
     def scenario(self) -> str:
-        return self.values.get("identity.scenario_id", "unknown")
+        return self.values.get("identity.scenario_id") or self.fallback_benchmark or "unknown"
 
     @property
     def output_id(self) -> str:
-        return self.values.get("identity.output_id", self.directory.name)
+        return self.values.get("identity.output_id") or self.fallback_output_id or self.directory.name
 
     @property
     def method_or_case(self) -> str:
@@ -64,7 +93,7 @@ class Run:
             self.values.get("benchmark.method")
             or self.values.get("benchmark.graetz_case")
             or self.values.get("solver.method")
-            or "unknown"
+            or self.fallback_method_or_case
         )
 
     @property
@@ -72,7 +101,7 @@ class Run:
         return (
             self.values.get("benchmark.regularisation")
             or self.values.get("b1.regularisation_weight")
-            or "n/a"
+            or self.fallback_regularisation
         )
 
     @property
@@ -152,6 +181,160 @@ def read_trace(path: Path) -> tuple[dict[str, str], ...]:
         return tuple(dict(row) for row in reader if row)
 
 
+def read_run_manifest(path: Path) -> RunManifest:
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"invalid run manifest '{path}': {error}") from error
+
+    if not isinstance(document, dict):
+        raise ValueError(f"run manifest '{path}' must contain a JSON object")
+    if document.get("schema") != "nmopt-run-set-v1":
+        raise ValueError(
+            f"run manifest '{path}' has unsupported schema "
+            f"{document.get('schema')!r}"
+        )
+
+    status = document.get("status")
+    if status not in {"running", "complete", "failed"}:
+        raise ValueError(f"run manifest '{path}' has invalid run-set status")
+
+    def required_string(key: str) -> str:
+        value = document.get(key)
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"run manifest '{path}' needs a nonempty '{key}'")
+        return value
+
+    raw_artifacts = document.get("artifacts")
+    if not isinstance(raw_artifacts, list):
+        raise ValueError(f"run manifest '{path}' needs an 'artifacts' array")
+
+    artifacts: list[ManifestArtifact] = []
+    seen_paths: set[str] = set()
+    for index, raw_artifact in enumerate(raw_artifacts):
+        if not isinstance(raw_artifact, dict):
+            raise ValueError(
+                f"run manifest '{path}' artifact {index} must be an object"
+            )
+        relative_path = raw_artifact.get("path")
+        artifact_status = raw_artifact.get("status")
+        diagnostic = raw_artifact.get("error", "")
+        if not isinstance(relative_path, str) or not relative_path:
+            raise ValueError(
+                f"run manifest '{path}' artifact {index} needs a nonempty path"
+            )
+        relative = Path(relative_path)
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or relative.name != "artifact.kv"
+        ):
+            raise ValueError(
+                f"run manifest '{path}' artifact {index} has an unsafe path"
+            )
+        if relative_path in seen_paths:
+            raise ValueError(
+                f"run manifest '{path}' contains duplicate artifact path "
+                f"'{relative_path}'"
+            )
+        if artifact_status not in {"pending", "ok", "error"}:
+            raise ValueError(
+                f"run manifest '{path}' artifact {index} has invalid status"
+            )
+        if not isinstance(diagnostic, str):
+            raise ValueError(
+                f"run manifest '{path}' artifact {index} has a non-string error"
+            )
+        seen_paths.add(relative_path)
+        artifacts.append(ManifestArtifact(relative_path, artifact_status, diagnostic))
+
+    return RunManifest(
+        path=path,
+        status=status,
+        benchmark=required_string("benchmark"),
+        run_kind=required_string("run_kind"),
+        build_profile=required_string("build_profile"),
+        framework_revision=required_string("framework_revision"),
+        artifacts=tuple(artifacts),
+    )
+
+
+def fallback_metadata(
+    manifest: RunManifest, relative_artifact_path: str
+) -> tuple[str, str, str, str]:
+    parts = Path(relative_artifact_path).parent.parts
+    if parts:
+        output_id = "/".join(parts)
+    else:
+        output_id = relative_artifact_path
+
+    if manifest.benchmark == "b1" and len(parts) >= 2:
+        return (
+            output_id,
+            parts[-2],
+            "beta-" + parts[-1].removeprefix("beta-"),
+            manifest.benchmark,
+        )
+    if manifest.benchmark == "b2" and parts:
+        return output_id, parts[-1], "n/a", manifest.benchmark
+    return output_id, parts[-1] if parts else "unknown", "n/a", manifest.benchmark
+
+
+def run_from_manifest(
+    manifest: RunManifest, artifact: ManifestArtifact
+) -> Run:
+    artifact_path = manifest.path.parent / artifact.relative_path
+    output_id, method_or_case, regularisation, benchmark = fallback_metadata(
+        manifest, artifact.relative_path
+    )
+    status = artifact.status
+    diagnostic = artifact.diagnostic
+    values: dict[str, str] = {}
+    objective_history: tuple[float, ...] = ()
+    gradient_history: tuple[float, ...] = ()
+    trace: tuple[dict[str, str], ...] = ()
+
+    if status == "ok":
+        if not artifact_path.is_file():
+            status = "missing"
+            diagnostic = "manifest marks artifact as ok, but artifact.kv is absent"
+        else:
+            try:
+                values = read_artifact(artifact_path)
+            except OSError as error:
+                status = "error"
+                diagnostic = f"could not read artifact.kv: {error}"
+            else:
+                objective_history = read_history(values, "solver.objective_history")
+                gradient_history = read_history(
+                    values, "solver.gradient_norm_history"
+                )
+                trace = read_trace(artifact_path.parent / "solver-trace.csv")
+    elif status == "pending" and not diagnostic:
+        diagnostic = "artifact was still pending when the run manifest was written"
+    elif status == "error" and not diagnostic:
+        diagnostic = "runner reported an error without a diagnostic"
+
+    return Run(
+        artifact_path=artifact_path,
+        values=values,
+        objective_history=objective_history,
+        gradient_history=gradient_history,
+        trace=trace,
+        artifact_status=status,
+        diagnostic=diagnostic,
+        relative_artifact_path=artifact.relative_path,
+        fallback_benchmark=benchmark,
+        fallback_output_id=output_id,
+        fallback_method_or_case=method_or_case,
+        fallback_regularisation=regularisation,
+    )
+
+
+def load_manifest_runs(manifest: RunManifest) -> list[Run]:
+    return [run_from_manifest(manifest, artifact) for artifact in manifest.artifacts]
+
+
 def load_runs(input_root: Path) -> list[Run]:
     paths = sorted(input_root.rglob("artifact.kv"))
     runs = []
@@ -175,9 +358,13 @@ def value_or_na(values: dict[str, str], key: str) -> str:
 
 def summary_row(run: Run, input_root: Path) -> dict[str, str]:
     relative = run.directory.relative_to(input_root)
+    artifact_relative = run.artifact_path.relative_to(input_root)
     return {
         "benchmark": run.scenario,
         "output_id": run.output_id,
+        "artifact_path": str(artifact_relative),
+        "artifact_status": run.artifact_status,
+        "diagnostic": run.diagnostic or "n/a",
         "run_directory": str(relative) if str(relative) else ".",
         "method_or_case": run.method_or_case,
         "regularisation": run.regularisation,
@@ -221,28 +408,60 @@ def markdown_cell(value: str) -> str:
 
 
 def write_summary_markdown(
-    path: Path, input_root: Path, runs: Sequence[Run], rows: Sequence[dict[str, str]]
+    path: Path,
+    input_root: Path,
+    runs: Sequence[Run],
+    rows: Sequence[dict[str, str]],
+    manifest: Optional[RunManifest],
 ) -> None:
+    successful = sum(run.artifact_status == "ok" for run in runs)
     lines = [
         "# Chapter 6 benchmark report",
         "",
         f"- Input root: `{input_root}`",
-        f"- Runs discovered: {len(runs)}",
+        f"- Artifact records selected: {len(runs)}",
+        f"- Successful artifact records: {successful}",
         "- Data sources: `artifact.kv`, with optional `solver-trace.csv` and VTU sidecars.",
-        "",
-        "The report is a deterministic projection of persisted runner outputs. It does "
-        "not rerun a benchmark or infer values that are absent from an artifact.",
-        "",
-        "## Run summary",
-        "",
-        "| " + " | ".join(SUMMARY_FIELDS) + " |",
-        "| " + " | ".join("---" for _ in SUMMARY_FIELDS) + " |",
     ]
+    if manifest is not None:
+        lines.extend(
+            [
+                f"- Run manifest: `{manifest.path}`",
+                f"- Run-set status: `{manifest.status}`",
+                f"- Build profile: `{manifest.build_profile}`",
+                f"- Framework revision: `{manifest.framework_revision}`",
+                f"- Expected artifacts: {len(manifest.artifacts)}",
+            ]
+        )
+    else:
+        lines.append(
+            "- Run manifest: not supplied; artifacts were recursively discovered "
+            "below the input root."
+        )
+    lines.extend(
+        [
+            "",
+            "The report is a deterministic projection of persisted runner outputs. It does "
+            "not rerun a benchmark or infer values that are absent from an artifact.",
+            "",
+            "## Run summary",
+            "",
+            "| " + " | ".join(SUMMARY_FIELDS) + " |",
+            "| " + " | ".join("---" for _ in SUMMARY_FIELDS) + " |",
+        ]
+    )
     for row in rows:
         lines.append("| " + " | ".join(markdown_cell(row[key]) for key in SUMMARY_FIELDS) + " |")
 
-    missing_trace = [run.output_id for run in runs if not run.trace]
-    missing_fields = [run.output_id for run in runs if run.field_outputs == "none"]
+    incomplete = [run for run in runs if run.artifact_status != "ok"]
+    missing_trace = [
+        run.output_id for run in runs if run.artifact_status == "ok" and not run.trace
+    ]
+    missing_fields = [
+        run.output_id
+        for run in runs
+        if run.artifact_status == "ok" and run.field_outputs == "none"
+    ]
     lines.extend(
         [
             "",
@@ -253,6 +472,20 @@ def write_summary_markdown(
             f"- Machine-readable table: `summary.csv`",
         ]
     )
+    if incomplete:
+        lines.extend(
+            [
+                "",
+                "The selected run set contains artifact records that are not successful "
+                "`artifact.kv` inputs:",
+                "",
+                *[
+                    f"- `{run.relative_artifact_path}`: `{run.artifact_status}` — "
+                    f"{run.diagnostic or 'no diagnostic recorded'}"
+                    for run in incomplete
+                ],
+            ]
+        )
     if missing_trace:
         lines.extend(
             [
@@ -407,14 +640,28 @@ def trace_series(runs: Sequence[Run]) -> list[tuple[str, list[tuple[float, float
     return result
 
 
-def build_report(input_root: Path, output_root: Path) -> None:
-    runs = load_runs(input_root)
+def build_report(
+    input_root: Path, output_root: Path, run_manifest_path: Optional[Path] = None
+) -> None:
+    manifest = None
+    if run_manifest_path is None:
+        candidate = input_root / "run-manifest.json"
+        if candidate.is_file():
+            run_manifest_path = candidate
+    if run_manifest_path is not None:
+        manifest = read_run_manifest(run_manifest_path)
+        input_root = manifest.path.parent
+        runs = load_manifest_runs(manifest)
+    else:
+        runs = load_runs(input_root)
     if not runs:
         raise ValueError(f"no artifact.kv files found below {input_root}")
     output_root.mkdir(parents=True, exist_ok=True)
     rows = [summary_row(run, input_root) for run in runs]
     write_summary_csv(output_root / "summary.csv", rows)
-    write_summary_markdown(output_root / "summary.md", input_root, runs, rows)
+    write_summary_markdown(
+        output_root / "summary.md", input_root, runs, rows, manifest
+    )
     write_line_plot(
         output_root / "objective-history.svg",
         "Chapter 6 objective histories",
@@ -432,11 +679,17 @@ def build_report(input_root: Path, output_root: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument(
         "--input",
         type=Path,
-        required=True,
-        help="directory containing one or more runner artifact directories",
+        help="directory containing runner artifact directories; recursive discovery "
+        "is retained for legacy or aggregate inputs",
+    )
+    selection.add_argument(
+        "--run-manifest",
+        type=Path,
+        help="authoritative run-manifest.json selecting one runner run set",
     )
     parser.add_argument(
         "--output",
@@ -446,7 +699,17 @@ def main() -> int:
     )
     arguments = parser.parse_args()
     try:
-        build_report(arguments.input.resolve(), arguments.output.resolve())
+        input_root = (
+            arguments.input.resolve()
+            if arguments.input is not None
+            else arguments.run_manifest.resolve().parent
+        )
+        run_manifest_path = (
+            arguments.run_manifest.resolve()
+            if arguments.run_manifest is not None
+            else None
+        )
+        build_report(input_root, arguments.output.resolve(), run_manifest_path)
     except (OSError, ValueError) as error:
         parser.error(str(error))
     print(f"wrote Chapter 6 report to {arguments.output.resolve()}")

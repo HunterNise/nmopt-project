@@ -107,22 +107,28 @@ output.
 ### Report generation
 
 The repository-local `tools/chapter6_report.py` script creates a deterministic
-summary from one or more runner output directories. It uses only the Python
-standard library and does not rerun the solver. Use the repository Python
-tooling convention when invoking it:
+summary from one selected runner run set. Pass its `run-manifest.json` so the
+authoritative matrix is explicit and failed, pending, or missing artifacts are
+retained in the report:
 
 ```bash
 python3 tools/chapter6_report.py \
-  --input runs \
+  --run-manifest runs/chapter-6/b1/authoritative/run-manifest.json \
   --output runs/chapter-6-report
 ```
+
+`--input <run-set-directory>` remains available for legacy or aggregate
+inspection; when that directory contains `run-manifest.json`, the report uses
+it automatically. A broad input such as `runs/` without a manifest recursively
+discovers artifacts and is not an authoritative benchmark selection.
 
 The report directory contains `summary.csv`, `summary.md`,
 `objective-history.svg`, and `armijo-trials.svg`. The plots use the persisted
 solver histories and `solver-trace.csv` sidecars when present. The summary
-also inventories native mesh/field files and identifies runs that predate
-those sidecars or the ParaView fields, so missing evidence remains visible
-rather than being silently reconstructed.
+also inventories native mesh/field files and includes an artifact path, status,
+and diagnostic for every manifest entry. Runs that predate those sidecars or
+the ParaView fields remain visible, so missing evidence is not silently
+reconstructed.
 
 ### Field post-processing
 

@@ -45,6 +45,19 @@ namespace
     return result;
   }
 
+  std::string
+  join_unsigned_ids(const std::vector<unsigned int> &ids)
+  {
+    std::ostringstream output;
+    for (std::size_t index = 0; index < ids.size(); ++index)
+      {
+        if (index != 0)
+          output << ',';
+        output << ids[index];
+      }
+    return output.str();
+  }
+
   void
   print_usage(std::ostream &output)
   {
@@ -268,6 +281,7 @@ namespace
   {
     const auto  case_slug = nmopt::application::chapter6::graetz_case_name(
       scenario.problem.graetz_case);
+    const auto &manifest = evidence.envelope.compilation_manifest();
     evidence.fields.push_back({"benchmark.graetz_case", case_slug});
     evidence.fields.push_back({"benchmark.fixed_temperature",
                                b1_number(scenario.problem.fixed_temperature)});
@@ -290,6 +304,11 @@ namespace
     evidence.fields.push_back({"provenance.conservative_transport",
                                scenario.problem.data.conservative_transport_provenance});
     evidence.fields.push_back({"provenance.observation_case", case_slug});
+    for (const auto &region : manifest.resolved_decision.regions)
+      if (!region.boundary_ids.empty())
+        evidence.fields.push_back(
+          {"manifest.region." + region.semantic_id + ".boundary_ids",
+           join_unsigned_ids(region.boundary_ids)});
   }
 
   void

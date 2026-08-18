@@ -324,6 +324,31 @@ namespace
                   state->physical_field_transform_id ==
                     "fixed_dirichlet_reconstruction",
                 "B2 state variable is not connected to fixed reconstruction");
+        const auto outflow_region = std::find_if(
+          specification.regions.begin(),
+          specification.regions.end(),
+          [](const auto &region) {
+            return region.id ==
+                     nmopt::application::chapter6::b2_outflow_boundary_region_id &&
+                   region.kind == nmopt::semantic::v1::RegionKind::boundary &&
+                   region.boundary_ids ==
+                     std::vector<unsigned int>{
+                       nmopt::application::chapter6::b2_outflow_boundary_id};
+          });
+        require(outflow_region != specification.regions.end(),
+                "B2 spec assembly lost the natural outflow region");
+        const auto partition_policy = std::find_if(
+          specification.requirement_policies.begin(),
+          specification.requirement_policies.end(),
+          [](const auto &policy) {
+            return policy.id == "neumann_convection_partition";
+          });
+        require(partition_policy != specification.requirement_policies.end() &&
+                  partition_policy->typed_selection &&
+                  partition_policy->typed_selection
+                      ->transport_outflow_region_id ==
+                    nmopt::application::chapter6::b2_outflow_boundary_region_id,
+                "B2 spec assembly did not select the natural outflow policy");
         require(validator.validate(specification).valid(),
                 "B2 fixed-temperature semantic graph is invalid");
       }

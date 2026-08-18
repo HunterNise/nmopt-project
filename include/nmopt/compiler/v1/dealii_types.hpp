@@ -153,6 +153,7 @@ namespace nmopt::compiler::v1
     bool                                   uses_assembled_v1_target = false;
     std::string                            tracking_region_id;
     std::string                            robin_boundary_region_id;
+    std::string                            transport_outflow_region_id;
     std::string                            mean_zero_region_id;
     std::string                            fixed_boundary_region_id;
     std::string                            partial_fixed_boundary_region_id;

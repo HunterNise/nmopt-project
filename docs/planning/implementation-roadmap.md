@@ -95,12 +95,17 @@ refinement 1 as the minimum development mesh because refinement 0 has no cell
 in the selected material region. The `release-dealii` runner now produces all
 ten source-scale artifacts and its 97-test contract suite passes, but every
 source-scale B2 case currently stops at zero accepted iterations with
-`line_search_failure`. Comparison with Figure 6.4 of the source book now shows
-that the current B2 adapter also assigns the upstream wall and outlet faces to
-the control boundary instead of realizing the source's fixed/control/outflow
-partition. The benchmark activation gate therefore remains open pending a
-boundary/formulation investigation; the failure must not yet be classified as
-solely an unstabilized-Galerkin limitation.
+`line_search_failure`. Those source-scale B2 artifacts predate the boundary
+correction and must not be treated as post-fix evidence. The B2 semantic graph
+and deal.II adapter now realize the Figure 6.4 fixed/control/outflow
+partition, and the Debug refinement-1 rerun accepts the partition in the
+compiler contract: both parabolic cases reach `gradient_tolerance` after
+seven accepted iterations; both constant-target cases reduce the objective but
+stop at `line_search_failure` after nine accepted iterations. The benchmark
+activation gate therefore remains open pending a refreshed source-scale run
+and a boundary/formulation or solver-policy investigation; the remaining
+failure must not yet be classified as solely an unstabilized-Galerkin
+limitation.
 The runner now also writes a structured `solver-trace.csv` sidecar for each
 run's Armijo trials and final-state `fields.vtu`/`control.vtu` sidecars for the
 selected deal.II applications. The repository-local

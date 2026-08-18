@@ -227,13 +227,14 @@ The four frozen cases are:
 | `chapter-6.b2.graetz-flow.wings-parabolic` | downstream wings | $4x_{2}(1-x_{2})$ |
 | `chapter-6.b2.graetz-flow.full-parabolic` | full downstream region | $4x_{2}(1-x_{2})$ |
 
-The source boundary partition, recovered from Figure 6.4, is different from
-the current adapter labeling: $\Gamma_{D}$ is the left edge plus the first
-unit of the top and bottom walls, $\Gamma_{c}$ is the remaining top and bottom
-wall, and $\Gamma_{\mathrm{out}}$ is the right edge. The current adapter marks
-only the left edge as fixed and assigns every other exterior face to the
-control boundary. It therefore does not yet realize the source three-region
-partition.
+The source boundary partition, recovered from Figure 6.4, is
+$\Gamma_{D}$ as the left edge plus the first unit of the top and bottom walls,
+$\Gamma_{c}$ as the remaining top and bottom wall, and
+$\Gamma_{\mathrm{out}}$ as the right edge. The current B2 semantic graph and
+deal.II adapter realize this as the fixed, control, and natural-outflow
+regions with boundary IDs `0`, `1`, and `2`, respectively. The deal.II
+compiler checks that these three declared sets are disjoint and cover every
+exterior face.
 
 The runtime provenance strings are fixed as follows:
 
@@ -279,21 +280,20 @@ limitation without changing the frozen scenario.
 
 ### Current B2 status
 
-The source-scale runs compile and serialize valid artifacts, but all four stop
-at zero accepted iterations with `line_search_failure`. A refinement sweep
-shows that the initial objective grows from an innocuous coarse-mesh value to
-approximately $10^{5}$ at refinement 2 and $10^{7}$ at the source-scale
-refinement, whereas the source table reports initial objectives between about
-$29$ and $317$.
+The existing source-scale artifacts compile and serialize valid results, but
+they predate the boundary correction and all four stop at zero accepted
+iterations with `line_search_failure`. They must be refreshed before serving
+as post-fix evidence. The Debug refinement-1 rerun realizes the corrected
+partition: both parabolic cases reach `gradient_tolerance` after seven
+accepted iterations, while both constant-target cases reduce the objective
+and then stop at `line_search_failure` after nine accepted iterations.
 
 The solver traces show finite trial objectives and negative directional slopes;
 the first B2 search direction is therefore not rejected as non-descent. The
-Armijo trials simply remain far outside the sufficient-decrease bound. This
-behavior cannot yet be attributed solely to the excluded unstabilized Galerkin
-realization, because the current boundary partition is already inconsistent
-with the source geometry. The boundary partition and the normal-flux
-convention must be resolved before changing line-search policy or treating the
-source-scale failure as a final benchmark limitation.
+remaining constant-target failures cannot yet be attributed solely to the
+excluded unstabilized Galerkin realization. The next B2 unit is to investigate
+the corrected formulation's source-scale behavior and line-search/mesh
+scaling, without changing the frozen scenario or adding stabilization.
 
 ## Activation gate
 

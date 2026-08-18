@@ -127,6 +127,27 @@ namespace
               result.artifact.envelope().report().adjoint_solve_count > 0,
             "B2 deal.II adapter did not retain solve counts");
     const auto &manifest = result.artifact.envelope().compilation_manifest();
+    const auto has_boundary_region = [&manifest](
+                                       const std::string &semantic_id,
+                                       const unsigned int boundary_id) {
+      return std::any_of(
+        manifest.resolved_decision.regions.begin(),
+        manifest.resolved_decision.regions.end(),
+        [&semantic_id, boundary_id](const auto &region) {
+          return region.semantic_id == semantic_id &&
+                 region.boundary_ids == std::vector<unsigned int>{boundary_id};
+        });
+    };
+    require(has_boundary_region(
+              chapter6::b2_fixed_boundary_region_id,
+              chapter6::b2_fixed_boundary_id) &&
+              has_boundary_region(
+                chapter6::b2_control_boundary_region_id,
+                chapter6::b2_control_boundary_id) &&
+              has_boundary_region(
+                chapter6::b2_outflow_boundary_region_id,
+                chapter6::b2_outflow_boundary_id),
+            "B2 compiled manifest did not retain the fixed/control/outflow partition");
     require(manifest.compiler_id ==
               "nmopt.compiler.v1.dealii.neumann_convection_subdomain",
             "B2 deal.II adapter selected the wrong compiler target");

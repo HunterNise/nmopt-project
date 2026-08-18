@@ -391,6 +391,11 @@ namespace nmopt::compiler::v1
               policy.typed_partial_boundary_selection)
             request.partial_boundary_selection =
               policy.typed_partial_boundary_selection;
+          if (policy.kind == semantic::v1::RequirementKind::boundary_partition &&
+              policy.subject_id == specification.formulation.state_variable_id &&
+              policy.typed_selection)
+            request.transport_outflow_region_id =
+              policy.typed_selection->transport_outflow_region_id;
           if (policy.kind ==
                 semantic::v1::RequirementKind::fractional_trace_realisation &&
               policy.typed_fractional_metric_selection)
@@ -825,6 +830,10 @@ namespace nmopt::compiler::v1
         request.robin_boundary_region_id.empty()
           ? nullptr
           : find_region(specification, request.robin_boundary_region_id);
+      const auto *transport_outflow_boundary_region =
+        request.transport_outflow_region_id.empty()
+          ? nullptr
+          : find_region(specification, request.transport_outflow_region_id);
       const auto *partial_fixed_boundary_region =
         request.partial_fixed_boundary_region_id.empty()
           ? nullptr
@@ -1181,15 +1190,32 @@ namespace nmopt::compiler::v1
           "neumann_control_boundary_presence",
           "Select Neumann-control boundary ids present on the compiled mesh.");
       if (uses_neumann_convection && control_boundary_region != nullptr &&
+          !request.transport_outflow_region_id.empty() &&
+          (transport_outflow_boundary_region == nullptr ||
+           transport_outflow_boundary_region->kind !=
+             semantic::v1::RegionKind::boundary ||
+           transport_outflow_boundary_region->boundary_ids.empty() ||
+           !contains_all_boundary_ids(
+             triangulation,
+             boundary_ids(*transport_outflow_boundary_region))))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          request.transport_outflow_region_id,
+          "neumann_convection_outflow_boundary_presence",
+          "Select natural outflow boundary ids present on the compiled mesh.");
+      if (uses_neumann_convection && control_boundary_region != nullptr &&
           !forms_complete_boundary_partition(
             triangulation,
             dirichlet_boundary_ids,
-            boundary_ids(*control_boundary_region)))
+            boundary_ids(*control_boundary_region),
+            transport_outflow_boundary_region == nullptr
+              ? std::set<dealii::types::boundary_id>{}
+              : boundary_ids(*transport_outflow_boundary_region)))
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.formulation.state_variable_id,
           "complete_neumann_convection_boundary_partition",
-          "Partition every exterior boundary face into the declared fixed-Dirichlet or Neumann-control region.");
+          "Partition every exterior boundary face into the declared fixed-Dirichlet, Neumann-control, or natural outflow region.");
       if (uses_neumann_boundary_control && !uses_neumann_convection &&
           tracking_region != nullptr &&
           !contains_all_boundary_ids(triangulation,
@@ -3111,11 +3137,18 @@ namespace nmopt::compiler::v1
     forms_complete_boundary_partition(
       const dealii::Triangulation<dim> &              triangulation,
       const std::set<dealii::types::boundary_id> &fixed_ids,
-      const std::set<dealii::types::boundary_id> &robin_ids)
+      const std::set<dealii::types::boundary_id> &robin_ids,
+      const std::set<dealii::types::boundary_id> &natural_ids =
+        std::set<dealii::types::boundary_id>{})
     {
-      if (std::any_of(fixed_ids.begin(), fixed_ids.end(), [&robin_ids](auto id) {
-            return robin_ids.count(id) != 0;
-          }))
+      const auto overlaps = [](const auto &first, const auto &second) {
+        return std::any_of(first.begin(), first.end(), [&second](auto id) {
+          return second.count(id) != 0;
+        });
+      };
+      if (overlaps(fixed_ids, robin_ids) ||
+          overlaps(fixed_ids, natural_ids) ||
+          overlaps(robin_ids, natural_ids))
         return false;
       bool has_boundary_face = false;
       for (auto cell = triangulation.begin_active();
@@ -3128,7 +3161,9 @@ namespace nmopt::compiler::v1
             {
               has_boundary_face = true;
               const auto id = cell->face(face)->boundary_id();
-              if (fixed_ids.count(id) + robin_ids.count(id) != 1)
+              if (fixed_ids.count(id) + robin_ids.count(id) +
+                    natural_ids.count(id) !=
+                  1)
                 return false;
             }
       return has_boundary_face;

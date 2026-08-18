@@ -23,6 +23,17 @@ namespace nmopt::application::chapter6
   inline constexpr const char *b2_recipe_id =
     chapter5::neumann_convection_recipe_id;
 
+  inline constexpr unsigned int b2_fixed_boundary_id = 0;
+  inline constexpr unsigned int b2_control_boundary_id = 1;
+  inline constexpr unsigned int b2_outflow_boundary_id = 2;
+
+  inline constexpr const char *b2_fixed_boundary_region_id =
+    "dirichlet_boundary";
+  inline constexpr const char *b2_control_boundary_region_id =
+    "control_boundary";
+  inline constexpr const char *b2_outflow_boundary_region_id =
+    "outflow_boundary";
+
   enum class ProductSelection
   {
     reduced_dto,
@@ -316,6 +327,39 @@ namespace nmopt::application::chapter6
   {
     auto specification =
       chapter5::make_neumann_convection_recipe()(parameters.recipe);
+
+    const auto partition_policy = std::find_if(
+      specification.requirement_policies.begin(),
+      specification.requirement_policies.end(),
+      [](const semantic::v1::RequirementPolicySpec &policy) {
+        return policy.id == "neumann_convection_partition";
+      });
+    if (partition_policy == specification.requirement_policies.end())
+      throw std::invalid_argument(
+        "B2 requires the registered Neumann-convection boundary partition");
+
+    specification.regions.push_back(
+      {b2_outflow_boundary_region_id,
+       "Natural transport outflow boundary",
+       semantic::v1::RegionKind::boundary,
+       false,
+       {b2_outflow_boundary_id},
+       {},
+       {}});
+    partition_policy->selected_policy =
+      "disjoint complete fixed-Dirichlet, Neumann-control, and natural outflow boundary regions; the Neumann datum is the conormal flux of the conservative transport form";
+    partition_policy->typed_selection = semantic::v1::BoundaryRealisationSelection{
+      partition_policy->id,
+      "state",
+      b2_fixed_boundary_region_id,
+      b2_outflow_boundary_region_id,
+      {},
+      {},
+      b2_outflow_boundary_region_id,
+      semantic::v1::ConormalForm::diffusion_minus_transport,
+      semantic::v1::NormalOrientation::outward,
+      semantic::v1::TraceEvaluationRealisation::fe_q_state_trace,
+      semantic::v1::FaceQuadratureRealisation::qgauss_face};
     add_b2_fixed_dirichlet_reconstruction(specification);
     return specification;
   }

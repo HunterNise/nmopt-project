@@ -234,10 +234,22 @@ namespace nmopt::application::chapter6::dealii
           if (cell->face(face)->at_boundary())
             {
               const auto face_center = cell->face(face)->center();
+              const bool left_boundary = is_close(face_center[0], 0.0);
+              const bool right_boundary = is_close(face_center[0], 4.0);
+              const bool horizontal_boundary =
+                is_close(face_center[1], 0.0) ||
+                is_close(face_center[1], 1.0);
+              if (!left_boundary && !right_boundary && !horizontal_boundary)
+                throw std::invalid_argument(
+                  "B2 mesh contains an unclassified exterior boundary face");
               const auto boundary_id =
-                is_close(face_center[0], 0.0)
-                  ? 0
-                  : 1;
+                left_boundary
+                  ? chapter6::b2_fixed_boundary_id
+                  : right_boundary
+                    ? chapter6::b2_outflow_boundary_id
+                    : face_center[0] < 1.0
+                      ? chapter6::b2_fixed_boundary_id
+                      : chapter6::b2_control_boundary_id;
               cell->face(face)->set_boundary_id(boundary_id);
             }
       }

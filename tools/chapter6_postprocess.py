@@ -14,9 +14,7 @@ import argparse
 import json
 import os
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 os.environ.setdefault(
     "MPLCONFIGDIR",
@@ -34,98 +32,16 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 from matplotlib.tri import Triangulation
 
-
-class PostprocessError(RuntimeError):
-    """An input artifact cannot be rendered by this post-processor."""
-
-
-@dataclass(frozen=True)
-class ScalarField:
-    name: str
-    values: np.ndarray
-    location: str
-    block_index: int | None
-
-
-def unescape(value: str) -> str:
-    decoded: list[str] = []
-    index = 0
-    escaped = {"\\": "\\", "n": "\n", "r": "\r", "t": "\t", "=": "="}
-    while index < len(value):
-        if value[index] == "\\" and index + 1 < len(value):
-            decoded.append(escaped.get(value[index + 1], value[index + 1]))
-            index += 2
-        else:
-            decoded.append(value[index])
-            index += 1
-    return "".join(decoded)
-
-
-def read_metadata(artifact: Path) -> dict[str, str]:
-    path = artifact / "artifact.kv"
-    if not path.is_file():
-        return {}
-    values: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line and "=" in line:
-            key, value = line.split("=", 1)
-            values[key] = unescape(value)
-    return values
-
-
-def first_existing(artifact: Path, names: Iterable[str]) -> Path | None:
-    candidates = [artifact / "native" / name for name in names]
-    candidates.extend(artifact / name for name in names)
-    return next((path for path in candidates if path.is_file()), None)
-
-
-def scalar_values(values: object, name: str) -> np.ndarray:
-    array = np.asarray(values)
-    if array.ndim == 1:
-        return array.astype(float, copy=False)
-    if array.ndim == 2 and array.shape[1] == 1:
-        return array[:, 0].astype(float, copy=False)
-    raise PostprocessError(f"field '{name}' is not scalar")
-
-
-def find_field(mesh: meshio.Mesh, name: str) -> ScalarField | None:
-    if name in mesh.point_data:
-        return ScalarField(
-            name,
-            scalar_values(mesh.point_data[name], name),
-            "point",
-            None,
-        )
-
-    for block_index, arrays in enumerate(mesh.cell_data.get(name, [])):
-        return ScalarField(
-            name,
-            scalar_values(arrays, name),
-            "cell",
-            block_index,
-        )
-    return None
-
-
-def volume_block(mesh: meshio.Mesh) -> tuple[int, meshio.CellBlock]:
-    for index, block in enumerate(mesh.cells):
-        if block.type in {"triangle", "quad", "polygon"}:
-            return index, block
-    raise PostprocessError("volume field file contains no 2D cells")
-
-
-def triangulate(block: meshio.CellBlock) -> tuple[np.ndarray, np.ndarray]:
-    triangles: list[list[int]] = []
-    owners: list[int] = []
-    for cell_index, cell in enumerate(block.data):
-        if len(cell) < 3:
-            continue
-        for vertex in range(1, len(cell) - 1):
-            triangles.append([int(cell[0]), int(cell[vertex]), int(cell[vertex + 1])])
-            owners.append(cell_index)
-    if not triangles:
-        raise PostprocessError("volume mesh contains no renderable triangles")
-    return np.asarray(triangles, dtype=int), np.asarray(owners, dtype=int)
+from nmopt_postprocess import (
+    PostprocessError,
+    ScalarField,
+    boundary_field_block,
+    find_field,
+    first_existing,
+    read_metadata,
+    triangulate,
+    volume_block,
+)
 
 
 def axes_title(metadata: dict[str, str], field_name: str) -> str:
@@ -205,17 +121,6 @@ def plot_volume_field(
     axis.set_title(axes_title(metadata, field.name))
     figure.colorbar(image, ax=axis, label=field.name)
     return save_figure(figure, output)
-
-
-def boundary_field_block(
-    mesh: meshio.Mesh, field: ScalarField
-) -> tuple[int, meshio.CellBlock]:
-    if field.location != "cell" or field.block_index is None:
-        raise PostprocessError("boundary control must be cell data on line cells")
-    block = mesh.cells[field.block_index]
-    if block.type not in {"line", "line3"}:
-        raise PostprocessError("boundary control is not attached to line cells")
-    return field.block_index, block
 
 
 def draw_boundary_field(

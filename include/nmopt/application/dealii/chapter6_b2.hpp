@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <functional>
 #include <iomanip>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -289,6 +290,45 @@ namespace nmopt::application::chapter6::dealii
     return output.str();
   }
 
+  inline const char *
+  b2_observation_region(const GraetzCase graetz_case)
+  {
+    switch (graetz_case)
+      {
+        case GraetzCase::observation_wings_constant_target:
+        case GraetzCase::observation_wings_parabolic_target:
+          return "wings";
+        case GraetzCase::observation_full_constant_target:
+        case GraetzCase::observation_full_parabolic_target:
+          return "full";
+        default:
+          throw std::invalid_argument("B2 has an unknown observation region");
+      }
+  }
+
+  inline const char *
+  b2_target_profile(const GraetzCase graetz_case)
+  {
+    switch (graetz_case)
+      {
+        case GraetzCase::observation_wings_constant_target:
+        case GraetzCase::observation_full_constant_target:
+          return "constant";
+        case GraetzCase::observation_wings_parabolic_target:
+        case GraetzCase::observation_full_parabolic_target:
+          return "parabolic";
+        default:
+          throw std::invalid_argument("B2 has an unknown target profile");
+      }
+  }
+
+  inline double
+  b2_relative_reduction(const double initial, const double final)
+  {
+    return (initial - final) /
+           std::max(std::abs(initial), std::numeric_limits<double>::epsilon());
+  }
+
   inline std::string
   b2_history(const std::vector<double> &history)
   {
@@ -301,6 +341,172 @@ namespace nmopt::application::chapter6::dealii
         output << history[index];
       }
     return output.str();
+  }
+
+  template <typename Backend>
+  double
+  b2_block_values_l2_norm(const contract::BlockValuesT<Backend> &values)
+  {
+    double squared_norm = 0.0;
+    for (std::size_t block = 0; block < values.n_blocks(); ++block)
+      squared_norm += Backend::dot(values.block(block), values.block(block));
+    return std::sqrt(std::max(0.0, squared_norm));
+  }
+
+  template <typename Backend>
+  struct B2DerivativeEvidenceT
+  {
+    double residual_jvp_error;
+    double residual_vjp_error;
+    double reduced_gradient_finite_difference_error;
+    double reduced_taylor_step;
+    double reduced_taylor_error;
+    double reduced_taylor_order;
+    double initial_objective;
+    double initial_gradient_norm;
+  };
+
+  template <typename Backend>
+  contract::PrimalBlockT<Backend>
+  b2_shifted_point(const contract::PrimalBlockT<Backend> &point,
+                   const contract::PrimalBlockT<Backend> &direction,
+                   const double                            step)
+  {
+    contract::require(point.layout()->compatible_with(*direction.layout()),
+                      "B2 evidence uses incompatible full-point directions");
+    contract::PrimalBlockT<Backend> shifted = point;
+    for (std::size_t block = 0; block < shifted.n_blocks(); ++block)
+      shifted.add_scaled_block(block, step, direction.block(block));
+    return shifted;
+  }
+
+  template <typename Backend>
+  contract::PrimalBlockT<Backend>
+  b2_control_shifted(const contract::PrimalBlockT<Backend> &control,
+                     const contract::PrimalBlockT<Backend> &direction,
+                     const double                            step)
+  {
+    contract::require(control.layout()->compatible_with(*direction.layout()),
+                      "B2 evidence uses incompatible control directions");
+    contract::PrimalBlockT<Backend> shifted = control;
+    shifted.add_scaled_block(0, step, direction.block(0));
+    return shifted;
+  }
+
+  template <typename Backend>
+  B2DerivativeEvidenceT<Backend>
+  make_b2_derivative_evidence(
+    const compiler::v1::CompiledProblemT<Backend> &problem,
+    const contract::ReducedDTOT<Backend> &         reduced,
+    const contract::StateControlPartitionT<Backend> &partition,
+    const contract::PrimalBlockT<Backend> &        initial_control)
+  {
+    using Primal = contract::PrimalBlockT<Backend>;
+    using Covector = contract::CovectorBlockT<Backend>;
+    using Vector = typename Backend::Vector;
+
+    const auto &model = problem.executable_model();
+    const Primal zero_point = Primal::zeros(model.variable_layout());
+    Vector state_direction_values(model.variable_layout()->dimension(0));
+    Vector control_direction_values(model.variable_layout()->dimension(1));
+    for (std::size_t index = 0;
+         index < state_direction_values.size();
+         ++index)
+      state_direction_values[index] =
+        (index % 2 == 0 ? 0.02 : -0.015) * static_cast<double>(index + 1);
+    for (std::size_t index = 0;
+         index < control_direction_values.size();
+         ++index)
+      control_direction_values[index] =
+        (index % 2 == 0 ? -0.03 : 0.025) * static_cast<double>(index + 1);
+    const Primal full_direction(model.variable_layout(),
+                                {std::move(state_direction_values),
+                                 std::move(control_direction_values)});
+
+    Vector test_seed_values(model.test_layout()->dimension(0));
+    for (std::size_t index = 0; index < test_seed_values.size(); ++index)
+      test_seed_values[index] =
+        (index % 3 == 0 ? 0.01 : -0.02) * static_cast<double>(index + 1);
+    const Primal test_seed(model.test_layout(), {std::move(test_seed_values)});
+
+    constexpr double residual_step = 1.0e-6;
+    const Covector residual_zero = model.residual(zero_point);
+    const Covector residual_plus = model.residual(
+      b2_shifted_point(zero_point, full_direction, residual_step));
+    const Covector residual_jvp =
+      model.residual_jvp(zero_point, full_direction);
+    Covector residual_finite_difference = residual_plus;
+    residual_finite_difference.add_scaled_block(
+      0, -1.0, residual_zero.block(0));
+    residual_finite_difference.scale_block(0, 1.0 / residual_step);
+    residual_finite_difference.add_scaled_block(
+      0, -1.0, residual_jvp.block(0));
+    const double residual_jvp_error =
+      b2_block_values_l2_norm(residual_finite_difference);
+
+    const Covector residual_transpose =
+      model.residual_vjp(zero_point, test_seed);
+    const double residual_vjp_error = std::abs(
+      contract::pair(residual_jvp, test_seed) -
+      contract::pair(residual_transpose, full_direction));
+
+    Vector reduced_direction_values(partition.control_layout()->dimension(0));
+    for (std::size_t index = 0; index < reduced_direction_values.size(); ++index)
+      reduced_direction_values[index] =
+        (index % 2 == 0 ? 0.03 : -0.02) * static_cast<double>(index + 1);
+    const Primal reduced_direction(partition.control_layout(),
+                                   {std::move(reduced_direction_values)});
+
+    constexpr double taylor_step = 1.0e-4;
+    const auto base_evaluation = reduced.evaluate(initial_control);
+    const auto plus_evaluation = reduced.evaluate(b2_control_shifted(
+      initial_control, reduced_direction, taylor_step));
+    const auto minus_evaluation = reduced.evaluate(b2_control_shifted(
+      initial_control, reduced_direction, -taylor_step));
+    const auto half_plus_evaluation = reduced.evaluate(b2_control_shifted(
+      initial_control, reduced_direction, 0.5 * taylor_step));
+    const double directional_derivative = contract::pair(
+      base_evaluation.reduced_derivative, reduced_direction);
+    const double central_derivative =
+      (plus_evaluation.objective_value - minus_evaluation.objective_value) /
+      (2.0 * taylor_step);
+    const double reduced_gradient_finite_difference_error =
+      std::abs(central_derivative - directional_derivative);
+    const double taylor_error = std::abs(
+      plus_evaluation.objective_value - base_evaluation.objective_value -
+      taylor_step * directional_derivative);
+    const double half_taylor_error = std::abs(
+      half_plus_evaluation.objective_value - base_evaluation.objective_value -
+      0.5 * taylor_step * directional_derivative);
+    const double taylor_order =
+      taylor_error > std::numeric_limits<double>::epsilon() &&
+          half_taylor_error > std::numeric_limits<double>::epsilon()
+        ? std::log(taylor_error / half_taylor_error) / std::log(2.0)
+        : std::numeric_limits<double>::infinity();
+
+    contract::require(std::isfinite(residual_jvp_error) &&
+                        std::isfinite(residual_vjp_error) &&
+                        std::isfinite(reduced_gradient_finite_difference_error) &&
+                        std::isfinite(taylor_error) &&
+                        std::isfinite(taylor_order),
+                      "B2 derivative evidence produced a non-finite value");
+    contract::require(residual_jvp_error <= 1.0e-7,
+                      "B2 residual JVP finite-difference evidence failed");
+    contract::require(residual_vjp_error <= 1.0e-7,
+                      "B2 residual VJP transpose evidence failed");
+    contract::require(reduced_gradient_finite_difference_error <= 1.0e-7,
+                      "B2 reduced gradient finite-difference evidence failed");
+    contract::require(taylor_order >= 1.5,
+                      "B2 reduced Taylor evidence failed");
+
+    return {residual_jvp_error,
+            residual_vjp_error,
+            reduced_gradient_finite_difference_error,
+            taylor_step,
+            taylor_error,
+            taylor_order,
+            base_evaluation.objective_value,
+            b2_block_values_l2_norm(base_evaluation.reduced_derivative)};
   }
 
   template <int dim>
@@ -359,6 +565,8 @@ namespace nmopt::application::chapter6::dealii
         compilation.problem->executable_model(), 0, 1);
       const auto initial_control =
         contract::PrimalBlockT<Backend>::zeros(partition.control_layout());
+      const auto derivative_evidence = make_b2_derivative_evidence(
+        *compilation.problem, reduced, partition, initial_control);
       const auto report =
         solvers::ReducedFullBfgsSolverT<Backend>(
           reduced,
@@ -379,6 +587,14 @@ namespace nmopt::application::chapter6::dealii
                                      report.control,
                                      report.final_evaluation.adjoint);
         }
+      contract::require(!report.objective_history.empty() &&
+                          !report.gradient_norm_history.empty(),
+                        "B2 solver did not retain objective and gradient histories");
+      const double initial_objective = report.objective_history.front();
+      const double final_objective = report.objective_history.back();
+      const double initial_gradient_norm =
+        report.gradient_norm_history.front();
+      const double final_gradient_norm = report.gradient_norm_history.back();
       const auto solver_policy =
         experiment::make_reduced_search_policy_snapshot(report);
 
@@ -396,9 +612,38 @@ namespace nmopt::application::chapter6::dealii
 
       std::vector<benchmark::ArtifactField> fields{
         {"b2.graetz_case", graetz_case_name(scenario.problem.graetz_case)},
+        {"b2.observation_region",
+         b2_observation_region(scenario.problem.graetz_case)},
+        {"b2.target_profile", b2_target_profile(scenario.problem.graetz_case)},
         {"b2.fixed_temperature", b2_number(scenario.problem.fixed_temperature)},
         {"b2.regularisation_weight",
          b2_number(scenario.problem.data.regularisation_weight)},
+        {"b2.derivative_evidence", "finite_difference_and_taylor"},
+        {"b2.residual_jvp_error",
+         b2_number(derivative_evidence.residual_jvp_error)},
+        {"b2.residual_vjp_error",
+         b2_number(derivative_evidence.residual_vjp_error)},
+        {"b2.reduced_gradient_finite_difference_error",
+         b2_number(derivative_evidence.reduced_gradient_finite_difference_error)},
+        {"b2.reduced_taylor_step",
+         b2_number(derivative_evidence.reduced_taylor_step)},
+        {"b2.reduced_taylor_error",
+         b2_number(derivative_evidence.reduced_taylor_error)},
+        {"b2.reduced_taylor_order",
+         b2_number(derivative_evidence.reduced_taylor_order)},
+        {"b2.derivative_evidence_passed", "true"},
+        {"b2.initial_objective", b2_number(initial_objective)},
+        {"b2.final_objective", b2_number(final_objective)},
+        {"b2.relative_objective_reduction",
+         b2_number(b2_relative_reduction(initial_objective, final_objective))},
+        {"b2.initial_gradient_norm", b2_number(initial_gradient_norm)},
+        {"b2.final_gradient_norm", b2_number(final_gradient_norm)},
+        {"b2.relative_gradient_reduction",
+         b2_number(b2_relative_reduction(initial_gradient_norm,
+                                         final_gradient_norm))},
+        {"b2.state_l2_norm",
+         b2_number(b2_block_values_l2_norm(report.final_evaluation.state))},
+        {"b2.control_l2_norm", b2_number(b2_block_values_l2_norm(report.control))},
         {"solver.method", "bfgs"},
         {"solver.initial_control", scenario.solver.initial_control},
         {"solver.policy", report.policy_name},

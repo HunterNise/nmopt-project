@@ -375,11 +375,12 @@ solver traces; the final gradient norms remain above the configured tolerance.
 This is a documented Galerkin/solver-policy limitation, not a failed
 compilation, and stabilization remains excluded.
 
-B2 reproduction is verified, but acceptance remains open. The refreshed
-`artifact.kv` records do not yet contain residual JVP/VJP, reduced-Taylor, or
-explicit state/control comparison evidence. The existing B2 contract exercises
-related compilation and native-output checks, but the runner must persist these
-benchmark evidence fields before B2 can be acceptance-complete.
+B2 reproduction is verified, but acceptance remains open. The B2 adapter now
+computes and persists residual JVP/VJP, reduced-Taylor, objective/gradient
+reduction, and case-label/state/control diagnostics; the focused Debug contract
+and a four-case Debug runner smoke test verify their artifact serialization.
+The authoritative release artifacts above predate those fields, and the report
+must still project and compare them before B2 can be acceptance-complete.
 
 ## Activation gate
 

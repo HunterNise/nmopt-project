@@ -184,6 +184,48 @@ namespace
     require(result.document.find("b2.fixed_temperature=1") !=
               std::string::npos,
             "B2 deal.II adapter omitted fixed-temperature evidence");
+    const auto expected_observation_region =
+      graetz_case == chapter6::GraetzCase::observation_wings_constant_target ||
+          graetz_case == chapter6::GraetzCase::observation_wings_parabolic_target
+        ? "wings"
+        : "full";
+    const auto expected_target_profile =
+      graetz_case == chapter6::GraetzCase::observation_wings_constant_target ||
+          graetz_case == chapter6::GraetzCase::observation_full_constant_target
+        ? "constant"
+        : "parabolic";
+    require(result.document.find(
+              std::string("b2.observation_region=") +
+              expected_observation_region + "\n") != std::string::npos,
+            "B2 deal.II adapter omitted observation-region evidence");
+    require(result.document.find(std::string("b2.target_profile=") +
+                                 expected_target_profile + "\n") !=
+              std::string::npos,
+            "B2 deal.II adapter omitted target-profile evidence");
+    require(result.document.find("b2.residual_jvp_error=") !=
+              std::string::npos &&
+              result.document.find("b2.residual_vjp_error=") !=
+                std::string::npos &&
+              result.document.find(
+                "b2.reduced_gradient_finite_difference_error=") !=
+                std::string::npos &&
+              result.document.find("b2.reduced_taylor_order=") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted derivative evidence");
+    require(result.document.find("b2.derivative_evidence_passed=true\n") !=
+              std::string::npos &&
+              result.document.find("b2.initial_objective=") !=
+                std::string::npos &&
+              result.document.find("b2.final_objective=") !=
+                std::string::npos &&
+              result.document.find("b2.relative_gradient_reduction=") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted reduction evidence");
+    require(result.document.find("b2.state_l2_norm=") !=
+              std::string::npos &&
+              result.document.find("b2.control_l2_norm=") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted state/control evidence");
     require(result.document.find("solver.method=bfgs\n") !=
             std::string::npos,
             "B2 deal.II adapter omitted solver-method evidence");

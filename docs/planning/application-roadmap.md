@@ -276,14 +276,18 @@ execution-policy limitations.
 
 ### A6 — Refresh B2 reproduction evidence
 
-**Status:** reproduction-verified; acceptance evidence incomplete.
+**Status:** reproduction-verified; artifact evidence implemented; report and
+release refresh pending.
 
 The four-case source-scale matrix was refreshed with the authorized
-ordinary-normal convention and the benchmark-default refinement 7. The next
-small unit must add residual JVP/VJP, reduced-Taylor, objective/gradient
-reduction, and explicit four-case state/control comparison fields to the B2
-artifact contract, then rerun the release matrix. Record any remaining
-Galerkin limitation without silently activating stabilization.
+ordinary-normal convention and the benchmark-default refinement 7. The B2
+adapter now computes and persists residual JVP/VJP, reduced-Taylor,
+objective/gradient reduction, and case-label/state/control diagnostics; the
+focused Debug contract verifies the fields. The next small unit must project
+these values into the report and compare the four cases, then request
+permission before rebuilding `release-dealii` and refreshing the authoritative
+matrix. Record any remaining Galerkin limitation without silently activating
+stabilization.
 
 ### A7 — Add Python post-processing
 
@@ -339,11 +343,10 @@ Known limitations:
 Next unit:
 ```
 
-The next remaining application unit is the B2 evidence-completion subunit:
-persist residual JVP/VJP, reduced-Taylor, and state/control comparison
-diagnostics in the artifact and report contracts. It requires a source change;
-Debug verification comes first, and an explicit permission request is required
-before rebuilding `release-dealii` and rerunning the authoritative matrix.
+The next remaining application unit is the B2 report-evidence subunit: project
+the new artifact diagnostics into the report and add the four-case comparison.
+It must be followed by an explicit permission request before rebuilding
+`release-dealii` and rerunning the authoritative matrix.
 
 ## Exclusions
 

@@ -126,20 +126,23 @@ deal.II execution adapters are implemented. The current code also has B1
 Hessian evidence, Armijo trial traces, and native VTU field export for the
 selected applications.
 
-The acceptance state is still open:
+The current acceptance state is:
 
 ### B0
 
-B0 execution plumbing is implemented. The remaining application work is to
-make the run-set identity, artifact inventory, failure records, and report
-scope explicit rather than relying on recursive discovery below `runs/`.
+B0 execution plumbing, manifest selection, artifact inventory, failure records,
+and deterministic report scope are implemented. The benchmark-specific
+acceptance evidence is tracked below.
 
 ### B1
 
-The six source-scale artifacts under `runs/` predate the later solver-trace,
-native-field, and finite-difference Hessian additions. Refinement-1
-development artifacts contain the newer evidence. B1 requires a refreshed
-source-scale matrix before it can be marked acceptance-complete.
+The authoritative release run set at
+`runs/chapter-6/b1/authoritative/` is complete at the benchmark-default
+refinement 7. All six artifacts contain solver traces, native mesh/field
+exports, provenance, and passed centered finite-difference Hessian evidence.
+B1 is acceptance-complete for the current framework-native contract. The
+lower-regularisation cases still record iteration-limit or line-search
+limitations, which are part of the reported result.
 
 ### B2
 
@@ -260,12 +263,15 @@ with their diagnostics in `summary.csv` and `summary.md`.
 
 ### A5 — Refresh B1 reproduction evidence
 
-**Status:** planned.
+**Status:** reproduction-verified; acceptance-complete for the current
+framework-native contract.
 
-Run the current six-case B1 matrix with `release-dealii`, retain native fields
-and solver traces, verify the Hessian evidence, and generate a report from that
-run set only. Mark B1 acceptance-complete only when the frozen evidence list is
-present.
+The six-case B1 matrix was run with `release-dealii` without a runner-level
+refinement override, so the benchmark supplied refinement 7. The authoritative
+run set retains native fields, the `GridOut` mesh SVG, solver traces, passed
+centered finite-difference Hessian evidence, and a manifest-driven report. The
+lower-$\beta$ iteration-limit and line-search outcomes remain documented
+execution-policy limitations.
 
 ### A6 — Refresh B2 reproduction evidence
 
@@ -330,10 +336,10 @@ Known limitations:
 Next unit:
 ```
 
-The next remaining application unit is A5 B1 reproduction evidence: refresh the
-six source-scale artifacts under the authorized `release-dealii` profile,
-retain the native fields and solver traces, and generate the report from that
-run manifest only. This handoff must stop before the B2 reproduction refresh.
+The next remaining application unit is A6 B2 reproduction evidence: refresh the
+four source-scale artifacts under the authorized `release-dealii` profile,
+retain the native volume and boundary-control fields and solver traces, and
+generate the report from that run manifest only.
 
 ## Exclusions
 

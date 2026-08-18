@@ -241,20 +241,26 @@ changing the frozen formulation.
 
 ### Current B1 status
 
-The six source-scale framework-native runs execute with valid diagnostics and
-show the selected qualitative trends: decreasing $\beta$ lowers the final
-objective, and L-BFGS is substantially faster than steepest descent for
-$\beta=10^{-1}$. The lower-$\beta$ runs reach the generic iteration limit or a
-floating-point line-search floor before the configured gradient tolerance; this
-is an execution-policy limitation, not a failed PDE compilation.
+The authoritative run set
+`runs/chapter-6/b1/authoritative/` was executed with `release-dealii` and no
+refinement override, giving the benchmark-default refinement 7. Its manifest
+is `complete` with six successful artifacts. Every case contains
+`solver-trace.csv`, `native/mesh-volume.vtu`, `native/mesh-volume.svg`, and
+`native/fields-volume.vtu`; meshio confirms 65,536 vertices, 16,384 cells, and
+the `state`, `adjoint`, and `control` field arrays in each volume dataset.
 
-These runs are not absolute source-value reproductions because the frozen B1
-forcing is manufactured zero forcing. The current artifact directories contain
-the serialized `artifact.kv` records, but the source-scale records predate the
-later `solver-trace.csv` and VTU sidecar exports, and they do not yet contain
-the required finite-difference Hessian evidence. B1 is therefore a sound
-framework validation path, but its acceptance handoff remains open until the
-evidence set is refreshed or the missing evidence is supplied.
+All six artifacts record passed centered finite-difference Hessian evidence,
+with errors near $4\times10^{-13}$. The results show decreasing final
+objective as $\beta$ decreases. L-BFGS uses substantially fewer accepted
+iterations than steepest descent for $\beta=10^{-1}$ and modestly fewer for
+$\beta=10^{-2}$; both methods reach their generic iteration limit at
+$\beta=10^{-3}$, while L-BFGS also records a line-search failure at
+$\beta=10^{-2}$. These are reported execution-policy limitations, not failed
+PDE compilation.
+
+B1 is acceptance-complete for the current framework-native contract. It is not
+an absolute source-value reproduction because the frozen B1 forcing is
+manufactured zero forcing.
 
 ## B2 — E6.5.2 Graetz-flow boundary control
 

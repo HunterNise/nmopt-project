@@ -67,11 +67,11 @@ meaning or introducing a second lowerer.
 Artifact paths are deterministic and owned by the runner:
 
 ```text
-runs/chapter-6.b1.distributed-laplace/<method>/beta-<value>/artifact.kv
-runs/chapter-6.b2.graetz-flow/<case>/artifact.kv
-<each run directory>/solver-trace.csv
-<each run directory>/fields.vtu
-<each B2 run directory>/control.vtu
+<output>/chapter-6/b1/<run-slot>/<method>/beta-<value>/artifact.kv
+<output>/chapter-6/b2/<run-slot>/<case>/artifact.kv
+<each artifact directory>/solver-trace.csv
+<each artifact directory>/fields.vtu
+<each B2 artifact directory>/control.vtu
 ```
 
 The B1 `<method>` values are `steepest-descent` and `l-bfgs`; the B2 `<case>`

@@ -2,6 +2,7 @@
 #include "nmopt/application/chapter6.hpp"
 #include "../support/scenario_dispatch.hpp"
 
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
@@ -69,6 +70,14 @@ namespace
               nmopt::application::chapter6::b2_default_mesh_refinement,
             "B2 should supply its own mesh default");
     nmopt::application::runner::validate_run_policy(options, "release-dealii");
+    const auto reproduction =
+      nmopt::application::runner::resolve_run_configuration(
+        options, "release-dealii");
+    require(
+        reproduction.run_directory ==
+        std::filesystem::path(
+          "runs/chapter-6/b1/authoritative"),
+      "reproduction runs should use the organized run-set layout");
 
     const auto alternate_mesh = parse({"nmopt_runner",
                                        "--benchmark",
@@ -89,19 +98,45 @@ namespace
       },
       "a non-release build should not pass reproduction policy");
 
-    const auto development = parse({"nmopt_runner",
-                                    "--benchmark",
-                                    "b2",
-                                    "--framework-revision",
-                                    "source-revision",
-                                    "--run-kind",
-                                    "development",
-                                    "--refinement",
-                                    "1"});
+    auto development = parse({"nmopt_runner",
+                               "--benchmark",
+                               "b2",
+                               "--framework-revision",
+                               "source-revision",
+                               "--run-kind",
+                               "development",
+                               "--refinement",
+                               "1"});
     require(development.run_kind == RunKind::development,
             "the development run kind was not parsed");
     nmopt::application::runner::validate_run_policy(development,
                                                     "debug-dealii");
+    const auto temporary_root =
+      std::filesystem::temp_directory_path() /
+      "nmopt-runner-contract-layout";
+    std::filesystem::remove_all(temporary_root);
+    std::filesystem::create_directories(
+      temporary_root / "chapter-6" / "b2" / "development" / "001");
+    development.output_directory = temporary_root;
+    const auto development_configuration =
+      nmopt::application::runner::resolve_run_configuration(
+        development, "debug-dealii");
+    require(
+      development_configuration.run_directory ==
+        temporary_root / "chapter-6" / "b2" / "development" / "002",
+      "development runs should use the organized run-set layout");
+    std::filesystem::remove_all(temporary_root);
+
+    const auto revision_options = parse({"nmopt_runner",
+                                         "--benchmark",
+                                         "b1",
+                                         "--framework-revision",
+                                         "feature/branch"});
+    const auto revision_configuration =
+      nmopt::application::runner::resolve_run_configuration(
+        revision_options, "release-dealii");
+    require(revision_configuration.framework_revision == "feature/branch",
+            "framework revisions should remain metadata rather than paths");
   }
 
   void

@@ -52,6 +52,17 @@ namespace nmopt::application::runner
     std::optional<unsigned int> refinement_override;
   };
 
+  struct ResolvedRunConfiguration
+  {
+    std::filesystem::path        output_root;
+    std::filesystem::path        run_directory;
+    std::string                  benchmark;
+    std::string                  build_profile;
+    std::string                  framework_revision;
+    RunKind                      run_kind = RunKind::reproduction;
+    std::optional<unsigned int>  refinement_override;
+  };
+
   inline CommandLineOptions
   parse_command_line(const int argc, char **argv)
   {
@@ -162,6 +173,72 @@ namespace nmopt::application::runner
         "reproduction runs require a release-dealii build; compiled profile is '" +
         std::string(compiled_build_profile) +
         "'. Use --run-kind development for a development run");
+  }
+
+  inline std::string
+  benchmark_name(const CommandLineOptions &options)
+  {
+    if (options.run_b1)
+      return "b1";
+    if (options.run_b2)
+      return "b2";
+    throw std::invalid_argument(
+      "a run configuration needs a selected benchmark");
+  }
+
+  inline std::string
+  development_run_id(const unsigned int number)
+  {
+    auto value = std::to_string(number);
+    if (value.size() < 3)
+      value.insert(0, 3 - value.size(), '0');
+    return value;
+  }
+
+  inline std::filesystem::path
+  next_development_directory(const std::filesystem::path &benchmark_directory)
+  {
+    const auto development_directory = benchmark_directory / "development";
+    for (unsigned int number = 1;; ++number)
+      {
+        const auto candidate =
+          development_directory / development_run_id(number);
+        std::error_code error;
+        const bool exists = std::filesystem::exists(candidate, error);
+        if (error)
+          throw std::filesystem::filesystem_error(
+            "could not inspect development run directory", candidate, error);
+        if (!exists)
+          return candidate;
+      }
+  }
+
+  inline ResolvedRunConfiguration
+  resolve_run_configuration(const CommandLineOptions &options,
+                            const std::string_view  compiled_build_profile)
+  {
+    if (!options.run_b1 && !options.run_b2)
+      throw std::invalid_argument(
+        "a run configuration needs a selected benchmark");
+    validate_run_policy(options, compiled_build_profile);
+
+    const auto benchmark = benchmark_name(options);
+    const auto build_profile = std::string(compiled_build_profile);
+    const auto framework_revision = options.framework_revision;
+    const auto benchmark_directory =
+      options.output_directory / "chapter-6" / benchmark;
+    const auto run_directory =
+      options.run_kind == RunKind::reproduction
+        ? benchmark_directory / "authoritative"
+        : next_development_directory(benchmark_directory);
+
+    return {options.output_directory,
+            run_directory,
+            benchmark,
+            build_profile,
+            framework_revision,
+            options.run_kind,
+            options.refinement_override};
   }
 
   inline std::filesystem::path

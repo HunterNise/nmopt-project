@@ -71,7 +71,7 @@ namespace
            << "--list             list registered Chapter 5/6 application entries\n"
            << "--benchmark b1     run the frozen B1 matrix (six artifacts)\n"
            << "--benchmark b2     run the frozen B2 case batch (four artifacts)\n"
-           << "--output DIRECTORY set the runner-owned artifact root (default: runs)\n"
+           << "--output DIRECTORY set the generated run-set root (default: runs)\n"
            << "--run-kind KIND    use reproduction or development policy\n"
            << "--framework-revision REV\n"
            << "                   record the framework revision in each artifact\n"
@@ -370,13 +370,14 @@ namespace
   }
 
   void
-  run_b1(const nmopt::application::runner::CommandLineOptions &options)
+  run_b1(const nmopt::application::runner::ResolvedRunConfiguration &configuration)
   {
     using namespace nmopt::application;
     using namespace chapter6;
     using Runner = benchmark::HeadlessBenchmarkRunnerT<B1Scenario>;
     using Adapter =
       nmopt::application::chapter6::dealii::B1ReducedExecutionAdapterT<2>;
+    const auto &output_directory = configuration.run_directory;
 
     const std::vector<ReducedMethod> methods{
       ReducedMethod::steepest_descent,
@@ -390,13 +391,13 @@ namespace
             auto scenario = base_scenario;
             scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
             const auto beta_slug = b1_beta_slug(beta);
-            const auto refinement = options.refinement_override.value_or(
+            const auto refinement = configuration.refinement_override.value_or(
               scenario.compile.mesh.refinement);
             scenario.compile.mesh.refinement = refinement;
             scenario.compile.mesh.mesh_provenance =
               b1_mesh_provenance(refinement);
             scenario.experiment.harness.artifact_directory =
-              options.output_directory.string();
+              output_directory.string();
             scenario.experiment.scenario_output_id =
               "chapter-6.b1.distributed-laplace." +
               std::string(method_slug) + ".beta-" + beta_slug;
@@ -408,9 +409,8 @@ namespace
                 make_b1_compilation_session<2>(scenario);
             const auto environment = make_environment(scenario);
             const auto path = runner::artifact_path(
-              options.output_directory,
-              {"chapter-6.b1.distributed-laplace",
-               method_slug,
+              output_directory,
+              {method_slug,
                "beta-" + std::string(beta_slug)});
             Adapter execute{beta,
                             runtime,
@@ -428,8 +428,8 @@ namespace
                                        run_scenario,
                                        method,
                                        beta,
-                                       options.framework_revision,
-                                       options.run_kind);
+                                       configuration.framework_revision,
+                                       configuration.run_kind);
                 return evidence;
               });
 
@@ -442,26 +442,27 @@ namespace
   }
 
   void
-  run_b2(const nmopt::application::runner::CommandLineOptions &options)
+  run_b2(const nmopt::application::runner::ResolvedRunConfiguration &configuration)
   {
     using namespace nmopt::application;
     using namespace chapter6;
     using Runner = benchmark::HeadlessBenchmarkRunnerT<B2Scenario>;
     using Adapter =
       nmopt::application::chapter6::dealii::B2ReducedExecutionAdapterT<2>;
+    const auto &output_directory = configuration.run_directory;
 
     for (const auto graetz_case : b2_case_order)
       {
         auto scenario = make_b2_scenario(graetz_case);
         scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
         const auto case_slug = graetz_case_name(graetz_case);
-        const auto refinement = options.refinement_override.value_or(
+        const auto refinement = configuration.refinement_override.value_or(
           scenario.compile.mesh.refinement);
         scenario.compile.mesh.refinement = refinement;
         scenario.compile.mesh.mesh_provenance =
           b2_mesh_provenance(refinement);
         scenario.experiment.harness.artifact_directory =
-          options.output_directory.string();
+          output_directory.string();
         scenario.experiment.scenario_output_id =
           "chapter-6.b2.graetz-flow." + std::string(case_slug);
 
@@ -476,8 +477,8 @@ namespace
             make_b2_compilation_session<2>(scenario);
         const auto environment = make_environment(scenario);
         const auto path = runner::artifact_path(
-          options.output_directory,
-          {"chapter-6.b2.graetz-flow", case_slug});
+          output_directory,
+          {case_slug});
         Adapter execute{runtime, session, environment, path.parent_path()};
         Runner runner(scenario);
         const auto result = runner.run(
@@ -488,8 +489,8 @@ namespace
             auto evidence = execute(specification, run_scenario);
             add_b2_artifact_fields(evidence,
                                    run_scenario,
-                                   options.framework_revision,
-                                   options.run_kind);
+                                   configuration.framework_revision,
+                                   configuration.run_kind);
             return evidence;
           });
 
@@ -508,8 +509,6 @@ main(const int argc, char **argv)
     {
       const auto options =
         nmopt::application::runner::parse_command_line(argc, argv);
-      nmopt::application::runner::validate_run_policy(
-        options, NMOPT_COMPILED_BUILD_PROFILE);
       if (options.help)
         {
           print_usage(std::cout);
@@ -518,13 +517,19 @@ main(const int argc, char **argv)
 
       if (options.run_b1)
         {
-          run_b1(options);
+          const auto configuration =
+            nmopt::application::runner::resolve_run_configuration(
+              options, NMOPT_COMPILED_BUILD_PROFILE);
+          run_b1(configuration);
           return 0;
         }
 
       if (options.run_b2)
         {
-          run_b2(options);
+          const auto configuration =
+            nmopt::application::runner::resolve_run_configuration(
+              options, NMOPT_COMPILED_BUILD_PROFILE);
+          run_b2(configuration);
           return 0;
         }
 

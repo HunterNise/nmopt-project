@@ -50,8 +50,11 @@ build/debug-dealii/bin/nmopt_runner \
   --framework-revision REV \
   --run-kind development \
   --refinement 1 \
-  --output runs/development/b1
+  --output runs
 ```
+
+The runner will place this below
+`runs/chapter-6/b1/development/001/`.
 
 Do not configure or compile `release-dealii` unless it is absolutely
 necessary for source-scale reproduction or optimized verification, and ask
@@ -188,11 +191,29 @@ with a different profile.
 
 ### A2 — Separate runner configuration and path layout
 
-**Status:** planned.
+**Status:** runner configuration and deterministic path layout implemented.
 
-Split the current executable responsibilities into CLI parsing, resolved run
-configuration, run-layout/path selection, and B1/B2 command dispatch. Keep
-frozen numerical values in typed scenario factories; do not add a general
+The runner now resolves CLI options into a run configuration and places each
+benchmark below:
+
+```text
+<output>/chapter-6/<benchmark>/<run-slot>/
+```
+
+For example:
+
+```text
+runs/chapter-6/b1/authoritative/
+runs/chapter-6/b2/development/001/
+```
+
+The `authoritative` slot is the single reproduction run set. Development runs
+receive progressive slots such as `001` and `002`. The framework source
+commit or tag, actual build profile, command, mesh resolution, and full
+scenario IDs remain in artifact/run metadata rather than in the path. The
+matrix dimensions (method, regularization, or case) remain as concise
+directories below the run-set root.
+Keep frozen numerical values in typed scenario factories; do not add a general
 parameter-file system as a prerequisite for B1/B2.
 
 ### A3 — Define native deal.II output

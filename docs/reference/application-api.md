@@ -402,17 +402,42 @@ The repository's `nmopt_runner` executable is the headless orchestration
 boundary for benchmark runs. It owns command-line selection, the output root,
 artifact-directory creation, and file writing; it does not own a second
 compiler or optimization loop. The current boundary exposes `--list` for
-metadata discovery, `--output DIRECTORY` for the runner-owned artifact root,
+metadata discovery, `--output DIRECTORY` for the generated run-set root,
 and `--run-kind` for selecting the run policy. `reproduction` is the default
 and requires the `release-dealii` build profile. `--refinement` is an optional
 benchmark mesh override; when it is absent, the selected benchmark supplies
 its mesh default. A benchmark may instead select an adaptive strategy or
 another mesh definition. The artifact retains the resolved mesh counts and
 structural identity, so the run is not classified by an assumed universal
-refinement number. The run kind does not yet select a separate generated-
-output layout; that is the next runner-organization unit. Benchmark execution
-commands are registered by their benchmark integration units and must consume
-the typed scenario and execution-adapter interfaces described above.
+refinement number. Benchmark execution commands are registered by their
+benchmark integration units and must consume the typed scenario and
+execution-adapter interfaces described above. A benchmark run is placed
+below:
+
+```text
+<output>/chapter-6/<benchmark>/<run-slot>/
+```
+
+The benchmark-specific artifact directories remain below that run-set root;
+mesh resolution belongs in the artifact metadata rather than in a path that
+assumes one universal refinement number. The `authoritative` slot is the
+single reproduction run set; development runs receive progressive slots such
+as `001` and `002`. The framework revision is the source repository commit or
+tag used to build the executable, preferably a full Git commit ID for
+unambiguous provenance. The selected build profile remains in the artifact
+metadata rather than in the path.
+
+For example, with framework revision `REV`:
+
+```text
+runs/chapter-6/b1/authoritative/
+runs/chapter-6/b2/development/001/
+```
+
+The first is produced by a release reproduction command such as
+`nmopt_runner --benchmark b1 --framework-revision REV --output runs`.
+The second is produced by a development command such as
+`nmopt_runner --benchmark b2 --framework-revision REV --run-kind development --refinement 1 --output runs`.
 
 ## Agent checklist
 

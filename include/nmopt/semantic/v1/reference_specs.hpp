@@ -1210,8 +1210,22 @@ namespace nmopt::semantic::v1
        RequirementKind::boundary_partition,
        RequirementStatus::selected_discrete_realisation,
        RequirementScope::both,
-       "disjoint complete fixed-Dirichlet and Neumann-control boundary regions; the Neumann datum is the conormal flux of the conservative transport form",
-       ""});
+       "disjoint complete fixed-Dirichlet and Neumann-control boundary regions; the Neumann datum is the outward total conservative conormal flux",
+       "",
+       std::optional<BoundaryRealisationSelection>{
+         BoundaryRealisationSelection{
+           "neumann_convection_partition",
+           "state",
+           "dirichlet_boundary",
+           "",
+           {"control_boundary"},
+           {},
+           "",
+           ConormalForm::diffusion_minus_transport,
+           NormalOrientation::outward,
+           TraceEvaluationRealisation::fe_q_state_trace,
+           FaceQuadratureRealisation::qgauss_face,
+           TransportBoundaryForm::total_conormal}}});
     return specification;
   }
 

@@ -2964,6 +2964,18 @@ namespace
       manifest.compiler_id ==
           "nmopt.compiler.v1.dealii.neumann_convection_subdomain" &&
         manifest.observation_realisation == "material-id volume restriction: 1" &&
+        manifest.boundary_realisation.has_value() &&
+        manifest.boundary_realisation->id == "neumann_convection_partition" &&
+        manifest.boundary_realisation->fixed_dirichlet_region_id ==
+          "dirichlet_boundary" &&
+        manifest.boundary_realisation->neumann_region_ids ==
+          std::vector<std::string>{"control_boundary"} &&
+        manifest.boundary_realisation->conormal_form ==
+          semantic::v1::ConormalForm::diffusion_minus_transport &&
+        manifest.boundary_realisation->normal_orientation ==
+          semantic::v1::NormalOrientation::outward &&
+        manifest.boundary_realisation->transport_boundary_form ==
+          semantic::v1::TransportBoundaryForm::total_conormal &&
         manifest.state_solve_record.algorithm ==
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
         std::any_of(manifest.bindings.begin(), manifest.bindings.end(),

@@ -107,13 +107,14 @@ def plot_volume_field(
     field: ScalarField,
     title: str,
     output: Path,
+    colorbar_label: str | None = None,
 ) -> list[str]:
     """Render one scalar volume field as PNG and SVG."""
 
     figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
     image = draw_volume_field(axis, mesh, field)
     axis.set_title(title)
-    figure.colorbar(image, ax=axis, label=field.name)
+    figure.colorbar(image, ax=axis, label=colorbar_label or field.name)
     return save_figure(figure, output)
 
 
@@ -153,14 +154,14 @@ def plot_boundary_field(
     field: ScalarField,
     title: str,
     output: Path,
-    colorbar_label: str = "control",
+    colorbar_label: str | None = None,
 ) -> list[str]:
     """Render one scalar boundary field as PNG and SVG."""
 
     figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
     collection = draw_boundary_field(axis, mesh, field)
     axis.set_title(title)
-    figure.colorbar(collection, ax=axis, label=colorbar_label)
+    figure.colorbar(collection, ax=axis, label=colorbar_label or field.name)
     return save_figure(figure, output)
 
 
@@ -195,6 +196,7 @@ def plot_volume_comparison(
     field_name: str,
     output: Path,
     title: str,
+    colorbar_label: str | None = None,
 ) -> list[str]:
     """Render volume fields with one color scale across all panels."""
 
@@ -217,7 +219,11 @@ def plot_volume_comparison(
     if image is None:
         raise PostprocessError(f"no volume fields available for '{field_name}'")
     figure.suptitle(title)
-    figure.colorbar(image, ax=axes.ravel().tolist(), label=field_name)
+    figure.colorbar(
+        image,
+        ax=axes.ravel().tolist(),
+        label=colorbar_label or field_name,
+    )
     return save_figure(figure, output)
 
 
@@ -225,7 +231,7 @@ def plot_boundary_comparison(
     items: list[RenderItem],
     output: Path,
     title: str,
-    colorbar_label: str = "control",
+    colorbar_label: str | None = None,
 ) -> list[str]:
     """Render boundary fields with one color scale across all panels."""
 
@@ -248,5 +254,9 @@ def plot_boundary_comparison(
     if collection is None:
         raise PostprocessError("no boundary fields available for comparison")
     figure.suptitle(title)
-    figure.colorbar(collection, ax=axes.ravel().tolist(), label=colorbar_label)
+    figure.colorbar(
+        collection,
+        ax=axes.ravel().tolist(),
+        label=colorbar_label or items[0].field.name,
+    )
     return save_figure(figure, output)

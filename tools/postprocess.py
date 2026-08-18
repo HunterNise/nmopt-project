@@ -8,12 +8,22 @@ from pathlib import Path
 
 from nmopt_postprocess import PostprocessError
 from nmopt_postprocess.chapter6 import CHAPTER6_PROFILE
-from nmopt_postprocess.pipeline import PostprocessProfile, process_artifact, process_input_root
+from nmopt_postprocess.pipeline import (
+    PostprocessProfile,
+    process_artifact,
+    process_input_root,
+)
+from nmopt_postprocess.render import (
+    DEFAULT_OUTPUT_FORMATS,
+    OutputFormat,
+    OutputFormats,
+)
 
 
 PROFILES: dict[str, PostprocessProfile] = {
     "chapter6": CHAPTER6_PROFILE,
 }
+OUTPUT_FORMATS: tuple[OutputFormat, ...] = ("png", "svg")
 
 
 def build_parser(
@@ -46,6 +56,15 @@ def build_parser(
             "--artifact or <input>/postprocess for --input"
         ),
     )
+    parser.add_argument(
+        "--format",
+        dest="output_formats",
+        nargs="+",
+        choices=OUTPUT_FORMATS,
+        default=DEFAULT_OUTPUT_FORMATS,
+        metavar="FORMAT",
+        help="one or more plot formats; defaults to png",
+    )
     return parser
 
 
@@ -56,6 +75,7 @@ def main(
     arguments = parser.parse_args()
     profile_name = default_profile or arguments.profile
     profile = PROFILES[profile_name]
+    output_formats: OutputFormats = tuple(arguments.output_formats)
     try:
         if arguments.artifact is not None:
             artifact = arguments.artifact.resolve()
@@ -64,7 +84,12 @@ def main(
                 if arguments.output is not None
                 else artifact / "postprocess"
             )
-            manifest = process_artifact(artifact, output, profile)
+            manifest = process_artifact(
+                artifact,
+                output,
+                profile,
+                output_formats=output_formats,
+            )
             print(f"wrote {len(manifest['plots'])} field plot sets to {output}")
             return 0
 
@@ -74,7 +99,12 @@ def main(
             if arguments.output is not None
             else input_root / "postprocess"
         )
-        index = process_input_root(input_root, output_root, profile)
+        index = process_input_root(
+            input_root,
+            output_root,
+            profile,
+            output_formats=output_formats,
+        )
         print(
             f"processed {index['success_count']}/{index['artifact_count']} "
             f"artifacts to {output_root}"

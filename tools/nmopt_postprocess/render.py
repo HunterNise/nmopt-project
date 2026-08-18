@@ -6,6 +6,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 os.environ.setdefault(
     "MPLCONFIGDIR",
@@ -28,6 +29,11 @@ from .fields import ScalarField
 from .geometry import boundary_field_block, triangulate, volume_block
 
 
+OutputFormat = Literal["png", "svg"]
+OutputFormats = tuple[OutputFormat, ...]
+DEFAULT_OUTPUT_FORMATS: OutputFormats = ("png",)
+
+
 @dataclass(frozen=True)
 class RenderItem:
     """A field, its mesh, and the label used in a comparison panel."""
@@ -37,12 +43,16 @@ class RenderItem:
     field: ScalarField
 
 
-def save_figure(figure: plt.Figure, output: Path) -> list[str]:
-    """Write a figure as PNG and SVG, then close its Matplotlib resources."""
+def save_figure(
+    figure: plt.Figure,
+    output: Path,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+) -> list[str]:
+    """Write the selected figure formats, then close Matplotlib resources."""
 
     generated: list[str] = []
-    for suffix in (".png", ".svg"):
-        path = output.with_suffix(suffix)
+    for output_format in output_formats:
+        path = output.with_suffix(f".{output_format}")
         figure.savefig(path, dpi=180, bbox_inches="tight")
         generated.append(path.name)
     plt.close(figure)
@@ -108,14 +118,15 @@ def plot_volume_field(
     title: str,
     output: Path,
     colorbar_label: str | None = None,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> list[str]:
-    """Render one scalar volume field as PNG and SVG."""
+    """Render one scalar volume field in the selected formats."""
 
     figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
     image = draw_volume_field(axis, mesh, field)
     axis.set_title(title)
     figure.colorbar(image, ax=axis, label=colorbar_label or field.name)
-    return save_figure(figure, output)
+    return save_figure(figure, output, output_formats)
 
 
 def draw_boundary_field(
@@ -155,14 +166,15 @@ def plot_boundary_field(
     title: str,
     output: Path,
     colorbar_label: str | None = None,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> list[str]:
-    """Render one scalar boundary field as PNG and SVG."""
+    """Render one scalar boundary field in the selected formats."""
 
     figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
     collection = draw_boundary_field(axis, mesh, field)
     axis.set_title(title)
     figure.colorbar(collection, ax=axis, label=colorbar_label or field.name)
-    return save_figure(figure, output)
+    return save_figure(figure, output, output_formats)
 
 
 def comparison_norm(items: list[RenderItem]) -> Normalize:
@@ -197,6 +209,7 @@ def plot_volume_comparison(
     output: Path,
     title: str,
     colorbar_label: str | None = None,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> list[str]:
     """Render volume fields with one color scale across all panels."""
 
@@ -224,7 +237,7 @@ def plot_volume_comparison(
         ax=axes.ravel().tolist(),
         label=colorbar_label or field_name,
     )
-    return save_figure(figure, output)
+    return save_figure(figure, output, output_formats)
 
 
 def plot_boundary_comparison(
@@ -232,6 +245,7 @@ def plot_boundary_comparison(
     output: Path,
     title: str,
     colorbar_label: str | None = None,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> list[str]:
     """Render boundary fields with one color scale across all panels."""
 
@@ -259,4 +273,4 @@ def plot_boundary_comparison(
         ax=axes.ravel().tolist(),
         label=colorbar_label or items[0].field.name,
     )
-    return save_figure(figure, output)
+    return save_figure(figure, output, output_formats)

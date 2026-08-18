@@ -145,10 +145,15 @@ python3 tools/postprocess.py \
   --output runs/chapter-6/b1/authoritative/artifacts/steepest-descent/beta-1e-1/postprocess
 ```
 
-The command writes PNG and SVG plots for every available state, adjoint,
-volume-control, and boundary-control field, plus `postprocess.json`. The
-default output is `<artifact>/postprocess`. It reads current files below `native/`
-and also accepts historical `fields.vtu` and `control.vtu` files.
+The command writes PNG plots by default for every available state, adjoint,
+volume-control, and boundary-control field, plus `postprocess.json`. Select
+the vector alternative with `--format svg`, or write both formats with
+`--format png svg`. PNG remains the default when the option is omitted, and
+the selected formats are recorded in the manifest.
+The default output is `<artifact>/postprocess`. It reads current files below
+`native/` and also accepts historical `fields.vtu` and `control.vtu` files.
+The native `GridOut` mesh SVG is independent of this option and is always
+produced by the runner.
 
 To process a complete run root, use `--input`:
 
@@ -163,7 +168,7 @@ The run-set output is kept at the run-set root. Each processed artifact
 receives its own `postprocess.json` below its artifact-local `postprocess/`
 directory, and the root receives
 `postprocess-index.json` with success and failure records. Successful artifacts
-also produce shared-scale comparison PNG/SVG files below
+also produce shared-scale comparison files in the selected formats below
 `comparisons/<benchmark-family>/`; B1 and B2 are kept in separate comparison
 groups.
 

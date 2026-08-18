@@ -13,6 +13,8 @@ from .errors import PostprocessError
 from .fields import ScalarField, find_field
 from .records import read_metadata
 from .render import (
+    DEFAULT_OUTPUT_FORMATS,
+    OutputFormats,
     RenderItem,
     plot_boundary_comparison,
     plot_boundary_field,
@@ -87,7 +89,10 @@ def _boundary_items(
 
 
 def build_comparisons(
-    artifacts: list[Path], output_root: Path, profile: PostprocessProfile
+    artifacts: list[Path],
+    output_root: Path,
+    profile: PostprocessProfile,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> tuple[dict[str, dict[str, list[str]]], dict[str, dict[str, str]]]:
     """Render all configured comparisons grouped by the application profile."""
 
@@ -115,6 +120,7 @@ def build_comparisons(
                         comparison_dir / f"comparison-{field_spec.output_name}",
                         title=profile.comparison_title(field_spec),
                         colorbar_label=field_spec.colorbar_label,
+                        output_formats=output_formats,
                     )
             except (OSError, ValueError, PostprocessError) as error:
                 group_errors[field_spec.output_name] = str(error)
@@ -128,6 +134,7 @@ def build_comparisons(
                         comparison_dir / f"comparison-{field_spec.output_name}",
                         title=profile.comparison_title(field_spec),
                         colorbar_label=field_spec.colorbar_label,
+                        output_formats=output_formats,
                     )
             except (OSError, ValueError, PostprocessError) as error:
                 group_errors[field_spec.output_name] = str(error)
@@ -141,7 +148,10 @@ def build_comparisons(
 
 
 def process_artifact(
-    artifact: Path, output: Path, profile: PostprocessProfile
+    artifact: Path,
+    output: Path,
+    profile: PostprocessProfile,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> dict[str, object]:
     """Render one artifact according to a profile and write its manifest."""
 
@@ -164,6 +174,7 @@ def process_artifact(
                 profile.field_title(metadata, field_spec),
                 output / field_spec.output_name,
                 colorbar_label=field_spec.colorbar_label,
+                output_formats=output_formats,
             )
 
     boundary_path = first_existing(artifact, profile.boundary_source_names)
@@ -178,6 +189,7 @@ def process_artifact(
                     profile.field_title(metadata, field_spec),
                     output / field_spec.output_name,
                     colorbar_label=field_spec.colorbar_label,
+                    output_formats=output_formats,
                 )
 
     if not generated:
@@ -185,6 +197,7 @@ def process_artifact(
 
     manifest = {
         "artifact_directory": str(artifact.resolve()),
+        "formats": list(output_formats),
         "volume_source": str(fields_path.relative_to(artifact)),
         "boundary_source": (
             str(boundary_path.relative_to(artifact))
@@ -201,7 +214,10 @@ def process_artifact(
 
 
 def process_input_root(
-    input_root: Path, output_root: Path, profile: PostprocessProfile
+    input_root: Path,
+    output_root: Path,
+    profile: PostprocessProfile,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> dict[str, object]:
     """Process every artifact below a run root and write the aggregate index."""
 
@@ -216,7 +232,9 @@ def process_input_root(
         relative = artifact.relative_to(input_root)
         output = artifact / "postprocess"
         try:
-            manifest = process_artifact(artifact, output, profile)
+            manifest = process_artifact(
+                artifact, output, profile, output_formats=output_formats
+            )
             records.append(
                 {
                     "artifact": str(relative),
@@ -231,6 +249,7 @@ def process_input_root(
                 json.dumps(
                     {
                         "artifact_directory": str(artifact.resolve()),
+                        "formats": list(output_formats),
                         "status": "error",
                         "error": str(error),
                     },
@@ -252,10 +271,12 @@ def process_input_root(
         successful_artifacts,
         output_root,
         profile,
+        output_formats=output_formats,
     )
     index = {
         "input_root": str(input_root.resolve()),
         "output_root": str(output_root.resolve()),
+        "formats": list(output_formats),
         "artifact_count": len(records),
         "success_count": sum(record["status"] == "ok" for record in records),
         "failure_count": sum(record["status"] == "error" for record in records),

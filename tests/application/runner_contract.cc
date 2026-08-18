@@ -3,8 +3,10 @@
 #include "../support/scenario_dispatch.hpp"
 
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -154,6 +156,67 @@ namespace
       },
       "an unknown run kind should be rejected");
   }
+
+  std::string
+  read_file(const std::filesystem::path &path)
+  {
+    std::ifstream input(path);
+    if (!input)
+      throw std::runtime_error("could not read test file");
+    return {std::istreambuf_iterator<char>(input),
+            std::istreambuf_iterator<char>()};
+  }
+
+  void
+  test_run_manifest_records_state_and_failures()
+  {
+    using nmopt::application::runner::ResolvedRunConfiguration;
+    using nmopt::application::runner::RunKind;
+    using nmopt::application::runner::RunSetManifest;
+
+    const auto temporary_root =
+      std::filesystem::temp_directory_path() / "nmopt-run-manifest-contract";
+    std::filesystem::remove_all(temporary_root);
+    const ResolvedRunConfiguration configuration{
+      temporary_root,
+      temporary_root / "chapter-6" / "b1" / "development" / "001",
+      "b1",
+      "debug-dealii",
+      "test-revision",
+      RunKind::development,
+      1};
+    const std::vector<std::string> expected{
+      "steepest-descent/beta-1e-1/artifact.kv",
+      "steepest-descent/beta-1e-2/artifact.kv"};
+    const std::vector<std::string> command{
+      "nmopt_runner", "--benchmark", "b1"};
+
+    RunSetManifest manifest(configuration, command, expected);
+    const auto running = read_file(manifest.path());
+    require(running.find("\"status\": \"running\"") != std::string::npos,
+            "new run manifests should start in running state");
+    require(running.find("\"pending_count\": 2") != std::string::npos,
+            "new run manifests should inventory pending artifacts");
+
+    manifest.record_success(
+      configuration.run_directory / expected.front());
+    manifest.record_failure(
+      configuration.run_directory / expected.back(), "solver failed");
+    require(!manifest.finalize(),
+            "a run manifest with a failed artifact should fail finalization");
+
+    const auto finished = read_file(manifest.path());
+    require(finished.find("\"status\": \"failed\"") != std::string::npos,
+            "failed run manifests should retain failed state");
+    require(finished.find("\"success_count\": 1") != std::string::npos,
+            "run manifests should count successful artifacts");
+    require(finished.find("\"failure_count\": 1") != std::string::npos,
+            "run manifests should count failed artifacts");
+    require(finished.find("\"error\": \"solver failed\"") !=
+              std::string::npos,
+            "run manifests should retain artifact failure diagnostics");
+    std::filesystem::remove_all(temporary_root);
+  }
 } // namespace
 
 int
@@ -171,7 +234,12 @@ main(const int argc, char **argv)
          "nmopt.runner.run_kind_parser_rejects_unknown_values",
          {"backend-neutral", "application", "runner", "contract", "negative"},
          30,
-         test_run_kind_parser_rejects_unknown_values}};
+         test_run_kind_parser_rejects_unknown_values},
+        {"run_manifest_records_state_and_failures",
+         "nmopt.runner.run_manifest_records_state_and_failures",
+         {"backend-neutral", "application", "runner", "contract"},
+         30,
+         test_run_manifest_records_state_and_failures}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

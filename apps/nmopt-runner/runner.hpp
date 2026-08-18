@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <charconv>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -269,4 +271,245 @@ namespace nmopt::application::runner
       throw std::invalid_argument("an artifact path needs a parent directory");
     std::filesystem::create_directories(parent);
   }
+
+  inline std::string
+  json_escape(const std::string_view value)
+  {
+    const char hex[] = "0123456789abcdef";
+    std::string result;
+    result.reserve(value.size());
+    for (const unsigned char character : value)
+      switch (character)
+        {
+          case '"':
+            result += "\\\"";
+            break;
+          case '\\':
+            result += "\\\\";
+            break;
+          case '\b':
+            result += "\\b";
+            break;
+          case '\f':
+            result += "\\f";
+            break;
+          case '\n':
+            result += "\\n";
+            break;
+          case '\r':
+            result += "\\r";
+            break;
+          case '\t':
+            result += "\\t";
+            break;
+          default:
+            if (character < 0x20)
+              {
+                result += "\\u00";
+                result += hex[(character >> 4) & 0x0f];
+                result += hex[character & 0x0f];
+              }
+            else
+              result += static_cast<char>(character);
+            break;
+        }
+    return result;
+  }
+
+  inline std::string
+  json_string(const std::string_view value)
+  {
+    return '"' + json_escape(value) + '"';
+  }
+
+  struct RunArtifactRecord
+  {
+    std::string relative_path;
+    std::string status = "pending";
+    std::string error;
+  };
+
+  class RunSetManifest final
+  {
+  public:
+    RunSetManifest(const ResolvedRunConfiguration &configuration,
+                   const std::vector<std::string> &command,
+                   const std::vector<std::string> &expected_artifacts)
+      : run_directory_(configuration.run_directory)
+      , manifest_path_(run_directory_ / "run-manifest.json")
+      , benchmark_(configuration.benchmark)
+      , build_profile_(configuration.build_profile)
+      , framework_revision_(configuration.framework_revision)
+      , run_kind_(run_kind_name(configuration.run_kind))
+      , refinement_override_(configuration.refinement_override)
+      , command_(command)
+    {
+      std::filesystem::create_directories(run_directory_);
+      records_.reserve(expected_artifacts.size());
+      for (const auto &relative_path : expected_artifacts)
+        {
+          if (relative_path.empty())
+            throw std::invalid_argument(
+              "run manifest artifact paths need nonempty values");
+          const auto duplicate = std::find_if(
+            records_.begin(), records_.end(), [&](const auto &record) {
+              return record.relative_path == relative_path;
+            });
+          if (duplicate != records_.end())
+            throw std::invalid_argument(
+              "run manifest artifact paths must be unique");
+          records_.push_back({relative_path, "pending", {}});
+        }
+      write();
+    }
+
+    void
+    record_success(const std::filesystem::path &artifact_path)
+    {
+      update(artifact_path, "ok", {});
+      write();
+    }
+
+    void
+    record_failure(const std::filesystem::path &artifact_path,
+                   const std::string_view    error)
+    {
+      update(artifact_path, "error", error);
+      write();
+    }
+
+    bool
+    finalize()
+    {
+      finalized_ = true;
+      for (auto &record : records_)
+        if (record.status == "pending")
+          {
+            record.status = "error";
+            record.error = "artifact was not executed";
+          }
+      write();
+      return failure_count() == 0;
+    }
+
+    const std::filesystem::path &
+    path() const
+    {
+      return manifest_path_;
+    }
+
+  private:
+    void
+    update(const std::filesystem::path &artifact_path,
+           const std::string_view    status,
+           const std::string_view    error)
+    {
+      const auto relative_path =
+        artifact_path.lexically_relative(run_directory_).generic_string();
+      const auto record = std::find_if(
+        records_.begin(), records_.end(), [&](const auto &candidate) {
+          return candidate.relative_path == relative_path;
+        });
+      if (record == records_.end())
+        throw std::invalid_argument(
+          "artifact path is not part of the run manifest inventory");
+      if (record->status != "pending")
+        throw std::invalid_argument(
+          "run manifest cannot record an artifact twice");
+      record->status = status;
+      record->error = error;
+    }
+
+    std::size_t
+    success_count() const
+    {
+      return static_cast<std::size_t>(std::count_if(
+        records_.begin(), records_.end(), [](const auto &record) {
+          return record.status == "ok";
+        }));
+    }
+
+    std::size_t
+    failure_count() const
+    {
+      return static_cast<std::size_t>(std::count_if(
+        records_.begin(), records_.end(), [](const auto &record) {
+          return record.status == "error";
+        }));
+    }
+
+    std::size_t
+    pending_count() const
+    {
+      return records_.size() - success_count() - failure_count();
+    }
+
+    void
+    write() const
+    {
+      const auto status =
+        !finalized_ ? "running" : (failure_count() == 0 ? "complete" : "failed");
+      std::ofstream output(manifest_path_);
+      if (!output)
+        throw std::runtime_error("could not open run manifest '" +
+                                 manifest_path_.string() + "'");
+
+      output << "{\n"
+             << "  \"schema\": \"nmopt-run-set-v1\",\n"
+             << "  \"status\": " << json_string(status) << ",\n"
+             << "  \"benchmark\": " << json_string(benchmark_) << ",\n"
+             << "  \"run_kind\": " << json_string(run_kind_) << ",\n"
+             << "  \"build_profile\": " << json_string(build_profile_)
+             << ",\n"
+             << "  \"framework_revision\": "
+             << json_string(framework_revision_) << ",\n"
+             << "  \"run_directory\": "
+             << json_string(run_directory_.string()) << ",\n"
+             << "  \"refinement_override\": ";
+      if (refinement_override_.has_value())
+        output << *refinement_override_;
+      else
+        output << "null";
+      output << ",\n"
+             << "  \"command\": [";
+      for (std::size_t index = 0; index < command_.size(); ++index)
+        {
+          if (index != 0)
+            output << ", ";
+          output << json_string(command_[index]);
+        }
+      output << "],\n"
+             << "  \"expected_artifact_count\": " << records_.size()
+             << ",\n"
+             << "  \"success_count\": " << success_count() << ",\n"
+             << "  \"failure_count\": " << failure_count() << ",\n"
+             << "  \"pending_count\": " << pending_count() << ",\n"
+             << "  \"artifacts\": [\n";
+      for (std::size_t index = 0; index < records_.size(); ++index)
+        {
+          const auto &record = records_[index];
+          output << "    {\"path\": "
+                 << json_string(record.relative_path)
+                 << ", \"status\": " << json_string(record.status);
+          if (!record.error.empty())
+            output << ", \"error\": " << json_string(record.error);
+          output << "}" << (index + 1 == records_.size() ? "\n" : ",\n");
+        }
+      output << "  ]\n}\n";
+      if (!output)
+        throw std::runtime_error("could not write run manifest '" +
+                                 manifest_path_.string() + "'");
+    }
+
+    std::filesystem::path           run_directory_;
+    std::filesystem::path           manifest_path_;
+    std::string                     benchmark_;
+    std::string                     build_profile_;
+    std::string                     framework_revision_;
+    std::string                     run_kind_;
+    std::optional<unsigned int>     refinement_override_;
+    std::vector<std::string>        command_;
+    std::vector<RunArtifactRecord>  records_;
+    bool                            finalized_ = false;
+  };
 } // namespace nmopt::application::runner

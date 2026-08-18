@@ -167,7 +167,8 @@ where it is a dependency or cross-reference.
 
 ### A1 — Define run sets and reproduction policy
 
-**Status:** runner policy implemented; run-set persistence remains planned.
+**Status:** runner policy and run-set persistence implemented; adaptive or
+mesh-structure-based resolution remains a future extension.
 
 The runner now accepts an explicit `--run-kind reproduction|development`
 policy. Reproduction is the default and requires the `release-dealii` build
@@ -179,9 +180,9 @@ must be identified by their strategy and realized structure rather than by a
 single integer. The policy is validated before dispatch.
 
 The generated layout for reproduction, development, investigation, and
-derived reports is still to be defined. A run set must record its benchmark,
-framework revision, profile, refinement, expected matrix size, command, and
-completion state.
+derived reports is defined by A2. Each run set now records its benchmark,
+framework revision, profile, refinement override, expected matrix size,
+command, completion state, and per-artifact status in `run-manifest.json`.
 
 Reproduction means `release-dealii` plus the benchmark's declared mesh
 policy. Development runs may use smaller meshes or other explicitly selected
@@ -219,8 +220,8 @@ parameter-file system as a prerequisite for B1/B2.
 ### A3 — Define native deal.II output
 
 **Status:** topology-specific native field names, standalone volume mesh
-exports, and a 2D SVG mesh preview implemented; standalone boundary mesh
-export remains planned.
+exports, a 2D SVG mesh preview, and B2 boundary-control topology export
+implemented. A separate boundary-only mesh without a field remains optional.
 
 Deal.II writes the authoritative native field datasets directly:
 
@@ -242,12 +243,17 @@ they must not reconstruct the mesh or finite-element fields.
 
 ### A4 — Define records, diagnostics, and provenance
 
-**Status:** partially implemented.
+**Status:** run-set manifest, artifact inventory, and failure records
+implemented; report selection and manifest consumption remain planned.
 
-Add a per-run manifest, explicit artifact inventory, accepted-iteration solver
-history, accurate measurement flags, complete environment provenance, and
-failure records. Preserve `artifact.kv` as a deterministic projection if the
-machine-readable manifest evolves separately.
+The runner writes `run-manifest.json` before execution and updates it after
+each artifact. It records the expected matrix, command, benchmark, run kind,
+build profile, framework revision, refinement override, completion state, and
+per-artifact success or failure. `artifact.kv` remains the deterministic
+per-artifact projection containing the accepted-iteration history, measurement
+flags, environment, compilation manifest, and benchmark fields. A later report
+unit will use the run manifest to select an explicit run set instead of relying
+only on recursive discovery below `runs/`.
 
 ### A5 — Refresh B1 reproduction evidence
 
@@ -320,9 +326,10 @@ Known limitations:
 Next unit:
 ```
 
-The next unit after A0 is A1: define the run-set layout and reproduction
-policy. It must stop before changing native field names, artifact schemas, or
-Python tooling unless those changes are independently split and reviewed.
+The next remaining application unit is A4 report integration: consume
+`run-manifest.json` when selecting a run set and retain explicit missing or
+failed artifact records in generated reports. It must stop before beginning
+the source-scale B1/B2 refresh.
 
 ## Exclusions
 

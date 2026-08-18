@@ -69,6 +69,7 @@ Artifact paths are deterministic and owned by the runner:
 ```text
 <output>/chapter-6/b1/<run-slot>/<method>/beta-<value>/artifact.kv
 <output>/chapter-6/b2/<run-slot>/<case>/artifact.kv
+<output>/chapter-6/<benchmark>/<run-slot>/run-manifest.json
 <each artifact directory>/solver-trace.csv
 <each artifact directory>/native/mesh-volume.vtu
 <each artifact directory>/native/mesh-volume.svg
@@ -80,6 +81,12 @@ The B1 `<method>` values are `steepest-descent` and `l-bfgs`; the B2 `<case>`
 values are `wings-constant`, `full-constant`, `wings-parabolic`, and
 `full-parabolic`. The per-run `identity.output_id` must include the same
 method/regularisation or case suffix used by the path.
+
+`run-manifest.json` is written before the matrix starts and updated after each
+artifact. It records the benchmark, run kind, compiled profile, framework
+revision, refinement override, command, expected artifact inventory, and
+`running`, `complete`, or `failed` status. Failed or unfinished artifacts
+remain listed with their diagnostic rather than disappearing from the run set.
 
 `solver-trace.csv` is a structured Armijo trial trace. It records the outer
 optimization iteration, trial index, step length, trial objective, actual

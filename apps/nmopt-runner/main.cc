@@ -145,6 +145,45 @@ namespace
     return output.str();
   }
 
+  std::vector<std::string>
+  command_line_arguments(const int argc, char **argv)
+  {
+    std::vector<std::string> command;
+    command.reserve(static_cast<std::size_t>(argc));
+    for (int index = 0; index < argc; ++index)
+      command.emplace_back(argv[index]);
+    return command;
+  }
+
+  std::vector<std::string>
+  b1_expected_artifacts()
+  {
+    using namespace nmopt::application::chapter6;
+    const std::vector<ReducedMethod> methods{
+      ReducedMethod::steepest_descent,
+      ReducedMethod::limited_memory_bfgs};
+    std::vector<std::string> paths;
+    for (const auto method : methods)
+      {
+        const auto base_scenario = make_b1_scenario(method);
+        for (const double beta : base_scenario.problem.regularisation_sweep)
+          paths.push_back(std::string(b1_method_slug(method)) + "/beta-" +
+                          b1_beta_slug(beta) + "/artifact.kv");
+      }
+    return paths;
+  }
+
+  std::vector<std::string>
+  b2_expected_artifacts()
+  {
+    using namespace nmopt::application::chapter6;
+    std::vector<std::string> paths;
+    for (const auto graetz_case : b2_case_order)
+      paths.push_back(std::string(graetz_case_name(graetz_case)) +
+                      "/artifact.kv");
+    return paths;
+  }
+
   template <typename Scenario>
   nmopt::experiment::RunEnvironmentRecord
   make_environment(const Scenario &scenario)
@@ -369,8 +408,9 @@ namespace
                                path.string() + "'");
   }
 
-  void
-  run_b1(const nmopt::application::runner::ResolvedRunConfiguration &configuration)
+  bool
+  run_b1(const nmopt::application::runner::ResolvedRunConfiguration &configuration,
+         const std::vector<std::string> &command)
   {
     using namespace nmopt::application;
     using namespace chapter6;
@@ -378,6 +418,9 @@ namespace
     using Adapter =
       nmopt::application::chapter6::dealii::B1ReducedExecutionAdapterT<2>;
     const auto &output_directory = configuration.run_directory;
+    runner::RunSetManifest run_manifest(
+      configuration, command, b1_expected_artifacts());
+    bool all_artifacts_succeeded = true;
 
     const std::vector<ReducedMethod> methods{
       ReducedMethod::steepest_descent,
@@ -388,46 +431,128 @@ namespace
         const auto base_scenario = make_b1_scenario(method);
         for (const double beta : base_scenario.problem.regularisation_sweep)
           {
-            auto scenario = base_scenario;
-            scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
             const auto beta_slug = b1_beta_slug(beta);
+            const auto path = runner::artifact_path(
+              output_directory,
+              {method_slug, "beta-" + std::string(beta_slug)});
+            try
+              {
+                auto scenario = base_scenario;
+                scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
+                const auto refinement = configuration.refinement_override.value_or(
+                  scenario.compile.mesh.refinement);
+                scenario.compile.mesh.refinement = refinement;
+                scenario.compile.mesh.mesh_provenance =
+                  b1_mesh_provenance(refinement);
+                scenario.experiment.harness.artifact_directory =
+                  output_directory.string();
+                scenario.experiment.scenario_output_id =
+                  "chapter-6.b1.distributed-laplace." +
+                  std::string(method_slug) + ".beta-" + beta_slug;
+
+                nmopt::application::chapter6::dealii::B1ManufacturedDataT<2>
+                  data;
+                const auto runtime = data.runtime_data();
+                const auto session =
+                  nmopt::application::chapter6::dealii::
+                    make_b1_compilation_session<2>(scenario);
+                const auto environment = make_environment(scenario);
+                Adapter execute{beta,
+                                runtime,
+                                session,
+                                environment,
+                                path.parent_path() / "native"};
+                Runner runner(scenario);
+                const auto result = runner.run(
+                  [](const auto &parameters) {
+                    return chapter6::make_b1_problem_spec(parameters);
+                  },
+                  [&](const auto &specification, const auto &run_scenario) {
+                    auto evidence = execute(specification, run_scenario);
+                    add_b1_artifact_fields(evidence,
+                                           run_scenario,
+                                           method,
+                                           beta,
+                                           configuration.framework_revision,
+                                           configuration.run_kind);
+                    return evidence;
+                  });
+
+                write_artifact(path, result.document);
+                write_solver_trace(path.parent_path() / "solver-trace.csv",
+                                   result.artifact.envelope().report());
+                run_manifest.record_success(path);
+                std::cout << "B1 wrote " << path.string() << '\n';
+              }
+            catch (const std::exception &error)
+              {
+                all_artifacts_succeeded = false;
+                run_manifest.record_failure(path, error.what());
+                std::cerr << "B1 failed " << path.string() << ": "
+                          << error.what() << '\n';
+              }
+          }
+      }
+    return run_manifest.finalize() && all_artifacts_succeeded;
+  }
+
+  bool
+  run_b2(const nmopt::application::runner::ResolvedRunConfiguration &configuration,
+         const std::vector<std::string> &command)
+  {
+    using namespace nmopt::application;
+    using namespace chapter6;
+    using Runner = benchmark::HeadlessBenchmarkRunnerT<B2Scenario>;
+    using Adapter =
+      nmopt::application::chapter6::dealii::B2ReducedExecutionAdapterT<2>;
+    const auto &output_directory = configuration.run_directory;
+    runner::RunSetManifest run_manifest(
+      configuration, command, b2_expected_artifacts());
+    bool all_artifacts_succeeded = true;
+
+    for (const auto graetz_case : b2_case_order)
+      {
+        const auto case_slug = graetz_case_name(graetz_case);
+        const auto path = runner::artifact_path(
+          output_directory,
+          {case_slug});
+        try
+          {
+            auto scenario = make_b2_scenario(graetz_case);
+            scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
             const auto refinement = configuration.refinement_override.value_or(
               scenario.compile.mesh.refinement);
             scenario.compile.mesh.refinement = refinement;
             scenario.compile.mesh.mesh_provenance =
-              b1_mesh_provenance(refinement);
+              b2_mesh_provenance(refinement);
             scenario.experiment.harness.artifact_directory =
               output_directory.string();
             scenario.experiment.scenario_output_id =
-              "chapter-6.b1.distributed-laplace." +
-              std::string(method_slug) + ".beta-" + beta_slug;
+              "chapter-6.b2.graetz-flow." + std::string(case_slug);
 
-            nmopt::application::chapter6::dealii::B1ManufacturedDataT<2> data;
-            const auto runtime = data.runtime_data();
+            nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data(
+              graetz_case,
+              scenario.problem.fixed_temperature);
+            const auto runtime =
+              nmopt::application::chapter6::dealii::
+                make_b2_manufactured_runtime_data<2>(scenario, data);
             const auto session =
               nmopt::application::chapter6::dealii::
-                make_b1_compilation_session<2>(scenario);
+                make_b2_compilation_session<2>(scenario);
             const auto environment = make_environment(scenario);
-            const auto path = runner::artifact_path(
-              output_directory,
-              {method_slug,
-               "beta-" + std::string(beta_slug)});
-            Adapter execute{beta,
-                            runtime,
+            Adapter execute{runtime,
                             session,
                             environment,
                             path.parent_path() / "native"};
             Runner runner(scenario);
             const auto result = runner.run(
               [](const auto &parameters) {
-                return chapter6::make_b1_problem_spec(parameters);
+                return chapter6::make_b2_problem_spec(parameters);
               },
               [&](const auto &specification, const auto &run_scenario) {
                 auto evidence = execute(specification, run_scenario);
-                add_b1_artifact_fields(evidence,
+                add_b2_artifact_fields(evidence,
                                        run_scenario,
-                                       method,
-                                       beta,
                                        configuration.framework_revision,
                                        configuration.run_kind);
                 return evidence;
@@ -436,72 +561,18 @@ namespace
             write_artifact(path, result.document);
             write_solver_trace(path.parent_path() / "solver-trace.csv",
                                result.artifact.envelope().report());
-            std::cout << "B1 wrote " << path.string() << '\n';
+            run_manifest.record_success(path);
+            std::cout << "B2 wrote " << path.string() << '\n';
+          }
+        catch (const std::exception &error)
+          {
+            all_artifacts_succeeded = false;
+            run_manifest.record_failure(path, error.what());
+            std::cerr << "B2 failed " << path.string() << ": "
+                      << error.what() << '\n';
           }
       }
-  }
-
-  void
-  run_b2(const nmopt::application::runner::ResolvedRunConfiguration &configuration)
-  {
-    using namespace nmopt::application;
-    using namespace chapter6;
-    using Runner = benchmark::HeadlessBenchmarkRunnerT<B2Scenario>;
-    using Adapter =
-      nmopt::application::chapter6::dealii::B2ReducedExecutionAdapterT<2>;
-    const auto &output_directory = configuration.run_directory;
-
-    for (const auto graetz_case : b2_case_order)
-      {
-        auto scenario = make_b2_scenario(graetz_case);
-        scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
-        const auto case_slug = graetz_case_name(graetz_case);
-        const auto refinement = configuration.refinement_override.value_or(
-          scenario.compile.mesh.refinement);
-        scenario.compile.mesh.refinement = refinement;
-        scenario.compile.mesh.mesh_provenance =
-          b2_mesh_provenance(refinement);
-        scenario.experiment.harness.artifact_directory =
-          output_directory.string();
-        scenario.experiment.scenario_output_id =
-          "chapter-6.b2.graetz-flow." + std::string(case_slug);
-
-        nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data(
-          graetz_case,
-          scenario.problem.fixed_temperature);
-        const auto runtime =
-          nmopt::application::chapter6::dealii::
-            make_b2_manufactured_runtime_data<2>(scenario, data);
-        const auto session =
-          nmopt::application::chapter6::dealii::
-            make_b2_compilation_session<2>(scenario);
-        const auto environment = make_environment(scenario);
-        const auto path = runner::artifact_path(
-          output_directory,
-          {case_slug});
-        Adapter execute{runtime,
-                        session,
-                        environment,
-                        path.parent_path() / "native"};
-        Runner runner(scenario);
-        const auto result = runner.run(
-          [](const auto &parameters) {
-            return chapter6::make_b2_problem_spec(parameters);
-          },
-          [&](const auto &specification, const auto &run_scenario) {
-            auto evidence = execute(specification, run_scenario);
-            add_b2_artifact_fields(evidence,
-                                   run_scenario,
-                                   configuration.framework_revision,
-                                   configuration.run_kind);
-            return evidence;
-          });
-
-        write_artifact(path, result.document);
-        write_solver_trace(path.parent_path() / "solver-trace.csv",
-                           result.artifact.envelope().report());
-        std::cout << "B2 wrote " << path.string() << '\n';
-      }
+    return run_manifest.finalize() && all_artifacts_succeeded;
   }
 } // namespace
 
@@ -510,6 +581,7 @@ main(const int argc, char **argv)
 {
   try
     {
+      const auto command = command_line_arguments(argc, argv);
       const auto options =
         nmopt::application::runner::parse_command_line(argc, argv);
       if (options.help)
@@ -523,8 +595,7 @@ main(const int argc, char **argv)
           const auto configuration =
             nmopt::application::runner::resolve_run_configuration(
               options, NMOPT_COMPILED_BUILD_PROFILE);
-          run_b1(configuration);
-          return 0;
+          return run_b1(configuration, command) ? 0 : 1;
         }
 
       if (options.run_b2)
@@ -532,8 +603,7 @@ main(const int argc, char **argv)
           const auto configuration =
             nmopt::application::runner::resolve_run_configuration(
               options, NMOPT_COMPILED_BUILD_PROFILE);
-          run_b2(configuration);
-          return 0;
+          return run_b2(configuration, command) ? 0 : 1;
         }
 
       nmopt::application::ApplicationCatalog catalog;

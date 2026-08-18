@@ -4,16 +4,24 @@
 The tool reads one runner artifact directory and writes derived plots outside
 the authoritative ``native/`` directory.  It accepts the current native file
 names and the historical ``fields.vtu``/``control.vtu`` names used by older
-development runs.
+development runs.  With ``--input`` it processes every artifact below a run
+root into a mirrored output tree and writes an aggregate index.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+os.environ.setdefault(
+    "MPLCONFIGDIR",
+    str(Path(tempfile.gettempdir()) / "nmopt-matplotlib"),
+)
 
 import matplotlib
 
@@ -281,32 +289,111 @@ def process_artifact(artifact: Path, output: Path) -> dict[str, object]:
     return manifest
 
 
+def process_input_root(input_root: Path, output_root: Path) -> dict[str, object]:
+    artifacts = sorted(path.parent for path in input_root.rglob("artifact.kv"))
+    if not artifacts:
+        raise PostprocessError(f"no artifact.kv files found below '{input_root}'")
+
+    output_root.mkdir(parents=True, exist_ok=True)
+    records: list[dict[str, object]] = []
+    for artifact in artifacts:
+        relative = artifact.relative_to(input_root)
+        output = output_root / relative
+        try:
+            manifest = process_artifact(artifact, output)
+            records.append(
+                {
+                    "artifact": str(relative),
+                    "status": "ok",
+                    "plots": manifest["plots"],
+                }
+            )
+        except (OSError, ValueError, PostprocessError) as error:
+            output.mkdir(parents=True, exist_ok=True)
+            (output / "postprocess.json").write_text(
+                json.dumps(
+                    {
+                        "artifact_directory": str(artifact.resolve()),
+                        "status": "error",
+                        "error": str(error),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            records.append(
+                {
+                    "artifact": str(relative),
+                    "status": "error",
+                    "error": str(error),
+                }
+            )
+
+    index = {
+        "input_root": str(input_root.resolve()),
+        "output_root": str(output_root.resolve()),
+        "artifact_count": len(records),
+        "success_count": sum(record["status"] == "ok" for record in records),
+        "failure_count": sum(record["status"] == "error" for record in records),
+        "artifacts": records,
+    }
+    (output_root / "postprocess-index.json").write_text(
+        json.dumps(index, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return index
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument(
         "--artifact",
         type=Path,
-        required=True,
         help="one runner artifact directory containing artifact.kv/native",
+    )
+    source.add_argument(
+        "--input",
+        type=Path,
+        help="run root containing one or more artifact.kv files",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        help="derived output directory (default: <artifact>/derived)",
+        help=(
+            "derived output directory; defaults to <artifact>/derived for "
+            "--artifact or <input>/postprocessed for --input"
+        ),
     )
     arguments = parser.parse_args()
-    artifact = arguments.artifact.resolve()
-    output = (
-        arguments.output.resolve()
-        if arguments.output is not None
-        else artifact / "derived"
-    )
     try:
-        manifest = process_artifact(artifact, output)
+        if arguments.artifact is not None:
+            artifact = arguments.artifact.resolve()
+            output = (
+                arguments.output.resolve()
+                if arguments.output is not None
+                else artifact / "derived"
+            )
+            manifest = process_artifact(artifact, output)
+            print(f"wrote {len(manifest['plots'])} field plot sets to {output}")
+            return 0
+
+        input_root = arguments.input.resolve()
+        output_root = (
+            arguments.output.resolve()
+            if arguments.output is not None
+            else input_root / "postprocessed"
+        )
+        index = process_input_root(input_root, output_root)
+        print(
+            f"processed {index['success_count']}/{index['artifact_count']} "
+            f"artifacts to {output_root}"
+        )
+        return 0 if index["failure_count"] == 0 else 1
     except (OSError, ValueError, PostprocessError) as error:
         parser.error(str(error))
-    print(f"wrote {len(manifest['plots'])} field plot sets to {output}")
-    return 0
 
 
 if __name__ == "__main__":

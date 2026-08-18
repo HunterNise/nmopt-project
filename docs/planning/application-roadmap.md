@@ -79,11 +79,10 @@ python3 tools/chapter6_report.py \
   --output runs/chapter-6-report
 ```
 
-The planned A7 post-processing tool will use `meshio` and `matplotlib` to
-read native deal.II VTU files and produce derived state, control, and adjoint
-plots. The first single-artifact command is now available; aggregate report
-integration remains separate and must not become a prerequisite for the
-runner.
+The A7 post-processing tool uses `meshio` and `matplotlib` to read native
+deal.II VTU files and produce derived state, control, and adjoint plots. Both
+single-artifact and run-root modes are available; aggregate report integration
+remains separate and must not become a prerequisite for the runner.
 
 ## Application boundaries
 
@@ -270,17 +269,18 @@ Galerkin limitation without silently activating stabilization.
 
 ### A7 — Add Python post-processing
 
-**Status:** first single-artifact renderer implemented; aggregate integration
-remains planned.
+**Status:** single-artifact renderer and run-root processing implemented;
+combined visualization/report integration remains planned.
 
 The first supported post-processing backend is Python with `meshio` and
 `matplotlib`. It should read only native VTU files and runner records and
 produce derived PNG/SVG plots for state, adjoint, volume control, and boundary
-control. `tools/chapter6_postprocess.py` implements the first step: it reads
-one artifact, writes plots and `postprocess.json` below a separate `derived/`
-directory, and supports legacy field filenames for historical development
-runs. Plotting remains optional and must not be a C++ build or CTest
-dependency.
+control. `tools/chapter6_postprocess.py` reads one artifact, writes plots and
+`postprocess.json` below a separate `derived/` directory, and supports legacy
+field filenames for historical development runs. `--input` mirrors the
+artifact tree below a separate output root and
+writes `postprocess-index.json` with per-artifact success or failure records.
+Plotting remains optional and must not be a C++ build or CTest dependency.
 
 ### A8 — Add discovery and parameter-file interfaces
 

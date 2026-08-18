@@ -133,6 +133,18 @@ volume-control, and boundary-control field, plus `postprocess.json`. The
 default output is `<artifact>/derived`. It reads current files below `native/`
 and also accepts historical `fields.vtu` and `control.vtu` files.
 
+To process a complete run root, use `--input`:
+
+```bash
+python3 tools/chapter6_postprocess.py \
+  --input runs/chapter-6 \
+  --output runs/chapter-6-postprocessed
+```
+
+The output mirrors the artifact paths below the input root. Each processed
+artifact receives its own `postprocess.json`, and the root receives
+`postprocess-index.json` with success and failure records.
+
 ## B0 acceptance
 
 B0 is ready for executable integration when:

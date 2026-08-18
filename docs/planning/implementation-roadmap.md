@@ -105,7 +105,13 @@ stop at `line_search_failure` after nine accepted iterations. The benchmark
 activation gate therefore remains open pending a refreshed source-scale run
 and a boundary/formulation or solver-policy investigation; the remaining
 failure must not yet be classified as solely an unstabilized-Galerkin
-limitation.
+limitation. The investigation now includes an explicit deal.II diagnostic
+switch for the book-style ordinary-normal transport boundary convention; the
+production and semantic default remains the total conormal. Corrected
+refinement-2 and refinement-3 runs fail before accepting a step in all four
+cases, while the refinement-2 diagnostic confirms a materially smaller
+ordinary-normal forward-state scale. The source-scale artifacts remain stale
+until the authorized boundary convention is decided.
 The runner now also writes a structured `solver-trace.csv` sidecar for each
 run's Armijo trials and final-state `fields.vtu`/`control.vtu` sidecars for the
 selected deal.II applications. The repository-local

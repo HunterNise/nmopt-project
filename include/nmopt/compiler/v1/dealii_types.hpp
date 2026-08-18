@@ -327,6 +327,16 @@ namespace nmopt::compiler::v1
     FacewiseBoundValue upper;
   };
 
+  // The conservative-transport Neumann target normally realizes the natural
+  // datum as the total conormal flux. The ordinary-normal option is an
+  // explicit backend diagnostic for source conventions that write
+  // partial_n y - (b . n) y = u; it is not the default semantic realization.
+  enum class TransportBoundaryRealisation
+  {
+    total_conormal,
+    ordinary_normal_transport
+  };
+
   struct DealiiDiscretisationPolicy
   {
     enum class Execution
@@ -337,6 +347,8 @@ namespace nmopt::compiler::v1
 
     unsigned int                                state_degree = 1;
     Execution                                   execution = Execution::assembled;
+    TransportBoundaryRealisation               transport_boundary_realisation =
+      TransportBoundaryRealisation::total_conormal;
     dealii_backend::MassMetricSolveParameters control_metric_solve = {};
     dealii_backend::SPDLinearSolvePolicy       state_solve = {};
     dealii_backend::SPDLinearSolvePolicy       adjoint_solve = {};

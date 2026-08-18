@@ -97,6 +97,9 @@ namespace nmopt::compiler::v1::detail
         StateObservation::boundary_trace,
       std::set<dealii::types::material_id>         observation_material_ids = {},
       const dealii::TensorFunction<1, dim> *       conservative_transport = nullptr,
+      std::set<dealii::types::boundary_id>         transport_boundary_ids = {},
+      const TransportBoundaryRealisation           transport_boundary_realisation =
+        TransportBoundaryRealisation::total_conormal,
       const std::optional<WeightedTraceRealisation> weighted_trace_realisation =
         std::nullopt,
       std::optional<std::reference_wrapper<const dealii::Function<dim>>>
@@ -113,6 +116,8 @@ namespace nmopt::compiler::v1::detail
       , state_observation_(state_observation)
       , observation_material_ids_(std::move(observation_material_ids))
       , uses_conservative_transport_(conservative_transport != nullptr)
+      , transport_boundary_ids_(std::move(transport_boundary_ids))
+      , transport_boundary_realisation_(transport_boundary_realisation)
       , weighted_trace_realisation_(weighted_trace_realisation)
       , has_fixed_dirichlet_data_(fixed_dirichlet_data.has_value())
     {
@@ -153,6 +158,11 @@ namespace nmopt::compiler::v1::detail
         state_observation_ == StateObservation::boundary_trace ||
           observation_weight == nullptr,
         "The C5.6 volume observation does not consume boundary-weight data");
+      contract::require(
+        transport_boundary_realisation_ ==
+            TransportBoundaryRealisation::total_conormal ||
+          uses_conservative_transport_,
+        "The ordinary transport boundary realization needs conservative transport data");
 
       state_dof_handler_.distribute_dofs(state_fe_);
       build_constraints(fixed_dirichlet_data);
@@ -630,6 +640,23 @@ namespace nmopt::compiler::v1::detail
     }
 
     bool
+    uses_ordinary_transport_boundary_realisation() const
+    {
+      return transport_boundary_realisation_ ==
+             TransportBoundaryRealisation::ordinary_normal_transport;
+    }
+
+    bool
+    is_transport_boundary_face(
+      const typename dealii::DoFHandler<dim>::active_cell_iterator &cell,
+      const unsigned int face) const
+    {
+      return cell->face(face)->at_boundary() &&
+             (control_boundary_ids_.count(cell->face(face)->boundary_id()) != 0 ||
+              transport_boundary_ids_.count(cell->face(face)->boundary_id()) != 0);
+    }
+
+    bool
     is_observation_cell(
       const typename dealii::DoFHandler<dim>::active_cell_iterator &cell) const
     {
@@ -888,21 +915,27 @@ namespace nmopt::compiler::v1::detail
 
       assemble_boundary_operators(desired_state,
                                   observation_weight,
-                                  quadrature_order);
+                                  quadrature_order,
+                                  conservative_transport);
     }
 
     void
     assemble_boundary_operators(
       const dealii::Function<dim> &desired_state,
       const dealii::Function<dim> *observation_weight,
-      const unsigned int           quadrature_order)
+      const unsigned int           quadrature_order,
+      const dealii::TensorFunction<1, dim> *conservative_transport)
     {
       const dealii::QGauss<dim - 1> face_quadrature(quadrature_order);
+      dealii::UpdateFlags face_update_flags =
+        dealii::update_values | dealii::update_quadrature_points |
+        dealii::update_JxW_values;
+      if (uses_ordinary_transport_boundary_realisation())
+        face_update_flags |= dealii::update_normal_vectors;
       dealii::FEFaceValues<dim> face_values(
         state_fe_,
         face_quadrature,
-        dealii::update_values | dealii::update_quadrature_points |
-          dealii::update_JxW_values);
+        face_update_flags);
       std::vector<dealii::types::global_dof_index> state_indices(
         state_fe_.dofs_per_cell);
       std::size_t control_index = 0;
@@ -916,7 +949,10 @@ namespace nmopt::compiler::v1::detail
             {
               const bool control_face = is_control_face(cell, face);
               const bool observation_face = is_observation_face(cell, face);
-              if (!control_face && !observation_face)
+              const bool transport_face =
+                uses_ordinary_transport_boundary_realisation() &&
+                is_transport_boundary_face(cell, face);
+              if (!control_face && !observation_face && !transport_face)
                 continue;
               face_values.reinit(cell, face);
               double control_measure = 0.0;
@@ -925,6 +961,18 @@ namespace nmopt::compiler::v1::detail
                   const double weight = face_values.JxW(q);
                   if (control_face)
                     control_measure += weight;
+                  const double control_scale =
+                    uses_ordinary_transport_boundary_realisation()
+                      ? diffusion_
+                      : 1.0;
+                  const double boundary_matrix_coefficient =
+                    transport_face
+                      ? -(diffusion_ - 1.0) *
+                        (conservative_transport->value(
+                           face_values.quadrature_point(q)) *
+                         face_values.normal_vector(q)) *
+                        weight
+                      : 0.0;
                   const double desired_value = observation_face
                     ? desired_state.value(face_values.quadrature_point(q))
                     : 0.0;
@@ -948,7 +996,24 @@ namespace nmopt::compiler::v1::detail
                       if (control_face)
                         control_coupling_.add(global_i,
                                               control_index,
-                                              phi_i * weight);
+                                              control_scale * phi_i * weight);
+                      if (transport_face)
+                        for (unsigned int j = 0;
+                             j < state_fe_.dofs_per_cell;
+                             ++j)
+                          {
+                            const auto global_j = state_indices[j];
+                            const double contribution =
+                              boundary_matrix_coefficient * phi_i *
+                              face_values.shape_value(j, q);
+                            if (constrained_state_dofs_.at(global_j))
+                              fixed_state_load_[global_i] +=
+                                contribution * fixed_state_values_[global_j];
+                            else
+                              system_matrix_.add(global_i,
+                                                 global_j,
+                                                 contribution);
+                          }
                       if (observation_face)
                         {
                           (*observation_evaluation)[global_i] =
@@ -1070,6 +1135,8 @@ namespace nmopt::compiler::v1::detail
     const StateObservation state_observation_;
     const std::set<dealii::types::material_id> observation_material_ids_;
     const bool uses_conservative_transport_;
+    const std::set<dealii::types::boundary_id> transport_boundary_ids_;
+    const TransportBoundaryRealisation transport_boundary_realisation_;
     const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
     const bool has_fixed_dirichlet_data_;
     std::size_t control_face_count_ = 0;

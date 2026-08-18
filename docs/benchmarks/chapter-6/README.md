@@ -262,6 +262,20 @@ Armijo fraction `1e-4`, backtracking factor `0.5`, maximum line-search trials
 are framework policy, not recovered source values; the artifact must record
 that the source step policy was unspecified.
 
+The production B2 realization uses the total conservative-transport conormal
+
+$$
+\mu\,\partial_n y-(b\mathbin\cdot n)y.
+$$
+
+The deal.II discretisation policy also exposes an explicit diagnostic-only
+ordinary-normal realization for comparison with the book's ambiguous notation
+of $\partial_n y-(b\mathbin\cdot n)y$. In that mode the control coupling is
+scaled by $\mu$ and the corresponding state-dependent outlet term is assembled;
+the default runner and the frozen B2 semantic policy remain total conormal.
+This diagnostic is not a third benchmark case and must not be used to silently
+replace the frozen formulation.
+
 ### B2 acceptance evidence
 
 The acceptance matrix contains four artifacts, one per case. Each artifact
@@ -291,9 +305,15 @@ and then stop at `line_search_failure` after nine accepted iterations.
 The solver traces show finite trial objectives and negative directional slopes;
 the first B2 search direction is therefore not rejected as non-descent. The
 remaining constant-target failures cannot yet be attributed solely to the
-excluded unstabilized Galerkin realization. The next B2 unit is to investigate
-the corrected formulation's source-scale behavior and line-search/mesh
-scaling, without changing the frozen scenario or adding stabilization.
+excluded unstabilized Galerkin realization. Corrected refinement-2 and
+refinement-3 runs now fail before accepting an optimization step for all four
+cases; their zero-control forward states grow markedly with refinement. The
+refinement-2 contract diagnostic confirms that the ordinary-normal comparison
+has a substantially smaller forward-state scale than the total-conormal
+default, so the convention is numerically material rather than a control-unit
+rescaling. The source-scale artifacts remain stale and have not been rebuilt.
+The next B2 unit is to decide which convention is authorized for reproduction,
+then refresh the corresponding artifacts.
 
 ## Activation gate
 

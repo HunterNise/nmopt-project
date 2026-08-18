@@ -143,6 +143,13 @@ selection is copied into `ScalarLoweringPlan`, checked by general scalar model
 construction, and retained as a structured manifest record. The
 `selected_policy` strings remain descriptive renderings only.
 
+For the Chapter 6 B2 investigation, the deal.II discretisation policy has a
+separate opt-in diagnostic switch for an ordinary-normal transport boundary
+realization. It assembles the equivalent state-dependent boundary correction
+and the diffusion-scaled Neumann control coupling; the default remains the
+typed total-conormal selection above. This backend diagnostic does not alter
+the semantic `BoundaryRealisationSelection` or the frozen benchmark runner.
+
 ## Public semantic graph
 
 The compatibility aggregate `include/nmopt/semantic/v1/problem_spec.hpp`

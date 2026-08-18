@@ -1326,6 +1326,11 @@ namespace nmopt::compiler::v1
             uses_neumann_convection
               ? &data.conservative_transport->conservative_transport
               : nullptr,
+            uses_neumann_convection &&
+                transport_outflow_boundary_region != nullptr
+              ? boundary_ids(*transport_outflow_boundary_region)
+              : std::set<dealii::types::boundary_id>{},
+            policy.transport_boundary_realisation,
             uses_weighted_boundary_trace
               ? std::optional<typename BoundaryModel::WeightedTraceRealisation>{
                   BoundaryModel::WeightedTraceRealisation::fe_q_face_quadrature}

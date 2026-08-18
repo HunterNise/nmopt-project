@@ -10,6 +10,17 @@ option(NMOPT_WARNINGS_AS_ERRORS "Treat project warnings as errors" OFF)
 option(NMOPT_ENABLE_SANITIZERS
   "Enable address and undefined-behavior sanitizers" OFF)
 
+if(CMAKE_BUILD_TYPE)
+  string(TOLOWER "${CMAKE_BUILD_TYPE}" NMOPT_BUILD_CONFIGURATION)
+else()
+  set(NMOPT_BUILD_CONFIGURATION "unknown")
+endif()
+if(NMOPT_ENABLE_DEAL_II)
+  set(NMOPT_BUILD_PROFILE_NAME "${NMOPT_BUILD_CONFIGURATION}-dealii")
+else()
+  set(NMOPT_BUILD_PROFILE_NAME "${NMOPT_BUILD_CONFIGURATION}-neutral")
+endif()
+
 if(NMOPT_ENABLE_SANITIZERS AND NMOPT_ENABLE_DEAL_II)
   message(FATAL_ERROR
     "NMOPT_ENABLE_SANITIZERS is a backend-neutral profile. "
@@ -17,6 +28,9 @@ if(NMOPT_ENABLE_SANITIZERS AND NMOPT_ENABLE_DEAL_II)
 endif()
 
 add_library(nmopt_build_flags INTERFACE)
+target_compile_definitions(nmopt_build_flags
+  INTERFACE
+    NMOPT_COMPILED_BUILD_PROFILE=\"${NMOPT_BUILD_PROFILE_NAME}\")
 if(NMOPT_ENABLE_WARNINGS)
   if(MSVC)
     target_compile_options(nmopt_build_flags INTERFACE /W4)

@@ -13,6 +13,10 @@
 #include <string>
 #include <vector>
 
+#ifndef NMOPT_COMPILED_BUILD_PROFILE
+#  define NMOPT_COMPILED_BUILD_PROFILE "unknown"
+#endif
+
 namespace
 {
   const char *
@@ -150,7 +154,7 @@ namespace
 
     const char *hardware = std::getenv("NMOPT_HARDWARE");
     return {scenario.experiment.source_revision,
-            scenario.experiment.build_profile,
+            NMOPT_COMPILED_BUILD_PROFILE,
             compiler,
 #if defined(__VERSION__)
             __VERSION__,
@@ -348,6 +352,7 @@ namespace
         for (const double beta : base_scenario.problem.regularisation_sweep)
           {
             auto scenario = base_scenario;
+            scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
             const auto beta_slug = b1_beta_slug(beta);
             scenario.compile.mesh.refinement = options.refinement;
             scenario.compile.mesh.mesh_provenance =
@@ -409,6 +414,7 @@ namespace
     for (const auto graetz_case : b2_case_order)
       {
         auto scenario = make_b2_scenario(graetz_case);
+        scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
         const auto case_slug = graetz_case_name(graetz_case);
         scenario.compile.mesh.refinement = options.refinement;
         scenario.compile.mesh.mesh_provenance =

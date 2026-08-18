@@ -341,13 +341,13 @@ namespace nmopt::compiler::v1::detail
       data_out.add_data_vector(adjoint.block(0), "adjoint");
       data_out.build_patches();
 
-      std::ofstream fields_output(directory / "fields.vtu");
+      std::ofstream fields_output(directory / "fields-volume.vtu");
       if (!fields_output)
-        throw std::runtime_error("could not open Neumann field output");
+        throw std::runtime_error("could not open Neumann volume field output");
       fields_output.imbue(std::locale::classic());
       data_out.write_vtu(fields_output);
       if (!fields_output)
-        throw std::runtime_error("could not write Neumann field output");
+        throw std::runtime_error("could not write Neumann volume field output");
 
       std::vector<dealii::Point<dim>> face_points;
       std::vector<double>             face_controls;
@@ -373,9 +373,9 @@ namespace nmopt::compiler::v1::detail
       contract::require(control_index == control_face_count_,
                         "Neumann field output control ordering changed");
 
-      std::ofstream control_output(directory / "control.vtu");
+      std::ofstream control_output(directory / "control-boundary.vtu");
       if (!control_output)
-        throw std::runtime_error("could not open Neumann control output");
+        throw std::runtime_error("could not open Neumann boundary-control output");
       control_output.imbue(std::locale::classic());
       control_output << "<?xml version=\"1.0\"?>\n"
                      << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" "
@@ -416,7 +416,7 @@ namespace nmopt::compiler::v1::detail
       control_output << "\n</DataArray>\n</Cells>\n"
                      << "</Piece>\n</UnstructuredGrid>\n</VTKFile>\n";
       if (!control_output)
-        throw std::runtime_error("could not write Neumann control output");
+        throw std::runtime_error("could not write Neumann boundary-control output");
     }
 
     Covector

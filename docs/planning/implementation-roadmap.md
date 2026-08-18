@@ -120,7 +120,7 @@ cases, while the refinement-2 diagnostic confirms a materially smaller
 ordinary-normal forward-state scale. The source-scale artifacts remain stale
 until they are refreshed under the authorized ordinary-normal convention.
 The runner now also writes a structured `solver-trace.csv` sidecar for each
-run's Armijo trials and final-state `fields.vtu`/`control.vtu` sidecars for the
+run's Armijo trials and final-state `fields-volume.vtu`/`control-boundary.vtu` sidecars for the
 selected deal.II applications. The repository-local
 `tools/chapter6_report.py` generator now projects the persisted artifact and
 sidecars into a CSV/Markdown summary and dependency-free SVG objective and

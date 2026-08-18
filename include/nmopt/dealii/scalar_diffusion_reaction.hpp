@@ -485,13 +485,13 @@ namespace nmopt::dealii_backend
                                "control");
       data_out.build_patches();
 
-      std::ofstream output(directory / "fields.vtu");
+      std::ofstream output(directory / "fields-volume.vtu");
       if (!output)
-        throw std::runtime_error("could not open scalar field output");
+        throw std::runtime_error("could not open scalar volume field output");
       output.imbue(std::locale::classic());
       data_out.write_vtu(output);
       if (!output)
-        throw std::runtime_error("could not write scalar field output");
+        throw std::runtime_error("could not write scalar volume field output");
     }
 
     Covector

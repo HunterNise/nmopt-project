@@ -78,7 +78,7 @@ class Run:
     def field_outputs(self) -> str:
         names = [
             name
-            for name in ("fields.vtu", "control.vtu")
+            for name in ("fields-volume.vtu", "control-boundary.vtu")
             if (self.directory / name).is_file()
         ]
         return ",".join(names) if names else "none"

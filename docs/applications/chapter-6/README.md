@@ -96,8 +96,8 @@ artifact-directory creation remain outside this API.
 The deal.II Chapter 6 adapters can also receive a run-owned field-output
 directory. They write final-state VTU artifacts there without changing the
 backend-neutral reduced DTO contract: B1 writes state, adjoint, and cellwise
-control in `fields.vtu`; B2 writes state and adjoint in `fields.vtu` and its
-facewise control in `control.vtu`.
+control in `fields-volume.vtu`; B2 writes state and adjoint in
+`fields-volume.vtu` and its facewise control in `control-boundary.vtu`.
 
 ## B1 — distributed Laplace control
 

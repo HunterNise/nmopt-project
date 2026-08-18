@@ -84,9 +84,10 @@ namespace
               "b1.hessian_finite_difference_passed=true\n") !=
               std::string::npos,
             "B1 dealii adapter omitted Hessian finite-difference evidence");
-    require(std::filesystem::exists(field_output_directory / "fields.vtu"),
+    require(
+      std::filesystem::exists(field_output_directory / "fields-volume.vtu"),
             "B1 dealii adapter did not write field output");
-    std::ifstream fields(field_output_directory / "fields.vtu");
+    std::ifstream fields(field_output_directory / "fields-volume.vtu");
     const std::string field_document((std::istreambuf_iterator<char>(fields)),
                                      std::istreambuf_iterator<char>());
     require(field_document.find("Name=\"state\"") != std::string::npos &&

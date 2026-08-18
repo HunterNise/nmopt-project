@@ -187,11 +187,13 @@ namespace
     require(result.document.find("solver.method=bfgs\n") !=
             std::string::npos,
             "B2 deal.II adapter omitted solver-method evidence");
-    require(std::filesystem::exists(field_output_directory / "fields.vtu") &&
-              std::filesystem::exists(field_output_directory / "control.vtu"),
+    require(std::filesystem::exists(
+              field_output_directory / "fields-volume.vtu") &&
+              std::filesystem::exists(
+                field_output_directory / "control-boundary.vtu"),
             "B2 deal.II adapter did not write field output");
-    std::ifstream fields(field_output_directory / "fields.vtu");
-    std::ifstream control(field_output_directory / "control.vtu");
+    std::ifstream fields(field_output_directory / "fields-volume.vtu");
+    std::ifstream control(field_output_directory / "control-boundary.vtu");
     const std::string field_document((std::istreambuf_iterator<char>(fields)),
                                      std::istreambuf_iterator<char>());
     const std::string control_document(

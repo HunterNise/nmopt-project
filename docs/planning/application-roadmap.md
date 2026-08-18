@@ -218,9 +218,10 @@ parameter-file system as a prerequisite for B1/B2.
 
 ### A3 — Define native deal.II output
 
-**Status:** partially implemented.
+**Status:** topology-specific native field names implemented; standalone mesh
+files remain planned.
 
-Deal.II should write the authoritative native datasets directly:
+Deal.II writes the authoritative native field datasets directly:
 
 ```text
 native/

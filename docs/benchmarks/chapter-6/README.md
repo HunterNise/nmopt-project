@@ -91,6 +91,20 @@ revision, refinement override, command, expected artifact inventory, and
 `running`, `complete`, or `failed` status. Failed or unfinished artifacts
 remain listed with their diagnostic rather than disappearing from the run set.
 
+For a complete development run, including Python post-processing and report
+generation, use:
+
+```bash
+tools/run_chapter6.sh \
+  --benchmark b2 \
+  --refinement 1 \
+  --format png svg
+```
+
+The wrapper uses the existing Debug deal.II runner, defaults to refinement 1,
+lets the runner allocate the next development slot, and writes all derived
+outputs into that run set.
+
 `solver-trace.csv` is a structured Armijo trial trace. It records the outer
 optimization iteration, trial index, step length, trial objective, actual
 descent slope, sufficient-decrease bound, and the finite/slope/acceptance

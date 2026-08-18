@@ -56,6 +56,23 @@ build/debug-dealii/bin/nmopt_runner \
 The runner will place this below
 `runs/chapter-6/b1/development/001/`.
 
+For the complete development loop, use the repository wrapper. It invokes the
+already-built Debug runner, detects the run-set slot allocated by the runner,
+then generates both post-processing and the manifest-aware report:
+
+```bash
+tools/run_chapter6.sh \
+  --benchmark b2 \
+  --refinement 1 \
+  --format png svg
+```
+
+The wrapper defaults to `--run-kind development`, `--refinement 1`,
+`--output runs`, the current Git revision, and
+`build/debug-dealii/bin/nmopt_runner`. It does not configure or compile a
+build. Reproduction still requires an existing release runner selected with
+`--runner` and the explicit `--run-kind reproduction` option.
+
 Do not configure or compile `release-dealii` unless it is absolutely
 necessary for source-scale reproduction or optimized verification, and ask
 the user for explicit permission before doing so. A request to implement,

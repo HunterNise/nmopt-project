@@ -22,6 +22,65 @@ The application roadmap is therefore the mutable status owner for:
 - B0, B1, and B2 execution and acceptance handoffs; and
 - future parameter-file and GUI boundaries.
 
+## Quick start and build policy
+
+Use the backend-neutral Debug profile for ordinary contract work:
+
+```bash
+cmake --preset debug-neutral
+cmake --build --preset debug-neutral
+ctest --preset debug-neutral --output-on-failure
+```
+
+For application development that needs the deal.II runner, use the Debug
+deal.II profile and build only the runner target:
+
+```bash
+cmake --preset debug-dealii
+cmake --build --preset debug-dealii --target nmopt_runner --parallel 1
+build/debug-dealii/bin/nmopt_runner --list
+```
+
+Development runs must opt into the development policy and may use a smaller
+mesh, for example:
+
+```bash
+build/debug-dealii/bin/nmopt_runner \
+  --benchmark b1 \
+  --framework-revision REV \
+  --run-kind development \
+  --refinement 1 \
+  --output runs/development/b1
+```
+
+Do not configure or compile `release-dealii` unless it is absolutely
+necessary for source-scale reproduction or optimized verification, and ask
+the user for explicit permission before doing so. A request to implement,
+document, inspect, or report on an application does not grant that
+permission. Debug deal.II is the default for development and diagnostics;
+Debug output must not be presented as reproduction evidence.
+
+Use `python3` explicitly for reports and post-processing. Check the
+interpreter and optional plotting libraries with:
+
+```bash
+python3 --version
+python3 -c "import matplotlib, meshio; print('matplotlib and meshio available')"
+```
+
+The current deterministic report tool uses only the standard library:
+
+```bash
+python3 tools/chapter6_report.py \
+  --input runs \
+  --output runs/chapter-6-report
+```
+
+The planned A7 post-processing tool will use `meshio` and `matplotlib` to
+read native deal.II VTU files and produce derived state, control, and adjoint
+plots. It is not yet a repository command and must not be treated as a
+prerequisite for the current runner.
+
 ## Application boundaries
 
 The application layer has five distinct responsibilities:

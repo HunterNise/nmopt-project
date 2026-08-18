@@ -58,9 +58,12 @@ cmake --build --preset debug-dealii --target nmopt_runner
 ```
 
 The `release-dealii` build is optimized and can take substantially longer on
-a local machine. Build it only when refreshing source-scale reproduction
-artifacts or the optimized verification gate; do not rebuild it merely to
-regenerate reports or inspect existing debug artifacts.
+a local machine. Do not configure or compile it unless it is absolutely
+necessary for source-scale reproduction artifacts or the optimized
+verification gate, and ask the user for explicit permission before starting
+that build. Implementation, documentation, inspection, report generation,
+and development-run requests do not by themselves grant permission. Do not
+rebuild it merely to regenerate reports or inspect existing debug artifacts.
 
 Deal.II-enabled builds must always use one build job (`--parallel 1`). The
 deal.II translation units are memory-intensive, and allowing Ninja to compile

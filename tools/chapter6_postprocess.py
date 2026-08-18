@@ -31,6 +31,7 @@ import matplotlib.pyplot as plt
 import meshio
 import numpy as np
 from matplotlib.collections import LineCollection
+from matplotlib.colors import Normalize
 from matplotlib.tri import Triangulation
 
 
@@ -142,12 +143,12 @@ def save_figure(figure: plt.Figure, output: Path) -> list[str]:
     return generated
 
 
-def plot_volume_field(
+def draw_volume_field(
+    axis: plt.Axes,
     mesh: meshio.Mesh,
     field: ScalarField,
-    metadata: dict[str, str],
-    output: Path,
-) -> list[str]:
+    norm: Normalize | None = None,
+) -> object:
     block_index, block = volume_block(mesh)
     if field.location == "cell" and field.block_index != block_index:
         raise PostprocessError(
@@ -170,13 +171,13 @@ def plot_volume_field(
             )
 
     triangulation = Triangulation(points[:, 0], points[:, 1], triangles)
-    figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
     if field.location == "point":
         image = axis.tripcolor(
             triangulation,
             field.values,
             shading="gouraud",
             cmap="viridis",
+            norm=norm,
         )
     else:
         image = axis.tripcolor(
@@ -184,11 +185,23 @@ def plot_volume_field(
             facecolors=field.values[owners],
             shading="flat",
             cmap="viridis",
+            norm=norm,
         )
     axis.triplot(triangulation, color="black", linewidth=0.25, alpha=0.25)
     axis.set_aspect("equal")
     axis.set_xlabel("x")
     axis.set_ylabel("y")
+    return image
+
+
+def plot_volume_field(
+    mesh: meshio.Mesh,
+    field: ScalarField,
+    metadata: dict[str, str],
+    output: Path,
+) -> list[str]:
+    figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
+    image = draw_volume_field(axis, mesh, field)
     axis.set_title(axes_title(metadata, field.name))
     figure.colorbar(image, ax=axis, label=field.name)
     return save_figure(figure, output)
@@ -205,12 +218,12 @@ def boundary_field_block(
     return field.block_index, block
 
 
-def plot_boundary_field(
+def draw_boundary_field(
+    axis: plt.Axes,
     mesh: meshio.Mesh,
     field: ScalarField,
-    metadata: dict[str, str],
-    output: Path,
-) -> list[str]:
+    norm: Normalize | None = None,
+) -> object:
     _, block = boundary_field_block(mesh, field)
     if len(field.values) != len(block.data):
         raise PostprocessError(
@@ -219,21 +232,202 @@ def plot_boundary_field(
         )
     points = np.asarray(mesh.points)[:, :2]
     segments = points[block.data][:, :, :2]
-    figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
     collection = LineCollection(
         segments,
         array=field.values,
         cmap="viridis",
         linewidths=3.0,
+        norm=norm,
     )
     axis.add_collection(collection)
     axis.autoscale()
     axis.set_aspect("equal")
     axis.set_xlabel("x")
     axis.set_ylabel("y")
+    return collection
+
+
+def plot_boundary_field(
+    mesh: meshio.Mesh,
+    field: ScalarField,
+    metadata: dict[str, str],
+    output: Path,
+) -> list[str]:
+    figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
+    collection = draw_boundary_field(axis, mesh, field)
     axis.set_title(axes_title(metadata, "control-boundary"))
     figure.colorbar(collection, ax=axis, label="control")
     return save_figure(figure, output)
+
+
+def comparison_norm(
+    items: list[tuple[Path, dict[str, str], meshio.Mesh, ScalarField]]
+) -> Normalize:
+    finite_values = [
+        item[3].values[np.isfinite(item[3].values)] for item in items
+    ]
+    values = np.concatenate([array for array in finite_values if len(array)])
+    if len(values) == 0:
+        raise PostprocessError("comparison field contains no finite values")
+    lower = float(np.min(values))
+    upper = float(np.max(values))
+    if lower == upper:
+        padding = max(abs(lower) * 0.05, 1.0e-12)
+        lower -= padding
+        upper += padding
+    return Normalize(vmin=lower, vmax=upper)
+
+
+def comparison_layout(count: int) -> tuple[int, int]:
+    columns = min(3, count)
+    rows = (count + columns - 1) // columns
+    return rows, columns
+
+
+def plot_volume_comparison(
+    items: list[tuple[Path, dict[str, str], meshio.Mesh, ScalarField]],
+    field_name: str,
+    output: Path,
+) -> list[str]:
+    norm = comparison_norm(items)
+    rows, columns = comparison_layout(len(items))
+    figure, axes = plt.subplots(
+        rows,
+        columns,
+        figsize=(6.0 * columns, 4.8 * rows),
+        squeeze=False,
+        constrained_layout=True,
+    )
+    image = None
+    for index, (_, metadata, mesh, field) in enumerate(items):
+        axis = axes.flat[index]
+        image = draw_volume_field(axis, mesh, field, norm)
+        axis.set_title(
+            metadata.get("identity.output_id", "Chapter 6 artifact"),
+            fontsize=8,
+        )
+    for axis in axes.flat[len(items) :]:
+        axis.axis("off")
+    if image is None:
+        raise PostprocessError(f"no volume fields available for '{field_name}'")
+    figure.suptitle(f"Chapter 6 comparison: {field_name}")
+    figure.colorbar(image, ax=axes.ravel().tolist(), label=field_name)
+    return save_figure(figure, output)
+
+
+def plot_boundary_comparison(
+    items: list[tuple[Path, dict[str, str], meshio.Mesh, ScalarField]],
+    output: Path,
+) -> list[str]:
+    norm = comparison_norm(items)
+    rows, columns = comparison_layout(len(items))
+    figure, axes = plt.subplots(
+        rows,
+        columns,
+        figsize=(6.0 * columns, 4.8 * rows),
+        squeeze=False,
+        constrained_layout=True,
+    )
+    collection = None
+    for index, (_, metadata, mesh, field) in enumerate(items):
+        axis = axes.flat[index]
+        collection = draw_boundary_field(axis, mesh, field, norm)
+        axis.set_title(
+            metadata.get("identity.output_id", "Chapter 6 artifact"),
+            fontsize=8,
+        )
+    for axis in axes.flat[len(items) :]:
+        axis.axis("off")
+    if collection is None:
+        raise PostprocessError("no boundary fields available for comparison")
+    figure.suptitle("Chapter 6 comparison: control-boundary")
+    figure.colorbar(collection, ax=axes.ravel().tolist(), label="control")
+    return save_figure(figure, output)
+
+
+def volume_comparison_items(
+    artifacts: list[Path], field_name: str
+) -> list[tuple[Path, dict[str, str], meshio.Mesh, ScalarField]]:
+    items: list[tuple[Path, dict[str, str], meshio.Mesh, ScalarField]] = []
+    for artifact in artifacts:
+        fields_path = first_existing(artifact, ("fields-volume.vtu", "fields.vtu"))
+        if fields_path is None:
+            continue
+        mesh = meshio.read(fields_path)
+        field = find_field(mesh, field_name)
+        if field is not None:
+            items.append((artifact, read_metadata(artifact), mesh, field))
+    return items
+
+
+def boundary_comparison_items(
+    artifacts: list[Path],
+) -> list[tuple[Path, dict[str, str], meshio.Mesh, ScalarField]]:
+    items: list[tuple[Path, dict[str, str], meshio.Mesh, ScalarField]] = []
+    for artifact in artifacts:
+        boundary_path = first_existing(
+            artifact, ("control-boundary.vtu", "control.vtu")
+        )
+        if boundary_path is None:
+            continue
+        mesh = meshio.read(boundary_path)
+        field = find_field(mesh, "control")
+        if field is not None:
+            items.append((artifact, read_metadata(artifact), mesh, field))
+    return items
+
+
+def comparison_group(artifact: Path) -> str:
+    metadata = read_metadata(artifact)
+    scenario = metadata.get("identity.scenario_id", "")
+    parts = scenario.split(".")
+    if len(parts) >= 3 and parts[0] == "chapter-6":
+        return ".".join(parts[:3])
+    return metadata.get("identity.recipe_id", "unknown")
+
+
+def build_comparisons(
+    artifacts: list[Path], output_root: Path
+) -> tuple[dict[str, dict[str, list[str]]], dict[str, dict[str, str]]]:
+    grouped: dict[str, list[Path]] = {}
+    for artifact in artifacts:
+        grouped.setdefault(comparison_group(artifact), []).append(artifact)
+
+    generated: dict[str, dict[str, list[str]]] = {}
+    errors: dict[str, dict[str, str]] = {}
+    for group, group_artifacts in grouped.items():
+        comparison_dir = output_root / "comparisons" / group
+        comparison_dir.mkdir(parents=True, exist_ok=True)
+        group_generated: dict[str, list[str]] = {}
+        group_errors: dict[str, str] = {}
+        for field_name in ("state", "adjoint", "control"):
+            try:
+                items = volume_comparison_items(group_artifacts, field_name)
+                if len(items) >= 2:
+                    group_generated[field_name] = plot_volume_comparison(
+                        items,
+                        field_name,
+                        comparison_dir / f"comparison-{field_name}",
+                    )
+            except (OSError, ValueError, PostprocessError) as error:
+                group_errors[field_name] = str(error)
+
+        try:
+            items = boundary_comparison_items(group_artifacts)
+            if len(items) >= 2:
+                group_generated["control-boundary"] = plot_boundary_comparison(
+                    items,
+                    comparison_dir / "comparison-control-boundary",
+                )
+        except (OSError, ValueError, PostprocessError) as error:
+            group_errors["control-boundary"] = str(error)
+
+        if group_generated:
+            generated[group] = group_generated
+        if group_errors:
+            errors[group] = group_errors
+
+    return generated, errors
 
 
 def process_artifact(artifact: Path, output: Path) -> dict[str, object]:
@@ -296,6 +490,7 @@ def process_input_root(input_root: Path, output_root: Path) -> dict[str, object]
 
     output_root.mkdir(parents=True, exist_ok=True)
     records: list[dict[str, object]] = []
+    successful_artifacts: list[Path] = []
     for artifact in artifacts:
         relative = artifact.relative_to(input_root)
         output = output_root / relative
@@ -308,6 +503,7 @@ def process_input_root(input_root: Path, output_root: Path) -> dict[str, object]
                     "plots": manifest["plots"],
                 }
             )
+            successful_artifacts.append(artifact)
         except (OSError, ValueError, PostprocessError) as error:
             output.mkdir(parents=True, exist_ok=True)
             (output / "postprocess.json").write_text(
@@ -331,6 +527,10 @@ def process_input_root(input_root: Path, output_root: Path) -> dict[str, object]
                 }
             )
 
+    comparisons, comparison_errors = build_comparisons(
+        successful_artifacts,
+        output_root,
+    )
     index = {
         "input_root": str(input_root.resolve()),
         "output_root": str(output_root.resolve()),
@@ -338,7 +538,10 @@ def process_input_root(input_root: Path, output_root: Path) -> dict[str, object]
         "success_count": sum(record["status"] == "ok" for record in records),
         "failure_count": sum(record["status"] == "error" for record in records),
         "artifacts": records,
+        "comparisons": comparisons,
     }
+    if comparison_errors:
+        index["comparison_errors"] = comparison_errors
     (output_root / "postprocess-index.json").write_text(
         json.dumps(index, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -391,7 +594,12 @@ def main() -> int:
             f"processed {index['success_count']}/{index['artifact_count']} "
             f"artifacts to {output_root}"
         )
-        return 0 if index["failure_count"] == 0 else 1
+        return (
+            0
+            if index["failure_count"] == 0
+            and not index.get("comparison_errors")
+            else 1
+        )
     except (OSError, ValueError, PostprocessError) as error:
         parser.error(str(error))
 

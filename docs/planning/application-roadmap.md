@@ -280,6 +280,8 @@ control. `tools/chapter6_postprocess.py` reads one artifact, writes plots and
 field filenames for historical development runs. `--input` mirrors the
 artifact tree below a separate output root and
 writes `postprocess-index.json` with per-artifact success or failure records.
+Run-root mode also creates shared-scale comparison figures grouped by
+benchmark family, so B1 and B2 fields are never compared in the same panel.
 Plotting remains optional and must not be a C++ build or CTest dependency.
 
 ### A8 — Add discovery and parameter-file interfaces

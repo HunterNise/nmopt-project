@@ -143,7 +143,10 @@ python3 tools/chapter6_postprocess.py \
 
 The output mirrors the artifact paths below the input root. Each processed
 artifact receives its own `postprocess.json`, and the root receives
-`postprocess-index.json` with success and failure records.
+`postprocess-index.json` with success and failure records. Successful artifacts
+also produce shared-scale comparison PNG/SVG files below
+`comparisons/<benchmark-family>/`; B1 and B2 are kept in separate comparison
+groups.
 
 ## B0 acceptance
 

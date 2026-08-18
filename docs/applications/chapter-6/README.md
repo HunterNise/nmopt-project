@@ -150,7 +150,7 @@ coefficients, the owned mesh session, and the selected solver product.
 | Methods | Steepest descent and L-BFGS from the same initial control |
 | Source line search | Armijo $\rho=0.7$, $\sigma=10^{-5}$, at most five rescalings; encode any unavailable minimum-step rule explicitly |
 | Source stopping | Steepest-descent tolerance $10^{-3}$; the current factory declares $10^{-8}$ for L-BFGS and records it separately from the source rule |
-| Mesh | Source square/triangular mesh when available; development refinement must be labeled as such |
+| Mesh | The scenario supplies the current framework-native default (global refinement 7); `--refinement` is an optional runner override, and any adaptive or alternative mesh policy must be recorded explicitly |
 
 The current public `ReducedSolverParameters` defaults do not equal all source
 line-search values. A B1 scenario must therefore supply the intended solver
@@ -314,7 +314,7 @@ case keeps the stable ID `chapter-6.b2.graetz-flow`; the other cases append
 | Control | Facewise Neumann flux on `control_boundary`; no facewise box for B2 |
 | Initial control | Zero facewise control |
 | Method | Source BFGS; if a fixed step is recovered, record it; otherwise use a declared Armijo policy |
-| Discretization | Source `P1` triangular mesh when available; development refinement is labeled |
+| Discretization | The scenario supplies the current framework-native default (global refinement 7); `--refinement` is an optional runner override, and adaptive refinement is identified by its realized mesh rather than an integer alone |
 
 The runtime binding must include forcing, desired state, diffusion, reaction,
 regularization, fixed Dirichlet data, conservative transport, and provenance

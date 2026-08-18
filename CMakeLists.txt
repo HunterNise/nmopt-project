@@ -152,6 +152,10 @@ if(BUILD_TESTING)
   nmopt_add_neutral_test(
     nmopt_application_boundary_contract_test
     tests/application/application_boundary_contract.cc)
+
+  nmopt_add_neutral_test(
+    nmopt_runner_contract_test
+    tests/application/runner_contract.cc)
 endif()
 
 if(NMOPT_ENABLE_DEAL_II)

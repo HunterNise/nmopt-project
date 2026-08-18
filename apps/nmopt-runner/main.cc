@@ -63,18 +63,20 @@ namespace
   {
     output << "Usage: nmopt_runner --list [--output DIRECTORY]\n"
            << "       nmopt_runner --benchmark b1 --framework-revision REV"
-              " [--output DIRECTORY] [--refinement N]\n"
+              " [--output DIRECTORY] [--run-kind KIND] [--refinement N]\n"
            << "       nmopt_runner --benchmark b2 --framework-revision REV"
-              " [--output DIRECTORY] [--refinement N]\n"
+              " [--output DIRECTORY] [--run-kind KIND] [--refinement N]\n"
            << "       nmopt_runner --help\n"
            << "\n"
            << "--list             list registered Chapter 5/6 application entries\n"
            << "--benchmark b1     run the frozen B1 matrix (six artifacts)\n"
            << "--benchmark b2     run the frozen B2 case batch (four artifacts)\n"
            << "--output DIRECTORY set the runner-owned artifact root (default: runs)\n"
+           << "--run-kind KIND    use reproduction or development policy\n"
            << "--framework-revision REV\n"
            << "                   record the framework revision in each artifact\n"
-           << "--refinement N     override the mesh refinement (default: 7)\n"
+           << "--refinement N     optional benchmark mesh override; otherwise\n"
+           << "                   use the selected benchmark default\n"
            << "--help             show this message\n";
   }
 
@@ -256,17 +258,17 @@ namespace
     const nmopt::application::chapter6::B1Scenario &scenario,
     const nmopt::application::chapter6::ReducedMethod method,
     const double beta,
-    const std::string &framework_revision)
+    const std::string &framework_revision,
+    const nmopt::application::runner::RunKind run_kind)
   {
     add_common_artifact_fields(evidence, framework_revision);
     evidence.fields.push_back({"benchmark.method", b1_method_slug(method)});
     evidence.fields.push_back({"benchmark.regularisation", b1_number(beta)});
     evidence.fields.push_back(
       {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
-    evidence.fields.push_back({
-      "benchmark.mesh_mode",
-      scenario.compile.mesh.refinement == 7 ? "source-scale-native"
-                                            : "development"});
+    evidence.fields.push_back(
+      {"benchmark.run_kind",
+       std::string(nmopt::application::runner::run_kind_name(run_kind))});
     evidence.fields.push_back({"provenance.forcing",
                                scenario.problem.data.forcing_provenance});
     evidence.fields.push_back({"provenance.desired_state",
@@ -277,7 +279,8 @@ namespace
   add_b2_artifact_fields(
     Chapter6Evidence &evidence,
     const nmopt::application::chapter6::B2Scenario &scenario,
-    const std::string &framework_revision)
+    const std::string &framework_revision,
+    const nmopt::application::runner::RunKind run_kind)
   {
     const auto  case_slug = nmopt::application::chapter6::graetz_case_name(
       scenario.problem.graetz_case);
@@ -290,10 +293,9 @@ namespace
                                  scenario.problem.data.regularisation_weight)});
     evidence.fields.push_back(
       {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
-    evidence.fields.push_back({
-      "benchmark.mesh_mode",
-      scenario.compile.mesh.refinement == 7 ? "source-scale-native"
-                                            : "development"});
+    evidence.fields.push_back(
+      {"benchmark.run_kind",
+       std::string(nmopt::application::runner::run_kind_name(run_kind))});
     add_common_artifact_fields(evidence, framework_revision);
     evidence.fields.push_back({"provenance.forcing",
                                scenario.problem.data.forcing_provenance});
@@ -388,9 +390,11 @@ namespace
             auto scenario = base_scenario;
             scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
             const auto beta_slug = b1_beta_slug(beta);
-            scenario.compile.mesh.refinement = options.refinement;
+            const auto refinement = options.refinement_override.value_or(
+              scenario.compile.mesh.refinement);
+            scenario.compile.mesh.refinement = refinement;
             scenario.compile.mesh.mesh_provenance =
-              b1_mesh_provenance(options.refinement);
+              b1_mesh_provenance(refinement);
             scenario.experiment.harness.artifact_directory =
               options.output_directory.string();
             scenario.experiment.scenario_output_id =
@@ -424,7 +428,8 @@ namespace
                                        run_scenario,
                                        method,
                                        beta,
-                                       options.framework_revision);
+                                       options.framework_revision,
+                                       options.run_kind);
                 return evidence;
               });
 
@@ -450,9 +455,11 @@ namespace
         auto scenario = make_b2_scenario(graetz_case);
         scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
         const auto case_slug = graetz_case_name(graetz_case);
-        scenario.compile.mesh.refinement = options.refinement;
+        const auto refinement = options.refinement_override.value_or(
+          scenario.compile.mesh.refinement);
+        scenario.compile.mesh.refinement = refinement;
         scenario.compile.mesh.mesh_provenance =
-          b2_mesh_provenance(options.refinement);
+          b2_mesh_provenance(refinement);
         scenario.experiment.harness.artifact_directory =
           options.output_directory.string();
         scenario.experiment.scenario_output_id =
@@ -481,7 +488,8 @@ namespace
             auto evidence = execute(specification, run_scenario);
             add_b2_artifact_fields(evidence,
                                    run_scenario,
-                                   options.framework_revision);
+                                   options.framework_revision,
+                                   options.run_kind);
             return evidence;
           });
 
@@ -500,6 +508,8 @@ main(const int argc, char **argv)
     {
       const auto options =
         nmopt::application::runner::parse_command_line(argc, argv);
+      nmopt::application::runner::validate_run_policy(
+        options, NMOPT_COMPILED_BUILD_PROFILE);
       if (options.help)
         {
           print_usage(std::cout);

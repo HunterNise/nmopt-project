@@ -34,6 +34,9 @@ namespace nmopt::application::chapter6
   inline constexpr const char *b2_outflow_boundary_region_id =
     "outflow_boundary";
 
+  inline constexpr unsigned int b1_default_mesh_refinement = 7;
+  inline constexpr unsigned int b2_default_mesh_refinement = 7;
+
   enum class ProductSelection
   {
     reduced_dto,
@@ -394,6 +397,9 @@ namespace nmopt::application::chapter6
     solver.declared_minimum_step_length =
       method == ReducedMethod::steepest_descent ? 0.2 : 0.01;
 
+    CompileOptions compile;
+    compile.mesh.refinement = b1_default_mesh_refinement;
+
     B1Scenario scenario{
       {"chapter-6.b1.distributed-laplace",
        "E6.5.1 distributed Laplace control",
@@ -402,7 +408,7 @@ namespace nmopt::application::chapter6
        b1_recipe_id,
        {"B0 harness", "manufactured or recovered forcing is recorded"}},
       std::move(problem),
-      {},
+      std::move(compile),
       std::move(solver),
       {"chapter-6.b1.distributed-laplace",
        "E6.5.1 equations (6.64), Figures 6.2-6.3",
@@ -422,6 +428,9 @@ namespace nmopt::application::chapter6
     B2ProblemParameters problem;
     problem.graetz_case = graetz_case;
 
+    CompileOptions compile;
+    compile.mesh.refinement = b2_default_mesh_refinement;
+
     std::string scenario_id = "chapter-6.b2.graetz-flow";
     if (graetz_case != GraetzCase::observation_wings_constant_target)
       scenario_id += "." + std::string(graetz_case_name(graetz_case));
@@ -434,7 +443,7 @@ namespace nmopt::application::chapter6
        b2_recipe_id,
        {"B0 harness", "fixed temperature port", "declared Galerkin policy"}},
       std::move(problem),
-      {},
+      std::move(compile),
       {ReducedMethod::bfgs, {}, std::nullopt, "zero"},
       {scenario_id,
        "E6.5.2 equation (6.65), Table 6.2, Figures 6.4-6.5",

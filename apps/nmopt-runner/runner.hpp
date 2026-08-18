@@ -2,6 +2,7 @@
 
 #include <charconv>
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -9,15 +10,46 @@
 
 namespace nmopt::application::runner
 {
+  enum class RunKind
+  {
+    reproduction,
+    development
+  };
+
+  inline std::string_view
+  run_kind_name(const RunKind kind)
+  {
+    switch (kind)
+      {
+        case RunKind::reproduction:
+          return "reproduction";
+        case RunKind::development:
+          return "development";
+      }
+    return "unknown";
+  }
+
+  inline RunKind
+  parse_run_kind(const std::string_view value)
+  {
+    if (value == "reproduction")
+      return RunKind::reproduction;
+    if (value == "development")
+      return RunKind::development;
+    throw std::invalid_argument(
+      "--run-kind needs 'reproduction' or 'development'");
+  }
+
   struct CommandLineOptions
   {
     bool                  list = false;
     bool                  run_b1 = false;
     bool                  run_b2 = false;
     bool                  help = false;
+    RunKind               run_kind = RunKind::reproduction;
     std::filesystem::path output_directory = "runs";
     std::string            framework_revision;
-    unsigned int           refinement = 7;
+    std::optional<unsigned int> refinement_override;
   };
 
   inline CommandLineOptions
@@ -61,6 +93,14 @@ namespace nmopt::application::runner
                 "--output needs a nonempty directory argument");
             continue;
           }
+        if (argument == "--run-kind")
+          {
+            if (index + 1 >= argc)
+              throw std::invalid_argument(
+                "--run-kind needs a kind argument");
+            options.run_kind = parse_run_kind(argv[++index]);
+            continue;
+          }
         if (argument == "--framework-revision")
           {
             if (index + 1 >= argc)
@@ -86,7 +126,7 @@ namespace nmopt::application::runner
             if (conversion.ec != std::errc{} || conversion.ptr != last)
               throw std::invalid_argument(
                 "--refinement needs a nonnegative integer argument");
-            options.refinement = refinement;
+            options.refinement_override = refinement;
             continue;
           }
         throw std::invalid_argument("unknown runner argument '" +
@@ -107,6 +147,21 @@ namespace nmopt::application::runner
       throw std::invalid_argument(
         "benchmark runs require --framework-revision for provenance");
     return options;
+  }
+
+  inline void
+  validate_run_policy(const CommandLineOptions &options,
+                      const std::string_view  compiled_build_profile)
+  {
+    if ((!options.run_b1 && !options.run_b2) ||
+        options.run_kind == RunKind::development)
+      return;
+
+    if (compiled_build_profile != "release-dealii")
+      throw std::invalid_argument(
+        "reproduction runs require a release-dealii build; compiled profile is '" +
+        std::string(compiled_build_profile) +
+        "'. Use --run-kind development for a development run");
   }
 
   inline std::filesystem::path

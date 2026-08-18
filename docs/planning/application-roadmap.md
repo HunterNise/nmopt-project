@@ -104,8 +104,8 @@ Application work uses these meanings:
 - **planned** — scoped but not implemented;
 - **implemented** — source and focused tests exist;
 - **development-verified** — exercised on a development mesh or test run;
-- **reproduction-verified** — exercised with the frozen source-scale policy and
-  `release-dealii` profile;
+- **reproduction-verified** — exercised with the benchmark's declared mesh
+  policy and `release-dealii` profile;
 - **acceptance-complete** — all benchmark evidence and gates are present; and
 - **deferred** — intentionally outside the current application sequence.
 
@@ -164,16 +164,27 @@ where it is a dependency or cross-reference.
 
 ### A1 — Define run sets and reproduction policy
 
-**Status:** planned.
+**Status:** runner policy implemented; run-set persistence remains planned.
 
-Define the generated layout for reproduction, development, investigation, and
-derived reports. A run set must record its benchmark, framework revision,
-profile, refinement, expected matrix size, command, and completion state.
+The runner now accepts an explicit `--run-kind reproduction|development`
+policy. Reproduction is the default and requires the `release-dealii` build
+profile, but it does not require a runner-level refinement number. The
+selected benchmark supplies its mesh default; an explicit `--refinement` is
+only an optional override. Future mesh resolvers may estimate resolution from
+actual vertices, faces, cells, or structural identity, and adaptive meshes
+must be identified by their strategy and realized structure rather than by a
+single integer. The policy is validated before dispatch.
 
-Reproduction means `release-dealii` and the frozen source-scale refinement.
-Development runs may use smaller meshes. The runner should record the actual
-compiled profile and reject or invalidate a reproduction request made with a
-different profile.
+The generated layout for reproduction, development, investigation, and
+derived reports is still to be defined. A run set must record its benchmark,
+framework revision, profile, refinement, expected matrix size, command, and
+completion state.
+
+Reproduction means `release-dealii` plus the benchmark's declared mesh
+policy. Development runs may use smaller meshes or other explicitly selected
+mesh policies. The runner should record the actual compiled profile and
+resolved mesh structure, and reject or invalidate a reproduction request made
+with a different profile.
 
 ### A2 — Separate runner configuration and path layout
 

@@ -402,10 +402,17 @@ The repository's `nmopt_runner` executable is the headless orchestration
 boundary for benchmark runs. It owns command-line selection, the output root,
 artifact-directory creation, and file writing; it does not own a second
 compiler or optimization loop. The current boundary exposes `--list` for
-metadata discovery and `--output DIRECTORY` for the runner-owned artifact root.
-Benchmark execution commands are registered by their benchmark integration
-units and must consume the typed scenario and execution-adapter interfaces
-described above.
+metadata discovery, `--output DIRECTORY` for the runner-owned artifact root,
+and `--run-kind` for selecting the run policy. `reproduction` is the default
+and requires the `release-dealii` build profile. `--refinement` is an optional
+benchmark mesh override; when it is absent, the selected benchmark supplies
+its mesh default. A benchmark may instead select an adaptive strategy or
+another mesh definition. The artifact retains the resolved mesh counts and
+structural identity, so the run is not classified by an assumed universal
+refinement number. The run kind does not yet select a separate generated-
+output layout; that is the next runner-organization unit. Benchmark execution
+commands are registered by their benchmark integration units and must consume
+the typed scenario and execution-adapter interfaces described above.
 
 ## Agent checklist
 

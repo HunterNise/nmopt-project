@@ -17,6 +17,7 @@
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
@@ -463,19 +464,47 @@ namespace nmopt::dealii_backend
     }
 
     void
-    write_field_output(const std::filesystem::path &directory,
-                       const Primal &                 state,
-                       const Primal &                 control,
-                       const Primal &                 adjoint) const
+    write_native_output(const std::filesystem::path &directory,
+                        const Primal &                 state,
+                        const Primal &                 control,
+                        const Primal &                 adjoint) const
     {
       contract::require(state.layout()->compatible_with(*state_layout_),
-                        "Field output state has an incompatible layout");
+                        "Native output state has an incompatible layout");
       contract::require(control.layout()->compatible_with(*control_layout_),
-                        "Field output control has an incompatible layout");
+                        "Native output control has an incompatible layout");
       contract::require(adjoint.layout()->compatible_with(*test_layout_),
-                        "Field output adjoint has an incompatible layout");
+                        "Native output adjoint has an incompatible layout");
 
       std::filesystem::create_directories(directory);
+
+      dealii::DataOut<dim> mesh_out;
+      mesh_out.attach_triangulation(state_dof_handler_.get_triangulation());
+      mesh_out.build_patches();
+
+      std::ofstream mesh_output(directory / "mesh-volume.vtu");
+      if (!mesh_output)
+        throw std::runtime_error("could not open scalar volume mesh output");
+      mesh_output.imbue(std::locale::classic());
+      mesh_out.write_vtu(mesh_output);
+      if (!mesh_output)
+        throw std::runtime_error("could not write scalar volume mesh output");
+
+      if constexpr (dim == 2)
+        {
+          dealii::GridOut grid_out;
+          std::ofstream  svg_output(directory / "mesh-volume.svg");
+          if (!svg_output)
+            throw std::runtime_error(
+              "could not open scalar volume mesh SVG output");
+          svg_output.imbue(std::locale::classic());
+          grid_out.write_svg(state_dof_handler_.get_triangulation(),
+                             svg_output);
+          if (!svg_output)
+            throw std::runtime_error(
+              "could not write scalar volume mesh SVG output");
+        }
+
       dealii::DataOut<dim> data_out;
       data_out.attach_dof_handler(state_dof_handler_);
       data_out.add_data_vector(state.block(0), "state");

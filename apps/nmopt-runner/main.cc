@@ -416,7 +416,7 @@ namespace
                             runtime,
                             session,
                             environment,
-                            path.parent_path()};
+                            path.parent_path() / "native"};
             Runner runner(scenario);
             const auto result = runner.run(
               [](const auto &parameters) {
@@ -479,7 +479,10 @@ namespace
         const auto path = runner::artifact_path(
           output_directory,
           {case_slug});
-        Adapter execute{runtime, session, environment, path.parent_path()};
+        Adapter execute{runtime,
+                        session,
+                        environment,
+                        path.parent_path() / "native"};
         Runner runner(scenario);
         const auto result = runner.run(
           [](const auto &parameters) {

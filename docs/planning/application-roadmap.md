@@ -218,14 +218,16 @@ parameter-file system as a prerequisite for B1/B2.
 
 ### A3 — Define native deal.II output
 
-**Status:** topology-specific native field names implemented; standalone mesh
-files remain planned.
+**Status:** topology-specific native field names, standalone volume mesh
+exports, and a 2D SVG mesh preview implemented; standalone boundary mesh
+export remains planned.
 
 Deal.II writes the authoritative native field datasets directly:
 
 ```text
 native/
   mesh-volume.vtu
+  mesh-volume.svg           # 2D quick preview of the volume mesh
   mesh-boundary.vtu          # when boundary-region evidence is needed
   fields-volume.vtu          # state/adjoint, plus B1 volume control
   control-boundary.vtu       # B2 facewise control

@@ -34,6 +34,7 @@ SUMMARY_FIELDS = (
     "stopping_reason",
     "trace_rows",
     "field_outputs",
+    "native_outputs",
 )
 
 
@@ -76,10 +77,28 @@ class Run:
 
     @property
     def field_outputs(self) -> str:
+        native_directory = self.directory / "native"
         names = [
             name
             for name in ("fields-volume.vtu", "control-boundary.vtu")
-            if (self.directory / name).is_file()
+            if (native_directory / name).is_file()
+            or (self.directory / name).is_file()
+        ]
+        return ",".join(names) if names else "none"
+
+    @property
+    def native_outputs(self) -> str:
+        native_directory = self.directory / "native"
+        names = [
+            name
+            for name in (
+                "mesh-volume.vtu",
+                "mesh-volume.svg",
+                "fields-volume.vtu",
+                "control-boundary.vtu",
+            )
+            if (native_directory / name).is_file()
+            or (self.directory / name).is_file()
         ]
         return ",".join(names) if names else "none"
 
@@ -182,6 +201,7 @@ def summary_row(run: Run, input_root: Path) -> dict[str, str]:
         "stopping_reason": value_or_na(run.values, "solver.stopping_reason"),
         "trace_rows": str(len(run.trace)),
         "field_outputs": run.field_outputs,
+        "native_outputs": run.native_outputs,
     }
 
 

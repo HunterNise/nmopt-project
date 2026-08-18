@@ -36,11 +36,11 @@ namespace
         scenario, manufactured_data);
     const auto session =
       chapter6::dealii::make_b2_compilation_session<2>(scenario);
-    const auto field_output_directory =
+    const auto native_output_directory =
       std::filesystem::temp_directory_path() /
-      ("nmopt-b2-fields-contract-" +
+      ("nmopt-b2-native-contract-" +
        std::to_string(static_cast<int>(graetz_case)));
-    std::filesystem::remove_all(field_output_directory);
+    std::filesystem::remove_all(native_output_directory);
 
     const auto specification = chapter6::make_b2_problem_spec(scenario);
     const auto fixed_objective = [&] {
@@ -108,7 +108,7 @@ namespace
        "test-os",
        "test-architecture",
        "test-hardware"},
-      field_output_directory};
+      native_output_directory};
 
     using HeadlessRunner =
       nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
@@ -188,22 +188,39 @@ namespace
             std::string::npos,
             "B2 deal.II adapter omitted solver-method evidence");
     require(std::filesystem::exists(
-              field_output_directory / "fields-volume.vtu") &&
+              native_output_directory / "fields-volume.vtu") &&
               std::filesystem::exists(
-                field_output_directory / "control-boundary.vtu"),
+                native_output_directory / "control-boundary.vtu"),
             "B2 deal.II adapter did not write field output");
-    std::ifstream fields(field_output_directory / "fields-volume.vtu");
-    std::ifstream control(field_output_directory / "control-boundary.vtu");
+    require(
+      std::filesystem::exists(native_output_directory / "mesh-volume.vtu"),
+      "B2 deal.II adapter did not write the volume mesh");
+    require(
+      std::filesystem::exists(native_output_directory / "mesh-volume.svg"),
+      "B2 dealii adapter did not write the volume mesh SVG");
+    std::ifstream fields(native_output_directory / "fields-volume.vtu");
+    std::ifstream mesh(native_output_directory / "mesh-volume.vtu");
+    std::ifstream mesh_svg(native_output_directory / "mesh-volume.svg");
+    std::ifstream control(native_output_directory / "control-boundary.vtu");
     const std::string field_document((std::istreambuf_iterator<char>(fields)),
                                      std::istreambuf_iterator<char>());
+    const std::string mesh_document((std::istreambuf_iterator<char>(mesh)),
+                                    std::istreambuf_iterator<char>());
+    const std::string mesh_svg_document(
+      (std::istreambuf_iterator<char>(mesh_svg)),
+      std::istreambuf_iterator<char>());
     const std::string control_document(
       (std::istreambuf_iterator<char>(control)),
       std::istreambuf_iterator<char>());
+    require(mesh_document.find("<UnstructuredGrid>") != std::string::npos,
+            "B2 volume mesh output is not a VTU unstructured grid");
+    require(mesh_svg_document.find("<svg") != std::string::npos,
+            "B2 volume mesh SVG output is not SVG");
     require(field_document.find("Name=\"state\"") != std::string::npos &&
               field_document.find("Name=\"adjoint\"") != std::string::npos &&
               control_document.find("Name=\"control\"") != std::string::npos,
             "B2 field output omitted a retained field");
-    std::filesystem::remove_all(field_output_directory);
+    std::filesystem::remove_all(native_output_directory);
   }
 
   void

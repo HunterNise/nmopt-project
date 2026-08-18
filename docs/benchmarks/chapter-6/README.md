@@ -70,8 +70,10 @@ Artifact paths are deterministic and owned by the runner:
 <output>/chapter-6/b1/<run-slot>/<method>/beta-<value>/artifact.kv
 <output>/chapter-6/b2/<run-slot>/<case>/artifact.kv
 <each artifact directory>/solver-trace.csv
-<each artifact directory>/fields-volume.vtu
-<each B2 artifact directory>/control-boundary.vtu
+<each artifact directory>/native/mesh-volume.vtu
+<each artifact directory>/native/mesh-volume.svg
+<each artifact directory>/native/fields-volume.vtu
+<each B2 artifact directory>/native/control-boundary.vtu
 ```
 
 The B1 `<method>` values are `steepest-descent` and `l-bfgs`; the B2 `<case>`
@@ -85,10 +87,13 @@ descent slope, sufficient-decrease bound, and the finite/slope/acceptance
 predicates. It is intended for diagnosing line-search behavior; it is not a
 field or visualization export.
 
-`fields-volume.vtu` is a serial deal.II VTU export readable by ParaView. B1 contains
+`native/mesh-volume.vtu` is a standalone serial deal.II VTU export of the
+volume mesh. `native/mesh-volume.svg` is a lightweight 2D `GridOut` preview of
+the same mesh. `native/fields-volume.vtu` is a serial deal.II VTU export
+readable by ParaView. B1 contains
 the final state, adjoint, and cellwise control fields on the shared volume
 mesh. B2 contains the final state and adjoint on the volume mesh, while its
-facewise control is exported separately as `control-boundary.vtu` on the
+facewise control is exported separately as `native/control-boundary.vtu` on the
 controlled boundary faces. These are final-state artifacts, not per-iteration
 output.
 
@@ -108,8 +113,9 @@ python3 tools/chapter6_report.py \
 The report directory contains `summary.csv`, `summary.md`,
 `objective-history.svg`, and `armijo-trials.svg`. The plots use the persisted
 solver histories and `solver-trace.csv` sidecars when present. The summary
-also identifies runs that predate those sidecars or the ParaView fields, so
-missing evidence remains visible rather than being silently reconstructed.
+also inventories native mesh/field files and identifies runs that predate
+those sidecars or the ParaView fields, so missing evidence remains visible
+rather than being silently reconstructed.
 
 ## B0 acceptance
 

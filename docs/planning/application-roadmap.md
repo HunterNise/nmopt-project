@@ -81,8 +81,9 @@ python3 tools/chapter6_report.py \
 
 The planned A7 post-processing tool will use `meshio` and `matplotlib` to
 read native deal.II VTU files and produce derived state, control, and adjoint
-plots. It is not yet a repository command and must not be treated as a
-prerequisite for the current runner.
+plots. The first single-artifact command is now available; aggregate report
+integration remains separate and must not become a prerequisite for the
+runner.
 
 ## Application boundaries
 
@@ -269,12 +270,16 @@ Galerkin limitation without silently activating stabilization.
 
 ### A7 — Add Python post-processing
 
-**Status:** planned.
+**Status:** first single-artifact renderer implemented; aggregate integration
+remains planned.
 
 The first supported post-processing backend is Python with `meshio` and
 `matplotlib`. It should read only native VTU files and runner records and
 produce derived PNG/SVG plots for state, adjoint, volume control, and boundary
-control. Plotting remains optional and must not be a C++ build or CTest
+control. `tools/chapter6_postprocess.py` implements the first step: it reads
+one artifact, writes plots and `postprocess.json` below a separate `derived/`
+directory, and supports legacy field filenames for historical development
+runs. Plotting remains optional and must not be a C++ build or CTest
 dependency.
 
 ### A8 — Add discovery and parameter-file interfaces

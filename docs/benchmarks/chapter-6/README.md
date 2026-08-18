@@ -117,6 +117,22 @@ also inventories native mesh/field files and identifies runs that predate
 those sidecars or the ParaView fields, so missing evidence remains visible
 rather than being silently reconstructed.
 
+### Field post-processing
+
+Render one artifact's native fields without modifying its authoritative
+`native/` files:
+
+```bash
+python3 tools/chapter6_postprocess.py \
+  --artifact runs/chapter-6/b1/authoritative/steepest-descent/beta-1e-1 \
+  --output runs/chapter-6/b1/authoritative/steepest-descent/beta-1e-1/derived
+```
+
+The command writes PNG and SVG plots for every available state, adjoint,
+volume-control, and boundary-control field, plus `postprocess.json`. The
+default output is `<artifact>/derived`. It reads current files below `native/`
+and also accepts historical `fields.vtu` and `control.vtu` files.
+
 ## B0 acceptance
 
 B0 is ready for executable integration when:

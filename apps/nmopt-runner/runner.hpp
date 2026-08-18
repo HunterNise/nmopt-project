@@ -251,7 +251,7 @@ namespace nmopt::application::runner
       throw std::invalid_argument(
         "an artifact path needs at least one relative component");
 
-    std::filesystem::path path = output_directory;
+    std::filesystem::path path = output_directory / "artifacts";
     for (const auto &component : relative_components)
       {
         if (component.empty() || component == "." || component == ".." ||

@@ -431,8 +431,16 @@ For example, with framework revision `REV`:
 
 ```text
 runs/chapter-6/b1/authoritative/
+  artifacts/
+    <method>/beta-<value>/
 runs/chapter-6/b2/development/001/
+  artifacts/
+    <case>/
 ```
+
+The run-set root also contains `run-manifest.json`, `report/`, and the
+aggregate `postprocess/` directory. Per-artifact native files and derived
+plots remain below their corresponding artifact directory.
 
 The first is produced by a release reproduction command such as
 `nmopt_runner --benchmark b1 --framework-revision REV --output runs`.

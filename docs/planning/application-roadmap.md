@@ -76,7 +76,7 @@ The current deterministic report tool uses only the standard library:
 ```bash
 python3 tools/chapter6_report.py \
   --run-manifest runs/chapter-6/b1/authoritative/run-manifest.json \
-  --output runs/chapter-6-report
+  --output runs/chapter-6/b1/authoritative/report
 ```
 
 The report should select one authoritative run set through its
@@ -219,7 +219,8 @@ receive progressive slots such as `001` and `002`. The framework source
 commit or tag, actual build profile, command, mesh resolution, and full
 scenario IDs remain in artifact/run metadata rather than in the path. The
 matrix dimensions (method, regularization, or case) remain as concise
-directories below the run-set root.
+directories below the run-set's `artifacts/` directory. Run-set reports and
+aggregate post-processing remain siblings of `artifacts/`.
 Keep frozen numerical values in typed scenario factories; do not add a general
 parameter-file system as a prerequisite for B1/B2.
 
@@ -300,10 +301,12 @@ The first supported post-processing backend is Python with `meshio` and
 produce derived PNG/SVG plots for state, adjoint, volume control, and boundary
 control. `tools/postprocess.py` is the generic entry point and selects an
 application profile with `--profile`; the current `chapter6` profile reads one
-artifact, writes plots and `postprocess.json` below a separate `derived/`
-directory, and supports legacy field filenames for historical development
-runs. `--input` mirrors the artifact tree below a separate output root and
-writes `postprocess-index.json` with per-artifact success or failure records.
+artifact, writes plots and `postprocess.json` below an artifact-local
+`postprocess/` directory, and supports legacy field filenames for historical
+development runs. `--input` keeps those per-artifact outputs colocated and
+writes only the aggregate index and comparisons below a run-set-level
+`postprocess/` output root. It writes `postprocess-index.json` with
+per-artifact success or failure records.
 Run-root mode also creates shared-scale comparison figures grouped by
 benchmark family, so B1 and B2 fields are never compared in the same panel.
 `tools/chapter6_postprocess.py` remains a compatibility wrapper for the

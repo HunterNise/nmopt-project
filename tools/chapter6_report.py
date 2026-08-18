@@ -263,6 +263,8 @@ def fallback_metadata(
     manifest: RunManifest, relative_artifact_path: str
 ) -> tuple[str, str, str, str]:
     parts = Path(relative_artifact_path).parent.parts
+    if parts and parts[0] == "artifacts":
+        parts = parts[1:]
     if parts:
         output_id = "/".join(parts)
     else:

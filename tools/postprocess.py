@@ -42,8 +42,8 @@ def build_parser(
         "--output",
         type=Path,
         help=(
-            "derived output directory; defaults to <artifact>/derived for "
-            "--artifact or <input>/postprocessed for --input"
+            "derived output directory; defaults to <artifact>/postprocess for "
+            "--artifact or <input>/postprocess for --input"
         ),
     )
     return parser
@@ -62,7 +62,7 @@ def main(
             output = (
                 arguments.output.resolve()
                 if arguments.output is not None
-                else artifact / "derived"
+                else artifact / "postprocess"
             )
             manifest = process_artifact(artifact, output, profile)
             print(f"wrote {len(manifest['plots'])} field plot sets to {output}")
@@ -72,7 +72,7 @@ def main(
         output_root = (
             arguments.output.resolve()
             if arguments.output is not None
-            else input_root / "postprocessed"
+            else input_root / "postprocess"
         )
         index = process_input_root(input_root, output_root, profile)
         print(

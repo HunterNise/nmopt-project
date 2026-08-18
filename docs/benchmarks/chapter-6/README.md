@@ -67,14 +67,17 @@ meaning or introducing a second lowerer.
 Artifact paths are deterministic and owned by the runner:
 
 ```text
-<output>/chapter-6/b1/<run-slot>/<method>/beta-<value>/artifact.kv
-<output>/chapter-6/b2/<run-slot>/<case>/artifact.kv
+<output>/chapter-6/b1/<run-slot>/artifacts/<method>/beta-<value>/artifact.kv
+<output>/chapter-6/b2/<run-slot>/artifacts/<case>/artifact.kv
 <output>/chapter-6/<benchmark>/<run-slot>/run-manifest.json
 <each artifact directory>/solver-trace.csv
 <each artifact directory>/native/mesh-volume.vtu
 <each artifact directory>/native/mesh-volume.svg
 <each artifact directory>/native/fields-volume.vtu
 <each B2 artifact directory>/native/control-boundary.vtu
+<each artifact directory>/postprocess/
+<output>/chapter-6/<benchmark>/<run-slot>/report/
+<output>/chapter-6/<benchmark>/<run-slot>/postprocess/
 ```
 
 The B1 `<method>` values are `steepest-descent` and `l-bfgs`; the B2 `<case>`
@@ -114,7 +117,7 @@ retained in the report:
 ```bash
 python3 tools/chapter6_report.py \
   --run-manifest runs/chapter-6/b1/authoritative/run-manifest.json \
-  --output runs/chapter-6-report
+  --output runs/chapter-6/b1/authoritative/report
 ```
 
 `--input <run-set-directory>` remains available for legacy or aggregate
@@ -138,13 +141,13 @@ Render one artifact's native fields without modifying its authoritative
 ```bash
 python3 tools/postprocess.py \
   --profile chapter6 \
-  --artifact runs/chapter-6/b1/authoritative/steepest-descent/beta-1e-1 \
-  --output runs/chapter-6/b1/authoritative/steepest-descent/beta-1e-1/derived
+  --artifact runs/chapter-6/b1/authoritative/artifacts/steepest-descent/beta-1e-1 \
+  --output runs/chapter-6/b1/authoritative/artifacts/steepest-descent/beta-1e-1/postprocess
 ```
 
 The command writes PNG and SVG plots for every available state, adjoint,
 volume-control, and boundary-control field, plus `postprocess.json`. The
-default output is `<artifact>/derived`. It reads current files below `native/`
+default output is `<artifact>/postprocess`. It reads current files below `native/`
 and also accepts historical `fields.vtu` and `control.vtu` files.
 
 To process a complete run root, use `--input`:
@@ -152,12 +155,13 @@ To process a complete run root, use `--input`:
 ```bash
 python3 tools/postprocess.py \
   --profile chapter6 \
-  --input runs/chapter-6 \
-  --output runs/chapter-6-postprocessed
+  --input runs/chapter-6/b1/authoritative \
+  --output runs/chapter-6/b1/authoritative/postprocess
 ```
 
-The output mirrors the artifact paths below the input root. Each processed
-artifact receives its own `postprocess.json`, and the root receives
+The run-set output is kept at the run-set root. Each processed artifact
+receives its own `postprocess.json` below its artifact-local `postprocess/`
+directory, and the root receives
 `postprocess-index.json` with success and failure records. Successful artifacts
 also produce shared-scale comparison PNG/SVG files below
 `comparisons/<benchmark-family>/`; B1 and B2 are kept in separate comparison

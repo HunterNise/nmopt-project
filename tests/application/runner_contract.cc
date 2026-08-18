@@ -80,6 +80,11 @@ namespace
         std::filesystem::path(
           "runs/chapter-6/b1/authoritative"),
       "reproduction runs should use the organized run-set layout");
+    require(
+      nmopt::application::runner::artifact_path(
+        reproduction.run_directory, {"sample"}) ==
+        reproduction.run_directory / "artifacts" / "sample" / "artifact.kv",
+      "artifact paths should be nested below the run-set artifacts directory");
 
     const auto alternate_mesh = parse({"nmopt_runner",
                                        "--benchmark",
@@ -186,8 +191,8 @@ namespace
       RunKind::development,
       1};
     const std::vector<std::string> expected{
-      "steepest-descent/beta-1e-1/artifact.kv",
-      "steepest-descent/beta-1e-2/artifact.kv"};
+      "artifacts/steepest-descent/beta-1e-1/artifact.kv",
+      "artifacts/steepest-descent/beta-1e-2/artifact.kv"};
     const std::vector<std::string> command{
       "nmopt_runner", "--benchmark", "b1"};
 
@@ -212,6 +217,10 @@ namespace
             "run manifests should count successful artifacts");
     require(finished.find("\"failure_count\": 1") != std::string::npos,
             "run manifests should count failed artifacts");
+    require(finished.find(
+              "\"path\": \"artifacts/steepest-descent/beta-1e-1/artifact.kv\"") !=
+              std::string::npos,
+            "run manifests should retain artifact paths below artifacts");
     require(finished.find("\"error\": \"solver failed\"") !=
               std::string::npos,
             "run manifests should retain artifact failure diagnostics");

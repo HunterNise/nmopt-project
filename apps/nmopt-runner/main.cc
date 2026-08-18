@@ -167,7 +167,8 @@ namespace
       {
         const auto base_scenario = make_b1_scenario(method);
         for (const double beta : base_scenario.problem.regularisation_sweep)
-          paths.push_back(std::string(b1_method_slug(method)) + "/beta-" +
+          paths.push_back("artifacts/" +
+                          std::string(b1_method_slug(method)) + "/beta-" +
                           b1_beta_slug(beta) + "/artifact.kv");
       }
     return paths;
@@ -179,7 +180,8 @@ namespace
     using namespace nmopt::application::chapter6;
     std::vector<std::string> paths;
     for (const auto graetz_case : b2_case_order)
-      paths.push_back(std::string(graetz_case_name(graetz_case)) +
+      paths.push_back("artifacts/" +
+                      std::string(graetz_case_name(graetz_case)) +
                       "/artifact.kv");
     return paths;
   }

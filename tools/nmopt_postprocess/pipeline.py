@@ -214,7 +214,7 @@ def process_input_root(
     successful_artifacts: list[Path] = []
     for artifact in artifacts:
         relative = artifact.relative_to(input_root)
-        output = output_root / relative
+        output = artifact / "postprocess"
         try:
             manifest = process_artifact(artifact, output, profile)
             records.append(

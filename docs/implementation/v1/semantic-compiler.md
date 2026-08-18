@@ -143,12 +143,13 @@ selection is copied into `ScalarLoweringPlan`, checked by general scalar model
 construction, and retained as a structured manifest record. The
 `selected_policy` strings remain descriptive renderings only.
 
-For the Chapter 6 B2 investigation, the deal.II discretisation policy has a
-separate opt-in diagnostic switch for an ordinary-normal transport boundary
-realization. It assembles the equivalent state-dependent boundary correction
-and the diffusion-scaled Neumann control coupling; the default remains the
-typed total-conormal selection above. This backend diagnostic does not alter
-the semantic `BoundaryRealisationSelection` or the frozen benchmark runner.
+The Chapter 6 B2 selection extends this vocabulary with an explicit
+ordinary-normal transport boundary form. It assembles the equivalent
+state-dependent boundary correction and the diffusion-scaled Neumann control
+coupling, and is retained in the typed semantic selection and compilation
+manifest. The deal.II policy still permits an explicit total-conormal override
+for diagnostics; that override does not alter the frozen B2 semantic policy or
+runner default.
 
 ## Public semantic graph
 
@@ -572,14 +573,17 @@ restriction and adds the conservative weak term
 -(y_{h} b,\nabla v_{h})_{\Omega}.
 ```
 
-The declared Neumann datum is the conormal flux of this form. Fixed and
-Neumann regions must form a complete disjoint exterior partition, while the
-observed material ids must exist on the mesh. The graph records the Lipschitz,
-coercivity, and $b\mathbin\cdot n\leq0$ assumptions separately. The selected
-target uses `SparseDirectUMFPACK` for the nonsymmetric state operator and its
-exact transpose for the adjoint. Its independently integrated Q1 contract
-checks the transport value and material-subdomain loss; the facewise $L^{2}$
-metric and optional box are unchanged.
+The generic C5.6 target defaults to the conormal flux of this form. The B2
+application selection explicitly replaces that default with the source's
+ordinary-normal form and records the choice in the semantic selection and
+manifest. Fixed and Neumann regions must form a complete disjoint exterior
+partition, while the observed material ids must exist on the mesh. The graph
+records the Lipschitz, coercivity, and $b\mathbin\cdot n\leq0$ assumptions
+separately. The selected target uses `SparseDirectUMFPACK` for the
+nonsymmetric state operator and its exact transpose for the adjoint. Its
+independently integrated Q1 contract checks the transport value and
+material-subdomain loss; the facewise $L^{2}$ metric and optional box are
+unchanged.
 
 ### Pure Neumann mean constraint
 

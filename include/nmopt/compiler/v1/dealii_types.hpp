@@ -161,6 +161,8 @@ namespace nmopt::compiler::v1
     std::string                            control_boundary_region_id;
     std::string                            transposition_diffusion_data_id;
     std::string                            transposition_reaction_data_id;
+    std::optional<semantic::v1::BoundaryRealisationSelection>
+      transport_boundary_selection;
     std::vector<ResolvedDataBindingRequest> data_bindings;
     bool                                   requires_fixed_dirichlet_data = false;
     bool                                   requires_observation_weight = false;
@@ -347,8 +349,8 @@ namespace nmopt::compiler::v1
 
     unsigned int                                state_degree = 1;
     Execution                                   execution = Execution::assembled;
-    TransportBoundaryRealisation               transport_boundary_realisation =
-      TransportBoundaryRealisation::total_conormal;
+    std::optional<TransportBoundaryRealisation>
+                                                  transport_boundary_realisation;
     dealii_backend::MassMetricSolveParameters control_metric_solve = {};
     dealii_backend::SPDLinearSolvePolicy       state_solve = {};
     dealii_backend::SPDLinearSolvePolicy       adjoint_solve = {};

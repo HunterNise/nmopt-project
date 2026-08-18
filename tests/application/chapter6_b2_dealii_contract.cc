@@ -127,6 +127,18 @@ namespace
               result.artifact.envelope().report().adjoint_solve_count > 0,
             "B2 deal.II adapter did not retain solve counts");
     const auto &manifest = result.artifact.envelope().compilation_manifest();
+    require(manifest.boundary_realisation.has_value() &&
+              manifest.boundary_realisation->transport_boundary_form ==
+                nmopt::semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
+            "B2 manifest did not retain the ordinary-normal boundary form");
+    require(std::any_of(manifest.declared_assumptions.begin(),
+                        manifest.declared_assumptions.end(),
+                        [](const std::string &assumption) {
+                          return assumption.find(
+                                   "boundary_form=ordinary partial_n(y) - (b dot n)y") !=
+                                 std::string::npos;
+                        }),
+            "B2 manifest did not describe the ordinary-normal boundary form");
     const auto has_boundary_region = [&manifest](
                                        const std::string &semantic_id,
                                        const unsigned int boundary_id) {

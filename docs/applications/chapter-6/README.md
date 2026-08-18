@@ -277,6 +277,12 @@ declares `fixed_dirichlet_data` as a `fixed_dirichlet_lifting` function and
 connects it through `fixed_dirichlet_reconstruction`; passing that function
 to a graph without the declared port remains an error.
 
+For B2, the declared source boundary form is the ordinary-normal condition
+$\partial_n y-(b\mathbin\cdot n)y=u$ on the control boundary and zero on the
+outflow. The diffusion coefficient therefore does not scale the written
+boundary derivative; the compiler records this choice in the typed boundary
+selection and manifest.
+
 The four scenarios are the Cartesian product of two observation regions and
 two targets:
 

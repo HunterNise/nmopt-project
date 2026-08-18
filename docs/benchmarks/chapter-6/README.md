@@ -262,19 +262,19 @@ Armijo fraction `1e-4`, backtracking factor `0.5`, maximum line-search trials
 are framework policy, not recovered source values; the artifact must record
 that the source step policy was unspecified.
 
-The production B2 realization uses the total conservative-transport conormal
+The production B2 realization follows the source's ordinary-normal transport
+boundary form
 
 $$
-\mu\,\partial_n y-(b\mathbin\cdot n)y.
+\partial_n y-(b\mathbin\cdot n)y.
 $$
 
-The deal.II discretisation policy also exposes an explicit diagnostic-only
-ordinary-normal realization for comparison with the book's ambiguous notation
-of $\partial_n y-(b\mathbin\cdot n)y$. In that mode the control coupling is
-scaled by $\mu$ and the corresponding state-dependent outlet term is assembled;
-the default runner and the frozen B2 semantic policy remain total conormal.
-This diagnostic is not a third benchmark case and must not be used to silently
-replace the frozen formulation.
+The deal.II compiler retains the total conservative-transport conormal as an
+explicit opt-in diagnostic alternative. The ordinary-normal realization scales
+the control coupling by $\mu$ and assembles the corresponding state-dependent
+outlet term. The typed B2 semantic policy, default runner, manifest, and
+artifacts now record the ordinary-normal form; this choice is not a third
+benchmark case.
 
 ### B2 acceptance evidence
 
@@ -312,8 +312,8 @@ refinement-2 contract diagnostic confirms that the ordinary-normal comparison
 has a substantially smaller forward-state scale than the total-conormal
 default, so the convention is numerically material rather than a control-unit
 rescaling. The source-scale artifacts remain stale and have not been rebuilt.
-The next B2 unit is to decide which convention is authorized for reproduction,
-then refresh the corresponding artifacts.
+The next B2 unit is to refresh the artifacts under the now-authorized
+ordinary-normal reproduction convention.
 
 ## Activation gate
 

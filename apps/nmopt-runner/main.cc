@@ -304,6 +304,21 @@ namespace
     evidence.fields.push_back({"provenance.conservative_transport",
                                scenario.problem.data.conservative_transport_provenance});
     evidence.fields.push_back({"provenance.observation_case", case_slug});
+    if (manifest.boundary_realisation)
+      {
+        const auto boundary_form =
+          manifest.boundary_realisation->transport_boundary_form ==
+              nmopt::semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport
+            ? "ordinary-normal-minus-transport"
+            : manifest.boundary_realisation->conormal_form ==
+                nmopt::semantic::v1::ConormalForm::transport_minus_diffusion
+              ? "transport-minus-diffusion-conormal"
+              : "total-conormal";
+        evidence.fields.push_back({"benchmark.transport_boundary_form",
+                                   boundary_form});
+        evidence.fields.push_back({"manifest.transport_boundary_form",
+                                   boundary_form});
+      }
     for (const auto &region : manifest.resolved_decision.regions)
       if (!region.boundary_ids.empty())
         evidence.fields.push_back(

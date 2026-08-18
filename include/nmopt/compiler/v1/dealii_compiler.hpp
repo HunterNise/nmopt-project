@@ -394,8 +394,12 @@ namespace nmopt::compiler::v1
           if (policy.kind == semantic::v1::RequirementKind::boundary_partition &&
               policy.subject_id == specification.formulation.state_variable_id &&
               policy.typed_selection)
-            request.transport_outflow_region_id =
-              policy.typed_selection->transport_outflow_region_id;
+            {
+              request.transport_outflow_region_id =
+                policy.typed_selection->transport_outflow_region_id;
+              request.transport_boundary_selection =
+                policy.typed_selection;
+            }
           if (policy.kind ==
                 semantic::v1::RequirementKind::fractional_trace_realisation &&
               policy.typed_fractional_metric_selection)
@@ -1295,6 +1299,15 @@ namespace nmopt::compiler::v1
         supplied_otd_system;
       contract::StateAdjointSolversT<Backend> solvers;
       ConstraintRealisation constraint_realisation = ConstraintRealisation::none;
+      const auto semantic_transport_boundary_realisation =
+        request.transport_boundary_selection &&
+            request.transport_boundary_selection->transport_boundary_form ==
+              semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport
+          ? TransportBoundaryRealisation::ordinary_normal_transport
+          : TransportBoundaryRealisation::total_conormal;
+      const auto transport_boundary_realisation =
+        policy.transport_boundary_realisation.value_or(
+          semantic_transport_boundary_realisation);
       if (uses_neumann_boundary_control)
         {
           contract::require(control_boundary_region != nullptr,
@@ -1330,7 +1343,7 @@ namespace nmopt::compiler::v1
                 transport_outflow_boundary_region != nullptr
               ? boundary_ids(*transport_outflow_boundary_region)
               : std::set<dealii::types::boundary_id>{},
-            policy.transport_boundary_realisation,
+            transport_boundary_realisation,
             uses_weighted_boundary_trace
               ? std::optional<typename BoundaryModel::WeightedTraceRealisation>{
                   BoundaryModel::WeightedTraceRealisation::fe_q_face_quadrature}
@@ -5181,6 +5194,14 @@ namespace nmopt::compiler::v1
     boundary_realisation_description(
       const semantic::v1::BoundaryRealisationSelection &selection)
     {
+      const auto boundary_form =
+        selection.transport_boundary_form ==
+            semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport
+          ? "ordinary partial_n(y) - (b dot n)y"
+          : selection.conormal_form ==
+              semantic::v1::ConormalForm::transport_minus_diffusion
+            ? "outward(b y - A grad(y))"
+            : "outward(A grad(y) - b y)";
       return "boundary selection " + selection.id + ": fixed=" +
              selection.fixed_dirichlet_region_id + ", robin=" +
              selection.robin_region_id + ", neumann=" +
@@ -5190,7 +5211,8 @@ namespace nmopt::compiler::v1
                                                              : "nonempty") +
              ", transport_outflow=" +
              selection.transport_outflow_region_id +
-             ", conormal=outward(A grad(y) - b y), trace=FE_Q state trace, face=QGauss";
+             ", boundary_form=" + boundary_form +
+             ", trace=FE_Q state trace, face=QGauss";
     }
 
     static std::uint64_t
@@ -5749,6 +5771,8 @@ namespace nmopt::compiler::v1
            transformation.kind});
       if (scalar_plan != nullptr)
         decision.boundary_realisation = scalar_plan->boundary_selection;
+      else if (request.transport_boundary_selection)
+        decision.boundary_realisation = request.transport_boundary_selection;
       decision.realized_maps = make_resolved_maps(specification);
       decision.transposition_realisation = request.transposition_selection;
       decision.partial_boundary_selection = request.partial_boundary_selection;
@@ -6105,6 +6129,7 @@ namespace nmopt::compiler::v1
       manifest.realized_maps = finalize_realized_maps<dim>(decision, executable);
       manifest.realized_spaces = make_realized_spaces(manifest.realized_maps);
       manifest.resolved_decision.realized_maps = manifest.realized_maps;
+      manifest.boundary_realisation = decision.boundary_realisation;
       manifest.transposition_realisation = decision.transposition_realisation;
       manifest.partial_boundary_selection = decision.partial_boundary_selection;
       manifest.fractional_metric_selection = decision.fractional_metric_selection;
@@ -6470,8 +6495,15 @@ namespace nmopt::compiler::v1
           "neumann_control_realisation: facewise-constant FEFaceValues pairing on boundary ids " +
           boundary_id_list(*control_boundary_region));
       if (uses_neumann_convection)
-        manifest.declared_assumptions.push_back(
-          "neumann_convection_subdomain: conservative transport is assembled in the scalar residual; the Neumann datum is its declared conormal boundary functional and state tracking is restricted to declared material ids");
+        {
+          contract::require(
+            manifest.boundary_realisation.has_value(),
+            "Neumann-convection manifest needs its typed boundary realization");
+          manifest.declared_assumptions.push_back(
+            "neumann_convection_subdomain: conservative transport is assembled in the scalar residual; " +
+            boundary_realisation_description(*manifest.boundary_realisation) +
+            "; state tracking is restricted to declared material ids");
+        }
       if (uses_dirichlet_control_lifting && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(
           std::string(uses_l2_dirichlet_control

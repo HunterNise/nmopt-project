@@ -199,6 +199,17 @@ namespace nmopt::semantic::v1
     transport_minus_diffusion
   };
 
+  // A transport boundary condition may use the total conservative flux or
+  // the ordinary normal derivative convention used by the Chapter 6 source.
+  // The latter is deliberately separate from ConormalForm: it is not a
+  // diffusion-weighted conormal.
+  enum class TransportBoundaryForm
+  {
+    unspecified = -1,
+    total_conormal,
+    ordinary_normal_minus_transport
+  };
+
   enum class TraceEvaluationRealisation
   {
     unspecified = -1,
@@ -483,6 +494,8 @@ namespace nmopt::semantic::v1
       TraceEvaluationRealisation::unspecified;
     FaceQuadratureRealisation  face_quadrature_realisation =
       FaceQuadratureRealisation::unspecified;
+    TransportBoundaryForm      transport_boundary_form =
+      TransportBoundaryForm::unspecified;
   };
 
   enum class FormulationKind

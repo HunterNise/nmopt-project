@@ -347,7 +347,7 @@ namespace nmopt::application::chapter6
        {},
        {}});
     partition_policy->selected_policy =
-      "disjoint complete fixed-Dirichlet, Neumann-control, and natural outflow boundary regions; the Neumann datum is the conormal flux of the conservative transport form";
+      "disjoint complete fixed-Dirichlet, Neumann-control, and natural outflow boundary regions; the source Neumann datum is ordinary normal derivative minus transport, with no diffusion scaling";
     partition_policy->typed_selection = semantic::v1::BoundaryRealisationSelection{
       partition_policy->id,
       "state",
@@ -356,10 +356,11 @@ namespace nmopt::application::chapter6
       {},
       {},
       b2_outflow_boundary_region_id,
-      semantic::v1::ConormalForm::diffusion_minus_transport,
+      semantic::v1::ConormalForm::unspecified,
       semantic::v1::NormalOrientation::outward,
       semantic::v1::TraceEvaluationRealisation::fe_q_state_trace,
-      semantic::v1::FaceQuadratureRealisation::qgauss_face};
+      semantic::v1::FaceQuadratureRealisation::qgauss_face,
+      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport};
     add_b2_fixed_dirichlet_reconstruction(specification);
     return specification;
   }

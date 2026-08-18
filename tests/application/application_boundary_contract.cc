@@ -349,6 +349,12 @@ namespace
                       ->transport_outflow_region_id ==
                     nmopt::application::chapter6::b2_outflow_boundary_region_id,
                 "B2 spec assembly did not select the natural outflow policy");
+        require(
+          partition_policy->typed_selection->transport_boundary_form ==
+              nmopt::semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport &&
+            partition_policy->selected_policy.find(
+              "ordinary normal derivative minus transport") != std::string::npos,
+          "B2 spec assembly did not select the source ordinary-normal boundary form");
         require(validator.validate(specification).valid(),
                 "B2 fixed-temperature semantic graph is invalid");
       }

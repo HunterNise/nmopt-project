@@ -105,7 +105,10 @@ or the exact basis and quadrature used for the $N_{u}=243$ control degrees of
 freedom. It also does not fully disambiguate whether the boundary notation
 $\partial_{n}y-(b\mathbin\cdot n)y$ uses an ordinary or diffusion-weighted
 normal derivative. Exact numerical parity therefore requires the source mesh
-and implementation, or an explicit framework-native realization policy.
+and implementation, or an explicit framework-native realization policy. The
+framework-native B2 policy now selects the ordinary normal derivative
+interpretation, while retaining the diffusion-weighted conormal as an explicit
+diagnostic alternative.
 
 | Case | Observation | Target | Iterations | $J_{h}(u_{0})$ | $J_{h}(\hat u)$ | Reduction | Relative gradient |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |

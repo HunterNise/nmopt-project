@@ -123,7 +123,8 @@ Render one artifact's native fields without modifying its authoritative
 `native/` files:
 
 ```bash
-python3 tools/chapter6_postprocess.py \
+python3 tools/postprocess.py \
+  --profile chapter6 \
   --artifact runs/chapter-6/b1/authoritative/steepest-descent/beta-1e-1 \
   --output runs/chapter-6/b1/authoritative/steepest-descent/beta-1e-1/derived
 ```
@@ -136,7 +137,8 @@ and also accepts historical `fields.vtu` and `control.vtu` files.
 To process a complete run root, use `--input`:
 
 ```bash
-python3 tools/chapter6_postprocess.py \
+python3 tools/postprocess.py \
+  --profile chapter6 \
   --input runs/chapter-6 \
   --output runs/chapter-6-postprocessed
 ```
@@ -147,6 +149,9 @@ artifact receives its own `postprocess.json`, and the root receives
 also produce shared-scale comparison PNG/SVG files below
 `comparisons/<benchmark-family>/`; B1 and B2 are kept in separate comparison
 groups.
+
+The compatibility command `python3 tools/chapter6_postprocess.py` accepts the
+same `--artifact` and `--input` forms without the profile option.
 
 ## B0 acceptance
 

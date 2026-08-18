@@ -269,20 +269,23 @@ Galerkin limitation without silently activating stabilization.
 
 ### A7 — Add Python post-processing
 
-**Status:** single-artifact renderer and run-root processing implemented;
-combined visualization/report integration remains planned.
+**Status:** profile-driven single-artifact renderer and run-root processing
+implemented; combined visualization/report integration remains planned.
 
 The first supported post-processing backend is Python with `meshio` and
 `matplotlib`. It should read only native VTU files and runner records and
 produce derived PNG/SVG plots for state, adjoint, volume control, and boundary
-control. `tools/chapter6_postprocess.py` reads one artifact, writes plots and
-`postprocess.json` below a separate `derived/` directory, and supports legacy
-field filenames for historical development runs. `--input` mirrors the
-artifact tree below a separate output root and
+control. `tools/postprocess.py` is the generic entry point and selects an
+application profile with `--profile`; the current `chapter6` profile reads one
+artifact, writes plots and `postprocess.json` below a separate `derived/`
+directory, and supports legacy field filenames for historical development
+runs. `--input` mirrors the artifact tree below a separate output root and
 writes `postprocess-index.json` with per-artifact success or failure records.
 Run-root mode also creates shared-scale comparison figures grouped by
 benchmark family, so B1 and B2 fields are never compared in the same panel.
-Plotting remains optional and must not be a C++ build or CTest dependency.
+`tools/chapter6_postprocess.py` remains a compatibility wrapper for the
+Chapter 6 profile. Plotting remains optional and must not be a C++ build or
+CTest dependency.
 
 ### A8 — Add discovery and parameter-file interfaces
 

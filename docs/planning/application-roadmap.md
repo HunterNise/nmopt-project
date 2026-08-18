@@ -146,12 +146,13 @@ limitations, which are part of the reported result.
 
 ### B2
 
-The current semantic and deal.II paths record the ordinary-normal transport
-boundary convention. The canonical source-scale artifacts predate that
-correction. Development evidence includes both successful ordinary-normal
-investigations and lower-refinement line-search limitations; the source-scale
-four-case matrix must be refreshed and supplemented with the required residual,
-Taylor, and state/control comparison evidence.
+The authoritative release run set at
+`runs/chapter-6/b2/authoritative/` is complete at the benchmark-default
+refinement 7. All four cases record the ordinary-normal transport convention,
+solver traces, native volume fields, native boundary-control fields, and valid
+compilation diagnostics. B2 reproduction is therefore verified, but acceptance
+remains open because the artifacts do not yet persist the required residual
+JVP/VJP, reduced-Taylor, and explicit state/control comparison evidence.
 
 The frozen B2 Galerkin formulation remains in force. Stabilization is not an
 implicit application-layer fix.
@@ -275,11 +276,13 @@ execution-policy limitations.
 
 ### A6 — Refresh B2 reproduction evidence
 
-**Status:** planned.
+**Status:** reproduction-verified; acceptance evidence incomplete.
 
-Add residual JVP/VJP, reduced-Taylor, objective/gradient reduction, and
-four-case state/control comparison evidence. Refresh all four source-scale
-runs under the authorized ordinary-normal convention. Record any remaining
+The four-case source-scale matrix was refreshed with the authorized
+ordinary-normal convention and the benchmark-default refinement 7. The next
+small unit must add residual JVP/VJP, reduced-Taylor, objective/gradient
+reduction, and explicit four-case state/control comparison fields to the B2
+artifact contract, then rerun the release matrix. Record any remaining
 Galerkin limitation without silently activating stabilization.
 
 ### A7 — Add Python post-processing
@@ -336,10 +339,11 @@ Known limitations:
 Next unit:
 ```
 
-The next remaining application unit is A6 B2 reproduction evidence: refresh the
-four source-scale artifacts under the authorized `release-dealii` profile,
-retain the native volume and boundary-control fields and solver traces, and
-generate the report from that run manifest only.
+The next remaining application unit is the B2 evidence-completion subunit:
+persist residual JVP/VJP, reduced-Taylor, and state/control comparison
+diagnostics in the artifact and report contracts. It requires a source change;
+Debug verification comes first, and an explicit permission request is required
+before rebuilding `release-dealii` and rerunning the authoritative matrix.
 
 ## Exclusions
 

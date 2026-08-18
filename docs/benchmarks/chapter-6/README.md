@@ -356,26 +356,30 @@ limitation without changing the frozen scenario.
 
 ### Current B2 status
 
-The existing source-scale artifacts compile and serialize valid results, but
-they predate the boundary correction and all four stop at zero accepted
-iterations with `line_search_failure`. They must be refreshed before serving
-as post-fix evidence. The Debug refinement-1 rerun realizes the corrected
-partition: both parabolic cases reach `gradient_tolerance` after seven
-accepted iterations, while both constant-target cases reduce the objective
-and then stop at `line_search_failure` after nine accepted iterations.
+The authoritative run set
+`runs/chapter-6/b2/authoritative/` was executed with `release-dealii` and no
+refinement override, giving the benchmark-default refinement 7. Its manifest is
+`complete` with four successful artifacts. Every case contains solver traces,
+`native/mesh-volume.vtu`, `native/mesh-volume.svg`,
+`native/fields-volume.vtu`, and `native/control-boundary.vtu`. meshio confirms
+65,536 volume vertices and 16,384 volume cells with `state` and `adjoint`
+point fields, plus 384 boundary vertices and 192 boundary cells with `control`
+cell data. The boundary partition records IDs `0`, `1`, and `2` for fixed,
+controlled, and outflow regions, respectively, and all artifacts record the
+ordinary-normal-minus-transport form.
 
-The solver traces show finite trial objectives and negative directional slopes;
-the first B2 search direction is therefore not rejected as non-descent. The
-remaining constant-target failures cannot yet be attributed solely to the
-excluded unstabilized Galerkin realization. Corrected refinement-2 and
-refinement-3 runs now fail before accepting an optimization step for all four
-cases; their zero-control forward states grow markedly with refinement. The
-refinement-2 contract diagnostic confirms that the ordinary-normal comparison
-has a substantially smaller forward-state scale than the total-conormal
-default, so the convention is numerically material rather than a control-unit
-rescaling. The source-scale artifacts remain stale and have not been rebuilt.
-The next B2 unit is to refresh the artifacts under the now-authorized
-ordinary-normal reproduction convention.
+The objective decreases in all four cases: wings/full constant targets end at
+approximately $0.0233/0.0437$, while wings/full parabolic targets end at
+$0.0500/0.1224$. All four runs reach the generic iteration limit with finite
+solver traces; the final gradient norms remain above the configured tolerance.
+This is a documented Galerkin/solver-policy limitation, not a failed
+compilation, and stabilization remains excluded.
+
+B2 reproduction is verified, but acceptance remains open. The refreshed
+`artifact.kv` records do not yet contain residual JVP/VJP, reduced-Taylor, or
+explicit state/control comparison evidence. The existing B2 contract exercises
+related compilation and native-output checks, but the runner must persist these
+benchmark evidence fields before B2 can be acceptance-complete.
 
 ## Activation gate
 

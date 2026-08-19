@@ -1,11 +1,10 @@
-# Application API reference
+# Application assembly API reference
 
-This is the agent-facing reference for assembling and running a supported
-application. It describes the public boundary between a typed application
-description, the backend compiler, an optimization product, and experiment
-provenance. The intended workflow is to select a recipe, fill its parameters,
-select options, and call the documented interfaces; reading a lowerer should
-not be necessary.
+This is the agent-facing reference for assembling a supported application. It
+describes the public boundary between a typed application description, the
+backend compiler, an optimization product, and experiment provenance. The
+intended workflow is to select a recipe, fill its parameters, select options,
+and call the documented interfaces; reading a lowerer should not be necessary.
 
 This document is an exact reference for the current public surface. The
 mathematical and semantic contracts remain authoritative in the
@@ -15,6 +14,10 @@ implemented v1 capability and exclusion record is in the
 Concrete Chapter 5 and Chapter 6 recipes are documented in the [Chapter 5
 application recipes](../applications/chapter-5.md) and [Chapter 6 application
 scenarios](../applications/chapter-6.md).
+
+For run generation, artifact schemas, output layout, reports, post-processing,
+and agent verification commands, use the [application execution and artifact
+reference](application-execution.md).
 
 ## The assembly boundary
 
@@ -335,118 +338,11 @@ The envelope owns values only and does not retain the compiled executable
 service. This permits a run record to be serialized or archived after the
 solver lifetime ends.
 
-For Chapter 6 benchmark runs, wrap the detached envelope with
-`application::benchmark::BenchmarkHarnessT<Scenario>`. The harness projects
-scenario metadata into a deterministic `BenchmarkIdentity` and
-`finalize(...)` creates a `BenchmarkArtifactT<Envelope>` containing:
-
-- the scenario and recipe IDs, source reference/revision, build profile, and
-  artifact directory;
-- the complete compiler `ValidationReport`;
-- the detached experiment envelope;
-- optional wall-clock, CPU, and peak-memory measurements; and
-- the explicitly selected output fields.
-
-The harness validates identity and measurement shape but does not execute a
-solver, lower a PDE, or serialize files. Those operations belong to the
-headless runner and artifact writer. This keeps B0 from becoming a second
-compiler or optimizer.
-
-`application::benchmark::BenchmarkArtifactWriter` is the deterministic text
-writer for the captured boundary. It emits canonical `key=value` lines with
-stable ordering, escaped values, diagnostics, measurements, selected fields,
-and caller-supplied artifact fields. It writes to a caller-owned stream; path
-selection and directory creation remain orchestration concerns.
-
-`application::benchmark::HeadlessBenchmarkRunnerT<Scenario>` provides that
-orchestration boundary. Its `run(build_problem, execute)` call performs four
-steps in order:
-
-1. invoke `build_problem(scenario.problem)` to obtain the public `ProblemSpec`;
-2. invoke `execute(specification, scenario)` to obtain
-   `BenchmarkExecutionEvidenceT<Envelope>`;
-3. capture runner wall time when the scenario requests timing measurements and
-   finalize the evidence through `BenchmarkHarnessT`; and
-4. render the detached artifact with `BenchmarkArtifactWriter`.
-
-The execution callback owns backend compilation, solver invocation, and
-construction of the detached envelope. It also supplies validation
-diagnostics, non-wall-clock measurements, selected fields, and any additional
-artifact fields. The runner does not choose a filesystem path, create a
-directory, lower a PDE, or implement an optimization algorithm. An agent can
-therefore assemble the typed scenario and provide the two application-specific
-callbacks without reading the harness implementation.
-
-The selected B1 deal.II integration is a separate backend-specific header,
-`include/nmopt/application/dealii/chapter6_b1.hpp`. It supplies the
-application-owned target function, mesh-session factory, runtime data-binding
-factory, and reduced-solver execution adapter. It is intentionally not
-included by the backend-neutral `application.hpp` umbrella header.
-
-The B2 semantic and deal.II boundaries are assembled with
-`chapter6::make_b2_scenario(GraetzCase)` and
-`chapter6::make_b2_problem_spec(scenario)`. The four values in
-`chapter6::b2_case_order` cover wings/full observation and constant/parabolic
-targets; `chapter6::make_catalog()` registers each case with a unique stable
-scenario ID. The helper adds the declared `fixed_dirichlet_data` lifting port
-and `fixed_dirichlet_reconstruction` transformation to the Chapter 5
-convection recipe. The deal.II adapter in
-`include/nmopt/application/dealii/chapter6_b2.hpp` binds that function, the
-conservative transport field, and the remaining scalar runtime data; it must
-not patch a homogeneous graph at execution time. Its owned session realizes
-the rectangle, boundary labels, and material-ID observation region, and its
-execution adapter dispatches the selected full-BFGS reduced run.
-
-## Headless executable boundary
-
-The repository's `nmopt_runner` executable is the headless orchestration
-boundary for benchmark runs. It owns command-line selection, the output root,
-artifact-directory creation, and file writing; it does not own a second
-compiler or optimization loop. The current boundary exposes `--list` for
-metadata discovery, `--output DIRECTORY` for the generated run-set root,
-and `--run-kind` for selecting the run policy. `reproduction` is the default
-and requires the `release-dealii` build profile. `--refinement` is an optional
-benchmark mesh override; when it is absent, the selected benchmark supplies
-its mesh default. A benchmark may instead select an adaptive strategy or
-another mesh definition. The artifact retains the resolved mesh counts and
-structural identity, so the run is not classified by an assumed universal
-refinement number. Benchmark execution commands are registered by their
-benchmark integration units and must consume the typed scenario and
-execution-adapter interfaces described above. A benchmark run is placed
-below:
-
-```text
-<output>/chapter-6/<benchmark>/<run-slot>/
-```
-
-The benchmark-specific artifact directories remain below that run-set root;
-mesh resolution belongs in the artifact metadata rather than in a path that
-assumes one universal refinement number. The `authoritative` slot is the
-single reproduction run set; development runs receive progressive slots such
-as `001` and `002`. The framework revision is the source repository commit or
-tag used to build the executable, preferably a full Git commit ID for
-unambiguous provenance. The selected build profile remains in the artifact
-metadata rather than in the path.
-
-For example, with framework revision `REV`:
-
-```text
-runs/chapter-6/b1/authoritative/
-  artifacts/
-    <method>/beta-<value>/
-runs/chapter-6/b2/development/001/
-  artifacts/
-    <case>/
-```
-
-The run-set root also contains `run-manifest.json`, `report/`, and the
-aggregate `postprocess/` directory. Per-artifact native files and derived
-plots remain below their corresponding artifact directory.
-
-The first is produced by a release reproduction command such as
-`nmopt_runner --benchmark b1 --framework-revision REV --output runs`.
-The second is produced by a development command such as
-`nmopt_runner --benchmark b2 --framework-revision REV --run-kind development --refinement 1 --output runs`.
+The detached experiment envelope is the assembly boundary for a report and
+policy snapshot. The [application execution and artifact
+reference](application-execution.md) documents how Chapter 6 wraps that
+envelope in a benchmark artifact, serializes it, and runs it through the
+headless runner.
 
 ## Agent checklist
 
@@ -460,8 +356,7 @@ the recipe and scenario documents alone:
 4. Which compile policy members and product are selected?
 5. Are cellwise or facewise bounds required, and what layout do they have?
 6. Which solver family, parameters, and initial-control feasibility rule apply?
-7. Which manifest, report, policy snapshot, and environment fields must be
-   retained as run evidence?
+7. Which provenance and policy values must be handed to the execution boundary?
 
 If one of these answers requires reading a lowerer, the corresponding recipe,
 scenario, or reference documentation is incomplete and should be extended

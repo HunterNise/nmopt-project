@@ -10,98 +10,28 @@ acceptance gates.
 It does not own compiler, lowerer, solver, or backend capability status. Those
 remain in the [implementation roadmap](implementation-roadmap.md). Frozen
 benchmark definitions remain in the [Chapter 6 benchmark specifications](../benchmarks/chapter-6.md),
-and scenario assembly remains in the [Chapter 6 application contract](../applications/chapter-6.md).
+scenario assembly remains in the [Chapter 6 application contract](../applications/chapter-6.md),
+and the current execution contract remains in the [application execution and
+artifact reference](../reference/application-execution.md).
 
 The application roadmap is therefore the mutable status owner for:
 
 - recipe, scenario, catalog, and application discovery surfaces;
-- run configuration, reproduction policy, and generated-output organization;
-- benchmark harnesses, artifact schemas, diagnostics, and provenance;
-- native deal.II mesh and field export;
-- Python and external-tool post-processing;
+- run configuration, reproduction policy, and generated-output implementation
+  status;
+- benchmark harnesses, artifact schemas, diagnostics, and provenance status;
+- native deal.II mesh and field export status;
+- Python and external-tool post-processing status;
 - B0, B1, and B2 execution and acceptance handoffs; and
 - future parameter-file and GUI boundaries.
 
-## Quick start and build policy
+## Execution reference
 
-Use the backend-neutral Debug profile for ordinary contract work:
-
-```bash
-cmake --preset debug-neutral
-cmake --build --preset debug-neutral
-ctest --preset debug-neutral --output-on-failure
-```
-
-For application development that needs the deal.II runner, use the Debug
-deal.II profile and build only the runner target:
-
-```bash
-cmake --preset debug-dealii
-cmake --build --preset debug-dealii --target nmopt_runner --parallel 1
-build/debug-dealii/bin/nmopt_runner --list
-```
-
-Development runs must opt into the development policy and may use a smaller
-mesh, for example:
-
-```bash
-build/debug-dealii/bin/nmopt_runner \
-  --benchmark b1 \
-  --framework-revision REV \
-  --run-kind development \
-  --refinement 1 \
-  --output runs
-```
-
-The runner will place this below
-`runs/chapter-6/b1/development/001/`.
-
-For the complete development loop, use the repository wrapper. It invokes the
-already-built Debug runner, detects the run-set slot allocated by the runner,
-then generates both post-processing and the manifest-aware report:
-
-```bash
-tools/run_chapter6.sh \
-  --benchmark b2 \
-  --refinement 1 \
-  --format png svg
-```
-
-The wrapper defaults to `--run-kind development`, `--refinement 1`,
-`--output runs`, the current Git revision, and
-`build/debug-dealii/bin/nmopt_runner`. It does not configure or compile a
-build. Reproduction still requires an existing release runner selected with
-`--runner` and the explicit `--run-kind reproduction` option.
-
-Do not configure or compile `release-dealii` unless it is absolutely
-necessary for source-scale reproduction or optimized verification, and ask
-the user for explicit permission before doing so. A request to implement,
-document, inspect, or report on an application does not grant that
-permission. Debug deal.II is the default for development and diagnostics;
-Debug output must not be presented as reproduction evidence.
-
-Use `python3` explicitly for reports and post-processing. Check the
-interpreter and optional plotting libraries with:
-
-```bash
-python3 --version
-python3 -c "import matplotlib, meshio; print('matplotlib and meshio available')"
-```
-
-The current deterministic report tool uses only the standard library:
-
-```bash
-python3 tools/chapter6_report.py \
-  --run-manifest runs/chapter-6/b1/authoritative/run-manifest.json \
-  --output runs/chapter-6/b1/authoritative/report
-```
-
-The report should select one authoritative run set through its
-`run-manifest.json`; `--input` remains available for legacy or aggregate
-inspection. The A7 post-processing tool uses `meshio` and `matplotlib` to read native
-deal.II VTU files and produce derived state, control, and adjoint plots. Both
-single-artifact and run-root modes are available; aggregate report integration
-is now manifest-aware and must not become a prerequisite for the runner.
+The current build loop, runner commands, schemas, run-set layout, native output,
+report, and post-processing policies are maintained in the [application
+execution and artifact reference](../reference/application-execution.md). This
+roadmap records their implementation status and handoffs; it does not duplicate
+the operational contract.
 
 ## Application boundaries
 
@@ -193,53 +123,19 @@ where it is a dependency or cross-reference.
 **Status:** runner policy and run-set persistence implemented; adaptive or
 mesh-structure-based resolution remains a future extension.
 
-The runner now accepts an explicit `--run-kind reproduction|development`
-policy. Reproduction is the default and requires the `release-dealii` build
-profile, but it does not require a runner-level refinement number. The
-selected benchmark supplies its mesh default; an explicit `--refinement` is
-only an optional override. Future mesh resolvers may estimate resolution from
-actual vertices, faces, cells, or structural identity, and adaptive meshes
-must be identified by their strategy and realized structure rather than by a
-single integer. The policy is validated before dispatch.
-
-The generated layout for reproduction, development, investigation, and
-derived reports is defined by A2. Each run set now records its benchmark,
-framework revision, profile, refinement override, expected matrix size,
-command, completion state, and per-artifact status in `run-manifest.json`.
-
-Reproduction means `release-dealii` plus the benchmark's declared mesh
-policy. Development runs may use smaller meshes or other explicitly selected
-mesh policies. The runner should record the actual compiled profile and
-resolved mesh structure, and reject or invalidate a reproduction request made
-with a different profile.
+The runner accepts an explicit `--run-kind reproduction|development` policy.
+The selected benchmark supplies its mesh default; an explicit `--refinement`
+is only an optional override. The current policy and generated-record
+requirements are defined in the [execution reference](../reference/application-execution.md).
 
 ### A2 — Separate runner configuration and path layout
 
 **Status:** runner configuration and deterministic path layout implemented.
 
-The runner now resolves CLI options into a run configuration and places each
-benchmark below:
-
-```text
-<output>/chapter-6/<benchmark>/<run-slot>/
-```
-
-For example:
-
-```text
-runs/chapter-6/b1/authoritative/
-runs/chapter-6/b2/development/001/
-```
-
-The `authoritative` slot is the single reproduction run set. Development runs
-receive progressive slots such as `001` and `002`. The framework source
-commit or tag, actual build profile, command, mesh resolution, and full
-scenario IDs remain in artifact/run metadata rather than in the path. The
-matrix dimensions (method, regularization, or case) remain as concise
-directories below the run-set's `artifacts/` directory. Run-set reports and
-aggregate post-processing remain siblings of `artifacts/`.
-Keep frozen numerical values in typed scenario factories; do not add a general
-parameter-file system as a prerequisite for B1/B2.
+The runner resolves CLI options into a run configuration. Its current path,
+slot, metadata, and derived-output policy is maintained in the [execution
+reference](../reference/application-execution.md). Frozen numerical values
+remain in typed scenario factories and benchmark contracts.
 
 ### A3 — Define native deal.II output
 
@@ -247,38 +143,19 @@ parameter-file system as a prerequisite for B1/B2.
 exports, a 2D SVG mesh preview, and B2 boundary-control topology export
 implemented. A separate boundary-only mesh without a field remains optional.
 
-Deal.II writes the authoritative native field datasets directly:
-
-```text
-native/
-  mesh-volume.vtu
-  mesh-volume.svg           # 2D quick preview of the volume mesh
-  mesh-boundary.vtu          # when boundary-region evidence is needed
-  fields-volume.vtu          # state/adjoint, plus B1 volume control
-  control-boundary.vtu       # B2 facewise control
-```
-
-The volume and boundary files intentionally remain separate because they have
-different discrete topologies. A run manifest will associate logical fields
-with files and supports such as `volume` or `boundary_faces`.
-
-ParaView, meshio, matplotlib, and other consumers read these native files;
-they must not reconstruct the mesh or finite-element fields.
+The execution reference records the current native filenames and topology
+rules. This roadmap retains only the implementation status and optional
+boundary-only export follow-up.
 
 ### A4 — Define records, diagnostics, and provenance
 
 **Status:** run-set manifest, artifact inventory, failure records, and
 manifest-aware report selection implemented.
 
-The runner writes `run-manifest.json` before execution and updates it after
-each artifact. It records the expected matrix, command, benchmark, run kind,
-build profile, framework revision, refinement override, completion state, and
-per-artifact success or failure. `artifact.kv` remains the deterministic
-per-artifact projection containing the accepted-iteration history, measurement
-flags, environment, compilation manifest, and benchmark fields. The Chapter 6
-report accepts `--run-manifest`, automatically consumes a manifest when `--input`
-points directly at a run set, and retains missing or failed inventory records
-with their diagnostics in `summary.csv` and `summary.md`.
+The runner now persists a run manifest, artifact inventory, failure records, and
+manifest-aware report selection. The [execution
+reference](../reference/application-execution.md) defines the current record
+contents and tool behavior.
 
 ### A5 — Refresh B1 reproduction evidence
 
@@ -313,24 +190,10 @@ stabilization.
 manifest-aware report integration implemented; combined visualization/report
 orchestration remains planned.
 
-The first supported post-processing backend is Python with `meshio` and
-`matplotlib`. It should read only native VTU files and runner records and
-produce derived plots for state, adjoint, volume control, and boundary
-control. `tools/postprocess.py` is the generic entry point and selects an
-application profile with `--profile` and a Matplotlib format with `--format`;
-PNG is the default, SVG is available when vector output is preferred, and
-`--format png svg` requests both. The current `chapter6` profile reads one
-artifact, writes plots and
-`postprocess.json` below an artifact-local `postprocess/` directory, and
-supports legacy field filenames for historical development runs. `--input`
-keeps those per-artifact outputs colocated and writes only the aggregate index
-and comparisons below a run-set-level `postprocess/` output root. It writes
-`postprocess-index.json` with per-artifact success or failure records.
-Run-root mode also creates shared-scale comparison figures grouped by
-benchmark family, so B1 and B2 fields are never compared in the same panel.
-`tools/chapter6_postprocess.py` remains a compatibility wrapper for the
-Chapter 6 profile. Plotting remains optional and must not be a C++ build or
-CTest dependency.
+The Python post-processing backend and report integration are implemented. The
+supported inputs, outputs, profiles, and compatibility wrapper are documented
+in the [execution reference](../reference/application-execution.md). Plotting
+remains optional and is not a C++ build or CTest dependency.
 
 ### A8 — Add discovery and parameter-file interfaces
 

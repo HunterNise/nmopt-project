@@ -87,7 +87,7 @@ The remediation must preserve the following selected behavior:
 ## Required reading for the implementing agent
 
 Before changing code, follow the repository routing in
-[`conventions/README.md`](../../../../conventions/README.md). For one bounded
+[`.agents/README.md`](../../../../.agents/README.md). For one bounded
 S1 unit, read only the relevant authorities and current interfaces:
 
 - [Stage B S1 actions and exit](../pre-ch5-ch6/stage-b-roadmap.md#s1--prepare-selected-p61-reduced-methods);

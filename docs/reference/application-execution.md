@@ -187,7 +187,7 @@ Chapter 6 inputs.
 
 After changing application, recipe, scenario, runner, or artifact code, use the
 smallest relevant loop. The full build policy is in the
-[build conventions](../../conventions/build.md).
+[build instructions](../../.agents/build.md).
 
 For backend-neutral changes:
 

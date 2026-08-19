@@ -14,16 +14,16 @@ problem types**.
 ## Required routing
 
 Before any repository action, follow the mandatory routing rules in
-[conventions/README.md](conventions/README.md). That file is the single
-source of truth for action-specific convention routing; do not duplicate its
-convention table here.
+[.agents/README.md](.agents/README.md). That file is the single
+source of truth for action-specific agent routing; do not duplicate its
+routing table here.
 
-Every convention selected by that routing is a mandatory project instruction,
-not advisory guidance. Apply it with the same force as this `AGENTS.md`,
-regardless of its location below the repository root. If applicable
-instructions conflict, stop and report the conflict instead of silently
-choosing one or treating a convention as optional. Keep detailed rules in the
-convention files; do not duplicate them here.
+Every instruction selected by that routing is mandatory, not advisory
+guidance. Apply it with the same force as this `AGENTS.md`, regardless of its
+location below the repository root. If applicable instructions conflict, stop
+and report the conflict instead of silently choosing one or treating an
+instruction as optional. Keep detailed rules in the agent instruction files;
+do not duplicate them here.
 
 Use [docs/README.md](docs/README.md) to select the relevant design and
 implementation documents. Do not read every document by default.
@@ -34,9 +34,9 @@ repository files unless the user requests a change.
 
 ## Project authority
 
-The convention files define how to work in the repository. The documents under
-`docs/` define the project’s architecture, contracts, mathematical choices,
-implementation scope, and roadmap.
+The agent instruction files define how to work in the repository. The
+documents under `docs/` define the project’s architecture, contracts,
+mathematical choices, implementation scope, and roadmap.
 
 When a task requires a new architectural decision,
 document the decision instead of silently extending an interface.

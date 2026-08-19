@@ -21,16 +21,16 @@ the documented Chapter 5/6 endpoint.
 
 ## Authority and required routing
 
-This plan does not replace repository conventions or architectural contracts.
+This plan does not replace agent instructions or architectural contracts.
 Before every repository action, follow the routing rules in the
-[project conventions](../../../../conventions/README.md). Use the
+[agent instructions](../../../../.agents/README.md). Use the
 [documentation map](../../../README.md) to select authoritative design documents.
 
 At minimum, the assessment agent must:
 
-1. Read `conventions/README.md` first.
+1. Read `.agents/README.md` first.
 2. Inspect `git status` before making any change.
-3. Read the convention files required for the next action.
+3. Read the instruction files required for the next action.
 4. Read authoritative documentation before reviewing its corresponding code.
 5. Work progressively. Do not begin by reading every code and documentation
    file in one pass.

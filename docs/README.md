@@ -24,8 +24,12 @@ architectural boundaries.
 
 ### Public reference
 
-- [Public API reference](reference/README.md) is the entry point for exact
-  `ProblemSpec`, compiler, solver, and experiment configuration contracts.
+- [Application assembly API](reference/application-api.md) is the agent-facing
+  entry point for exact recipe, `ProblemSpec`, compiler, solver, and experiment
+  configuration contracts.
+- [Application execution reference](reference/application-execution.md) owns
+  schemas, run-set layout, native outputs, reports, post-processing, and agent
+  verification commands.
 
 ### Applications and benchmarks
 
@@ -39,8 +43,8 @@ architectural boundaries.
 
 ### Decisions
 
-- [Repository organization](decisions/001-repository-organization.md) records
-  the directory and authority boundaries for the application work.
+- [Repository organization](decisions/repository-organization.md) records the
+  directory and authority boundaries for the application work.
 
 ### Implemented generations and selected policies
 
@@ -102,16 +106,16 @@ stress the interfaces.
 - [Assessment plan](planning/review/pre-ch5-ch6/assessment-plan.md) records the
   completed Stage A audit method and is not normal Stage B reading.
 
-Project-wide working conventions live in the
-[project conventions](../conventions/README.md). Read the applicable
-convention before inspecting or changing repository content.
+Agent working instructions live in the
+[agent instructions](../.agents/README.md). Read the applicable instruction
+before inspecting or changing repository content.
 
 ## Choose by task
 
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
 | New contributor or agent | [System blueprint](design/system-blueprint.md) | Root `AGENTS.md`, the [implementation roadmap](planning/implementation-roadmap.md), and the [interface specification](design/interface-specification.md) |
-| Author a Chapter 5/6 application | [Chapter 5 recipes](applications/chapter-5.md), [Chapter 6 scenarios](applications/chapter-6.md) | [Public API reference](reference/README.md), the relevant Chapter guide, and the [v1 compiler](implementation/v1/semantic-compiler.md) |
+| Author a Chapter 5/6 application | [Chapter 5 recipes](applications/chapter-5.md), [Chapter 6 scenarios](applications/chapter-6.md) | [Application assembly API](reference/application-api.md), the relevant Chapter guide, and the [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmark specifications](benchmarks/chapter-6.md) | [Chapter 6 benchmark roadmap](planning/chapter-6-benchmark-suite-roadmap.md), [numerical examples](guides/chapter-6-numerical-examples.md), and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
 | Understand the whole system and its code correspondence | [System blueprint](design/system-blueprint.md) | [Interface specification](design/interface-specification.md) and [v0 executable contract](implementation/v0/executable-contract.md) |
 | Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Architecture](design/architecture.md) and [selected policies](implementation/implementation-readiness-review.md) |
@@ -125,7 +129,7 @@ convention before inspecting or changing repository content.
 | Explore standard Chapter 5 problems | [Chapter 5 problem library](planning/chapter-5-problem-library-roadmap.md) | [Chapter 5 guide](guides/chapter-5-elliptic-control.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [implementation roadmap](planning/implementation-roadmap.md) |
 | Reproduce Chapter 6 examples | [Chapter 6 benchmark suite](planning/chapter-6-benchmark-suite-roadmap.md) | [Numerical examples](guides/chapter-6-numerical-examples.md) and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
 | Generate or inspect application runs | [Application execution reference](reference/application-execution.md) | The relevant [benchmark contract](benchmarks/chapter-6.md) and [application roadmap](planning/application-roadmap.md) |
-| Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Chapter 6 scenarios](applications/chapter-6.md), [Chapter 6 benchmark specifications](benchmarks/chapter-6.md), and the [public application references](reference/README.md) |
+| Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Chapter 6 scenarios](applications/chapter-6.md), [Chapter 6 benchmark specifications](benchmarks/chapter-6.md), [Application assembly API](reference/application-api.md), and [Application execution reference](reference/application-execution.md) |
 | Repair the reviewed C1/C2 preparation | [Chapter 5 reviews](planning/review/chapter-5/README.md) | [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), [pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.1 implementation | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.2 implementation | [P5.2 remediation review](planning/review/chapter-5/p5.2-remediation-review.md) | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [selected policies](implementation/implementation-readiness-review.md) |
@@ -135,4 +139,4 @@ convention before inspecting or changing repository content.
 | Execute one Stage B review batch | [Pre-Chapter 5/6 review routing](planning/review/pre-ch5-ch6/README.md) | The current batch in the [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), assigned findings, and task-specific authorities above |
 | Review the complete pre-Chapter 5/6 evidence | [Pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md) | [Assessment plan](planning/review/pre-ch5-ch6/assessment-plan.md) only when the audit method matters |
 | Choose the next implementation task | [Implementation roadmap](planning/implementation-roadmap.md) | The task-specific compiler, solver, backend, or semantic contract listed above |
-| Edit Markdown or LaTeX | [Documentation conventions](../conventions/documentation.md) | The document being changed |
+| Edit Markdown or LaTeX | [Documentation instructions](../.agents/documentation.md) | The document being changed |

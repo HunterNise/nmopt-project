@@ -23,7 +23,7 @@ ctest --preset debug-neutral
 ~~~
 
 Run `debug-dealii` with `--parallel 1` as well for compiler, lowerer, backend,
-or numerical changes. The [build convention](../../conventions/build.md) owns
+or numerical changes. The [build instructions](../../.agents/build.md) own
 the complete profile matrix and cache-recovery guidance.
 
 ## Current handoff state

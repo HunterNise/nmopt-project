@@ -22,7 +22,7 @@ behavioral comparison point is tag `pre-refactor-ch5-ch6` at `7c2496b`.
 
 Every agent must:
 
-1. Read root `AGENTS.md`, `conventions/README.md`, and every convention routed
+1. Read root `AGENTS.md`, `.agents/README.md`, and every instruction routed
    for the planned actions.
 2. Read the global rules and only the assigned batch in the
    [Stage B roadmap](stage-b-roadmap.md).

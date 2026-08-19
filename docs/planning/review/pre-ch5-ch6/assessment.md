@@ -1625,7 +1625,7 @@ exists today.
 
 | Document group | Intended authority | Audit result |
 | --- | --- | --- |
-| `AGENTS.md` and `conventions/` | Mission plus action-specific repository workflow | Clear, concise, and non-conflicting; build-profile weaknesses resolve to RF-018 rather than an agent-guidance redesign |
+| `AGENTS.md` and `.agents/` | Mission plus action-specific repository workflow | Clear, concise, and non-conflicting; build-profile weaknesses resolve to RF-018 rather than an agent-guidance redesign |
 | `interface-specification.md` | Normative implementation-neutral component protocol | Properly broader than the present implementation and explicit about unsupported advanced instances |
 | `implementation-readiness-review.md` | Selected defaults where the interface allows several choices | Policy analysis is strong, but release-status additions have drifted and should not remain a second capability ledger |
 | `implementation/v0/executable-contract.md` and `implementation/v0/dealii-lowerer.md` | Exact current v0 API and direct reference slice | Scope and exclusions match the audited v0 code; they correctly avoid claiming v1 extensions as v0 behavior |
@@ -1660,7 +1660,7 @@ next-agent section selects one of those completed tasks.
 ### Link, index, and Markdown checks
 
 - Every project document is represented once in the documentation index; the
-  additional index entry is the intentional link to `conventions/README.md`.
+  additional index entry is the intentional link to `.agents/README.md`.
 - All 122 local links name existing files. The five explicit fragments for
   the boundary protocol, exclusions, and Chapter 5/6 roadmap sections match
   actual headings.
@@ -1669,7 +1669,7 @@ next-agent section selects one of those completed tasks.
   placeholder marker; the one placeholder mention is an instruction in the
   assessment plan to remove provisional recommendations.
 - Four formulas in `guides/chapter-5-elliptic-control.md` use the fine-spacing
-  command `\,`, which `conventions/documentation.md` asks authors to avoid.
+  command `\,`, which `.agents/documentation.md` asks authors to avoid.
   This is local rendering hygiene to fix when that guide is next edited, not
   a refactor gate or a reason to add a Markdown toolchain.
 - No project documentation renderer or external-link checker is configured.
@@ -1801,7 +1801,7 @@ not replacing them.
 The batches below are deliberately sized so one agent can complete and verify
 one batch without loading the entire repository. Each starts with the finding
 sections named for that batch and the directly authoritative files routed by
-`conventions/README.md` and `docs/README.md`. A batch should not begin merely
+`.agents/README.md` and `docs/README.md`. A batch should not begin merely
 because it appears in this list: Stage B still requires user approval, and C1,
 C2, and S1 additionally require selection of the affected feature lane.
 

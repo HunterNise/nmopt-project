@@ -112,7 +112,7 @@ the committed tests, and the authoritative contracts.
 ## Required reading for the implementing agent
 
 Before changing code, follow the repository routing in
-[`conventions/README.md`](../../../conventions/README.md). Read only the bounded
+[`.agents/README.md`](../../../.agents/README.md). Read only the bounded
 authorities needed for the selected work unit:
 
 - [Stage B C1 gate](../pre-ch5-ch6/stage-b-roadmap.md#c1--make-compiler-inputs-products-and-provenance-explicit);

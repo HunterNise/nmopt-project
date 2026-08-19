@@ -12,7 +12,7 @@ owns recipe implementation order and status.
 A recipe is a typed builder of `semantic::v1::ProblemSpec`. It is not a PDE
 class and it does not own deal.II functions, a mesh, a compiler, a solver, or
 run output. Those are supplied through the separate public boundaries in the
-[application API reference](../reference/application-api.md).
+[application assembly API reference](../reference/application-api.md).
 
 The family IDs in this document are stable application-level names for the
 recipe records being added. The named `make_*` functions are current semantic
@@ -117,63 +117,18 @@ The compiler manifest should make the same semantic ID, region, runtime
 representation, and provenance visible after lowering. A recipe author must
 not make a binding “optional” merely because one lowerer happens to ignore it.
 
-## Family-specific authoring notes
+## Source and mathematical authority
 
-### Distributed and general scalar control
+The [Chapter 5 guide](../guides/chapter-5-elliptic-control.md) is authoritative
+for the mathematical forms, regularity assumptions, source-specific policies,
+and registered catalogue variants. Use its [application catalogue](../guides/chapter-5-elliptic-control.md#application-catalogue)
+when a recipe needs a source-level definition or a new mathematical choice.
 
-The distributed baseline is the comparison recipe. Its state/test spaces are
-continuous scalar `FE_Q` spaces, its volume control is cellwise `FE_DGQ(0)`,
-and its search metric is the positive-diagonal cellwise $L^2$ realization.
-The general scalar/Robin recipe adds tensor diffusion, conservative and
-advective transport, reaction, and Robin bilinear/source terms as independent
-residual components. It also requires a complete disjoint fixed/Robin
-boundary partition and uses the exact-transpose solve selected by the
-nonsymmetric transport path.
-
-Changing the observation region or loss must not alter residual assembly.
-Changing the search metric must not alter the objective or adjoint source.
-These are recipe-level composition checks as well as compiler contracts.
-
-### Neumann boundary control
-
-The Neumann control coefficient is one value per selected boundary face. Its
-residual is a natural boundary pairing, and its reduced covector uses the
-adjoint trace on the same face set. A facewise box is valid only with the
-facewise $L^2$ metric and its exact face layout.
-
-The conservative-transport variant must declare fixed, controlled, and
-transport inflow/outflow regions, the transport field, and the material-ID
-observation region. A nonzero fixed temperature is runtime fixed Dirichlet
-data; it is not a change to the control residual.
-
-### Point and normal-flux observations
-
-Point coordinates are immutable physical coordinates and define the finite
-observation dimension. The registered lowerer evaluates `FE_Q` shape
-functions at those coordinates and assembles the corresponding very-weak
-transpose. It does not snap points to nodes or quadrature points.
-
-Normal-flux observations use the outward normal on the declared boundary IDs,
-selected face quadrature, and the registered strong/very-weak transposition
-policy. Every exterior face must have a declared fixed boundary ID for the
-selected target. Do not replace the observed flux by an ordinary state trace.
-
-### Dirichlet control and Section 5.11
-
-Complete and partial trace recipes are transformations of the physical state,
-not boundary-load switches. The fixed/controlled partition, interface
-ownership, trace subspace, conormal policy, control loss, and search metric are
-separate declarations. The registered Section 5.11 variants are:
-
-| Factory | Control/loss | State observation | Search metric |
-| --- | --- | --- | --- |
-| `make_l2_dirichlet_laplace_control_problem()` | $L^2$ boundary control/loss | $L^2$ state transposition parent | $L^2$ trace |
-| `make_hhalf_dirichlet_laplace_control_problem()` | $H^{1/2}$ trace loss | $L^2$ state tracking | minimum-extension $H^{1/2}$ trace |
-| `make_h1_tracking_hhalf_dirichlet_laplace_control_problem()` | $L^2$ boundary loss | $H^1_0$ state tracking | minimum-extension $H^{1/2}$ trace |
-| `make_h1_dirichlet_laplace_control_problem()` | tangential $H^1$ boundary loss | $L^2$ state tracking | tangential $H^1$ trace |
-
-The loss and metric rows are intentionally independent. None of these
-registrations accepts a trace box.
+This document records only the application boundary: which graph seed is
+selected, which semantic delta and runtime ports are required, which discrete
+control realization is supported, and which product is exposed. A new
+mathematical variant must be added to the guide and capability/roadmap records
+before it is introduced as a recipe family here.
 
 ## Exclusions
 

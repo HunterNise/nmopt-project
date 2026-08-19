@@ -12,8 +12,9 @@ mathematical and semantic contracts remain authoritative in the
 [interface specification](../design/interface-specification.md), while the
 implemented v1 capability and exclusion record is in the
 [v1 semantic compiler record](../implementation/v1/semantic-compiler.md).
-Concrete Chapter 5/6 recipes will be documented separately under
-[`docs/applications/`](../applications/README.md).
+Concrete Chapter 5 and Chapter 6 recipes are documented in the [Chapter 5
+application recipes](../applications/chapter-5.md) and [Chapter 6 application
+scenarios](../applications/chapter-6.md).
 
 ## The assembly boundary
 

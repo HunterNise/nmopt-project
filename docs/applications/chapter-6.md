@@ -1,10 +1,11 @@
 # Chapter 6 application and benchmark scenarios
 
-Chapter 6 scenarios freeze a configuration of a Chapter 5 recipe. They are
-not a second problem library and they do not contain PDE assembly or solver
-implementations. The [benchmark roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md)
-owns selection and status, the [numerical-examples reference](../../guides/chapter-6-numerical-examples.md)
-owns source equations and data, and the [numerical-methods guide](../../guides/chapter-6-numerical-methods.md)
+This document catalogues Chapter 6 application scenarios, each of which freezes
+a configuration of a Chapter 5 recipe. It is not a second problem library and
+does not contain PDE assembly or solver implementations. The
+[benchmark roadmap](../planning/chapter-6-benchmark-suite-roadmap.md)
+owns selection and status, the [numerical-examples reference](../guides/chapter-6-numerical-examples.md)
+owns source equations and data, and the [numerical-methods guide](../guides/chapter-6-numerical-methods.md)
 owns reusable solver contracts.
 
 The public execution path is:

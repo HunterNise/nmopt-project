@@ -29,10 +29,13 @@ architectural boundaries.
 
 ### Applications and benchmarks
 
-- [Application recipes](applications/README.md) describes how concrete Chapter
-  5/6 applications are assembled from the public API.
-- [Benchmark specifications](benchmarks/README.md) describes frozen Chapter 6
-  experiment contracts.
+- [Chapter 5 application recipes](applications/chapter-5.md) route mathematical
+  variants to registered semantic graphs and their required bindings.
+- [Chapter 6 application scenarios](applications/chapter-6.md) catalogue the
+  Chapter 6 benchmark/application scenarios; B0–B2 are the current activation
+  targets.
+- [Chapter 6 benchmark specifications](benchmarks/chapter-6.md) catalogue the
+  Chapter 6 benchmark contracts; B0–B2 are the current frozen executable set.
 
 ### Decisions
 
@@ -108,8 +111,8 @@ convention before inspecting or changing repository content.
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
 | New contributor or agent | [System blueprint](design/system-blueprint.md) | Root `AGENTS.md`, the [implementation roadmap](planning/implementation-roadmap.md), and the [interface specification](design/interface-specification.md) |
-| Author a Chapter 5/6 application | [Application recipes](applications/README.md) | [Public API reference](reference/README.md), the relevant Chapter guide, and the [v1 compiler](implementation/v1/semantic-compiler.md) |
-| Add or reproduce a Chapter 6 benchmark | [Benchmark specifications](benchmarks/README.md) | [Chapter 6 benchmark roadmap](planning/chapter-6-benchmark-suite-roadmap.md), [numerical examples](guides/chapter-6-numerical-examples.md), and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
+| Author a Chapter 5/6 application | [Chapter 5 recipes](applications/chapter-5.md), [Chapter 6 scenarios](applications/chapter-6.md) | [Public API reference](reference/README.md), the relevant Chapter guide, and the [v1 compiler](implementation/v1/semantic-compiler.md) |
+| Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmark specifications](benchmarks/chapter-6.md) | [Chapter 6 benchmark roadmap](planning/chapter-6-benchmark-suite-roadmap.md), [numerical examples](guides/chapter-6-numerical-examples.md), and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
 | Understand the whole system and its code correspondence | [System blueprint](design/system-blueprint.md) | [Interface specification](design/interface-specification.md) and [v0 executable contract](implementation/v0/executable-contract.md) |
 | Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Architecture](design/architecture.md) and [selected policies](implementation/implementation-readiness-review.md) |
 | Change the backend-neutral executable API | [V0 executable contract](implementation/v0/executable-contract.md) | [Selected policies](implementation/implementation-readiness-review.md) and [roadmap](planning/implementation-roadmap.md) |
@@ -121,7 +124,7 @@ convention before inspecting or changing repository content.
 | Implement selected Chapter 6 methods | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) | [V0 contract](implementation/v0/executable-contract.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [roadmap](planning/implementation-roadmap.md) |
 | Explore standard Chapter 5 problems | [Chapter 5 problem library](planning/chapter-5-problem-library-roadmap.md) | [Chapter 5 guide](guides/chapter-5-elliptic-control.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [implementation roadmap](planning/implementation-roadmap.md) |
 | Reproduce Chapter 6 examples | [Chapter 6 benchmark suite](planning/chapter-6-benchmark-suite-roadmap.md) | [Numerical examples](guides/chapter-6-numerical-examples.md) and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
-| Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Application recipes](applications/README.md), [benchmark specifications](benchmarks/README.md), and the [public application API](reference/application-api.md) |
+| Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Chapter 6 scenarios](applications/chapter-6.md), [Chapter 6 benchmark specifications](benchmarks/chapter-6.md), and the [public application API](reference/application-api.md) |
 | Repair the reviewed C1/C2 preparation | [Chapter 5 reviews](planning/review/chapter-5/README.md) | [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), [pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.1 implementation | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.2 implementation | [P5.2 remediation review](planning/review/chapter-5/p5.2-remediation-review.md) | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [selected policies](implementation/implementation-readiness-review.md) |

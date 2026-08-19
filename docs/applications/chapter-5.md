@@ -3,16 +3,16 @@
 This document turns the selected Chapter 5 catalogue into application-facing
 recipe contracts. It is an authoring aid: it names the semantic graph seed,
 the required runtime bindings, the discrete control representation, and the
-allowed option seams. The [Chapter 5 guide](../../guides/chapter-5-elliptic-control.md)
-remains authoritative for the mathematics, the [v1 capability table](../../implementation/v1/semantic-compiler.md#registered-capabilities)
+allowed option seams. The [Chapter 5 guide](../guides/chapter-5-elliptic-control.md)
+remains authoritative for the mathematics, the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
 remains authoritative for realized compiler registrations, and the
-[problem-library roadmap](../../planning/chapter-5-problem-library-roadmap.md)
+[problem-library roadmap](../planning/chapter-5-problem-library-roadmap.md)
 owns recipe implementation order and status.
 
 A recipe is a typed builder of `semantic::v1::ProblemSpec`. It is not a PDE
 class and it does not own deal.II functions, a mesh, a compiler, a solver, or
 run output. Those are supplied through the separate public boundaries in the
-[application API reference](../../reference/application-api.md).
+[application API reference](../reference/application-api.md).
 
 The family IDs in this document are stable application-level names for the
 recipe records being added. The named `make_*` functions are current semantic

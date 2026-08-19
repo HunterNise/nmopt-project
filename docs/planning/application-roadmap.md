@@ -9,8 +9,8 @@ acceptance gates.
 
 It does not own compiler, lowerer, solver, or backend capability status. Those
 remain in the [implementation roadmap](implementation-roadmap.md). Frozen
-benchmark definitions remain in the [Chapter 6 benchmark specifications](../benchmarks/chapter-6/README.md),
-and scenario assembly remains in the [Chapter 6 application contract](../applications/chapter-6/README.md).
+benchmark definitions remain in the [Chapter 6 benchmark specifications](../benchmarks/chapter-6.md),
+and scenario assembly remains in the [Chapter 6 application contract](../applications/chapter-6.md).
 
 The application roadmap is therefore the mutable status owner for:
 
@@ -175,7 +175,7 @@ The frozen B2 Galerkin formulation remains in force. Stabilization is not an
 implicit application-layer fix.
 
 Authoritative frozen inputs and required evidence are maintained in the
-[benchmark specification](../benchmarks/chapter-6/README.md), not duplicated
+[benchmark specification](../benchmarks/chapter-6.md), not duplicated
 here.
 
 ## Roadmap sequence

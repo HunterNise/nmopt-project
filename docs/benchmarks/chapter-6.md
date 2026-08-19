@@ -1,11 +1,13 @@
 # Chapter 6 benchmark specifications
 
-This document freezes the selected B0, B1, and B2 benchmark contracts. The
-[benchmark-suite roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md)
+This document catalogues the Chapter 6 benchmark specifications. B0, B1, and
+B2 are the currently frozen executable contracts; later Chapter 6 benchmark
+cases belong here as they are added. The
+[benchmark-suite roadmap](../planning/chapter-6-benchmark-suite-roadmap.md)
 owns their order and acceptance purpose; the
-[numerical-examples reference](../../guides/chapter-6-numerical-examples.md)
+[numerical-examples reference](../guides/chapter-6-numerical-examples.md)
 owns the source equations and reported values; and the
-[application scenario contract](../../applications/chapter-6/README.md) owns
+[application scenario contract](../applications/chapter-6.md) owns
 the public construction path.
 
 These specifications select the current framework-native scalar realization.

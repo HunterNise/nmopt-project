@@ -3,7 +3,7 @@
 from .errors import PostprocessError
 from .fields import ScalarField, find_field, scalar_values
 from .geometry import boundary_field_block, triangulate, volume_block
-from .records import read_metadata, unescape
+from .records import read_metadata, read_numeric_history, unescape
 from .sources import first_existing
 
 __all__ = [
@@ -13,6 +13,7 @@ __all__ = [
     "find_field",
     "first_existing",
     "read_metadata",
+    "read_numeric_history",
     "scalar_values",
     "triangulate",
     "unescape",

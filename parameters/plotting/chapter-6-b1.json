@@ -71,6 +71,73 @@
     "columns": ["regularisation"],
     "group_by": []
   },
+  "history_figures": {
+    "figure-6.3": {
+      "plots": [
+        {
+          "source": "solver.objective_history",
+          "title": "Cost functional",
+          "x_label": "# iter",
+          "y_label": "J(u_k)",
+          "x_scale": "log",
+          "y_scale": "linear",
+          "iteration_origin": 1,
+          "x_limits": [1, 10000]
+        },
+        {
+          "source": "solver.gradient_norm_history",
+          "title": "Norm of the gradient of the cost functional",
+          "x_label": "# iter",
+          "y_label": "||grad J||",
+          "x_scale": "log",
+          "y_scale": "log",
+          "iteration_origin": 1,
+          "x_limits": [1, 10000]
+        }
+      ],
+      "series": [
+        {
+          "where": {"method": "steepest-descent", "regularisation": "1e-1"},
+          "label": "steepest descent, beta = 1e-1",
+          "color": "#0072bd",
+          "linestyle": ":"
+        },
+        {
+          "where": {"method": "steepest-descent", "regularisation": "1e-2"},
+          "label": "steepest descent, beta = 1e-2",
+          "color": "#d95319",
+          "linestyle": "--"
+        },
+        {
+          "where": {"method": "steepest-descent", "regularisation": "1e-3"},
+          "label": "steepest descent, beta = 1e-3",
+          "color": "#edb120",
+          "linestyle": "-"
+        },
+        {
+          "where": {"method": "l-bfgs", "regularisation": "1e-1"},
+          "label": "LM-BFGS, beta = 1e-1",
+          "color": "#7e2f8e",
+          "linestyle": "-",
+          "marker": "o"
+        },
+        {
+          "where": {"method": "l-bfgs", "regularisation": "1e-2"},
+          "label": "LM-BFGS, beta = 1e-2",
+          "color": "#77ac30",
+          "linestyle": "-",
+          "marker": "^"
+        },
+        {
+          "where": {"method": "l-bfgs", "regularisation": "1e-3"},
+          "label": "LM-BFGS, beta = 1e-3",
+          "color": "#4dbeee",
+          "linestyle": "-",
+          "marker": "s"
+        }
+      ]
+    }
+  },
   "title_templates": {
     "state": "B1 state — {method}, {regularisation}",
     "control": "B1 control — {method}, {regularisation}",

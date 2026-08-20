@@ -6,7 +6,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Sequence
 
 os.environ.setdefault(
     "MPLCONFIGDIR",
@@ -49,6 +49,32 @@ class RenderItem:
     metadata: dict[str, str] | None = None
 
 
+@dataclass(frozen=True)
+class HistoryLine:
+    """One persisted optimization history and its presentation policy."""
+
+    label: str
+    values: tuple[float, ...]
+    color: str | None = None
+    linestyle: str = "-"
+    marker: str | None = None
+
+
+@dataclass(frozen=True)
+class HistoryPanel:
+    """One axes in a profile-driven optimization-history figure."""
+
+    title: str
+    x_label: str
+    y_label: str
+    x_scale: str
+    y_scale: str
+    iteration_origin: int
+    lines: tuple[HistoryLine, ...]
+    x_limits: tuple[float, float] | None = None
+    y_limits: tuple[float, float] | None = None
+
+
 def field_norm(values: np.ndarray) -> Normalize:
     """Create a finite-value scale whose limits are the field extrema."""
 
@@ -79,7 +105,7 @@ def save_figure(
 
     generated: list[str] = []
     for output_format in output_formats:
-        path = output.with_suffix(f".{output_format}")
+        path = output.parent / f"{output.name}.{output_format}"
         figure.savefig(path, dpi=180, bbox_inches="tight")
         generated.append(path.name)
     plt.close(figure)
@@ -318,4 +344,77 @@ def plot_boundary_comparison(
         ticks=colorbar_ticks(norm),
         label=colorbar_label or items[0].field.name,
     )
+    return save_figure(figure, output, output_formats)
+
+
+def plot_history_figure(
+    panels: Sequence[HistoryPanel],
+    output: Path,
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+) -> list[str]:
+    """Render a deterministic row of optimization-history panels."""
+
+    if not panels:
+        raise PostprocessError("history figure has no panels")
+    figure, axes = plt.subplots(
+        1,
+        len(panels),
+        figsize=(6.2 * len(panels), 4.8),
+        squeeze=False,
+        constrained_layout=True,
+    )
+    for axis, panel in zip(axes.flat, panels):
+        if panel.x_scale not in {"linear", "log"}:
+            raise PostprocessError(
+                f"unsupported history x scale '{panel.x_scale}'"
+            )
+        if panel.y_scale not in {"linear", "log"}:
+            raise PostprocessError(
+                f"unsupported history y scale '{panel.y_scale}'"
+            )
+        if panel.x_scale == "log" and panel.iteration_origin <= 0:
+            raise PostprocessError(
+                "a logarithmic history x axis needs a positive iteration origin"
+            )
+        rendered = 0
+        for line in panel.lines:
+            iterations = np.arange(len(line.values), dtype=float) + panel.iteration_origin
+            values = np.asarray(line.values)
+            if panel.y_scale == "log":
+                positive = values > 0.0
+                iterations = iterations[positive]
+                values = values[positive]
+                if len(values) == 0:
+                    raise PostprocessError(
+                        f"logarithmic history series '{line.label}' has no positive values"
+                    )
+            axis.plot(
+                iterations,
+                values,
+                label=line.label,
+                color=line.color,
+                linestyle=line.linestyle,
+                marker=line.marker,
+                markevery=(
+                    max(1, len(line.values) // 20)
+                    if line.marker is not None
+                    else None
+                ),
+                markersize=4.0,
+                linewidth=1.4,
+            )
+            rendered += 1
+        if rendered == 0:
+            raise PostprocessError(f"history panel '{panel.title}' has no series")
+        axis.set_xscale(panel.x_scale)
+        axis.set_yscale(panel.y_scale)
+        if panel.x_limits is not None:
+            axis.set_xlim(*panel.x_limits)
+        if panel.y_limits is not None:
+            axis.set_ylim(*panel.y_limits)
+        axis.set_title(panel.title)
+        axis.set_xlabel(panel.x_label)
+        axis.set_ylabel(panel.y_label)
+        axis.grid(True, which="both", color="#d9d9d9", linewidth=0.5)
+        axis.legend(fontsize=8, loc="best")
     return save_figure(figure, output, output_formats)

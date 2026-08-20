@@ -1,5 +1,7 @@
 """Read the small key-value records emitted for runner artifacts."""
 
+import math
+
 from pathlib import Path
 
 
@@ -31,3 +33,25 @@ def read_metadata(artifact: Path) -> dict[str, str]:
             key, value = line.split("=", 1)
             values[key] = unescape(value)
     return values
+
+
+def read_numeric_history(metadata: dict[str, str], key: str) -> tuple[float, ...]:
+    """Read one finite comma-separated solver history from artifact metadata."""
+
+    text = metadata.get(key, "")
+    if not text:
+        return ()
+    result: list[float] = []
+    for index, item in enumerate(text.split(",")):
+        try:
+            value = float(item)
+        except ValueError as error:
+            raise ValueError(
+                f"history '{key}' has a non-numeric value at index {index}"
+            ) from error
+        if not math.isfinite(value):
+            raise ValueError(
+                f"history '{key}' has a non-finite value at index {index}"
+            )
+        result.append(value)
+    return tuple(result)

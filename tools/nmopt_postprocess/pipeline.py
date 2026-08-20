@@ -11,13 +11,16 @@ import meshio
 
 from .errors import PostprocessError
 from .fields import ScalarField, find_field
-from .records import read_metadata
+from .records import read_metadata, read_numeric_history
 from .render import (
     DEFAULT_OUTPUT_FORMATS,
     OutputFormats,
+    HistoryLine,
+    HistoryPanel,
     RenderItem,
     plot_boundary_comparison,
     plot_boundary_field,
+    plot_history_figure,
     plot_volume_comparison,
     plot_volume_field,
 )
@@ -43,6 +46,41 @@ class ComparisonPlan:
 
 
 @dataclass(frozen=True)
+class HistorySeriesSpec:
+    """Select and style one artifact in an optimization-history figure."""
+
+    selector: tuple[tuple[str, str], ...]
+    label: str
+    color: str | None = None
+    linestyle: str = "-"
+    marker: str | None = None
+
+
+@dataclass(frozen=True)
+class HistoryPlotSpec:
+    """Select one persisted history for one figure panel."""
+
+    source: str
+    title: str
+    x_label: str
+    y_label: str
+    x_scale: str = "linear"
+    y_scale: str = "linear"
+    iteration_origin: int = 0
+    x_limits: tuple[float, float] | None = None
+    y_limits: tuple[float, float] | None = None
+
+
+@dataclass(frozen=True)
+class HistoryFigureSpec:
+    """A profile-defined multi-panel history comparison."""
+
+    output_name: str
+    plots: tuple[HistoryPlotSpec, ...]
+    series: tuple[HistorySeriesSpec, ...]
+
+
+@dataclass(frozen=True)
 class PostprocessProfile:
     """Application-specific field and labeling choices for the generic engine."""
 
@@ -59,6 +97,7 @@ class PostprocessProfile:
     comparison_plan: ComparisonPlan = ComparisonPlan()
     axis_orders: dict[str, tuple[str, ...]] | None = None
     axis_labels: dict[str, dict[str, str]] | None = None
+    history_figures: tuple[HistoryFigureSpec, ...] = ()
 
 
 def _render_item(
@@ -99,6 +138,66 @@ def _boundary_items(
         if field is not None:
             items.append(_render_item(artifact, field, profile, mesh))
     return items
+
+
+def _matches_history_series(
+    metadata: dict[str, str], series: HistorySeriesSpec
+) -> bool:
+    return all(
+        _axis_value(metadata, axis) == value for axis, value in series.selector
+    )
+
+
+def _history_panels(
+    artifacts: list[Path], figure: HistoryFigureSpec
+) -> tuple[HistoryPanel, ...]:
+    metadata_by_artifact = [
+        (artifact, read_metadata(artifact)) for artifact in artifacts
+    ]
+    panels: list[HistoryPanel] = []
+    for plot in figure.plots:
+        lines: list[HistoryLine] = []
+        for series in figure.series:
+            matches = [
+                metadata
+                for _, metadata in metadata_by_artifact
+                if _matches_history_series(metadata, series)
+            ]
+            if len(matches) > 1:
+                selector = ", ".join(
+                    f"{axis}={value}" for axis, value in series.selector
+                )
+                raise PostprocessError(
+                    f"history selector '{selector}' matches more than one artifact"
+                )
+            if not matches:
+                continue
+            values = read_numeric_history(matches[0], plot.source)
+            if not values:
+                continue
+            lines.append(
+                HistoryLine(
+                    series.label,
+                    values,
+                    series.color,
+                    series.linestyle,
+                    series.marker,
+                )
+            )
+        panels.append(
+            HistoryPanel(
+                plot.title,
+                plot.x_label,
+                plot.y_label,
+                plot.x_scale,
+                plot.y_scale,
+                plot.iteration_origin,
+                tuple(lines),
+                plot.x_limits,
+                plot.y_limits,
+            )
+        )
+    return tuple(panels)
 
 
 def build_comparisons(
@@ -162,6 +261,16 @@ def build_comparisons(
                     )
             except (OSError, ValueError, PostprocessError) as error:
                 group_errors[field_spec.output_name] = str(error)
+
+        for figure in profile.history_figures:
+            try:
+                group_generated[figure.output_name] = plot_history_figure(
+                    _history_panels(group_artifacts, figure),
+                    comparison_dir / figure.output_name,
+                    output_formats=output_formats,
+                )
+            except (OSError, ValueError, PostprocessError) as error:
+                group_errors[figure.output_name] = str(error)
 
         if group_generated:
             generated[group] = group_generated
@@ -289,7 +398,6 @@ def process_input_root(
 
     output_root.mkdir(parents=True, exist_ok=True)
     records: list[dict[str, object]] = []
-    successful_artifacts: list[Path] = []
     for artifact in artifacts:
         relative = artifact.relative_to(input_root)
         output = artifact / "postprocess"
@@ -304,7 +412,6 @@ def process_input_root(
                     "plots": manifest["plots"],
                 }
             )
-            successful_artifacts.append(artifact)
         except (OSError, ValueError, PostprocessError) as error:
             output.mkdir(parents=True, exist_ok=True)
             (output / "postprocess.json").write_text(
@@ -330,10 +437,7 @@ def process_input_root(
             )
 
     comparisons, comparison_errors = build_comparisons(
-        successful_artifacts,
-        output_root,
-        profile,
-        output_formats=output_formats,
+        artifacts, output_root, profile, output_formats=output_formats
     )
     index = {
         "input_root": str(input_root.resolve()),

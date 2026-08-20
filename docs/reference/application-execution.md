@@ -201,6 +201,13 @@ are loaded automatically. `--profile-file FILE` explicitly selects another
 profile; the compatibility `chapter6_postprocess.py` wrapper remains
 available for legacy Chapter 6 inputs.
 
+The B1 plotting profile also writes `comparisons/<scenario>/figure-6.3` from
+the persisted objective and gradient-norm histories. Both panels use a
+logarithmic iteration axis with history sample zero displayed at coordinate
+one; the objective axis is linear and the gradient-norm axis is logarithmic.
+The profile selects only the three regularisation values shown in the source
+figure, so additional development artifacts do not silently alter the plot.
+
 ## Agent verification loop
 
 After changing application, recipe, scenario, runner, or artifact code, use the

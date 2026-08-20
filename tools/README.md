@@ -14,9 +14,9 @@ consume public interfaces and persisted artifacts.
 | `chapter6_report.py` | Deterministic CSV/Markdown benchmark report from a persisted run manifest. |
 
 The reusable Python implementation is under
-`nmopt_postprocess/`. Its Chapter 6 profile, mesh/field readers, renderers,
-comparison builders, and output manifests are implementation details of the
-public post-processing entry point.
+`nmopt_postprocess/`. Its Chapter 6 profile, mesh/field and solver-history
+readers, renderers, comparison builders, and output manifests are
+implementation details of the public post-processing entry point.
 
 For commands, output paths, native-file names, supported formats, and agent
 verification, read the [application execution and artifact
@@ -27,9 +27,9 @@ build the C++ runner; build and test it through the checked-in
 ## Dependencies and output boundaries
 
 The post-processing tools use `python3`, `meshio`, and `matplotlib`.
-The report generator itself reads persisted records and produces
-dependency-free SVG plots. These Python dependencies are runtime tooling
-dependencies, not C++ or CTest dependencies.
+The report generator itself reads persisted records and has no third-party
+dependencies. These Python dependencies are runtime tooling dependencies, not
+C++ or CTest dependencies.
 
 Tools must:
 

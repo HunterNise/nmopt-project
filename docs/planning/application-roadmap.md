@@ -278,8 +278,8 @@ making post-processing a second numerical implementation.
   target, forcing, and observation-domain mask.
 - PNG and SVG output, artifact-local manifests, run-root indexes, and
   grouped comparisons are available.
-- `chapter6_report.py` generates deterministic CSV/Markdown summaries and
-  dependency-free SVG objective/Armijo plots.
+- `chapter6_report.py` generates deterministic CSV/Markdown summaries, while
+  the profile-driven postprocessor renders objective and gradient histories.
 - The compatibility `chapter6_postprocess.py` wrapper remains available for
   older Chapter 6 inputs.
 - `meshio` and `matplotlib` are runtime dependencies only; they are not

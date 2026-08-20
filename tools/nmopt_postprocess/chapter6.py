@@ -7,7 +7,14 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from .pipeline import ComparisonPlan, FieldSpec, PostprocessProfile
+from .pipeline import (
+    ComparisonPlan,
+    FieldSpec,
+    HistoryFigureSpec,
+    HistoryPlotSpec,
+    HistorySeriesSpec,
+    PostprocessProfile,
+)
 
 
 def is_b2_case(metadata: dict[str, str]) -> bool:
@@ -124,6 +131,24 @@ def _format_template(template: str, metadata: dict[str, str]) -> str:
         return template
 
 
+def _numeric_limits(
+    specification: dict[str, Any], key: str, figure_name: str
+) -> tuple[float, float] | None:
+    if key not in specification:
+        return None
+    values = specification[key]
+    if not isinstance(values, list) or len(values) != 2:
+        raise ValueError(
+            f"history figure '{figure_name}' {key} needs two values"
+        )
+    limits = (float(values[0]), float(values[1]))
+    if limits[0] >= limits[1]:
+        raise ValueError(
+            f"history figure '{figure_name}' {key} must be increasing"
+        )
+    return limits
+
+
 def load_json_profile(path: Path) -> PostprocessProfile:
     """Load fields, labels, axes, and comparison policy from ``nmopt-plot-v1``."""
 
@@ -173,6 +198,77 @@ def load_json_profile(path: Path) -> PostprocessProfile:
         for field, template in document.get("title_templates", {}).items()
     }
 
+    history_figures: list[HistoryFigureSpec] = []
+    for output_name, specification in document.get("history_figures", {}).items():
+        if not isinstance(specification, dict):
+            raise ValueError(f"history figure '{output_name}' needs an object")
+        series: list[HistorySeriesSpec] = []
+        for series_specification in specification.get("series", []):
+            if not isinstance(series_specification, dict):
+                raise ValueError(
+                    f"history figure '{output_name}' has an invalid series"
+                )
+            selector = series_specification.get("where", {})
+            if not isinstance(selector, dict) or not selector:
+                raise ValueError(
+                    f"history figure '{output_name}' series needs a nonempty selector"
+                )
+            series.append(
+                HistorySeriesSpec(
+                    tuple(
+                        (str(axis), str(value))
+                        for axis, value in selector.items()
+                    ),
+                    str(series_specification.get("label", "series")),
+                    str(series_specification["color"])
+                    if "color" in series_specification
+                    else None,
+                    str(series_specification.get("linestyle", "-")),
+                    str(series_specification["marker"])
+                    if "marker" in series_specification
+                    else None,
+                )
+            )
+        plots: list[HistoryPlotSpec] = []
+        for plot_specification in specification.get("plots", []):
+            if (
+                not isinstance(plot_specification, dict)
+                or "source" not in plot_specification
+            ):
+                raise ValueError(
+                    f"history figure '{output_name}' plot needs a source"
+                )
+            x_limits = _numeric_limits(
+                plot_specification, "x_limits", str(output_name)
+            )
+            y_limits = _numeric_limits(
+                plot_specification, "y_limits", str(output_name)
+            )
+            plots.append(
+                HistoryPlotSpec(
+                    str(plot_specification["source"]),
+                    str(plot_specification.get("title", output_name)),
+                    str(plot_specification.get("x_label", "iteration")),
+                    str(
+                        plot_specification.get(
+                            "y_label", plot_specification["source"]
+                        )
+                    ),
+                    str(plot_specification.get("x_scale", "linear")),
+                    str(plot_specification.get("y_scale", "linear")),
+                    int(plot_specification.get("iteration_origin", 0)),
+                    x_limits,
+                    y_limits,
+                )
+            )
+        if not plots or not series:
+            raise ValueError(
+                f"history figure '{output_name}' needs plots and series"
+            )
+        history_figures.append(
+            HistoryFigureSpec(str(output_name), tuple(plots), tuple(series))
+        )
+
     def item_label(metadata: dict[str, str]) -> str:
         scenario = metadata.get("identity.scenario_id", "Chapter 6 artifact")
         values = [
@@ -211,6 +307,7 @@ def load_json_profile(path: Path) -> PostprocessProfile:
         comparison_plan=plan,
         axis_orders=axis_orders,
         axis_labels=axis_labels,
+        history_figures=tuple(history_figures),
     )
 
 

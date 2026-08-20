@@ -364,7 +364,9 @@ namespace nmopt::application::chapter6::dealii
               solvers::ReducedLimitedMemoryBfgsSolverT<Backend>(
                 reduced,
                 compilation.problem->metric(),
-                scenario.solver.parameters)
+                scenario.solver.parameters,
+                solvers::LimitedMemoryBfgsDirectionPolicyT<Backend>(
+                  scenario.solver.limited_memory_bfgs))
                 .solve(initial_control));
             break;
           case ReducedMethod::bfgs:
@@ -453,7 +455,22 @@ namespace nmopt::application::chapter6::dealii
         fields.push_back({"solver.declared_minimum_step_length",
                           b1_number(
                             *scenario.solver.declared_minimum_step_length)});
-
+      if (scenario.solver.method == ReducedMethod::limited_memory_bfgs)
+        {
+          fields.push_back(
+            {"solver.l_bfgs_memory",
+             std::to_string(
+               scenario.solver.limited_memory_bfgs.memory_size)});
+          fields.push_back(
+            {"solver.l_bfgs_curvature_tolerance",
+             b1_number(
+               scenario.solver.limited_memory_bfgs.curvature_tolerance)});
+          fields.push_back(
+            {"solver.l_bfgs_initial_scaling",
+             solvers::limited_memory_bfgs_initial_scaling_name(
+               scenario.solver.limited_memory_bfgs.
+                 initial_inverse_hessian_scaling)});
+        }
       Envelope envelope{compilation.problem->manifest(),
                         solver_policy,
               std::move(*report),

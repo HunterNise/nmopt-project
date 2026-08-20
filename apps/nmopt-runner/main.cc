@@ -4,11 +4,13 @@
 #include "parameter_files.hpp"
 #include "runner.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <locale>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -373,13 +375,38 @@ namespace
     solver.initial_control = file.value("Solver/initial control");
     solver.parameters.maximum_iterations =
       parameter_unsigned(file, "Solver/maximum iterations");
-    solver.parameters.maximum_line_search_trials =
-      parameter_unsigned(file, "Solver/maximum line search trials");
-    solver.parameters.stopping_criterion =
-      file.value("Solver/stopping criterion") == "automatic"
-        ? nmopt::solvers::ReducedStoppingCriterion::automatic
-        : throw std::invalid_argument(
-            "only the automatic reduced stopping criterion is supported");
+    const auto trials = file.optional_value("Solver/maximum line search trials");
+    const auto reductions =
+      file.optional_value("Solver/maximum backtracking reductions");
+    if (!trials.empty() && !reductions.empty())
+      throw std::invalid_argument(
+        "select either maximum line-search trials or maximum backtracking reductions");
+    if (!reductions.empty())
+      solver.parameters.maximum_line_search_trials =
+        parameter_unsigned(file, "Solver/maximum backtracking reductions") + 1;
+    else if (!trials.empty())
+      solver.parameters.maximum_line_search_trials =
+        parameter_unsigned(file, "Solver/maximum line search trials");
+
+    const auto stopping = file.value("Solver/stopping criterion");
+    if (stopping == "automatic")
+      solver.parameters.stopping_criterion =
+        nmopt::solvers::ReducedStoppingCriterion::automatic;
+    else if (stopping == "gradient-norm")
+      solver.parameters.stopping_criterion =
+        nmopt::solvers::ReducedStoppingCriterion::gradient_norm;
+    else if (stopping == "relative-gradient-norm")
+      solver.parameters.stopping_criterion =
+        nmopt::solvers::ReducedStoppingCriterion::relative_gradient_norm;
+    else if (stopping == "objective-change")
+      solver.parameters.stopping_criterion =
+        nmopt::solvers::ReducedStoppingCriterion::objective_change;
+    else if (stopping == "step-norm")
+      solver.parameters.stopping_criterion =
+        nmopt::solvers::ReducedStoppingCriterion::step_norm;
+    else
+      throw std::invalid_argument("unknown reduced stopping criterion '" +
+                                  stopping + "'");
     solver.parameters.relative_gradient_tolerance =
       parameter_double(file, "Solver/relative gradient tolerance");
     solver.parameters.objective_change_tolerance =
@@ -393,18 +420,98 @@ namespace
     solver.parameters.backtracking_factor =
       parameter_double(file, "Solver/backtracking factor");
 
+    const auto objective_target_policy =
+      file.optional_value("Solver/objective target policy", "none");
+    const auto objective_target = file.optional_value("Solver/objective target");
+    if (objective_target_policy.empty() || objective_target_policy == "none")
+      {
+        solver.objective_target_policy =
+          nmopt::application::chapter6::ObjectiveTargetPolicy::none;
+        solver.parameters.objective_target = std::nullopt;
+      }
+    else if (objective_target_policy == "explicit")
+      {
+        if (objective_target.empty() || objective_target == "none")
+          throw std::invalid_argument(
+            "an explicit objective-target policy needs a numeric target");
+        solver.objective_target_policy =
+          nmopt::application::chapter6::ObjectiveTargetPolicy::explicit_value;
+        solver.parameters.objective_target = parse_number_text(
+          objective_target, "Solver/objective target");
+      }
+    else if (objective_target_policy == "match-reference-method")
+      {
+        solver.objective_target_policy = nmopt::application::chapter6::
+          ObjectiveTargetPolicy::matched_reference_method;
+        solver.parameters.objective_target = std::nullopt;
+        solver.objective_target_reference_method =
+          file.value("Solver/objective target reference method");
+        if (solver.objective_target_reference_method.empty())
+          throw std::invalid_argument(
+            "a matched objective target needs a reference method");
+      }
+    else
+      throw std::invalid_argument("unknown objective-target policy '" +
+                                  objective_target_policy + "'");
+
     const auto policy = "Solver/method policy " + method_id + "/gradient tolerance";
     const auto policy_min =
+      "Solver/method policy " + method_id + "/minimum step length";
+    const auto legacy_policy_min =
       "Solver/method policy " + method_id + "/declared minimum step length";
     const auto gradient = file.optional_value(policy);
     solver.parameters.gradient_tolerance = gradient.empty()
                                              ? parameter_double(file, "Solver/gradient tolerance")
                                              : parse_number_text(gradient, policy);
-    const auto minimum = file.optional_value(policy_min);
+    auto minimum = file.optional_value(policy_min);
+    auto minimum_key = policy_min;
+    if (minimum.empty())
+      {
+        minimum = file.optional_value("Solver/minimum step length");
+        minimum_key = "Solver/minimum step length";
+      }
     if (!minimum.empty() && minimum != "none")
-      solver.declared_minimum_step_length = parse_number_text(minimum, policy_min);
+      solver.parameters.minimum_step_length =
+        parse_number_text(minimum, minimum_key);
+    else
+      solver.parameters.minimum_step_length = 0.0;
+
+    auto declared_minimum = file.optional_value(legacy_policy_min);
+    auto declared_minimum_key = legacy_policy_min;
+    if (declared_minimum.empty())
+      {
+        declared_minimum =
+          file.optional_value("Solver/declared minimum step length");
+        declared_minimum_key = "Solver/declared minimum step length";
+      }
+    if (!declared_minimum.empty() && declared_minimum != "none")
+      solver.declared_minimum_step_length =
+        parse_number_text(declared_minimum, declared_minimum_key);
     else
       solver.declared_minimum_step_length = std::nullopt;
+
+    const auto method_prefix = "Solver/method policy " + method_id + "/";
+    const auto memory = file.optional_value(method_prefix + "memory");
+    if (!memory.empty())
+      solver.limited_memory_bfgs.memory_size =
+        parameter_unsigned(file, method_prefix + "memory");
+    const auto curvature =
+      file.optional_value(method_prefix + "curvature tolerance");
+    if (!curvature.empty())
+      solver.limited_memory_bfgs.curvature_tolerance = parse_number_text(
+        curvature, method_prefix + "curvature tolerance");
+    const auto scaling =
+      file.optional_value(method_prefix + "initial inverse Hessian scaling");
+    if (!scaling.empty() && scaling != "metric-inverse" &&
+        scaling != "scalar-secant")
+      throw std::invalid_argument("unknown L-BFGS initial scaling '" + scaling +
+                                  "'");
+    if (scaling == "metric-inverse")
+      solver.limited_memory_bfgs.initial_inverse_hessian_scaling =
+        nmopt::solvers::LimitedMemoryBfgsInitialScaling::metric_inverse;
+    else if (scaling == "scalar-secant")
+      solver.limited_memory_bfgs.initial_inverse_hessian_scaling =
+        nmopt::solvers::LimitedMemoryBfgsInitialScaling::scalar_secant;
   }
 
   void
@@ -700,14 +807,23 @@ namespace
                                std::to_string(parameters.maximum_iterations)});
     evidence.fields.push_back({"solver.maximum_line_search_trials",
                                std::to_string(parameters.maximum_line_search_trials)});
+    evidence.fields.push_back({"solver.maximum_backtracking_reductions",
+                               std::to_string(
+                                 parameters.maximum_line_search_trials - 1)});
     evidence.fields.push_back({"solver.gradient_tolerance",
                                b1_number(parameters.gradient_tolerance)});
     evidence.fields.push_back({"solver.initial_step_length",
                                b1_number(parameters.initial_step_length)});
+    evidence.fields.push_back({"solver.minimum_step_length",
+                               b1_number(parameters.minimum_step_length)});
     evidence.fields.push_back({"solver.armijo_fraction",
                                b1_number(parameters.armijo_fraction)});
     evidence.fields.push_back({"solver.backtracking_factor",
                                b1_number(parameters.backtracking_factor)});
+    if (parameters.objective_target.has_value())
+      evidence.fields.push_back(
+        {"solver.objective_target",
+         b1_number(*parameters.objective_target)});
   }
 
   void
@@ -736,7 +852,8 @@ namespace
     const nmopt::application::chapter6::ReducedMethod method,
     const double beta,
     const std::string &framework_revision,
-    const nmopt::application::runner::RunKind run_kind)
+    const nmopt::application::runner::RunKind run_kind,
+    const std::string &objective_target_reference_artifact = {})
   {
     add_common_artifact_fields(evidence, framework_revision);
     evidence.fields.push_back({"benchmark.method", b1_method_slug(method)});
@@ -750,6 +867,28 @@ namespace
                                scenario.problem.data.forcing_provenance});
     evidence.fields.push_back({"provenance.desired_state",
                                scenario.problem.data.desired_state_provenance});
+    switch (scenario.solver.objective_target_policy)
+      {
+        case nmopt::application::chapter6::ObjectiveTargetPolicy::none:
+          evidence.fields.push_back({"solver.objective_target_policy", "none"});
+          break;
+        case nmopt::application::chapter6::ObjectiveTargetPolicy::explicit_value:
+          evidence.fields.push_back(
+            {"solver.objective_target_policy", "explicit"});
+          break;
+        case nmopt::application::chapter6::ObjectiveTargetPolicy::
+          matched_reference_method:
+          evidence.fields.push_back(
+            {"solver.objective_target_policy", "match-reference-method"});
+          evidence.fields.push_back(
+            {"solver.objective_target_reference_method",
+             scenario.solver.objective_target_reference_method});
+          if (!objective_target_reference_artifact.empty())
+            evidence.fields.push_back(
+              {"solver.objective_target_reference_artifact",
+               objective_target_reference_artifact});
+          break;
+      }
   }
 
   void
@@ -862,7 +1001,36 @@ namespace
       configuration, command, b1_expected_artifacts(file, filters));
     bool all_artifacts_succeeded = true;
 
-    for (const auto &combination : file.combinations(filters))
+    struct ObjectiveReference
+    {
+      double      value;
+      std::string artifact;
+    };
+    std::map<std::string, ObjectiveReference> objective_references;
+    auto combinations = file.combinations(filters);
+    const bool matched_objective_target =
+      file.optional_value("Solver/objective target policy", "none") ==
+      "match-reference-method";
+    ReducedMethod reference_method = ReducedMethod::steepest_descent;
+    if (matched_objective_target)
+      {
+        reference_method = parse_method(
+          file.value("Solver/objective target reference method"));
+        std::stable_sort(
+          combinations.begin(),
+          combinations.end(),
+          [reference_method](const auto &left, const auto &right) {
+            const bool left_is_reference =
+              parse_method(combination_value(left, "method")) ==
+              reference_method;
+            const bool right_is_reference =
+              parse_method(combination_value(right, "method")) ==
+              reference_method;
+            return left_is_reference && !right_is_reference;
+          });
+      }
+
+    for (const auto &combination : combinations)
       {
         const auto method_id = combination_value(combination, "method");
         const auto method = parse_method(method_id);
@@ -883,6 +1051,20 @@ namespace
             scenario.compile.mesh.refinement = refinement;
             scenario.compile.mesh.mesh_provenance = b1_mesh_provenance(refinement);
             scenario.experiment.harness.artifact_directory = output_directory.string();
+
+            std::string objective_target_reference_artifact;
+            if (matched_objective_target && method != reference_method)
+              {
+                const auto reference = objective_references.find(beta_slug);
+                if (reference == objective_references.end())
+                  throw std::invalid_argument(
+                    "objective-target reference method did not reach its stopping tolerance for beta " +
+                    std::string(beta_slug));
+                scenario.solver.parameters.objective_target =
+                  reference->second.value;
+                objective_target_reference_artifact =
+                  reference->second.artifact;
+              }
 
             nmopt::application::chapter6::dealii::B1ManufacturedDataT<2> data;
             const auto runtime =
@@ -909,7 +1091,8 @@ namespace
                                        method,
                                        beta,
                                        configuration.framework_revision,
-                                       configuration.run_kind);
+                                       configuration.run_kind,
+                                       objective_target_reference_artifact);
                 add_parameter_artifact_fields(evidence, configuration, combination);
                 return evidence;
               });
@@ -918,6 +1101,14 @@ namespace
             write_solver_trace(path.parent_path() / "solver-trace.csv",
                                result.artifact.envelope().report());
             run_manifest.record_success(path);
+            if (matched_objective_target && method == reference_method &&
+                result.artifact.envelope().report().stopping_reason ==
+                  nmopt::solvers::ReducedGradientStoppingReason::
+                    gradient_tolerance)
+              objective_references[beta_slug] = {
+                result.artifact.envelope().report().final_evaluation.
+                  objective_value,
+                std::filesystem::relative(path, output_directory).string()};
             std::cout << "B1 wrote " << path.string() << '\n';
           }
         catch (const std::exception &error)

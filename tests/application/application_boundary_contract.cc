@@ -197,8 +197,8 @@ namespace
             "B1 did not retain its declared L-BFGS stopping tolerance");
     require(std::abs(b1.solver.parameters.armijo_fraction - 1.0e-5) < 1.0e-15,
             "B1 did not retain its source Armijo fraction");
-    require(b1.solver.declared_minimum_step_length == 0.01,
-            "B1 did not retain the L-BFGS minimum-step declaration");
+    require(b1.solver.parameters.minimum_step_length == 0.01,
+            "B1 did not retain the operative L-BFGS minimum step");
     require(b1.experiment.harness.deterministic,
             "B1 did not retain the deterministic B0 harness policy");
     require(b1.experiment.source_revision ==

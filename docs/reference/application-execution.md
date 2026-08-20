@@ -140,6 +140,12 @@ The runner copies the parameter and plotting profile into the run directory,
 records their content hashes and resolved combinations in the run manifest,
 and retains the comparison-axis override for post-processing.
 
+A B1 family may declare a matched objective target. In that case the runner
+orders each regularisation's reference method before dependent methods,
+requires the reference to terminate on its gradient tolerance, and records
+the supplying artifact in every dependent result. A selection containing only
+the dependent method is therefore invalid.
+
 ## Native and derived outputs
 
 Deal.II writes native outputs directly from the realized mesh and finite-element

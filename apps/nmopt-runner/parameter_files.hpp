@@ -321,18 +321,27 @@ namespace nmopt::application::runner
                                 "initial control",
                                 "maximum iterations",
                                 "maximum line search trials",
+                                "maximum backtracking reductions",
                                 "gradient tolerance",
                                 "stopping criterion",
                                 "relative gradient tolerance",
                                 "objective change tolerance",
                                 "step tolerance",
+                                "objective target",
+                                "objective target policy",
+                                "objective target reference method",
                                 "initial step length",
                                 "Armijo fraction",
                                 "backtracking factor",
+                                "minimum step length",
                                 "declared minimum step length"})
         declare_section("Solver", entry);
       for (const auto &method : {"steepest-descent", "l-bfgs", "bfgs"})
         for (const auto &entry : {"gradient tolerance",
+                                  "minimum step length",
+                                  "memory",
+                                  "curvature tolerance",
+                                  "initial inverse Hessian scaling",
                                   "declared minimum step length"})
           declare(handler,
                   {"Solver", "method policy " + std::string(method)},
@@ -464,14 +473,19 @@ namespace nmopt::application::runner
                                                          "initial control",
                                                          "maximum iterations",
                                                          "maximum line search trials",
+                                                         "maximum backtracking reductions",
                                                          "gradient tolerance",
                                                          "stopping criterion",
                                                          "relative gradient tolerance",
                                                          "objective change tolerance",
                                                          "step tolerance",
+                                                         "objective target",
+                                                         "objective target policy",
+                                                         "objective target reference method",
                                                          "initial step length",
                                                          "Armijo fraction",
                                                          "backtracking factor",
+                                                         "minimum step length",
                                                          "declared minimum step length"}
                               : section == "Run"
                                   ? std::vector<std::string>{"kind",
@@ -494,6 +508,10 @@ namespace nmopt::application::runner
         }
       for (const auto &method : {"steepest-descent", "l-bfgs", "bfgs"})
         for (const auto &entry : {"gradient tolerance",
+                                  "minimum step length",
+                                  "memory",
+                                  "curvature tolerance",
+                                  "initial inverse Hessian scaling",
                                   "declared minimum step length"})
           values.emplace("Solver/method policy " + std::string(method) + "/" +
                            entry,

@@ -76,13 +76,23 @@ namespace nmopt::application::chapter6
     limited_memory_bfgs
   };
 
+  enum class ObjectiveTargetPolicy
+  {
+    none,
+    explicit_value,
+    matched_reference_method
+  };
+
   struct SolverOptions
   {
     ReducedMethod                  method = ReducedMethod::steepest_descent;
     solvers::ReducedSolverParameters parameters;
-    // The current generic solver policies do not all expose a minimum-step
-    // field. Preserve a source-declared value here so an execution adapter
-    // cannot silently discard it when reproducing a benchmark.
+    solvers::LimitedMemoryBfgsParameters limited_memory_bfgs;
+    ObjectiveTargetPolicy              objective_target_policy =
+      ObjectiveTargetPolicy::none;
+    std::string objective_target_reference_method;
+    // Retained for old benchmark files that recorded a source value without
+    // executing it. New experiments use parameters.minimum_step_length.
     std::optional<double> declared_minimum_step_length = std::nullopt;
     std::string           initial_control = "zero";
   };
@@ -263,6 +273,24 @@ namespace nmopt::application::chapter6
         scenario.solver.method != ReducedMethod::limited_memory_bfgs)
       throw std::invalid_argument(
         "B1 selects steepest descent or limited-memory BFGS");
+    switch (scenario.solver.objective_target_policy)
+      {
+        case ObjectiveTargetPolicy::none:
+          if (scenario.solver.parameters.objective_target.has_value())
+            throw std::invalid_argument(
+              "B1 objective target needs an explicit target policy");
+          break;
+        case ObjectiveTargetPolicy::explicit_value:
+          if (!scenario.solver.parameters.objective_target.has_value())
+            throw std::invalid_argument(
+              "B1 explicit objective-target policy needs a target value");
+          break;
+        case ObjectiveTargetPolicy::matched_reference_method:
+          if (scenario.solver.objective_target_reference_method.empty())
+            throw std::invalid_argument(
+              "B1 matched objective target needs a reference method");
+          break;
+      }
     if (scenario.compile.product != ProductSelection::reduced_dto ||
         scenario.compile.execution != ExecutionSelection::assembled)
       throw std::invalid_argument(
@@ -404,7 +432,7 @@ namespace nmopt::application::chapter6
       method == ReducedMethod::steepest_descent ? 1.0e-3 : 1.0e-8;
     solver.parameters.armijo_fraction = 1.0e-5;
     solver.parameters.backtracking_factor = 0.7;
-    solver.declared_minimum_step_length =
+    solver.parameters.minimum_step_length =
       method == ReducedMethod::steepest_descent ? 0.2 : 0.01;
 
     CompileOptions compile;
@@ -454,7 +482,13 @@ namespace nmopt::application::chapter6
        {"B0 harness", "fixed temperature port", "declared Galerkin policy"}},
       std::move(problem),
       std::move(compile),
-      {ReducedMethod::bfgs, {}, std::nullopt, "zero"},
+      {ReducedMethod::bfgs,
+       {},
+       {},
+       ObjectiveTargetPolicy::none,
+       "",
+       std::nullopt,
+       "zero"},
       {scenario_id,
        "E6.5.2 equation (6.65), Table 6.2, Figures 6.4-6.5",
        chapter6_numerical_examples_source_revision,

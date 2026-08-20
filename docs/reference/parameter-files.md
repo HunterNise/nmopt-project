@@ -1,0 +1,202 @@
+# Parameter files and plotting profiles
+
+**Status:** proposed configuration schema; the loader and runner integration
+are not implemented yet.
+
+This document defines the first schema slice for versioned Chapter 6
+experiment inputs. It separates the values that select and execute a
+benchmark from the reusable visual policy that renders its persisted fields.
+
+The source catalogue and frozen benchmark contracts remain authoritative for
+the mathematical meaning of B1 and B2. A parameter file is an executable
+instance of those contracts or an explicitly marked development variation; it
+does not silently replace the benchmark documentation.
+
+## File roles and locations
+
+Versioned inputs belong below `parameters/`:
+
+```text
+parameters/
+  chapter-6/
+    b1/
+      authoritative.prm
+    b2/
+      authoritative.prm
+      development/
+        forcing-sweep.prm
+    plotting/
+      chapter-6-b1.json
+      chapter-6-b2.json
+```
+
+The `.prm` file describes a run set. Its matrix can expand to several
+concrete artifacts. The JSON file describes reusable field and rendering
+policy. The run manifest must retain the selected file paths, content hashes,
+matrix axes, and resolved values so that generated evidence does not depend on
+future edits to the source files.
+
+Generated output remains below `runs/`; it must not become a second source of
+configuration.
+
+## Experiment parameter schema
+
+The proposed `.prm` sections are:
+
+| Section | Owns |
+| --- | --- |
+| `Benchmark` | Scenario identity, recipe, source reference, and source revision. |
+| `Matrix` | Explicit axes whose Cartesian product becomes the run-set. |
+| `Problem` | Recipe-level semantic choices such as control representation, observation region, and bounds. |
+| `Functions` | Registered forcing, target, fixed-data, and transport function selections and coefficients. |
+| `Boundary` | Boundary IDs, regions, normal/conormal interpretation, trace, and face quadrature choices. |
+| `Mesh` | Dimension, geometry, refinement, and mesh provenance. |
+| `Compile` | State degree, assembled/matrix-free execution, product, and compilation-session ownership. |
+| `Solver` | Method, initial control, stopping rules, line search, iteration limits, and method-specific policies. |
+| `Run` | Authoritative/development policy, build profile, output root, and harness behavior. |
+| `Output` | Retained native fields and artifact output policy. |
+| `Postprocessing` | Plot-style reference and matrix-axis binding for comparisons. |
+
+The exact `ParameterHandler` declarations will use typed patterns. Strings
+such as function IDs and method names are registry selections, not arbitrary
+code. Function expressions in the examples are declarative records consumed
+by registered function constructors; they are not an embedded programming
+language.
+
+### Matrix expansion
+
+Only entries under `Matrix` are expanded. If there is no `Selection` section,
+all combinations of the declared axes are executed. A selection is an
+optional filter for focused development or smoke work.
+
+```text
+subsection Matrix
+  set method = steepest-descent, l-bfgs
+  set regularisation = 1e-1, 1e-2, 1e-3, 1e-6
+end
+```
+
+This declares eight B1 artifacts. A B2 file with two observation-region
+values and two target-profile values declares four artifacts. A partial
+selection can reduce the set:
+
+```text
+subsection Selection
+  set method = l-bfgs
+  # Omitting regularisation keeps all four beta values.
+end
+```
+
+The resolver must validate every expanded combination before execution. It
+must reject unknown values, empty products, duplicate IDs, and combinations
+outside the registered benchmark capability.
+
+The matrix uses stable IDs for categorical values. Numeric values are stored
+in canonical form in the resolved configuration so that plotting and artifact
+paths do not depend on local formatting. Independent axes should be declared
+independently: B2 declares `observation-region` and `target-profile`, whose
+Cartesian product is the four public cases.
+
+### CLI precedence
+
+The intended precedence is:
+
+```text
+parameter-file defaults
+  → Selection section
+  → explicit CLI selection filter
+  → explicit CLI refinement override
+```
+
+The CLI refinement override is intentionally retained for smoke runs. It
+changes only the realized mesh refinement, updates mesh provenance, and is
+recorded as an override in the manifest. It must not modify the checked-in
+parameter file.
+
+The output directory may remain a destination override, and the framework
+revision should normally be recorded from the compiled executable or an
+explicit provenance argument. Neither is a mathematical experiment choice.
+All choices that affect the numerical run or retained evidence belong in the
+parameter file.
+
+## Plotting profile schema
+
+Plot profiles are declarative JSON documents with schema ID
+`nmopt-plot-v1`. They own reusable presentation policy:
+
+```json
+{
+  "schema": "nmopt-plot-v1",
+  "profile_id": "chapter-6.b2",
+  "compatible_scenario_prefixes": ["chapter-6.b2.graetz-flow"],
+  "defaults": {
+    "colormap": "turbo",
+    "normalization": "finite-extrema",
+    "comparison_normalization": "shared-finite-extrema",
+    "volume_interpolation": "gouraud",
+    "volume_mesh_overlay": false,
+    "colorbar_ticks": "endpoint-inclusive",
+    "output_formats": ["png"],
+    "dpi": 180
+  },
+  "fields": {},
+  "axes": {},
+  "default_comparison": {
+    "rows": [],
+    "columns": [],
+    "group_by": []
+  },
+  "title_templates": {}
+}
+```
+
+The profile must not assume that a particular number of artifacts implies a
+layout. A comparison plan names matrix axes explicitly:
+
+```json
+{
+  "rows": ["target_profile"],
+  "columns": ["observation_region"],
+  "group_by": []
+}
+```
+
+The `.prm` file can override the default comparison axes. This allows the B2
+style to be reused for a development forcing sweep with `columns = forcing`
+and a one-row, three-column comparison.
+
+If more than two axes vary and the plan leaves one unbound, post-processing
+must either group by that axis or fail with a diagnostic. It must not silently
+flatten it into an arbitrary panel order.
+
+## Provenance requirements
+
+The run manifest should retain at least:
+
+```text
+parameters.file
+parameters.sha256
+parameters.selection
+parameters.declared_matrix
+parameters.resolved_combinations
+plotting.profile_file
+plotting.profile_sha256
+plotting.resolved_comparison
+cli.refinement_override
+```
+
+The resolved parameter and plotting documents should also be copied below the
+run directory. Post-processing uses those snapshots by default; applying a
+different profile is an explicit derived-output override.
+
+## Examples
+
+- [B1 authoritative parameter family](../../parameters/chapter-6/b1/authoritative.prm)
+- [B2 authoritative parameter family](../../parameters/chapter-6/b2/authoritative.prm)
+- [B2 development forcing sweep](../../parameters/chapter-6/b2/development/forcing-sweep.prm)
+- [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json)
+- [B2 plotting profile](../../parameters/plotting/chapter-6-b2.json)
+
+These examples are schema fixtures only. They document the intended input
+boundary; they are not consumed by the current runner until the parameter-file
+unit is implemented.

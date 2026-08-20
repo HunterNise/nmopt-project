@@ -1,0 +1,82 @@
+{
+  "schema": "nmopt-plot-v1",
+  "profile_id": "chapter-6.b1",
+  "compatible_scenarios": [
+    "chapter-6.b1.distributed-laplace"
+  ],
+  "defaults": {
+    "colormap": "turbo",
+    "normalization": "finite-extrema",
+    "comparison_normalization": "shared-finite-extrema",
+    "volume_interpolation": "gouraud",
+    "volume_mesh_overlay": false,
+    "colorbar_ticks": "endpoint-inclusive",
+    "colorbar_tick_count": 5,
+    "output_formats": ["png"],
+    "dpi": 180,
+    "axis_labels": ["x", "y"]
+  },
+  "fields": {
+    "state": {
+      "source": "state",
+      "title": "State",
+      "colorbar_label": "state"
+    },
+    "control": {
+      "source": "control",
+      "title": "Control",
+      "colorbar_label": "control"
+    },
+    "adjoint": {
+      "source": "adjoint",
+      "title": "Framework adjoint",
+      "colorbar_label": "adjoint"
+    },
+    "negative-adjoint": {
+      "source": "negative_adjoint",
+      "title": "Book-convention adjoint (-p)",
+      "colorbar_label": "-p"
+    },
+    "target": {
+      "source": "target",
+      "title": "Target function",
+      "colorbar_label": "target"
+    },
+    "forcing": {
+      "source": "forcing",
+      "title": "Forcing function",
+      "colorbar_label": "forcing"
+    }
+  },
+  "axes": {
+    "method": {
+      "order": ["steepest-descent", "l-bfgs"],
+      "labels": {
+        "steepest-descent": "Steepest descent",
+        "l-bfgs": "L-BFGS"
+      }
+    },
+    "regularisation": {
+      "order": ["1e-1", "1e-2", "1e-3", "1e-6"],
+      "labels": {
+        "1e-1": "beta = 1e-1",
+        "1e-2": "beta = 1e-2",
+        "1e-3": "beta = 1e-3",
+        "1e-6": "beta = 1e-6"
+      }
+    }
+  },
+  "default_comparison": {
+    "rows": ["method"],
+    "columns": ["regularisation"],
+    "group_by": []
+  },
+  "title_templates": {
+    "state": "B1 state — {method}, {regularisation}",
+    "control": "B1 control — {method}, {regularisation}",
+    "adjoint": "B1 adjoint — {method}, {regularisation}",
+    "negative-adjoint": "B1 negative adjoint — {method}, {regularisation}",
+    "target": "B1 target function",
+    "forcing": "B1 forcing function"
+  }
+}

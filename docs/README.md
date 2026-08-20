@@ -30,6 +30,8 @@ architectural boundaries.
 - [Application execution reference](reference/application-execution.md) owns
   schemas, run-set layout, native outputs, reports, post-processing, and agent
   verification commands.
+- [Parameter-file reference](reference/parameter-files.md) defines the
+  proposed `.prm` experiment-family and JSON plotting-profile schemas.
 
 ### Applications and benchmarks
 
@@ -45,6 +47,8 @@ architectural boundaries.
 
 - [Repository organization](decisions/repository-organization.md) records the
   directory and authority boundaries for the application work.
+- [Parameter and plotting profiles](decisions/parameter-and-plotting-profiles.md)
+  records the `.prm` experiment-family and JSON plotting-profile decision.
 
 ### Implemented generations and selected policies
 
@@ -129,6 +133,7 @@ before inspecting or changing repository content.
 | Explore standard Chapter 5 problems | [Chapter 5 problem library](planning/chapter-5-problem-library-roadmap.md) | [Chapter 5 guide](guides/chapter-5-elliptic-control.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [implementation roadmap](planning/implementation-roadmap.md) |
 | Reproduce Chapter 6 examples | [Chapter 6 benchmark suite](planning/chapter-6-benchmark-suite-roadmap.md) | [Numerical examples](guides/chapter-6-numerical-examples.md) and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
 | Generate or inspect application runs | [Application execution reference](reference/application-execution.md) | The relevant [benchmark contract](benchmarks/chapter-6.md) and [application roadmap](planning/application-roadmap.md) |
+| Design or review parameter files and plotting profiles | [Parameter-file reference](reference/parameter-files.md) | [Repository organization](decisions/repository-organization.md), the relevant [benchmark contract](benchmarks/chapter-6.md), and the [application execution reference](reference/application-execution.md) |
 | Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Chapter 6 scenarios](applications/chapter-6.md), [Chapter 6 benchmark specifications](benchmarks/chapter-6.md), [Application assembly API](reference/application-api.md), and [Application execution reference](reference/application-execution.md) |
 | Repair the reviewed C1/C2 preparation | [Chapter 5 reviews](planning/review/chapter-5/README.md) | [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), [pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.1 implementation | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |

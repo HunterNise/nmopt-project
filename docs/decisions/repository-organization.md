@@ -45,7 +45,7 @@ tests/
   benchmark/                      # harness and benchmark tests
 apps/
   nmopt-runner/                   # headless application orchestration
-parameters/                        # reserved for future versioned input files
+parameters/                        # versioned experiment and plotting inputs
 runs/                              # ignored generated output
 ```
 
@@ -157,9 +157,13 @@ as users; they must not construct private lowerers to make a test pass.
 
 ## Reserved future locations
 
-The `parameters/` tree is reserved for versioned Deal.II-style `.prm`
-inputs. Its format and precedence rules are not accepted yet; they belong to
-the application roadmap's parameter-file unit.
+The `parameters/` tree is reserved for versioned experiment inputs. Numerical
+experiment families use Deal.II-style `.prm` files; reusable post-processing
+styles use versioned JSON profiles beside them. Their schema and precedence
+rules are defined by the application roadmap's parameter-file unit and its
+[parameter-file reference](../reference/parameter-files.md). A parameter file
+may describe a matrix of concrete artifacts; generated runs still record the
+resolved combination and the hashes of both input documents.
 
 Generated run sets remain under the ignored `runs/` directory. They are
 evidence inputs for reports and reproduction investigations, not committed

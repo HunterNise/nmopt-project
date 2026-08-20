@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nmopt/application/scalar_function.hpp"
+
 #include <deal.II/base/parameter_handler.h>
 
 #include <algorithm>
@@ -143,6 +145,42 @@ namespace nmopt::application::runner
       return false;
     throw std::invalid_argument("parameter '" + std::string(key) +
                                 "' needs true or false");
+  }
+
+  inline ScalarFunctionDefinition
+  parameter_scalar_function_definition(const ParameterFile &file,
+                                       const std::string_view key)
+  {
+    const auto path = std::string(key);
+    ScalarFunctionDefinition definition;
+    definition.id = file.value(path);
+    definition.kind =
+      scalar_function_kind_from_name(file.value(path + "/kind"));
+    definition.provenance = file.value(path + "/provenance");
+    const auto value = file.optional_value(path + "/value");
+    const auto expression = file.optional_value(path + "/expression");
+    if (definition.kind == ScalarFunctionKind::constant)
+      {
+        if (value.empty())
+          throw std::invalid_argument("parameter '" + path +
+                                      "/value' needs a finite number");
+        if (!expression.empty())
+          throw std::invalid_argument("parameter '" + path +
+                                      "' cannot set both value and expression");
+        definition.value = parameter_double(file, path + "/value");
+      }
+    else if (definition.kind == ScalarFunctionKind::expression)
+      {
+        if (!value.empty())
+          throw std::invalid_argument("parameter '" + path +
+                                      "' cannot set both value and expression");
+        definition.expression = expression;
+      }
+    else if (!value.empty() || !expression.empty())
+      throw std::invalid_argument("parameter '" + path +
+                                  "' zero kind cannot set value or expression");
+    validate_scalar_function_definition(definition, path);
+    return definition;
   }
 
   namespace detail

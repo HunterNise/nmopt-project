@@ -8,10 +8,13 @@
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
+#include <deal.II/base/function_parser.h>
+#include <deal.II/base/numbers.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -21,6 +24,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -128,6 +132,47 @@ namespace nmopt::application::chapter6::dealii
       mesh->create_triangulation(vertices, cells, ::dealii::SubCellData{});
       return mesh;
     }
+
+    template <int dim>
+    std::string
+    b1_coordinate_variable_names()
+    {
+      static_assert(dim > 0, "B1 functions need a positive dimension");
+      std::ostringstream names;
+      for (unsigned int coordinate = 0;
+           coordinate < static_cast<unsigned int>(dim);
+           ++coordinate)
+        {
+          if (coordinate != 0)
+            names << ',';
+          names << 'x' << coordinate;
+        }
+      return names.str();
+    }
+
+    inline bool
+    b1_expression_contains_identifier(const std::string_view expression,
+                                      const std::string_view identifier)
+    {
+      const auto is_identifier_character = [](const char character) {
+        const auto value = static_cast<unsigned char>(character);
+        return std::isalnum(value) != 0 || character == '_';
+      };
+      for (auto position = expression.find(identifier);
+           position != std::string_view::npos;
+           position = expression.find(identifier, position + 1))
+        {
+          const bool starts_identifier =
+            position == 0 || !is_identifier_character(expression[position - 1]);
+          const auto end = position + identifier.size();
+          const bool ends_identifier =
+            end == expression.size() ||
+            !is_identifier_character(expression[end]);
+          if (starts_identifier && ends_identifier)
+            return true;
+        }
+      return false;
+    }
   } // namespace detail
 
   template <int dim>
@@ -164,41 +209,61 @@ namespace nmopt::application::chapter6::dealii
   class B1SelectedDataT final
   {
   public:
-    explicit B1SelectedDataT(const B1ForcingSelection forcing_selection =
-                               B1ForcingSelection::manufactured_zero)
-      : forcing_selection_(forcing_selection)
-      , forcing_(forcing_value(forcing_selection))
+    explicit B1SelectedDataT(
+      ScalarFunctionDefinition forcing_definition =
+        b1_manufactured_zero_forcing())
+      : forcing_definition_(std::move(forcing_definition))
+      , forcing_(make_forcing(forcing_definition_))
     {}
 
-    B1ForcingSelection
-    forcing_selection() const
+    const ScalarFunctionDefinition &
+    forcing_definition() const
     {
-      return forcing_selection_;
+      return forcing_definition_;
     }
 
     B1RuntimeDataT<dim>
     runtime_data() const
     {
-      return {forcing_, desired_state_};
+      return {*forcing_, desired_state_};
     }
 
   private:
-    static double
-    forcing_value(const B1ForcingSelection selection)
+    static std::unique_ptr<::dealii::Function<dim>>
+    make_forcing(const ScalarFunctionDefinition &definition)
     {
-      switch (selection)
+      validate_scalar_function_definition(definition, "B1 forcing");
+      switch (definition.kind)
         {
-          case B1ForcingSelection::manufactured_zero:
-            return 0.0;
-          case B1ForcingSelection::figure_inferred_constant_one:
-            return 1.0;
+          case ScalarFunctionKind::zero:
+            return std::make_unique<::dealii::Functions::ZeroFunction<dim>>();
+          case ScalarFunctionKind::constant:
+            return std::make_unique<
+              ::dealii::Functions::ConstantFunction<dim>>(definition.value);
+          case ScalarFunctionKind::expression:
+            {
+              if (detail::b1_expression_contains_identifier(
+                    definition.expression, "rand") ||
+                  detail::b1_expression_contains_identifier(
+                    definition.expression, "rand_seed"))
+                throw std::invalid_argument(
+                  "B1 forcing expressions cannot use random functions");
+              auto parser =
+                std::make_unique<::dealii::FunctionParser<dim>>();
+              parser->initialize(
+                detail::b1_coordinate_variable_names<dim>(),
+                definition.expression,
+                {{"e", ::dealii::numbers::E},
+                 {"pi", ::dealii::numbers::PI}});
+              return parser;
+            }
         }
-      throw std::invalid_argument("unknown B1 forcing selection");
+      throw std::invalid_argument("unknown B1 forcing kind");
     }
 
-    B1ForcingSelection                        forcing_selection_;
-    ::dealii::Functions::ConstantFunction<dim> forcing_;
-    B1DesiredStateFunction<dim>                desired_state_;
+    ScalarFunctionDefinition                  forcing_definition_;
+    std::unique_ptr<::dealii::Function<dim>> forcing_;
+    B1DesiredStateFunction<dim>               desired_state_;
   };
 
   template <int dim>
@@ -208,9 +273,9 @@ namespace nmopt::application::chapter6::dealii
     const B1SelectedDataT<dim> &data)
   {
     validate_b1(scenario);
-    if (scenario.problem.forcing_selection != data.forcing_selection())
+    if (scenario.problem.forcing != data.forcing_definition())
       throw std::invalid_argument(
-        "B1 runtime-data forcing does not match the scenario selection");
+        "B1 runtime-data forcing does not match the scenario definition");
     if (scenario.compile.mesh.dimension != dim)
       throw std::invalid_argument(
         "B1 runtime data dimension does not match the scenario mesh");
@@ -619,7 +684,9 @@ namespace nmopt::application::chapter6::dealii
         }
 
       std::vector<benchmark::ArtifactField> fields{
-        {"b1.forcing_selection", b1_forcing_selection(scenario)},
+        {"b1.forcing_selection", scenario.problem.forcing.id},
+        {"b1.forcing_kind",
+         scalar_function_kind_name(scenario.problem.forcing.kind)},
         {"b1.control_discretisation",
          chapter5::distributed_control_discretisation_name(
            scenario.problem.recipe.discretisation)},
@@ -681,6 +748,13 @@ namespace nmopt::application::chapter6::dealii
          b1_history(report_value.step_norm_history)},
         {"solver.objective_change_history",
          b1_history(report_value.objective_change_history)}};
+      if (scenario.problem.forcing.kind == ScalarFunctionKind::zero ||
+          scenario.problem.forcing.kind == ScalarFunctionKind::constant)
+        fields.push_back(
+          {"b1.forcing_value", b1_number(scenario.problem.forcing.value)});
+      else
+        fields.push_back(
+          {"b1.forcing_expression", scenario.problem.forcing.expression});
       if (scenario.solver.declared_minimum_step_length.has_value())
         fields.push_back({"solver.declared_minimum_step_length",
                           b1_number(
@@ -713,13 +787,6 @@ namespace nmopt::application::chapter6::dealii
     }
 
   private:
-    static const char *
-    b1_forcing_selection(const B1Scenario &scenario)
-    {
-      return chapter6::b1_forcing_selection_name(
-        scenario.problem.forcing_selection);
-    }
-
     double                                                    regularisation_;
     const B1RuntimeDataT<dim> *                               runtime_;
     std::shared_ptr<compiler::v1::DealiiCompilationSession<dim>> session_;

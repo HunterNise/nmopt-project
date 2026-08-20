@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/application/chapter5.hpp"
+#include "nmopt/application/scalar_function.hpp"
 #include "nmopt/application/scenario.hpp"
 #include "nmopt/solvers/reduced_search.hpp"
 
@@ -162,23 +163,14 @@ namespace nmopt::application::chapter6
     std::string conservative_transport_provenance;
   };
 
-  enum class B1ForcingSelection
+  inline ScalarFunctionDefinition
+  b1_manufactured_zero_forcing()
   {
-    manufactured_zero,
-    figure_inferred_constant_one
-  };
-
-  inline const char *
-  b1_forcing_selection_name(const B1ForcingSelection selection)
-  {
-    switch (selection)
-      {
-        case B1ForcingSelection::manufactured_zero:
-          return "manufactured_zero";
-        case B1ForcingSelection::figure_inferred_constant_one:
-          return "figure_inferred_constant_one";
-      }
-    throw std::invalid_argument("unknown B1 forcing selection");
+    return {"manufactured-zero",
+            ScalarFunctionKind::zero,
+            0.0,
+            "",
+            "chapter-6.e6.5.1.manufactured-zero-forcing"};
   }
 
   struct B1ProblemParameters
@@ -194,7 +186,7 @@ namespace nmopt::application::chapter6
       ""};
     std::vector<double> regularisation_sweep = {
       1.0e-1, 1.0e-2, 1.0e-3, 1.0e-6};
-    B1ForcingSelection forcing_selection = B1ForcingSelection::manufactured_zero;
+    ScalarFunctionDefinition forcing = b1_manufactured_zero_forcing();
   };
 
   enum class GraetzCase
@@ -392,14 +384,12 @@ namespace nmopt::application::chapter6
           DistributedControlDiscretisation::homogeneous_dirichlet_continuous)
       throw std::invalid_argument(
         "B1 simplex meshes require the continuous homogeneous-Dirichlet control target");
-    switch (scenario.problem.forcing_selection)
-      {
-        case B1ForcingSelection::manufactured_zero:
-        case B1ForcingSelection::figure_inferred_constant_one:
-          break;
-        default:
-          throw std::invalid_argument("B1 has an unknown forcing selection");
-      }
+    validate_scalar_function_definition(scenario.problem.forcing,
+                                        "B1 forcing");
+    if (scenario.problem.data.forcing_provenance !=
+        scenario.problem.forcing.provenance)
+      throw std::invalid_argument(
+        "B1 forcing definition and runtime provenance must agree");
     if (scenario.solver.method != ReducedMethod::steepest_descent &&
         scenario.solver.method != ReducedMethod::limited_memory_bfgs)
       throw std::invalid_argument(
@@ -549,22 +539,13 @@ namespace nmopt::application::chapter6
 
   inline B1Scenario
   make_b1_scenario(
-    const ReducedMethod       method = ReducedMethod::steepest_descent,
-    const B1ForcingSelection forcing = B1ForcingSelection::manufactured_zero)
+    const ReducedMethod method = ReducedMethod::steepest_descent,
+    ScalarFunctionDefinition forcing = b1_manufactured_zero_forcing())
   {
+    validate_scalar_function_definition(forcing, "B1 forcing");
     B1ProblemParameters problem;
-    problem.forcing_selection = forcing;
-    switch (forcing)
-      {
-        case B1ForcingSelection::manufactured_zero:
-          problem.data.forcing_provenance =
-            "chapter-6.e6.5.1.manufactured-zero-forcing";
-          break;
-        case B1ForcingSelection::figure_inferred_constant_one:
-          problem.data.forcing_provenance =
-            "chapter-6.e6.5.1.figure-6.2-inferred-constant-one-forcing";
-          break;
-      }
+    problem.forcing = std::move(forcing);
+    problem.data.forcing_provenance = problem.forcing.provenance;
 
     SolverOptions solver;
     solver.method = method;
@@ -585,7 +566,8 @@ namespace nmopt::application::chapter6
        "Reduced-space comparison of steepest descent and L-BFGS",
        "chapter-6",
        b1_recipe_id,
-       {"B0 harness", "registered forcing selection and provenance are recorded"}},
+       {"B0 harness",
+        "declarative forcing definition and provenance are recorded"}},
       std::move(problem),
       std::move(compile),
       std::move(solver),

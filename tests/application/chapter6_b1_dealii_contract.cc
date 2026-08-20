@@ -25,8 +25,9 @@ namespace
     const chapter6::ReducedMethod method,
     const chapter5::DistributedControlDiscretisation discretisation =
       chapter5::DistributedControlDiscretisation::cellwise_constant,
-    const chapter6::B1ForcingSelection forcing =
-      chapter6::B1ForcingSelection::manufactured_zero)
+    const ScalarFunctionDefinition forcing =
+      chapter6::b1_manufactured_zero_forcing(),
+    const double expected_forcing = 0.0)
   {
     auto scenario = chapter6::make_b1_scenario(method, forcing);
     scenario.problem.recipe.discretisation = discretisation;
@@ -41,10 +42,6 @@ namespace
     chapter6::dealii::B1SelectedDataT<2> selected_data(forcing);
     const auto runtime =
       chapter6::dealii::make_b1_runtime_data(scenario, selected_data);
-    const double expected_forcing =
-      forcing == chapter6::B1ForcingSelection::figure_inferred_constant_one
-        ? 1.0
-        : 0.0;
     require(std::abs(runtime.forcing.value(::dealii::Point<2>(0.5, 0.5)) -
                      expected_forcing) < 1.0e-15,
             "B1 runtime data realized the wrong forcing value");
@@ -55,7 +52,7 @@ namespace
       ("nmopt-b1-native-contract-" +
        std::to_string(static_cast<int>(method)) + "-" +
        chapter5::distributed_control_discretisation_name(discretisation) + "-" +
-       chapter6::b1_forcing_selection_name(forcing));
+       forcing.id);
     std::filesystem::remove_all(native_output_directory);
     chapter6::dealii::B1ReducedExecutionAdapterT<2> execute{
       1.0e-2,
@@ -124,9 +121,17 @@ namespace
             "B1 dealii adapter omitted control-discretisation evidence");
     require(result.document.find(
               std::string("b1.forcing_selection=") +
-              chapter6::b1_forcing_selection_name(forcing) + "\n") !=
-              std::string::npos,
-            "B1 dealii adapter omitted forcing-selection evidence");
+              forcing.id + "\n") != std::string::npos &&
+              result.document.find(
+                std::string("b1.forcing_kind=") +
+                scalar_function_kind_name(forcing.kind) + "\n") !=
+                std::string::npos,
+            "B1 dealii adapter omitted resolved forcing evidence");
+    if (forcing.kind == ScalarFunctionKind::expression)
+      require(result.document.find(
+                std::string("b1.forcing_expression=") +
+                forcing.expression + "\n") != std::string::npos,
+              "B1 dealii adapter omitted the forcing expression");
     require(result.document.find("benchmark.state_dimension=9\n") !=
               std::string::npos &&
               result.document.find(
@@ -207,6 +212,66 @@ namespace
               field_document.find("Name=\"forcing\"") != std::string::npos,
             "B1 field output omitted a retained field");
     std::filesystem::remove_all(native_output_directory);
+  }
+
+  void
+  test_b1_expression_forcing()
+  {
+    const ScalarFunctionDefinition expression{
+      "spatial-candidate",
+      ScalarFunctionKind::expression,
+      0.0,
+      "0.4 + sin(pi*x0)*sin(pi*x1)",
+      "test.chapter6.b1.spatial-candidate"};
+    run_b1_case(chapter6::ReducedMethod::steepest_descent,
+                chapter5::DistributedControlDiscretisation::cellwise_constant,
+                expression,
+                1.4);
+    const auto scenario = chapter6::make_b1_scenario(
+      chapter6::ReducedMethod::steepest_descent, expression);
+    chapter6::dealii::B1SelectedDataT<2> selected_data(expression);
+    const auto runtime =
+      chapter6::dealii::make_b1_runtime_data(scenario, selected_data);
+    require(std::abs(runtime.forcing.value(::dealii::Point<2>(0.5, 0.5)) -
+                     1.4) < 1.0e-14,
+            "B1 expression forcing did not use x0, x1, and pi");
+
+    bool random_rejected = false;
+    try
+      {
+        chapter6::dealii::B1SelectedDataT<2> random_data(
+          {"random-candidate",
+           ScalarFunctionKind::expression,
+           0.0,
+           "rand()",
+           "test.chapter6.b1.random-candidate"});
+        (void)random_data;
+      }
+    catch (const std::invalid_argument &)
+      {
+        random_rejected = true;
+      }
+    require(random_rejected,
+            "B1 accepted a nondeterministic forcing expression");
+
+    bool mismatch_rejected = false;
+    try
+      {
+        chapter6::dealii::B1SelectedDataT<2> constant_data(
+          {"constant-candidate",
+           ScalarFunctionKind::constant,
+           0.4,
+           "",
+           "test.chapter6.b1.constant-candidate"});
+        (void)chapter6::dealii::make_b1_runtime_data(scenario,
+                                                     constant_data);
+      }
+    catch (const std::invalid_argument &)
+      {
+        mismatch_rejected = true;
+      }
+    require(mismatch_rejected,
+            "B1 accepted runtime data for another forcing definition");
   }
 
   void
@@ -303,9 +368,18 @@ main(const int argc, char **argv)
              nmopt::application::chapter6::ReducedMethod::steepest_descent,
              nmopt::application::chapter5::DistributedControlDiscretisation::
                homogeneous_dirichlet_continuous,
-             nmopt::application::chapter6::B1ForcingSelection::
-               figure_inferred_constant_one);
+             {"figure-inferred-constant-one",
+              nmopt::application::ScalarFunctionKind::constant,
+              1.0,
+              "",
+              "chapter-6.e6.5.1.figure-6.2-inferred-constant-one-forcing"},
+             1.0);
          }},
+        {"b1_expression_forcing",
+         "nmopt.application.dealii.b1_expression_forcing",
+         {"dealii", "application", "benchmark", "b1", "contract"},
+         30,
+         test_b1_expression_forcing},
         {"b1_simplex_mesh_generation",
          "nmopt.application.dealii.b1_simplex_mesh_generation",
          {"dealii", "application", "benchmark", "b1", "contract"},

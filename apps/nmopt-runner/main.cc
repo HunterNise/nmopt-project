@@ -598,33 +598,13 @@ namespace
     scenario.problem.data.diffusion = parameter_double(file, "Runtime/diffusion");
     scenario.problem.data.reaction = parameter_double(file, "Runtime/reaction");
     scenario.problem.data.regularisation_weight = beta;
-    scenario.problem.data.forcing_provenance =
-      file.value("Functions/forcing/provenance");
     scenario.problem.data.desired_state_provenance =
       file.value("Functions/desired state/provenance");
     scenario.problem.regularisation_sweep = {beta};
-    const auto forcing_id = file.value("Functions/forcing");
-    const auto forcing_kind = file.value("Functions/forcing/kind");
-    if (forcing_id == "manufactured-zero")
-      {
-        if (forcing_kind != "zero")
-          throw std::invalid_argument(
-            "B1 manufactured-zero forcing must have kind 'zero'");
-        scenario.problem.forcing_selection =
-          chapter6::B1ForcingSelection::manufactured_zero;
-      }
-    else if (forcing_id == "figure-inferred-constant-one")
-      {
-        if (forcing_kind != "constant" ||
-            parameter_double(file, "Functions/forcing/value") != 1.0)
-          throw std::invalid_argument(
-            "B1 figure-inferred-constant-one forcing must be constant 1.0");
-        scenario.problem.forcing_selection = chapter6::B1ForcingSelection::
-          figure_inferred_constant_one;
-      }
-    else
-      throw std::invalid_argument("B1 has an unknown forcing selection '" +
-                                  forcing_id + "'");
+    scenario.problem.forcing =
+      parameter_scalar_function_definition(file, "Functions/forcing");
+    scenario.problem.data.forcing_provenance =
+      scenario.problem.forcing.provenance;
     scenario.solver.method = parse_method(method_id);
     apply_common_parameter_options(
       scenario,
@@ -1189,7 +1169,7 @@ namespace
               }
 
             nmopt::application::chapter6::dealii::B1SelectedDataT<2> data(
-              scenario.problem.forcing_selection);
+              scenario.problem.forcing);
             const auto runtime =
               nmopt::application::chapter6::dealii::make_b1_runtime_data(
                 scenario, data);

@@ -88,11 +88,38 @@ declared state degree according to the mesh family, shares the state's
 homogeneous boundary region, and rejects a cellwise box. The effective
 representation is recorded independently of the parameter-file provenance.
 
-B1 accepts the registered `Functions/forcing` values `manufactured-zero` and
-`figure-inferred-constant-one`. Their respective kinds are `zero` and
-`constant`; the latter must declare `value = 1.0`. The constant-one selection
-is a Figure 6.2 hypothesis with explicit inference provenance, not recovered
-source data.
+B1 reads `Functions/forcing` as a stable definition ID and accepts these
+declarative forms in the nested `forcing` subsection:
+
+| `kind` | Required data | Realization |
+| --- | --- | --- |
+| `zero` | No value or expression | Scalar zero function. |
+| `constant` | Any finite `value` | Scalar constant function. |
+| `expression` | Nonempty scalar `expression` | deal.II `FunctionParser` using coordinates `x0`, `x1`, … and constants `pi` and `e`. |
+
+Expressions use the deterministic scalar arithmetic and function syntax
+supported by deal.II `FunctionParser`; semicolon-separated components and the
+`rand`/`rand_seed` functions are rejected. Parser errors, unknown coordinates,
+and coordinates beyond `Mesh/dimension` are rejected before assembly. For
+example:
+
+```text
+subsection Functions
+  set forcing = spatial-candidate
+
+  subsection forcing
+    set kind = expression
+    set expression = 0.4 + sin(pi*x0)*sin(pi*x1)
+    set provenance = development.b1.spatial-candidate
+  end
+end
+```
+
+The checked `manufactured-zero` and `figure-inferred-constant-one` IDs remain
+the authoritative replacement and Figure 6.2 hypothesis respectively, but
+they are no longer special cases in the runner. A direct forcing subsection
+defines one function for the complete file. Named definitions selected by a
+`Matrix/forcing` sweep remain a separate, not-yet-generic schema capability.
 
 `Mesh/generator` defaults to `framework-native`, which consumes
 `Mesh/refinement` and leaves the simplex entries at zero. B1 additionally

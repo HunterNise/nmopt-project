@@ -113,7 +113,7 @@ const auto specification =
   nmopt::application::chapter6::make_b1_problem_spec(scenario);
 
 nmopt::application::chapter6::dealii::B1SelectedDataT<2> data(
-  scenario.problem.forcing_selection);
+  scenario.problem.forcing);
 const auto runtime =
   nmopt::application::chapter6::dealii::make_b1_runtime_data(
     scenario, data);
@@ -146,10 +146,12 @@ Simplex selections currently require the registered continuous homogeneous-
 Dirichlet control target.
 
 The returned detached envelope contains the compiler manifest, typed solver
-report, policy snapshot, and environment. The registered data choices are the
-frozen manufactured-zero replacement and the constant-one hypothesis inferred
-from the Figure 6.2 extrema. Arbitrary recovered data can still use
-caller-owned `B1RuntimeDataT<dim>`.
+report, policy snapshot, and environment. The frozen manufactured-zero
+replacement and the constant-one hypothesis inferred from the Figure 6.2
+extrema are checked definitions. Development scenarios may also supply any
+finite constant or a validated scalar expression through the same
+backend-neutral function record. Arbitrary caller-owned deal.II functions can
+still use `B1RuntimeDataT<dim>` directly.
 
 `parameters/chapter-6/b1/development/continuous-control.prm` is the checked
 candidate motivated by the source's continuous linear control-space statement

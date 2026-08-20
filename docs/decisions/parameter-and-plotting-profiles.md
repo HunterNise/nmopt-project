@@ -66,11 +66,12 @@ the numerical run or retained evidence:
   retained native fields; and
 - the post-processing style reference and comparison-axis binding.
 
-Function entries are declarative selections from registered function
-constructors. They are not arbitrary C++ or an embedded expression language.
-The implementation may support a constrained expression record, but its
-syntax and available functions must be declared and validated by the
-application capability boundary.
+Function entries are declarative inputs to registered function constructors.
+They are not arbitrary C++. A constructor may accept a constrained expression
+record when its syntax and available functions are declared and validated by
+the application capability boundary. B1 uses this mechanism for scalar
+forcing definitions; other function ports remain bounded by their registered
+constructors.
 
 ### Matrix expansion
 

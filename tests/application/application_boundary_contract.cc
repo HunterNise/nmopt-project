@@ -224,8 +224,8 @@ namespace
               nmopt::application::chapter6::
                 chapter6_numerical_examples_source_revision,
             "B1 did not retain the frozen source catalogue revision");
-    require(b1.problem.forcing_selection ==
-              nmopt::application::chapter6::B1ForcingSelection::manufactured_zero,
+    require(b1.problem.forcing ==
+              nmopt::application::chapter6::b1_manufactured_zero_forcing(),
             "B1 did not make its manufactured forcing choice explicit");
     require(b1.problem.data.forcing_provenance ==
               "chapter-6.e6.5.1.manufactured-zero-forcing",
@@ -235,22 +235,41 @@ namespace
                 DistributedControlDiscretisation::cellwise_constant,
             "B1 authoritative defaults did not retain cellwise control");
 
+    const nmopt::application::ScalarFunctionDefinition inferred_forcing{
+      "figure-inferred-constant-one",
+      nmopt::application::ScalarFunctionKind::constant,
+      1.0,
+      "",
+      "chapter-6.e6.5.1.figure-6.2-inferred-constant-one-forcing"};
     const auto inferred = nmopt::application::chapter6::make_b1_scenario(
       nmopt::application::chapter6::ReducedMethod::steepest_descent,
-      nmopt::application::chapter6::B1ForcingSelection::
-        figure_inferred_constant_one);
-    require(inferred.problem.forcing_selection ==
-              nmopt::application::chapter6::B1ForcingSelection::
-                figure_inferred_constant_one,
+      inferred_forcing);
+    require(inferred.problem.forcing == inferred_forcing,
             "B1 did not retain the figure-inferred forcing choice");
     require(inferred.problem.data.forcing_provenance ==
               "chapter-6.e6.5.1.figure-6.2-inferred-constant-one-forcing",
             "B1 did not retain figure-inferred forcing provenance");
-    require(std::string(nmopt::application::chapter6::
-                          b1_forcing_selection_name(
-                            inferred.problem.forcing_selection)) ==
-              "figure_inferred_constant_one",
-            "B1 forcing selection lost its stable name");
+    require(inferred.problem.forcing.id ==
+                "figure-inferred-constant-one" &&
+              inferred.problem.forcing.kind ==
+                nmopt::application::ScalarFunctionKind::constant &&
+              inferred.problem.forcing.value == 1.0,
+            "B1 forcing definition lost its resolved fields");
+
+    auto invalid_forcing = b1;
+    invalid_forcing.problem.forcing.kind =
+      nmopt::application::ScalarFunctionKind::expression;
+    bool invalid_forcing_rejected = false;
+    try
+      {
+        nmopt::application::chapter6::validate_b1(invalid_forcing);
+      }
+    catch (const std::invalid_argument &)
+      {
+        invalid_forcing_rejected = true;
+      }
+    require(invalid_forcing_rejected,
+            "B1 accepted an empty forcing expression");
 
     auto invalid_solve = b1;
     invalid_solve.compile.control_metric_solve.maximum_iterations = 0;

@@ -8,4 +8,5 @@
 #include "nmopt/application/metadata.hpp"
 #include "nmopt/application/recipe.hpp"
 #include "nmopt/application/runner.hpp"
+#include "nmopt/application/scalar_function.hpp"
 #include "nmopt/application/scenario.hpp"

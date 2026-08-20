@@ -1,6 +1,7 @@
 #include "../../apps/nmopt-runner/parameter_files.hpp"
 #include "../support/scenario_dispatch.hpp"
 
+#include <cmath>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -136,6 +137,72 @@ namespace
       }
     throw std::runtime_error("unknown matrix selection values should be rejected");
   }
+
+  void
+  test_scalar_function_definitions_are_data_driven()
+  {
+    nmopt::application::runner::ParameterFile file;
+    file.values = {{"Functions/forcing", "candidate-045"},
+                   {"Functions/forcing/kind", "constant"},
+                   {"Functions/forcing/value", "0.45"},
+                   {"Functions/forcing/expression", ""},
+                   {"Functions/forcing/provenance",
+                    "development.b1.candidate-045"}};
+    const auto constant =
+      nmopt::application::runner::parameter_scalar_function_definition(
+        file, "Functions/forcing");
+    require(constant.id == "candidate-045" &&
+              constant.kind ==
+                nmopt::application::ScalarFunctionKind::constant &&
+              std::abs(constant.value - 0.45) < 1.0e-15,
+            "parameter parsing hardcoded the constant forcing value");
+
+    file.values["Functions/forcing"] = "spatial-candidate";
+    file.values["Functions/forcing/kind"] = "expression";
+    file.values["Functions/forcing/value"] = "";
+    file.values["Functions/forcing/expression"] =
+      "0.4 + x0*(1-x0)*x1*(1-x1)";
+    file.values["Functions/forcing/provenance"] =
+      "development.b1.spatial-candidate";
+    const auto expression =
+      nmopt::application::runner::parameter_scalar_function_definition(
+        file, "Functions/forcing");
+    require(expression.id == "spatial-candidate" &&
+              expression.kind ==
+                nmopt::application::ScalarFunctionKind::expression &&
+              expression.expression ==
+                "0.4 + x0*(1-x0)*x1*(1-x1)",
+            "parameter parsing did not retain a forcing expression");
+
+    file.values["Functions/forcing/value"] = "0.45";
+    bool ambiguous_definition_rejected = false;
+    try
+      {
+        (void)nmopt::application::runner::
+          parameter_scalar_function_definition(file, "Functions/forcing");
+      }
+    catch (const std::invalid_argument &)
+      {
+        ambiguous_definition_rejected = true;
+      }
+    require(ambiguous_definition_rejected,
+            "parameter parsing accepted both forcing value and expression");
+
+    file.values["Functions/forcing/value"] = "";
+    file.values["Functions/forcing/kind"] = "registered-only";
+    bool unknown_kind_rejected = false;
+    try
+      {
+        (void)nmopt::application::runner::
+          parameter_scalar_function_definition(file, "Functions/forcing");
+      }
+    catch (const std::invalid_argument &)
+      {
+        unknown_kind_rejected = true;
+      }
+    require(unknown_kind_rejected,
+            "parameter parsing accepted an unknown scalar function kind");
+  }
 } // namespace
 
 int
@@ -153,7 +220,12 @@ main(const int argc, char **argv)
          "nmopt.parameter_files.unknown_selection_is_rejected",
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
-         test_unknown_selection_is_rejected}};
+         test_unknown_selection_is_rejected},
+        {"scalar_function_definitions_are_data_driven",
+         "nmopt.parameter_files.scalar_function_definitions_are_data_driven",
+         {"backend", "dealii", "application", "runner", "contract"},
+         30,
+         test_scalar_function_definitions_are_data_driven}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

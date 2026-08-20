@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import argparse
 import csv
-import html
 import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
+from typing import Optional, Sequence
 
 
 SUMMARY_FIELDS = (
@@ -622,138 +621,6 @@ def write_summary_markdown(
             ]
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def finite_points(series: Iterable[tuple[float, float]]) -> list[tuple[float, float]]:
-    return [
-        (x, y)
-        for x, y in series
-        if math.isfinite(x) and math.isfinite(y)
-    ]
-
-
-def tick_values(low: float, high: float, count: int = 5) -> list[float]:
-    if high == low:
-        return [low]
-    return [low + (high - low) * index / (count - 1) for index in range(count)]
-
-
-def svg_text(x: float, y: float, text: str, size: int = 13, anchor: str = "start") -> str:
-    return (
-        f'<text x="{x:.2f}" y="{y:.2f}" font-size="{size}" '
-        f'text-anchor="{anchor}" fill="#202124">{html.escape(text)}</text>'
-    )
-
-
-def write_line_plot(
-    path: Path,
-    title: str,
-    y_label: str,
-    series: Sequence[tuple[str, Sequence[tuple[float, float]]]],
-    log_y: bool = False,
-) -> None:
-    width, height = 1100, 620
-    left, right, top, bottom = 90, 260, 70, 75
-    plot_width = width - left - right
-    plot_height = height - top - bottom
-    prepared = [(label, finite_points(points)) for label, points in series]
-    all_points = [point for _, points in prepared for point in points]
-    svg = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}">',
-        '<rect width="100%" height="100%" fill="white"/>',
-        svg_text(width / 2, 34, title, 20, "middle"),
-    ]
-    if not all_points:
-        svg.append(svg_text(width / 2, height / 2, "No data found", 18, "middle"))
-        svg.append("</svg>")
-        path.write_text("\n".join(svg) + "\n", encoding="utf-8")
-        return
-
-    x_low = min(x for x, _ in all_points)
-    x_high = max(x for x, _ in all_points)
-    if x_low == x_high:
-        x_low -= 1
-        x_high += 1
-    positive = [(x, y) for x, y in all_points if y > 0] if log_y else all_points
-    if not positive:
-        log_y = False
-        positive = all_points
-    y_values = [math.log10(y) for _, y in positive] if log_y else [y for _, y in positive]
-    y_low, y_high = min(y_values), max(y_values)
-    if y_low == y_high:
-        padding = max(abs(y_low) * 0.1, 1.0)
-        y_low -= padding
-        y_high += padding
-    else:
-        padding = (y_high - y_low) * 0.08
-        y_low -= padding
-        y_high += padding
-
-    def x_position(x: float) -> float:
-        return left + (x - x_low) / (x_high - x_low) * plot_width
-
-    def y_position(y: float) -> float:
-        value = math.log10(y) if log_y else y
-        return top + (y_high - value) / (y_high - y_low) * plot_height
-
-    for y_tick in tick_values(y_low, y_high):
-        y = top + (y_high - y_tick) / (y_high - y_low) * plot_height
-        label = f"10^{y_tick:.1f}" if log_y else format_number(y_tick)
-        svg.append(f'<line x1="{left}" y1="{y:.2f}" x2="{left + plot_width}" y2="{y:.2f}" stroke="#e5e7eb"/>')
-        svg.append(svg_text(left - 10, y + 4, label, 12, "end"))
-    for x_tick in tick_values(x_low, x_high):
-        x = x_position(x_tick)
-        svg.append(f'<line x1="{x:.2f}" y1="{top}" x2="{x:.2f}" y2="{top + plot_height}" stroke="#f1f3f4"/>')
-        svg.append(svg_text(x, top + plot_height + 24, format_number(x_tick), 12, "middle"))
-
-    svg.extend(
-        [
-            f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" y2="{top + plot_height}" stroke="#202124"/>',
-            f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_height}" stroke="#202124"/>',
-            svg_text(left + plot_width / 2, height - 20, "sample / iteration", 13, "middle"),
-            svg_text(22, top + plot_height / 2, y_label, 13, "middle"),
-        ]
-    )
-    colors = ("#1f77b4", "#d62728", "#2ca02c", "#9467bd", "#ff7f0e", "#17becf")
-    legend_x, legend_y = left + plot_width + 25, top + 20
-    for index, (label, points) in enumerate(prepared):
-        color = colors[index % len(colors)]
-        valid = [(x, y) for x, y in points if not log_y or y > 0]
-        if valid:
-            coordinates = " ".join(f"{x_position(x):.2f},{y_position(y):.2f}" for x, y in valid)
-            svg.append(f'<polyline fill="none" stroke="{color}" stroke-width="2" points="{coordinates}"/>')
-        legend_line_y = legend_y + index * 24
-        svg.append(f'<line x1="{legend_x}" y1="{legend_line_y - 4:.2f}" x2="{legend_x + 18}" y2="{legend_line_y - 4:.2f}" stroke="{color}" stroke-width="3"/>')
-        svg.append(svg_text(legend_x + 26, legend_line_y, label, 12))
-    svg.append("</svg>")
-    path.write_text("\n".join(svg) + "\n", encoding="utf-8")
-
-
-def objective_series(runs: Sequence[Run]) -> list[tuple[str, list[tuple[float, float]]]]:
-    return [
-        (
-            run.output_id,
-            [(float(index), value) for index, value in enumerate(run.objective_history)],
-        )
-        for run in runs
-        if run.objective_history
-    ]
-
-
-def trace_series(runs: Sequence[Run]) -> list[tuple[str, list[tuple[float, float]]]]:
-    result: list[tuple[str, list[tuple[float, float]]]] = []
-    for run in runs:
-        points: list[tuple[float, float]] = []
-        for index, row in enumerate(run.trace):
-            try:
-                objective = float(row["objective_value"])
-            except (KeyError, TypeError, ValueError):
-                continue
-            points.append((float(index), objective))
-        if points:
-            result.append((run.output_id, points))
-    return result
 
 
 def build_report(

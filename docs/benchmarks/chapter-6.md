@@ -116,6 +116,19 @@ $f\equiv1$ hypothesis inferred from the Figure 6.2 extrema. Its provenance
 records that inference; it does not promote the omitted forcing to a source
 fact.
 
+Two further development families isolate the triangular connectivity
+hypothesis while retaining manufactured-zero forcing, continuous P1 control,
+and the recovered Figure 6.3 solver policy. The
+`continuous-control-structured-simplex.prm` family uses a regular 131 by 131
+subdivision, yielding 34,322 triangles, 17,424 vertices, and 16,900 independent
+homogeneous-Dirichlet P1 coordinates. This is the closest regular square-grid
+candidate to all three published counts. The
+`continuous-control-count-matched-simplex.prm` family instead starts from a
+100 by 100 subdivision and deterministically splits 7,160 triangles at their
+centroids. It exactly yields the published 34,320 triangles, 17,361 vertices,
+and 16,961 independent coordinates, but its seed-zero connectivity is an
+explicit hypothesis rather than recovered source information.
+
 ### Solver policy
 
 | Method | Gradient tolerance | Armijo fraction | Backtracking | Maximum trials | Minimum-step declaration |

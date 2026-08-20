@@ -22,6 +22,10 @@ parameters/
       authoritative.prm
       development/
         figure-6.3-book-policy.prm
+        continuous-control.prm
+        continuous-control-constant-one.prm
+        continuous-control-structured-simplex.prm
+        continuous-control-count-matched-simplex.prm
     b2/
       authoritative.prm
       development/

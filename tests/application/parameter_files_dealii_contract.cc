@@ -73,6 +73,40 @@ namespace
               constant_one_forcing.value("Functions/forcing/value") == "1.0",
             "B1 constant-one family lost its inferred forcing candidate");
 
+    const auto structured_simplex = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b1/development/continuous-control-structured-simplex.prm"));
+    require(structured_simplex.combinations().size() == 6 &&
+              structured_simplex.value("Mesh/generator") ==
+                "structured-simplex" &&
+              structured_simplex.value("Mesh/refinement") == "0" &&
+              structured_simplex.value("Mesh/subdivisions") == "131" &&
+              structured_simplex.value("Mesh/centroid splits") == "0" &&
+              structured_simplex.value("Problem/control representation") ==
+                "continuous-volume-homogeneous-dirichlet" &&
+              structured_simplex.value("Functions/forcing") ==
+                "manufactured-zero" &&
+              structured_simplex.value("Solver/objective target policy") ==
+                "match-reference-method",
+            "B1 structured-simplex family lost its mesh candidate");
+
+    const auto count_matched_simplex = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b1/development/continuous-control-count-matched-simplex.prm"));
+    require(count_matched_simplex.combinations().size() == 6 &&
+              count_matched_simplex.value("Mesh/generator") ==
+                "centroid-split-simplex" &&
+              count_matched_simplex.value("Mesh/subdivisions") == "100" &&
+              count_matched_simplex.value("Mesh/centroid splits") == "7160" &&
+              count_matched_simplex.value("Mesh/selection seed") == "0" &&
+              count_matched_simplex.value("Mesh/provenance") ==
+                "chapter-6.e6.5.1.count-matched-simplex-n100-s7160-seed0" &&
+              count_matched_simplex.value("Functions/forcing") ==
+                "manufactured-zero" &&
+              count_matched_simplex.value("Solver/objective target policy") ==
+                "match-reference-method",
+            "B1 count-matched-simplex family lost its topology hypothesis");
+
     const auto b2 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
     require(b2.matrix.size() == 2, "B2 should declare independent axes");

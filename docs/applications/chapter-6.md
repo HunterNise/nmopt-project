@@ -157,8 +157,10 @@ and equal reported state/control/adjoint counts. On the default quadrilateral
 mesh it realizes the conforming `Q1` analogue, not the source's undisclosed
 triangular `P1` mesh, so it is comparison evidence rather than source parity.
 The simplex generators make the corresponding `P1` experiments executable;
-their concrete candidate files are tracked separately from this adapter
-capability.
+`continuous-control-structured-simplex.prm` records the nearly count-matched
+regular-grid hypothesis and `continuous-control-count-matched-simplex.prm`
+records the exact-count deterministic centroid-split hypothesis. Neither file
+claims to recover the omitted source connectivity.
 The companion `continuous-control-constant-one.prm` changes only the forcing
 to the Figure 6.2 constant-one hypothesis while retaining the same continuous
 control and recovered Figure 6.3 solver policies.

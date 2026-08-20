@@ -76,7 +76,12 @@ For B1, `benchmark.control_discretisation` records the stable effective
 cellwise or continuous-control choice in addition to the compiled
 `manifest.control_space` description. `benchmark.state_dimension`,
 `benchmark.control_dimension`, and `benchmark.adjoint_dimension` expose the
-three realized counts needed to compare the source's equal-dimension clue.
+three executable-vector sizes. The corresponding
+`benchmark.*_physical_dimension` fields count coefficients in the complete
+finite-element fields, including homogeneous boundary values, while
+`benchmark.*_independent_dimension` excludes constrained coefficients. This
+distinction lets B1 comparisons test either interpretation of the source's
+equal-dimension clue without changing the solver's coordinate convention.
 
 ## Runner API
 

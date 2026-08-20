@@ -138,7 +138,8 @@ methods. Each artifact must retain:
 
 - objective and tracking histories and final values;
 - gradient, step, line-search, state, adjoint, metric, and direction counts;
-- the compilation manifest and realized state/control dimensions; and
+- the compilation manifest and executable, physical, and independent
+  state/control/adjoint dimensions; and
 - a finite-difference check of the linear-quadratic Hessian action.
 
 The expected qualitative comparison is decreasing cost/tracking as

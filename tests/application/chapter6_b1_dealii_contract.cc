@@ -113,6 +113,44 @@ namespace
                 discretisation) +
               "\n") != std::string::npos,
             "B1 dealii adapter omitted control-discretisation evidence");
+    require(result.document.find("benchmark.state_dimension=9\n") !=
+              std::string::npos &&
+              result.document.find(
+                "benchmark.state_physical_dimension=9\n") !=
+                std::string::npos &&
+              result.document.find(
+                "benchmark.state_independent_dimension=1\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.adjoint_dimension=9\n") !=
+                std::string::npos &&
+              result.document.find(
+                "benchmark.adjoint_physical_dimension=9\n") !=
+                std::string::npos &&
+              result.document.find(
+                "benchmark.adjoint_independent_dimension=1\n") !=
+                std::string::npos,
+            "B1 dealii adapter omitted state/adjoint dimension conventions");
+    const auto expected_control_dimension =
+      discretisation == chapter5::DistributedControlDiscretisation::
+                          homogeneous_dirichlet_continuous
+        ? "1"
+        : "4";
+    const auto expected_physical_control_dimension =
+      discretisation == chapter5::DistributedControlDiscretisation::
+                          homogeneous_dirichlet_continuous
+        ? "9"
+        : "4";
+    require(result.document.find(
+              std::string("benchmark.control_dimension=") +
+              expected_control_dimension + "\n") != std::string::npos &&
+              result.document.find(
+                std::string("benchmark.control_physical_dimension=") +
+                expected_physical_control_dimension + "\n") !=
+                std::string::npos &&
+              result.document.find(
+                std::string("benchmark.control_independent_dimension=") +
+                expected_control_dimension + "\n") != std::string::npos,
+            "B1 dealii adapter omitted control dimension conventions");
     require(result.document.find("solver.method=") != std::string::npos,
             "B1 dealii adapter omitted solver-method evidence");
     require(result.document.find(

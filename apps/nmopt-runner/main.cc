@@ -914,34 +914,12 @@ namespace
     const std::string &objective_target_reference_artifact = {})
   {
     add_common_artifact_fields(evidence, framework_revision);
-    const auto &manifest = evidence.envelope.compilation_manifest();
-    const auto space_dimension = [&manifest](const std::string &semantic_id) {
-      const auto space = std::find_if(
-        manifest.spaces.begin(),
-        manifest.spaces.end(),
-        [&semantic_id](const auto &candidate) {
-          return candidate.semantic_id == semantic_id;
-        });
-      if (space == manifest.spaces.end())
-        throw std::runtime_error(
-          "B1 manifest omitted compiled space '" + semantic_id + "'");
-      return space->dimension;
-    };
     evidence.fields.push_back({"benchmark.method", b1_method_slug(method)});
     evidence.fields.push_back({"benchmark.regularisation", b1_number(beta)});
     evidence.fields.push_back(
       {"benchmark.control_discretisation",
        nmopt::application::chapter5::distributed_control_discretisation_name(
          scenario.problem.recipe.discretisation)});
-    evidence.fields.push_back(
-      {"benchmark.state_dimension",
-       std::to_string(space_dimension("state_space"))});
-    evidence.fields.push_back(
-      {"benchmark.control_dimension",
-       std::to_string(space_dimension("control_space"))});
-    evidence.fields.push_back(
-      {"benchmark.adjoint_dimension",
-       std::to_string(space_dimension("state_test_space"))});
     evidence.fields.push_back(
       {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
     evidence.fields.push_back(

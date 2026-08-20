@@ -398,47 +398,59 @@ namespace nmopt::application::chapter6::dealii
         }
 
       const auto &report_value = *report;
-      if (scenario.experiment.retain_fields &&
-          !native_output_directory_.empty())
+      struct DiscreteDimensions
+      {
+        std::size_t state_physical;
+        std::size_t state_independent;
+        std::size_t control_physical;
+        std::size_t control_independent;
+      };
+      std::optional<DiscreteDimensions> dimensions;
+      const auto &executable = compilation.problem->executable_model();
+      const auto record_model = [this, &report_value, &scenario, &dimensions](
+                                  const auto &model) {
+        dimensions = DiscreteDimensions{model.physical_state_dimension(),
+                                        model.independent_state_dimension(),
+                                        model.physical_control_dimension(),
+                                        model.independent_control_dimension()};
+        if (scenario.experiment.retain_fields &&
+            !native_output_directory_.empty())
+          model.write_native_output(native_output_directory_,
+                                    report_value.final_evaluation.state,
+                                    report_value.control,
+                                    report_value.final_evaluation.adjoint,
+                                    &runtime_->forcing,
+                                    &runtime_->desired_state);
+      };
+      switch (scenario.problem.recipe.discretisation)
         {
-          const auto write_output = [this, &report_value](const auto &model) {
-            model.write_native_output(native_output_directory_,
-                                      report_value.final_evaluation.state,
-                                      report_value.control,
-                                      report_value.final_evaluation.adjoint,
-                                      &runtime_->forcing,
-                                      &runtime_->desired_state);
-          };
-          const auto &executable = compilation.problem->executable_model();
-          switch (scenario.problem.recipe.discretisation)
+          case chapter5::DistributedControlDiscretisation::cellwise_constant:
             {
-              case chapter5::DistributedControlDiscretisation::
-                cellwise_constant:
-                {
-                  const auto *model = dynamic_cast<const
-                    nmopt::dealii_backend::ScalarDiffusionReactionModel<dim> *>(
-                    &executable);
-                  if (model == nullptr)
-                    throw std::runtime_error(
-                      "B1 cellwise output needs the scalar diffusion model");
-                  write_output(*model);
-                  break;
-                }
-              case chapter5::DistributedControlDiscretisation::
-                homogeneous_dirichlet_continuous:
-                {
-                  using ContinuousModel =
-                    compiler::v1::detail::ContinuousControlModel<dim>;
-                  const auto *model =
-                    dynamic_cast<const ContinuousModel *>(&executable);
-                  if (model == nullptr)
-                    throw std::runtime_error(
-                      "B1 continuous output needs the continuous-control model");
-                  write_output(*model);
-                  break;
-                }
+              const auto *model = dynamic_cast<const
+                nmopt::dealii_backend::ScalarDiffusionReactionModel<dim> *>(
+                &executable);
+              if (model == nullptr)
+                throw std::runtime_error(
+                  "B1 cellwise execution needs the scalar diffusion model");
+              record_model(*model);
+              break;
+            }
+          case chapter5::DistributedControlDiscretisation::
+            homogeneous_dirichlet_continuous:
+            {
+              using ContinuousModel =
+                compiler::v1::detail::ContinuousControlModel<dim>;
+              const auto *model =
+                dynamic_cast<const ContinuousModel *>(&executable);
+              if (model == nullptr)
+                throw std::runtime_error(
+                  "B1 continuous execution needs the continuous-control model");
+              record_model(*model);
+              break;
             }
         }
+      contract::require(dimensions.has_value(),
+                        "B1 execution omitted discrete dimension evidence");
       const auto solver_policy =
         experiment::make_reduced_search_policy_snapshot(report_value);
 
@@ -462,6 +474,24 @@ namespace nmopt::application::chapter6::dealii
         {"b1.control_discretisation",
          chapter5::distributed_control_discretisation_name(
            scenario.problem.recipe.discretisation)},
+        {"benchmark.state_dimension",
+         std::to_string(report_value.final_evaluation.state.block(0).size())},
+        {"benchmark.state_physical_dimension",
+         std::to_string(dimensions->state_physical)},
+        {"benchmark.state_independent_dimension",
+         std::to_string(dimensions->state_independent)},
+        {"benchmark.control_dimension",
+         std::to_string(report_value.control.block(0).size())},
+        {"benchmark.control_physical_dimension",
+         std::to_string(dimensions->control_physical)},
+        {"benchmark.control_independent_dimension",
+         std::to_string(dimensions->control_independent)},
+        {"benchmark.adjoint_dimension",
+         std::to_string(report_value.final_evaluation.adjoint.block(0).size())},
+        {"benchmark.adjoint_physical_dimension",
+         std::to_string(dimensions->state_physical)},
+        {"benchmark.adjoint_independent_dimension",
+         std::to_string(dimensions->state_independent)},
         {"b1.regularisation_weight", b1_number(regularisation_)},
         {"b1.hessian_evidence", "centered_finite_difference"},
         {"b1.hessian_direction_norm",

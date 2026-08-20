@@ -123,6 +123,33 @@ namespace nmopt::compiler::v1::detail
       return test_layout_;
     }
 
+    std::size_t
+    physical_state_dimension() const
+    {
+      return state_dof_handler_.n_dofs();
+    }
+
+    std::size_t
+    independent_state_dimension() const
+    {
+      return physical_state_dimension() -
+             static_cast<std::size_t>(std::count(constrained_state_dofs_.begin(),
+                                                 constrained_state_dofs_.end(),
+                                                 true));
+    }
+
+    std::size_t
+    physical_control_dimension() const
+    {
+      return control_dof_handler_.n_dofs();
+    }
+
+    std::size_t
+    independent_control_dimension() const
+    {
+      return independent_control_dofs_.size();
+    }
+
     const contract::LayoutPtr &
     layout() const override
     {

@@ -34,6 +34,27 @@ namespace nmopt::application::chapter6::dealii
     nmopt::application::benchmark::BenchmarkExecutionEvidenceT<Envelope>;
 
   template <int dim>
+  class B2ForcingFunction final : public ::dealii::Function<dim>
+  {
+  public:
+    B2ForcingFunction(const B2ProblemParameters::ForcingSelection selection,
+                      const double value)
+      : value_(selection == B2ProblemParameters::ForcingSelection::zero ? 0.0 :
+                                                               value)
+    {}
+
+    double
+    value(const ::dealii::Point<dim> &,
+          const unsigned int = 0) const override
+    {
+      return value_;
+    }
+
+  private:
+    double value_;
+  };
+
+  template <int dim>
   class B2DesiredStateFunction final : public ::dealii::Function<dim>
   {
   public:
@@ -109,11 +130,17 @@ namespace nmopt::application::chapter6::dealii
     explicit B2ManufacturedDataT(
       const GraetzCase graetz_case =
         GraetzCase::observation_wings_constant_target,
-      const double fixed_temperature = 1.0)
-      : desired_state_(graetz_case)
+      const double fixed_temperature = 1.0,
+      const B2ProblemParameters::ForcingSelection forcing_selection =
+        B2ProblemParameters::ForcingSelection::zero,
+      const double forcing_value = 0.0)
+      : forcing_(forcing_selection, forcing_value)
+      , desired_state_(graetz_case)
       , fixed_temperature_(fixed_temperature)
       , fixed_temperature_value_(fixed_temperature)
       , graetz_case_(graetz_case)
+      , forcing_selection_(forcing_selection)
+      , forcing_value_(forcing_value)
     {}
 
     B2RuntimeDataT<dim>
@@ -137,13 +164,27 @@ namespace nmopt::application::chapter6::dealii
       return graetz_case_;
     }
 
+    B2ProblemParameters::ForcingSelection
+    forcing_selection() const
+    {
+      return forcing_selection_;
+    }
+
+    double
+    forcing_value() const
+    {
+      return forcing_value_;
+    }
+
   private:
-    ::dealii::Functions::ZeroFunction<dim> forcing_;
+    B2ForcingFunction<dim>                 forcing_;
     B2DesiredStateFunction<dim>             desired_state_;
     ::dealii::Functions::ConstantFunction<dim> fixed_temperature_;
     B2ConservativeTransportFunction<dim>    conservative_transport_;
     double                                  fixed_temperature_value_;
     GraetzCase                              graetz_case_;
+    B2ProblemParameters::ForcingSelection  forcing_selection_;
+    double                                  forcing_value_;
   };
 
   template <int dim>
@@ -163,6 +204,11 @@ namespace nmopt::application::chapter6::dealii
                  scenario.problem.fixed_temperature) > 1.0e-14)
       throw std::invalid_argument(
         "B2 manufactured fixed temperature does not match the scenario");
+    if (data.forcing_selection() != scenario.problem.forcing_selection ||
+        std::abs(data.forcing_value() - scenario.problem.forcing_value) >
+          1.0e-14)
+      throw std::invalid_argument(
+        "B2 manufactured forcing does not match the scenario");
     return data.runtime_data();
   }
 
@@ -615,6 +661,7 @@ namespace nmopt::application::chapter6::dealii
                                   "state_uncontrolled",
                                   "control",
                                   "adjoint",
+                                  "negative_adjoint",
                                   "target",
                                   "forcing",
                                   "observation_region"});

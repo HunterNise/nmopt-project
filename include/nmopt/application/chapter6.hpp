@@ -182,6 +182,13 @@ namespace nmopt::application::chapter6
       "chapter-6.e6.5.2.graetz-transport"};
     GraetzCase graetz_case = GraetzCase::observation_wings_constant_target;
     double     fixed_temperature = 1.0;
+    enum class ForcingSelection
+    {
+      zero,
+      constant
+    };
+    ForcingSelection forcing_selection = ForcingSelection::zero;
+    double           forcing_value = 0.0;
   };
 
   using B1Scenario =
@@ -283,6 +290,8 @@ namespace nmopt::application::chapter6
     validate_runtime_data(scenario.problem.data);
     if (!std::isfinite(scenario.problem.fixed_temperature))
       throw std::invalid_argument("B2 fixed temperature must be finite");
+    if (!std::isfinite(scenario.problem.forcing_value))
+      throw std::invalid_argument("B2 forcing value must be finite");
     if (scenario.problem.data.fixed_dirichlet_data_provenance.empty() ||
         scenario.problem.data.conservative_transport_provenance.empty())
       throw std::invalid_argument(

@@ -22,6 +22,19 @@ subsection Problem
   set initial control = zero
 end
 
+subsection Observation
+  set active region = from-matrix
+  set material id = 1
+
+  subsection region wings
+    set geometry = x0 > 1.0 and (x1 < 0.3 or x1 > 0.7)
+  end
+
+  subsection region full
+    set geometry = x0 > 1.0
+  end
+end
+
 subsection Functions
   set forcing = from-matrix
   set desired state = from-matrix
@@ -130,7 +143,7 @@ end
 
 subsection Output
   set retain fields = true
-  set selected fields = state, state-uncontrolled, control, adjoint, target, forcing, observation-region
+  set selected fields = state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region
 end
 
 subsection Postprocessing

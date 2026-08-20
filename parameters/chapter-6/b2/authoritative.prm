@@ -130,7 +130,7 @@ end
 
 subsection Output
   set retain fields = true
-  set selected fields = state, state-uncontrolled, control, adjoint, target, forcing, observation-region
+  set selected fields = state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region
 end
 
 subsection Postprocessing

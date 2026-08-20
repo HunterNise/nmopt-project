@@ -376,6 +376,9 @@ namespace nmopt::compiler::v1::detail
         data_out.add_data_vector(uncontrolled_state->block(0),
                                  "state_uncontrolled");
       data_out.add_data_vector(adjoint.block(0), "adjoint");
+      Vector negative_adjoint = adjoint.block(0);
+      negative_adjoint *= -1.0;
+      data_out.add_data_vector(negative_adjoint, "negative_adjoint");
       if (forcing != nullptr)
         {
           Vector forcing_values(state_dof_handler_.n_dofs());

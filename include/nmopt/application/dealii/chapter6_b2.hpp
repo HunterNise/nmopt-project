@@ -565,6 +565,7 @@ namespace nmopt::application::chapter6::dealii
         compilation.problem->executable_model(), 0, 1);
       const auto initial_control =
         contract::PrimalBlockT<Backend>::zeros(partition.control_layout());
+      const auto initial_evaluation = reduced.evaluate(initial_control);
       const auto derivative_evidence = make_b2_derivative_evidence(
         *compilation.problem, reduced, partition, initial_control);
       const auto report =
@@ -585,7 +586,10 @@ namespace nmopt::application::chapter6::dealii
           model->write_native_output(native_output_directory_,
                                      report.final_evaluation.state,
                                      report.control,
-                                     report.final_evaluation.adjoint);
+                                     report.final_evaluation.adjoint,
+                                     &initial_evaluation.state,
+                                     &runtime_->forcing,
+                                     &runtime_->desired_state);
         }
       contract::require(!report.objective_history.empty() &&
                           !report.gradient_norm_history.empty(),
@@ -607,7 +611,13 @@ namespace nmopt::application::chapter6::dealii
       if (scenario.experiment.retain_fields)
         {
           selected_fields.insert(selected_fields.end(),
-                                 {"state", "control", "adjoint"});
+                                 {"state",
+                                  "state_uncontrolled",
+                                  "control",
+                                  "adjoint",
+                                  "target",
+                                  "forcing",
+                                  "observation_region"});
         }
 
       std::vector<benchmark::ArtifactField> fields{

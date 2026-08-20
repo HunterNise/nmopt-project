@@ -322,7 +322,10 @@ namespace nmopt::compiler::v1::detail
     write_native_output(const std::filesystem::path &directory,
                         const Primal &                 state,
                         const Primal &                 control,
-                        const Primal &                 adjoint) const
+                        const Primal &                 adjoint,
+                        const Primal *                 uncontrolled_state = nullptr,
+                        const dealii::Function<dim> *  forcing = nullptr,
+                        const dealii::Function<dim> *  desired_state = nullptr) const
     {
       static_assert(dim == 2,
                     "Neumann field output currently supports two dimensions");
@@ -332,8 +335,14 @@ namespace nmopt::compiler::v1::detail
                         "Native output control has an incompatible layout");
       contract::require(adjoint.layout()->compatible_with(*test_layout_),
                         "Native output adjoint has an incompatible layout");
+      if (uncontrolled_state != nullptr)
+        contract::require(
+          uncontrolled_state->layout()->compatible_with(*state_layout_),
+          "Native output uncontrolled state has an incompatible layout");
       contract::require(control.block(0).size() == control_face_count_,
                         "Native output control has an incompatible size");
+      contract::require((forcing == nullptr) == (desired_state == nullptr),
+                        "Native output needs both forcing and target functions");
 
       std::filesystem::create_directories(directory);
 
@@ -363,7 +372,38 @@ namespace nmopt::compiler::v1::detail
       dealii::DataOut<dim> data_out;
       data_out.attach_dof_handler(state_dof_handler_);
       data_out.add_data_vector(state.block(0), "state");
+      if (uncontrolled_state != nullptr)
+        data_out.add_data_vector(uncontrolled_state->block(0),
+                                 "state_uncontrolled");
       data_out.add_data_vector(adjoint.block(0), "adjoint");
+      if (forcing != nullptr)
+        {
+          Vector forcing_values(state_dof_handler_.n_dofs());
+          Vector desired_state_values(state_dof_handler_.n_dofs());
+          dealii::VectorTools::interpolate(state_dof_handler_,
+                                            *forcing,
+                                            forcing_values);
+          dealii::VectorTools::interpolate(state_dof_handler_,
+                                            *desired_state,
+                                            desired_state_values);
+          data_out.add_data_vector(forcing_values, "forcing");
+          data_out.add_data_vector(desired_state_values, "target");
+        }
+      if (state_observation_ == StateObservation::volume_restriction)
+        {
+          dealii::Vector<double> observation_region(
+            state_dof_handler_.get_triangulation().n_active_cells());
+          observation_region = 0.0;
+          for (auto cell = state_dof_handler_.begin_active();
+               cell != state_dof_handler_.end();
+               ++cell)
+            observation_region[cell->active_cell_index()] =
+              observation_material_ids_.count(cell->material_id()) != 0 ? 1.0 :
+                                                                            0.0;
+          data_out.add_data_vector(observation_region,
+                                   "observation_region",
+                                   dealii::DataOut<dim>::type_cell_data);
+        }
       data_out.build_patches();
 
       std::ofstream fields_output(directory / "fields-volume.vtu");

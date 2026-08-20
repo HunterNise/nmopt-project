@@ -259,9 +259,15 @@ namespace
     require(mesh_svg_document.find("<svg") != std::string::npos,
             "B2 volume mesh SVG output is not SVG");
     require(field_document.find("Name=\"state\"") != std::string::npos &&
+              field_document.find("Name=\"state_uncontrolled\"") !=
+                std::string::npos &&
+              field_document.find("Name=\"target\"") != std::string::npos &&
+              field_document.find("Name=\"forcing\"") != std::string::npos &&
+              field_document.find("Name=\"observation_region\"") !=
+                std::string::npos &&
               field_document.find("Name=\"adjoint\"") != std::string::npos &&
               control_document.find("Name=\"control\"") != std::string::npos,
-            "B2 field output omitted a retained field");
+            "B2 field output omitted a retained state or input field");
     std::filesystem::remove_all(native_output_directory);
   }
 

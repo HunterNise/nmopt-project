@@ -109,7 +109,11 @@ namespace
             "B1 volume mesh SVG output is not SVG");
     require(field_document.find("Name=\"state\"") != std::string::npos &&
               field_document.find("Name=\"control\"") != std::string::npos &&
-              field_document.find("Name=\"adjoint\"") != std::string::npos,
+              field_document.find("Name=\"adjoint\"") != std::string::npos &&
+              field_document.find("Name=\"negative_adjoint\"") !=
+                std::string::npos &&
+              field_document.find("Name=\"target\"") != std::string::npos &&
+              field_document.find("Name=\"forcing\"") != std::string::npos,
             "B1 field output omitted a retained field");
     std::filesystem::remove_all(native_output_directory);
   }

@@ -69,7 +69,7 @@ namespace
            << "       nmopt_runner --help\n"
            << "\n"
            << "--list             list registered Chapter 5/6 application entries\n"
-           << "--benchmark b1     run the frozen B1 matrix (six artifacts)\n"
+           << "--benchmark b1     run the frozen B1 matrix (eight artifacts)\n"
            << "--benchmark b2     run the frozen B2 case batch (four artifacts)\n"
            << "--output DIRECTORY set the generated run-set root (default: runs)\n"
            << "--run-kind KIND    use reproduction or development policy\n"
@@ -118,6 +118,8 @@ namespace
       return "1e-2";
     if (std::abs(beta - 1.0e-3) < 1.0e-15)
       return "1e-3";
+    if (std::abs(beta - 1.0e-6) < 1.0e-18)
+      return "1e-6";
     throw std::invalid_argument(
       "B1 has no frozen artifact slug for the regularisation value");
   }

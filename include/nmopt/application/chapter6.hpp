@@ -132,7 +132,8 @@ namespace nmopt::application::chapter6
       "chapter-6.e6.5.1.desired-state",
       "",
       ""};
-    std::vector<double> regularisation_sweep = {1.0e-1, 1.0e-2, 1.0e-3};
+    std::vector<double> regularisation_sweep = {
+      1.0e-1, 1.0e-2, 1.0e-3, 1.0e-6};
     B1ForcingSelection forcing_selection = B1ForcingSelection::manufactured_zero;
   };
 

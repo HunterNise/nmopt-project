@@ -385,7 +385,9 @@ namespace nmopt::application::chapter6::dealii
           model->write_native_output(native_output_directory_,
                                      report_value.final_evaluation.state,
                                      report_value.control,
-                                     report_value.final_evaluation.adjoint);
+                                     report_value.final_evaluation.adjoint,
+                                     &runtime_->forcing,
+                                     &runtime_->desired_state);
         }
       const auto solver_policy =
         experiment::make_reduced_search_policy_snapshot(report_value);
@@ -401,6 +403,8 @@ namespace nmopt::application::chapter6::dealii
         {
           selected_fields.insert(selected_fields.end(),
                                  {"state", "control", "adjoint"});
+          selected_fields.insert(selected_fields.end(),
+                                 {"target", "forcing", "negative_adjoint"});
         }
 
       std::vector<benchmark::ArtifactField> fields{

@@ -199,7 +199,10 @@ one stopping reason. The optional relative-gradient, objective-change, and
 step tolerances are disabled when set to zero; enabled criteria report
 `relative_gradient_tolerance`, `objective_change_tolerance`, or
 `step_tolerance`, alongside `gradient_tolerance`, `maximum_iterations`, and
-`line_search_failure`. Each objective trial is evaluated through
+`line_search_failure`. An optional absolute objective target adds the
+`objective_target` reason and is checked after the terminal derivative has
+been retained, so objective and gradient histories describe the same accepted
+iterate. Each objective trial is evaluated through
 `ReducedDTOT::evaluate`, so both reported formulation solve counts increase
 once for the initial point and once for every line-search trial. The metric
 count records each direction-forming inverse metric action; the Hessian count
@@ -287,7 +290,9 @@ the legacy `ReducedSolverParameters` fields, while explicit policy instances
 select combinations such as exact Newton or Wolfe steepest descent. Trial
 counts are accumulated from the policy result and state/adjoint counts are
 incremented by the evaluator callback, keeping reporting consistent across
-all combinations.
+all combinations. A positive minimum step is an operative Armijo floor: after
+a rejection, the next trial is clamped to the floor and no smaller trial is
+formed.
 
 The exact-search nonlinear-CG aliases combine the typed PR+ or
 Fletcher–Reeves direction policy with the explicit positive-curvature

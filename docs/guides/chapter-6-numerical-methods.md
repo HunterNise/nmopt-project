@@ -217,13 +217,24 @@ option.
 | Nonlinear conjugate gradient | Gradient history and selected Fletcher–Reeves or Polak–Ribière update | The selected slice defaults to metric-aware PR+, exposes Fletcher–Reeves, verifies exact-search quadratic equivalence, and includes a strict classical quadratic-CG policy. |
 | Trust region | Quadratic model, Hessian-vector action, and radius update | Unconstrained metric Cauchy or truncated-CG subproblem with actual/predicted reduction and subproblem-status diagnostics. |
 | Newton / truncated Newton | Hessian-vector action and inner linear solve | The selected slice uses capability-gated Newton; explicit truncated-Newton termination remains an extension. |
-| Full BFGS / L-BFGS | Secant history and metric-aware pairings | Full memory retains every accepted pair for didactical reference; limited memory declares its cap, curvature test, reset, and initial inverse-metric policy for scalable PDE controls. |
+| Full BFGS / L-BFGS | Secant history and metric-aware pairings | Full memory retains every accepted pair for didactical reference; limited memory declares its cap, curvature test, reset, and metric-inverse or scalar-secant initial policy for scalable PDE controls. |
 
 The BFGS direction policies expose their inverse-metric work in the
 direction result. An initial or curvature-reset direction performs one
 inverse-metric action; a direction formed after accepting a secant pair
 performs two, one for the metric gradient and one for the two-loop recursion.
 L-BFGS history eviction does not add hidden metric actions.
+For the scalar-secant option, the initial two-loop action is
+$`\gamma_kG^{-1}`$ with
+$`\gamma_k=\langle s_k,y_k\rangle/\langle y_k,G^{-1}y_k\rangle`$; the
+retained metric-gradient difference supplies $`G^{-1}y_k`$ without another
+inverse metric application.
+
+The Armijo policy can also enforce a positive minimum trial step. Rejected
+steps are reduced by the declared factor, clamped once to that floor, and
+never evaluated below it. An optional objective target is independent of the
+gradient stopping selector and supports comparisons in which one method must
+stop at a reference method's terminal cost.
 
 For the trust-region subproblem, the Cauchy policy minimizes the quadratic
 model along the metric steepest direction. The truncated-CG policy instead

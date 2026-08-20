@@ -173,6 +173,28 @@ namespace nmopt::solvers
           const bool automatic_stopping =
             parameters_.stopping_criterion ==
             ReducedStoppingCriterion::automatic;
+          if (parameters_.objective_target.has_value() &&
+              current_evaluation.objective_value <=
+                *parameters_.objective_target)
+            return result(current_control,
+                          std::move(current_evaluation),
+                          std::move(objective_history),
+                          std::move(gradient_norm_history),
+                          std::move(relative_gradient_norm_history),
+                          std::move(hessian_solve_history),
+                          accepted_iterations,
+                          line_search_trial_count,
+                          state_solve_count,
+                          adjoint_solve_count,
+                          ReducedGradientStoppingReason::objective_target,
+                          std::move(step_length_history),
+                          std::move(step_norm_history),
+                          std::move(objective_change_history),
+                          metric_solve_count,
+                          hessian_action_count,
+                          direction_policy.reset_count(),
+                          std::move(iteration_records),
+                          std::move(line_search_trials));
           if ((automatic_stopping ||
                parameters_.stopping_criterion ==
                  ReducedStoppingCriterion::gradient_norm) &&
@@ -461,7 +483,8 @@ namespace nmopt::solvers
           parameters.maximum_line_search_trials,
           parameters.initial_step_length,
           parameters.armijo_fraction,
-          parameters.backtracking_factor});
+          parameters.backtracking_factor,
+          parameters.minimum_step_length});
       else
         return LineSearchPolicy{};
     }
@@ -530,8 +553,15 @@ namespace nmopt::solvers
                         "Reduced objective-change tolerance must be nonnegative");
       contract::require(parameters_.step_tolerance >= 0.0,
                         "Reduced step tolerance must be nonnegative");
+      if (parameters_.objective_target.has_value())
+        contract::require(std::isfinite(*parameters_.objective_target),
+                          "Reduced objective target must be finite");
       contract::require(parameters_.initial_step_length > 0.0,
                         "Reduced gradient initial step must be positive");
+      contract::require(parameters_.minimum_step_length >= 0.0 &&
+                          parameters_.minimum_step_length <=
+                            parameters_.initial_step_length,
+                        "Reduced minimum step must lie in [0, initial step]");
       contract::require(parameters_.armijo_fraction > 0.0 &&
                           parameters_.armijo_fraction < 1.0,
                         "Reduced gradient Armijo fraction must lie in (0, 1)");

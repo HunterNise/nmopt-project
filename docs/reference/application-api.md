@@ -271,7 +271,9 @@ nmopt::solvers::ReducedGradientSolverT<Backend> solver(
 | `relative_gradient_tolerance` | `0` | Optional relative gradient criterion; zero disables it. |
 | `objective_change_tolerance` | `0` | Optional objective-change criterion; zero disables it. |
 | `step_tolerance` | `0` | Optional step criterion; zero disables it. |
+| `objective_target` | unset | Optional absolute objective threshold; reaching it records `objective_target` after retaining the terminal gradient. |
 | `initial_step_length` | `1` | Initial line-search step. |
+| `minimum_step_length` | `0` | Armijo trial floor; zero disables the floor. |
 | `armijo_fraction` | `1e-4` | Sufficient-decrease fraction for Armijo. |
 | `backtracking_factor` | `0.5` | Multiplicative reduction after a rejected trial. |
 
@@ -280,6 +282,12 @@ Other direction and line-search policies are selected through the
 recipe should expose those choices as typed solver options only when its
 contract requires them; it should not encode solver policy into the semantic
 graph.
+
+`LimitedMemoryBfgsParameters` separately declares the history cap, curvature
+tolerance, and whether the two-loop recursion starts from the metric inverse
+or its metric-aware scalar-secant scaling. The latter uses
+$`\gamma_k=\langle s_k,y_k\rangle/\langle y_k,G^{-1}y_k\rangle`$ and reuses
+the metric gradients already formed by the outer solver.
 
 The initial control must have a layout compatible with the compiled metric.
 For a constrained solve it must also be feasible. These are runtime contract

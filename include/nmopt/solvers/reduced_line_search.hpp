@@ -152,6 +152,7 @@ namespace nmopt::solvers
     double       initial_step_length = 1.0;
     double       armijo_fraction = 1e-4;
     double       backtracking_factor = 0.5;
+    double       minimum_step_length = 0.0;
   };
 
   template <typename Backend>
@@ -172,15 +173,19 @@ namespace nmopt::solvers
     ReducedLineSearchPolicySnapshot
     snapshot() const
     {
-      return {"armijo",
-              parameters_.maximum_trials,
-              parameters_.initial_step_length,
-              parameters_.backtracking_factor,
-              std::numeric_limits<double>::quiet_NaN(),
-              std::numeric_limits<double>::quiet_NaN(),
-              parameters_.armijo_fraction,
-              std::numeric_limits<double>::quiet_NaN(),
-              std::numeric_limits<double>::quiet_NaN()};
+      auto result = ReducedLineSearchPolicySnapshot{
+        "armijo",
+        parameters_.maximum_trials,
+        parameters_.initial_step_length,
+        parameters_.backtracking_factor,
+        std::numeric_limits<double>::quiet_NaN(),
+        std::numeric_limits<double>::quiet_NaN(),
+        parameters_.armijo_fraction,
+        std::numeric_limits<double>::quiet_NaN(),
+        std::numeric_limits<double>::quiet_NaN()};
+      result.maximum_backtracking_reductions = parameters_.maximum_trials - 1;
+      result.minimum_step_length = parameters_.minimum_step_length;
+      return result;
     }
 
     Result
@@ -258,12 +263,19 @@ namespace nmopt::solvers
               result.trial_records = std::move(trial_records);
               return result;
             }
+          if (trial + 1 == parameters_.maximum_trials ||
+              (parameters_.minimum_step_length > 0.0 &&
+               step_length <= parameters_.minimum_step_length))
+            break;
           step_length *= parameters_.backtracking_factor;
+          if (parameters_.minimum_step_length > 0.0)
+            step_length =
+              std::max(step_length, parameters_.minimum_step_length);
         }
 
       auto result = detail::failure(current_control,
                                     current_evaluation,
-                                    parameters_.maximum_trials,
+                                    trial_records.size(),
                                     0,
                                     "armijo");
       result.trial_records = std::move(trial_records);
@@ -278,6 +290,10 @@ namespace nmopt::solvers
                         "Armijo line-search trial limit must be positive");
       contract::require(parameters_.initial_step_length > 0.0,
                         "Armijo line-search initial step must be positive");
+      contract::require(parameters_.minimum_step_length >= 0.0 &&
+                          parameters_.minimum_step_length <=
+                            parameters_.initial_step_length,
+                        "Armijo minimum step must lie in [0, initial step]");
       contract::require(parameters_.armijo_fraction > 0.0 &&
                           parameters_.armijo_fraction < 1.0,
                         "Armijo line-search fraction must lie in (0, 1)");

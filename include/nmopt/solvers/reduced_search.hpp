@@ -50,6 +50,7 @@ namespace nmopt::solvers
   {
     gradient_tolerance,
     relative_gradient_tolerance,
+    objective_target,
     stationary,
     objective_change_tolerance,
     step_tolerance,
@@ -66,6 +67,8 @@ namespace nmopt::solvers
           return "gradient_tolerance";
         case ReducedStoppingReason::relative_gradient_tolerance:
           return "relative_gradient_tolerance";
+        case ReducedStoppingReason::objective_target:
+          return "objective_target";
         case ReducedStoppingReason::stationary:
           return "stationary";
         case ReducedStoppingReason::objective_change_tolerance:
@@ -104,7 +107,9 @@ namespace nmopt::solvers
     double       relative_gradient_tolerance = 0.0;
     double       objective_change_tolerance = 0.0;
     double       step_tolerance = 0.0;
+    std::optional<double> objective_target = std::nullopt;
     double       initial_step_length = 1.0;
+    double       minimum_step_length = 0.0;
     double       armijo_fraction = 1e-4;
     double       backtracking_factor = 0.5;
   };
@@ -158,6 +163,8 @@ namespace nmopt::solvers
     double      armijo_fraction = std::numeric_limits<double>::quiet_NaN();
     double      curvature_tolerance = std::numeric_limits<double>::quiet_NaN();
     double      objective_tolerance = std::numeric_limits<double>::quiet_NaN();
+    std::size_t maximum_backtracking_reductions = 0;
+    double      minimum_step_length = 0.0;
   };
 
   struct ReducedIterationWork
@@ -628,11 +635,33 @@ namespace nmopt::solvers
   using QuadraticConjugateGradientDirectionPolicyDense =
     QuadraticConjugateGradientDirectionPolicyT<contract::DenseBackend>;
 
+  enum class LimitedMemoryBfgsInitialScaling
+  {
+    metric_inverse,
+    scalar_secant
+  };
+
   struct LimitedMemoryBfgsParameters
   {
     unsigned int memory_size = 5;
     double       curvature_tolerance = 1e-14;
+    LimitedMemoryBfgsInitialScaling initial_inverse_hessian_scaling =
+      LimitedMemoryBfgsInitialScaling::metric_inverse;
   };
+
+  inline const char *
+  limited_memory_bfgs_initial_scaling_name(
+    const LimitedMemoryBfgsInitialScaling scaling)
+  {
+    switch (scaling)
+      {
+        case LimitedMemoryBfgsInitialScaling::metric_inverse:
+          return "metric_inverse";
+        case LimitedMemoryBfgsInitialScaling::scalar_secant:
+          return "scalar_secant";
+      }
+    return "unknown";
+  }
 
   enum class LimitedMemoryBfgsUpdateStatus
   {
@@ -657,9 +686,10 @@ namespace nmopt::solvers
     return "unknown";
   }
 
-  // The initial inverse-Hessian policy is the declared metric inverse. Each
-  // stored pair is (s, y) with primal displacement s and covector difference
-  // y, and the two-loop recursion uses only the declared primal-dual pairing.
+  // The initial inverse-Hessian action is either the declared metric inverse
+  // or its metric-aware scalar-secant scaling. Each stored pair is (s, y)
+  // with primal displacement s and covector difference y, and the two-loop
+  // recursion uses only the declared primal-dual pairing.
   template <typename Backend>
   class LimitedMemoryBfgsDirectionPolicyT
   {
@@ -683,8 +713,10 @@ namespace nmopt::solvers
     {
       previous_control_.reset();
       previous_derivative_.reset();
+      previous_metric_gradient_.reset();
       history_.clear();
       reset_count_ = 0;
+      last_initial_scale_ = 1.0;
       last_status_ = LimitedMemoryBfgsUpdateStatus::initial;
     }
 
@@ -700,8 +732,9 @@ namespace nmopt::solvers
 
       if (!previous_control_.has_value())
         {
-          previous_control_ = control;
-          previous_derivative_ = reduced_derivative;
+          update_previous(control,
+                          reduced_derivative,
+                          current_gradient.gradient);
           last_status_ = LimitedMemoryBfgsUpdateStatus::initial;
           return make_steepest_descent_direction_from_metric_gradient(
             reduced_derivative, current_gradient);
@@ -724,10 +757,41 @@ namespace nmopt::solvers
           curvature <= parameters_.curvature_tolerance)
         {
           clear_history_after_reset();
-          update_previous(control, reduced_derivative);
+          update_previous(control,
+                          reduced_derivative,
+                          current_gradient.gradient);
           last_status_ = LimitedMemoryBfgsUpdateStatus::curvature_reset;
           return make_steepest_descent_direction_from_metric_gradient(
             reduced_derivative, current_gradient);
+        }
+
+      double initial_scale = 1.0;
+      if (parameters_.initial_inverse_hessian_scaling ==
+          LimitedMemoryBfgsInitialScaling::scalar_secant)
+        {
+          contract::require(previous_metric_gradient_.has_value(),
+                            "L-BFGS scalar scaling has no previous metric gradient");
+          Primal metric_gradient_difference = current_gradient.gradient;
+          add_scaled_primal(metric_gradient_difference,
+                            -1.0,
+                            *previous_metric_gradient_);
+          const double metric_covector_norm_squared =
+            contract::pair(covector_difference,
+                           metric_gradient_difference);
+          if (!std::isfinite(metric_covector_norm_squared) ||
+              metric_covector_norm_squared <= parameters_.curvature_tolerance)
+            {
+              clear_history_after_reset();
+              update_previous(control,
+                              reduced_derivative,
+                              current_gradient.gradient);
+              last_status_ = LimitedMemoryBfgsUpdateStatus::curvature_reset;
+              return make_steepest_descent_direction_from_metric_gradient(
+                reduced_derivative, current_gradient);
+            }
+          initial_scale = curvature / metric_covector_norm_squared;
+          contract::require(std::isfinite(initial_scale) && initial_scale > 0.0,
+                            "L-BFGS scalar initial scaling is not positive");
         }
 
       if (history_.size() == parameters_.memory_size)
@@ -735,7 +799,9 @@ namespace nmopt::solvers
       history_.push_back(
         {std::move(displacement),
          std::move(covector_difference),
-         1.0 / curvature});
+         1.0 / curvature,
+         initial_scale});
+      last_initial_scale_ = initial_scale;
 
       Covector q = reduced_derivative;
       std::vector<double> alpha(history_.size());
@@ -749,6 +815,8 @@ namespace nmopt::solvers
         }
 
       Primal inverse_hessian_action = metric.inverse_apply(q);
+      scale_primal(inverse_hessian_action,
+                   history_.back().initial_inverse_hessian_scale);
       for (std::size_t index = 0; index < history_.size(); ++index)
         {
           const SecantPair &pair = history_[index];
@@ -767,13 +835,17 @@ namespace nmopt::solvers
           directional_derivative >= 0.0)
         {
           clear_history_after_reset();
-          update_previous(control, reduced_derivative);
+          update_previous(control,
+                          reduced_derivative,
+                          current_gradient.gradient);
           last_status_ = LimitedMemoryBfgsUpdateStatus::curvature_reset;
           return make_steepest_descent_direction_from_metric_gradient(
             reduced_derivative, current_gradient);
         }
 
-      update_previous(control, reduced_derivative);
+      update_previous(control,
+                      reduced_derivative,
+                      current_gradient.gradient);
       last_status_ = LimitedMemoryBfgsUpdateStatus::accepted_pair;
       return {std::move(inverse_hessian_action),
               current_gradient.norm,
@@ -801,12 +873,19 @@ namespace nmopt::solvers
       return last_status_;
     }
 
+    double
+    last_initial_scale() const noexcept
+    {
+      return last_initial_scale_;
+    }
+
   private:
     struct SecantPair
     {
       Primal   displacement;
       Covector covector_difference;
       double   inverse_curvature;
+      double   initial_inverse_hessian_scale;
     };
 
     void
@@ -817,17 +896,22 @@ namespace nmopt::solvers
     }
 
     void
-    update_previous(const Primal &control, const Covector &reduced_derivative)
+    update_previous(const Primal &control,
+                    const Covector &reduced_derivative,
+                    const Primal &metric_gradient)
     {
       previous_control_ = control;
       previous_derivative_ = reduced_derivative;
+      previous_metric_gradient_ = metric_gradient;
     }
 
     LimitedMemoryBfgsParameters parameters_;
     std::optional<Primal>       previous_control_;
     std::optional<Covector>     previous_derivative_;
+    std::optional<Primal>       previous_metric_gradient_;
     std::deque<SecantPair>      history_;
     std::size_t                 reset_count_ = 0;
+    double                      last_initial_scale_ = 1.0;
     LimitedMemoryBfgsUpdateStatus last_status_ =
       LimitedMemoryBfgsUpdateStatus::initial;
   };

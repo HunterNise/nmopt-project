@@ -747,6 +747,43 @@ namespace
               armijo_result.acceptance_evidence.trial_slope < 0.0,
             "Armijo line search did not report its acceptance evidence");
 
+    nmopt::solvers::ArmijoLineSearchParameters book_armijo_parameters;
+    book_armijo_parameters.maximum_trials = 6;
+    book_armijo_parameters.initial_step_length = 1.0;
+    book_armijo_parameters.backtracking_factor = 0.7;
+    book_armijo_parameters.minimum_step_length = 0.2;
+    const nmopt::solvers::ArmijoLineSearchPolicy book_armijo_policy(
+      book_armijo_parameters);
+    const auto reject_trial_value = [&reduced, &evaluation](
+                                      const PrimalBlock &trial_control) {
+      auto trial_value = reduced.evaluate_value(trial_control);
+      trial_value.objective_value = evaluation.objective_value + 1.0;
+      return trial_value;
+    };
+    const auto book_armijo_result = book_armijo_policy.search(
+      control,
+      evaluation,
+      search_direction,
+      build_trial,
+      reject_trial_value,
+      augment_trial_derivative);
+    const std::vector<double> expected_book_steps{
+      1.0, 0.7, 0.49, 0.343, 0.2401, 0.2};
+    require(!book_armijo_result.accepted() &&
+              book_armijo_result.trial_count == expected_book_steps.size() &&
+              book_armijo_result.trial_records.size() ==
+                expected_book_steps.size(),
+            "Book Armijo policy did not perform five rescalings");
+    for (std::size_t index = 0; index < expected_book_steps.size(); ++index)
+      require_close(book_armijo_result.trial_records[index].step_length,
+                    expected_book_steps[index],
+                    1e-14,
+                    "Book Armijo rescaling sequence");
+    const auto book_armijo_snapshot = book_armijo_policy.snapshot();
+    require(book_armijo_snapshot.maximum_backtracking_reductions == 5 &&
+              book_armijo_snapshot.minimum_step_length == 0.2,
+            "Book Armijo policy snapshot omitted its rescaling boundary");
+
     const nmopt::solvers::ExactQuadraticLineSearchPolicy exact_policy(hessian);
     const std::size_t exact_state_calls = trial_state_calls;
     const std::size_t exact_adjoint_calls = trial_adjoint_calls;
@@ -1045,6 +1082,26 @@ namespace
             "L-BFGS did not report an accepted secant pair");
     require(bfgs_direction.directional_derivative < 0.0,
             "L-BFGS direction is not descending");
+
+    CountingMetric scaled_bfgs_metric(cg_metric);
+    BfgsPolicy scaled_bfgs_policy(
+      {2,
+       1e-14,
+       nmopt::solvers::LimitedMemoryBfgsInitialScaling::scalar_secant});
+    const CovectorBlock scaled_bfgs_derivative_1(
+      partition.control_layout(), {DenseVector{3.0, 1.0}});
+    (void)scaled_bfgs_policy.next(
+      bfgs_control_0, bfgs_derivative_0, scaled_bfgs_metric);
+    const auto scaled_bfgs_direction = scaled_bfgs_policy.next(
+      bfgs_control_1, scaled_bfgs_derivative_1, scaled_bfgs_metric);
+    require_close(scaled_bfgs_policy.last_initial_scale(),
+                  0.4,
+                  1e-14,
+                  "L-BFGS scalar secant initial scaling");
+    require(scaled_bfgs_direction.directional_derivative < 0.0 &&
+              scaled_bfgs_policy.last_update_status() ==
+                nmopt::solvers::LimitedMemoryBfgsUpdateStatus::accepted_pair,
+            "Scaled L-BFGS did not retain a descending secant update");
     const auto bfgs_reset_direction =
       bfgs_policy.next(bfgs_control_1, bfgs_derivative_1, bfgs_metric);
     require(bfgs_metric.inverse_apply_count() == 4 &&
@@ -1409,6 +1466,30 @@ namespace
             "Reduced solver did not stop on the objective-change tolerance");
     require(objective_stopping_result.accepted_iterations > 0,
             "Objective-change stopping did not retain an accepted trial");
+
+    nmopt::solvers::ReducedGradientParameters target_probe_parameters =
+      solver_parameters;
+    target_probe_parameters.maximum_iterations = 1;
+    target_probe_parameters.gradient_tolerance = 1e-30;
+    const nmopt::solvers::ReducedGradientSolver target_probe_solver(
+      reduced, metric, target_probe_parameters);
+    const auto target_probe_result = target_probe_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    nmopt::solvers::ReducedGradientParameters target_stopping_parameters =
+      solver_parameters;
+    target_stopping_parameters.gradient_tolerance = 1e-30;
+    target_stopping_parameters.objective_target =
+      target_probe_result.final_evaluation.objective_value;
+    const nmopt::solvers::ReducedGradientSolver target_stopping_solver(
+      reduced, metric, target_stopping_parameters);
+    const auto target_stopping_result = target_stopping_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{1.0, -1.0}}));
+    require(target_stopping_result.stopping_reason ==
+                nmopt::solvers::ReducedGradientStoppingReason::objective_target &&
+              target_stopping_result.accepted_iterations == 1 &&
+              target_stopping_result.final_evaluation.objective_value <=
+                *target_stopping_parameters.objective_target,
+            "Reduced solver did not stop at the requested objective target");
 
     nmopt::solvers::ReducedGradientParameters step_stopping_parameters =
       solver_parameters;

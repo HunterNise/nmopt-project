@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nmopt/solvers/reduced_search.hpp"
+
 #include <algorithm>
 #include <charconv>
 #include <filesystem>
@@ -13,6 +15,35 @@
 
 namespace nmopt::application::runner
 {
+  inline bool
+  reference_reached_stopping_tolerance(
+    const solvers::ReducedStoppingCriterion criterion,
+    const solvers::ReducedStoppingReason    reason)
+  {
+    using Criterion = solvers::ReducedStoppingCriterion;
+    using Reason = solvers::ReducedStoppingReason;
+
+    switch (criterion)
+      {
+        case Criterion::automatic:
+          return reason == Reason::gradient_tolerance ||
+                 reason == Reason::relative_gradient_tolerance ||
+                 reason == Reason::objective_change_tolerance ||
+                 reason == Reason::step_tolerance;
+        case Criterion::gradient_norm:
+          return reason == Reason::gradient_tolerance;
+        case Criterion::relative_gradient_norm:
+          return reason == Reason::relative_gradient_tolerance;
+        case Criterion::objective_change:
+          return reason == Reason::objective_change_tolerance ||
+                 reason == Reason::stationary;
+        case Criterion::step_norm:
+          return reason == Reason::step_tolerance ||
+                 reason == Reason::stationary;
+      }
+    return false;
+  }
+
   enum class RunKind
   {
     reproduction,

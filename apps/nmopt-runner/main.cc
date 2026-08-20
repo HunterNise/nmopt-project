@@ -1225,9 +1225,9 @@ namespace
                                result.artifact.envelope().report());
             run_manifest.record_success(path);
             if (matched_objective_target && method == reference_method &&
-                result.artifact.envelope().report().stopping_reason ==
-                  nmopt::solvers::ReducedGradientStoppingReason::
-                    gradient_tolerance)
+                runner::reference_reached_stopping_tolerance(
+                  scenario.solver.parameters.stopping_criterion,
+                  result.artifact.envelope().report().stopping_reason))
               objective_references[beta_slug] = {
                 result.artifact.envelope().report().final_evaluation.
                   objective_value,

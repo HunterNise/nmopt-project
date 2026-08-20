@@ -72,11 +72,14 @@ files.
 An `objective target policy` of `explicit` consumes the numeric
 `objective target`. The B1-only `match-reference-method` policy instead runs
 the named `objective target reference method` first for every regularisation
-value and passes its gradient-tolerance terminal cost to the dependent
-method. Filtering out the required reference artifact is an error rather than
-an implicit extra run. L-BFGS method-policy subsections may also set `memory`,
-`curvature tolerance`, and `initial inverse Hessian scaling` to
-`metric-inverse` or `scalar-secant`.
+value and passes its terminal cost to the dependent method after it satisfies
+the selected stopping criterion. In `automatic` mode, any enabled tolerance
+stop qualifies; numerical stationarity also qualifies for objective-change and
+step-only stopping. Iteration-limit and line-search failures do not. Filtering
+out the required reference artifact is an error rather than an implicit extra
+run. L-BFGS method-policy subsections may also set `memory`, `curvature
+tolerance`, and `initial inverse Hessian scaling` to `metric-inverse` or
+`scalar-secant`.
 
 B1 accepts `Problem/control representation` values `cellwise-volume` and
 `continuous-volume-homogeneous-dirichlet`. The former is the authoritative

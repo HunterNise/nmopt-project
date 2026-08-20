@@ -162,6 +162,48 @@ namespace
       "an unknown run kind should be rejected");
   }
 
+  void
+  test_matched_reference_stopping_criteria()
+  {
+    using Criterion = nmopt::solvers::ReducedStoppingCriterion;
+    using Reason = nmopt::solvers::ReducedStoppingReason;
+    using nmopt::application::runner::reference_reached_stopping_tolerance;
+
+    require(reference_reached_stopping_tolerance(
+              Criterion::automatic, Reason::gradient_tolerance) &&
+              reference_reached_stopping_tolerance(
+                Criterion::automatic, Reason::relative_gradient_tolerance) &&
+              reference_reached_stopping_tolerance(
+                Criterion::automatic, Reason::objective_change_tolerance) &&
+              reference_reached_stopping_tolerance(
+                Criterion::automatic, Reason::step_tolerance),
+            "automatic matched references should accept every tolerance stop");
+    require(reference_reached_stopping_tolerance(
+              Criterion::gradient_norm, Reason::gradient_tolerance) &&
+              reference_reached_stopping_tolerance(
+                Criterion::relative_gradient_norm,
+                Reason::relative_gradient_tolerance) &&
+              reference_reached_stopping_tolerance(
+                Criterion::objective_change,
+                Reason::objective_change_tolerance) &&
+              reference_reached_stopping_tolerance(
+                Criterion::step_norm, Reason::step_tolerance) &&
+              reference_reached_stopping_tolerance(
+                Criterion::objective_change, Reason::stationary) &&
+              reference_reached_stopping_tolerance(
+                Criterion::step_norm, Reason::stationary),
+            "matched references should accept their selected successful stop");
+    require(!reference_reached_stopping_tolerance(
+              Criterion::gradient_norm,
+              Reason::relative_gradient_tolerance) &&
+              !reference_reached_stopping_tolerance(
+                Criterion::relative_gradient_norm,
+                Reason::gradient_tolerance) &&
+              !reference_reached_stopping_tolerance(
+                Criterion::automatic, Reason::maximum_iterations),
+            "matched references should reject unrelated or failed stops");
+  }
+
   std::string
   read_file(const std::filesystem::path &path)
   {
@@ -260,6 +302,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "application", "runner", "contract", "negative"},
          30,
          test_run_kind_parser_rejects_unknown_values},
+        {"matched_reference_stopping_criteria",
+         "nmopt.runner.matched_reference_stopping_criteria",
+         {"backend-neutral", "application", "runner", "contract"},
+         30,
+         test_matched_reference_stopping_criteria},
         {"run_manifest_records_state_and_failures",
          "nmopt.runner.run_manifest_records_state_and_failures",
          {"backend-neutral", "application", "runner", "contract"},

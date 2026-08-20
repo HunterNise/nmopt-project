@@ -161,9 +161,12 @@ and retains the comparison-axis override for post-processing.
 
 A B1 family may declare a matched objective target. In that case the runner
 orders each regularisation's reference method before dependent methods,
-requires the reference to terminate on its gradient tolerance, and records
-the supplying artifact in every dependent result. A selection containing only
-the dependent method is therefore invalid.
+requires the reference to satisfy the selected stopping criterion, and records
+the supplying artifact in every dependent result. `automatic` stopping accepts
+any enabled tolerance stop; numerical stationarity also qualifies for the
+objective-change and step-only criteria. Iteration-limit and line-search
+failures never supply a target. A selection containing only the dependent
+method is therefore invalid.
 
 ## Native and derived outputs
 

@@ -46,6 +46,7 @@ class RenderItem:
     label: str
     mesh: meshio.Mesh
     field: ScalarField
+    metadata: dict[str, str] | None = None
 
 
 def field_norm(values: np.ndarray) -> Normalize:
@@ -245,12 +246,15 @@ def plot_volume_comparison(
     output: Path,
     title: str,
     colorbar_label: str | None = None,
+    rows: int | None = None,
+    columns: int | None = None,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> list[str]:
     """Render volume fields with one color scale across all panels."""
 
     norm = comparison_norm(items)
-    rows, columns = comparison_layout(len(items))
+    if rows is None or columns is None:
+        rows, columns = comparison_layout(len(items))
     figure, axes = plt.subplots(
         rows,
         columns,
@@ -282,12 +286,15 @@ def plot_boundary_comparison(
     output: Path,
     title: str,
     colorbar_label: str | None = None,
+    rows: int | None = None,
+    columns: int | None = None,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> list[str]:
     """Render boundary fields with one color scale across all panels."""
 
     norm = comparison_norm(items)
-    rows, columns = comparison_layout(len(items))
+    if rows is None or columns is None:
+        rows, columns = comparison_layout(len(items))
     figure, axes = plt.subplots(
         rows,
         columns,

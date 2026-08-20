@@ -34,6 +34,15 @@ class FieldSpec:
 
 
 @dataclass(frozen=True)
+class ComparisonPlan:
+    """Named matrix axes that determine comparison rows and columns."""
+
+    rows: tuple[str, ...] = ()
+    columns: tuple[str, ...] = ()
+    group_by: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class PostprocessProfile:
     """Application-specific field and labeling choices for the generic engine."""
 
@@ -47,6 +56,9 @@ class PostprocessProfile:
     comparison_title: Callable[[FieldSpec], str]
     comparison_sort_key: Callable[[dict[str, str]], tuple[object, ...]] | None = None
     missing_fields_message: str = "no configured fields found"
+    comparison_plan: ComparisonPlan = ComparisonPlan()
+    axis_orders: dict[str, tuple[str, ...]] | None = None
+    axis_labels: dict[str, dict[str, str]] | None = None
 
 
 def _render_item(
@@ -56,7 +68,7 @@ def _render_item(
     mesh: meshio.Mesh,
 ) -> RenderItem:
     metadata = read_metadata(artifact)
-    return RenderItem(profile.item_label(metadata), mesh, field)
+    return RenderItem(profile.item_label(metadata), mesh, field, metadata)
 
 
 def _volume_items(
@@ -116,6 +128,7 @@ def build_comparisons(
         comparison_dir.mkdir(parents=True, exist_ok=True)
         group_generated: dict[str, list[str]] = {}
         group_errors: dict[str, str] = {}
+        rows, columns = comparison_dimensions(group_artifacts, profile)
 
         for field_spec in profile.volume_fields:
             try:
@@ -127,6 +140,8 @@ def build_comparisons(
                         comparison_dir / f"comparison-{field_spec.output_name}",
                         title=profile.comparison_title(field_spec),
                         colorbar_label=field_spec.colorbar_label,
+                        rows=rows,
+                        columns=columns,
                         output_formats=output_formats,
                     )
             except (OSError, ValueError, PostprocessError) as error:
@@ -141,6 +156,8 @@ def build_comparisons(
                         comparison_dir / f"comparison-{field_spec.output_name}",
                         title=profile.comparison_title(field_spec),
                         colorbar_label=field_spec.colorbar_label,
+                        rows=rows,
+                        columns=columns,
                         output_formats=output_formats,
                     )
             except (OSError, ValueError, PostprocessError) as error:
@@ -152,6 +169,44 @@ def build_comparisons(
             errors[group] = group_errors
 
     return generated, errors
+
+
+def _axis_value(metadata: dict[str, str], axis: str) -> str:
+    for key in (f"parameters.{axis}", f"benchmark.{axis}", f"b2.{axis}", axis):
+        if key in metadata:
+            return metadata[key]
+    return ""
+
+
+def _axis_values(
+    artifacts: list[Path], profile: PostprocessProfile, axis: str
+) -> list[str]:
+    declared = list((profile.axis_orders or {}).get(axis, ()))
+    observed = {
+        value
+        for artifact in artifacts
+        if (value := _axis_value(read_metadata(artifact), axis))
+    }
+    return declared + sorted(observed.difference(declared))
+
+
+def comparison_dimensions(
+    artifacts: list[Path], profile: PostprocessProfile
+) -> tuple[int, int]:
+    """Resolve an explicit row/column plan without using panel-count magic."""
+
+    plan = profile.comparison_plan
+    row_count = 1
+    column_count = 1
+    if plan.rows:
+        for axis in plan.rows:
+            row_count *= max(1, len(_axis_values(artifacts, profile, axis)))
+    if plan.columns:
+        for axis in plan.columns:
+            column_count *= max(1, len(_axis_values(artifacts, profile, axis)))
+    if not plan.columns:
+        column_count = max(1, len(artifacts))
+    return row_count, column_count
 
 
 def process_artifact(

@@ -4,10 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from nmopt_postprocess import PostprocessError
-from nmopt_postprocess.chapter6 import CHAPTER6_PROFILE
+from nmopt_postprocess.chapter6 import (
+    CHAPTER6_PROFILE,
+    load_json_profile,
+    with_comparison_plan,
+)
 from nmopt_postprocess.pipeline import (
     PostprocessProfile,
     process_artifact,
@@ -30,12 +35,17 @@ def build_parser(
     default_profile: str | None = None, description: str | None = None
 ) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description or __doc__)
+    profile = parser.add_mutually_exclusive_group(required=False)
     if default_profile is None:
-        parser.add_argument(
+        profile.add_argument(
             "--profile",
             choices=tuple(PROFILES),
-            required=True,
-            help="application profile used to select fields and comparisons",
+            help="built-in application profile",
+        )
+        profile.add_argument(
+            "--profile-file",
+            type=Path,
+            help="JSON plotting profile (normally copied into a run root)",
         )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument(
@@ -68,17 +78,50 @@ def build_parser(
     return parser
 
 
+def _profile_from_run_snapshot(
+    source: Path, fallback: PostprocessProfile
+) -> PostprocessProfile:
+    """Prefer the run's copied profile and comparison override when present."""
+
+    root = source if source.is_dir() else source.parent
+    for candidate_root in (root, *root.parents):
+        snapshot = candidate_root / "plotting-profile.json"
+        manifest_path = candidate_root / "run-manifest.json"
+        if not snapshot.exists() or not manifest_path.exists():
+            continue
+        profile = load_json_profile(snapshot)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        comparison = manifest.get("plotting", {}).get("resolved_comparison", {})
+        return with_comparison_plan(
+            profile,
+            str(comparison.get("rows", "")),
+            str(comparison.get("columns", "")),
+            str(comparison.get("group_by", "")),
+        )
+    return fallback
+
+
 def main(
     default_profile: str | None = None, description: str | None = None
 ) -> int:
     parser = build_parser(default_profile, description)
     arguments = parser.parse_args()
-    profile_name = default_profile or arguments.profile
-    profile = PROFILES[profile_name]
+    profile_name = default_profile or getattr(arguments, "profile", None)
+    explicit_profile = (
+        default_profile is not None
+        or getattr(arguments, "profile", None) is not None
+        or getattr(arguments, "profile_file", None) is not None
+    )
+    if getattr(arguments, "profile_file", None) is not None:
+        profile = load_json_profile(arguments.profile_file.resolve())
+    else:
+        profile = PROFILES[profile_name or "chapter6"]
     output_formats: OutputFormats = tuple(arguments.output_formats)
     try:
         if arguments.artifact is not None:
             artifact = arguments.artifact.resolve()
+            if not explicit_profile:
+                profile = _profile_from_run_snapshot(artifact, profile)
             output = (
                 arguments.output.resolve()
                 if arguments.output is not None
@@ -94,6 +137,8 @@ def main(
             return 0
 
         input_root = arguments.input.resolve()
+        if not explicit_profile:
+            profile = _profile_from_run_snapshot(input_root, profile)
         output_root = (
             arguments.output.resolve()
             if arguments.output is not None

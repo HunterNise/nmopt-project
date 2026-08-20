@@ -51,7 +51,7 @@ The proposed `.prm` sections are:
 | `Problem` | Recipe-level semantic choices such as control representation, observation region, and bounds. |
 | `Functions` | Registered forcing, target, fixed-data, and transport function selections and coefficients. |
 | `Boundary` | Boundary IDs, regions, normal/conormal interpretation, trace, and face quadrature choices. |
-| `Mesh` | Dimension, geometry, refinement, and mesh provenance. |
+| `Mesh` | Dimension, geometry, generator parameters, refinement, and mesh provenance. |
 | `Compile` | State degree, execution, product, session ownership, and state/adjoint/control-metric solve policies. |
 | `Solver` | Method, initial control, stopping rules, line search, iteration limits, and method-specific policies. |
 | `Run` | Authoritative/development policy, build profile, output root, and harness behavior. |
@@ -76,16 +76,27 @@ an implicit extra run. L-BFGS method-policy subsections may also set `memory`,
 
 B1 accepts `Problem/control representation` values `cellwise-volume` and
 `continuous-volume-homogeneous-dirichlet`. The former is the authoritative
-`FE_DGQ(0)` choice. The latter uses continuous `FE_Q` at the declared state
-degree, shares the state's homogeneous boundary region, and rejects a
-cellwise box. The effective representation is recorded independently of the
-parameter-file provenance.
+`FE_DGQ(0)` choice. The latter uses continuous `FE_Q` or `FE_SimplexP` at the
+declared state degree according to the mesh family, shares the state's
+homogeneous boundary region, and rejects a cellwise box. The effective
+representation is recorded independently of the parameter-file provenance.
 
 B1 accepts the registered `Functions/forcing` values `manufactured-zero` and
 `figure-inferred-constant-one`. Their respective kinds are `zero` and
 `constant`; the latter must declare `value = 1.0`. The constant-one selection
 is a Figure 6.2 hypothesis with explicit inference provenance, not recovered
 source data.
+
+`Mesh/generator` defaults to `framework-native`, which consumes
+`Mesh/refinement` and leaves the simplex entries at zero. B1 additionally
+accepts `structured-simplex`, with a positive `Mesh/subdivisions`, and
+`centroid-split-simplex`, with positive subdivision and `Mesh/centroid splits`
+counts plus a deterministic `Mesh/selection seed`. Both simplex generators are
+two-dimensional, require zero global refinement, and require B1's continuous
+homogeneous-Dirichlet control. A centroid split replaces one base triangle by
+three, adding one vertex and two cells; the split count cannot exceed the
+`2 * subdivisions^2` base triangles. B2 retains only its framework-native
+rectangle generator.
 
 The `Compile` section exposes separate maximum iterations, relative tolerance,
 and absolute tolerance entries for the state, adjoint, and control-metric
@@ -146,10 +157,12 @@ parameter-file defaults
   → explicit CLI refinement override
 ```
 
-The CLI refinement override is intentionally retained for smoke runs. It
-changes only the realized mesh refinement, updates mesh provenance, and is
-recorded as an override in the manifest. It must not modify the checked-in
-parameter file.
+The CLI refinement override is intentionally retained for framework-native
+smoke runs. It changes only the realized mesh refinement, updates mesh
+provenance, and is recorded as an override in the manifest. It is rejected for
+the subdivision-based B1 simplex generators, whose topology must instead be
+changed explicitly in a parameter file. The override must not modify the
+checked-in parameter file.
 
 The output directory may remain a destination override, and the framework
 revision should normally be recorded from the compiled executable or an

@@ -208,6 +208,58 @@ namespace
             "B1 field output omitted a retained field");
     std::filesystem::remove_all(native_output_directory);
   }
+
+  void
+  test_b1_simplex_mesh_generation()
+  {
+    auto scenario = chapter6::make_b1_scenario(
+      chapter6::ReducedMethod::steepest_descent);
+    scenario.problem.recipe.discretisation = chapter5::
+      DistributedControlDiscretisation::homogeneous_dirichlet_continuous;
+    scenario.problem.recipe.with_cellwise_box = false;
+    scenario.compile.mesh.generation =
+      chapter6::MeshGeneration::structured_simplex;
+    scenario.compile.mesh.refinement = 0;
+    scenario.compile.mesh.subdivisions = 3;
+    scenario.compile.mesh.mesh_provenance =
+      "test.chapter6.b1.structured-simplex-n3";
+
+    const auto structured_session =
+      chapter6::dealii::make_b1_compilation_session<2>(scenario);
+    const auto &structured_mesh = structured_session->triangulation();
+    require(structured_mesh.all_reference_cells_are_simplex() &&
+              structured_mesh.n_vertices() == 16 &&
+              structured_mesh.n_active_cells() == 18,
+            "B1 structured simplex generator produced the wrong topology");
+
+    scenario.compile.mesh.generation =
+      chapter6::MeshGeneration::centroid_split_simplex;
+    scenario.compile.mesh.subdivisions = 100;
+    scenario.compile.mesh.centroid_splits = 7160;
+    scenario.compile.mesh.selection_seed = 0;
+    scenario.compile.mesh.mesh_provenance =
+      "test.chapter6.b1.count-matched-simplex-n100-s7160-seed0";
+
+    const auto count_matched_session =
+      chapter6::dealii::make_b1_compilation_session<2>(scenario);
+    const auto &count_matched_mesh = count_matched_session->triangulation();
+    require(count_matched_mesh.all_reference_cells_are_simplex() &&
+              count_matched_mesh.n_vertices() == 17361 &&
+              count_matched_mesh.n_active_cells() == 34320,
+            "B1 count-matched simplex generator missed the source cell and vertex counts");
+
+    std::vector<bool> boundary_vertices(count_matched_mesh.n_vertices(), false);
+    for (const auto &cell : count_matched_mesh.active_cell_iterators())
+      for (const auto face : cell->face_indices())
+        if (cell->face(face)->at_boundary())
+          for (const auto vertex : cell->face(face)->vertex_indices())
+            boundary_vertices[cell->face(face)->vertex_index(vertex)] = true;
+    const auto boundary_vertex_count =
+      std::count(boundary_vertices.begin(), boundary_vertices.end(), true);
+    require(boundary_vertex_count == 400 &&
+              count_matched_mesh.n_vertices() - boundary_vertex_count == 16961,
+            "B1 count-matched simplex generator missed the inferred boundary and independent P1 counts");
+  }
 } // namespace
 
 int
@@ -253,7 +305,12 @@ main(const int argc, char **argv)
                homogeneous_dirichlet_continuous,
              nmopt::application::chapter6::B1ForcingSelection::
                figure_inferred_constant_one);
-         }}};
+         }},
+        {"b1_simplex_mesh_generation",
+         "nmopt.application.dealii.b1_simplex_mesh_generation",
+         {"dealii", "application", "benchmark", "b1", "contract"},
+         60,
+         test_b1_simplex_mesh_generation}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

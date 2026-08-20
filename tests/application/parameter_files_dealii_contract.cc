@@ -37,6 +37,11 @@ namespace
               b1.value("Compile/control metric solve maximum iterations") ==
                 "1000",
             "B1 parameter family lost its linear-solve policies");
+    require(b1.value("Mesh/generator") == "framework-native" &&
+              b1.value("Mesh/subdivisions") == "0" &&
+              b1.value("Mesh/centroid splits") == "0" &&
+              b1.value("Mesh/selection seed") == "0",
+            "B1 parameter family lost the backward-compatible mesh defaults");
 
     const auto figure_6_3 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b1/development/figure-6.3-book-policy.prm"));

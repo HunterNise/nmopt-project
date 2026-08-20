@@ -283,6 +283,51 @@ namespace
     require(invalid_continuous_box_rejected,
             "B1 accepted a cellwise box on continuous control");
 
+    auto simplex = b1;
+    simplex.problem.recipe.discretisation = nmopt::application::chapter5::
+      DistributedControlDiscretisation::homogeneous_dirichlet_continuous;
+    simplex.problem.recipe.with_cellwise_box = false;
+    simplex.compile.mesh.generation =
+      nmopt::application::chapter6::MeshGeneration::structured_simplex;
+    simplex.compile.mesh.refinement = 0;
+    simplex.compile.mesh.subdivisions = 2;
+    nmopt::application::chapter6::validate_b1(simplex);
+    require(std::string(nmopt::application::chapter6::mesh_generation_name(
+              simplex.compile.mesh.generation)) == "structured-simplex",
+            "B1 simplex mesh selection lost its stable name");
+
+    auto invalid_simplex_control = simplex;
+    invalid_simplex_control.problem.recipe.discretisation =
+      nmopt::application::chapter5::DistributedControlDiscretisation::
+        cellwise_constant;
+    bool invalid_simplex_control_rejected = false;
+    try
+      {
+        nmopt::application::chapter6::validate_b1(invalid_simplex_control);
+      }
+    catch (const std::invalid_argument &)
+      {
+        invalid_simplex_control_rejected = true;
+      }
+    require(invalid_simplex_control_rejected,
+            "B1 accepted a simplex mesh for an unsupported control target");
+
+    auto invalid_split_count = simplex;
+    invalid_split_count.compile.mesh.generation = nmopt::application::chapter6::
+      MeshGeneration::centroid_split_simplex;
+    invalid_split_count.compile.mesh.centroid_splits = 9;
+    bool invalid_split_count_rejected = false;
+    try
+      {
+        nmopt::application::chapter6::validate_b1(invalid_split_count);
+      }
+    catch (const std::invalid_argument &)
+      {
+        invalid_split_count_rejected = true;
+      }
+    require(invalid_split_count_rejected,
+            "B1 accepted more centroid splits than base triangles");
+
     const auto steepest = nmopt::application::chapter6::make_b1_scenario(
       nmopt::application::chapter6::ReducedMethod::steepest_descent);
     require(std::abs(steepest.solver.parameters.gradient_tolerance - 1.0e-3) <
@@ -308,6 +353,23 @@ namespace
             "B2 did not retain the frozen source catalogue revision");
     require(b2.metadata.id == "chapter-6.b2.graetz-flow.full-parabolic",
             "B2 did not assign a stable case-specific scenario ID");
+
+    auto invalid_b2_mesh = b2;
+    invalid_b2_mesh.compile.mesh.generation =
+      nmopt::application::chapter6::MeshGeneration::structured_simplex;
+    invalid_b2_mesh.compile.mesh.refinement = 0;
+    invalid_b2_mesh.compile.mesh.subdivisions = 2;
+    bool invalid_b2_mesh_rejected = false;
+    try
+      {
+        nmopt::application::chapter6::validate_b2(invalid_b2_mesh);
+      }
+    catch (const std::invalid_argument &)
+      {
+        invalid_b2_mesh_rejected = true;
+      }
+    require(invalid_b2_mesh_rejected,
+            "B2 accepted a mesh outside its rectangular adapter contract");
   }
 
   void

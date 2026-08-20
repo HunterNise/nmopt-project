@@ -84,8 +84,8 @@ namespace
            << "--run-kind KIND    use reproduction or development policy\n"
            << "--framework-revision REV\n"
            << "                   record the framework revision in each artifact\n"
-           << "--refinement N     optional benchmark mesh override; otherwise\n"
-           << "                   use the selected benchmark default\n"
+           << "--refinement N     optional framework-native mesh override; otherwise\n"
+           << "                   use the selected benchmark configuration\n"
            << "--help             show this message\n";
   }
 
@@ -178,6 +178,19 @@ namespace
     if (value == "bfgs")
       return ReducedMethod::bfgs;
     throw std::invalid_argument("unknown solver method '" + value + "'");
+  }
+
+  nmopt::application::chapter6::MeshGeneration
+  parse_mesh_generation(const std::string &value)
+  {
+    using nmopt::application::chapter6::MeshGeneration;
+    if (value == "framework-native")
+      return MeshGeneration::framework_native;
+    if (value == "structured-simplex")
+      return MeshGeneration::structured_simplex;
+    if (value == "centroid-split-simplex")
+      return MeshGeneration::centroid_split_simplex;
+    throw std::invalid_argument("unknown mesh generator '" + value + "'");
   }
 
   double
@@ -357,7 +370,15 @@ namespace
       file.value("Run/output root");
 
     scenario.compile.mesh.dimension = parameter_unsigned(file, "Mesh/dimension");
+    scenario.compile.mesh.generation =
+      parse_mesh_generation(file.value("Mesh/generator"));
     scenario.compile.mesh.refinement = parameter_unsigned(file, "Mesh/refinement");
+    scenario.compile.mesh.subdivisions =
+      parameter_unsigned(file, "Mesh/subdivisions");
+    scenario.compile.mesh.centroid_splits =
+      parameter_unsigned(file, "Mesh/centroid splits");
+    scenario.compile.mesh.selection_seed =
+      parameter_unsigned(file, "Mesh/selection seed");
     scenario.compile.mesh.mesh_provenance = file.value("Mesh/provenance");
     scenario.compile.state_degree = parameter_unsigned(file, "Compile/state degree");
     scenario.compile.owned_session = parameter_bool(file, "Compile/owned session");
@@ -941,6 +962,19 @@ namespace
     evidence.fields.push_back(
       {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
     evidence.fields.push_back(
+      {"benchmark.mesh_generator",
+       nmopt::application::chapter6::mesh_generation_name(
+         scenario.compile.mesh.generation)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_subdivisions",
+       std::to_string(scenario.compile.mesh.subdivisions)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_centroid_splits",
+       std::to_string(scenario.compile.mesh.centroid_splits)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_selection_seed",
+       std::to_string(scenario.compile.mesh.selection_seed)});
+    evidence.fields.push_back(
       {"benchmark.run_kind",
        std::string(nmopt::application::runner::run_kind_name(run_kind))});
     evidence.fields.push_back({"provenance.forcing",
@@ -1126,10 +1160,18 @@ namespace
             auto scenario = make_b1_scenario(method);
             configure_b1_scenario(scenario, file, combination, method_id, beta);
             scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
-            const auto refinement = configuration.refinement_override.value_or(
-              scenario.compile.mesh.refinement);
-            scenario.compile.mesh.refinement = refinement;
-            scenario.compile.mesh.mesh_provenance = b1_mesh_provenance(refinement);
+            if (configuration.refinement_override.has_value())
+              {
+                if (scenario.compile.mesh.generation !=
+                    nmopt::application::chapter6::MeshGeneration::
+                      framework_native)
+                  throw std::invalid_argument(
+                    "--refinement cannot override a B1 simplex mesh; change its parameter file instead");
+                scenario.compile.mesh.refinement =
+                  *configuration.refinement_override;
+                scenario.compile.mesh.mesh_provenance =
+                  b1_mesh_provenance(scenario.compile.mesh.refinement);
+              }
             scenario.experiment.harness.artifact_directory = output_directory.string();
 
             std::string objective_target_reference_artifact;

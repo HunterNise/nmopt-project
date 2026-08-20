@@ -136,17 +136,29 @@ const auto result = Runner(scenario).run(
 The adapter binds forcing, the polynomial desired state, diffusion, reaction,
 and the per-run regularization value; creates the owned square-domain mesh
 session; compiles the assembled reduced DTO; and dispatches either steepest
-descent or limited-memory BFGS. The returned detached envelope contains the
-compiler manifest, typed solver report, policy snapshot, and environment. The
-registered choices are the frozen manufactured-zero replacement and the
-constant-one hypothesis inferred from the Figure 6.2 extrema. Arbitrary
-recovered data can still use caller-owned `B1RuntimeDataT<dim>`.
+descent or limited-memory BFGS. The mesh selection may be the original refined
+hypercube, a uniformly subdivided triangular mesh, or a triangular mesh in
+which a deterministic subset of base triangles is split at its centroid. The
+last selection exposes the base subdivision count, number of splits, and
+selection seed so that a candidate can match reported cell and vertex counts
+without presenting the source's omitted connectivity as recovered fact.
+Simplex selections currently require the registered continuous homogeneous-
+Dirichlet control target.
+
+The returned detached envelope contains the compiler manifest, typed solver
+report, policy snapshot, and environment. The registered data choices are the
+frozen manufactured-zero replacement and the constant-one hypothesis inferred
+from the Figure 6.2 extrema. Arbitrary recovered data can still use
+caller-owned `B1RuntimeDataT<dim>`.
 
 `parameters/chapter-6/b1/development/continuous-control.prm` is the checked
 candidate motivated by the source's continuous linear control-space statement
-and equal reported state/control/adjoint counts. On the current quadrilateral
+and equal reported state/control/adjoint counts. On the default quadrilateral
 mesh it realizes the conforming `Q1` analogue, not the source's undisclosed
 triangular `P1` mesh, so it is comparison evidence rather than source parity.
+The simplex generators make the corresponding `P1` experiments executable;
+their concrete candidate files are tracked separately from this adapter
+capability.
 The companion `continuous-control-constant-one.prm` changes only the forcing
 to the Figure 6.2 constant-one hypothesis while retaining the same continuous
 control and recovered Figure 6.3 solver policies.

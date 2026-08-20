@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -50,14 +51,40 @@ namespace nmopt::application::chapter6
     matrix_free
   };
 
+  enum class MeshGeneration
+  {
+    framework_native,
+    structured_simplex,
+    centroid_split_simplex
+  };
+
+  inline const char *
+  mesh_generation_name(const MeshGeneration generation)
+  {
+    switch (generation)
+      {
+        case MeshGeneration::framework_native:
+          return "framework-native";
+        case MeshGeneration::structured_simplex:
+          return "structured-simplex";
+        case MeshGeneration::centroid_split_simplex:
+          return "centroid-split-simplex";
+      }
+    throw std::invalid_argument("unknown mesh generation selection");
+  }
+
   // The adapter that executes a scenario maps these values to the concrete
   // compiler::v1 and solver policy types. Keeping the records backend-neutral
   // lets discovery and scenario validation run without deal.II.
   struct MeshOptions
   {
-    unsigned int dimension = 2;
-    unsigned int refinement = 0;
-    std::string  mesh_provenance = "scenario-owned-mesh";
+    MeshGeneration generation = MeshGeneration::framework_native;
+    unsigned int   dimension = 2;
+    unsigned int   refinement = 0;
+    unsigned int   subdivisions = 0;
+    unsigned int   centroid_splits = 0;
+    unsigned int   selection_seed = 0;
+    std::string    mesh_provenance = "scenario-owned-mesh";
   };
 
   struct IterativeSolveOptions
@@ -256,6 +283,47 @@ namespace nmopt::application::chapter6
 
     if (options.mesh.dimension == 0)
       throw std::invalid_argument("benchmark scenarios need a mesh dimension");
+    switch (options.mesh.generation)
+      {
+        case MeshGeneration::framework_native:
+          if (options.mesh.subdivisions != 0 ||
+              options.mesh.centroid_splits != 0 ||
+              options.mesh.selection_seed != 0)
+            throw std::invalid_argument(
+              "framework-native meshes do not use simplex generation parameters");
+          break;
+        case MeshGeneration::structured_simplex:
+          if (options.mesh.dimension != 2 ||
+              options.mesh.subdivisions == 0 ||
+              options.mesh.refinement != 0 ||
+              options.mesh.centroid_splits != 0 ||
+              options.mesh.selection_seed != 0)
+            throw std::invalid_argument(
+              "structured-simplex meshes need a two-dimensional positive subdivision count and no refinement or split parameters");
+          break;
+        case MeshGeneration::centroid_split_simplex:
+          if (options.mesh.dimension != 2 ||
+              options.mesh.subdivisions == 0 ||
+              options.mesh.refinement != 0 ||
+              options.mesh.centroid_splits == 0)
+            throw std::invalid_argument(
+              "centroid-split-simplex meshes need two dimensions, positive subdivisions and splits, and zero refinement");
+          {
+            const auto base_triangle_count =
+              static_cast<std::uint64_t>(options.mesh.subdivisions) *
+              options.mesh.subdivisions;
+            const auto requested_split_count =
+              static_cast<std::uint64_t>(options.mesh.centroid_splits);
+            if (requested_split_count > base_triangle_count &&
+                requested_split_count - base_triangle_count >
+                  base_triangle_count)
+              throw std::invalid_argument(
+                "centroid-split-simplex requests more splits than base triangles");
+          }
+          break;
+        default:
+          throw std::invalid_argument("unknown mesh generation selection");
+      }
     if (options.state_degree == 0)
       throw std::invalid_argument("benchmark scenarios need a positive state degree");
     if (options.mesh.mesh_provenance.empty())
@@ -319,6 +387,11 @@ namespace nmopt::application::chapter6
           throw std::invalid_argument(
             "B1 has an unknown control discretisation");
       }
+    if (scenario.compile.mesh.generation != MeshGeneration::framework_native &&
+        scenario.problem.recipe.discretisation != chapter5::
+          DistributedControlDiscretisation::homogeneous_dirichlet_continuous)
+      throw std::invalid_argument(
+        "B1 simplex meshes require the continuous homogeneous-Dirichlet control target");
     switch (scenario.problem.forcing_selection)
       {
         case B1ForcingSelection::manufactured_zero:
@@ -374,6 +447,9 @@ namespace nmopt::application::chapter6
     scenario.validate();
     validate_common_compile_options(scenario.compile);
     validate_runtime_data(scenario.problem.data);
+    if (scenario.compile.mesh.generation != MeshGeneration::framework_native)
+      throw std::invalid_argument(
+        "B2 supports only its framework-native rectangular mesh");
     if (!std::isfinite(scenario.problem.fixed_temperature))
       throw std::invalid_argument("B2 fixed temperature must be finite");
     if (!std::isfinite(scenario.problem.forcing_value))

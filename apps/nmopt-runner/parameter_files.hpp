@@ -310,6 +310,10 @@ namespace nmopt::application::runner
                                 "refinement",
                                 "provenance"})
         declare_section("Mesh", entry);
+      declare_section("Mesh", "generator", "framework-native");
+      declare_section("Mesh", "subdivisions", "0");
+      declare_section("Mesh", "centroid splits", "0");
+      declare_section("Mesh", "selection seed", "0");
       for (const auto &entry : {"state degree",
                                 "execution",
                                 "product",
@@ -476,6 +480,10 @@ namespace nmopt::application::runner
                                                  "lower",
                                                  "upper",
                                                  "refinement",
+                                                 "generator",
+                                                 "subdivisions",
+                                                 "centroid splits",
+                                                 "selection seed",
                                                  "provenance"}
                       : section == "Compile"
                           ? std::vector<std::string>{"state degree",

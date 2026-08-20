@@ -198,8 +198,12 @@ if(NMOPT_ENABLE_DEAL_II)
       tests/application/chapter6_b1_dealii_contract.cc)
 
     nmopt_add_dealii_test(
-      nmopt_application_chapter6_b2_dealii_contract_test
+    nmopt_application_chapter6_b2_dealii_contract_test
       tests/application/chapter6_b2_dealii_contract.cc)
+
+    nmopt_add_dealii_test(
+      nmopt_application_parameter_files_dealii_contract_test
+      tests/application/parameter_files_dealii_contract.cc)
   endif()
 endif()
 

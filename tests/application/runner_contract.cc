@@ -182,7 +182,7 @@ namespace
     const auto temporary_root =
       std::filesystem::temp_directory_path() / "nmopt-run-manifest-contract";
     std::filesystem::remove_all(temporary_root);
-    const ResolvedRunConfiguration configuration{
+    auto configuration = ResolvedRunConfiguration{
       temporary_root,
       temporary_root / "chapter-6" / "b1" / "development" / "001",
       "b1",
@@ -190,6 +190,16 @@ namespace
       "test-revision",
       RunKind::development,
       1};
+    configuration.parameter_file = "parameters/example.prm";
+    configuration.parameter_hash = "fnv1a64:test";
+    configuration.plotting_profile_file = "parameters/plotting/example.json";
+    configuration.plotting_profile_hash = "fnv1a64:plot";
+    configuration.parameter_selection = "method=l-bfgs";
+    configuration.declared_matrix = "method=steepest-descent,l-bfgs";
+    configuration.resolved_combinations = "[method=l-bfgs]";
+    configuration.comparison_rows = "method";
+    configuration.comparison_columns = "regularisation";
+    configuration.comparison_group_by = "none";
     const std::vector<std::string> expected{
       "artifacts/steepest-descent/beta-1e-1/artifact.kv",
       "artifacts/steepest-descent/beta-1e-2/artifact.kv"};
@@ -202,6 +212,12 @@ namespace
             "new run manifests should start in running state");
     require(running.find("\"pending_count\": 2") != std::string::npos,
             "new run manifests should inventory pending artifacts");
+    require(running.find("\"content_hash\": \"fnv1a64:test\"") !=
+              std::string::npos,
+            "run manifests should retain parameter provenance");
+    require(running.find("\"resolved_comparison\": {\"rows\": \"method\"") !=
+              std::string::npos,
+            "run manifests should retain the comparison plan");
 
     manifest.record_success(
       configuration.run_directory / expected.front());

@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace nmopt::application::runner
@@ -48,14 +49,35 @@ namespace nmopt::application::runner
     bool                  run_b1 = false;
     bool                  run_b2 = false;
     bool                  help = false;
+    bool                  output_directory_explicit = false;
+    bool                  run_kind_explicit = false;
     RunKind               run_kind = RunKind::reproduction;
     std::filesystem::path output_directory = "runs";
     std::string            framework_revision;
+    std::optional<std::filesystem::path> parameter_file;
+    std::vector<std::pair<std::string, std::string>> selection_filters;
     std::optional<unsigned int> refinement_override;
   };
 
   struct ResolvedRunConfiguration
   {
+    ResolvedRunConfiguration(
+      const std::filesystem::path       output_root_value,
+      const std::filesystem::path       run_directory_value,
+      const std::string                 benchmark_value,
+      const std::string                 build_profile_value,
+      const std::string                 framework_revision_value,
+      const RunKind                      run_kind_value,
+      const std::optional<unsigned int> refinement_override_value)
+      : output_root(output_root_value)
+      , run_directory(run_directory_value)
+      , benchmark(benchmark_value)
+      , build_profile(build_profile_value)
+      , framework_revision(framework_revision_value)
+      , run_kind(run_kind_value)
+      , refinement_override(refinement_override_value)
+    {}
+
     std::filesystem::path        output_root;
     std::filesystem::path        run_directory;
     std::string                  benchmark;
@@ -63,6 +85,16 @@ namespace nmopt::application::runner
     std::string                  framework_revision;
     RunKind                      run_kind = RunKind::reproduction;
     std::optional<unsigned int>  refinement_override;
+    std::filesystem::path        parameter_file;
+    std::string                  parameter_hash;
+    std::filesystem::path        plotting_profile_file;
+    std::string                  plotting_profile_hash;
+    std::string                  parameter_selection;
+    std::string                  declared_matrix;
+    std::string                  resolved_combinations;
+    std::string                  comparison_rows;
+    std::string                  comparison_columns;
+    std::string                  comparison_group_by;
   };
 
   inline CommandLineOptions
@@ -95,6 +127,33 @@ namespace nmopt::application::runner
             options.run_b2 = benchmark == "b2";
             continue;
           }
+        if (argument == "--parameter-file")
+          {
+            if (index + 1 >= argc)
+              throw std::invalid_argument(
+                "--parameter-file needs a file argument");
+            const std::filesystem::path path(argv[++index]);
+            if (path.empty())
+              throw std::invalid_argument(
+                "--parameter-file needs a nonempty file argument");
+            options.parameter_file = path;
+            continue;
+          }
+        if (argument == "--select")
+          {
+            if (index + 1 >= argc)
+              throw std::invalid_argument(
+                "--select needs an axis=value argument");
+            const std::string expression(argv[++index]);
+            const auto        separator = expression.find('=');
+            if (separator == std::string::npos || separator == 0 ||
+                separator + 1 == expression.size())
+              throw std::invalid_argument(
+                "--select needs an axis=value argument");
+            options.selection_filters.emplace_back(
+              expression.substr(0, separator), expression.substr(separator + 1));
+            continue;
+          }
         if (argument == "--output")
           {
             if (index + 1 >= argc)
@@ -104,6 +163,7 @@ namespace nmopt::application::runner
             if (options.output_directory.empty())
               throw std::invalid_argument(
                 "--output needs a nonempty directory argument");
+            options.output_directory_explicit = true;
             continue;
           }
         if (argument == "--run-kind")
@@ -112,6 +172,7 @@ namespace nmopt::application::runner
               throw std::invalid_argument(
                 "--run-kind needs a kind argument");
             options.run_kind = parse_run_kind(argv[++index]);
+            options.run_kind_explicit = true;
             continue;
           }
         if (argument == "--framework-revision")
@@ -146,19 +207,27 @@ namespace nmopt::application::runner
                                     std::string(argument) + "'");
       }
 
-    if (options.list && (options.run_b1 || options.run_b2))
+    if (options.list &&
+        (options.run_b1 || options.run_b2 || options.parameter_file.has_value()))
       throw std::invalid_argument(
-        "--list and --benchmark cannot be selected together");
+        "--list and a run selection cannot be selected together");
+    if (options.parameter_file.has_value() && (options.run_b1 || options.run_b2))
+      throw std::invalid_argument(
+        "use either --parameter-file or --benchmark, not both");
     if (options.run_b1 && options.run_b2)
       throw std::invalid_argument(
         "select only one benchmark per runner invocation");
-    if (!options.help && !options.list && !options.run_b1 && !options.run_b2)
+    if (!options.help && !options.list && !options.run_b1 && !options.run_b2 &&
+        !options.parameter_file.has_value())
       throw std::invalid_argument(
-        "select --list, --benchmark b1/b2, or --help");
-    if ((options.run_b1 || options.run_b2) &&
+        "select --list, --parameter-file, --benchmark b1/b2, or --help");
+    if ((options.run_b1 || options.run_b2 || options.parameter_file.has_value()) &&
         options.framework_revision.empty())
       throw std::invalid_argument(
         "benchmark runs require --framework-revision for provenance");
+    if (options.parameter_file.has_value() && options.run_kind_explicit)
+      throw std::invalid_argument(
+        "the parameter file owns run kind; use a file-specific development family");
     return options;
   }
 
@@ -234,13 +303,13 @@ namespace nmopt::application::runner
         ? benchmark_directory / "authoritative"
         : next_development_directory(benchmark_directory);
 
-    return {options.output_directory,
-            run_directory,
-            benchmark,
-            build_profile,
-            framework_revision,
-            options.run_kind,
-            options.refinement_override};
+    return ResolvedRunConfiguration(options.output_directory,
+                                    run_directory,
+                                    benchmark,
+                                    build_profile,
+                                    framework_revision,
+                                    options.run_kind,
+                                    options.refinement_override);
   }
 
   inline std::filesystem::path
@@ -342,6 +411,16 @@ namespace nmopt::application::runner
       , framework_revision_(configuration.framework_revision)
       , run_kind_(run_kind_name(configuration.run_kind))
       , refinement_override_(configuration.refinement_override)
+      , parameter_file_(configuration.parameter_file)
+      , parameter_hash_(configuration.parameter_hash)
+      , plotting_profile_file_(configuration.plotting_profile_file)
+      , plotting_profile_hash_(configuration.plotting_profile_hash)
+      , parameter_selection_(configuration.parameter_selection)
+      , declared_matrix_(configuration.declared_matrix)
+      , resolved_combinations_(configuration.resolved_combinations)
+      , comparison_rows_(configuration.comparison_rows)
+      , comparison_columns_(configuration.comparison_columns)
+      , comparison_group_by_(configuration.comparison_group_by)
       , command_(command)
     {
       std::filesystem::create_directories(run_directory_);
@@ -471,6 +550,24 @@ namespace nmopt::application::runner
       else
         output << "null";
       output << ",\n"
+             << "  \"parameters\": {\"file\": "
+             << json_string(parameter_file_.string())
+             << ", \"content_hash\": " << json_string(parameter_hash_)
+             << ", \"selection\": "
+             << json_string(parameter_selection_)
+             << ", \"declared_matrix\": "
+             << json_string(declared_matrix_)
+             << ", \"resolved_combinations\": "
+             << json_string(resolved_combinations_) << "},\n"
+             << "  \"plotting\": {\"profile_file\": "
+             << json_string(plotting_profile_file_.string())
+             << ", \"content_hash\": "
+             << json_string(plotting_profile_hash_)
+             << ", \"resolved_comparison\": {\"rows\": "
+             << json_string(comparison_rows_)
+             << ", \"columns\": " << json_string(comparison_columns_)
+             << ", \"group_by\": "
+             << json_string(comparison_group_by_) << "}},\n"
              << "  \"command\": [";
       for (std::size_t index = 0; index < command_.size(); ++index)
         {
@@ -508,6 +605,16 @@ namespace nmopt::application::runner
     std::string                     framework_revision_;
     std::string                     run_kind_;
     std::optional<unsigned int>     refinement_override_;
+    std::filesystem::path           parameter_file_;
+    std::string                     parameter_hash_;
+    std::filesystem::path           plotting_profile_file_;
+    std::string                     plotting_profile_hash_;
+    std::string                     parameter_selection_;
+    std::string                     declared_matrix_;
+    std::string                     resolved_combinations_;
+    std::string                     comparison_rows_;
+    std::string                     comparison_columns_;
+    std::string                     comparison_group_by_;
     std::vector<std::string>        command_;
     std::vector<RunArtifactRecord>  records_;
     bool                            finalized_ = false;

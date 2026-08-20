@@ -112,9 +112,17 @@ or undisclosed discrete realization.
 | Steepest descent | $10^{-3}$ | $10^{-5}$ | `0.7` | `5` | `0.2` |
 | L-BFGS | $10^{-8}$ | $10^{-5}$ | `0.7` | `5` | `0.01` |
 
-The minimum-step values are benchmark declarations because the generic solver
-does not expose them as active options. Artifacts must distinguish a declared
-policy from the behavior actually executed.
+The authoritative file retains these values as provenance-only declarations,
+so its previously frozen behavior does not change. New parameter files use
+the distinct operative `minimum step length` entry when a floor is intended;
+artifacts distinguish the declaration from the executed value.
+
+The development family `figure-6.3-book-policy.prm` encodes the recovered
+Figure 6.3 conventions separately: five Armijo reductions (six possible
+trials), operative floors `0.2` and `0.01`, and L-BFGS termination at the
+terminal steepest-descent objective for the same regularisation value. The
+runner executes the reference method first and records the exact artifact
+that supplied each dependent objective target.
 
 ### Acceptance evidence
 

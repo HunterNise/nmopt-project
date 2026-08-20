@@ -32,6 +32,15 @@ namespace
               .size() == 1,
             "B1 selection filters should resolve one combination");
 
+    const auto figure_6_3 = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b1/development/figure-6.3-book-policy.prm"));
+    require(figure_6_3.combinations().size() == 6,
+            "Figure 6.3 family should expand to six combinations");
+    require(figure_6_3.value("Solver/maximum backtracking reductions") == "5" &&
+              figure_6_3.value("Solver/objective target policy") ==
+                "match-reference-method",
+            "Figure 6.3 family lost the recovered book solver policy");
+
     const auto b2 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
     require(b2.matrix.size() == 2, "B2 should declare independent axes");

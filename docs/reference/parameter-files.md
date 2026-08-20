@@ -20,6 +20,8 @@ parameters/
   chapter-6/
     b1/
       authoritative.prm
+      development/
+        figure-6.3-book-policy.prm
     b2/
       authoritative.prm
       development/
@@ -55,6 +57,22 @@ The proposed `.prm` sections are:
 | `Run` | Authoritative/development policy, build profile, output root, and harness behavior. |
 | `Output` | Retained native fields and artifact output policy. |
 | `Postprocessing` | Plot-style reference and matrix-axis binding for comparisons. |
+
+`Solver/maximum line search trials` counts all attempted steps, including the
+initial one. `Solver/maximum backtracking reductions` is the source-facing
+alternative and maps to one additional possible trial; a file must not set
+both. `minimum step length` is operative, while the legacy
+`declared minimum step length` remains provenance-only for stale benchmark
+files.
+
+An `objective target policy` of `explicit` consumes the numeric
+`objective target`. The B1-only `match-reference-method` policy instead runs
+the named `objective target reference method` first for every regularisation
+value and passes its gradient-tolerance terminal cost to the dependent
+method. Filtering out the required reference artifact is an error rather than
+an implicit extra run. L-BFGS method-policy subsections may also set `memory`,
+`curvature tolerance`, and `initial inverse Hessian scaling` to
+`metric-inverse` or `scalar-secant`.
 
 The exact `ParameterHandler` declarations will use typed patterns. Strings
 such as function IDs and method names are registry selections, not arbitrary
@@ -191,6 +209,7 @@ different profile is an explicit derived-output override.
 ## Examples
 
 - [B1 authoritative parameter family](../../parameters/chapter-6/b1/authoritative.prm)
+- [B1 Figure 6.3 solver-policy family](../../parameters/chapter-6/b1/development/figure-6.3-book-policy.prm)
 - [B2 authoritative parameter family](../../parameters/chapter-6/b2/authoritative.prm)
 - [B2 development forcing sweep](../../parameters/chapter-6/b2/development/forcing-sweep.prm)
 - [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json)

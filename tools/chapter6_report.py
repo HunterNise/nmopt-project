@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build deterministic Chapter 6 benchmark summaries and SVG plots.
+"""Build deterministic Chapter 6 benchmark summaries.
 
 The report consumes the runner's persisted ``artifact.kv`` files and the
 optional ``solver-trace.csv`` sidecars.  It deliberately has no third-party
@@ -409,11 +409,127 @@ def markdown_cell(value: str) -> str:
     return value.replace("|", "\\|").replace("\n", " ")
 
 
+def display_beta(value: str) -> str:
+    try:
+        rendered = f"{float(value):.0e}"
+    except ValueError:
+        return value
+    return rendered.replace("e-0", "e-").replace("e+0", "e+")
+
+
+def display_method(value: str) -> str:
+    labels = {
+        "steepest_descent": "Steepest descent",
+        "steepest-descent": "Steepest descent",
+        "limited_memory_bfgs": "L-BFGS",
+        "l-bfgs": "L-BFGS",
+        "bfgs": "BFGS",
+    }
+    return labels.get(value, value)
+
+
+def comparison_cell(run: Run) -> str:
+    if run.artifact_status != "ok":
+        return f"{run.artifact_status}: {run.diagnostic or 'no diagnostic'}"
+    objective = (
+        format_number(run.objective_history[-1])
+        if run.objective_history
+        else value_or_na(run.values, "solver.final_objective")
+    )
+    gradient = (
+        format_number(run.gradient_history[-1])
+        if run.gradient_history
+        else "n/a"
+    )
+    iterations = value_or_na(run.values, "solver.accepted_iterations")
+    stopping = value_or_na(run.values, "solver.stopping_reason")
+    return f"J={objective}; grad={gradient}; it={iterations}; stop={stopping}"
+
+
+def comparison_table_lines(runs: Sequence[Run]) -> list[str]:
+    """Lay out the active case matrix instead of repeating artifact columns."""
+
+    b1_runs = [
+        run for run in runs if run.scenario == "chapter-6.b1.distributed-laplace"
+    ]
+    if b1_runs:
+        method_order = {
+            "steepest_descent": 0,
+            "steepest-descent": 0,
+            "limited_memory_bfgs": 1,
+            "l-bfgs": 1,
+            "bfgs": 2,
+        }
+        methods = sorted(
+            {run.method_or_case for run in b1_runs},
+            key=lambda method: (method_order.get(method, 99), method),
+        )
+        by_beta: dict[str, dict[str, Run]] = {}
+        beta_values: dict[str, float] = {}
+        for run in b1_runs:
+            beta = run.regularisation
+            try:
+                beta_values[beta] = float(beta)
+            except ValueError:
+                beta_values[beta] = math.inf
+            by_beta.setdefault(beta, {})[run.method_or_case] = run
+
+        betas = sorted(
+            by_beta, key=lambda value: beta_values[value], reverse=True
+        )
+        lines = [
+            "| method | " + " | ".join(display_beta(beta) for beta in betas) + " |",
+            "| --- | " + " | ".join("---" for _ in betas) + " |",
+        ]
+        for method in methods:
+            cells = [
+                comparison_cell(by_beta[beta].get(method))
+                if method in by_beta[beta]
+                else "n/a"
+                for beta in betas
+            ]
+            lines.append(
+                "| " + " | ".join(
+                    [display_method(method), *(markdown_cell(cell) for cell in cells)]
+                ) + " |"
+            )
+        return lines
+
+    lines = [
+        "| case | regularisation | final objective | final gradient | iterations | stopping |",
+        "| --- | ---: | ---: | ---: | ---: | --- |",
+    ]
+    for run in runs:
+        final_objective = (
+            format_number(run.objective_history[-1])
+            if run.objective_history
+            else value_or_na(run.values, "solver.final_objective")
+        )
+        final_gradient = (
+            format_number(run.gradient_history[-1])
+            if run.gradient_history
+            else "n/a"
+        )
+        lines.append(
+            "| " + " | ".join(
+                markdown_cell(value)
+                for value in (
+                    run.method_or_case,
+                    run.regularisation,
+                    final_objective,
+                    final_gradient,
+                    value_or_na(run.values, "solver.accepted_iterations"),
+                    value_or_na(run.values, "solver.stopping_reason"),
+                )
+            ) + " |"
+        )
+    return lines
+
+
 def write_summary_markdown(
     path: Path,
     input_root: Path,
     runs: Sequence[Run],
-    rows: Sequence[dict[str, str]],
     manifest: Optional[RunManifest],
 ) -> None:
     successful = sum(run.artifact_status == "ok" for run in runs)
@@ -446,14 +562,14 @@ def write_summary_markdown(
             "The report is a deterministic projection of persisted runner outputs. It does "
             "not rerun a benchmark or infer values that are absent from an artifact.",
             "",
-            "## Run summary",
+            "## Case comparison",
             "",
-            "| " + " | ".join(SUMMARY_FIELDS) + " |",
-            "| " + " | ".join("---" for _ in SUMMARY_FIELDS) + " |",
+            "The table is arranged by the benchmark's case combinations. The complete "
+            "artifact-level record is retained in `summary.csv`.",
+            "",
         ]
     )
-    for row in rows:
-        lines.append("| " + " | ".join(markdown_cell(row[key]) for key in SUMMARY_FIELDS) + " |")
+    lines.extend(comparison_table_lines(runs))
 
     incomplete = [run for run in runs if run.artifact_status != "ok"]
     missing_trace = [
@@ -469,8 +585,6 @@ def write_summary_markdown(
             "",
             "## Artifact inventory",
             "",
-            f"- Objective-history plot: `objective-history.svg`",
-            f"- Armijo trial plot: `armijo-trials.svg`",
             f"- Machine-readable table: `summary.csv`",
         ]
     )
@@ -662,20 +776,7 @@ def build_report(
     rows = [summary_row(run, input_root) for run in runs]
     write_summary_csv(output_root / "summary.csv", rows)
     write_summary_markdown(
-        output_root / "summary.md", input_root, runs, rows, manifest
-    )
-    write_line_plot(
-        output_root / "objective-history.svg",
-        "Chapter 6 objective histories",
-        "objective",
-        objective_series(runs),
-    )
-    write_line_plot(
-        output_root / "armijo-trials.svg",
-        "Chapter 6 Armijo trial objectives",
-        "trial objective",
-        trace_series(runs),
-        log_y=True,
+        output_root / "summary.md", input_root, runs, manifest
     )
 
 

@@ -45,6 +45,7 @@ class PostprocessProfile:
     field_title: Callable[[dict[str, str], FieldSpec], str]
     comparison_group: Callable[[dict[str, str]], str]
     comparison_title: Callable[[FieldSpec], str]
+    comparison_sort_key: Callable[[dict[str, str]], tuple[object, ...]] | None = None
     missing_fields_message: str = "no configured fields found"
 
 
@@ -105,6 +106,12 @@ def build_comparisons(
     generated: dict[str, dict[str, list[str]]] = {}
     errors: dict[str, dict[str, str]] = {}
     for group, group_artifacts in grouped.items():
+        if profile.comparison_sort_key is not None:
+            group_artifacts.sort(
+                key=lambda artifact: profile.comparison_sort_key(
+                    read_metadata(artifact)
+                )
+            )
         comparison_dir = output_root / "comparisons" / group
         comparison_dir.mkdir(parents=True, exist_ok=True)
         group_generated: dict[str, list[str]] = {}

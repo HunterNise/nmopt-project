@@ -32,6 +32,11 @@ from .geometry import boundary_field_block, triangulate, volume_block
 OutputFormat = Literal["png", "svg"]
 OutputFormats = tuple[OutputFormat, ...]
 DEFAULT_OUTPUT_FORMATS: OutputFormats = ("png",)
+# The comparison policy requested for the Chapter 6 reproduction is the
+# perceptually smoother ``turbo`` map, applied consistently to individual and
+# comparison panels.
+BOOK_COLORMAP = "turbo"
+COLORBAR_TICK_COUNT = 5
 
 
 @dataclass(frozen=True)
@@ -41,6 +46,27 @@ class RenderItem:
     label: str
     mesh: meshio.Mesh
     field: ScalarField
+
+
+def field_norm(values: np.ndarray) -> Normalize:
+    """Create a finite-value scale whose limits are the field extrema."""
+
+    finite_values = values[np.isfinite(values)]
+    if len(finite_values) == 0:
+        raise PostprocessError("field contains no finite values")
+    lower = float(np.min(finite_values))
+    upper = float(np.max(finite_values))
+    if lower == upper:
+        padding = max(abs(lower) * 0.05, 1.0e-12)
+        lower -= padding
+        upper += padding
+    return Normalize(vmin=lower, vmax=upper)
+
+
+def colorbar_ticks(norm: Normalize) -> np.ndarray:
+    """Include both extrema while retaining a compact interior scale."""
+
+    return np.linspace(norm.vmin, norm.vmax, COLORBAR_TICK_COUNT)
 
 
 def save_figure(
@@ -94,7 +120,7 @@ def draw_volume_field(
             triangulation,
             field.values,
             shading="gouraud",
-            cmap="viridis",
+            cmap=BOOK_COLORMAP,
             norm=norm,
         )
     else:
@@ -102,10 +128,12 @@ def draw_volume_field(
             triangulation,
             facecolors=field.values[owners],
             shading="flat",
-            cmap="viridis",
+            cmap=BOOK_COLORMAP,
             norm=norm,
         )
-    axis.triplot(triangulation, color="black", linewidth=0.25, alpha=0.25)
+    # Keep scalar-field renders free of a mesh overlay so the field can be
+    # compared with the source raster figures. The native VTU remains the
+    # authoritative place to inspect the realized topology.
     axis.set_aspect("equal")
     axis.set_xlabel("x")
     axis.set_ylabel("y")
@@ -123,9 +151,15 @@ def plot_volume_field(
     """Render one scalar volume field in the selected formats."""
 
     figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
-    image = draw_volume_field(axis, mesh, field)
+    norm = field_norm(field.values)
+    image = draw_volume_field(axis, mesh, field, norm)
     axis.set_title(title)
-    figure.colorbar(image, ax=axis, label=colorbar_label or field.name)
+    figure.colorbar(
+        image,
+        ax=axis,
+        ticks=colorbar_ticks(norm),
+        label=colorbar_label or field.name,
+    )
     return save_figure(figure, output, output_formats)
 
 
@@ -148,7 +182,7 @@ def draw_boundary_field(
     collection = LineCollection(
         segments,
         array=field.values,
-        cmap="viridis",
+        cmap=BOOK_COLORMAP,
         linewidths=3.0,
         norm=norm,
     )
@@ -171,33 +205,35 @@ def plot_boundary_field(
     """Render one scalar boundary field in the selected formats."""
 
     figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
-    collection = draw_boundary_field(axis, mesh, field)
+    norm = field_norm(field.values)
+    collection = draw_boundary_field(axis, mesh, field, norm)
     axis.set_title(title)
-    figure.colorbar(collection, ax=axis, label=colorbar_label or field.name)
+    figure.colorbar(
+        collection,
+        ax=axis,
+        ticks=colorbar_ticks(norm),
+        label=colorbar_label or field.name,
+    )
     return save_figure(figure, output, output_formats)
 
 
 def comparison_norm(items: list[RenderItem]) -> Normalize:
     """Create one finite-value color scale shared by comparison panels."""
 
-    finite_values = [
-        item.field.values[np.isfinite(item.field.values)] for item in items
-    ]
+    finite_values = [item.field.values[np.isfinite(item.field.values)] for item in items]
     values = np.concatenate([array for array in finite_values if len(array)])
     if len(values) == 0:
         raise PostprocessError("comparison field contains no finite values")
-    lower = float(np.min(values))
-    upper = float(np.max(values))
-    if lower == upper:
-        padding = max(abs(lower) * 0.05, 1.0e-12)
-        lower -= padding
-        upper += padding
-    return Normalize(vmin=lower, vmax=upper)
+    return field_norm(values)
 
 
 def comparison_layout(count: int) -> tuple[int, int]:
-    """Choose a compact comparison grid with at most three columns."""
+    """Choose a compact comparison grid for the active case matrix."""
 
+    if count == 8:
+        return 2, 4
+    if count == 4:
+        return 2, 2
     columns = min(3, count)
     rows = (count + columns - 1) // columns
     return rows, columns
@@ -235,6 +271,7 @@ def plot_volume_comparison(
     figure.colorbar(
         image,
         ax=axes.ravel().tolist(),
+        ticks=colorbar_ticks(norm),
         label=colorbar_label or field_name,
     )
     return save_figure(figure, output, output_formats)
@@ -271,6 +308,7 @@ def plot_boundary_comparison(
     figure.colorbar(
         collection,
         ax=axes.ravel().tolist(),
+        ticks=colorbar_ticks(norm),
         label=colorbar_label or items[0].field.name,
     )
     return save_figure(figure, output, output_formats)

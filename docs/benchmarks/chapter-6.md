@@ -98,7 +98,7 @@ runtime ports, and backend construction.
 | Forcing replacement | Manufactured zero forcing; absolute objective values are not compared with the source. |
 | Forcing provenance | `chapter-6.e6.5.1.manufactured-zero-forcing` |
 | Mesh policy | Framework-native unit-square hypercube, source-sized `refine_global(7)`; the realized mesh and provenance remain manifest data. |
-| Regularisation matrix | $\beta\in\{10^{-1},10^{-2},10^{-3}\}$; the $\beta=10^{-6}$ field illustration is excluded. |
+| Regularisation matrix | $\beta\in\{10^{-1},10^{-2},10^{-3},10^{-6}\}$, including the source's small-regularisation field illustration. |
 | Methods | Steepest descent and limited-memory BFGS from the same zero control. |
 
 The benchmark uses the current B1 scenario's declared finite elements, control
@@ -118,7 +118,7 @@ policy from the behavior actually executed.
 
 ### Acceptance evidence
 
-The matrix contains six artifacts: three regularisation values times two
+The matrix contains eight artifacts: four regularisation values times two
 methods. Each artifact must retain:
 
 - objective and tracking histories and final values;

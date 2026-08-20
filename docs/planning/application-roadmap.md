@@ -58,8 +58,8 @@ The roadmap distinguishes these states:
 | Runner and run sets | Implemented | `nmopt_runner` resolves benchmark, run kind, build profile, revision, and optional refinement; it writes manifests, artifacts, failures, and native outputs. |
 | B0 artifact boundary | Implemented and contract-tested | The deterministic `nmopt-benchmark-v1` projection, manifest records, provenance fields, selected fields, and failure visibility are present. |
 | Native deal.II output | Implemented for B1/B2 | B1 writes volume mesh/fields; B2 additionally writes facewise control on the boundary topology, together with solver traces and mesh previews. |
-| Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. Scientific visual parity is not yet signed off. |
-| B1 framework-native execution | Framework-verified | The six-artifact `release-dealii`, refinement-7 matrix and Hessian evidence exist. Correct reproduction of the published figures still needs an explicit visual/data audit. |
+| Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. The renderer now uses `turbo` and explicit field-extrema colorbar endpoints; scientific visual parity is not yet signed off. |
+| B1 framework-native execution | Framework-verified; active matrix expanded | The existing six-artifact `release-dealii`, refinement-7 matrix and Hessian evidence remain available; the active B1 matrix now includes the source's $\beta=10^{-6}$ field case, while the authoritative release refresh remains gated by the reproduction audit. |
 | B2 framework-native execution | Framework-verified; reproduction audit open | The four-artifact release matrix exists, while the newer derivative-evidence fields are present in a refinement-6 development run rather than the authoritative release set. The source-sized release artifacts need a refresh after the audit. |
 | Parameter files | Planned | No stable Deal.II-style `.prm` boundary exists yet. |
 | Later Chapter 6 benchmarks | Planned | B3/B4 are the next selected benchmark families after B1/B2 reproduction is resolved; B5/B6 remain later. |
@@ -112,7 +112,7 @@ nmopt_runner
   -> tools/postprocess.py
   -> artifact plots, postprocess.json, comparison plots, postprocess-index.json
   -> tools/chapter6_report.py
-  -> summary.csv, summary.md, objective-history.svg, armijo-trials.svg
+  -> summary.csv, summary.md
 ```
 
 The current tooling has these responsibilities:
@@ -122,7 +122,8 @@ The current tooling has these responsibilities:
   report. It is a convenience wrapper, not a build system.
 - `tools/postprocess.py` is the profile-driven entry point. The `chapter6`
   profile reads `fields-volume.vtu` and `control-boundary.vtu`, extracts
-  state, adjoint, and control fields, and supports PNG or SVG output.
+  state, target, forcing, native and book-sign adjoints, and control fields,
+  and supports PNG output for the current reproduction workflow.
 - `tools/nmopt_postprocess/` contains the reusable mesh, field, rendering,
   comparison, and profile code. Run-root comparisons are grouped by scenario
   family so B1 and B2 are not combined accidentally.
@@ -130,11 +131,11 @@ The current tooling has these responsibilities:
   rerunning a solver or inferring missing values. It retains failed, pending,
   and missing manifest entries in the report.
 
-The current renderer uses Matplotlib's `viridis` colormap, point-field
-Gouraud interpolation, cell-field flat shading, and a shared finite-value
-normalization for comparison panels. These are current implementation defaults,
-not claims about the book's plotting configuration. Their scientific
-adequacy is part of the next reproduction unit.
+The current renderer uses Matplotlib's `turbo` colormap, point-field Gouraud
+interpolation, cell-field flat shading, no volume mesh-edge overlay, and a
+shared finite-value normalization for comparison panels. These are current
+implementation defaults, not claims about the book's plotting configuration.
+Their scientific adequacy is part of the next reproduction unit.
 
 ## Work units
 
@@ -218,7 +219,8 @@ Python rendering or format conversion.
 **Work completed:**
 
 - B1 writes `native/mesh-volume.vtu`, `native/mesh-volume.svg`, and
-  `native/fields-volume.vtu`.
+  `native/fields-volume.vtu`, including state, target, forcing, native
+  adjoint, book-sign adjoint, and control fields.
 - B2 writes the same volume outputs plus
   `native/control-boundary.vtu` for its facewise control.
 - Solver Armijo trials are retained in `solver-trace.csv`.
@@ -272,7 +274,8 @@ making post-processing a second numerical implementation.
 - Single-artifact and run-root processing are available through
   `tools/postprocess.py`.
 - The Chapter 6 profile handles volume state/adjoint/control and boundary
-  control fields.
+  control fields; B2 additionally exports and plots the zero-control state,
+  target, forcing, and observation-domain mask.
 - PNG and SVG output, artifact-local manifests, run-root indexes, and
   grouped comparisons are available.
 - `chapter6_report.py` generates deterministic CSV/Markdown summaries and
@@ -293,7 +296,7 @@ source is understood. The plumbing is met; the visual criterion is not.
 
 ### A6 — Correctly reproduce B1 and B2
 
-**Status:** next task; not started.
+**Status:** in progress; development-only evidence is being audited.
 
 **Purpose:** Establish whether the current framework-native fields and plots
 represent the same mathematical quantities and visual conventions as the
@@ -308,19 +311,27 @@ book's B1/B2 figures.
 2. Inspect raw native values before plotting. Compare VTU field names, ranges,
    extrema, mesh orientation, and point/cell association against the state,
    adjoint, and control quantities selected by the benchmark contract.
-3. Reproduce the current PNG from the same VTU input with controlled changes to
+3. Render the B1 input functions as first-class comparison evidence: the
+   desired state and forcing, with their provenance and the same coordinate
+   orientation as the native fields. A zero forcing must still be visible as a
+   field with an explicit zero range rather than inferred from the PDE name.
+4. Reproduce the current PNG from the same VTU input with controlled changes to
    colormap, normalization, interpolation, axis orientation, and colorbar.
-   Determine whether the apparent inversion is numerical, a sign/orientation
-   issue, or only a display convention.
-4. Compare the current `viridis` renderer with the palette and scaling visible
-   in the book figures. If the source plotting configuration is unavailable,
-   record that omission and choose/document a stable comparison policy rather
-   than silently tuning colors.
-5. If the raw field is wrong, trace the issue through native export, boundary
+   Include the exact field extrema as colorbar endpoints.
+5. Compare the source-like blue-cyan-green-yellow-red colormap with the
+   selected renderer policy. The current reproduction policy is `turbo`; the
+   source plotting configuration remains unavailable, so palette equivalence
+   is visual rather than a recovered plotting setting.
+6. Keep the native framework adjoint `p` unchanged, and add a comparison-only
+   book-convention field `p_book=-p` when comparing against the source figures.
+   Record this transformation in the plot metadata; never overwrite the raw
+   adjoint field.
+7. If the raw field is wrong, trace the issue through native export, boundary
    orientation, target/observation realization, and PDE/adjoint conventions.
    If the raw field is correct and only rendering differs, make the smallest
    post-processing change and add a focused regression check.
-6. Regenerate development plots, then request the explicit release policy
+8. Regenerate development plots, including the B1 $\beta=10^{-6}$ case, then
+   request the explicit release policy
    before refreshing the B1/B2 authoritative matrices. Update the report and
    benchmark handoff with the result.
 
@@ -328,8 +339,11 @@ book's B1/B2 figures.
 
 - the color inversion and palette difference have a documented cause;
 - raw numerical fields and plotted fields have an auditable mapping;
-- B1 and B2 plots use an explicitly documented normalization and colormap
-  policy;
+- the framework adjoint and book-convention adjoint are explicitly separated;
+- B1 and B2 plots use an explicitly documented normalization, endpoint ticks,
+  and colormap policy;
+- B1 input functions are plotted with their provenance and coordinate mapping;
+- the B1 matrix includes the source-referenced $\beta=10^{-6}$ field case;
 - the source-sized matrices are regenerated only after the interpretation is
   settled; and
 - the benchmark report separates framework-native evidence, source comparison,

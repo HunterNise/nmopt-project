@@ -144,11 +144,15 @@ artifacts/<method-or-case>/
   postprocess/                 # when an artifact is processed separately
 ```
 
-`fields-volume.vtu` contains the final state and adjoint, plus the B1 volume
-control. B2 stores its facewise control in `control-boundary.vtu` because the
-boundary topology differs from the volume topology. These are final-state
-exports, not per-iteration output. The mesh SVG is a lightweight 2D preview;
-the VTU files retain the authoritative numerical topology and field data.
+`fields-volume.vtu` contains the final state, the native framework adjoint,
+the comparison-only negative adjoint, and the B1 volume control. B1 also
+exports its target and forcing functions sampled on the state DoFs. B2 stores
+the optimized state, the zero-control state, its target and forcing functions,
+and a cellwise observation-domain mask. Its facewise control is stored in
+`control-boundary.vtu` because the boundary topology differs from the volume
+topology. These are final-state and input-function exports, not per-iteration
+output. The mesh SVG is a lightweight 2D preview; the VTU files retain the
+authoritative numerical topology and field data.
 
 `solver-trace.csv` records line-search trials for diagnostics. It is not a
 field export. Reports and post-processing read persisted artifacts and native
@@ -165,8 +169,9 @@ python3 tools/chapter6_report.py \
 ```
 
 The report retains pending, failed, and missing artifacts in its summary. The
-current report outputs are `summary.csv`, `summary.md`,
-`objective-history.svg`, and `armijo-trials.svg`.
+current report outputs are `summary.csv` and `summary.md`. Field plots are
+generated separately by the post-processing command; only the native mesh
+preview remains SVG.
 
 To render one artifact's native fields:
 

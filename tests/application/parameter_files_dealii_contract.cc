@@ -47,6 +47,16 @@ namespace
                 "match-reference-method",
             "Figure 6.3 family lost the recovered book solver policy");
 
+    const auto continuous_control = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b1/development/continuous-control.prm"));
+    require(continuous_control.combinations().size() == 6 &&
+              continuous_control.value("Problem/control representation") ==
+                "continuous-volume-homogeneous-dirichlet" &&
+              continuous_control.value("Problem/cellwise box constraint") ==
+                "false",
+            "B1 continuous-control family lost its candidate discretisation");
+
     const auto b2 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
     require(b2.matrix.size() == 2, "B2 should declare independent axes");

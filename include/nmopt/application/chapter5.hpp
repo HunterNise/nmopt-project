@@ -4,6 +4,7 @@
 #include "nmopt/application/recipe.hpp"
 #include "nmopt/semantic/v1/reference_specs.hpp"
 
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,9 +25,32 @@ namespace nmopt::application::chapter5
   // These records describe semantic choices only. Runtime Function objects,
   // meshes, compiler policies, and solver policies belong to the separate
   // scenario and backend option records.
+  enum class DistributedControlDiscretisation
+  {
+    cellwise_constant,
+    homogeneous_dirichlet_continuous
+  };
+
+  inline const char *
+  distributed_control_discretisation_name(
+    const DistributedControlDiscretisation discretisation)
+  {
+    switch (discretisation)
+      {
+        case DistributedControlDiscretisation::cellwise_constant:
+          return "cellwise-volume";
+        case DistributedControlDiscretisation::homogeneous_dirichlet_continuous:
+          return "continuous-volume-homogeneous-dirichlet";
+      }
+    throw std::invalid_argument(
+      "unknown distributed-control discretisation");
+  }
+
   struct ScalarDistributedControlParameters
   {
     bool with_cellwise_box = false;
+    DistributedControlDiscretisation discretisation =
+      DistributedControlDiscretisation::cellwise_constant;
   };
 
   struct GeneralScalarParameters
@@ -69,10 +93,23 @@ namespace nmopt::application::chapter5
        "Scalar diffusion-reaction volume control",
        "Chapter 5 baseline distributed-control recipe",
        "chapter-5",
-       {"scalar", "volume-control", "l2-cellwise"}},
+       {"scalar", "volume-control", "l2-cellwise", "l2-continuous"}},
       [](const ScalarDistributedControlParameters &parameters) {
-        return semantic::v1::make_scalar_diffusion_reaction_problem(
-          parameters.with_cellwise_box);
+        switch (parameters.discretisation)
+          {
+            case DistributedControlDiscretisation::cellwise_constant:
+              return semantic::v1::make_scalar_diffusion_reaction_problem(
+                parameters.with_cellwise_box);
+            case DistributedControlDiscretisation::
+              homogeneous_dirichlet_continuous:
+              if (parameters.with_cellwise_box)
+                throw std::invalid_argument(
+                  "continuous distributed control does not support the cellwise box");
+              return semantic::v1::
+                make_l2_state_tracking_continuous_control_problem();
+          }
+        throw std::invalid_argument(
+          "distributed-control recipe has an unknown discretisation");
       }};
   }
 

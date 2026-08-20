@@ -545,7 +545,6 @@ namespace
     require_parameter(file,
                       "Benchmark/recipe",
                       chapter6::b1_recipe_id);
-    require_parameter(file, "Problem/control representation", "cellwise-volume");
     require_parameter(file, "Problem/observation", "full-domain");
     require_parameter(file, "Functions/forcing", "manufactured-zero");
     require_parameter(file, "Functions/forcing/kind", "zero");
@@ -562,6 +561,19 @@ namespace
     if (combination.values.size() < 2)
       throw std::invalid_argument("B1 needs method and regularisation matrix axes");
 
+    const auto control_representation =
+      file.value("Problem/control representation");
+    if (control_representation == "cellwise-volume")
+      scenario.problem.recipe.discretisation =
+        chapter5::DistributedControlDiscretisation::cellwise_constant;
+    else if (control_representation ==
+             "continuous-volume-homogeneous-dirichlet")
+      scenario.problem.recipe.discretisation = chapter5::
+        DistributedControlDiscretisation::homogeneous_dirichlet_continuous;
+    else
+      throw std::invalid_argument(
+        "B1 has an unknown control representation '" +
+        control_representation + "'");
     scenario.problem.recipe.with_cellwise_box =
       parameter_bool(file, "Problem/cellwise box constraint");
     scenario.problem.data.diffusion = parameter_double(file, "Runtime/diffusion");
@@ -902,8 +914,34 @@ namespace
     const std::string &objective_target_reference_artifact = {})
   {
     add_common_artifact_fields(evidence, framework_revision);
+    const auto &manifest = evidence.envelope.compilation_manifest();
+    const auto space_dimension = [&manifest](const std::string &semantic_id) {
+      const auto space = std::find_if(
+        manifest.spaces.begin(),
+        manifest.spaces.end(),
+        [&semantic_id](const auto &candidate) {
+          return candidate.semantic_id == semantic_id;
+        });
+      if (space == manifest.spaces.end())
+        throw std::runtime_error(
+          "B1 manifest omitted compiled space '" + semantic_id + "'");
+      return space->dimension;
+    };
     evidence.fields.push_back({"benchmark.method", b1_method_slug(method)});
     evidence.fields.push_back({"benchmark.regularisation", b1_number(beta)});
+    evidence.fields.push_back(
+      {"benchmark.control_discretisation",
+       nmopt::application::chapter5::distributed_control_discretisation_name(
+         scenario.problem.recipe.discretisation)});
+    evidence.fields.push_back(
+      {"benchmark.state_dimension",
+       std::to_string(space_dimension("state_space"))});
+    evidence.fields.push_back(
+      {"benchmark.control_dimension",
+       std::to_string(space_dimension("control_space"))});
+    evidence.fields.push_back(
+      {"benchmark.adjoint_dimension",
+       std::to_string(space_dimension("state_test_space"))});
     evidence.fields.push_back(
       {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
     evidence.fields.push_back(

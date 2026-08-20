@@ -74,6 +74,13 @@ an implicit extra run. L-BFGS method-policy subsections may also set `memory`,
 `curvature tolerance`, and `initial inverse Hessian scaling` to
 `metric-inverse` or `scalar-secant`.
 
+B1 accepts `Problem/control representation` values `cellwise-volume` and
+`continuous-volume-homogeneous-dirichlet`. The former is the authoritative
+`FE_DGQ(0)` choice. The latter uses continuous `FE_Q` at the declared state
+degree, shares the state's homogeneous boundary region, and rejects a
+cellwise box. The effective representation is recorded independently of the
+parameter-file provenance.
+
 The `Compile` section exposes separate maximum iterations, relative tolerance,
 and absolute tolerance entries for the state, adjoint, and control-metric
 solves. A zero state or adjoint iteration limit selects the compiler's

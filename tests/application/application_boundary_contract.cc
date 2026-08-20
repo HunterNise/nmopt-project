@@ -155,6 +155,16 @@ namespace
     require(!distributed_spec.constraints.empty(),
             "distributed recipe did not retain its cellwise box choice");
 
+    auto continuous_parameters =
+      nmopt::application::chapter5::ScalarDistributedControlParameters{};
+    continuous_parameters.discretisation = nmopt::application::chapter5::
+      DistributedControlDiscretisation::homogeneous_dirichlet_continuous;
+    const auto continuous_spec = distributed(continuous_parameters);
+    require(continuous_spec.id ==
+              "scalar_diffusion_reaction_l2_state_tracking_continuous_control" &&
+              continuous_spec.constraints.empty(),
+            "distributed recipe did not select its continuous-control graph");
+
     const auto general = nmopt::application::chapter5::make_general_scalar_recipe();
     const auto general_spec = general(
       nmopt::application::chapter5::GeneralScalarParameters{{0}, {1}, false});
@@ -220,6 +230,10 @@ namespace
     require(b1.problem.data.forcing_provenance ==
               "chapter-6.e6.5.1.manufactured-zero-forcing",
             "B1 did not retain manufactured forcing provenance");
+    require(b1.problem.recipe.discretisation ==
+              nmopt::application::chapter5::
+                DistributedControlDiscretisation::cellwise_constant,
+            "B1 authoritative defaults did not retain cellwise control");
 
     const auto recovered = nmopt::application::chapter6::make_b1_scenario(
       nmopt::application::chapter6::ReducedMethod::steepest_descent,
@@ -244,6 +258,23 @@ namespace
       }
     require(invalid_solve_rejected,
             "B1 accepted a zero control-metric iteration limit");
+
+    auto invalid_continuous_box = b1;
+    invalid_continuous_box.problem.recipe.discretisation =
+      nmopt::application::chapter5::DistributedControlDiscretisation::
+        homogeneous_dirichlet_continuous;
+    invalid_continuous_box.problem.recipe.with_cellwise_box = true;
+    bool invalid_continuous_box_rejected = false;
+    try
+      {
+        nmopt::application::chapter6::validate_b1(invalid_continuous_box);
+      }
+    catch (const std::invalid_argument &)
+      {
+        invalid_continuous_box_rejected = true;
+      }
+    require(invalid_continuous_box_rejected,
+            "B1 accepted a cellwise box on continuous control");
 
     const auto steepest = nmopt::application::chapter6::make_b1_scenario(
       nmopt::application::chapter6::ReducedMethod::steepest_descent);
@@ -304,6 +335,18 @@ namespace
     require(parameter_spec.id == specification.id &&
               parameter_spec.variables.size() == specification.variables.size(),
             "B1 parameter and scenario spec assembly disagree");
+
+    auto continuous_scenario = scenario;
+    continuous_scenario.problem.recipe.discretisation =
+      nmopt::application::chapter5::DistributedControlDiscretisation::
+        homogeneous_dirichlet_continuous;
+    const auto continuous_specification =
+      nmopt::application::chapter6::make_b1_problem_spec(continuous_scenario);
+    require(continuous_specification.id ==
+              "scalar_diffusion_reaction_l2_state_tracking_continuous_control" &&
+              continuous_specification.formulation.metric_id ==
+                "control_l2_metric",
+            "B1 continuous candidate changed the loss or search metric");
   }
 
   void

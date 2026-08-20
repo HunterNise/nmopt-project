@@ -21,9 +21,13 @@ namespace
   }
 
   void
-  run_b1_manufactured_case(const chapter6::ReducedMethod method)
+  run_b1_manufactured_case(
+    const chapter6::ReducedMethod method,
+    const chapter5::DistributedControlDiscretisation discretisation =
+      chapter5::DistributedControlDiscretisation::cellwise_constant)
   {
     auto scenario = chapter6::make_b1_scenario(method);
+    scenario.problem.recipe.discretisation = discretisation;
     scenario.compile.mesh.refinement = 1;
     scenario.problem.regularisation_sweep = {1.0e-2};
     scenario.solver.parameters.maximum_iterations = 20;
@@ -41,7 +45,8 @@ namespace
     const auto native_output_directory =
       std::filesystem::temp_directory_path() /
       ("nmopt-b1-native-contract-" +
-       std::to_string(static_cast<int>(method)));
+       std::to_string(static_cast<int>(method)) + "-" +
+       chapter5::distributed_control_discretisation_name(discretisation));
     std::filesystem::remove_all(native_output_directory);
     chapter6::dealii::B1ReducedExecutionAdapterT<2> execute{
       1.0e-2,
@@ -88,9 +93,26 @@ namespace
               manifest.metric_record.solve_policy.absolute_tolerance ==
                 7.0e-14,
             "B1 dealii adapter did not map the control-metric solve policy");
+    if (discretisation ==
+        chapter5::DistributedControlDiscretisation::
+          homogeneous_dirichlet_continuous)
+      require(manifest.control_space.find(
+                "homogeneous-Dirichlet scalar FE_Q(1)") != std::string::npos &&
+                manifest.metric_solve_policy.find("l2_continuous") !=
+                  std::string::npos,
+              "B1 continuous candidate selected the wrong compiled control");
+    else
+      require(manifest.control_space.find("FE_DGQ(0)") != std::string::npos,
+              "B1 cellwise candidate selected the wrong compiled control");
     require(result.document.find("b1.regularisation_weight=0.01\n") !=
               std::string::npos,
             "B1 dealii adapter omitted regularisation evidence");
+    require(result.document.find(
+              std::string("b1.control_discretisation=") +
+              chapter5::distributed_control_discretisation_name(
+                discretisation) +
+              "\n") != std::string::npos,
+            "B1 dealii adapter omitted control-discretisation evidence");
     require(result.document.find("solver.method=") != std::string::npos,
             "B1 dealii adapter omitted solver-method evidence");
     require(result.document.find(
@@ -157,6 +179,16 @@ main(const int argc, char **argv)
          []() {
            run_b1_manufactured_case(
              nmopt::application::chapter6::ReducedMethod::limited_memory_bfgs);
+         }},
+        {"b1_continuous_control_steepest_descent",
+         "nmopt.application.dealii.b1_continuous_control_steepest_descent",
+         {"dealii", "application", "benchmark", "b1", "contract"},
+         120,
+         []() {
+           run_b1_manufactured_case(
+             nmopt::application::chapter6::ReducedMethod::steepest_descent,
+             nmopt::application::chapter5::DistributedControlDiscretisation::
+               homogeneous_dirichlet_continuous);
          }}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);

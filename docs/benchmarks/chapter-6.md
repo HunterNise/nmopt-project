@@ -98,6 +98,7 @@ runtime ports, and backend construction.
 | Forcing replacement | Manufactured zero forcing; absolute objective values are not compared with the source. |
 | Forcing provenance | `chapter-6.e6.5.1.manufactured-zero-forcing` |
 | Mesh policy | Framework-native unit-square hypercube, source-sized `refine_global(7)`; the realized mesh and provenance remain manifest data. |
+| Control discretisation | Cellwise `FE_DGQ(0)` with the `l2_cellwise` metric. |
 | Linear solves | State and adjoint use identity-preconditioned serial CG with dimension-dependent iteration limits and tolerances `1e-12` relative / `1e-14` absolute; the control mass metric uses at most `1000` iterations with the same tolerances. |
 | Regularisation matrix | $\beta\in\{10^{-1},10^{-2},10^{-3},10^{-6}\}$, including the source's small-regularisation field illustration. |
 | Methods | Steepest descent and limited-memory BFGS from the same zero control. |
@@ -105,6 +106,11 @@ runtime ports, and backend construction.
 The benchmark uses the current B1 scenario's declared finite elements, control
 layout, and runtime bindings. It does not claim parity with the source's mesh
 or undisclosed discrete realization.
+
+The development family `continuous-control.prm` changes only the control
+realization to independent homogeneous-Dirichlet continuous `FE_Q` while
+retaining the $L^{2}$ loss and search metric. This is the current-mesh candidate
+for the source's continuous `P1` clue and is not part of the frozen benchmark.
 
 ### Solver policy
 

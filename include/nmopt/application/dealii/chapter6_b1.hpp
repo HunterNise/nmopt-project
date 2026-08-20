@@ -2,6 +2,7 @@
 
 #include "nmopt/application/chapter6.hpp"
 #include "nmopt/application/runner.hpp"
+#include "nmopt/compiler/v1/dealii_continuous_control.hpp"
 #include "nmopt/compiler/v1/dealii_compiler.hpp"
 #include "nmopt/experiment/reduced_envelope.hpp"
 
@@ -324,7 +325,19 @@ namespace nmopt::application::chapter6::dealii
                const B1Scenario &                 scenario) const
     {
       validate_b1(scenario);
-      if (specification.id != "scalar_diffusion_reaction_volume_control")
+      const auto expected_specification_id = [&scenario]() -> const char * {
+        switch (scenario.problem.recipe.discretisation)
+          {
+            case chapter5::DistributedControlDiscretisation::cellwise_constant:
+              return "scalar_diffusion_reaction_volume_control";
+            case chapter5::DistributedControlDiscretisation::
+              homogeneous_dirichlet_continuous:
+              return "scalar_diffusion_reaction_l2_state_tracking_continuous_control";
+          }
+        throw std::invalid_argument(
+          "B1 execution has an unknown control discretisation");
+      }();
+      if (specification.id != expected_specification_id)
         throw std::invalid_argument(
           "B1 execution received a non-distributed scalar ProblemSpec");
       if (std::find(scenario.problem.regularisation_sweep.begin(),
@@ -388,18 +401,43 @@ namespace nmopt::application::chapter6::dealii
       if (scenario.experiment.retain_fields &&
           !native_output_directory_.empty())
         {
-          const auto *model = dynamic_cast<const
-            nmopt::dealii_backend::ScalarDiffusionReactionModel<dim> *>(
-            &compilation.problem->executable_model());
-          if (model == nullptr)
-            throw std::runtime_error(
-              "B1 native output needs the direct scalar diffusion model");
-          model->write_native_output(native_output_directory_,
-                                     report_value.final_evaluation.state,
-                                     report_value.control,
-                                     report_value.final_evaluation.adjoint,
-                                     &runtime_->forcing,
-                                     &runtime_->desired_state);
+          const auto write_output = [this, &report_value](const auto &model) {
+            model.write_native_output(native_output_directory_,
+                                      report_value.final_evaluation.state,
+                                      report_value.control,
+                                      report_value.final_evaluation.adjoint,
+                                      &runtime_->forcing,
+                                      &runtime_->desired_state);
+          };
+          const auto &executable = compilation.problem->executable_model();
+          switch (scenario.problem.recipe.discretisation)
+            {
+              case chapter5::DistributedControlDiscretisation::
+                cellwise_constant:
+                {
+                  const auto *model = dynamic_cast<const
+                    nmopt::dealii_backend::ScalarDiffusionReactionModel<dim> *>(
+                    &executable);
+                  if (model == nullptr)
+                    throw std::runtime_error(
+                      "B1 cellwise output needs the scalar diffusion model");
+                  write_output(*model);
+                  break;
+                }
+              case chapter5::DistributedControlDiscretisation::
+                homogeneous_dirichlet_continuous:
+                {
+                  using ContinuousModel =
+                    compiler::v1::detail::ContinuousControlModel<dim>;
+                  const auto *model =
+                    dynamic_cast<const ContinuousModel *>(&executable);
+                  if (model == nullptr)
+                    throw std::runtime_error(
+                      "B1 continuous output needs the continuous-control model");
+                  write_output(*model);
+                  break;
+                }
+            }
         }
       const auto solver_policy =
         experiment::make_reduced_search_policy_snapshot(report_value);
@@ -421,6 +459,9 @@ namespace nmopt::application::chapter6::dealii
 
       std::vector<benchmark::ArtifactField> fields{
         {"b1.forcing_selection", b1_forcing_selection(scenario)},
+        {"b1.control_discretisation",
+         chapter5::distributed_control_discretisation_name(
+           scenario.problem.recipe.discretisation)},
         {"b1.regularisation_weight", b1_number(regularisation_)},
         {"b1.hessian_evidence", "centered_finite_difference"},
         {"b1.hessian_direction_norm",

@@ -165,6 +165,13 @@ groups. It validates metadata but intentionally does not compile or execute.
 should therefore identify the recipe and scenario before any backend object is
 constructed.
 
+The Chapter 5 scalar distributed-control recipe exposes
+`DistributedControlDiscretisation::cellwise_constant` and
+`DistributedControlDiscretisation::homogeneous_dirichlet_continuous`. The
+former selects `FE_DGQ(0)` and may compose the registered cellwise box; the
+latter selects independent homogeneous-Dirichlet `FE_Q` coefficients with an
+$L^{2}$ metric and rejects that box.
+
 ## Compilation options and products
 
 ### Discretization policy

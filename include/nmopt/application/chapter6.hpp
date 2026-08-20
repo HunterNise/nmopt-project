@@ -292,6 +292,20 @@ namespace nmopt::application::chapter6
           "B1 regularisation sweep values must be positive and finite");
     if (scenario.problem.data.forcing_provenance.empty())
       throw std::invalid_argument("B1 needs forcing provenance");
+    switch (scenario.problem.recipe.discretisation)
+      {
+        case chapter5::DistributedControlDiscretisation::cellwise_constant:
+          break;
+        case chapter5::DistributedControlDiscretisation::
+          homogeneous_dirichlet_continuous:
+          if (scenario.problem.recipe.with_cellwise_box)
+            throw std::invalid_argument(
+              "B1 continuous control cannot use the cellwise box");
+          break;
+        default:
+          throw std::invalid_argument(
+            "B1 has an unknown control discretisation");
+      }
     switch (scenario.problem.forcing_selection)
       {
         case B1ForcingSelection::recovered_source:

@@ -25,7 +25,7 @@ Use the following routing table before writing a recipe:
 
 | Need | Graph seed | Control realization | Important restriction |
 | --- | --- | --- | --- |
-| Full-volume scalar tracking/control | `make_scalar_diffusion_reaction_problem(with_cellwise_box)` | `FE_DGQ(0)` volume control with `l2_cellwise` metric | A cellwise box is exact only for this representation. |
+| Full-volume scalar tracking/control | `make_scalar_diffusion_reaction_problem(with_cellwise_box)` or `make_l2_state_tracking_continuous_control_problem()` | `FE_DGQ(0)` cellwise control or independent homogeneous-Dirichlet `FE_Q` control, each with its matching $L^{2}$ metric | A cellwise box is exact only for the discontinuous representation. |
 | Tensor/transport/reaction/Robin terms | `make_general_scalar_elliptic_robin_problem(fixed_ids, robin_ids, with_cellwise_box)` | Same cellwise volume control | Coefficient ranks, boundary partition, and data ports are closed by the registered signature. |
 | Tracking on a material subdomain | `make_subdomain_tracking_scalar_diffusion_reaction_problem(material_id, with_cellwise_box)` | Cellwise volume control | The observation region is a declared material-ID region, not an arbitrary runtime predicate. |
 | Energy state tracking | `make_h1_state_tracking_scalar_diffusion_reaction_problem()` | Cellwise volume control with unchanged `l2_cellwise` search metric | The desired state has the selected $H^1_0$ target-data assumption. |
@@ -77,7 +77,7 @@ it must not pass a runtime binding that the graph does not declare.
 
 | Recipe family | Chapter 5 use | Runtime bindings | Metric/constraint | Default product |
 | --- | --- | --- | --- | --- |
-| `scalar-diffusion-reaction-volume` | C5.1/C5.2 baseline | `forcing`, `desired_state`, `diffusion`, `reaction`, `regularisation_weight` | `l2_cellwise`; optional cellwise box | `reduced_dto` |
+| `scalar-diffusion-reaction-volume` | C5.1/C5.2 baseline and continuous-control comparison | `forcing`, `desired_state`, `diffusion`, `reaction`, `regularisation_weight` | Typed cellwise `l2_cellwise` or homogeneous-Dirichlet continuous-control `l2`; a box is available only for cellwise control | `reduced_dto` |
 | `scalar-elliptic-robin-volume` | C5.5.1 general scalar/Robin composition | Baseline ports plus `general_scalar` tensor/vector/function bundle | `l2_cellwise`; optional cellwise box | `reduced_dto` |
 | `scalar-subdomain-tracking` | C5.5.1 observation variant | Baseline ports; target is evaluated on the declared material region | `l2_cellwise`; optional cellwise box | `reduced_dto` |
 | `scalar-energy-tracking` | C5.5.2 state energy observation | Baseline ports; desired state must satisfy the selected target-data assumption | `l2_cellwise`; no metric change | `reduced_dto` |

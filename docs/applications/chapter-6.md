@@ -73,10 +73,13 @@ or artifact contract.
 
 ### Scenario selection
 
-Use the distributed scalar recipe with homogeneous Dirichlet data, full-domain
-$L^2$ state tracking, a cellwise `FE_DGQ(0)` volume control, and the positive
-cellwise $L^2$ metric. The scenario records its discrete control
-representation and exposes the runtime target and forcing selections; the
+Use the distributed scalar recipe with homogeneous Dirichlet data and
+full-domain $L^{2}$ state tracking. The authoritative scenario selects a
+cellwise `FE_DGQ(0)` volume control and its positive cellwise $L^{2}$ metric.
+Development scenarios may instead select independent homogeneous-Dirichlet
+continuous `FE_Q` control with its assembled $L^{2}$ metric. The scenario
+records this discrete control representation and exposes the runtime target
+and forcing selections; the
 [source definition](../guides/chapter-6-numerical-examples.md) and the
 [current benchmark freeze](../benchmarks/chapter-6.md) are maintained in their
 respective documents.
@@ -136,6 +139,12 @@ descent or limited-memory BFGS. The returned detached envelope contains the
 compiler manifest, typed solver report, policy snapshot, and environment.
 Recovered forcing uses a caller-owned `B1RuntimeDataT<dim>` instead of
 `B1ManufacturedDataT<dim>`.
+
+`parameters/chapter-6/b1/development/continuous-control.prm` is the checked
+candidate motivated by the source's continuous linear control-space statement
+and equal reported state/control/adjoint counts. On the current quadrilateral
+mesh it realizes the conforming `Q1` analogue, not the source's undisclosed
+triangular `P1` mesh, so it is comparison evidence rather than source parity.
 
 The benchmark-specific B1 freeze and acceptance evidence are defined in the
 [Chapter 6 benchmark specification](../benchmarks/chapter-6.md).

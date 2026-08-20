@@ -72,6 +72,11 @@ The structured `manifest.state_solve.*`, `manifest.adjoint_solve.*`, and
 preconditioner, resolved iteration limit, and relative/absolute tolerance.
 These are realized compiler records: a direct solve is not mislabeled with an
 iterative tolerance merely because the parameter file declared a fallback.
+For B1, `benchmark.control_discretisation` records the stable effective
+cellwise or continuous-control choice in addition to the compiled
+`manifest.control_space` description. `benchmark.state_dimension`,
+`benchmark.control_dimension`, and `benchmark.adjoint_dimension` expose the
+three realized counts needed to compare the source's equal-dimension clue.
 
 ## Runner API
 

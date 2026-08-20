@@ -1,0 +1,120 @@
+# Development family for the book's continuous linear control-space clue.
+# On the current quadrilateral mesh this is the conforming Q1 analogue, with
+# the same homogeneous boundary restriction as the independent state space.
+# Solver conventions match the recovered Figure 6.3 policy family.
+
+subsection Benchmark
+  set id = chapter-6.b1.distributed-laplace
+  set label = E6.5.1 continuous-control candidate
+  set recipe = chapter-5.scalar-diffusion-reaction-volume
+  set source reference = E6.5.1 equations (6.64), Figure 6.3
+  set source revision = 1aaefbe473f9941a89d1df36192251511c052933
+end
+
+subsection Matrix
+  set method = steepest-descent, l-bfgs
+  set regularisation = 1e-1, 1e-2, 1e-3
+end
+
+subsection Problem
+  set control representation = continuous-volume-homogeneous-dirichlet
+  set cellwise box constraint = false
+  set observation = full-domain
+end
+
+subsection Functions
+  set forcing = manufactured-zero
+  set desired state = b1-polynomial
+
+  subsection forcing
+    set kind = zero
+    set provenance = chapter-6.e6.5.1.manufactured-zero-forcing
+  end
+
+  subsection desired state
+    set kind = polynomial
+    set expression = 10*x0*(1-x0)*x1*(1-x1)
+    set provenance = chapter-6.e6.5.1.desired-state
+  end
+end
+
+subsection Runtime
+  set diffusion = 1.0
+  set reaction = 0.0
+end
+
+subsection Mesh
+  set dimension = 2
+  set geometry = unit-hypercube
+  set refinement = 7
+  set provenance = chapter-6.e6.5.1.framework-native-hypercube-r7
+end
+
+subsection Compile
+  set state degree = 1
+  set execution = assembled
+  set product = reduced-dto
+  set owned session = true
+  set state solve maximum iterations = 0
+  set state solve relative tolerance = 1e-12
+  set state solve absolute tolerance = 1e-14
+  set adjoint solve maximum iterations = 0
+  set adjoint solve relative tolerance = 1e-12
+  set adjoint solve absolute tolerance = 1e-14
+  set control metric solve maximum iterations = 1000
+  set control metric solve relative tolerance = 1e-12
+  set control metric solve absolute tolerance = 1e-14
+end
+
+subsection Solver
+  set method = from-matrix
+  set initial control = zero
+  set maximum iterations = 5000
+  set maximum backtracking reductions = 5
+  set stopping criterion = automatic
+  set relative gradient tolerance = 0.0
+  set objective change tolerance = 0.0
+  set step tolerance = 0.0
+  set objective target = none
+  set objective target policy = match-reference-method
+  set objective target reference method = steepest-descent
+  set initial step length = 1.0
+  set Armijo fraction = 1e-5
+  set backtracking factor = 0.7
+
+  subsection method policy steepest-descent
+    set gradient tolerance = 1e-3
+    set minimum step length = 0.2
+  end
+
+  subsection method policy l-bfgs
+    set gradient tolerance = 1e-30
+    set minimum step length = 0.01
+    set memory = 5
+    set curvature tolerance = 1e-14
+    set initial inverse Hessian scaling = metric-inverse
+  end
+end
+
+subsection Run
+  set kind = development
+  set build profile = debug-dealii
+  set output root = runs
+  set deterministic = true
+  set serialize artifacts = true
+  set measure timings = true
+  set measure memory = false
+end
+
+subsection Output
+  set retain fields = true
+  set selected fields = state, control, adjoint, negative-adjoint, target, forcing
+end
+
+subsection Postprocessing
+  set style profile = parameters/plotting/chapter-6-b1.json
+  set comparison rows = method
+  set comparison columns = regularisation
+  set comparison group by = none
+  set output formats = png
+end

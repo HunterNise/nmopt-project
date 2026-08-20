@@ -361,6 +361,21 @@ namespace
     scenario.compile.mesh.mesh_provenance = file.value("Mesh/provenance");
     scenario.compile.state_degree = parameter_unsigned(file, "Compile/state degree");
     scenario.compile.owned_session = parameter_bool(file, "Compile/owned session");
+    scenario.compile.state_solve = {
+      parameter_unsigned(file, "Compile/state solve maximum iterations"),
+      parameter_double(file, "Compile/state solve relative tolerance"),
+      parameter_double(file, "Compile/state solve absolute tolerance")};
+    scenario.compile.adjoint_solve = {
+      parameter_unsigned(file, "Compile/adjoint solve maximum iterations"),
+      parameter_double(file, "Compile/adjoint solve relative tolerance"),
+      parameter_double(file, "Compile/adjoint solve absolute tolerance")};
+    scenario.compile.control_metric_solve = {
+      parameter_unsigned(file,
+                         "Compile/control metric solve maximum iterations"),
+      parameter_double(file,
+                       "Compile/control metric solve relative tolerance"),
+      parameter_double(file,
+                       "Compile/control metric solve absolute tolerance")};
     require_parameter(file, "Compile/execution", "assembled");
     require_parameter(file, "Compile/product", "reduced-dto");
   }
@@ -758,6 +773,33 @@ namespace
   {
     const auto &manifest = evidence.envelope.compilation_manifest();
     const auto &environment = evidence.envelope.environment();
+    const auto algorithm_name = [](const auto algorithm) {
+      switch (algorithm)
+        {
+          case nmopt::compiler::v1::LinearSolveAlgorithm::serial_cg:
+            return "serial_cg";
+          case nmopt::compiler::v1::LinearSolveAlgorithm::
+            serial_sparse_direct_umfpack:
+            return "serial_sparse_direct_umfpack";
+        }
+      return "unknown";
+    };
+    const auto add_solve_policy = [&](const std::string &prefix,
+                                      const auto &record) {
+      evidence.fields.push_back(
+        {prefix + ".algorithm", algorithm_name(record.algorithm)});
+      evidence.fields.push_back(
+        {prefix + ".preconditioner", record.preconditioner});
+      evidence.fields.push_back(
+        {prefix + ".maximum_iterations",
+         std::to_string(record.maximum_iterations)});
+      evidence.fields.push_back(
+        {prefix + ".relative_tolerance",
+         b1_number(record.relative_tolerance)});
+      evidence.fields.push_back(
+        {prefix + ".absolute_tolerance",
+         b1_number(record.absolute_tolerance)});
+    };
     evidence.fields.push_back({"provenance.framework_revision",
                                framework_revision});
     evidence.fields.push_back({
@@ -799,6 +841,10 @@ namespace
                                std::to_string(manifest.realized_spaces.size())});
     evidence.fields.push_back({"manifest.realized_map_count",
                                std::to_string(manifest.realized_maps.size())});
+    add_solve_policy("manifest.state_solve", manifest.state_solve_record);
+    add_solve_policy("manifest.adjoint_solve", manifest.adjoint_solve_record);
+    add_solve_policy("manifest.control_metric_solve",
+                     manifest.metric_record.solve_policy);
     evidence.fields.push_back({
       "solver.final_objective",
       b1_number(evidence.envelope.report().final_evaluation.objective_value)});

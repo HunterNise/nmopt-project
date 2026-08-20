@@ -54,6 +54,15 @@ subsection Compile
   set execution = assembled
   set product = reduced-dto
   set owned session = true
+  set state solve maximum iterations = 0
+  set state solve relative tolerance = 1e-12
+  set state solve absolute tolerance = 1e-14
+  set adjoint solve maximum iterations = 0
+  set adjoint solve relative tolerance = 1e-12
+  set adjoint solve absolute tolerance = 1e-14
+  set control metric solve maximum iterations = 1000
+  set control metric solve relative tolerance = 1e-12
+  set control metric solve absolute tolerance = 1e-14
 end
 
 subsection Solver

@@ -67,6 +67,12 @@ rendering. The `nmopt_runner` application owns command-line selection, run-set
 creation, artifact-directory creation, and file writing. Failed or unfinished
 matrix entries remain listed in the run manifest with their diagnostic.
 
+The structured `manifest.state_solve.*`, `manifest.adjoint_solve.*`, and
+`manifest.control_metric_solve.*` fields retain each compiled algorithm,
+preconditioner, resolved iteration limit, and relative/absolute tolerance.
+These are realized compiler records: a direct solve is not mislabeled with an
+iterative tolerance merely because the parameter file declared a fallback.
+
 ## Runner API
 
 The backend-neutral public runner types are:

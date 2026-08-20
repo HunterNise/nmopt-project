@@ -60,13 +60,23 @@ namespace nmopt::application::chapter6
     std::string  mesh_provenance = "scenario-owned-mesh";
   };
 
+  struct IterativeSolveOptions
+  {
+    unsigned int maximum_iterations = 0;
+    double       relative_tolerance = 1.0e-12;
+    double       absolute_tolerance = 1.0e-14;
+  };
+
   struct CompileOptions
   {
-    MeshOptions       mesh;
-    unsigned int     state_degree = 1;
-    ExecutionSelection execution = ExecutionSelection::assembled;
-    ProductSelection  product = ProductSelection::reduced_dto;
-    bool              owned_session = true;
+    MeshOptions           mesh;
+    unsigned int          state_degree = 1;
+    ExecutionSelection    execution = ExecutionSelection::assembled;
+    ProductSelection      product = ProductSelection::reduced_dto;
+    bool                  owned_session = true;
+    IterativeSolveOptions state_solve;
+    IterativeSolveOptions adjoint_solve;
+    IterativeSolveOptions control_metric_solve{1000, 1.0e-12, 1.0e-14};
   };
 
   enum class ReducedMethod
@@ -215,6 +225,22 @@ namespace nmopt::application::chapter6
   inline void
   validate_common_compile_options(const CompileOptions &options)
   {
+    const auto validate_solve = [](const IterativeSolveOptions &solve,
+                                   const bool allow_automatic_iterations,
+                                   const char *description) {
+      if (!allow_automatic_iterations && solve.maximum_iterations == 0)
+        throw std::invalid_argument(
+          std::string(description) + " needs a positive iteration limit");
+      if (!std::isfinite(solve.relative_tolerance) ||
+          solve.relative_tolerance <= 0.0)
+        throw std::invalid_argument(
+          std::string(description) + " needs a positive finite relative tolerance");
+      if (!std::isfinite(solve.absolute_tolerance) ||
+          solve.absolute_tolerance <= 0.0)
+        throw std::invalid_argument(
+          std::string(description) + " needs a positive finite absolute tolerance");
+    };
+
     if (options.mesh.dimension == 0)
       throw std::invalid_argument("benchmark scenarios need a mesh dimension");
     if (options.state_degree == 0)
@@ -225,6 +251,11 @@ namespace nmopt::application::chapter6
     if (!options.owned_session)
       throw std::invalid_argument(
         "selected benchmark scenarios require an owned compilation session");
+    validate_solve(options.state_solve, true, "state solve");
+    validate_solve(options.adjoint_solve, true, "adjoint solve");
+    validate_solve(options.control_metric_solve,
+                   false,
+                   "control metric solve");
   }
 
   inline void

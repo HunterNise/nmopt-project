@@ -28,6 +28,9 @@ namespace
     scenario.compile.mesh.refinement = 1;
     scenario.solver.parameters.maximum_iterations = 5;
     scenario.solver.parameters.gradient_tolerance = 1.0e-4;
+    scenario.compile.state_solve = {125, 2.0e-12, 3.0e-14};
+    scenario.compile.adjoint_solve = {126, 4.0e-12, 5.0e-14};
+    scenario.compile.control_metric_solve = {322, 6.0e-12, 7.0e-14};
 
     chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
       graetz_case, scenario.problem.fixed_temperature};
@@ -127,6 +130,23 @@ namespace
               result.artifact.envelope().report().adjoint_solve_count > 0,
             "B2 deal.II adapter did not retain solve counts");
     const auto &manifest = result.artifact.envelope().compilation_manifest();
+    require(manifest.state_solve_record.algorithm ==
+                nmopt::compiler::v1::LinearSolveAlgorithm::
+                  serial_sparse_direct_umfpack &&
+              manifest.state_solve_record.maximum_iterations == 1 &&
+              manifest.state_solve_record.relative_tolerance == 0.0 &&
+              manifest.adjoint_solve_record.algorithm ==
+                nmopt::compiler::v1::LinearSolveAlgorithm::
+                  serial_sparse_direct_umfpack &&
+              manifest.adjoint_solve_record.maximum_iterations == 1 &&
+              manifest.adjoint_solve_record.relative_tolerance == 0.0,
+            "B2 manifest did not distinguish its direct state/adjoint solves");
+    require(manifest.metric_record.solve_policy.maximum_iterations == 322 &&
+              manifest.metric_record.solve_policy.relative_tolerance ==
+                6.0e-12 &&
+              manifest.metric_record.solve_policy.absolute_tolerance ==
+                7.0e-14,
+            "B2 dealii adapter did not map the control-metric solve policy");
     require(manifest.boundary_realisation.has_value() &&
               manifest.boundary_realisation->transport_boundary_form ==
                 nmopt::semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,

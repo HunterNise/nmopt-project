@@ -187,6 +187,13 @@ when the recipe or benchmark contract names that option. A policy value is
 not evidence that a product is supported: call `validate` and honor its
 diagnostics.
 
+The backend-neutral Chapter 6 `CompileOptions` mirrors these three iterative
+policies as `state_solve`, `adjoint_solve`, and `control_metric_solve`. Its
+adapters translate them to the concrete deal.II records. State and adjoint
+iteration limits may be zero to request the established
+`max(100, 10 * dimension)` rule; a control-metric limit must be positive.
+Every tolerance must be positive and finite.
+
 ### Product selection
 
 | `CompilationProduct` | Result member | Consumer |

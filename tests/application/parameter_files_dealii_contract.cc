@@ -31,6 +31,12 @@ namespace
                              {"regularisation", "1e-6"}})
               .size() == 1,
             "B1 selection filters should resolve one combination");
+    require(b1.value("Compile/state solve maximum iterations") == "0" &&
+              b1.value("Compile/adjoint solve relative tolerance") ==
+                "1e-12" &&
+              b1.value("Compile/control metric solve maximum iterations") ==
+                "1000",
+            "B1 parameter family lost its linear-solve policies");
 
     const auto figure_6_3 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b1/development/figure-6.3-book-policy.prm"));

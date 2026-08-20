@@ -199,6 +199,15 @@ namespace
             "B1 did not retain its source Armijo fraction");
     require(b1.solver.parameters.minimum_step_length == 0.01,
             "B1 did not retain the operative L-BFGS minimum step");
+    require(b1.compile.state_solve.maximum_iterations == 0 &&
+              b1.compile.adjoint_solve.maximum_iterations == 0 &&
+              b1.compile.control_metric_solve.maximum_iterations == 1000,
+            "B1 did not retain the default linear-solve iteration policies");
+    require(std::abs(b1.compile.state_solve.relative_tolerance - 1.0e-12) <
+                1.0e-24 &&
+              std::abs(b1.compile.adjoint_solve.absolute_tolerance - 1.0e-14) <
+                1.0e-26,
+            "B1 did not retain the default linear-solve tolerances");
     require(b1.experiment.harness.deterministic,
             "B1 did not retain the deterministic B0 harness policy");
     require(b1.experiment.source_revision ==
@@ -221,6 +230,20 @@ namespace
     require(recovered.problem.data.forcing_provenance ==
               "chapter-6.e6.5.1.recovered-forcing",
             "B1 did not retain recovered forcing provenance");
+
+    auto invalid_solve = b1;
+    invalid_solve.compile.control_metric_solve.maximum_iterations = 0;
+    bool invalid_solve_rejected = false;
+    try
+      {
+        nmopt::application::chapter6::validate_b1(invalid_solve);
+      }
+    catch (const std::invalid_argument &)
+      {
+        invalid_solve_rejected = true;
+      }
+    require(invalid_solve_rejected,
+            "B1 accepted a zero control-metric iteration limit");
 
     const auto steepest = nmopt::application::chapter6::make_b1_scenario(
       nmopt::application::chapter6::ReducedMethod::steepest_descent);

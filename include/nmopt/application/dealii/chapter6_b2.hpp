@@ -316,6 +316,16 @@ namespace nmopt::application::chapter6::dealii
     policy.state_degree = options.state_degree;
     policy.execution =
       compiler::v1::DealiiDiscretisationPolicy::Execution::assembled;
+    policy.state_solve = {options.state_solve.maximum_iterations,
+                          options.state_solve.relative_tolerance,
+                          options.state_solve.absolute_tolerance};
+    policy.adjoint_solve = {options.adjoint_solve.maximum_iterations,
+                            options.adjoint_solve.relative_tolerance,
+                            options.adjoint_solve.absolute_tolerance};
+    policy.control_metric_solve = {
+      options.control_metric_solve.maximum_iterations,
+      options.control_metric_solve.relative_tolerance,
+      options.control_metric_solve.absolute_tolerance};
     return policy;
   }
 

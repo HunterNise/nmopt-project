@@ -98,6 +98,7 @@ runtime ports, and backend construction.
 | Forcing replacement | Manufactured zero forcing; absolute objective values are not compared with the source. |
 | Forcing provenance | `chapter-6.e6.5.1.manufactured-zero-forcing` |
 | Mesh policy | Framework-native unit-square hypercube, source-sized `refine_global(7)`; the realized mesh and provenance remain manifest data. |
+| Linear solves | State and adjoint use identity-preconditioned serial CG with dimension-dependent iteration limits and tolerances `1e-12` relative / `1e-14` absolute; the control mass metric uses at most `1000` iterations with the same tolerances. |
 | Regularisation matrix | $\beta\in\{10^{-1},10^{-2},10^{-3},10^{-6}\}$, including the source's small-regularisation field illustration. |
 | Methods | Steepest descent and limited-memory BFGS from the same zero control. |
 

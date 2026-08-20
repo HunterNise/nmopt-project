@@ -52,7 +52,7 @@ The proposed `.prm` sections are:
 | `Functions` | Registered forcing, target, fixed-data, and transport function selections and coefficients. |
 | `Boundary` | Boundary IDs, regions, normal/conormal interpretation, trace, and face quadrature choices. |
 | `Mesh` | Dimension, geometry, refinement, and mesh provenance. |
-| `Compile` | State degree, assembled/matrix-free execution, product, and compilation-session ownership. |
+| `Compile` | State degree, execution, product, session ownership, and state/adjoint/control-metric solve policies. |
 | `Solver` | Method, initial control, stopping rules, line search, iteration limits, and method-specific policies. |
 | `Run` | Authoritative/development policy, build profile, output root, and harness behavior. |
 | `Output` | Retained native fields and artifact output policy. |
@@ -73,6 +73,14 @@ method. Filtering out the required reference artifact is an error rather than
 an implicit extra run. L-BFGS method-policy subsections may also set `memory`,
 `curvature tolerance`, and `initial inverse Hessian scaling` to
 `metric-inverse` or `scalar-secant`.
+
+The `Compile` section exposes separate maximum iterations, relative tolerance,
+and absolute tolerance entries for the state, adjoint, and control-metric
+solves. A zero state or adjoint iteration limit selects the compiler's
+dimension-dependent rule; the control-metric limit must be positive. The
+compiled manifest, rather than the requested values alone, is authoritative:
+the current B2 target, for example, records direct UMFPACK state and adjoint
+solves even though the shared scenario carries fallback iterative values.
 
 The exact `ParameterHandler` declarations will use typed patterns. Strings
 such as function IDs and method names are registry selections, not arbitrary

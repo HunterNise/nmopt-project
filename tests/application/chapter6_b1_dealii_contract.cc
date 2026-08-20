@@ -28,6 +28,9 @@ namespace
     scenario.problem.regularisation_sweep = {1.0e-2};
     scenario.solver.parameters.maximum_iterations = 20;
     scenario.solver.parameters.gradient_tolerance = 1.0e-3;
+    scenario.compile.state_solve = {123, 2.0e-12, 3.0e-14};
+    scenario.compile.adjoint_solve = {124, 4.0e-12, 5.0e-14};
+    scenario.compile.control_metric_solve = {321, 6.0e-12, 7.0e-14};
 
     chapter6::dealii::B1ManufacturedDataT<2> manufactured_data;
     const auto runtime =
@@ -71,6 +74,20 @@ namespace
     require(result.artifact.envelope().report().state_solve_count > 0 &&
               result.artifact.envelope().report().adjoint_solve_count > 0,
             "B1 dealii adapter did not retain solve counts");
+    const auto &manifest = result.artifact.envelope().compilation_manifest();
+    require(manifest.state_solve_record.maximum_iterations == 123 &&
+              manifest.state_solve_record.relative_tolerance == 2.0e-12 &&
+              manifest.state_solve_record.absolute_tolerance == 3.0e-14 &&
+              manifest.adjoint_solve_record.maximum_iterations == 124 &&
+              manifest.adjoint_solve_record.relative_tolerance == 4.0e-12 &&
+              manifest.adjoint_solve_record.absolute_tolerance == 5.0e-14,
+            "B1 dealii adapter did not map the state/adjoint solve policies");
+    require(manifest.metric_record.solve_policy.maximum_iterations == 321 &&
+              manifest.metric_record.solve_policy.relative_tolerance ==
+                6.0e-12 &&
+              manifest.metric_record.solve_policy.absolute_tolerance ==
+                7.0e-14,
+            "B1 dealii adapter did not map the control-metric solve policy");
     require(result.document.find("b1.regularisation_weight=0.01\n") !=
               std::string::npos,
             "B1 dealii adapter omitted regularisation evidence");

@@ -316,6 +316,21 @@ namespace nmopt::application::runner
                                 "owned session",
                                 "stabilization"})
         declare_section("Compile", entry);
+      declare_section("Compile", "state solve maximum iterations", "0");
+      declare_section("Compile", "state solve relative tolerance", "1e-12");
+      declare_section("Compile", "state solve absolute tolerance", "1e-14");
+      declare_section("Compile", "adjoint solve maximum iterations", "0");
+      declare_section("Compile", "adjoint solve relative tolerance", "1e-12");
+      declare_section("Compile", "adjoint solve absolute tolerance", "1e-14");
+      declare_section("Compile",
+                      "control metric solve maximum iterations",
+                      "1000");
+      declare_section("Compile",
+                      "control metric solve relative tolerance",
+                      "1e-12");
+      declare_section("Compile",
+                      "control metric solve absolute tolerance",
+                      "1e-14");
 
       for (const auto &entry : {"method",
                                 "initial control",
@@ -467,7 +482,16 @@ namespace nmopt::application::runner
                                                      "execution",
                                                      "product",
                                                      "owned session",
-                                                     "stabilization"}
+                                                     "stabilization",
+                                                     "state solve maximum iterations",
+                                                     "state solve relative tolerance",
+                                                     "state solve absolute tolerance",
+                                                     "adjoint solve maximum iterations",
+                                                     "adjoint solve relative tolerance",
+                                                     "adjoint solve absolute tolerance",
+                                                     "control metric solve maximum iterations",
+                                                     "control metric solve relative tolerance",
+                                                     "control metric solve absolute tolerance"}
                           : section == "Solver"
                               ? std::vector<std::string>{"method",
                                                          "initial control",

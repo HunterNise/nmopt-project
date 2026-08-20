@@ -733,7 +733,7 @@ namespace nmopt::semantic::v1
          RequirementKind::fixed_dirichlet,
          RequirementStatus::selected_discrete_realisation,
          RequirementScope::both,
-         "P_h is continuous FE_Q with independent homogeneous-Dirichlet DoFs",
+         "P_h is continuous conforming Lagrange with independent homogeneous-Dirichlet DoFs",
          "dirichlet_boundary"});
     }
   } // namespace reference_detail

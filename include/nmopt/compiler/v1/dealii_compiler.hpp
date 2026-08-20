@@ -649,6 +649,15 @@ namespace nmopt::compiler::v1
         request.uses_hhalf_dirichlet_registration;
       const bool uses_h1_tracking_hhalf_dirichlet_registration =
         request.uses_h1_tracking_hhalf_dirichlet_registration;
+      const bool has_active_cells = triangulation.n_active_cells() != 0;
+      const bool uses_hypercube_reference_cells =
+        has_active_cells && triangulation.all_reference_cells_are_hyper_cube();
+      const bool uses_simplex_reference_cells =
+        has_active_cells && !uses_hypercube_reference_cells &&
+        triangulation.all_reference_cells_are_simplex();
+      const bool uses_continuous_control_target =
+        uses_h1_control_regularisation ||
+        uses_homogeneous_dirichlet_continuous_control;
       if (uses_h1_state_observation)
         {
           if (!request.h1_target_data_membership_selection)
@@ -875,12 +884,26 @@ namespace nmopt::compiler::v1
           scalar_plan = std::move(planned.plan);
         }
       validate_resolved_function_bindings(request, data, result.diagnostics);
-      if (triangulation.n_active_cells() == 0)
+      if (!has_active_cells)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
           "nonempty_triangulation",
           "Compile on a triangulation with at least one active cell.");
+      else if (!uses_hypercube_reference_cells &&
+               !uses_simplex_reference_cells)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "uniform_reference_cell_family",
+          "Compile on a mesh containing only hypercube cells or only simplex cells.");
+      else if (uses_simplex_reference_cells &&
+               !uses_continuous_control_target)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "simplex_continuous_control_target",
+          "Select a registered continuous-volume-control target for simplex meshes; the other deal.II targets currently require hypercube cells.");
       if (uses_point_sensor && tracking_region != nullptr)
         validate_point_sensor_mesh(triangulation, *tracking_region,
                                    result.diagnostics);
@@ -1093,6 +1116,7 @@ namespace nmopt::compiler::v1
         make_resolved_decision(specification,
                                policy,
                                target_kind,
+                               uses_simplex_reference_cells,
                                request,
                                scalar_plan ? &*scalar_plan : nullptr,
                                data,
@@ -1645,6 +1669,7 @@ namespace nmopt::compiler::v1
         constraint_realisation,
         resolved_decision,
         request,
+        uses_simplex_reference_cells,
         *executable,
         *metric,
         scalar_plan ? &*scalar_plan : nullptr,
@@ -3066,9 +3091,7 @@ namespace nmopt::compiler::v1
       for (auto cell = triangulation.begin_active();
            cell != triangulation.end();
            ++cell)
-        for (unsigned int face = 0;
-             face < dealii::GeometryInfo<dim>::faces_per_cell;
-             ++face)
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
           if (cell->face(face)->at_boundary())
             {
               has_boundary_face = true;
@@ -3108,9 +3131,7 @@ namespace nmopt::compiler::v1
       for (auto cell = triangulation.begin_active();
            cell != triangulation.end();
            ++cell)
-        for (unsigned int face = 0;
-             face < dealii::GeometryInfo<dim>::faces_per_cell;
-             ++face)
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
           if (cell->face(face)->at_boundary() &&
               boundary_ids.count(cell->face(face)->boundary_id()) != 0)
             ++count;
@@ -3127,9 +3148,7 @@ namespace nmopt::compiler::v1
       for (auto cell = triangulation.begin_active();
            cell != triangulation.end();
            ++cell)
-        for (unsigned int face = 0;
-             face < dealii::GeometryInfo<dim>::faces_per_cell;
-             ++face)
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
           if (cell->face(face)->at_boundary() &&
               requested_ids.count(cell->face(face)->boundary_id()) != 0)
             found_ids.insert(cell->face(face)->boundary_id());
@@ -3173,9 +3192,7 @@ namespace nmopt::compiler::v1
       for (auto cell = triangulation.begin_active();
            cell != triangulation.end();
            ++cell)
-        for (unsigned int face = 0;
-             face < dealii::GeometryInfo<dim>::faces_per_cell;
-             ++face)
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
           if (cell->face(face)->at_boundary())
             {
               has_boundary_face = true;
@@ -3379,7 +3396,7 @@ namespace nmopt::compiler::v1
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
                    "FE_Q_state_degree",
-                   "Select a scalar FE_Q state degree of at least one.");
+                   "Select a conforming scalar Lagrange state degree of at least one.");
 
       std::size_t full_volume_regions = 0;
       for (const auto &region : specification.regions)
@@ -4928,6 +4945,7 @@ namespace nmopt::compiler::v1
     static std::string
     control_space_description(const CompiledTargetKind       target,
                               const DealiiDiscretisationPolicy &policy,
+                              const bool uses_simplex_reference_cells = false,
                               const std::optional<DirichletControlRegistration> &
                                 registration = std::nullopt)
     {
@@ -4954,11 +4972,15 @@ namespace nmopt::compiler::v1
             return "cellwise-constant positive diffusion parameter FE_DGQ(0) on the state mesh";
           case CompiledTargetKind::h1_control_l2_metric:
           case CompiledTargetKind::h1_control_h1_metric:
-            return "continuous scalar FE_Q(" +
+            return "continuous scalar " +
+                   std::string(uses_simplex_reference_cells ? "FE_SimplexP("
+                                                            : "FE_Q(") +
                    std::to_string(policy.state_degree) + ") on the state mesh";
           case CompiledTargetKind::hminus1_control_metric:
           case CompiledTargetKind::continuous_control_l2_metric:
-            return "independent homogeneous-Dirichlet scalar FE_Q(" +
+            return "independent homogeneous-Dirichlet scalar " +
+                   std::string(uses_simplex_reference_cells ? "FE_SimplexP("
+                                                            : "FE_Q(") +
                    std::to_string(policy.state_degree) +
                    ") coefficients on the state mesh";
           case CompiledTargetKind::direct_volume:
@@ -5108,16 +5130,22 @@ namespace nmopt::compiler::v1
     compiled_space_finite_element(
       const semantic::v1::SpaceSpec &   space,
       const CompiledTargetKind          target,
-      const DealiiDiscretisationPolicy &policy)
+      const DealiiDiscretisationPolicy &policy,
+      const bool uses_simplex_reference_cells)
     {
       switch (space.role)
         {
           case semantic::v1::SpaceRole::state:
           case semantic::v1::SpaceRole::test:
-            return "scalar FE_Q(" + std::to_string(policy.state_degree) + ")";
+            return "scalar " +
+                   std::string(uses_simplex_reference_cells ? "FE_SimplexP("
+                                                            : "FE_Q(") +
+                   std::to_string(policy.state_degree) + ")";
           case semantic::v1::SpaceRole::control:
           case semantic::v1::SpaceRole::parameter:
-            return control_space_description(target, policy);
+            return control_space_description(target,
+                                             policy,
+                                             uses_simplex_reference_cells);
           case semantic::v1::SpaceRole::observation:
             return "lowered observation coefficients";
           case semantic::v1::SpaceRole::data:
@@ -5266,14 +5294,14 @@ namespace nmopt::compiler::v1
       for (const auto &cell : triangulation.active_cell_iterators())
         {
           hash = hash_word(hash, cell->material_id());
+          hash = hash_word(hash, cell->n_vertices());
+          hash = hash_word(hash, cell->n_faces());
           for (unsigned int vertex = 0;
-               vertex < dealii::GeometryInfo<dim>::vertices_per_cell;
+               vertex < cell->n_vertices();
                ++vertex)
             for (unsigned int coordinate = 0; coordinate < dim; ++coordinate)
               hash = hash_word(hash, double_bits(cell->vertex(vertex)[coordinate]));
-          for (unsigned int face = 0;
-               face < dealii::GeometryInfo<dim>::faces_per_cell;
-               ++face)
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
             {
               hash = hash_word(hash, cell->face(face)->at_boundary() ? 1U : 0U);
               hash = hash_word(hash, cell->face(face)->boundary_id());
@@ -5663,6 +5691,7 @@ namespace nmopt::compiler::v1
     make_resolved_decision(const semantic::v1::ProblemSpec &specification,
                            const DealiiDiscretisationPolicy &policy,
                            const CompiledTargetKind target,
+                           const bool uses_simplex_reference_cells,
                            const ResolvedCompilationRequest &request,
                            const ScalarLoweringPlan *scalar_plan,
                            const DealiiDataBindings<dim> &data,
@@ -5705,7 +5734,10 @@ namespace nmopt::compiler::v1
            space.role,
            compiled_space_runtime_role(space.role),
            space.region_id,
-           compiled_space_finite_element(space, target, policy),
+           compiled_space_finite_element(space,
+                                         target,
+                                         policy,
+                                         uses_simplex_reference_cells),
            0});
       for (const auto &pairing : specification.pairings)
         decision.pairings.push_back(
@@ -5774,7 +5806,8 @@ namespace nmopt::compiler::v1
         decision.boundary_realisation = scalar_plan->boundary_selection;
       else if (request.transport_boundary_selection)
         decision.boundary_realisation = request.transport_boundary_selection;
-      decision.realized_maps = make_resolved_maps(specification);
+      decision.realized_maps =
+        make_resolved_maps(specification, uses_simplex_reference_cells);
       decision.transposition_realisation = request.transposition_selection;
       decision.partial_boundary_selection = request.partial_boundary_selection;
       decision.fractional_metric_selection = request.fractional_metric_selection;
@@ -5850,16 +5883,21 @@ namespace nmopt::compiler::v1
 
     static std::string
     observation_realization_id(const semantic::v1::ObservationKind kind,
-                               const bool                         control_map)
+                               const bool                         control_map,
+                               const bool uses_simplex_reference_cells)
     {
       if (control_map)
         return "coefficient_restriction";
       switch (kind)
         {
           case semantic::v1::ObservationKind::volume_restriction:
-            return "fe_q_coefficient_restriction";
+            return uses_simplex_reference_cells
+                     ? "fe_simplex_p_coefficient_restriction"
+                     : "fe_q_coefficient_restriction";
           case semantic::v1::ObservationKind::h1_state_restriction:
-            return "fe_q_coefficient_h1_restriction";
+            return uses_simplex_reference_cells
+                     ? "fe_simplex_p_coefficient_h1_restriction"
+                     : "fe_q_coefficient_h1_restriction";
           case semantic::v1::ObservationKind::boundary_trace:
           case semantic::v1::ObservationKind::boundary_restriction:
           case semantic::v1::ObservationKind::weighted_boundary_trace:
@@ -5876,7 +5914,8 @@ namespace nmopt::compiler::v1
 
     static std::string
     observation_output_layout(const semantic::v1::ObservationKind kind,
-                              const bool                         control_map)
+                              const bool                         control_map,
+                              const bool uses_simplex_reference_cells)
     {
       if (control_map)
         return "ordered control coefficient values";
@@ -5892,7 +5931,10 @@ namespace nmopt::compiler::v1
             return "ordered scalar boundary face-quadrature values";
           case semantic::v1::ObservationKind::volume_restriction:
           case semantic::v1::ObservationKind::h1_state_restriction:
-            return "scalar FE_Q state coefficients";
+            return std::string("scalar ") +
+                   (uses_simplex_reference_cells ? "FE_SimplexP"
+                                                 : "FE_Q") +
+                   " state coefficients";
           case semantic::v1::ObservationKind::unspecified:
             return "unspecified observation values";
         }
@@ -5900,7 +5942,8 @@ namespace nmopt::compiler::v1
     }
 
     static std::vector<CompiledRealizedMapRecord>
-    make_resolved_maps(const semantic::v1::ProblemSpec &specification)
+    make_resolved_maps(const semantic::v1::ProblemSpec &specification,
+                       const bool uses_simplex_reference_cells)
     {
       std::vector<CompiledRealizedMapRecord> maps;
       for (const auto &observation : specification.observations)
@@ -5925,9 +5968,13 @@ namespace nmopt::compiler::v1
              {0},
              0,
              0,
-             observation_realization_id(observation.kind, control_map),
+             observation_realization_id(observation.kind,
+                                        control_map,
+                                        uses_simplex_reference_cells),
              "independent variable-layout coefficients",
-             observation_output_layout(observation.kind, control_map),
+             observation_output_layout(observation.kind,
+                                       control_map,
+                                       uses_simplex_reference_cells),
              control_map
                ? "declared control coefficient ordering"
                : observation.kind == semantic::v1::ObservationKind::point_sensor ||
@@ -6118,6 +6165,7 @@ namespace nmopt::compiler::v1
       const ConstraintRealisation       constraint_realisation,
       const ResolvedCompilationDecision &decision,
       const ResolvedCompilationRequest  &request,
+      const bool                         uses_simplex_reference_cells,
       const contract::ExecutableModelT<dealii_backend::SerialBackend> &executable,
       const contract::MetricT<dealii_backend::SerialBackend> &metric,
       const ScalarLoweringPlan *          scalar_plan,
@@ -6386,16 +6434,24 @@ namespace nmopt::compiler::v1
           : "nmopt.compiler.v1.dealii.scalar_diffusion_reaction";
       manifest.backend = "deal.II serial Vector<double>";
       manifest.execution = "assembled";
+      const std::string scalar_lagrange_element =
+        uses_simplex_reference_cells ? "FE_SimplexP" : "FE_Q";
+      const std::string volume_quadrature =
+        std::string(uses_simplex_reference_cells ? "QGaussSimplex("
+                                                 : "QGauss(") +
+        std::to_string(policy.state_degree + 2) + ")";
       manifest.state_space = uses_l2_dirichlet_control
                                ? "continuous L2(Omega) parent lowered to conforming scalar FE_Q(" +
                                    std::to_string(policy.state_degree) +
                                    ") variational Galerkin coordinates"
-                               : "scalar FE_Q(" +
+                               : "scalar " + scalar_lagrange_element + "(" +
                                    std::to_string(policy.state_degree) + ")";
       manifest.control_space =
-        control_space_description(target, policy, registration);
-      manifest.quadrature = "QGauss(" +
-                            std::to_string(policy.state_degree + 2) + ")";
+        control_space_description(target,
+                                  policy,
+                                  uses_simplex_reference_cells,
+                                  registration);
+      manifest.quadrature = volume_quadrature;
       manifest.dual_representation = "tested dual coefficients with dot pairing";
       manifest.data_rule = uses_section_5_11_dirichlet_control
         ? "analytic forcing and desired-state Function " +
@@ -6419,9 +6475,9 @@ namespace nmopt::compiler::v1
             " and r <- " + request.transposition_selection->reaction_data_id +
             "; desired-state Function evaluated at selected boundary face quadrature; FE_Q outward normal derivative and assembled face-map transpose"
         : uses_h1_state_observation
-        ? "analytic desired-state Function value and gradient at selected QGauss(" +
-            std::to_string(policy.state_degree + 2) +
-            ") volume quadrature; scalar coefficients and forcing Function at volume quadrature"
+        ? "analytic desired-state Function value and gradient at selected " +
+            volume_quadrature +
+            " volume quadrature; scalar coefficients and forcing Function at volume quadrature"
         : uses_weighted_boundary_trace
         ? "analytic desired-state and fixed boundary-weight Functions at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
@@ -6436,8 +6492,8 @@ namespace nmopt::compiler::v1
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature")
         : uses_general_scalar
         ? general_scalar_data_rule(manifest.bindings, policy.state_degree + 2)
-        : "analytic desired-state Function at selected QGauss(" +
-            std::to_string(policy.state_degree + 2) + ") volume quadrature" +
+        : "analytic desired-state Function at selected " + volume_quadrature +
+            " volume quadrature" +
             (uses_coefficient_identification
               ? "; forcing Function, reaction and regularisation scalars; diffusion is the parameter decision block"
               : uses_fixed_reconstruction

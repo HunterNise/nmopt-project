@@ -48,13 +48,13 @@ or
 | Registered semantic graph | Selected implementation | Bounded capability | Focused CTest scenario |
 | --- | --- | --- | --- |
 | `make_scalar_diffusion_reaction_problem()` | `ScalarDiffusionReactionModel<dim>` direct v0 reference, packaged through v1 ports | Homogeneous fixed Dirichlet, full-volume tracking, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `nmopt.dealii.canonical_volume_control` |
-| `make_l2_state_tracking_continuous_control_problem()` | `ContinuousControlModel<dim>` | Full-volume $L^{2}$ tracking and regularisation with independent homogeneous-Dirichlet `FE_Q` volume control, an $L^{2}$ metric, and no box | `nmopt.dealii.l2_tracking_continuous_control` |
+| `make_l2_state_tracking_continuous_control_problem()` | `ContinuousControlModel<dim>` | Full-volume $L^{2}$ tracking and regularisation with independent homogeneous-Dirichlet conforming Lagrange volume control (`FE_Q` on hypercubes or `FE_SimplexP` on simplices), an $L^{2}$ metric, and no box | `nmopt.dealii.l2_tracking_continuous_control` |
 | `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `nmopt.dealii.fixed_dirichlet` |
 | `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
 | `make_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Full-domain $H^{1}_{0}$ state observation with mass-plus-stiffness tracking and an unchanged control $L^{2}$ metric | `nmopt.dealii.h1_state_observation` |
 | `make_point_sensor_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | C5.10 finite point-set observation with immutable physical coordinates, finite-dimensional `FE_Q` evaluation, and an assembled very-weak transpose point load | `nmopt.dealii.point_sensor` |
 | `make_normal_flux_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | C5.8 strong-state normal-flux tracking on selected boundary IDs, outward `FEFaceValues` normal derivatives at face quadrature, and the assembled very-weak boundary-source transpose | `nmopt.dealii.normal_flux` |
-| `make_l2_metric_h1_state_tracking_continuous_control_problem()` and `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Same independent homogeneous-Dirichlet `FE_Q` control layout and energy-tracking graph with separately selected $L^{2}$ or $H^{-1}$ metric; no box | `nmopt.dealii.hminus1_compilation` |
+| `make_l2_metric_h1_state_tracking_continuous_control_problem()` and `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Same independent homogeneous-Dirichlet conforming Lagrange control layout and energy-tracking graph with separately selected $L^{2}$ or $H^{-1}$ metric; no box | `nmopt.dealii.hminus1_compilation` |
 | `make_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` | Complete-exterior-boundary nodal trace lifting, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.dirichlet_control` |
 | `make_l2_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` through the declared conforming-trace equivalence | Chapter 5.11.2 $L^{2}$ state/control transposition parent, $H^{2}\cap H^{1}_{0}$ tests, complete-boundary $U_{h}=\mathrm{tr}_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)$, normalized Laplacian, and no trace box | `nmopt.dealii.l2_dirichlet_transposition` |
 | `make_hhalf_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` with `TraceHhalfMetric` | Section 5.11.1 option 1: normalized Laplacian, $L^{2}$ state tracking, and the minimum-extension $H^{1/2}$ action for both control loss and search metric | `nmopt.dealii.section_5_11_compilation` |
@@ -65,7 +65,7 @@ or
 | `make_neumann_convection_subdomain_tracking_problem()` | `NeumannBoundaryControlModel<dim>` with conservative transport and volume observation | Mixed fixed/Neumann boundary partition, conservative-transport weak form, material-id state tracking, facewise $L^{2}$ control metric, and optional facewise box | `nmopt.dealii.neumann_convection_subdomain` |
 | `make_weighted_boundary_trace_neumann_control_problem()` | `NeumannBoundaryControlModel<dim>` with fixed weight data | Marked-face Neumann control and the explicit map $y\mapsto h\gamma y$ with an unchanged facewise $L^{2}$ metric | `nmopt.dealii.weighted_boundary_trace` |
 | `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `nmopt.dealii.pure_neumann` |
-| `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Continuous `FE_Q` control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `nmopt.dealii.h1_control` |
+| `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Continuous conforming Lagrange control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `nmopt.dealii.h1_control` |
 | `make_coefficient_identification_problem()` | `CoefficientIdentificationModel<dim>` | Positive cellwise physical diffusion parameter, reassembled state/adjoint operators, parameter $L^{2}$ metric, and cellwise box | `nmopt.dealii.coefficient_identification` |
 | `make_general_scalar_elliptic_robin_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Tensor diffusion, conservative and advective transport, reaction, volume source/control, and Robin bilinear/source terms with homogeneous fixed Dirichlet data | `nmopt.dealii.general_scalar_robin` |
 
@@ -186,7 +186,11 @@ the full-domain energy observation and its $H^{1}_{0}$ pairing while retaining
 the cellwise $L^{2}$ control metric.
 `make_l2_state_tracking_continuous_control_problem()` retains the baseline
 $L^{2}$ state loss and changes only the control realization to independent
-homogeneous-Dirichlet `FE_Q` coordinates. The separate
+homogeneous-Dirichlet conforming Lagrange coordinates. Hypercube meshes select
+`FE_Q` with `QGauss`; simplex meshes select `FE_SimplexP` with
+`QGaussSimplex`. This reference-cell choice is currently registered only for
+the continuous-control target family. Mixed-reference-cell meshes and simplex
+meshes sent to any other target receive lowerability diagnostics. The separate
 `make_l2_metric_h1_state_tracking_continuous_control_problem()` and
 `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()`
 factories share one independent homogeneous-Dirichlet continuous-control graph
@@ -492,8 +496,8 @@ continue to use the assembled matrix and its transpose directly.
 ### $H^{1}$ control regularisation and search metric
 
 The first half of P2.3 adds a distinct
-`quadratic_h1_control_regularisation` loss. It changes the control space to
-continuous scalar `FE_Q` on the state mesh and assembles
+`quadratic_h1_control_regularisation` loss. It changes the control space to a
+continuous scalar conforming Lagrange space on the state mesh and assembles
 
 ```math
 J_{\mathrm{control}}(u_{h})=\frac{\alpha}{2}u_{h}^{T}(M_{u}+K_{u})u_{h},
@@ -746,7 +750,7 @@ GMRES-only and cannot advertise MINRES compatibility.
 | --- | --- | --- |
 | `structural` | `SemanticValidator` | incomplete nodes, missing labels or ports, incompatible pairings, orphan/duplicate term edges, and variable-space mismatches |
 | `analytical_policy` | `SemanticValidator` | missing selected fixed/controlled-Dirichlet or cellwise-bound policy |
-| `lowerability` | `DealiiCompiler`, `DealiiCapabilityRegistryV1`, and the selected lowering planner or target strategy | matrix-free execution, zero `FE_Q` degree, unregistered or unhandled node kind, missing bound or fixed-lifting binding, incomplete controlled boundary |
+| `lowerability` | `DealiiCompiler`, `DealiiCapabilityRegistryV1`, and the selected lowering planner or target strategy | matrix-free execution, zero conforming Lagrange degree, unregistered or unhandled node kind, missing bound or fixed-lifting binding, incomplete controlled boundary |
 | `formulation_capability` | `DealiiCompiler` | all-at-once formulation or a multi-block DTO request |
 
 `CompilationResultT<Backend>` returns the report and contains only the selected
@@ -836,7 +840,7 @@ trace policies, nodal trace layout, boundary mass metric, and both
 transformation pullbacks. It also owns the conforming Galerkin realization of
 the Chapter 5.11.2 transposition graph without changing that graph's continuous
 spaces or residual. The private `dealii_continuous_control.hpp` target owns
-continuous `FE_Q` control for the registered $L^{2}$ and $H^{1}$ state losses,
+continuous conforming Lagrange control for the registered $L^{2}$ and $H^{1}$ state losses,
 $L^{2}$ or $H^{1}$ control loss, and $H^{-1}$, $H^{1}$, or $L^{2}$ search
 metrics. The private `dealii_coefficient_identification.hpp` target owns the
 cellwise positive
@@ -846,13 +850,15 @@ volume and Robin terms, full-domain control observation, full-domain or material
 $L^{2}$ state restriction, full-domain $H^{1}_{0}$ state restriction,
 quadratic losses, `L2` metric, optional cellwise box, and
 fixed or controlled Dirichlet reconstruction. Its selected discrete policies are
-assembled
-serial scalar `FE_Q` state/test with degree at least one and reduced DTO:
+assembled serial scalar conforming Lagrange state/test with degree at least
+one and reduced DTO. Except for the continuous-control target's explicit
+simplex registration, this means `FE_Q` on hypercubes:
 `FE_DGQ(0)` volume control on the state mesh, one facewise-constant Neumann
 coefficient for every marked boundary face, one nodal Dirichlet trace
 coefficient for every state DoF on the complete exterior controlled boundary,
 one relative-interior nodal trace for the selected partial lifting, or
-continuous `FE_Q` volume control for a registered continuous-control graph.
+continuous `FE_Q` or `FE_SimplexP` volume control for a registered
+continuous-control graph.
 Pure Neumann is limited to
 zero reaction and compatible forcing/control loads. Coefficient identification
 instead selects a cellwise `FE_DGQ(0)` physical parameter with a strictly
@@ -886,9 +892,9 @@ reduced-Hessian action only because their residual operators, state-tracking
 operators, and control regularisation are assembled and linear-quadratic. The
 action uses the reduced tangent-state and transpose-adjoint solves; this does
 not extend the capability to generic nonlinear residuals or objectives. The
-continuous-control native-output path reconstructs its constrained `FE_Q`
-coefficient vector before writing the state, adjoint, control, forcing, and
-target fields on the shared volume mesh.
+continuous-control native-output path reconstructs its constrained conforming
+Lagrange coefficient vector before writing the state, adjoint, control,
+forcing, and target fields on the shared volume mesh.
 
 `DealiiCompilationSession<dim>` exclusively owns a static triangulation moved
 into it and supplies the lifetime token retained by both the compiled problem
@@ -990,7 +996,7 @@ The seventeen deal.II target scenarios named in the
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic
 and compiler checks match diagnostic category, component ID, and capability.
-Eleven further deal.II scenarios separately cover metric and continuous-control
+Twelve further deal.II scenarios separately cover metric and continuous-control
 component actions, projection-realization compatibility, compiler diagnostics,
 owned-session lifetime, serial SPD solve reporting, and the backend's
 native-size conversion boundary. The

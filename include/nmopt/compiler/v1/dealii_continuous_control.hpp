@@ -12,7 +12,9 @@
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
+#include <deal.II/fe/fe.h>
 #include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_simplex_p.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
@@ -45,8 +47,10 @@
 namespace nmopt::compiler::v1::detail
 {
   // The continuous-control target used by P2.3 and P5.2. It owns one
-  // FE_Q control realization while keeping state observation, control loss,
-  // and search metric as independent compiler selections:
+  // conforming scalar Lagrange control realization while keeping state
+  // observation, control loss, and search metric as independent compiler
+  // selections. Hypercube meshes use FE_Q and simplex meshes use
+  // FE_SimplexP:
   //
   //   r(y,u) = A y - f_h - B u,
   //   J(y,u) = J_tracking(y) + alpha/2 u^T R_u u.
@@ -75,8 +79,8 @@ namespace nmopt::compiler::v1::detail
       const bool                                    use_h1_control_regularisation = true,
       const bool homogeneous_dirichlet_control = false,
       std::set<dealii::types::boundary_id>         control_boundary_ids = {})
-      : state_fe_(state_degree)
-      , control_fe_(state_degree)
+      : state_fe_(make_finite_element(triangulation, state_degree))
+      , control_fe_(make_finite_element(triangulation, state_degree))
       , state_dof_handler_(triangulation)
       , control_dof_handler_(triangulation)
       , diffusion_(diffusion)
@@ -104,8 +108,8 @@ namespace nmopt::compiler::v1::detail
                           !control_boundary_ids_.empty(),
                         "The homogeneous continuous-control target needs a fixed control boundary");
 
-      state_dof_handler_.distribute_dofs(state_fe_);
-      control_dof_handler_.distribute_dofs(control_fe_);
+      state_dof_handler_.distribute_dofs(*state_fe_);
+      control_dof_handler_.distribute_dofs(*control_fe_);
       build_constraints();
       initialise_storage();
       assemble(forcing, desired_state);
@@ -451,6 +455,26 @@ namespace nmopt::compiler::v1::detail
     }
 
   private:
+    static std::unique_ptr<dealii::FiniteElement<dim>>
+    make_finite_element(const dealii::Triangulation<dim> &triangulation,
+                        const unsigned int                degree)
+    {
+      if (triangulation.all_reference_cells_are_hyper_cube())
+        return std::make_unique<dealii::FE_Q<dim>>(degree);
+      contract::require(triangulation.all_reference_cells_are_simplex(),
+                        "The continuous-control target supports only one simplex or hypercube reference-cell family");
+      return std::make_unique<dealii::FE_SimplexP<dim>>(degree);
+    }
+
+    std::unique_ptr<dealii::Quadrature<dim>>
+    make_volume_quadrature(const unsigned int order) const
+    {
+      if (state_dof_handler_.get_triangulation()
+            .all_reference_cells_are_hyper_cube())
+        return std::make_unique<dealii::QGauss<dim>>(order);
+      return std::make_unique<dealii::QGaussSimplex<dim>>(order);
+    }
+
     void
     require_variables(const Primal &variables, const char *operation) const
     {
@@ -564,9 +588,9 @@ namespace nmopt::compiler::v1::detail
 
       dealii::DynamicSparsityPattern control_dsp(state_size, control_size);
       std::vector<dealii::types::global_dof_index> state_indices(
-        state_fe_.dofs_per_cell);
+        state_fe_->dofs_per_cell);
       std::vector<dealii::types::global_dof_index> control_indices(
-        control_fe_.dofs_per_cell);
+        control_fe_->dofs_per_cell);
       auto state_cell = state_dof_handler_.begin_active();
       auto control_cell = control_dof_handler_.begin_active();
       for (; state_cell != state_dof_handler_.end(); ++state_cell, ++control_cell)
@@ -616,32 +640,34 @@ namespace nmopt::compiler::v1::detail
              const dealii::Function<dim> &desired_state)
     {
       const unsigned int quadrature_order =
-        std::max(state_fe_.degree, control_fe_.degree) + 2;
-      const dealii::QGauss<dim> quadrature(quadrature_order);
+        std::max(state_fe_->degree, control_fe_->degree) + 2;
+      const auto quadrature = make_volume_quadrature(quadrature_order);
       dealii::FEValues<dim> state_values(
-        state_fe_,
-        quadrature,
+        *state_fe_,
+        *quadrature,
         dealii::update_values | dealii::update_gradients |
           dealii::update_quadrature_points | dealii::update_JxW_values);
       dealii::FEValues<dim> control_values(
-        control_fe_, quadrature, dealii::update_values | dealii::update_gradients);
+        *control_fe_,
+        *quadrature,
+        dealii::update_values | dealii::update_gradients);
 
-      dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
-                                              state_fe_.dofs_per_cell);
-      dealii::FullMatrix<double> local_state_tracking(state_fe_.dofs_per_cell,
-                                                      state_fe_.dofs_per_cell);
+      dealii::FullMatrix<double> local_system(state_fe_->dofs_per_cell,
+                                              state_fe_->dofs_per_cell);
+      dealii::FullMatrix<double> local_state_tracking(state_fe_->dofs_per_cell,
+                                                      state_fe_->dofs_per_cell);
       dealii::FullMatrix<double> local_control_coupling(
-        state_fe_.dofs_per_cell, control_fe_.dofs_per_cell);
-      dealii::FullMatrix<double> local_control_mass(control_fe_.dofs_per_cell,
-                                                    control_fe_.dofs_per_cell);
+        state_fe_->dofs_per_cell, control_fe_->dofs_per_cell);
+      dealii::FullMatrix<double> local_control_mass(control_fe_->dofs_per_cell,
+                                                    control_fe_->dofs_per_cell);
       dealii::FullMatrix<double> local_control_stiffness(
-        control_fe_.dofs_per_cell, control_fe_.dofs_per_cell);
-      dealii::Vector<double> local_forcing(state_fe_.dofs_per_cell);
-      dealii::Vector<double> local_desired_state(state_fe_.dofs_per_cell);
+        control_fe_->dofs_per_cell, control_fe_->dofs_per_cell);
+      dealii::Vector<double> local_forcing(state_fe_->dofs_per_cell);
+      dealii::Vector<double> local_desired_state(state_fe_->dofs_per_cell);
       std::vector<dealii::types::global_dof_index> state_indices(
-        state_fe_.dofs_per_cell);
+        state_fe_->dofs_per_cell);
       std::vector<dealii::types::global_dof_index> control_indices(
-        control_fe_.dofs_per_cell);
+        control_fe_->dofs_per_cell);
 
       auto state_cell = state_dof_handler_.begin_active();
       auto control_cell = control_dof_handler_.begin_active();
@@ -659,7 +685,7 @@ namespace nmopt::compiler::v1::detail
           local_forcing = 0.0;
           local_desired_state = 0.0;
 
-          for (unsigned int q = 0; q < quadrature.size(); ++q)
+          for (unsigned int q = 0; q < quadrature->size(); ++q)
             {
               const double weight = state_values.JxW(q);
               const double forcing_value =
@@ -675,7 +701,7 @@ namespace nmopt::compiler::v1::detail
                  (use_h1_state_observation_ ? desired_gradient * desired_gradient
                                             : 0.0)) *
                 weight;
-              for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
+              for (unsigned int i = 0; i < state_fe_->dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
@@ -685,7 +711,7 @@ namespace nmopt::compiler::v1::detail
                         ? desired_gradient * state_values.shape_grad(i, q)
                         : 0.0)) *
                     weight;
-                  for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
+                  for (unsigned int j = 0; j < state_fe_->dofs_per_cell; ++j)
                     {
                       local_system(i, j) +=
                         (diffusion_ * (state_values.shape_grad(i, q) *
@@ -700,12 +726,12 @@ namespace nmopt::compiler::v1::detail
                             : 0.0)) *
                         weight;
                     }
-                  for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
+                  for (unsigned int j = 0; j < control_fe_->dofs_per_cell; ++j)
                     local_control_coupling(i, j) +=
                       phi_i * control_values.shape_value(j, q) * weight;
                 }
-              for (unsigned int i = 0; i < control_fe_.dofs_per_cell; ++i)
-                for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
+              for (unsigned int i = 0; i < control_fe_->dofs_per_cell; ++i)
+                for (unsigned int j = 0; j < control_fe_->dofs_per_cell; ++j)
                   {
                     local_control_mass(i, j) +=
                       control_values.shape_value(i, q) *
@@ -718,14 +744,14 @@ namespace nmopt::compiler::v1::detail
 
           state_cell->get_dof_indices(state_indices);
           control_cell->get_dof_indices(control_indices);
-          for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
+          for (unsigned int i = 0; i < state_fe_->dofs_per_cell; ++i)
             {
               const auto global_i = state_indices[i];
               if (constrained_state_dofs_.at(global_i))
                 continue;
               forcing_load_[global_i] += local_forcing(i);
               desired_state_load_[global_i] += local_desired_state(i);
-              for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
+              for (unsigned int j = 0; j < state_fe_->dofs_per_cell; ++j)
                 {
                   const auto global_j = state_indices[j];
                   if (!constrained_state_dofs_.at(global_j))
@@ -736,16 +762,16 @@ namespace nmopt::compiler::v1::detail
                                                  local_state_tracking(i, j));
                     }
                 }
-              for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
+              for (unsigned int j = 0; j < control_fe_->dofs_per_cell; ++j)
                 if (!constrained_control_dofs_.at(control_indices[j]))
                   control_coupling_.add(
                     global_i,
                     control_to_independent_.at(control_indices[j]),
                     local_control_coupling(i, j));
             }
-          for (unsigned int i = 0; i < control_fe_.dofs_per_cell; ++i)
+          for (unsigned int i = 0; i < control_fe_->dofs_per_cell; ++i)
             if (!constrained_control_dofs_.at(control_indices[i]))
-              for (unsigned int j = 0; j < control_fe_.dofs_per_cell; ++j)
+              for (unsigned int j = 0; j < control_fe_->dofs_per_cell; ++j)
                 if (!constrained_control_dofs_.at(control_indices[j]))
                   {
                     const auto row =
@@ -783,8 +809,8 @@ namespace nmopt::compiler::v1::detail
                                               policy);
     }
 
-    dealii::FE_Q<dim> state_fe_;
-    dealii::FE_Q<dim> control_fe_;
+    std::unique_ptr<dealii::FiniteElement<dim>> state_fe_;
+    std::unique_ptr<dealii::FiniteElement<dim>> control_fe_;
     dealii::DoFHandler<dim> state_dof_handler_;
     dealii::DoFHandler<dim> control_dof_handler_;
     dealii::AffineConstraints<double> state_constraints_;

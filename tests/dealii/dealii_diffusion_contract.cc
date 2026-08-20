@@ -522,6 +522,74 @@ namespace
     std::filesystem::remove_all(output_directory);
   }
 
+  template <int dim>
+  void
+  run_simplex_continuous_control_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::subdivided_hyper_cube_with_simplices(triangulation,
+                                                                 2);
+    const dealii::Functions::ConstantFunction<dim> forcing(0.0);
+    const EnergyPolynomial<dim> desired_state;
+    const auto specification =
+      semantic::v1::make_l2_state_tracking_continuous_control_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.0,
+      0.2,
+      test_binding_provenance("simplex_continuous_control")};
+
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded() && compilation.problem,
+                      "Continuous-control compilation rejected a simplex mesh");
+    const auto &manifest = compilation.problem->manifest();
+    const auto state_observation = std::find_if(
+      manifest.realized_maps.begin(),
+      manifest.realized_maps.end(),
+      [](const compiler::v1::CompiledRealizedMapRecord &map) {
+        return map.semantic_id == "state_observation";
+      });
+    contract::require(
+      compilation.problem->executable_model().variable_layout()->dimension(0) ==
+          9 &&
+        compilation.problem->metric().layout()->dimension(0) == 1 &&
+        manifest.state_space == "scalar FE_SimplexP(1)" &&
+        manifest.control_space.find("FE_SimplexP(1)") != std::string::npos &&
+        manifest.quadrature == "QGaussSimplex(3)" &&
+        manifest.data_rule.find("QGaussSimplex(3) volume quadrature") !=
+          std::string::npos &&
+        state_observation != manifest.realized_maps.end() &&
+        state_observation->realization_id ==
+          "fe_simplex_p_coefficient_restriction" &&
+        state_observation->output_layout.find("FE_SimplexP") !=
+          std::string::npos,
+      "Simplex compilation did not report its P1 element, quadrature, or independent control layout");
+    require_compiled_hessian_evidence(*compilation.problem,
+                                      "simplex continuous control");
+
+    const auto unsupported = compiler.compile(
+      semantic::v1::make_scalar_diffusion_reaction_problem(),
+      triangulation,
+      bindings,
+      policy);
+    contract::require(!unsupported.succeeded(),
+                      "A hypercube-only compiler target accepted simplex cells");
+    test_support::require_exact_diagnostic(
+      unsupported.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      "scalar_diffusion_reaction_volume_control",
+      "simplex_continuous_control_target",
+      "Simplex target validation did not identify the bounded continuous-control capability");
+  }
+
   void
   require_constraint_realisation(
     const compiler::v1::CompilationManifest &manifest,
@@ -6797,6 +6865,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler", "metric"},
          60,
          []() { run_l2_tracking_continuous_control_contract_test<2>(); }},
+        {"simplex_continuous_control",
+         "nmopt.dealii.simplex_continuous_control",
+         {"dealii", "compiler", "metric"},
+         60,
+         []() { run_simplex_continuous_control_contract_test<2>(); }},
         {"hminus1_compilation",
          "nmopt.dealii.hminus1_compilation",
          {"dealii", "compiler", "metric"},

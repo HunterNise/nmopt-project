@@ -12,6 +12,7 @@ namespace
 {
   using nmopt::application::runner::find_file_from_current_or_parent;
   using nmopt::application::runner::read_parameter_file;
+  using nmopt::application::runner::resolve_method_parameter;
 
   void
   require(const bool condition, const char *message)
@@ -52,6 +53,28 @@ namespace
               figure_6_3.value("Solver/objective target policy") ==
                 "match-reference-method",
             "Figure 6.3 family lost the recovered book solver policy");
+    const auto steepest_stopping = resolve_method_parameter(
+      figure_6_3, "steepest-descent", "stopping criterion");
+    const auto steepest_relative = resolve_method_parameter(
+      figure_6_3, "steepest-descent", "relative gradient tolerance");
+    const auto l_bfgs_stopping =
+      resolve_method_parameter(figure_6_3, "l-bfgs", "stopping criterion");
+    require(steepest_stopping.value == "relative-gradient-norm" &&
+              steepest_relative.value == "1e-3" &&
+              l_bfgs_stopping.value == "gradient-norm",
+            "Figure 6.3 methods did not resolve distinct stopping policies");
+    auto method_override = figure_6_3;
+    method_override.values[
+      "Solver/method policy steepest-descent/initial step length"] = "10.0";
+    require(resolve_method_parameter(method_override,
+                                     "steepest-descent",
+                                     "initial step length")
+                .value == "10.0" &&
+              resolve_method_parameter(method_override,
+                                       "l-bfgs",
+                                       "initial step length")
+                .value == "1.0",
+            "method policy precedence did not preserve the global fallback");
 
     const auto continuous_control = read_parameter_file(
       find_file_from_current_or_parent(

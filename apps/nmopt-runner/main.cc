@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <locale>
 #include <map>
 #include <sstream>
@@ -213,6 +214,35 @@ namespace
     return value;
   }
 
+  unsigned int
+  parse_unsigned_text(const std::string &text, const std::string &key)
+  {
+    const auto value = parse_number_text(text, key);
+    if (value < 0.0 || value > std::numeric_limits<unsigned int>::max() ||
+        value != std::floor(value))
+      throw std::invalid_argument("parameter '" + key +
+                                  "' needs a nonnegative integer");
+    return static_cast<unsigned int>(value);
+  }
+
+  nmopt::solvers::ReducedStoppingCriterion
+  parse_stopping_criterion(const std::string &value)
+  {
+    using Criterion = nmopt::solvers::ReducedStoppingCriterion;
+    if (value == "automatic")
+      return Criterion::automatic;
+    if (value == "gradient-norm")
+      return Criterion::gradient_norm;
+    if (value == "relative-gradient-norm")
+      return Criterion::relative_gradient_norm;
+    if (value == "objective-change")
+      return Criterion::objective_change;
+    if (value == "step-norm")
+      return Criterion::step_norm;
+    throw std::invalid_argument("unknown reduced stopping criterion '" +
+                                value + "'");
+  }
+
   void
   require_parameter(const nmopt::application::runner::ParameterFile &file,
                     const std::string_view                         key,
@@ -408,53 +438,71 @@ namespace
     const std::string &method_id)
   {
     using namespace nmopt::application::runner;
+    const auto method_prefix = "Solver/method policy " + method_id + "/";
+    const auto resolve = [&](const std::string_view entry) {
+      return resolve_method_parameter(file, method_id, entry);
+    };
+
     solver.initial_control = file.value("Solver/initial control");
-    solver.parameters.maximum_iterations =
-      parameter_unsigned(file, "Solver/maximum iterations");
-    const auto trials = file.optional_value("Solver/maximum line search trials");
-    const auto reductions =
-      file.optional_value("Solver/maximum backtracking reductions");
-    if (!trials.empty() && !reductions.empty())
+    const auto maximum_iterations = resolve("maximum iterations");
+    solver.parameters.maximum_iterations = parse_unsigned_text(
+      maximum_iterations.value, maximum_iterations.key);
+
+    ResolvedParameterValue trials;
+    ResolvedParameterValue reductions;
+    const auto method_trials =
+      file.optional_value(method_prefix + "maximum line search trials");
+    const auto method_reductions =
+      file.optional_value(method_prefix + "maximum backtracking reductions");
+    if (!method_trials.empty() || !method_reductions.empty())
+      {
+        trials = {method_prefix + "maximum line search trials", method_trials};
+        reductions = {method_prefix + "maximum backtracking reductions",
+                      method_reductions};
+      }
+    else
+      {
+        trials = {"Solver/maximum line search trials",
+                  file.optional_value("Solver/maximum line search trials")};
+        reductions = {
+          "Solver/maximum backtracking reductions",
+          file.optional_value("Solver/maximum backtracking reductions")};
+      }
+    if (!trials.value.empty() && !reductions.value.empty())
       throw std::invalid_argument(
         "select either maximum line-search trials or maximum backtracking reductions");
-    if (!reductions.empty())
+    if (!reductions.value.empty())
+      {
+        const auto count = parse_unsigned_text(reductions.value, reductions.key);
+        if (count == std::numeric_limits<unsigned int>::max())
+          throw std::invalid_argument("parameter '" + reductions.key +
+                                      "' is too large");
+        solver.parameters.maximum_line_search_trials = count + 1;
+      }
+    else if (!trials.value.empty())
       solver.parameters.maximum_line_search_trials =
-        parameter_unsigned(file, "Solver/maximum backtracking reductions") + 1;
-    else if (!trials.empty())
-      solver.parameters.maximum_line_search_trials =
-        parameter_unsigned(file, "Solver/maximum line search trials");
+        parse_unsigned_text(trials.value, trials.key);
 
-    const auto stopping = file.value("Solver/stopping criterion");
-    if (stopping == "automatic")
-      solver.parameters.stopping_criterion =
-        nmopt::solvers::ReducedStoppingCriterion::automatic;
-    else if (stopping == "gradient-norm")
-      solver.parameters.stopping_criterion =
-        nmopt::solvers::ReducedStoppingCriterion::gradient_norm;
-    else if (stopping == "relative-gradient-norm")
-      solver.parameters.stopping_criterion =
-        nmopt::solvers::ReducedStoppingCriterion::relative_gradient_norm;
-    else if (stopping == "objective-change")
-      solver.parameters.stopping_criterion =
-        nmopt::solvers::ReducedStoppingCriterion::objective_change;
-    else if (stopping == "step-norm")
-      solver.parameters.stopping_criterion =
-        nmopt::solvers::ReducedStoppingCriterion::step_norm;
-    else
-      throw std::invalid_argument("unknown reduced stopping criterion '" +
-                                  stopping + "'");
+    const auto stopping = resolve("stopping criterion");
+    solver.parameters.stopping_criterion =
+      parse_stopping_criterion(stopping.value);
+    const auto relative = resolve("relative gradient tolerance");
     solver.parameters.relative_gradient_tolerance =
-      parameter_double(file, "Solver/relative gradient tolerance");
+      parse_number_text(relative.value, relative.key);
+    const auto objective_change = resolve("objective change tolerance");
     solver.parameters.objective_change_tolerance =
-      parameter_double(file, "Solver/objective change tolerance");
-    solver.parameters.step_tolerance =
-      parameter_double(file, "Solver/step tolerance");
+      parse_number_text(objective_change.value, objective_change.key);
+    const auto step = resolve("step tolerance");
+    solver.parameters.step_tolerance = parse_number_text(step.value, step.key);
+    const auto initial_step = resolve("initial step length");
     solver.parameters.initial_step_length =
-      parameter_double(file, "Solver/initial step length");
+      parse_number_text(initial_step.value, initial_step.key);
+    const auto armijo = resolve("Armijo fraction");
     solver.parameters.armijo_fraction =
-      parameter_double(file, "Solver/Armijo fraction");
+      parse_number_text(armijo.value, armijo.key);
+    const auto backtracking = resolve("backtracking factor");
     solver.parameters.backtracking_factor =
-      parameter_double(file, "Solver/backtracking factor");
+      parse_number_text(backtracking.value, backtracking.key);
 
     const auto objective_target_policy =
       file.optional_value("Solver/objective target policy", "none");
@@ -490,47 +538,27 @@ namespace
       throw std::invalid_argument("unknown objective-target policy '" +
                                   objective_target_policy + "'");
 
-    const auto policy = "Solver/method policy " + method_id + "/gradient tolerance";
-    const auto policy_min =
-      "Solver/method policy " + method_id + "/minimum step length";
-    const auto legacy_policy_min =
-      "Solver/method policy " + method_id + "/declared minimum step length";
-    const auto gradient = file.optional_value(policy);
-    solver.parameters.gradient_tolerance = gradient.empty()
-                                             ? parameter_double(file, "Solver/gradient tolerance")
-                                             : parse_number_text(gradient, policy);
-    auto minimum = file.optional_value(policy_min);
-    auto minimum_key = policy_min;
-    if (minimum.empty())
-      {
-        minimum = file.optional_value("Solver/minimum step length");
-        minimum_key = "Solver/minimum step length";
-      }
-    if (!minimum.empty() && minimum != "none")
+    const auto gradient = resolve("gradient tolerance");
+    solver.parameters.gradient_tolerance =
+      parse_number_text(gradient.value, gradient.key);
+    const auto minimum = resolve("minimum step length");
+    if (!minimum.value.empty() && minimum.value != "none")
       solver.parameters.minimum_step_length =
-        parse_number_text(minimum, minimum_key);
+        parse_number_text(minimum.value, minimum.key);
     else
       solver.parameters.minimum_step_length = 0.0;
 
-    auto declared_minimum = file.optional_value(legacy_policy_min);
-    auto declared_minimum_key = legacy_policy_min;
-    if (declared_minimum.empty())
-      {
-        declared_minimum =
-          file.optional_value("Solver/declared minimum step length");
-        declared_minimum_key = "Solver/declared minimum step length";
-      }
-    if (!declared_minimum.empty() && declared_minimum != "none")
+    const auto declared_minimum = resolve("declared minimum step length");
+    if (!declared_minimum.value.empty() && declared_minimum.value != "none")
       solver.declared_minimum_step_length =
-        parse_number_text(declared_minimum, declared_minimum_key);
+        parse_number_text(declared_minimum.value, declared_minimum.key);
     else
       solver.declared_minimum_step_length = std::nullopt;
 
-    const auto method_prefix = "Solver/method policy " + method_id + "/";
     const auto memory = file.optional_value(method_prefix + "memory");
     if (!memory.empty())
       solver.limited_memory_bfgs.memory_size =
-        parameter_unsigned(file, method_prefix + "memory");
+        parse_unsigned_text(memory, method_prefix + "memory");
     const auto curvature =
       file.optional_value(method_prefix + "curvature tolerance");
     if (!curvature.empty())
@@ -889,6 +917,18 @@ namespace
                                  parameters.maximum_line_search_trials - 1)});
     evidence.fields.push_back({"solver.gradient_tolerance",
                                b1_number(parameters.gradient_tolerance)});
+    evidence.fields.push_back(
+      {"solver.stopping_criterion",
+       nmopt::solvers::reduced_stopping_criterion_name(
+         parameters.stopping_criterion)});
+    evidence.fields.push_back(
+      {"solver.relative_gradient_tolerance",
+       b1_number(parameters.relative_gradient_tolerance)});
+    evidence.fields.push_back(
+      {"solver.objective_change_tolerance",
+       b1_number(parameters.objective_change_tolerance)});
+    evidence.fields.push_back({"solver.step_tolerance",
+                               b1_number(parameters.step_tolerance)});
     evidence.fields.push_back({"solver.initial_step_length",
                                b1_number(parameters.initial_step_length)});
     evidence.fields.push_back({"solver.minimum_step_length",

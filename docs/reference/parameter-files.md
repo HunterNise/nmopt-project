@@ -69,6 +69,17 @@ both. `minimum step length` is operative, while the legacy
 `declared minimum step length` remains provenance-only for stale benchmark
 files.
 
+Every shared reduced-solver field may be overridden in a method-policy
+subsection (`Solver/method policy <method>`): `maximum iterations`, either
+line-search trial/reduction count,
+`gradient tolerance`, `stopping criterion`, the relative-gradient,
+objective-change, and step tolerances, `initial step length`, `Armijo
+fraction`, `backtracking factor`, and `minimum step length`. An empty method
+entry inherits the corresponding `Solver` value. For the mutually exclusive
+trial/reduction pair, specifying either method entry replaces the global pair.
+The objective-target policy and initial control remain global because they
+define the relation and common start across the method comparison.
+
 An `objective target policy` of `explicit` consumes the numeric
 `objective target`. The B1-only `match-reference-method` policy instead runs
 the named `objective target reference method` first for every regularisation

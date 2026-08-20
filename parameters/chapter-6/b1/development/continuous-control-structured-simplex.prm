@@ -88,12 +88,17 @@ subsection Solver
   set backtracking factor = 0.7
 
   subsection method policy steepest-descent
-    set gradient tolerance = 1e-3
+    # The prose normalizes the gradient by its value at the zero control.
+    set stopping criterion = relative-gradient-norm
+    set gradient tolerance = 1e-30
+    set relative gradient tolerance = 1e-3
     set minimum step length = 0.2
   end
 
   subsection method policy l-bfgs
+    set stopping criterion = gradient-norm
     set gradient tolerance = 1e-30
+    set relative gradient tolerance = 0.0
     set minimum step length = 0.01
     set memory = 5
     set curvature tolerance = 1e-14

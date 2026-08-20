@@ -57,8 +57,9 @@ the original source material or declare a manufactured replacement.
   Armijo; Figure 6.3 labels the quasi-Newton curves LM-BFGS. The comparison
   uses $\beta=10^{-1}$, $10^{-2}$, and $10^{-3}$; Figure 6.2 also plots BFGS
   fields for $\beta=10^{-3}$ and $10^{-6}$.
-- **Start and stopping:** the discussion compares gradient norm with the
-  no-control start $u_{0}=0$. Steepest descent uses tolerance $10^{-3}$.
+- **Start and stopping:** the discussion normalizes the gradient norm by its
+  value at the no-control start $u_{0}=0$. Steepest descent uses relative
+  tolerance $10^{-3}$.
   BFGS is stopped when its objective reaches the steepest-descent final
   objective, rather than at a separate common tolerance.
 - **Armijo data:** $\rho=0.7$, $\sigma=10^{-5}$, and at most five step

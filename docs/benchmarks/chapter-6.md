@@ -143,10 +143,12 @@ artifacts distinguish the declaration from the executed value.
 
 The development family `figure-6.3-book-policy.prm` encodes the recovered
 Figure 6.3 conventions separately: five Armijo reductions (six possible
-trials), operative floors `0.2` and `0.01`, and L-BFGS termination at the
-terminal steepest-descent objective for the same regularisation value. The
-runner executes the reference method first and records the exact artifact
-that supplied each dependent objective target.
+trials), operative floors `0.2` and `0.01`, steepest-descent termination at a
+relative gradient norm of $10^{-3}$, and L-BFGS termination at the terminal
+steepest-descent objective for the same regularisation value. The L-BFGS
+absolute gradient threshold is only a positive solver-contract safeguard. The
+runner executes the reference method first and records the exact artifact that
+supplied each dependent objective target.
 
 ### Acceptance evidence
 

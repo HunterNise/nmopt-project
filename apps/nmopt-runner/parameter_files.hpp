@@ -5,6 +5,7 @@
 #include <deal.II/base/parameter_handler.h>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -62,8 +63,46 @@ namespace nmopt::application::runner
     combinations(const std::vector<std::pair<std::string, std::string>> &cli_filters = {}) const;
   };
 
+  struct ResolvedParameterValue
+  {
+    std::string key;
+    std::string value;
+  };
+
+  inline ResolvedParameterValue
+  resolve_method_parameter(const ParameterFile &file,
+                           const std::string_view method_id,
+                           const std::string_view entry)
+  {
+    const auto policy_key = "Solver/method policy " + std::string(method_id) +
+                            "/" + std::string(entry);
+    const auto policy_value = file.optional_value(policy_key);
+    if (!policy_value.empty())
+      return {policy_key, policy_value};
+    const auto global_key = "Solver/" + std::string(entry);
+    return {global_key, file.optional_value(global_key)};
+  }
+
   namespace detail
   {
+    inline constexpr std::array<const char *, 16> method_policy_entries = {
+      {"maximum iterations",
+       "maximum line search trials",
+       "maximum backtracking reductions",
+       "gradient tolerance",
+       "stopping criterion",
+       "relative gradient tolerance",
+       "objective change tolerance",
+       "step tolerance",
+       "initial step length",
+       "Armijo fraction",
+       "backtracking factor",
+       "minimum step length",
+       "memory",
+       "curvature tolerance",
+       "initial inverse Hessian scaling",
+       "declared minimum step length"}};
+
     inline std::string hash_text(const std::string &text);
   }
 
@@ -394,12 +433,7 @@ namespace nmopt::application::runner
                                 "declared minimum step length"})
         declare_section("Solver", entry);
       for (const auto &method : {"steepest-descent", "l-bfgs", "bfgs"})
-        for (const auto &entry : {"gradient tolerance",
-                                  "minimum step length",
-                                  "memory",
-                                  "curvature tolerance",
-                                  "initial inverse Hessian scaling",
-                                  "declared minimum step length"})
+        for (const auto *entry : method_policy_entries)
           declare(handler,
                   {"Solver", "method policy " + std::string(method)},
                   entry);
@@ -577,12 +611,7 @@ namespace nmopt::application::runner
             remember(section, entry);
         }
       for (const auto &method : {"steepest-descent", "l-bfgs", "bfgs"})
-        for (const auto &entry : {"gradient tolerance",
-                                  "minimum step length",
-                                  "memory",
-                                  "curvature tolerance",
-                                  "initial inverse Hessian scaling",
-                                  "declared minimum step length"})
+        for (const auto *entry : method_policy_entries)
           values.emplace("Solver/method policy " + std::string(method) + "/" +
                            entry,
                          get(handler,

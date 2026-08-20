@@ -1,7 +1,6 @@
 # Parameter files and plotting profiles
 
-**Status:** proposed configuration schema; the loader and runner integration
-are not implemented yet.
+**Status:** implemented for the Chapter 6 runner and post-processing pipeline.
 
 This document defines the first schema slice for versioned Chapter 6
 experiment inputs. It separates the values that select and execute a
@@ -175,12 +174,12 @@ The run manifest should retain at least:
 
 ```text
 parameters.file
-parameters.sha256
+parameters.content_hash
 parameters.selection
 parameters.declared_matrix
 parameters.resolved_combinations
 plotting.profile_file
-plotting.profile_sha256
+plotting.profile_content_hash
 plotting.resolved_comparison
 cli.refinement_override
 ```
@@ -197,6 +196,7 @@ different profile is an explicit derived-output override.
 - [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json)
 - [B2 plotting profile](../../parameters/plotting/chapter-6-b2.json)
 
-These examples are schema fixtures only. They document the intended input
-boundary; they are not consumed by the current runner until the parameter-file
-unit is implemented.
+The runner accepts these files with `--parameter-file`; the copied snapshots
+and resolved combinations below the run directory are the post-processing
+default. Content hashes currently use a labelled deterministic FNV-1a-64
+digest for drift detection; they are provenance values, not authentication.

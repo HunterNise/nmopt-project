@@ -121,11 +121,24 @@ refinement override, expected artifact inventory, and `running`, `complete`, or
 `failed` status. The selected build profile, framework revision, and realized
 mesh remain metadata rather than path components.
 
-The runner currently exposes `--list`, `--benchmark`, `--output`,
-`--framework-revision`, `--run-kind`, and the optional `--refinement` override.
-The selected benchmark supplies its default mesh policy when no override is
-given. Use `nmopt_runner --help` for the executable's complete current option
-surface.
+The runner exposes `--list`, the compatibility `--benchmark` selector, and
+the parameter-driven `--parameter-file` selector. Parameter files own the run
+kind and matrix; repeatable `--select AXIS=VALUE` filters a declared matrix,
+while `--output` and the optional `--refinement` remain destination/smoke
+overrides. `--framework-revision` records executable provenance. Use
+`nmopt_runner --help` for the complete current option surface.
+
+For a versioned experiment family:
+
+```bash
+build/release-dealii/bin/nmopt_runner \
+  --parameter-file parameters/chapter-6/b1/authoritative.prm \
+  --framework-revision REV
+```
+
+The runner copies the parameter and plotting profile into the run directory,
+records their content hashes and resolved combinations in the run manifest,
+and retains the comparison-axis override for post-processing.
 
 ## Native and derived outputs
 
@@ -147,8 +160,8 @@ artifacts/<method-or-case>/
 `fields-volume.vtu` contains the final state, the native framework adjoint,
 the comparison-only negative adjoint, and the B1 volume control. B1 also
 exports its target and forcing functions sampled on the state DoFs. B2 stores
-the optimized state, the zero-control state, its target and forcing functions,
-and a cellwise observation-domain mask. Its facewise control is stored in
+the optimized state, the zero-control state, both adjoint conventions, its
+target and forcing functions, and a cellwise observation-domain mask. Its facewise control is stored in
 `control-boundary.vtu` because the boundary topology differs from the volume
 topology. These are final-state and input-function exports, not per-iteration
 output. The mesh SVG is a lightweight 2D preview; the VTU files retain the
@@ -177,16 +190,16 @@ To render one artifact's native fields:
 
 ```bash
 python3 tools/postprocess.py \
-  --profile chapter6 \
   --artifact runs/chapter-6/b1/authoritative/artifacts/steepest-descent/beta-1e-1 \
   --output runs/chapter-6/b1/authoritative/artifacts/steepest-descent/beta-1e-1/postprocess
 ```
 
 The tool writes derived plots and `postprocess.json`. Run-root processing with
-`--input` writes a root `postprocess-index.json` and comparison outputs. Use
-the tool's `--help` output for the complete current option set; the
-compatibility `chapter6_postprocess.py` wrapper remains available for legacy
-Chapter 6 inputs.
+`--input` writes a root `postprocess-index.json` and comparison outputs. When a
+run snapshot is present, the copied JSON profile and manifest comparison plan
+are loaded automatically. `--profile-file FILE` explicitly selects another
+profile; the compatibility `chapter6_postprocess.py` wrapper remains
+available for legacy Chapter 6 inputs.
 
 ## Agent verification loop
 

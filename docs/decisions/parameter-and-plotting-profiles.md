@@ -2,16 +2,16 @@
 
 ## Status
 
-Accepted repository and application-layer decision. The schema fixtures exist;
-the loader and runner integration remain a later implementation unit.
+Accepted repository and application-layer decision. The schema fixtures and
+the first reusable loader/runner integration exist.
 
 ## Context
 
-The headless Chapter 6 runner currently constructs benchmark scenarios from
-C++ defaults and hardcoded matrices. The post-processing pipeline reads a
+The headless Chapter 6 runner had constructed benchmark scenarios from C++
+defaults and hardcoded matrices. The post-processing pipeline had read a
 profile selected on the command line, while some benchmark-specific layout
-policy remains inside the generic renderer. This makes numerical experiments
-harder to vary and makes old plots dependent on current tooling defaults.
+policy remained inside the generic renderer. This made numerical experiments
+harder to vary and made old plots dependent on current tooling defaults.
 
 The project needs two reproducible configuration boundaries:
 
@@ -153,7 +153,7 @@ This decision provides one authoritative B1 or B2 file for the full benchmark
 matrix while retaining per-artifact reproducibility. Development families can
 vary missing source components without changing the frozen benchmark file.
 
-The parameter loader must resolve matrix values into the existing typed
+The parameter loader resolves matrix values into the existing typed
 scenario records; it must not bypass semantic validation or introduce
 backend-specific branches into generic solvers. The post-processing loader
 must resolve JSON into explicit profile and comparison-policy objects; it must
@@ -167,3 +167,6 @@ The initial schema fixtures are:
 - [B2 forcing development family](../../parameters/chapter-6/b2/development/forcing-sweep.prm);
 - [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json); and
 - [B2 plotting profile](../../parameters/plotting/chapter-6-b2.json).
+
+The current content hash is a labelled deterministic FNV-1a-64 digest used to
+detect configuration drift; it is not an authentication checksum.

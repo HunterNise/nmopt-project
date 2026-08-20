@@ -21,12 +21,14 @@ namespace
   }
 
   void
-  run_b1_manufactured_case(
+  run_b1_case(
     const chapter6::ReducedMethod method,
     const chapter5::DistributedControlDiscretisation discretisation =
-      chapter5::DistributedControlDiscretisation::cellwise_constant)
+      chapter5::DistributedControlDiscretisation::cellwise_constant,
+    const chapter6::B1ForcingSelection forcing =
+      chapter6::B1ForcingSelection::manufactured_zero)
   {
-    auto scenario = chapter6::make_b1_scenario(method);
+    auto scenario = chapter6::make_b1_scenario(method, forcing);
     scenario.problem.recipe.discretisation = discretisation;
     scenario.compile.mesh.refinement = 1;
     scenario.problem.regularisation_sweep = {1.0e-2};
@@ -36,17 +38,24 @@ namespace
     scenario.compile.adjoint_solve = {124, 4.0e-12, 5.0e-14};
     scenario.compile.control_metric_solve = {321, 6.0e-12, 7.0e-14};
 
-    chapter6::dealii::B1ManufacturedDataT<2> manufactured_data;
+    chapter6::dealii::B1SelectedDataT<2> selected_data(forcing);
     const auto runtime =
-      chapter6::dealii::make_b1_manufactured_runtime_data(
-        scenario, manufactured_data);
+      chapter6::dealii::make_b1_runtime_data(scenario, selected_data);
+    const double expected_forcing =
+      forcing == chapter6::B1ForcingSelection::figure_inferred_constant_one
+        ? 1.0
+        : 0.0;
+    require(std::abs(runtime.forcing.value(::dealii::Point<2>(0.5, 0.5)) -
+                     expected_forcing) < 1.0e-15,
+            "B1 runtime data realized the wrong forcing value");
     const auto session =
       chapter6::dealii::make_b1_compilation_session<2>(scenario);
     const auto native_output_directory =
       std::filesystem::temp_directory_path() /
       ("nmopt-b1-native-contract-" +
        std::to_string(static_cast<int>(method)) + "-" +
-       chapter5::distributed_control_discretisation_name(discretisation));
+       chapter5::distributed_control_discretisation_name(discretisation) + "-" +
+       chapter6::b1_forcing_selection_name(forcing));
     std::filesystem::remove_all(native_output_directory);
     chapter6::dealii::B1ReducedExecutionAdapterT<2> execute{
       1.0e-2,
@@ -113,6 +122,11 @@ namespace
                 discretisation) +
               "\n") != std::string::npos,
             "B1 dealii adapter omitted control-discretisation evidence");
+    require(result.document.find(
+              std::string("b1.forcing_selection=") +
+              chapter6::b1_forcing_selection_name(forcing) + "\n") !=
+              std::string::npos,
+            "B1 dealii adapter omitted forcing-selection evidence");
     require(result.document.find("benchmark.state_dimension=9\n") !=
               std::string::npos &&
               result.document.find(
@@ -207,7 +221,7 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b1", "contract"},
          120,
          []() {
-           run_b1_manufactured_case(
+           run_b1_case(
              nmopt::application::chapter6::ReducedMethod::steepest_descent);
          }},
         {"b1_manufactured_limited_memory_bfgs",
@@ -215,7 +229,7 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b1", "contract"},
          120,
          []() {
-           run_b1_manufactured_case(
+           run_b1_case(
              nmopt::application::chapter6::ReducedMethod::limited_memory_bfgs);
          }},
         {"b1_continuous_control_steepest_descent",
@@ -223,10 +237,22 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b1", "contract"},
          120,
          []() {
-           run_b1_manufactured_case(
+           run_b1_case(
              nmopt::application::chapter6::ReducedMethod::steepest_descent,
              nmopt::application::chapter5::DistributedControlDiscretisation::
                homogeneous_dirichlet_continuous);
+         }},
+        {"b1_inferred_constant_one_steepest_descent",
+         "nmopt.application.dealii.b1_inferred_constant_one_steepest_descent",
+         {"dealii", "application", "benchmark", "b1", "contract"},
+         120,
+         []() {
+           run_b1_case(
+             nmopt::application::chapter6::ReducedMethod::steepest_descent,
+             nmopt::application::chapter5::DistributedControlDiscretisation::
+               homogeneous_dirichlet_continuous,
+             nmopt::application::chapter6::B1ForcingSelection::
+               figure_inferred_constant_one);
          }}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);

@@ -81,6 +81,12 @@ degree, shares the state's homogeneous boundary region, and rejects a
 cellwise box. The effective representation is recorded independently of the
 parameter-file provenance.
 
+B1 accepts the registered `Functions/forcing` values `manufactured-zero` and
+`figure-inferred-constant-one`. Their respective kinds are `zero` and
+`constant`; the latter must declare `value = 1.0`. The constant-one selection
+is a Figure 6.2 hypothesis with explicit inference provenance, not recovered
+source data.
+
 The `Compile` section exposes separate maximum iterations, relative tolerance,
 and absolute tolerance entries for the state, adjoint, and control-metric
 solves. A zero state or adjoint iteration limit selects the compiler's
@@ -225,6 +231,7 @@ different profile is an explicit derived-output override.
 
 - [B1 authoritative parameter family](../../parameters/chapter-6/b1/authoritative.prm)
 - [B1 Figure 6.3 solver-policy family](../../parameters/chapter-6/b1/development/figure-6.3-book-policy.prm)
+- [B1 continuous-control constant-one-forcing candidate](../../parameters/chapter-6/b1/development/continuous-control-constant-one.prm)
 - [B2 authoritative parameter family](../../parameters/chapter-6/b2/authoritative.prm)
 - [B2 development forcing sweep](../../parameters/chapter-6/b2/development/forcing-sweep.prm)
 - [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json)

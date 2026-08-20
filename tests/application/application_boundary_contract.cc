@@ -235,15 +235,22 @@ namespace
                 DistributedControlDiscretisation::cellwise_constant,
             "B1 authoritative defaults did not retain cellwise control");
 
-    const auto recovered = nmopt::application::chapter6::make_b1_scenario(
+    const auto inferred = nmopt::application::chapter6::make_b1_scenario(
       nmopt::application::chapter6::ReducedMethod::steepest_descent,
-      nmopt::application::chapter6::B1ForcingSelection::recovered_source);
-    require(recovered.problem.forcing_selection ==
-              nmopt::application::chapter6::B1ForcingSelection::recovered_source,
-            "B1 did not retain the recovered forcing choice");
-    require(recovered.problem.data.forcing_provenance ==
-              "chapter-6.e6.5.1.recovered-forcing",
-            "B1 did not retain recovered forcing provenance");
+      nmopt::application::chapter6::B1ForcingSelection::
+        figure_inferred_constant_one);
+    require(inferred.problem.forcing_selection ==
+              nmopt::application::chapter6::B1ForcingSelection::
+                figure_inferred_constant_one,
+            "B1 did not retain the figure-inferred forcing choice");
+    require(inferred.problem.data.forcing_provenance ==
+              "chapter-6.e6.5.1.figure-6.2-inferred-constant-one-forcing",
+            "B1 did not retain figure-inferred forcing provenance");
+    require(std::string(nmopt::application::chapter6::
+                          b1_forcing_selection_name(
+                            inferred.problem.forcing_selection)) ==
+              "figure_inferred_constant_one",
+            "B1 forcing selection lost its stable name");
 
     auto invalid_solve = b1;
     invalid_solve.compile.control_metric_solve.maximum_iterations = 0;

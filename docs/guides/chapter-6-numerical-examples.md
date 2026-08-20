@@ -78,6 +78,15 @@ rendered plots rather than numerical field or iteration-history data.
 Consequently, the source alone cannot determine the exact coefficient vectors,
 objective histories, or field images.
 
+Figure 6.2 nevertheless motivates a concrete forcing hypothesis. For
+$\beta=10^{-6}$ the plotted state nearly reaches the target maximum $0.625$
+and the plotted control maximum is approximately $8.90$. Since
+$-\Delta z_{d}$ reaches $10$ at the centre of the square, these extrema are
+consistent with $f\equiv1$ and $u\approx-\Delta z_{d}-1$ there. This is an
+inference from rendered extrema rather than source data; both $f\equiv0$ and
+$f\equiv1$ must remain explicitly labelled candidates until numerical field
+and history comparisons provide further evidence.
+
 The source does state that Figure 6.2 includes BFGS fields for
 $\beta=10^{-3}$ and $10^{-6}$, while Figure 6.3 contains cost and gradient
 histories for $\beta=10^{-1},10^{-2},10^{-3}$. The figures do not provide the

@@ -546,8 +546,6 @@ namespace
                       "Benchmark/recipe",
                       chapter6::b1_recipe_id);
     require_parameter(file, "Problem/observation", "full-domain");
-    require_parameter(file, "Functions/forcing", "manufactured-zero");
-    require_parameter(file, "Functions/forcing/kind", "zero");
     require_parameter(file, "Functions/desired state", "b1-polynomial");
     require_parameter(file, "Functions/desired state/kind", "polynomial");
     require_parameter(file,
@@ -584,8 +582,28 @@ namespace
     scenario.problem.data.desired_state_provenance =
       file.value("Functions/desired state/provenance");
     scenario.problem.regularisation_sweep = {beta};
-    scenario.problem.forcing_selection =
-      chapter6::B1ForcingSelection::manufactured_zero;
+    const auto forcing_id = file.value("Functions/forcing");
+    const auto forcing_kind = file.value("Functions/forcing/kind");
+    if (forcing_id == "manufactured-zero")
+      {
+        if (forcing_kind != "zero")
+          throw std::invalid_argument(
+            "B1 manufactured-zero forcing must have kind 'zero'");
+        scenario.problem.forcing_selection =
+          chapter6::B1ForcingSelection::manufactured_zero;
+      }
+    else if (forcing_id == "figure-inferred-constant-one")
+      {
+        if (forcing_kind != "constant" ||
+            parameter_double(file, "Functions/forcing/value") != 1.0)
+          throw std::invalid_argument(
+            "B1 figure-inferred-constant-one forcing must be constant 1.0");
+        scenario.problem.forcing_selection = chapter6::B1ForcingSelection::
+          figure_inferred_constant_one;
+      }
+    else
+      throw std::invalid_argument("B1 has an unknown forcing selection '" +
+                                  forcing_id + "'");
     scenario.solver.method = parse_method(method_id);
     apply_common_parameter_options(
       scenario,
@@ -1128,9 +1146,10 @@ namespace
                   reference->second.artifact;
               }
 
-            nmopt::application::chapter6::dealii::B1ManufacturedDataT<2> data;
+            nmopt::application::chapter6::dealii::B1SelectedDataT<2> data(
+              scenario.problem.forcing_selection);
             const auto runtime =
-              nmopt::application::chapter6::dealii::make_b1_manufactured_runtime_data(
+              nmopt::application::chapter6::dealii::make_b1_runtime_data(
                 scenario, data);
             const auto session =
               nmopt::application::chapter6::dealii::make_b1_compilation_session<2>(

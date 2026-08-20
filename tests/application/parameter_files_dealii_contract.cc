@@ -57,6 +57,17 @@ namespace
                 "false",
             "B1 continuous-control family lost its candidate discretisation");
 
+    const auto constant_one_forcing = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b1/development/continuous-control-constant-one.prm"));
+    require(constant_one_forcing.combinations().size() == 6 &&
+              constant_one_forcing.value("Functions/forcing") ==
+                "figure-inferred-constant-one" &&
+              constant_one_forcing.value("Functions/forcing/kind") ==
+                "constant" &&
+              constant_one_forcing.value("Functions/forcing/value") == "1.0",
+            "B1 constant-one family lost its inferred forcing candidate");
+
     const auto b2 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
     require(b2.matrix.size() == 2, "B2 should declare independent axes");

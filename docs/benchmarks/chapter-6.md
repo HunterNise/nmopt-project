@@ -111,6 +111,10 @@ The development family `continuous-control.prm` changes only the control
 realization to independent homogeneous-Dirichlet continuous `FE_Q` while
 retaining the $L^{2}$ loss and search metric. This is the current-mesh candidate
 for the source's continuous `P1` clue and is not part of the frozen benchmark.
+The `continuous-control-constant-one.prm` family additionally tests the
+$f\equiv1$ hypothesis inferred from the Figure 6.2 extrema. Its provenance
+records that inference; it does not promote the omitted forcing to a source
+fact.
 
 ### Solver policy
 

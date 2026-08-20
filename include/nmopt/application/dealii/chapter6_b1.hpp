@@ -62,9 +62,21 @@ namespace nmopt::application::chapter6::dealii
   };
 
   template <int dim>
-  class B1ManufacturedDataT final
+  class B1SelectedDataT final
   {
   public:
+    explicit B1SelectedDataT(const B1ForcingSelection forcing_selection =
+                               B1ForcingSelection::manufactured_zero)
+      : forcing_selection_(forcing_selection)
+      , forcing_(forcing_value(forcing_selection))
+    {}
+
+    B1ForcingSelection
+    forcing_selection() const
+    {
+      return forcing_selection_;
+    }
+
     B1RuntimeDataT<dim>
     runtime_data() const
     {
@@ -72,21 +84,34 @@ namespace nmopt::application::chapter6::dealii
     }
 
   private:
-    ::dealii::Functions::ZeroFunction<dim> forcing_;
-    B1DesiredStateFunction<dim>             desired_state_;
+    static double
+    forcing_value(const B1ForcingSelection selection)
+    {
+      switch (selection)
+        {
+          case B1ForcingSelection::manufactured_zero:
+            return 0.0;
+          case B1ForcingSelection::figure_inferred_constant_one:
+            return 1.0;
+        }
+      throw std::invalid_argument("unknown B1 forcing selection");
+    }
+
+    B1ForcingSelection                        forcing_selection_;
+    ::dealii::Functions::ConstantFunction<dim> forcing_;
+    B1DesiredStateFunction<dim>                desired_state_;
   };
 
   template <int dim>
   B1RuntimeDataT<dim>
-  make_b1_manufactured_runtime_data(
+  make_b1_runtime_data(
     const B1Scenario &scenario,
-    const B1ManufacturedDataT<dim> &data)
+    const B1SelectedDataT<dim> &data)
   {
     validate_b1(scenario);
-    if (scenario.problem.forcing_selection !=
-        B1ForcingSelection::manufactured_zero)
+    if (scenario.problem.forcing_selection != data.forcing_selection())
       throw std::invalid_argument(
-        "B1 manufactured data cannot satisfy a recovered-forcing scenario");
+        "B1 runtime-data forcing does not match the scenario selection");
     if (scenario.compile.mesh.dimension != dim)
       throw std::invalid_argument(
         "B1 runtime data dimension does not match the scenario mesh");
@@ -567,14 +592,8 @@ namespace nmopt::application::chapter6::dealii
     static const char *
     b1_forcing_selection(const B1Scenario &scenario)
     {
-      switch (scenario.problem.forcing_selection)
-        {
-          case B1ForcingSelection::recovered_source:
-            return "recovered_source";
-          case B1ForcingSelection::manufactured_zero:
-            return "manufactured_zero";
-        }
-      return "unknown";
+      return chapter6::b1_forcing_selection_name(
+        scenario.problem.forcing_selection);
     }
 
     double                                                    regularisation_;

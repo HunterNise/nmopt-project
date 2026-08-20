@@ -101,8 +101,8 @@ coefficients, the owned mesh session, and the selected solver product.
 ### B1 backend execution adapter
 
 The deal.II-specific adapter is declared in
-`include/nmopt/application/dealii/chapter6_b1.hpp`. For the manufactured
-forcing choice, the complete assembly is:
+`include/nmopt/application/dealii/chapter6_b1.hpp`. For a registered forcing
+choice, the complete assembly is:
 
 ```cpp
 #include "nmopt/application/dealii/chapter6_b1.hpp"
@@ -112,9 +112,10 @@ const auto scenario =
 const auto specification =
   nmopt::application::chapter6::make_b1_problem_spec(scenario);
 
-nmopt::application::chapter6::dealii::B1ManufacturedDataT<2> data;
+nmopt::application::chapter6::dealii::B1SelectedDataT<2> data(
+  scenario.problem.forcing_selection);
 const auto runtime =
-  nmopt::application::chapter6::dealii::make_b1_manufactured_runtime_data(
+  nmopt::application::chapter6::dealii::make_b1_runtime_data(
     scenario, data);
 const auto session =
   nmopt::application::chapter6::dealii::make_b1_compilation_session<2>(
@@ -136,15 +137,19 @@ The adapter binds forcing, the polynomial desired state, diffusion, reaction,
 and the per-run regularization value; creates the owned square-domain mesh
 session; compiles the assembled reduced DTO; and dispatches either steepest
 descent or limited-memory BFGS. The returned detached envelope contains the
-compiler manifest, typed solver report, policy snapshot, and environment.
-Recovered forcing uses a caller-owned `B1RuntimeDataT<dim>` instead of
-`B1ManufacturedDataT<dim>`.
+compiler manifest, typed solver report, policy snapshot, and environment. The
+registered choices are the frozen manufactured-zero replacement and the
+constant-one hypothesis inferred from the Figure 6.2 extrema. Arbitrary
+recovered data can still use caller-owned `B1RuntimeDataT<dim>`.
 
 `parameters/chapter-6/b1/development/continuous-control.prm` is the checked
 candidate motivated by the source's continuous linear control-space statement
 and equal reported state/control/adjoint counts. On the current quadrilateral
 mesh it realizes the conforming `Q1` analogue, not the source's undisclosed
 triangular `P1` mesh, so it is comparison evidence rather than source parity.
+The companion `continuous-control-constant-one.prm` changes only the forcing
+to the Figure 6.2 constant-one hypothesis while retaining the same continuous
+control and recovered Figure 6.3 solver policies.
 
 The benchmark-specific B1 freeze and acceptance evidence are defined in the
 [Chapter 6 benchmark specification](../benchmarks/chapter-6.md).

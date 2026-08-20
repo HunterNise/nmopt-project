@@ -137,9 +137,22 @@ namespace nmopt::application::chapter6
 
   enum class B1ForcingSelection
   {
-    recovered_source,
-    manufactured_zero
+    manufactured_zero,
+    figure_inferred_constant_one
   };
+
+  inline const char *
+  b1_forcing_selection_name(const B1ForcingSelection selection)
+  {
+    switch (selection)
+      {
+        case B1ForcingSelection::manufactured_zero:
+          return "manufactured_zero";
+        case B1ForcingSelection::figure_inferred_constant_one:
+          return "figure_inferred_constant_one";
+      }
+    throw std::invalid_argument("unknown B1 forcing selection");
+  }
 
   struct B1ProblemParameters
   {
@@ -308,8 +321,8 @@ namespace nmopt::application::chapter6
       }
     switch (scenario.problem.forcing_selection)
       {
-        case B1ForcingSelection::recovered_source:
         case B1ForcingSelection::manufactured_zero:
+        case B1ForcingSelection::figure_inferred_constant_one:
           break;
         default:
           throw std::invalid_argument("B1 has an unknown forcing selection");
@@ -465,10 +478,17 @@ namespace nmopt::application::chapter6
   {
     B1ProblemParameters problem;
     problem.forcing_selection = forcing;
-    problem.data.forcing_provenance =
-      forcing == B1ForcingSelection::manufactured_zero
-        ? "chapter-6.e6.5.1.manufactured-zero-forcing"
-        : "chapter-6.e6.5.1.recovered-forcing";
+    switch (forcing)
+      {
+        case B1ForcingSelection::manufactured_zero:
+          problem.data.forcing_provenance =
+            "chapter-6.e6.5.1.manufactured-zero-forcing";
+          break;
+        case B1ForcingSelection::figure_inferred_constant_one:
+          problem.data.forcing_provenance =
+            "chapter-6.e6.5.1.figure-6.2-inferred-constant-one-forcing";
+          break;
+      }
 
     SolverOptions solver;
     solver.method = method;
@@ -489,7 +509,7 @@ namespace nmopt::application::chapter6
        "Reduced-space comparison of steepest descent and L-BFGS",
        "chapter-6",
        b1_recipe_id,
-       {"B0 harness", "manufactured or recovered forcing is recorded"}},
+       {"B0 harness", "registered forcing selection and provenance are recorded"}},
       std::move(problem),
       std::move(compile),
       std::move(solver),

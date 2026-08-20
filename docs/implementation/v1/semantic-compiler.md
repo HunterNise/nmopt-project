@@ -48,6 +48,7 @@ or
 | Registered semantic graph | Selected implementation | Bounded capability | Focused CTest scenario |
 | --- | --- | --- | --- |
 | `make_scalar_diffusion_reaction_problem()` | `ScalarDiffusionReactionModel<dim>` direct v0 reference, packaged through v1 ports | Homogeneous fixed Dirichlet, full-volume tracking, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `nmopt.dealii.canonical_volume_control` |
+| `make_l2_state_tracking_continuous_control_problem()` | `ContinuousControlModel<dim>` | Full-volume $L^{2}$ tracking and regularisation with independent homogeneous-Dirichlet `FE_Q` volume control, an $L^{2}$ metric, and no box | `nmopt.dealii.l2_tracking_continuous_control` |
 | `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `nmopt.dealii.fixed_dirichlet` |
 | `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
 | `make_h1_state_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Full-domain $H^{1}_{0}$ state observation with mass-plus-stiffness tracking and an unchanged control $L^{2}$ metric | `nmopt.dealii.h1_state_observation` |
@@ -182,7 +183,10 @@ fixed-precedence interface policy. The
 material-id observation region.
 `make_h1_state_tracking_scalar_diffusion_reaction_problem()` instead selects
 the full-domain energy observation and its $H^{1}_{0}$ pairing while retaining
-the cellwise $L^{2}$ control metric. The separate
+the cellwise $L^{2}$ control metric.
+`make_l2_state_tracking_continuous_control_problem()` retains the baseline
+$L^{2}$ state loss and changes only the control realization to independent
+homogeneous-Dirichlet `FE_Q` coordinates. The separate
 `make_l2_metric_h1_state_tracking_continuous_control_problem()` and
 `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()`
 factories share one independent homogeneous-Dirichlet continuous-control graph
@@ -831,10 +835,11 @@ essential reconstruction, the complete and selected partial fixed/controlled
 trace policies, nodal trace layout, boundary mass metric, and both
 transformation pullbacks. It also owns the conforming Galerkin realization of
 the Chapter 5.11.2 transposition graph without changing that graph's continuous
-spaces or residual. The private `dealii_continuous_control.hpp` target owns the
-distinct continuous-control
-$H^{1}$ loss and $H^{1}$ or $L^{2}$ search metrics. The private
-`dealii_coefficient_identification.hpp` target owns the cellwise positive
+spaces or residual. The private `dealii_continuous_control.hpp` target owns
+continuous `FE_Q` control for the registered $L^{2}$ and $H^{1}$ state losses,
+$L^{2}$ or $H^{1}$ control loss, and $H^{-1}$, $H^{1}$, or $L^{2}$ search
+metrics. The private `dealii_coefficient_identification.hpp` target owns the
+cellwise positive
 diffusion-parameter residual, its nonlinear first-order actions, parameter
 metric, and parameter box. The registry otherwise supports only the listed
 volume and Robin terms, full-domain control observation, full-domain or material-id
@@ -847,8 +852,8 @@ serial scalar `FE_Q` state/test with degree at least one and reduced DTO:
 coefficient for every marked boundary face, one nodal Dirichlet trace
 coefficient for every state DoF on the complete exterior controlled boundary,
 one relative-interior nodal trace for the selected partial lifting, or
-continuous `FE_Q` volume control for the registered $H^{1}$ loss. Pure
-Neumann is limited to
+continuous `FE_Q` volume control for a registered continuous-control graph.
+Pure Neumann is limited to
 zero reaction and compatible forcing/control loads. Coefficient identification
 instead selects a cellwise `FE_DGQ(0)` physical parameter with a strictly
 positive box and reassembled state/adjoint matrices.
@@ -866,20 +871,24 @@ exact-transpose adjoint solves.
 `CompiledProblemT<Backend>::executable_model()`, `metric()`, `constraint()`,
 `reduced_hessian()`, and `make_reduced_dto()` expose only backend-neutral ports
 and formulation services. The Hessian accessor is optional: it is present for
-the exact linear-quadratic direct and assembled scalar targets and absent for
-target families without the declared capability. The homogeneous private v0
-target, v1 assembled target, mass metric, and box constraint stay inside
+the exact linear-quadratic direct, assembled scalar, and continuous-control
+targets and absent for target families without the declared capability. The
+homogeneous private v0 target, v1 assembled target, mass metric, and box
+constraint stay inside
 `DealiiCompiler`. Each registered box is
 constructed with the actual positive-diagonal `MassMetric` selected by the
 same lowerer and retains that metric's opaque realization witness. Metric
 display IDs remain descriptive provenance and cannot grant clipping support to
 another operator. Solvers have no v1 branches.
 
-The direct and assembled scalar targets expose the exact reduced-Hessian action
-only because their residual operators, state-tracking operators, and control
-regularisation are assembled and linear-quadratic. The action uses the reduced
-tangent-state and transpose-adjoint solves; this does not extend the capability
-to generic nonlinear residuals or objectives.
+The direct, assembled scalar, and continuous-control targets expose the exact
+reduced-Hessian action only because their residual operators, state-tracking
+operators, and control regularisation are assembled and linear-quadratic. The
+action uses the reduced tangent-state and transpose-adjoint solves; this does
+not extend the capability to generic nonlinear residuals or objectives. The
+continuous-control native-output path reconstructs its constrained `FE_Q`
+coefficient vector before writing the state, adjoint, control, forcing, and
+target fields on the shared volume mesh.
 
 `DealiiCompilationSession<dim>` exclusively owns a static triangulation moved
 into it and supplies the lifetime token retained by both the compiled problem
@@ -976,7 +985,7 @@ representative structural or policy failures, incomplete aggregates,
 whole-graph closure, two-sided pairing compatibility, and order-independent
 reference deltas. They also verify order-independent resolution and the exact
 bounded scalar contribution plan, including rejection of a specialized graph.
-The sixteen deal.II target scenarios named in the
+The seventeen deal.II target scenarios named in the
 [capability table](#registered-capabilities) exercise their selected target,
 diagnostics, manifest, metric or constraint where applicable, forward and
 transpose actions, and state-recomputed reduced derivative. Negative semantic

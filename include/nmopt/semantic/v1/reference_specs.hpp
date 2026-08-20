@@ -738,6 +738,27 @@ namespace nmopt::semantic::v1
     }
   } // namespace reference_detail
 
+  // Continuous-control companion for the baseline full-domain L2 tracking
+  // graph. It changes only the discrete control search space; the residual,
+  // L2 state loss, L2 control regularisation, and L2 search metric are
+  // retained.
+  inline ProblemSpec
+  make_l2_state_tracking_continuous_control_problem()
+  {
+    ProblemSpec specification = make_scalar_diffusion_reaction_problem();
+    specification.id =
+      "scalar_diffusion_reaction_l2_state_tracking_continuous_control";
+    specification.label =
+      "Scalar diffusion-reaction with L2 state tracking and continuous control";
+    reference_detail::apply_homogeneous_dirichlet_continuous_control_delta(
+      specification);
+    reference_detail::component_by_id(specification.metrics,
+                                      "control_l2_metric",
+                                      "metric")
+      .label = "Continuous-control L2 metric";
+    return specification;
+  }
+
   // Companion graph for P5.2's metric comparison. It changes the discrete
   // control search space but retains the L2 Riesz map.
   inline ProblemSpec

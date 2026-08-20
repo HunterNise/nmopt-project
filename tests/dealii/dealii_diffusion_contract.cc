@@ -25,6 +25,8 @@
 #include <algorithm>
 #include <cmath>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -439,6 +441,85 @@ namespace
                          control,
                          1e-11,
                          "continuous-control H-1 metric round trip");
+  }
+
+  template <int dim>
+  void
+  run_l2_tracking_continuous_control_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
+    const dealii::Functions::ConstantFunction<dim> forcing(0.0);
+    const EnergyPolynomial<dim> desired_state;
+    const auto specification =
+      semantic::v1::make_l2_state_tracking_continuous_control_problem();
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(
+      compiler.validate(specification, policy).valid(),
+      "L2-tracking continuous-control graph did not validate for deal.II");
+
+    auto non_full_domain_specification = specification;
+    component_by_id(non_full_domain_specification.regions, "domain")
+      .is_full_domain = false;
+    test_support::require_exact_diagnostic(
+      compiler.validate(non_full_domain_specification, policy),
+      semantic::v1::DiagnosticCategory::lowerability,
+      non_full_domain_specification.id,
+      "continuous_control_full_domain_tracking",
+      "Continuous-control compilation accepted a non-full-domain observation");
+
+    const compiler::v1::DealiiDataBindings<dim> bindings{
+      forcing,
+      desired_state,
+      1.0,
+      0.0,
+      0.2,
+      test_binding_provenance("l2_tracking_continuous_control")};
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              bindings,
+                                              policy);
+    contract::require(compilation.succeeded() && compilation.problem,
+                      "L2-tracking continuous-control compilation failed");
+    contract::require(
+      compilation.problem->metric().id() == "l2_continuous" &&
+        compilation.problem->manifest().control_space.find(
+          "homogeneous-Dirichlet scalar FE_Q(1)") != std::string::npos,
+      "L2-tracking continuous-control compilation selected the wrong control realization");
+    require_compiled_hessian_evidence(
+      *compilation.problem, "L2-tracking continuous control");
+
+    const auto &model = compilation.problem->executable_model();
+    const auto reduced = compilation.problem->make_reduced_dto();
+    dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
+    const Primal control(model.variable_layout()->single_block(1, "control"),
+                         {std::move(control_values)});
+    const auto evaluation = reduced.evaluate(control);
+    const auto *continuous_model = dynamic_cast<const
+      compiler::v1::detail::ContinuousControlModel<dim> *>(&model);
+    contract::require(continuous_model != nullptr,
+                      "L2-tracking compilation did not retain its continuous model");
+    const auto output_directory =
+      std::filesystem::temp_directory_path() /
+      "nmopt-l2-tracking-continuous-control-contract";
+    std::filesystem::remove_all(output_directory);
+    continuous_model->write_native_output(output_directory,
+                                          evaluation.state,
+                                          control,
+                                          evaluation.adjoint,
+                                          &forcing,
+                                          &desired_state);
+    std::ifstream output(output_directory / "fields-volume.vtu");
+    const std::string document((std::istreambuf_iterator<char>(output)),
+                               std::istreambuf_iterator<char>());
+    contract::require(document.find("Name=\"control\"") != std::string::npos &&
+                        document.find("Name=\"state\"") != std::string::npos &&
+                        document.find("Name=\"adjoint\"") != std::string::npos,
+                      "Continuous-control native output omitted a primary field");
+    std::filesystem::remove_all(output_directory);
   }
 
   void
@@ -3448,9 +3529,10 @@ namespace
                                                         policy);
     contract::require(h1_metric_compilation.succeeded(),
                       "H1-control metric v1 compilation failed");
-    contract::require(compilation.problem->reduced_hessian() == nullptr &&
-                        h1_metric_compilation.problem->reduced_hessian() == nullptr,
-                      "continuous H1-control targets unexpectedly exposed a reduced Hessian");
+    require_compiled_hessian_evidence(*compilation.problem,
+                                      "H1-control L2 metric");
+    require_compiled_hessian_evidence(*h1_metric_compilation.problem,
+                                      "H1-control H1 metric");
 
     const auto &model = compilation.problem->executable_model();
     const auto reduced = compilation.problem->make_reduced_dto();
@@ -6710,6 +6792,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler", "metric"},
          30,
          []() { run_continuous_control_component_contract_test<2>(); }},
+        {"l2_tracking_continuous_control",
+         "nmopt.dealii.l2_tracking_continuous_control",
+         {"dealii", "compiler", "metric"},
+         60,
+         []() { run_l2_tracking_continuous_control_contract_test<2>(); }},
         {"hminus1_compilation",
          "nmopt.dealii.hminus1_compilation",
          {"dealii", "compiler", "metric"},

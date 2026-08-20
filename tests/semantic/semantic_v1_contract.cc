@@ -81,6 +81,21 @@ namespace
     require(valid_report.valid(),
             "the canonical v1 scalar diffusion-reaction graph is invalid");
 
+    const auto continuous_l2_specification =
+      nmopt::semantic::v1::make_l2_state_tracking_continuous_control_problem();
+    require(validator.validate(continuous_l2_specification).valid() &&
+              component_by_id(continuous_l2_specification.spaces,
+                              "control_space")
+                  .topology == nmopt::semantic::v1::SpaceTopology::h1 &&
+              component_by_id(continuous_l2_specification.observations,
+                              "state_observation")
+                  .kind == nmopt::semantic::v1::ObservationKind::
+                             volume_restriction &&
+              component_by_id(continuous_l2_specification.metrics,
+                              "control_l2_metric")
+                  .kind == nmopt::semantic::v1::MetricKind::l2,
+            "the continuous-control L2-tracking graph changed its loss or metric");
+
     const auto fixed_specification =
       nmopt::semantic::v1::make_fixed_dirichlet_scalar_diffusion_reaction_problem();
     const auto fixed_report = validator.validate(fixed_specification);

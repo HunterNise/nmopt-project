@@ -1478,6 +1478,7 @@ namespace nmopt::compiler::v1
               uses_h1_control_metric
                 ? h1_control->control_h1_metric(policy.control_metric_solve)
                 : h1_control->control_l2_metric(policy.control_metric_solve));
+          reduced_hessian = h1_control;
           solvers = contract::StateAdjointSolversT<Backend>{
             [h1_control, solve_policy = policy.state_solve](
               const contract::PrimalBlockT<Backend> &control) {
@@ -3690,12 +3691,12 @@ namespace nmopt::compiler::v1
 
       if (homogeneous_dirichlet_continuous_control)
         {
-          if (!h1_state_observation)
+          if (tracking_region == nullptr || !tracking_region->is_full_domain)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
-              "continuous_control_energy_observation",
-              "Select the full-domain H1 state observation for the registered homogeneous-Dirichlet continuous-control target.");
+              "continuous_control_full_domain_tracking",
+              "Select full-domain state tracking for the homogeneous-Dirichlet continuous-control target.");
           if (!specification.formulation.constraint_id.empty())
             report.add(
               DiagnosticCategory::lowerability,

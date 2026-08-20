@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
@@ -13,6 +14,7 @@
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
@@ -22,22 +24,27 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
+#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <limits>
+#include <locale>
 #include <map>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace nmopt::compiler::v1::detail
 {
-  // The bounded continuous-control target used by P2.3 and P5.2. It owns one
+  // The continuous-control target used by P2.3 and P5.2. It owns one
   // FE_Q control realization while keeping state observation, control loss,
   // and search metric as independent compiler selections:
   //
@@ -46,6 +53,7 @@ namespace nmopt::compiler::v1::detail
   template <int dim>
   class ContinuousControlModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
+    , public contract::ReducedHessianT<dealii_backend::SerialBackend>
   {
   public:
     using Backend = dealii_backend::SerialBackend;
@@ -115,6 +123,12 @@ namespace nmopt::compiler::v1::detail
       return test_layout_;
     }
 
+    const contract::LayoutPtr &
+    layout() const override
+    {
+      return control_layout_;
+    }
+
     dealii_backend::MassMetric
     control_l2_metric(
       dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
@@ -153,6 +167,93 @@ namespace nmopt::compiler::v1::detail
                                            solve_parameters,
                                            operator_realisation,
                                            inverse_realisation);
+    }
+
+    void
+    write_native_output(const std::filesystem::path &directory,
+                        const Primal &                 state,
+                        const Primal &                 control,
+                        const Primal &                 adjoint,
+                        const dealii::Function<dim> *  forcing = nullptr,
+                        const dealii::Function<dim> *  desired_state = nullptr) const
+    {
+      contract::require(state.layout()->compatible_with(*state_layout_),
+                        "Continuous-control output state has an incompatible layout");
+      contract::require(control.layout()->compatible_with(*control_layout_),
+                        "Continuous-control output control has an incompatible layout");
+      contract::require(adjoint.layout()->compatible_with(*test_layout_),
+                        "Continuous-control output adjoint has an incompatible layout");
+      contract::require((forcing == nullptr) == (desired_state == nullptr),
+                        "Continuous-control output needs both forcing and target functions");
+
+      std::filesystem::create_directories(directory);
+
+      dealii::DataOut<dim> mesh_out;
+      mesh_out.attach_triangulation(state_dof_handler_.get_triangulation());
+      mesh_out.build_patches();
+      std::ofstream mesh_output(directory / "mesh-volume.vtu");
+      if (!mesh_output)
+        throw std::runtime_error(
+          "could not open continuous-control volume mesh output");
+      mesh_output.imbue(std::locale::classic());
+      mesh_out.write_vtu(mesh_output);
+      if (!mesh_output)
+        throw std::runtime_error(
+          "could not write continuous-control volume mesh output");
+
+      if constexpr (dim == 2)
+        {
+          dealii::GridOut grid_out;
+          std::ofstream  svg_output(directory / "mesh-volume.svg");
+          if (!svg_output)
+            throw std::runtime_error(
+              "could not open continuous-control volume mesh SVG output");
+          svg_output.imbue(std::locale::classic());
+          grid_out.write_svg(state_dof_handler_.get_triangulation(),
+                             svg_output);
+          if (!svg_output)
+            throw std::runtime_error(
+              "could not write continuous-control volume mesh SVG output");
+        }
+
+      Vector full_control(control_dof_handler_.n_dofs());
+      for (std::size_t index = 0; index < independent_control_dofs_.size();
+           ++index)
+        full_control[independent_control_dofs_[index]] = control.block(0)[index];
+      control_constraints_.distribute(full_control);
+
+      dealii::DataOut<dim> data_out;
+      data_out.attach_dof_handler(state_dof_handler_);
+      data_out.add_data_vector(state.block(0), "state");
+      data_out.add_data_vector(adjoint.block(0), "adjoint");
+      Vector negative_adjoint = adjoint.block(0);
+      negative_adjoint *= -1.0;
+      data_out.add_data_vector(negative_adjoint, "negative_adjoint");
+      data_out.add_data_vector(control_dof_handler_, full_control, "control");
+      if (forcing != nullptr)
+        {
+          Vector forcing_values(state_dof_handler_.n_dofs());
+          Vector desired_state_values(state_dof_handler_.n_dofs());
+          dealii::VectorTools::interpolate(state_dof_handler_,
+                                            *forcing,
+                                            forcing_values);
+          dealii::VectorTools::interpolate(state_dof_handler_,
+                                            *desired_state,
+                                            desired_state_values);
+          data_out.add_data_vector(forcing_values, "forcing");
+          data_out.add_data_vector(desired_state_values, "target");
+        }
+      data_out.build_patches();
+
+      std::ofstream output(directory / "fields-volume.vtu");
+      if (!output)
+        throw std::runtime_error(
+          "could not open continuous-control volume field output");
+      output.imbue(std::locale::classic());
+      data_out.write_vtu(output);
+      if (!output)
+        throw std::runtime_error(
+          "could not write continuous-control volume field output");
     }
 
     Covector
@@ -228,6 +329,42 @@ namespace nmopt::compiler::v1::detail
       control_regularisation_matrix().vmult(control, variables.block(1));
       control *= regularisation_weight_;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
+    }
+
+    Covector
+    apply(const Primal &control, const Primal &direction) const override
+    {
+      contract::require(control.layout()->compatible_with(*control_layout_),
+                        "Continuous-control Hessian control has an incompatible layout");
+      contract::require(direction.layout()->compatible_with(*control_layout_),
+                        "Continuous-control Hessian direction has an incompatible layout");
+
+      Vector tangent_rhs(state_dof_handler_.n_dofs());
+      control_coupling_.vmult(tangent_rhs, direction.block(0));
+      Vector tangent_state(state_dof_handler_.n_dofs());
+      const auto tangent_report =
+        solve_symmetric_system(tangent_state, tangent_rhs, {});
+      contract::require(tangent_report.converged(),
+                        "Continuous-control Hessian tangent solve did not converge");
+      state_constraints_.distribute(tangent_state);
+
+      Vector incremental_adjoint_rhs(state_dof_handler_.n_dofs());
+      state_tracking_matrix_.vmult(incremental_adjoint_rhs, tangent_state);
+      Vector incremental_adjoint(state_dof_handler_.n_dofs());
+      const auto incremental_adjoint_report = solve_symmetric_system(
+        incremental_adjoint, incremental_adjoint_rhs, {});
+      contract::require(
+        incremental_adjoint_report.converged(),
+        "Continuous-control Hessian incremental-adjoint solve did not converge");
+      state_constraints_.distribute(incremental_adjoint);
+
+      Vector action(control_layout_->dimension(0));
+      control_coupling_.Tvmult(action, incremental_adjoint);
+      Vector regularisation_action(control_layout_->dimension(0));
+      control_regularisation_matrix().vmult(regularisation_action,
+                                             direction.block(0));
+      action.add(regularisation_weight_, regularisation_action);
+      return Covector(control_layout_, {std::move(action)});
     }
 
     Primal

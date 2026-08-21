@@ -42,6 +42,9 @@ architectural boundaries.
   targets.
 - [Chapter 6 benchmark specifications](benchmarks/chapter-6.md) catalogue the
   Chapter 6 benchmark contracts; B0–B2 are the current frozen executable set.
+- [B1 replication findings](benchmarks/b1-replication.md) report the
+  source-comparison experiments, supported inferences, and unresolved
+  omissions for E6.5.1.
 
 ### Decisions
 

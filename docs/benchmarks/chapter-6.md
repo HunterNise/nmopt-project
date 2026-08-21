@@ -88,6 +88,8 @@ artifact writer. Execution status and the concrete run layout belong to the
 
 The source problem, target, figures, and source omissions are recorded in the
 [E6.5.1 source entry](../guides/chapter-6-numerical-examples.md#e651--distributed-laplace-control).
+The development evidence and current source-parity assessment are recorded in
+the [B1 replication findings](b1-replication.md).
 The application scenario owns the recipe, graph, control representation,
 runtime ports, and backend construction.
 

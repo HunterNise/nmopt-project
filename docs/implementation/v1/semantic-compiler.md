@@ -877,8 +877,9 @@ topology and coordinates, state-control coupling, diagonal face-mass matrix,
 metric and box construction, and cell-data boundary output. The continuous
 realization owns its degree-one trace topology, closure-endpoint policy,
 state-control coupling, and consistent boundary mass metric for simplex and
-hypercube meshes. Connected nodal native output is not yet registered. The
-private `dealii_dirichlet_control.hpp` target owns the distinct controlled
+hypercube meshes. Its native output writes the same connected trace topology
+with control values associated to the unique nodal points. The private
+`dealii_dirichlet_control.hpp` target owns the distinct controlled
 essential reconstruction, the complete and selected partial fixed/controlled
 trace policies, nodal trace layout, boundary mass metric, and both
 transformation pullbacks. It also owns the conforming Galerkin realization of

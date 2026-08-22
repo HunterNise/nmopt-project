@@ -33,6 +33,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -2821,6 +2822,123 @@ namespace
 
   template <int dim>
   void
+  run_continuous_neumann_control_output_contract_test()
+  {
+    for (unsigned int family = 0; family < 2; ++family)
+      {
+        const bool simplex = family == 1;
+        dealii::Triangulation<dim> triangulation;
+        if (simplex)
+          dealii::GridGenerator::subdivided_hyper_cube_with_simplices(
+            triangulation,
+            2);
+        else
+          dealii::GridGenerator::subdivided_hyper_cube(triangulation, 2);
+        for (auto cell = triangulation.begin_active();
+             cell != triangulation.end();
+             ++cell)
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
+            if (cell->face(face)->at_boundary())
+              {
+                const auto center = cell->face(face)->center();
+                cell->face(face)->set_boundary_id(
+                  center[0] > 1.0 - 1e-12 || center[1] > 1.0 - 1e-12 ?
+                    1 :
+                    0);
+              }
+
+        const compiler::v1::detail::ContinuousNeumannControlRealisation<dim>
+          realisation(triangulation, {1}, 3);
+        dealii::Vector<double> output_values(realisation.dimension());
+        for (std::size_t index = 0; index < output_values.size(); ++index)
+          output_values[index] =
+            (index % 2 == 0 ? 0.125 : -0.25) *
+            static_cast<double>(index + 1);
+        const auto output_path =
+          std::filesystem::temp_directory_path() /
+          (simplex ? "nmopt-continuous-neumann-simplex.vtu" :
+                     "nmopt-continuous-neumann-hypercube.vtu");
+        std::filesystem::remove(output_path);
+        realisation.write_native_output(output_path, output_values);
+        std::ifstream output(output_path);
+        contract::require(
+          static_cast<bool>(output),
+          "Continuous Neumann trace output file was not created");
+        const std::string document((std::istreambuf_iterator<char>(output)),
+                                   std::istreambuf_iterator<char>());
+        output.close();
+
+        const auto data_array_values = [&document](const std::string &marker) {
+          const auto marker_position = document.find(marker);
+          contract::require(
+            marker_position != std::string::npos,
+            "Continuous Neumann trace output omitted a data array");
+          const auto values_begin = document.find('\n', marker_position);
+          const auto values_end = document.find("</DataArray>", values_begin);
+          contract::require(
+            values_begin != std::string::npos &&
+              values_end != std::string::npos,
+            "Continuous Neumann trace output contains a malformed data array");
+          std::istringstream values_stream(
+            document.substr(values_begin + 1,
+                            values_end - values_begin - 1));
+          std::vector<double> values;
+          for (double value = 0.0; values_stream >> value;)
+            values.push_back(value);
+          return values;
+        };
+        const auto written_control =
+          data_array_values("Name=\"control\"");
+        const auto written_points =
+          data_array_values("NumberOfComponents=\"3\"");
+        const auto written_connectivity =
+          data_array_values("Name=\"connectivity\"");
+        const auto written_offsets =
+          data_array_values("Name=\"offsets\"");
+        const auto written_types = data_array_values("Name=\"types\"");
+        contract::require(
+          document.find(
+            "<Piece NumberOfPoints=\"5\" NumberOfCells=\"4\">") !=
+              std::string::npos &&
+            document.find("<PointData Scalars=\"control\">") !=
+              std::string::npos &&
+            document.find("<CellData>\n</CellData>") !=
+              std::string::npos &&
+            written_control.size() == output_values.size() &&
+            written_points.size() == 3 * output_values.size() &&
+            written_connectivity.size() == 8 &&
+            written_offsets.size() == 4 && written_types.size() == 4,
+          "Continuous Neumann trace output has the wrong topology or data association");
+        for (std::size_t index = 0; index < output_values.size(); ++index)
+          require_close(written_control[index],
+                        output_values[index],
+                        1e-15,
+                        "Continuous Neumann trace output changed a nodal value");
+        std::vector<bool> used_points(output_values.size(), false);
+        for (const double value : written_connectivity)
+          {
+            contract::require(
+              value >= 0.0 && value == std::floor(value) &&
+                value < static_cast<double>(used_points.size()),
+              "Continuous Neumann trace output has invalid connectivity");
+            used_points[static_cast<std::size_t>(value)] = true;
+          }
+        contract::require(
+          static_cast<std::size_t>(
+            std::count(used_points.begin(), used_points.end(), true)) ==
+            used_points.size(),
+          "Continuous Neumann trace output does not connect every nodal point");
+        for (std::size_t cell = 0; cell < written_offsets.size(); ++cell)
+          contract::require(
+            written_offsets[cell] == 2.0 * static_cast<double>(cell + 1) &&
+              written_types[cell] == 3.0,
+            "Continuous Neumann trace output does not contain VTK line cells");
+        std::filesystem::remove(output_path);
+      }
+  }
+
+  template <int dim>
+  void
   run_continuous_neumann_control_lowering_contract_test()
   {
     const auto specification =
@@ -2907,6 +3025,27 @@ namespace
                       0.0,
                       2e-11,
                       "Continuous Neumann boundary-control state residual");
+
+        const auto output_directory =
+          std::filesystem::temp_directory_path() /
+          (simplex ? "nmopt-continuous-neumann-simplex-output" :
+                     "nmopt-continuous-neumann-hypercube-output");
+        std::filesystem::remove_all(output_directory);
+        neumann_model->write_native_output(output_directory,
+                                           evaluation.state,
+                                           control,
+                                           evaluation.adjoint,
+                                           nullptr,
+                                           &forcing,
+                                           &desired_state);
+        contract::require(
+          std::filesystem::exists(output_directory / "mesh-volume.vtu") &&
+            std::filesystem::exists(output_directory / "mesh-volume.svg") &&
+            std::filesystem::exists(output_directory / "fields-volume.vtu") &&
+            std::filesystem::exists(output_directory /
+                                    "control-boundary.vtu"),
+          "Continuous Neumann model output omitted a native file");
+        std::filesystem::remove_all(output_directory);
 
         const Covector measured_control = metric.apply(control);
         require_close(
@@ -7309,6 +7448,11 @@ main(const int argc, char **argv)
          {"dealii", "contract", "metric"},
          30,
          []() { run_continuous_neumann_control_metric_contract_test<2>(); }},
+        {"continuous_neumann_control_output",
+         "nmopt.dealii.continuous_neumann_control_output",
+         {"dealii", "contract", "output"},
+         30,
+         []() { run_continuous_neumann_control_output_contract_test<2>(); }},
         {"continuous_neumann_control_lowering",
          "nmopt.dealii.continuous_neumann_control_lowering",
          {"dealii", "compiler", "metric"},

@@ -72,6 +72,10 @@ namespace nmopt::compiler::v1::detail
     virtual dealii_backend::MassMetric
     l2_metric(
       dealii_backend::MassMetricSolveParameters solve_parameters = {}) const = 0;
+
+    virtual void
+    write_native_output(const std::filesystem::path &path,
+                        const Vector &                control) const = 0;
   };
 
   template <int dim>
@@ -217,7 +221,7 @@ namespace nmopt::compiler::v1::detail
 
     void
     write_native_output(const std::filesystem::path &path,
-                        const Vector &                control) const
+                        const Vector &                control) const override
     {
       static_assert(dim == 2,
                     "Facewise Neumann control output currently supports two dimensions");
@@ -553,7 +557,80 @@ namespace nmopt::compiler::v1::detail
                                         solve_parameters);
     }
 
+    void
+    write_native_output(const std::filesystem::path &path,
+                        const Vector &                control) const override
+    {
+      static_assert(dim == 2,
+                    "Continuous Neumann control output currently supports two dimensions");
+      require_control(control);
+      contract::require(
+        !boundary_cells_.empty(),
+        "Continuous Neumann control output needs boundary topology");
+
+      std::ofstream output(path);
+      if (!output)
+        throw std::runtime_error(
+          "could not open continuous Neumann boundary-control output");
+      output.imbue(std::locale::classic());
+      output << "<?xml version=\"1.0\"?>\n"
+             << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" "
+                "byte_order=\"LittleEndian\">\n"
+             << "<UnstructuredGrid>\n"
+             << "<Piece NumberOfPoints=\"" << coordinates_.size()
+             << "\" NumberOfCells=\"" << boundary_cells_.size() << "\">\n"
+             << "<PointData Scalars=\"control\">\n"
+             << "<DataArray type=\"Float64\" Name=\"control\" "
+                "format=\"ascii\">\n";
+      output.precision(17);
+      for (typename Vector::size_type index = 0; index < control.size(); ++index)
+        output << control[index] << ' ';
+      output << "\n</DataArray>\n</PointData>\n"
+             << "<CellData>\n</CellData>\n"
+             << "<Points>\n"
+             << "<DataArray type=\"Float64\" NumberOfComponents=\"3\" "
+                "format=\"ascii\">\n";
+      for (const auto &point : coordinates_)
+        output << point[0] << ' ' << point[1] << " 0 ";
+      output << "\n</DataArray>\n</Points>\n"
+             << "<Cells>\n"
+             << "<DataArray type=\"Int32\" Name=\"connectivity\" "
+                "format=\"ascii\">\n";
+      for (const auto &cell : boundary_cells_)
+        {
+          contract::require(
+            cell.point_indices.size() == 2,
+            "Continuous Neumann line output needs two points per boundary face");
+          for (const auto point_index : cell.point_indices)
+            output << point_index << ' ';
+        }
+      output << "\n</DataArray>\n"
+             << "<DataArray type=\"Int32\" Name=\"offsets\" "
+                "format=\"ascii\">\n";
+      std::size_t offset = 0;
+      for (const auto &cell : boundary_cells_)
+        {
+          offset += cell.point_indices.size();
+          output << offset << ' ';
+        }
+      output << "\n</DataArray>\n"
+             << "<DataArray type=\"UInt8\" Name=\"types\" "
+                "format=\"ascii\">\n";
+      for (std::size_t cell = 0; cell < boundary_cells_.size(); ++cell)
+        output << "3 ";
+      output << "\n</DataArray>\n</Cells>\n"
+             << "</Piece>\n</UnstructuredGrid>\n</VTKFile>\n";
+      if (!output)
+        throw std::runtime_error(
+          "could not write continuous Neumann boundary-control output");
+    }
+
   private:
+    struct BoundaryCellRecord
+    {
+      std::vector<std::size_t> point_indices;
+    };
+
     static constexpr std::size_t invalid_control_index =
       std::numeric_limits<std::size_t>::max();
 
@@ -582,6 +659,29 @@ namespace nmopt::compiler::v1::detail
           trace_dofs_.push_back(volume_dof);
           coordinates_.push_back(support_points.at(volume_dof));
         }
+
+      for (auto cell = control_dof_handler_.begin_active();
+           cell != control_dof_handler_.end();
+           ++cell)
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
+          if (is_control_face(cell, face))
+            {
+              BoundaryCellRecord record;
+              for (unsigned int vertex = 0;
+                   vertex < cell->face(face)->n_vertices();
+                   ++vertex)
+                {
+                  const auto volume_dof =
+                    cell->face(face)->vertex_dof_index(vertex, 0);
+                  const auto point_index =
+                    control_index_for_volume_dof_.at(volume_dof);
+                  contract::require(
+                    point_index != invalid_control_index,
+                    "Continuous Neumann boundary topology contains a non-control vertex");
+                  record.point_indices.push_back(point_index);
+                }
+              boundary_cells_.push_back(std::move(record));
+            }
     }
 
     void
@@ -810,6 +910,7 @@ namespace nmopt::compiler::v1::detail
     std::vector<dealii::types::global_dof_index> trace_dofs_;
     std::vector<std::size_t> control_index_for_volume_dof_;
     std::vector<dealii::Point<dim>> coordinates_;
+    std::vector<BoundaryCellRecord> boundary_cells_;
     dealii::SparsityPattern control_mass_sparsity_;
     dealii::SparsityPattern control_coupling_sparsity_;
     dealii::SparseMatrix<double> control_coupling_;

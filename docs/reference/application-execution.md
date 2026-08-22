@@ -213,7 +213,7 @@ artifacts/<method-or-case>/
     mesh-volume.vtu
     mesh-volume.svg
     fields-volume.vtu
-    control-boundary.vtu       # B2 facewise control
+    control-boundary.vtu       # B2 boundary control
   postprocess/                 # when an artifact is processed separately
 ```
 
@@ -222,12 +222,13 @@ the comparison-only negative adjoint, and the B1 volume control. B1 also
 exports its target and forcing functions sampled on the state DoFs. B2 stores
 the optimized state, the zero-control state, both adjoint conventions, its
 target and forcing functions, and a cellwise observation-domain mask. Its
-facewise control is stored in `control-boundary.vtu` because the boundary
-topology differs from the volume topology. Native boundary output does not yet
-support continuous nodal-trace controls, so those development runs must
-disable retained fields. These are final-state and input-function exports, not
-per-iteration output. The mesh SVG is a lightweight 2D preview; the VTU files
-retain the authoritative numerical topology and field data.
+control is stored in `control-boundary.vtu` because the boundary topology
+differs from the volume topology. Facewise constants are cell data on separate
+line cells; a continuous nodal trace is point data on connected line cells
+whose unique points match the control coordinates. These are final-state and
+input-function exports, not per-iteration output. The mesh SVG is a lightweight
+2D preview; the VTU files retain the authoritative numerical topology and field
+data.
 
 `solver-trace.csv` records line-search trials for diagnostics. It is not a
 field export. Reports and post-processing read persisted artifacts and native

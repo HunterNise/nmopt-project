@@ -266,9 +266,8 @@ The adapter binds every declared port, including `fixed_dirichlet_data` and
 full BFGS from zero control in the selected layout. `B2RuntimeDataT<dim>` is
 the extension point for recovered forcing, targets, or transport fields; the
 caller owns all referenced Function objects for the duration of compilation
-and solving. Native boundary output remains facewise-only; continuous-control
-development runs must disable retained fields until the continuous writer is
-implemented.
+and solving. Native boundary output stores facewise constants as cell data and
+continuous trace controls as point data on connected line cells.
 
 ### Runtime bindings
 

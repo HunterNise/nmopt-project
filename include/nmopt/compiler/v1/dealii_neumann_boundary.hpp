@@ -395,12 +395,6 @@ namespace nmopt::compiler::v1::detail
                         "Native output control has an incompatible size");
       contract::require((forcing == nullptr) == (desired_state == nullptr),
                         "Native output needs both forcing and target functions");
-      const auto *facewise = dynamic_cast<const
-        FacewiseNeumannControlRealisation<dim> *>(control_realisation_.get());
-      contract::require(
-        facewise != nullptr,
-        "Continuous Neumann control native output is not registered");
-
       std::filesystem::create_directories(directory);
 
       dealii::DataOut<dim> mesh_out;
@@ -474,7 +468,7 @@ namespace nmopt::compiler::v1::detail
       if (!fields_output)
         throw std::runtime_error("could not write Neumann volume field output");
 
-      facewise->write_native_output(
+      control_realisation_->write_native_output(
         directory / "control-boundary.vtu",
         control.block(0));
     }

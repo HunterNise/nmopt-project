@@ -139,8 +139,7 @@ active, `python` and `python3` refer to the environment's interpreter:
 ```bash
 tools/run_chapter6.sh \
   --benchmark b1 \
-  --refinement 1 \
-  --format png svg
+  --refinement 1
 ```
 
 Use `deactivate` to leave the environment. `uv run` is useful for one-off
@@ -276,8 +275,7 @@ fields, and writes a report under the ignored `runs/` directory:
 ```bash
 tools/run_chapter6.sh \
   --benchmark b1 \
-  --refinement 1 \
-  --format png svg
+  --refinement 1
 ```
 
 The script requires the built `nmopt_runner`, Bash, Git, Python, NumPy,

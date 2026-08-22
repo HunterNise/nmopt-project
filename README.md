@@ -53,7 +53,7 @@ After building the `debug-dealii` profile, run a Chapter 6 development case
 with the repository helper:
 
 ```bash
-tools/run_chapter6.sh --benchmark b1 --refinement 1 --format png svg
+tools/run_chapter6.sh --benchmark b1 --refinement 1
 ```
 
 Replace `b1` with `b2` for the second benchmark. The helper runs the compiled

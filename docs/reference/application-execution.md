@@ -296,8 +296,7 @@ For a development smoke run after the runner is built:
 ```bash
 tools/run_chapter6.sh \
   --benchmark b1 \
-  --refinement 1 \
-  --format png svg
+  --refinement 1
 ```
 
 Do not present Debug or refinement-1 output as source-sized reproduction

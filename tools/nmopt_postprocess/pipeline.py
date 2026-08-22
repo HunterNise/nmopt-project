@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from itertools import product
 from pathlib import Path
 
 import meshio
@@ -99,7 +100,17 @@ class PostprocessProfile:
     axis_labels: dict[str, dict[str, str]] | None = None
     history_figures: tuple[HistoryFigureSpec, ...] = ()
     matrix_axis_values: dict[str, tuple[str, ...]] | None = None
+    matrix_combinations: tuple[dict[str, str], ...] = ()
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS
+
+
+@dataclass(frozen=True)
+class ComparisonGrid:
+    """Validated row-major artifact order and dimensions for one comparison."""
+
+    artifacts: tuple[Path, ...]
+    rows: int
+    columns: int
 
 
 def _render_item(
@@ -212,24 +223,30 @@ def build_comparisons(
 
     grouped: dict[str, list[Path]] = {}
     for artifact in artifacts:
-        grouped.setdefault(
-            profile.comparison_group(read_metadata(artifact)), []
-        ).append(artifact)
+        metadata = read_metadata(artifact)
+        base_group = profile.comparison_group(metadata)
+        group_by = profile.comparison_plan.group_by
+        if group_by:
+            suffix = "__".join(
+                f"{axis}={_axis_value(metadata, axis)}" for axis in group_by
+            )
+            base_group = f"{base_group}/{suffix}"
+        grouped.setdefault(base_group, []).append(artifact)
 
     generated: dict[str, dict[str, list[str]]] = {}
     errors: dict[str, dict[str, str]] = {}
     for group, group_artifacts in grouped.items():
-        if profile.comparison_sort_key is not None:
-            group_artifacts.sort(
-                key=lambda artifact: profile.comparison_sort_key(
-                    read_metadata(artifact)
-                )
-            )
         comparison_dir = output_root / "comparisons" / group
         comparison_dir.mkdir(parents=True, exist_ok=True)
         group_generated: dict[str, list[str]] = {}
         group_errors: dict[str, str] = {}
-        rows, columns = comparison_dimensions(group_artifacts, profile)
+        try:
+            grid = comparison_grid(group_artifacts, profile)
+        except (ValueError, PostprocessError) as error:
+            errors[group] = {"comparison": str(error)}
+            continue
+        group_artifacts = list(grid.artifacts)
+        rows, columns = grid.rows, grid.columns
 
         for field_spec in profile.volume_fields:
             try:
@@ -294,6 +311,10 @@ def _axis_values(
 ) -> list[str]:
     """Return observed axis values in profile-declared presentation order."""
 
+    matrix_values = (profile.matrix_axis_values or {}).get(axis)
+    if matrix_values is not None:
+        return list(matrix_values)
+
     observed = {
         value
         for artifact in artifacts
@@ -315,20 +336,137 @@ def _axis_values(
 def comparison_dimensions(
     artifacts: list[Path], profile: PostprocessProfile
 ) -> tuple[int, int]:
-    """Resolve an explicit row/column plan without using panel-count magic."""
+    """Return dimensions after validating one comparison matrix."""
 
+    grid = comparison_grid(artifacts, profile)
+    return grid.rows, grid.columns
+
+
+def _axis_tuples(
+    artifacts: list[Path], profile: PostprocessProfile, axes: tuple[str, ...]
+) -> list[tuple[str, ...]]:
+    if not axes:
+        return [()]
+    values = [_axis_values(artifacts, profile, axis) for axis in axes]
+    if any(not axis_values for axis_values in values):
+        missing = [axis for axis, axis_values in zip(axes, values) if not axis_values]
+        raise PostprocessError(
+            "comparison plan references axes without active values: "
+            + ", ".join(missing)
+        )
+    return list(product(*values))
+
+
+def _validate_plan_axes(profile: PostprocessProfile) -> None:
     plan = profile.comparison_plan
-    row_count = 1
-    column_count = 1
-    if plan.rows:
-        for axis in plan.rows:
-            row_count *= max(1, len(_axis_values(artifacts, profile, axis)))
-    if plan.columns:
-        for axis in plan.columns:
-            column_count *= max(1, len(_axis_values(artifacts, profile, axis)))
-    if not plan.columns:
-        column_count = max(1, len(artifacts))
-    return row_count, column_count
+    planned = plan.rows + plan.columns + plan.group_by
+    if len(set(planned)) != len(planned):
+        raise PostprocessError("comparison axes may only appear in one plan section")
+    if profile.matrix_axis_values is None:
+        return
+    declared = set(profile.matrix_axis_values)
+    unknown = set(planned).difference(declared)
+    if unknown:
+        raise PostprocessError(
+            "comparison plan references undeclared matrix axes: "
+            + ", ".join(sorted(unknown))
+        )
+    unbound = {
+        axis
+        for axis, values in profile.matrix_axis_values.items()
+        if len(values) > 1 and axis not in planned
+    }
+    if unbound:
+        raise PostprocessError(
+            "varying matrix axes must be rows, columns, or group_by: "
+            + ", ".join(sorted(unbound))
+        )
+
+
+def comparison_grid(
+    artifacts: list[Path], profile: PostprocessProfile
+) -> ComparisonGrid:
+    """Validate and order one explicit comparison matrix in row-major order."""
+
+    if not artifacts:
+        raise PostprocessError("comparison matrix has no artifacts")
+    plan = profile.comparison_plan
+    if not plan.rows and not plan.columns and not profile.matrix_combinations:
+        ordered = list(artifacts)
+        if profile.comparison_sort_key is not None:
+            ordered.sort(
+                key=lambda artifact: profile.comparison_sort_key(
+                    read_metadata(artifact)
+                )
+            )
+        return ComparisonGrid(tuple(ordered), 1, len(ordered))
+    _validate_plan_axes(profile)
+    group_values = {
+        axis: _axis_value(read_metadata(artifacts[0]), axis)
+        for axis in plan.group_by
+    }
+    for artifact in artifacts[1:]:
+        metadata = read_metadata(artifact)
+        if any(
+            _axis_value(metadata, axis) != value
+            for axis, value in group_values.items()
+        ):
+            raise PostprocessError("comparison group contains mixed group_by values")
+
+    row_keys = _axis_tuples(artifacts, profile, plan.rows)
+    column_keys = _axis_tuples(artifacts, profile, plan.columns)
+    expected_keys = {
+        (row_key, column_key) for row_key in row_keys for column_key in column_keys
+    }
+    if profile.matrix_combinations:
+        combinations = [
+            combination
+            for combination in profile.matrix_combinations
+            if all(combination.get(axis) == value for axis, value in group_values.items())
+        ]
+        if not combinations:
+            raise PostprocessError("comparison group has no declared matrix combination")
+        expected_keys = {
+            (
+                tuple(combination.get(axis, "") for axis in plan.rows),
+                tuple(combination.get(axis, "") for axis in plan.columns),
+            )
+            for combination in combinations
+        }
+
+    coordinates: dict[tuple[tuple[str, ...], tuple[str, ...]], Path] = {}
+    for artifact in artifacts:
+        metadata = read_metadata(artifact)
+        key = (
+            tuple(_axis_value(metadata, axis) for axis in plan.rows),
+            tuple(_axis_value(metadata, axis) for axis in plan.columns),
+        )
+        if key in coordinates:
+            raise PostprocessError(
+                "comparison matrix has duplicate coordinates: "
+                + repr(key)
+            )
+        coordinates[key] = artifact
+
+    missing = expected_keys.difference(coordinates)
+    extra = set(coordinates).difference(expected_keys)
+    if missing or extra:
+        details = []
+        if missing:
+            details.append("missing " + ", ".join(map(repr, sorted(missing))))
+        if extra:
+            details.append("unexpected " + ", ".join(map(repr, sorted(extra))))
+        raise PostprocessError(
+            "comparison matrix is incomplete: " + "; ".join(details)
+        )
+
+    ordered = tuple(
+        coordinates[(row_key, column_key)]
+        for row_key in row_keys
+        for column_key in column_keys
+        if (row_key, column_key) in expected_keys
+    )
+    return ComparisonGrid(ordered, len(row_keys), len(column_keys))
 
 
 def process_artifact(

@@ -367,5 +367,6 @@ def with_parameter_configuration(
         ),
         comparison_plan=configuration.comparison_plan,
         matrix_axis_values=configuration.matrix_axes,
+        matrix_combinations=configuration.matrix_combinations,
         output_formats=configuration.output_formats,
     )

@@ -62,6 +62,70 @@ def _comparison_axes(value: str | None) -> tuple[str, ...]:
     return tuple(axis for axis in _split(value) if axis != "none")
 
 
+def _excluded_combinations(
+    value: str | None, axes: dict[str, tuple[str, ...]], path: Path
+) -> tuple[dict[str, str], ...]:
+    if value is None or not value.strip():
+        return ()
+
+    excluded: list[dict[str, str]] = []
+    signatures: set[tuple[tuple[str, str], ...]] = set()
+    for entry in value.split(";"):
+        text = entry.strip()
+        if not text.startswith("[") or not text.endswith("]"):
+            raise ValueError(
+                f"excluded matrix combination '{text}' in '{path}' "
+                "must be enclosed in brackets"
+            )
+        coordinate: dict[str, str] = {}
+        for assignment in text[1:-1].split(","):
+            if "=" not in assignment:
+                raise ValueError(
+                    f"excluded matrix combination '{text}' in '{path}' "
+                    "must contain axis=value assignments"
+                )
+            axis, selected = (part.strip() for part in assignment.split("=", 1))
+            if not axis or not selected:
+                raise ValueError(
+                    f"excluded matrix combination '{text}' in '{path}' "
+                    "contains an empty axis or value"
+                )
+            if axis in coordinate:
+                raise ValueError(
+                    f"excluded matrix combination '{text}' in '{path}' "
+                    f"repeats axis '{axis}'"
+                )
+            coordinate[axis] = selected
+
+        unknown_axes = set(coordinate).difference(axes)
+        missing_axes = set(axes).difference(coordinate)
+        if unknown_axes or missing_axes:
+            details = []
+            if unknown_axes:
+                details.append("unknown axes " + ", ".join(sorted(unknown_axes)))
+            if missing_axes:
+                details.append("missing axes " + ", ".join(sorted(missing_axes)))
+            raise ValueError(
+                f"excluded matrix combination '{text}' in '{path}' has "
+                + " and ".join(details)
+            )
+        for axis, selected in coordinate.items():
+            if selected not in axes[axis]:
+                raise ValueError(
+                    f"excluded matrix combination '{text}' in '{path}' selects "
+                    f"unknown value '{selected}' on axis '{axis}'"
+                )
+
+        signature = tuple((axis, coordinate[axis]) for axis in axes)
+        if signature in signatures:
+            raise ValueError(
+                f"excluded matrix combination '{text}' is duplicated in '{path}'"
+            )
+        signatures.add(signature)
+        excluded.append(coordinate)
+    return tuple(excluded)
+
+
 def _matrix(
     values: dict[tuple[str, ...], str], path: Path
 ) -> tuple[dict[str, tuple[str, ...]], tuple[dict[str, str], ...]]:
@@ -76,8 +140,13 @@ def _matrix(
     selections = {
         key[-1]: _split(value)
         for key, value in values.items()
-        if len(key) == 2 and key[0] == "Selection"
+        if len(key) == 2
+        and key[0] == "Selection"
+        and key[-1] != "exclude combinations"
     }
+    excluded = _excluded_combinations(
+        _value(values, "Selection", "exclude combinations"), axes, path
+    )
     resolved: dict[str, tuple[str, ...]] = {}
     for axis, axis_values in axes.items():
         selected = selections.get(axis, axis_values)
@@ -98,10 +167,21 @@ def _matrix(
         )
 
     axis_names = tuple(resolved)
-    combinations = tuple(
+    expanded = tuple(
         dict(zip(axis_names, combination))
         for combination in product(*(resolved[axis] for axis in axis_names))
     )
+    excluded_signatures = {
+        tuple((axis, coordinate[axis]) for axis in axes) for coordinate in excluded
+    }
+    combinations = tuple(
+        combination
+        for combination in expanded
+        if tuple((axis, combination[axis]) for axis in axes)
+        not in excluded_signatures
+    )
+    if not combinations:
+        raise ValueError(f"matrix selection in '{path}' resolves to no combinations")
     return resolved, combinations
 
 

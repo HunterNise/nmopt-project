@@ -109,6 +109,7 @@ class ComparisonGrid:
     """Validated row-major artifact order and dimensions for one comparison."""
 
     artifacts: tuple[Path, ...]
+    positions: tuple[int, ...]
     rows: int
     columns: int
 
@@ -151,10 +152,14 @@ def _render_item(
 
 
 def _volume_items(
-    artifacts: list[Path], field_spec: FieldSpec, profile: PostprocessProfile
-) -> list[RenderItem]:
+    artifacts: list[Path],
+    positions: tuple[int, ...],
+    field_spec: FieldSpec,
+    profile: PostprocessProfile,
+) -> tuple[list[RenderItem], list[int]]:
     items: list[RenderItem] = []
-    for artifact in artifacts:
+    item_positions: list[int] = []
+    for artifact, position in zip(artifacts, positions):
         fields_path = first_existing(artifact, profile.volume_source_names)
         if fields_path is None:
             continue
@@ -162,14 +167,19 @@ def _volume_items(
         field = find_field(mesh, field_spec.mesh_name)
         if field is not None:
             items.append(_render_item(artifact, field, profile, mesh))
-    return items
+            item_positions.append(position)
+    return items, item_positions
 
 
 def _boundary_items(
-    artifacts: list[Path], field_spec: FieldSpec, profile: PostprocessProfile
-) -> list[RenderItem]:
+    artifacts: list[Path],
+    positions: tuple[int, ...],
+    field_spec: FieldSpec,
+    profile: PostprocessProfile,
+) -> tuple[list[RenderItem], list[int]]:
     items: list[RenderItem] = []
-    for artifact in artifacts:
+    item_positions: list[int] = []
+    for artifact, position in zip(artifacts, positions):
         boundary_path = first_existing(artifact, profile.boundary_source_names)
         if boundary_path is None:
             continue
@@ -177,7 +187,8 @@ def _boundary_items(
         field = find_field(mesh, field_spec.mesh_name)
         if field is not None:
             items.append(_render_item(artifact, field, profile, mesh))
-    return items
+            item_positions.append(position)
+    return items, item_positions
 
 
 def _matches_history_series(
@@ -289,11 +300,14 @@ def build_comparisons(
             errors[group] = {"comparison": str(error)}
             continue
         group_artifacts = list(grid.artifacts)
+        positions = grid.positions
         rows, columns = grid.rows, grid.columns
 
         for field_spec in profile.volume_fields:
             try:
-                items = _volume_items(group_artifacts, field_spec, profile)
+                items, item_positions = _volume_items(
+                    group_artifacts, positions, field_spec, profile
+                )
                 if len(items) >= 2:
                     group_generated[field_spec.output_name] = plot_volume_comparison(
                         items,
@@ -303,6 +317,7 @@ def build_comparisons(
                         colorbar_label=field_spec.colorbar_label,
                         rows=rows,
                         columns=columns,
+                        positions=item_positions,
                         output_formats=output_formats,
                     )
             except (OSError, ValueError, PostprocessError) as error:
@@ -310,7 +325,9 @@ def build_comparisons(
 
         for field_spec in profile.boundary_fields:
             try:
-                items = _boundary_items(group_artifacts, field_spec, profile)
+                items, item_positions = _boundary_items(
+                    group_artifacts, positions, field_spec, profile
+                )
                 if len(items) >= 2:
                     group_generated[field_spec.output_name] = plot_boundary_comparison(
                         items,
@@ -319,6 +336,7 @@ def build_comparisons(
                         colorbar_label=field_spec.colorbar_label,
                         rows=rows,
                         columns=columns,
+                        positions=item_positions,
                         output_formats=output_formats,
                     )
             except (OSError, ValueError, PostprocessError) as error:
@@ -442,7 +460,9 @@ def comparison_grid(
                     read_metadata(artifact)
                 )
             )
-        return ComparisonGrid(tuple(ordered), 1, len(ordered))
+        return ComparisonGrid(
+            tuple(ordered), tuple(range(len(ordered))), 1, len(ordered)
+        )
     _validate_plan_axes(profile)
     group_values = {
         axis: _axis_value(read_metadata(artifacts[0]), axis)
@@ -503,13 +523,17 @@ def comparison_grid(
             "comparison matrix is incomplete: " + "; ".join(details)
         )
 
-    ordered = tuple(
-        coordinates[(row_key, column_key)]
-        for row_key in row_keys
-        for column_key in column_keys
-        if (row_key, column_key) in expected_keys
+    ordered: list[Path] = []
+    positions: list[int] = []
+    for row_index, row_key in enumerate(row_keys):
+        for column_index, column_key in enumerate(column_keys):
+            key = (row_key, column_key)
+            if key in expected_keys:
+                ordered.append(coordinates[key])
+                positions.append(row_index * len(column_keys) + column_index)
+    return ComparisonGrid(
+        tuple(ordered), tuple(positions), len(row_keys), len(column_keys)
     )
-    return ComparisonGrid(ordered, len(row_keys), len(column_keys))
 
 
 def process_artifact(

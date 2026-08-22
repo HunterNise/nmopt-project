@@ -140,6 +140,35 @@ end
             comparison_grid(zero_artifacts, profile).columns == 2,
             "grouped comparison did not retain regularisation columns",
         )
+        sparse_artifacts = [
+            artifact
+            for artifact in zero_artifacts
+            if not (
+                "steepest-descent" in str(artifact)
+                and "beta-1e-2" in str(artifact)
+            )
+        ]
+        sparse_profile = replace(
+            profile,
+            comparison_plan=ComparisonPlan(
+                rows=("method",), columns=("regularisation",), group_by=()
+            ),
+            matrix_axis_values={
+                "method": ("steepest-descent", "l-bfgs"),
+                "regularisation": ("1e-1", "1e-2"),
+            },
+            matrix_combinations=(
+                {"method": "steepest-descent", "regularisation": "1e-1"},
+                {"method": "l-bfgs", "regularisation": "1e-1"},
+                {"method": "l-bfgs", "regularisation": "1e-2"},
+            ),
+        )
+        sparse_grid = comparison_grid(sparse_artifacts, sparse_profile)
+        require(
+            (sparse_grid.rows, sparse_grid.columns) == (2, 2)
+            and sparse_grid.positions == (0, 2, 3),
+            "sparse comparison did not preserve its excluded grid position",
+        )
         legacy = replace(
             profile,
             comparison_plan=ComparisonPlan(),

@@ -264,6 +264,19 @@ def comparison_layout(count: int) -> tuple[int, int]:
     return rows, columns
 
 
+def _comparison_positions(
+    count: int, rows: int, columns: int, positions: list[int] | None
+) -> tuple[int, ...]:
+    resolved = tuple(range(count)) if positions is None else tuple(positions)
+    if len(resolved) != count:
+        raise PostprocessError("comparison positions must match the item count")
+    if len(set(resolved)) != len(resolved):
+        raise PostprocessError("comparison positions must be unique")
+    if any(position < 0 or position >= rows * columns for position in resolved):
+        raise PostprocessError("comparison position is outside the declared layout")
+    return resolved
+
+
 def plot_volume_comparison(
     items: list[RenderItem],
     field_name: str,
@@ -272,6 +285,7 @@ def plot_volume_comparison(
     colorbar_label: str | None = None,
     rows: int | None = None,
     columns: int | None = None,
+    positions: list[int] | None = None,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> list[str]:
     """Render volume fields with one color scale across all panels."""
@@ -279,6 +293,9 @@ def plot_volume_comparison(
     norm = comparison_norm(items)
     if rows is None or columns is None:
         rows, columns = comparison_layout(len(items))
+    layout_positions = _comparison_positions(
+        len(items), rows, columns, positions
+    )
     figure, axes = plt.subplots(
         rows,
         columns,
@@ -287,12 +304,14 @@ def plot_volume_comparison(
         constrained_layout=True,
     )
     image = None
-    for index, item in enumerate(items):
-        axis = axes.flat[index]
+    for position, item in zip(layout_positions, items):
+        axis = axes.flat[position]
         image = draw_volume_field(axis, item.mesh, item.field, norm)
         axis.set_title(item.label, fontsize=8)
-    for axis in axes.flat[len(items) :]:
-        axis.axis("off")
+    occupied = set(layout_positions)
+    for index, axis in enumerate(axes.flat):
+        if index not in occupied:
+            axis.axis("off")
     if image is None:
         raise PostprocessError(f"no volume fields available for '{field_name}'")
     figure.suptitle(title)
@@ -312,6 +331,7 @@ def plot_boundary_comparison(
     colorbar_label: str | None = None,
     rows: int | None = None,
     columns: int | None = None,
+    positions: list[int] | None = None,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
 ) -> list[str]:
     """Render boundary fields with one color scale across all panels."""
@@ -319,6 +339,9 @@ def plot_boundary_comparison(
     norm = comparison_norm(items)
     if rows is None or columns is None:
         rows, columns = comparison_layout(len(items))
+    layout_positions = _comparison_positions(
+        len(items), rows, columns, positions
+    )
     figure, axes = plt.subplots(
         rows,
         columns,
@@ -327,12 +350,14 @@ def plot_boundary_comparison(
         constrained_layout=True,
     )
     collection = None
-    for index, item in enumerate(items):
-        axis = axes.flat[index]
+    for position, item in zip(layout_positions, items):
+        axis = axes.flat[position]
         collection = draw_boundary_field(axis, item.mesh, item.field, norm)
         axis.set_title(item.label, fontsize=8)
-    for axis in axes.flat[len(items) :]:
-        axis.axis("off")
+    occupied = set(layout_positions)
+    for index, axis in enumerate(axes.flat):
+        if index not in occupied:
+            axis.axis("off")
     if collection is None:
         raise PostprocessError("no boundary fields available for comparison")
     figure.suptitle(title)

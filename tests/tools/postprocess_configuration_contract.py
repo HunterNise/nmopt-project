@@ -219,6 +219,53 @@ end
         )
         require(selected.output_formats == ("svg",), "explicit SVG format was lost")
 
+        sparse_path = Path(directory) / "sparse.prm"
+        sparse_path.write_text(
+            """subsection Matrix
+  set method = steepest-descent, l-bfgs
+  set regularisation = 1e-1, 1e-2
+end
+subsection Selection
+  set exclude combinations = [method=steepest-descent,regularisation=1e-2]
+end
+subsection Output
+  set selected fields = state
+end
+subsection Postprocessing
+  set style profile = style.json
+  set comparison rows = method
+  set comparison columns = regularisation
+  set comparison group by = none
+  set output formats = png
+end
+""",
+            encoding="utf-8",
+        )
+        sparse = load_postprocess_configuration(sparse_path)
+        require(
+            sparse.matrix_combinations
+            == (
+                {"method": "steepest-descent", "regularisation": "1e-1"},
+                {"method": "l-bfgs", "regularisation": "1e-1"},
+                {"method": "l-bfgs", "regularisation": "1e-2"},
+            ),
+            "excluded matrix combination was not removed before plotting",
+        )
+
+        sparse_path.write_text(
+            sparse_path.read_text(encoding="utf-8").replace(
+                "[method=steepest-descent,regularisation=1e-2]",
+                "[method=steepest-descent]",
+            ),
+            encoding="utf-8",
+        )
+        try:
+            load_postprocess_configuration(sparse_path)
+        except ValueError as error:
+            require("missing axes" in str(error), "incomplete exclusion was misreported")
+        else:
+            raise RuntimeError("incomplete matrix exclusion was accepted")
+
     print("postprocess configuration contract passed")
     return 0
 

@@ -375,6 +375,16 @@ namespace
               field_document.find("Name=\"adjoint\"") != std::string::npos &&
               control_document.find("Name=\"control\"") != std::string::npos,
             "B2 field output omitted a retained state or input field");
+    require(
+      control_document.find(
+        "<Piece NumberOfPoints=\"8\" NumberOfCells=\"4\">") !=
+          std::string::npos &&
+        control_document.find("<CellData Scalars=\"control\">") !=
+          std::string::npos &&
+        control_document.find(
+          "<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n"
+          "3 3 3 3 ") != std::string::npos,
+      "B2 facewise control output changed its cell topology or data association");
     std::filesystem::remove_all(native_output_directory);
   }
 

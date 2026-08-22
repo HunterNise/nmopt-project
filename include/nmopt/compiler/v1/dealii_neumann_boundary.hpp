@@ -1,9 +1,8 @@
 #pragma once
 
+#include "nmopt/compiler/v1/dealii_neumann_control_realisation.hpp"
 #include "nmopt/compiler/v1/dealii_reference_cell.hpp"
 #include "nmopt/contract/executable_model.hpp"
-#include "nmopt/dealii/facewise_box_constraint.hpp"
-#include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 
@@ -112,7 +111,6 @@ namespace nmopt::compiler::v1::detail
       , regularisation_weight_(regularisation_weight)
       , state_gauge_(state_gauge)
       , dirichlet_boundary_ids_(std::move(dirichlet_boundary_ids))
-      , control_boundary_ids_(std::move(control_boundary_ids))
       , observation_boundary_ids_(std::move(observation_boundary_ids))
       , state_observation_(state_observation)
       , observation_material_ids_(std::move(observation_material_ids))
@@ -142,7 +140,7 @@ namespace nmopt::compiler::v1::detail
         state_gauge_ != StateGauge::mean_zero_multiplier ||
           std::abs(reaction_) <= 1e-14,
         "The pure-Neumann mean-zero gauge requires zero reaction");
-      contract::require(!control_boundary_ids_.empty(),
+      contract::require(!control_boundary_ids.empty(),
                         "The Neumann v1 target needs a marked control boundary");
       contract::require(
         observation_weight == nullptr ||
@@ -167,9 +165,14 @@ namespace nmopt::compiler::v1::detail
 
       state_dof_handler_.distribute_dofs(*state_fe_);
       build_constraints(fixed_dirichlet_data);
-      control_face_count_ = count_control_faces();
-      contract::require(control_face_count_ > 0,
-                        "The selected Neumann boundary has no active boundary faces");
+      control_realisation_ =
+        std::make_unique<FacewiseNeumannControlRealisation<dim>>(
+          state_dof_handler_,
+          *state_fe_,
+          constrained_state_dofs_,
+          std::move(control_boundary_ids),
+          state_fe_->degree + 2,
+          uses_ordinary_transport_boundary_realisation() ? diffusion_ : 1.0);
       initialise_storage();
       assemble(forcing,
                desired_state,
@@ -213,13 +216,19 @@ namespace nmopt::compiler::v1::detail
     std::size_t
     physical_control_dimension() const
     {
-      return control_face_count_;
+      return control_realisation_->dimension();
     }
 
     std::size_t
     independent_control_dimension() const
     {
-      return control_face_count_;
+      return control_realisation_->dimension();
+    }
+
+    const std::vector<dealii::Point<dim>> &
+    control_coordinates() const
+    {
+      return control_realisation_->coordinates();
     }
 
     std::size_t
@@ -286,10 +295,7 @@ namespace nmopt::compiler::v1::detail
     control_l2_metric(
       dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
     {
-      return dealii_backend::MassMetric("l2_facewise",
-                                        control_layout_,
-                                        control_mass_,
-                                        solve_parameters);
+      return control_realisation_->l2_metric(solve_parameters);
     }
 
     dealii_backend::FacewiseBoxConstraint
@@ -298,10 +304,9 @@ namespace nmopt::compiler::v1::detail
       Vector                              upper,
       const dealii_backend::MassMetric & projection_metric) const
     {
-      return dealii_backend::FacewiseBoxConstraint(control_layout_,
-                                                    std::move(lower),
-                                                    std::move(upper),
-                                                    projection_metric);
+      return control_realisation_->l2_box_constraint(std::move(lower),
+                                                     std::move(upper),
+                                                     projection_metric);
     }
 
     dealii_backend::FacewiseBoxConstraint
@@ -310,10 +315,9 @@ namespace nmopt::compiler::v1::detail
       const double                        upper,
       const dealii_backend::MassMetric & projection_metric) const
     {
-      return dealii_backend::FacewiseBoxConstraint(control_layout_,
-                                                    lower,
-                                                    upper,
-                                                    projection_metric);
+      return control_realisation_->l2_box_constraint(lower,
+                                                     upper,
+                                                     projection_metric);
     }
 
     bool
@@ -359,7 +363,8 @@ namespace nmopt::compiler::v1::detail
         contract::require(
           uncontrolled_state->layout()->compatible_with(*state_layout_),
           "Native output uncontrolled state has an incompatible layout");
-      contract::require(control.block(0).size() == control_face_count_,
+      contract::require(control.block(0).size() ==
+                          control_realisation_->dimension(),
                         "Native output control has an incompatible size");
       contract::require((forcing == nullptr) == (desired_state == nullptr),
                         "Native output needs both forcing and target functions");
@@ -437,71 +442,9 @@ namespace nmopt::compiler::v1::detail
       if (!fields_output)
         throw std::runtime_error("could not write Neumann volume field output");
 
-      std::vector<dealii::Point<dim>> face_points;
-      std::vector<double>             face_controls;
-      face_points.reserve(2 * control_face_count_);
-      face_controls.reserve(control_face_count_);
-      std::size_t control_index = 0;
-      for (auto cell = state_dof_handler_.begin_active();
-           cell != state_dof_handler_.end();
-           ++cell)
-        for (unsigned int face = 0; face < cell->n_faces(); ++face)
-          if (is_control_face(cell, face))
-            {
-              for (unsigned int vertex = 0;
-                   vertex < cell->face(face)->n_vertices();
-                   ++vertex)
-                face_points.push_back(cell->face(face)->vertex(vertex));
-              face_controls.push_back(control.block(0)[control_index]);
-              ++control_index;
-            }
-      contract::require(control_index == control_face_count_,
-                        "Neumann field output control ordering changed");
-
-      std::ofstream control_output(directory / "control-boundary.vtu");
-      if (!control_output)
-        throw std::runtime_error("could not open Neumann boundary-control output");
-      control_output.imbue(std::locale::classic());
-      control_output << "<?xml version=\"1.0\"?>\n"
-                     << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" "
-                        "byte_order=\"LittleEndian\">\n"
-                     << "<UnstructuredGrid>\n"
-                     << "<Piece NumberOfPoints=\"" << face_points.size()
-                     << "\" NumberOfCells=\"" << face_controls.size()
-                     << "\">\n"
-                     << "<PointData>\n</PointData>\n"
-                     << "<CellData Scalars=\"control\">\n"
-                     << "<DataArray type=\"Float64\" Name=\"control\" "
-                        "format=\"ascii\">\n";
-      control_output.precision(17);
-      for (const double value : face_controls)
-        control_output << value << ' ';
-      control_output << "\n</DataArray>\n</CellData>\n"
-                     << "<Points>\n"
-                     << "<DataArray type=\"Float64\" NumberOfComponents=\"3\" "
-                        "format=\"ascii\">\n";
-      for (const auto &point : face_points)
-        control_output << point[0] << ' ' << point[1] << " 0 ";
-      control_output << "\n</DataArray>\n</Points>\n"
-                     << "<Cells>\n"
-                     << "<DataArray type=\"Int32\" Name=\"connectivity\" "
-                        "format=\"ascii\">\n";
-      for (std::size_t cell = 0; cell < face_controls.size(); ++cell)
-        control_output << cell * 2 << ' ' << cell * 2 + 1 << ' ';
-      control_output << "\n</DataArray>\n"
-                     << "<DataArray type=\"Int32\" Name=\"offsets\" "
-                        "format=\"ascii\">\n";
-      for (std::size_t cell = 0; cell < face_controls.size(); ++cell)
-        control_output << (cell + 1) * 2 << ' ';
-      control_output << "\n</DataArray>\n"
-                     << "<DataArray type=\"UInt8\" Name=\"types\" "
-                        "format=\"ascii\">\n";
-      for (std::size_t cell = 0; cell < face_controls.size(); ++cell)
-        control_output << "3 ";
-      control_output << "\n</DataArray>\n</Cells>\n"
-                     << "</Piece>\n</UnstructuredGrid>\n</VTKFile>\n";
-      if (!control_output)
-        throw std::runtime_error("could not write Neumann boundary-control output");
+      control_realisation_->write_native_output(
+        directory / "control-boundary.vtu",
+        control.block(0));
     }
 
     Covector
@@ -513,8 +456,8 @@ namespace nmopt::compiler::v1::detail
       value.add(1.0, fixed_state_load_);
       value.add(-1.0, forcing_load_);
 
-      Vector control_contribution(state_dof_handler_.n_dofs());
-      control_coupling_.vmult(control_contribution, variables.block(1));
+      Vector control_contribution =
+        control_realisation_->coupling_action(variables.block(1));
       value.add(-1.0, control_contribution);
       zero_constrained_entries(value);
       return Covector(test_layout_, {std::move(value)});
@@ -528,8 +471,8 @@ namespace nmopt::compiler::v1::detail
       require_variables(variable_tangent, "Residual JVP tangent");
       Vector value(state_dof_handler_.n_dofs());
       system_matrix_.vmult(value, variable_tangent.block(0));
-      Vector control_contribution(state_dof_handler_.n_dofs());
-      control_coupling_.vmult(control_contribution, variable_tangent.block(1));
+      Vector control_contribution =
+        control_realisation_->coupling_action(variable_tangent.block(1));
       value.add(-1.0, control_contribution);
       zero_constrained_entries(value);
       return Covector(test_layout_, {std::move(value)});
@@ -546,8 +489,8 @@ namespace nmopt::compiler::v1::detail
       Vector state(state_dof_handler_.n_dofs());
       system_matrix_.Tvmult(state, test_seed.block(0));
       zero_constrained_entries(state);
-      Vector control(control_face_count_);
-      control_coupling_.Tvmult(control, test_seed.block(0));
+      Vector control =
+        control_realisation_->coupling_transpose_action(test_seed.block(0));
       control *= -1.0;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
     }
@@ -575,10 +518,10 @@ namespace nmopt::compiler::v1::detail
         0.5 * (variables.block(0) * tracked_state) -
         (desired_state_load_ * variables.block(0)) + 0.5 * desired_state_norm_;
 
-      Vector control_mass_times_control(control_face_count_);
-      control_mass_->vmult(control_mass_times_control, variables.block(1));
-      const double control_value = 0.5 * regularisation_weight_ *
-                                   (variables.block(1) * control_mass_times_control);
+      const double control_value =
+        control_realisation_->regularisation_objective(
+          variables.block(1),
+          regularisation_weight_);
       return {state_value, control_value};
     }
 
@@ -590,9 +533,9 @@ namespace nmopt::compiler::v1::detail
       state_tracking_matrix_.vmult(state, variables.block(0));
       state.add(-1.0, desired_state_load_);
 
-      Vector control(control_face_count_);
-      control_mass_->vmult(control, variables.block(1));
-      control *= regularisation_weight_;
+      Vector control = control_realisation_->regularisation_derivative(
+        variables.block(1),
+        regularisation_weight_);
       return Covector(variable_layout_, {std::move(state), std::move(control)});
     }
 
@@ -614,8 +557,8 @@ namespace nmopt::compiler::v1::detail
                         "State solve control has an incompatible layout");
       Vector right_hand_side = forcing_load_;
       right_hand_side.add(-1.0, fixed_state_load_);
-      Vector control_contribution(state_dof_handler_.n_dofs());
-      control_coupling_.vmult(control_contribution, control.block(0));
+      Vector control_contribution =
+        control_realisation_->coupling_action(control.block(0));
       right_hand_side.add(1.0, control_contribution);
 
       Vector state(state_dof_handler_.n_dofs());
@@ -723,8 +666,7 @@ namespace nmopt::compiler::v1::detail
     is_control_face(const typename dealii::DoFHandler<dim>::active_cell_iterator &cell,
                     const unsigned int face) const
     {
-      return cell->face(face)->at_boundary() &&
-             control_boundary_ids_.count(cell->face(face)->boundary_id()) != 0;
+      return control_realisation_->is_control_face(cell, face);
     }
 
     bool
@@ -750,7 +692,7 @@ namespace nmopt::compiler::v1::detail
       const unsigned int face) const
     {
       return cell->face(face)->at_boundary() &&
-             (control_boundary_ids_.count(cell->face(face)->boundary_id()) != 0 ||
+             (is_control_face(cell, face) ||
               transport_boundary_ids_.count(cell->face(face)->boundary_id()) != 0);
     }
 
@@ -760,18 +702,6 @@ namespace nmopt::compiler::v1::detail
     {
       return state_observation_ == StateObservation::volume_restriction &&
              observation_material_ids_.count(cell->material_id()) != 0;
-    }
-
-    std::size_t
-    count_control_faces() const
-    {
-      std::size_t result = 0;
-      for (auto cell = state_dof_handler_.begin_active();
-           cell != state_dof_handler_.end();
-           ++cell)
-        for (unsigned int face = 0; face < cell->n_faces(); ++face)
-          result += is_control_face(cell, face);
-      return result;
     }
 
     void
@@ -822,50 +752,20 @@ namespace nmopt::compiler::v1::detail
       variable_layout_ = std::make_shared<const contract::BlockLayout>(
         "neumann_boundary_variables",
         std::vector<contract::SpaceId>{{"state"}, {"control"}},
-        std::vector<std::size_t>{state_size, control_face_count_});
+        std::vector<std::size_t>{state_size,
+                                 control_realisation_->dimension()});
       test_layout_ = std::make_shared<const contract::BlockLayout>(
         "neumann_boundary_state_test",
         std::vector<contract::SpaceId>{{"state_test"}},
         std::vector<std::size_t>{state_size});
       state_layout_ = variable_layout_->single_block(0, "state");
-      control_layout_ = variable_layout_->single_block(1, "control");
+      control_layout_ = control_realisation_->layout();
 
       dealii::DynamicSparsityPattern state_dsp(state_size, state_size);
       dealii::DoFTools::make_sparsity_pattern(state_dof_handler_, state_dsp);
       state_sparsity_.copy_from(state_dsp);
       system_matrix_.reinit(state_sparsity_);
       state_tracking_matrix_.reinit(state_sparsity_);
-
-      dealii::DynamicSparsityPattern control_dsp(state_size, control_face_count_);
-      std::vector<dealii::types::global_dof_index> state_indices(
-        state_fe_->dofs_per_cell);
-      std::size_t control_index = 0;
-      for (auto cell = state_dof_handler_.begin_active();
-           cell != state_dof_handler_.end();
-           ++cell)
-        {
-          cell->get_dof_indices(state_indices);
-          for (unsigned int face = 0; face < cell->n_faces(); ++face)
-            if (is_control_face(cell, face))
-              {
-                for (const auto state_index : state_indices)
-                  if (!constrained_state_dofs_.at(state_index))
-                    control_dsp.add(state_index, control_index);
-                ++control_index;
-              }
-        }
-      contract::require(control_index == control_face_count_,
-                        "Neumann control face enumeration changed during setup");
-      control_sparsity_.copy_from(control_dsp);
-      control_coupling_.reinit(control_sparsity_);
-
-      dealii::DynamicSparsityPattern control_mass_dsp(control_face_count_,
-                                                       control_face_count_);
-      for (std::size_t index = 0; index < control_face_count_; ++index)
-        control_mass_dsp.add(index, index);
-      control_mass_sparsity_.copy_from(control_mass_dsp);
-      control_mass_ = std::make_shared<dealii::SparseMatrix<double>>();
-      control_mass_->reinit(control_mass_sparsity_);
 
       forcing_load_.reinit(state_size);
       fixed_state_load_.reinit(state_size);
@@ -1040,7 +940,6 @@ namespace nmopt::compiler::v1::detail
         face_update_flags);
       std::vector<dealii::types::global_dof_index> state_indices(
         state_fe_->dofs_per_cell);
-      std::size_t control_index = 0;
       for (auto cell = state_dof_handler_.begin_active();
            cell != state_dof_handler_.end();
            ++cell)
@@ -1048,24 +947,16 @@ namespace nmopt::compiler::v1::detail
           cell->get_dof_indices(state_indices);
           for (unsigned int face = 0; face < cell->n_faces(); ++face)
             {
-              const bool control_face = is_control_face(cell, face);
               const bool observation_face = is_observation_face(cell, face);
               const bool transport_face =
                 uses_ordinary_transport_boundary_realisation() &&
                 is_transport_boundary_face(cell, face);
-              if (!control_face && !observation_face && !transport_face)
+              if (!observation_face && !transport_face)
                 continue;
               face_values.reinit(cell, face);
-              double control_measure = 0.0;
               for (unsigned int q = 0; q < face_quadrature->size(); ++q)
                 {
                   const double weight = face_values.JxW(q);
-                  if (control_face)
-                    control_measure += weight;
-                  const double control_scale =
-                    uses_ordinary_transport_boundary_realisation()
-                      ? diffusion_
-                      : 1.0;
                   const double boundary_matrix_coefficient =
                     transport_face
                       ? -(diffusion_ - 1.0) *
@@ -1094,10 +985,6 @@ namespace nmopt::compiler::v1::detail
                       if (constrained_state_dofs_.at(global_i))
                         continue;
                       const double phi_i = face_values.shape_value(i, q);
-                      if (control_face)
-                        control_coupling_.add(global_i,
-                                              control_index,
-                                              control_scale * phi_i * weight);
                       if (transport_face)
                         for (unsigned int j = 0;
                              j < state_fe_->dofs_per_cell;
@@ -1144,17 +1031,8 @@ namespace nmopt::compiler::v1::detail
                       observation_quadrature_weights_.push_back(weight);
                     }
                 }
-              if (control_face)
-                {
-                  contract::require(control_measure > 0.0,
-                                    "A Neumann control face has zero measure");
-                  control_mass_->add(control_index, control_index, control_measure);
-                  ++control_index;
-                }
             }
         }
-      contract::require(control_index == control_face_count_,
-                        "Neumann control face enumeration changed during assembly");
     }
 
     contract::LinearSolveReport
@@ -1231,7 +1109,6 @@ namespace nmopt::compiler::v1::detail
     const double regularisation_weight_;
     const StateGauge state_gauge_;
     const std::set<dealii::types::boundary_id> dirichlet_boundary_ids_;
-    const std::set<dealii::types::boundary_id> control_boundary_ids_;
     const std::set<dealii::types::boundary_id> observation_boundary_ids_;
     const StateObservation state_observation_;
     const std::set<dealii::types::material_id> observation_material_ids_;
@@ -1240,21 +1117,18 @@ namespace nmopt::compiler::v1::detail
     const TransportBoundaryRealisation transport_boundary_realisation_;
     const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
     const bool has_fixed_dirichlet_data_;
-    std::size_t control_face_count_ = 0;
+    std::unique_ptr<FacewiseNeumannControlRealisation<dim>>
+      control_realisation_;
     std::vector<Vector> observation_evaluations_;
     std::vector<double> observation_quadrature_weights_;
 
     dealii::SparsityPattern state_sparsity_;
-    dealii::SparsityPattern control_sparsity_;
-    dealii::SparsityPattern control_mass_sparsity_;
     dealii::SparsityPattern augmented_sparsity_;
     dealii::SparseMatrix<double> system_matrix_;
     dealii::SparseMatrix<double> state_tracking_matrix_;
-    dealii::SparseMatrix<double> control_coupling_;
     dealii::SparseMatrix<double> augmented_system_;
     dealii::SparseDirectUMFPACK augmented_solver_;
     std::unique_ptr<dealii::SparseDirectUMFPACK> nonsymmetric_solver_;
-    std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     Vector forcing_load_;
     Vector fixed_state_values_;
     Vector fixed_state_load_;

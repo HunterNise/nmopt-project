@@ -13,8 +13,10 @@
 #include "../support/scenario_dispatch.hpp"
 
 #include <deal.II/base/function_lib.h>
+#include <deal.II/base/quadrature_lib.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_values.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
@@ -2767,6 +2769,52 @@ namespace
     contract::require(neumann_model != nullptr,
                       "Neumann boundary-control did not produce its Neumann target");
     const dealii::QGauss<dim - 1> boundary_quadrature(policy.state_degree + 2);
+    std::vector<dealii::Point<dim>> expected_control_coordinates;
+    std::vector<double>             expected_control_measures;
+    for (auto cell = triangulation.begin_active();
+         cell != triangulation.end();
+         ++cell)
+      for (unsigned int face = 0;
+           face < dealii::GeometryInfo<dim>::faces_per_cell;
+           ++face)
+        if (cell->face(face)->at_boundary() &&
+            cell->face(face)->boundary_id() == 1)
+          {
+            expected_control_coordinates.push_back(cell->face(face)->center());
+            expected_control_measures.push_back(cell->face(face)->measure());
+          }
+    contract::require(
+      neumann_model->physical_control_dimension() ==
+          expected_control_coordinates.size() &&
+        neumann_model->independent_control_dimension() ==
+          expected_control_coordinates.size() &&
+        neumann_model->control_coordinates().size() ==
+          expected_control_coordinates.size(),
+      "Facewise Neumann realization changed the control dimensions");
+    for (std::size_t index = 0;
+         index < expected_control_coordinates.size();
+         ++index)
+      require_close(
+        neumann_model->control_coordinates()[index].distance(
+          expected_control_coordinates[index]),
+        0.0,
+        1e-15,
+        "Facewise Neumann realization changed control-face ordering");
+
+    const auto &metric = compilation.problem->metric();
+    dealii::Vector<double> unit_control_values(
+      expected_control_coordinates.size());
+    unit_control_values = 1.0;
+    const Primal unit_control(
+      model.variable_layout()->single_block(1, "control"),
+      {std::move(unit_control_values)});
+    const Covector measured_control = metric.apply(unit_control);
+    for (std::size_t index = 0; index < expected_control_measures.size(); ++index)
+      require_close(measured_control.block(0)[index],
+                    expected_control_measures[index],
+                    1e-14,
+                    "Facewise Neumann realization changed its mass matrix");
+
     std::size_t expected_boundary_trace_samples = 0;
     for (auto cell = triangulation.begin_active();
          cell != triangulation.end();
@@ -2798,6 +2846,26 @@ namespace
                   0.0,
                   1e-11,
                   "Neumann boundary-control state residual");
+    double expected_control_objective = 0.0;
+    for (std::size_t index = 0; index < expected_control_measures.size(); ++index)
+      expected_control_objective +=
+        0.5 * bindings.regularisation_weight * expected_control_measures[index] *
+        control.block(0)[index] * control.block(0)[index];
+    require_close(
+      neumann_model->objective_components(evaluation.full_point)
+        .control_regularisation,
+      expected_control_objective,
+      1e-14,
+      "Facewise Neumann realization changed the control objective");
+    const Covector objective_derivative =
+      model.objective_derivative(evaluation.full_point);
+    for (std::size_t index = 0; index < expected_control_measures.size(); ++index)
+      require_close(
+        objective_derivative.block(1)[index],
+        bindings.regularisation_weight * expected_control_measures[index] *
+          control.block(0)[index],
+        1e-14,
+        "Facewise Neumann realization changed the control derivative");
 
     dealii::Vector<double> state_tangent(
       model.variable_layout()->dimension(0));
@@ -2825,6 +2893,52 @@ namespace
                   contract::pair(coupling_vjp, coupling_tangent),
                   1e-11,
                   "Neumann boundary-control residual JVP/VJP pairing");
+
+    dealii::FE_Q<dim> independent_state_fe(policy.state_degree);
+    dealii::DoFHandler<dim> independent_state_dof_handler(triangulation);
+    independent_state_dof_handler.distribute_dofs(independent_state_fe);
+    contract::require(
+      independent_state_dof_handler.n_dofs() == coupling_jvp.block(0).size(),
+      "Independent Neumann coupling assembly changed the state dimension");
+    dealii::FEFaceValues<dim> independent_face_values(
+      independent_state_fe,
+      boundary_quadrature,
+      dealii::update_values | dealii::update_JxW_values);
+    std::vector<dealii::types::global_dof_index> independent_state_indices(
+      independent_state_fe.dofs_per_cell);
+    dealii::Vector<double> expected_coupling(coupling_jvp.block(0).size());
+    std::size_t control_index = 0;
+    for (auto cell = independent_state_dof_handler.begin_active();
+         cell != independent_state_dof_handler.end();
+         ++cell)
+      {
+        cell->get_dof_indices(independent_state_indices);
+        for (unsigned int face = 0;
+             face < dealii::GeometryInfo<dim>::faces_per_cell;
+             ++face)
+          if (cell->face(face)->at_boundary() &&
+              cell->face(face)->boundary_id() == 1)
+            {
+              independent_face_values.reinit(cell, face);
+              for (unsigned int q = 0; q < boundary_quadrature.size(); ++q)
+                for (unsigned int i = 0;
+                     i < independent_state_fe.dofs_per_cell;
+                     ++i)
+                  expected_coupling[independent_state_indices[i]] -=
+                    independent_face_values.shape_value(i, q) *
+                    independent_face_values.JxW(q) *
+                    coupling_tangent.block(1)[control_index];
+              ++control_index;
+            }
+      }
+    contract::require(control_index == expected_control_coordinates.size(),
+                      "Independent Neumann coupling changed face ordering");
+    dealii::Vector<double> coupling_error = coupling_jvp.block(0);
+    coupling_error.add(-1.0, expected_coupling);
+    require_close(coupling_error.l2_norm(),
+                  0.0,
+                  1e-14,
+                  "Facewise Neumann realization changed its coupling matrix");
 
     dealii::Vector<double> trace_state_tangent(
       model.variable_layout()->dimension(0));
@@ -2868,7 +2982,6 @@ namespace
                         fine_remainder <= 0.26 * coarse_remainder + 1e-13,
                       "Neumann boundary-control reduced Taylor remainder is not quadratic");
 
-    const auto &metric = compilation.problem->metric();
     const Primal metric_direction =
       reduced.gradient_direction(evaluation.reduced_derivative, metric);
     const Covector metric_covector = metric.apply(metric_direction);

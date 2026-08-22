@@ -840,10 +840,14 @@ assembly that consumes the current fixed-reconstruction,
 material-subdomain-tracking, $H^{1}_{0}$ state-tracking, and P5.1 general
 scalar/Robin plans. The
 private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
-residual, facewise control layout, unweighted or fixed-data weighted boundary
-trace tracking, the C5.6 conservative-transport/material-subdomain
-composition, facewise metric, facewise box realization, and pure-Neumann
-mean-zero saddle realization. The
+residual, unweighted or fixed-data weighted boundary trace tracking, the C5.6
+conservative-transport/material-subdomain composition, and pure-Neumann
+mean-zero saddle realization. Its internal
+`dealii_neumann_control_realisation.hpp` component owns the ordered marked-face
+control topology and coordinates, state-control coupling, diagonal face-mass
+matrix, facewise metric and box construction, and cell-data boundary output.
+This boundary retains the existing facewise-constant realization while making
+the control-specific assembly independently replaceable. The
 private `dealii_dirichlet_control.hpp` target owns the distinct controlled
 essential reconstruction, the complete and selected partial fixed/controlled
 trace policies, nodal trace layout, boundary mass metric, and both

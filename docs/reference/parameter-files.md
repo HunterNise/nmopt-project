@@ -130,11 +130,12 @@ subsection Functions
 end
 ```
 
-The checked `manufactured-zero` and `figure-inferred-constant-one` IDs remain
-the authoritative replacement and Figure 6.2 hypothesis respectively, but
-they are no longer special cases in the runner. A direct forcing subsection
-defines one function for the complete file. Named definitions selected by a
-`Matrix/forcing` sweep remain a separate, not-yet-generic schema capability.
+The checked `source-oriented-constant-half` ID is the authoritative replacement
+selected after the B1 investigation. `manufactured-zero` and
+`figure-inferred-constant-one` remain explicit development choices. None is a
+special case in the runner: a direct forcing subsection defines one function
+for the complete file. Named definitions selected by a `Matrix/forcing` sweep
+remain a separate, not-yet-generic schema capability.
 
 `Mesh/generator` defaults to `framework-native`, which consumes
 `Mesh/refinement` and leaves the simplex entries at zero. B1 additionally

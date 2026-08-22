@@ -1,9 +1,10 @@
-# Proposed nmopt ParameterHandler input.
-# This file is a run-set definition: no Selection section means all 8 cases.
+# Source-oriented authoritative replacement for the details omitted from the
+# book. The constant forcing, regular triangular mesh, and common early-stop
+# policy are evidence-backed candidates rather than recovered source facts.
 
 subsection Benchmark
   set id = chapter-6.b1.distributed-laplace
-  set label = E6.5.1 distributed Laplace control
+  set label = E6.5.1 source-oriented distributed Laplace replication
   set recipe = chapter-5.scalar-diffusion-reaction-volume
   set source reference = E6.5.1 equations (6.64), Figures 6.2-6.3
   set source revision = 1aaefbe473f9941a89d1df36192251511c052933
@@ -14,19 +15,25 @@ subsection Matrix
   set regularisation = 1e-1, 1e-2, 1e-3, 1e-6
 end
 
+subsection Selection
+  # Figure 6.2 adds only the l-bfgs beta=1e-6 case to Figure 6.3.
+  set exclude combinations = [method=steepest-descent,regularisation=1e-6]
+end
+
 subsection Problem
-  set control representation = cellwise-volume
+  set control representation = continuous-volume-homogeneous-dirichlet
   set cellwise box constraint = false
   set observation = full-domain
 end
 
 subsection Functions
-  set forcing = manufactured-zero
+  set forcing = source-oriented-constant-half
   set desired state = b1-polynomial
 
   subsection forcing
-    set kind = zero
-    set provenance = chapter-6.e6.5.1.manufactured-zero-forcing
+    set kind = constant
+    set value = 0.5
+    set provenance = chapter-6.e6.5.1.source-oriented-constant-half-forcing
   end
 
   subsection desired state
@@ -44,8 +51,12 @@ end
 subsection Mesh
   set dimension = 2
   set geometry = unit-hypercube
-  set refinement = 7
-  set provenance = chapter-6.e6.5.1.framework-native-hypercube-r7
+  set generator = structured-simplex
+  set refinement = 0
+  set subdivisions = 131
+  set centroid splits = 0
+  set selection seed = 0
+  set provenance = chapter-6.e6.5.1.structured-simplex-n131
 end
 
 subsection Compile
@@ -67,24 +78,34 @@ end
 subsection Solver
   set method = from-matrix
   set initial control = zero
-  set maximum iterations = 100
-  set maximum line search trials = 5
+  set maximum iterations = 5000
+  set maximum backtracking reductions = 5
   set stopping criterion = automatic
   set relative gradient tolerance = 0.0
   set objective change tolerance = 0.0
   set step tolerance = 0.0
+  set objective target = none
+  set objective target policy = none
+  set objective target reference method = steepest-descent
   set initial step length = 1.0
   set Armijo fraction = 1e-5
   set backtracking factor = 0.7
 
   subsection method policy steepest-descent
-    set gradient tolerance = 1e-3
-    set declared minimum step length = 0.2
+    set stopping criterion = relative-gradient-norm
+    set gradient tolerance = 1e-30
+    set relative gradient tolerance = 1e-3
+    set minimum step length = 0.2
   end
 
   subsection method policy l-bfgs
-    set gradient tolerance = 1e-8
-    set declared minimum step length = 0.01
+    set stopping criterion = relative-gradient-norm
+    set gradient tolerance = 1e-30
+    set relative gradient tolerance = 1e-3
+    set minimum step length = 0.01
+    set memory = 5
+    set curvature tolerance = 1e-14
+    set initial inverse Hessian scaling = metric-inverse
   end
 end
 

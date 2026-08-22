@@ -80,10 +80,11 @@ section is present, the runner executes the full Cartesian product of the
 declared axes. A concrete artifact is one resolved combination; a run set may
 contain many artifacts.
 
-For example, B1 declares four regularisation values and two methods, yielding
-eight artifacts. B2 declares two observation regions and two target profiles,
-yielding four artifacts. A development forcing family may declare three
-forcing values with one fixed beta and yield three artifacts.
+For example, B1 declares four regularisation values and two methods, then
+excludes the unreported steepest-descent $\beta=10^{-6}$ coordinate to retain
+the seven source figure artifacts. B2 declares two observation regions and two
+target profiles, yielding four artifacts. A development forcing family may
+declare three forcing values with one fixed beta and yield three artifacts.
 
 Selection is optional and only filters the declared matrix. It must use stable
 axis and value IDs, not numeric positions. The resolver rejects unknown

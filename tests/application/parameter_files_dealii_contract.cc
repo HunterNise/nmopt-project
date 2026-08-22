@@ -76,8 +76,13 @@ namespace
     const auto b1 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b1/authoritative.prm"));
     require(b1.matrix.size() == 2, "B1 should declare two matrix axes");
-    require(b1.combinations().size() == 8,
-            "B1 should expand to eight authoritative combinations");
+    require(b1.combinations().size() == 7 &&
+              b1.excluded_combinations.size() == 1 &&
+              b1.excluded_combinations[0].values.at("method") ==
+                "steepest-descent" &&
+              b1.excluded_combinations[0].values.at("regularisation") ==
+                "1e-6",
+            "B1 should retain exactly the seven source figure combinations");
     require(b1.combinations({{"method", "l-bfgs"},
                              {"regularisation", "1e-6"}})
               .size() == 1,
@@ -88,11 +93,41 @@ namespace
               b1.value("Compile/control metric solve maximum iterations") ==
                 "1000",
             "B1 parameter family lost its linear-solve policies");
-    require(b1.value("Mesh/generator") == "framework-native" &&
-              b1.value("Mesh/subdivisions") == "0" &&
+    require(b1.value("Problem/control representation") ==
+                "continuous-volume-homogeneous-dirichlet" &&
+              b1.value("Functions/forcing") ==
+                "source-oriented-constant-half" &&
+              b1.value("Functions/forcing/kind") == "constant" &&
+              b1.value("Functions/forcing/value") == "0.5" &&
+              b1.value("Mesh/generator") == "structured-simplex" &&
+              b1.value("Mesh/refinement") == "0" &&
+              b1.value("Mesh/subdivisions") == "131" &&
               b1.value("Mesh/centroid splits") == "0" &&
               b1.value("Mesh/selection seed") == "0",
-            "B1 parameter family lost the backward-compatible mesh defaults");
+            "B1 parameter family lost its source-oriented replacements");
+    require(
+      b1.value("Solver/maximum backtracking reductions") == "5" &&
+        b1.value("Solver/objective target policy") == "none" &&
+        resolve_method_parameter(b1,
+                                 "steepest-descent",
+                                 "stopping criterion")
+            .value == "relative-gradient-norm" &&
+        resolve_method_parameter(b1,
+                                 "steepest-descent",
+                                 "relative gradient tolerance")
+            .value == "1e-3" &&
+        resolve_method_parameter(b1, "l-bfgs", "stopping criterion").value ==
+          "relative-gradient-norm" &&
+        resolve_method_parameter(b1,
+                                 "l-bfgs",
+                                 "relative gradient tolerance")
+            .value == "1e-3" &&
+        resolve_method_parameter(b1,
+                                 "l-bfgs",
+                                 "initial inverse Hessian scaling")
+            .value == "metric-inverse" &&
+        resolve_method_parameter(b1, "l-bfgs", "memory").value == "5",
+      "B1 parameter family lost its unified source-oriented solver policy");
 
     const auto figure_6_3 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b1/development/figure-6.3-book-policy.prm"));

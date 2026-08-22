@@ -90,13 +90,11 @@ scenario, metadata, and catalog records; the selected L1 scalar and L2
 Neumann/convection recipes; the B0 in-memory harness, deterministic artifact
 writer, and callback runner; and the typed B1/B2 scenario and deal.II
 execution-adapter surfaces. The headless `apps/nmopt-runner` boundary now
-executes the frozen B1 regularisation/method matrix and writes one deterministic
-artifact per run, and the frozen B2 four-case batch now has the same runner
-boundary and artifact projection. Development sweeps have produced all eight B1
-artifacts and all four B2 artifacts. B1 executes as a valid framework-native
-validation path under its manufactured-zero-forcing policy, but its current
-source-scale artifact set still needs the later sidecars and finite-difference
-Hessian evidence required by the benchmark contract. The B2 wings case needs
+executes the frozen sparse seven-case B1 regularisation/method matrix and writes
+one deterministic artifact per run, and the frozen B2 four-case batch has the
+same runner boundary and artifact projection. B1's selected source-oriented
+constant-half, continuous-control, structured-simplex profile still needs its
+authoritative release run and verification. The B2 wings case needs
 refinement 1 as the minimum development mesh because refinement 0 has no cell
 in the selected material region. The `release-dealii` runner now produces all
 ten source-scale artifacts and its 97-test contract suite passes, but every

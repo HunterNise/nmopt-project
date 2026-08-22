@@ -146,12 +146,13 @@ Simplex selections currently require the registered continuous homogeneous-
 Dirichlet control target.
 
 The returned detached envelope contains the compiler manifest, typed solver
-report, policy snapshot, and environment. The frozen manufactured-zero
-replacement and the constant-one hypothesis inferred from the Figure 6.2
-extrema are checked definitions. Development scenarios may also supply any
-finite constant or a validated scalar expression through the same
-backend-neutral function record. Arbitrary caller-owned deal.II functions can
-still use `B1RuntimeDataT<dim>` directly.
+report, policy snapshot, and environment. The authoritative family selects the
+source-oriented constant-half replacement; manufactured zero and the
+constant-one hypothesis inferred from the Figure 6.2 extrema remain checked
+development definitions. Parameter families may also supply any finite
+constant or a validated scalar expression through the same backend-neutral
+function record. Arbitrary caller-owned deal.II functions can still use
+`B1RuntimeDataT<dim>` directly.
 
 `parameters/chapter-6/b1/development/continuous-control.prm` is the checked
 candidate motivated by the source's continuous linear control-space statement

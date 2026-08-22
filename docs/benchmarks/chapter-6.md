@@ -97,22 +97,24 @@ runtime ports, and backend construction.
 
 | Choice | Frozen value |
 | --- | --- |
-| Forcing replacement | Manufactured zero forcing; absolute objective values are not compared with the source. |
-| Forcing provenance | `chapter-6.e6.5.1.manufactured-zero-forcing` |
-| Mesh policy | Framework-native unit-square hypercube, source-sized `refine_global(7)`; the realized mesh and provenance remain manifest data. |
-| Control discretisation | Cellwise `FE_DGQ(0)` with the `l2_cellwise` metric. |
+| Forcing replacement | Constant $f=0.5$, selected as the simplest balanced candidate across the source field extrema; this is not a recovered source fact. |
+| Forcing provenance | `chapter-6.e6.5.1.source-oriented-constant-half-forcing` |
+| Mesh policy | Regular 131 by 131 structured-simplex unit-square mesh, yielding 34,322 triangles and 17,424 vertices; this is the closest natural regular candidate, not the omitted source connectivity. |
+| Control discretisation | Homogeneous-Dirichlet continuous `FE_SimplexP<2>(1)` on the selected triangles, with the continuous $L^{2}$ metric. |
 | Linear solves | State and adjoint use identity-preconditioned serial CG with dimension-dependent iteration limits and tolerances `1e-12` relative / `1e-14` absolute; the control mass metric uses at most `1000` iterations with the same tolerances. |
-| Regularisation matrix | $\beta\in\{10^{-1},10^{-2},10^{-3},10^{-6}\}$, including the source's small-regularisation field illustration. |
-| Methods | Steepest descent and limited-memory BFGS from the same zero control. |
+| Regularisation and method matrix | Steepest descent at $\beta\in\{10^{-1},10^{-2},10^{-3}\}$ and L-BFGS at those values plus $10^{-6}$, matching the seven unique source figure cases. |
+| Methods | Steepest descent and metric-inverse limited-memory BFGS with memory 5, both from the same zero control. |
 
 The benchmark uses the current B1 scenario's declared finite elements, control
-layout, and runtime bindings. It does not claim parity with the source's mesh
-or undisclosed discrete realization.
+layout, and runtime bindings. The source-oriented forcing, mesh, and stopping
+choices are explicit evidence-backed replacements for omitted details; they do
+not claim parity with the undisclosed source realization.
 
-The development family `continuous-control.prm` changes only the control
-realization to independent homogeneous-Dirichlet continuous `FE_Q` while
-retaining the $L^{2}$ loss and search metric. This is the current-mesh candidate
-for the source's continuous `P1` clue and is not part of the frozen benchmark.
+The development family `continuous-control.prm` changes only the original
+framework-native control realization to independent homogeneous-Dirichlet
+continuous `FE_Q` while retaining the $L^{2}$ loss and search metric. It
+records the earlier current-mesh isolation of the source's continuous `P1`
+clue.
 The `continuous-control-constant-one.prm` family additionally tests the
 $f\equiv1$ hypothesis inferred from the Figure 6.2 extrema. Its provenance
 records that inference; it does not promote the omitted forcing to a source
@@ -133,15 +135,15 @@ explicit hypothesis rather than recovered source information.
 
 ### Solver policy
 
-| Method | Gradient tolerance | Armijo fraction | Backtracking | Maximum trials | Minimum-step declaration |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Steepest descent | $10^{-3}$ | $10^{-5}$ | `0.7` | `5` | `0.2` |
-| L-BFGS | $10^{-8}$ | $10^{-5}$ | `0.7` | `5` | `0.01` |
+| Method | Stopping rule | Relative threshold | Armijo fraction | Backtracking | Maximum reductions | Operative minimum step |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Steepest descent | Relative gradient norm | $10^{-3}$ | $10^{-5}$ | `0.7` | `5` | `0.2` |
+| L-BFGS | Relative gradient norm | $10^{-3}$ | $10^{-5}$ | `0.7` | `5` | `0.01` |
 
-The authoritative file retains these values as provenance-only declarations,
-so its previously frozen behavior does not change. New parameter files use
-the distinct operative `minimum step length` entry when a floor is intended;
-artifacts distinguish the declaration from the executed value.
+The common relative threshold selects the same L-BFGS iterates `2/4/4` as the
+recovered Figure 6.3 objective-target policy and selects iteration 4 for the
+$\beta=10^{-6}$ Figure 6.2 fields. The source states this threshold only for
+steepest descent, so its use for L-BFGS is an explicit unifying inference.
 
 The development family `figure-6.3-book-policy.prm` encodes the recovered
 Figure 6.3 conventions separately: five Armijo reductions (six possible
@@ -154,8 +156,9 @@ supplied each dependent objective target.
 
 ### Acceptance evidence
 
-The matrix contains eight artifacts: four regularisation values times two
-methods. Each artifact must retain:
+The sparse matrix contains seven artifacts: the six Figure 6.3 combinations
+and the L-BFGS $\beta=10^{-6}$ Figure 6.2 combination. Each artifact must
+retain:
 
 - objective and tracking histories and final values;
 - gradient, step, line-search, state, adjoint, metric, and direction counts;

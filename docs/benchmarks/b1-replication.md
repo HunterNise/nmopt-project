@@ -6,15 +6,16 @@ This report records the development investigation of E6.5.1, the distributed
 Laplace-control example shown in Figures 6.2–6.3 of the source. It supplements
 the [frozen B1 benchmark contract](chapter-6.md#b1--e651-distributed-laplace-control)
 and the [source catalogue](../guides/chapter-6-numerical-examples.md#e651--distributed-laplace-control).
-It does not change the frozen benchmark or promote an inferred source detail
-to an authoritative choice.
+It records the evidence behind the benchmark's explicit replacement choices;
+those choices remain project policy rather than recovered source facts.
 
 The initial evidence was produced with Debug deal.II builds. The decisive
 source-sized experiments were repeated with `release-dealii` and record
-framework revisions from `4221c67` through `56bd47a`. The tracked authoritative
-profile remains intentionally framework-native and manufactured; it must not
-be described as a book-equivalent reproduction. Development outputs below
-`runs/` are diagnostic evidence and may be deleted.
+framework revisions from `4221c67` through `56bd47a`. Those experiments
+support a selected source-oriented authoritative candidate, but its new
+seven-case release run is pending. It must not yet be described as a
+book-equivalent reproduction. Development outputs below `runs/` are diagnostic
+evidence and may be deleted.
 
 The current assessment is:
 
@@ -317,13 +318,12 @@ family is authoritative or establishes the omitted source forcing.
 
 The two source figures contain seven unique method–regularisation
 combinations: steepest descent at $\beta=10^{-1},10^{-2},10^{-3}$ and L-BFGS
-at those values plus $\beta=10^{-6}$. The current Cartesian matrix expansion
-adds an eighth, unreported steepest-descent $\beta=10^{-6}$ case. In a release
-diagnostic that case reached the 5,000-iteration limit after approximately
-six and a half minutes without satisfying the relative-gradient threshold.
-It should not be retained merely to make the matrix rectangular. A faithful
-single authoritative family therefore needs a generic way to include or
-exclude explicit matrix combinations.
+at those values plus $\beta=10^{-6}$. A release diagnostic of the unreported
+steepest-descent $\beta=10^{-6}$ case reached the 5,000-iteration limit after
+approximately six and a half minutes without satisfying the relative-gradient
+threshold. The parameter schema now supports exact matrix exclusions, and the
+selected authoritative family omits that eighth case instead of retaining it
+merely to make the matrix rectangular.
 
 ## Assessment and remaining evidence gap
 
@@ -374,9 +374,11 @@ implementation details. Supporting arbitrary mesh import or alternative
 quadrature and target-evaluation policies would require scoped framework
 changes and a rebuild.
 
-For continued development, use $f=0.5$ as the primary balanced candidate and
-$f=0.4150674$ as an objective-matched diagnostic. The project has reproduced
-the model, field identities, early-iterate morphology, and method trend; it
-has not uniquely reproduced the omitted source data. B1 therefore remains
-framework-verified rather than reproduction-verified, and the frozen
-authoritative profile remains unchanged.
+The selected authoritative candidate combines $f=0.5$, the regular
+131-subdivision triangular mesh, continuous homogeneous-Dirichlet `P1`
+control, metric-inverse L-BFGS memory 5, and the common $10^{-3}$ relative
+gradient threshold. Keep $f=0.4150674$ as an objective-matched diagnostic. The
+project has reproduced the model, field identities, early-iterate morphology,
+and method trend; it has not uniquely reproduced the omitted source data. B1
+therefore remains framework-verified rather than reproduction-verified until
+the selected seven-case authoritative release run is complete and verified.

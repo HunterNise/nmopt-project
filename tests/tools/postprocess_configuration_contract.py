@@ -29,6 +29,16 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> int:
+    authoritative_configuration = load_postprocess_configuration(
+        REPOSITORY_ROOT / "parameters/chapter-6/b1/authoritative.prm"
+    )
+    require(
+        len(authoritative_configuration.matrix_combinations) == 7
+        and authoritative_configuration.matrix_combinations[-1]
+        == {"method": "l-bfgs", "regularisation": "1e-6"},
+        "B1 authoritative postprocessing matrix lost its seven source cases",
+    )
+
     parameter_file = (
         REPOSITORY_ROOT
         / "parameters/chapter-6/b1/development/figure-6.3-book-policy.prm"

@@ -2821,6 +2821,222 @@ namespace
 
   template <int dim>
   void
+  run_continuous_neumann_control_lowering_contract_test()
+  {
+    const auto specification =
+      semantic::v1::make_neumann_boundary_control_problem(
+        false,
+        semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace);
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiCompiler compiler;
+    contract::require(
+      compiler.validate(specification, policy).valid(),
+      "Continuous Neumann boundary-control graph did not validate for deal.II");
+
+    for (unsigned int family = 0; family < 2; ++family)
+      {
+        const bool simplex = family == 1;
+        dealii::Triangulation<dim> triangulation;
+        if (simplex)
+          dealii::GridGenerator::subdivided_hyper_cube_with_simplices(
+            triangulation,
+            2);
+        else
+          dealii::GridGenerator::subdivided_hyper_cube(triangulation, 2);
+        for (auto cell = triangulation.begin_active();
+             cell != triangulation.end();
+             ++cell)
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
+            if (cell->face(face)->at_boundary())
+              {
+                const double x = cell->face(face)->center()[0];
+                cell->face(face)->set_boundary_id(x < 1e-12 ? 0 :
+                                                  x > 1.0 - 1e-12 ? 1 : 2);
+              }
+
+        const dealii::Functions::ConstantFunction<dim> forcing(0.5);
+        const dealii::Functions::ConstantFunction<dim> desired_state(0.2);
+        const compiler::v1::DealiiDataBindings<dim> bindings{
+          forcing,
+          desired_state,
+          1.0,
+          0.5,
+          0.1,
+          test_binding_provenance(
+            simplex ? "continuous_neumann_simplex" :
+                      "continuous_neumann_hypercube")};
+        const auto compilation = compiler.compile(specification,
+                                                  triangulation,
+                                                  bindings,
+                                                  policy);
+        contract::require(compilation.succeeded(),
+                          "Continuous Neumann boundary-control compilation failed");
+        contract::require(
+          compilation.problem->constraint() == nullptr,
+          "Continuous Neumann boundary control unexpectedly produced a box");
+
+        const auto &model = compilation.problem->executable_model();
+        const auto *neumann_model = dynamic_cast<const
+          compiler::v1::detail::NeumannBoundaryControlModel<dim> *>(&model);
+        contract::require(
+          neumann_model != nullptr &&
+            neumann_model->physical_control_dimension() == 3 &&
+            neumann_model->independent_control_dimension() == 3 &&
+            neumann_model->control_coordinates().size() == 3,
+          "Continuous Neumann lowering changed the trace dimensions");
+
+        const auto &metric = compilation.problem->metric();
+        contract::require(
+          metric.id() == "l2_neumann_trace" &&
+            metric.layout()->dimension(0) == 3,
+          "Continuous Neumann lowering selected the wrong metric realization");
+        const auto reduced = compilation.problem->make_reduced_dto();
+        dealii::Vector<double> control_values(3);
+        control_values[0] = 0.06;
+        control_values[1] = -0.04;
+        control_values[2] = 0.03;
+        const Primal control(model.variable_layout()->single_block(1, "control"),
+                             {std::move(control_values)});
+        const auto evaluation = reduced.evaluate(control);
+        contract::require(
+          evaluation.state_solve.converged() &&
+            evaluation.adjoint_solve.converged(),
+          "Continuous Neumann lowering did not converge in state and adjoint solves");
+        require_close(model.residual(evaluation.full_point).block(0).l2_norm(),
+                      0.0,
+                      2e-11,
+                      "Continuous Neumann boundary-control state residual");
+
+        const Covector measured_control = metric.apply(control);
+        require_close(
+          neumann_model->objective_components(evaluation.full_point)
+            .control_regularisation,
+          0.5 * bindings.regularisation_weight *
+            contract::pair(measured_control, control),
+          1e-14,
+          "Continuous Neumann control regularisation objective");
+        dealii::Vector<double> regularisation_error =
+          model.objective_derivative(evaluation.full_point).block(1);
+        regularisation_error.add(-bindings.regularisation_weight,
+                                 measured_control.block(0));
+        require_close(regularisation_error.l2_norm(),
+                      0.0,
+                      1e-14,
+                      "Continuous Neumann control regularisation derivative");
+
+        dealii::Vector<double> state_tangent(
+          model.variable_layout()->dimension(0));
+        dealii::Vector<double> control_tangent(3);
+        control_tangent[0] = 0.03;
+        control_tangent[1] = -0.02;
+        control_tangent[2] = 0.04;
+        const Primal coupling_tangent(model.variable_layout(),
+                                      {std::move(state_tangent),
+                                       std::move(control_tangent)});
+        dealii::Vector<double> seed_values(model.test_layout()->dimension(0));
+        for (dealii::types::global_dof_index index = 0;
+             index < seed_values.size();
+             ++index)
+          seed_values[index] =
+            (index % 2 == 0 ? 0.025 : -0.015) *
+            static_cast<double>(index + 1);
+        const Primal test_seed(model.test_layout(), {std::move(seed_values)});
+        const Covector coupling_jvp =
+          model.residual_jvp(evaluation.full_point, coupling_tangent);
+        contract::require(coupling_jvp.block(0).l2_norm() > 1e-12,
+                          "Continuous Neumann coupling action vanished");
+        require_close(
+          contract::pair(coupling_jvp, test_seed),
+          contract::pair(model.residual_vjp(evaluation.full_point, test_seed),
+                         coupling_tangent),
+          2e-11,
+          "Continuous Neumann coupling JVP/VJP pairing");
+
+        constexpr double derivative_step = 1e-7;
+        Covector residual_difference = model.residual(
+          shifted(evaluation.full_point, coupling_tangent, derivative_step));
+        const Covector base_residual = model.residual(evaluation.full_point);
+        residual_difference.add_scaled_block(0,
+                                             -1.0,
+                                             base_residual.block(0));
+        residual_difference.scale_block(0, 1.0 / derivative_step);
+        residual_difference.add_scaled_block(0,
+                                             -1.0,
+                                             coupling_jvp.block(0));
+        require_close(residual_difference.block(0).l2_norm(),
+                      0.0,
+                      2e-7,
+                      "Continuous Neumann residual finite-difference action");
+
+        dealii::Vector<double> direction_values(3);
+        direction_values[0] = -0.05;
+        direction_values[1] = 0.04;
+        direction_values[2] = 0.02;
+        const Primal direction(control.layout(),
+                               {std::move(direction_values)});
+        const double directional_derivative =
+          contract::pair(evaluation.reduced_derivative, direction);
+        const double central_difference =
+          (reduced.evaluate(shifted(control, direction, derivative_step))
+             .objective_value -
+           reduced.evaluate(shifted(control, direction, -derivative_step))
+             .objective_value) /
+          (2.0 * derivative_step);
+        require_close(central_difference,
+                      directional_derivative,
+                      2e-8,
+                      "Continuous Neumann reduced-gradient finite difference");
+        const auto remainder = [&](const double step) {
+          return std::abs(
+            reduced.evaluate(shifted(control, direction, step)).objective_value -
+            evaluation.objective_value - step * directional_derivative);
+        };
+        const double coarse_remainder = remainder(1e-3);
+        const double fine_remainder = remainder(5e-4);
+        contract::require(
+          coarse_remainder > 1e-12 &&
+            fine_remainder <= 0.26 * coarse_remainder + 1e-13,
+          "Continuous Neumann reduced Taylor remainder is not quadratic");
+
+        const Primal metric_direction =
+          reduced.gradient_direction(evaluation.reduced_derivative, metric);
+        require_close(contract::pair(metric.apply(metric_direction), direction),
+                      directional_derivative,
+                      2e-11,
+                      "Continuous Neumann metric-gradient identity");
+
+        const auto &manifest = compilation.problem->manifest();
+        const bool has_control_space = std::any_of(
+          manifest.spaces.begin(),
+          manifest.spaces.end(),
+          [](const compiler::v1::CompiledSpaceRecord &space) {
+            return space.role == semantic::v1::SpaceRole::control &&
+                   space.dimension == 3 &&
+                   space.finite_element.find(
+                     "continuous scalar degree-one nodal trace") !=
+                     std::string::npos;
+          });
+        contract::require(
+          has_control_space &&
+            manifest.metric_record.realisation_id == "l2_neumann_trace" &&
+            std::find(manifest.lowering_handler_records.begin(),
+                      manifest.lowering_handler_records.end(),
+                      "neumann_control <- dealii.neumann.control.continuous_p1_trace") !=
+              manifest.lowering_handler_records.end() &&
+            std::any_of(
+              manifest.declared_assumptions.begin(),
+              manifest.declared_assumptions.end(),
+              [](const std::string &assumption) {
+                return assumption.find("closure endpoints") !=
+                       std::string::npos;
+              }),
+          "Continuous Neumann compilation manifest is incomplete");
+      }
+  }
+
+  template <int dim>
+  void
   run_neumann_boundary_contract_test()
   {
     dealii::Triangulation<dim> triangulation;
@@ -2848,17 +3064,6 @@ namespace
     const compiler::v1::DealiiCompiler compiler;
     contract::require(compiler.validate(specification, policy).valid(),
                       "Neumann boundary-control v1 graph did not validate for deal.II");
-    const auto continuous_specification =
-      semantic::v1::make_neumann_boundary_control_problem(
-        false,
-        semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace);
-    test_support::require_exact_diagnostic(
-      compiler.validate(continuous_specification, policy),
-      semantic::v1::DiagnosticCategory::lowerability,
-      "neumann_control_trace_policy",
-      "continuous_neumann_control_lowerer",
-      "deal.II compiler did not reject the unregistered continuous Neumann lowerer");
-
     const compiler::v1::DealiiDataBindings<dim> bindings{
       forcing,
       desired_state,
@@ -7104,6 +7309,11 @@ main(const int argc, char **argv)
          {"dealii", "contract", "metric"},
          30,
          []() { run_continuous_neumann_control_metric_contract_test<2>(); }},
+        {"continuous_neumann_control_lowering",
+         "nmopt.dealii.continuous_neumann_control_lowering",
+         {"dealii", "compiler", "metric"},
+         60,
+         []() { run_continuous_neumann_control_lowering_contract_test<2>(); }},
         {"l2_tracking_continuous_control",
          "nmopt.dealii.l2_tracking_continuous_control",
          {"dealii", "compiler", "metric"},

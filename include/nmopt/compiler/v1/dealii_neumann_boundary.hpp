@@ -42,14 +42,16 @@
 
 namespace nmopt::compiler::v1::detail
 {
-  // V1-only Neumann target. It owns the facewise control layout and lowers
+  // V1-only Neumann target. It owns the selected boundary-control realization
+  // and lowers
   // exactly the declared natural-boundary contribution
   //
   //   r(y,u) = A y - f_h - C_Gamma u,
   //
   // where each column of C_Gamma is the FEFaceValues realization of one
-  // marked boundary face. It intentionally does not reuse the volume-control
-  // model or present this term as a Dirichlet/control lifting.
+  // facewise coefficient or continuous trace basis function. It intentionally
+  // does not reuse the volume-control model or present this term as a
+  // Dirichlet/control lifting.
   template <int dim>
   class NeumannBoundaryControlModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
@@ -102,7 +104,9 @@ namespace nmopt::compiler::v1::detail
       const std::optional<WeightedTraceRealisation> weighted_trace_realisation =
         std::nullopt,
       std::optional<std::reference_wrapper<const dealii::Function<dim>>>
-        fixed_dirichlet_data = std::nullopt)
+        fixed_dirichlet_data = std::nullopt,
+      const NeumannControlRealisationKind control_realisation_kind =
+        NeumannControlRealisationKind::facewise_constant)
       : state_fe_(make_scalar_lagrange_element(
           triangulation, state_degree, "The Neumann v1 target"))
       , state_dof_handler_(triangulation)
@@ -165,14 +169,31 @@ namespace nmopt::compiler::v1::detail
 
       state_dof_handler_.distribute_dofs(*state_fe_);
       build_constraints(fixed_dirichlet_data);
-      control_realisation_ =
-        std::make_unique<FacewiseNeumannControlRealisation<dim>>(
-          state_dof_handler_,
-          *state_fe_,
-          constrained_state_dofs_,
-          std::move(control_boundary_ids),
-          state_fe_->degree + 2,
-          uses_ordinary_transport_boundary_realisation() ? diffusion_ : 1.0);
+      const double coupling_scale =
+        uses_ordinary_transport_boundary_realisation() ? diffusion_ : 1.0;
+      switch (control_realisation_kind)
+        {
+          case NeumannControlRealisationKind::facewise_constant:
+            control_realisation_ =
+              std::make_unique<FacewiseNeumannControlRealisation<dim>>(
+                state_dof_handler_,
+                *state_fe_,
+                constrained_state_dofs_,
+                std::move(control_boundary_ids),
+                state_fe_->degree + 2,
+                coupling_scale);
+            break;
+          case NeumannControlRealisationKind::continuous_p1_trace:
+            control_realisation_ =
+              std::make_unique<ContinuousNeumannControlRealisation<dim>>(
+                state_dof_handler_,
+                *state_fe_,
+                constrained_state_dofs_,
+                std::move(control_boundary_ids),
+                state_fe_->degree + 2,
+                coupling_scale);
+            break;
+        }
       initialise_storage();
       assemble(forcing,
                desired_state,
@@ -304,9 +325,13 @@ namespace nmopt::compiler::v1::detail
       Vector                              upper,
       const dealii_backend::MassMetric & projection_metric) const
     {
-      return control_realisation_->l2_box_constraint(std::move(lower),
-                                                     std::move(upper),
-                                                     projection_metric);
+      const auto *facewise = dynamic_cast<const
+        FacewiseNeumannControlRealisation<dim> *>(control_realisation_.get());
+      contract::require(facewise != nullptr,
+                        "Continuous Neumann control has no coefficientwise box realization");
+      return facewise->l2_box_constraint(std::move(lower),
+                                         std::move(upper),
+                                         projection_metric);
     }
 
     dealii_backend::FacewiseBoxConstraint
@@ -315,9 +340,11 @@ namespace nmopt::compiler::v1::detail
       const double                        upper,
       const dealii_backend::MassMetric & projection_metric) const
     {
-      return control_realisation_->l2_box_constraint(lower,
-                                                     upper,
-                                                     projection_metric);
+      const auto *facewise = dynamic_cast<const
+        FacewiseNeumannControlRealisation<dim> *>(control_realisation_.get());
+      contract::require(facewise != nullptr,
+                        "Continuous Neumann control has no coefficientwise box realization");
+      return facewise->l2_box_constraint(lower, upper, projection_metric);
     }
 
     bool
@@ -368,6 +395,11 @@ namespace nmopt::compiler::v1::detail
                         "Native output control has an incompatible size");
       contract::require((forcing == nullptr) == (desired_state == nullptr),
                         "Native output needs both forcing and target functions");
+      const auto *facewise = dynamic_cast<const
+        FacewiseNeumannControlRealisation<dim> *>(control_realisation_.get());
+      contract::require(
+        facewise != nullptr,
+        "Continuous Neumann control native output is not registered");
 
       std::filesystem::create_directories(directory);
 
@@ -442,7 +474,7 @@ namespace nmopt::compiler::v1::detail
       if (!fields_output)
         throw std::runtime_error("could not write Neumann volume field output");
 
-      control_realisation_->write_native_output(
+      facewise->write_native_output(
         directory / "control-boundary.vtu",
         control.block(0));
     }
@@ -1117,8 +1149,7 @@ namespace nmopt::compiler::v1::detail
     const TransportBoundaryRealisation transport_boundary_realisation_;
     const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
     const bool has_fixed_dirichlet_data_;
-    std::unique_ptr<FacewiseNeumannControlRealisation<dim>>
-      control_realisation_;
+    std::unique_ptr<NeumannControlRealisation<dim>> control_realisation_;
     std::vector<Vector> observation_evaluations_;
     std::vector<double> observation_quadrature_weights_;
 

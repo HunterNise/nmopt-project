@@ -27,8 +27,56 @@
 
 namespace nmopt::compiler::v1::detail
 {
+  enum class NeumannControlRealisationKind
+  {
+    facewise_constant,
+    continuous_p1_trace
+  };
+
+  template <int dim>
+  class NeumannControlRealisation
+  {
+  public:
+    using Vector = dealii::Vector<double>;
+
+    virtual ~NeumannControlRealisation() = default;
+
+    virtual std::size_t
+    dimension() const = 0;
+
+    virtual const contract::LayoutPtr &
+    layout() const = 0;
+
+    virtual const std::vector<dealii::Point<dim>> &
+    coordinates() const = 0;
+
+    virtual bool
+    is_control_face(
+      const typename dealii::DoFHandler<dim>::active_cell_iterator &cell,
+      unsigned int face) const = 0;
+
+    virtual Vector
+    coupling_action(const Vector &control) const = 0;
+
+    virtual Vector
+    coupling_transpose_action(const Vector &state_covector) const = 0;
+
+    virtual double
+    regularisation_objective(const Vector &control,
+                             double regularisation_weight) const = 0;
+
+    virtual Vector
+    regularisation_derivative(const Vector &control,
+                              double regularisation_weight) const = 0;
+
+    virtual dealii_backend::MassMetric
+    l2_metric(
+      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const = 0;
+  };
+
   template <int dim>
   class FacewiseNeumannControlRealisation final
+    : public NeumannControlRealisation<dim>
   {
   public:
     using Vector = dealii::Vector<double>;
@@ -67,19 +115,19 @@ namespace nmopt::compiler::v1::detail
     }
 
     std::size_t
-    dimension() const
+    dimension() const override
     {
       return faces_.size();
     }
 
     const contract::LayoutPtr &
-    layout() const
+    layout() const override
     {
       return layout_;
     }
 
     const std::vector<dealii::Point<dim>> &
-    coordinates() const
+    coordinates() const override
     {
       return coordinates_;
     }
@@ -87,14 +135,14 @@ namespace nmopt::compiler::v1::detail
     bool
     is_control_face(
       const typename dealii::DoFHandler<dim>::active_cell_iterator &cell,
-      const unsigned int face) const
+      const unsigned int face) const override
     {
       return cell->face(face)->at_boundary() &&
              control_boundary_ids_.count(cell->face(face)->boundary_id()) != 0;
     }
 
     Vector
-    coupling_action(const Vector &control) const
+    coupling_action(const Vector &control) const override
     {
       require_control(control);
       Vector value(control_coupling_.m());
@@ -103,7 +151,7 @@ namespace nmopt::compiler::v1::detail
     }
 
     Vector
-    coupling_transpose_action(const Vector &state_covector) const
+    coupling_transpose_action(const Vector &state_covector) const override
     {
       contract::require(state_covector.size() == control_coupling_.m(),
                         "Facewise Neumann coupling transpose received the wrong state dimension");
@@ -114,7 +162,7 @@ namespace nmopt::compiler::v1::detail
 
     double
     regularisation_objective(const Vector &control,
-                             const double  regularisation_weight) const
+                             const double  regularisation_weight) const override
     {
       require_control(control);
       Vector mass_times_control(dimension());
@@ -124,7 +172,7 @@ namespace nmopt::compiler::v1::detail
 
     Vector
     regularisation_derivative(const Vector &control,
-                              const double  regularisation_weight) const
+                              const double  regularisation_weight) const override
     {
       require_control(control);
       Vector value(dimension());
@@ -135,7 +183,7 @@ namespace nmopt::compiler::v1::detail
 
     dealii_backend::MassMetric
     l2_metric(
-      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
+      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const override
     {
       return dealii_backend::MassMetric("l2_facewise",
                                         layout_,
@@ -352,6 +400,7 @@ namespace nmopt::compiler::v1::detail
 
   template <int dim>
   class ContinuousNeumannControlRealisation final
+    : public NeumannControlRealisation<dim>
   {
   public:
     using Vector = dealii::Vector<double>;
@@ -384,8 +433,36 @@ namespace nmopt::compiler::v1::detail
       assemble_mass(quadrature_order);
     }
 
+    ContinuousNeumannControlRealisation(
+      const dealii::DoFHandler<dim> &              state_dof_handler,
+      const dealii::FiniteElement<dim> &            state_fe,
+      const std::vector<bool> &                     constrained_state_dofs,
+      std::set<dealii::types::boundary_id>          control_boundary_ids,
+      const unsigned int                            quadrature_order,
+      const double                                  coupling_scale)
+      : ContinuousNeumannControlRealisation(
+          state_dof_handler.get_triangulation(),
+          std::move(control_boundary_ids),
+          quadrature_order)
+    {
+      contract::require(
+        constrained_state_dofs.size() == state_dof_handler.n_dofs(),
+        "Continuous Neumann control needs one constraint flag per state DoF");
+      contract::require(std::isfinite(coupling_scale) && coupling_scale > 0.0,
+                        "Continuous Neumann control needs a positive finite coupling scale");
+      initialise_coupling_sparsity(state_dof_handler,
+                                   state_fe,
+                                   constrained_state_dofs);
+      assemble_coupling(state_dof_handler,
+                        state_fe,
+                        constrained_state_dofs,
+                        quadrature_order,
+                        coupling_scale);
+      coupling_is_ready_ = true;
+    }
+
     std::size_t
-    dimension() const
+    dimension() const override
     {
       return trace_dofs_.size();
     }
@@ -403,20 +480,72 @@ namespace nmopt::compiler::v1::detail
     }
 
     const contract::LayoutPtr &
-    layout() const
+    layout() const override
     {
       return layout_;
     }
 
     const std::vector<dealii::Point<dim>> &
-    coordinates() const
+    coordinates() const override
     {
       return coordinates_;
     }
 
+    bool
+    is_control_face(
+      const typename dealii::DoFHandler<dim>::active_cell_iterator &cell,
+      const unsigned int face) const override
+    {
+      return cell->face(face)->at_boundary() &&
+             control_boundary_ids_.count(cell->face(face)->boundary_id()) != 0;
+    }
+
+    Vector
+    coupling_action(const Vector &control) const override
+    {
+      require_coupling();
+      require_control(control);
+      Vector value(control_coupling_.m());
+      control_coupling_.vmult(value, control);
+      return value;
+    }
+
+    Vector
+    coupling_transpose_action(const Vector &state_covector) const override
+    {
+      require_coupling();
+      contract::require(
+        state_covector.size() == control_coupling_.m(),
+        "Continuous Neumann coupling transpose received the wrong state dimension");
+      Vector value(control_coupling_.n());
+      control_coupling_.Tvmult(value, state_covector);
+      return value;
+    }
+
+    double
+    regularisation_objective(const Vector &control,
+                             const double regularisation_weight) const override
+    {
+      require_control(control);
+      Vector mass_times_control(dimension());
+      control_mass_->vmult(mass_times_control, control);
+      return 0.5 * regularisation_weight * (control * mass_times_control);
+    }
+
+    Vector
+    regularisation_derivative(const Vector &control,
+                              const double regularisation_weight) const override
+    {
+      require_control(control);
+      Vector value(dimension());
+      control_mass_->vmult(value, control);
+      value *= regularisation_weight;
+      return value;
+    }
+
     dealii_backend::MassMetric
     l2_metric(
-      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
+      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const override
     {
       return dealii_backend::MassMetric("l2_neumann_trace",
                                         layout_,
@@ -427,15 +556,6 @@ namespace nmopt::compiler::v1::detail
   private:
     static constexpr std::size_t invalid_control_index =
       std::numeric_limits<std::size_t>::max();
-
-    bool
-    is_control_face(
-      const typename dealii::DoFHandler<dim>::active_cell_iterator &cell,
-      const unsigned int face) const
-    {
-      return cell->face(face)->at_boundary() &&
-             control_boundary_ids_.count(cell->face(face)->boundary_id()) != 0;
-    }
 
     void
     build_trace_topology(const dealii::Triangulation<dim> &triangulation)
@@ -552,6 +672,138 @@ namespace nmopt::compiler::v1::detail
         }
     }
 
+    void
+    initialise_coupling_sparsity(
+      const dealii::DoFHandler<dim> &state_dof_handler,
+      const dealii::FiniteElement<dim> &state_fe,
+      const std::vector<bool> &constrained_state_dofs)
+    {
+      dealii::DynamicSparsityPattern coupling_dsp(state_dof_handler.n_dofs(),
+                                                   dimension());
+      std::vector<dealii::types::global_dof_index> state_dofs(
+        state_fe.dofs_per_cell);
+      std::vector<dealii::types::global_dof_index> control_dofs(
+        control_fe_->dofs_per_cell);
+      auto control_cell = control_dof_handler_.begin_active();
+      for (auto state_cell = state_dof_handler.begin_active();
+           state_cell != state_dof_handler.end();
+           ++state_cell, ++control_cell)
+        {
+          contract::require(
+            control_cell != control_dof_handler_.end(),
+            "Continuous Neumann state and control DoF handlers have different cells");
+          state_cell->get_dof_indices(state_dofs);
+          control_cell->get_dof_indices(control_dofs);
+          for (unsigned int face = 0; face < state_cell->n_faces(); ++face)
+            if (is_control_face(state_cell, face))
+              for (const auto state_dof : state_dofs)
+                {
+                  if (constrained_state_dofs.at(state_dof))
+                    continue;
+                  for (const auto control_dof : control_dofs)
+                    {
+                      const auto control_index =
+                        control_index_for_volume_dof_.at(control_dof);
+                      if (control_index != invalid_control_index)
+                        coupling_dsp.add(state_dof, control_index);
+                    }
+                }
+        }
+      contract::require(
+        control_cell == control_dof_handler_.end(),
+        "Continuous Neumann state and control DoF handlers have different cells");
+      control_coupling_sparsity_.copy_from(coupling_dsp);
+      control_coupling_.reinit(control_coupling_sparsity_);
+    }
+
+    void
+    assemble_coupling(
+      const dealii::DoFHandler<dim> &state_dof_handler,
+      const dealii::FiniteElement<dim> &state_fe,
+      const std::vector<bool> &constrained_state_dofs,
+      const unsigned int quadrature_order,
+      const double coupling_scale)
+    {
+      const auto face_quadrature = make_gauss_face_quadrature(
+        state_dof_handler.get_triangulation(),
+        quadrature_order,
+        "The continuous Neumann control realization");
+      dealii::FEFaceValues<dim> state_face_values(
+        state_fe,
+        *face_quadrature,
+        dealii::update_values | dealii::update_JxW_values);
+      dealii::FEFaceValues<dim> control_face_values(*control_fe_,
+                                                    *face_quadrature,
+                                                    dealii::update_values);
+      std::vector<dealii::types::global_dof_index> state_dofs(
+        state_fe.dofs_per_cell);
+      std::vector<dealii::types::global_dof_index> control_dofs(
+        control_fe_->dofs_per_cell);
+      auto control_cell = control_dof_handler_.begin_active();
+      for (auto state_cell = state_dof_handler.begin_active();
+           state_cell != state_dof_handler.end();
+           ++state_cell, ++control_cell)
+        {
+          contract::require(
+            control_cell != control_dof_handler_.end(),
+            "Continuous Neumann state and control DoF handlers have different cells");
+          state_cell->get_dof_indices(state_dofs);
+          control_cell->get_dof_indices(control_dofs);
+          for (unsigned int face = 0; face < state_cell->n_faces(); ++face)
+            if (is_control_face(state_cell, face))
+              {
+                state_face_values.reinit(state_cell, face);
+                control_face_values.reinit(control_cell, face);
+                for (unsigned int i = 0; i < state_fe.dofs_per_cell; ++i)
+                  {
+                    const auto state_dof = state_dofs[i];
+                    if (constrained_state_dofs.at(state_dof))
+                      continue;
+                    for (unsigned int j = 0;
+                         j < control_fe_->dofs_per_cell;
+                         ++j)
+                      {
+                        const auto control_index =
+                          control_index_for_volume_dof_.at(control_dofs[j]);
+                        if (control_index == invalid_control_index)
+                          continue;
+                        double entry = 0.0;
+                        for (unsigned int q = 0;
+                             q < face_quadrature->size();
+                             ++q)
+                          entry += coupling_scale *
+                                   state_face_values.shape_value(i, q) *
+                                   control_face_values.shape_value(j, q) *
+                                   state_face_values.JxW(q);
+                        if (entry != 0.0)
+                          control_coupling_.add(state_dof,
+                                                control_index,
+                                                entry);
+                      }
+                  }
+              }
+        }
+      contract::require(
+        control_cell == control_dof_handler_.end(),
+        "Continuous Neumann state and control DoF handlers have different cells");
+    }
+
+    void
+    require_control(const Vector &control) const
+    {
+      contract::require(
+        control.size() == dimension(),
+        "Continuous Neumann control has an incompatible dimension");
+    }
+
+    void
+    require_coupling() const
+    {
+      contract::require(
+        coupling_is_ready_,
+        "Continuous Neumann control coupling has not been assembled");
+    }
+
     const std::set<dealii::types::boundary_id> control_boundary_ids_;
     std::unique_ptr<dealii::FiniteElement<dim>> control_fe_;
     dealii::DoFHandler<dim>                     control_dof_handler_;
@@ -559,7 +811,10 @@ namespace nmopt::compiler::v1::detail
     std::vector<std::size_t> control_index_for_volume_dof_;
     std::vector<dealii::Point<dim>> coordinates_;
     dealii::SparsityPattern control_mass_sparsity_;
+    dealii::SparsityPattern control_coupling_sparsity_;
+    dealii::SparseMatrix<double> control_coupling_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     contract::LayoutPtr layout_;
+    bool coupling_is_ready_ = false;
   };
 } // namespace nmopt::compiler::v1::detail

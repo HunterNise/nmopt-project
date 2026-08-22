@@ -625,6 +625,10 @@ namespace nmopt::compiler::v1
         request.uses_partial_dirichlet_control;
       const bool uses_neumann_boundary_control =
         request.uses_neumann_boundary_control;
+      const bool uses_continuous_neumann_trace =
+        request.neumann_control_selection &&
+        request.neumann_control_selection->discretisation ==
+          semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace;
       const bool uses_neumann_convection = request.uses_neumann_convection;
       const bool uses_mean_zero_gauge = request.uses_mean_zero_gauge;
       const bool uses_h1_control_regularisation =
@@ -1378,7 +1382,10 @@ namespace nmopt::compiler::v1
                   BoundaryModel::WeightedTraceRealisation::fe_q_face_quadrature}
               : std::nullopt,
             uses_fixed_reconstruction ? data.fixed_dirichlet_data
-                                       : std::nullopt);
+                                       : std::nullopt,
+            uses_continuous_neumann_trace
+              ? detail::NeumannControlRealisationKind::continuous_p1_trace
+              : detail::NeumannControlRealisationKind::facewise_constant);
           if (uses_mean_zero_gauge && !boundary->forcing_is_compatible())
             {
               result.diagnostics.add(
@@ -3415,16 +3422,6 @@ namespace nmopt::compiler::v1
 
       validate_registered_graph(specification, request, report);
 
-      if (request.uses_neumann_boundary_control &&
-          request.neumann_control_selection &&
-          request.neumann_control_selection->discretisation ==
-            semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace)
-        report.add(
-          DiagnosticCategory::lowerability,
-          request.neumann_control_selection->id,
-          "continuous_neumann_control_lowerer",
-          "Register the continuous nodal-trace Neumann coupling and L2 metric lowerer.");
-
       for (const auto &term : specification.residual_terms)
         if (!capabilities_.has_residual_term_lowerer(term.kind))
           report.add(DiagnosticCategory::lowerability,
@@ -4961,6 +4958,7 @@ namespace nmopt::compiler::v1
     control_space_description(const CompiledTargetKind       target,
                               const DealiiDiscretisationPolicy &policy,
                               const bool uses_simplex_reference_cells = false,
+                              const bool uses_continuous_neumann_trace = false,
                               const std::optional<DirichletControlRegistration> &
                                 registration = std::nullopt)
     {
@@ -4982,7 +4980,9 @@ namespace nmopt::compiler::v1
           case CompiledTargetKind::neumann_boundary:
           case CompiledTargetKind::weighted_boundary_trace:
           case CompiledTargetKind::pure_neumann:
-            return "one facewise-constant coefficient per marked state boundary face";
+            return uses_continuous_neumann_trace
+                     ? "continuous scalar degree-one nodal trace coefficients on the closure of the marked state boundary"
+                     : "one facewise-constant coefficient per marked state boundary face";
           case CompiledTargetKind::coefficient_identification:
             return "cellwise-constant positive diffusion parameter FE_DGQ(0) on the state mesh";
           case CompiledTargetKind::h1_control_l2_metric:
@@ -5146,7 +5146,8 @@ namespace nmopt::compiler::v1
       const semantic::v1::SpaceSpec &   space,
       const CompiledTargetKind          target,
       const DealiiDiscretisationPolicy &policy,
-      const bool uses_simplex_reference_cells)
+      const bool uses_simplex_reference_cells,
+      const bool uses_continuous_neumann_trace)
     {
       switch (space.role)
         {
@@ -5160,7 +5161,8 @@ namespace nmopt::compiler::v1
           case semantic::v1::SpaceRole::parameter:
             return control_space_description(target,
                                              policy,
-                                             uses_simplex_reference_cells);
+                                             uses_simplex_reference_cells,
+                                             uses_continuous_neumann_trace);
           case semantic::v1::SpaceRole::observation:
             return "lowered observation coefficients";
           case semantic::v1::SpaceRole::data:
@@ -5743,6 +5745,10 @@ namespace nmopt::compiler::v1
            region.point_coordinates.size()});
       decision.bindings = make_resolved_binding_records<dim>(
         specification, target, request, data, bounds, facewise_bounds);
+      const bool uses_continuous_neumann_trace =
+        request.neumann_control_selection &&
+        request.neumann_control_selection->discretisation ==
+          semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace;
       for (const auto &space : specification.spaces)
         decision.spaces.push_back(
           {space.id,
@@ -5752,7 +5758,8 @@ namespace nmopt::compiler::v1
            compiled_space_finite_element(space,
                                          target,
                                          policy,
-                                         uses_simplex_reference_cells),
+                                         uses_simplex_reference_cells,
+                                         uses_continuous_neumann_trace),
            0});
       for (const auto &pairing : specification.pairings)
         decision.pairings.push_back(
@@ -6242,6 +6249,10 @@ namespace nmopt::compiler::v1
       const bool uses_normal_flux = request.uses_normal_flux;
       const bool uses_neumann_boundary_control =
         request.uses_neumann_boundary_control;
+      const bool uses_continuous_neumann_trace =
+        request.neumann_control_selection &&
+        request.neumann_control_selection->discretisation ==
+          semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace;
       const bool uses_neumann_convection = request.uses_neumann_convection;
       const bool uses_mean_zero_gauge = request.uses_mean_zero_gauge;
       const bool uses_h1_control_regularisation =
@@ -6406,6 +6417,9 @@ namespace nmopt::compiler::v1
         manifest.lowering_handler_records.push_back(
           "weighted_state_boundary_trace <- "
           "dealii.neumann.observation.weighted_boundary_trace");
+      if (uses_continuous_neumann_trace)
+        manifest.lowering_handler_records.push_back(
+          "neumann_control <- dealii.neumann.control.continuous_p1_trace");
       if (uses_l2_dirichlet_control)
         manifest.lowering_handler_records.push_back(
           "l2_dirichlet_transposition <- "
@@ -6465,6 +6479,7 @@ namespace nmopt::compiler::v1
         control_space_description(target,
                                   policy,
                                   uses_simplex_reference_cells,
+                                  uses_continuous_neumann_trace,
                                   registration);
       manifest.quadrature = volume_quadrature;
       manifest.dual_representation = "tested dual coefficients with dot pairing";
@@ -6564,7 +6579,10 @@ namespace nmopt::compiler::v1
           : "DTO";
       if (uses_neumann_boundary_control && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(
-          "neumann_control_realisation: facewise-constant FEFaceValues pairing on boundary ids " +
+          std::string("neumann_control_realisation: ") +
+          (uses_continuous_neumann_trace
+             ? "continuous degree-one nodal-trace FEFaceValues pairing with closure endpoints on boundary ids "
+             : "facewise-constant FEFaceValues pairing on boundary ids ") +
           boundary_id_list(*control_boundary_region));
       if (uses_neumann_convection)
         {

@@ -61,8 +61,8 @@ or
 | `make_h1_tracking_hhalf_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` with independently selected loss and metric | Section 5.11.1 option 2: physical $H^{1}$ state tracking, boundary $L^{2}$ control loss, minimum-extension $H^{1/2}$ search metric, and no trace box | `nmopt.dealii.section_5_11_compilation` |
 | `make_h1_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` with tangential face assembly | Section 5.11.3: normalized Laplacian and boundary $M_{\Gamma,h}+K^{\tau}_{\Gamma,h}$ for the separately declared $H^{1}$ control loss and metric | `nmopt.dealii.section_5_11_compilation` |
 | `make_partial_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` with fixed and controlled trace maps | Complete fixed/controlled boundary partition, nonzero nodal fixed lifting, fixed-data precedence at interface DoFs, relative-interior controlled trace, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.partial_dirichlet_control` |
-| `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, `FE_Q` or `FE_SimplexP` state/test coordinates, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
-| `make_neumann_convection_subdomain_tracking_problem()` | `NeumannBoundaryControlModel<dim>` with conservative transport and volume observation | Mixed fixed/Neumann boundary partition, conservative-transport weak form, material-id state tracking, `FE_Q` or `FE_SimplexP` state/test coordinates, facewise $L^{2}$ control metric, and optional facewise box | `nmopt.dealii.neumann_convection_subdomain` |
+| `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-boundary facewise-constant or continuous degree-one trace Neumann control, boundary trace tracking, `FE_Q` or `FE_SimplexP` state/test coordinates, the matching $L^{2}$ metric, and an optional box for the facewise realization | `nmopt.dealii.neumann_boundary` |
+| `make_neumann_convection_subdomain_tracking_problem()` | `NeumannBoundaryControlModel<dim>` with conservative transport and volume observation | Mixed fixed/Neumann boundary partition, conservative-transport weak form, material-id state tracking, `FE_Q` or `FE_SimplexP` state/test coordinates, selected facewise or continuous-trace $L^{2}$ control metric, and an optional box for the facewise realization | `nmopt.dealii.neumann_convection_subdomain` |
 | `make_weighted_boundary_trace_neumann_control_problem()` | `NeumannBoundaryControlModel<dim>` with fixed weight data | Marked-face Neumann control and the explicit map $y\mapsto h\gamma y$ with an unchanged facewise $L^{2}$ metric | `nmopt.dealii.weighted_boundary_trace` |
 | `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `nmopt.dealii.pure_neumann` |
 | `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Continuous conforming Lagrange control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `nmopt.dealii.h1_control` |
@@ -196,7 +196,8 @@ separate
 `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()`
 factories share one independent homogeneous-Dirichlet continuous-control graph
 and change only its selected metric. `make_neumann_boundary_control_problem()`
-declares a facewise Neumann control and state boundary trace.
+declares a selectable facewise-constant or continuous nodal-trace Neumann
+control and a state boundary trace.
 `make_neumann_convection_subdomain_tracking_problem()` instead composes the
 same natural control with conservative volume transport and a material-id
 state restriction; its desired-state policy selects volume quadrature.
@@ -551,11 +552,9 @@ spaces on other meshes remain unsupported.
 The Neumann residual policy carries a typed control-realization selection. It
 binds the control variable, $L^{2}(\Gamma_{c})$ parent space, controlled
 boundary, and search metric, and selects either facewise constants or a
-continuous nodal trace. Both declarations are semantically valid. The current
-deal.II registry lowers only facewise constants; selecting the continuous
-trace produces the stable `continuous_neumann_control_lowerer` lowerability
-diagnostic. A facewise box combined with the continuous selection is rejected
-semantically rather than reinterpreted coefficientwise.
+continuous nodal trace. The deal.II registry lowers both selections. A
+facewise box combined with the continuous selection is rejected semantically
+rather than reinterpreted coefficientwise.
 
 The internal continuous-control preparation constructs a separate scalar
 degree-one Lagrange `DoFHandler` on the state mesh and extracts the global DoFs
@@ -572,9 +571,18 @@ appears only once. The component assembles the consistent boundary mass
 
 and exposes it as the `l2_neumann_trace` metric for simplex and hypercube
 meshes. Its physical and independent dimensions are both the number of unique
-selected trace nodes. This component is not yet a registered compiler target:
-the continuous selection retains the missing-lowerer diagnostic until its
-state-control coupling is connected.
+selected trace nodes. For continuous control $u_{h}=\sum_{j}u_{j}\psi_{j}$,
+the component also assembles
+
+```math
+(C_{\Gamma}u)_{i}=
+\sum_{F\subset\Gamma_{c}}\int_{F}\phi_{i}\sum_{j}u_{j}\psi_{j}.
+```
+
+The residual uses $-C_{\Gamma}u$, its VJP uses the exact matrix transpose, and
+the regularisation derivative uses $\alpha M_{\Gamma}u$. Native boundary
+output for this connected nodal topology remains outside the registered
+continuous realization; the existing writer supports only facewise cell data.
 
 The registered P2.1 realization assigns one scalar control coefficient to
 each active state-mesh boundary face with an id in `control_boundary`. The
@@ -602,8 +610,9 @@ overlaps the fixed homogeneous Dirichlet ids.
 
 ### Neumann control with transport and subdomain tracking
 
-`make_neumann_convection_subdomain_tracking_problem()` retains the facewise
-Neumann coupling but replaces boundary tracking by a material-id volume
+`make_neumann_convection_subdomain_tracking_problem()` retains the selected
+facewise or continuous-trace Neumann coupling but replaces boundary tracking
+by a material-id volume
 restriction and adds the conservative weak term
 
 ```math
@@ -619,8 +628,8 @@ records the Lipschitz, coercivity, and $b\mathbin\cdot n\leq0$ assumptions
 separately. The selected target uses `SparseDirectUMFPACK` for the
 nonsymmetric state operator and its exact transpose for the adjoint. Its
 independently integrated Q1 contract checks the transport value and
-material-subdomain loss; the facewise $L^{2}$ metric and optional box are
-unchanged.
+material-subdomain loss. The control uses its selected $L^{2}$ metric, while
+the optional box remains limited to the facewise realization.
 
 ### Pure Neumann mean constraint
 
@@ -862,14 +871,13 @@ private `dealii_neumann_boundary.hpp` target owns the distinct Neumann
 residual, unweighted or fixed-data weighted boundary trace tracking, the C5.6
 conservative-transport/material-subdomain composition, and pure-Neumann
 mean-zero saddle realization. Its internal
-`dealii_neumann_control_realisation.hpp` component owns the ordered marked-face
-control topology and coordinates, state-control coupling, diagonal face-mass
-matrix, facewise metric and box construction, and cell-data boundary output.
-The same internal header owns the unregistered continuous degree-one trace
-topology, closure-endpoint policy, and consistent boundary mass metric for
-simplex and hypercube meshes. This boundary retains the existing
-facewise-constant realization while making the control-specific assembly
-independently replaceable. The
+`dealii_neumann_control_realisation.hpp` component owns both registered
+control realizations. The facewise realization owns its ordered marked-face
+topology and coordinates, state-control coupling, diagonal face-mass matrix,
+metric and box construction, and cell-data boundary output. The continuous
+realization owns its degree-one trace topology, closure-endpoint policy,
+state-control coupling, and consistent boundary mass metric for simplex and
+hypercube meshes. Connected nodal native output is not yet registered. The
 private `dealii_dirichlet_control.hpp` target owns the distinct controlled
 essential reconstruction, the complete and selected partial fixed/controlled
 trace policies, nodal trace layout, boundary mass metric, and both
@@ -890,8 +898,9 @@ assembled serial scalar conforming Lagrange state/test with degree at least
 one and reduced DTO. Continuous-control and Neumann-boundary-control targets
 select `FE_Q` on hypercubes or `FE_SimplexP` on simplices; the other registered
 targets remain `FE_Q` on hypercubes. Their control realizations are
-`FE_DGQ(0)` volume control on the state mesh, one facewise-constant Neumann
-coefficient for every marked boundary face, one nodal Dirichlet trace
+`FE_DGQ(0)` volume control on the state mesh, either one facewise-constant
+Neumann coefficient for every marked boundary face or one continuous
+degree-one coefficient per selected trace node, one nodal Dirichlet trace
 coefficient for every state DoF on the complete exterior controlled boundary,
 one relative-interior nodal trace for the selected partial lifting, or
 continuous `FE_Q` or `FE_SimplexP` volume control for a registered
@@ -1047,8 +1056,10 @@ This v1 registration does not broaden the v0 executable mathematics. Beyond
 the selected fixed-data reconstruction, complete-boundary nodal
 Dirichlet-control lifting, the selected partial fixed/controlled nodal lifting,
 material-id $L^{2}$ state tracking, full-domain $H^{1}_{0}$ state tracking,
-marked-face Neumann control with unweighted or fixed-data weighted boundary
-tracking, the selected C5.6 transport/subdomain composition, and the selected
+marked-boundary facewise or continuous nodal-trace Neumann control with
+unweighted boundary tracking, marked-face Neumann control with fixed-data
+weighted boundary tracking, the selected C5.6 transport/subdomain composition,
+and the selected
 general scalar/Robin target, it does not compile arbitrary geometric or
 overlapping subdomain restrictions, FE target projection/interpolation, Robin
 partitions beyond the registered homogeneous fixed/Robin split, alternate

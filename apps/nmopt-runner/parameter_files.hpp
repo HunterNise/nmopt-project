@@ -13,6 +13,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <stdexcept>
@@ -506,6 +507,7 @@ namespace nmopt::application::runner
         declare_section("Mesh", entry);
       declare_section("Mesh", "generator", "framework-native");
       declare_section("Mesh", "subdivisions", "0");
+      declare_section("Mesh", "axis subdivisions");
       declare_section("Mesh", "centroid splits", "0");
       declare_section("Mesh", "selection seed", "0");
       for (const auto &entry : {"state degree",
@@ -672,6 +674,7 @@ namespace nmopt::application::runner
                                                  "refinement",
                                                  "generator",
                                                  "subdivisions",
+                                                 "axis subdivisions",
                                                  "centroid splits",
                                                  "selection seed",
                                                  "provenance"}
@@ -747,6 +750,52 @@ namespace nmopt::application::runner
              candidates.end();
     }
   } // namespace detail
+
+  inline std::vector<unsigned int>
+  parameter_positive_unsigned_list(const ParameterFile &file,
+                                   const std::string_view key)
+  {
+    const auto text = detail::trim(file.value(key));
+    if (text.empty())
+      return {};
+
+    std::vector<unsigned int> result;
+    std::size_t               begin = 0;
+    while (begin <= text.size())
+      {
+        const auto end = text.find(',', begin);
+        const auto item = detail::trim(text.substr(
+          begin, end == std::string::npos ? std::string::npos : end - begin));
+        if (item.empty())
+          throw std::invalid_argument(
+            "parameter '" + std::string(key) +
+            "' needs comma-separated positive integers");
+
+        std::size_t        consumed = 0;
+        unsigned long long parsed = 0;
+        try
+          {
+            parsed = std::stoull(item, &consumed);
+          }
+        catch (const std::exception &)
+          {
+            throw std::invalid_argument(
+              "parameter '" + std::string(key) +
+              "' needs comma-separated positive integers");
+          }
+        if (item.front() == '-' || consumed != item.size() || parsed == 0 ||
+            parsed > std::numeric_limits<unsigned int>::max())
+          throw std::invalid_argument(
+            "parameter '" + std::string(key) +
+            "' needs comma-separated positive integers");
+        result.push_back(static_cast<unsigned int>(parsed));
+
+        if (end == std::string::npos)
+          break;
+        begin = end + 1;
+      }
+    return result;
+  }
 
   inline ParameterFile
   read_parameter_file(const std::filesystem::path &path)

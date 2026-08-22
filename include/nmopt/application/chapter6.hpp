@@ -79,13 +79,14 @@ namespace nmopt::application::chapter6
   // lets discovery and scenario validation run without deal.II.
   struct MeshOptions
   {
-    MeshGeneration generation = MeshGeneration::framework_native;
-    unsigned int   dimension = 2;
-    unsigned int   refinement = 0;
-    unsigned int   subdivisions = 0;
-    unsigned int   centroid_splits = 0;
-    unsigned int   selection_seed = 0;
-    std::string    mesh_provenance = "scenario-owned-mesh";
+    MeshGeneration            generation = MeshGeneration::framework_native;
+    unsigned int              dimension = 2;
+    unsigned int              refinement = 0;
+    unsigned int              subdivisions = 0;
+    std::vector<unsigned int> axis_subdivisions;
+    unsigned int              centroid_splits = 0;
+    unsigned int              selection_seed = 0;
+    std::string               mesh_provenance = "scenario-owned-mesh";
   };
 
   struct IterativeSolveOptions
@@ -277,10 +278,24 @@ namespace nmopt::application::chapter6
 
     if (options.mesh.dimension == 0)
       throw std::invalid_argument("benchmark scenarios need a mesh dimension");
+    const bool has_axis_subdivisions =
+      !options.mesh.axis_subdivisions.empty();
+    if (has_axis_subdivisions &&
+        options.mesh.axis_subdivisions.size() != options.mesh.dimension)
+      throw std::invalid_argument(
+        "axis mesh subdivisions must match the mesh dimension");
+    if (std::find(options.mesh.axis_subdivisions.begin(),
+                  options.mesh.axis_subdivisions.end(),
+                  0U) != options.mesh.axis_subdivisions.end())
+      throw std::invalid_argument("axis mesh subdivisions must be positive");
+    if (options.mesh.subdivisions != 0 && has_axis_subdivisions)
+      throw std::invalid_argument(
+        "mesh subdivisions must select either isotropic or per-axis counts");
     switch (options.mesh.generation)
       {
         case MeshGeneration::framework_native:
           if (options.mesh.subdivisions != 0 ||
+              has_axis_subdivisions ||
               options.mesh.centroid_splits != 0 ||
               options.mesh.selection_seed != 0)
             throw std::invalid_argument(
@@ -288,29 +303,31 @@ namespace nmopt::application::chapter6
           break;
         case MeshGeneration::structured_simplex:
           if (options.mesh.dimension != 2 ||
-              options.mesh.subdivisions == 0 ||
+              (options.mesh.subdivisions == 0 && !has_axis_subdivisions) ||
               options.mesh.refinement != 0 ||
               options.mesh.centroid_splits != 0 ||
               options.mesh.selection_seed != 0)
             throw std::invalid_argument(
-              "structured-simplex meshes need a two-dimensional positive subdivision count and no refinement or split parameters");
+              "structured-simplex meshes need two-dimensional positive isotropic or per-axis subdivisions and no refinement or split parameters");
           break;
         case MeshGeneration::centroid_split_simplex:
           if (options.mesh.dimension != 2 ||
-              options.mesh.subdivisions == 0 ||
+              (options.mesh.subdivisions == 0 && !has_axis_subdivisions) ||
               options.mesh.refinement != 0 ||
               options.mesh.centroid_splits == 0)
             throw std::invalid_argument(
-              "centroid-split-simplex meshes need two dimensions, positive subdivisions and splits, and zero refinement");
+              "centroid-split-simplex meshes need two dimensions, positive isotropic or per-axis subdivisions and splits, and zero refinement");
           {
-            const auto base_triangle_count =
+            const auto base_cell_pair_count = has_axis_subdivisions ?
+              static_cast<std::uint64_t>(options.mesh.axis_subdivisions[0]) *
+                options.mesh.axis_subdivisions[1] :
               static_cast<std::uint64_t>(options.mesh.subdivisions) *
-              options.mesh.subdivisions;
+                options.mesh.subdivisions;
             const auto requested_split_count =
               static_cast<std::uint64_t>(options.mesh.centroid_splits);
-            if (requested_split_count > base_triangle_count &&
-                requested_split_count - base_triangle_count >
-                  base_triangle_count)
+            if (requested_split_count > base_cell_pair_count &&
+                requested_split_count - base_cell_pair_count >
+                  base_cell_pair_count)
               throw std::invalid_argument(
                 "centroid-split-simplex requests more splits than base triangles");
           }
@@ -386,6 +403,9 @@ namespace nmopt::application::chapter6
           DistributedControlDiscretisation::homogeneous_dirichlet_continuous)
       throw std::invalid_argument(
         "B1 simplex meshes require the continuous homogeneous-Dirichlet control target");
+    if (!scenario.compile.mesh.axis_subdivisions.empty())
+      throw std::invalid_argument(
+        "B1 mesh construction supports only isotropic subdivisions");
     validate_scalar_function_definition(scenario.problem.forcing,
                                         "B1 forcing");
     if (scenario.problem.data.forcing_provenance !=

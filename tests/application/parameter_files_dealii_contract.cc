@@ -12,6 +12,7 @@
 namespace
 {
   using nmopt::application::runner::find_file_from_current_or_parent;
+  using nmopt::application::runner::parameter_positive_unsigned_list;
   using nmopt::application::runner::read_parameter_file;
   using nmopt::application::runner::resolve_method_parameter;
 
@@ -102,6 +103,7 @@ namespace
               b1.value("Mesh/generator") == "structured-simplex" &&
               b1.value("Mesh/refinement") == "0" &&
               b1.value("Mesh/subdivisions") == "131" &&
+              b1.value("Mesh/axis subdivisions").empty() &&
               b1.value("Mesh/centroid splits") == "0" &&
               b1.value("Mesh/selection seed") == "0",
             "B1 parameter family lost its source-oriented replacements");
@@ -327,6 +329,39 @@ namespace
   }
 
   void
+  test_axis_mesh_subdivisions_are_parsed()
+  {
+    auto file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    require(parameter_positive_unsigned_list(file,
+                                             "Mesh/axis subdivisions")
+              .empty(),
+            "tracked parameter files did not retain the empty axis default");
+
+    file.values["Mesh/axis subdivisions"] = "40, 10";
+    require(parameter_positive_unsigned_list(file,
+                                             "Mesh/axis subdivisions") ==
+              std::vector<unsigned int>({40, 10}),
+            "runner parsing lost per-axis subdivision counts");
+
+    file.values["Mesh/axis subdivisions"] = "40, 0";
+    require_invalid_argument(
+      [&] {
+        (void)parameter_positive_unsigned_list(file,
+                                               "Mesh/axis subdivisions");
+      },
+      "runner parsing accepted a zero axis subdivision count");
+
+    file.values["Mesh/axis subdivisions"] = "40,,10";
+    require_invalid_argument(
+      [&] {
+        (void)parameter_positive_unsigned_list(file,
+                                               "Mesh/axis subdivisions");
+      },
+      "runner parsing accepted an empty axis subdivision count");
+  }
+
+  void
   test_unknown_selection_is_rejected()
   {
     const auto b1 = read_parameter_file(find_file_from_current_or_parent(
@@ -513,6 +548,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
          test_unknown_selection_is_rejected},
+        {"axis_mesh_subdivisions_are_parsed",
+         "nmopt.parameter_files.axis_mesh_subdivisions_are_parsed",
+         {"backend", "dealii", "application", "runner", "contract", "negative"},
+         30,
+         test_axis_mesh_subdivisions_are_parsed},
         {"b2_transport_boundary_form_is_selected_coherently",
          "nmopt.parameter_files.b2_transport_boundary_form_is_selected_coherently",
          {"backend", "dealii", "application", "runner", "contract"},

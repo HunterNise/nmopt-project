@@ -46,6 +46,21 @@ namespace
       throw std::runtime_error(message);
   }
 
+  template <typename Operation>
+  void
+  require_invalid_argument(Operation &&operation, const char *message)
+  {
+    try
+      {
+        operation();
+      }
+    catch (const std::invalid_argument &)
+      {
+        return;
+      }
+    throw std::runtime_error(message);
+  }
+
   void
   test_recipe_builds_problem_spec()
   {
@@ -190,6 +205,54 @@ namespace
                                  nmopt::semantic::v1::DataRole::conservative_transport;
                         }),
             "Neumann recipe lost its transport data port");
+  }
+
+  void
+  test_axis_mesh_subdivisions_are_validated()
+  {
+    auto scenario = nmopt::application::chapter6::make_b1_scenario();
+    scenario.problem.recipe.discretisation = nmopt::application::chapter5::
+      DistributedControlDiscretisation::homogeneous_dirichlet_continuous;
+    scenario.problem.recipe.with_cellwise_box = false;
+    scenario.compile.mesh.generation =
+      nmopt::application::chapter6::MeshGeneration::structured_simplex;
+    scenario.compile.mesh.refinement = 0;
+    scenario.compile.mesh.subdivisions = 0;
+    scenario.compile.mesh.axis_subdivisions = {8, 5};
+
+    nmopt::application::chapter6::validate_common_compile_options(
+      scenario.compile);
+
+    auto wrong_dimension = scenario.compile;
+    wrong_dimension.mesh.axis_subdivisions = {8};
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_common_compile_options(
+          wrong_dimension);
+      },
+      "mesh validation accepted an axis count with the wrong dimension");
+
+    auto zero_count = scenario.compile;
+    zero_count.mesh.axis_subdivisions = {8, 0};
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_common_compile_options(
+          zero_count);
+      },
+      "mesh validation accepted a zero axis subdivision count");
+
+    auto ambiguous = scenario.compile;
+    ambiguous.mesh.subdivisions = 8;
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_common_compile_options(
+          ambiguous);
+      },
+      "mesh validation accepted isotropic and per-axis subdivisions together");
+
+    require_invalid_argument(
+      [&] { nmopt::application::chapter6::validate_b1(scenario); },
+      "B1 accepted per-axis subdivisions that its mesh constructor ignores");
   }
 
   void
@@ -781,6 +844,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "application", "benchmark", "contract"},
          30,
          test_chapter6_scenario_records_freeze_b1_and_b2_choices},
+        {"axis_mesh_subdivisions_are_validated",
+         "nmopt.application.axis_mesh_subdivisions_are_validated",
+         {"backend-neutral", "application", "contract", "negative"},
+         30,
+         test_axis_mesh_subdivisions_are_validated},
         {"b1_scenario_assembles_distributed_problem_spec",
          "nmopt.application.b1_scenario_assembles_distributed_problem_spec",
          {"backend-neutral", "application", "benchmark", "semantic", "contract"},

@@ -145,15 +145,21 @@ for the complete file. Named definitions selected by a `Matrix/forcing` sweep
 remain a separate, not-yet-generic schema capability.
 
 `Mesh/generator` defaults to `framework-native`, which consumes
-`Mesh/refinement` and leaves the simplex entries at zero. B1 additionally
-accepts `structured-simplex`, with a positive `Mesh/subdivisions`, and
-`centroid-split-simplex`, with positive subdivision and `Mesh/centroid splits`
-counts plus a deterministic `Mesh/selection seed`. Both simplex generators are
-two-dimensional, require zero global refinement, and require B1's continuous
-homogeneous-Dirichlet control. A centroid split replaces one base triangle by
-three, adding one vertex and two cells; the split count cannot exceed the
-`2 * subdivisions^2` base triangles. B2 retains only its framework-native
-rectangle generator.
+`Mesh/refinement` and leaves the simplex entries unset. A simplex configuration
+selects exactly one subdivision representation: positive `Mesh/subdivisions`
+for one isotropic count, or `Mesh/axis subdivisions` for a comma-separated
+positive count along each mesh axis. The per-axis list must have
+`Mesh/dimension` entries. The runner parses both representations into the typed
+mesh record, but the current B1 mesh constructor accepts only the isotropic
+form and B2 retains only its framework-native rectangle generator.
+
+B1 accepts `structured-simplex` with a positive isotropic subdivision count,
+and `centroid-split-simplex` with positive subdivision and
+`Mesh/centroid splits` counts plus a deterministic `Mesh/selection seed`. Both
+simplex generators are two-dimensional, require zero global refinement, and
+require B1's continuous homogeneous-Dirichlet control. A centroid split
+replaces one base triangle by three, adding one vertex and two cells; the split
+count cannot exceed the $2 n^{2}$ base triangles for isotropic count $n$.
 
 The `Compile` section exposes separate maximum iterations, relative tolerance,
 and absolute tolerance entries for the state, adjoint, and control-metric

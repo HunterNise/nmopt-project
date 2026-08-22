@@ -113,6 +113,33 @@ class ComparisonGrid:
     columns: int
 
 
+def effective_profile_record(
+    profile: PostprocessProfile, output_formats: OutputFormats
+) -> dict[str, object]:
+    """Return the JSON-safe plotting choices applied to derived outputs."""
+
+    plan = profile.comparison_plan
+    return {
+        "fields": {
+            "volume": [field.output_name for field in profile.volume_fields],
+            "boundary": [field.output_name for field in profile.boundary_fields],
+        },
+        "matrix_axes": {
+            axis: list(values)
+            for axis, values in (profile.matrix_axis_values or {}).items()
+        },
+        "matrix_combinations": [
+            dict(combination) for combination in profile.matrix_combinations
+        ],
+        "comparison": {
+            "rows": list(plan.rows),
+            "columns": list(plan.columns),
+            "group_by": list(plan.group_by),
+        },
+        "formats": list(output_formats),
+    }
+
+
 def _render_item(
     artifact: Path,
     field: ScalarField,
@@ -474,6 +501,7 @@ def process_artifact(
     output: Path,
     profile: PostprocessProfile,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    provenance: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Render one artifact according to a profile and write its manifest."""
 
@@ -528,6 +556,8 @@ def process_artifact(
         ),
         "plots": generated,
     }
+    if provenance is not None:
+        manifest["provenance"] = provenance
     (output / "postprocess.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -540,6 +570,7 @@ def process_input_root(
     output_root: Path,
     profile: PostprocessProfile,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    provenance: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Process every artifact below a run root and write the aggregate index."""
 
@@ -554,7 +585,11 @@ def process_input_root(
         output = artifact / "postprocess"
         try:
             manifest = process_artifact(
-                artifact, output, profile, output_formats=output_formats
+                artifact,
+                output,
+                profile,
+                output_formats=output_formats,
+                provenance=provenance,
             )
             records.append(
                 {
@@ -565,14 +600,17 @@ def process_input_root(
             )
         except (OSError, ValueError, PostprocessError) as error:
             output.mkdir(parents=True, exist_ok=True)
+            manifest = {
+                "artifact_directory": str(artifact.resolve()),
+                "formats": list(output_formats),
+                "status": "error",
+                "error": str(error),
+            }
+            if provenance is not None:
+                manifest["provenance"] = provenance
             (output / "postprocess.json").write_text(
                 json.dumps(
-                    {
-                        "artifact_directory": str(artifact.resolve()),
-                        "formats": list(output_formats),
-                        "status": "error",
-                        "error": str(error),
-                    },
+                    manifest,
                     indent=2,
                     sort_keys=True,
                 )
@@ -600,6 +638,8 @@ def process_input_root(
         "artifacts": records,
         "comparisons": comparisons,
     }
+    if provenance is not None:
+        index["provenance"] = provenance
     if comparison_errors:
         index["comparison_errors"] = comparison_errors
     (output_root / "postprocess-index.json").write_text(

@@ -17,6 +17,7 @@ from nmopt_postprocess.chapter6 import (
 from nmopt_postprocess.parameters import load_postprocess_configuration
 from nmopt_postprocess.pipeline import (
     PostprocessProfile,
+    effective_profile_record,
     process_artifact,
     process_input_root,
 )
@@ -79,32 +80,166 @@ def build_parser(
     return parser
 
 
-def _profile_from_run_snapshot(
-    source: Path, fallback: PostprocessProfile, use_snapshot_style: bool = True
-) -> PostprocessProfile:
-    """Assemble the effective profile from the run snapshot and its ``.prm``."""
-
+def _find_run_snapshot(
+    source: Path,
+) -> tuple[Path, Path | None, Path | None, Path | None] | None:
     root = source if source.is_dir() else source.parent
     for candidate_root in (root, *root.parents):
         snapshot = candidate_root / "plotting-profile.json"
         parameter_file = candidate_root / "parameters.prm"
         manifest_path = candidate_root / "run-manifest.json"
-        if not parameter_file.exists():
-            if not snapshot.exists() or not manifest_path.exists():
-                continue
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            comparison = manifest.get("plotting", {}).get("resolved_comparison", {})
-            return with_comparison_plan(
-                fallback,
-                str(comparison.get("rows", "")),
-                str(comparison.get("columns", "")),
-                str(comparison.get("group_by", "")),
+        if parameter_file.exists() or (snapshot.exists() and manifest_path.exists()):
+            return (
+                candidate_root,
+                parameter_file if parameter_file.exists() else None,
+                snapshot if snapshot.exists() else None,
+                manifest_path if manifest_path.exists() else None,
             )
-        if use_snapshot_style and snapshot.exists():
-            fallback = load_json_profile(snapshot)
-        configuration = load_postprocess_configuration(parameter_file)
-        return with_parameter_configuration(fallback, configuration)
-    return fallback
+    return None
+
+
+def _fnv1a64(path: Path) -> str:
+    digest = 1469598103934665603
+    for byte in path.read_bytes():
+        digest ^= byte
+        digest = (digest * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+    return f"fnv1a64:{digest:016x}"
+
+
+def _manifest_section(
+    manifest: dict[str, object], section: str
+) -> dict[str, object]:
+    value = manifest.get(section, {})
+    return value if isinstance(value, dict) else {}
+
+
+def _postprocess_provenance(
+    source: Path,
+    profile: PostprocessProfile,
+    output_formats: OutputFormats,
+    *,
+    explicit_profile: bool,
+    profile_file: Path | None,
+    profile_name: str | None,
+    requested_formats: list[OutputFormat] | None,
+) -> dict[str, object]:
+    """Describe the source documents and effective choices used for plotting."""
+
+    snapshot = _find_run_snapshot(source)
+    manifest: dict[str, object] = {}
+    parameter_snapshot: Path | None = None
+    plotting_snapshot: Path | None = None
+    manifest_path: Path | None = None
+    if snapshot is not None:
+        _, parameter_snapshot, plotting_snapshot, manifest_path = snapshot
+        if manifest_path is not None:
+            document = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if isinstance(document, dict):
+                manifest = document
+
+    parameters_manifest = _manifest_section(manifest, "parameters")
+    parameters: dict[str, object] = {}
+    if isinstance(parameters_manifest.get("file"), str):
+        parameters["file"] = parameters_manifest["file"]
+    elif parameter_snapshot is not None:
+        parameters["file"] = str(parameter_snapshot)
+    manifest_parameter_hash = parameters_manifest.get("content_hash")
+    if parameter_snapshot is not None:
+        parameters["content_hash"] = _fnv1a64(parameter_snapshot)
+        if (
+            isinstance(manifest_parameter_hash, str)
+            and manifest_parameter_hash != parameters["content_hash"]
+        ):
+            parameters["run_manifest_content_hash"] = manifest_parameter_hash
+    elif isinstance(manifest_parameter_hash, str):
+        parameters["content_hash"] = manifest_parameter_hash
+    if parameter_snapshot is not None:
+        parameters["snapshot_file"] = str(parameter_snapshot)
+    for key in ("selection", "declared_matrix", "resolved_combinations"):
+        if key in parameters_manifest:
+            parameters[key] = parameters_manifest[key]
+
+    plotting_manifest = _manifest_section(manifest, "plotting")
+    plotting: dict[str, object] = {}
+    snapshot_profile_file = plotting_manifest.get("profile_file")
+    snapshot_profile_hash = plotting_manifest.get("content_hash")
+    if explicit_profile and profile_file is not None:
+        plotting["source"] = "explicit-profile-file"
+        plotting["profile_file"] = str(profile_file)
+        plotting["content_hash"] = _fnv1a64(profile_file)
+        if isinstance(snapshot_profile_file, str):
+            plotting["run_snapshot"] = {
+                "profile_file": snapshot_profile_file,
+                "content_hash": snapshot_profile_hash,
+            }
+    elif explicit_profile:
+        plotting["source"] = "explicit-built-in-profile"
+        plotting["profile"] = profile_name or "chapter6"
+        if isinstance(snapshot_profile_file, str):
+            plotting["run_snapshot"] = {
+                "profile_file": snapshot_profile_file,
+                "content_hash": snapshot_profile_hash,
+            }
+    elif plotting_snapshot is not None:
+        plotting["source"] = "run-snapshot"
+        plotting["profile_file"] = (
+            snapshot_profile_file or str(plotting_snapshot)
+        )
+        plotting["content_hash"] = _fnv1a64(plotting_snapshot)
+        if (
+            isinstance(snapshot_profile_hash, str)
+            and snapshot_profile_hash != plotting["content_hash"]
+        ):
+            plotting["run_manifest_content_hash"] = snapshot_profile_hash
+        plotting["snapshot_file"] = str(plotting_snapshot)
+    elif isinstance(snapshot_profile_file, str):
+        plotting["source"] = "run-manifest"
+        plotting["profile_file"] = snapshot_profile_file
+        plotting["content_hash"] = snapshot_profile_hash
+    else:
+        plotting["source"] = "built-in-profile"
+        plotting["profile"] = profile_name or "chapter6"
+
+    overrides: dict[str, object] = {}
+    if explicit_profile:
+        overrides["profile"] = (
+            str(profile_file) if profile_file is not None else profile_name or "chapter6"
+        )
+    if requested_formats is not None:
+        overrides["formats"] = list(requested_formats)
+
+    return {
+        "parameters": parameters,
+        "plotting": plotting,
+        "effective": effective_profile_record(profile, output_formats),
+        "overrides": overrides,
+    }
+
+
+def _profile_from_run_snapshot(
+    source: Path, fallback: PostprocessProfile, use_snapshot_style: bool = True
+) -> PostprocessProfile:
+    """Assemble the effective profile from the run snapshot and its ``.prm``."""
+
+    snapshot = _find_run_snapshot(source)
+    if snapshot is None:
+        return fallback
+    _, parameter_file, plotting_snapshot, manifest_path = snapshot
+    if parameter_file is None:
+        if manifest_path is None:
+            return fallback
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        comparison = manifest.get("plotting", {}).get("resolved_comparison", {})
+        return with_comparison_plan(
+            fallback,
+            str(comparison.get("rows", "")),
+            str(comparison.get("columns", "")),
+            str(comparison.get("group_by", "")),
+        )
+    if use_snapshot_style and plotting_snapshot is not None:
+        fallback = load_json_profile(plotting_snapshot)
+    configuration = load_postprocess_configuration(parameter_file)
+    return with_parameter_configuration(fallback, configuration)
 
 
 def _effective_output_formats(
@@ -130,6 +265,9 @@ def main(
         profile = load_json_profile(arguments.profile_file.resolve())
     else:
         profile = PROFILES[profile_name or "chapter6"]
+    selected_profile_file = getattr(arguments, "profile_file", None)
+    if selected_profile_file is not None:
+        selected_profile_file = selected_profile_file.resolve()
     try:
         if arguments.artifact is not None:
             artifact = arguments.artifact.resolve()
@@ -138,6 +276,15 @@ def main(
             )
             output_formats = _effective_output_formats(
                 arguments.output_formats, profile
+            )
+            provenance = _postprocess_provenance(
+                artifact,
+                profile,
+                output_formats,
+                explicit_profile=explicit_profile,
+                profile_file=selected_profile_file,
+                profile_name=profile_name,
+                requested_formats=arguments.output_formats,
             )
             output = (
                 arguments.output.resolve()
@@ -149,6 +296,7 @@ def main(
                 output,
                 profile,
                 output_formats=output_formats,
+                provenance=provenance,
             )
             print(f"wrote {len(manifest['plots'])} field plot sets to {output}")
             return 0
@@ -160,6 +308,15 @@ def main(
         output_formats = _effective_output_formats(
             arguments.output_formats, profile
         )
+        provenance = _postprocess_provenance(
+            input_root,
+            profile,
+            output_formats,
+            explicit_profile=explicit_profile,
+            profile_file=selected_profile_file,
+            profile_name=profile_name,
+            requested_formats=arguments.output_formats,
+        )
         output_root = (
             arguments.output.resolve()
             if arguments.output is not None
@@ -170,6 +327,7 @@ def main(
             output_root,
             profile,
             output_formats=output_formats,
+            provenance=provenance,
         )
         print(
             f"processed {index['success_count']}/{index['artifact_count']} "

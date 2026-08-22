@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
-import sys
+import json
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -18,7 +19,8 @@ from nmopt_postprocess.chapter6 import (
     with_parameter_configuration,
 )
 from nmopt_postprocess.parameters import load_postprocess_configuration
-from postprocess import _profile_from_run_snapshot
+from postprocess import _postprocess_provenance, _profile_from_run_snapshot
+from nmopt_postprocess.pipeline import process_input_root
 
 
 def require(condition: bool, message: str) -> None:
@@ -41,6 +43,10 @@ def main() -> int:
         "matrix combinations were not expanded from the experiment file",
     )
     require(configuration.output_formats == ("png",), "PNG is not the .prm format")
+    require(
+        configuration.comparison_plan.group_by == (),
+        "comparison 'none' sentinel was treated as a matrix axis",
+    )
 
     profile = load_json_profile(
         REPOSITORY_ROOT / "parameters/plotting/chapter-6-b1.json"
@@ -85,6 +91,14 @@ def main() -> int:
         == {"control-boundary"},
         "B2 boundary field selection was not resolved from the .prm file",
     )
+    forcing_configuration = load_postprocess_configuration(
+        REPOSITORY_ROOT / "parameters/chapter-6/b2/development/forcing-sweep.prm"
+    )
+    require(
+        forcing_configuration.comparison_plan.rows == ()
+        and forcing_configuration.comparison_plan.columns == ("forcing",),
+        "B2 one-row forcing comparison plan was not resolved",
+    )
 
     with tempfile.TemporaryDirectory(prefix="nmopt-snapshot-") as directory:
         snapshot_root = Path(directory)
@@ -92,6 +106,10 @@ def main() -> int:
         shutil.copyfile(
             REPOSITORY_ROOT / "parameters/plotting/chapter-6-b1.json",
             snapshot_root / "plotting-profile.json",
+        )
+        shutil.copyfile(
+            REPOSITORY_ROOT / "runs/chapter-6/b1/development/008/run-manifest.json",
+            snapshot_root / "run-manifest.json",
         )
         snapshot_profile = _profile_from_run_snapshot(
             snapshot_root, CHAPTER6_PROFILE
@@ -103,6 +121,70 @@ def main() -> int:
         require(
             snapshot_profile.matrix_axis_values == configuration.matrix_axes,
             "run snapshot did not use the .prm matrix",
+        )
+        provenance = _postprocess_provenance(
+            snapshot_root,
+            snapshot_profile,
+            ("png",),
+            explicit_profile=False,
+            profile_file=None,
+            profile_name=None,
+            requested_formats=None,
+        )
+        require(
+            provenance["parameters"]["content_hash"]
+            == "fnv1a64:c118220bc5bd1849",
+            "parameter provenance hash was not retained",
+        )
+        require(
+            provenance["plotting"]["content_hash"]
+            == "fnv1a64:cdee2422f2c79582",
+            "plotting provenance hash was not retained",
+        )
+        effective = provenance["effective"]
+        require(
+            effective["comparison"]
+            == {"rows": ["method"], "columns": ["regularisation"], "group_by": []},
+            "effective comparison plan was not recorded",
+        )
+
+        for method in ("steepest-descent", "l-bfgs"):
+            for beta in ("1e-1", "1e-2", "1e-3"):
+                artifact = snapshot_root / "artifacts" / method / f"beta-{beta}"
+                artifact.mkdir(parents=True)
+                (artifact / "artifact.kv").write_text(
+                    "\n".join(
+                        (
+                            "identity.scenario_id=chapter-6.b1.distributed-laplace",
+                            f"benchmark.method={method}",
+                            f"benchmark.regularisation={beta}",
+                            "solver.objective_history=0.05,0.04,0.03",
+                            "solver.gradient_norm_history=0.01,0.001,0.0001",
+                        )
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+        index = process_input_root(
+            snapshot_root,
+            snapshot_root / "postprocess-contract",
+            snapshot_profile,
+            output_formats=("png",),
+            provenance=provenance,
+        )
+        require(
+            index["provenance"] == provenance,
+            "aggregate post-processing provenance was not written",
+        )
+        artifact_manifest = json.loads(
+            (
+                snapshot_root
+                / "artifacts/steepest-descent/beta-1e-1/postprocess/postprocess.json"
+            ).read_text(encoding="utf-8")
+        )
+        require(
+            artifact_manifest["provenance"] == provenance,
+            "artifact post-processing provenance was not written",
         )
 
     with tempfile.TemporaryDirectory(prefix="nmopt-prm-") as directory:

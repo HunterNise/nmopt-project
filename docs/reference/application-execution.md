@@ -231,6 +231,14 @@ are loaded automatically. `--profile-file FILE` explicitly selects another
 profile; the compatibility `chapter6_postprocess.py` wrapper remains
 available for legacy Chapter 6 inputs.
 
+Both post-processing manifests retain a `provenance` object describing the
+parameter and plotting-profile sources, their content hashes, explicit CLI
+overrides, and the effective selections actually applied. The nested
+`effective` record contains selected volume and boundary fields, resolved
+matrix axes and combinations, the comparison plan, and output formats. This
+keeps a derived plot set auditable without changing the runner's authoritative
+artifact or run-manifest records.
+
 The B1 plotting profile also writes `comparisons/<scenario>/figure-6.3` from
 the persisted objective and gradient-norm histories. Both panels use a
 logarithmic iteration axis with history sample zero displayed at coordinate

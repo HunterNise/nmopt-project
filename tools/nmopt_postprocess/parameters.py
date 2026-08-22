@@ -58,6 +58,10 @@ def _value(values: dict[tuple[str, ...], str], *path: str) -> str | None:
     return values.get(tuple(path))
 
 
+def _comparison_axes(value: str | None) -> tuple[str, ...]:
+    return tuple(axis for axis in _split(value) if axis != "none")
+
+
 def _matrix(
     values: dict[tuple[str, ...], str], path: Path
 ) -> tuple[dict[str, tuple[str, ...]], tuple[dict[str, str], ...]]:
@@ -126,9 +130,13 @@ def load_postprocess_configuration(path: Path) -> PostprocessConfiguration:
     if not fields:
         raise ValueError(f"'{path}' must declare post-processing fields")
 
-    rows = _split(_value(values, "Postprocessing", "comparison rows"))
-    columns = _split(_value(values, "Postprocessing", "comparison columns"))
-    group_by = _split(_value(values, "Postprocessing", "comparison group by"))
+    rows = _comparison_axes(_value(values, "Postprocessing", "comparison rows"))
+    columns = _comparison_axes(
+        _value(values, "Postprocessing", "comparison columns")
+    )
+    group_by = _comparison_axes(
+        _value(values, "Postprocessing", "comparison group by")
+    )
     style_profile = _value(values, "Postprocessing", "style profile")
     if not style_profile:
         raise ValueError(f"'{path}' must declare a post-processing style profile")

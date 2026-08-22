@@ -586,8 +586,8 @@ namespace
       unsupported.diagnostics,
       semantic::v1::DiagnosticCategory::lowerability,
       "scalar_diffusion_reaction_volume_control",
-      "simplex_continuous_control_target",
-      "Simplex target validation did not identify the bounded continuous-control capability");
+      "simplex_registered_target",
+      "Simplex target validation did not identify the bounded registered-target capability");
   }
 
   void

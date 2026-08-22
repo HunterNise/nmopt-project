@@ -150,8 +150,10 @@ selects exactly one subdivision representation: positive `Mesh/subdivisions`
 for one isotropic count, or `Mesh/axis subdivisions` for a comma-separated
 positive count along each mesh axis. The per-axis list must have
 `Mesh/dimension` entries. The runner parses both representations into the typed
-mesh record, but the current B1 mesh constructor accepts only the isotropic
-form and B2 retains only its framework-native rectangle generator.
+mesh record. The B1 mesh constructor accepts only the isotropic form. B2
+accepts `structured-simplex` on its rectangle with per-axis subdivisions; its
+framework-native rectangle remains the frozen default, and its centroid-split
+choice remains unavailable.
 
 B1 accepts `structured-simplex` with a positive isotropic subdivision count,
 and `centroid-split-simplex` with positive subdivision and

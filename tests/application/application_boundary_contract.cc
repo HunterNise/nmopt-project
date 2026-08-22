@@ -441,10 +441,15 @@ namespace
     require(b2.metadata.id == "chapter-6.b2.graetz-flow.full-parabolic",
             "B2 did not assign a stable case-specific scenario ID");
 
-    auto invalid_b2_mesh = b2;
-    invalid_b2_mesh.compile.mesh.generation =
+    auto structured_b2_mesh = b2;
+    structured_b2_mesh.compile.mesh.generation =
       nmopt::application::chapter6::MeshGeneration::structured_simplex;
-    invalid_b2_mesh.compile.mesh.refinement = 0;
+    structured_b2_mesh.compile.mesh.refinement = 0;
+    structured_b2_mesh.compile.mesh.axis_subdivisions = {4, 10};
+    nmopt::application::chapter6::validate_b2(structured_b2_mesh);
+
+    auto invalid_b2_mesh = structured_b2_mesh;
+    invalid_b2_mesh.compile.mesh.axis_subdivisions.clear();
     invalid_b2_mesh.compile.mesh.subdivisions = 2;
     bool invalid_b2_mesh_rejected = false;
     try

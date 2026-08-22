@@ -52,6 +52,8 @@ namespace
         scenario, manufactured_data);
     const auto session =
       chapter6::dealii::make_b2_compilation_session<2>(scenario);
+    require(session->triangulation().all_reference_cells_are_hyper_cube(),
+            "B2 default mesh is no longer the native quadrilateral rectangle");
     const auto native_output_directory =
       std::filesystem::temp_directory_path() /
       ("nmopt-b2-native-contract-" +
@@ -376,6 +378,114 @@ namespace
   }
 
   void
+  run_b2_structured_simplex_mesh()
+  {
+    auto scenario = chapter6::make_b2_scenario(
+      chapter6::GraetzCase::observation_wings_constant_target);
+    scenario.compile.mesh.generation =
+      chapter6::MeshGeneration::structured_simplex;
+    scenario.compile.mesh.refinement = 0;
+    scenario.compile.mesh.axis_subdivisions = {4, 10};
+    scenario.compile.mesh.mesh_provenance =
+      "test.chapter6.b2.structured-simplex-4x10";
+    scenario.solver.parameters.maximum_iterations = 2;
+    scenario.solver.parameters.gradient_tolerance = 1.0e-4;
+    scenario.experiment.retain_fields = false;
+
+    const auto session =
+      chapter6::dealii::make_b2_compilation_session<2>(scenario);
+    const auto &mesh = session->triangulation();
+    require(mesh.all_reference_cells_are_simplex() &&
+              mesh.n_vertices() == 55 && mesh.n_active_cells() == 80,
+            "B2 structured simplex generator produced the wrong topology");
+
+    std::size_t observed_cell_count = 0;
+    std::size_t boundary_face_count = 0;
+    std::size_t fixed_boundary_face_count = 0;
+    std::size_t control_boundary_face_count = 0;
+    std::size_t outflow_boundary_face_count = 0;
+    double      observation_measure = 0.0;
+    for (const auto &cell : mesh.active_cell_iterators())
+      {
+        require(cell->material_id() == 0 ||
+                  cell->material_id() ==
+                    scenario.problem.recipe.observed_material_id,
+                "B2 structured simplex mesh has an unknown material id");
+        if (cell->material_id() ==
+            scenario.problem.recipe.observed_material_id)
+          {
+            ++observed_cell_count;
+            observation_measure += cell->measure();
+          }
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
+          if (cell->face(face)->at_boundary())
+            {
+              ++boundary_face_count;
+              switch (cell->face(face)->boundary_id())
+                {
+                  case chapter6::b2_fixed_boundary_id:
+                    ++fixed_boundary_face_count;
+                    break;
+                  case chapter6::b2_control_boundary_id:
+                    ++control_boundary_face_count;
+                    break;
+                  case chapter6::b2_outflow_boundary_id:
+                    ++outflow_boundary_face_count;
+                    break;
+                  default:
+                    throw std::runtime_error(
+                      "B2 structured simplex mesh has an unclassified boundary face");
+                }
+            }
+      }
+    require(observed_cell_count == 36 && boundary_face_count == 28 &&
+              fixed_boundary_face_count == 12 &&
+              control_boundary_face_count == 6 &&
+              outflow_boundary_face_count == 10,
+            "B2 structured simplex classification produced the wrong counts");
+    require(std::abs(observation_measure - 1.8) < 1.0e-12,
+            "B2 structured simplex mesh did not align the wings observation region");
+
+    chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
+      scenario.problem.graetz_case, scenario.problem.fixed_temperature};
+    const auto runtime =
+      chapter6::dealii::make_b2_manufactured_runtime_data(
+        scenario, manufactured_data);
+    chapter6::dealii::B2ReducedExecutionAdapterT<2> execute{
+      runtime,
+      session,
+      {"test.chapter6.b2.structured-simplex",
+       "debug-dealii",
+       "test-compiler",
+       "test-version",
+       "test-standard-library",
+       "test-os",
+       "test-architecture",
+       "test-hardware"}};
+    using HeadlessRunner =
+      nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
+        decltype(scenario)>;
+    const auto result = HeadlessRunner(scenario).run(
+      [](const auto &parameters) {
+        return chapter6::make_b2_problem_spec(parameters);
+      },
+      execute);
+    require(result.artifact.envelope().report().state_solve_count > 0 &&
+              result.artifact.envelope().report().adjoint_solve_count > 0,
+            "B2 structured simplex execution did not solve state and adjoint systems");
+    require(result.document.find("b2.derivative_evidence_passed=true\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.mesh_vertices=55\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.mesh_active_cells=80\n") !=
+                std::string::npos &&
+              std::abs(artifact_number(result.document,
+                                       "benchmark.observation_measure") -
+                       1.8) < 1.0e-12,
+            "B2 structured simplex execution lost numerical or structural evidence");
+  }
+
+  void
   run_b2_transport_boundary_realisation_comparison()
   {
     const auto graetz_case =
@@ -470,7 +580,12 @@ main(const int argc, char **argv)
          "nmopt.application.dealii.b2_transport_boundary_realisation_comparison",
          {"dealii", "application", "benchmark", "b2", "contract", "diagnostic"},
          120,
-         []() { run_b2_transport_boundary_realisation_comparison(); }}};
+         []() { run_b2_transport_boundary_realisation_comparison(); }},
+        {"b2_structured_simplex_mesh",
+         "nmopt.application.dealii.b2_structured_simplex_mesh",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         120,
+         []() { run_b2_structured_simplex_mesh(); }}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

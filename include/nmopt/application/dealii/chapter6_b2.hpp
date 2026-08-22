@@ -256,8 +256,29 @@ namespace nmopt::application::chapter6::dealii
     ::dealii::Point<dim> upper;
     upper[0] = 4.0;
     upper[1] = 1.0;
-    ::dealii::GridGenerator::hyper_rectangle(*mesh, lower, upper);
-    mesh->refine_global(scenario.compile.mesh.refinement);
+    switch (scenario.compile.mesh.generation)
+      {
+        case MeshGeneration::framework_native:
+          ::dealii::GridGenerator::hyper_rectangle(*mesh, lower, upper);
+          mesh->refine_global(scenario.compile.mesh.refinement);
+          break;
+        case MeshGeneration::structured_simplex:
+          if constexpr (dim == 2)
+            ::dealii::GridGenerator::
+              subdivided_hyper_rectangle_with_simplices(
+                *mesh,
+                scenario.compile.mesh.axis_subdivisions,
+                lower,
+                upper,
+                false);
+          else
+            throw std::invalid_argument(
+              "B2 simplex meshes are implemented only in two dimensions");
+          break;
+        case MeshGeneration::centroid_split_simplex:
+          throw std::invalid_argument(
+            "B2 centroid-split simplex meshes are not implemented");
+      }
 
     const auto is_close = [](const double first, const double second) {
       return std::abs(first - second) < 1.0e-12;
@@ -275,9 +296,7 @@ namespace nmopt::application::chapter6::dealii
                                wings);
         cell->set_material_id(
           observed ? scenario.problem.recipe.observed_material_id : 0);
-        for (unsigned int face = 0;
-             face < ::dealii::GeometryInfo<dim>::faces_per_cell;
-             ++face)
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
           if (cell->face(face)->at_boundary())
             {
               const auto face_center = cell->face(face)->center();
@@ -725,9 +744,7 @@ namespace nmopt::application::chapter6::dealii
           if (cell->material_id() ==
               scenario.problem.recipe.observed_material_id)
             observation_measure += cell->measure();
-          for (unsigned int face = 0;
-               face < ::dealii::GeometryInfo<dim>::faces_per_cell;
-               ++face)
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
             if (cell->face(face)->at_boundary())
               {
                 ++boundary_face_count;

@@ -655,9 +655,10 @@ namespace nmopt::compiler::v1
       const bool uses_simplex_reference_cells =
         has_active_cells && !uses_hypercube_reference_cells &&
         triangulation.all_reference_cells_are_simplex();
-      const bool uses_continuous_control_target =
+      const bool uses_simplex_registered_target =
         uses_h1_control_regularisation ||
-        uses_homogeneous_dirichlet_continuous_control;
+        uses_homogeneous_dirichlet_continuous_control ||
+        uses_neumann_boundary_control;
       if (uses_h1_state_observation)
         {
           if (!request.h1_target_data_membership_selection)
@@ -898,12 +899,12 @@ namespace nmopt::compiler::v1
           "uniform_reference_cell_family",
           "Compile on a mesh containing only hypercube cells or only simplex cells.");
       else if (uses_simplex_reference_cells &&
-               !uses_continuous_control_target)
+               !uses_simplex_registered_target)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
-          "simplex_continuous_control_target",
-          "Select a registered continuous-volume-control target for simplex meshes; the other deal.II targets currently require hypercube cells.");
+          "simplex_registered_target",
+          "Select a registered continuous-volume-control or Neumann-boundary-control target for simplex meshes; the other deal.II targets currently require hypercube cells.");
       if (uses_point_sensor && tracking_region != nullptr)
         validate_point_sensor_mesh(triangulation, *tracking_region,
                                    result.diagnostics);

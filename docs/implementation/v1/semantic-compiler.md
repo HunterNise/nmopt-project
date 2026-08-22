@@ -61,8 +61,8 @@ or
 | `make_h1_tracking_hhalf_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` with independently selected loss and metric | Section 5.11.1 option 2: physical $H^{1}$ state tracking, boundary $L^{2}$ control loss, minimum-extension $H^{1/2}$ search metric, and no trace box | `nmopt.dealii.section_5_11_compilation` |
 | `make_h1_dirichlet_laplace_control_problem()` | `DirichletControlLiftingModel<dim>` with tangential face assembly | Section 5.11.3: normalized Laplacian and boundary $M_{\Gamma,h}+K^{\tau}_{\Gamma,h}$ for the separately declared $H^{1}$ control loss and metric | `nmopt.dealii.section_5_11_compilation` |
 | `make_partial_dirichlet_control_scalar_diffusion_reaction_problem()` | `DirichletControlLiftingModel<dim>` with fixed and controlled trace maps | Complete fixed/controlled boundary partition, nonzero nodal fixed lifting, fixed-data precedence at interface DoFs, relative-interior controlled trace, trace $L^{2}$ metric, and no trace box | `nmopt.dealii.partial_dirichlet_control` |
-| `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
-| `make_neumann_convection_subdomain_tracking_problem()` | `NeumannBoundaryControlModel<dim>` with conservative transport and volume observation | Mixed fixed/Neumann boundary partition, conservative-transport weak form, material-id state tracking, facewise $L^{2}$ control metric, and optional facewise box | `nmopt.dealii.neumann_convection_subdomain` |
+| `make_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` | Marked-face Neumann control, boundary trace tracking, `FE_Q` or `FE_SimplexP` state/test coordinates, facewise $L^{2}$ metric, and optional facewise box | `nmopt.dealii.neumann_boundary` |
+| `make_neumann_convection_subdomain_tracking_problem()` | `NeumannBoundaryControlModel<dim>` with conservative transport and volume observation | Mixed fixed/Neumann boundary partition, conservative-transport weak form, material-id state tracking, `FE_Q` or `FE_SimplexP` state/test coordinates, facewise $L^{2}$ control metric, and optional facewise box | `nmopt.dealii.neumann_convection_subdomain` |
 | `make_weighted_boundary_trace_neumann_control_problem()` | `NeumannBoundaryControlModel<dim>` with fixed weight data | Marked-face Neumann control and the explicit map $y\mapsto h\gamma y$ with an unchanged facewise $L^{2}$ metric | `nmopt.dealii.weighted_boundary_trace` |
 | `make_pure_neumann_boundary_control_problem()` | `NeumannBoundaryControlModel<dim>` with mean-zero gauge | Zero-reaction pure Neumann state and adjoint with compatible forcing and controls; no box | `nmopt.dealii.pure_neumann` |
 | `make_h1_regularised_scalar_diffusion_reaction_problem()` and `make_h1_metric_scalar_diffusion_reaction_problem()` | `ContinuousControlModel<dim>` | Continuous conforming Lagrange control with $H^{1}$ loss and separately selected $L^{2}$ or $H^{1}$ metric; no box | `nmopt.dealii.h1_control` |
@@ -188,9 +188,10 @@ the cellwise $L^{2}$ control metric.
 $L^{2}$ state loss and changes only the control realization to independent
 homogeneous-Dirichlet conforming Lagrange coordinates. Hypercube meshes select
 `FE_Q` with `QGauss`; simplex meshes select `FE_SimplexP` with
-`QGaussSimplex`. This reference-cell choice is currently registered only for
-the continuous-control target family. Mixed-reference-cell meshes and simplex
-meshes sent to any other target receive lowerability diagnostics. The separate
+`QGaussSimplex`. The same state-element and quadrature choice is registered for
+the Neumann-boundary-control target family. Mixed-reference-cell meshes and
+simplex meshes sent to any other target receive lowerability diagnostics. The
+separate
 `make_l2_metric_h1_state_tracking_continuous_control_problem()` and
 `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()`
 factories share one independent homogeneous-Dirichlet continuous-control graph
@@ -851,8 +852,9 @@ $L^{2}$ state restriction, full-domain $H^{1}_{0}$ state restriction,
 quadratic losses, `L2` metric, optional cellwise box, and
 fixed or controlled Dirichlet reconstruction. Its selected discrete policies are
 assembled serial scalar conforming Lagrange state/test with degree at least
-one and reduced DTO. Except for the continuous-control target's explicit
-simplex registration, this means `FE_Q` on hypercubes:
+one and reduced DTO. Continuous-control and Neumann-boundary-control targets
+select `FE_Q` on hypercubes or `FE_SimplexP` on simplices; the other registered
+targets remain `FE_Q` on hypercubes. Their control realizations are
 `FE_DGQ(0)` volume control on the state mesh, one facewise-constant Neumann
 coefficient for every marked boundary face, one nodal Dirichlet trace
 coefficient for every state DoF on the complete exterior controlled boundary,

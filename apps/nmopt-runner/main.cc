@@ -1057,6 +1057,22 @@ namespace
     evidence.fields.push_back(
       {"benchmark.mesh_refinement", std::to_string(scenario.compile.mesh.refinement)});
     evidence.fields.push_back(
+      {"benchmark.mesh_generator",
+       nmopt::application::chapter6::mesh_generation_name(
+         scenario.compile.mesh.generation)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_subdivisions",
+       std::to_string(scenario.compile.mesh.subdivisions)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_axis_subdivisions",
+       join_unsigned_ids(scenario.compile.mesh.axis_subdivisions)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_centroid_splits",
+       std::to_string(scenario.compile.mesh.centroid_splits)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_selection_seed",
+       std::to_string(scenario.compile.mesh.selection_seed)});
+    evidence.fields.push_back(
       {"benchmark.run_kind",
        std::string(nmopt::application::runner::run_kind_name(run_kind))});
     add_common_artifact_fields(evidence, framework_revision);
@@ -1319,11 +1335,18 @@ namespace
               combination,
               std::string("chapter-6.b2.graetz-flow.") + case_slug);
             scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
-            const auto refinement = configuration.refinement_override.value_or(
-              scenario.compile.mesh.refinement);
-            scenario.compile.mesh.refinement = refinement;
-            scenario.compile.mesh.mesh_provenance =
-              b2_mesh_provenance(refinement);
+            if (configuration.refinement_override.has_value())
+              {
+                if (scenario.compile.mesh.generation !=
+                    nmopt::application::chapter6::MeshGeneration::
+                      framework_native)
+                  throw std::invalid_argument(
+                    "--refinement cannot override a B2 simplex mesh; change its parameter file instead");
+                scenario.compile.mesh.refinement =
+                  *configuration.refinement_override;
+                scenario.compile.mesh.mesh_provenance =
+                  b2_mesh_provenance(*configuration.refinement_override);
+              }
             scenario.experiment.harness.artifact_directory =
               output_directory.string();
             scenario.experiment.scenario_output_id =

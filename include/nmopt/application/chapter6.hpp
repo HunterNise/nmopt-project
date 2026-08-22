@@ -477,9 +477,19 @@ namespace nmopt::application::chapter6
     validate_runtime_data(scenario.problem.data);
     validate_b2_transport_boundary_form(
       scenario.problem.transport_boundary_form);
-    if (scenario.compile.mesh.generation != MeshGeneration::framework_native)
-      throw std::invalid_argument(
-        "B2 supports only its framework-native rectangular mesh");
+    switch (scenario.compile.mesh.generation)
+      {
+        case MeshGeneration::framework_native:
+          break;
+        case MeshGeneration::structured_simplex:
+          if (scenario.compile.mesh.axis_subdivisions.empty())
+            throw std::invalid_argument(
+              "B2 structured-simplex meshes require per-axis subdivisions");
+          break;
+        case MeshGeneration::centroid_split_simplex:
+          throw std::invalid_argument(
+            "B2 does not yet support centroid-split simplex meshes");
+      }
     if (!std::isfinite(scenario.problem.fixed_temperature))
       throw std::invalid_argument("B2 fixed temperature must be finite");
     if (!std::isfinite(scenario.problem.forcing_value))

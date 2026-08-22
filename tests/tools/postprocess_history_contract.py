@@ -13,8 +13,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "tools"))
 
 from nmopt_postprocess.chapter6 import load_json_profile
-from nmopt_postprocess.pipeline import build_comparisons
+from nmopt_postprocess.pipeline import build_comparisons, comparison_dimensions
 from nmopt_postprocess.records import read_numeric_history
+from nmopt_postprocess.render import comparison_layout
 
 
 def require(condition: bool, message: str) -> None:
@@ -56,12 +57,20 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="nmopt-history-") as directory:
         root = Path(directory)
-        artifacts = [
-            root / "artifacts" / "steepest-descent" / "beta-1e-1",
-            root / "artifacts" / "l-bfgs" / "beta-1e-1",
-        ]
-        write_artifact(artifacts[0], "steepest-descent", "1e-1")
-        write_artifact(artifacts[1], "l-bfgs", "1e-1")
+        artifacts = []
+        for method in ("steepest-descent", "l-bfgs"):
+            for beta in ("1e-1", "1e-2", "1e-3"):
+                artifact = root / "artifacts" / method / f"beta-{beta}"
+                write_artifact(artifact, method, beta)
+                artifacts.append(artifact)
+        require(
+            comparison_dimensions(artifacts, profile) == (2, 3),
+            "active three-beta matrix must produce a 2x3 comparison grid",
+        )
+        require(
+            comparison_layout(6) == (2, 3),
+            "fallback comparison layout should remain compact and generic",
+        )
         generated, errors = build_comparisons(
             artifacts, root / "postprocess", profile
         )

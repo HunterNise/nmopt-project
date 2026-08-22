@@ -290,13 +290,22 @@ def _axis_value(metadata: dict[str, str], axis: str) -> str:
 def _axis_values(
     artifacts: list[Path], profile: PostprocessProfile, axis: str
 ) -> list[str]:
-    declared = list((profile.axis_orders or {}).get(axis, ()))
+    """Return observed axis values in profile-declared presentation order."""
+
     observed = {
         value
         for artifact in artifacts
         if (value := _axis_value(read_metadata(artifact), axis))
     }
-    return declared + sorted(observed.difference(declared))
+    declared = (profile.axis_orders or {}).get(axis, ())
+    ordered = []
+    seen: set[str] = set()
+    for value in declared:
+        if value in observed and value not in seen:
+            ordered.append(value)
+            seen.add(value)
+    ordered.extend(sorted(observed.difference(seen)))
+    return ordered
 
 
 def comparison_dimensions(

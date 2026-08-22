@@ -255,12 +255,10 @@ def comparison_norm(items: list[RenderItem]) -> Normalize:
 
 
 def comparison_layout(count: int) -> tuple[int, int]:
-    """Choose a compact comparison grid for the active case matrix."""
+    """Choose a compact fallback grid when no comparison plan is supplied."""
 
-    if count == 8:
-        return 2, 4
-    if count == 4:
-        return 2, 2
+    if count <= 0:
+        raise PostprocessError("comparison layout needs at least one panel")
     columns = min(3, count)
     rows = (count + columns - 1) // columns
     return rows, columns

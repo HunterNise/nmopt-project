@@ -9,25 +9,27 @@ and the [source catalogue](../guides/chapter-6-numerical-examples.md#e651--distr
 It does not change the frozen benchmark or promote an inferred source detail
 to an authoritative choice.
 
-The evidence was produced with the Debug deal.II build through framework
-revision `18e005f`. The tracked authoritative profile remains a
-framework-native manufactured benchmark; it is stale with respect to this
-investigation and must not be described as a book-equivalent reproduction.
-Development outputs under `runs/` are diagnostic evidence and may be deleted.
+The initial evidence was produced with Debug deal.II builds. The decisive
+source-sized experiments were repeated with `release-dealii` and record
+framework revisions from `4221c67` through `56bd47a`. The tracked authoritative
+profile remains intentionally framework-native and manufactured; it must not
+be described as a book-equivalent reproduction. Development outputs below
+`runs/` are diagnostic evidence and may be deleted.
 
 The current assessment is:
 
 - the mathematical problem, field identities, sign convention, and the
   qualitative Figure 6.3 method comparison are reproduced;
 - continuous `P1` control, constant-forcing, triangular-mesh, and solver-policy
-  candidates can now be selected independently in parameter files;
+  candidates can be selected independently in parameter files;
 - neither the source mesh nor the omitted forcing has been uniquely recovered;
-- the Figure 6.2 extrema cannot all be explained by one tested constant
-  forcing at the later tolerance-terminated solutions; and
-- `runs/chapter-6/b1/development/006` currently gives the closest
-  Figure 6.2 negative-adjoint morphology for $\beta=10^{-6}$, but it is an
-  intentionally truncated four-iteration solution rather than a converged
-  reference.
+- a relative-gradient threshold of $10^{-3}$ consistently selects the fourth
+  L-BFGS iterate and reproduces the Figure 6.2 sign-changing
+  $\beta=10^{-6}$ adjoint morphology;
+- constants near $f=0.4$–$0.5$ give the strongest aggregate agreement, but
+  different extrema favor different constants; and
+- the Figure 6.3 iteration counts are effectively independent of the tested
+  forcing and control representation, while their objective levels are not.
 
 The benchmark is therefore **framework-verified but not
 reproduction-verified**.
@@ -91,29 +93,46 @@ they do not prove it.
 
 ### Figure 6.3 solver comparison
 
-Development run `008` implements the recovered Figure 6.3 policy with zero
-forcing and the framework-native mesh. Steepest descent stops at relative
-gradient norm $10^{-3}$; L-BFGS stops when it reaches the corresponding final
-steepest-descent objective.
+The recovered policy stops steepest descent at relative gradient norm
+$10^{-3}$ and stops L-BFGS when it reaches the corresponding terminal
+steepest-descent objective. The original zero-forcing framework-native run
+gave steepest-descent counts `64/548/2202`, L-BFGS counts `2/4/4`, and matched
+objectives `0.0541866/0.0443562/0.0158240` for
+$\beta=10^{-1},10^{-2},10^{-3}$.
 
-| $\beta$ | Steepest-descent iterations | L-BFGS iterations | Matched objective |
-| ---: | ---: | ---: | ---: |
-| $10^{-1}$ | 64 | 2 | 0.0541866 |
-| $10^{-2}$ | 548 | 4 | 0.0443562 |
-| $10^{-3}$ | 2,202 | 4 | 0.0158240 |
+Two release families then used the source-oriented continuous `P1` control and
+regular 131-subdivision triangular mesh:
 
-The histories reproduce the source trend and the approximate locations and
-shapes visible in the rasterized plots: steepest descent becomes dramatically
-slower as $\beta$ decreases, while L-BFGS reaches the reference objectives in
-a few iterations. The source arrays are unavailable, so this is qualitative
-and raster-level agreement rather than numerical parity.
+| Forcing | $\beta$ | Initial objective | Steepest-descent iterations | L-BFGS iterations | Matched objective |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| $0.5$ | $10^{-1}$ | 0.0488993 | 64 | 2 | 0.0476791 |
+| $0.5$ | $10^{-2}$ | 0.0488993 | 547 | 4 | 0.0389394 |
+| $0.5$ | $10^{-3}$ | 0.0488993 | 2,175 | 4 | 0.0137935 |
+| $0.4150674$ | $10^{-1}$ | 0.0500000 | 64 | 2 | 0.0487524 |
+| $0.4150674$ | $10^{-2}$ | 0.0500000 | 547 | 4 | 0.0398164 |
+| $0.4150674$ | $10^{-3}$ | 0.0500000 | 2,180 | 4 | 0.0141057 |
 
-Changing only the control from cellwise constant to continuous homogeneous
-Dirichlet `P1` in development run `009` preserves the iteration counts
-`64/548/2202` and `2/4/4`. The solver trend therefore does not identify the
-control representation. The source explicitly states continuous `P1`, so that
-is the appropriate source-replication choice even though the frozen
-framework-native benchmark uses cellwise control.
+Both families reproduce the source trend and approximate raster locations:
+steepest descent becomes dramatically slower as $\beta$ decreases, while
+L-BFGS reaches the matched objective in a few iterations. The forcing changes
+the vertical objective levels but not the convergence mechanism. The
+objective-matched constant improves the visible common starting level and the
+$\beta=10^{-2}$ plateau; $f=0.5$ appears closer for the other two terminal
+levels. The raster is not precise enough to select between them.
+
+Changing only the control representation in the earlier runs also preserved
+the iteration counts. The Figure 6.3 histories therefore identify the broad
+solver policy but not the forcing or control discretisation. The source
+explicitly states continuous `P1`, so that remains the appropriate
+source-oriented choice.
+
+A final release check replaced the L-BFGS objective target with the same
+$10^{-3}$ relative-gradient threshold used by steepest descent. For
+$\beta=10^{-1},10^{-2},10^{-3}$ it selected the same `2/4/4` iterates, with
+solver traces and final objectives identical to the objective-target runs. It
+also selected iteration 4 for $\beta=10^{-6}$, reproducing the constant-half
+Figure 6.2 candidate. This establishes numerical equivalence for the tested
+family, not equivalence of the two stopping-policy declarations.
 
 ### Constant-forcing screen
 
@@ -139,34 +158,62 @@ For $\beta=10^{-6}$, $f=1$ gives the closest tested control magnitude and all
 three candidates reproduce the state maximum closely. None of the later
 tolerance-terminated screens reproduces the sign-changing adjoint.
 
-No single tested constant forcing explains both source rows. In particular,
-the extrema do not justify promoting $f=1$ from a motivated hypothesis to a
-source fact. Zero forcing remains plausible for Figure 6.3 and the
-$\beta=10^{-3}$ state, while a positive source improves other extrema.
+No single tested constant forcing explains both source rows at these later
+solutions. In particular, the extrema do not justify promoting $f=1$ from a
+motivated hypothesis to a source fact. The later screen remains useful for
+separating forcing effects from the much larger stopping-state effect.
 
-### Four-iteration $\beta=10^{-6}$ field
+### Source-oriented four-iteration Figure 6.2 sweep
 
-Development run `006` uses zero forcing, cellwise control, and exactly four
-accepted L-BFGS iterations. Its $\beta=10^{-6}$ field has:
+The completed source-oriented sweep combined continuous homogeneous-Dirichlet
+`P1` control, the regular 131-subdivision triangular mesh, zero initial
+control, the book Armijo constants, metric-inverse memory-5 L-BFGS, and a
+$10^{-3}$ relative-gradient stop. Every tested constant stopped after exactly
+four accepted unit steps.
 
-- state maximum `0.618087`;
-- control maximum `9.59824`;
-- $`p_{\mathrm{book}}`$ range
-  $[-1.68607\times10^{-5},4.32398\times10^{-5}]$; and
-- final relative gradient
-  $1.27534\times10^{-5}/0.0168617=7.56\times10^{-4}$.
+| $\beta$ | Candidate | State maximum | Control maximum | $`p_{\mathrm{book}}`$ range |
+| ---: | --- | ---: | ---: | ---: |
+| $10^{-3}$ | Book | about 0.475 | about 8.57 | about $[0,8.57\times10^{-3}]$ |
+| $10^{-3}$ | $f=0$ | 0.474561 | 9.03985 | $[0,9.04217\times10^{-3}]$ |
+| $10^{-3}$ | $f=0.4150674$ | 0.481010 | 8.59257 | $[0,8.59461\times10^{-3}]$ |
+| $10^{-3}$ | $f=0.5$ | 0.482329 | 8.50105 | $[0,8.50303\times10^{-3}]$ |
+| $10^{-3}$ | $f=1$ | 0.490098 | 7.96224 | $[0,7.96388\times10^{-3}]$ |
+| $10^{-6}$ | Book | about 0.625 | about 8.90 | about $[-1.55,3.31]\times10^{-5}$ |
+| $10^{-6}$ | $f=0$ | 0.618022 | 9.60297 | $[-1.734,4.318]\times10^{-5}$ |
+| $10^{-6}$ | $f=0.4150674$ | 0.618802 | 9.12043 | $[-1.529,3.866]\times10^{-5}$ |
+| $10^{-6}$ | $f=0.5$ | 0.618962 | 9.02305 | $[-1.487,3.774]\times10^{-5}$ |
+| $10^{-6}$ | $f=1$ | 0.619897 | 8.46315 | $[-1.241,3.233]\times10^{-5}$ |
 
-Its book-convention adjoint has the same central positive region, four negative
-lobes, and positive edge regions as the source plot. Its range is also much
-closer to the source range than any later tolerance-terminated screen. The
-similarity is not caused by plotting: the sign changes are present in the
-native VTU field.
+For $\beta=10^{-3}$, zero forcing best matches the state, while
+$f=0.4150674$ best matches the control and adjoint magnitude. For
+$\beta=10^{-6}$, $f=0.5$ gives the most balanced control and adjoint range;
+$f=0.4150674$ best matches the negative minimum, and $f=1$ best matches the
+positive maximum. All four forcings reproduce the source's central positive
+region, four negative lobes, and positive edge regions. The sign changes are
+present in the native VTU fields rather than introduced by plotting.
 
-This makes a relative-gradient stopping threshold near $10^{-3}$ the leading
-candidate for the Figure 6.2 BFGS snapshots. Such a policy stops after four
-iterations in run `006` and is independently stated by the source for steepest
-descent. The source does not state that it was used for these BFGS fields, so
-the interpretation remains a hypothesis.
+At zero control, the discrete state depends affinely on a constant forcing,
+so the initial objective is quadratic. The three computed values at
+$f=0,0.5,1$ give
+
+```math
+J_{0}(f)=0.0008510022804 f^{2}-0.0137379298020 f+0.055555555556.
+```
+
+Matching the approximately `0.05` initial level visible in Figure 6.3 gives
+roots `0.4150674` and `15.7282`; only the smaller root is plausible in the
+screened range. This is a raster-matched diagnostic, not a recovered source
+value.
+
+The earlier run `006` first exposed the four-iteration explanation with zero
+forcing and cellwise control. The source-oriented sweep shows that the same
+explanation survives the stated continuous triangular discretisation. Fixed
+iteration scans at $f=0.5$ and $f=1$ further localize the effect: iteration 3
+has adjoint extrema an order of magnitude too large, iteration 4 is the first
+to satisfy the $10^{-3}$ relative threshold, iteration 5 is nearly identical,
+and iteration 6 begins moving away from the source-like range. The stopping
+rule remains inferred because the source states it for steepest descent, not
+for the Figure 6.2 BFGS snapshots.
 
 ### Mesh counts and connectivity
 
@@ -213,11 +260,28 @@ than inference from counts.
 
 ### L-BFGS details
 
-The omitted L-BFGS scaling and stopping choices materially affect the
-$\beta=10^{-6}$ solve. With strict tolerances, the original memory-5
-metric-inverse policy reached 4,814 iterations and a line-search failure for
-$\beta=10^{-3}$ and the 5,000-iteration limit for $\beta=10^{-6}$. Increasing
-memory alone did not remove the long tail.
+The omitted L-BFGS scaling and stopping choices materially affect the later
+$\beta=10^{-6}$ solve, but memory does not affect the source-like fourth
+iterate. Memory 5 and memory 20 with metric-inverse scaling produced identical
+iteration-4 fields in the tested cases. Changing only the initial scaling to
+scalar-secant produced the following tradeoff:
+
+| Forcing | Scaling | Relative gradient | State maximum | Control maximum | $`p_{\mathrm{book}}`$ range |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| $0.5$ | Metric inverse | $7.06\times10^{-4}$ | 0.618962 | 9.02305 | $[-1.487,3.774]\times10^{-5}$ |
+| $0.5$ | Scalar secant | $6.00\times10^{-4}$ | 0.620112 | 8.87188 | $[-1.121,3.251]\times10^{-5}$ |
+| $1$ | Metric inverse | $6.52\times10^{-4}$ | 0.619897 | 8.46315 | $[-1.241,3.233]\times10^{-5}$ |
+| $1$ | Scalar secant | $5.54\times10^{-4}$ | 0.620824 | 8.36652 | $[-0.915,2.825]\times10^{-5}$ |
+
+Scalar-secant scaling improves some scalar extrema, but it weakens the
+negative adjoint lobe. Metric-inverse memory 5 therefore remains the more
+balanced Figure 6.2 snapshot candidate. This is a candidate selection, not a
+recovery of the source configuration.
+
+With strict tolerances, the original memory-5 metric-inverse policy reached
+4,814 iterations and a line-search failure for $\beta=10^{-3}$ and the
+5,000-iteration limit for $\beta=10^{-6}$. Increasing memory alone did not
+remove the long tail.
 
 A scalar-secant initial inverse-Hessian scaling with memory 20 gave robust
 screening behavior: four to five iterations for $\beta=10^{-3}$ and 8 or 13
@@ -229,52 +293,90 @@ source.
 These settings are reasonable for obtaining a stable numerical solution, but
 they are not necessarily the source settings. Conversely, a $10^{-3}$
 relative-gradient snapshot reaches the Figure 6.2-like early field before the
-long-tail behavior matters and accepts unit steps in run `006`.
+long-tail behavior matters and accepts unit steps in run `006`. Linear-solver
+tolerance variants were not run: the observed forcing and scaling effects are
+smooth and systematic, so solve noise is not a plausible explanation for the
+remaining discrepancies.
 
-## Inferences and remaining experiments
+### Promoted development families
+
+Four stable development profiles record the two useful forcing hypotheses and
+the two figure-specific solver policies:
+
+- [Figure 6.2, constant half](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-constant-half.prm)
+- [Figure 6.2, objective matched](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-objective-matched.prm)
+- [Figure 6.3, constant half](../../parameters/chapter-6/b1/development/figure-6.3-constant-half.prm)
+- [Figure 6.3, objective matched](../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm)
+
+These profiles write stable outputs below `runs/chapter-6/b1/development/`.
+The $f=0.5$ profiles are the simple balanced development candidates; the
+$f=0.4150674$ profiles preserve the independent initial-objective clue. Neither
+family is authoritative or establishes the omitted source forcing.
+
+### Complete source matrix
+
+The two source figures contain seven unique method–regularisation
+combinations: steepest descent at $\beta=10^{-1},10^{-2},10^{-3}$ and L-BFGS
+at those values plus $\beta=10^{-6}$. The current Cartesian matrix expansion
+adds an eighth, unreported steepest-descent $\beta=10^{-6}$ case. In a release
+diagnostic that case reached the 5,000-iteration limit after approximately
+six and a half minutes without satisfying the relative-gradient threshold.
+It should not be retained merely to make the matrix rectangular. A faithful
+single authoritative family therefore needs a generic way to include or
+exclude explicit matrix combinations.
+
+## Assessment and remaining evidence gap
 
 - **Mesh connectivity – high confidence.** The counts imply 400 boundary
   vertices, not unique connectivity, and regular triangles have negligible
   effect on extrema. Exact parity needs the source mesh and a mesh-import
   framework extension; another synthetic mesh is not informative.
-- **Forcing – high confidence.** Constant $f=0$ and $f=1$ each explain
-  different observations, but no tested constant explains all fields.
-  Further constants or expressions are parameter-only changes and should not
-  be frozen without stronger evidence.
+- **Forcing – high confidence.** Constants around $f=0.4$–$0.5$ give the best
+  aggregate match, but no tested value explains all extrema. $f=0.5$ is the
+  simplest balanced candidate and $f=0.4150674$ matches the visible initial
+  objective. A denser constant sweep would fit raster-reading uncertainty
+  rather than recover a source fact.
 - **Control discretisation – high confidence.** Continuous
   homogeneous-Dirichlet `P1` is the stated source choice; changing from
   cellwise control does not explain solver histories. It is already a
   parameter-only choice.
-- **Figure 6.2 stopping – medium confidence.** A relative-gradient threshold
-  near $10^{-3}$ plausibly explains the four-iteration, sign-changing
-  $\beta=10^{-6}$ adjoint. Testing it requires parameter changes only.
+- **Figure 6.2 stopping – medium-high confidence.** The completed release
+  sweep shows that a $10^{-3}$ relative-gradient threshold consistently stops
+  after four unit steps and produces the sign-changing $\beta=10^{-6}$
+  adjoint across all tested constants. The source still does not state this
+  stopping rule for the field snapshots.
 - **Figure 6.3 policy – medium-high confidence.** The recovered
   objective-target L-BFGS policy reproduces the published trend and
-  approximate iteration scale. No framework change is needed; exact
-  validation would require source arrays.
-- **L-BFGS memory and scaling – high confidence.** Scalar-secant memory 20 is
-  a robust project policy, not a recovered source fact. It is parameter-only.
-  Exact full BFGS would require separate framework work and is lower priority
-  because Figure 6.3 labels LM-BFGS.
+  approximate iteration scale for both promoted forcing hypotheses. The
+  iteration counts do not identify the forcing; exact validation would require
+  source arrays.
+- **L-BFGS memory and scaling – high confidence.** Metric-inverse memory 5 is
+  retained for the Figure 6.2 snapshots because it better preserves the
+  negative adjoint lobe. Scalar-secant memory 20 remains the more robust
+  project policy for later convergence. Both are parameter choices, not
+  recovered source facts. Exact full BFGS would require separate framework
+  work and is lower priority because Figure 6.3 labels LM-BFGS.
 - **Quadrature and target evaluation – medium confidence.** These remain
   unresolved but are unlikely to explain the large $\beta=10^{-6}$ morphology
   change at the tested resolution. Alternative assembly policies would
   require a scoped framework change and rebuild.
 - **Adjoint sign and plotting – high confidence.** Native $p$ and comparison
-  field $`p_{\mathrm{book}}=-p`$ are now explicit; the run-006 sign changes are
+  field $`p_{\mathrm{book}}=-p`$ are now explicit; the run `006` sign changes are
   numerical rather than a color-map artifact. No further framework change is
   needed.
 
-The highest-information follow-up is a small Figure 6.2 matrix using continuous
-`P1` control, the regular 131-subdivision triangular mesh, zero initial
-control, the book Armijo constants, and a $10^{-3}$ relative-gradient stop.
-It should compare $f=0$, $0.5$, and $1$ for $\beta=10^{-3}$ and $10^{-6}$.
-This combines the source's stated discretisation with the run-006 stopping
-clue and requires parameter files only.
+The planned parameter-only experiments are complete. No remaining sweep can
+uniquely resolve the source omissions: more constants would overfit raster
+values, solver tolerances are unlikely to explain the smooth discrepancies,
+and additional synthetic meshes cannot recover connectivity. The next
+decisive evidence would be the original mesh, numerical arrays, or
+implementation details. Supporting arbitrary mesh import or alternative
+quadrature and target-evaluation policies would require scoped framework
+changes and a rebuild.
 
-Until that experiment or original-source material resolves the contradiction,
-the correct conclusion is not that one candidate reproduces B1. The project
-has reproduced the model and method trend, bracketed the field extrema, ruled
-out regular triangular connectivity as the main cause, and isolated the
-$\beta=10^{-6}$ stopping state as the most consequential omitted numerical
-detail.
+For continued development, use $f=0.5$ as the primary balanced candidate and
+$f=0.4150674$ as an objective-matched diagnostic. The project has reproduced
+the model, field identities, early-iterate morphology, and method trend; it
+has not uniquely reproduced the omitted source data. B1 therefore remains
+framework-verified rather than reproduction-verified, and the frozen
+authoritative profile remains unchanged.

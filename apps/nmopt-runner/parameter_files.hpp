@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/application/scalar_function.hpp"
+#include "nmopt/semantic/v1/types.hpp"
 
 #include <deal.II/base/parameter_handler.h>
 
@@ -69,6 +70,31 @@ namespace nmopt::application::runner
     std::string key;
     std::string value;
   };
+
+  inline semantic::v1::TransportBoundaryForm
+  b2_transport_boundary_form(const ParameterFile &file)
+  {
+    const auto &boundary_form =
+      file.value("Boundary/transport boundary form");
+    const auto &conormal_form = file.value("Boundary/conormal form");
+    if (boundary_form == "ordinary-normal-minus-transport")
+      {
+        if (conormal_form != "unspecified")
+          throw std::invalid_argument(
+            "B2 ordinary-normal-minus-transport requires an unspecified conormal form");
+        return semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport;
+      }
+    if (boundary_form == "total-conormal")
+      {
+        if (conormal_form != "diffusion-minus-transport")
+          throw std::invalid_argument(
+            "B2 total-conormal requires the diffusion-minus-transport conormal form");
+        return semantic::v1::TransportBoundaryForm::total_conormal;
+      }
+    throw std::invalid_argument("unknown B2 transport boundary form '" +
+                                boundary_form + "'");
+  }
 
   inline ResolvedParameterValue
   resolve_method_parameter(const ParameterFile &file,

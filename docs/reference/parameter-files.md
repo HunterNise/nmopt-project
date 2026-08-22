@@ -103,6 +103,13 @@ declared state degree according to the mesh family, shares the state's
 homogeneous boundary region, and rejects a cellwise box. The effective
 representation is recorded independently of the parameter-file provenance.
 
+For B2, `Boundary/transport boundary form` is the operative selection. The
+ordinary-normal value `ordinary-normal-minus-transport` requires
+`Boundary/conormal form = unspecified`. The diagnostic `total-conormal` value
+requires `Boundary/conormal form = diffusion-minus-transport`. The latter
+entry is a consistency declaration, not an independently selectable boundary
+operator. Other values and incoherent pairs are rejected before execution.
+
 B1 reads `Functions/forcing` as a stable definition ID and accepts these
 declarative forms in the nested `forcing` subsection:
 

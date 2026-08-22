@@ -193,7 +193,7 @@ or artifact-schema change is required before those discretisations exist.
 
 | Priority | Candidate | Motivation and decisive evidence | Required change |
 | ---: | --- | --- | --- |
-| 1 | Diffusion-weighted conormal alternative | The zero-control maximum $1.11959$ versus about $7.22$ is the earliest and largest discrepancy; the source notation omits how $\mu$ enters the normal derivative. Compare uncontrolled field extrema and initial objectives before optimization. | The B2 application choice and compiler realization are available; runner parameter wiring and candidate files remain. |
+| 1 | Diffusion-weighted conormal alternative | The zero-control maximum $1.11959$ versus about $7.22$ is the earliest and largest discrepancy; the source notation omits how $\mu$ enters the normal derivative. Compare uncontrolled field extrema and initial objectives before optimization. | The B2 application, compiler, and runner choices are available; candidate files remain. |
 | 2 | Source-oriented triangular $P_1$ state mesh | The source explicitly states triangles and reports counts that constrain the boundary split. First use a cheap structured simplex; add a count-oriented candidate only if topology materially changes the fields. | B2 mesh-policy framework extension plus parameter files. |
 | 3 | Continuous $P_1$ boundary control | The source states linear finite elements and $N_u=243$; the current 96 facewise constants cannot test that space or its gradient metric. | Compiler/framework extension plus parameter files. |
 | 4 | Boundary-aligned observation geometry | The current wings measure is $1.78125$ instead of $1.8$. Align $x_2=0.3,0.7$ in the mesh before considering cut-cell integration. | Parameter-only with a suitable structured mesh; framework work only for exact cut-cell observation on arbitrary meshes. |
@@ -210,8 +210,8 @@ rather than an inferred source choice.
 
 ## Next evidence gate
 
-The first experiment should expose the diffusion-weighted conormal as a
-selectable B2 boundary policy and compare only zero-control state extrema,
+The first experiment should select the diffusion-weighted conormal B2 boundary
+policy and compare only zero-control state extrema,
 initial objective components, and boundary/observation measures on a small
 mesh. If that candidate moves the uncontrolled maximum toward the Figure 6.5
 range, repeat it with the four optimization cases. If it does not, proceed to

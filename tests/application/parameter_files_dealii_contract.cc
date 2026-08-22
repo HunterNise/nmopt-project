@@ -343,6 +343,55 @@ namespace
   }
 
   void
+  test_b2_transport_boundary_form_is_selected_coherently()
+  {
+    const auto ordinary = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    require(
+      nmopt::application::runner::b2_transport_boundary_form(ordinary) ==
+        nmopt::semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport,
+      "B2 parameter parsing lost the ordinary-normal boundary selection");
+
+    auto total_conormal = ordinary;
+    total_conormal.values["Boundary/transport boundary form"] =
+      "total-conormal";
+    total_conormal.values["Boundary/conormal form"] =
+      "diffusion-minus-transport";
+    require(
+      nmopt::application::runner::b2_transport_boundary_form(total_conormal) ==
+        nmopt::semantic::v1::TransportBoundaryForm::total_conormal,
+      "B2 parameter parsing lost the total-conormal boundary selection");
+
+    auto inconsistent_total = total_conormal;
+    inconsistent_total.values["Boundary/conormal form"] = "unspecified";
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::b2_transport_boundary_form(
+          inconsistent_total);
+      },
+      "B2 accepted total conormal without diffusion-minus-transport");
+
+    auto inconsistent_ordinary = ordinary;
+    inconsistent_ordinary.values["Boundary/conormal form"] =
+      "diffusion-minus-transport";
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::b2_transport_boundary_form(
+          inconsistent_ordinary);
+      },
+      "B2 accepted an independently selected ordinary conormal form");
+
+    auto unknown = ordinary;
+    unknown.values["Boundary/transport boundary form"] = "book-notation";
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::b2_transport_boundary_form(unknown);
+      },
+      "B2 accepted an unknown transport-boundary form");
+  }
+
+  void
   test_sparse_matrix_exclusions_are_validated_and_applied()
   {
     const std::string excluded =
@@ -464,6 +513,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
          test_unknown_selection_is_rejected},
+        {"b2_transport_boundary_form_is_selected_coherently",
+         "nmopt.parameter_files.b2_transport_boundary_form_is_selected_coherently",
+         {"backend", "dealii", "application", "runner", "contract"},
+         30,
+         test_b2_transport_boundary_form_is_selected_coherently},
         {"sparse_matrix_exclusions_are_validated_and_applied",
          "nmopt.parameter_files.sparse_matrix_exclusions_are_validated_and_applied",
          {"backend", "dealii", "application", "runner", "contract"},

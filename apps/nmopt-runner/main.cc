@@ -693,8 +693,8 @@ namespace
     require_parameter(file,
                       "Functions/graetz/expression",
                       "(1.5*x1*(1-x1), 0.0)");
-    require_parameter(file, "Boundary/transport boundary form", "ordinary-normal-minus-transport");
-    require_parameter(file, "Boundary/conormal form", "unspecified");
+    scenario.problem.transport_boundary_form =
+      b2_transport_boundary_form(file);
     require_parameter(file, "Boundary/normal orientation", "outward");
     require_parameter(file, "Boundary/trace evaluation", "fe-q-state-trace");
     require_parameter(file, "Boundary/face quadrature", "qgauss-face");

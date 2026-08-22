@@ -9,13 +9,17 @@ and the [source catalogue](../guides/chapter-6-numerical-examples.md#e652--graet
 It separates source facts, deductions from the published counts, framework
 replacement choices, and hypotheses that still need experiments.
 
-The latest persisted development evidence is Debug deal.II run `003` at
-framework revision `923e4b9`, using refinement 6 of the framework-native
-quadrilateral mesh. A behavior-neutral rerun at revision `db5a07a` reproduced
-its objectives and solver histories and additionally recorded structural,
-objective-component, field-extrema, and derivative-norm evidence. Generated
-outputs remain disposable evidence; the conclusions and change boundaries are
-recorded here.
+The persisted comparison baseline is Debug deal.II run `003` at framework
+revision `923e4b9`, using refinement 6 of the framework-native quadrilateral
+mesh. A behavior-neutral rerun at revision `db5a07a` reproduced its objectives
+and solver histories and additionally recorded structural,
+objective-component, field-extrema, and derivative-norm evidence. Targeted
+Debug experiments at revision `fdc75cf` subsequently screened the two boundary
+interpretations, native and structured simplex meshes, centroid-split simplex
+connectivity, diffusion values, and several observation-objective
+realisations. These are development experiments rather than reproduction
+evidence. Generated outputs remain disposable; the conclusions and change
+boundaries are recorded here.
 
 The current assessment is:
 
@@ -26,6 +30,13 @@ The current assessment is:
 - the largest field discrepancy is already present at zero control: the
   current uncontrolled state lies in $[1,1.11959]$, while Figure 6.5 shows a
   range of approximately $[1,7.22]$;
+- boundary-aligned structured triangles and centroid-split triangles change
+  this maximum and the initial objectives negligibly, so the missing magnitude
+  is not explained by the tested cell shape or connectivity;
+- the diffusion-weighted conormal interpretation at the stated $\mu=0.1$
+  makes the zero-control solution orders of magnitude too large, while tuning
+  that interpretation to $\mu=0.4125$ reproduces the plotted maximum but not
+  the corresponding Table 6.2 objective;
 - the source counts constrain aggregate boundary subdivision under standard
   $P_1$ assumptions, but do not determine interior mesh connectivity;
 - the current uniform facewise metric makes the relative metric-gradient and
@@ -35,9 +46,9 @@ The current assessment is:
   as source ambiguities rather than fitted silently through a framework
   change.
 
-B2 is therefore **executable but not replication-verified**. The next useful
-experiments should isolate the boundary form before attempting source-sized
-mesh or solver calibration.
+B2 is therefore **executable but not replication-verified**. The completed
+screens rule out several low-cost explanations, but do not identify one
+coherent realization of both Figure 6.5 and Table 6.2.
 
 ## Source facts and omissions
 
@@ -149,6 +160,71 @@ Because the uncontrolled state is independent of optimization policy,
 boundary and PDE discretisation candidates should be tested before BFGS step,
 stopping, or update details.
 
+## Targeted discretisation and boundary screens
+
+The first screen used refinement-4 native quadrilaterals and two
+boundary-aligned $40\times10$ triangular meshes. The structured mesh divides
+each rectangle along one diagonal; the centroid-split mesh adds one interior
+vertex per rectangle and connects it to the four corners. All runs used the
+ordinary-normal boundary interpretation and one BFGS iteration, because only
+the zero-control state and initial objective were relevant.
+
+| Case | Source | Native quadrilateral | Structured triangles | Centroid-split triangles |
+| --- | ---: | ---: | ---: | ---: |
+| Wings / constant | $316.6661$ | $0.911380$ | $0.874930$ | $0.874927$ |
+| Full / constant | $192.8385$ | $1.458507$ | $1.458526$ | $1.458523$ |
+| Wings / parabolic | $29.2188$ | $0.312065$ | $0.310995$ | $0.310997$ |
+| Full / parabolic | $45.9996$ | $0.315493$ | $0.315441$ | $0.315443$ |
+| Uncontrolled state maximum | about $7.22$ | $1.119225$ | $1.119505$ | $1.119507$ |
+
+The boundary-aligned meshes correct the wings observation measure from
+$1.875$ on the native refinement-4 mesh to the exact value $1.8$. This
+explains the visible but still small change in the wings/constant objective.
+Structured and centroid-split triangles differ by less than $8\times10^{-6}$
+relatively in every initial objective. The tested cell shape, interface
+alignment, and connectivity therefore cannot explain the source discrepancy;
+exact count-matched connectivity is not justified by this evidence.
+
+The retained refinement-6 fields also permit observation-objective variants to
+be evaluated without rerunning the PDE. Interpolating the target into the
+state space changes the objectives by at most about $0.05\%$, and consistent
+mass lumping changes them by at most about $0.16\%$. An unweighted sum over
+nodal coefficients produces much larger values, but with case-dependent
+factors and without representing the stated $L^{2}$ tracking functional.
+Neither the defensible target interpolation nor quadrature variants explain
+Table 6.2.
+
+The second screen varied diffusion for the full/constant case on the native
+refinement-4 mesh:
+
+| Boundary interpretation | Diffusion $\mu$ | Uncontrolled maximum | Initial objective |
+| --- | ---: | ---: | ---: |
+| Ordinary normal | $0.03$ | $1.032906$ | $1.496341$ |
+| Ordinary normal | $0.3$ | $1.403171$ | $1.174268$ |
+| Ordinary normal | $1$ | $2.261675$ | $0.459786$ |
+| Total conormal | $0.3$ | $15.133817$ | $35.187812$ |
+| Total conormal | $0.4$ | $7.680102$ | $7.143744$ |
+| Total conormal | $0.4125$ | $7.220595$ | $6.062632$ |
+| Total conormal | $0.415$ | $7.135224$ | $5.870977$ |
+| Total conormal | $0.5$ | $5.110750$ | $2.217154$ |
+
+The value $\mu=0.4125$ was obtained by interpolation to test the Figure 6.5
+range; it is not inferred source data. Although it reproduces the plotted
+maximum to within $0.001$, its initial objective is smaller than the
+full/constant Table 6.2 value $192.8385$ by a factor of about $31.81$. It also
+contradicts the stated $\mu=0.1$. This tuned match shows only that one scalar
+can fit one plotted output; it does not define a coherent replication.
+
+At the stated $\mu=0.1$, the total-conormal candidate is materially
+incompatible in the opposite direction: a small comparison case produced an
+uncontrolled maximum about $1393.5$ and an initial objective about $259295$.
+The refinement-4 wings/constant derivative check had relative central
+finite-difference mismatch about $1.46\times10^{-8}$ and Taylor order about
+$2.002$, but its absolute mismatch $0.0137$ exceeded the fixed $10^{-7}$
+evidence threshold because the objective and derivative were of order
+$10^{5}$ and $10^{6}$. This is a scale-robustness defect in the development
+evidence gate, not evidence of an incorrect derivative.
+
 ## Published consistency questions
 
 The wings observation region is a subset of the full downstream region. At
@@ -193,14 +269,14 @@ or artifact-schema change is required before those discretisations exist.
 
 | Priority | Candidate | Motivation and decisive evidence | Required change |
 | ---: | --- | --- | --- |
-| 1 | Diffusion-weighted conormal alternative | The zero-control maximum $1.11959$ versus about $7.22$ is the earliest and largest discrepancy; the source notation omits how $\mu$ enters the normal derivative. Compare uncontrolled field extrema and initial objectives before optimization. | The B2 application, compiler, and runner choices are available; candidate files remain. |
-| 2 | Source-oriented triangular $P_1$ state mesh | The source explicitly states triangles and reports counts that constrain the boundary split. First use a cheap structured simplex; use deterministic centroid splits only to test topology/count sensitivity. | Both B2 simplex generators are available; candidate parameter files remain. |
+| 1 | Diffusion-weighted conormal alternative | **Screened and rejected at the stated $\mu=0.1$.** Tuning $\mu$ can fit Figure 6.5 but fails Table 6.2 and changes stated source data. | No further framework change for the two coherent boundary interpretations. An independently scaled boundary-transport coefficient would be a new hypothesis. |
+| 2 | Source-oriented triangular $P_1$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
 | 3 | Continuous $P_1$ boundary control | The source states linear finite elements and $N_u=243$; the current 96 facewise constants cannot test that space or its gradient metric. | Compiler/framework extension plus parameter files. |
-| 4 | Boundary-aligned observation geometry | The current wings measure is $1.78125$ instead of $1.8$. Align $x_2=0.3,0.7$ in the mesh before considering cut-cell integration. | Parameter-only with a suitable structured mesh; framework work only for exact cut-cell observation on arbitrary meshes. |
+| 4 | Boundary-aligned observation geometry | **Screened.** The aligned meshes recover exact measure $1.8$ but do not materially reduce the objective discrepancy. | No further change for structured meshes. |
 | 5 | Constant-step and stopping candidates | The source attributes its high counts to an unstated constant step, while the current Armijo BFGS reaches a much smaller gradient ratio at the iteration limit. Screen fixed iteration counts and relative thresholds first. | Parameter-only for iteration/tolerance screens; framework extension for a genuinely unconditional fixed step. |
 | 6 | Metric versus coefficient gradient norm | The book names a discrete gradient but not its Hilbert metric. The current uniform facewise realization makes both relative ratios identical. | Evidence is already present; differentiation needs the continuous or nonuniform discretisation above. |
-| 7 | Objective quadrature or coefficient scaling | Table 6.2 magnitudes disagree by case and are conditionally inconsistent with Figure 6.5. Test only after the uncontrolled field is credible. | Framework and parameter schema for alternative loss/quadrature policies. |
-| 8 | Exact count-matched connectivity or mesh import | Counts constrain boundary totals but not the interior mesh. Deterministic centroid splits can test sensitivity but cannot recover provenance. | Centroid-split generation is available; exact reconstruction would still require source connectivity or mesh import. |
+| 7 | Objective quadrature or coefficient scaling | **Partially screened.** Target interpolation and mass lumping are far too small; an unweighted coefficient loss is large but case-dependent and changes the stated objective. | No framework extension is justified for the tested variants. |
+| 8 | Exact count-matched connectivity or mesh import | **Deprioritised.** Counts constrain boundary totals but not the interior mesh, and the two tested triangular connectivities are numerically indistinguishable. | Reconsider only with source connectivity or contrary mesh-sensitivity evidence. |
 | 9 | Linear-solver tolerances | These are omitted by the source but are unlikely to explain the smooth zero-control field gap. | Parameter-only with the existing solve-policy entries. |
 
 Galerkin discretisation is stated by the source and remains fixed during these
@@ -210,15 +286,28 @@ rather than an inferred source choice.
 
 ## Next evidence gate
 
-The first experiment should select the diffusion-weighted conormal B2 boundary
-policy and compare only zero-control state extrema,
-initial objective components, and boundary/observation measures on a small
-mesh. If that candidate moves the uncontrolled maximum toward the Figure 6.5
-range, repeat it with the four optimization cases. If it does not, proceed to
-the triangular state discretisation without calibrating BFGS.
+The low-cost state and objective screens are complete. Neither literal
+boundary interpretation at the stated diffusion, either triangular
+connectivity, boundary-aligned observation geometry, target interpolation,
+nor mass lumping gives one coherent account of Figure 6.5 and Table 6.2.
 
-After the boundary and state realization are credible, add continuous $P_1$
-boundary control and compare the two relative-gradient interpretations. Only
-then are constant-step, stopping, and objective-assembly candidates capable of
-answering the remaining Table 6.2 questions without conflating independent
-omissions.
+Continuous $P_1$ boundary control, gradient interpretation, and BFGS policy
+remain necessary to compare optimized results and reported gradient ratios,
+but none can alter the zero-control state or initial tracking objective. They
+therefore cannot resolve the primary source inconsistency. Before implementing
+those larger framework units, the investigation needs an explicit choice:
+
+1. introduce and screen a separately parameterized coefficient multiplying the
+   transport term in the natural boundary operator as an acknowledged project
+   hypothesis, while keeping $\mu=0.1$; or
+2. accept that the published initial data are not jointly reproducible from
+   the stated model, retain the current mathematically literal baseline, and
+   implement continuous control and solver variants only to study the
+   optimization-side omissions.
+
+The first choice requires a typed semantic, compiler, application, and runner
+extension and can fit a field scale, but it has no present source provenance
+and must not be promoted as the authoritative benchmark. Scaling only the
+control load would not answer this question because the reported initial
+control is zero. The second choice preserves the stated mathematics and gives
+the remaining framework work a narrower, defensible purpose.

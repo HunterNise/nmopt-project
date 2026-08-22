@@ -557,6 +557,25 @@ trace produces the stable `continuous_neumann_control_lowerer` lowerability
 diagnostic. A facewise box combined with the continuous selection is rejected
 semantically rather than reinterpreted coefficientwise.
 
+The internal continuous-control preparation constructs a separate scalar
+degree-one Lagrange `DoFHandler` on the state mesh and extracts the global DoFs
+whose shape functions live on the selected boundary faces. Global DoF identity
+deduplicates nodes shared by connected controlled faces. The selected trace is
+the closure of those faces: junction nodes shared with a differently marked
+boundary arc remain control coordinates, while a connected controlled junction
+appears only once. The component assembles the consistent boundary mass
+
+```math
+(M_{\Gamma})_{ij}=
+\sum_{F\subset\Gamma_{c}}\int_{F}\psi_{i}\psi_{j},
+```
+
+and exposes it as the `l2_neumann_trace` metric for simplex and hypercube
+meshes. Its physical and independent dimensions are both the number of unique
+selected trace nodes. This component is not yet a registered compiler target:
+the continuous selection retains the missing-lowerer diagnostic until its
+state-control coupling is connected.
+
 The registered P2.1 realization assigns one scalar control coefficient to
 each active state-mesh boundary face with an id in `control_boundary`. The
 compiler assembles with `FEFaceValues`:
@@ -846,8 +865,11 @@ mean-zero saddle realization. Its internal
 `dealii_neumann_control_realisation.hpp` component owns the ordered marked-face
 control topology and coordinates, state-control coupling, diagonal face-mass
 matrix, facewise metric and box construction, and cell-data boundary output.
-This boundary retains the existing facewise-constant realization while making
-the control-specific assembly independently replaceable. The
+The same internal header owns the unregistered continuous degree-one trace
+topology, closure-endpoint policy, and consistent boundary mass metric for
+simplex and hypercube meshes. This boundary retains the existing
+facewise-constant realization while making the control-specific assembly
+independently replaceable. The
 private `dealii_dirichlet_control.hpp` target owns the distinct controlled
 essential reconstruction, the complete and selected partial fixed/controlled
 trace policies, nodal trace layout, boundary mass metric, and both

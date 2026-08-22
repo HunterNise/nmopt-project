@@ -1,5 +1,6 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/contract/supplied_otd_kkt.hpp"
+#include "nmopt/compiler/v1/dealii_neumann_control_realisation.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
@@ -2701,6 +2702,121 @@ namespace
                   "state_observation <- dealii.scalar.observation.normal_flux") !=
           manifest.lowering_handler_records.end(),
       "normal-flux compilation manifest omitted its face transpose policy");
+  }
+
+  template <int dim>
+  void
+  run_continuous_neumann_control_metric_contract_test()
+  {
+    for (unsigned int family = 0; family < 2; ++family)
+      {
+        const bool simplex = family == 1;
+        dealii::Triangulation<dim> triangulation;
+        if (simplex)
+          dealii::GridGenerator::subdivided_hyper_cube_with_simplices(
+            triangulation,
+            2);
+        else
+          dealii::GridGenerator::subdivided_hyper_cube(triangulation, 2);
+        for (auto cell = triangulation.begin_active();
+             cell != triangulation.end();
+             ++cell)
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
+            if (cell->face(face)->at_boundary())
+              {
+                const auto center = cell->face(face)->center();
+                cell->face(face)->set_boundary_id(
+                  center[0] > 1.0 - 1e-12 || center[1] > 1.0 - 1e-12 ?
+                    1 :
+                    0);
+              }
+
+        const compiler::v1::detail::ContinuousNeumannControlRealisation<dim>
+          realisation(triangulation, {1}, 3);
+        const auto &coordinates = realisation.coordinates();
+        contract::require(realisation.dimension() == 5 &&
+                            realisation.physical_dimension() == 5 &&
+                            realisation.independent_dimension() == 5 &&
+                            coordinates.size() == 5,
+                          "Continuous Neumann trace has the wrong dimension");
+        const auto coordinate_count = [&coordinates](
+                                        const dealii::Point<dim> &target) {
+          return std::count_if(
+            coordinates.begin(),
+            coordinates.end(),
+            [&target](const dealii::Point<dim> &coordinate) {
+              return coordinate.distance(target) < 1e-14;
+            });
+        };
+        contract::require(
+          coordinate_count(dealii::Point<dim>(1.0, 1.0)) == 1,
+          "Continuous Neumann trace did not deduplicate its connected corner");
+        contract::require(
+          coordinate_count(dealii::Point<dim>(0.0, 1.0)) == 1 &&
+            coordinate_count(dealii::Point<dim>(1.0, 0.0)) == 1,
+          "Continuous Neumann trace did not include selected-boundary endpoints");
+
+        const auto metric = realisation.l2_metric();
+        contract::require(
+          metric.id() == "l2_neumann_trace" &&
+            metric.layout()->dimension(0) == realisation.dimension(),
+          "Continuous Neumann trace metric lost its identity or layout");
+        dealii::Vector<double> unit_values(realisation.dimension());
+        unit_values = 1.0;
+        const Primal unit(realisation.layout(), {unit_values});
+        require_close(contract::pair(metric.apply(unit), unit),
+                      2.0,
+                      1e-13,
+                      "Continuous Neumann trace mass changed boundary measure");
+
+        std::size_t corner_index = coordinates.size();
+        for (std::size_t index = 0; index < coordinates.size(); ++index)
+          if (coordinates[index].distance(dealii::Point<dim>(1.0, 1.0)) <
+              1e-14)
+            corner_index = index;
+        contract::require(corner_index < coordinates.size(),
+                          "Continuous Neumann trace omitted its connected corner");
+        dealii::Vector<double> basis_values(realisation.dimension());
+        basis_values[corner_index] = 1.0;
+        const Primal basis(realisation.layout(), {basis_values});
+        const Covector basis_action = metric.apply(basis);
+        bool has_off_diagonal_mass = false;
+        for (std::size_t index = 0; index < realisation.dimension(); ++index)
+          if (index != corner_index &&
+              std::abs(basis_action.block(0)[index]) > 1e-14)
+            has_off_diagonal_mass = true;
+        contract::require(
+          has_off_diagonal_mass &&
+            !metric.supports_coefficientwise_box_projection(),
+          "Continuous Neumann trace mass is not the consistent nodal matrix");
+
+        dealii::Vector<double> first_values(realisation.dimension());
+        dealii::Vector<double> second_values(realisation.dimension());
+        for (std::size_t index = 0; index < realisation.dimension(); ++index)
+          {
+            first_values[index] =
+              (index % 2 == 0 ? 0.2 : -0.15) * static_cast<double>(index + 1);
+            second_values[index] =
+              (index % 2 == 0 ? -0.1 : 0.25) * static_cast<double>(index + 1);
+          }
+        const Primal first(realisation.layout(), {first_values});
+        const Primal second(realisation.layout(), {second_values});
+        const Covector first_action = metric.apply(first);
+        const Covector second_action = metric.apply(second);
+        require_close(contract::pair(first_action, second),
+                      contract::pair(second_action, first),
+                      1e-13,
+                      "Continuous Neumann trace mass is not symmetric");
+        contract::require(contract::pair(first_action, first) > 1e-12,
+                          "Continuous Neumann trace mass is not positive definite");
+        const Primal recovered = metric.inverse_apply(first_action);
+        dealii::Vector<double> recovery_error = recovered.block(0);
+        recovery_error.add(-1.0, first.block(0));
+        require_close(recovery_error.l2_norm(),
+                      0.0,
+                      1e-11,
+                      "Continuous Neumann trace metric apply/inverse mismatch");
+      }
   }
 
   template <int dim>
@@ -6983,6 +7099,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler", "metric"},
          30,
          []() { run_continuous_control_component_contract_test<2>(); }},
+        {"continuous_neumann_control_metric",
+         "nmopt.dealii.continuous_neumann_control_metric",
+         {"dealii", "contract", "metric"},
+         30,
+         []() { run_continuous_neumann_control_metric_contract_test<2>(); }},
         {"l2_tracking_continuous_control",
          "nmopt.dealii.l2_tracking_continuous_control",
          {"dealii", "compiler", "metric"},

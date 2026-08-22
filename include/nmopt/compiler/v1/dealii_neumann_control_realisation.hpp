@@ -6,6 +6,8 @@
 #include "nmopt/dealii/mass_metric.hpp"
 
 #include <deal.II/dofs/dof_handler.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/fe/mapping.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparse_matrix.h>
@@ -15,6 +17,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <locale>
 #include <memory>
 #include <set>
@@ -345,5 +348,218 @@ namespace nmopt::compiler::v1::detail
     dealii::SparseMatrix<double>               control_coupling_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     contract::LayoutPtr                           layout_;
+  };
+
+  template <int dim>
+  class ContinuousNeumannControlRealisation final
+  {
+  public:
+    using Vector = dealii::Vector<double>;
+
+    ContinuousNeumannControlRealisation(
+      const dealii::Triangulation<dim> &           triangulation,
+      std::set<dealii::types::boundary_id>          control_boundary_ids,
+      const unsigned int                            quadrature_order)
+      : control_boundary_ids_(std::move(control_boundary_ids))
+      , control_fe_(make_scalar_lagrange_element(
+          triangulation,
+          1,
+          "The continuous Neumann control realization"))
+      , control_dof_handler_(triangulation)
+    {
+      contract::require(!control_boundary_ids_.empty(),
+                        "Continuous Neumann control needs a boundary selection");
+      contract::require(quadrature_order > 0,
+                        "Continuous Neumann control needs a positive quadrature order");
+
+      control_dof_handler_.distribute_dofs(*control_fe_);
+      build_trace_topology(triangulation);
+      contract::require(!trace_dofs_.empty(),
+                        "The selected Neumann boundary has no continuous trace DoFs");
+      layout_ = std::make_shared<const contract::BlockLayout>(
+        "control",
+        std::vector<contract::SpaceId>{{"control"}},
+        std::vector<std::size_t>{trace_dofs_.size()});
+      initialise_mass_sparsity();
+      assemble_mass(quadrature_order);
+    }
+
+    std::size_t
+    dimension() const
+    {
+      return trace_dofs_.size();
+    }
+
+    std::size_t
+    physical_dimension() const
+    {
+      return dimension();
+    }
+
+    std::size_t
+    independent_dimension() const
+    {
+      return dimension();
+    }
+
+    const contract::LayoutPtr &
+    layout() const
+    {
+      return layout_;
+    }
+
+    const std::vector<dealii::Point<dim>> &
+    coordinates() const
+    {
+      return coordinates_;
+    }
+
+    dealii_backend::MassMetric
+    l2_metric(
+      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
+    {
+      return dealii_backend::MassMetric("l2_neumann_trace",
+                                        layout_,
+                                        control_mass_,
+                                        solve_parameters);
+    }
+
+  private:
+    static constexpr std::size_t invalid_control_index =
+      std::numeric_limits<std::size_t>::max();
+
+    bool
+    is_control_face(
+      const typename dealii::DoFHandler<dim>::active_cell_iterator &cell,
+      const unsigned int face) const
+    {
+      return cell->face(face)->at_boundary() &&
+             control_boundary_ids_.count(cell->face(face)->boundary_id()) != 0;
+    }
+
+    void
+    build_trace_topology(const dealii::Triangulation<dim> &triangulation)
+    {
+      const auto boundary_dofs = dealii::DoFTools::extract_boundary_dofs(
+        control_dof_handler_,
+        dealii::ComponentMask(),
+        control_boundary_ids_);
+      std::vector<dealii::Point<dim>> support_points(
+        control_dof_handler_.n_dofs());
+      dealii::DoFTools::map_dofs_to_support_points(
+        dealii::get_default_linear_mapping(triangulation),
+        control_dof_handler_,
+        support_points);
+
+      control_index_for_volume_dof_.assign(control_dof_handler_.n_dofs(),
+                                            invalid_control_index);
+      for (auto iterator = boundary_dofs.begin();
+           iterator != boundary_dofs.end();
+           ++iterator)
+        {
+          const auto volume_dof = *iterator;
+          control_index_for_volume_dof_[volume_dof] = trace_dofs_.size();
+          trace_dofs_.push_back(volume_dof);
+          coordinates_.push_back(support_points.at(volume_dof));
+        }
+    }
+
+    void
+    initialise_mass_sparsity()
+    {
+      dealii::DynamicSparsityPattern mass_dsp(dimension(), dimension());
+      std::vector<dealii::types::global_dof_index> volume_dofs(
+        control_fe_->dofs_per_cell);
+      for (auto cell = control_dof_handler_.begin_active();
+           cell != control_dof_handler_.end();
+           ++cell)
+        {
+          cell->get_dof_indices(volume_dofs);
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
+            if (is_control_face(cell, face))
+              for (unsigned int i = 0; i < control_fe_->dofs_per_cell; ++i)
+                {
+                  const auto control_i =
+                    control_index_for_volume_dof_.at(volume_dofs[i]);
+                  if (control_i == invalid_control_index)
+                    continue;
+                  for (unsigned int j = 0;
+                       j < control_fe_->dofs_per_cell;
+                       ++j)
+                    {
+                      const auto control_j =
+                        control_index_for_volume_dof_.at(volume_dofs[j]);
+                      if (control_j != invalid_control_index)
+                        mass_dsp.add(control_i, control_j);
+                    }
+                }
+        }
+      control_mass_sparsity_.copy_from(mass_dsp);
+      control_mass_ = std::make_shared<dealii::SparseMatrix<double>>();
+      control_mass_->reinit(control_mass_sparsity_);
+    }
+
+    void
+    assemble_mass(const unsigned int quadrature_order)
+    {
+      const auto face_quadrature = make_gauss_face_quadrature(
+        control_dof_handler_.get_triangulation(),
+        quadrature_order,
+        "The continuous Neumann control realization");
+      dealii::FEFaceValues<dim> face_values(*control_fe_,
+                                            *face_quadrature,
+                                            dealii::update_values |
+                                              dealii::update_JxW_values);
+      std::vector<dealii::types::global_dof_index> volume_dofs(
+        control_fe_->dofs_per_cell);
+      for (auto cell = control_dof_handler_.begin_active();
+           cell != control_dof_handler_.end();
+           ++cell)
+        {
+          cell->get_dof_indices(volume_dofs);
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
+            if (is_control_face(cell, face))
+              {
+                face_values.reinit(cell, face);
+                for (unsigned int i = 0;
+                     i < control_fe_->dofs_per_cell;
+                     ++i)
+                  {
+                    const auto control_i =
+                      control_index_for_volume_dof_.at(volume_dofs[i]);
+                    if (control_i == invalid_control_index)
+                      continue;
+                    for (unsigned int j = 0;
+                         j < control_fe_->dofs_per_cell;
+                         ++j)
+                      {
+                        const auto control_j =
+                          control_index_for_volume_dof_.at(volume_dofs[j]);
+                        if (control_j == invalid_control_index)
+                          continue;
+                        double entry = 0.0;
+                        for (unsigned int q = 0;
+                             q < face_quadrature->size();
+                             ++q)
+                          entry += face_values.shape_value(i, q) *
+                                   face_values.shape_value(j, q) *
+                                   face_values.JxW(q);
+                        if (entry != 0.0)
+                          control_mass_->add(control_i, control_j, entry);
+                      }
+                  }
+              }
+        }
+    }
+
+    const std::set<dealii::types::boundary_id> control_boundary_ids_;
+    std::unique_ptr<dealii::FiniteElement<dim>> control_fe_;
+    dealii::DoFHandler<dim>                     control_dof_handler_;
+    std::vector<dealii::types::global_dof_index> trace_dofs_;
+    std::vector<std::size_t> control_index_for_volume_dof_;
+    std::vector<dealii::Point<dim>> coordinates_;
+    dealii::SparsityPattern control_mass_sparsity_;
+    std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
+    contract::LayoutPtr layout_;
   };
 } // namespace nmopt::compiler::v1::detail

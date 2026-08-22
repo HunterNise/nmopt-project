@@ -12,6 +12,7 @@
 #include <cmath>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -746,6 +747,113 @@ namespace
               std::isfinite(armijo_result.acceptance_evidence.sufficient_decrease_bound) &&
               armijo_result.acceptance_evidence.trial_slope < 0.0,
             "Armijo line search did not report its acceptance evidence");
+
+    nmopt::solvers::FixedStepLineSearchParameters fixed_step_parameters;
+    fixed_step_parameters.step_length = 100.0;
+    const nmopt::solvers::FixedStepLineSearchPolicy fixed_step_policy(
+      fixed_step_parameters);
+    const std::size_t fixed_step_state_calls = trial_state_calls;
+    const std::size_t fixed_step_adjoint_calls = trial_adjoint_calls;
+    const auto fixed_step_result = fixed_step_policy.search(
+      control,
+      evaluation,
+      search_direction,
+      build_trial,
+      evaluate_trial_value,
+      augment_trial_derivative);
+    require(fixed_step_result.accepted() &&
+              fixed_step_result.trial_count == 1 &&
+              fixed_step_result.step_length ==
+                fixed_step_parameters.step_length &&
+              fixed_step_result.evaluation.objective_value >
+                evaluation.objective_value,
+            "Fixed-step search did not unconditionally accept its declared trial");
+    require(trial_state_calls == fixed_step_state_calls + 1 &&
+              trial_adjoint_calls == fixed_step_adjoint_calls + 1,
+            "Fixed-step search did not augment its sole accepted value");
+    PrimalBlock fixed_step_update = fixed_step_result.control;
+    nmopt::solvers::add_scaled_primal(fixed_step_update, -1.0, control);
+    PrimalBlock expected_fixed_step_update = search_direction.direction;
+    nmopt::solvers::scale_primal(expected_fixed_step_update,
+                                 fixed_step_parameters.step_length);
+    for (std::size_t block = 0; block < fixed_step_update.n_blocks(); ++block)
+      for (std::size_t entry = 0;
+           entry < fixed_step_update.block(block).size();
+           ++entry)
+        require_close(fixed_step_update.block(block)[entry],
+                      expected_fixed_step_update.block(block)[entry],
+                      1e-12,
+                      "Fixed-step search displacement");
+    const auto fixed_step_snapshot = fixed_step_policy.snapshot();
+    require(fixed_step_snapshot.policy_name == "fixed_step" &&
+              fixed_step_snapshot.maximum_trials == 1 &&
+              fixed_step_snapshot.initial_step_length ==
+                fixed_step_parameters.step_length &&
+              std::isnan(fixed_step_snapshot.armijo_fraction) &&
+              fixed_step_result.acceptance_evidence.policy_name ==
+                "fixed_step" &&
+              std::isnan(fixed_step_result.acceptance_evidence.sufficient_decrease_bound) &&
+              fixed_step_result.trial_records.size() == 1 &&
+              fixed_step_result.trial_records.front().accepted &&
+              std::isnan(fixed_step_result.trial_records.front().sufficient_decrease_bound),
+            "Fixed-step search did not retain its policy and trial evidence");
+
+    const auto evaluate_nonfinite_fixed_step_value =
+      [&evaluate_trial_value](const PrimalBlock &trial_control) {
+        auto value = evaluate_trial_value(trial_control);
+        value.objective_value = std::numeric_limits<double>::quiet_NaN();
+        return value;
+      };
+    const std::size_t nonfinite_fixed_step_adjoint_calls =
+      trial_adjoint_calls;
+    const auto nonfinite_fixed_step_result = fixed_step_policy.search(
+      control,
+      evaluation,
+      search_direction,
+      build_trial,
+      evaluate_nonfinite_fixed_step_value,
+      augment_trial_derivative);
+    const auto &nonfinite_fixed_step_record =
+      nonfinite_fixed_step_result.trial_records.front();
+    require(!nonfinite_fixed_step_result.accepted() &&
+              nonfinite_fixed_step_result.trial_count == 1 &&
+              nonfinite_fixed_step_result.trial_records.size() == 1 &&
+              !nonfinite_fixed_step_record.objective_finite &&
+              !nonfinite_fixed_step_record.accepted &&
+              trial_adjoint_calls == nonfinite_fixed_step_adjoint_calls,
+            "Fixed-step search did not reject a non-finite trial before derivative augmentation");
+
+    auto non_descent_direction = search_direction;
+    non_descent_direction.directional_derivative = 0.0;
+    nmopt::test_support::require_contract_error(
+      [&fixed_step_policy, &control, &evaluation, &non_descent_direction,
+       &build_trial, &evaluate_trial_value, &augment_trial_derivative]() {
+        (void)fixed_step_policy.search(control,
+                                       evaluation,
+                                       non_descent_direction,
+                                       build_trial,
+                                       evaluate_trial_value,
+                                       augment_trial_derivative);
+      },
+      "Fixed-step search requires a descent direction",
+      "fixed-step non-descent direction");
+    nmopt::test_support::require_contract_error(
+      []() {
+        nmopt::solvers::FixedStepLineSearchParameters invalid_parameters;
+        invalid_parameters.step_length = 0.0;
+        (void)nmopt::solvers::FixedStepLineSearchPolicy(invalid_parameters);
+      },
+      "Fixed-step length must be positive and finite",
+      "nonpositive fixed-step length");
+    nmopt::test_support::require_contract_error(
+      []() {
+        nmopt::solvers::FixedStepLineSearchParameters invalid_parameters;
+        invalid_parameters.step_length =
+          std::numeric_limits<double>::infinity();
+        (void)nmopt::solvers::FixedStepLineSearchPolicy(invalid_parameters);
+      },
+      "Fixed-step length must be positive and finite",
+      "non-finite fixed-step length");
 
     nmopt::solvers::ArmijoLineSearchParameters book_armijo_parameters;
     book_armijo_parameters.maximum_trials = 6;
@@ -2082,6 +2190,61 @@ namespace
                 full_bfgs_result.objective_history[index - 1],
               "Dense full BFGS objective history is not monotonic");
 
+    nmopt::solvers::ReducedSolverParameters fixed_bfgs_parameters =
+      solver_parameters;
+    fixed_bfgs_parameters.maximum_iterations = 4;
+    fixed_bfgs_parameters.gradient_tolerance = 1e-16;
+    nmopt::solvers::FixedStepLineSearchParameters fixed_bfgs_line_parameters;
+    fixed_bfgs_line_parameters.step_length = 0.25;
+    const nmopt::solvers::ReducedFixedStepFullBfgsSolver fixed_bfgs_solver(
+      reduced,
+      metric,
+      fixed_bfgs_parameters,
+      nmopt::solvers::FullBfgsDirectionPolicyDense{},
+      nmopt::solvers::FixedStepLineSearchPolicy(fixed_bfgs_line_parameters));
+    const PrimalBlock fixed_bfgs_initial_control(
+      partition.control_layout(), {DenseVector{1.0, -1.0}});
+    const auto fixed_bfgs_result =
+      fixed_bfgs_solver.solve(fixed_bfgs_initial_control);
+    const auto repeated_fixed_bfgs_result =
+      fixed_bfgs_solver.solve(fixed_bfgs_initial_control);
+    require(fixed_bfgs_result.accepted_iterations > 1 &&
+              fixed_bfgs_result.line_search_trial_count ==
+                fixed_bfgs_result.accepted_iterations &&
+              fixed_bfgs_result.line_search_trials.size() ==
+                fixed_bfgs_result.accepted_iterations &&
+              fixed_bfgs_result.state_solve_count ==
+                fixed_bfgs_result.accepted_iterations + 1 &&
+              fixed_bfgs_result.adjoint_solve_count ==
+                fixed_bfgs_result.accepted_iterations + 1,
+            "Fixed-step full BFGS did not use one complete trial per accepted iteration");
+    require(fixed_bfgs_result.policy_name == "fixed_step" &&
+              fixed_bfgs_result.policy_parameters.policy_name ==
+                "fixed_step" &&
+              fixed_bfgs_result.policy_parameters.maximum_trials == 1 &&
+              fixed_bfgs_result.policy_parameters.initial_step_length ==
+                fixed_bfgs_line_parameters.step_length,
+            "Fixed-step full BFGS did not retain its policy snapshot");
+    for (std::size_t index = 0;
+         index < fixed_bfgs_result.accepted_iterations;
+         ++index)
+      require(fixed_bfgs_result.step_length_history[index] ==
+                  fixed_bfgs_line_parameters.step_length &&
+                fixed_bfgs_result.line_search_trials[index].trial == 0 &&
+                fixed_bfgs_result.line_search_trials[index].accepted &&
+                fixed_bfgs_result.iteration_records[index]
+                    .acceptance_evidence.policy_name == "fixed_step" &&
+                std::isnan(fixed_bfgs_result.iteration_records[index]
+                             .acceptance_evidence.sufficient_decrease_bound),
+              "Fixed-step full BFGS accepted-iteration evidence is incomplete");
+    require(fixed_bfgs_result.objective_history ==
+                repeated_fixed_bfgs_result.objective_history &&
+              fixed_bfgs_result.step_length_history ==
+                repeated_fixed_bfgs_result.step_length_history &&
+              fixed_bfgs_result.direction_reset_count ==
+                repeated_fixed_bfgs_result.direction_reset_count,
+            "Fixed-step full BFGS is not deterministic");
+
     const nmopt::solvers::NewtonDirectionPolicyDense exact_newton_direction(
       hessian, newton_parameters);
     const nmopt::solvers::ExactQuadraticLineSearchPolicy exact_newton_line_search(
@@ -2210,6 +2373,31 @@ namespace
                 projected_result.objective_history[index - 1],
               "Projected reduced gradient objective history is not monotonic");
 
+    nmopt::solvers::ReducedSolverParameters projected_fixed_parameters =
+      solver_parameters;
+    projected_fixed_parameters.maximum_iterations = 1;
+    projected_fixed_parameters.gradient_tolerance = 1e-16;
+    projected_fixed_parameters.initial_step_length = 10.0;
+    const RecordingConstraint fixed_recording_bounds(projected_bounds);
+    const nmopt::solvers::ReducedFixedStepGradientSolver projected_fixed_solver(
+      reduced,
+      metric,
+      fixed_recording_bounds,
+      projected_fixed_parameters);
+    const auto projected_fixed_result = projected_fixed_solver.solve(
+      PrimalBlock(partition.control_layout(), {DenseVector{0.4, 0.4}}));
+    require(projected_fixed_result.accepted_iterations == 1 &&
+              projected_fixed_result.line_search_trial_count == 1 &&
+              projected_fixed_result.line_search_trials.size() == 1 &&
+              projected_fixed_result.line_search_trials.front().accepted &&
+              projected_fixed_result.step_length_history.front() ==
+                projected_fixed_parameters.initial_step_length &&
+              projected_fixed_result.policy_parameters.initial_step_length ==
+                projected_fixed_parameters.initial_step_length &&
+              projected_bounds.is_feasible(projected_fixed_result.control) &&
+              !fixed_recording_bounds.projected_controls().empty(),
+            "Projected fixed-step search did not accept one feasible declared trial");
+
     const nmopt::solvers::ReducedWolfeGradientSolver projected_wolfe_solver(
       reduced, metric, recording_bounds, solver_parameters);
     const auto projected_wolfe_result = projected_wolfe_solver.solve(
@@ -2242,7 +2430,7 @@ namespace
                                    solver_parameters);
             (void)rejected_solver;
           },
-          "Projected reduced solver supports only steepest descent with Armijo, weak Wolfe, or strong Wolfe line search",
+          "Projected reduced solver supports only steepest descent with Armijo, fixed step, weak Wolfe, or strong Wolfe line search",
           label);
       };
     expect_projected_policy_rejection(

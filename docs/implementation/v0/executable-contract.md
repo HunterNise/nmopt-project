@@ -46,6 +46,7 @@ The public executable and solver headers provide:
 | `solvers::FullBfgsDirectionPolicyT` | The metric-aware full-memory BFGS direction policy retaining every accepted typed secant pair and applying the full two-loop update. |
 | `solvers::NewtonDirectionPolicyT` | The explicit-Hessian Newton direction consumer using metric-preconditioned inner conjugate gradients. |
 | `solvers::ArmijoLineSearchPolicyT` | Backtracking Armijo acceptance using the declared pairing and the actual returned trial displacement. |
+| `solvers::FixedStepLineSearchPolicyT` | One unconditional finite-objective trial at a declared positive finite step, with the actual returned displacement retained as evidence. |
 | `solvers::ExactQuadraticLineSearchPolicyT` | One-step exact line search for a positive-curvature explicit reduced Hessian. |
 | `solvers::WolfeLineSearchPolicyT` | Strong Wolfe acceptance using actual trial slopes and declared sufficient-decrease/curvature fractions. |
 | `solvers::WeakWolfeLineSearchPolicyT` | Weak Wolfe acceptance using the one-sided actual-trial-slope condition and declared sufficient-decrease/curvature fractions. |
@@ -54,6 +55,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedTrustRegionSubproblemStatus` | The per-trial trust-region subproblem outcome: Cauchy, residual convergence, boundary, negative curvature, or iteration limit. |
 | `solvers::ReducedTrustRegionResultT` | The trust-region report containing accepted objectives, gradient histories, radius/step histories, actual and predicted reductions, ratios, acceptance flags, subproblem statuses/iterations/residuals, and action counts. |
 | `solvers::ReducedGradientSolverT` | Backend-parametric unconstrained or projected reduced Armijo method consuming `ReducedDTOT`, `MetricT`, and an optional `ConstraintT`. |
+| `solvers::ReducedFixedStepGradientSolverT` | The same steepest-descent loop with one fixed trial; compatible projection constraints remain supported. |
 | `solvers::ReducedConjugateGradientSolverT` | The same reduced execution loop configured with `NonlinearConjugateGradientDirectionPolicyT`. |
 | `solvers::ReducedFletcherReevesSolverT` | The same reduced execution loop configured with `FletcherReevesDirectionPolicyT`. |
 | `solvers::ReducedExactConjugateGradientSolverT` | The reduced PR+ execution loop combined with `ExactQuadraticLineSearchPolicyT`. |
@@ -61,6 +63,7 @@ The public executable and solver headers provide:
 | `solvers::ReducedQuadraticConjugateGradientSolverT` | The strict classical quadratic-CG recurrence combined with `ExactQuadraticLineSearchPolicyT`. |
 | `solvers::ReducedLimitedMemoryBfgsSolverT` | The same reduced execution loop configured with `LimitedMemoryBfgsDirectionPolicyT` for the unconstrained first registration. |
 | `solvers::ReducedFullBfgsSolverT` | The same reduced execution loop configured with `FullBfgsDirectionPolicyT` for the unconstrained linear-quadratic reference target. |
+| `solvers::ReducedFixedStepFullBfgsSolverT` | The unconstrained full-BFGS composition with `FixedStepLineSearchPolicyT`. |
 | `solvers::ReducedNewtonSolverT` | The same unconstrained reduced execution loop configured with `NewtonDirectionPolicyT` and an explicit `ReducedHessianT`. |
 | `solvers::ReducedExactNewtonSolverT` | The reduced Newton loop combined with `ExactQuadraticLineSearchPolicyT` for positive-curvature quadratic targets. |
 | `solvers::ReducedWolfeGradientSolverT` | The reduced steepest-descent loop combined with `WolfeLineSearchPolicyT`. |
@@ -275,24 +278,27 @@ no dense reduced Hessian is assembled.
 The line-search protocol receives a typed current evaluation, a direction, a
 trial-control builder, and a trial evaluator. The builder is responsible for
 the caller's feasibility/projection policy; every acceptance condition then
-uses the actual displacement $`u_{\mathrm{trial}}-u`$, not the nominal scalar
-step times the unprojected direction. Armijo backtracks until sufficient
-decrease holds, exact quadratic search uses
-$`\tau=-j_{h}'[d]/\langle H d,d\rangle`$ for positive curvature, weak Wolfe
+uses the actual displacement $u_{\mathrm{trial}}-u$, not the nominal scalar
+step times the unprojected direction. Fixed-step search accepts its sole
+finite-objective trial without a decrease test. Armijo backtracks until
+sufficient decrease holds, exact quadratic search uses
+$\tau=-j_{h}'[d]/\langle H d,d\rangle$ for positive curvature, weak Wolfe
 requires the actual trial slope to be at least its curvature fraction times
 the actual initial slope, and strong Wolfe bounds the absolute trial slope by
-that fraction. These policies return failure rather than silently accepting a
-non-descent or non-finite trial.
+that fraction. Every policy rejects a non-descent input direction and returns
+failure rather than accepting a non-finite objective.
 
 `ReducedSearchSolverT` delegates trial construction and evaluation to the
 selected line-search policy. Its default Armijo policy is initialized from
-the legacy `ReducedSolverParameters` fields, while explicit policy instances
-select combinations such as exact Newton or Wolfe steepest descent. Trial
-counts are accumulated from the policy result and state/adjoint counts are
-incremented by the evaluator callback, keeping reporting consistent across
-all combinations. A positive minimum step is an operative Armijo floor: after
-a rejection, the next trial is clamped to the floor and no smaller trial is
-formed.
+the legacy `ReducedSolverParameters` fields. A default fixed-step
+specialization takes its step from `initial_step_length`; an explicit policy
+instance may instead carry its own `FixedStepLineSearchParameters`. Other
+explicit policy instances select combinations such as exact Newton or Wolfe
+steepest descent. Trial counts are accumulated from the policy result and
+state/adjoint counts are incremented by the evaluator callback, keeping
+reporting consistent across all combinations. A positive minimum step is an
+operative Armijo floor: after a rejection, the next trial is clamped to the
+floor and no smaller trial is formed.
 
 The exact-search nonlinear-CG aliases combine the typed PR+ or
 Fletcher–Reeves direction policy with the explicit positive-curvature

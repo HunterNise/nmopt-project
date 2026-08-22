@@ -182,11 +182,11 @@ repeating the state solve or objective evaluation. `evaluate(control)` remains
 the compatibility composition of these two stages.
 
 The selected policies expose their information request at the solver seam:
-Armijo and exact-quadratic trials request value/state data and augment only an
-accepted value, while weak and strong Wolfe trials augment every tested value
-because their curvature predicates require a trial slope. Trust-region
-reduction-ratio trials follow the value-only path and augment only after
-acceptance.
+Armijo, fixed-step, and exact-quadratic trials request value/state data and
+augment only an accepted value, while weak and strong Wolfe trials augment
+every tested value because their curvature predicates require a trial slope.
+Trust-region reduction-ratio trials follow the value-only path and augment
+only after acceptance.
 
 The terminal report is an audit boundary as well as a convergence result. It
 retains the final accepted evaluation, the solver-parameter and policy
@@ -225,9 +225,9 @@ inverse-metric action; a direction formed after accepting a secant pair
 performs two, one for the metric gradient and one for the two-loop recursion.
 L-BFGS history eviction does not add hidden metric actions.
 For the scalar-secant option, the initial two-loop action is
-$`\gamma_kG^{-1}`$ with
-$`\gamma_k=\langle s_k,y_k\rangle/\langle y_k,G^{-1}y_k\rangle`$; the
-retained metric-gradient difference supplies $`G^{-1}y_k`$ without another
+$\gamma_kG^{-1}$ with
+$\gamma_k=\langle s_k,y_k\rangle/\langle y_k,G^{-1}y_k\rangle$; the
+retained metric-gradient difference supplies $G^{-1}y_k$ without another
 inverse metric application.
 
 The Armijo policy can also enforce a positive minimum trial step. Rejected
@@ -235,6 +235,15 @@ steps are reduced by the declared factor, clamped once to that floor, and
 never evaluated below it. An optional objective target is independent of the
 gradient stopping selector and supports comparisons in which one method must
 stop at a reference method's terminal cost.
+
+The fixed-step policy instead evaluates exactly one trial at the declared
+positive finite parameter $\tau$. Its trial builder still owns feasibility, so
+a constrained solver may return a projected control rather than the nominal
+$u+\tau d$. Any finite trial objective is accepted without an Armijo or
+curvature test, even when the objective increases; the actual displacement
+and its pairing with the current derivative remain in the audit record. The
+input direction must still be a descent direction, and a non-finite objective
+produces line-search failure rather than an accepted evaluation.
 
 For the trust-region subproblem, the Cauchy policy minimizes the quadratic
 model along the metric steepest direction. The truncated-CG policy instead

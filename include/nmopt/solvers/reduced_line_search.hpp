@@ -308,6 +308,129 @@ namespace nmopt::solvers
   using ArmijoLineSearchPolicy =
     ArmijoLineSearchPolicyT<contract::DenseBackend>;
 
+  struct FixedStepLineSearchParameters
+  {
+    double step_length = 1.0;
+  };
+
+  template <typename Backend>
+  class FixedStepLineSearchPolicyT
+  {
+  public:
+    using Result = ReducedLineSearchResultT<Backend>;
+    using Primal = contract::PrimalBlockT<Backend>;
+    using Evaluation = contract::ReducedEvaluationT<Backend>;
+
+    FixedStepLineSearchPolicyT(FixedStepLineSearchParameters parameters = {})
+      : parameters_(parameters)
+    {
+      validate_parameters();
+    }
+
+    ReducedLineSearchPolicySnapshot
+    snapshot() const
+    {
+      return {"fixed_step",
+              1,
+              parameters_.step_length,
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN(),
+              std::numeric_limits<double>::quiet_NaN()};
+    }
+
+    Result
+    search(const Primal &       current_control,
+           const Evaluation &   current_evaluation,
+           const ReducedSearchDirectionT<Backend> &direction,
+           const ReducedTrialControlBuilderT<Backend> &build_trial_control,
+           const ReducedTrialValueEvaluatorT<Backend> &evaluate_trial_value,
+           const ReducedTrialDerivativeAugmenterT<Backend> &
+             augment_trial_derivative) const
+    {
+      detail::validate_line_search_inputs(current_control,
+                                          current_evaluation,
+                                          direction,
+                                          build_trial_control,
+                                          evaluate_trial_value,
+                                          augment_trial_derivative,
+                                          "Fixed-step search");
+
+      Primal trial_control = build_trial_control(parameters_.step_length);
+      contract::require(trial_control.layout()->compatible_with(
+                          *current_control.layout()),
+                        "Fixed-step trial control has an incompatible layout");
+      const auto trial_value = evaluate_trial_value(trial_control);
+      contract::require(trial_value.control.layout()->compatible_with(
+                          *current_control.layout()),
+                        "Fixed-step trial value has an incompatible layout");
+
+      Primal actual_update = trial_control;
+      add_scaled_primal(actual_update, -1.0, current_control);
+      const double actual_slope =
+        contract::pair(current_evaluation.reduced_derivative, actual_update);
+      contract::require(std::isfinite(actual_slope),
+                        "Fixed-step trial produced a non-finite actual slope");
+      const bool objective_finite =
+        std::isfinite(trial_value.objective_value);
+      const ReducedLineSearchTrialRecord trial_record{
+        0,
+        0,
+        parameters_.step_length,
+        trial_value.objective_value,
+        actual_slope,
+        std::numeric_limits<double>::quiet_NaN(),
+        objective_finite,
+        actual_slope < 0.0,
+        objective_finite};
+      if (!objective_finite)
+        {
+          auto result = detail::failure(current_control,
+                                        current_evaluation,
+                                        1,
+                                        0,
+                                        "fixed_step");
+          result.trial_records.push_back(trial_record);
+          return result;
+        }
+
+      Evaluation trial_evaluation = augment_trial_derivative(trial_value);
+      contract::require(
+        trial_evaluation.reduced_derivative.layout()->compatible_with(
+          *current_control.layout()),
+        "Fixed-step accepted trial derivative has an incompatible layout");
+      auto result = detail::accepted(
+        trial_control,
+        std::move(trial_evaluation),
+        parameters_.step_length,
+        1,
+        0,
+        ReducedAcceptanceEvidence{
+          "fixed_step",
+          std::numeric_limits<double>::quiet_NaN(),
+          actual_slope,
+          std::numeric_limits<double>::quiet_NaN()});
+      result.trial_records.push_back(trial_record);
+      return result;
+    }
+
+  private:
+    void
+    validate_parameters() const
+    {
+      contract::require(std::isfinite(parameters_.step_length) &&
+                          parameters_.step_length > 0.0,
+                        "Fixed-step length must be positive and finite");
+    }
+
+    FixedStepLineSearchParameters parameters_;
+  };
+
+  using FixedStepLineSearchPolicy =
+    FixedStepLineSearchPolicyT<contract::DenseBackend>;
+
   struct ExactQuadraticLineSearchParameters
   {
     double curvature_tolerance = 1e-14;
@@ -746,6 +869,14 @@ namespace nmopt::solvers
   template <typename Backend>
   inline ReducedLineSearchPolicySnapshot
   reduced_line_search_policy_snapshot(
+    const FixedStepLineSearchPolicyT<Backend> &policy)
+  {
+    return policy.snapshot();
+  }
+
+  template <typename Backend>
+  inline ReducedLineSearchPolicySnapshot
+  reduced_line_search_policy_snapshot(
     const ExactQuadraticLineSearchPolicyT<Backend> &policy)
   {
     return policy.snapshot();
@@ -778,6 +909,13 @@ namespace nmopt::solvers
   reduced_line_search_policy_name(const ArmijoLineSearchPolicyT<Backend> &)
   {
     return "armijo";
+  }
+
+  template <typename Backend>
+  inline std::string
+  reduced_line_search_policy_name(const FixedStepLineSearchPolicyT<Backend> &)
+  {
+    return "fixed_step";
   }
 
   template <typename Backend>

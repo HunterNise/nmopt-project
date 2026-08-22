@@ -286,7 +286,7 @@ nmopt::solvers::ReducedGradientSolverT<Backend> solver(
 | `objective_change_tolerance` | `0` | Optional objective-change criterion; zero disables it. |
 | `step_tolerance` | `0` | Optional step criterion; zero disables it. |
 | `objective_target` | unset | Optional absolute objective threshold; reaching it records `objective_target` after retaining the terminal gradient. |
-| `initial_step_length` | `1` | Initial line-search step. |
+| `initial_step_length` | `1` | Initial Armijo trial or fixed-step parameter. |
 | `minimum_step_length` | `0` | Armijo trial floor; zero disables the floor. |
 | `armijo_fraction` | `1e-4` | Sufficient-decrease fraction for Armijo. |
 | `backtracking_factor` | `0.5` | Multiplicative reduction after a rejected trial. |
@@ -297,10 +297,34 @@ recipe should expose those choices as typed solver options only when its
 contract requires them; it should not encode solver policy into the semantic
 graph.
 
+`FixedStepLineSearchParameters::step_length` declares a positive finite step.
+The fixed-step policy evaluates one trial, accepts every finite objective
+without a decrease predicate, and augments the derivative only for that
+accepted value. For example, the reusable full-BFGS composition is:
+
+```cpp
+nmopt::solvers::FixedStepLineSearchParameters line_parameters;
+line_parameters.step_length = 0.25;
+
+nmopt::solvers::ReducedFixedStepFullBfgsSolverT<Backend> solver(
+  reduced,
+  compiled.metric(),
+  solver_parameters,
+  nmopt::solvers::FullBfgsDirectionPolicyT<Backend>{},
+  nmopt::solvers::FixedStepLineSearchPolicyT<Backend>{line_parameters});
+const auto report = solver.solve(initial_control);
+```
+
+If the policy is default-constructed by a fixed-step solver specialization,
+`ReducedSolverParameters::initial_step_length` supplies its step. Projected
+fixed-step execution is registered only with the steepest-descent direction
+policy; the trial builder applies the compatible constraint projection and the
+report retains both the requested step parameter and the actual step norm.
+
 `LimitedMemoryBfgsParameters` separately declares the history cap, curvature
 tolerance, and whether the two-loop recursion starts from the metric inverse
 or its metric-aware scalar-secant scaling. The latter uses
-$`\gamma_k=\langle s_k,y_k\rangle/\langle y_k,G^{-1}y_k\rangle`$ and reuses
+$\gamma_k=\langle s_k,y_k\rangle/\langle y_k,G^{-1}y_k\rangle$ and reuses
 the metric gradients already formed by the outer solver.
 
 The initial control must have a layout compatible with the compiled metric.

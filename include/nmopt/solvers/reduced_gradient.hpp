@@ -12,10 +12,10 @@
 
 namespace nmopt::solvers
 {
-  // An unconstrained reduced-space method. The metric identifies the reduced
-  // covector j' with g = G^{-1} j'; the direction protocol supplies d = -g.
-  // Armijo accepts u + alpha d when j(u + alpha d) <=
-  // j(u) + c <j', alpha d>.
+  // A reduced-space line-search method. The metric identifies the reduced
+  // covector j' with g = G^{-1} j', the direction protocol supplies a primal
+  // direction, and the selected line-search policy owns trial acceptance.
+  // Constrained specializations project the trial builder's returned control.
   template <typename Backend,
             typename DirectionPolicy =
               SteepestDescentDirectionPolicyT<Backend>,
@@ -468,10 +468,12 @@ namespace nmopt::solvers
           (std::is_same_v<LineSearchPolicy,
                           ArmijoLineSearchPolicyT<Backend>> ||
            std::is_same_v<LineSearchPolicy,
+                          FixedStepLineSearchPolicyT<Backend>> ||
+           std::is_same_v<LineSearchPolicy,
                           WolfeLineSearchPolicyT<Backend>> ||
            std::is_same_v<LineSearchPolicy,
                           WeakWolfeLineSearchPolicyT<Backend>>),
-        "Projected reduced solver supports only steepest descent with Armijo, weak Wolfe, or strong Wolfe line search");
+        "Projected reduced solver supports only steepest descent with Armijo, fixed step, weak Wolfe, or strong Wolfe line search");
     }
 
     static LineSearchPolicy
@@ -485,6 +487,10 @@ namespace nmopt::solvers
           parameters.armijo_fraction,
           parameters.backtracking_factor,
           parameters.minimum_step_length});
+      else if constexpr (std::is_same_v<LineSearchPolicy,
+                                        FixedStepLineSearchPolicyT<Backend>>)
+        return LineSearchPolicy(
+          FixedStepLineSearchParameters{parameters.initial_step_length});
       else
         return LineSearchPolicy{};
     }
@@ -665,6 +671,16 @@ namespace nmopt::solvers
                          NonlinearConjugateGradientDirectionPolicyT<Backend>>;
 
   using ReducedGradientSolver = ReducedGradientSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
+  using ReducedFixedStepGradientSolverT =
+    ReducedSearchSolverT<Backend,
+                         SteepestDescentDirectionPolicyT<Backend>,
+                         FixedStepLineSearchPolicyT<Backend>>;
+
+  using ReducedFixedStepGradientSolver =
+    ReducedFixedStepGradientSolverT<contract::DenseBackend>;
+
   using ReducedConjugateGradientSolver =
     ReducedConjugateGradientSolverT<contract::DenseBackend>;
 
@@ -715,6 +731,15 @@ namespace nmopt::solvers
 
   using ReducedFullBfgsSolver =
     ReducedFullBfgsSolverT<contract::DenseBackend>;
+
+  template <typename Backend>
+  using ReducedFixedStepFullBfgsSolverT =
+    ReducedSearchSolverT<Backend,
+                         FullBfgsDirectionPolicyT<Backend>,
+                         FixedStepLineSearchPolicyT<Backend>>;
+
+  using ReducedFixedStepFullBfgsSolver =
+    ReducedFixedStepFullBfgsSolverT<contract::DenseBackend>;
 
   template <typename Backend>
   using ReducedWolfeGradientSolverT =

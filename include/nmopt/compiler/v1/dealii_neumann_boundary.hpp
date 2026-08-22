@@ -203,6 +203,26 @@ namespace nmopt::compiler::v1::detail
     }
 
     std::size_t
+    independent_state_dimension() const
+    {
+      return static_cast<std::size_t>(std::count(constrained_state_dofs_.begin(),
+                                                 constrained_state_dofs_.end(),
+                                                 false));
+    }
+
+    std::size_t
+    physical_control_dimension() const
+    {
+      return control_face_count_;
+    }
+
+    std::size_t
+    independent_control_dimension() const
+    {
+      return control_face_count_;
+    }
+
+    std::size_t
     realized_observation_dimension() const
     {
       return state_observation_ == StateObservation::boundary_trace
@@ -538,6 +558,19 @@ namespace nmopt::compiler::v1::detail
     double
     objective(const Primal &variables) const override
     {
+      const auto components = objective_components(variables);
+      return components.state_tracking + components.control_regularisation;
+    }
+
+    struct ObjectiveComponents
+    {
+      double state_tracking;
+      double control_regularisation;
+    };
+
+    ObjectiveComponents
+    objective_components(const Primal &variables) const
+    {
       require_variables(variables, "Objective");
       Vector tracked_state(state_dof_handler_.n_dofs());
       state_tracking_matrix_.vmult(tracked_state, variables.block(0));
@@ -549,7 +582,7 @@ namespace nmopt::compiler::v1::detail
       control_mass_->vmult(control_mass_times_control, variables.block(1));
       const double control_value = 0.5 * regularisation_weight_ *
                                    (variables.block(1) * control_mass_times_control);
-      return state_value + control_value;
+      return {state_value, control_value};
     }
 
     Covector

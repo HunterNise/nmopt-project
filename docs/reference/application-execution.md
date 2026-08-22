@@ -87,6 +87,25 @@ finite-element fields, including homogeneous boundary values, while
 `benchmark.*_independent_dimension` excludes constrained coefficients. This
 distinction lets B1 comparisons test either interpretation of the source's
 equal-dimension clue without changing the solver's coordinate convention.
+The same dimension triplets are emitted for B2 state, control, and adjoint
+fields. B2 additionally records mesh vertices and active cells, total and
+per-region exterior-face counts, and the realized observation measure.
+
+Every compiled semantic space is projected as
+`manifest.space.<semantic-id>.*`, including its realized dimension, runtime
+role, finite element, and region. These deterministic fields expose the
+structured manifest values directly; the human-readable
+`manifest.state_space` and `manifest.control_space` descriptions remain
+compatibility renderings.
+
+B2 objective evidence separates tracking and control-regularisation values at
+the initial and terminal controls. The two components must sum to the retained
+total objective. Its optimized and uncontrolled state, control, and adjoint
+coefficient extrema are retained beside the field files. The existing
+`solver.gradient_norm_history` is the declared-metric gradient norm; the
+explicit `solver.metric_gradient_norm_history` alias and the separate
+`solver.coefficient_derivative_norm_history` make that convention auditable
+without treating dual coefficient norms as Hilbert gradients.
 
 ## Runner API
 

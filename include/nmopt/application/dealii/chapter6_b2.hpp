@@ -410,6 +410,27 @@ namespace nmopt::application::chapter6::dealii
   }
 
   template <typename Backend>
+  std::pair<double, double>
+  b2_block_extrema(const contract::BlockValuesT<Backend> &values,
+                   const std::size_t                      block = 0)
+  {
+    contract::require(block < values.n_blocks(),
+                      "B2 extrema requested an absent block");
+    contract::require(values.block(block).size() > 0,
+                      "B2 extrema need a nonempty coefficient block");
+    double minimum = values.block(block)[0];
+    double maximum = minimum;
+    for (std::size_t index = 1; index < values.block(block).size(); ++index)
+      {
+        minimum = std::min(minimum, values.block(block)[index]);
+        maximum = std::max(maximum, values.block(block)[index]);
+      }
+    contract::require(std::isfinite(minimum) && std::isfinite(maximum),
+                      "B2 extrema contain a non-finite coefficient");
+    return {minimum, maximum};
+  }
+
+  template <typename Backend>
   struct B2DerivativeEvidenceT
   {
     double residual_jvp_error;
@@ -616,6 +637,13 @@ namespace nmopt::application::chapter6::dealii
           throw std::runtime_error(message.str());
         }
 
+      using Model = compiler::v1::detail::NeumannBoundaryControlModel<dim>;
+      const auto *model =
+        dynamic_cast<const Model *>(&compilation.problem->executable_model());
+      if (model == nullptr)
+        throw std::runtime_error(
+          "B2 execution needs the Neumann boundary model");
+
       const auto reduced = compilation.problem->make_reduced_dto();
       const contract::StateControlPartitionT<Backend> partition(
         compilation.problem->executable_model(), 0, 1);
@@ -633,12 +661,6 @@ namespace nmopt::application::chapter6::dealii
       if (scenario.experiment.retain_fields &&
           !native_output_directory_.empty())
         {
-          const auto *model = dynamic_cast<const
-            compiler::v1::detail::NeumannBoundaryControlModel<dim> *>(
-            &compilation.problem->executable_model());
-          if (model == nullptr)
-            throw std::runtime_error(
-              "B2 native output needs the Neumann boundary model");
           model->write_native_output(native_output_directory_,
                                      report.final_evaluation.state,
                                      report.control,
@@ -655,6 +677,83 @@ namespace nmopt::application::chapter6::dealii
       const double initial_gradient_norm =
         report.gradient_norm_history.front();
       const double final_gradient_norm = report.gradient_norm_history.back();
+
+      const auto initial_objective_components =
+        model->objective_components(initial_evaluation.full_point);
+      const auto final_objective_components =
+        model->objective_components(report.final_evaluation.full_point);
+      contract::require(
+        std::abs(initial_objective_components.state_tracking +
+                   initial_objective_components.control_regularisation -
+                 initial_objective) <=
+          1.0e-12 * std::max(1.0, std::abs(initial_objective)) &&
+          std::abs(final_objective_components.state_tracking +
+                     final_objective_components.control_regularisation -
+                   final_objective) <=
+            1.0e-12 * std::max(1.0, std::abs(final_objective)),
+        "B2 objective components do not sum to the reported objective");
+
+      std::vector<double> coefficient_derivative_norm_history{
+        b2_block_values_l2_norm(initial_evaluation.reduced_derivative)};
+      coefficient_derivative_norm_history.reserve(
+        report.iteration_records.size() + 1);
+      for (const auto &record : report.iteration_records)
+        coefficient_derivative_norm_history.push_back(
+          b2_block_values_l2_norm(
+            record.common.accepted_evaluation.reduced_derivative));
+      contract::require(
+        coefficient_derivative_norm_history.size() ==
+          report.objective_history.size(),
+        "B2 coefficient-derivative and objective histories disagree");
+
+      const auto uncontrolled_state_extrema =
+        b2_block_extrema(initial_evaluation.state);
+      const auto optimized_state_extrema =
+        b2_block_extrema(report.final_evaluation.state);
+      const auto control_extrema = b2_block_extrema(report.control);
+      const auto adjoint_extrema =
+        b2_block_extrema(report.final_evaluation.adjoint);
+
+      const auto &triangulation = session_->triangulation();
+      std::size_t boundary_face_count = 0;
+      std::size_t fixed_boundary_face_count = 0;
+      std::size_t control_boundary_face_count = 0;
+      std::size_t outflow_boundary_face_count = 0;
+      double      observation_measure = 0.0;
+      for (const auto &cell : triangulation.active_cell_iterators())
+        {
+          if (cell->material_id() ==
+              scenario.problem.recipe.observed_material_id)
+            observation_measure += cell->measure();
+          for (unsigned int face = 0;
+               face < ::dealii::GeometryInfo<dim>::faces_per_cell;
+               ++face)
+            if (cell->face(face)->at_boundary())
+              {
+                ++boundary_face_count;
+                switch (cell->face(face)->boundary_id())
+                  {
+                    case chapter6::b2_fixed_boundary_id:
+                      ++fixed_boundary_face_count;
+                      break;
+                    case chapter6::b2_control_boundary_id:
+                      ++control_boundary_face_count;
+                      break;
+                    case chapter6::b2_outflow_boundary_id:
+                      ++outflow_boundary_face_count;
+                      break;
+                    default:
+                      throw std::runtime_error(
+                        "B2 evidence found an unclassified boundary face");
+                  }
+              }
+        }
+      contract::require(
+        boundary_face_count == fixed_boundary_face_count +
+                                 control_boundary_face_count +
+                                 outflow_boundary_face_count &&
+          observation_measure > 0.0,
+        "B2 structural evidence is incomplete");
       const auto solver_policy =
         experiment::make_reduced_search_policy_snapshot(report);
 
@@ -685,6 +784,37 @@ namespace nmopt::application::chapter6::dealii
         {"b2.fixed_temperature", b2_number(scenario.problem.fixed_temperature)},
         {"b2.regularisation_weight",
          b2_number(scenario.problem.data.regularisation_weight)},
+        {"benchmark.mesh_vertices",
+         std::to_string(triangulation.n_vertices())},
+        {"benchmark.mesh_active_cells",
+         std::to_string(triangulation.n_active_cells())},
+        {"benchmark.boundary_face_count",
+         std::to_string(boundary_face_count)},
+        {"benchmark.fixed_boundary_face_count",
+         std::to_string(fixed_boundary_face_count)},
+        {"benchmark.control_boundary_face_count",
+         std::to_string(control_boundary_face_count)},
+        {"benchmark.outflow_boundary_face_count",
+         std::to_string(outflow_boundary_face_count)},
+        {"benchmark.observation_measure", b2_number(observation_measure)},
+        {"benchmark.state_dimension",
+         std::to_string(report.final_evaluation.state.block(0).size())},
+        {"benchmark.state_physical_dimension",
+         std::to_string(model->physical_state_dimension())},
+        {"benchmark.state_independent_dimension",
+         std::to_string(model->independent_state_dimension())},
+        {"benchmark.control_dimension",
+         std::to_string(report.control.block(0).size())},
+        {"benchmark.control_physical_dimension",
+         std::to_string(model->physical_control_dimension())},
+        {"benchmark.control_independent_dimension",
+         std::to_string(model->independent_control_dimension())},
+        {"benchmark.adjoint_dimension",
+         std::to_string(report.final_evaluation.adjoint.block(0).size())},
+        {"benchmark.adjoint_physical_dimension",
+         std::to_string(model->physical_state_dimension())},
+        {"benchmark.adjoint_independent_dimension",
+         std::to_string(model->independent_state_dimension())},
         {"b2.derivative_evidence", "finite_difference_and_taylor"},
         {"b2.residual_jvp_error",
          b2_number(derivative_evidence.residual_jvp_error)},
@@ -700,17 +830,46 @@ namespace nmopt::application::chapter6::dealii
          b2_number(derivative_evidence.reduced_taylor_order)},
         {"b2.derivative_evidence_passed", "true"},
         {"b2.initial_objective", b2_number(initial_objective)},
+        {"b2.initial_tracking_objective",
+         b2_number(initial_objective_components.state_tracking)},
+        {"b2.initial_control_regularisation_objective",
+         b2_number(initial_objective_components.control_regularisation)},
         {"b2.final_objective", b2_number(final_objective)},
+        {"b2.final_tracking_objective",
+         b2_number(final_objective_components.state_tracking)},
+        {"b2.final_control_regularisation_objective",
+         b2_number(final_objective_components.control_regularisation)},
         {"b2.relative_objective_reduction",
          b2_number(b2_relative_reduction(initial_objective, final_objective))},
         {"b2.initial_gradient_norm", b2_number(initial_gradient_norm)},
+        {"b2.initial_metric_gradient_norm",
+         b2_number(initial_gradient_norm)},
         {"b2.final_gradient_norm", b2_number(final_gradient_norm)},
+        {"b2.final_metric_gradient_norm", b2_number(final_gradient_norm)},
         {"b2.relative_gradient_reduction",
          b2_number(b2_relative_reduction(initial_gradient_norm,
                                          final_gradient_norm))},
+        {"b2.initial_coefficient_derivative_norm",
+         b2_number(coefficient_derivative_norm_history.front())},
+        {"b2.final_coefficient_derivative_norm",
+         b2_number(coefficient_derivative_norm_history.back())},
+        {"b2.relative_coefficient_derivative_reduction",
+         b2_number(b2_relative_reduction(
+           coefficient_derivative_norm_history.front(),
+           coefficient_derivative_norm_history.back()))},
         {"b2.state_l2_norm",
          b2_number(b2_block_values_l2_norm(report.final_evaluation.state))},
         {"b2.control_l2_norm", b2_number(b2_block_values_l2_norm(report.control))},
+        {"b2.uncontrolled_state_min",
+         b2_number(uncontrolled_state_extrema.first)},
+        {"b2.uncontrolled_state_max",
+         b2_number(uncontrolled_state_extrema.second)},
+        {"b2.optimized_state_min", b2_number(optimized_state_extrema.first)},
+        {"b2.optimized_state_max", b2_number(optimized_state_extrema.second)},
+        {"b2.control_min", b2_number(control_extrema.first)},
+        {"b2.control_max", b2_number(control_extrema.second)},
+        {"b2.adjoint_min", b2_number(adjoint_extrema.first)},
+        {"b2.adjoint_max", b2_number(adjoint_extrema.second)},
         {"solver.method", "bfgs"},
         {"solver.initial_control", scenario.solver.initial_control},
         {"solver.policy", report.policy_name},
@@ -732,6 +891,10 @@ namespace nmopt::application::chapter6::dealii
         {"solver.objective_history", b2_history(report.objective_history)},
         {"solver.gradient_norm_history",
          b2_history(report.gradient_norm_history)},
+        {"solver.metric_gradient_norm_history",
+         b2_history(report.gradient_norm_history)},
+        {"solver.coefficient_derivative_norm_history",
+         b2_history(coefficient_derivative_norm_history)},
         {"solver.step_length_history", b2_history(report.step_length_history)},
         {"solver.step_norm_history", b2_history(report.step_norm_history)},
         {"solver.objective_change_history",

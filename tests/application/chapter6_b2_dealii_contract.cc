@@ -21,6 +21,19 @@ namespace
       throw std::runtime_error(message);
   }
 
+  double
+  artifact_number(const std::string &document, const std::string &key)
+  {
+    const auto prefix = key + "=";
+    const auto begin = document.find(prefix);
+    if (begin == std::string::npos)
+      throw std::runtime_error("B2 artifact omitted numeric field '" + key +
+                               "'");
+    const auto value_begin = begin + prefix.size();
+    const auto value_end = document.find('\n', value_begin);
+    return std::stod(document.substr(value_begin, value_end - value_begin));
+  }
+
   void
   run_b2_manufactured_case(const chapter6::GraetzCase graetz_case)
   {
@@ -246,6 +259,77 @@ namespace
               result.document.find("b2.control_l2_norm=") !=
                 std::string::npos,
             "B2 deal.II adapter omitted state/control evidence");
+    require(result.document.find("benchmark.mesh_vertices=9\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.mesh_active_cells=4\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.boundary_face_count=8\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.fixed_boundary_face_count=2\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.control_boundary_face_count=4\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.outflow_boundary_face_count=2\n") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted exact mesh and boundary counts");
+    require(result.document.find("benchmark.state_dimension=9\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.state_physical_dimension=9\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.state_independent_dimension=6\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.control_dimension=4\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.control_physical_dimension=4\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.control_independent_dimension=4\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.adjoint_dimension=9\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.adjoint_independent_dimension=6\n") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted physical and independent dimensions");
+    require(std::abs(artifact_number(result.document,
+                                     "benchmark.observation_measure") -
+                       2.0) < 1.0e-12,
+            "B2 deal.II adapter recorded the wrong observation measure");
+    const double initial_tracking = artifact_number(
+      result.document, "b2.initial_tracking_objective");
+    const double initial_regularisation = artifact_number(
+      result.document, "b2.initial_control_regularisation_objective");
+    const double final_tracking = artifact_number(
+      result.document, "b2.final_tracking_objective");
+    const double final_regularisation = artifact_number(
+      result.document, "b2.final_control_regularisation_objective");
+    require(std::abs(initial_tracking + initial_regularisation -
+                     artifact_number(result.document, "b2.initial_objective")) <
+                1.0e-12 &&
+              std::abs(final_tracking + final_regularisation -
+                       artifact_number(result.document, "b2.final_objective")) <
+                1.0e-12,
+            "B2 artifact objective components do not reproduce the totals");
+    require(result.document.find("solver.metric_gradient_norm_history=") !=
+                std::string::npos &&
+              result.document.find(
+                "solver.coefficient_derivative_norm_history=") !=
+                std::string::npos &&
+              result.document.find(
+                "b2.initial_coefficient_derivative_norm=") !=
+                std::string::npos &&
+              result.document.find(
+                "b2.final_coefficient_derivative_norm=") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted the two derivative norm conventions");
+    for (const auto *key : {"b2.uncontrolled_state_min",
+                            "b2.uncontrolled_state_max",
+                            "b2.optimized_state_min",
+                            "b2.optimized_state_max",
+                            "b2.control_min",
+                            "b2.control_max",
+                            "b2.adjoint_min",
+                            "b2.adjoint_max"})
+      require(std::isfinite(artifact_number(result.document, key)),
+              "B2 deal.II adapter emitted a non-finite field extremum");
     require(result.document.find("solver.method=bfgs\n") !=
             std::string::npos,
             "B2 deal.II adapter omitted solver-method evidence");

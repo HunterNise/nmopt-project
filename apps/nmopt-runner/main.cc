@@ -900,6 +900,17 @@ namespace
                                std::to_string(manifest.realized_spaces.size())});
     evidence.fields.push_back({"manifest.realized_map_count",
                                std::to_string(manifest.realized_maps.size())});
+    for (const auto &space : manifest.spaces)
+      {
+        const auto prefix = "manifest.space." + space.semantic_id;
+        evidence.fields.push_back(
+          {prefix + ".dimension", std::to_string(space.dimension)});
+        evidence.fields.push_back(
+          {prefix + ".runtime_role", space.runtime_role});
+        evidence.fields.push_back(
+          {prefix + ".finite_element", space.finite_element});
+        evidence.fields.push_back({prefix + ".region", space.region_id});
+      }
     add_solve_policy("manifest.state_solve", manifest.state_solve_record);
     add_solve_policy("manifest.adjoint_solve", manifest.adjoint_solve_record);
     add_solve_policy("manifest.control_metric_solve",

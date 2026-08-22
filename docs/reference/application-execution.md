@@ -100,10 +100,13 @@ structured manifest values directly; the human-readable
 `manifest.state_space` and `manifest.control_space` descriptions remain
 compatibility renderings.
 
-B2 objective evidence separates tracking and control-regularisation values at
-the initial and terminal controls. The two components must sum to the retained
-total objective. Its optimized and uncontrolled state, control, and adjoint
-coefficient extrema are retained beside the field files. The existing
+B2 records the selected control as `benchmark.control_discretisation` and
+`b2.control_discretisation`, while `manifest.control_metric_realisation`
+records the compiled metric. Its objective evidence separates tracking and
+control-regularisation values at the initial and terminal controls. The two
+components must sum to the retained total objective. Its optimized and
+uncontrolled state, control, and adjoint coefficient extrema are retained
+beside the field files. The existing
 `solver.gradient_norm_history` is the declared-metric gradient norm; the
 explicit `solver.metric_gradient_norm_history` alias and the separate
 `solver.coefficient_derivative_norm_history` make that convention auditable
@@ -218,11 +221,13 @@ artifacts/<method-or-case>/
 the comparison-only negative adjoint, and the B1 volume control. B1 also
 exports its target and forcing functions sampled on the state DoFs. B2 stores
 the optimized state, the zero-control state, both adjoint conventions, its
-target and forcing functions, and a cellwise observation-domain mask. Its facewise control is stored in
-`control-boundary.vtu` because the boundary topology differs from the volume
-topology. These are final-state and input-function exports, not per-iteration
-output. The mesh SVG is a lightweight 2D preview; the VTU files retain the
-authoritative numerical topology and field data.
+target and forcing functions, and a cellwise observation-domain mask. Its
+facewise control is stored in `control-boundary.vtu` because the boundary
+topology differs from the volume topology. Native boundary output does not yet
+support continuous nodal-trace controls, so those development runs must
+disable retained fields. These are final-state and input-function exports, not
+per-iteration output. The mesh SVG is a lightweight 2D preview; the VTU files
+retain the authoritative numerical topology and field data.
 
 `solver-trace.csv` records line-search trials for diagnostics. It is not a
 field export. Reports and post-processing read persisted artifacts and native

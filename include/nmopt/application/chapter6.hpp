@@ -470,6 +470,26 @@ namespace nmopt::application::chapter6
   }
 
   inline void
+  validate_b2_control_discretisation(
+    const chapter5::NeumannConvectionParameters &parameters)
+  {
+    switch (parameters.control_discretisation)
+      {
+        case semantic::v1::NeumannControlDiscretisation::facewise_constant:
+          return;
+        case semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace:
+          if (parameters.with_facewise_box)
+            throw std::invalid_argument(
+              "B2 continuous Neumann control does not support a facewise box");
+          return;
+        case semantic::v1::NeumannControlDiscretisation::unspecified:
+          throw std::invalid_argument(
+            "B2 needs a facewise-constant or continuous nodal-trace control");
+      }
+    throw std::invalid_argument("B2 has an unknown control discretisation");
+  }
+
+  inline void
   validate_b2(const B2Scenario &scenario)
   {
     scenario.validate();
@@ -477,6 +497,7 @@ namespace nmopt::application::chapter6
     validate_runtime_data(scenario.problem.data);
     validate_b2_transport_boundary_form(
       scenario.problem.transport_boundary_form);
+    validate_b2_control_discretisation(scenario.problem.recipe);
     switch (scenario.compile.mesh.generation)
       {
         case MeshGeneration::framework_native:
@@ -543,6 +564,7 @@ namespace nmopt::application::chapter6
   make_b2_problem_spec(const B2ProblemParameters &parameters)
   {
     validate_b2_transport_boundary_form(parameters.transport_boundary_form);
+    validate_b2_control_discretisation(parameters.recipe);
     auto specification =
       chapter5::make_neumann_convection_recipe()(parameters.recipe);
 
@@ -645,11 +667,15 @@ namespace nmopt::application::chapter6
     const GraetzCase graetz_case =
       GraetzCase::observation_wings_constant_target,
     const semantic::v1::TransportBoundaryForm transport_boundary_form =
-      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport)
+      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
+    const semantic::v1::NeumannControlDiscretisation control_discretisation =
+      semantic::v1::NeumannControlDiscretisation::facewise_constant)
   {
     B2ProblemParameters problem;
     problem.graetz_case             = graetz_case;
     problem.transport_boundary_form = transport_boundary_form;
+    problem.recipe.control_discretisation =
+      control_discretisation;
 
     CompileOptions compile;
     compile.mesh.refinement = b2_default_mesh_refinement;
@@ -661,7 +687,7 @@ namespace nmopt::application::chapter6
     B2Scenario scenario{
       {scenario_id,
        "E6.5.2 Graetz-flow boundary control",
-       "Facewise Neumann control with downstream subdomain tracking",
+       "Neumann control with downstream subdomain tracking",
        "chapter-6",
        b2_recipe_id,
        {"B0 harness", "fixed temperature port", "declared Galerkin policy"}},

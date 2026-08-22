@@ -190,7 +190,8 @@ realization, runtime ports, and backend construction.
 | --- | --- |
 | Run matrix | All four public `GraetzCase` values from `make_catalog()`. |
 | Forcing | Zero forcing, with provenance `chapter-6.e6.5.2.zero-forcing`. |
-| Regularisation and initial value | $\beta=10^{-3}$ and zero facewise control. |
+| Control realization | Facewise constants with `l2_facewise`; continuous nodal traces are development candidates, not part of the freeze. |
+| Regularisation and initial value | $\beta=10^{-3}$ and zero control in the selected frozen layout. |
 | Method | Full BFGS with the solver policy below. |
 | Mesh policy | Framework-native rectangle, source-sized `refine_global(7)`; realized labels and dimensions remain manifest data. |
 | Stabilization | Stated Galerkin formulation only; GLS and other stabilization policies are excluded. |
@@ -256,7 +257,7 @@ Each of the four artifacts must retain:
 
 - state/control dimensions and the complete compilation manifest;
 - transport, fixed/controlled/outflow boundary, and material-region records;
-- residual JVP/VJP and reduced-Taylor evidence for facewise control;
+- residual JVP/VJP and reduced-Taylor evidence for the selected control realization;
 - objective and relative-gradient reduction; and
 - state/control evidence showing the effect of changing observation region and
   target.

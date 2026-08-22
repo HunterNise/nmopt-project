@@ -205,6 +205,25 @@ namespace
                                  nmopt::semantic::v1::DataRole::conservative_transport;
                         }),
             "Neumann recipe lost its transport data port");
+    const auto continuous_neumann_spec = neumann(
+      nmopt::application::chapter5::NeumannConvectionParameters{
+        1,
+        false,
+        nmopt::semantic::v1::NeumannControlDiscretisation::
+          continuous_nodal_trace});
+    const auto control_policy = std::find_if(
+      continuous_neumann_spec.requirement_policies.begin(),
+      continuous_neumann_spec.requirement_policies.end(),
+      [](const auto &policy) {
+        return policy.id == "neumann_control_trace_policy";
+      });
+    require(
+      control_policy != continuous_neumann_spec.requirement_policies.end() &&
+        control_policy->typed_neumann_control_selection &&
+        control_policy->typed_neumann_control_selection->discretisation ==
+          nmopt::semantic::v1::NeumannControlDiscretisation::
+            continuous_nodal_trace,
+      "Neumann recipe lost its selected continuous control realization");
   }
 
   void
@@ -434,6 +453,10 @@ namespace
         nmopt::semantic::v1::TransportBoundaryForm::
           ordinary_normal_minus_transport,
       "B2 did not retain the frozen ordinary-normal boundary form");
+    require(
+      b2.problem.recipe.control_discretisation ==
+        nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
+      "B2 did not retain the frozen facewise control realization");
     require(b2.experiment.source_revision ==
               nmopt::application::chapter6::
                 chapter6_numerical_examples_source_revision,
@@ -492,6 +515,36 @@ namespace
     require(total_conormal.problem.transport_boundary_form ==
               nmopt::semantic::v1::TransportBoundaryForm::total_conormal,
             "B2 did not retain the total-conormal diagnostic choice");
+
+    const auto continuous_control =
+      nmopt::application::chapter6::make_b2_scenario(
+        nmopt::application::chapter6::GraetzCase::
+          observation_full_parabolic_target,
+        nmopt::semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport,
+        nmopt::semantic::v1::NeumannControlDiscretisation::
+          continuous_nodal_trace);
+    require(
+      continuous_control.problem.recipe.control_discretisation ==
+        nmopt::semantic::v1::NeumannControlDiscretisation::
+          continuous_nodal_trace,
+      "B2 did not retain the continuous control diagnostic choice");
+    nmopt::application::chapter6::validate_b2(continuous_control);
+
+    auto boxed_continuous_control = continuous_control;
+    boxed_continuous_control.problem.recipe.with_facewise_box = true;
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_b2(boxed_continuous_control);
+      },
+      "B2 accepted a facewise box with continuous control");
+
+    auto unspecified_control = b2;
+    unspecified_control.problem.recipe.control_discretisation =
+      nmopt::semantic::v1::NeumannControlDiscretisation::unspecified;
+    require_invalid_argument(
+      [&] { nmopt::application::chapter6::validate_b2(unspecified_control); },
+      "B2 accepted an unspecified control discretisation");
 
     auto unspecified_boundary = b2;
     unspecified_boundary.problem.transport_boundary_form =

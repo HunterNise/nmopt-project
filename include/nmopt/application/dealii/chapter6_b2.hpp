@@ -813,6 +813,9 @@ namespace nmopt::application::chapter6::dealii
 
       std::vector<benchmark::ArtifactField> fields{
         {"b2.graetz_case", graetz_case_name(scenario.problem.graetz_case)},
+        {"b2.control_discretisation",
+         chapter5::neumann_control_discretisation_name(
+           scenario.problem.recipe.control_discretisation)},
         {"b2.observation_region",
          b2_observation_region(scenario.problem.graetz_case)},
         {"b2.target_profile", b2_target_profile(scenario.problem.graetz_case)},

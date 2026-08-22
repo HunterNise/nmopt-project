@@ -252,7 +252,7 @@ instead of treating objective magnitude alone as an acceptance target.
 
 ## Gradient interpretation
 
-The refreshed artifacts record both the declared $L^2$-metric gradient and
+The refreshed artifacts record both the declared $L^{2}$-metric gradient and
 the Euclidean norm of the reduced derivative coefficients. On the uniform
 facewise control mesh, every control-face mass is equal. Consequently the two
 absolute norms differ by the constant factor four, and that factor cancels in
@@ -260,18 +260,18 @@ the terminal-to-initial ratio. Both interpretations give the current relative
 gradient values in the comparison table.
 
 Table 6.2 therefore cannot distinguish the two interpretations under the
-current realization. A nonuniform boundary mesh or continuous $P_1$ boundary
-control gives a non-scalar mass matrix and can make the ratios differ. The
-evidence fields already support that comparison; no further post-processing
-or artifact-schema change is required before those discretisations exist.
+frozen realization. A nonuniform boundary mesh or continuous $P_{1}$ boundary
+control gives a non-scalar mass matrix and can make the ratios differ. B2 now
+records the selected control and compiled metric explicitly, so candidate runs
+can make that comparison without a further artifact-schema change.
 
 ## Candidate experiments and change boundaries
 
 | Priority | Candidate | Motivation and decisive evidence | Required change |
 | ---: | --- | --- | --- |
 | 1 | Diffusion-weighted conormal alternative | **Screened and rejected at the stated $\mu=0.1$.** Tuning $\mu$ can fit Figure 6.5 but fails Table 6.2 and changes stated source data. | No further framework change for the two coherent boundary interpretations. An independently scaled boundary-transport coefficient would be a new hypothesis. |
-| 2 | Source-oriented triangular $P_1$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
-| 3 | Continuous $P_1$ boundary control | The source states linear finite elements and $N_u=243$; the current 96 facewise constants cannot test that space or its gradient metric. | Compiler/framework extension plus parameter files. |
+| 2 | Source-oriented triangular $P_{1}$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
+| 3 | Continuous $P_{1}$ boundary control | The source states linear finite elements and $N_{u}=243$; the frozen 96 facewise constants cannot test that space or its gradient metric. | Compiler lowering and B2/runner selection are implemented; candidate parameter files and runs remain. |
 | 4 | Boundary-aligned observation geometry | **Screened.** The aligned meshes recover exact measure $1.8$ but do not materially reduce the objective discrepancy. | No further change for structured meshes. |
 | 5 | Constant-step and stopping candidates | The source attributes its high counts to an unstated constant step, while the current Armijo BFGS reaches a much smaller gradient ratio at the iteration limit. Screen fixed iteration counts and relative thresholds first. | Parameter-only for iteration/tolerance screens; framework extension for a genuinely unconditional fixed step. |
 | 6 | Metric versus coefficient gradient norm | The book names a discrete gradient but not its Hilbert metric. The current uniform facewise realization makes both relative ratios identical. | Evidence is already present; differentiation needs the continuous or nonuniform discretisation above. |

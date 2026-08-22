@@ -177,9 +177,10 @@ The benchmark-specific B1 freeze and acceptance evidence are defined in the
 
 Use the `scalar-neumann-convection-subdomain` recipe, seeded by
 `make_neumann_convection_subdomain_tracking_problem(observed_material_id,
-with_facewise_box=false)`. The public B2 helper adds the nonzero fixed-data
-port and lifting policy before compilation, so an adapter only needs to
-assemble the typed scenario and bind the declared runtime functions:
+with_facewise_box=false, control_discretisation)`. The public B2 helper adds
+the nonzero fixed-data port and lifting policy before compilation, so an
+adapter only needs to assemble the typed scenario and bind the declared
+runtime functions:
 
 ```cpp
 const auto scenario =
@@ -192,10 +193,12 @@ const auto specification =
 The resulting state has scalar conservative transport, fixed temperature on
 the declared Dirichlet boundary, controlled Neumann flux on a marked
 boundary, insulated outflow, and volume observation on a downstream material
-region. The control is facewise and the metric is `l2_facewise`. The helper
-declares `fixed_dirichlet_data` as a `fixed_dirichlet_lifting` function and
-connects it through `fixed_dirichlet_reconstruction`; passing that function
-to a graph without the declared port remains an error.
+region. The frozen default uses facewise constants and `l2_facewise`.
+Development scenarios may instead select a continuous degree-one nodal trace
+and `l2_neumann_trace`; that representation rejects the facewise box. The
+helper declares `fixed_dirichlet_data` as a `fixed_dirichlet_lifting` function
+and connects it through `fixed_dirichlet_reconstruction`; passing that
+function to a graph without the declared port remains an error.
 
 For B2, the default and frozen source boundary form is the ordinary-normal
 condition $\partial_n y-(b\mathbin\cdot n)y=u$ on the control boundary and zero
@@ -260,9 +263,12 @@ const auto result = Runner(scenario).run(
 
 The adapter binds every declared port, including `fixed_dirichlet_data` and
 `conservative_transport`, compiles the assembled reduced DTO, and dispatches
-full BFGS from zero facewise control. `B2RuntimeDataT<dim>` is the extension
-point for recovered forcing, targets, or transport fields; the caller owns
-all referenced Function objects for the duration of compilation and solving.
+full BFGS from zero control in the selected layout. `B2RuntimeDataT<dim>` is
+the extension point for recovered forcing, targets, or transport fields; the
+caller owns all referenced Function objects for the duration of compilation
+and solving. Native boundary output remains facewise-only; continuous-control
+development runs must disable retained fields until the continuous writer is
+implemented.
 
 ### Runtime bindings
 

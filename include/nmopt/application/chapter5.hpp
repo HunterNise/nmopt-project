@@ -46,6 +46,22 @@ namespace nmopt::application::chapter5
       "unknown distributed-control discretisation");
   }
 
+  inline const char *
+  neumann_control_discretisation_name(
+    const semantic::v1::NeumannControlDiscretisation discretisation)
+  {
+    switch (discretisation)
+      {
+        case semantic::v1::NeumannControlDiscretisation::facewise_constant:
+          return "facewise-constant";
+        case semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace:
+          return "continuous-nodal-trace";
+        case semantic::v1::NeumannControlDiscretisation::unspecified:
+          break;
+      }
+    throw std::invalid_argument("unknown Neumann-control discretisation");
+  }
+
   struct ScalarDistributedControlParameters
   {
     bool with_cellwise_box = false;
@@ -75,6 +91,8 @@ namespace nmopt::application::chapter5
   {
     unsigned int observed_material_id = 1;
     bool         with_facewise_box = false;
+    semantic::v1::NeumannControlDiscretisation control_discretisation =
+      semantic::v1::NeumannControlDiscretisation::facewise_constant;
   };
 
   using ScalarDistributedRecipe =
@@ -174,7 +192,8 @@ namespace nmopt::application::chapter5
       [](const NeumannConvectionParameters &parameters) {
         return semantic::v1::make_neumann_convection_subdomain_tracking_problem(
           parameters.observed_material_id,
-          parameters.with_facewise_box);
+          parameters.with_facewise_box,
+          parameters.control_discretisation);
       }};
   }
 

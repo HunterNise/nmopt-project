@@ -103,8 +103,14 @@ declared state degree according to the mesh family, shares the state's
 homogeneous boundary region, and rejects a cellwise box. The effective
 representation is recorded independently of the parameter-file provenance.
 
-For B2, `Boundary/transport boundary form` is the operative selection. The
-ordinary-normal value `ordinary-normal-minus-transport` requires
+For B2, `Problem/control representation` accepts `facewise-constant` and
+`continuous-nodal-trace`. The former is the frozen default with
+`l2_facewise`; the latter uses a continuous degree-one trace with
+`l2_neumann_trace` and rejects a facewise box. Continuous-control development
+runs must set `Output/retain fields = false` until native continuous boundary
+output is implemented. `Boundary/transport boundary form` independently
+selects the boundary operator. The ordinary-normal value
+`ordinary-normal-minus-transport` requires
 `Boundary/conormal form = unspecified`. The diagnostic `total-conormal` value
 requires `Boundary/conormal form = diffusion-minus-transport`. The latter
 entry is a consistency declaration, not an independently selectable boundary

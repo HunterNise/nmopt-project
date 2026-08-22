@@ -697,6 +697,8 @@ namespace
                       "(1.5*x1*(1-x1), 0.0)");
     scenario.problem.transport_boundary_form =
       b2_transport_boundary_form(file);
+    scenario.problem.recipe.control_discretisation =
+      b2_neumann_control_discretisation(file);
     require_parameter(file, "Boundary/normal orientation", "outward");
     require_parameter(file, "Boundary/trace evaluation", "fe-q-state-trace");
     require_parameter(file, "Boundary/face quadrature", "qgauss-face");
@@ -1049,6 +1051,10 @@ namespace
       scenario.problem.graetz_case);
     const auto &manifest = evidence.envelope.compilation_manifest();
     evidence.fields.push_back({"benchmark.graetz_case", case_slug});
+    evidence.fields.push_back(
+      {"benchmark.control_discretisation",
+       nmopt::application::chapter5::neumann_control_discretisation_name(
+         scenario.problem.recipe.control_discretisation)});
     evidence.fields.push_back({"benchmark.fixed_temperature",
                                b1_number(scenario.problem.fixed_temperature)});
     evidence.fields.push_back({"benchmark.regularisation",
@@ -1085,6 +1091,8 @@ namespace
     evidence.fields.push_back({"provenance.conservative_transport",
                                scenario.problem.data.conservative_transport_provenance});
     evidence.fields.push_back({"provenance.observation_case", case_slug});
+    evidence.fields.push_back({"manifest.control_metric_realisation",
+                               manifest.metric_record.realisation_id});
     if (manifest.boundary_realisation)
       {
         const auto boundary_form =

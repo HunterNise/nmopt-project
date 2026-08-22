@@ -9,6 +9,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -215,8 +216,11 @@ namespace
                                    "chapter-6.e6.5.2.fixed-temperature";
                         }),
             "B2 deal.II adapter did not retain fixed-data provenance");
-    require(result.document.find("b2.graetz_case=") != std::string::npos,
-            "B2 deal.II adapter omitted case evidence");
+    require(result.document.find("b2.graetz_case=") != std::string::npos &&
+              result.document.find(
+                "b2.control_discretisation=facewise-constant\n") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted case or control evidence");
     require(result.document.find("b2.fixed_temperature=1") !=
               std::string::npos,
             "B2 deal.II adapter omitted fixed-temperature evidence");
@@ -657,6 +661,109 @@ namespace
   }
 
   void
+  run_b2_control_discretisation_comparison()
+  {
+    using Discretisation =
+      nmopt::semantic::v1::NeumannControlDiscretisation;
+    using Primal =
+      nmopt::contract::PrimalBlockT<chapter6::dealii::Backend>;
+
+    const auto execute = [&](const Discretisation discretisation,
+                             const std::size_t    expected_dimension,
+                             const std::string &  expected_metric,
+                             const std::string &  expected_space) {
+      const auto graetz_case =
+        chapter6::GraetzCase::observation_full_constant_target;
+      auto scenario = chapter6::make_b2_scenario(
+        graetz_case,
+        nmopt::semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport,
+        discretisation);
+      scenario.compile.mesh.refinement = 1;
+      scenario.experiment.retain_fields = false;
+      chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
+        graetz_case, scenario.problem.fixed_temperature};
+      const auto runtime =
+        chapter6::dealii::make_b2_manufactured_runtime_data(
+          scenario, manufactured_data);
+      const auto specification = chapter6::make_b2_problem_spec(scenario);
+      const auto session =
+        chapter6::dealii::make_b2_compilation_session<2>(scenario);
+      const auto policy = chapter6::dealii::make_b2_discretisation_policy(
+        scenario.compile);
+      const auto bindings = chapter6::dealii::make_b2_data_bindings(
+        scenario.problem, runtime);
+      nmopt::compiler::v1::DealiiCompiler compiler;
+      const auto compilation = compiler.compile(
+        specification,
+        session,
+        bindings,
+        policy,
+        std::nullopt,
+        std::nullopt,
+        nmopt::compiler::v1::CompilationProduct::reduced_dto);
+      require(compilation.succeeded() && compilation.problem,
+              "B2 control realization comparison did not compile");
+
+      using Model = nmopt::compiler::v1::detail::
+        NeumannBoundaryControlModel<2>;
+      const auto *model = dynamic_cast<const Model *>(
+        &compilation.problem->executable_model());
+      require(model != nullptr &&
+                model->physical_control_dimension() == expected_dimension &&
+                model->independent_control_dimension() == expected_dimension,
+              "B2 control realization produced the wrong dimensions");
+
+      const auto &metric = compilation.problem->metric();
+      require(metric.id() == expected_metric &&
+                metric.layout()->dimension(0) == expected_dimension,
+              "B2 control realization selected the wrong metric");
+      ::dealii::Vector<double> control_values(expected_dimension);
+      for (std::size_t index = 0; index < expected_dimension; ++index)
+        control_values[index] =
+          (index % 2 == 0 ? 0.025 : -0.02) *
+          static_cast<double>(index + 1);
+      const Primal control(metric.layout(), {std::move(control_values)});
+      const auto metric_action = metric.apply(control);
+      const Primal recovered = metric.inverse_apply(metric_action);
+      ::dealii::Vector<double> metric_error = recovered.block(0);
+      metric_error.add(-1.0, control.block(0));
+      require(metric_error.l2_norm() < 1.0e-10,
+              "B2 control metric apply/inverse identity failed");
+
+      const auto reduced = compilation.problem->make_reduced_dto();
+      const auto evaluation = reduced.evaluate(control);
+      require(evaluation.state_solve.converged() &&
+                evaluation.adjoint_solve.converged() &&
+                std::isfinite(evaluation.objective_value),
+              "B2 control realization did not complete state and adjoint solves");
+
+      const auto &manifest = compilation.problem->manifest();
+      const auto control_space = std::find_if(
+        manifest.spaces.begin(),
+        manifest.spaces.end(),
+        [](const auto &space) {
+          return space.role == nmopt::semantic::v1::SpaceRole::control;
+        });
+      require(control_space != manifest.spaces.end() &&
+                control_space->dimension == expected_dimension &&
+                control_space->finite_element.find(expected_space) !=
+                  std::string::npos &&
+                manifest.metric_record.realisation_id == expected_metric,
+              "B2 control realization manifest is incomplete");
+    };
+
+    execute(Discretisation::facewise_constant,
+            4,
+            "l2_facewise",
+            "facewise-constant");
+    execute(Discretisation::continuous_nodal_trace,
+            6,
+            "l2_neumann_trace",
+            "continuous scalar degree-one nodal trace");
+  }
+
+  void
   run_b2_transport_boundary_realisation_comparison()
   {
     const auto graetz_case =
@@ -752,6 +859,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b2", "contract", "diagnostic"},
          120,
          []() { run_b2_transport_boundary_realisation_comparison(); }},
+        {"b2_control_discretisation_comparison",
+         "nmopt.application.dealii.b2_control_discretisation_comparison",
+         {"dealii", "application", "benchmark", "b2", "contract", "metric"},
+         120,
+         []() { run_b2_control_discretisation_comparison(); }},
         {"b2_structured_simplex_mesh",
          "nmopt.application.dealii.b2_structured_simplex_mesh",
          {"dealii", "application", "benchmark", "b2", "contract"},

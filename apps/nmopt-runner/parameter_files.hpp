@@ -97,6 +97,18 @@ namespace nmopt::application::runner
                                 boundary_form + "'");
   }
 
+  inline semantic::v1::NeumannControlDiscretisation
+  b2_neumann_control_discretisation(const ParameterFile &file)
+  {
+    const auto &representation = file.value("Problem/control representation");
+    if (representation == "facewise-constant")
+      return semantic::v1::NeumannControlDiscretisation::facewise_constant;
+    if (representation == "continuous-nodal-trace")
+      return semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace;
+    throw std::invalid_argument("unknown B2 control representation '" +
+                                representation + "'");
+  }
+
   inline ResolvedParameterValue
   resolve_method_parameter(const ParameterFile &file,
                            const std::string_view method_id,

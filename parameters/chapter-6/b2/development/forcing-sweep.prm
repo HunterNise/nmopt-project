@@ -17,6 +17,7 @@ subsection Matrix
 end
 
 subsection Problem
+  set control representation = facewise-constant
   set observed material id = 1
   set facewise box constraint = false
   set initial control = zero

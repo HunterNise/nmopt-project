@@ -300,11 +300,17 @@ namespace
     require(b2.matrix.size() == 2, "B2 should declare independent axes");
     require(b2.combinations().size() == 4,
             "B2 should expand to four authoritative combinations");
+    require(b2.value("Problem/control representation") ==
+              "facewise-constant",
+            "B2 authoritative parameters lost the frozen control realization");
 
     const auto development = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/development/forcing-sweep.prm"));
     require(development.combinations().size() == 3,
             "B2 forcing development family should expand to three combinations");
+    require(development.value("Problem/control representation") ==
+              "facewise-constant",
+            "B2 forcing family lost the frozen control realization");
     require(development.content_hash.rfind("fnv1a64:", 0) == 0,
             "parameter provenance should carry a labelled deterministic hash");
 
@@ -424,6 +430,36 @@ namespace
         (void)nmopt::application::runner::b2_transport_boundary_form(unknown);
       },
       "B2 accepted an unknown transport-boundary form");
+  }
+
+  void
+  test_b2_control_discretisation_is_selected()
+  {
+    const auto facewise = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    require(
+      nmopt::application::runner::b2_neumann_control_discretisation(facewise) ==
+        nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
+      "B2 parameter parsing lost the facewise control selection");
+
+    auto continuous = facewise;
+    continuous.values["Problem/control representation"] =
+      "continuous-nodal-trace";
+    require(
+      nmopt::application::runner::b2_neumann_control_discretisation(
+        continuous) ==
+        nmopt::semantic::v1::NeumannControlDiscretisation::
+          continuous_nodal_trace,
+      "B2 parameter parsing lost the continuous control selection");
+
+    auto unknown = facewise;
+    unknown.values["Problem/control representation"] = "cellwise-boundary";
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::
+          b2_neumann_control_discretisation(unknown);
+      },
+      "B2 accepted an unknown control representation");
   }
 
   void
@@ -558,6 +594,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract"},
          30,
          test_b2_transport_boundary_form_is_selected_coherently},
+        {"b2_control_discretisation_is_selected",
+         "nmopt.parameter_files.b2_control_discretisation_is_selected",
+         {"backend", "dealii", "application", "runner", "contract"},
+         30,
+         test_b2_control_discretisation_is_selected},
         {"sparse_matrix_exclusions_are_validated_and_applied",
          "nmopt.parameter_files.sparse_matrix_exclusions_are_validated_and_applied",
          {"backend", "dealii", "application", "runner", "contract"},

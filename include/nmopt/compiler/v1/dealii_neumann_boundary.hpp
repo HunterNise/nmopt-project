@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nmopt/compiler/v1/dealii_reference_cell.hpp"
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/dealii/facewise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
@@ -8,11 +9,9 @@
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
-#include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/tensor_function.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
-#include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
@@ -105,7 +104,8 @@ namespace nmopt::compiler::v1::detail
         std::nullopt,
       std::optional<std::reference_wrapper<const dealii::Function<dim>>>
         fixed_dirichlet_data = std::nullopt)
-      : state_fe_(state_degree)
+      : state_fe_(make_scalar_lagrange_element(
+          triangulation, state_degree, "The Neumann v1 target"))
       , state_dof_handler_(triangulation)
       , diffusion_(diffusion)
       , reaction_(reaction)
@@ -165,7 +165,7 @@ namespace nmopt::compiler::v1::detail
           uses_conservative_transport_,
         "The ordinary transport boundary realization needs conservative transport data");
 
-      state_dof_handler_.distribute_dofs(state_fe_);
+      state_dof_handler_.distribute_dofs(*state_fe_);
       build_constraints(fixed_dirichlet_data);
       control_face_count_ = count_control_faces();
       contract::require(control_face_count_ > 0,
@@ -439,20 +439,17 @@ namespace nmopt::compiler::v1::detail
 
       std::vector<dealii::Point<dim>> face_points;
       std::vector<double>             face_controls;
-      face_points.reserve(control_face_count_ *
-                          dealii::GeometryInfo<dim>::vertices_per_face);
+      face_points.reserve(2 * control_face_count_);
       face_controls.reserve(control_face_count_);
       std::size_t control_index = 0;
       for (auto cell = state_dof_handler_.begin_active();
            cell != state_dof_handler_.end();
            ++cell)
-        for (unsigned int face = 0;
-             face < dealii::GeometryInfo<dim>::faces_per_cell;
-             ++face)
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
           if (is_control_face(cell, face))
             {
               for (unsigned int vertex = 0;
-                   vertex < dealii::GeometryInfo<dim>::vertices_per_face;
+                   vertex < cell->face(face)->n_vertices();
                    ++vertex)
                 face_points.push_back(cell->face(face)->vertex(vertex));
               face_controls.push_back(control.block(0)[control_index]);
@@ -772,8 +769,7 @@ namespace nmopt::compiler::v1::detail
       for (auto cell = state_dof_handler_.begin_active();
            cell != state_dof_handler_.end();
            ++cell)
-        for (unsigned int face = 0; face < dealii::GeometryInfo<dim>::faces_per_cell;
-             ++face)
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
           result += is_control_face(cell, face);
       return result;
     }
@@ -842,15 +838,14 @@ namespace nmopt::compiler::v1::detail
 
       dealii::DynamicSparsityPattern control_dsp(state_size, control_face_count_);
       std::vector<dealii::types::global_dof_index> state_indices(
-        state_fe_.dofs_per_cell);
+        state_fe_->dofs_per_cell);
       std::size_t control_index = 0;
       for (auto cell = state_dof_handler_.begin_active();
            cell != state_dof_handler_.end();
            ++cell)
         {
           cell->get_dof_indices(state_indices);
-          for (unsigned int face = 0; face < dealii::GeometryInfo<dim>::faces_per_cell;
-               ++face)
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
             if (is_control_face(cell, face))
               {
                 for (const auto state_index : state_indices)
@@ -887,22 +882,25 @@ namespace nmopt::compiler::v1::detail
              const dealii::TensorFunction<1, dim> *conservative_transport,
              const dealii::Function<dim> *observation_weight)
     {
-      const unsigned int quadrature_order = state_fe_.degree + 2;
-      const dealii::QGauss<dim> volume_quadrature(quadrature_order);
+      const unsigned int quadrature_order = state_fe_->degree + 2;
+      const auto volume_quadrature = make_gauss_volume_quadrature(
+        state_dof_handler_.get_triangulation(),
+        quadrature_order,
+        "The Neumann v1 target");
       dealii::FEValues<dim> state_values(
-        state_fe_,
-        volume_quadrature,
+        *state_fe_,
+        *volume_quadrature,
         dealii::update_values | dealii::update_gradients |
           dealii::update_quadrature_points | dealii::update_JxW_values);
-      dealii::FullMatrix<double> local_system(state_fe_.dofs_per_cell,
-                                              state_fe_.dofs_per_cell);
+      dealii::FullMatrix<double> local_system(state_fe_->dofs_per_cell,
+                                              state_fe_->dofs_per_cell);
       dealii::FullMatrix<double> local_state_tracking(
-        state_fe_.dofs_per_cell, state_fe_.dofs_per_cell);
-      dealii::Vector<double> local_forcing(state_fe_.dofs_per_cell);
-      dealii::Vector<double> local_desired_state(state_fe_.dofs_per_cell);
-      dealii::Vector<double> local_mean_constraint(state_fe_.dofs_per_cell);
+        state_fe_->dofs_per_cell, state_fe_->dofs_per_cell);
+      dealii::Vector<double> local_forcing(state_fe_->dofs_per_cell);
+      dealii::Vector<double> local_desired_state(state_fe_->dofs_per_cell);
+      dealii::Vector<double> local_mean_constraint(state_fe_->dofs_per_cell);
       std::vector<dealii::types::global_dof_index> state_indices(
-        state_fe_.dofs_per_cell);
+        state_fe_->dofs_per_cell);
 
       for (auto cell = state_dof_handler_.begin_active();
            cell != state_dof_handler_.end();
@@ -916,7 +914,7 @@ namespace nmopt::compiler::v1::detail
           local_mean_constraint = 0.0;
           double fixed_tracking_value = 0.0;
           double fixed_desired_value = 0.0;
-          for (unsigned int q = 0; q < volume_quadrature.size(); ++q)
+          for (unsigned int q = 0; q < volume_quadrature->size(); ++q)
             {
               const double weight = state_values.JxW(q);
               const auto &point = state_values.quadrature_point(q);
@@ -927,14 +925,14 @@ namespace nmopt::compiler::v1::detail
                 : 0.0;
               if (is_observation_cell(cell))
                 desired_state_norm_ += desired_value * desired_value * weight;
-              for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
+              for (unsigned int i = 0; i < state_fe_->dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
                   local_mean_constraint(i) += phi_i * weight;
                   if (is_observation_cell(cell))
                     local_desired_state(i) += desired_value * phi_i * weight;
-                  for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
+                  for (unsigned int j = 0; j < state_fe_->dofs_per_cell; ++j)
                     {
                       const double phi_j = state_values.shape_value(j, q);
                       local_system(i, j) +=
@@ -953,7 +951,7 @@ namespace nmopt::compiler::v1::detail
                 }
             }
           cell->get_dof_indices(state_indices);
-          for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
+          for (unsigned int i = 0; i < state_fe_->dofs_per_cell; ++i)
             {
               const auto global_i = state_indices[i];
               if (constrained_state_dofs_.at(global_i))
@@ -963,7 +961,7 @@ namespace nmopt::compiler::v1::detail
                       fixed_desired_value +=
                         local_desired_state(i) * fixed_state_values_[global_i];
                       for (unsigned int j = 0;
-                           j < state_fe_.dofs_per_cell;
+                           j < state_fe_->dofs_per_cell;
                            ++j)
                         {
                           const auto global_j = state_indices[j];
@@ -980,7 +978,7 @@ namespace nmopt::compiler::v1::detail
               mean_constraint_[global_i] += local_mean_constraint(i);
               if (is_observation_cell(cell))
                 desired_state_load_[global_i] += local_desired_state(i);
-              for (unsigned int j = 0; j < state_fe_.dofs_per_cell; ++j)
+              for (unsigned int j = 0; j < state_fe_->dofs_per_cell; ++j)
                 {
                   const auto global_j = state_indices[j];
                   if (constrained_state_dofs_.at(global_j))
@@ -1027,26 +1025,28 @@ namespace nmopt::compiler::v1::detail
       const unsigned int           quadrature_order,
       const dealii::TensorFunction<1, dim> *conservative_transport)
     {
-      const dealii::QGauss<dim - 1> face_quadrature(quadrature_order);
+      const auto face_quadrature = make_gauss_face_quadrature(
+        state_dof_handler_.get_triangulation(),
+        quadrature_order,
+        "The Neumann v1 target");
       dealii::UpdateFlags face_update_flags =
         dealii::update_values | dealii::update_quadrature_points |
         dealii::update_JxW_values;
       if (uses_ordinary_transport_boundary_realisation())
         face_update_flags |= dealii::update_normal_vectors;
       dealii::FEFaceValues<dim> face_values(
-        state_fe_,
-        face_quadrature,
+        *state_fe_,
+        *face_quadrature,
         face_update_flags);
       std::vector<dealii::types::global_dof_index> state_indices(
-        state_fe_.dofs_per_cell);
+        state_fe_->dofs_per_cell);
       std::size_t control_index = 0;
       for (auto cell = state_dof_handler_.begin_active();
            cell != state_dof_handler_.end();
            ++cell)
         {
           cell->get_dof_indices(state_indices);
-          for (unsigned int face = 0; face < dealii::GeometryInfo<dim>::faces_per_cell;
-               ++face)
+          for (unsigned int face = 0; face < cell->n_faces(); ++face)
             {
               const bool control_face = is_control_face(cell, face);
               const bool observation_face = is_observation_face(cell, face);
@@ -1057,7 +1057,7 @@ namespace nmopt::compiler::v1::detail
                 continue;
               face_values.reinit(cell, face);
               double control_measure = 0.0;
-              for (unsigned int q = 0; q < face_quadrature.size(); ++q)
+              for (unsigned int q = 0; q < face_quadrature->size(); ++q)
                 {
                   const double weight = face_values.JxW(q);
                   if (control_face)
@@ -1088,7 +1088,7 @@ namespace nmopt::compiler::v1::detail
                       desired_state_norm_ += desired_value * desired_value * weight;
                       observation_evaluation.emplace(state_dof_handler_.n_dofs());
                     }
-                  for (unsigned int i = 0; i < state_fe_.dofs_per_cell; ++i)
+                  for (unsigned int i = 0; i < state_fe_->dofs_per_cell; ++i)
                     {
                       const auto global_i = state_indices[i];
                       if (constrained_state_dofs_.at(global_i))
@@ -1100,7 +1100,7 @@ namespace nmopt::compiler::v1::detail
                                               control_scale * phi_i * weight);
                       if (transport_face)
                         for (unsigned int j = 0;
-                             j < state_fe_.dofs_per_cell;
+                             j < state_fe_->dofs_per_cell;
                              ++j)
                           {
                             const auto global_j = state_indices[j];
@@ -1123,7 +1123,7 @@ namespace nmopt::compiler::v1::detail
                             observation_weight_value * desired_value * phi_i *
                             weight;
                           for (unsigned int j = 0;
-                               j < state_fe_.dofs_per_cell;
+                               j < state_fe_->dofs_per_cell;
                                ++j)
                             {
                               const auto global_j = state_indices[j];
@@ -1221,7 +1221,7 @@ namespace nmopt::compiler::v1::detail
         solution[index] = augmented_solution[index];
     }
 
-    dealii::FE_Q<dim> state_fe_;
+    std::unique_ptr<dealii::FiniteElement<dim>> state_fe_;
     dealii::DoFHandler<dim> state_dof_handler_;
     dealii::AffineConstraints<double> state_constraints_;
     std::vector<bool> constrained_state_dofs_;

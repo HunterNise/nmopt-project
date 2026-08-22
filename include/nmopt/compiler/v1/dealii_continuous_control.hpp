@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nmopt/compiler/v1/dealii_reference_cell.hpp"
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
@@ -9,12 +10,9 @@
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
-#include <deal.II/base/quadrature_lib.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe.h>
-#include <deal.II/fe/fe_q.h>
-#include <deal.II/fe/fe_simplex_p.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
@@ -79,8 +77,10 @@ namespace nmopt::compiler::v1::detail
       const bool                                    use_h1_control_regularisation = true,
       const bool homogeneous_dirichlet_control = false,
       std::set<dealii::types::boundary_id>         control_boundary_ids = {})
-      : state_fe_(make_finite_element(triangulation, state_degree))
-      , control_fe_(make_finite_element(triangulation, state_degree))
+      : state_fe_(make_scalar_lagrange_element(
+          triangulation, state_degree, "The continuous-control target"))
+      , control_fe_(make_scalar_lagrange_element(
+          triangulation, state_degree, "The continuous-control target"))
       , state_dof_handler_(triangulation)
       , control_dof_handler_(triangulation)
       , diffusion_(diffusion)
@@ -455,26 +455,6 @@ namespace nmopt::compiler::v1::detail
     }
 
   private:
-    static std::unique_ptr<dealii::FiniteElement<dim>>
-    make_finite_element(const dealii::Triangulation<dim> &triangulation,
-                        const unsigned int                degree)
-    {
-      if (triangulation.all_reference_cells_are_hyper_cube())
-        return std::make_unique<dealii::FE_Q<dim>>(degree);
-      contract::require(triangulation.all_reference_cells_are_simplex(),
-                        "The continuous-control target supports only one simplex or hypercube reference-cell family");
-      return std::make_unique<dealii::FE_SimplexP<dim>>(degree);
-    }
-
-    std::unique_ptr<dealii::Quadrature<dim>>
-    make_volume_quadrature(const unsigned int order) const
-    {
-      if (state_dof_handler_.get_triangulation()
-            .all_reference_cells_are_hyper_cube())
-        return std::make_unique<dealii::QGauss<dim>>(order);
-      return std::make_unique<dealii::QGaussSimplex<dim>>(order);
-    }
-
     void
     require_variables(const Primal &variables, const char *operation) const
     {
@@ -641,7 +621,10 @@ namespace nmopt::compiler::v1::detail
     {
       const unsigned int quadrature_order =
         std::max(state_fe_->degree, control_fe_->degree) + 2;
-      const auto quadrature = make_volume_quadrature(quadrature_order);
+      const auto quadrature = make_gauss_volume_quadrature(
+        state_dof_handler_.get_triangulation(),
+        quadrature_order,
+        "The continuous-control target");
       dealii::FEValues<dim> state_values(
         *state_fe_,
         *quadrature,

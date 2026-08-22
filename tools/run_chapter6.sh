@@ -156,7 +156,6 @@ run_directory="$(awk '
 
 postprocess_arguments=(
   tools/postprocess.py
-  --profile chapter6
   --input "$run_directory"
   --output "$run_directory/postprocess"
 )

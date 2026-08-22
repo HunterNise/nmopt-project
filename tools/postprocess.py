@@ -11,15 +11,16 @@ from nmopt_postprocess import PostprocessError
 from nmopt_postprocess.chapter6 import (
     CHAPTER6_PROFILE,
     load_json_profile,
+    with_parameter_configuration,
     with_comparison_plan,
 )
+from nmopt_postprocess.parameters import load_postprocess_configuration
 from nmopt_postprocess.pipeline import (
     PostprocessProfile,
     process_artifact,
     process_input_root,
 )
 from nmopt_postprocess.render import (
-    DEFAULT_OUTPUT_FORMATS,
     OutputFormat,
     OutputFormats,
 )
@@ -71,7 +72,7 @@ def build_parser(
         dest="output_formats",
         nargs="+",
         choices=OUTPUT_FORMATS,
-        default=DEFAULT_OUTPUT_FORMATS,
+        default=None,
         metavar="FORMAT",
         help="one or more plot formats; defaults to png",
     )
@@ -79,26 +80,39 @@ def build_parser(
 
 
 def _profile_from_run_snapshot(
-    source: Path, fallback: PostprocessProfile
+    source: Path, fallback: PostprocessProfile, use_snapshot_style: bool = True
 ) -> PostprocessProfile:
-    """Prefer the run's copied profile and comparison override when present."""
+    """Assemble the effective profile from the run snapshot and its ``.prm``."""
 
     root = source if source.is_dir() else source.parent
     for candidate_root in (root, *root.parents):
         snapshot = candidate_root / "plotting-profile.json"
+        parameter_file = candidate_root / "parameters.prm"
         manifest_path = candidate_root / "run-manifest.json"
-        if not snapshot.exists() or not manifest_path.exists():
-            continue
-        profile = load_json_profile(snapshot)
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        comparison = manifest.get("plotting", {}).get("resolved_comparison", {})
-        return with_comparison_plan(
-            profile,
-            str(comparison.get("rows", "")),
-            str(comparison.get("columns", "")),
-            str(comparison.get("group_by", "")),
-        )
+        if not parameter_file.exists():
+            if not snapshot.exists() or not manifest_path.exists():
+                continue
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            comparison = manifest.get("plotting", {}).get("resolved_comparison", {})
+            return with_comparison_plan(
+                fallback,
+                str(comparison.get("rows", "")),
+                str(comparison.get("columns", "")),
+                str(comparison.get("group_by", "")),
+            )
+        if use_snapshot_style and snapshot.exists():
+            fallback = load_json_profile(snapshot)
+        configuration = load_postprocess_configuration(parameter_file)
+        return with_parameter_configuration(fallback, configuration)
     return fallback
+
+
+def _effective_output_formats(
+    requested: list[OutputFormat] | None, profile: PostprocessProfile
+) -> OutputFormats:
+    if requested is not None:
+        return tuple(requested)
+    return profile.output_formats
 
 
 def main(
@@ -116,12 +130,15 @@ def main(
         profile = load_json_profile(arguments.profile_file.resolve())
     else:
         profile = PROFILES[profile_name or "chapter6"]
-    output_formats: OutputFormats = tuple(arguments.output_formats)
     try:
         if arguments.artifact is not None:
             artifact = arguments.artifact.resolve()
-            if not explicit_profile:
-                profile = _profile_from_run_snapshot(artifact, profile)
+            profile = _profile_from_run_snapshot(
+                artifact, profile, use_snapshot_style=not explicit_profile
+            )
+            output_formats = _effective_output_formats(
+                arguments.output_formats, profile
+            )
             output = (
                 arguments.output.resolve()
                 if arguments.output is not None
@@ -137,8 +154,12 @@ def main(
             return 0
 
         input_root = arguments.input.resolve()
-        if not explicit_profile:
-            profile = _profile_from_run_snapshot(input_root, profile)
+        profile = _profile_from_run_snapshot(
+            input_root, profile, use_snapshot_style=not explicit_profile
+        )
+        output_formats = _effective_output_formats(
+            arguments.output_formats, profile
+        )
         output_root = (
             arguments.output.resolve()
             if arguments.output is not None

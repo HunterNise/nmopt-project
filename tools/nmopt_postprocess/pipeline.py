@@ -98,6 +98,8 @@ class PostprocessProfile:
     axis_orders: dict[str, tuple[str, ...]] | None = None
     axis_labels: dict[str, dict[str, str]] | None = None
     history_figures: tuple[HistoryFigureSpec, ...] = ()
+    matrix_axis_values: dict[str, tuple[str, ...]] | None = None
+    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS
 
 
 def _render_item(
@@ -297,7 +299,9 @@ def _axis_values(
         for artifact in artifacts
         if (value := _axis_value(read_metadata(artifact), axis))
     }
-    declared = (profile.axis_orders or {}).get(axis, ())
+    declared = (profile.matrix_axis_values or {}).get(
+        axis, (profile.axis_orders or {}).get(axis, ())
+    )
     ordered = []
     seen: set[str] = set()
     for value in declared:

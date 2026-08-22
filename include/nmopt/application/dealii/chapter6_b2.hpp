@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/application/chapter6.hpp"
+#include "nmopt/application/dealii/centroid_split_simplex_mesh.hpp"
 #include "nmopt/application/runner.hpp"
 #include "nmopt/compiler/v1/dealii_compiler.hpp"
 #include "nmopt/experiment/reduced_envelope.hpp"
@@ -276,8 +277,25 @@ namespace nmopt::application::chapter6::dealii
               "B2 simplex meshes are implemented only in two dimensions");
           break;
         case MeshGeneration::centroid_split_simplex:
-          throw std::invalid_argument(
-            "B2 centroid-split simplex meshes are not implemented");
+          if constexpr (dim == 2)
+            {
+              ::dealii::Triangulation<2> base_mesh;
+              ::dealii::GridGenerator::
+                subdivided_hyper_rectangle_with_simplices(
+                  base_mesh,
+                  scenario.compile.mesh.axis_subdivisions,
+                  lower,
+                  upper,
+                  false);
+              mesh = detail::make_centroid_split_simplex_mesh(
+                base_mesh,
+                scenario.compile.mesh.centroid_splits,
+                scenario.compile.mesh.selection_seed);
+            }
+          else
+            throw std::invalid_argument(
+              "B2 simplex meshes are implemented only in two dimensions");
+          break;
       }
 
     const auto is_close = [](const double first, const double second) {

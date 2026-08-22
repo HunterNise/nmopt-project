@@ -2,6 +2,7 @@
 #include "../support/scenario_dispatch.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -486,6 +487,166 @@ namespace
   }
 
   void
+  run_b2_centroid_split_simplex_mesh()
+  {
+    constexpr unsigned int base_vertex_count = 55;
+    constexpr unsigned int split_count = 7;
+
+    auto scenario = chapter6::make_b2_scenario(
+      chapter6::GraetzCase::observation_wings_constant_target);
+    scenario.compile.mesh.generation =
+      chapter6::MeshGeneration::centroid_split_simplex;
+    scenario.compile.mesh.refinement = 0;
+    scenario.compile.mesh.axis_subdivisions = {4, 10};
+    scenario.compile.mesh.centroid_splits = split_count;
+    scenario.compile.mesh.selection_seed = 19;
+    scenario.compile.mesh.mesh_provenance =
+      "test.chapter6.b2.centroid-split-4x10-s7-seed19";
+    scenario.solver.parameters.maximum_iterations = 2;
+    scenario.solver.parameters.gradient_tolerance = 1.0e-4;
+    scenario.experiment.retain_fields = false;
+
+    const auto session =
+      chapter6::dealii::make_b2_compilation_session<2>(scenario);
+    const auto repeated_session =
+      chapter6::dealii::make_b2_compilation_session<2>(scenario);
+    auto alternate_scenario = scenario;
+    alternate_scenario.compile.mesh.selection_seed = 20;
+    alternate_scenario.compile.mesh.mesh_provenance =
+      "test.chapter6.b2.centroid-split-4x10-s7-seed20";
+    const auto alternate_session =
+      chapter6::dealii::make_b2_compilation_session<2>(alternate_scenario);
+
+    const auto added_vertices = [base_vertex_count](const auto &mesh) {
+      std::vector<std::array<double, 2>> result;
+      for (unsigned int index = base_vertex_count;
+           index < mesh.n_vertices();
+           ++index)
+        result.push_back(
+          {{mesh.get_vertices()[index][0], mesh.get_vertices()[index][1]}});
+      return result;
+    };
+    const auto same_vertices = [](const auto &first, const auto &second) {
+      if (first.size() != second.size())
+        return false;
+      for (std::size_t index = 0; index < first.size(); ++index)
+        for (unsigned int coordinate = 0; coordinate < 2; ++coordinate)
+          if (std::abs(first[index][coordinate] -
+                       second[index][coordinate]) > 1.0e-15)
+            return false;
+      return true;
+    };
+
+    const auto &mesh = session->triangulation();
+    const auto signature = added_vertices(mesh);
+    require(mesh.all_reference_cells_are_simplex() &&
+              mesh.n_vertices() == base_vertex_count + split_count &&
+              mesh.n_active_cells() == 80 + 2 * split_count,
+            "B2 centroid-split generator violated its count identities");
+    require(same_vertices(signature,
+                          added_vertices(repeated_session->triangulation())),
+            "B2 centroid-split generator is not deterministic for one seed");
+    require(!same_vertices(signature,
+                           added_vertices(alternate_session->triangulation())),
+            "B2 centroid-split generator ignored its selection seed");
+
+    std::size_t boundary_face_count = 0;
+    std::size_t fixed_boundary_face_count = 0;
+    std::size_t control_boundary_face_count = 0;
+    std::size_t outflow_boundary_face_count = 0;
+    double      observation_measure = 0.0;
+    for (const auto &cell : mesh.active_cell_iterators())
+      {
+        std::array<unsigned int, 3> vertices{{cell->vertex_index(0),
+                                              cell->vertex_index(1),
+                                              cell->vertex_index(2)}};
+        std::sort(vertices.begin(), vertices.end());
+        require(vertices[0] != vertices[1] && vertices[1] != vertices[2],
+                "B2 centroid-split mesh contains degenerate connectivity");
+        const auto &a = cell->vertex(0);
+        const auto &b = cell->vertex(1);
+        const auto &c = cell->vertex(2);
+        const double signed_area =
+          (b[0] - a[0]) * (c[1] - a[1]) -
+          (b[1] - a[1]) * (c[0] - a[0]);
+        require(signed_area > 0.0,
+                "B2 centroid-split mesh contains a misoriented triangle");
+
+        require(cell->material_id() == 0 ||
+                  cell->material_id() ==
+                    scenario.problem.recipe.observed_material_id,
+                "B2 centroid-split mesh has an unknown material id");
+        if (cell->material_id() ==
+            scenario.problem.recipe.observed_material_id)
+          observation_measure += cell->measure();
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
+          if (cell->face(face)->at_boundary())
+            {
+              ++boundary_face_count;
+              switch (cell->face(face)->boundary_id())
+                {
+                  case chapter6::b2_fixed_boundary_id:
+                    ++fixed_boundary_face_count;
+                    break;
+                  case chapter6::b2_control_boundary_id:
+                    ++control_boundary_face_count;
+                    break;
+                  case chapter6::b2_outflow_boundary_id:
+                    ++outflow_boundary_face_count;
+                    break;
+                  default:
+                    throw std::runtime_error(
+                      "B2 centroid-split mesh has an unclassified boundary face");
+                }
+            }
+      }
+    require(boundary_face_count == 28 && fixed_boundary_face_count == 12 &&
+              control_boundary_face_count == 6 &&
+              outflow_boundary_face_count == 10,
+            "B2 centroid splitting changed the exterior partition");
+    require(std::abs(observation_measure - 1.8) < 1.0e-12,
+            "B2 centroid splitting changed the wings observation measure");
+
+    chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
+      scenario.problem.graetz_case, scenario.problem.fixed_temperature};
+    const auto runtime =
+      chapter6::dealii::make_b2_manufactured_runtime_data(
+        scenario, manufactured_data);
+    chapter6::dealii::B2ReducedExecutionAdapterT<2> execute{
+      runtime,
+      session,
+      {"test.chapter6.b2.centroid-split",
+       "debug-dealii",
+       "test-compiler",
+       "test-version",
+       "test-standard-library",
+       "test-os",
+       "test-architecture",
+       "test-hardware"}};
+    using HeadlessRunner =
+      nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
+        decltype(scenario)>;
+    const auto result = HeadlessRunner(scenario).run(
+      [](const auto &parameters) {
+        return chapter6::make_b2_problem_spec(parameters);
+      },
+      execute);
+    require(result.artifact.envelope().report().state_solve_count > 0 &&
+              result.artifact.envelope().report().adjoint_solve_count > 0,
+            "B2 centroid-split execution did not solve state and adjoint systems");
+    require(result.document.find("b2.derivative_evidence_passed=true\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.mesh_vertices=62\n") !=
+                std::string::npos &&
+              result.document.find("benchmark.mesh_active_cells=94\n") !=
+                std::string::npos &&
+              std::abs(artifact_number(result.document,
+                                       "benchmark.observation_measure") -
+                       1.8) < 1.0e-12,
+            "B2 centroid-split execution lost numerical or structural evidence");
+  }
+
+  void
   run_b2_transport_boundary_realisation_comparison()
   {
     const auto graetz_case =
@@ -585,7 +746,12 @@ main(const int argc, char **argv)
          "nmopt.application.dealii.b2_structured_simplex_mesh",
          {"dealii", "application", "benchmark", "b2", "contract"},
          120,
-         []() { run_b2_structured_simplex_mesh(); }}};
+         []() { run_b2_structured_simplex_mesh(); }},
+        {"b2_centroid_split_simplex_mesh",
+         "nmopt.application.dealii.b2_centroid_split_simplex_mesh",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         120,
+         []() { run_b2_centroid_split_simplex_mesh(); }}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

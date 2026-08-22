@@ -487,8 +487,10 @@ namespace nmopt::application::chapter6
               "B2 structured-simplex meshes require per-axis subdivisions");
           break;
         case MeshGeneration::centroid_split_simplex:
-          throw std::invalid_argument(
-            "B2 does not yet support centroid-split simplex meshes");
+          if (scenario.compile.mesh.axis_subdivisions.empty())
+            throw std::invalid_argument(
+              "B2 centroid-split-simplex meshes require per-axis subdivisions");
+          break;
       }
     if (!std::isfinite(scenario.problem.fixed_temperature))
       throw std::invalid_argument("B2 fixed temperature must be finite");

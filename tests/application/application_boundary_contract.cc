@@ -448,6 +448,13 @@ namespace
     structured_b2_mesh.compile.mesh.axis_subdivisions = {4, 10};
     nmopt::application::chapter6::validate_b2(structured_b2_mesh);
 
+    auto centroid_split_b2_mesh = structured_b2_mesh;
+    centroid_split_b2_mesh.compile.mesh.generation =
+      nmopt::application::chapter6::MeshGeneration::centroid_split_simplex;
+    centroid_split_b2_mesh.compile.mesh.centroid_splits = 7;
+    centroid_split_b2_mesh.compile.mesh.selection_seed = 19;
+    nmopt::application::chapter6::validate_b2(centroid_split_b2_mesh);
+
     auto invalid_b2_mesh = structured_b2_mesh;
     invalid_b2_mesh.compile.mesh.axis_subdivisions.clear();
     invalid_b2_mesh.compile.mesh.subdivisions = 2;
@@ -462,6 +469,20 @@ namespace
       }
     require(invalid_b2_mesh_rejected,
             "B2 accepted a mesh outside its rectangular adapter contract");
+
+    auto excessive_b2_splits = centroid_split_b2_mesh;
+    excessive_b2_splits.compile.mesh.centroid_splits = 81;
+    bool excessive_b2_splits_rejected = false;
+    try
+      {
+        nmopt::application::chapter6::validate_b2(excessive_b2_splits);
+      }
+    catch (const std::invalid_argument &)
+      {
+        excessive_b2_splits_rejected = true;
+      }
+    require(excessive_b2_splits_rejected,
+            "B2 accepted more centroid splits than base triangles");
 
     const auto total_conormal =
       nmopt::application::chapter6::make_b2_scenario(

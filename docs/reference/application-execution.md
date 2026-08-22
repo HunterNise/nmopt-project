@@ -88,9 +88,10 @@ finite-element fields, including homogeneous boundary values, while
 distinction lets B1 comparisons test either interpretation of the source's
 equal-dimension clue without changing the solver's coordinate convention.
 The same dimension triplets are emitted for B2 state, control, and adjoint
-fields. B2 additionally records the mesh generator and subdivision choices,
-mesh vertices and active cells, total and per-region exterior-face counts, and
-the realized observation measure.
+fields. B2 additionally records the mesh generator, subdivision counts,
+centroid-split count, and selection seed, along with mesh vertices and active
+cells, total and per-region exterior-face counts, and the realized observation
+measure.
 
 Every compiled semantic space is projected as
 `manifest.space.<semantic-id>.*`, including its realized dimension, runtime

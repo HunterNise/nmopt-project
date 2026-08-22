@@ -151,9 +151,13 @@ for one isotropic count, or `Mesh/axis subdivisions` for a comma-separated
 positive count along each mesh axis. The per-axis list must have
 `Mesh/dimension` entries. The runner parses both representations into the typed
 mesh record. The B1 mesh constructor accepts only the isotropic form. B2
-accepts `structured-simplex` on its rectangle with per-axis subdivisions; its
-framework-native rectangle remains the frozen default, and its centroid-split
-choice remains unavailable.
+accepts `structured-simplex` and `centroid-split-simplex` on its rectangle
+with per-axis subdivisions; its framework-native rectangle remains the frozen
+default. The centroid-split choice additionally needs a positive
+`Mesh/centroid splits` value and a deterministic `Mesh/selection seed`. For
+per-axis counts $n_1,n_2$, the split count cannot exceed the $2n_1n_2$ base
+triangles. It is a repeatable topology-sensitivity candidate, not a
+reconstruction of omitted source connectivity.
 
 B1 accepts `structured-simplex` with a positive isotropic subdivision count,
 and `centroid-split-simplex` with positive subdivision and

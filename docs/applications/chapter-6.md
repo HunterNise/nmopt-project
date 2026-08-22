@@ -219,11 +219,15 @@ matrix.
 The deal.II-specific adapter is declared in
 `include/nmopt/application/dealii/chapter6_b2.hpp`. It supplies the two
 dimensional rectangle mesh, selected as either the frozen framework-native
-quadrilateral realization or a structured triangular realization with
-per-axis subdivisions. Both paths use the same material-ID observation
-realization and boundary labels. The adapter also supplies zero forcing, the
-selected target function, fixed temperature, and the conservative transport
-field. The complete manufactured-data path is:
+quadrilateral realization, a structured triangular realization with per-axis
+subdivisions, or a deterministic centroid-split variant of that triangular
+mesh. All paths use the same material-ID observation realization and boundary
+labels. Each centroid split replaces one selected base triangle by three,
+adding one vertex and two cells; the seed makes this topology candidate
+repeatable but does not identify the source's omitted connectivity. The
+adapter also supplies zero forcing, the selected target function, fixed
+temperature, and the conservative transport field. The complete
+manufactured-data path is:
 
 ```cpp
 #include "nmopt/application/dealii/chapter6_b2.hpp"

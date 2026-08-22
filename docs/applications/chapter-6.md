@@ -50,7 +50,7 @@ dependencies.
 | --- | --- | --- | --- |
 | B0 | Common harness | Any selected recipe | Deterministic manifest/report artifact path |
 | B1 | E6.5.1 distributed Laplace control | `scalar-diffusion-reaction-volume` | Reduced DTO; steepest descent versus L-BFGS |
-| B2 | E6.5.2 Graetz-flow boundary control | `scalar-neumann-convection-subdomain` | Reduced DTO; BFGS or declared recovered Armijo/fixed-step policy |
+| B2 | E6.5.2 Graetz-flow boundary control | `scalar-neumann-convection-subdomain` | Reduced DTO; full-BFGS direction with declared Armijo or fixed-step globalization |
 | B3 | E6.9.1 symmetric box Laplace | Distributed scalar with cellwise box | Scalar KKT/PDAS; cellwise-discontinuous control |
 | B4 | E6.9.2 asymmetric box Laplace | Distributed scalar with spatially varying cellwise bounds | Reuse B3 KKT/PDAS product |
 | B5 | E6.7.1 all-at-once Laplace | Distributed scalar | Quadratic KKT and optional preconditioning |
@@ -200,6 +200,13 @@ helper declares `fixed_dirichlet_data` as a `fixed_dirichlet_lifting` function
 and connects it through `fixed_dirichlet_reconstruction`; passing that
 function to a graph without the declared port remains an error.
 
+The scenario solver record also selects `ReducedGlobalization::armijo` or
+`ReducedGlobalization::fixed_step`. Armijo is the frozen default. Fixed-step
+uses `initial_step_length` as the declared positive step, evaluates one trial,
+and does not add a sufficient-decrease condition or alter the selected
+stopping criterion. B1 remains Armijo-only until its separate execution
+adapter registers another policy.
+
 For B2, the default and frozen source boundary form is the ordinary-normal
 condition $\partial_n y-(b\mathbin\cdot n)y=u$ on the control boundary and zero
 on the outflow. `make_b2_scenario(...)` also accepts
@@ -263,7 +270,10 @@ const auto result = Runner(scenario).run(
 
 The adapter binds every declared port, including `fixed_dirichlet_data` and
 `conservative_transport`, compiles the assembled reduced DTO, and dispatches
-full BFGS from zero control in the selected layout. `B2RuntimeDataT<dim>` is
+full BFGS with the selected Armijo or fixed-step globalization from zero
+control in the selected layout. The declared selection and effective solver
+policy are checked against one another and retained in the artifact and solver
+snapshot. `B2RuntimeDataT<dim>` is
 the extension point for recovered forcing, targets, or transport fields; the
 caller owns all referenced Function objects for the duration of compilation
 and solving. Native boundary output stores facewise constants as cell data and

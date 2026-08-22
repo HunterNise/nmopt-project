@@ -115,6 +115,25 @@ namespace nmopt::application::chapter6
     limited_memory_bfgs
   };
 
+  enum class ReducedGlobalization
+  {
+    armijo,
+    fixed_step
+  };
+
+  inline const char *
+  reduced_globalization_name(const ReducedGlobalization globalization)
+  {
+    switch (globalization)
+      {
+        case ReducedGlobalization::armijo:
+          return "armijo";
+        case ReducedGlobalization::fixed_step:
+          return "fixed-step";
+      }
+    throw std::invalid_argument("unknown reduced globalization selection");
+  }
+
   enum class ObjectiveTargetPolicy
   {
     none,
@@ -125,6 +144,7 @@ namespace nmopt::application::chapter6
   struct SolverOptions
   {
     ReducedMethod                  method = ReducedMethod::steepest_descent;
+    ReducedGlobalization           globalization = ReducedGlobalization::armijo;
     solvers::ReducedSolverParameters parameters;
     solvers::LimitedMemoryBfgsParameters limited_memory_bfgs;
     ObjectiveTargetPolicy              objective_target_policy =
@@ -370,6 +390,18 @@ namespace nmopt::application::chapter6
   }
 
   inline void
+  validate_reduced_globalization(const ReducedGlobalization globalization)
+  {
+    switch (globalization)
+      {
+        case ReducedGlobalization::armijo:
+        case ReducedGlobalization::fixed_step:
+          return;
+      }
+    throw std::invalid_argument("unknown reduced globalization selection");
+  }
+
+  inline void
   validate_b1(const B1Scenario &scenario)
   {
     scenario.validate();
@@ -416,6 +448,9 @@ namespace nmopt::application::chapter6
         scenario.solver.method != ReducedMethod::limited_memory_bfgs)
       throw std::invalid_argument(
         "B1 selects steepest descent or limited-memory BFGS");
+    validate_reduced_globalization(scenario.solver.globalization);
+    if (scenario.solver.globalization != ReducedGlobalization::armijo)
+      throw std::invalid_argument("B1 currently selects Armijo globalization");
     switch (scenario.solver.objective_target_policy)
       {
         case ObjectiveTargetPolicy::none:
@@ -523,6 +558,7 @@ namespace nmopt::application::chapter6
         "B2 needs fixed-data and transport provenance");
     if (scenario.solver.method != ReducedMethod::bfgs)
       throw std::invalid_argument("B2 selects the BFGS method");
+    validate_reduced_globalization(scenario.solver.globalization);
     if (scenario.compile.product != ProductSelection::reduced_dto ||
         scenario.compile.execution != ExecutionSelection::assembled)
       throw std::invalid_argument(
@@ -669,7 +705,8 @@ namespace nmopt::application::chapter6
     const semantic::v1::TransportBoundaryForm transport_boundary_form =
       semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
     const semantic::v1::NeumannControlDiscretisation control_discretisation =
-      semantic::v1::NeumannControlDiscretisation::facewise_constant)
+      semantic::v1::NeumannControlDiscretisation::facewise_constant,
+    const ReducedGlobalization globalization = ReducedGlobalization::armijo)
   {
     B2ProblemParameters problem;
     problem.graetz_case             = graetz_case;
@@ -694,6 +731,7 @@ namespace nmopt::application::chapter6
       std::move(problem),
       std::move(compile),
       {ReducedMethod::bfgs,
+       globalization,
        {},
        {},
        ObjectiveTargetPolicy::none,

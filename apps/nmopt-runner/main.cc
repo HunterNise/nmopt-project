@@ -440,6 +440,7 @@ namespace
     const std::string &method_id)
   {
     using namespace nmopt::application::runner;
+    solver.globalization = reduced_globalization(file);
     const auto method_prefix = "Solver/method policy " + method_id + "/";
     const auto resolve = [&](const std::string_view entry) {
       return resolve_method_parameter(file, method_id, entry);
@@ -923,13 +924,14 @@ namespace
       "solver.final_objective",
       b1_number(evidence.envelope.report().final_evaluation.objective_value)});
     const auto &parameters = evidence.envelope.report().parameters;
+    const auto &line_search = evidence.envelope.report().policy_parameters;
     evidence.fields.push_back({"solver.maximum_iterations",
                                std::to_string(parameters.maximum_iterations)});
     evidence.fields.push_back({"solver.maximum_line_search_trials",
-                               std::to_string(parameters.maximum_line_search_trials)});
+                               std::to_string(line_search.maximum_trials)});
     evidence.fields.push_back({"solver.maximum_backtracking_reductions",
                                std::to_string(
-                                 parameters.maximum_line_search_trials - 1)});
+                                 line_search.maximum_backtracking_reductions)});
     evidence.fields.push_back({"solver.gradient_tolerance",
                                b1_number(parameters.gradient_tolerance)});
     evidence.fields.push_back(
@@ -945,13 +947,13 @@ namespace
     evidence.fields.push_back({"solver.step_tolerance",
                                b1_number(parameters.step_tolerance)});
     evidence.fields.push_back({"solver.initial_step_length",
-                               b1_number(parameters.initial_step_length)});
+                               b1_number(line_search.initial_step_length)});
     evidence.fields.push_back({"solver.minimum_step_length",
-                               b1_number(parameters.minimum_step_length)});
+                               b1_number(line_search.minimum_step_length)});
     evidence.fields.push_back({"solver.armijo_fraction",
-                               b1_number(parameters.armijo_fraction)});
+                               b1_number(line_search.armijo_fraction)});
     evidence.fields.push_back({"solver.backtracking_factor",
-                               b1_number(parameters.backtracking_factor)});
+                               b1_number(line_search.backtracking_factor)});
     if (parameters.objective_target.has_value())
       evidence.fields.push_back(
         {"solver.objective_target",

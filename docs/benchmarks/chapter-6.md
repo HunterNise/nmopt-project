@@ -246,10 +246,11 @@ alternative, but it is not the frozen benchmark interpretation.
 
 ### Solver policy
 
-The frozen full-BFGS policy is initial step `1`, Armijo fraction `1e-4`,
-backtracking factor `0.5`, at most `20` line-search trials, gradient tolerance
-`1e-8`, and no declared minimum step. The source step policy is unspecified;
-the artifact must retain that distinction.
+The frozen full-BFGS policy selects Armijo globalization with initial step `1`,
+Armijo fraction `1e-4`, backtracking factor `0.5`, at most `20` line-search
+trials, gradient tolerance `1e-8`, and no declared minimum step. The source
+step policy is unspecified; fixed-step experiments are diagnostic candidates,
+and every artifact must retain the declared and effective globalization.
 
 ### Acceptance evidence
 

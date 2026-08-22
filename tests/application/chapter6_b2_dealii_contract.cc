@@ -764,6 +764,104 @@ namespace
   }
 
   void
+  run_b2_globalization_comparison()
+  {
+    for (const auto globalization :
+         {chapter6::ReducedGlobalization::armijo,
+          chapter6::ReducedGlobalization::fixed_step})
+      {
+        auto scenario = chapter6::make_b2_scenario(
+          chapter6::GraetzCase::observation_wings_constant_target,
+          nmopt::semantic::v1::TransportBoundaryForm::
+            ordinary_normal_minus_transport,
+          nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
+          globalization);
+        scenario.compile.mesh.refinement = 1;
+        scenario.solver.parameters.maximum_iterations = 2;
+        scenario.solver.parameters.gradient_tolerance = 1.0e-16;
+        scenario.solver.parameters.initial_step_length = 0.25;
+        scenario.experiment.retain_fields = false;
+
+        chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
+          scenario.problem.graetz_case,
+          scenario.problem.fixed_temperature};
+        const auto runtime =
+          chapter6::dealii::make_b2_manufactured_runtime_data(
+            scenario, manufactured_data);
+        const auto session =
+          chapter6::dealii::make_b2_compilation_session<2>(scenario);
+        chapter6::dealii::B2ReducedExecutionAdapterT<2> execute{
+          runtime,
+          session,
+          {"test.chapter6.b2.globalization",
+           "debug-dealii",
+           "test-compiler",
+           "test-version",
+           "test-standard-library",
+           "test-os",
+           "test-architecture",
+           "test-hardware"}};
+        using HeadlessRunner =
+          nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
+            decltype(scenario)>;
+        const auto result = HeadlessRunner(scenario).run(
+          [](const auto &parameters) {
+            return chapter6::make_b2_problem_spec(parameters);
+          },
+          execute);
+        const auto &report = result.artifact.envelope().report();
+        const std::string expected_policy =
+          globalization == chapter6::ReducedGlobalization::armijo ?
+            "armijo" :
+            "fixed_step";
+        const std::string declared_globalization =
+          chapter6::reduced_globalization_name(globalization);
+
+        require(report.policy_name == expected_policy &&
+                  report.policy_parameters.policy_name == expected_policy &&
+                  result.artifact.envelope().solver_policy().policy_name ==
+                    expected_policy &&
+                  report.parameters.stopping_criterion ==
+                    scenario.solver.parameters.stopping_criterion &&
+                  report.parameters.maximum_iterations ==
+                    scenario.solver.parameters.maximum_iterations,
+                "B2 execution did not retain the selected globalization and stopping policy");
+        require(result.document.find("solver.globalization=" +
+                                     declared_globalization + "\n") !=
+                    std::string::npos &&
+                  result.document.find("solver.policy=" + expected_policy +
+                                       "\n") != std::string::npos,
+                "B2 artifact did not retain its declared and effective globalization");
+        require(report.accepted_iterations > 0 &&
+                  report.step_length_history.size() ==
+                    report.accepted_iterations,
+                "B2 globalization comparison did not retain accepted steps");
+        if (globalization == chapter6::ReducedGlobalization::fixed_step)
+          {
+            require(report.policy_parameters.maximum_trials == 1 &&
+                      report.policy_parameters.initial_step_length == 0.25 &&
+                      report.policy_parameters.maximum_backtracking_reductions ==
+                        0 &&
+                      std::isnan(report.policy_parameters.armijo_fraction) &&
+                      report.line_search_trial_count ==
+                      report.accepted_iterations &&
+                      report.line_search_trials.size() ==
+                        report.accepted_iterations,
+                    "B2 fixed-step execution did not use one trial per accepted iteration");
+            for (std::size_t index = 0;
+                 index < report.accepted_iterations;
+                 ++index)
+              require(report.step_length_history[index] == 0.25 &&
+                        report.line_search_trials[index].accepted &&
+                        std::isnan(report.iteration_records[index]
+                                     .acceptance_evidence
+                                     .sufficient_decrease_bound),
+                      "B2 fixed-step execution imposed or omitted acceptance evidence");
+          }
+      }
+  }
+
+  void
   run_b2_transport_boundary_realisation_comparison()
   {
     const auto graetz_case =
@@ -859,6 +957,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b2", "contract", "diagnostic"},
          120,
          []() { run_b2_transport_boundary_realisation_comparison(); }},
+        {"b2_globalization_comparison",
+         "nmopt.application.dealii.b2_globalization_comparison",
+         {"dealii", "application", "benchmark", "b2", "contract", "solver"},
+         120,
+         []() { run_b2_globalization_comparison(); }},
         {"b2_control_discretisation_comparison",
          "nmopt.application.dealii.b2_control_discretisation_comparison",
          {"dealii", "application", "benchmark", "b2", "contract", "metric"},

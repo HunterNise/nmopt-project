@@ -301,16 +301,18 @@ namespace
     require(b2.combinations().size() == 4,
             "B2 should expand to four authoritative combinations");
     require(b2.value("Problem/control representation") ==
-              "facewise-constant",
-            "B2 authoritative parameters lost the frozen control realization");
+                "facewise-constant" &&
+              b2.value("Solver/globalization") == "armijo",
+            "B2 authoritative parameters lost a frozen control or solver choice");
 
     const auto development = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/development/forcing-sweep.prm"));
     require(development.combinations().size() == 3,
             "B2 forcing development family should expand to three combinations");
     require(development.value("Problem/control representation") ==
-              "facewise-constant",
-            "B2 forcing family lost the frozen control realization");
+                "facewise-constant" &&
+              development.value("Solver/globalization") == "armijo",
+            "B2 forcing family lost a frozen control or solver choice");
     require(development.content_hash.rfind("fnv1a64:", 0) == 0,
             "parameter provenance should carry a labelled deterministic hash");
 
@@ -430,6 +432,39 @@ namespace
         (void)nmopt::application::runner::b2_transport_boundary_form(unknown);
       },
       "B2 accepted an unknown transport-boundary form");
+  }
+
+  void
+  test_reduced_globalization_is_selected()
+  {
+    const auto armijo = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    require(
+      nmopt::application::runner::reduced_globalization(armijo) ==
+        nmopt::application::chapter6::ReducedGlobalization::armijo,
+      "runner parsing lost the default Armijo globalization");
+
+    auto legacy_default = armijo;
+    legacy_default.values.erase("Solver/globalization");
+    require(
+      nmopt::application::runner::reduced_globalization(legacy_default) ==
+        nmopt::application::chapter6::ReducedGlobalization::armijo,
+      "runner parsing did not preserve the legacy Armijo default");
+
+    auto fixed_step = armijo;
+    fixed_step.values["Solver/globalization"] = "fixed-step";
+    require(
+      nmopt::application::runner::reduced_globalization(fixed_step) ==
+        nmopt::application::chapter6::ReducedGlobalization::fixed_step,
+      "runner parsing lost the fixed-step globalization");
+
+    auto unknown = armijo;
+    unknown.values["Solver/globalization"] = "constant";
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::reduced_globalization(unknown);
+      },
+      "runner parsing accepted an unknown globalization");
   }
 
   void
@@ -599,6 +634,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract"},
          30,
          test_b2_control_discretisation_is_selected},
+        {"reduced_globalization_is_selected",
+         "nmopt.parameter_files.reduced_globalization_is_selected",
+         {"backend", "dealii", "application", "runner", "contract", "negative"},
+         30,
+         test_reduced_globalization_is_selected},
         {"sparse_matrix_exclusions_are_validated_and_applied",
          "nmopt.parameter_files.sparse_matrix_exclusions_are_validated_and_applied",
          {"backend", "dealii", "application", "runner", "contract"},

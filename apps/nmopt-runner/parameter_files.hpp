@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nmopt/application/scalar_function.hpp"
+#include "nmopt/application/chapter6.hpp"
 #include "nmopt/semantic/v1/types.hpp"
 
 #include <deal.II/base/parameter_handler.h>
@@ -107,6 +107,18 @@ namespace nmopt::application::runner
       return semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace;
     throw std::invalid_argument("unknown B2 control representation '" +
                                 representation + "'");
+  }
+
+  inline chapter6::ReducedGlobalization
+  reduced_globalization(const ParameterFile &file)
+  {
+    const auto selection = file.optional_value("Solver/globalization", "armijo");
+    if (selection.empty() || selection == "armijo")
+      return chapter6::ReducedGlobalization::armijo;
+    if (selection == "fixed-step")
+      return chapter6::ReducedGlobalization::fixed_step;
+    throw std::invalid_argument("unknown reduced globalization '" + selection +
+                                "'");
   }
 
   inline ResolvedParameterValue
@@ -544,6 +556,7 @@ namespace nmopt::application::runner
                       "control metric solve absolute tolerance",
                       "1e-14");
 
+      declare_section("Solver", "globalization", "armijo");
       for (const auto &entry : {"method",
                                 "initial control",
                                 "maximum iterations",
@@ -707,6 +720,7 @@ namespace nmopt::application::runner
                                                      "control metric solve absolute tolerance"}
                           : section == "Solver"
                               ? std::vector<std::string>{"method",
+                                                         "globalization",
                                                          "initial control",
                                                          "maximum iterations",
                                                          "maximum line search trials",

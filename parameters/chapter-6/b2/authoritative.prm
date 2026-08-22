@@ -114,6 +114,7 @@ end
 
 subsection Solver
   set method = bfgs
+  set globalization = armijo
   set initial control = zero
   set maximum iterations = 100
   set maximum line search trials = 20

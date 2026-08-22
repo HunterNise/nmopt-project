@@ -111,6 +111,11 @@ beside the field files. The existing
 explicit `solver.metric_gradient_norm_history` alias and the separate
 `solver.coefficient_derivative_norm_history` make that convention auditable
 without treating dual coefficient norms as Hilbert gradients.
+The `solver.globalization` field records the scenario selection as `armijo` or
+`fixed-step`, while `solver.policy` records the effective reusable policy as
+`armijo` or `fixed_step`. Effective trial limits, reductions, and line-search
+parameters come from the retained policy snapshot, so fixed-step artifacts
+report one trial, zero backtracking reductions, and no Armijo fraction.
 
 ## Runner API
 

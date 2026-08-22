@@ -316,6 +316,16 @@ namespace
               nmopt::application::chapter5::
                 DistributedControlDiscretisation::cellwise_constant,
             "B1 authoritative defaults did not retain cellwise control");
+    require(b1.solver.globalization ==
+              nmopt::application::chapter6::ReducedGlobalization::armijo,
+            "B1 did not retain Armijo globalization");
+
+    auto fixed_step_b1 = b1;
+    fixed_step_b1.solver.globalization =
+      nmopt::application::chapter6::ReducedGlobalization::fixed_step;
+    require_invalid_argument(
+      [&] { nmopt::application::chapter6::validate_b1(fixed_step_b1); },
+      "B1 accepted a fixed-step policy that its adapter does not execute");
 
     const nmopt::application::ScalarFunctionDefinition inferred_forcing{
       "figure-inferred-constant-one",
@@ -463,6 +473,38 @@ namespace
             "B2 did not retain the frozen source catalogue revision");
     require(b2.metadata.id == "chapter-6.b2.graetz-flow.full-parabolic",
             "B2 did not assign a stable case-specific scenario ID");
+    require(b2.solver.globalization ==
+              nmopt::application::chapter6::ReducedGlobalization::armijo &&
+              std::string(nmopt::application::chapter6::
+                            reduced_globalization_name(
+                              b2.solver.globalization)) == "armijo",
+            "B2 did not retain its default Armijo globalization");
+
+    const auto fixed_step_b2 =
+      nmopt::application::chapter6::make_b2_scenario(
+        nmopt::application::chapter6::GraetzCase::
+          observation_full_parabolic_target,
+        nmopt::semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport,
+        nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
+        nmopt::application::chapter6::ReducedGlobalization::fixed_step);
+    require(fixed_step_b2.solver.globalization ==
+              nmopt::application::chapter6::ReducedGlobalization::fixed_step &&
+              std::string(nmopt::application::chapter6::
+                            reduced_globalization_name(
+                              fixed_step_b2.solver.globalization)) ==
+                "fixed-step",
+            "B2 did not retain the fixed-step globalization choice");
+    nmopt::application::chapter6::validate_b2(fixed_step_b2);
+
+    auto invalid_globalization = b2;
+    invalid_globalization.solver.globalization =
+      static_cast<nmopt::application::chapter6::ReducedGlobalization>(99);
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_b2(invalid_globalization);
+      },
+      "B2 accepted an unknown globalization selection");
 
     auto structured_b2_mesh = b2;
     structured_b2_mesh.compile.mesh.generation =

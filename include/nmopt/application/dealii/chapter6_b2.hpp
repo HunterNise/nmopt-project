@@ -689,12 +689,33 @@ namespace nmopt::application::chapter6::dealii
       const auto initial_evaluation = reduced.evaluate(initial_control);
       const auto derivative_evidence = make_b2_derivative_evidence(
         *compilation.problem, reduced, partition, initial_control);
-      const auto report =
-        solvers::ReducedFullBfgsSolverT<Backend>(
-          reduced,
-          compilation.problem->metric(),
-          scenario.solver.parameters)
-          .solve(initial_control);
+      const auto report = [&]() {
+        switch (scenario.solver.globalization)
+          {
+            case ReducedGlobalization::armijo:
+              return solvers::ReducedFullBfgsSolverT<Backend>(
+                       reduced,
+                       compilation.problem->metric(),
+                       scenario.solver.parameters)
+                .solve(initial_control);
+            case ReducedGlobalization::fixed_step:
+              return solvers::ReducedFixedStepFullBfgsSolverT<Backend>(
+                       reduced,
+                       compilation.problem->metric(),
+                       scenario.solver.parameters)
+                .solve(initial_control);
+          }
+        throw std::invalid_argument(
+          "B2 execution received an unknown reduced globalization");
+      }();
+      const std::string expected_solver_policy =
+        scenario.solver.globalization == ReducedGlobalization::armijo ?
+          "armijo" :
+          "fixed_step";
+      contract::require(report.policy_name == expected_solver_policy &&
+                          report.policy_parameters.policy_name ==
+                            expected_solver_policy,
+                        "B2 solver report does not match the selected globalization");
       if (scenario.experiment.retain_fields &&
           !native_output_directory_.empty())
         {
@@ -909,6 +930,8 @@ namespace nmopt::application::chapter6::dealii
         {"b2.adjoint_min", b2_number(adjoint_extrema.first)},
         {"b2.adjoint_max", b2_number(adjoint_extrema.second)},
         {"solver.method", "bfgs"},
+        {"solver.globalization",
+         reduced_globalization_name(scenario.solver.globalization)},
         {"solver.initial_control", scenario.solver.initial_control},
         {"solver.policy", report.policy_name},
         {"solver.stopping_reason",

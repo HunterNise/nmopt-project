@@ -238,6 +238,8 @@ namespace
     configuration.plotting_profile_hash = "fnv1a64:plot";
     configuration.parameter_selection = "method=l-bfgs";
     configuration.declared_matrix = "method=steepest-descent,l-bfgs";
+    configuration.excluded_combinations =
+      "[method=steepest-descent,regularisation=1e-2]";
     configuration.resolved_combinations = "[method=l-bfgs]";
     configuration.comparison_rows = "method";
     configuration.comparison_columns = "regularisation";
@@ -260,6 +262,11 @@ namespace
     require(running.find("\"resolved_comparison\": {\"rows\": \"method\"") !=
               std::string::npos,
             "run manifests should retain the comparison plan");
+    require(
+      running.find(
+        "\"excluded_combinations\": \"[method=steepest-descent,regularisation=1e-2]\"") !=
+        std::string::npos,
+      "run manifests should retain excluded matrix coordinates");
 
     manifest.record_success(
       configuration.run_directory / expected.front());

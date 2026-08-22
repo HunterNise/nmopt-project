@@ -122,6 +122,7 @@ namespace nmopt::application::runner
     std::string                  plotting_profile_hash;
     std::string                  parameter_selection;
     std::string                  declared_matrix;
+    std::string                  excluded_combinations;
     std::string                  resolved_combinations;
     std::string                  comparison_rows;
     std::string                  comparison_columns;
@@ -448,6 +449,7 @@ namespace nmopt::application::runner
       , plotting_profile_hash_(configuration.plotting_profile_hash)
       , parameter_selection_(configuration.parameter_selection)
       , declared_matrix_(configuration.declared_matrix)
+      , excluded_combinations_(configuration.excluded_combinations)
       , resolved_combinations_(configuration.resolved_combinations)
       , comparison_rows_(configuration.comparison_rows)
       , comparison_columns_(configuration.comparison_columns)
@@ -588,6 +590,8 @@ namespace nmopt::application::runner
              << json_string(parameter_selection_)
              << ", \"declared_matrix\": "
              << json_string(declared_matrix_)
+             << ", \"excluded_combinations\": "
+             << json_string(excluded_combinations_)
              << ", \"resolved_combinations\": "
              << json_string(resolved_combinations_) << "},\n"
              << "  \"plotting\": {\"profile_file\": "
@@ -642,6 +646,7 @@ namespace nmopt::application::runner
     std::string                     plotting_profile_hash_;
     std::string                     parameter_selection_;
     std::string                     declared_matrix_;
+    std::string                     excluded_combinations_;
     std::string                     resolved_combinations_;
     std::string                     comparison_rows_;
     std::string                     comparison_columns_;

@@ -155,7 +155,12 @@ def _postprocess_provenance(
         parameters["content_hash"] = manifest_parameter_hash
     if parameter_snapshot is not None:
         parameters["snapshot_file"] = str(parameter_snapshot)
-    for key in ("selection", "declared_matrix", "resolved_combinations"):
+    for key in (
+        "selection",
+        "declared_matrix",
+        "excluded_combinations",
+        "resolved_combinations",
+    ):
         if key in parameters_manifest:
             parameters[key] = parameters_manifest[key]
 

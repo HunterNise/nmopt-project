@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -19,6 +20,54 @@ namespace
   {
     if (!condition)
       throw std::runtime_error(message);
+  }
+
+  template <typename Operation>
+  void
+  require_invalid_argument(Operation &&operation, const char *message)
+  {
+    try
+      {
+        operation();
+      }
+    catch (const std::invalid_argument &)
+      {
+        return;
+      }
+    throw std::runtime_error(message);
+  }
+
+  nmopt::application::runner::ParameterFile
+  read_exclusion_parameter_file(const std::string &exclusions)
+  {
+    const auto path = std::filesystem::temp_directory_path() /
+                      "nmopt-parameter-exclusion-contract.prm";
+    std::ofstream output(path);
+    output << "subsection Benchmark\n"
+           << "  set id = b1\n"
+           << "  set recipe = chapter-6.b1.distributed-laplace\n"
+           << "end\n"
+           << "subsection Matrix\n"
+           << "  set method = steepest-descent, l-bfgs\n"
+           << "  set regularisation = 1e-1, 1e-2\n"
+           << "end\n"
+           << "subsection Selection\n"
+           << "  set exclude combinations = " << exclusions << '\n'
+           << "end\n";
+    output.close();
+    if (!output)
+      throw std::runtime_error("could not write exclusion parameter fixture");
+    try
+      {
+        auto result = read_parameter_file(path);
+        std::filesystem::remove(path);
+        return result;
+      }
+    catch (...)
+      {
+        std::filesystem::remove(path);
+        throw;
+      }
   }
 
   void
@@ -259,6 +308,45 @@ namespace
   }
 
   void
+  test_sparse_matrix_exclusions_are_validated_and_applied()
+  {
+    const std::string excluded =
+      "[method=steepest-descent,regularisation=1e-2]";
+    const auto file = read_exclusion_parameter_file(excluded);
+    const auto combinations = file.combinations();
+    require(file.excluded_combinations.size() == 1,
+            "parameter file did not retain its excluded coordinate");
+    require(combinations.size() == 3,
+            "excluded matrix coordinate was not filtered");
+    require(combinations[0].values.at("method") == "steepest-descent" &&
+              combinations[0].values.at("regularisation") == "1e-1" &&
+              combinations[1].values.at("method") == "l-bfgs" &&
+              combinations[1].values.at("regularisation") == "1e-1" &&
+              combinations[2].values.at("method") == "l-bfgs" &&
+              combinations[2].values.at("regularisation") == "1e-2",
+            "sparse matrix expansion lost its declared ordering");
+
+    require_invalid_argument(
+      [&] {
+        (void)file.combinations({{"method", "steepest-descent"},
+                                 {"regularisation", "1e-2"}});
+      },
+      "a CLI selection resolving only to an exclusion was accepted");
+
+    for (const auto &invalid :
+         {"[method=steepest-descent]",
+          "[method=steepest-descent,regularisation=1e-3]",
+          "[method=steepest-descent,unknown=1e-2]",
+          "[method=steepest-descent,method=l-bfgs,regularisation=1e-2]",
+          "method=steepest-descent,regularisation=1e-2",
+          "[method=steepest-descent,regularisation=1e-2];"
+          "[regularisation=1e-2,method=steepest-descent]"})
+      require_invalid_argument(
+        [&] { (void)read_exclusion_parameter_file(invalid); },
+        "an invalid excluded matrix coordinate was accepted");
+  }
+
+  void
   test_scalar_function_definitions_are_data_driven()
   {
     nmopt::application::runner::ParameterFile file;
@@ -341,6 +429,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
          test_unknown_selection_is_rejected},
+        {"sparse_matrix_exclusions_are_validated_and_applied",
+         "nmopt.parameter_files.sparse_matrix_exclusions_are_validated_and_applied",
+         {"backend", "dealii", "application", "runner", "contract"},
+         30,
+         test_sparse_matrix_exclusions_are_validated_and_applied},
         {"scalar_function_definitions_are_data_driven",
          "nmopt.parameter_files.scalar_function_definitions_are_data_driven",
          {"backend", "dealii", "application", "runner", "contract"},

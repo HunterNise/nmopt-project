@@ -40,6 +40,7 @@ namespace nmopt::application::runner
     std::map<std::string, std::string> values;
     std::vector<ParameterAxis>         matrix;
     std::map<std::string, std::string> selection;
+    std::vector<ParameterCombination>  excluded_combinations;
 
     const std::string &
     value(const std::string_view key) const
@@ -253,6 +254,95 @@ namespace nmopt::application::runner
       return result;
     }
 
+    inline std::vector<ParameterCombination>
+    parse_excluded_combinations(const std::string                &value,
+                                const std::vector<ParameterAxis> &matrix)
+    {
+      if (trim(value).empty())
+        return {};
+
+      std::vector<ParameterCombination> result;
+      std::size_t                       begin = 0;
+      while (begin <= value.size())
+        {
+          const auto end = value.find(';', begin);
+          const auto text = trim(value.substr(
+            begin, end == std::string::npos ? std::string::npos : end - begin));
+          if (text.size() < 2 || text.front() != '[' || text.back() != ']')
+            throw std::invalid_argument("excluded matrix combination '" +
+                                        text +
+                                        "' must be enclosed in brackets");
+
+          ParameterCombination combination;
+          const auto           assignments =
+            text.substr(1, text.size() - 2);
+          std::size_t assignment_begin = 0;
+          while (assignment_begin <= assignments.size())
+            {
+              const auto assignment_end =
+                assignments.find(',', assignment_begin);
+              const auto assignment = trim(assignments.substr(
+                assignment_begin,
+                assignment_end == std::string::npos ?
+                  std::string::npos :
+                  assignment_end - assignment_begin));
+              const auto separator = assignment.find('=');
+              if (separator == std::string::npos)
+                throw std::invalid_argument(
+                  "excluded matrix combination '" + text +
+                  "' must contain axis=value assignments");
+              const auto axis = trim(assignment.substr(0, separator));
+              const auto selected = trim(assignment.substr(separator + 1));
+              if (axis.empty() || selected.empty())
+                throw std::invalid_argument(
+                  "excluded matrix combination '" + text +
+                  "' contains an empty axis or value");
+              if (!combination.values.emplace(axis, selected).second)
+                throw std::invalid_argument(
+                  "excluded matrix combination '" + text +
+                  "' repeats axis '" + axis + "'");
+              if (assignment_end == std::string::npos)
+                break;
+              assignment_begin = assignment_end + 1;
+            }
+
+          for (const auto &[axis, selected] : combination.values)
+            {
+              const auto declared = std::find_if(
+                matrix.begin(), matrix.end(), [&](const auto &candidate) {
+                  return candidate.id == axis;
+                });
+              if (declared == matrix.end())
+                throw std::invalid_argument(
+                  "excluded matrix combination '" + text +
+                  "' names undeclared matrix axis '" + axis + "'");
+              if (std::find(declared->values.begin(),
+                            declared->values.end(),
+                            selected) == declared->values.end())
+                throw std::invalid_argument(
+                  "excluded matrix combination '" + text +
+                  "' selects unknown value '" + selected +
+                  "' on matrix axis '" + axis + "'");
+            }
+          for (const auto &axis : matrix)
+            if (combination.values.find(axis.id) == combination.values.end())
+              throw std::invalid_argument(
+                "excluded matrix combination '" + text +
+                "' is missing matrix axis '" + axis.id + "'");
+          if (std::find_if(result.begin(), result.end(), [&](const auto &entry) {
+                return entry.values == combination.values;
+              }) != result.end())
+            throw std::invalid_argument("excluded matrix combination '" +
+                                        text + "' is duplicated");
+          result.push_back(std::move(combination));
+
+          if (end == std::string::npos)
+            break;
+          begin = end + 1;
+        }
+      return result;
+    }
+
     inline std::string
     hash_text(const std::string &text)
     {
@@ -327,6 +417,7 @@ namespace nmopt::application::runner
           declare_section("Matrix", entry);
           declare_section("Selection", entry);
         }
+      declare_section("Selection", "exclude combinations");
 
       for (const auto &entry : {"control representation",
                                 "cellwise box constraint",
@@ -486,6 +577,7 @@ namespace nmopt::application::runner
                                 "observation-region",
                                 "target-profile"})
         remember("Selection", entry);
+      remember("Selection", "exclude combinations");
       for (const auto &entry : {"control representation",
                                 "cellwise box constraint",
                                 "observation",
@@ -680,6 +772,8 @@ namespace nmopt::application::runner
       }
     if (result.matrix.empty())
       throw std::invalid_argument("parameter file must declare at least one matrix axis");
+    result.excluded_combinations = detail::parse_excluded_combinations(
+      result.value("Selection/exclude combinations"), result.matrix);
     if (result.value("Benchmark/id").empty() ||
         result.value("Benchmark/recipe").empty())
       throw std::invalid_argument("parameter file needs Benchmark id and recipe");
@@ -739,6 +833,19 @@ namespace nmopt::application::runner
             }
         result = std::move(expanded);
       }
+    result.erase(
+      std::remove_if(
+        result.begin(),
+        result.end(),
+        [&](const auto &combination) {
+          return std::find_if(
+                   excluded_combinations.begin(),
+                   excluded_combinations.end(),
+                   [&](const auto &excluded) {
+                     return excluded.values == combination.values;
+                   }) != excluded_combinations.end();
+        }),
+      result.end());
     if (result.empty())
       throw std::invalid_argument("parameter selection resolves to no combinations");
     return result;

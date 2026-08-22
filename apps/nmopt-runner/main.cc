@@ -1481,6 +1481,8 @@ namespace
     prepared.configuration.parameter_selection = join_selection(
       prepared.file, prepared.options.selection_filters);
     prepared.configuration.declared_matrix = join_matrix(prepared.file);
+    prepared.configuration.excluded_combinations =
+      join_combinations(prepared.file.excluded_combinations);
     prepared.configuration.resolved_combinations = join_combinations(prepared.combinations);
     prepared.configuration.comparison_rows =
       prepared.file.value("Postprocessing/comparison rows");

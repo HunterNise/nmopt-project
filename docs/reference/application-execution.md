@@ -149,6 +149,12 @@ while `--output` and the optional `--refinement` remain destination/smoke
 overrides. `--framework-revision` records executable provenance. Use
 `nmopt_runner --help` for the complete current option surface.
 
+Sparse experiment families use `Selection/exclude combinations` to remove
+validated full coordinates from the declared Cartesian product. Exclusions
+remain active under `Selection` and `--select` narrowing. The run manifest
+records the declared matrix, exclusion coordinates, and final resolved
+combinations separately.
+
 For a versioned experiment family:
 
 ```bash

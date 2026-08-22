@@ -111,6 +111,14 @@ def main() -> int:
             REPOSITORY_ROOT / "runs/chapter-6/b1/development/008/run-manifest.json",
             snapshot_root / "run-manifest.json",
         )
+        snapshot_manifest_path = snapshot_root / "run-manifest.json"
+        snapshot_manifest = json.loads(snapshot_manifest_path.read_text(encoding="utf-8"))
+        snapshot_manifest["parameters"]["excluded_combinations"] = (
+            "[method=steepest-descent,regularisation=1e-2]"
+        )
+        snapshot_manifest_path.write_text(
+            json.dumps(snapshot_manifest), encoding="utf-8"
+        )
         snapshot_profile = _profile_from_run_snapshot(
             snapshot_root, CHAPTER6_PROFILE
         )
@@ -140,6 +148,11 @@ def main() -> int:
             provenance["plotting"]["content_hash"]
             == "fnv1a64:cdee2422f2c79582",
             "plotting provenance hash was not retained",
+        )
+        require(
+            provenance["parameters"]["excluded_combinations"]
+            == "[method=steepest-descent,regularisation=1e-2]",
+            "excluded matrix provenance was not retained",
         )
         effective = provenance["effective"]
         require(

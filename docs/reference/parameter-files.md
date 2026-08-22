@@ -185,6 +185,21 @@ subsection Selection
 end
 ```
 
+`exclude combinations` removes exact coordinates when a family is not a full
+Cartesian product. Each bracketed coordinate must name every declared axis
+exactly once and select declared values; semicolons separate coordinates:
+
+```text
+subsection Selection
+  set exclude combinations = [method=steepest-descent,regularisation=1e-6]
+end
+```
+
+Axis selections and CLI filters may narrow the remaining matrix, but they do
+not disable exclusions. A selection that retains only excluded coordinates is
+invalid because it resolves to an empty product. Duplicate, incomplete, or
+unknown exclusion coordinates are rejected while reading the parameter file.
+
 The resolver must validate every expanded combination before execution. It
 must reject unknown values, empty products, duplicate IDs, and combinations
 outside the registered benchmark capability.
@@ -201,7 +216,7 @@ The intended precedence is:
 
 ```text
 parameter-file defaults
-  → Selection section
+  → Selection axis filters and exact exclusions
   → explicit CLI selection filter
   → explicit CLI refinement override
 ```
@@ -278,6 +293,7 @@ parameters.file
 parameters.content_hash
 parameters.selection
 parameters.declared_matrix
+parameters.excluded_combinations
 parameters.resolved_combinations
 plotting.profile_file
 plotting.profile_content_hash

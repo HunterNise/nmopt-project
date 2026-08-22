@@ -241,6 +241,8 @@ namespace nmopt::application::chapter6
     };
     ForcingSelection forcing_selection = ForcingSelection::zero;
     double           forcing_value = 0.0;
+    semantic::v1::TransportBoundaryForm transport_boundary_form =
+      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport;
   };
 
   using B1Scenario =
@@ -432,11 +434,29 @@ namespace nmopt::application::chapter6
   }
 
   inline void
+  validate_b2_transport_boundary_form(
+    const semantic::v1::TransportBoundaryForm form)
+  {
+    switch (form)
+      {
+        case semantic::v1::TransportBoundaryForm::total_conormal:
+        case semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport:
+          return;
+        default:
+          throw std::invalid_argument(
+            "B2 needs a total-conormal or ordinary-normal transport boundary form");
+      }
+  }
+
+  inline void
   validate_b2(const B2Scenario &scenario)
   {
     scenario.validate();
     validate_common_compile_options(scenario.compile);
     validate_runtime_data(scenario.problem.data);
+    validate_b2_transport_boundary_form(
+      scenario.problem.transport_boundary_form);
     if (scenario.compile.mesh.generation != MeshGeneration::framework_native)
       throw std::invalid_argument(
         "B2 supports only its framework-native rectangular mesh");
@@ -490,6 +510,7 @@ namespace nmopt::application::chapter6
   inline semantic::v1::ProblemSpec
   make_b2_problem_spec(const B2ProblemParameters &parameters)
   {
+    validate_b2_transport_boundary_form(parameters.transport_boundary_form);
     auto specification =
       chapter5::make_neumann_convection_recipe()(parameters.recipe);
 
@@ -511,8 +532,12 @@ namespace nmopt::application::chapter6
        {b2_outflow_boundary_id},
        {},
        {}});
-    partition_policy->selected_policy =
-      "disjoint complete fixed-Dirichlet, Neumann-control, and natural outflow boundary regions; the source Neumann datum is ordinary normal derivative minus transport, with no diffusion scaling";
+    const bool ordinary_normal =
+      parameters.transport_boundary_form ==
+      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport;
+    partition_policy->selected_policy = ordinary_normal
+      ? "disjoint complete fixed-Dirichlet, Neumann-control, and natural outflow boundary regions; the source Neumann datum is ordinary normal derivative minus transport, with no diffusion scaling"
+      : "disjoint complete fixed-Dirichlet, Neumann-control, and natural outflow boundary regions; the diagnostic datum is the outward diffusion-minus-transport total conormal";
     partition_policy->typed_selection = semantic::v1::BoundaryRealisationSelection{
       partition_policy->id,
       "state",
@@ -521,11 +546,13 @@ namespace nmopt::application::chapter6
       {},
       {},
       b2_outflow_boundary_region_id,
-      semantic::v1::ConormalForm::unspecified,
+      ordinary_normal ?
+        semantic::v1::ConormalForm::unspecified :
+        semantic::v1::ConormalForm::diffusion_minus_transport,
       semantic::v1::NormalOrientation::outward,
       semantic::v1::TraceEvaluationRealisation::fe_q_state_trace,
       semantic::v1::FaceQuadratureRealisation::qgauss_face,
-      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport};
+      parameters.transport_boundary_form};
     add_b2_fixed_dirichlet_reconstruction(specification);
     return specification;
   }
@@ -584,10 +611,13 @@ namespace nmopt::application::chapter6
   inline B2Scenario
   make_b2_scenario(
     const GraetzCase graetz_case =
-      GraetzCase::observation_wings_constant_target)
+      GraetzCase::observation_wings_constant_target,
+    const semantic::v1::TransportBoundaryForm transport_boundary_form =
+      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport)
   {
     B2ProblemParameters problem;
-    problem.graetz_case = graetz_case;
+    problem.graetz_case             = graetz_case;
+    problem.transport_boundary_form = transport_boundary_form;
 
     CompileOptions compile;
     compile.mesh.refinement = b2_default_mesh_refinement;

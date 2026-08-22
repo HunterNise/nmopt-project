@@ -380,22 +380,21 @@ namespace
   {
     const auto graetz_case =
       chapter6::GraetzCase::observation_full_constant_target;
-    auto scenario = chapter6::make_b2_scenario(graetz_case);
-    scenario.compile.mesh.refinement = 2;
-    chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-      graetz_case, scenario.problem.fixed_temperature};
-    const auto runtime =
-      chapter6::dealii::make_b2_manufactured_runtime_data(
-        scenario, manufactured_data);
-    const auto specification = chapter6::make_b2_problem_spec(scenario);
 
     const auto zero_control_state_linf =
-      [&](const nmopt::compiler::v1::TransportBoundaryRealisation realisation) {
+      [&](const nmopt::semantic::v1::TransportBoundaryForm boundary_form) {
+        auto scenario = chapter6::make_b2_scenario(graetz_case, boundary_form);
+        scenario.compile.mesh.refinement = 2;
+        chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
+          graetz_case, scenario.problem.fixed_temperature};
+        const auto runtime =
+          chapter6::dealii::make_b2_manufactured_runtime_data(
+            scenario, manufactured_data);
+        const auto specification = chapter6::make_b2_problem_spec(scenario);
         const auto session =
           chapter6::dealii::make_b2_compilation_session<2>(scenario);
-        auto policy = chapter6::dealii::make_b2_discretisation_policy(
+        const auto policy = chapter6::dealii::make_b2_discretisation_policy(
           scenario.compile);
-        policy.transport_boundary_realisation = realisation;
         const auto bindings =
           chapter6::dealii::make_b2_data_bindings(scenario.problem, runtime);
         nmopt::compiler::v1::DealiiCompiler compiler;
@@ -408,6 +407,11 @@ namespace
                                                   nmopt::compiler::v1::CompilationProduct::reduced_dto);
         require(compilation.succeeded() && compilation.problem,
                 "B2 transport realization comparison did not compile");
+        require(
+          compilation.problem->manifest().boundary_realisation.has_value() &&
+            compilation.problem->manifest()
+                .boundary_realisation->transport_boundary_form == boundary_form,
+          "B2 transport realization did not propagate through the application boundary");
         const auto reduced = compilation.problem->make_reduced_dto();
         const nmopt::contract::StateControlPartitionT<
           chapter6::dealii::Backend>
@@ -429,9 +433,10 @@ namespace
       };
 
     const double total_conormal_linf = zero_control_state_linf(
-      nmopt::compiler::v1::TransportBoundaryRealisation::total_conormal);
+      nmopt::semantic::v1::TransportBoundaryForm::total_conormal);
     const double ordinary_normal_linf = zero_control_state_linf(
-      nmopt::compiler::v1::TransportBoundaryRealisation::ordinary_normal_transport);
+      nmopt::semantic::v1::TransportBoundaryForm::
+        ordinary_normal_minus_transport);
     require(total_conormal_linf > 10.0 * ordinary_normal_linf,
             "B2 transport realizations did not separate the forward state scale");
   }

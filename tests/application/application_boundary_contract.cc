@@ -366,6 +366,11 @@ namespace
     require(b2.problem.data.conservative_transport_provenance ==
               "chapter-6.e6.5.2.graetz-transport",
             "B2 did not retain transport provenance");
+    require(
+      b2.problem.transport_boundary_form ==
+        nmopt::semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport,
+      "B2 did not retain the frozen ordinary-normal boundary form");
     require(b2.experiment.source_revision ==
               nmopt::application::chapter6::
                 chapter6_numerical_examples_source_revision,
@@ -389,6 +394,30 @@ namespace
       }
     require(invalid_b2_mesh_rejected,
             "B2 accepted a mesh outside its rectangular adapter contract");
+
+    const auto total_conormal =
+      nmopt::application::chapter6::make_b2_scenario(
+        nmopt::application::chapter6::GraetzCase::
+          observation_full_parabolic_target,
+        nmopt::semantic::v1::TransportBoundaryForm::total_conormal);
+    require(total_conormal.problem.transport_boundary_form ==
+              nmopt::semantic::v1::TransportBoundaryForm::total_conormal,
+            "B2 did not retain the total-conormal diagnostic choice");
+
+    auto unspecified_boundary = b2;
+    unspecified_boundary.problem.transport_boundary_form =
+      nmopt::semantic::v1::TransportBoundaryForm::unspecified;
+    bool unspecified_boundary_rejected = false;
+    try
+      {
+        nmopt::application::chapter6::validate_b2(unspecified_boundary);
+      }
+    catch (const std::invalid_argument &)
+      {
+        unspecified_boundary_rejected = true;
+      }
+    require(unspecified_boundary_rejected,
+            "B2 accepted an unspecified transport boundary form");
   }
 
   void
@@ -512,6 +541,34 @@ namespace
         require(validator.validate(specification).valid(),
                 "B2 fixed-temperature semantic graph is invalid");
       }
+
+    const auto total_conormal_scenario =
+      nmopt::application::chapter6::make_b2_scenario(
+        nmopt::application::chapter6::GraetzCase::
+          observation_wings_constant_target,
+        nmopt::semantic::v1::TransportBoundaryForm::total_conormal);
+    const auto total_conormal_specification =
+      nmopt::application::chapter6::make_b2_problem_spec(
+        total_conormal_scenario);
+    const auto total_conormal_policy = std::find_if(
+      total_conormal_specification.requirement_policies.begin(),
+      total_conormal_specification.requirement_policies.end(),
+      [](const auto &policy) {
+        return policy.id == "neumann_convection_partition";
+      });
+    require(
+      total_conormal_policy !=
+          total_conormal_specification.requirement_policies.end() &&
+        total_conormal_policy->typed_selection &&
+        total_conormal_policy->typed_selection->transport_boundary_form ==
+          nmopt::semantic::v1::TransportBoundaryForm::total_conormal &&
+        total_conormal_policy->typed_selection->conormal_form ==
+          nmopt::semantic::v1::ConormalForm::diffusion_minus_transport &&
+        total_conormal_policy->selected_policy.find("total conormal") !=
+          std::string::npos,
+      "B2 spec assembly did not select the total-conormal diagnostic form");
+    require(validator.validate(total_conormal_specification).valid(),
+            "B2 total-conormal semantic graph is invalid");
   }
 
   void

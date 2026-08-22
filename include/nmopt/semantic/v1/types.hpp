@@ -222,6 +222,24 @@ namespace nmopt::semantic::v1
     qgauss_face
   };
 
+  enum class NeumannControlDiscretisation
+  {
+    unspecified = -1,
+    facewise_constant,
+    continuous_nodal_trace
+  };
+
+  struct NeumannControlRealisationSelection
+  {
+    std::string                  id;
+    std::string                  control_variable_id;
+    std::string                  control_space_id;
+    std::string                  boundary_region_id;
+    std::string                  metric_id;
+    NeumannControlDiscretisation discretisation =
+      NeumannControlDiscretisation::unspecified;
+  };
+
   enum class TraceWeightRealisation
   {
     unspecified = -1,
@@ -708,6 +726,8 @@ namespace nmopt::semantic::v1
     std::string       region_id;
     std::optional<BoundaryRealisationSelection> typed_selection;
     std::optional<TraceRealisationSelection>     typed_trace_selection;
+    std::optional<NeumannControlRealisationSelection>
+      typed_neumann_control_selection;
     std::optional<Hminus1MetricRealisationSelection>
       typed_metric_selection;
     std::optional<TranspositionRealisationSelection>

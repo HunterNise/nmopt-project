@@ -998,7 +998,10 @@ namespace nmopt::semantic::v1
   // space and residual term from volume control. It is a Neumann trace
   // pairing, not a Dirichlet lifting or a generic boundary-load switch.
   inline ProblemSpec
-  make_neumann_boundary_control_problem(const bool with_facewise_box = false)
+  make_neumann_boundary_control_problem(
+    const bool with_facewise_box = false,
+    const NeumannControlDiscretisation control_discretisation =
+      NeumannControlDiscretisation::facewise_constant)
   {
     ProblemSpec specification;
     specification.id = "scalar_diffusion_reaction_neumann_boundary_control";
@@ -1097,6 +1100,36 @@ namespace nmopt::semantic::v1
        RequirementScope::discrete_compilation,
        "analytic Function evaluated at selected boundary face quadrature",
        "observation_boundary"}};
+    auto &control_policy = reference_detail::component_by_id(
+      specification.requirement_policies,
+      "neumann_control_trace_policy",
+      "requirement policy");
+    control_policy.typed_neumann_control_selection =
+      NeumannControlRealisationSelection{
+        "neumann_control_trace_policy",
+        "control",
+        "control_space",
+        "control_boundary",
+        "control_l2_metric",
+        control_discretisation};
+    if (control_discretisation ==
+        NeumannControlDiscretisation::continuous_nodal_trace)
+      {
+        reference_detail::component_by_id(specification.spaces,
+                                          "control_space",
+                                          "space")
+          .label = "Continuous nodal-trace Neumann control";
+        reference_detail::component_by_id(specification.pairings,
+                                          "control_pairing",
+                                          "pairing")
+          .label = "Continuous trace control coefficient pairing";
+        reference_detail::component_by_id(specification.metrics,
+                                          "control_l2_metric",
+                                          "metric")
+          .label = "Continuous trace L2 metric";
+        control_policy.selected_policy =
+          "continuous nodal trace control with consistent boundary L2 metric";
+      }
     specification.formulation = {
       "reduced_dto",
       FormulationKind::reduced_dto,
@@ -1132,16 +1165,19 @@ namespace nmopt::semantic::v1
   }
 
   // C5.6 composes the natural boundary control with a volume restriction and
-  // conservative transport.  It deliberately reuses the Neumann residual
-  // and facewise control coordinate declarations: the observation and the
-  // scalar state operator are the only changed components.
+  // conservative transport. It deliberately reuses the Neumann residual and
+  // selected control realization: the observation and the scalar state
+  // operator are the only changed components.
   inline ProblemSpec
   make_neumann_convection_subdomain_tracking_problem(
     const unsigned int observed_material_id,
-    const bool         with_facewise_box = false)
+    const bool         with_facewise_box = false,
+    const NeumannControlDiscretisation control_discretisation =
+      NeumannControlDiscretisation::facewise_constant)
   {
     ProblemSpec specification =
-      make_neumann_boundary_control_problem(with_facewise_box);
+      make_neumann_boundary_control_problem(with_facewise_box,
+                                            control_discretisation);
     specification.id = "scalar_convection_neumann_subdomain_control";
     specification.label =
       "Scalar conservative transport with Neumann control and subdomain tracking";

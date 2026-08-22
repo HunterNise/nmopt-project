@@ -548,6 +548,15 @@ spaces on other meshes remain unsupported.
 
 ### Neumann control and boundary tracking
 
+The Neumann residual policy carries a typed control-realization selection. It
+binds the control variable, $L^{2}(\Gamma_{c})$ parent space, controlled
+boundary, and search metric, and selects either facewise constants or a
+continuous nodal trace. Both declarations are semantically valid. The current
+deal.II registry lowers only facewise constants; selecting the continuous
+trace produces the stable `continuous_neumann_control_lowerer` lowerability
+diagnostic. A facewise box combined with the continuous selection is rejected
+semantically rather than reinterpreted coefficientwise.
+
 The registered P2.1 realization assigns one scalar control coefficient to
 each active state-mesh boundary face with an id in `control_boundary`. The
 compiler assembles with `FEFaceValues`:

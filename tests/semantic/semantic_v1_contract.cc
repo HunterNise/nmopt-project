@@ -877,6 +877,76 @@ namespace
     const auto boundary_report = validator.validate(boundary_specification);
     require(boundary_report.valid(),
             "the Neumann boundary-control v1 graph is invalid");
+    const auto facewise_neumann_policy = component_by_id(
+      boundary_specification.requirement_policies,
+      "neumann_control_trace_policy");
+    require(
+      facewise_neumann_policy.typed_neumann_control_selection.has_value() &&
+        facewise_neumann_policy.typed_neumann_control_selection
+            ->discretisation ==
+          nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
+      "the Neumann boundary-control graph omitted its facewise realization");
+
+    const auto continuous_neumann_specification =
+      nmopt::semantic::v1::make_neumann_boundary_control_problem(
+        false,
+        nmopt::semantic::v1::NeumannControlDiscretisation::
+          continuous_nodal_trace);
+    require(validator.validate(continuous_neumann_specification).valid(),
+            "the continuous Neumann-control declaration is invalid");
+    const auto continuous_neumann_policy = component_by_id(
+      continuous_neumann_specification.requirement_policies,
+      "neumann_control_trace_policy");
+    require(
+      continuous_neumann_policy.typed_neumann_control_selection.has_value() &&
+        continuous_neumann_policy.typed_neumann_control_selection
+            ->discretisation ==
+          nmopt::semantic::v1::NeumannControlDiscretisation::
+            continuous_nodal_trace,
+      "the continuous Neumann-control graph omitted its typed realization");
+
+    const auto continuous_neumann_convection =
+      nmopt::semantic::v1::make_neumann_convection_subdomain_tracking_problem(
+        3,
+        false,
+        nmopt::semantic::v1::NeumannControlDiscretisation::
+          continuous_nodal_trace);
+    require(validator.validate(continuous_neumann_convection).valid(),
+            "the continuous Neumann convection declaration is invalid");
+
+    auto missing_neumann_realisation = boundary_specification;
+    component_by_id(missing_neumann_realisation.requirement_policies,
+                    "neumann_control_trace_policy")
+      .typed_neumann_control_selection.reset();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(missing_neumann_realisation),
+      nmopt::semantic::v1::DiagnosticCategory::analytical_policy,
+      "neumann_control",
+      "neumann_control_discrete_realisation",
+      "v1 semantic validation accepted a missing Neumann-control realization");
+
+    auto incomplete_neumann_realisation = boundary_specification;
+    component_by_id(incomplete_neumann_realisation.requirement_policies,
+                    "neumann_control_trace_policy")
+      .typed_neumann_control_selection->control_space_id.clear();
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(incomplete_neumann_realisation),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "neumann_control",
+      "neumann_control_realisation_ports",
+      "v1 semantic validation accepted incomplete Neumann-control ports");
+
+    const auto constrained_continuous_neumann =
+      nmopt::semantic::v1::make_neumann_boundary_control_problem(
+        true,
+        nmopt::semantic::v1::NeumannControlDiscretisation::
+          continuous_nodal_trace);
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(constrained_continuous_neumann),
+      nmopt::semantic::v1::DiagnosticCategory::structural,
+      "control_box",
+      "continuous_neumann_control_facewise_box",
+      "v1 semantic validation accepted facewise bounds on continuous Neumann control");
 
     auto weighted_boundary_specification =
       nmopt::semantic::v1::

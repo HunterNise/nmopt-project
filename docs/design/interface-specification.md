@@ -132,6 +132,16 @@ An empty role is represented explicitly by an empty region selection. The
 compiler MUST consume this typed selection; it MUST NOT parse policy prose to
 choose the executed boundary interpretation.
 
+A Neumann-control residual likewise MUST carry a typed discrete-control
+selection. The selection identifies the control variable, its mathematical
+space, the controlled boundary, and the selected metric, and distinguishes a
+facewise-constant realization from a continuous nodal-trace realization. Both
+are discrete subspaces of the declared $L^{2}(\Gamma_{c})$ control space; the
+topology of the semantic parent space does not select one implicitly. A
+facewise coefficient box applies only to the facewise-constant realization.
+The compiler MUST diagnose a selected realization for which it has no
+registered coupling, metric, or constraint lowerer.
+
 ### 3.2 Space and pairing
 
 A space describes a mathematical source or target.  It MUST declare:

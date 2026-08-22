@@ -3069,11 +3069,99 @@ namespace nmopt::semantic::v1
                          term.id,
                          "neumann_control_trace_realisation",
                          "Declare the selected Neumann-control trace pairing realization.");
-            else if (policy->region_id != term.region_id)
-              report.add(DiagnosticCategory::structural,
-                         term.id,
-                         "neumann_control_trace_region",
-                         "Declare the Neumann trace policy on its residual boundary region.");
+            else
+              {
+                if (policy->region_id != term.region_id)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    term.id,
+                    "neumann_control_trace_region",
+                    "Declare the Neumann trace policy on its residual boundary region.");
+                if (!policy->typed_neumann_control_selection)
+                  report.add(
+                    DiagnosticCategory::analytical_policy,
+                    term.id,
+                    "neumann_control_discrete_realisation",
+                    "Declare the typed Neumann-control discrete realization.");
+                else
+                  {
+                    const auto &selection =
+                      *policy->typed_neumann_control_selection;
+                    const auto control = std::find_if(
+                      specification.variables.begin(),
+                      specification.variables.end(),
+                      [&specification](const VariableSpec &candidate) {
+                        return candidate.id ==
+                               specification.formulation.control_variable_id;
+                      });
+                    const auto neumann_control_space =
+                      find_space(selection.control_space_id);
+                    const auto metric = std::find_if(
+                      specification.metrics.begin(),
+                      specification.metrics.end(),
+                      [&selection](const MetricSpec &candidate) {
+                        return candidate.id == selection.metric_id;
+                      });
+                    if (selection.id != policy->id ||
+                        control == specification.variables.end() ||
+                        selection.control_variable_id != control->id ||
+                        neumann_control_space == specification.spaces.end() ||
+                        neumann_control_space->id != control->space_id ||
+                        neumann_control_space->role != SpaceRole::control ||
+                        neumann_control_space->topology != SpaceTopology::l2)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        term.id,
+                        "neumann_control_realisation_ports",
+                        "Bind the Neumann realization to the selected L2 control variable and space.");
+                    if (selection.boundary_region_id != term.region_id ||
+                        selection.boundary_region_id != policy->region_id ||
+                        (neumann_control_space != specification.spaces.end() &&
+                         neumann_control_space->region_id !=
+                           selection.boundary_region_id))
+                      report.add(
+                        DiagnosticCategory::structural,
+                        term.id,
+                        "neumann_control_realisation_boundary",
+                        "Bind the Neumann realization to its residual and control-space boundary region.");
+                    if (metric == specification.metrics.end() ||
+                        selection.metric_id !=
+                          specification.formulation.metric_id ||
+                        metric->kind != MetricKind::l2 ||
+                        metric->variable_id != selection.control_variable_id)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        term.id,
+                        "neumann_control_realisation_metric",
+                        "Bind the Neumann realization to the selected control L2 metric.");
+                    if (selection.discretisation ==
+                        NeumannControlDiscretisation::unspecified)
+                      report.add(
+                        DiagnosticCategory::analytical_policy,
+                        term.id,
+                        "neumann_control_discrete_realisation",
+                        "Select facewise constants or a continuous nodal trace.");
+                    if (selection.discretisation ==
+                          NeumannControlDiscretisation::continuous_nodal_trace &&
+                        !specification.formulation.constraint_id.empty())
+                      {
+                        const auto constraint = std::find_if(
+                          specification.constraints.begin(),
+                          specification.constraints.end(),
+                          [&specification](const ConstraintSpec &candidate) {
+                            return candidate.id ==
+                                   specification.formulation.constraint_id;
+                          });
+                        if (constraint != specification.constraints.end() &&
+                            constraint->kind == ConstraintKind::facewise_box)
+                          report.add(
+                            DiagnosticCategory::structural,
+                            constraint->id,
+                            "continuous_neumann_control_facewise_box",
+                            "Do not combine continuous nodal-trace Neumann control with facewise bounds.");
+                      }
+                  }
+              }
           }
 
       for (const auto &observation : specification.observations)

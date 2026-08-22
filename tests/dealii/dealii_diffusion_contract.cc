@@ -2730,6 +2730,16 @@ namespace
     const compiler::v1::DealiiCompiler compiler;
     contract::require(compiler.validate(specification, policy).valid(),
                       "Neumann boundary-control v1 graph did not validate for deal.II");
+    const auto continuous_specification =
+      semantic::v1::make_neumann_boundary_control_problem(
+        false,
+        semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace);
+    test_support::require_exact_diagnostic(
+      compiler.validate(continuous_specification, policy),
+      semantic::v1::DiagnosticCategory::lowerability,
+      "neumann_control_trace_policy",
+      "continuous_neumann_control_lowerer",
+      "deal.II compiler did not reject the unregistered continuous Neumann lowerer");
 
     const compiler::v1::DealiiDataBindings<dim> bindings{
       forcing,

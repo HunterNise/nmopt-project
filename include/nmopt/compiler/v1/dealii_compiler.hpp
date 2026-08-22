@@ -378,6 +378,10 @@ namespace nmopt::compiler::v1
               policy.typed_trace_selection->weight_data_id != "")
             request.weighted_trace_selection =
               policy.typed_trace_selection;
+          if (policy.kind == semantic::v1::RequirementKind::boundary_trace &&
+              policy.typed_neumann_control_selection)
+            request.neumann_control_selection =
+              policy.typed_neumann_control_selection;
           if (policy.kind == semantic::v1::RequirementKind::metric_realisation &&
               policy.subject_id == specification.formulation.metric_id &&
               policy.typed_metric_selection)
@@ -3410,6 +3414,16 @@ namespace nmopt::compiler::v1
                    "The first v1 deal.II lowerer supports exactly one full volume region.");
 
       validate_registered_graph(specification, request, report);
+
+      if (request.uses_neumann_boundary_control &&
+          request.neumann_control_selection &&
+          request.neumann_control_selection->discretisation ==
+            semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace)
+        report.add(
+          DiagnosticCategory::lowerability,
+          request.neumann_control_selection->id,
+          "continuous_neumann_control_lowerer",
+          "Register the continuous nodal-trace Neumann coupling and L2 metric lowerer.");
 
       for (const auto &term : specification.residual_terms)
         if (!capabilities_.has_residual_term_lowerer(term.kind))

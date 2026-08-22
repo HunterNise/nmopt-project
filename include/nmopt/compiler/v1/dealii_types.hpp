@@ -173,6 +173,8 @@ namespace nmopt::compiler::v1
     bool                                   has_point_sensor_evaluation_policy = false;
     std::optional<semantic::v1::TraceRealisationSelection>
       weighted_trace_selection;
+    std::optional<semantic::v1::NeumannControlRealisationSelection>
+      neumann_control_selection;
     std::optional<semantic::v1::Hminus1MetricRealisationSelection>
       hminus1_metric_selection;
     std::optional<semantic::v1::TranspositionRealisationSelection>

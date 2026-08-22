@@ -11,16 +11,19 @@ those choices remain project policy rather than recovered source facts.
 
 The initial evidence was produced with Debug deal.II builds. The decisive
 source-sized experiments were repeated with `release-dealii` and record
-framework revisions from `4221c67` through `56bd47a`. Those experiments
-support a selected source-oriented authoritative candidate, but its new
-seven-case release run is pending. It must not yet be described as a
-book-equivalent reproduction. Development outputs below `runs/` are diagnostic
-evidence and may be deleted.
+framework revisions from `4221c67` through `56bd47a`. The selected
+source-oriented seven-case reproduction was then completed with
+`release-dealii` at framework revision `631537a`. It verifies the frozen
+project replacement choices; it is not a book-equivalent recovery of the
+omitted source data. Generated outputs below `runs/` remain disposable
+evidence.
 
 The current assessment is:
 
 - the mathematical problem, field identities, sign convention, and the
   qualitative Figure 6.3 method comparison are reproduced;
+- the authoritative seven-case matrix completes with seven valid artifacts,
+  seven successful PNG post-processing records, and no failures;
 - continuous `P1` control, constant-forcing, triangular-mesh, and solver-policy
   candidates can be selected independently in parameter files;
 - neither the source mesh nor the omitted forcing has been uniquely recovered;
@@ -32,8 +35,9 @@ The current assessment is:
 - the Figure 6.3 iteration counts are effectively independent of the tested
   forcing and control representation, while their objective levels are not.
 
-The benchmark is therefore **framework-verified but not
-reproduction-verified**.
+The benchmark is therefore **reproduction-verified under the frozen project
+contract**, while parity with the undisclosed source realization remains
+unresolved.
 
 ## Source facts and omissions
 
@@ -325,6 +329,49 @@ threshold. The parameter schema now supports exact matrix exclusions, and the
 selected authoritative family omits that eighth case instead of retaining it
 merely to make the matrix rectangular.
 
+### Authoritative release reproduction
+
+The checked-in
+[authoritative parameter profile](../../parameters/chapter-6/b1/authoritative.prm)
+freezes the selected $f=0.5$ candidate, regular 131-subdivision triangular
+mesh, continuous homogeneous-Dirichlet `P1` control, common $10^{-3}$ relative
+gradient threshold, and metric-inverse memory-5 L-BFGS policy. The resulting
+release run at framework revision `631537a` recorded parameter hash
+`fnv1a64:d9f046cb19ac4d2f` and completed all seven intended combinations:
+
+| Method | $\beta$ | Accepted iterations | Final objective | Final gradient norm | Wall time (s) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Steepest descent | $10^{-1}$ | 64 | 0.0476791331 | $1.55386\times10^{-5}$ | 5.842 |
+| Steepest descent | $10^{-2}$ | 547 | 0.0389393934 | $1.56861\times10^{-5}$ | 45.077 |
+| Steepest descent | $10^{-3}$ | 2,175 | 0.0137935422 | $1.58044\times10^{-5}$ | 189.922 |
+| L-BFGS | $10^{-1}$ | 2 | 0.0476791320 | $3.40480\times10^{-6}$ | 1.591 |
+| L-BFGS | $10^{-2}$ | 4 | 0.0389393836 | $2.27613\times10^{-8}$ | 1.296 |
+| L-BFGS | $10^{-3}$ | 4 | 0.0137934431 | $7.48796\times10^{-7}$ | 1.202 |
+| L-BFGS | $10^{-6}$ | 4 | $2.50521163\times10^{-5}$ | $1.11636\times10^{-5}$ | 1.246 |
+
+Every case stopped at the declared relative-gradient threshold. At the three
+shared regularisation values, steepest descent and L-BFGS agree in final
+objective to within $10^{-7}$ while retaining the expected `64/547/2175`
+versus `2/4/4` work contrast. All artifacts report valid diagnostics and
+passing finite-difference Hessian checks, with errors near
+$3.50\times10^{-13}$ and symmetry errors no larger than
+$2.28\times10^{-13}$.
+
+The realized mesh has 34,322 active cells, 17,424 physical state vertices,
+16,900 independent state coordinates, and 16,900 control coordinates, as
+required by the selected regular-mesh replacement rather than the unavailable
+source mesh. PNG-only post-processing completed for all seven artifacts. The
+Figure 6.3 comparison contains the six source history cases, and the
+$\beta=10^{-6}$ L-BFGS field retains the source-like central positive region,
+four negative lobes, and positive edge regions in the book-convention
+adjoint. The sparse comparison leaves the unreported steepest-descent
+$\beta=10^{-6}$ position empty.
+
+This run closes the source-sized execution and comparison gate for the frozen
+B1 contract. It does not change the evidence classification of $f=0.5$, the
+mesh, or the L-BFGS details: they remain explicit project replacements for
+information omitted from the source.
+
 ## Assessment and remaining evidence gap
 
 - **Mesh connectivity – high confidence.** The counts imply 400 boundary
@@ -379,6 +426,6 @@ The selected authoritative candidate combines $f=0.5$, the regular
 control, metric-inverse L-BFGS memory 5, and the common $10^{-3}$ relative
 gradient threshold. Keep $f=0.4150674$ as an objective-matched diagnostic. The
 project has reproduced the model, field identities, early-iterate morphology,
-and method trend; it has not uniquely reproduced the omitted source data. B1
-therefore remains framework-verified rather than reproduction-verified until
-the selected seven-case authoritative release run is complete and verified.
+and method trend; it has not uniquely reproduced the omitted source data. The
+completed authoritative release run makes B1 reproduction-verified under the
+frozen project contract without claiming book-equivalent source parity.

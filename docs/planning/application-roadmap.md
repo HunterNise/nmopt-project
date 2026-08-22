@@ -58,25 +58,28 @@ The roadmap distinguishes these states:
 | Runner and run sets | Implemented | `nmopt_runner` resolves benchmark, run kind, build profile, revision, and optional refinement; it writes manifests, artifacts, failures, and native outputs. |
 | B0 artifact boundary | Implemented and contract-tested | The deterministic `nmopt-benchmark-v1` projection, manifest records, provenance fields, selected fields, and failure visibility are present. |
 | Native deal.II output | Implemented for B1/B2 | B1 writes volume mesh/fields; B2 additionally writes facewise control on the boundary topology, together with solver traces and mesh previews. |
-| Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. The renderer now uses `turbo` and explicit field-extrema colorbar endpoints; scientific visual parity is not yet signed off. |
-| B1 source-oriented execution | Framework-verified; authoritative refresh pending | The selected seven-case profile combines continuous P1 control, a regular triangular mesh, constant-half forcing, and the common early-stop policy. The existing framework-native release evidence remains available until the new authoritative run is verified. |
+| Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. The renderer uses `turbo` and explicit field-extrema colorbar endpoints; B1 visual validation is complete under its frozen contract, while B2 remains open. |
+| B1 source-oriented execution | Reproduction-verified | The selected seven-case release profile combines continuous P1 control, a regular triangular mesh, constant-half forcing, and the common early-stop policy. Revision `631537a` completed all seven artifacts and their PNG comparisons without failures; the selected replacements do not claim recovery of omitted source data. |
 | B2 framework-native execution | Framework-verified; reproduction audit open | The four-artifact release matrix exists, while the newer derivative-evidence fields are present in a refinement-6 development run rather than the authoritative release set. The source-sized release artifacts need a refresh after the audit. |
 | Parameter files | Implemented | Stable authoritative and development `.prm` families drive matrix expansion, exact exclusions, solver policy, run layout, and post-processing provenance. |
 | Later Chapter 6 benchmarks | Planned | B3/B4 are the next selected benchmark families after B1/B2 reproduction is resolved; B5/B6 remain later. |
 | Complete Chapter 5 recipe library | Planned | The selected recipes used by B1/B2 exist, but the reusable recipe families listed in the problem-library roadmap are not all implemented. |
 
-The current authoritative run manifests record complete six-case B1 and
-four-case B2 release matrices at benchmark-default refinement 7. These runs
-demonstrate that the framework-native applications execute and produce
-structured evidence. They do not by themselves establish that the rendered
-fields or numerical conventions reproduce the book's figures.
+The current B1 authoritative manifest records the seven unique combinations
+shown across Figures 6.2–6.3. All cases terminate at the common relative
+gradient threshold: steepest descent takes `64/547/2175` iterations and
+L-BFGS takes `2/4/4` iterations for
+$\beta=10^{-1},10^{-2},10^{-3}$, while the additional L-BFGS
+$\beta=10^{-6}$ field case takes four iterations. The source-sized report,
+native fields, and PNG comparisons satisfy the frozen B1 contract; the
+[replication findings](../benchmarks/b1-replication.md) retain the unresolved
+source omissions and replacement rationale.
 
-The B1 report records two gradient-tolerance terminations, one line-search
-failure, and three maximum-iteration terminations across the two methods and
-three regularisation values. The B2 authoritative report records complete
-artifacts and native fields, but all four cases terminate at the configured
-maximum iteration count. These outcomes are evidence to preserve, not reasons
-to silently change the frozen benchmark policy.
+The B2 authoritative manifest records a complete four-case release matrix and
+native fields, but all four cases terminate at the configured maximum
+iteration count. Its newer derivative evidence remains development-only.
+These outcomes are evidence to preserve, not reasons to silently change the
+frozen benchmark policy.
 
 The development snapshot
 `runs/chapter-6/b2/development/001/` was produced with refinement 6 and
@@ -135,7 +138,8 @@ The current renderer uses Matplotlib's `turbo` colormap, point-field Gouraud
 interpolation, cell-field flat shading, no volume mesh-edge overlay, and a
 shared finite-value normalization for comparison panels. These are current
 implementation defaults, not claims about the book's plotting configuration.
-Their scientific adequacy is part of the next reproduction unit.
+Their scientific adequacy is accepted for the frozen B1 comparison and remains
+part of the B2 reproduction unit.
 
 ## Work units
 
@@ -264,7 +268,7 @@ meet this boundary; B2 does not yet.
 
 ### A5 — Build and validate post-processing tooling
 
-**Status:** implementation-complete; scientific visual validation open.
+**Status:** implementation-complete; B1 visual validation complete, B2 open.
 
 **Purpose:** Turn native fields into inspectable plots and comparisons without
 making post-processing a second numerical implementation.
@@ -285,61 +289,55 @@ making post-processing a second numerical implementation.
 - `meshio` and `matplotlib` are runtime dependencies only; they are not
   C++ build or CTest dependencies.
 
-**Still needed:** validate field orientation, value ranges, normalization,
-interpolation, colorbar semantics, and source-figure palette before treating
-plots as reproduction evidence. A visually plausible plot is not enough.
+**Still needed:** complete the corresponding B2 validation of field
+orientation, value ranges, normalization, interpolation, colorbar semantics,
+and source-figure palette before treating its plots as reproduction evidence.
+A visually plausible plot is not enough.
 
 **Done when:** the tool preserves field identity and geometry, documents its
 rendering policy, produces deterministic comparisons from persisted inputs,
 and a benchmark-specific visual check confirms that any difference from the
-source is understood. The plumbing is met; the visual criterion is not.
+source is understood. B1 meets this boundary under its frozen replacement
+contract; B2 does not yet.
 
 ### A6 — Correctly reproduce B1 and B2
 
-**Status:** in progress; development-only evidence is being audited.
+**Status:** in progress; B1 reproduction-verified, B2 audit open.
 
 **Purpose:** Establish whether the current framework-native fields and plots
 represent the same mathematical quantities and visual conventions as the
 book's B1/B2 figures.
 
-**Work to do:**
+**Work completed for B1:**
 
-1. Build a source-to-artifact comparison sheet for E6.5.1 and E6.5.2 using
-   the guide's extracted pages and figures. Record the source field, coordinate
-   orientation, sign convention, observation/target case, and whether the
-   comparison is qualitative or quantitative.
-2. Inspect raw native values before plotting. Compare VTU field names, ranges,
-   extrema, mesh orientation, and point/cell association against the state,
-   adjoint, and control quantities selected by the benchmark contract.
-3. Render the B1 input functions as first-class comparison evidence: the
-   desired state and forcing, with their provenance and the same coordinate
-   orientation as the native fields. A zero forcing must still be visible as a
-   field with an explicit zero range rather than inferred from the PDE name.
-4. Reproduce the current PNG from the same VTU input with controlled changes to
-   colormap, normalization, interpolation, axis orientation, and colorbar.
-   Include the exact field extrema as colorbar endpoints.
-5. Compare the source-like blue-cyan-green-yellow-red colormap with the
-   selected renderer policy. The current reproduction policy is `turbo`; the
-   source plotting configuration remains unavailable, so palette equivalence
-   is visual rather than a recovered plotting setting.
-6. Keep the native framework adjoint `p` unchanged, and add a comparison-only
-   book-convention field `p_book=-p` when comparing against the source figures.
-   Record this transformation in the plot metadata; never overwrite the raw
-   adjoint field.
-7. If the raw field is wrong, trace the issue through native export, boundary
-   orientation, target/observation realization, and PDE/adjoint conventions.
-   If the raw field is correct and only rendering differs, make the smallest
-   post-processing change and add a focused regression check.
-8. Regenerate development plots, including the B1 $\beta=10^{-6}$ case, then
-   request the explicit release policy
-   before refreshing the B1/B2 authoritative matrices. Update the report and
-   benchmark handoff with the result.
+- source facts and omissions are separated from project replacement choices;
+- raw and plotted field identities, extrema, orientation, point association,
+  and the comparison-only $`p_{\mathrm{book}}=-p`$ sign are auditable;
+- desired-state and forcing plots retain provenance and coordinate mapping;
+- the `turbo` rendering, interpolation, shared normalization, and endpoint
+  colorbar policy are explicit;
+- the seven-case matrix includes the source-referenced
+  $\beta=10^{-6}$ L-BFGS field case; and
+- the release report and comparisons at revision `631537a` record seven
+  successful artifacts and distinguish qualitative reproduction from the
+  source details that cannot be recovered.
+
+**Still needed for B2:**
+
+1. Complete the E6.5.2 source-to-artifact comparison for every observation and
+   target case.
+2. Inspect raw native values, boundary-control association, extrema, mesh
+   orientation, and observation-domain realization before adjusting plots.
+3. Diagnose numerical-field discrepancies separately from renderer differences
+   and add the smallest focused regression where needed.
+4. Settle the interpretation, refresh the source-sized release matrix with the
+   current derivative evidence, and update its report and benchmark handoff.
 
 **Done when:**
 
-- the color inversion and palette difference have a documented cause;
+- any color inversion and palette difference have a documented cause;
 - raw numerical fields and plotted fields have an auditable mapping;
-- the framework adjoint and book-convention adjoint are explicitly separated;
+- any framework and source sign conventions are explicitly separated;
 - B1 and B2 plots use an explicitly documented normalization, endpoint ticks,
   and colormap policy;
 - B1 input functions are plotted with their provenance and coordinate mapping;
@@ -348,6 +346,9 @@ book's B1/B2 figures.
   settled; and
 - the benchmark report separates framework-native evidence, source comparison,
   and unresolved source omissions.
+
+B1 meets these criteria under its frozen replacement contract. A6 remains open
+for B2.
 
 The first diagnostic input is:
 
@@ -460,10 +461,11 @@ Known limitations:
 Next unit:
 ```
 
-The next handoff is A6, correct B1/B2 reproduction. It should begin with
-development-only inspection and post-processing experiments. Rebuilding
-`release-dealii` or replacing authoritative artifacts requires an explicit
-permission request after the cause of the visual discrepancy is understood.
+The next handoff is the remaining A6 B2 reproduction audit. It should continue
+with development-only native-field inspection and post-processing experiments.
+Rebuilding `release-dealii` or replacing B2 authoritative artifacts requires
+an explicit permission request after the cause of any visual or numerical
+discrepancy is understood.
 
 ## Exclusions
 

@@ -131,6 +131,48 @@ namespace
                 "match-reference-method",
             "B1 count-matched-simplex family lost its topology hypothesis");
 
+    const auto figure_6_2_constant_half = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b1/development/"
+        "figure-6.2-early-stop-constant-half.prm"));
+    require(
+      figure_6_2_constant_half.combinations().size() == 2 &&
+        figure_6_2_constant_half.value("Functions/forcing/kind") == "constant" &&
+        figure_6_2_constant_half.value("Functions/forcing/value") == "0.5" &&
+        figure_6_2_constant_half.value("Mesh/generator") ==
+          "structured-simplex" &&
+        figure_6_2_constant_half.value("Mesh/subdivisions") == "131" &&
+        figure_6_2_constant_half.value("Solver/objective target policy") ==
+          "none" &&
+        resolve_method_parameter(figure_6_2_constant_half,
+                                 "l-bfgs",
+                                 "relative gradient tolerance")
+            .value == "1e-3",
+      "B1 Figure 6.2 constant-half family lost its early-stop hypothesis");
+
+    const auto figure_6_2_objective_matched = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b1/development/"
+        "figure-6.2-early-stop-objective-matched.prm"));
+    require(
+      figure_6_2_objective_matched.combinations().size() == 2 &&
+        figure_6_2_objective_matched.value("Functions/forcing") ==
+          "objective-matched-constant" &&
+        figure_6_2_objective_matched.value("Functions/forcing/kind") ==
+          "constant" &&
+        figure_6_2_objective_matched.value("Functions/forcing/value") ==
+          "0.41506741762176758" &&
+        figure_6_2_objective_matched.value("Mesh/generator") ==
+          "structured-simplex" &&
+        figure_6_2_objective_matched.value("Mesh/subdivisions") == "131" &&
+        figure_6_2_objective_matched.value(
+          "Solver/objective target policy") == "none" &&
+        resolve_method_parameter(figure_6_2_objective_matched,
+                                 "l-bfgs",
+                                 "relative gradient tolerance")
+            .value == "1e-3",
+      "B1 Figure 6.2 objective-matched family lost its forcing hypothesis");
+
     const auto b2 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
     require(b2.matrix.size() == 2, "B2 should declare independent axes");

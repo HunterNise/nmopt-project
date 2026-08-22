@@ -178,6 +178,9 @@ not duplicated in this freeze.
 
 The source equation, four observation/target combinations, boundary geometry,
 and source omissions are recorded in the [E6.5.2 source entry](../guides/chapter-6-numerical-examples.md#e652--graetz-flow-boundary-control).
+The development evidence, count-based deductions, candidate experiment order,
+and current source-parity assessment are recorded in the
+[B2 replication findings](b2-replication.md).
 The application scenario owns the recipe, case enum, material-region
 realization, runtime ports, and backend construction.
 

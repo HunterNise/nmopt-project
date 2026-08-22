@@ -45,6 +45,9 @@ architectural boundaries.
 - [B1 replication findings](benchmarks/b1-replication.md) report the
   source-comparison experiments, supported inferences, and unresolved
   omissions for E6.5.1.
+- [B2 replication findings](benchmarks/b2-replication.md) report the initial
+  Table 6.2 and Figure 6.5 discrepancies, count-based deductions, and ordered
+  candidate experiments for E6.5.2.
 
 ### Decisions
 

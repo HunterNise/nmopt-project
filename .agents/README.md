@@ -9,6 +9,7 @@ this index first, then follow the mandatory routing rules below.
 | Git and worktrees | Status, branches, diffs, commits, remotes, and repository safety | [Git](git.md) |
 | Code and interfaces | C++, headers, tests, layer boundaries, and implementation design | [Code](code.md) |
 | Build and test | CMake, configuration, compilation, test execution, and generated artifacts | [Build and test](build.md) |
+| Application runs | Parameter placement, runner execution, run organization, post-processing, and experiment promotion | [Run and post-process](run.md) |
 | Documentation | Markdown, LaTeX, rendered documentation, and mathematical notation | [Documentation](documentation.md) |
 | Explanation and learning | Technical explanations, code walkthroughs, and project-guided learning | [Explanation](explanation.md) and [commit walkthrough](commit-walkthrough.md) |
 
@@ -28,6 +29,9 @@ Follow these rules for repository actions:
       C++, headers, tests, or code-layer interfaces.
     - Read [Build and test](build.md) before configuring, compiling, running
       tests, or changing CMake, build, or test configuration.
+    - Read [Run and post-process](run.md) before changing execution-related
+      parameter destinations, launching application runs, inspecting generated
+      run layouts, post-processing artifacts, or promoting experiments.
     - Read [Documentation](documentation.md) before reading, writing,
       rendering, or reviewing project documentation, Markdown, or LaTeX
       content.

@@ -240,6 +240,20 @@ def _history_panels(
     return tuple(panels)
 
 
+def _comparison_directory(
+    output_root: Path,
+    base_groups: set[str],
+    base_group: str,
+    suffix: str,
+) -> Path:
+    directory = output_root / "comparisons"
+    if len(base_groups) > 1:
+        directory /= base_group
+    if suffix:
+        directory /= suffix
+    return directory
+
+
 def build_comparisons(
     artifacts: list[Path],
     output_root: Path,
@@ -248,22 +262,24 @@ def build_comparisons(
 ) -> tuple[dict[str, dict[str, list[str]]], dict[str, dict[str, str]]]:
     """Render all configured comparisons grouped by the application profile."""
 
-    grouped: dict[str, list[Path]] = {}
+    grouped: dict[tuple[str, str], list[Path]] = {}
     for artifact in artifacts:
         metadata = read_metadata(artifact)
         base_group = profile.comparison_group(metadata)
         group_by = profile.comparison_plan.group_by
-        if group_by:
-            suffix = "__".join(
-                f"{axis}={_axis_value(metadata, axis)}" for axis in group_by
-            )
-            base_group = f"{base_group}/{suffix}"
-        grouped.setdefault(base_group, []).append(artifact)
+        suffix = "__".join(
+            f"{axis}={_axis_value(metadata, axis)}" for axis in group_by
+        )
+        grouped.setdefault((base_group, suffix), []).append(artifact)
 
     generated: dict[str, dict[str, list[str]]] = {}
     errors: dict[str, dict[str, str]] = {}
-    for group, group_artifacts in grouped.items():
-        comparison_dir = output_root / "comparisons" / group
+    base_groups = {base_group for base_group, _ in grouped}
+    for (base_group, suffix), group_artifacts in grouped.items():
+        group = f"{base_group}/{suffix}" if suffix else base_group
+        comparison_dir = _comparison_directory(
+            output_root, base_groups, base_group, suffix
+        )
         comparison_dir.mkdir(parents=True, exist_ok=True)
         group_generated: dict[str, list[str]] = {}
         group_errors: dict[str, str] = {}

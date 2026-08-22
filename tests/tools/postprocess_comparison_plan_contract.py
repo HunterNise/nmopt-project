@@ -18,6 +18,7 @@ from nmopt_postprocess.errors import PostprocessError
 from nmopt_postprocess.parameters import load_postprocess_configuration
 from nmopt_postprocess.pipeline import (
     ComparisonPlan,
+    _comparison_directory,
     build_comparisons,
     comparison_grid,
 )
@@ -97,6 +98,32 @@ end
                 "chapter-6.b1.distributed-laplace/forcing=one",
             },
             "group_by did not partition the comparison into one grid per forcing",
+        )
+        require(
+            (
+                root
+                / "postprocess"
+                / "comparisons"
+                / "forcing=zero"
+                / "figure-6.3.png"
+            ).is_file(),
+            "single-scenario grouped comparison retained a redundant scenario folder",
+        )
+        require(
+            not (
+                root
+                / "postprocess"
+                / "comparisons"
+                / "chapter-6.b1.distributed-laplace"
+            ).exists(),
+            "single-scenario comparison used the redundant scenario folder",
+        )
+        require(
+            _comparison_directory(
+                root / "multi", {"scenario-a", "scenario-b"}, "scenario-a", ""
+            )
+            == root / "multi" / "comparisons" / "scenario-a",
+            "multi-scenario comparisons lost their collision-avoidance folder",
         )
 
         zero_artifacts = [

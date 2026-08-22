@@ -82,7 +82,6 @@ def main() -> int:
                 root
                 / "postprocess"
                 / "comparisons"
-                / "chapter-6.b1.distributed-laplace"
                 / "figure-6.3.png"
             ).is_file(),
             "history figure was not written",

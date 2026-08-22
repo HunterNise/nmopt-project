@@ -239,12 +239,14 @@ matrix axes and combinations, the comparison plan, and output formats. This
 keeps a derived plot set auditable without changing the runner's authoritative
 artifact or run-manifest records.
 
-The B1 plotting profile also writes `comparisons/<scenario>/figure-6.3` from
-the persisted objective and gradient-norm histories. Both panels use a
-logarithmic iteration axis with history sample zero displayed at coordinate
-one; the objective axis is linear and the gradient-norm axis is logarithmic.
-The profile selects only the three regularisation values shown in the source
-figure, so additional development artifacts do not silently alter the plot.
+The B1 plotting profile writes `comparisons/figure-6.3` for a run root with one
+scenario. If an input root contains multiple scenarios, the scenario name is
+retained as an intermediate folder; `group_by` values are retained as folders
+in either case. Both panels use a logarithmic iteration axis with history
+sample zero displayed at coordinate one; the objective axis is linear and the
+gradient-norm axis is logarithmic. The profile selects only the three
+regularisation values shown in the source figure, so additional development
+artifacts do not silently alter the plot.
 
 ## Agent verification loop
 

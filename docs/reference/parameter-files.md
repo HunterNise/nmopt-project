@@ -28,6 +28,8 @@ parameters/
         continuous-control-count-matched-simplex.prm
         figure-6.2-early-stop-constant-half.prm
         figure-6.2-early-stop-objective-matched.prm
+        figure-6.3-constant-half.prm
+        figure-6.3-objective-matched.prm
     b2/
       authoritative.prm
       development/
@@ -294,6 +296,8 @@ different profile is an explicit derived-output override.
 - [B1 continuous-control constant-one-forcing candidate](../../parameters/chapter-6/b1/development/continuous-control-constant-one.prm)
 - [B1 Figure 6.2 constant-half early-stop candidate](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-constant-half.prm)
 - [B1 Figure 6.2 objective-matched early-stop candidate](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-objective-matched.prm)
+- [B1 Figure 6.3 constant-half candidate](../../parameters/chapter-6/b1/development/figure-6.3-constant-half.prm)
+- [B1 Figure 6.3 objective-matched candidate](../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm)
 - [B2 authoritative parameter family](../../parameters/chapter-6/b2/authoritative.prm)
 - [B2 development forcing sweep](../../parameters/chapter-6/b2/development/forcing-sweep.prm)
 - [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json)

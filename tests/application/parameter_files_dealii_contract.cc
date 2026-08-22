@@ -173,6 +173,42 @@ namespace
             .value == "1e-3",
       "B1 Figure 6.2 objective-matched family lost its forcing hypothesis");
 
+    const auto require_figure_6_3_candidate = [](const auto &candidate,
+                                                  const char *forcing_value,
+                                                  const char *message) {
+      require(
+        candidate.combinations().size() == 6 &&
+          candidate.value("Functions/forcing/kind") == "constant" &&
+          candidate.value("Functions/forcing/value") == forcing_value &&
+          candidate.value("Mesh/generator") == "structured-simplex" &&
+          candidate.value("Mesh/subdivisions") == "131" &&
+          candidate.value("Solver/objective target policy") ==
+            "match-reference-method" &&
+          resolve_method_parameter(candidate,
+                                   "steepest-descent",
+                                   "relative gradient tolerance")
+              .value == "1e-3" &&
+          resolve_method_parameter(candidate, "l-bfgs", "stopping criterion")
+              .value == "gradient-norm",
+        message);
+    };
+
+    const auto figure_6_3_constant_half = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b1/development/figure-6.3-constant-half.prm"));
+    require_figure_6_3_candidate(
+      figure_6_3_constant_half,
+      "0.5",
+      "B1 Figure 6.3 constant-half family lost its method comparison");
+
+    const auto figure_6_3_objective_matched = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm"));
+    require_figure_6_3_candidate(
+      figure_6_3_objective_matched,
+      "0.41506741762176758",
+      "B1 Figure 6.3 objective-matched family lost its method comparison");
+
     const auto b2 = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
     require(b2.matrix.size() == 2, "B2 should declare independent axes");

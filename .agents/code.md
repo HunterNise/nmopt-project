@@ -14,6 +14,12 @@
 
 ## Changes and tests
 
+- Do not invoke `clang-format` or another automated source formatter unless the
+  user explicitly approves the exact command and scope for the current work.
+  The same approval requirement applies to linter auto-fixes, code generators,
+  and bulk-rewrite commands that can modify existing source. Ordinary
+  compiler/test diagnostics and read-only search or diff inspection do not
+  require this approval.
 - Before changing code, identify the affected layer and read its authoritative
   contract or implementation document from [`docs/`](../docs/README.md).
 - When a public interface or file boundary changes, update its authoritative

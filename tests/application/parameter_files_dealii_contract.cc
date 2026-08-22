@@ -221,6 +221,25 @@ namespace
             "B2 forcing development family should expand to three combinations");
     require(development.content_hash.rfind("fnv1a64:", 0) == 0,
             "parameter provenance should carry a labelled deterministic hash");
+
+    const auto chapter_6_parameters =
+      find_file_from_current_or_parent("parameters/chapter-6");
+    for (const auto &entry :
+         std::filesystem::recursive_directory_iterator(chapter_6_parameters))
+      if (entry.is_regular_file() && entry.path().extension() == ".prm")
+        {
+          const auto stable = read_parameter_file(entry.path());
+          if (stable.value("Run/output root") != "runs")
+            throw std::runtime_error(
+              "tracked parameter file must use the stable runs root: " +
+              entry.path().string());
+          if (entry.path().parent_path().filename() == "development" &&
+              !stable.optional_value("Solver/declared minimum step length")
+                 .empty())
+            throw std::runtime_error(
+              "development parameter file uses a legacy minimum-step entry: " +
+              entry.path().string());
+        }
   }
 
   void

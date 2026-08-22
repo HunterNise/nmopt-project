@@ -137,7 +137,6 @@ subsection Solver
   set initial step length = 1.0
   set Armijo fraction = 1e-4
   set backtracking factor = 0.5
-  set declared minimum step length = none
 end
 
 subsection Run

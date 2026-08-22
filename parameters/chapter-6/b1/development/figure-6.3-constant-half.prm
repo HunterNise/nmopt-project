@@ -107,7 +107,7 @@ end
 subsection Run
   set kind = development
   set build profile = release-dealii
-  set output root = runs/experiments/b1-figure-6.3-source-oriented-structured-simplex-f0.5
+  set output root = runs
   set deterministic = true
   set serialize artifacts = true
   set measure timings = true

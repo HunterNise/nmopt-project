@@ -620,8 +620,7 @@ restriction and adds the conservative weak term
 ```
 
 The material-subdomain tracking realization is isolated in
-`dealii_volume_observation.hpp`. For the currently selected analytic target
-evaluation it assembles
+`dealii_volume_observation.hpp`. It assembles
 
 ```math
 \begin{aligned}
@@ -637,9 +636,17 @@ For nonzero fixed Dirichlet data, the component applies the same affine
 free-coordinate correction to the load and constant before exposing them to
 `NeumannBoundaryControlModel`. The model consumes those three outputs for the
 tracking objective and its state derivative; its PDE volume assembly no longer
-branches on observation cells. The present realization deliberately retains
-quadrature order $p+2$ and evaluates the desired-state `Function` at volume
-quadrature points. Neither choice is selectable at this boundary yet.
+branches on observation cells.
+
+`DealiiDiscretisationPolicy::volume_observation` selects a positive observation
+quadrature order independently of the PDE volume quadrature. It also selects
+whether the desired-state `Function` is evaluated analytically at observation
+quadrature points or first interpolated into the scalar state finite-element
+space and then evaluated there. Omitting the optional policy preserves the
+previous order $p+2$ and analytic evaluation. The compiler accepts an explicit
+selection only for the Neumann-convection target with material-subdomain
+tracking, rejects invalid orders and realizations, and records the effective
+target and quadrature choices in the compilation manifest.
 
 The generic C5.6 target defaults to the conormal flux of this form. The B2
 application selection explicitly replaces that default with the source's

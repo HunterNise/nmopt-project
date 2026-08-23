@@ -92,6 +92,8 @@ namespace nmopt::compiler::v1::detail
       std::set<dealii::types::boundary_id>         dirichlet_boundary_ids,
       std::set<dealii::types::boundary_id>         control_boundary_ids,
       std::set<dealii::types::boundary_id>         observation_boundary_ids,
+      const unsigned int                            volume_observation_quadrature_order,
+      const VolumeObservationTargetRealisation      volume_observation_target_realisation,
       const dealii::Function<dim> *                 observation_weight = nullptr,
       const StateGauge                              state_gauge =
         StateGauge::fixed_dirichlet,
@@ -205,7 +207,8 @@ namespace nmopt::compiler::v1::detail
             fixed_state_values_,
             observation_material_ids_,
             desired_state,
-            state_fe_->degree + 2);
+            volume_observation_quadrature_order,
+            volume_observation_target_realisation);
       assemble(forcing,
                desired_state,
                conservative_transport,

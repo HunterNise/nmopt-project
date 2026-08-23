@@ -630,6 +630,8 @@ namespace nmopt::compiler::v1
         request.neumann_control_selection->discretisation ==
           semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace;
       const bool uses_neumann_convection = request.uses_neumann_convection;
+      const auto volume_observation_policy =
+        effective_volume_observation_policy(policy);
       const bool uses_mean_zero_gauge = request.uses_mean_zero_gauge;
       const bool uses_h1_control_regularisation =
         request.uses_h1_control_regularisation;
@@ -1359,6 +1361,8 @@ namespace nmopt::compiler::v1
             uses_neumann_convection
               ? std::set<dealii::types::boundary_id>{}
               : boundary_ids(*tracking_region),
+            volume_observation_policy.quadrature_order,
+            volume_observation_policy.target_realisation,
             uses_weighted_boundary_trace ? &data.weighted_trace->weight : nullptr,
             uses_mean_zero_gauge
               ? BoundaryModel::StateGauge::mean_zero_multiplier
@@ -3409,6 +3413,33 @@ namespace nmopt::compiler::v1
                    specification.id,
                    "FE_Q_state_degree",
                    "Select a conforming scalar Lagrange state degree of at least one.");
+      if (request.uses_neumann_convection && policy.volume_observation)
+        {
+          if (policy.volume_observation->quadrature_order == 0)
+            report.add(
+              DiagnosticCategory::lowerability,
+              specification.id,
+              "volume_observation_quadrature_order",
+              "Select a positive volume-observation quadrature order.");
+          switch (policy.volume_observation->target_realisation)
+            {
+              case VolumeObservationTargetRealisation::analytic_quadrature:
+              case VolumeObservationTargetRealisation::state_fe_interpolation:
+                break;
+              default:
+                report.add(
+                  DiagnosticCategory::lowerability,
+                  specification.id,
+                  "volume_observation_target_realisation",
+                  "Select analytic quadrature evaluation or interpolation into the state finite-element space.");
+            }
+        }
+      else if (!request.uses_neumann_convection && policy.volume_observation)
+        report.add(
+          DiagnosticCategory::lowerability,
+          specification.id,
+          "unselected_volume_observation_policy",
+          "Remove the volume-observation policy from a target without material-subdomain Neumann-convection tracking.");
 
       std::size_t full_volume_regions = 0;
       for (const auto &region : specification.regions)
@@ -6254,6 +6285,8 @@ namespace nmopt::compiler::v1
         request.neumann_control_selection->discretisation ==
           semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace;
       const bool uses_neumann_convection = request.uses_neumann_convection;
+      const auto volume_observation_policy =
+        effective_volume_observation_policy(policy);
       const bool uses_mean_zero_gauge = request.uses_mean_zero_gauge;
       const bool uses_h1_control_regularisation =
         request.uses_h1_control_regularisation_loss;
@@ -6420,6 +6453,11 @@ namespace nmopt::compiler::v1
       if (uses_continuous_neumann_trace)
         manifest.lowering_handler_records.push_back(
           "neumann_control <- dealii.neumann.control.continuous_p1_trace");
+      if (uses_neumann_convection)
+        manifest.lowering_handler_records.push_back(
+          std::string("state_observation <- dealii.volume_observation.") +
+          volume_observation_target_realisation_name(
+            volume_observation_policy.target_realisation));
       if (uses_l2_dirichlet_control)
         manifest.lowering_handler_records.push_back(
           "l2_dirichlet_transposition <- "
@@ -6469,6 +6507,17 @@ namespace nmopt::compiler::v1
         std::string(uses_simplex_reference_cells ? "QGaussSimplex("
                                                  : "QGauss(") +
         std::to_string(policy.state_degree + 2) + ")";
+      const std::string volume_observation_quadrature =
+        std::string(uses_simplex_reference_cells ? "QGaussSimplex("
+                                                 : "QGauss(") +
+        std::to_string(volume_observation_policy.quadrature_order) + ")";
+      const std::string volume_observation_target_rule =
+        volume_observation_policy.target_realisation ==
+            VolumeObservationTargetRealisation::analytic_quadrature
+          ? "analytic desired-state Function evaluated"
+          : "desired-state Function interpolated into scalar " +
+              scalar_lagrange_element + "(" +
+              std::to_string(policy.state_degree) + ") and evaluated";
       manifest.state_space = uses_l2_dirichlet_control
                                ? "continuous L2(Omega) parent lowered to conforming scalar FE_Q(" +
                                    std::to_string(policy.state_degree) +
@@ -6514,9 +6563,11 @@ namespace nmopt::compiler::v1
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature"
         : uses_neumann_boundary_control
         ? (uses_neumann_convection
-             ? "analytic desired-state, conservative transport, and forcing Functions at selected QGauss(" +
-                 std::to_string(policy.state_degree + 2) +
-                 ") volume quadrature; scalar diffusion, reaction, and regularisation constants"
+             ? volume_observation_target_rule + " at selected " +
+                 volume_observation_quadrature +
+                 " volume-observation quadrature; conservative transport and forcing Functions at selected " +
+                 volume_quadrature +
+                 " volume quadrature; scalar diffusion, reaction, and regularisation constants"
              : "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature")
@@ -6545,7 +6596,10 @@ namespace nmopt::compiler::v1
         ? weighted_boundary_observation_realisation(*tracking_region)
         : uses_neumann_boundary_control
         ? (uses_neumann_convection
-             ? observation_realisation(*tracking_region)
+             ? observation_realisation(*tracking_region) + "; target=" +
+                 volume_observation_target_realisation_name(
+                   volume_observation_policy.target_realisation) +
+                 "; quadrature=" + volume_observation_quadrature
              : boundary_observation_realisation(*tracking_region))
         : observation_realisation(*tracking_region);
       manifest.metric_solve_policy =

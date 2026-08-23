@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
@@ -341,6 +342,34 @@ namespace nmopt::compiler::v1
     ordinary_normal_transport
   };
 
+  enum class VolumeObservationTargetRealisation
+  {
+    analytic_quadrature,
+    state_fe_interpolation
+  };
+
+  inline const char *
+  volume_observation_target_realisation_name(
+    const VolumeObservationTargetRealisation realisation)
+  {
+    switch (realisation)
+      {
+        case VolumeObservationTargetRealisation::analytic_quadrature:
+          return "analytic-quadrature";
+        case VolumeObservationTargetRealisation::state_fe_interpolation:
+          return "state-fe-interpolation";
+      }
+    throw std::invalid_argument(
+      "unknown volume-observation target realisation");
+  }
+
+  struct VolumeObservationDiscretisationPolicy
+  {
+    unsigned int quadrature_order = 0;
+    VolumeObservationTargetRealisation target_realisation =
+      VolumeObservationTargetRealisation::analytic_quadrature;
+  };
+
   struct DealiiDiscretisationPolicy
   {
     enum class Execution
@@ -353,6 +382,8 @@ namespace nmopt::compiler::v1
     Execution                                   execution = Execution::assembled;
     std::optional<TransportBoundaryRealisation>
                                                   transport_boundary_realisation;
+    std::optional<VolumeObservationDiscretisationPolicy>
+                                                  volume_observation;
     dealii_backend::MassMetricSolveParameters control_metric_solve = {};
     dealii_backend::SPDLinearSolvePolicy       state_solve = {};
     dealii_backend::SPDLinearSolvePolicy       adjoint_solve = {};
@@ -374,6 +405,16 @@ namespace nmopt::compiler::v1
       return value;
     }();
   };
+
+  inline VolumeObservationDiscretisationPolicy
+  effective_volume_observation_policy(
+    const DealiiDiscretisationPolicy &policy)
+  {
+    return policy.volume_observation.value_or(
+      VolumeObservationDiscretisationPolicy{
+        policy.state_degree + 2,
+        VolumeObservationTargetRealisation::analytic_quadrature});
+  }
 
   // Owns one static triangulation exclusively for the lifetime of compiled
   // products. Moving a unique_ptr into the session prevents caller mutation;

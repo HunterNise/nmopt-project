@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/compiler/v1/dealii_reference_cell.hpp"
+#include "nmopt/compiler/v1/dealii_types.hpp"
 
 #include <deal.II/base/function.h>
 #include <deal.II/dofs/dof_handler.h>
@@ -11,7 +12,9 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/lac/vector.h>
+#include <deal.II/numerics/vector_tools.h>
 
+#include <optional>
 #include <set>
 #include <utility>
 #include <vector>
@@ -38,8 +41,12 @@ namespace nmopt::compiler::v1::detail
       const Vector &                               fixed_state_values,
       std::set<dealii::types::material_id>         observation_material_ids,
       const dealii::Function<dim> &                desired_state,
-      const unsigned int                           quadrature_order)
+      const unsigned int                           quadrature_order,
+      const VolumeObservationTargetRealisation     target_realisation =
+        VolumeObservationTargetRealisation::analytic_quadrature)
       : observation_material_ids_(std::move(observation_material_ids))
+      , quadrature_order_(quadrature_order)
+      , target_realisation_(target_realisation)
     {
       contract::require(!observation_material_ids_.empty(),
                         "Volume observation needs a material selection");
@@ -49,6 +56,15 @@ namespace nmopt::compiler::v1::detail
         constrained_state_dofs.size() == state_dof_handler.n_dofs() &&
           fixed_state_values.size() == state_dof_handler.n_dofs(),
         "Volume observation received incompatible fixed-state coordinates");
+      switch (target_realisation_)
+        {
+          case VolumeObservationTargetRealisation::analytic_quadrature:
+          case VolumeObservationTargetRealisation::state_fe_interpolation:
+            break;
+          default:
+            throw contract::ContractError(
+              "Volume observation received an unknown target realisation");
+        }
 
       dealii::DynamicSparsityPattern state_dsp(state_dof_handler.n_dofs(),
                                                 state_dof_handler.n_dofs());
@@ -82,6 +98,18 @@ namespace nmopt::compiler::v1::detail
       return desired_state_norm_;
     }
 
+    unsigned int
+    quadrature_order() const
+    {
+      return quadrature_order_;
+    }
+
+    VolumeObservationTargetRealisation
+    target_realisation() const
+    {
+      return target_realisation_;
+    }
+
   private:
     void
     assemble(const dealii::DoFHandler<dim> &state_dof_handler,
@@ -105,6 +133,17 @@ namespace nmopt::compiler::v1::detail
       dealii::Vector<double> local_desired_state(state_fe.dofs_per_cell);
       std::vector<dealii::types::global_dof_index> state_indices(
         state_fe.dofs_per_cell);
+      std::optional<Vector> interpolated_desired_state;
+      if (target_realisation_ ==
+          VolumeObservationTargetRealisation::state_fe_interpolation)
+        {
+          interpolated_desired_state.emplace(state_dof_handler.n_dofs());
+          dealii::VectorTools::interpolate(state_dof_handler,
+                                           desired_state,
+                                           *interpolated_desired_state);
+        }
+      std::vector<double> interpolated_desired_values(
+        volume_quadrature->size());
 
       for (auto cell = state_dof_handler.begin_active();
            cell != state_dof_handler.end();
@@ -113,6 +152,9 @@ namespace nmopt::compiler::v1::detail
           if (observation_material_ids_.count(cell->material_id()) == 0)
             continue;
           state_values.reinit(cell);
+          if (interpolated_desired_state)
+            state_values.get_function_values(*interpolated_desired_state,
+                                             interpolated_desired_values);
           local_state_tracking = 0.0;
           local_desired_state = 0.0;
           double fixed_tracking_value = 0.0;
@@ -120,7 +162,8 @@ namespace nmopt::compiler::v1::detail
           for (unsigned int q = 0; q < volume_quadrature->size(); ++q)
             {
               const double weight = state_values.JxW(q);
-              const double desired_value =
+              const double desired_value = interpolated_desired_state ?
+                interpolated_desired_values[q] :
                 desired_state.value(state_values.quadrature_point(q));
               desired_state_norm_ += desired_value * desired_value * weight;
               for (unsigned int i = 0; i < state_fe.dofs_per_cell; ++i)
@@ -172,6 +215,8 @@ namespace nmopt::compiler::v1::detail
     }
 
     const std::set<dealii::types::material_id> observation_material_ids_;
+    const unsigned int quadrature_order_;
+    const VolumeObservationTargetRealisation target_realisation_;
     dealii::SparsityPattern state_sparsity_;
     dealii::SparseMatrix<double> state_tracking_matrix_;
     Vector desired_state_load_;

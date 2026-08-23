@@ -280,6 +280,27 @@ namespace
       {7},
       desired_state,
       3);
+    const compiler::v1::detail::VolumeObservationAssembly<dim>
+      interpolated_observation(
+        state_dof_handler,
+        state_fe,
+        constrained_state_dofs,
+        fixed_state_values,
+        {7},
+        desired_state,
+        2,
+        compiler::v1::VolumeObservationTargetRealisation::
+          state_fe_interpolation);
+    contract::require(
+      observation.quadrature_order() == 3 &&
+        observation.target_realisation() ==
+          compiler::v1::VolumeObservationTargetRealisation::
+            analytic_quadrature &&
+        interpolated_observation.quadrature_order() == 2 &&
+        interpolated_observation.target_realisation() ==
+          compiler::v1::VolumeObservationTargetRealisation::
+            state_fe_interpolation,
+      "Volume-observation assembly did not retain its selected policy");
     dealii::Vector<double> direction(state_dof_handler.n_dofs());
     dealii::Vector<double> state = fixed_state_values;
     for (dealii::types::global_dof_index index = 0;
@@ -364,6 +385,59 @@ namespace
                   state_reference.derivative,
                   1.0e-14,
                   "Volume-observation state derivative");
+
+    dealii::Vector<double> interpolated_mass_direction(
+      state_dof_handler.n_dofs());
+    interpolated_observation.state_tracking_matrix().vmult(
+      interpolated_mass_direction,
+      direction);
+    interpolated_mass_direction.add(-1.0, mass_direction);
+    dealii::Vector<double> interpolated_load_difference =
+      interpolated_observation.desired_state_load();
+    interpolated_load_difference.add(-1.0,
+                                     observation.desired_state_load());
+    require_close(interpolated_mass_direction.l2_norm(),
+                  0.0,
+                  1.0e-14,
+                  "Volume-observation polynomial-exact mass matrix");
+    require_close(interpolated_load_difference.l2_norm(),
+                  0.0,
+                  1.0e-14,
+                  "Volume-observation polynomial-exact target load");
+    require_close(interpolated_observation.desired_state_norm(),
+                  observation.desired_state_norm(),
+                  1.0e-14,
+                  "Volume-observation polynomial-exact target norm");
+
+    const EnergyPolynomial<dim> nonrepresentable_target;
+    const compiler::v1::detail::VolumeObservationAssembly<dim>
+      analytic_nonrepresentable_observation(
+        state_dof_handler,
+        state_fe,
+        constrained_state_dofs,
+        fixed_state_values,
+        {7},
+        nonrepresentable_target,
+        3,
+        compiler::v1::VolumeObservationTargetRealisation::
+          analytic_quadrature);
+    const compiler::v1::detail::VolumeObservationAssembly<dim>
+      interpolated_nonrepresentable_observation(
+        state_dof_handler,
+        state_fe,
+        constrained_state_dofs,
+        fixed_state_values,
+        {7},
+        nonrepresentable_target,
+        3,
+        compiler::v1::VolumeObservationTargetRealisation::
+          state_fe_interpolation);
+    contract::require(
+      std::abs(analytic_nonrepresentable_observation.desired_state_norm() -
+               interpolated_nonrepresentable_observation.desired_state_norm()) >
+        1.0e-4,
+      "Volume-observation target realization did not change a "
+      "nonrepresentable target");
   }
 
   template <int dim>
@@ -3332,6 +3406,18 @@ namespace
     const compiler::v1::DealiiCompiler compiler;
     contract::require(compiler.validate(specification, policy).valid(),
                       "Neumann boundary-control v1 graph did not validate for deal.II");
+    auto unselected_observation_policy = policy;
+    unselected_observation_policy.volume_observation =
+      compiler::v1::VolumeObservationDiscretisationPolicy{
+        3,
+        compiler::v1::VolumeObservationTargetRealisation::
+          analytic_quadrature};
+    test_support::require_exact_diagnostic(
+      compiler.validate(specification, unselected_observation_policy),
+      semantic::v1::DiagnosticCategory::lowerability,
+      specification.id,
+      "unselected_volume_observation_policy",
+      "A boundary-observation target accepted a volume-observation policy");
     const compiler::v1::DealiiDataBindings<dim> bindings{
       forcing,
       desired_state,
@@ -3656,6 +3742,29 @@ namespace
     const compiler::v1::DealiiCompiler compiler;
     contract::require(compiler.validate(specification, policy).valid(),
                       "C5.6 Neumann convection graph did not validate for deal.II");
+    auto zero_observation_quadrature = policy;
+    zero_observation_quadrature.volume_observation =
+      compiler::v1::VolumeObservationDiscretisationPolicy{
+        0,
+        compiler::v1::VolumeObservationTargetRealisation::
+          analytic_quadrature};
+    test_support::require_exact_diagnostic(
+      compiler.validate(specification, zero_observation_quadrature),
+      semantic::v1::DiagnosticCategory::lowerability,
+      specification.id,
+      "volume_observation_quadrature_order",
+      "C5.6 compiler accepted a zero observation quadrature order");
+    auto unknown_target_realisation = policy;
+    unknown_target_realisation.volume_observation =
+      compiler::v1::VolumeObservationDiscretisationPolicy{
+        3,
+        static_cast<compiler::v1::VolumeObservationTargetRealisation>(99)};
+    test_support::require_exact_diagnostic(
+      compiler.validate(specification, unknown_target_realisation),
+      semantic::v1::DiagnosticCategory::lowerability,
+      specification.id,
+      "volume_observation_target_realisation",
+      "C5.6 compiler accepted an unknown observation target realization");
 
     const compiler::v1::DealiiDataBindings<dim> missing_transport{
       forcing, desired_state, 1.0, 0.0, 0.2,
@@ -3691,6 +3800,25 @@ namespace
                                               policy);
     contract::require(compilation.succeeded(),
                       "C5.6 Neumann convection compilation failed");
+    auto explicit_analytic_policy = policy;
+    explicit_analytic_policy.volume_observation =
+      compiler::v1::VolumeObservationDiscretisationPolicy{
+        policy.state_degree + 2,
+        compiler::v1::VolumeObservationTargetRealisation::
+          analytic_quadrature};
+    const auto explicit_analytic_compilation = compiler.compile(
+      specification, triangulation, bindings, explicit_analytic_policy);
+    auto interpolated_policy = explicit_analytic_policy;
+    interpolated_policy.volume_observation->quadrature_order = 2;
+    interpolated_policy.volume_observation->target_realisation =
+      compiler::v1::VolumeObservationTargetRealisation::
+        state_fe_interpolation;
+    const auto interpolated_compilation = compiler.compile(
+      specification, triangulation, bindings, interpolated_policy);
+    contract::require(
+      explicit_analytic_compilation.succeeded() &&
+        interpolated_compilation.succeeded(),
+      "C5.6 compiler rejected a selected observation realization");
     const auto &model = compilation.problem->executable_model();
     const auto reduced = compilation.problem->make_reduced_dto();
 
@@ -3739,6 +3867,18 @@ namespace
                   217.0 / 4800.0,
                   2e-12,
                   "C5.6 material-subdomain observation value");
+    require_close(
+      explicit_analytic_compilation.problem->executable_model().objective(
+        coordinate_point),
+      model.objective(coordinate_point),
+      1e-14,
+      "C5.6 implicit observation-policy compatibility");
+    require_close(
+      interpolated_compilation.problem->executable_model().objective(
+        coordinate_point),
+      model.objective(coordinate_point),
+      1e-14,
+      "C5.6 exactly represented interpolated target");
 
     dealii::Vector<double> control_values(model.variable_layout()->dimension(1));
     for (dealii::types::global_dof_index index = 0;
@@ -3824,7 +3964,18 @@ namespace
     contract::require(
       manifest.compiler_id ==
           "nmopt.compiler.v1.dealii.neumann_convection_subdomain" &&
-        manifest.observation_realisation == "material-id volume restriction: 1" &&
+        manifest.observation_realisation ==
+          "material-id volume restriction: 1; target=analytic-quadrature; "
+          "quadrature=QGauss(3)" &&
+        manifest.data_rule.find(
+          "analytic desired-state Function evaluated at selected QGauss(3) "
+          "volume-observation quadrature") !=
+          std::string::npos &&
+        std::find(
+          manifest.lowering_handler_records.begin(),
+          manifest.lowering_handler_records.end(),
+          "state_observation <- dealii.volume_observation.analytic-quadrature") !=
+          manifest.lowering_handler_records.end() &&
         manifest.boundary_realisation.has_value() &&
         manifest.boundary_realisation->id == "neumann_convection_partition" &&
         manifest.boundary_realisation->fixed_dirichlet_region_id ==
@@ -3846,6 +3997,22 @@ namespace
                                "test.neumann_convection.conservative_transport";
                     }),
       "C5.6 manifest omitted transport, subdomain, or solve provenance");
+    const auto &interpolated_manifest =
+      interpolated_compilation.problem->manifest();
+    contract::require(
+      interpolated_manifest.observation_realisation ==
+          "material-id volume restriction: 1; target=state-fe-interpolation; "
+          "quadrature=QGauss(2)" &&
+        interpolated_manifest.data_rule.find(
+          "desired-state Function interpolated into scalar FE_Q(1) and "
+          "evaluated at selected QGauss(2) volume-observation quadrature") !=
+          std::string::npos &&
+        std::find(
+          interpolated_manifest.lowering_handler_records.begin(),
+          interpolated_manifest.lowering_handler_records.end(),
+          "state_observation <- dealii.volume_observation.state-fe-interpolation") !=
+          interpolated_manifest.lowering_handler_records.end(),
+      "C5.6 manifest omitted the interpolated observation policy");
   }
 
   template <int dim>

@@ -2,6 +2,7 @@
 
 #include "nmopt/compiler/v1/dealii_neumann_control_realisation.hpp"
 #include "nmopt/compiler/v1/dealii_reference_cell.hpp"
+#include "nmopt/compiler/v1/dealii_volume_observation.hpp"
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
@@ -195,6 +196,16 @@ namespace nmopt::compiler::v1::detail
             break;
         }
       initialise_storage();
+      if (state_observation_ == StateObservation::volume_restriction)
+        volume_observation_ =
+          std::make_unique<VolumeObservationAssembly<dim>>(
+            state_dof_handler_,
+            *state_fe_,
+            constrained_state_dofs_,
+            fixed_state_values_,
+            observation_material_ids_,
+            desired_state,
+            state_fe_->degree + 2);
       assemble(forcing,
                desired_state,
                conservative_transport,
@@ -539,10 +550,11 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective");
       Vector tracked_state(state_dof_handler_.n_dofs());
-      state_tracking_matrix_.vmult(tracked_state, variables.block(0));
+      state_tracking_matrix().vmult(tracked_state, variables.block(0));
       const double state_value =
         0.5 * (variables.block(0) * tracked_state) -
-        (desired_state_load_ * variables.block(0)) + 0.5 * desired_state_norm_;
+        (desired_state_load() * variables.block(0)) +
+        0.5 * desired_state_norm();
 
       const double control_value =
         control_realisation_->regularisation_objective(
@@ -556,8 +568,8 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective derivative");
       Vector state(state_dof_handler_.n_dofs());
-      state_tracking_matrix_.vmult(state, variables.block(0));
-      state.add(-1.0, desired_state_load_);
+      state_tracking_matrix().vmult(state, variables.block(0));
+      state.add(-1.0, desired_state_load());
 
       Vector control = control_realisation_->regularisation_derivative(
         variables.block(1),
@@ -722,12 +734,28 @@ namespace nmopt::compiler::v1::detail
               transport_boundary_ids_.count(cell->face(face)->boundary_id()) != 0);
     }
 
-    bool
-    is_observation_cell(
-      const typename dealii::DoFHandler<dim>::active_cell_iterator &cell) const
+    const dealii::SparseMatrix<double> &
+    state_tracking_matrix() const
     {
-      return state_observation_ == StateObservation::volume_restriction &&
-             observation_material_ids_.count(cell->material_id()) != 0;
+      return volume_observation_ == nullptr ?
+               state_tracking_matrix_ :
+               volume_observation_->state_tracking_matrix();
+    }
+
+    const Vector &
+    desired_state_load() const
+    {
+      return volume_observation_ == nullptr ?
+               desired_state_load_ :
+               volume_observation_->desired_state_load();
+    }
+
+    double
+    desired_state_norm() const
+    {
+      return volume_observation_ == nullptr ?
+               desired_state_norm_ :
+               volume_observation_->desired_state_norm();
     }
 
     void
@@ -820,10 +848,7 @@ namespace nmopt::compiler::v1::detail
           dealii::update_quadrature_points | dealii::update_JxW_values);
       dealii::FullMatrix<double> local_system(state_fe_->dofs_per_cell,
                                               state_fe_->dofs_per_cell);
-      dealii::FullMatrix<double> local_state_tracking(
-        state_fe_->dofs_per_cell, state_fe_->dofs_per_cell);
       dealii::Vector<double> local_forcing(state_fe_->dofs_per_cell);
-      dealii::Vector<double> local_desired_state(state_fe_->dofs_per_cell);
       dealii::Vector<double> local_mean_constraint(state_fe_->dofs_per_cell);
       std::vector<dealii::types::global_dof_index> state_indices(
         state_fe_->dofs_per_cell);
@@ -834,30 +859,19 @@ namespace nmopt::compiler::v1::detail
         {
           state_values.reinit(cell);
           local_system = 0.0;
-          local_state_tracking = 0.0;
           local_forcing = 0.0;
-          local_desired_state = 0.0;
           local_mean_constraint = 0.0;
-          double fixed_tracking_value = 0.0;
-          double fixed_desired_value = 0.0;
           for (unsigned int q = 0; q < volume_quadrature->size(); ++q)
             {
               const double weight = state_values.JxW(q);
               const auto &point = state_values.quadrature_point(q);
               const double forcing_value =
                 forcing.value(point);
-              const double desired_value = is_observation_cell(cell)
-                ? desired_state.value(point)
-                : 0.0;
-              if (is_observation_cell(cell))
-                desired_state_norm_ += desired_value * desired_value * weight;
               for (unsigned int i = 0; i < state_fe_->dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
                   local_mean_constraint(i) += phi_i * weight;
-                  if (is_observation_cell(cell))
-                    local_desired_state(i) += desired_value * phi_i * weight;
                   for (unsigned int j = 0; j < state_fe_->dofs_per_cell; ++j)
                     {
                       const double phi_j = state_values.shape_value(j, q);
@@ -871,8 +885,6 @@ namespace nmopt::compiler::v1::detail
                                 (conservative_transport->value(point) *
                                  state_values.shape_grad(i, q)))) *
                         weight;
-                      if (is_observation_cell(cell))
-                        local_state_tracking(i, j) += phi_i * phi_j * weight;
                     }
                 }
             }
@@ -881,54 +893,19 @@ namespace nmopt::compiler::v1::detail
             {
               const auto global_i = state_indices[i];
               if (constrained_state_dofs_.at(global_i))
-                {
-                  if (is_observation_cell(cell))
-                    {
-                      fixed_desired_value +=
-                        local_desired_state(i) * fixed_state_values_[global_i];
-                      for (unsigned int j = 0;
-                           j < state_fe_->dofs_per_cell;
-                           ++j)
-                        {
-                          const auto global_j = state_indices[j];
-                          if (constrained_state_dofs_.at(global_j))
-                            fixed_tracking_value +=
-                              fixed_state_values_[global_i] *
-                              local_state_tracking(i, j) *
-                              fixed_state_values_[global_j];
-                        }
-                    }
-                  continue;
-                }
+                continue;
               forcing_load_[global_i] += local_forcing(i);
               mean_constraint_[global_i] += local_mean_constraint(i);
-              if (is_observation_cell(cell))
-                desired_state_load_[global_i] += local_desired_state(i);
               for (unsigned int j = 0; j < state_fe_->dofs_per_cell; ++j)
                 {
                   const auto global_j = state_indices[j];
                   if (constrained_state_dofs_.at(global_j))
-                    {
-                      fixed_state_load_[global_i] +=
-                        local_system(i, j) * fixed_state_values_[global_j];
-                      if (is_observation_cell(cell))
-                        desired_state_load_[global_i] -=
-                          local_state_tracking(i, j) *
-                          fixed_state_values_[global_j];
-                    }
+                    fixed_state_load_[global_i] +=
+                      local_system(i, j) * fixed_state_values_[global_j];
                   else
-                    {
-                      system_matrix_.add(global_i, global_j, local_system(i, j));
-                      if (is_observation_cell(cell))
-                        state_tracking_matrix_.add(global_i,
-                                                   global_j,
-                                                   local_state_tracking(i, j));
-                    }
+                    system_matrix_.add(global_i, global_j, local_system(i, j));
                 }
             }
-          if (is_observation_cell(cell))
-            desired_state_norm_ +=
-              fixed_tracking_value - 2.0 * fixed_desired_value;
         }
 
       if (!uses_mean_zero_gauge())
@@ -1144,6 +1121,7 @@ namespace nmopt::compiler::v1::detail
     const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
     const bool has_fixed_dirichlet_data_;
     std::unique_ptr<NeumannControlRealisation<dim>> control_realisation_;
+    std::unique_ptr<VolumeObservationAssembly<dim>> volume_observation_;
     std::vector<Vector> observation_evaluations_;
     std::vector<double> observation_quadrature_weights_;
 

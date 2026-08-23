@@ -2,6 +2,7 @@
 #include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "nmopt/compiler/v1/dealii_neumann_control_realisation.hpp"
 #include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
+#include "nmopt/compiler/v1/dealii_volume_observation.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
@@ -32,6 +33,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -236,6 +238,133 @@ namespace
   private:
     double scale_;
   };
+
+  template <int dim>
+  void
+  run_volume_observation_assembly_contract_test()
+  {
+    dealii::Triangulation<dim> triangulation;
+    dealii::GridGenerator::hyper_cube(triangulation);
+    for (const auto &cell : triangulation.active_cell_iterators())
+      {
+        cell->set_material_id(7);
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
+          if (cell->face(face)->at_boundary())
+            cell->face(face)->set_boundary_id(
+              cell->face(face)->center()[0] < 1.0e-12 ? 3 : 4);
+      }
+
+    dealii::FE_Q<dim> state_fe(1);
+    dealii::DoFHandler<dim> state_dof_handler(triangulation);
+    state_dof_handler.distribute_dofs(state_fe);
+    const dealii::Functions::ConstantFunction<dim> fixed_state(0.7);
+    const FirstCoordinateFunction<dim> desired_state;
+    std::map<dealii::types::global_dof_index, double> fixed_values;
+    dealii::VectorTools::interpolate_boundary_values(state_dof_handler,
+                                                      3,
+                                                      fixed_state,
+                                                      fixed_values);
+    std::vector<bool> constrained_state_dofs(state_dof_handler.n_dofs(), false);
+    dealii::Vector<double> fixed_state_values(state_dof_handler.n_dofs());
+    for (const auto &entry : fixed_values)
+      {
+        constrained_state_dofs.at(entry.first) = true;
+        fixed_state_values[entry.first] = entry.second;
+      }
+
+    const compiler::v1::detail::VolumeObservationAssembly<dim> observation(
+      state_dof_handler,
+      state_fe,
+      constrained_state_dofs,
+      fixed_state_values,
+      {7},
+      desired_state,
+      3);
+    dealii::Vector<double> direction(state_dof_handler.n_dofs());
+    dealii::Vector<double> state = fixed_state_values;
+    for (dealii::types::global_dof_index index = 0;
+         index < state_dof_handler.n_dofs();
+         ++index)
+      if (!constrained_state_dofs.at(index))
+        {
+          direction[index] = index % 2 == 0 ? 0.2 : -0.15;
+          state[index] = 0.1 * static_cast<double>(index + 1);
+        }
+
+    const dealii::QGauss<dim> reference_quadrature(3);
+    dealii::FEValues<dim> reference_values(
+      state_fe,
+      reference_quadrature,
+      dealii::update_values | dealii::update_quadrature_points |
+        dealii::update_JxW_values);
+    struct TrackingReference
+    {
+      double objective = 0.0;
+      double derivative = 0.0;
+    };
+    const auto reference_tracking =
+      [&](const dealii::Vector<double> &values,
+          const dealii::Vector<double> &tangent) {
+        TrackingReference result;
+        std::vector<double> state_at_quadrature(reference_quadrature.size());
+        std::vector<double> tangent_at_quadrature(reference_quadrature.size());
+        for (const auto &cell : state_dof_handler.active_cell_iterators())
+          {
+            reference_values.reinit(cell);
+            reference_values.get_function_values(values, state_at_quadrature);
+            reference_values.get_function_values(tangent,
+                                                 tangent_at_quadrature);
+            for (unsigned int q = 0; q < reference_quadrature.size(); ++q)
+              {
+                const double error =
+                  state_at_quadrature[q] -
+                  desired_state.value(reference_values.quadrature_point(q));
+                result.objective +=
+                  0.5 * error * error * reference_values.JxW(q);
+                result.derivative +=
+                  error * tangent_at_quadrature[q] * reference_values.JxW(q);
+              }
+          }
+        return result;
+      };
+
+    const auto fixed_reference =
+      reference_tracking(fixed_state_values, direction);
+    const auto state_reference = reference_tracking(state, direction);
+    dealii::Vector<double> shifted_state = state;
+    shifted_state.add(1.0, direction);
+    const auto shifted_reference = reference_tracking(shifted_state, direction);
+    dealii::Vector<double> mass_direction(state_dof_handler.n_dofs());
+    observation.state_tracking_matrix().vmult(mass_direction, direction);
+    require_close(direction * mass_direction,
+                  shifted_reference.derivative - state_reference.derivative,
+                  1.0e-14,
+                  "Volume-observation tracking matrix");
+    require_close(0.5 * observation.desired_state_norm(),
+                  fixed_reference.objective,
+                  1.0e-14,
+                  "Volume-observation affine target norm");
+    require_close(-(observation.desired_state_load() * direction),
+                  fixed_reference.derivative,
+                  1.0e-14,
+                  "Volume-observation affine target load");
+
+    dealii::Vector<double> mass_state(state_dof_handler.n_dofs());
+    observation.state_tracking_matrix().vmult(mass_state, state);
+    const double assembled_objective =
+      0.5 * (state * mass_state) -
+      observation.desired_state_load() * state +
+      0.5 * observation.desired_state_norm();
+    require_close(assembled_objective,
+                  state_reference.objective,
+                  1.0e-14,
+                  "Volume-observation objective reconstruction");
+    mass_state.add(-1.0, observation.desired_state_load());
+    require_close(mass_state * direction,
+                  state_reference.derivative,
+                  1.0e-14,
+                  "Volume-observation state derivative");
+  }
 
   template <int dim>
   class EnergyPolynomialForcing final : public dealii::Function<dim>
@@ -7443,6 +7572,11 @@ main(const int argc, char **argv)
          {"dealii", "compiler", "metric"},
          30,
          []() { run_continuous_control_component_contract_test<2>(); }},
+        {"volume_observation_assembly",
+         "nmopt.dealii.volume_observation_assembly",
+         {"dealii", "compiler", "observation"},
+         30,
+         []() { run_volume_observation_assembly_contract_test<2>(); }},
         {"continuous_neumann_control_metric",
          "nmopt.dealii.continuous_neumann_control_metric",
          {"dealii", "contract", "metric"},

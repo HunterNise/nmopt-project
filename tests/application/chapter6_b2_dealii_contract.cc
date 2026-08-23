@@ -943,6 +943,24 @@ main(const int argc, char **argv)
              nmopt::application::chapter6::GraetzCase::
                observation_wings_constant_target);
          }},
+        {"b2_manufactured_wings_parabolic",
+         "nmopt.application.dealii.b2_manufactured_wings_parabolic",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         120,
+         []() {
+           run_b2_manufactured_case(
+             nmopt::application::chapter6::GraetzCase::
+               observation_wings_parabolic_target);
+         }},
+        {"b2_manufactured_full_constant",
+         "nmopt.application.dealii.b2_manufactured_full_constant",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         120,
+         []() {
+           run_b2_manufactured_case(
+             nmopt::application::chapter6::GraetzCase::
+               observation_full_constant_target);
+         }},
         {"b2_manufactured_full_parabolic",
          "nmopt.application.dealii.b2_manufactured_full_parabolic",
          {"dealii", "application", "benchmark", "b2", "contract"},

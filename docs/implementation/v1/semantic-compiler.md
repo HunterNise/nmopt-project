@@ -619,6 +619,28 @@ restriction and adds the conservative weak term
 -(y_{h} b,\nabla v_{h})_{\Omega}.
 ```
 
+The material-subdomain tracking realization is isolated in
+`dealii_volume_observation.hpp`. For the currently selected analytic target
+evaluation it assembles
+
+```math
+\begin{aligned}
+(M_{o,h})_{ij} &= \sum_{K\subset\omega_{o}}
+  \int_{K}\phi_{i}\phi_{j}, \\
+(q_{d,h})_{i} &= \sum_{K\subset\omega_{o}}
+  \int_{K}y_{d}\phi_{i}, \\
+c_{d,h} &= \sum_{K\subset\omega_{o}}\int_{K}y_{d}^{2}.
+\end{aligned}
+```
+
+For nonzero fixed Dirichlet data, the component applies the same affine
+free-coordinate correction to the load and constant before exposing them to
+`NeumannBoundaryControlModel`. The model consumes those three outputs for the
+tracking objective and its state derivative; its PDE volume assembly no longer
+branches on observation cells. The present realization deliberately retains
+quadrature order $p+2$ and evaluates the desired-state `Function` at volume
+quadrature points. Neither choice is selectable at this boundary yet.
+
 The generic C5.6 target defaults to the conormal flux of this form. The B2
 application selection explicitly replaces that default with the source's
 ordinary-normal form and records the choice in the semantic selection and

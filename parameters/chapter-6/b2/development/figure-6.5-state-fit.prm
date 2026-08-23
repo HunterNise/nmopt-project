@@ -1,0 +1,54 @@
+include parameters/chapter-6/b2/authoritative.prm
+
+# Diagnostic reconstruction only. The source states zero forcing and
+# beta=1e-3; the fitted forcing, beta=1e-2, and fixed step below are inferred
+# independently from development screens. The forcing reproduces the
+# uncontrolled Figure 6.5 maximum, not the complete source contract.
+subsection Benchmark
+  set label = B2 Figure 6.5 state-magnitude diagnostic
+  set source reference = E6.5.2 Figure 6.5 and Table 6.2 contradiction audit
+end
+
+subsection Problem
+  set control representation = continuous-nodal-trace
+end
+
+subsection Functions
+  set forcing = fitted-figure-state
+
+  subsection forcing
+    set kind = constant
+    set value = 0.47009
+    set provenance = development.chapter-6.b2.fitted-figure-state-forcing
+  end
+end
+
+subsection Runtime
+  set regularisation = 1e-2
+end
+
+subsection Mesh
+  set generator = structured-simplex
+  set refinement = 0
+  set axis subdivisions = 160, 40
+  set provenance = development.chapter-6.b2.structured-simplex-160x40
+end
+
+subsection Solver
+  set globalization = fixed-step
+  set maximum iterations = 100
+  set gradient tolerance = 1e-30
+  set stopping criterion = gradient-norm
+  set initial step length = 0.05
+end
+
+subsection Run
+  set kind = development
+  set build profile = debug-dealii
+  set output root = runs
+  set measure timings = false
+end
+
+subsection Output
+  set retain fields = true
+end

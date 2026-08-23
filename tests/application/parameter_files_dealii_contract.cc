@@ -324,6 +324,53 @@ namespace
     require(development.content_hash.rfind("fnv1a64:", 0) == 0,
             "parameter provenance should carry a labelled deterministic hash");
 
+    const auto require_b2_replication_candidate =
+      [](const auto &candidate,
+         const char *forcing_value,
+         const char *message) {
+        require(
+          candidate.combinations().size() == 4 &&
+            candidate.value("Problem/control representation") ==
+              "continuous-nodal-trace" &&
+            candidate.value("Functions/forcing/kind") == "constant" &&
+            candidate.value("Functions/forcing/value") == forcing_value &&
+            candidate.value("Runtime/regularisation") == "1e-2" &&
+            candidate.value("Mesh/generator") == "structured-simplex" &&
+            candidate.value("Mesh/axis subdivisions") == "160, 40" &&
+            candidate.value("Solver/globalization") == "fixed-step" &&
+            candidate.value("Solver/maximum iterations") == "100" &&
+            candidate.value("Solver/initial step length") == "0.05" &&
+            candidate.value("Run/kind") == "development" &&
+            candidate.value("Run/build profile") == "debug-dealii" &&
+            candidate.value("Output/retain fields") == "true",
+          message);
+      };
+
+    const auto figure_6_5_state_fit = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b2/development/figure-6.5-state-fit.prm"));
+    require_b2_replication_candidate(
+      figure_6_5_state_fit,
+      "0.47009",
+      "B2 Figure 6.5 candidate lost its fitted-state hypothesis");
+
+    const auto table_6_2_order_fit = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b2/development/table-6.2-order-fit.prm"));
+    require_b2_replication_candidate(
+      table_6_2_order_fit,
+      "1.0",
+      "B2 Table 6.2 candidate lost its magnitude hypothesis");
+
+    const auto figure_table_parabolic_fit = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b2/development/"
+        "figure-6.5-table-6.2-parabolic-fit.prm"));
+    require_b2_replication_candidate(
+      figure_table_parabolic_fit,
+      "0.65",
+      "B2 combined candidate lost its parabolic-fit hypothesis");
+
     const auto chapter_6_parameters =
       find_file_from_current_or_parent("parameters/chapter-6");
     for (const auto &entry :

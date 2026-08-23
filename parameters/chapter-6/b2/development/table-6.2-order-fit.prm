@@ -1,0 +1,20 @@
+include parameters/chapter-6/b2/development/figure-6.5-state-fit.prm
+
+# Diagnostic reconstruction only. A constant volume forcing of one places all
+# four Table 6.2 objective histories in the published decimal order, but it
+# contradicts the source's stated zero right-hand side and does not reproduce
+# the uncontrolled Figure 6.5 range.
+subsection Benchmark
+  set label = B2 Table 6.2 order-of-magnitude diagnostic
+  set source reference = E6.5.2 Table 6.2 order-of-magnitude audit
+end
+
+subsection Functions
+  set forcing = constant-one-diagnostic
+
+  subsection forcing
+    set kind = constant
+    set value = 1.0
+    set provenance = development.chapter-6.b2.constant-one-forcing
+  end
+end

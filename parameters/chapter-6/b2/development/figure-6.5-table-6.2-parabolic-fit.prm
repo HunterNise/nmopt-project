@@ -1,0 +1,20 @@
+include parameters/chapter-6/b2/development/figure-6.5-state-fit.prm
+
+# Diagnostic reconstruction only. This forcing is the strongest simultaneous
+# compromise found for the Figure 6.5 state magnitude and the two parabolic
+# rows of Table 6.2. It contradicts the stated zero right-hand side and does
+# not explain the constant-target rows as printed.
+subsection Benchmark
+  set label = B2 Figure 6.5 and Table 6.2 parabolic diagnostic
+  set source reference = E6.5.2 Figure 6.5 and Table 6.2 parabolic audit
+end
+
+subsection Functions
+  set forcing = fitted-parabolic-table
+
+  subsection forcing
+    set kind = constant
+    set value = 0.65
+    set provenance = development.chapter-6.b2.fitted-parabolic-table-forcing
+  end
+end

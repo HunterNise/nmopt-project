@@ -253,6 +253,15 @@ trials, gradient tolerance `1e-8`, and no declared minimum step. The source
 step policy is unspecified; fixed-step experiments are diagnostic candidates,
 and every artifact must retain the declared and effective globalization.
 
+Three promoted development families preserve the strongest reconstruction
+hypotheses without changing this freeze. `figure-6.5-state-fit.prm` fits only
+the uncontrolled plotted state magnitude; `table-6.2-order-fit.prm` places all
+four objective histories in the published decimal order; and
+`figure-6.5-table-6.2-parabolic-fit.prm` is the best simultaneous compromise
+for Figure 6.5 and the parabolic rows of Table 6.2. All three deliberately
+record their contradiction with the stated zero forcing and
+$\beta=10^{-3}$.
+
 ### Acceptance evidence
 
 Each of the four artifacts must retain:

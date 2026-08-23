@@ -33,7 +33,10 @@ parameters/
     b2/
       authoritative.prm
       development/
+        figure-6.5-state-fit.prm
+        figure-6.5-table-6.2-parabolic-fit.prm
         forcing-sweep.prm
+        table-6.2-order-fit.prm
     plotting/
       chapter-6-b1.json
       chapter-6-b2.json
@@ -358,6 +361,9 @@ different profile is an explicit derived-output override.
 - [B1 Figure 6.3 objective-matched candidate](../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm)
 - [B2 authoritative parameter family](../../parameters/chapter-6/b2/authoritative.prm)
 - [B2 development forcing sweep](../../parameters/chapter-6/b2/development/forcing-sweep.prm)
+- [B2 Figure 6.5 state-magnitude diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-state-fit.prm)
+- [B2 Figure 6.5 and Table 6.2 parabolic diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-table-6.2-parabolic-fit.prm)
+- [B2 Table 6.2 order-of-magnitude diagnostic](../../parameters/chapter-6/b2/development/table-6.2-order-fit.prm)
 - [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json)
 - [B2 plotting profile](../../parameters/plotting/chapter-6-b2.json)
 

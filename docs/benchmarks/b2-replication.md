@@ -17,9 +17,12 @@ objective-component, field-extrema, and derivative-norm evidence. Targeted
 Debug experiments at revision `fdc75cf` subsequently screened the two boundary
 interpretations, native and structured simplex meshes, centroid-split simplex
 connectivity, diffusion values, and several observation-objective
-realisations. These are development experiments rather than reproduction
-evidence. Generated outputs remain disposable; the conclusions and change
-boundaries are recorded here.
+realisations. A second campaign at revision `21982c6` screened positive
+forcing, regularisation, fixed-step policy, and joint Figure--Table fits on
+the source-oriented $160\times40$ simplex mesh with continuous trace control.
+These are development experiments rather than reproduction evidence.
+Generated outputs remain disposable; the conclusions and change boundaries
+are recorded here.
 
 The current assessment is:
 
@@ -37,6 +40,11 @@ The current assessment is:
   makes the zero-control solution orders of magnitude too large, while tuning
   that interpretation to $\mu=0.4125$ reproduces the plotted maximum but not
   the corresponding Table 6.2 objective;
+- a positive constant volume forcing can recover the missing field and
+  objective orders of magnitude, but contradicts the stated zero right-hand
+  side: $f=0.47009$ fits the Figure 6.5 uncontrolled maximum, $f=1$ puts every
+  Table 6.2 row in the correct decimal order, and $f\approx0.65$ best fits the
+  plotted magnitude and the two parabolic rows together;
 - the source counts constrain aggregate boundary subdivision under standard
   $P_1$ assumptions, but do not determine interior mesh connectivity;
 - the current uniform facewise metric makes the relative metric-gradient and
@@ -225,6 +233,127 @@ evidence threshold because the objective and derivative were of order
 $10^{5}$ and $10^{6}$. This is a scale-robustness defect in the development
 evidence gate, not evidence of an incorrect derivative.
 
+## Forcing and optimization magnitude campaign
+
+The second campaign comprised 17 complete Debug run sets and 92 artifacts at
+revision `21982c6`. It used the boundary-aligned $160\times40$ structured
+simplex mesh, continuous $P_1$ trace control, order-three analytic observation
+quadrature, and the ordinary-normal boundary form unless stated otherwise.
+All manifests completed successfully. Debug timings are not benchmark
+evidence.
+
+Increasing ordinary-normal diffusion cannot reproduce Figure 6.5: the
+uncontrolled maximum approaches a value near $5.07$ by $\mu=100$, still below
+the plotted value about $7.22$. Positive constant forcing has the required
+effect. Its zero-control response was:
+
+| Forcing $f$ | Uncontrolled state range | Initial $J$, wings/constant | Initial $J$, full/constant | Initial $J$, wings/parabolic | Initial $J$, full/parabolic |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| $0$ | $[1,1.119609]$ | $0.875017$ | $1.458699$ | $0.310938$ | $0.315372$ |
+| $1$ | $[1,14.09577]$ | $45.9714$ | $75.5286$ | $65.2729$ | $103.266$ |
+| $2$ | $[1,27.07193]$ | $206.789$ | $339.998$ | $245.956$ | $396.616$ |
+
+Interpolation of this response gives $f=0.47009$, for which the uncontrolled
+maximum is $7.21957$. This is an exact Figure 6.5 range fit but not a coherent
+source interpretation: it contradicts the stated zero forcing, and its four
+initial objectives are only $7.66096$, $12.5635$, $16.4355$, and $24.9966$.
+Optimizing this candidate with the source-stated $\beta=10^{-3}$ and Armijo
+globalization drives all four objectives below $0.062$ and reduces them by
+more than $99.5\%$, again incompatible with Table 6.2.
+
+A regularisation sweep rules out $\beta$ as the sole missing detail. For zero
+forcing, lowering $\beta$ from $10^{-3}$ to $10^{-6}$ raises the constant-case
+reductions to about $98.9\%$, but the parabolic reductions remain near
+$84.9\%$ on the wings and $62.0\%$ on the full region. With $f=1$, however,
+$\beta=10^{-2}$ and Armijo give reductions between $98.43\%$ and $99.00\%$.
+The earlier fixed-step calibration identified step $0.05$ as the strongest
+common candidate for comparing the published iteration counts.
+
+At those counts, $f=1$, $\beta=10^{-2}$, and fixed step $0.05$ place every
+reported quantity within one decimal order of Table 6.2:
+
+| Case | Iteration | Initial $J$, source/candidate | $J$ at iteration, source/candidate | Reduction, source/candidate | Relative metric gradient, source/candidate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| a | $59$ | $316.6661/45.9714$ | $3.5682/0.831156$ | $98.87\%/98.19\%$ | $0.0250/0.04874$ |
+| b | $54$ | $192.8385/75.5286$ | $2.6368/1.15928$ | $98.63\%/98.47\%$ | $0.0569/0.06185$ |
+| c | $48$ | $29.2188/65.2729$ | $0.7826/1.45561$ | $97.32\%/97.77\%$ | $0.0753/0.08570$ |
+| d | $87$ | $45.9996/103.266$ | $0.8464/1.05098$ | $98.16\%/98.98\%$ | $0.0387/0.01065$ |
+
+This is the best all-case order-of-magnitude fit found, but both $f=1$ and
+$\beta=10^{-2}$ contradict printed source values. A forcing near $0.65$ is a
+stronger simultaneous Figure--Table compromise, especially for the parabolic
+cases:
+
+| Case | Initial $J$, source/candidate | $J$ at source iteration, source/candidate | Reduction, source/candidate | Relative metric gradient, source/candidate |
+| --- | ---: | ---: | ---: | ---: |
+| a | $316.6661/17.0244$ | $3.5682/0.328626$ | $98.87\%/98.07\%$ | $0.0250/0.04843$ |
+| b | $192.8385/27.9462$ | $2.6368/0.453623$ | $98.63\%/98.38\%$ | $0.0569/0.06171$ |
+| c | $29.2188/29.3729$ | $0.7826/0.666825$ | $97.32\%/97.73\%$ | $0.0753/0.08554$ |
+| d | $45.9996/45.5753$ | $0.8464/0.470078$ | $98.16\%/98.97\%$ | $0.0387/0.01050$ |
+
+Its uncontrolled maximum is $9.55411$, about $32\%$ above the Figure 6.5
+maximum. The parabolic initial objectives differ from Table 6.2 by only
+$0.5\%$ and $0.9\%$; the wings final objective and relative gradient differ
+by about $15\%$ and $14\%$. The full/parabolic terminal gradient remains the
+largest optimization-side mismatch.
+
+The constant rows show a separate, striking reconstruction clue. At $f=0.65$,
+recomputing the tracking term with constant target $20$ and swapping the two
+constant-region Table labels gives initial objectives $187.788$ and $314.284$,
+only $2.6\%$ and $0.75\%$ from the swapped published values. Independently
+solving for forcing gives $f=0.621019$ and $0.641707$ for those constant cases,
+and $f=0.648059$ and $0.653155$ for the two parabolic cases. This clustering
+near $f\approx0.64$ motivates a possible implementation or transcription
+hypothesis: nonzero forcing near $0.64$, a constant target near $20$, and
+swapped constant-case labels. Every part of that reconstruction contradicts
+the printed source, so it is a candidate for further testing rather than a
+replacement benchmark contract.
+
+Three tracked development families retain the strongest distinct hypotheses:
+
+- `figure-6.5-state-fit.prm` uses $f=0.47009$ to reproduce the uncontrolled
+  plotted maximum;
+- `table-6.2-order-fit.prm` uses $f=1$ for the strongest all-case decimal-order
+  agreement; and
+- `figure-6.5-table-6.2-parabolic-fit.prm` uses $f=0.65$ for the strongest
+  simultaneous field and parabolic-row agreement.
+
+All three use continuous trace control, the source-oriented structured simplex
+mesh, $\beta=10^{-2}$, fixed step $0.05$, and retained fields. Their manifests
+identify them as Debug development runs and explicitly preserve the source
+contradictions.
+
+The promoted executions are canonical development runs `004`, `005`, and
+`006`, respectively. Each manifest is complete with four successful
+artifacts, no failures or pending artifacts, the expected parameter hash, and
+framework revision `21982c6`. Every artifact retains its volume and boundary
+fields. The source-iteration values above were reproduced exactly by these
+runs.
+
+The retained extrema already show that none reproduces the four optimized
+Figure 6.5 panels, even before rendering:
+
+| Case | Source | Run `004`, $f=0.47009$ | Run `005`, $f=1$ | Run `006`, $f=0.65$ |
+| --- | ---: | ---: | ---: | ---: |
+| a | about $[-0.420,5.71]$ | $[1,2.62764]$ | $[1,3.19042]$ | $[1,2.82049]$ |
+| b | about $[-1.88,4.45]$ | $[1,2.48552]$ | $[1,2.89706]$ | $[1,2.62692]$ |
+| c | about $[-0.588,2.86]$ | $[0.124623,1.41008]$ | $[-0.206220,1.93165]$ | $[0.0125864,1.58517]$ |
+| d | about $[-1.38,3.60]$ | $[0.141438,1.40618]$ | $[-0.364096,1.90369]$ | $[-0.0299511,1.57425]$ |
+
+Run `005` is closest in sign and magnitude for the optimized parabolic fields,
+but its uncontrolled maximum is $14.0958$, nearly twice the plotted value.
+Run `006` remains the best Table 6.2/parabolic compromise, not a Figure 6.5
+reproduction.
+
+Run-set postprocessing is currently blocked by a configuration-contract gap:
+the runner accepts the tracked files' `include` directives but snapshots the
+unresolved top-level text, while the postprocessor rejects `include` on line 1
+of the snapshot. Thus the numerical and native field evidence is complete,
+but comparison PNGs and `postprocess-index.json` are not yet present. The
+follow-up plan records a resolved-snapshot or include-aware-postprocessing
+unit; generated snapshots must not be edited in place because doing so would
+invalidate their provenance.
+
 ## Published consistency questions
 
 The wings observation region is a subset of the full downstream region. At
@@ -271,10 +400,10 @@ can make that comparison without a further artifact-schema change.
 | ---: | --- | --- | --- |
 | 1 | Diffusion-weighted conormal alternative | **Screened and rejected at the stated $\mu=0.1$.** Tuning $\mu$ can fit Figure 6.5 but fails Table 6.2 and changes stated source data. | No further framework change for the two coherent boundary interpretations. An independently scaled boundary-transport coefficient would be a new hypothesis. |
 | 2 | Source-oriented triangular $P_{1}$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
-| 3 | Continuous $P_{1}$ boundary control | The source states linear finite elements and $N_{u}=243$; the frozen 96 facewise constants cannot test that space or its gradient metric. | Compiler lowering and B2/runner selection are implemented; candidate parameter files and runs remain. |
+| 3 | Continuous $P_{1}$ boundary control | **Screened and retained in promoted candidates.** The source states linear finite elements and $N_{u}=243$; the $160\times40$ realization has 242 trace controls and distinguishes the metric from coefficient geometry. It does not by itself repair the field scale. | No further change for the current candidate; exact odd source counts would require an asymmetric or imported mesh. |
 | 4 | Boundary-aligned observation geometry | **Screened.** The aligned meshes recover exact measure $1.8$ but do not materially reduce the objective discrepancy. | No further change for structured meshes. |
-| 5 | Constant-step and stopping candidates | The source attributes its high counts to an unstated constant step, while the current Armijo BFGS reaches a much smaller gradient ratio at the iteration limit. Screen fixed iteration counts and relative thresholds first. | The unconditional policy and B2/runner selection are implemented; candidate parameter files and runs remain. |
-| 6 | Metric versus coefficient gradient norm | The book names a discrete gradient but not its Hilbert metric. The current uniform facewise realization makes both relative ratios identical. | Evidence is already present; differentiation needs the continuous or nonuniform discretisation above. |
+| 5 | Constant-step and stopping candidates | **Screened.** Step $0.05$ with evaluation at the source counts gives the strongest common reductions; it does not repair the full/parabolic terminal gradient. | No further change for fixed-step runs. Initial full-BFGS inverse-Hessian policies remain a possible framework extension. |
+| 6 | Metric versus coefficient gradient norm | **Screened with continuous control.** The two relative histories differ, but neither consistently resolves all four published ratios. | No further evidence-schema change; nonuniform or exact source topology remains optional. |
 | 7 | Objective quadrature or coefficient scaling | **Partially screened.** Target interpolation and mass lumping are far too small; an unweighted coefficient loss is large but case-dependent and changes the stated objective. | Explicit positive quadrature order and analytic-versus-state-FE target selection are implemented through B2 and the runner; candidate parameter files and runs remain. Arbitrary objective scaling remains excluded. |
 | 8 | Exact count-matched connectivity or mesh import | **Deprioritised.** Counts constrain boundary totals but not the interior mesh, and the two tested triangular connectivities are numerically indistinguishable. | Reconsider only with source connectivity or contrary mesh-sensitivity evidence. |
 | 9 | Linear-solver tolerances | These are omitted by the source but are unlikely to explain the smooth zero-control field gap. | Parameter-only with the existing solve-policy entries. |
@@ -286,19 +415,17 @@ rather than an inferred source choice.
 
 ## Next evidence gate
 
-The low-cost state and objective screens are complete. Neither literal
-boundary interpretation at the stated diffusion, either triangular
-connectivity, boundary-aligned observation geometry, target interpolation,
-nor mass lumping gives one coherent account of Figure 6.5 and Table 6.2.
+The low-cost state, objective, and optimization screens are complete. No
+literal realization of the printed data gives one coherent account of both
+Figure 6.5 and Table 6.2. The positive-forcing family is the first candidate
+to recover the relevant decimal orders, but its success exposes likely
+source-data contradictions rather than resolving them.
 
-The framework now exposes continuous $P_{1}$ boundary control, both retained
-gradient norms, Armijo and unconditional fixed-step globalization, and the two
-defensible target realizations with explicit observation quadrature. After the
-framework exit verification, the next evidence gate is therefore an ignored
-candidate parameter matrix and development runs that compare these
-optimization-side omissions against Table 6.2.
-
-Those candidates cannot alter the zero-control state and do not resolve the
-primary source inconsistency. A separately scaled boundary-transport
-coefficient or arbitrary objective multiplier remains an unproven project
-hypothesis and is excluded from the first experiment matrix.
+The three promoted four-case Debug run sets have completed and their traces
+confirm the screened Table 6.2 comparisons. The immediate evidence gate is to
+repair the resolved-parameter/postprocessing contract and render their
+retained fields for direct Figure 6.5 comparison. After that, the next
+justified numerical candidates are typed target amplitudes and named full-BFGS
+initial-scaling policies. An independently scaled boundary term or a different
+discrete objective remains lower priority; an arbitrary objective multiplier
+remains excluded.

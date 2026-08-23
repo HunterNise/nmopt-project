@@ -444,6 +444,15 @@ namespace
     require(std::abs(steepest.solver.parameters.gradient_tolerance - 1.0e-3) <
               1.0e-15,
             "B1 did not retain the source steepest-descent tolerance");
+    auto b1_with_volume_observation = steepest;
+    b1_with_volume_observation.compile.volume_observation =
+      nmopt::application::chapter6::VolumeObservationOptions{};
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_b1(
+          b1_with_volume_observation);
+      },
+      "B1 accepted an unselected volume-observation policy");
 
     const auto b2 = nmopt::application::chapter6::make_b2_scenario(
       nmopt::application::chapter6::GraetzCase::observation_full_parabolic_target);
@@ -479,6 +488,13 @@ namespace
                             reduced_globalization_name(
                               b2.solver.globalization)) == "armijo",
             "B2 did not retain its default Armijo globalization");
+    require(
+      b2.compile.volume_observation.has_value() &&
+        b2.compile.volume_observation->quadrature_order == 3 &&
+        b2.compile.volume_observation->target_realisation ==
+          nmopt::application::chapter6::
+            VolumeObservationTargetRealisation::analytic_quadrature,
+      "B2 did not retain its frozen volume-observation policy");
 
     const auto fixed_step_b2 =
       nmopt::application::chapter6::make_b2_scenario(
@@ -496,6 +512,56 @@ namespace
                 "fixed-step",
             "B2 did not retain the fixed-step globalization choice");
     nmopt::application::chapter6::validate_b2(fixed_step_b2);
+
+    const auto interpolated_observation_b2 =
+      nmopt::application::chapter6::make_b2_scenario(
+        nmopt::application::chapter6::GraetzCase::
+          observation_full_parabolic_target,
+        nmopt::semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport,
+        nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
+        nmopt::application::chapter6::ReducedGlobalization::armijo,
+        {2,
+         nmopt::application::chapter6::
+           VolumeObservationTargetRealisation::state_fe_interpolation});
+    require(
+      interpolated_observation_b2.compile.volume_observation.has_value() &&
+        interpolated_observation_b2.compile.volume_observation
+            ->quadrature_order == 2 &&
+        std::string(nmopt::application::chapter6::
+                      volume_observation_target_realisation_name(
+                        interpolated_observation_b2.compile.volume_observation
+                          ->target_realisation)) == "state-fe-interpolation",
+      "B2 did not retain the selected volume-observation policy");
+
+    auto missing_volume_observation = b2;
+    missing_volume_observation.compile.volume_observation.reset();
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_b2(
+          missing_volume_observation);
+      },
+      "B2 accepted a missing volume-observation policy");
+
+    auto invalid_volume_observation = b2;
+    invalid_volume_observation.compile.volume_observation->quadrature_order = 0;
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_b2(
+          invalid_volume_observation);
+      },
+      "B2 accepted a zero volume-observation quadrature order");
+
+    invalid_volume_observation = b2;
+    invalid_volume_observation.compile.volume_observation->target_realisation =
+      static_cast<nmopt::application::chapter6::
+        VolumeObservationTargetRealisation>(99);
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_b2(
+          invalid_volume_observation);
+      },
+      "B2 accepted an unknown volume-observation target realisation");
 
     auto invalid_globalization = b2;
     invalid_globalization.solver.globalization =

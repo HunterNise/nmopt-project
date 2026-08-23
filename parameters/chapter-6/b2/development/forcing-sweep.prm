@@ -110,6 +110,8 @@ end
 
 subsection Compile
   set state degree = 1
+  set volume observation quadrature order = 3
+  set volume observation target realisation = analytic-quadrature
   set execution = assembled
   set product = reduced-dto
   set owned session = true

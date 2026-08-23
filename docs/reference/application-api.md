@@ -183,6 +183,7 @@ members are:
 | --- | --- | --- |
 | `state_degree` | `1` | Finite-element degree used for the state and compiler-selected compatible spaces. |
 | `execution` | `Execution::assembled` | Select assembled or matrix-free execution where the registered product supports it. |
+| `volume_observation` | empty | Optional material-subdomain observation order and analytic-versus-state-FE target realization; accepted only by the registered Neumann-convection target. |
 | `control_metric_solve` | default `MassMetricSolveParameters` | Linear-solve policy for the control metric. |
 | `state_solve` | default `SPDLinearSolvePolicy` | Linear-solve policy for state equations. |
 | `adjoint_solve` | default `SPDLinearSolvePolicy` | Linear-solve policy for adjoint equations. |
@@ -200,6 +201,11 @@ adapters translate them to the concrete deal.II records. State and adjoint
 iteration limits may be zero to request the established
 `max(100, 10 * dimension)` rule; a control-metric limit must be positive.
 Every tolerance must be positive and finite.
+
+It also carries an optional `VolumeObservationOptions`: B2 requires a positive
+quadrature order and one of its two target realizations, while B1 rejects the
+unselected option. The B2 helper supplies the frozen order-three analytic
+selection.
 
 ### Product selection
 

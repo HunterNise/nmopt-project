@@ -96,6 +96,34 @@ namespace nmopt::application::chapter6
     double       absolute_tolerance = 1.0e-14;
   };
 
+  enum class VolumeObservationTargetRealisation
+  {
+    analytic_quadrature,
+    state_fe_interpolation
+  };
+
+  inline const char *
+  volume_observation_target_realisation_name(
+    const VolumeObservationTargetRealisation realisation)
+  {
+    switch (realisation)
+      {
+        case VolumeObservationTargetRealisation::analytic_quadrature:
+          return "analytic-quadrature";
+        case VolumeObservationTargetRealisation::state_fe_interpolation:
+          return "state-fe-interpolation";
+      }
+    throw std::invalid_argument(
+      "unknown volume-observation target realisation");
+  }
+
+  struct VolumeObservationOptions
+  {
+    unsigned int quadrature_order = 3;
+    VolumeObservationTargetRealisation target_realisation =
+      VolumeObservationTargetRealisation::analytic_quadrature;
+  };
+
   struct CompileOptions
   {
     MeshOptions           mesh;
@@ -103,6 +131,7 @@ namespace nmopt::application::chapter6
     ExecutionSelection    execution = ExecutionSelection::assembled;
     ProductSelection      product = ProductSelection::reduced_dto;
     bool                  owned_session = true;
+    std::optional<VolumeObservationOptions> volume_observation;
     IterativeSolveOptions state_solve;
     IterativeSolveOptions adjoint_solve;
     IterativeSolveOptions control_metric_solve{1000, 1.0e-12, 1.0e-14};
@@ -357,6 +386,21 @@ namespace nmopt::application::chapter6
       }
     if (options.state_degree == 0)
       throw std::invalid_argument("benchmark scenarios need a positive state degree");
+    if (options.volume_observation)
+      {
+        if (options.volume_observation->quadrature_order == 0)
+          throw std::invalid_argument(
+            "volume observation needs a positive quadrature order");
+        switch (options.volume_observation->target_realisation)
+          {
+            case VolumeObservationTargetRealisation::analytic_quadrature:
+            case VolumeObservationTargetRealisation::state_fe_interpolation:
+              break;
+            default:
+              throw std::invalid_argument(
+                "unknown volume-observation target realisation");
+          }
+      }
     if (options.mesh.mesh_provenance.empty())
       throw std::invalid_argument(
         "benchmark scenarios need mesh provenance");
@@ -406,6 +450,9 @@ namespace nmopt::application::chapter6
   {
     scenario.validate();
     validate_common_compile_options(scenario.compile);
+    if (scenario.compile.volume_observation)
+      throw std::invalid_argument(
+        "B1 does not select a material-subdomain volume observation policy");
     validate_runtime_data(scenario.problem.data);
     if (scenario.problem.regularisation_sweep.empty())
       throw std::invalid_argument(
@@ -533,6 +580,9 @@ namespace nmopt::application::chapter6
     validate_b2_transport_boundary_form(
       scenario.problem.transport_boundary_form);
     validate_b2_control_discretisation(scenario.problem.recipe);
+    if (!scenario.compile.volume_observation)
+      throw std::invalid_argument(
+        "B2 needs a volume-observation discretisation policy");
     switch (scenario.compile.mesh.generation)
       {
         case MeshGeneration::framework_native:
@@ -706,7 +756,8 @@ namespace nmopt::application::chapter6
       semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
     const semantic::v1::NeumannControlDiscretisation control_discretisation =
       semantic::v1::NeumannControlDiscretisation::facewise_constant,
-    const ReducedGlobalization globalization = ReducedGlobalization::armijo)
+    const ReducedGlobalization globalization = ReducedGlobalization::armijo,
+    const VolumeObservationOptions volume_observation = {})
   {
     B2ProblemParameters problem;
     problem.graetz_case             = graetz_case;
@@ -716,6 +767,7 @@ namespace nmopt::application::chapter6
 
     CompileOptions compile;
     compile.mesh.refinement = b2_default_mesh_refinement;
+    compile.volume_observation = volume_observation;
 
     std::string scenario_id = "chapter-6.b2.graetz-flow";
     if (graetz_case != GraetzCase::observation_wings_constant_target)

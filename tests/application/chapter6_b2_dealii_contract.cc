@@ -219,8 +219,14 @@ namespace
     require(result.document.find("b2.graetz_case=") != std::string::npos &&
               result.document.find(
                 "b2.control_discretisation=facewise-constant\n") !=
+                std::string::npos &&
+              result.document.find(
+                "b2.volume_observation_quadrature_order=3\n") !=
+                std::string::npos &&
+              result.document.find(
+                "b2.volume_observation_target_realisation=analytic-quadrature\n") !=
                 std::string::npos,
-            "B2 deal.II adapter omitted case or control evidence");
+            "B2 deal.II adapter omitted case, control, or observation evidence");
     require(result.document.find("b2.fixed_temperature=1") !=
               std::string::npos,
             "B2 deal.II adapter omitted fixed-temperature evidence");
@@ -764,6 +770,100 @@ namespace
   }
 
   void
+  run_b2_volume_observation_realisation_comparison()
+  {
+    using TargetRealisation =
+      chapter6::VolumeObservationTargetRealisation;
+
+    const auto execute = [](const chapter6::VolumeObservationOptions options) {
+      auto scenario = chapter6::make_b2_scenario(
+        chapter6::GraetzCase::observation_full_parabolic_target,
+        nmopt::semantic::v1::TransportBoundaryForm::
+          ordinary_normal_minus_transport,
+        nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
+        chapter6::ReducedGlobalization::armijo,
+        options);
+      scenario.compile.mesh.refinement = 1;
+      scenario.solver.parameters.maximum_iterations = 1;
+      scenario.solver.parameters.gradient_tolerance = 1.0e-16;
+      scenario.experiment.retain_fields = false;
+
+      const auto policy = chapter6::dealii::make_b2_discretisation_policy(
+        scenario.compile);
+      const auto expected_compiler_target =
+        options.target_realisation == TargetRealisation::analytic_quadrature ?
+          nmopt::compiler::v1::VolumeObservationTargetRealisation::
+            analytic_quadrature :
+          nmopt::compiler::v1::VolumeObservationTargetRealisation::
+            state_fe_interpolation;
+      require(
+        policy.volume_observation.has_value() &&
+          policy.volume_observation->quadrature_order ==
+            options.quadrature_order &&
+          policy.volume_observation->target_realisation ==
+            expected_compiler_target,
+        "B2 adapter did not map its volume-observation policy");
+
+      chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
+        scenario.problem.graetz_case,
+        scenario.problem.fixed_temperature};
+      const auto runtime =
+        chapter6::dealii::make_b2_manufactured_runtime_data(
+          scenario, manufactured_data);
+      const auto session =
+        chapter6::dealii::make_b2_compilation_session<2>(scenario);
+      chapter6::dealii::B2ReducedExecutionAdapterT<2> adapter{
+        runtime,
+        session,
+        {"test.chapter6.b2.volume-observation",
+         "debug-dealii",
+         "test-compiler",
+         "test-version",
+         "test-standard-library",
+         "test-os",
+         "test-architecture",
+         "test-hardware"}};
+      using HeadlessRunner =
+        nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
+          decltype(scenario)>;
+      const auto result = HeadlessRunner(scenario).run(
+        [](const auto &parameters) {
+          return chapter6::make_b2_problem_spec(parameters);
+        },
+        adapter);
+
+      const std::string target_name =
+        chapter6::volume_observation_target_realisation_name(
+          options.target_realisation);
+      const std::string order = std::to_string(options.quadrature_order);
+      const auto &manifest =
+        result.artifact.envelope().compilation_manifest();
+      require(
+        manifest.observation_realisation.find("target=" + target_name) !=
+            std::string::npos &&
+          manifest.observation_realisation.find("(" + order + ")") !=
+            std::string::npos &&
+          result.document.find(
+            "b2.volume_observation_quadrature_order=" + order + "\n") !=
+            std::string::npos &&
+          result.document.find(
+            "b2.volume_observation_target_realisation=" + target_name +
+            "\n") != std::string::npos &&
+          result.document.find("b2.derivative_evidence_passed=true\n") !=
+            std::string::npos,
+        "B2 execution omitted its selected volume-observation evidence");
+      return artifact_number(result.document, "b2.initial_objective");
+    };
+
+    const double analytic_objective = execute(
+      {3, TargetRealisation::analytic_quadrature});
+    const double interpolated_objective = execute(
+      {2, TargetRealisation::state_fe_interpolation});
+    require(std::abs(analytic_objective - interpolated_objective) > 1.0e-6,
+            "B2 observation selector did not affect a parabolic target");
+  }
+
+  void
   run_b2_globalization_comparison()
   {
     for (const auto globalization :
@@ -985,6 +1085,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b2", "contract", "metric"},
          120,
          []() { run_b2_control_discretisation_comparison(); }},
+        {"b2_volume_observation_realisation_comparison",
+         "nmopt.application.dealii.b2_volume_observation_realisation_comparison",
+         {"dealii", "application", "benchmark", "b2", "contract", "diagnostic"},
+         120,
+         []() { run_b2_volume_observation_realisation_comparison(); }},
         {"b2_structured_simplex_mesh",
          "nmopt.application.dealii.b2_structured_simplex_mesh",
          {"dealii", "application", "benchmark", "b2", "contract"},

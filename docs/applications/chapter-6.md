@@ -207,6 +207,13 @@ and does not add a sufficient-decrease condition or alter the selected
 stopping criterion. B1 remains Armijo-only until its separate execution
 adapter registers another policy.
 
+The B2 compile record requires `VolumeObservationOptions`. Its frozen value
+uses order `3` and analytic desired-state evaluation at observation quadrature
+points. Development scenarios may instead select a different positive order
+and `state-fe-interpolation`, which interpolates the desired-state function
+into the scalar state finite-element space before observation assembly. B1
+rejects this B2-only option rather than silently ignoring it.
+
 For B2, the default and frozen source boundary form is the ordinary-normal
 condition $\partial_n y-(b\mathbin\cdot n)y=u$ on the control boundary and zero
 on the outflow. `make_b2_scenario(...)` also accepts
@@ -271,9 +278,11 @@ const auto result = Runner(scenario).run(
 The adapter binds every declared port, including `fixed_dirichlet_data` and
 `conservative_transport`, compiles the assembled reduced DTO, and dispatches
 full BFGS with the selected Armijo or fixed-step globalization from zero
-control in the selected layout. The declared selection and effective solver
-policy are checked against one another and retained in the artifact and solver
-snapshot. `B2RuntimeDataT<dim>` is
+control in the selected layout. It also maps `VolumeObservationOptions` to the
+compiler policy and checks the effective target realization and quadrature
+order against the compilation manifest. The declared discretization and
+effective solver policy are retained in the artifact and solver snapshot.
+`B2RuntimeDataT<dim>` is
 the extension point for recovered forcing, targets, or transport fields; the
 caller owns all referenced Function objects for the duration of compilation
 and solving. Native boundary output stores facewise constants as cell data and

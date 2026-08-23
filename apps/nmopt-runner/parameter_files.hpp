@@ -226,6 +226,30 @@ namespace nmopt::application::runner
     return static_cast<unsigned int>(value);
   }
 
+  inline chapter6::VolumeObservationOptions
+  b2_volume_observation_options(const ParameterFile &file)
+  {
+    chapter6::VolumeObservationOptions options;
+    options.quadrature_order = parameter_unsigned(
+      file, "Compile/volume observation quadrature order");
+    if (options.quadrature_order == 0)
+      throw std::invalid_argument(
+        "B2 volume-observation quadrature order must be positive");
+    const auto &target_realisation =
+      file.value("Compile/volume observation target realisation");
+    if (target_realisation == "analytic-quadrature")
+      options.target_realisation = chapter6::
+        VolumeObservationTargetRealisation::analytic_quadrature;
+    else if (target_realisation == "state-fe-interpolation")
+      options.target_realisation = chapter6::
+        VolumeObservationTargetRealisation::state_fe_interpolation;
+    else
+      throw std::invalid_argument(
+        "unknown B2 volume-observation target realisation '" +
+        target_realisation + "'");
+    return options;
+  }
+
   inline bool
   parameter_bool(const ParameterFile &file, const std::string_view key)
   {
@@ -540,6 +564,8 @@ namespace nmopt::application::runner
                                 "owned session",
                                 "stabilization"})
         declare_section("Compile", entry);
+      declare_section("Compile", "volume observation quadrature order");
+      declare_section("Compile", "volume observation target realisation");
       declare_section("Compile", "state solve maximum iterations", "0");
       declare_section("Compile", "state solve relative tolerance", "1e-12");
       declare_section("Compile", "state solve absolute tolerance", "1e-14");
@@ -709,6 +735,8 @@ namespace nmopt::application::runner
                                                      "product",
                                                      "owned session",
                                                      "stabilization",
+                                                     "volume observation quadrature order",
+                                                     "volume observation target realisation",
                                                      "state solve maximum iterations",
                                                      "state solve relative tolerance",
                                                      "state solve absolute tolerance",

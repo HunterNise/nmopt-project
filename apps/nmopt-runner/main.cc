@@ -700,6 +700,8 @@ namespace
       b2_transport_boundary_form(file);
     scenario.problem.recipe.control_discretisation =
       b2_neumann_control_discretisation(file);
+    scenario.compile.volume_observation =
+      b2_volume_observation_options(file);
     require_parameter(file, "Boundary/normal orientation", "outward");
     require_parameter(file, "Boundary/trace evaluation", "fe-q-state-trace");
     require_parameter(file, "Boundary/face quadrature", "qgauss-face");
@@ -1052,11 +1054,29 @@ namespace
     const auto  case_slug = nmopt::application::chapter6::graetz_case_name(
       scenario.problem.graetz_case);
     const auto &manifest = evidence.envelope.compilation_manifest();
+    const auto &volume_observation = *scenario.compile.volume_observation;
+    const std::string volume_observation_target =
+      nmopt::application::chapter6::
+        volume_observation_target_realisation_name(
+          volume_observation.target_realisation);
+    const std::string quadrature_order =
+      std::to_string(volume_observation.quadrature_order);
+    nmopt::contract::require(
+      manifest.observation_realisation.find(
+        "target=" + volume_observation_target) != std::string::npos &&
+        manifest.observation_realisation.find("(" + quadrature_order + ")") !=
+          std::string::npos,
+      "B2 artifact manifest does not match the declared volume observation");
     evidence.fields.push_back({"benchmark.graetz_case", case_slug});
     evidence.fields.push_back(
       {"benchmark.control_discretisation",
        nmopt::application::chapter5::neumann_control_discretisation_name(
          scenario.problem.recipe.control_discretisation)});
+    evidence.fields.push_back(
+      {"benchmark.volume_observation_quadrature_order", quadrature_order});
+    evidence.fields.push_back(
+      {"benchmark.volume_observation_target_realisation",
+       volume_observation_target});
     evidence.fields.push_back({"benchmark.fixed_temperature",
                                b1_number(scenario.problem.fixed_temperature)});
     evidence.fields.push_back({"benchmark.regularisation",
@@ -1095,6 +1115,14 @@ namespace
     evidence.fields.push_back({"provenance.observation_case", case_slug});
     evidence.fields.push_back({"manifest.control_metric_realisation",
                                manifest.metric_record.realisation_id});
+    evidence.fields.push_back(
+      {"manifest.volume_observation_quadrature_order", quadrature_order});
+    evidence.fields.push_back(
+      {"manifest.volume_observation_target_realisation",
+       volume_observation_target});
+    evidence.fields.push_back(
+      {"manifest.volume_observation_realisation",
+       manifest.observation_realisation});
     if (manifest.boundary_realisation)
       {
         const auto boundary_form =

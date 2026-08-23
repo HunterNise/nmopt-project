@@ -102,8 +102,12 @@ compatibility renderings.
 
 B2 records the selected control as `benchmark.control_discretisation` and
 `b2.control_discretisation`, while `manifest.control_metric_realisation`
-records the compiled metric. Its objective evidence separates tracking and
-control-regularisation values at the initial and terminal controls. The two
+records the compiled metric. The declared volume-observation order and target
+realization are recorded under both `benchmark.volume_observation_*` and
+`b2.volume_observation_*`; the corresponding `manifest.volume_observation_*`
+fields retain the checked compiler realization. Its objective evidence
+separates tracking and control-regularisation values at the initial and
+terminal controls. The two
 components must sum to the retained total objective. Its optimized and
 uncontrolled state, control, and adjoint coefficient extrema are retained
 beside the field files. The existing

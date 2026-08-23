@@ -60,7 +60,7 @@ The proposed `.prm` sections are:
 | `Functions` | Registered forcing, target, fixed-data, and transport function selections and coefficients. |
 | `Boundary` | Boundary IDs, regions, normal/conormal interpretation, trace, and face quadrature choices. |
 | `Mesh` | Dimension, geometry, generator parameters, refinement, and mesh provenance. |
-| `Compile` | State degree, execution, product, session ownership, and state/adjoint/control-metric solve policies. |
+| `Compile` | State degree, observation discretization, execution, product, session ownership, and state/adjoint/control-metric solve policies. |
 | `Solver` | Method, initial control, stopping rules, line search, iteration limits, and method-specific policies. |
 | `Run` | Authoritative/development policy, build profile, output root, and harness behavior. |
 | `Output` | Retained native fields and artifact output policy. |
@@ -123,6 +123,14 @@ operator. The ordinary-normal value
 requires `Boundary/conormal form = diffusion-minus-transport`. The latter
 entry is a consistency declaration, not an independently selectable boundary
 operator. Other values and incoherent pairs are rejected before execution.
+
+B2 also requires `Compile/volume observation quadrature order` to be a
+positive integer and accepts `analytic-quadrature` or
+`state-fe-interpolation` for
+`Compile/volume observation target realisation`. The frozen tracked files use
+order `3` and analytic evaluation. Interpolation first realizes the target in
+the scalar state finite-element space; it does not change the stated
+$L^{2}$ observation functional or introduce an objective multiplier.
 
 B1 reads `Functions/forcing` as a stable definition ID and accepts these
 declarative forms in the nested `forcing` subsection:

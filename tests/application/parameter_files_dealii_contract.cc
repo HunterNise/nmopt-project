@@ -302,8 +302,11 @@ namespace
             "B2 should expand to four authoritative combinations");
     require(b2.value("Problem/control representation") ==
                 "facewise-constant" &&
-              b2.value("Solver/globalization") == "armijo",
-            "B2 authoritative parameters lost a frozen control or solver choice");
+              b2.value("Solver/globalization") == "armijo" &&
+              b2.value("Compile/volume observation quadrature order") == "3" &&
+              b2.value("Compile/volume observation target realisation") ==
+                "analytic-quadrature",
+            "B2 authoritative parameters lost a frozen discrete choice");
 
     const auto development = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/development/forcing-sweep.prm"));
@@ -311,8 +314,13 @@ namespace
             "B2 forcing development family should expand to three combinations");
     require(development.value("Problem/control representation") ==
                 "facewise-constant" &&
-              development.value("Solver/globalization") == "armijo",
-            "B2 forcing family lost a frozen control or solver choice");
+              development.value("Solver/globalization") == "armijo" &&
+              development.value(
+                "Compile/volume observation quadrature order") == "3" &&
+              development.value(
+                "Compile/volume observation target realisation") ==
+                "analytic-quadrature",
+            "B2 forcing family lost a frozen discrete choice");
     require(development.content_hash.rfind("fnv1a64:", 0) == 0,
             "parameter provenance should carry a labelled deterministic hash");
 
@@ -498,6 +506,53 @@ namespace
   }
 
   void
+  test_b2_volume_observation_is_selected()
+  {
+    const auto analytic = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    const auto analytic_options =
+      nmopt::application::runner::b2_volume_observation_options(analytic);
+    require(
+      analytic_options.quadrature_order == 3 &&
+        analytic_options.target_realisation ==
+          nmopt::application::chapter6::
+            VolumeObservationTargetRealisation::analytic_quadrature,
+      "B2 parameter parsing lost the frozen volume-observation policy");
+
+    auto interpolated = analytic;
+    interpolated.values["Compile/volume observation quadrature order"] = "2";
+    interpolated.values["Compile/volume observation target realisation"] =
+      "state-fe-interpolation";
+    const auto interpolated_options =
+      nmopt::application::runner::b2_volume_observation_options(interpolated);
+    require(
+      interpolated_options.quadrature_order == 2 &&
+        interpolated_options.target_realisation ==
+          nmopt::application::chapter6::
+            VolumeObservationTargetRealisation::state_fe_interpolation,
+      "B2 parameter parsing lost the interpolated observation policy");
+
+    auto zero_order = analytic;
+    zero_order.values["Compile/volume observation quadrature order"] = "0";
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::b2_volume_observation_options(
+          zero_order);
+      },
+      "B2 parameter parsing accepted a zero observation quadrature order");
+
+    auto unknown = analytic;
+    unknown.values["Compile/volume observation target realisation"] =
+      "nodal-sampling";
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::b2_volume_observation_options(
+          unknown);
+      },
+      "B2 parameter parsing accepted an unknown observation target realisation");
+  }
+
+  void
   test_sparse_matrix_exclusions_are_validated_and_applied()
   {
     const std::string excluded =
@@ -634,6 +689,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract"},
          30,
          test_b2_control_discretisation_is_selected},
+        {"b2_volume_observation_is_selected",
+         "nmopt.parameter_files.b2_volume_observation_is_selected",
+         {"backend", "dealii", "application", "runner", "contract", "negative"},
+         30,
+         test_b2_volume_observation_is_selected},
         {"reduced_globalization_is_selected",
          "nmopt.parameter_files.reduced_globalization_is_selected",
          {"backend", "dealii", "application", "runner", "contract", "negative"},

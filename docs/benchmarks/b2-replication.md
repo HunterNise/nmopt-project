@@ -275,7 +275,7 @@ can make that comparison without a further artifact-schema change.
 | 4 | Boundary-aligned observation geometry | **Screened.** The aligned meshes recover exact measure $1.8$ but do not materially reduce the objective discrepancy. | No further change for structured meshes. |
 | 5 | Constant-step and stopping candidates | The source attributes its high counts to an unstated constant step, while the current Armijo BFGS reaches a much smaller gradient ratio at the iteration limit. Screen fixed iteration counts and relative thresholds first. | The unconditional policy and B2/runner selection are implemented; candidate parameter files and runs remain. |
 | 6 | Metric versus coefficient gradient norm | The book names a discrete gradient but not its Hilbert metric. The current uniform facewise realization makes both relative ratios identical. | Evidence is already present; differentiation needs the continuous or nonuniform discretisation above. |
-| 7 | Objective quadrature or coefficient scaling | **Partially screened.** Target interpolation and mass lumping are far too small; an unweighted coefficient loss is large but case-dependent and changes the stated objective. | Volume-observation assembly is now isolated without changing the frozen numerics. Explicit quadrature and analytic-versus-interpolated target selection remain before candidate runs. |
+| 7 | Objective quadrature or coefficient scaling | **Partially screened.** Target interpolation and mass lumping are far too small; an unweighted coefficient loss is large but case-dependent and changes the stated objective. | Explicit positive quadrature order and analytic-versus-state-FE target selection are implemented through B2 and the runner; candidate parameter files and runs remain. Arbitrary objective scaling remains excluded. |
 | 8 | Exact count-matched connectivity or mesh import | **Deprioritised.** Counts constrain boundary totals but not the interior mesh, and the two tested triangular connectivities are numerically indistinguishable. | Reconsider only with source connectivity or contrary mesh-sensitivity evidence. |
 | 9 | Linear-solver tolerances | These are omitted by the source but are unlikely to explain the smooth zero-control field gap. | Parameter-only with the existing solve-policy entries. |
 
@@ -291,23 +291,14 @@ boundary interpretation at the stated diffusion, either triangular
 connectivity, boundary-aligned observation geometry, target interpolation,
 nor mass lumping gives one coherent account of Figure 6.5 and Table 6.2.
 
-Continuous $P_1$ boundary control, gradient interpretation, and BFGS policy
-remain necessary to compare optimized results and reported gradient ratios,
-but none can alter the zero-control state or initial tracking objective. They
-therefore cannot resolve the primary source inconsistency. Before implementing
-those larger framework units, the investigation needs an explicit choice:
+The framework now exposes continuous $P_{1}$ boundary control, both retained
+gradient norms, Armijo and unconditional fixed-step globalization, and the two
+defensible target realizations with explicit observation quadrature. After the
+framework exit verification, the next evidence gate is therefore an ignored
+candidate parameter matrix and development runs that compare these
+optimization-side omissions against Table 6.2.
 
-1. introduce and screen a separately parameterized coefficient multiplying the
-   transport term in the natural boundary operator as an acknowledged project
-   hypothesis, while keeping $\mu=0.1$; or
-2. accept that the published initial data are not jointly reproducible from
-   the stated model, retain the current mathematically literal baseline, and
-   implement continuous control and solver variants only to study the
-   optimization-side omissions.
-
-The first choice requires a typed semantic, compiler, application, and runner
-extension and can fit a field scale, but it has no present source provenance
-and must not be promoted as the authoritative benchmark. Scaling only the
-control load would not answer this question because the reported initial
-control is zero. The second choice preserves the stated mathematics and gives
-the remaining framework work a narrower, defensible purpose.
+Those candidates cannot alter the zero-control state and do not resolve the
+primary source inconsistency. A separately scaled boundary-transport
+coefficient or arbitrary objective multiplier remains an unproven project
+hypothesis and is excluded from the first experiment matrix.

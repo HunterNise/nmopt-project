@@ -353,6 +353,26 @@ namespace nmopt::application::chapter6::dealii
     policy.state_degree = options.state_degree;
     policy.execution =
       compiler::v1::DealiiDiscretisationPolicy::Execution::assembled;
+    if (!options.volume_observation)
+      throw std::invalid_argument(
+        "B2 runtime execution needs volume-observation options");
+    const auto target_realisation = [&]() {
+      switch (options.volume_observation->target_realisation)
+        {
+          case VolumeObservationTargetRealisation::analytic_quadrature:
+            return compiler::v1::VolumeObservationTargetRealisation::
+              analytic_quadrature;
+          case VolumeObservationTargetRealisation::state_fe_interpolation:
+            return compiler::v1::VolumeObservationTargetRealisation::
+              state_fe_interpolation;
+        }
+      throw std::invalid_argument(
+        "B2 runtime execution received an unknown observation target realisation");
+    }();
+    policy.volume_observation =
+      compiler::v1::VolumeObservationDiscretisationPolicy{
+        options.volume_observation->quadrature_order,
+        target_realisation};
     policy.state_solve = {options.state_solve.maximum_iterations,
                           options.state_solve.relative_tolerance,
                           options.state_solve.absolute_tolerance};
@@ -674,6 +694,19 @@ namespace nmopt::application::chapter6::dealii
           throw std::runtime_error(message.str());
         }
 
+      const auto &volume_observation = *scenario.compile.volume_observation;
+      const std::string volume_observation_target =
+        volume_observation_target_realisation_name(
+          volume_observation.target_realisation);
+      const auto &manifest = compilation.problem->manifest();
+      contract::require(
+        manifest.observation_realisation.find(
+          "target=" + volume_observation_target) != std::string::npos &&
+          manifest.observation_realisation.find(
+            "(" + std::to_string(volume_observation.quadrature_order) + ")") !=
+            std::string::npos,
+        "B2 compilation manifest does not match the selected volume observation");
+
       using Model = compiler::v1::detail::NeumannBoundaryControlModel<dim>;
       const auto *model =
         dynamic_cast<const Model *>(&compilation.problem->executable_model());
@@ -837,6 +870,10 @@ namespace nmopt::application::chapter6::dealii
         {"b2.control_discretisation",
          chapter5::neumann_control_discretisation_name(
            scenario.problem.recipe.control_discretisation)},
+        {"b2.volume_observation_quadrature_order",
+         std::to_string(volume_observation.quadrature_order)},
+        {"b2.volume_observation_target_realisation",
+         volume_observation_target},
         {"b2.observation_region",
          b2_observation_region(scenario.problem.graetz_case)},
         {"b2.target_profile", b2_target_profile(scenario.problem.graetz_case)},

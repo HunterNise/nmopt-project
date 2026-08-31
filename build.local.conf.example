@@ -1,0 +1,17 @@
+# Machine-local nmopt build configuration.
+# Copy this file to build.local.conf, then adjust the values for your machine.
+# The actual build.local.conf is ignored by Git.
+
+# Maximum number of compiler jobs allowed for each profile.
+# These are independent ceilings. Deal.II builds are often more demanding,
+# so lower their entries separately if they exhaust available memory.
+declare -A NMOPT_MAX_JOBS=(
+  [debug-neutral]=8
+  [sanitize-neutral]=8
+  [debug-dealii]=2
+  [release-dealii]=2
+)
+
+# Directory containing deal.IIConfig.cmake.
+# Leave empty when normal CMake package discovery is sufficient.
+NMOPT_DEAL_II_DIR=""

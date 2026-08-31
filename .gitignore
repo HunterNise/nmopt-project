@@ -4,6 +4,7 @@
 /build-*/
 /cmake-build-*/
 /runs/
+/build.local.conf
 compile_commands.json
 
 # Python caches and test/coverage outputs

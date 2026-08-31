@@ -1,54 +1,161 @@
-include parameters/chapter-6/b2/authoritative.prm
+# Self-contained diagnostic reconstruction input.
+# This family preserves the effective B2 base settings explicitly. The source
+# states zero forcing and beta=1e-3; the fitted forcing, beta=1e-2, and fixed
+# step below are inferred independently from development screens. The forcing
+# reproduces the uncontrolled Figure 6.5 maximum, not the complete source
+# contract.
 
-# Diagnostic reconstruction only. The source states zero forcing and
-# beta=1e-3; the fitted forcing, beta=1e-2, and fixed step below are inferred
-# independently from development screens. The forcing reproduces the
-# uncontrolled Figure 6.5 maximum, not the complete source contract.
 subsection Benchmark
+  set id = chapter-6.b2.graetz-flow
   set label = B2 Figure 6.5 state-magnitude diagnostic
+  set recipe = chapter-5.scalar-neumann-convection-subdomain
   set source reference = E6.5.2 Figure 6.5 and Table 6.2 contradiction audit
+  set source revision = 1aaefbe473f9941a89d1df36192251511c052933
+end
+
+subsection Matrix
+  set observation-region = wings, full
+  set target-profile = constant, parabolic
 end
 
 subsection Problem
   set control representation = continuous-nodal-trace
+  set observed material id = 1
+  set facewise box constraint = false
+  set initial control = zero
+end
+
+subsection Observation
+  set active region = from-matrix
+  set material id = 1
+
+  subsection region wings
+    set geometry = x0 > 1.0 and (x1 < 0.3 or x1 > 0.7)
+  end
+
+  subsection region full
+    set geometry = x0 > 1.0
+  end
 end
 
 subsection Functions
   set forcing = fitted-figure-state
+  set desired state = from-matrix
+  set fixed Dirichlet data = fixed-temperature
+  set conservative transport = graetz
 
   subsection forcing
     set kind = constant
     set value = 0.47009
     set provenance = development.chapter-6.b2.fitted-figure-state-forcing
   end
+
+  subsection fixed-temperature
+    set kind = constant
+    set value = 1.0
+    set provenance = chapter-6.e6.5.2.fixed-temperature
+  end
+
+  subsection graetz
+    set kind = conservative-transport
+    set expression = (1.5*x1*(1-x1), 0.0)
+    set provenance = chapter-6.e6.5.2.graetz-transport
+  end
+
+  subsection target definitions
+    set constant = constant-2
+    set parabolic = parabolic-4*x1*(1-x1)
+    set provenance = chapter-6.e6.5.2.target
+  end
 end
 
 subsection Runtime
+  set diffusion = 0.1
+  set reaction = 0.0
   set regularisation = 1e-2
 end
 
+subsection Boundary
+  set fixed region = dirichlet-boundary
+  set fixed boundary id = 0
+  set control region = control-boundary
+  set control boundary id = 1
+  set outflow region = outflow-boundary
+  set outflow boundary id = 2
+  set upstream transition x = 1.0
+  set outflow x = 4.0
+  set transport boundary form = ordinary-normal-minus-transport
+  set conormal form = unspecified
+  set normal orientation = outward
+  set trace evaluation = fe-q-state-trace
+  set face quadrature = qgauss-face
+end
+
 subsection Mesh
+  set dimension = 2
+  set geometry = rectangle
+  set lower = (0.0, 0.0)
+  set upper = (4.0, 1.0)
   set generator = structured-simplex
   set refinement = 0
   set axis subdivisions = 160, 40
   set provenance = development.chapter-6.b2.structured-simplex-160x40
 end
 
+subsection Compile
+  set state degree = 1
+  set volume observation quadrature order = 3
+  set volume observation target realisation = analytic-quadrature
+  set execution = assembled
+  set product = reduced-dto
+  set owned session = true
+  set state solve maximum iterations = 0
+  set state solve relative tolerance = 1e-12
+  set state solve absolute tolerance = 1e-14
+  set adjoint solve maximum iterations = 0
+  set adjoint solve relative tolerance = 1e-12
+  set adjoint solve absolute tolerance = 1e-14
+  set control metric solve maximum iterations = 1000
+  set control metric solve relative tolerance = 1e-12
+  set control metric solve absolute tolerance = 1e-14
+  set stabilization = galerkin
+end
+
 subsection Solver
+  set method = bfgs
   set globalization = fixed-step
+  set initial control = zero
   set maximum iterations = 100
+  set maximum line search trials = 20
   set gradient tolerance = 1e-30
   set stopping criterion = gradient-norm
+  set relative gradient tolerance = 0.0
+  set objective change tolerance = 0.0
+  set step tolerance = 0.0
   set initial step length = 0.05
+  set Armijo fraction = 1e-4
+  set backtracking factor = 0.5
 end
 
 subsection Run
   set kind = development
   set build profile = debug-dealii
   set output root = runs
+  set deterministic = true
+  set serialize artifacts = true
   set measure timings = false
+  set measure memory = false
 end
 
 subsection Output
   set retain fields = true
+  set selected fields = state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region
+end
+
+subsection Postprocessing
+  set style profile = parameters/plotting/chapter-6-b2.json
+  set comparison rows = target-profile
+  set comparison columns = observation-region
+  set comparison group by = none
+  set output formats = png
 end

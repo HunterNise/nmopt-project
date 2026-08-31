@@ -67,8 +67,10 @@ experiment therefore normally produces:
 runs/experiments/<experiment>/chapter-6/<benchmark>/development/<NNN>/
 ```
 
-If an ignored parameter file includes a tracked file, it must override
-`Run/output root` explicitly so the inherited stable root is not used.
+Parameter files must not use `include` or `INCLUDE` directives. If an ignored
+experiment is based on a tracked family, copy the effective settings into a
+self-contained file and override `Run/output root` explicitly so the stable
+root is not used.
 
 ## Choosing and building the runner
 

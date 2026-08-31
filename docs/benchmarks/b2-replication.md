@@ -345,14 +345,13 @@ but its uncontrolled maximum is $14.0958$, nearly twice the plotted value.
 Run `006` remains the best Table 6.2/parabolic compromise, not a Figure 6.5
 reproduction.
 
-Run-set postprocessing is currently blocked by a configuration-contract gap:
-the runner accepts the tracked files' `include` directives but snapshots the
-unresolved top-level text, while the postprocessor rejects `include` on line 1
-of the snapshot. Thus the numerical and native field evidence is complete,
-but comparison PNGs and `postprocess-index.json` are not yet present. The
-follow-up plan records a resolved-snapshot or include-aware-postprocessing
-unit; generated snapshots must not be edited in place because doing so would
-invalidate their provenance.
+Runs `004`--`006` were generated before the self-contained parameter-file
+policy. Their snapshots retain top-level `include` directives, so their
+run-set postprocessing remains blocked even though their numerical and native
+field evidence is complete. Tracked parameter files are now required to be
+self-contained; fresh candidate runs will therefore produce portable
+snapshots. Existing generated snapshots must not be edited in place because
+doing so would invalidate their provenance.
 
 ## Published consistency questions
 

@@ -48,6 +48,13 @@ policy. The run manifest must retain the selected file paths, content hashes,
 matrix axes, and resolved values so that generated evidence does not depend on
 future edits to the source files.
 
+Every tracked or experiment `.prm` file must be self-contained. `include` and
+`INCLUDE` directives are prohibited. Repeat inherited settings explicitly in
+each file, and use comments and provenance fields to describe the relationship
+between related experiment families. Self-contained inputs keep runner,
+post-processing, and archived run snapshots on the same portable configuration
+contract.
+
 Generated output remains below `runs/`; it must not become a second source of
 configuration.
 
@@ -346,8 +353,8 @@ plotting.resolved_comparison
 cli.refinement_override
 ```
 
-The resolved parameter and plotting documents should also be copied below the
-run directory. Post-processing uses those snapshots by default; applying a
+The self-contained parameter and plotting documents should also be copied below
+the run directory. Post-processing uses those snapshots by default; applying a
 different profile is an explicit derived-output override.
 
 ## Examples

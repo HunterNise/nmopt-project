@@ -286,7 +286,10 @@ effective solver policy are retained in the artifact and solver snapshot.
 the extension point for recovered forcing, targets, or transport fields; the
 caller owns all referenced Function objects for the duration of compilation
 and solving. Native boundary output stores facewise constants as cell data and
-continuous trace controls as point data on connected line cells.
+continuous trace controls as point data on connected line cells. The
+postprocessor renders either representation; point-data values are averaged at
+each line segment for the line color while retaining the nodal extrema for the
+color scale.
 
 ### Runtime bindings
 

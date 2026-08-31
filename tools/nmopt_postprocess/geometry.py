@@ -35,11 +35,22 @@ def triangulate(block: meshio.CellBlock) -> tuple[np.ndarray, np.ndarray]:
 def boundary_field_block(
     mesh: meshio.Mesh, field: ScalarField
 ) -> tuple[int, meshio.CellBlock]:
-    """Return the line cell block carrying a boundary cell field."""
+    """Return the line cell block carrying a boundary field.
 
-    if field.location != "cell" or field.block_index is None:
-        raise PostprocessError("boundary control must be cell data on line cells")
-    block = mesh.cells[field.block_index]
-    if block.type not in {"line", "line3"}:
-        raise PostprocessError("boundary control is not attached to line cells")
-    return field.block_index, block
+    Facewise controls are stored as cell data, while continuous trace controls
+    are stored as point data on the same line-cell mesh. Point fields therefore
+    need the first available line block rather than a cell-data block index.
+    """
+
+    if field.location == "cell" and field.block_index is not None:
+        block = mesh.cells[field.block_index]
+        if block.type not in {"line", "line3"}:
+            raise PostprocessError("boundary control is not attached to line cells")
+        return field.block_index, block
+
+    if field.location == "point":
+        for block_index, block in enumerate(mesh.cells):
+            if block.type in {"line", "line3"}:
+                return block_index, block
+
+    raise PostprocessError("boundary control must be on line cells")

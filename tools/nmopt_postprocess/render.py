@@ -196,19 +196,28 @@ def draw_boundary_field(
     field: ScalarField,
     norm: Normalize | None = None,
 ) -> object:
-    """Draw a scalar field stored on boundary line cells."""
+    """Draw a scalar field stored on boundary line cells or their points."""
 
     _, block = boundary_field_block(mesh, field)
-    if len(field.values) != len(block.data):
-        raise PostprocessError(
-            f"boundary field has {len(field.values)} values, "
-            f"expected {len(block.data)}"
-        )
     points = np.asarray(mesh.points)[:, :2]
+    if field.location == "point":
+        if len(field.values) != len(points):
+            raise PostprocessError(
+                f"boundary point field has {len(field.values)} values, "
+                f"expected {len(points)}"
+            )
+        segment_values = field.values[block.data].mean(axis=1)
+    else:
+        if len(field.values) != len(block.data):
+            raise PostprocessError(
+                f"boundary field has {len(field.values)} values, "
+                f"expected {len(block.data)}"
+            )
+        segment_values = field.values
     segments = points[block.data][:, :, :2]
     collection = LineCollection(
         segments,
-        array=field.values,
+        array=segment_values,
         cmap=BOOK_COLORMAP,
         linewidths=3.0,
         norm=norm,

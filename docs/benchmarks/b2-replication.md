@@ -353,6 +353,15 @@ self-contained; fresh candidate runs will therefore produce portable
 snapshots. Existing generated snapshots must not be edited in place because
 doing so would invalidate their provenance.
 
+Versioned reruns `004-v2`, `005-v2`, and `006-v2` were then generated from the
+self-contained candidates with the Debug runner at framework revision
+`211ccfa`. Each run has four successful artifacts and a complete manifest. The
+postprocessor now accepts the continuous trace's point-valued boundary output
+as well as facewise cell data; all three reruns report `4/4` processed artifacts,
+the eight expected PNG outputs, and a generated Chapter 6 report. These are
+fresh diagnostic evidence and do not replace the historical `004`--`006`
+snapshots.
+
 ## Published consistency questions
 
 The wings observation region is a subset of the full downstream region. At

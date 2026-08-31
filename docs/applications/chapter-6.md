@@ -284,6 +284,14 @@ control in the selected layout. It also maps `VolumeObservationOptions` to the
 compiler policy and checks the effective target realization and quadrature
 order against the compilation manifest. The declared discretization and
 effective solver policy are retained in the artifact and solver snapshot.
+The backend-neutral `B2TargetParameters` record carries two
+`ScalarFunctionDefinition` values for the constant and parabolic target
+profiles. Its defaults are the source value `2` and expression
+`4.0*x1*(1.0-x1)`; parameter-file development candidates may change either
+definition while retaining explicit provenance. The deal.II adapter realizes
+the selected definition as a constant or parsed coordinate expression. The
+artifact records the selected definition, kind, value, and expression so
+target-transcription experiments remain distinguishable from source data.
 `B2RuntimeDataT<dim>` is
 the extension point for recovered forcing, targets, or transport fields; the
 caller owns all referenced Function objects for the duration of compilation

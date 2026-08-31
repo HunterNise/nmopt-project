@@ -212,6 +212,8 @@ The frozen runtime and region metadata are:
 | --- | --- |
 | Forcing provenance | `chapter-6.e6.5.2.zero-forcing` |
 | Desired-state provenance | `chapter-6.e6.5.2.target` |
+| Constant target | `2` |
+| Parabolic target | $4x_{2}(1-x_{2})$ |
 | Fixed-temperature provenance | `chapter-6.e6.5.2.fixed-temperature` |
 | Conservative-transport provenance | `chapter-6.e6.5.2.graetz-transport` |
 | Fixed Dirichlet region | `dirichlet_boundary`, boundary ID `0` |
@@ -271,7 +273,8 @@ Each of the four artifacts must retain:
 - residual JVP/VJP and reduced-Taylor evidence for the selected control realization;
 - objective and relative-gradient reduction; and
 - state/control evidence showing the effect of changing observation region and
-  target.
+  target, including the effective target definition, kind, value, and
+  expression.
 
 If the unstabilized Galerkin realization is inadequate, the limitation is
 reported without changing the frozen scenario.

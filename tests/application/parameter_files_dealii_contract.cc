@@ -600,6 +600,47 @@ namespace
   }
 
   void
+  test_b2_target_parameters_are_data_driven()
+  {
+    auto file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    const auto defaults =
+      nmopt::application::runner::b2_target_parameters(file);
+    require(defaults.constant.id == "constant-2" &&
+              defaults.constant.kind ==
+                nmopt::application::ScalarFunctionKind::constant &&
+              std::abs(defaults.constant.value - 2.0) < 1.0e-15 &&
+              defaults.constant.expression.empty() &&
+              defaults.parabolic.id == "parabolic-4*x1*(1-x1)" &&
+              defaults.parabolic.kind ==
+                nmopt::application::ScalarFunctionKind::expression &&
+              defaults.parabolic.expression == "4.0*x1*(1.0-x1)" &&
+              defaults.parabolic.value == 0.0,
+            "B2 parameter parsing lost its source target definitions");
+
+    file.values["Functions/target definitions/constant/id"] = "constant-20";
+    file.values["Functions/target definitions/constant/value"] = "20.0";
+    file.values["Functions/target definitions/parabolic/id"] =
+      "parabolic-6*x1*(1-x1)";
+    file.values["Functions/target definitions/parabolic/expression"] =
+      "6.0*x1*(1.0-x1)";
+    const auto candidate =
+      nmopt::application::runner::b2_target_parameters(file);
+    require(candidate.constant.id == "constant-20" &&
+              std::abs(candidate.constant.value - 20.0) < 1.0e-15 &&
+              candidate.parabolic.id == "parabolic-6*x1*(1-x1)" &&
+              candidate.parabolic.expression == "6.0*x1*(1.0-x1)",
+            "B2 target parameters were hardcoded instead of parsed");
+
+    file.values["Functions/target definitions/constant/value"] = "nan";
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::b2_target_parameters(file);
+      },
+      "B2 parameter parsing accepted a non-finite target value");
+  }
+
+  void
   test_sparse_matrix_exclusions_are_validated_and_applied()
   {
     const std::string excluded =
@@ -741,6 +782,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
          test_b2_volume_observation_is_selected},
+        {"b2_target_parameters_are_data_driven",
+         "nmopt.parameter_files.b2_target_parameters_are_data_driven",
+         {"backend", "dealii", "application", "runner", "contract", "negative"},
+         30,
+         test_b2_target_parameters_are_data_driven},
         {"reduced_globalization_is_selected",
          "nmopt.parameter_files.reduced_globalization_is_selected",
          {"backend", "dealii", "application", "runner", "contract", "negative"},

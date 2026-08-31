@@ -253,6 +253,47 @@ namespace nmopt::application::chapter6
      GraetzCase::observation_wings_parabolic_target,
      GraetzCase::observation_full_parabolic_target}};
 
+  struct B2TargetParameters
+  {
+    ScalarFunctionDefinition constant{
+      "constant-2",
+      ScalarFunctionKind::constant,
+      2.0,
+      "",
+      "chapter-6.e6.5.2.target"};
+    ScalarFunctionDefinition parabolic{
+      "parabolic-4*x1*(1-x1)",
+      ScalarFunctionKind::expression,
+      0.0,
+      "4.0*x1*(1.0-x1)",
+      "chapter-6.e6.5.2.target"};
+  };
+
+  inline const ScalarFunctionDefinition &
+  b2_target_definition(const B2TargetParameters &parameters,
+                       const GraetzCase             graetz_case)
+  {
+    switch (graetz_case)
+      {
+        case GraetzCase::observation_wings_constant_target:
+        case GraetzCase::observation_full_constant_target:
+          return parameters.constant;
+        case GraetzCase::observation_wings_parabolic_target:
+        case GraetzCase::observation_full_parabolic_target:
+          return parameters.parabolic;
+      }
+    throw std::invalid_argument("B2 has an unknown Graetz target case");
+  }
+
+  inline void
+  validate_b2_target_parameters(const B2TargetParameters &parameters)
+  {
+    validate_scalar_function_definition(parameters.constant,
+                                        "B2 constant target");
+    validate_scalar_function_definition(parameters.parabolic,
+                                        "B2 parabolic target");
+  }
+
   inline const char *
   graetz_case_name(const GraetzCase graetz_case)
   {
@@ -283,6 +324,7 @@ namespace nmopt::application::chapter6
       "chapter-6.e6.5.2.fixed-temperature",
       "chapter-6.e6.5.2.graetz-transport"};
     GraetzCase graetz_case = GraetzCase::observation_wings_constant_target;
+    B2TargetParameters target_parameters;
     double     fixed_temperature = 1.0;
     enum class ForcingSelection
     {
@@ -600,6 +642,13 @@ namespace nmopt::application::chapter6
       }
     if (!std::isfinite(scenario.problem.fixed_temperature))
       throw std::invalid_argument("B2 fixed temperature must be finite");
+    validate_b2_target_parameters(scenario.problem.target_parameters);
+    if (scenario.problem.data.desired_state_provenance !=
+        b2_target_definition(scenario.problem.target_parameters,
+                             scenario.problem.graetz_case)
+          .provenance)
+      throw std::invalid_argument(
+        "B2 desired-state provenance does not match the selected target");
     if (!std::isfinite(scenario.problem.forcing_value))
       throw std::invalid_argument("B2 forcing value must be finite");
     if (scenario.problem.data.fixed_dirichlet_data_provenance.empty() ||

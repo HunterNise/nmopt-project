@@ -263,12 +263,12 @@ namespace nmopt::application::runner
   }
 
   inline ScalarFunctionDefinition
-  parameter_scalar_function_definition(const ParameterFile &file,
-                                       const std::string_view key)
+  parameter_scalar_function_definition_at(const ParameterFile &file,
+                                          const std::string &path,
+                                          const std::string &id_path)
   {
-    const auto path = std::string(key);
     ScalarFunctionDefinition definition;
-    definition.id = file.value(path);
+    definition.id = file.value(id_path);
     definition.kind =
       scalar_function_kind_from_name(file.value(path + "/kind"));
     definition.provenance = file.value(path + "/provenance");
@@ -296,6 +296,35 @@ namespace nmopt::application::runner
                                   "' zero kind cannot set value or expression");
     validate_scalar_function_definition(definition, path);
     return definition;
+  }
+
+  inline ScalarFunctionDefinition
+  parameter_scalar_function_definition(const ParameterFile &file,
+                                       const std::string_view key)
+  {
+    const auto path = std::string(key);
+    return parameter_scalar_function_definition_at(file, path, path);
+  }
+
+  inline ScalarFunctionDefinition
+  parameter_scalar_function_section_definition(
+    const ParameterFile &file,
+    const std::string_view section)
+  {
+    const auto path = "Functions/target definitions/" + std::string(section);
+    return parameter_scalar_function_definition_at(file, path, path + "/id");
+  }
+
+  inline chapter6::B2TargetParameters
+  b2_target_parameters(const ParameterFile &file)
+  {
+    chapter6::B2TargetParameters parameters;
+    parameters.constant =
+      parameter_scalar_function_section_definition(file, "constant");
+    parameters.parabolic =
+      parameter_scalar_function_section_definition(file, "parabolic");
+    chapter6::validate_b2_target_parameters(parameters);
+    return parameters;
   }
 
   namespace detail
@@ -520,8 +549,11 @@ namespace nmopt::application::runner
           declare(handler, {"Functions", "fixed-temperature"}, entry);
           declare(handler, {"Functions", "graetz"}, entry);
         }
-      for (const auto &entry : {"constant", "parabolic", "provenance"})
-        declare(handler, {"Functions", "target definitions"}, entry);
+      for (const auto &profile : {"constant", "parabolic"})
+        for (const auto &entry : {"id", "kind", "expression", "provenance", "value"})
+          declare(handler,
+                  {"Functions", "target definitions", profile},
+                  entry);
       for (const auto &forcing : {"zero", "constant-one", "constant-two"})
         for (const auto &entry : {"kind", "provenance", "value"})
           declare(handler,
@@ -685,9 +717,13 @@ namespace nmopt::application::runner
             values.emplace("Functions/" + std::string(section) + "/" + entry,
                            get(handler, {"Functions", section}, entry));
         }
-      for (const auto &entry : {"constant", "parabolic", "provenance"})
-        values.emplace("Functions/target definitions/" + std::string(entry),
-                       get(handler, {"Functions", "target definitions"}, entry));
+      for (const auto &profile : {"constant", "parabolic"})
+        for (const auto &entry : {"id", "kind", "expression", "provenance", "value"})
+          values.emplace("Functions/target definitions/" +
+                           std::string(profile) + "/" + entry,
+                         get(handler,
+                             {"Functions", "target definitions", profile},
+                             entry));
       for (const auto &forcing : {"zero", "constant-one", "constant-two"})
         for (const auto &entry : {"kind", "provenance", "value"})
           values.emplace("Functions/forcing definition " +

@@ -142,6 +142,36 @@ order `3` and analytic evaluation. Interpolation first realizes the target in
 the scalar state finite-element space; it does not change the stated
 $L^{2}$ observation functional or introduce an objective multiplier.
 
+The B2 `Functions/target definitions` subsection declares both target
+profiles independently of the selected observation/target matrix combination.
+Each nested `constant` or `parabolic` subsection is a scalar-function
+definition with `id`, `kind`, `provenance`, and either `value` or `expression`:
+
+```text
+subsection target definitions
+  subsection constant
+    set id = constant-2
+    set kind = constant
+    set value = 2.0
+    set provenance = chapter-6.e6.5.2.target
+  end
+  subsection parabolic
+    set id = parabolic-4*x1*(1-x1)
+    set kind = expression
+    set expression = 4.0*x1*(1.0-x1)
+    set provenance = chapter-6.e6.5.2.target
+  end
+end
+```
+
+The selected matrix profile chooses which definition is evaluated; the other
+definition is still parsed and retained for a complete run-set description.
+The source defaults are `constant-2` with value `2` and
+`parabolic-4*x1*(1-x1)` with expression `4.0*x1*(1.0-x1)`. Changing a value or
+expression is an explicit development hypothesis, not a change to the frozen
+B2 benchmark. The effective selected definition, kind, value, and expression
+are written to B2 artifact evidence.
+
 B1 reads `Functions/forcing` as a stable definition ID and accepts these
 declarative forms in the nested `forcing` subsection:
 

@@ -63,9 +63,18 @@ subsection Functions
   end
 
   subsection target definitions
-    set constant = constant-2
-    set parabolic = parabolic-4*x1*(1-x1)
-    set provenance = chapter-6.e6.5.2.target
+    subsection constant
+      set id = constant-2
+      set kind = constant
+      set value = 2.0
+      set provenance = chapter-6.e6.5.2.target
+    end
+    subsection parabolic
+      set id = parabolic-4*x1*(1-x1)
+      set kind = expression
+      set expression = 4.0*x1*(1.0-x1)
+      set provenance = chapter-6.e6.5.2.target
+    end
   end
 end
 

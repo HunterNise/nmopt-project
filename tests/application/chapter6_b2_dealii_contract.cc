@@ -29,6 +29,62 @@ namespace
       throw std::runtime_error(message);
   }
 
+  void
+  run_b2_target_parameterization()
+  {
+    const auto graetz_case =
+      chapter6::GraetzCase::observation_full_parabolic_target;
+    auto scenario = chapter6::make_b2_scenario(graetz_case);
+    scenario.compile.mesh.refinement = 1;
+    scenario.problem.target_parameters.constant = {
+      "constant-20",
+      ScalarFunctionKind::constant,
+      20.0,
+      "",
+      "test.target"};
+    scenario.problem.target_parameters.parabolic = {
+      "parabolic-6",
+      ScalarFunctionKind::expression,
+      0.0,
+      "6.0*x1*(1.0-x1)",
+      "test.target"};
+    scenario.problem.data.desired_state_provenance = "test.target";
+
+    chapter6::dealii::B2ManufacturedDataT<2> data{
+      graetz_case,
+      scenario.problem.fixed_temperature,
+      scenario.problem.forcing_selection,
+      scenario.problem.forcing_value,
+      scenario.problem.target_parameters};
+    const auto runtime =
+      chapter6::dealii::make_b2_manufactured_runtime_data(scenario, data);
+    ::dealii::Point<2> point;
+    point[1] = 0.25;
+    require(std::abs(runtime.desired_state.value(point) - 1.125) < 1.0e-15,
+            "B2 parabolic target expression was not applied");
+
+    chapter6::dealii::B2DesiredStateFunction<2> constant_target{
+      chapter6::GraetzCase::observation_full_constant_target,
+      scenario.problem.target_parameters};
+    require(std::abs(constant_target.value(point) - 20.0) < 1.0e-15,
+            "B2 constant target value was not applied");
+
+    chapter6::dealii::B2ManufacturedDataT<2> mismatched_data{
+      graetz_case, scenario.problem.fixed_temperature};
+    bool mismatch_rejected = false;
+    try
+      {
+        (void)chapter6::dealii::make_b2_manufactured_runtime_data(
+          scenario, mismatched_data);
+      }
+    catch (const std::invalid_argument &)
+      {
+        mismatch_rejected = true;
+      }
+    require(mismatch_rejected,
+            "B2 runtime data accepted mismatched target parameters");
+  }
+
   double
   artifact_number(const std::string &document, const std::string &key)
   {
@@ -254,6 +310,28 @@ namespace
                                  expected_target_profile + "\n") !=
               std::string::npos,
             "B2 deal.II adapter omitted target-profile evidence");
+    const auto expected_target_kind =
+      expected_target_profile == "constant" ? "constant" : "expression";
+    const auto expected_target_definition = expected_target_profile == "constant"
+                                              ? "constant-2"
+                                              : "parabolic-4*x1*(1-x1)";
+    const auto expected_target_value =
+      expected_target_profile == "constant" ? "2" : "0";
+    const auto expected_target_expression =
+      expected_target_profile == "constant" ? "" : "4.0*x1*(1.0-x1)";
+    require(result.document.find(
+              std::string("b2.target_definition=") +
+              expected_target_definition + "\n") != std::string::npos &&
+              result.document.find(std::string("b2.target_kind=") +
+                                   expected_target_kind + "\n") !=
+                std::string::npos &&
+              result.document.find(std::string("b2.target_value=") +
+                                   expected_target_value + "\n") !=
+                std::string::npos &&
+              result.document.find(std::string("b2.target_expression=") +
+                                   expected_target_expression + "\n") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted target-definition evidence");
     require(result.document.find("b2.residual_jvp_error=") !=
               std::string::npos &&
               result.document.find("b2.residual_vjp_error=") !=
@@ -1235,6 +1313,11 @@ main(const int argc, char **argv)
   try
     {
       const std::vector<nmopt::test_support::Scenario> scenarios{
+        {"b2_target_parameterization",
+         "nmopt.application.dealii.b2_target_parameterization",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         30,
+         run_b2_target_parameterization},
         {"b2_manufactured_wings_constant",
          "nmopt.application.dealii.b2_manufactured_wings_constant",
          {"dealii", "application", "benchmark", "b2", "contract"},

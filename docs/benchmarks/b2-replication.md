@@ -384,6 +384,13 @@ but its uncontrolled maximum is $14.0958$, nearly twice the plotted value.
 Run `006` remains the best Table 6.2/parabolic compromise, not a Figure 6.5
 reproduction.
 
+The runner now exposes the constant and parabolic target definitions as
+expression-backed scalar-function records. The source defaults remain $2$ and
+$4x_{2}(1-x_{2})$; the selected definition, kind, value, and expression are
+retained in B2 artifact evidence. This enables the conditional constant-target
+transcription hypothesis to be tested without changing the PDE, adding
+forcing, or introducing an objective multiplier.
+
 Runs `004`--`006` were generated before the self-contained parameter-file
 policy. Their snapshots retain top-level `include` directives, so their
 run-set postprocessing remains blocked even though their numerical and native
@@ -476,8 +483,11 @@ calibration of the B2 PDE rather than evidence for omitted forcing.
 
 The three four-case Debug run sets have completed and their traces
 confirm the screened diagnostic comparisons. The direct weak-form and
-outflow-boundary audit against equation (6.65) also passes, so the next
-evidence gate is source-data sensitivity: target amplitudes, objective
-conventions, or named full-BFGS initial-scaling policies. A fitted volume
+outflow-boundary audit against equation (6.65) also passes. Target definitions
+are now parameterized as scalar values or expressions without changing the
+frozen defaults, so the next evidence gate is the explicit constant-target
+transcription experiment, followed by objective conventions or named
+full-BFGS initial-scaling policies.
+A fitted volume
 forcing, independently scaled boundary term, or arbitrary objective multiplier
 remains excluded from source-replication evidence.

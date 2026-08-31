@@ -8,11 +8,14 @@
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
+#include <deal.II/base/function_parser.h>
+#include <deal.II/base/numbers.h>
 #include <deal.II/base/tensor_function.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <functional>
@@ -23,6 +26,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,6 +37,50 @@ namespace nmopt::application::chapter6::dealii
     nmopt::experiment::ReducedSearchExperimentEnvelopeT<Backend>;
   using Evidence =
     nmopt::application::benchmark::BenchmarkExecutionEvidenceT<Envelope>;
+
+  namespace detail
+  {
+    template <int dim>
+    std::string
+    b2_coordinate_variable_names()
+    {
+      static_assert(dim > 0, "B2 functions need a positive dimension");
+      std::ostringstream names;
+      for (unsigned int coordinate = 0;
+           coordinate < static_cast<unsigned int>(dim);
+           ++coordinate)
+        {
+          if (coordinate != 0)
+            names << ',';
+          names << 'x' << coordinate;
+        }
+      return names.str();
+    }
+
+    inline bool
+    b2_expression_contains_identifier(const std::string_view expression,
+                                      const std::string_view identifier)
+    {
+      const auto is_identifier_character = [](const char character) {
+        const auto value = static_cast<unsigned char>(character);
+        return std::isalnum(value) != 0 || character == '_';
+      };
+      for (auto position = expression.find(identifier);
+           position != std::string_view::npos;
+           position = expression.find(identifier, position + 1))
+        {
+          const bool starts_identifier =
+            position == 0 || !is_identifier_character(expression[position - 1]);
+          const auto end = position + identifier.size();
+          const bool ends_identifier =
+            end == expression.size() ||
+            !is_identifier_character(expression[end]);
+          if (starts_identifier && ends_identifier)
+            return true;
+        }
+      return false;
+    }
+  } // namespace detail
 
   template <int dim>
   class B2ForcingFunction final : public ::dealii::Function<dim>
@@ -62,29 +110,72 @@ namespace nmopt::application::chapter6::dealii
     static_assert(dim >= 2,
                   "The Chapter 6 B2 target requires at least two coordinates");
 
-    explicit B2DesiredStateFunction(const GraetzCase graetz_case)
+    B2DesiredStateFunction(const GraetzCase         graetz_case,
+                           const B2TargetParameters &target_parameters)
       : graetz_case_(graetz_case)
+      , target_parameters_(target_parameters)
+      , constant_(make_target_function(target_parameters_.constant))
+      , parabolic_(make_target_function(target_parameters_.parabolic))
     {}
 
     double
     value(const ::dealii::Point<dim> &point,
           const unsigned int          component = 0) const override
     {
-      (void)component;
+      const ::dealii::Function<dim> *target = nullptr;
       switch (graetz_case_)
         {
           case GraetzCase::observation_wings_constant_target:
           case GraetzCase::observation_full_constant_target:
-            return 2.0;
+            target = constant_.get();
+            break;
           case GraetzCase::observation_wings_parabolic_target:
           case GraetzCase::observation_full_parabolic_target:
-            return 4.0 * point[1] * (1.0 - point[1]);
+            target = parabolic_.get();
+            break;
         }
-      throw std::invalid_argument("B2 has an unknown Graetz target case");
+      if (target == nullptr)
+        throw std::invalid_argument("B2 has an unknown Graetz target case");
+      return target->value(point, component);
     }
 
   private:
-    GraetzCase graetz_case_;
+    static std::unique_ptr<::dealii::Function<dim>>
+    make_target_function(const ScalarFunctionDefinition &definition)
+    {
+      validate_scalar_function_definition(definition, "B2 target");
+      switch (definition.kind)
+        {
+          case ScalarFunctionKind::zero:
+            return std::make_unique<::dealii::Functions::ZeroFunction<dim>>();
+          case ScalarFunctionKind::constant:
+            return std::make_unique<
+              ::dealii::Functions::ConstantFunction<dim>>(definition.value);
+          case ScalarFunctionKind::expression:
+            {
+              if (detail::b2_expression_contains_identifier(
+                    definition.expression, "rand") ||
+                  detail::b2_expression_contains_identifier(
+                    definition.expression, "rand_seed"))
+                throw std::invalid_argument(
+                  "B2 target expressions cannot use random functions");
+              auto parser =
+                std::make_unique<::dealii::FunctionParser<dim>>();
+              parser->initialize(
+                detail::b2_coordinate_variable_names<dim>(),
+                definition.expression,
+                {{"e", ::dealii::numbers::E},
+                 {"pi", ::dealii::numbers::PI}});
+              return parser;
+            }
+        }
+      throw std::invalid_argument("unknown B2 target kind");
+    }
+
+    GraetzCase                               graetz_case_;
+    B2TargetParameters                        target_parameters_;
+    std::unique_ptr<::dealii::Function<dim>> constant_;
+    std::unique_ptr<::dealii::Function<dim>> parabolic_;
   };
 
   template <int dim>
@@ -134,9 +225,11 @@ namespace nmopt::application::chapter6::dealii
       const double fixed_temperature = 1.0,
       const B2ProblemParameters::ForcingSelection forcing_selection =
         B2ProblemParameters::ForcingSelection::zero,
-      const double forcing_value = 0.0)
+      const double forcing_value = 0.0,
+      B2TargetParameters target_parameters = {})
       : forcing_(forcing_selection, forcing_value)
-      , desired_state_(graetz_case)
+      , target_parameters_(std::move(target_parameters))
+      , desired_state_(graetz_case, target_parameters_)
       , fixed_temperature_(fixed_temperature)
       , fixed_temperature_value_(fixed_temperature)
       , graetz_case_(graetz_case)
@@ -177,8 +270,15 @@ namespace nmopt::application::chapter6::dealii
       return forcing_value_;
     }
 
+    const B2TargetParameters &
+    target_parameters() const
+    {
+      return target_parameters_;
+    }
+
   private:
     B2ForcingFunction<dim>                 forcing_;
+    B2TargetParameters                      target_parameters_;
     B2DesiredStateFunction<dim>             desired_state_;
     ::dealii::Functions::ConstantFunction<dim> fixed_temperature_;
     B2ConservativeTransportFunction<dim>    conservative_transport_;
@@ -210,6 +310,12 @@ namespace nmopt::application::chapter6::dealii
           1.0e-14)
       throw std::invalid_argument(
         "B2 manufactured forcing does not match the scenario");
+    const auto &scenario_targets = scenario.problem.target_parameters;
+    const auto &data_targets = data.target_parameters();
+    if (data_targets.constant != scenario_targets.constant ||
+        data_targets.parabolic != scenario_targets.parabolic)
+      throw std::invalid_argument(
+        "B2 manufactured target definitions do not match the scenario");
     return data.runtime_data();
   }
 
@@ -698,6 +804,9 @@ namespace nmopt::application::chapter6::dealii
       const std::string volume_observation_target =
         volume_observation_target_realisation_name(
           volume_observation.target_realisation);
+      const auto target_profile = b2_target_profile(scenario.problem.graetz_case);
+      const auto &target_definition = b2_target_definition(
+        scenario.problem.target_parameters, scenario.problem.graetz_case);
       const auto &manifest = compilation.problem->manifest();
       contract::require(
         manifest.observation_realisation.find(
@@ -876,7 +985,11 @@ namespace nmopt::application::chapter6::dealii
          volume_observation_target},
         {"b2.observation_region",
          b2_observation_region(scenario.problem.graetz_case)},
-        {"b2.target_profile", b2_target_profile(scenario.problem.graetz_case)},
+        {"b2.target_profile", target_profile},
+        {"b2.target_definition", target_definition.id},
+        {"b2.target_kind", scalar_function_kind_name(target_definition.kind)},
+        {"b2.target_value", b2_number(target_definition.value)},
+        {"b2.target_expression", target_definition.expression},
         {"b2.fixed_temperature", b2_number(scenario.problem.fixed_temperature)},
         {"b2.regularisation_weight",
          b2_number(scenario.problem.data.regularisation_weight)},

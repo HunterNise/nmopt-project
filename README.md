@@ -31,10 +31,50 @@ toolchain, installation options, version checks, and runtime requirements.
 
 ## Build and test
 
-The fastest local verification loop is the backend-neutral CMake preset:
+The preferred local build and test entry point is the root-level `build.sh`
+helper. It requires a C++ compiler, CMake, and Ninja. The deal.II package is
+needed only for the deal.II-enabled profiles.
 
-It requires a C++ compiler, CMake, and Ninja. The deal.II package is needed
-only for the deal.II-enabled presets.
+Create the machine-local configuration once before running a build pipeline:
+
+```bash
+./build.sh init-config
+```
+
+The default backend-neutral verification loop is:
+
+```bash
+./build.sh pipeline debug-neutral
+```
+
+The helper also supports the deal.II and sanitizer profiles, multiple profiles
+in one invocation, and the complete profile set:
+
+```bash
+./build.sh pipeline debug-dealii
+./build.sh pipeline debug-neutral sanitize-neutral
+./build.sh all
+```
+
+Use `configure`, `build`, or `test` when only one phase is needed. These are
+thin wrappers around the corresponding CMake or CTest preset commands:
+
+```bash
+./build.sh configure debug-neutral
+./build.sh build debug-neutral
+./build.sh test debug-neutral
+```
+
+The configuration file records machine-specific settings such as the
+deal.II package directory and the maximum number of build jobs for each
+profile. Run `./build.sh show-config` to inspect the active values. The
+pipeline additionally times builds and uses compact configure output plus
+progress-oriented test output. Pass phase-specific options such as `--target`
+to `build` or `--ctest-arg=--output-on-failure` to `test`; `--dry-run` and
+`--verbose` are useful with any action when more control is needed.
+
+The helper maps directly to the checked-in CMake presets. The equivalent
+manual neutral-profile commands are:
 
 ```bash
 cmake --preset debug-neutral
@@ -42,9 +82,15 @@ cmake --build --preset debug-neutral
 ctest --preset debug-neutral
 ```
 
+Manual commands remain useful for one-off CMake/CTest options or a workflow
+that does not fit the helper. Unlike `build.sh`, they do not read
+`build.local.conf` or apply its per-profile job limit automatically.
+
 The deal.II backend uses the separate `debug-dealii` preset and requires an
-official deal.II CMake package. Build profiles, dependency setup, generated
+official deal.II CMake package. The helper, dependency setup, generated
 output, focused tests, and environment-specific notes are documented in the
+[dependencies and environment reference](DEPENDENCIES.md), the [application
+execution reference](docs/reference/application-execution.md), and the
 [build instructions](.agents/build.md).
 
 ## Running applications

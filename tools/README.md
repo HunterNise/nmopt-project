@@ -21,8 +21,27 @@ implementation details of the public post-processing entry point.
 For commands, output paths, native-file names, supported formats, and agent
 verification, read the [application execution and artifact
 reference](../docs/reference/application-execution.md). The wrapper does not
-build the C++ runner; build and test it through the checked-in
-[CMake instructions](../.agents/build.md).
+build the C++ runner. Build and test it from the repository root with the
+preferred root-level helper:
+
+```bash
+./build.sh init-config
+./build.sh pipeline debug-dealii
+```
+
+When only the runner target is needed, use the atomic build action:
+
+```bash
+./build.sh build debug-dealii --target nmopt_runner
+```
+
+`build.sh` delegates to the checked-in CMake presets and applies the
+machine-local configuration from `build.local.conf`, including the maximum
+number of jobs for each profile. Direct CMake and CTest commands remain useful
+when a workflow needs lower-level control; see the [dependencies and
+environment reference](../DEPENDENCIES.md) for equivalent manual commands
+and the [agent build instructions](../.agents/build.md) for agent-specific
+verification requirements.
 
 ## Dependencies and output boundaries
 

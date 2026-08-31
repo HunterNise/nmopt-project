@@ -13,8 +13,39 @@ That roadmap owns runner configuration, generated run organization, native
 deal.II output, post-processing, and B0–B2 execution acceptance. This document
 records those topics only when they are implementation dependencies.
 
-The fast baseline before and after every task is the explicit backend-neutral
-Debug profile:
+The build commands in this document assume that they are run from the
+repository root.
+
+The fast baseline before and after every task is the backend-neutral Debug
+profile through the root-level build helper:
+
+~~~bash
+./build.sh pipeline debug-neutral
+~~~
+
+For compiler, lowerer, backend, or numerical changes, run the corresponding
+deal.II profile through the helper as well:
+
+~~~bash
+./build.sh pipeline debug-dealii
+~~~
+
+The helper reads the machine-local `build.local.conf`, applies the configured
+maximum independently for each profile, and reports the effective build job
+count. Do not change it. The [build instructions](../../.agents/build.md) 
+own the complete profile matrix and cache-recovery guidance.
+
+For a one-phase or lower-level workflow, the helper's atomic actions map to
+the checked-in presets as follows:
+
+~~~bash
+./build.sh configure debug-neutral
+./build.sh build debug-neutral
+./build.sh test debug-neutral
+~~~
+
+The equivalent manual commands remain valid when direct CMake/CTest control is
+needed:
 
 ~~~bash
 cmake --preset debug-neutral
@@ -22,9 +53,9 @@ cmake --build --preset debug-neutral
 ctest --preset debug-neutral
 ~~~
 
-Run `debug-dealii` with `--parallel 1` as well for compiler, lowerer, backend,
-or numerical changes. The [build instructions](../../.agents/build.md) own
-the complete profile matrix and cache-recovery guidance.
+Manual commands do not load `build.local.conf`; supply any desired
+`--parallel` limit explicitly. The helper's `pipeline` action adds build
+timing, compact configure output, and progress-oriented CTest output.
 
 ## Current handoff state
 

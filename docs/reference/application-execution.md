@@ -293,25 +293,53 @@ artifacts do not silently alter the plot.
 ## Agent verification loop
 
 After changing application, recipe, scenario, runner, or artifact code, use the
-smallest relevant loop. The full build policy is in the
+smallest relevant loop. The preferred entry point is the root-level
+`build.sh` helper. Its `pipeline` action configures, builds, and tests a
+profile, while the `configure`, `build`, and `test` actions expose those
+phases separately. The helper requires an existing `build.local.conf` for
+`build`, `pipeline`, and `all`; if it is missing, stop and ask the user to run
+`./build.sh init-config`.
+
+The helper applies the configured maximum number of jobs independently to each
+profile. Use `./build.sh show-config` when the effective machine settings need
+to be inspected. The full agent build policy is in the
 [build instructions](../../.agents/build.md).
 
 For backend-neutral changes:
 
 ```bash
-cmake --preset debug-neutral
-cmake --build --preset debug-neutral
-ctest --preset debug-neutral --output-on-failure
+./build.sh pipeline debug-neutral
 ```
 
 For deal.II application changes:
 
 ```bash
+./build.sh pipeline debug-dealii
+```
+
+When only the runner target needs rebuilding, use the atomic actions instead:
+
+```bash
+./build.sh configure debug-dealii
+./build.sh build debug-dealii --target nmopt_runner
+./build.sh test debug-dealii --ctest-arg=--output-on-failure
+build/debug-dealii/bin/nmopt_runner --list
+```
+
+The corresponding manual commands are useful when CMake or CTest needs direct
+control. They invoke the same checked-in presets, but do not load
+`build.local.conf` or apply its profile-specific job limits automatically:
+
+```bash
 cmake --preset debug-dealii
 cmake --build --preset debug-dealii --target nmopt_runner --parallel 1
 ctest --preset debug-dealii --output-on-failure
-build/debug-dealii/bin/nmopt_runner --list
 ```
+
+The helper's `pipeline` action additionally times the build, uses compact
+configure output, and adds `ctest --progress --no-label-summary`. The direct
+runner command remains necessary for inspecting or executing an already-built
+application.
 
 For source-sized reproduction, use an existing release runner and omit the
 refinement override so that the benchmark's declared mesh policy is used:

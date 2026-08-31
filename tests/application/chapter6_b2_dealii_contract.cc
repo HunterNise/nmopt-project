@@ -1,6 +1,12 @@
 #include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "../support/scenario_dispatch.hpp"
 
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/numerics/vector_tools.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -1028,6 +1034,144 @@ namespace
   }
 
   void
+  run_b2_ordinary_transport_residual_oracle()
+  {
+    const auto graetz_case =
+      chapter6::GraetzCase::observation_full_constant_target;
+    auto scenario = chapter6::make_b2_scenario(graetz_case);
+    scenario.compile.mesh.refinement = 1;
+
+    chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
+      graetz_case, scenario.problem.fixed_temperature};
+    const auto runtime =
+      chapter6::dealii::make_b2_manufactured_runtime_data(
+        scenario, manufactured_data);
+    const auto session =
+      chapter6::dealii::make_b2_compilation_session<2>(scenario);
+    const auto bindings =
+      chapter6::dealii::make_b2_data_bindings(scenario.problem, runtime);
+    nmopt::compiler::v1::DealiiCompiler compiler;
+    const auto compilation = compiler.compile(
+      chapter6::make_b2_problem_spec(scenario),
+      session,
+      bindings,
+      {},
+      std::nullopt,
+      std::nullopt,
+      nmopt::compiler::v1::CompilationProduct::reduced_dto);
+    require(compilation.succeeded() && compilation.problem,
+            "B2 ordinary residual oracle did not compile");
+
+    using Model = nmopt::compiler::v1::detail::
+      NeumannBoundaryControlModel<2>;
+    const auto *model = dynamic_cast<const Model *>(
+      &compilation.problem->executable_model());
+    require(model != nullptr,
+            "B2 ordinary residual oracle needs the Neumann model");
+
+    const auto state_size = model->variable_layout()->dimension(0);
+    const auto control_size = model->variable_layout()->dimension(1);
+    dealii::Vector<double> state_values(state_size);
+    state_values = 1.0;
+    dealii::Vector<double> control_values(control_size);
+    const nmopt::contract::PrimalBlockT<chapter6::dealii::Backend> point(
+      model->variable_layout(),
+      {std::move(state_values), std::move(control_values)});
+    const auto assembled_residual = model->residual(point).block(0);
+
+    dealii::DoFHandler<2> oracle_dof_handler(session->triangulation());
+    dealii::FE_Q<2>       oracle_fe(1);
+    oracle_dof_handler.distribute_dofs(oracle_fe);
+    require(oracle_dof_handler.n_dofs() == state_size,
+            "B2 ordinary residual oracle has a different state layout");
+
+    dealii::AffineConstraints<double> oracle_constraints;
+    dealii::Functions::ConstantFunction<2> fixed_temperature(1.0);
+    dealii::VectorTools::interpolate_boundary_values(
+      oracle_dof_handler,
+      chapter6::b2_fixed_boundary_id,
+      fixed_temperature,
+      oracle_constraints);
+    oracle_constraints.close();
+
+    constexpr double diffusion = 0.1;
+    constexpr unsigned int quadrature_order = 3;
+    const dealii::QGauss<2> volume_quadrature(quadrature_order);
+    const dealii::QGauss<1> face_quadrature(quadrature_order);
+    dealii::FEValues<2> volume_values(
+      oracle_fe,
+      volume_quadrature,
+      dealii::update_gradients | dealii::update_quadrature_points |
+        dealii::update_JxW_values);
+    dealii::FEFaceValues<2> face_values(
+      oracle_fe,
+      face_quadrature,
+      dealii::update_values | dealii::update_quadrature_points |
+        dealii::update_normal_vectors | dealii::update_JxW_values);
+    std::vector<dealii::types::global_dof_index> state_indices(
+      oracle_fe.dofs_per_cell);
+    dealii::Vector<double> oracle_residual(state_size);
+
+    for (auto cell = oracle_dof_handler.begin_active();
+         cell != oracle_dof_handler.end();
+         ++cell)
+      {
+        cell->get_dof_indices(state_indices);
+        volume_values.reinit(cell);
+        for (unsigned int q = 0; q < volume_quadrature.size(); ++q)
+          {
+            const auto &point = volume_values.quadrature_point(q);
+            const double velocity = 1.5 * point[1] * (1.0 - point[1]);
+            for (unsigned int i = 0; i < oracle_fe.dofs_per_cell; ++i)
+              {
+                const auto global_i = state_indices[i];
+                if (oracle_constraints.is_constrained(global_i))
+                  continue;
+                oracle_residual[global_i] +=
+                  -velocity * volume_values.shape_grad(i, q)[0] *
+                  volume_values.JxW(q);
+              }
+          }
+
+        for (unsigned int face = 0; face < cell->n_faces(); ++face)
+          {
+            if (!cell->face(face)->at_boundary() ||
+                (cell->face(face)->boundary_id() !=
+                   chapter6::b2_control_boundary_id &&
+                 cell->face(face)->boundary_id() !=
+                   chapter6::b2_outflow_boundary_id))
+              continue;
+            face_values.reinit(cell, face);
+            for (unsigned int q = 0; q < face_quadrature.size(); ++q)
+              {
+                const auto &point = face_values.quadrature_point(q);
+                const double velocity = 1.5 * point[1] * (1.0 - point[1]);
+                const double transport_boundary_coefficient =
+                  (1.0 - diffusion) *
+                  velocity * face_values.normal_vector(q)[0];
+                for (unsigned int i = 0; i < oracle_fe.dofs_per_cell; ++i)
+                  {
+                    const auto global_i = state_indices[i];
+                    if (oracle_constraints.is_constrained(global_i))
+                      continue;
+                    oracle_residual[global_i] +=
+                      transport_boundary_coefficient *
+                      face_values.shape_value(i, q) * face_values.JxW(q);
+                  }
+              }
+          }
+      }
+
+    double residual_error = 0.0;
+    for (unsigned int index = 0; index < state_size; ++index)
+      residual_error = std::max(
+        residual_error,
+        std::abs(assembled_residual[index] - oracle_residual[index]));
+    require(residual_error <= 2.0e-12,
+            "B2 ordinary residual differs from the independent quadrature oracle");
+  }
+
+  void
   run_b2_ordinary_transport_boundary_operator_contract()
   {
     const auto graetz_case =
@@ -1137,6 +1281,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b2", "contract"},
          120,
          []() { run_b2_ordinary_transport_boundary_operator_contract(); }},
+        {"b2_ordinary_transport_residual_oracle",
+         "nmopt.application.dealii.b2_ordinary_transport_residual_oracle",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         120,
+         []() { run_b2_ordinary_transport_residual_oracle(); }},
         {"b2_globalization_comparison",
          "nmopt.application.dealii.b2_globalization_comparison",
          {"dealii", "application", "benchmark", "b2", "contract", "solver"},

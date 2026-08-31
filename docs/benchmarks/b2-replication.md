@@ -253,6 +253,20 @@ evidence threshold because the objective and derivative were of order
 $10^{5}$ and $10^{6}$. This is a scale-robustness defect in the development
 evidence gate, not evidence of an incorrect derivative.
 
+The direct weak-form audit is now complete. The assembled ordinary realization
+uses the conservative volume form
+$\int_{\Omega}\mu\nabla y\mathbin\cdot\nabla v-yb\mathbin\cdot\nabla v$
+and adds $(1-\mu)(b\mathbin\cdot n)y$ on the control and outflow faces. Its
+control load is correspondingly scaled by $\mu$, as required when the source
+condition is $\partial_{n}y-(b\mathbin\cdot n)y=u$. On the B2 rectangle, a
+constant test/state check gives
+$(1-0.1)\int_{0}^{1}1.5x_{2}(1-x_{2})\,dx_{2}=0.225$ for the
+ordinary-minus-total residual difference. The Debug contract
+`nmopt.application.dealii.b2_ordinary_transport_boundary_operator` now locks
+this coefficient and the outlet integral; the existing realization comparison
+also passes. No forcing or production weak-form change is justified by this
+audit.
+
 ## Historical forcing and optimization magnitude campaign
 
 The second campaign comprised 17 complete Debug run sets and 92 artifacts at
@@ -461,10 +475,9 @@ orders, but the source audit now classifies that success as an invalid
 calibration of the B2 PDE rather than evidence for omitted forcing.
 
 The three four-case Debug run sets have completed and their traces
-confirm the screened diagnostic comparisons. The immediate evidence gate is a
-direct weak-form and outflow-boundary audit of the zero-forcing realization
-against equation (6.65). Only after that audit should we test target
-amplitudes, objective conventions, or named full-BFGS initial-scaling
-policies. A fitted volume forcing, independently scaled boundary term, or
-arbitrary objective multiplier remains excluded from source-replication
-evidence.
+confirm the screened diagnostic comparisons. The direct weak-form and
+outflow-boundary audit against equation (6.65) also passes, so the next
+evidence gate is source-data sensitivity: target amplitudes, objective
+conventions, or named full-BFGS initial-scaling policies. A fitted volume
+forcing, independently scaled boundary term, or arbitrary objective multiplier
+remains excluded from source-replication evidence.

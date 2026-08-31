@@ -1026,6 +1026,63 @@ namespace
     require(total_conormal_linf > 10.0 * ordinary_normal_linf,
             "B2 transport realizations did not separate the forward state scale");
   }
+
+  void
+  run_b2_ordinary_transport_boundary_operator_contract()
+  {
+    const auto graetz_case =
+      chapter6::GraetzCase::observation_full_constant_target;
+    const auto residual_sum_for =
+      [&](const nmopt::semantic::v1::TransportBoundaryForm boundary_form) {
+        auto scenario = chapter6::make_b2_scenario(graetz_case, boundary_form);
+        scenario.compile.mesh.refinement = 1;
+        chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
+          graetz_case, scenario.problem.fixed_temperature};
+        const auto runtime =
+          chapter6::dealii::make_b2_manufactured_runtime_data(
+            scenario, manufactured_data);
+        const auto session =
+          chapter6::dealii::make_b2_compilation_session<2>(scenario);
+        const auto bindings =
+          chapter6::dealii::make_b2_data_bindings(scenario.problem, runtime);
+        nmopt::compiler::v1::DealiiCompiler compiler;
+        const auto compilation = compiler.compile(
+          chapter6::make_b2_problem_spec(scenario),
+          session,
+          bindings,
+          {},
+          std::nullopt,
+          std::nullopt,
+          nmopt::compiler::v1::CompilationProduct::reduced_dto);
+        require(compilation.succeeded() && compilation.problem,
+                "B2 ordinary-boundary contract did not compile");
+
+        const auto &model = compilation.problem->executable_model();
+        dealii::Vector<double> state_values(
+          model.variable_layout()->dimension(0));
+        state_values = 1.0;
+        dealii::Vector<double> control_values(
+          model.variable_layout()->dimension(1));
+        const nmopt::contract::PrimalBlockT<chapter6::dealii::Backend> point(
+          model.variable_layout(),
+          {std::move(state_values), std::move(control_values)});
+        const auto residual = model.residual(point);
+        double sum = 0.0;
+        for (std::size_t index = 0; index < residual.block(0).size(); ++index)
+          sum += residual.block(0)[index];
+        return sum;
+      };
+
+    const double total_conormal_residual = residual_sum_for(
+      nmopt::semantic::v1::TransportBoundaryForm::total_conormal);
+    const double ordinary_residual = residual_sum_for(
+      nmopt::semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport);
+    const double expected_difference =
+      (1.0 - 0.1) * 1.5 * (0.5 - 1.0 / 3.0);
+    require(std::abs(ordinary_residual - total_conormal_residual -
+                     expected_difference) <= 2.0e-12,
+            "B2 ordinary transport boundary coefficient and outflow integral");
+  }
 } // namespace
 
 int
@@ -1075,6 +1132,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b2", "contract", "diagnostic"},
          120,
          []() { run_b2_transport_boundary_realisation_comparison(); }},
+        {"b2_ordinary_transport_boundary_operator",
+         "nmopt.application.dealii.b2_ordinary_transport_boundary_operator",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         120,
+         []() { run_b2_ordinary_transport_boundary_operator_contract(); }},
         {"b2_globalization_comparison",
          "nmopt.application.dealii.b2_globalization_comparison",
          {"dealii", "application", "benchmark", "b2", "contract", "solver"},

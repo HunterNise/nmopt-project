@@ -19,7 +19,7 @@ current interfaces and repository policies that agents need to consume.
 | Artifact schema | `nmopt-benchmark-v1`, rendered as deterministic escaped `key=value` lines. |
 | Run-set root | `<output>/chapter-6/<benchmark>/<run-slot>/`. |
 | Reproduction slot | `authoritative`, using the benchmark's declared mesh policy and `release-dealii`. |
-| Development slots | `development/001`, `development/002`, and so on; smaller explicitly named meshes are allowed. |
+| Development slots | `development/001`, `development/002`, and so on; versioned reruns may use an unused named slot such as `development/004-v2`. |
 | Run manifest | `run-manifest.json` at the run-set root, retained through success or failure. |
 | Per-artifact record | `artifact.kv` below the artifact directory. |
 | Derived output | `report/` and aggregate `postprocess/` below the run-set root; artifact-local derived files remain below that artifact. |
@@ -199,6 +199,11 @@ build/release-dealii/bin/nmopt_runner \
 The runner copies the parameter and plotting profile into the run directory,
 records their content hashes and resolved combinations in the run manifest,
 and retains the comparison-axis override for post-processing.
+
+Development parameter-file runs may pass `--run-slot SLOT` to use an explicit
+unused slot, for example `--run-slot 004-v2`. The slot is a single directory
+name and is rejected if it already exists; this makes a rerun visibly related
+to an earlier slot without modifying the earlier run set.
 
 A B1 family may declare a matched objective target. In that case the runner
 orders each regularisation's reference method before dependent methods,

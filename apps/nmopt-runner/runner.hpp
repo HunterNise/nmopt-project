@@ -86,6 +86,7 @@ namespace nmopt::application::runner
     std::filesystem::path output_directory = "runs";
     std::string            framework_revision;
     std::optional<std::filesystem::path> parameter_file;
+    std::optional<std::string> run_slot;
     std::vector<std::pair<std::string, std::string>> selection_filters;
     std::optional<unsigned int> refinement_override;
   };
@@ -198,6 +199,19 @@ namespace nmopt::application::runner
             options.output_directory_explicit = true;
             continue;
           }
+        if (argument == "--run-slot")
+          {
+            if (index + 1 >= argc)
+              throw std::invalid_argument(
+                "--run-slot needs a development slot name");
+            const std::string_view slot(argv[++index]);
+            if (slot.empty() || slot == "." || slot == ".." ||
+                slot.find_first_of("/\\") != std::string_view::npos)
+              throw std::invalid_argument(
+                "--run-slot needs a nonempty single development slot name");
+            options.run_slot = std::string(slot);
+            continue;
+          }
         if (argument == "--run-kind")
           {
             if (index + 1 >= argc)
@@ -260,6 +274,10 @@ namespace nmopt::application::runner
     if (options.parameter_file.has_value() && options.run_kind_explicit)
       throw std::invalid_argument(
         "the parameter file owns run kind; use a file-specific development family");
+    if (options.run_slot.has_value() && !options.parameter_file.has_value() &&
+        options.run_kind != RunKind::development)
+      throw std::invalid_argument(
+        "--run-slot is only valid for development runs");
     return options;
   }
 
@@ -330,10 +348,27 @@ namespace nmopt::application::runner
     const auto framework_revision = options.framework_revision;
     const auto benchmark_directory =
       options.output_directory / "chapter-6" / benchmark;
+    const auto development_directory = benchmark_directory / "development";
     const auto run_directory =
       options.run_kind == RunKind::reproduction
         ? benchmark_directory / "authoritative"
-        : next_development_directory(benchmark_directory);
+        : options.run_slot.has_value()
+            ? development_directory / *options.run_slot
+            : next_development_directory(benchmark_directory);
+
+    if (options.run_kind == RunKind::development && options.run_slot.has_value())
+      {
+        std::error_code error;
+        if (std::filesystem::exists(run_directory, error))
+          throw std::invalid_argument(
+            "the requested development run slot already exists: " +
+            run_directory.string());
+        if (error)
+          throw std::filesystem::filesystem_error(
+            "could not inspect requested development run slot",
+            run_directory,
+            error);
+      }
 
     return ResolvedRunConfiguration(options.output_directory,
                                     run_directory,

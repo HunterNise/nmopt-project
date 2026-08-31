@@ -134,6 +134,38 @@ namespace
       "development runs should use the organized run-set layout");
     std::filesystem::remove_all(temporary_root);
 
+    auto versioned = parse({"nmopt_runner",
+                            "--benchmark",
+                            "b2",
+                            "--framework-revision",
+                            "source-revision",
+                            "--run-kind",
+                            "development",
+                            "--run-slot",
+                            "004-v2"});
+    require(versioned.run_slot.has_value() && *versioned.run_slot == "004-v2",
+            "a named development slot was not parsed");
+    versioned.output_directory = temporary_root;
+    const auto versioned_configuration =
+      nmopt::application::runner::resolve_run_configuration(
+        versioned, "debug-dealii");
+    require(
+      versioned_configuration.run_directory ==
+        temporary_root / "chapter-6" / "b2" / "development" / "004-v2",
+      "named development runs should use the requested versioned slot");
+
+    require_invalid_argument(
+      [] {
+        parse({"nmopt_runner",
+               "--benchmark",
+               "b2",
+               "--framework-revision",
+               "source-revision",
+               "--run-slot",
+               "004/invalid"});
+      },
+      "development slots should reject path separators");
+
     const auto revision_options = parse({"nmopt_runner",
                                          "--benchmark",
                                          "b1",

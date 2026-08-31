@@ -116,6 +116,9 @@ y&=1 && \text{on }\Gamma_{D}, \\
   $b(x)=(1.5x_{2}(1-x_{2}),0)$. The state space is
   $H^{1}_{\Gamma_{D}}(\Omega)$ and the control space is
   $L^{2}(\Gamma_{c})$.
+- **Volume forcing:** equation (6.65) explicitly has zero volume forcing.
+  The book's phrase “forced steady heat convection” describes the prescribed
+  flow, not a nonzero source term $f$.
 - **Scenarios:**
   $\Omega_{0}^{1}=\{x:x_{1}>1,\ x_{2}<0.3\ \text{or}\ x_{2}>0.7\}$ and
   $\Omega_{0}^{2}=\{x:x_{1}>1\}$; target choices are $z_{d}^{1}=2$ and
@@ -141,21 +144,41 @@ Source references:
 - [page 189, equations (6.65), Figure 6.4 and Table 6.2](assets/chapter-6/source-page-189.png);
 - [page 190, Figure 6.5](assets/chapter-6/source-page-190.png).
 
+The book cites the following related Graetz references in this discussion:
+
+- **[187]** uses a different parametrised Graetz problem. Its equation (37),
+  on printed pages 138–139, also has zero volume right-hand side; its
+  parameters instead change geometry, Péclet number, advection direction, and
+  inlet Dirichlet data. See the [page 138 excerpt](assets/chapter-6/reference-187-page-138.png)
+  and [page 139 formulation](assets/chapter-6/reference-187-page-139.png).
+- **[205]** contains two distinct Graetz examples. Test 2, on printed page
+  A2334, is a distributed-control problem where the control is a heat source
+  in the volume; it is not the book's E6.5.2 boundary-control problem. See the
+  [Test 2 excerpt](assets/chapter-6/reference-205-page-A2334.png). Test 3, on
+  printed page A2336, is the closer boundary-control example and also has zero
+  volume right-hand side, but uses a different parametrisation and boundary
+  scaling. See the [Test 3 formulation](assets/chapter-6/reference-205-page-A2336.png).
+
 **Source completeness.** The book does not provide the mesh connectivity,
 boundary-node subdivision, or the exact basis and quadrature used for the
-$N_{u}=243$ control degrees of freedom. It also does not fully disambiguate
-whether the boundary notation $\partial_{n}y-(b\mathbin\cdot n)y$ uses an
-ordinary or diffusion-weighted normal derivative. Exact numerical parity
-therefore requires the source mesh and implementation. The ordinary-normal
-versus diffusion-weighted-conormal choice is unresolved in this source record
-and cannot be resolved from the published notation alone.
+$N_{u}=243$ control degrees of freedom. It also does not provide the source
+linear-solver tolerances or the precise target and
+boundary quadrature policies. However, equation (6.65) does resolve the
+boundary convention: $\partial_{n}y-(b\mathbin\cdot n)y$ is the ordinary
+normal derivative minus the transport trace, with no diffusion factor on
+$\partial_{n}y$. The diffusion-weighted total conormal is therefore a
+framework diagnostic, not a source-realisation candidate.
+
+At zero control, $b\mathbin\cdot n=0$ on the horizontal control walls, but
+$b\mathbin\cdot n>0$ on the outlet. Consequently $y\equiv1$ does not satisfy
+the outlet condition, so a nontrivial uncontrolled state is compatible with
+the zero volume right-hand side. This explains why a nonconstant Figure 6.5
+state does not justify introducing a fitted volume forcing.
 
 The source does not state the value of the constant BFGS step mentioned in the
-discussion, the stopping tolerance that produced the reported iteration
-counts, the linear-solver tolerances, or the precise target and boundary
-quadrature policies. Figure 6.5 contains rendered state fields but no source
-field data or plotting configuration. These details remain unresolved in the
-source record.
+discussion or the stopping tolerance that produced the reported iteration
+counts. Figure 6.5 contains rendered state fields but no source field data or
+plotting configuration. These details remain unresolved in the source record.
 
 ### E6.5.3 — Reduced-space Stokes control
 

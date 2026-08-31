@@ -36,15 +36,16 @@ The current assessment is:
 - boundary-aligned structured triangles and centroid-split triangles change
   this maximum and the initial objectives negligibly, so the missing magnitude
   is not explained by the tested cell shape or connectivity;
-- the diffusion-weighted conormal interpretation at the stated $\mu=0.1$
-  makes the zero-control solution orders of magnitude too large, while tuning
-  that interpretation to $\mu=0.4125$ reproduces the plotted maximum but not
-  the corresponding Table 6.2 objective;
-- a positive constant volume forcing can recover the missing field and
-  objective orders of magnitude, but contradicts the stated zero right-hand
-  side: $f=0.47009$ fits the Figure 6.5 uncontrolled maximum, $f=1$ puts every
-  Table 6.2 row in the correct decimal order, and $f\approx0.65$ best fits the
-  plotted magnitude and the two parabolic rows together;
+- the attached source references [187] and [205] confirm that the B2 volume
+  right-hand side is zero and that “forced convection” refers to the prescribed
+  velocity field, not a volume source;
+- the book's equation (6.65) explicitly selects the ordinary-normal-minus-
+  transport boundary condition. The diffusion-weighted total-conormal
+  interpretation is therefore not a source ambiguity, even though it remains
+  useful as a historical diagnostic screen;
+- positive constant-forcing screens can recover some plotted magnitudes and
+  objective orders, but they contradict the source and must not be treated as
+  B2 replication candidates;
 - the source counts constrain aggregate boundary subdivision under standard
   $P_1$ assumptions, but do not determine interior mesh connectivity;
 - the current uniform facewise metric makes the relative metric-gradient and
@@ -75,16 +76,27 @@ The source does not provide:
 - mesh coordinates or connectivity;
 - the boundary-node subdivision or the endpoint convention behind the 243
   control coordinates;
-- an unambiguous ordinary-normal versus diffusion-weighted conormal
-  interpretation;
 - the norm used for the reported discrete gradient;
 - the constant BFGS step value, stopping rule, or full update safeguards;
 - volume, boundary, and target quadrature rules;
 - linear-solver choices and tolerances; or
 - numerical arrays and plotting settings behind Figure 6.5.
 
-These omissions prevent coefficient-wise parity and make several apparently
-simple numerical comparisons convention-dependent.
+The book does explicitly provide the volume right-hand side and boundary
+operator. Equation (6.65) uses zero volume forcing and
+$\partial_{n} y-(b\mathbin\cdot n)y$ on both controlled and outflow boundaries;
+the ordinary normal derivative is not diffusion-weighted. References [187]
+and [205] support this classification: [187], equation (37), also has zero
+volume right-hand side, while [205] separates a distributed heat-source test
+(Test 2) from a zero-volume-source boundary-control test (Test 3). These
+omissions still prevent coefficient-wise parity, but they do not justify
+fitting a nonzero B2 forcing or selecting total conormal as the source form.
+
+At zero control, $b\mathbin\cdot n=0$ on the horizontal control walls, while
+$b\mathbin\cdot n>0$ on the outlet. Thus $y\equiv1$ does not satisfy the
+outflow condition, and a nontrivial uncontrolled state is compatible with a
+zero volume right-hand side. The Figure 6.5 maximum therefore cannot be used
+by itself to infer an omitted forcing term.
 
 ## Constraints from the published counts
 
@@ -202,8 +214,8 @@ factors and without representing the stated $L^{2}$ tracking functional.
 Neither the defensible target interpolation nor quadrature variants explain
 Table 6.2.
 
-The second screen varied diffusion for the full/constant case on the native
-refinement-4 mesh:
+The second screen historically varied diffusion and the boundary form for the
+full/constant case on the native refinement-4 mesh:
 
 | Boundary interpretation | Diffusion $\mu$ | Uncontrolled maximum | Initial objective |
 | --- | ---: | ---: | ---: |
@@ -223,7 +235,15 @@ full/constant Table 6.2 value $192.8385$ by a factor of about $31.81$. It also
 contradicts the stated $\mu=0.1$. This tuned match shows only that one scalar
 can fit one plotted output; it does not define a coherent replication.
 
-At the stated $\mu=0.1$, the total-conormal candidate is materially
+The attached book source removes the earlier ambiguity behind this screen:
+equation (6.65) uses the ordinary-normal-minus-transport form explicitly.
+Accordingly, the total-conormal rows above are historical diagnostics and are
+rejected as B2 source interpretations. The current ordinary realization in
+the compiler is the source-aligned boundary choice; the remaining difference
+between its zero-control maximum and Figure 6.5 is an unresolved source or
+implementation discrepancy, not a reason to add volume forcing.
+
+At the stated $\mu=0.1$, the total-conormal diagnostic is materially
 incompatible in the opposite direction: a small comparison case produced an
 uncontrolled maximum about $1393.5$ and an initial objective about $259295$.
 The refinement-4 wings/constant derivative check had relative central
@@ -233,14 +253,17 @@ evidence threshold because the objective and derivative were of order
 $10^{5}$ and $10^{6}$. This is a scale-robustness defect in the development
 evidence gate, not evidence of an incorrect derivative.
 
-## Forcing and optimization magnitude campaign
+## Historical forcing and optimization magnitude campaign
 
 The second campaign comprised 17 complete Debug run sets and 92 artifacts at
 revision `21982c6`. It used the boundary-aligned $160\times40$ structured
 simplex mesh, continuous $P_1$ trace control, order-three analytic observation
 quadrature, and the ordinary-normal boundary form unless stated otherwise.
 All manifests completed successfully. Debug timings are not benchmark
-evidence.
+evidence. Following the source audit, this campaign is retained only as
+historical negative evidence: [187], [205], and the book all distinguish
+volume forcing from the boundary-controlled B2 formulation, whose volume
+right-hand side is zero.
 
 Increasing ordinary-normal diffusion cannot reproduce Figure 6.5: the
 uncontrolled maximum approaches a value near $5.07$ by $\mu=100$, still below
@@ -255,8 +278,9 @@ effect. Its zero-control response was:
 
 Interpolation of this response gives $f=0.47009$, for which the uncontrolled
 maximum is $7.21957$. This is an exact Figure 6.5 range fit but not a coherent
-source interpretation: it contradicts the stated zero forcing, and its four
-initial objectives are only $7.66096$, $12.5635$, $16.4355$, and $24.9966$.
+source interpretation: it contradicts the explicit zero forcing in equation
+(6.65) and the related formulations in [187] and [205]. Its four initial
+objectives are only $7.66096$, $12.5635$, $16.4355$, and $24.9966$.
 Optimizing this candidate with the source-stated $\beta=10^{-3}$ and Armijo
 globalization drives all four objectives below $0.062$ and reduces them by
 more than $99.5\%$, again incompatible with Table 6.2.
@@ -309,7 +333,8 @@ swapped constant-case labels. Every part of that reconstruction contradicts
 the printed source, so it is a candidate for further testing rather than a
 replacement benchmark contract.
 
-Three tracked development families retain the strongest distinct hypotheses:
+Three tracked development families retain the strongest distinct historical
+diagnostics, not source-replication hypotheses:
 
 - `figure-6.5-state-fit.prm` uses $f=0.47009$ to reproduce the uncontrolled
   plotted maximum;
@@ -321,10 +346,10 @@ Three tracked development families retain the strongest distinct hypotheses:
 All three use continuous trace control, the source-oriented structured simplex
 mesh, $\beta=10^{-2}$, fixed step $0.05$, and retained fields. Their manifests
 identify them as Debug development runs and explicitly preserve the source
-contradictions.
+contradictions. They must not be promoted to B2 reproduction evidence.
 
-The promoted executions are canonical development runs `004`, `005`, and
-`006`, respectively. Each manifest is complete with four successful
+The retained executions are canonical historical development runs `004`,
+`005`, and `006`, respectively. Each manifest is complete with four successful
 artifacts, no failures or pending artifacts, the expected parameter hash, and
 framework revision `21982c6`. Every artifact retains its volume and boundary
 fields. The source-iteration values above were reproduced exactly by these
@@ -363,6 +388,12 @@ fresh diagnostic evidence and do not replace the historical `004`--`006`
 snapshots.
 
 ## Published consistency questions
+
+The source audit used the book's references [187] and [205]. Reference [187]
+also writes the Graetz state equation with zero volume right-hand side. In
+reference [205], Test 2 is a different distributed heat-source-control
+problem, while Test 3 is a boundary-control problem with zero volume source.
+Neither reference supports introducing a fitted volume forcing into B2.
 
 The wings observation region is a subset of the full downstream region. At
 the common zero control and for the same target, a positively weighted
@@ -406,9 +437,9 @@ can make that comparison without a further artifact-schema change.
 
 | Priority | Candidate | Motivation and decisive evidence | Required change |
 | ---: | --- | --- | --- |
-| 1 | Diffusion-weighted conormal alternative | **Screened and rejected at the stated $\mu=0.1$.** Tuning $\mu$ can fit Figure 6.5 but fails Table 6.2 and changes stated source data. | No further framework change for the two coherent boundary interpretations. An independently scaled boundary-transport coefficient would be a new hypothesis. |
+| 1 | Diffusion-weighted conormal alternative | **Rejected as a source interpretation.** Equation (6.65) explicitly uses the ordinary-normal-minus-transport form; the total-conormal screen is retained only as historical diagnostic evidence. | No further framework change for B2. Any independently scaled boundary-transport coefficient would be a new, explicitly non-source hypothesis. |
 | 2 | Source-oriented triangular $P_{1}$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
-| 3 | Continuous $P_{1}$ boundary control | **Screened and retained in promoted candidates.** The source states linear finite elements and $N_{u}=243$; the $160\times40$ realization has 242 trace controls and distinguishes the metric from coefficient geometry. It does not by itself repair the field scale. | No further change for the current candidate; exact odd source counts would require an asymmetric or imported mesh. |
+| 3 | Continuous $P_{1}$ boundary control | **Screened and retained in historical diagnostics.** The source states linear finite elements and $N_{u}=243$; the $160\times40$ realization has 242 trace controls and distinguishes the metric from coefficient geometry. It does not by itself repair the field scale. | No further change for the current diagnostic; exact odd source counts would require an asymmetric or imported mesh. |
 | 4 | Boundary-aligned observation geometry | **Screened.** The aligned meshes recover exact measure $1.8$ but do not materially reduce the objective discrepancy. | No further change for structured meshes. |
 | 5 | Constant-step and stopping candidates | **Screened.** Step $0.05$ with evaluation at the source counts gives the strongest common reductions; it does not repair the full/parabolic terminal gradient. | No further change for fixed-step runs. Initial full-BFGS inverse-Hessian policies remain a possible framework extension. |
 | 6 | Metric versus coefficient gradient norm | **Screened with continuous control.** The two relative histories differ, but neither consistently resolves all four published ratios. | No further evidence-schema change; nonuniform or exact source topology remains optional. |
@@ -425,15 +456,15 @@ rather than an inferred source choice.
 
 The low-cost state, objective, and optimization screens are complete. No
 literal realization of the printed data gives one coherent account of both
-Figure 6.5 and Table 6.2. The positive-forcing family is the first candidate
-to recover the relevant decimal orders, but its success exposes likely
-source-data contradictions rather than resolving them.
+Figure 6.5 and Table 6.2. The positive-forcing family recovered some decimal
+orders, but the source audit now classifies that success as an invalid
+calibration of the B2 PDE rather than evidence for omitted forcing.
 
-The three promoted four-case Debug run sets have completed and their traces
-confirm the screened Table 6.2 comparisons. The immediate evidence gate is to
-repair the resolved-parameter/postprocessing contract and render their
-retained fields for direct Figure 6.5 comparison. After that, the next
-justified numerical candidates are typed target amplitudes and named full-BFGS
-initial-scaling policies. An independently scaled boundary term or a different
-discrete objective remains lower priority; an arbitrary objective multiplier
-remains excluded.
+The three four-case Debug run sets have completed and their traces
+confirm the screened diagnostic comparisons. The immediate evidence gate is a
+direct weak-form and outflow-boundary audit of the zero-forcing realization
+against equation (6.65). Only after that audit should we test target
+amplitudes, objective conventions, or named full-BFGS initial-scaling
+policies. A fitted volume forcing, independently scaled boundary term, or
+arbitrary objective multiplier remains excluded from source-replication
+evidence.

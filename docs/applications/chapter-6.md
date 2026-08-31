@@ -214,15 +214,17 @@ and `state-fe-interpolation`, which interpolates the desired-state function
 into the scalar state finite-element space before observation assembly. B1
 rejects this B2-only option rather than silently ignoring it.
 
-For B2, the default and frozen source boundary form is the ordinary-normal
-condition $\partial_n y-(b\mathbin\cdot n)y=u$ on the control boundary and zero
-on the outflow. `make_b2_scenario(...)` also accepts
+For B2, equation (6.65) fixes the source boundary form as the ordinary-normal
+condition
+$\partial_{n} y-(b\mathbin\cdot n)y=u$ on the control boundary and zero on the
+outflow. `make_b2_scenario(...)` also accepts
 `TransportBoundaryForm::total_conormal` as an explicit diagnostic choice. That
 choice realizes the outward diffusion-minus-transport conormal
-$\mu\partial_n y-(b\mathbin\cdot n)y$ on the same boundary partition; it does
-not change the frozen benchmark default. The compiler derives its deal.II
-realization from the typed boundary selection and records the selected form in
-the manifest. The [source definition](../guides/chapter-6-numerical-examples.md)
+$\mu\partial_{n} y-(b\mathbin\cdot n)y$ on the same boundary partition; it does
+not change the frozen benchmark and must not be used as source-replication
+evidence. The compiler derives its deal.II realization from the typed boundary
+selection and records the selected form in the manifest. The [source
+definition](../guides/chapter-6-numerical-examples.md)
 and [frozen benchmark policy](../benchmarks/chapter-6.md) are maintained in
 their respective documents.
 

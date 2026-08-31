@@ -233,17 +233,17 @@ The boundary IDs realize the source geometry as follows:
 | `control_boundary` (`1`) | Downstream top/bottom walls, $1\leq x_{1}\leq 4$ | Facewise control $u$ |
 | `outflow_boundary` (`2`) | Right edge, $x_{1}=4$ | Zero natural transport outflow |
 
-The frozen boundary interpretation is the ordinary-normal condition
+The book explicitly fixes the frozen boundary interpretation as the
+ordinary-normal condition
 
 $$
-\partial_n y-(b\mathbin\cdot n)y=u
+\partial_{n} y-(b\mathbin\cdot n)y=u
 $$
 
-on the control boundary, with zero outflow condition. The source record does
-not resolve ordinary versus diffusion-weighted normal derivatives, so this is
-an explicit framework choice rather than a claim of source parity. The
-compiler may retain the total conservative-transport conormal as a diagnostic
-alternative, but it is not the frozen benchmark interpretation.
+on the control boundary, with zero outflow condition. There is no diffusion
+factor multiplying $\partial_{n} y$ in equation (6.65). The compiler may retain
+the total conservative-transport conormal as a diagnostic alternative, but it
+is not a source-parity interpretation and is not part of the frozen benchmark.
 
 ### Solver policy
 
@@ -253,14 +253,14 @@ trials, gradient tolerance `1e-8`, and no declared minimum step. The source
 step policy is unspecified; fixed-step experiments are diagnostic candidates,
 and every artifact must retain the declared and effective globalization.
 
-Three promoted development families preserve the strongest reconstruction
-hypotheses without changing this freeze. `figure-6.5-state-fit.prm` fits only
-the uncontrolled plotted state magnitude; `table-6.2-order-fit.prm` places all
+Three promoted development families preserve historical diagnostic screens
+without changing this freeze. `figure-6.5-state-fit.prm` fits only the
+uncontrolled plotted state magnitude; `table-6.2-order-fit.prm` places all
 four objective histories in the published decimal order; and
 `figure-6.5-table-6.2-parabolic-fit.prm` is the best simultaneous compromise
 for Figure 6.5 and the parabolic rows of Table 6.2. All three deliberately
 record their contradiction with the stated zero forcing and
-$\beta=10^{-3}$.
+$\beta=10^{-3}$ and must not be treated as B2 reproduction evidence.
 
 ### Acceptance evidence
 

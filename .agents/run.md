@@ -77,7 +77,26 @@ regenerate reports or plots.
 
 - Use `debug-dealii` for smoke runs and ordinary development checks.
 - Use `release-dealii` for source-scale evidence and any reported timing.
-- Never build a deal.II profile with more than one job. Use `--parallel 1`.
+- Prefer the root-level helper for a runner rebuild:
+  `./build.sh build debug-dealii --target nmopt_runner`. Use
+  `./build.sh pipeline debug-dealii` when the full configure/build/test loop
+  is required.
+- The helper requires an existing `build.local.conf`; if it is missing, ask
+  the user to run `./build.sh init-config` rather than creating it during the
+  run task.
+- If a manual build command is necessary, always use exactly one job for a
+  deal.II profile. The same rule applies to `release-dealii` and to any
+  manually selected target:
+
+  ```bash
+  cmake --build --preset debug-dealii \
+    --target nmopt_runner \
+    --parallel 1
+  ```
+
+  Do not copy a manual deal.II build command without checking that
+  `--parallel 1` is present. This rule applies to manual commands; helper
+  invocations use the configured per-profile maximum.
 - Do not configure or rebuild `release-dealii` without the authorization
   required by [Build and test](build.md).
 

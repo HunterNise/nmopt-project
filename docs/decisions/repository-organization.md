@@ -16,6 +16,9 @@ The current top-level organization is:
 ```text
 AGENTS.md                         # repository-wide agent instructions
 .agents/                         # mandatory action-specific agent instructions
+build.sh                          # preferred local build/test orchestration
+build.local.conf.example         # tracked machine-configuration template
+build.local.conf                  # ignored machine-local build configuration
 docs/
   design/                         # long-lived architecture and mathematics
   reference/                      # exact public API and execution references
@@ -84,6 +87,14 @@ requirements without silently rewriting the source catalogue. The
 implementation and application roadmaps remain the mutable status ledgers for
 their respective layers.
 
+The root-level `build.sh` owns the convenient configure/build/test workflow and
+delegates the actual profile definitions to `CMakePresets.json`. The tracked
+`build.local.conf.example` documents the available machine-specific settings;
+`build.local.conf` is the ignored, user-edited instance created by
+`./build.sh init-config`. Build orchestration intentionally remains at the
+repository root rather than becoming part of `tools/`, whose role is
+application execution, post-processing, and reporting.
+
 ## Source, tooling, and generated-state boundaries
 
 The non-documentation directories have these stable roles:
@@ -115,7 +126,8 @@ runs/chapter-6/<benchmark>/<run-slot>/
 ```
 
 The [build instructions](../../.agents/build.md) own profile selection,
-cache recovery, generated-file rules, and build commands. The [application
+cache recovery, generated-file rules, manual-command safety rules, and build
+commands. The [application
 execution reference](../reference/application-execution.md) owns artifact
 schemas, run paths, native output, reports, and post-processing commands. This
 decision records the directory ownership without duplicating those procedures.

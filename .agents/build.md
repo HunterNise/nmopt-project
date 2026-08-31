@@ -9,24 +9,60 @@ nothing was edited, skip build and test by default.
 
 ## Baseline profiles
 
-Use the checked-in CMake presets. They select Ninja, an explicit build type,
-testing, dependency intent, warning policy, and a distinct ignored directory.
-The fast baseline before and after every task is:
+Use the root-level `build.sh` helper as the preferred build and test entry
+point. It delegates to the checked-in CMake presets, applies the machine-local
+configuration, and keeps the atomic `configure`, `build`, and `test` actions
+available when a phase must be run separately. The fast baseline before and
+after every task is:
 
 ```bash
-cmake --preset debug-neutral
-cmake --build --preset debug-neutral
-ctest --preset debug-neutral
+./build.sh pipeline debug-neutral
 ```
 
 Changes that touch deal.II code, compiler/lowering, numerical behavior, or
 backend test registration must also run:
 
 ```bash
+./build.sh pipeline debug-dealii
+```
+
+The helper requires an existing `build.local.conf` for `build`, `pipeline`,
+and `all`. If it is missing, stop and ask the user to run
+`./build.sh init-config`; do not create the configuration implicitly during
+an agent task. The configuration is authoritative for the maximum number of
+jobs and defines that maximum independently for each profile. A helper
+invocation may request fewer jobs with `--jobs`, but it must not assume or
+replace the configured limit with a hardcoded value.
+
+### Manual command fallback
+
+Use direct CMake/CTest commands only when the helper cannot express the
+required workflow or when lower-level control is necessary. Manual commands
+do not read `build.local.conf`. Every manual deal.II build must use exactly one
+build job:
+
+```bash
 cmake --preset debug-dealii
 cmake --build --preset debug-dealii --parallel 1
 ctest --preset debug-dealii
 ```
+
+This `--parallel 1` rule applies to both `debug-dealii` and
+`release-dealii`, including target-scoped builds such as:
+
+```bash
+cmake --build --preset debug-dealii \
+  --target nmopt_runner \
+  --parallel 1
+```
+
+Do not copy a manual deal.II build command from another document without
+checking that `--parallel 1` is present. This manual-command rule is separate
+from the helper's configuration-based ceiling: when using `build.sh`, follow
+the selected profile's `build.local.conf` value and do not replace it with a
+hardcoded job count. Neutral manual builds may use an explicit
+machine-appropriate `--parallel` value; the helper remains preferred because
+it enforces the configured per-profile ceiling.
 
 The persistent profiles are:
 
@@ -54,7 +90,7 @@ Report generation and refinement-1 development runs do not require the
 optimized profile. Reuse or build the Debug deal.II runner for those tasks:
 
 ```bash
-cmake --build --preset debug-dealii --target nmopt_runner
+./build.sh build debug-dealii --target nmopt_runner
 ```
 
 The `release-dealii` build is optimized and can take substantially longer on
@@ -65,10 +101,10 @@ that build. Implementation, documentation, inspection, report generation,
 and development-run requests do not by themselves grant permission. Do not
 rebuild it merely to regenerate reports or inspect existing debug artifacts.
 
-Deal.II-enabled builds must always use one build job (`--parallel 1`). The
+Manual deal.II builds must always use one build job (`--parallel 1`). The
 deal.II translation units are memory-intensive, and allowing Ninja to compile
 multiple large units concurrently can exhaust a constrained development
-environment. This restriction applies to `debug-dealii` and
+environment. This manual-command restriction applies to `debug-dealii` and
 `release-dealii`; backend-neutral profiles may use their normal parallelism.
 
 Warnings are errors in the Debug and sanitizer profiles. Strict conversion and
@@ -117,6 +153,9 @@ cmake --preset debug-neutral \
 cmake --build build/debug-neutral-make
 ctest --test-dir build/debug-neutral-make --output-on-failure
 ```
+
+If this fallback is adapted to a deal.II profile, its manual build command
+must still include `--parallel 1`.
 
 Substitute another configure preset and a matching `-make` directory when that
 profile is required. Its checked-in build and test presets still refer to the

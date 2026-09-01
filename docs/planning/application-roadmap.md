@@ -372,8 +372,8 @@ command.
 **Work completed:**
 
 - One ordered schema registry drives `ParameterHandler` declaration and
-  extraction, with benchmark-specific adapters for current axes and legacy B2
-  entries.
+  extraction, with benchmark-specific adapters that discover native scalar
+  definition IDs from selectors and matrix axes.
 - Typed binders resolve product, execution, reduced-method, and extension
   capability IDs, then reject known-but-unsupported combinations before output
   creation.
@@ -388,9 +388,8 @@ command.
 **Still bounded:**
 
 - Only B1 and B2 currently have parameter schema and execution registrations.
-- The generic JSON scalar-definition entry is a reserved data port; checked-in
-  B1/B2 files retain their registered direct and legacy syntax where required
-  for compatibility.
+- B1/B2 forcing and target data use native named scalar-definition subsections;
+  the B1 desired state is parsed through the same scalar definition contract.
 - B3–B6 are not runnable through the parameter-file or benchmark-ID boundary.
 
 **Done when:** a checked-in `.prm` reproduces a development run, the

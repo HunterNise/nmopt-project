@@ -115,9 +115,7 @@ namespace
   }
 
   nmopt::application::runner::ParameterFile
-  read_exclusion_parameter_file(
-    const std::string &exclusions,
-    const std::string &scalar_definitions = {})
+  read_exclusion_parameter_file(const std::string &exclusions)
   {
     const auto path = std::filesystem::temp_directory_path() /
                       "nmopt-parameter-exclusion-contract.prm";
@@ -133,10 +131,6 @@ namespace
            << "subsection Selection\n"
            << "  set exclude combinations = " << exclusions << '\n'
            << "end\n";
-    if (!scalar_definitions.empty())
-      output << "subsection Functions\n"
-             << "  set scalar definitions = " << scalar_definitions << '\n'
-             << "end\n";
     output.close();
     if (!output)
       throw std::runtime_error("could not write exclusion parameter fixture");
@@ -404,16 +398,6 @@ end
                              return entry.path == "Matrix/forcing";
                            }),
             "benchmark schema adapters must own their matrix axes");
-  }
-
-  void
-  test_dynamic_scalar_definition_is_one_parameter_value()
-  {
-    const std::string encoded =
-      R"json({"definitions":[{"expression":"atan2(x0,x1)","id":"candidate-with-comma","kind":"expression","port":"forcing","provenance":"test.dynamic"}],"selected":{"forcing":"candidate-with-comma"}})json";
-    const auto file = read_exclusion_parameter_file("", encoded);
-    require(file.value("Functions/scalar definitions") == encoded,
-            "dynamic scalar definitions must round-trip as one parameter value");
   }
 
   void
@@ -1796,14 +1780,15 @@ end
   {
     nmopt::application::runner::ParameterFile file;
     file.values = {{"Functions/forcing", "candidate-045"},
-                   {"Functions/forcing/kind", "constant"},
-                   {"Functions/forcing/value", "0.45"},
-                   {"Functions/forcing/expression", ""},
-                   {"Functions/forcing/provenance",
+                   {"Functions/forcing definition candidate-045/kind",
+                    "constant"},
+                   {"Functions/forcing definition candidate-045/value", "0.45"},
+                   {"Functions/forcing definition candidate-045/expression", ""},
+                   {"Functions/forcing definition candidate-045/provenance",
                     "development.b1.candidate-045"}};
     const auto constant =
-      nmopt::application::runner::parameter_scalar_function_definition(
-        file, "Functions/forcing");
+      nmopt::application::runner::parameter_scalar_function_definition_from_selector(
+        file, "Functions/forcing", "Functions/forcing definition ");
     require(constant.id == "candidate-045" &&
               constant.kind ==
                 nmopt::application::ScalarFunctionKind::constant &&
@@ -1811,15 +1796,16 @@ end
             "parameter parsing hardcoded the constant forcing value");
 
     file.values["Functions/forcing"] = "spatial-candidate";
-    file.values["Functions/forcing/kind"] = "expression";
-    file.values["Functions/forcing/value"] = "";
-    file.values["Functions/forcing/expression"] =
+    file.values["Functions/forcing definition spatial-candidate/kind"] =
+      "expression";
+    file.values["Functions/forcing definition spatial-candidate/value"] = "";
+    file.values["Functions/forcing definition spatial-candidate/expression"] =
       "0.4 + x0*(1-x0)*x1*(1-x1)";
-    file.values["Functions/forcing/provenance"] =
+    file.values["Functions/forcing definition spatial-candidate/provenance"] =
       "development.b1.spatial-candidate";
     const auto expression =
-      nmopt::application::runner::parameter_scalar_function_definition(
-        file, "Functions/forcing");
+      nmopt::application::runner::parameter_scalar_function_definition_from_selector(
+        file, "Functions/forcing", "Functions/forcing definition ");
     require(expression.id == "spatial-candidate" &&
               expression.kind ==
                 nmopt::application::ScalarFunctionKind::expression &&
@@ -1827,12 +1813,14 @@ end
                 "0.4 + x0*(1-x0)*x1*(1-x1)",
             "parameter parsing did not retain a forcing expression");
 
-    file.values["Functions/forcing/value"] = "0.45";
+    file.values["Functions/forcing definition spatial-candidate/value"] =
+      "0.45";
     bool ambiguous_definition_rejected = false;
     try
       {
         (void)nmopt::application::runner::
-          parameter_scalar_function_definition(file, "Functions/forcing");
+          parameter_scalar_function_definition_from_selector(
+            file, "Functions/forcing", "Functions/forcing definition ");
       }
     catch (const std::invalid_argument &)
       {
@@ -1841,13 +1829,15 @@ end
     require(ambiguous_definition_rejected,
             "parameter parsing accepted both forcing value and expression");
 
-    file.values["Functions/forcing/value"] = "";
-    file.values["Functions/forcing/kind"] = "registered-only";
+    file.values["Functions/forcing definition spatial-candidate/value"] = "";
+    file.values["Functions/forcing definition spatial-candidate/kind"] =
+      "registered-only";
     bool unknown_kind_rejected = false;
     try
       {
         (void)nmopt::application::runner::
-          parameter_scalar_function_definition(file, "Functions/forcing");
+          parameter_scalar_function_definition_from_selector(
+            file, "Functions/forcing", "Functions/forcing definition ");
       }
     catch (const std::invalid_argument &)
       {
@@ -1869,11 +1859,6 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract"},
          30,
          test_parameter_schema_registry_accounts_for_all_entries},
-        {"dynamic_scalar_definition_is_one_parameter_value",
-         "nmopt.parameter_files.dynamic_scalar_definition_is_one_parameter_value",
-         {"backend", "dealii", "application", "runner", "contract"},
-         30,
-         test_dynamic_scalar_definition_is_one_parameter_value},
         {"checked_in_families_expand_and_filter",
          "nmopt.parameter_files.checked_in_families_expand_and_filter",
          {"backend", "dealii", "application", "runner", "contract"},

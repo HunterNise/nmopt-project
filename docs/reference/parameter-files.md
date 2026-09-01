@@ -182,10 +182,10 @@ order `3` and analytic evaluation. Interpolation first realizes the target in
 the scalar state finite-element space; it does not change the stated
 $L^{2}$ observation functional or introduce an objective multiplier.
 
-The B2 `Functions/target definitions` subsection declares both target
-profiles independently of the selected observation/target matrix combination.
-Each nested `constant` or `parabolic` subsection is a scalar-function
-definition with `id`, `kind`, `provenance`, and either `value` or `expression`:
+The B2 `Functions/target definitions` subsection declares each target profile
+listed in the `Matrix/target-profile` axis. Each nested profile subsection is
+a scalar-function definition with `id`, `kind`, `provenance`, and either
+`value` or `expression`:
 
 ```text
 subsection target definitions
@@ -204,16 +204,20 @@ subsection target definitions
 end
 ```
 
-The selected matrix profile chooses which definition is evaluated; the other
-definition is still parsed and retained for a complete run-set description.
+The selected matrix profile chooses which declared definition is evaluated;
+all declared definitions are parsed and retained for a complete run-set
+description.
 The source defaults are `constant-2` with value `2` and
 `parabolic-4*x1*(1-x1)` with expression `4.0*x1*(1.0-x1)`. Changing a value or
 expression is an explicit development hypothesis, not a change to the frozen
 B2 benchmark. The effective selected definition, kind, value, and expression
 are written to B2 artifact evidence.
 
-B1 reads `Functions/forcing` as a stable definition ID and accepts these
-declarative forms in the nested `forcing` subsection:
+B1 and B2 read `Functions/forcing` as a stable definition ID. The selected
+forcing is declared in the named `Functions/forcing definition <id>` subsection.
+For B2, a populated `Matrix/forcing` axis owns the forcing IDs; otherwise the
+direct `Functions/forcing` selector owns the one ID. Both forms use the same
+declarative scalar records:
 
 | `kind` | Required data | Realization |
 | --- | --- | --- |
@@ -231,7 +235,7 @@ example:
 subsection Functions
   set forcing = spatial-candidate
 
-  subsection forcing
+  subsection forcing definition spatial-candidate
     set kind = expression
     set expression = 0.4 + sin(pi*x0)*sin(pi*x1)
     set provenance = development.b1.spatial-candidate
@@ -242,38 +246,11 @@ end
 The checked `source-oriented-constant-half` ID is the authoritative replacement
 selected after the B1 investigation. `manufactured-zero` and
 `figure-inferred-constant-one` remain explicit development choices. None is a
-special case in the runner: a direct forcing subsection defines one function
-for the complete file. The legacy B2 named-definition subsections are retained
-by the B2 schema adapter for compatibility with the checked-in files.
-
-The schema reserves one generic representation for named scalar data in the
-single `Functions/scalar definitions` entry. Its value is compact canonical
-JSON with this shape:
-
-```text
-{"definitions":[{"expression":"0.4 + sin(pi*x0)*sin(pi*x1)","id":"spatial-candidate","kind":"expression","port":"forcing","provenance":"development.b1.spatial-candidate"}],"selected":{"forcing":"spatial-candidate"}}
-```
-
-The top-level keys are `definitions` and `selected`, and definition objects use
-the lexicographic key order shown above. Definitions are sorted by `(port, id)`
-and have unique pairs. A `zero` definition has neither `value` nor
-`expression`, a `constant` definition has finite `value`, and an
-`expression` definition has nonempty `expression`; all definitions have
-nonempty `port`, `id`, and `provenance`. The `selected` object maps each
-semantic port to one definition ID and is also lexicographically ordered. JSON
-string escaping is the only escaping rule, so commas, semicolons, and
-parentheses in a normal deal.II scalar expression are data rather than
-delimiters. The representation is therefore lossless and deterministic when
-serialized as a lossless data port for future benchmark adapters. The current
-B1/B2 files use their registered direct forcing and legacy B2 target/forcing
-sections; their typed binders already lower the selected scalar definitions
-through the shared `ScalarFunctionDefinition` contract.
-
-`ParameterHandler` reads the complete JSON document as the value of one
-declared entry, so adding a definition ID changes only the `.prm` value and
-does not add a schema subsection or a central candidate list. The checked-in
-B1/B2 files continue to use their registered legacy syntax where required for
-compatibility; this does not add candidate IDs to the common schema.
+special case in the runner: every selected ID resolves to its named subsection
+and is lowered through the shared `ScalarFunctionDefinition` contract. B1's
+`Functions/desired state` selector remains a direct scalar definition because
+it is not a matrix axis; its `kind`, `expression`, and `provenance` entries are
+parsed from the adjacent `desired state` subsection.
 
 `Mesh/generator` defaults to `framework-native`, which consumes
 `Mesh/refinement` and leaves the simplex entries unset. A simplex configuration

@@ -113,7 +113,7 @@ const auto specification =
   nmopt::application::chapter6::make_b1_problem_spec(scenario);
 
 nmopt::application::chapter6::dealii::B1SelectedDataT<2> data(
-  scenario.problem.forcing);
+  scenario.problem.forcing, scenario.problem.desired_state);
 const auto runtime =
   nmopt::application::chapter6::dealii::make_b1_runtime_data(
     scenario, data);
@@ -133,10 +133,10 @@ const auto result = Runner(scenario).run(
   execute);
 ```
 
-The adapter binds forcing, the polynomial desired state, diffusion, reaction,
-and the per-run regularization value; creates the owned square-domain mesh
-session; compiles the assembled reduced DTO; and dispatches either steepest
-descent or limited-memory BFGS. The mesh selection may be the original refined
+The adapter binds the selected forcing and desired-state scalar definitions,
+diffusion, reaction, and the per-run regularization value; creates the owned
+square-domain mesh session; compiles the assembled reduced DTO; and dispatches
+either steepest descent or limited-memory BFGS. The mesh selection may be the original refined
 hypercube, a uniformly subdivided triangular mesh, or a triangular mesh in
 which a deterministic subset of base triangles is split at its centroid. The
 last selection exposes the base subdivision count, number of splits, and

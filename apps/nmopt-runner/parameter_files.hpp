@@ -714,17 +714,13 @@ namespace nmopt::application::runner
                      "desired state",
                      "fixed Dirichlet data",
                      "conservative transport"});
-        for (const auto *section : {"forcing",
-                                    "desired state",
+        for (const auto *section : {"desired state",
                                     "fixed-temperature",
                                     "graetz"})
           for (const auto *entry : {"kind", "expression", "provenance", "value"})
             append_schema_entry(result,
                                 "Functions/" + std::string(section) + "/" +
                                   entry);
-        append_schema_entry(result,
-                            "Functions/scalar definitions",
-                            R"({"definitions":[],"selected":{}})");
 
         add_section("Runtime", {"diffusion", "reaction", "regularisation"});
         add_section("Boundary",
@@ -1189,15 +1185,7 @@ namespace nmopt::application::runner
     ::dealii::ParameterHandler handler;
     detail::declare_schema(handler, registry);
     std::istringstream input_stream(content);
-    // The current B2 forcing sweep retains an unselected target definition.
-    // Keep that legacy subsection readable until the tracked families are
-    // migrated to the native declaration convention in the later cleanup
-    // unit. Selected target and forcing definitions are still declared from
-    // the file-owned axes above.
-    handler.parse_input(input_stream,
-                        path.string(),
-                        "",
-                        identity.first == "chapter-6.b2.graetz-flow");
+    handler.parse_input(input_stream, path.string());
 
     ParameterFile result;
     result.path = path;

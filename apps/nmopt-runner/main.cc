@@ -1,6 +1,7 @@
 #include "nmopt/application/application.hpp"
 #include "nmopt/application/dealii/chapter6_b1.hpp"
 #include "nmopt/application/dealii/chapter6_b2.hpp"
+#include "benchmark_registry.hpp"
 #include "parameter_files.hpp"
 #include "runner.hpp"
 
@@ -1442,16 +1443,19 @@ namespace
     if (options.parameter_file.has_value())
       path = nmopt::application::runner::find_file_from_current_or_parent(
         *options.parameter_file);
-    else if (options.benchmark == "b1")
-      path = nmopt::application::runner::find_file_from_current_or_parent(
-        "parameters/chapter-6/b1/authoritative.prm");
-    else if (options.benchmark == "b2")
-      path = nmopt::application::runner::find_file_from_current_or_parent(
-        "parameters/chapter-6/b2/authoritative.prm");
     else
-      throw std::invalid_argument(
-        "benchmark '" + options.benchmark.value_or("") +
-        "' needs an explicit parameter file");
+      {
+        const auto *registration =
+          nmopt::application::runner::find_benchmark_registration(
+            options.benchmark.value_or(""));
+        if (registration == nullptr)
+          throw std::invalid_argument(
+            "unsupported benchmark '" + options.benchmark.value_or("") +
+            "'; available benchmark IDs: " +
+            nmopt::application::runner::registered_benchmark_ids());
+        path = nmopt::application::runner::find_file_from_current_or_parent(
+          registration->default_parameter_file);
+      }
     return nmopt::application::runner::read_parameter_file(path);
   }
 
@@ -1512,14 +1516,16 @@ namespace
                                std::nullopt),
       {}};
     const auto benchmark_id = prepared.file.value("Benchmark/id");
-    const bool is_b1 = benchmark_id == "chapter-6.b1.distributed-laplace";
-    const bool is_b2 = benchmark_id == "chapter-6.b2.graetz-flow";
-    if (!is_b1 && !is_b2)
+    const auto *registration =
+      nmopt::application::runner::find_benchmark_registration_for_parameter_id(
+        benchmark_id);
+    if (registration == nullptr)
       throw std::invalid_argument("parameter file declares unsupported benchmark '" +
-                                  benchmark_id + "'");
+                                  benchmark_id + "'; available benchmark IDs: " +
+                                  nmopt::application::runner::registered_benchmark_ids());
     if (input_options.parameter_file.has_value())
       {
-        prepared.options.benchmark = is_b1 ? "b1" : "b2";
+        prepared.options.benchmark = std::string(registration->id);
         prepared.options.run_kind =
           parse_run_kind(prepared.file.value("Run/kind"));
         if (!input_options.output_directory_explicit)
@@ -1530,12 +1536,12 @@ namespace
             "parameter Run/build profile does not match the compiled runner profile");
       }
     else if (!input_options.benchmark.has_value() ||
-             *input_options.benchmark != (is_b1 ? "b1" : "b2"))
+             *input_options.benchmark != registration->id)
       throw std::invalid_argument("--benchmark does not match its authoritative parameter file");
 
     prepared.combinations =
       prepared.file.combinations(prepared.options.selection_filters);
-    if (is_b1)
+    if (registration->id == "b1")
       {
         // This also validates the required B1 matrix axes before creating output.
         (void)b1_expected_artifacts(prepared.file,

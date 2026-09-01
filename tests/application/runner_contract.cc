@@ -1,4 +1,5 @@
 #include "../../apps/nmopt-runner/runner.hpp"
+#include "../../apps/nmopt-runner/benchmark_registry.hpp"
 #include "nmopt/application/chapter6.hpp"
 #include "../support/scenario_dispatch.hpp"
 
@@ -54,6 +55,22 @@ namespace
   void
   test_reproduction_policy()
   {
+    const auto *b1 =
+      nmopt::application::runner::find_benchmark_registration("b1");
+    const auto *b2 =
+      nmopt::application::runner::find_benchmark_registration("b2");
+    require(b1 != nullptr && b2 != nullptr,
+            "B1 and B2 should be present in the runner-local registry");
+    require(b1->parameter_benchmark_id ==
+              "chapter-6.b1.distributed-laplace" &&
+              b2->parameter_benchmark_id == "chapter-6.b2.graetz-flow",
+            "runner registrations should bind CLI IDs to parameter benchmark IDs");
+    require(nmopt::application::runner::find_benchmark_registration("b3") ==
+              nullptr,
+            "unregistered benchmark IDs should not resolve");
+    require(nmopt::application::runner::registered_benchmark_ids() == "b1, b2",
+            "runner registry should expose its available benchmark IDs");
+
     auto options = parse({"nmopt_runner",
                           "--benchmark",
                           "b1",

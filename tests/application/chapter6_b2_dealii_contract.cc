@@ -48,20 +48,29 @@ namespace
       0.0,
       "6.0*x1*(1.0-x1)",
       "test.target"};
+    scenario.problem.forcing = {
+      "expression-forcing",
+      ScalarFunctionKind::expression,
+      0.0,
+      "x0 + 2.0*x1",
+      "test.forcing"};
     scenario.problem.data.desired_state_provenance = "test.target";
+    scenario.problem.data.forcing_provenance = "test.forcing";
 
     chapter6::dealii::B2ManufacturedDataT<2> data{
       graetz_case,
       scenario.problem.fixed_temperature,
-      scenario.problem.forcing_selection,
-      scenario.problem.forcing_value,
+      scenario.problem.forcing,
       scenario.problem.target_parameters};
     const auto runtime =
       chapter6::dealii::make_b2_manufactured_runtime_data(scenario, data);
     ::dealii::Point<2> point;
+    point[0] = 1.0;
     point[1] = 0.25;
     require(std::abs(runtime.desired_state.value(point) - 1.125) < 1.0e-15,
             "B2 parabolic target expression was not applied");
+    require(std::abs(runtime.forcing.value(point) - 1.5) < 1.0e-15,
+            "B2 forcing expression was not applied");
 
     chapter6::dealii::B2DesiredStateFunction<2> constant_target{
       chapter6::GraetzCase::observation_full_constant_target,
@@ -332,6 +341,18 @@ namespace
                                    expected_target_expression + "\n") !=
                 std::string::npos,
             "B2 deal.II adapter omitted target-definition evidence");
+    require(result.document.find("b2.forcing_definition=zero\n") !=
+              std::string::npos &&
+              result.document.find("b2.forcing_kind=zero\n") !=
+                std::string::npos &&
+              result.document.find("b2.forcing_value=0\n") !=
+                std::string::npos &&
+              result.document.find("b2.forcing_expression=\n") !=
+                std::string::npos &&
+              result.document.find(
+                "b2.forcing_provenance=chapter-6.e6.5.2.zero-forcing\n") !=
+                std::string::npos,
+            "B2 deal.II adapter omitted forcing-definition evidence");
     require(result.document.find("b2.residual_jvp_error=") !=
               std::string::npos &&
               result.document.find("b2.residual_vjp_error=") !=

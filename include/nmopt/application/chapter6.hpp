@@ -294,6 +294,16 @@ namespace nmopt::application::chapter6
                                         "B2 parabolic target");
   }
 
+  inline ScalarFunctionDefinition
+  b2_manufactured_zero_forcing()
+  {
+    return {"zero",
+            ScalarFunctionKind::zero,
+            0.0,
+            "",
+            "chapter-6.e6.5.2.zero-forcing"};
+  }
+
   inline const char *
   graetz_case_name(const GraetzCase graetz_case)
   {
@@ -325,14 +335,8 @@ namespace nmopt::application::chapter6
       "chapter-6.e6.5.2.graetz-transport"};
     GraetzCase graetz_case = GraetzCase::observation_wings_constant_target;
     B2TargetParameters target_parameters;
-    double     fixed_temperature = 1.0;
-    enum class ForcingSelection
-    {
-      zero,
-      constant
-    };
-    ForcingSelection forcing_selection = ForcingSelection::zero;
-    double           forcing_value = 0.0;
+    double                   fixed_temperature = 1.0;
+    ScalarFunctionDefinition forcing = b2_manufactured_zero_forcing();
     semantic::v1::TransportBoundaryForm transport_boundary_form =
       semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport;
   };
@@ -649,8 +653,11 @@ namespace nmopt::application::chapter6
           .provenance)
       throw std::invalid_argument(
         "B2 desired-state provenance does not match the selected target");
-    if (!std::isfinite(scenario.problem.forcing_value))
-      throw std::invalid_argument("B2 forcing value must be finite");
+    validate_scalar_function_definition(scenario.problem.forcing, "B2 forcing");
+    if (scenario.problem.data.forcing_provenance !=
+        scenario.problem.forcing.provenance)
+      throw std::invalid_argument(
+        "B2 forcing definition and runtime provenance must agree");
     if (scenario.problem.data.fixed_dirichlet_data_provenance.empty() ||
         scenario.problem.data.conservative_transport_provenance.empty())
       throw std::invalid_argument(

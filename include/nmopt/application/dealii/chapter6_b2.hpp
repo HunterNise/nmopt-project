@@ -36,27 +36,6 @@ namespace nmopt::application::chapter6::dealii
     nmopt::application::benchmark::BenchmarkExecutionEvidenceT<Envelope>;
 
   template <int dim>
-  class B2ForcingFunction final : public ::dealii::Function<dim>
-  {
-  public:
-    B2ForcingFunction(const B2ProblemParameters::ForcingSelection selection,
-                      const double value)
-      : value_(selection == B2ProblemParameters::ForcingSelection::zero ? 0.0 :
-                                                               value)
-    {}
-
-    double
-    value(const ::dealii::Point<dim> &,
-          const unsigned int = 0) const override
-    {
-      return value_;
-    }
-
-  private:
-    double value_;
-  };
-
-  template <int dim>
   class B2DesiredStateFunction final : public ::dealii::Function<dim>
   {
   public:
@@ -146,24 +125,23 @@ namespace nmopt::application::chapter6::dealii
       const GraetzCase graetz_case =
         GraetzCase::observation_wings_constant_target,
       const double fixed_temperature = 1.0,
-      const B2ProblemParameters::ForcingSelection forcing_selection =
-        B2ProblemParameters::ForcingSelection::zero,
-      const double forcing_value = 0.0,
+      ScalarFunctionDefinition forcing_definition =
+        b2_manufactured_zero_forcing(),
       B2TargetParameters target_parameters = {})
-      : forcing_(forcing_selection, forcing_value)
+      : forcing_definition_(std::move(forcing_definition))
+      , forcing_(::nmopt::application::dealii_support::make_scalar_function<dim>(
+          forcing_definition_, "B2 forcing"))
       , target_parameters_(std::move(target_parameters))
       , desired_state_(graetz_case, target_parameters_)
       , fixed_temperature_(fixed_temperature)
       , fixed_temperature_value_(fixed_temperature)
       , graetz_case_(graetz_case)
-      , forcing_selection_(forcing_selection)
-      , forcing_value_(forcing_value)
     {}
 
     B2RuntimeDataT<dim>
     runtime_data() const
     {
-      return {forcing_,
+      return {*forcing_,
               desired_state_,
               fixed_temperature_,
               conservative_transport_};
@@ -181,16 +159,10 @@ namespace nmopt::application::chapter6::dealii
       return graetz_case_;
     }
 
-    B2ProblemParameters::ForcingSelection
-    forcing_selection() const
+    const ScalarFunctionDefinition &
+    forcing_definition() const
     {
-      return forcing_selection_;
-    }
-
-    double
-    forcing_value() const
-    {
-      return forcing_value_;
+      return forcing_definition_;
     }
 
     const B2TargetParameters &
@@ -200,15 +172,14 @@ namespace nmopt::application::chapter6::dealii
     }
 
   private:
-    B2ForcingFunction<dim>                 forcing_;
+    ScalarFunctionDefinition                 forcing_definition_;
+    std::unique_ptr<::dealii::Function<dim>> forcing_;
     B2TargetParameters                      target_parameters_;
     B2DesiredStateFunction<dim>             desired_state_;
     ::dealii::Functions::ConstantFunction<dim> fixed_temperature_;
     B2ConservativeTransportFunction<dim>    conservative_transport_;
     double                                  fixed_temperature_value_;
     GraetzCase                              graetz_case_;
-    B2ProblemParameters::ForcingSelection  forcing_selection_;
-    double                                  forcing_value_;
   };
 
   template <int dim>
@@ -228,9 +199,7 @@ namespace nmopt::application::chapter6::dealii
                  scenario.problem.fixed_temperature) > 1.0e-14)
       throw std::invalid_argument(
         "B2 manufactured fixed temperature does not match the scenario");
-    if (data.forcing_selection() != scenario.problem.forcing_selection ||
-        std::abs(data.forcing_value() - scenario.problem.forcing_value) >
-          1.0e-14)
+    if (data.forcing_definition() != scenario.problem.forcing)
       throw std::invalid_argument(
         "B2 manufactured forcing does not match the scenario");
     const auto &scenario_targets = scenario.problem.target_parameters;
@@ -730,6 +699,7 @@ namespace nmopt::application::chapter6::dealii
       const auto target_profile = b2_target_profile(scenario.problem.graetz_case);
       const auto &target_definition = b2_target_definition(
         scenario.problem.target_parameters, scenario.problem.graetz_case);
+      const auto &forcing_definition = scenario.problem.forcing;
       const auto &manifest = compilation.problem->manifest();
       contract::require(
         manifest.observation_realisation.find(
@@ -913,6 +883,11 @@ namespace nmopt::application::chapter6::dealii
         {"b2.target_kind", scalar_function_kind_name(target_definition.kind)},
         {"b2.target_value", b2_number(target_definition.value)},
         {"b2.target_expression", target_definition.expression},
+        {"b2.forcing_definition", forcing_definition.id},
+        {"b2.forcing_kind", scalar_function_kind_name(forcing_definition.kind)},
+        {"b2.forcing_value", b2_number(forcing_definition.value)},
+        {"b2.forcing_expression", forcing_definition.expression},
+        {"b2.forcing_provenance", forcing_definition.provenance},
         {"b2.fixed_temperature", b2_number(scenario.problem.fixed_temperature)},
         {"b2.regularisation_weight",
          b2_number(scenario.problem.data.regularisation_weight)},

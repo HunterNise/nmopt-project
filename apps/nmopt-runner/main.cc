@@ -764,24 +764,13 @@ namespace
       forcing_axis == combination.values.end()
         ? "Functions/forcing"
         : "Functions/forcing definition " + forcing_id;
-    const auto forcing_kind = file.value(forcing_prefix + "/kind");
-    if (forcing_kind == "zero")
-      {
-        scenario.problem.forcing_selection =
-          chapter6::B2ProblemParameters::ForcingSelection::zero;
-        scenario.problem.forcing_value = 0.0;
-      }
-    else if (forcing_kind == "constant")
-      {
-        scenario.problem.forcing_selection =
-          chapter6::B2ProblemParameters::ForcingSelection::constant;
-        scenario.problem.forcing_value =
-          parse_number_text(file.value(forcing_prefix + "/value"), forcing_prefix + "/value");
-      }
-    else
-      throw std::invalid_argument("B2 forcing kind must be zero or constant");
+    scenario.problem.forcing =
+      forcing_axis == combination.values.end()
+        ? parameter_scalar_function_definition(file, forcing_prefix)
+        : parameter_scalar_function_definition_with_id(
+            file, forcing_prefix, forcing_id);
     scenario.problem.data.forcing_provenance =
-      file.value(forcing_prefix + "/provenance");
+      scenario.problem.forcing.provenance;
     scenario.problem.data.desired_state_provenance =
       chapter6::b2_target_definition(scenario.problem.target_parameters,
                                      scenario.problem.graetz_case)
@@ -1392,8 +1381,7 @@ namespace
             nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data(
               graetz_case,
               scenario.problem.fixed_temperature,
-              scenario.problem.forcing_selection,
-              scenario.problem.forcing_value,
+              scenario.problem.forcing,
               scenario.problem.target_parameters);
             const auto runtime =
               nmopt::application::chapter6::dealii::

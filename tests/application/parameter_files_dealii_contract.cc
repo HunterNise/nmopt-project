@@ -781,10 +781,13 @@ namespace
             !scenario.problem.recipe.with_facewise_box &&
             scenario.problem.recipe.observed_material_id == 1 &&
             scenario.problem.fixed_temperature == 1.0 &&
-            scenario.problem.forcing_selection ==
-              nmopt::application::chapter6::B2ProblemParameters::
-                ForcingSelection::zero &&
-            scenario.problem.forcing_value == 0.0 &&
+            scenario.problem.forcing.id == "zero" &&
+            scenario.problem.forcing.kind ==
+              nmopt::application::ScalarFunctionKind::zero &&
+            scenario.problem.forcing.value == 0.0 &&
+            scenario.problem.forcing.expression.empty() &&
+            scenario.problem.forcing.provenance ==
+              "chapter-6.e6.5.2.zero-forcing" &&
             scenario.problem.data.forcing_provenance ==
               "chapter-6.e6.5.2.zero-forcing" &&
             scenario.problem.transport_boundary_form ==
@@ -843,21 +846,19 @@ namespace
         const auto forcing_id = combination_value(combination, "forcing");
         const auto scenario =
           resolve_b2_scenario_for_characterization(forcing_sweep, combination);
-        const auto expected_selection = forcing_id == "zero"
-                                          ? nmopt::application::chapter6::
-                                              B2ProblemParameters::
-                                                ForcingSelection::zero
-                                          : nmopt::application::chapter6::
-                                              B2ProblemParameters::
-                                                ForcingSelection::constant;
+        const auto expected_kind = forcing_id == "zero"
+                                     ? nmopt::application::ScalarFunctionKind::zero
+                                     : nmopt::application::ScalarFunctionKind::constant;
         const auto expected_value = forcing_id == "zero"
                                       ? 0.0
                                       : forcing_id == "constant-one" ? 1.0 : 2.0;
         const auto expected_provenance =
           std::string("development.b2.") + forcing_id + "-forcing";
-        require(scenario.problem.forcing_selection ==
-                  expected_selection &&
-                  scenario.problem.forcing_value == expected_value &&
+        require(scenario.problem.forcing.id == forcing_id &&
+                  scenario.problem.forcing.kind == expected_kind &&
+                  scenario.problem.forcing.value == expected_value &&
+                  scenario.problem.forcing.expression.empty() &&
+                  scenario.problem.forcing.provenance == expected_provenance &&
                   scenario.problem.data.forcing_provenance ==
                     expected_provenance &&
                   scenario.problem.graetz_case ==
@@ -1012,8 +1013,7 @@ namespace
     nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> b2_data{
       b2_scenario.problem.graetz_case,
       b2_scenario.problem.fixed_temperature,
-      b2_scenario.problem.forcing_selection,
-      b2_scenario.problem.forcing_value,
+      b2_scenario.problem.forcing,
       b2_scenario.problem.target_parameters};
     const auto b2_runtime =
       nmopt::application::chapter6::dealii::make_b2_manufactured_runtime_data<2>(

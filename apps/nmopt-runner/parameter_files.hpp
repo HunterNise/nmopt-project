@@ -296,12 +296,12 @@ namespace nmopt::application::runner
   }
 
   inline ScalarFunctionDefinition
-  parameter_scalar_function_definition_at(const ParameterFile &file,
-                                          const std::string &path,
-                                          const std::string &id_path)
+  parameter_scalar_function_definition_with_id(const ParameterFile &file,
+                                               const std::string &path,
+                                               const std::string &id)
   {
     ScalarFunctionDefinition definition;
-    definition.id = file.value(id_path);
+    definition.id = id;
     definition.kind =
       scalar_function_kind_from_name(file.value(path + "/kind"));
     definition.provenance = file.value(path + "/provenance");
@@ -329,6 +329,15 @@ namespace nmopt::application::runner
                                   "' zero kind cannot set value or expression");
     validate_scalar_function_definition(definition, path);
     return definition;
+  }
+
+  inline ScalarFunctionDefinition
+  parameter_scalar_function_definition_at(const ParameterFile &file,
+                                          const std::string &path,
+                                          const std::string &id_path)
+  {
+    return parameter_scalar_function_definition_with_id(
+      file, path, file.value(id_path));
   }
 
   inline ScalarFunctionDefinition
@@ -809,7 +818,7 @@ namespace nmopt::application::runner
                               "Functions/target definitions/" +
                                 std::string(profile) + "/" + entry);
       for (const auto *forcing : {"zero", "constant-one", "constant-two"})
-        for (const auto *entry : {"kind", "provenance", "value"})
+        for (const auto *entry : {"kind", "expression", "provenance", "value"})
           append_schema_entry(adapter.entries,
                               "Functions/forcing definition " +
                                 std::string(forcing) + "/" + entry);

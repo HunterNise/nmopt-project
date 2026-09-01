@@ -146,6 +146,178 @@ namespace
       }
   }
 
+  nmopt::application::runner::ParameterFile
+  read_b2_scalar_discovery_parameter_file()
+  {
+    const auto path = std::filesystem::temp_directory_path() /
+                      "nmopt-b2-scalar-discovery-contract.prm";
+    std::ofstream output(path);
+    output << R"prm(
+subsection Benchmark
+  set id = chapter-6.b2.graetz-flow
+  set recipe = chapter-5.scalar-neumann-convection-subdomain
+  set source reference = test scalar discovery
+  set source revision = test
+end
+
+subsection Matrix
+  set forcing = zero, spatial-candidate
+  set regularisation = 1e-3
+  set observation-region = wings
+  set target-profile = candidate-target
+end
+
+subsection Problem
+  set control representation = facewise-constant
+  set observed material id = 1
+  set facewise box constraint = false
+  set initial control = zero
+end
+
+subsection Observation
+  set active region = from-matrix
+  set material id = 1
+  subsection region wings
+    set geometry = x0 > 1.0 and (x1 < 0.3 or x1 > 0.7)
+  end
+end
+
+subsection Functions
+  set forcing = from-matrix
+  set desired state = from-matrix
+  set fixed Dirichlet data = fixed-temperature
+  set conservative transport = graetz
+
+  subsection forcing definition zero
+    set kind = zero
+    set provenance = test.zero-forcing
+  end
+
+  subsection forcing definition spatial-candidate
+    set kind = expression
+    set expression = 0.25 + sin(pi*x0)*sin(pi*x1)
+    set provenance = test.spatial-candidate-forcing
+  end
+
+  subsection fixed-temperature
+    set kind = constant
+    set value = 1.0
+    set provenance = test.fixed-temperature
+  end
+
+  subsection graetz
+    set kind = conservative-transport
+    set expression = (1.5*x1*(1-x1), 0.0)
+    set provenance = test.graetz-transport
+  end
+
+  subsection target definitions
+    subsection candidate-target
+      set id = target-candidate
+      set kind = expression
+      set expression = x0 + 2.0*x1
+      set provenance = test.target-candidate
+    end
+  end
+end
+
+subsection Runtime
+  set diffusion = 0.1
+  set reaction = 0.0
+  set regularisation = 1e-3
+end
+
+subsection Boundary
+  set fixed region = dirichlet-boundary
+  set fixed boundary id = 0
+  set control region = control-boundary
+  set control boundary id = 1
+  set outflow region = outflow-boundary
+  set outflow boundary id = 2
+  set upstream transition x = 1.0
+  set outflow x = 4.0
+  set transport boundary form = ordinary-normal-minus-transport
+  set conormal form = unspecified
+  set normal orientation = outward
+  set trace evaluation = fe-q-state-trace
+  set face quadrature = qgauss-face
+end
+
+subsection Mesh
+  set dimension = 2
+  set geometry = rectangle
+  set lower = (0.0, 0.0)
+  set upper = (4.0, 1.0)
+  set refinement = 1
+  set provenance = test.rectangle
+end
+
+subsection Compile
+  set state degree = 1
+  set volume observation quadrature order = 3
+  set volume observation target realisation = analytic-quadrature
+  set execution = assembled
+  set product = reduced-dto
+  set owned session = true
+  set state solve maximum iterations = 0
+  set state solve relative tolerance = 1e-12
+  set state solve absolute tolerance = 1e-14
+  set adjoint solve maximum iterations = 0
+  set adjoint solve relative tolerance = 1e-12
+  set adjoint solve absolute tolerance = 1e-14
+  set control metric solve maximum iterations = 1000
+  set control metric solve relative tolerance = 1e-12
+  set control metric solve absolute tolerance = 1e-14
+  set stabilization = galerkin
+end
+
+subsection Solver
+  set method = bfgs
+  set globalization = armijo
+  set initial control = zero
+  set maximum iterations = 2
+  set maximum line search trials = 20
+  set gradient tolerance = 1e-8
+  set stopping criterion = automatic
+  set relative gradient tolerance = 0.0
+  set objective change tolerance = 0.0
+  set step tolerance = 0.0
+  set initial step length = 1.0
+  set Armijo fraction = 1e-4
+  set backtracking factor = 0.5
+end
+
+subsection Run
+  set kind = development
+  set build profile = debug-dealii
+  set output root = runs
+  set deterministic = true
+  set serialize artifacts = true
+  set measure timings = false
+  set measure memory = false
+end
+
+subsection Output
+  set retain fields = true
+  set selected fields = state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region
+end
+)prm";
+    output.close();
+    if (!output)
+      throw std::runtime_error("could not write scalar discovery fixture");
+    try
+      {
+        auto result = read_parameter_file(path);
+        std::filesystem::remove(path);
+        return result;
+      }
+    catch (...)
+      {
+        std::filesystem::remove(path);
+        throw;
+      }
+  }
+
   void
   test_parameter_schema_registry_accounts_for_all_entries()
   {
@@ -1438,6 +1610,65 @@ namespace
   }
 
   void
+  test_b2_scalar_definitions_are_discovered_from_prm_ids()
+  {
+    const auto file = read_b2_scalar_discovery_parameter_file();
+    require(
+      file.value("Functions/forcing definition spatial-candidate/kind") ==
+          "expression" &&
+        file.value(
+          "Functions/forcing definition spatial-candidate/expression") ==
+          "0.25 + sin(pi*x0)*sin(pi*x1)" &&
+        file.value(
+          "Functions/target definitions/candidate-target/id") ==
+          "target-candidate",
+      "native scalar subsections were not declared from matrix IDs");
+
+    const auto combinations = file.combinations();
+    require(combinations.size() == 2,
+            "scalar discovery fixture lost its forcing matrix");
+    const auto combination_it = std::find_if(
+      combinations.begin(), combinations.end(), [](const auto &candidate) {
+        return combination_value(candidate, "forcing") ==
+               "spatial-candidate";
+      });
+    require(combination_it != combinations.end(),
+            "scalar discovery fixture lost its selected forcing combination");
+    const auto &combination = *combination_it;
+    const auto target_catalog =
+      nmopt::application::runner::b2_target_catalog(file, "candidate-target");
+    auto scenario =
+      nmopt::application::chapter6::make_b2_scenario_with_target_catalog(
+        nmopt::application::chapter6::B2ObservationRegion::wings,
+        "candidate-target",
+        target_catalog);
+    bind_b2_scenario(
+      scenario,
+      file,
+      combination,
+      "chapter-6.b2.graetz-flow.wings-candidate-target");
+
+    const auto &target =
+      nmopt::application::chapter6::b2_target_definition(
+        scenario.problem.target_catalog);
+    require(scenario.problem.forcing.id == "spatial-candidate" &&
+              scenario.problem.forcing.kind ==
+                nmopt::application::ScalarFunctionKind::expression &&
+              scenario.problem.forcing.expression ==
+                "0.25 + sin(pi*x0)*sin(pi*x1)" &&
+              scenario.problem.forcing.provenance ==
+                "test.spatial-candidate-forcing" &&
+              target.id == "target-candidate" &&
+              target.kind ==
+                nmopt::application::ScalarFunctionKind::expression &&
+              target.expression == "x0 + 2.0*x1" &&
+              target.provenance == "test.target-candidate" &&
+              scenario.metadata.id ==
+                "chapter-6.b2.graetz-flow.wings-candidate-target",
+            "B2 scalar definitions were not resolved from native subsections");
+  }
+
+  void
   test_sparse_matrix_exclusions_are_validated_and_applied()
   {
     const std::string excluded =
@@ -1685,6 +1916,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
          test_b2_target_catalog_is_data_driven},
+        {"b2_scalar_definitions_are_discovered_from_prm_ids",
+         "nmopt.parameter_files.b2_scalar_definitions_are_discovered_from_prm_ids",
+         {"backend", "dealii", "application", "benchmark", "runner", "contract"},
+         30,
+         test_b2_scalar_definitions_are_discovered_from_prm_ids},
         {"reduced_globalization_is_selected",
          "nmopt.parameter_files.reduced_globalization_is_selected",
          {"backend", "dealii", "application", "runner", "contract", "negative"},

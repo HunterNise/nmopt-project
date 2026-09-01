@@ -324,9 +324,6 @@ namespace nmopt::application::chapter6
   b2_case_name(const B2ObservationRegion region,
                const std::string_view  target_profile)
   {
-    if (target_profile != "constant" && target_profile != "parabolic")
-      throw std::invalid_argument("B2 has an unknown target profile '" +
-                                  std::string(target_profile) + "'");
     return std::string(b2_observation_region_name(region)) + "-" +
            std::string(target_profile);
   }
@@ -814,9 +811,10 @@ namespace nmopt::application::chapter6
   }
 
   inline B2Scenario
-  make_b2_scenario(
-    const B2ObservationRegion observation_region = B2ObservationRegion::wings,
-    const std::string_view target_profile = "constant",
+  make_b2_scenario_with_target_catalog(
+    const B2ObservationRegion observation_region,
+    const std::string_view target_profile,
+    ScalarFunctionCatalog target_catalog,
     const semantic::v1::TransportBoundaryForm transport_boundary_form =
       semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
     const semantic::v1::NeumannControlDiscretisation control_discretisation =
@@ -827,8 +825,9 @@ namespace nmopt::application::chapter6
     B2ProblemParameters problem;
     problem.observation_region = observation_region;
     problem.target_profile = target_profile;
-    problem.target_catalog.selected_id =
-      b2_manufactured_target_id(target_profile);
+    problem.target_catalog = std::move(target_catalog);
+    problem.data.desired_state_provenance =
+      b2_target_definition(problem.target_catalog).provenance;
     problem.transport_boundary_form = transport_boundary_form;
     problem.recipe.control_discretisation =
       control_discretisation;
@@ -867,6 +866,27 @@ namespace nmopt::application::chapter6
        {true, true, true, false, "runs"}}};
     validate_b2(scenario);
     return scenario;
+  }
+
+  inline B2Scenario
+  make_b2_scenario(
+    const B2ObservationRegion observation_region = B2ObservationRegion::wings,
+    const std::string_view target_profile = "constant",
+    const semantic::v1::TransportBoundaryForm transport_boundary_form =
+      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
+    const semantic::v1::NeumannControlDiscretisation control_discretisation =
+      semantic::v1::NeumannControlDiscretisation::facewise_constant,
+    const ReducedGlobalization globalization = ReducedGlobalization::armijo,
+    const VolumeObservationOptions volume_observation = {})
+  {
+    return make_b2_scenario_with_target_catalog(
+      observation_region,
+      target_profile,
+      b2_manufactured_target_catalog(b2_manufactured_target_id(target_profile)),
+      transport_boundary_form,
+      control_discretisation,
+      globalization,
+      volume_observation);
   }
 
   inline ApplicationCatalog

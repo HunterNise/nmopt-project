@@ -883,7 +883,10 @@ namespace
             plan, planned_combination, b2_artifact_coordinate_components));
         try
           {
-            auto scenario = make_b2_scenario(observation_region, target_profile);
+            const auto target_catalog = runner::b2_target_catalog(
+              file, target_profile);
+            auto scenario = make_b2_scenario_with_target_catalog(
+              observation_region, target_profile, target_catalog);
             bind_b2_scenario(
               scenario,
               file,

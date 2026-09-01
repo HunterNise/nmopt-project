@@ -86,6 +86,14 @@ namespace nmopt::application::runner
     ParameterOwnership ownership;
   };
 
+  struct ScalarDefinitionSchema
+  {
+    std::string selector_path;
+    std::string matrix_axis_path;
+    std::string definition_path_prefix;
+    bool        definition_has_id = false;
+  };
+
   struct ParameterSchemaAdapter
   {
     std::string                       id;
@@ -93,6 +101,7 @@ namespace nmopt::application::runner
     std::vector<std::string>          benchmark_id_prefixes;
     std::vector<std::string>          recipe_ids;
     std::vector<ParameterSchemaEntry> entries;
+    std::vector<ScalarDefinitionSchema> scalar_definitions;
   };
 
   inline semantic::v1::TransportBoundaryForm
@@ -353,28 +362,6 @@ namespace nmopt::application::runner
   {
     const auto path = "Functions/target definitions/" + std::string(section);
     return parameter_scalar_function_definition_at(file, path, path + "/id");
-  }
-
-  inline ScalarFunctionCatalog
-  b2_target_catalog(const ParameterFile &file,
-                    const std::string_view selected_profile = "constant")
-  {
-    const auto constant =
-      parameter_scalar_function_section_definition(file, "constant");
-    const auto parabolic =
-      parameter_scalar_function_section_definition(file, "parabolic");
-    std::string selected_id;
-    if (selected_profile == "constant")
-      selected_id = constant.id;
-    else if (selected_profile == "parabolic")
-      selected_id = parabolic.id;
-    else
-      throw std::invalid_argument("unknown B2 target profile '" +
-                                  std::string(selected_profile) + "'");
-
-    ScalarFunctionCatalog catalog{{constant, parabolic}, std::move(selected_id)};
-    validate_scalar_function_catalog(catalog, "B2 target catalog");
-    return catalog;
   }
 
   namespace detail
@@ -662,6 +649,18 @@ namespace nmopt::application::runner
                           ownership_for(path)});
     }
 
+    inline void
+    append_scalar_definition_entries(
+      std::vector<ParameterSchemaEntry> &registry,
+      const std::string                 &definition_path,
+      const bool                         definition_has_id)
+    {
+      if (definition_has_id)
+        append_schema_entry(registry, definition_path + "/id");
+      for (const auto *entry : {"kind", "value", "expression", "provenance"})
+        append_schema_entry(registry, definition_path + "/" + entry);
+    }
+
     inline const std::vector<ParameterSchemaEntry> &
     common_parameter_schema_registry()
     {
@@ -827,21 +826,6 @@ namespace nmopt::application::runner
       append_schema_entry(adapter.entries, "Selection/" + axis);
     }
 
-    inline void
-    append_legacy_b2_definition_entries(ParameterSchemaAdapter &adapter)
-    {
-      for (const auto *profile : {"constant", "parabolic"})
-        for (const auto *entry : {"id", "kind", "expression", "provenance", "value"})
-          append_schema_entry(adapter.entries,
-                              "Functions/target definitions/" +
-                                std::string(profile) + "/" + entry);
-      for (const auto *forcing : {"zero", "constant-one", "constant-two"})
-        for (const auto *entry : {"kind", "expression", "provenance", "value"})
-          append_schema_entry(adapter.entries,
-                              "Functions/forcing definition " +
-                                std::string(forcing) + "/" + entry);
-    }
-
     inline const std::vector<ParameterSchemaAdapter> &
     parameter_schema_adapters()
     {
@@ -849,19 +833,35 @@ namespace nmopt::application::runner
         std::vector<ParameterSchemaAdapter> result;
 
         ParameterSchemaAdapter b1{
-          "b1", {"b1"}, {"chapter-6.b1."}, {"chapter-5.scalar-diffusion-reaction-volume"}, {}};
+          "b1",
+          {"b1"},
+          {"chapter-6.b1."},
+          {"chapter-5.scalar-diffusion-reaction-volume"},
+          {},
+          {{"Functions/forcing", "", "Functions/forcing definition ", false}}};
         for (const auto *axis : {"method", "regularisation"})
           append_matrix_axis(b1, axis);
         result.push_back(std::move(b1));
 
         ParameterSchemaAdapter b2{
-          "b2", {"b2"}, {"chapter-6.b2."}, {"chapter-5.scalar-neumann-convection-subdomain"}, {}};
+          "b2",
+          {"b2"},
+          {"chapter-6.b2."},
+          {"chapter-5.scalar-neumann-convection-subdomain"},
+          {},
+          {{"Functions/forcing",
+            "Matrix/forcing",
+            "Functions/forcing definition ",
+            false},
+           {"",
+            "Matrix/target-profile",
+            "Functions/target definitions/",
+            true}}};
         for (const auto *axis : {"regularisation",
                                  "forcing",
                                  "observation-region",
                                  "target-profile"})
           append_matrix_axis(b2, axis);
-        append_legacy_b2_definition_entries(b2);
         result.push_back(std::move(b2));
 
         return result;
@@ -1003,6 +1003,54 @@ namespace nmopt::application::runner
       return values;
     }
 
+    inline std::string
+    get_path(::dealii::ParameterHandler &handler, const std::string &path)
+    {
+      const auto sections = schema_sections(path);
+      for (const auto &section : sections)
+        handler.enter_subsection(section);
+      const auto value = handler.get(schema_entry_name(path));
+      for (std::size_t index = 0; index < sections.size(); ++index)
+        handler.leave_subsection();
+      return value;
+    }
+
+    inline std::vector<std::string>
+    scalar_definition_ids(::dealii::ParameterHandler       &handler,
+                          const ScalarDefinitionSchema    &definition_schema)
+    {
+      const auto &source_path = definition_schema.matrix_axis_path.empty()
+                                  ? definition_schema.selector_path
+                                  : definition_schema.matrix_axis_path;
+      if (source_path.empty())
+        throw std::logic_error(
+          "scalar definition schema needs a selector or matrix axis");
+      return split_list(get_path(handler, source_path));
+    }
+
+    inline std::vector<ParameterSchemaEntry>
+    discovered_parameter_schema_registry(
+      const ParameterSchemaAdapter &adapter,
+      const std::string            &content,
+      const std::string            &source)
+    {
+      auto registry = parameter_schema_registry(adapter);
+
+      ::dealii::ParameterHandler discovery_handler;
+      declare_schema(discovery_handler, registry);
+      std::istringstream input_stream(content);
+      discovery_handler.parse_input(input_stream, source, "", true);
+
+      for (const auto &definition_schema : adapter.scalar_definitions)
+        for (const auto &id : scalar_definition_ids(discovery_handler,
+                                                     definition_schema))
+          append_scalar_definition_entries(
+            registry,
+            definition_schema.definition_path_prefix + id,
+            definition_schema.definition_has_id);
+      return registry;
+    }
+
     inline std::pair<std::string, std::string>
     benchmark_identity(const std::string &content, const std::string &source)
     {
@@ -1030,6 +1078,36 @@ namespace nmopt::application::runner
              candidates.end();
     }
   } // namespace detail
+
+  inline ScalarFunctionCatalog
+  b2_target_catalog(const ParameterFile &file,
+                    const std::string_view selected_profile = "constant")
+  {
+    const auto profiles = detail::split_list(
+      file.value("Matrix/target-profile"));
+    if (profiles.empty())
+      throw std::invalid_argument(
+        "B2 target catalog needs a nonempty Matrix/target-profile axis");
+
+    std::vector<ScalarFunctionDefinition> definitions;
+    definitions.reserve(profiles.size());
+    std::string selected_id;
+    for (const auto &profile : profiles)
+      {
+        const auto definition =
+          parameter_scalar_function_section_definition(file, profile);
+        if (profile == selected_profile)
+          selected_id = definition.id;
+        definitions.push_back(definition);
+      }
+    if (selected_id.empty())
+      throw std::invalid_argument("unknown B2 target profile '" +
+                                  std::string(selected_profile) + "'");
+
+    ScalarFunctionCatalog catalog{std::move(definitions), std::move(selected_id)};
+    validate_scalar_function_catalog(catalog, "B2 target catalog");
+    return catalog;
+  }
 
   inline std::vector<unsigned int>
   parameter_positive_unsigned_list(const ParameterFile &file,
@@ -1090,12 +1168,21 @@ namespace nmopt::application::runner
     const auto identity = detail::benchmark_identity(content, path.string());
     const auto &adapter =
       detail::parameter_schema_adapter_for(identity.first, identity.second);
-    const auto registry = detail::parameter_schema_registry(adapter);
+    const auto registry = detail::discovered_parameter_schema_registry(
+      adapter, content, path.string());
 
     ::dealii::ParameterHandler handler;
     detail::declare_schema(handler, registry);
     std::istringstream input_stream(content);
-    handler.parse_input(input_stream, path.string());
+    // The current B2 forcing sweep retains an unselected target definition.
+    // Keep that legacy subsection readable until the tracked families are
+    // migrated to the native declaration convention in the later cleanup
+    // unit. Selected target and forcing definitions are still declared from
+    // the file-owned axes above.
+    handler.parse_input(input_stream,
+                        path.string(),
+                        "",
+                        identity.first == "chapter-6.b2.graetz-flow");
 
     ParameterFile result;
     result.path = path;

@@ -12,6 +12,7 @@
 #include <iterator>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -298,6 +299,117 @@ namespace
       "a KKT extension should reject a non-KKT product");
   }
 
+  nmopt::application::runner::RunSetPlan
+  make_extension_fixture_plan(
+    const std::string &benchmark_id,
+    std::vector<nmopt::application::runner::ParameterAxis> axes)
+  {
+    using namespace nmopt::application::runner;
+    RunSetPlan plan;
+    plan.benchmark_id = benchmark_id;
+    plan.matrix_axes = std::move(axes);
+
+    ParameterCombination combination;
+    for (const auto &axis : plan.matrix_axes)
+      combination.values.emplace(axis.id, axis.values.front());
+    RunSetCombination resolved;
+    resolved.values = std::move(combination);
+    resolved.artifact_coordinates = default_artifact_coordinate_components(
+      plan.matrix_axes, resolved.values);
+    plan.resolved_combinations.push_back(std::move(resolved));
+    validate_run_set_plan(plan);
+    return plan;
+  }
+
+  struct KktExtensionFixture
+  {
+    nmopt::application::runner::RunSetPlan plan;
+    nmopt::application::runner::QuadraticKktSolverSelection solver;
+    double reaction = 0.0;
+  };
+
+  KktExtensionFixture
+  make_kkt_extension_fixture(const std::string &benchmark_id,
+                             const double        reaction)
+  {
+    using nmopt::application::runner::resolve_quadratic_kkt_solver_selection;
+    return {make_extension_fixture_plan(
+              benchmark_id,
+              {{"beta", {"1e-2"}},
+               {"product", {"quadratic-kkt"}},
+               {"kkt-method", {"minres"}},
+               {"preconditioner", {"identity"}}}),
+            resolve_quadratic_kkt_solver_selection(
+              "quadratic-kkt", "minres", "identity"),
+            reaction};
+  }
+
+  void
+  test_future_b3_to_b6_registration_shape()
+  {
+    using nmopt::application::ScalarFunctionKind;
+    using nmopt::application::runner::BoxBoundDataSelection;
+    using nmopt::application::runner::find_benchmark_registration;
+    using nmopt::application::runner::reduced_method_capability_registry;
+    using nmopt::application::runner::validate_box_bound_data_selection;
+
+    const auto b3 = make_extension_fixture_plan(
+      "test-only.b3",
+      {{"beta", {"1e-1", "1e-2"}},
+       {"lower-bound", {"symmetric-constant"}},
+       {"upper-bound", {"symmetric-constant"}},
+       {"method", {"steepest-descent", "l-bfgs"}}});
+    require(b3.matrix_axes.size() == 4 &&
+              b3.matrix_axes[0].id == "beta" &&
+              b3.matrix_axes[1].id == "lower-bound" &&
+              b3.matrix_axes[2].id == "upper-bound" &&
+              b3.matrix_axes[3].id == "method",
+            "B3-shaped axes should remain generic run-set data");
+    require(reduced_method_capability_registry().resolve(
+              "l-bfgs", "solver method") ==
+              nmopt::application::chapter6::ReducedMethod::limited_memory_bfgs,
+            "B3-shaped method selections should use the typed registry");
+
+    const BoxBoundDataSelection b4_bounds{
+      {"lower-expression",
+       ScalarFunctionKind::expression,
+       0.0,
+       "-0.5 - x0",
+       "test.b4.lower"},
+      {"upper-expression",
+       ScalarFunctionKind::expression,
+       0.0,
+       "0.5 + x0",
+       "test.b4.upper"}};
+    validate_box_bound_data_selection(b4_bounds);
+    const auto b4 = make_extension_fixture_plan(
+      "test-only.b4",
+      {{"lower-definition", {"lower-expression"}},
+       {"upper-definition", {"upper-expression"}},
+       {"beta", {"1e-2"}}});
+    require(b4.matrix_axes[0].id == "lower-definition" &&
+              b4.matrix_axes[1].id == "upper-definition",
+            "B4-shaped lower and upper definitions should be independent axes");
+
+    const auto b5 = make_kkt_extension_fixture("test-only.b5", 0.0);
+    const auto b6 = make_kkt_extension_fixture("test-only.b6", 2.0);
+    require(b5.solver.product == b6.solver.product &&
+              b5.solver.solver.method == b6.solver.solver.method &&
+              b5.solver.preconditioner == b6.solver.preconditioner &&
+              b5.reaction != b6.reaction &&
+              b5.plan.matrix_axes.size() == b6.plan.matrix_axes.size(),
+            "B6 should reuse the B5 selection shape with changed reaction data");
+    for (std::size_t index = 0; index < b5.plan.matrix_axes.size(); ++index)
+      require(b5.plan.matrix_axes[index].id == b6.plan.matrix_axes[index].id &&
+                b5.plan.matrix_axes[index].values ==
+                  b6.plan.matrix_axes[index].values,
+              "B6 should not need a distinct runner axis shape");
+
+    for (const auto *id : {"b3", "b4", "b5", "b6"})
+      require(find_benchmark_registration(id) == nullptr,
+              "future benchmark fixtures must not be advertised as runnable");
+  }
+
   void
   test_matched_reference_stopping_criteria()
   {
@@ -445,6 +557,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "application", "runner", "contract", "extension"},
          30,
          test_future_extension_selection_contracts},
+        {"future_b3_to_b6_registration_shape",
+         "nmopt.runner.future_b3_to_b6_registration_shape",
+         {"backend-neutral", "application", "runner", "contract", "extension"},
+         30,
+         test_future_b3_to_b6_registration_shape},
         {"reproduction_policy",
          "nmopt.runner.reproduction_policy",
          {"backend-neutral", "application", "runner", "contract"},

@@ -2,20 +2,18 @@
 
 #include "nmopt/application/chapter6.hpp"
 #include "nmopt/application/dealii/centroid_split_simplex_mesh.hpp"
+#include "nmopt/application/dealii/scalar_function.hpp"
 #include "nmopt/application/runner.hpp"
 #include "nmopt/compiler/v1/dealii_compiler.hpp"
 #include "nmopt/experiment/reduced_envelope.hpp"
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
-#include <deal.II/base/function_parser.h>
-#include <deal.II/base/numbers.h>
 #include <deal.II/base/tensor_function.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <functional>
@@ -26,7 +24,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -37,50 +34,6 @@ namespace nmopt::application::chapter6::dealii
     nmopt::experiment::ReducedSearchExperimentEnvelopeT<Backend>;
   using Evidence =
     nmopt::application::benchmark::BenchmarkExecutionEvidenceT<Envelope>;
-
-  namespace detail
-  {
-    template <int dim>
-    std::string
-    b2_coordinate_variable_names()
-    {
-      static_assert(dim > 0, "B2 functions need a positive dimension");
-      std::ostringstream names;
-      for (unsigned int coordinate = 0;
-           coordinate < static_cast<unsigned int>(dim);
-           ++coordinate)
-        {
-          if (coordinate != 0)
-            names << ',';
-          names << 'x' << coordinate;
-        }
-      return names.str();
-    }
-
-    inline bool
-    b2_expression_contains_identifier(const std::string_view expression,
-                                      const std::string_view identifier)
-    {
-      const auto is_identifier_character = [](const char character) {
-        const auto value = static_cast<unsigned char>(character);
-        return std::isalnum(value) != 0 || character == '_';
-      };
-      for (auto position = expression.find(identifier);
-           position != std::string_view::npos;
-           position = expression.find(identifier, position + 1))
-        {
-          const bool starts_identifier =
-            position == 0 || !is_identifier_character(expression[position - 1]);
-          const auto end = position + identifier.size();
-          const bool ends_identifier =
-            end == expression.size() ||
-            !is_identifier_character(expression[end]);
-          if (starts_identifier && ends_identifier)
-            return true;
-        }
-      return false;
-    }
-  } // namespace detail
 
   template <int dim>
   class B2ForcingFunction final : public ::dealii::Function<dim>
@@ -114,8 +67,10 @@ namespace nmopt::application::chapter6::dealii
                            const B2TargetParameters &target_parameters)
       : graetz_case_(graetz_case)
       , target_parameters_(target_parameters)
-      , constant_(make_target_function(target_parameters_.constant))
-      , parabolic_(make_target_function(target_parameters_.parabolic))
+      , constant_(::nmopt::application::dealii_support::make_scalar_function<dim>(
+                   target_parameters_.constant, "B2 target"))
+      , parabolic_(::nmopt::application::dealii_support::make_scalar_function<dim>(
+                    target_parameters_.parabolic, "B2 target"))
     {}
 
     double
@@ -140,38 +95,6 @@ namespace nmopt::application::chapter6::dealii
     }
 
   private:
-    static std::unique_ptr<::dealii::Function<dim>>
-    make_target_function(const ScalarFunctionDefinition &definition)
-    {
-      validate_scalar_function_definition(definition, "B2 target");
-      switch (definition.kind)
-        {
-          case ScalarFunctionKind::zero:
-            return std::make_unique<::dealii::Functions::ZeroFunction<dim>>();
-          case ScalarFunctionKind::constant:
-            return std::make_unique<
-              ::dealii::Functions::ConstantFunction<dim>>(definition.value);
-          case ScalarFunctionKind::expression:
-            {
-              if (detail::b2_expression_contains_identifier(
-                    definition.expression, "rand") ||
-                  detail::b2_expression_contains_identifier(
-                    definition.expression, "rand_seed"))
-                throw std::invalid_argument(
-                  "B2 target expressions cannot use random functions");
-              auto parser =
-                std::make_unique<::dealii::FunctionParser<dim>>();
-              parser->initialize(
-                detail::b2_coordinate_variable_names<dim>(),
-                definition.expression,
-                {{"e", ::dealii::numbers::E},
-                 {"pi", ::dealii::numbers::PI}});
-              return parser;
-            }
-        }
-      throw std::invalid_argument("unknown B2 target kind");
-    }
-
     GraetzCase                               graetz_case_;
     B2TargetParameters                        target_parameters_;
     std::unique_ptr<::dealii::Function<dim>> constant_;

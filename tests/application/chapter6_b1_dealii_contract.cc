@@ -215,6 +215,80 @@ namespace
   }
 
   void
+  test_shared_scalar_function_factory()
+  {
+    const ::dealii::Point<2> point{0.25, 0.5};
+    const auto zero =
+      nmopt::application::dealii_support::make_scalar_function<2>({
+        "zero", ScalarFunctionKind::zero, 0.0, "", "test.zero"},
+        "test scalar");
+    require(zero->value(point) == 0.0,
+            "shared scalar factory did not realize zero data");
+
+    const auto constant =
+      nmopt::application::dealii_support::make_scalar_function<2>({
+        "constant", ScalarFunctionKind::constant, 2.5, "", "test.constant"},
+        "test scalar");
+    require(constant->value(point) == 2.5,
+            "shared scalar factory did not realize constant data");
+
+    std::unique_ptr<::dealii::Function<2>> owned_expression;
+    {
+      const ScalarFunctionDefinition expression{
+        "expression",
+        ScalarFunctionKind::expression,
+        0.0,
+        "pi*x0 + x1",
+        "test.expression"};
+      owned_expression =
+        nmopt::application::dealii_support::make_scalar_function<2>(
+          expression, "test scalar");
+    }
+    require(std::abs(owned_expression->value(point) -
+                     (0.25 * ::dealii::numbers::PI + 0.5)) < 1.0e-14,
+            "shared scalar factory did not retain expression ownership");
+
+    const auto rejects = [&](const ScalarFunctionDefinition &definition) {
+      try
+        {
+          const auto function =
+            nmopt::application::dealii_support::make_scalar_function<2>(
+              definition, "test scalar");
+          (void)function;
+        }
+      catch (const std::exception &)
+        {
+          return true;
+        }
+      return false;
+    };
+    require(rejects({"malformed",
+                     ScalarFunctionKind::expression,
+                     0.0,
+                     "sin(",
+                     "test.malformed"}),
+            "shared scalar factory accepted a malformed expression");
+    require(rejects({"random",
+                     ScalarFunctionKind::expression,
+                     0.0,
+                     "rand()",
+                     "test.random"}),
+            "shared scalar factory accepted a nondeterministic expression");
+    require(rejects({"wrong-dimension",
+                     ScalarFunctionKind::expression,
+                     0.0,
+                     "x2",
+                     "test.wrong-dimension"}),
+            "shared scalar factory accepted an unavailable coordinate");
+    require(rejects({"inconsistent",
+                     ScalarFunctionKind::constant,
+                     2.5,
+                     "x0",
+                     "test.inconsistent"}),
+            "shared scalar factory accepted inconsistent scalar data");
+  }
+
+  void
   test_b1_expression_forcing()
   {
     const ScalarFunctionDefinition expression{
@@ -333,6 +407,11 @@ main(const int argc, char **argv)
   try
     {
       const std::vector<nmopt::test_support::Scenario> scenarios{
+        {"shared_scalar_function_factory",
+         "nmopt.application.dealii.shared_scalar_function_factory",
+         {"dealii", "application", "contract"},
+         30,
+         test_shared_scalar_function_factory},
         {"b1_manufactured_steepest_descent",
          "nmopt.application.dealii.b1_manufactured_steepest_descent",
          {"dealii", "application", "benchmark", "b1", "contract"},

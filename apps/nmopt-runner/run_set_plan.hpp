@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -42,20 +43,74 @@ namespace nmopt::application::runner
 
   struct RunSetCombination
   {
-    ParameterCombination                       values;
+    ParameterCombination                             values;
     std::vector<RunSetArtifactCoordinateComponent> artifact_coordinates;
   };
 
   struct RunSetPlan
   {
-    std::string                                  benchmark_id;
-    std::vector<ParameterAxis>                   matrix_axes;
-    std::map<std::string, std::string>           selection;
-    std::vector<ParameterCombination>            excluded_combinations;
-    std::vector<RunSetCombination>                resolved_combinations;
-    RunSetComparisonCoordinates                   comparison;
-    RunSetParameterProvenance                     parameter_provenance;
+    std::string                               benchmark_id;
+    std::vector<ParameterAxis>                matrix_axes;
+    std::map<std::string, std::string>        selection;
+    std::vector<ParameterCombination>         excluded_combinations;
+    std::vector<RunSetCombination>             resolved_combinations;
+    RunSetComparisonCoordinates                comparison;
+    RunSetParameterProvenance                  parameter_provenance;
   };
+
+  using RunSetArtifactCoordinatePolicy = std::function<
+    std::vector<std::string>(const RunSetPlan &, const RunSetCombination &)>;
+
+  inline void
+  validate_run_set_plan(const RunSetPlan &plan);
+
+  inline std::string
+  run_set_artifact_relative_path(const std::vector<std::string> &components)
+  {
+    if (components.empty())
+      throw std::invalid_argument(
+        "run-set artifact coordinates need at least one component");
+
+    std::string result = "artifacts";
+    for (const auto &component : components)
+      {
+        if (component.empty() || component == "." || component == ".." ||
+            component.find_first_of("/\\") != std::string::npos)
+          throw std::invalid_argument(
+            "run-set artifact coordinate components must be nonempty single names");
+        result += "/" + component;
+      }
+    return result + "/artifact.kv";
+  }
+
+  inline std::vector<std::string>
+  run_set_artifact_paths(
+    const RunSetPlan                     &plan,
+    const RunSetArtifactCoordinatePolicy &coordinate_policy = {})
+  {
+    validate_run_set_plan(plan);
+    std::vector<std::string> result;
+    result.reserve(plan.resolved_combinations.size());
+    for (const auto &combination : plan.resolved_combinations)
+      {
+        std::vector<std::string> components;
+        if (coordinate_policy)
+          components = coordinate_policy(plan, combination);
+        else
+          {
+            components.reserve(combination.artifact_coordinates.size());
+            for (const auto &coordinate : combination.artifact_coordinates)
+              components.push_back(coordinate.axis + "-" + coordinate.value);
+          }
+
+        const auto relative_path = run_set_artifact_relative_path(components);
+        if (std::find(result.begin(), result.end(), relative_path) != result.end())
+          throw std::invalid_argument(
+            "run-set artifact paths must be unique");
+        result.push_back(relative_path);
+      }
+    return result;
+  }
 
   inline std::vector<RunSetArtifactCoordinateComponent>
   default_artifact_coordinate_components(

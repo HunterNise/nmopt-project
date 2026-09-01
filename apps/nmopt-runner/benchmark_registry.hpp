@@ -1,5 +1,7 @@
 #pragma once
 
+#include "run_set_plan.hpp"
+
 #include <array>
 #include <functional>
 #include <string>
@@ -67,8 +69,7 @@ namespace nmopt::application::runner
   using BenchmarkSelectionFilters =
     std::vector<std::pair<std::string, std::string>>;
   using BenchmarkArtifactPlanner = std::function<
-    std::vector<std::string>(const ParameterFile &,
-                             const BenchmarkSelectionFilters &)>;
+    std::vector<std::string>(const RunSetPlan &)>;
   using BenchmarkExecutionCallback = std::function<
     bool(const ResolvedRunConfiguration &,
          const std::vector<std::string> &,

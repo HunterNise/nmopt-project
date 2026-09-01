@@ -271,51 +271,59 @@ namespace
   }
 
   std::vector<std::string>
-  b1_expected_artifacts(
-    const nmopt::application::runner::ParameterFile &file,
-    const std::vector<std::pair<std::string, std::string>> &filters)
+  b1_artifact_coordinate_components(
+    const nmopt::application::runner::RunSetPlan &,
+    const nmopt::application::runner::RunSetCombination &combination)
   {
-    std::vector<std::string> paths;
-    for (const auto &combination : file.combinations(filters))
-      {
-        const auto method = parse_method(combination_value(combination, "method"));
-        const auto beta = parse_number_text(
-          combination_value(combination, "regularisation"), "Matrix/regularisation");
-        paths.push_back("artifacts/" + std::string(b1_method_slug(method)) +
-                        "/beta-" + b1_beta_slug(beta) + "/artifact.kv");
-      }
-    return paths;
+    const auto method =
+      parse_method(combination_value(combination.values, "method"));
+    const auto beta = parse_number_text(
+      combination_value(combination.values, "regularisation"),
+      "Matrix/regularisation");
+    return {b1_method_slug(method), "beta-" + std::string(b1_beta_slug(beta))};
   }
 
   std::vector<std::string>
-  b2_expected_artifacts(
+  b2_artifact_coordinate_components(
+    const nmopt::application::runner::RunSetPlan &plan,
+    const nmopt::application::runner::RunSetCombination &combination)
+  {
+    std::vector<std::string> axis_ids;
+    axis_ids.reserve(plan.matrix_axes.size());
+    for (const auto &axis : plan.matrix_axes)
+      axis_ids.push_back(axis.id);
+    std::sort(axis_ids.begin(), axis_ids.end());
+    const bool standard_case_axes =
+      axis_ids == std::vector<std::string>{"observation-region", "target-profile"};
+    if (standard_case_axes)
+      return {combination_value(combination.values, "observation-region") + "-" +
+              combination_value(combination.values, "target-profile")};
+
+    std::vector<std::string> components;
+    components.reserve(combination.artifact_coordinates.size());
+    for (const auto &coordinate : combination.artifact_coordinates)
+      components.push_back(coordinate.axis + "-" + coordinate.value);
+    return components;
+  }
+
+  std::vector<std::string>
+  b1_artifact_paths(
     const nmopt::application::runner::ParameterFile &file,
     const std::vector<std::pair<std::string, std::string>> &filters)
   {
-    std::vector<std::string> paths;
-    const auto combinations = file.combinations(filters);
-    const bool standard_case_matrix =
-      file.matrix.size() == 2 &&
-      file.matrix[0].id == "observation-region" &&
-      file.matrix[1].id == "target-profile";
-    for (const auto &combination : combinations)
-      {
-        std::vector<std::string> components;
-        if (standard_case_matrix)
-          {
-            const auto region = combination_value(combination, "observation-region");
-            const auto target = combination_value(combination, "target-profile");
-            components.push_back(region + "-" + target);
-          }
-        else
-          for (const auto &axis : file.matrix)
-            components.push_back(axis.id + "-" + combination_value(combination, axis.id));
-        std::string relative = "artifacts";
-        for (const auto &component : components)
-          relative += "/" + component;
-        paths.push_back(relative + "/artifact.kv");
-      }
-    return paths;
+    return nmopt::application::runner::run_set_artifact_paths(
+      nmopt::application::runner::make_run_set_plan(file, filters),
+      b1_artifact_coordinate_components);
+  }
+
+  std::vector<std::string>
+  b2_artifact_paths(
+    const nmopt::application::runner::ParameterFile &file,
+    const std::vector<std::pair<std::string, std::string>> &filters)
+  {
+    return nmopt::application::runner::run_set_artifact_paths(
+      nmopt::application::runner::make_run_set_plan(file, filters),
+      b2_artifact_coordinate_components);
   }
 
   template <typename Scenario>
@@ -725,7 +733,7 @@ namespace
       nmopt::application::chapter6::dealii::B1ReducedExecutionAdapterT<2>;
     const auto &output_directory = configuration.run_directory;
     runner::RunSetManifest run_manifest(
-      configuration, command, b1_expected_artifacts(file, filters));
+      configuration, command, b1_artifact_paths(file, filters));
     bool all_artifacts_succeeded = true;
 
     struct ObjectiveReference
@@ -878,7 +886,7 @@ namespace
       nmopt::application::chapter6::dealii::B2ReducedExecutionAdapterT<2>;
     const auto &output_directory = configuration.run_directory;
     runner::RunSetManifest run_manifest(
-      configuration, command, b2_expected_artifacts(file, filters));
+      configuration, command, b2_artifact_paths(file, filters));
     bool all_artifacts_succeeded = true;
 
     for (const auto &combination : file.combinations(filters))
@@ -978,10 +986,16 @@ namespace
       nmopt::application::runner::BenchmarkExecutionRegistration;
     static const std::array<Registration, 2> registrations{{
       {nmopt::application::runner::find_benchmark_registration("b1"),
-       b1_expected_artifacts,
+       [](const auto &plan) {
+         return nmopt::application::runner::run_set_artifact_paths(
+           plan, b1_artifact_coordinate_components);
+       },
        run_b1},
       {nmopt::application::runner::find_benchmark_registration("b2"),
-       b2_expected_artifacts,
+       [](const auto &plan) {
+         return nmopt::application::runner::run_set_artifact_paths(
+           plan, b2_artifact_coordinate_components);
+       },
        run_b2}}};
     return registrations;
   }
@@ -1107,8 +1121,7 @@ namespace
         "benchmark registration has no execution callback: " +
         std::string(registration->id));
     // This also validates the required matrix axes before creating output.
-    (void)execution_registration->artifact_planner(
-      prepared.file, prepared.options.selection_filters);
+    (void)execution_registration->artifact_planner(prepared.plan);
 
     prepared.configuration = resolve_run_configuration(
       prepared.options, NMOPT_COMPILED_BUILD_PROFILE);

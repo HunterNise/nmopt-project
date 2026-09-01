@@ -604,7 +604,7 @@ namespace
       "artifacts/l-bfgs/beta-1e-2/artifact.kv",
       "artifacts/l-bfgs/beta-1e-3/artifact.kv",
       "artifacts/l-bfgs/beta-1e-6/artifact.kv"};
-    require(b1_expected_artifacts(file, {}) == expected_paths,
+    require(b1_artifact_paths(file, {}) == expected_paths,
             "B1 characterization changed artifact coordinate paths");
 
     for (const auto &combination : combinations)
@@ -733,7 +733,7 @@ namespace
       "artifacts/wings-parabolic/artifact.kv",
       "artifacts/full-constant/artifact.kv",
       "artifacts/full-parabolic/artifact.kv"};
-    require(b2_expected_artifacts(file, {}) == expected_paths,
+    require(b2_artifact_paths(file, {}) == expected_paths,
             "B2 characterization changed artifact coordinate paths");
 
     for (const auto &combination : combinations)
@@ -850,7 +850,7 @@ namespace
       "artifacts/regularisation-1e-3/forcing-constant-two/"
       "observation-region-wings/target-profile-constant/artifact.kv"};
     require(forcing_combinations.size() == 3 &&
-              b2_expected_artifacts(forcing_sweep, {}) == forcing_paths,
+              b2_artifact_paths(forcing_sweep, {}) == forcing_paths,
             "B2 forcing-sweep characterization changed its matrix paths");
 
     for (const auto &combination : forcing_combinations)
@@ -943,14 +943,16 @@ namespace
 
     const auto b1_file = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b1/authoritative.prm"));
-    const auto b1_artifacts = b1->artifact_planner(b1_file, {});
-    require(b1_artifacts == b1_expected_artifacts(b1_file, {}),
+    const auto b1_plan = nmopt::application::runner::make_run_set_plan(b1_file);
+    const auto b1_artifacts = b1->artifact_planner(b1_plan);
+    require(b1_artifacts == b1_artifact_paths(b1_file, {}),
             "B1 registration should use its registered artifact planner");
 
     const auto b2_file = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
-    const auto b2_artifacts = b2->artifact_planner(b2_file, {});
-    require(b2_artifacts == b2_expected_artifacts(b2_file, {}),
+    const auto b2_plan = nmopt::application::runner::make_run_set_plan(b2_file);
+    const auto b2_artifacts = b2->artifact_planner(b2_plan);
+    require(b2_artifacts == b2_artifact_paths(b2_file, {}),
             "B2 registration should use its registered artifact planner");
   }
 
@@ -1512,6 +1514,12 @@ namespace
         future_plan.resolved_combinations[1].artifact_coordinates[1].value ==
           "right",
       "run-set planning should keep novel-axis coordinates independent of order");
+    require(
+      nmopt::application::runner::run_set_artifact_paths(future_plan) ==
+        std::vector<std::string>{
+          "artifacts/beta-1/profile-right/artifact.kv",
+          "artifacts/beta-2/profile-right/artifact.kv"},
+      "generic run-set artifact planning should consume novel axes");
   }
 
   void

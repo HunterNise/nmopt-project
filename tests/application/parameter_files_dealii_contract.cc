@@ -59,7 +59,14 @@ namespace
       combination_value(combination, "regularisation"),
       "Matrix/regularisation");
     auto scenario = nmopt::application::chapter6::make_b1_scenario(method);
-    configure_b1_scenario(scenario, file, combination, method_id, beta);
+    bind_b1_scenario(
+      scenario,
+      file,
+      combination,
+      method_id,
+      beta,
+      std::string(file.value("Benchmark/id")) + "." + method_id + ".beta-" +
+        combination_value(combination, "regularisation"));
     return scenario;
   }
 

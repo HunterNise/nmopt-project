@@ -2,6 +2,7 @@
 #include "nmopt/application/dealii/chapter6_b1.hpp"
 #include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "benchmark_registry.hpp"
+#include "benchmark_binders.hpp"
 #include "parameter_binding.hpp"
 #include "parameter_files.hpp"
 #include "runner.hpp"
@@ -29,6 +30,7 @@ namespace
   using nmopt::application::runner::binding::combination_value;
   using nmopt::application::runner::binding::apply_common_parameter_options;
   using nmopt::application::runner::binding::apply_solver_options;
+  using nmopt::application::runner::binding::bind_b1_scenario;
   using nmopt::application::runner::binding::parse_mesh_generation;
   using nmopt::application::runner::binding::parse_method;
   using nmopt::application::runner::binding::parse_number_text;
@@ -289,72 +291,6 @@ namespace
         paths.push_back(relative + "/artifact.kv");
       }
     return paths;
-  }
-
-  void
-  configure_b1_scenario(
-    nmopt::application::chapter6::B1Scenario &scenario,
-    const nmopt::application::runner::ParameterFile &file,
-    const nmopt::application::runner::ParameterCombination &combination,
-    const std::string &method_id,
-    const double beta)
-  {
-    using namespace nmopt::application;
-    using namespace runner;
-    require_parameter(file,
-                      "Benchmark/id",
-                      "chapter-6.b1.distributed-laplace");
-    require_parameter(file,
-                      "Benchmark/recipe",
-                      chapter6::b1_recipe_id);
-    require_parameter(file, "Problem/observation", "full-domain");
-    require_parameter(file, "Functions/desired state", "b1-polynomial");
-    require_parameter(file, "Functions/desired state/kind", "polynomial");
-    require_parameter(file,
-                      "Functions/desired state/expression",
-                      "10*x0*(1-x0)*x1*(1-x1)");
-    require_parameter(file,
-                      "Mesh/geometry",
-                      "unit-hypercube");
-    require_parameter(file, "Solver/method", "from-matrix");
-    require_parameter(file, "Output/selected fields", "state, control, adjoint, negative-adjoint, target, forcing");
-    if (combination.values.size() < 2)
-      throw std::invalid_argument("B1 needs method and regularisation matrix axes");
-
-    const auto control_representation =
-      file.value("Problem/control representation");
-    if (control_representation == "cellwise-volume")
-      scenario.problem.recipe.discretisation =
-        chapter5::DistributedControlDiscretisation::cellwise_constant;
-    else if (control_representation ==
-             "continuous-volume-homogeneous-dirichlet")
-      scenario.problem.recipe.discretisation = chapter5::
-        DistributedControlDiscretisation::homogeneous_dirichlet_continuous;
-    else
-      throw std::invalid_argument(
-        "B1 has an unknown control representation '" +
-        control_representation + "'");
-    scenario.problem.recipe.with_cellwise_box =
-      parameter_bool(file, "Problem/cellwise box constraint");
-    scenario.problem.data.diffusion = parameter_double(file, "Runtime/diffusion");
-    scenario.problem.data.reaction = parameter_double(file, "Runtime/reaction");
-    scenario.problem.data.regularisation_weight = beta;
-    scenario.problem.data.desired_state_provenance =
-      file.value("Functions/desired state/provenance");
-    scenario.problem.regularisation_sweep = {beta};
-    scenario.problem.forcing =
-      parameter_scalar_function_definition(file, "Functions/forcing");
-    scenario.problem.data.forcing_provenance =
-      scenario.problem.forcing.provenance;
-    scenario.solver.method = parse_method(method_id);
-    apply_common_parameter_options(
-      scenario,
-      file,
-      std::string(file.value("Benchmark/id")) + "." + method_id + ".beta-" +
-        b1_beta_slug(beta));
-    apply_solver_options(scenario.solver, file, method_id);
-    if (scenario.solver.method == chapter6::ReducedMethod::bfgs)
-      throw std::invalid_argument("B1 does not support full BFGS");
   }
 
   nmopt::application::chapter6::GraetzCase
@@ -952,7 +888,14 @@ namespace
         try
           {
             auto scenario = make_b1_scenario(method);
-            configure_b1_scenario(scenario, file, combination, method_id, beta);
+            bind_b1_scenario(
+              scenario,
+              file,
+              combination,
+              method_id,
+              beta,
+              std::string(file.value("Benchmark/id")) + "." + method_id +
+                ".beta-" + b1_beta_slug(beta));
             scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
             if (configuration.refinement_override.has_value())
               {

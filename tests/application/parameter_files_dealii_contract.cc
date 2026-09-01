@@ -130,6 +130,59 @@ namespace
   }
 
   void
+  test_parameter_schema_registry_accounts_for_all_entries()
+  {
+    const auto &registry =
+      nmopt::application::runner::detail::parameter_schema_registry();
+    require(!registry.empty(), "parameter schema registry must not be empty");
+
+    const auto exclusion_file = read_exclusion_parameter_file("");
+    std::size_t required_entries = 0;
+    std::size_t consumed_entries = 0;
+    std::size_t locked_entries = 0;
+    std::size_t provenance_entries = 0;
+    for (const auto &entry : registry)
+      {
+        require(!entry.path.empty() && entry.pattern,
+                "every schema entry needs a path and deal.II pattern");
+        require(exclusion_file.values.count(entry.path) == 1,
+                "schema extraction must account for every declared entry");
+        required_entries += entry.presence ==
+                            nmopt::application::runner::ParameterPresence::required;
+        consumed_entries += entry.ownership ==
+                            nmopt::application::runner::ParameterOwnership::consumed;
+        locked_entries += entry.ownership ==
+                          nmopt::application::runner::ParameterOwnership::locked_profile;
+        provenance_entries += entry.ownership ==
+                              nmopt::application::runner::ParameterOwnership::provenance_only;
+      }
+    require(exclusion_file.values.size() == registry.size() && required_entries == 2 &&
+              consumed_entries > 0 && locked_entries > 0 && provenance_entries > 0,
+            "schema registry ownership and extraction accounting is incomplete");
+
+    const auto find_entry = [&](const std::string &path) -> const auto & {
+      const auto found = std::find_if(
+        registry.begin(), registry.end(), [&](const auto &entry) {
+          return entry.path == path;
+        });
+      require(found != registry.end(), "expected typed schema entry is missing");
+      return *found;
+    };
+    require(find_entry("Run/deterministic").pattern->match("true") &&
+              !find_entry("Run/deterministic").pattern->match("maybe"),
+            "boolean schema pattern should reject non-boolean values");
+    require(find_entry("Mesh/refinement").pattern->match("7") &&
+              !find_entry("Mesh/refinement").pattern->match("seven"),
+            "integer schema pattern should reject non-integer values");
+    require(find_entry("Runtime/diffusion").pattern->match("1.25") &&
+              !find_entry("Runtime/diffusion").pattern->match("not-a-number"),
+            "double schema pattern should reject non-numeric values");
+    require(find_entry("Solver/globalization").pattern->match("armijo") &&
+              !find_entry("Solver/globalization").pattern->match("unknown"),
+            "selection schema pattern should reject unknown values");
+  }
+
+  void
   test_checked_in_families_expand_and_filter()
   {
     const auto b1 = read_parameter_file(find_file_from_current_or_parent(
@@ -1324,6 +1377,11 @@ main(const int argc, char **argv)
   try
     {
       const std::vector<nmopt::test_support::Scenario> scenarios{
+        {"parameter_schema_registry_accounts_for_all_entries",
+         "nmopt.parameter_files.parameter_schema_registry_accounts_for_all_entries",
+         {"backend", "dealii", "application", "runner", "contract"},
+         30,
+         test_parameter_schema_registry_accounts_for_all_entries},
         {"checked_in_families_expand_and_filter",
          "nmopt.parameter_files.checked_in_families_expand_and_filter",
          {"backend", "dealii", "application", "runner", "contract"},

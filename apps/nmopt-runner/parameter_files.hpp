@@ -12,9 +12,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -70,6 +72,28 @@ namespace nmopt::application::runner
   {
     std::string key;
     std::string value;
+  };
+
+  enum class ParameterPresence
+  {
+    optional,
+    required
+  };
+
+  enum class ParameterOwnership
+  {
+    consumed,
+    locked_profile,
+    provenance_only
+  };
+
+  struct ParameterSchemaEntry
+  {
+    std::string path;
+    std::string default_value;
+    std::shared_ptr<const ::dealii::Patterns::PatternBase> pattern;
+    ParameterPresence presence;
+    ParameterOwnership ownership;
   };
 
   inline semantic::v1::TransportBoundaryForm
@@ -464,29 +488,369 @@ namespace nmopt::application::runner
       return output.str();
     }
 
+    class EmptyOrPattern final : public ::dealii::Patterns::PatternBase
+    {
+    public:
+      explicit EmptyOrPattern(
+        std::shared_ptr<const ::dealii::Patterns::PatternBase> pattern)
+        : pattern(std::move(pattern))
+      {}
+
+      bool
+      match(const std::string &test_string) const override
+      {
+        return test_string.empty() || pattern->match(test_string);
+      }
+
+      std::string
+      description(const OutputStyle style = Machine) const override
+      {
+        return "[empty or " + pattern->description(style) + "]";
+      }
+
+      std::unique_ptr<PatternBase>
+      clone() const override
+      {
+        return std::make_unique<EmptyOrPattern>(*this);
+      }
+
+    private:
+      std::shared_ptr<const ::dealii::Patterns::PatternBase> pattern;
+    };
+
+    inline std::shared_ptr<const ::dealii::Patterns::PatternBase>
+    anything_pattern()
+    {
+      return std::make_shared<::dealii::Patterns::Anything>();
+    }
+
+    inline std::shared_ptr<const ::dealii::Patterns::PatternBase>
+    empty_or(std::shared_ptr<const ::dealii::Patterns::PatternBase> pattern)
+    {
+      return std::make_shared<EmptyOrPattern>(std::move(pattern));
+    }
+
+    inline bool
+    ends_with(const std::string &value, const std::string &suffix)
+    {
+      return value.size() >= suffix.size() &&
+             value.compare(value.size() - suffix.size(), suffix.size(), suffix) ==
+               0;
+    }
+
+    inline std::shared_ptr<const ::dealii::Patterns::PatternBase>
+    pattern_for(const std::string &path)
+    {
+      const auto entry = path.substr(path.rfind('/') + 1);
+
+      if (path.rfind("Matrix/", 0) == 0 ||
+          path.rfind("Selection/", 0) == 0)
+        return anything_pattern();
+
+      if (path == "Solver/globalization")
+        return std::make_shared<::dealii::Patterns::Selection>(
+          "armijo|fixed-step");
+
+      if (path == "Compile/volume observation target realisation")
+        return std::make_shared<::dealii::Patterns::MultipleSelection>(
+          "analytic-quadrature|state-fe-interpolation");
+
+      if (path == "Problem/control representation")
+        return std::make_shared<::dealii::Patterns::MultipleSelection>(
+          "cellwise-volume|continuous-volume-homogeneous-dirichlet|"
+          "facewise-constant|continuous-nodal-trace");
+
+      if (entry == "cellwise box constraint" ||
+          entry == "facewise box constraint" || entry == "owned session" ||
+          entry == "deterministic" ||
+          entry == "serialize artifacts" || entry == "measure timings" ||
+          entry == "measure memory" || entry == "retain fields")
+        return empty_or(std::make_shared<::dealii::Patterns::Bool>());
+
+      if (entry == "dimension" || entry == "refinement" ||
+          entry == "subdivisions" || entry == "centroid splits" ||
+          entry == "selection seed" || entry == "state degree" ||
+          entry == "volume observation quadrature order" ||
+          entry == "observed material id" || entry == "material id" ||
+          entry == "fixed boundary id" || entry == "control boundary id" ||
+          entry == "outflow boundary id" || entry == "maximum iterations" ||
+          entry == "maximum line search trials" ||
+          entry == "maximum backtracking reductions" || entry == "memory")
+        return empty_or(std::make_shared<::dealii::Patterns::Integer>());
+
+      if (entry == "diffusion" || entry == "reaction" ||
+          entry == "regularisation" || entry == "upstream transition x" ||
+          entry == "outflow x" || entry == "value" ||
+          ends_with(entry, "tolerance") || entry == "initial step length" ||
+          entry == "Armijo fraction" || entry == "backtracking factor" ||
+          entry == "minimum step length")
+        return empty_or(std::make_shared<::dealii::Patterns::Double>());
+
+      return anything_pattern();
+    }
+
+    inline ParameterOwnership
+    ownership_for(const std::string &path)
+    {
+      if (path == "Benchmark/source reference" ||
+          path == "Benchmark/source revision" ||
+          path == "Solver/declared minimum step length" ||
+          ends_with(path, "/provenance"))
+        return ParameterOwnership::provenance_only;
+
+      if (path.rfind("Boundary/", 0) == 0 || path == "Mesh/geometry" ||
+          path == "Mesh/generator" ||
+          path == "Functions/conservative transport" ||
+          path.rfind("Functions/graetz/", 0) == 0)
+        return ParameterOwnership::locked_profile;
+
+      return ParameterOwnership::consumed;
+    }
+
+    inline void
+    append_schema_entry(std::vector<ParameterSchemaEntry> &registry,
+                        const std::string                      &path,
+                        const std::string                      &default_value = {},
+                        const ParameterPresence presence =
+                          ParameterPresence::optional)
+    {
+      if (std::any_of(registry.begin(), registry.end(), [&](const auto &entry) {
+            return entry.path == path;
+          }))
+        throw std::logic_error("duplicate parameter schema path '" + path +
+                              "'");
+      registry.push_back({path,
+                          default_value,
+                          pattern_for(path),
+                          presence,
+                          ownership_for(path)});
+    }
+
+    inline const std::vector<ParameterSchemaEntry> &
+    parameter_schema_registry()
+    {
+      static const auto registry = [] {
+        std::vector<ParameterSchemaEntry> result;
+        const auto add_section = [&](const std::string &section,
+                                     const std::initializer_list<const char *> entries,
+                                     const ParameterPresence presence =
+                                       ParameterPresence::optional) {
+          for (const auto *entry : entries)
+            append_schema_entry(result, section + "/" + entry, {}, presence);
+        };
+
+        append_schema_entry(result,
+                            "Benchmark/id",
+                            {},
+                            ParameterPresence::required);
+        add_section("Benchmark", {"label"});
+        append_schema_entry(result,
+                            "Benchmark/recipe",
+                            {},
+                            ParameterPresence::required);
+        add_section("Benchmark", {"source reference", "source revision"});
+        add_section("Matrix",
+                    {"method",
+                     "regularisation",
+                     "case",
+                     "forcing",
+                     "observation-region",
+                     "target-profile"});
+        add_section("Selection",
+                    {"method",
+                     "regularisation",
+                     "case",
+                     "forcing",
+                     "observation-region",
+                     "target-profile",
+                     "exclude combinations"});
+        add_section("Problem",
+                    {"control representation",
+                     "cellwise box constraint",
+                     "observation",
+                     "observed material id",
+                     "facewise box constraint",
+                     "initial control"});
+        add_section("Observation", {"active region", "material id"});
+        for (const auto *region : {"wings", "full"})
+          append_schema_entry(result,
+                              "Observation/region " + std::string(region) +
+                                "/geometry");
+
+        add_section("Functions",
+                    {"forcing",
+                     "desired state",
+                     "fixed Dirichlet data",
+                     "conservative transport"});
+        for (const auto *section : {"forcing",
+                                    "desired state",
+                                    "fixed-temperature",
+                                    "graetz"})
+          for (const auto *entry : {"kind", "expression", "provenance", "value"})
+            append_schema_entry(result,
+                                "Functions/" + std::string(section) + "/" +
+                                  entry);
+        for (const auto *profile : {"constant", "parabolic"})
+          for (const auto *entry : {"id", "kind", "expression", "provenance", "value"})
+            append_schema_entry(result,
+                                "Functions/target definitions/" +
+                                  std::string(profile) + "/" + entry);
+        for (const auto *forcing : {"zero", "constant-one", "constant-two"})
+          for (const auto *entry : {"kind", "provenance", "value"})
+            append_schema_entry(result,
+                                "Functions/forcing definition " +
+                                  std::string(forcing) + "/" + entry);
+
+        add_section("Runtime", {"diffusion", "reaction", "regularisation"});
+        add_section("Boundary",
+                    {"fixed region",
+                     "fixed boundary id",
+                     "control region",
+                     "control boundary id",
+                     "outflow region",
+                     "outflow boundary id",
+                     "upstream transition x",
+                     "outflow x",
+                     "transport boundary form",
+                     "conormal form",
+                     "normal orientation",
+                     "trace evaluation",
+                     "face quadrature"});
+        add_section("Mesh",
+                    {"dimension",
+                     "geometry",
+                     "lower",
+                     "upper",
+                     "refinement",
+                     "provenance"});
+        append_schema_entry(result, "Mesh/generator", "framework-native");
+        append_schema_entry(result, "Mesh/subdivisions", "0");
+        append_schema_entry(result, "Mesh/axis subdivisions");
+        append_schema_entry(result, "Mesh/centroid splits", "0");
+        append_schema_entry(result, "Mesh/selection seed", "0");
+
+        add_section("Compile",
+                    {"state degree",
+                     "execution",
+                     "product",
+                     "owned session",
+                     "stabilization"});
+        append_schema_entry(result, "Compile/volume observation quadrature order");
+        append_schema_entry(result, "Compile/volume observation target realisation");
+        append_schema_entry(result, "Compile/state solve maximum iterations", "0");
+        append_schema_entry(result, "Compile/state solve relative tolerance", "1e-12");
+        append_schema_entry(result, "Compile/state solve absolute tolerance", "1e-14");
+        append_schema_entry(result, "Compile/adjoint solve maximum iterations", "0");
+        append_schema_entry(result, "Compile/adjoint solve relative tolerance", "1e-12");
+        append_schema_entry(result, "Compile/adjoint solve absolute tolerance", "1e-14");
+        append_schema_entry(result,
+                            "Compile/control metric solve maximum iterations",
+                            "1000");
+        append_schema_entry(result,
+                            "Compile/control metric solve relative tolerance",
+                            "1e-12");
+        append_schema_entry(result,
+                            "Compile/control metric solve absolute tolerance",
+                            "1e-14");
+
+        append_schema_entry(result, "Solver/globalization", "armijo");
+        add_section("Solver",
+                    {"method",
+                     "initial control",
+                     "maximum iterations",
+                     "maximum line search trials",
+                     "maximum backtracking reductions",
+                     "gradient tolerance",
+                     "stopping criterion",
+                     "relative gradient tolerance",
+                     "objective change tolerance",
+                     "step tolerance",
+                     "objective target",
+                     "objective target policy",
+                     "objective target reference method",
+                     "initial step length",
+                     "Armijo fraction",
+                     "backtracking factor",
+                     "minimum step length",
+                     "declared minimum step length"});
+        for (const auto *method : {"steepest-descent", "l-bfgs", "bfgs"})
+          for (const auto *entry : method_policy_entries)
+            append_schema_entry(result,
+                                "Solver/method policy " + std::string(method) +
+                                  "/" + entry);
+
+        add_section("Run",
+                    {"kind",
+                     "build profile",
+                     "output root",
+                     "deterministic",
+                     "serialize artifacts",
+                     "measure timings",
+                     "measure memory"});
+        add_section("Output", {"retain fields", "selected fields"});
+        add_section("Postprocessing",
+                    {"style profile",
+                     "comparison rows",
+                     "comparison columns",
+                     "comparison group by",
+                     "output formats"});
+        return result;
+      }();
+      return registry;
+    }
+
+    inline std::vector<std::string>
+    schema_sections(const std::string &path)
+    {
+      const auto last_separator = path.rfind('/');
+      if (last_separator == std::string::npos || last_separator == 0 ||
+          last_separator + 1 == path.size())
+        throw std::logic_error("parameter schema path must name a section and entry: '" +
+                              path + "'");
+
+      std::vector<std::string> sections;
+      std::size_t              begin = 0;
+      while (begin < last_separator)
+        {
+          const auto separator = path.find('/', begin);
+          const auto end = separator == std::string::npos ||
+                                   separator > last_separator ?
+                                 last_separator :
+                                 separator;
+          sections.push_back(path.substr(begin, end - begin));
+          begin = end + 1;
+        }
+      return sections;
+    }
+
+    inline std::string
+    schema_entry_name(const std::string &path)
+    {
+      return path.substr(path.rfind('/') + 1);
+    }
+
     inline void
     declare(::dealii::ParameterHandler &handler,
-            const std::vector<std::string> &sections,
-            const std::string              &entry,
-            const std::string              &default_value = {})
+            const ParameterSchemaEntry   &schema_entry)
     {
+      const auto sections = schema_sections(schema_entry.path);
       for (const auto &section : sections)
         handler.enter_subsection(section);
-      handler.declare_entry(entry,
-                            default_value,
-                            ::dealii::Patterns::Anything());
+      handler.declare_entry(schema_entry_name(schema_entry.path),
+                            schema_entry.default_value,
+                            *schema_entry.pattern);
       for (std::size_t index = 0; index < sections.size(); ++index)
         handler.leave_subsection();
     }
 
     inline std::string
     get(::dealii::ParameterHandler &handler,
-        const std::vector<std::string> &sections,
-        const std::string              &entry)
+        const ParameterSchemaEntry   &schema_entry)
     {
+      const auto sections = schema_sections(schema_entry.path);
       for (const auto &section : sections)
         handler.enter_subsection(section);
-      const auto value = handler.get(entry);
+      const auto value = handler.get(schema_entry_name(schema_entry.path));
       for (std::size_t index = 0; index < sections.size(); ++index)
         handler.leave_subsection();
       return value;
@@ -495,340 +859,16 @@ namespace nmopt::application::runner
     inline void
     declare_schema(::dealii::ParameterHandler &handler)
     {
-      const auto declare_section = [&](const std::string &section,
-                                       const std::string &entry,
-                                       const std::string &value = {}) {
-        declare(handler, {section}, entry, value);
-      };
-
-      for (const auto &entry : {"id",
-                                "label",
-                                "recipe",
-                                "source reference",
-                                "source revision"})
-        declare_section("Benchmark", entry);
-
-      // ParameterHandler has no enumeration API. Matrix and selection keys
-      // are therefore registered once here, while their values remain fully
-      // data-driven and benchmark adapters only consume resolved combinations.
-      for (const auto &entry : {"method",
-                                "regularisation",
-                                "case",
-                                "forcing",
-                                "observation-region",
-                                "target-profile"})
-        {
-          declare_section("Matrix", entry);
-          declare_section("Selection", entry);
-        }
-      declare_section("Selection", "exclude combinations");
-
-      for (const auto &entry : {"control representation",
-                                "cellwise box constraint",
-                                "observation",
-                                "observed material id",
-                                "facewise box constraint",
-                                "initial control"})
-        declare_section("Problem", entry);
-
-      declare_section("Observation", "active region");
-      declare_section("Observation", "material id");
-      for (const auto &region : {"wings", "full"})
-        declare(handler, {"Observation", "region " + std::string(region)},
-                "geometry");
-
-      for (const auto &entry : {"forcing",
-                                "desired state",
-                                "fixed Dirichlet data",
-                                "conservative transport"})
-        declare_section("Functions", entry);
-      for (const auto &entry : {"kind", "expression", "provenance", "value"})
-        {
-          declare(handler, {"Functions", "forcing"}, entry);
-          declare(handler, {"Functions", "desired state"}, entry);
-          declare(handler, {"Functions", "fixed-temperature"}, entry);
-          declare(handler, {"Functions", "graetz"}, entry);
-        }
-      for (const auto &profile : {"constant", "parabolic"})
-        for (const auto &entry : {"id", "kind", "expression", "provenance", "value"})
-          declare(handler,
-                  {"Functions", "target definitions", profile},
-                  entry);
-      for (const auto &forcing : {"zero", "constant-one", "constant-two"})
-        for (const auto &entry : {"kind", "provenance", "value"})
-          declare(handler,
-                  {"Functions", "forcing definition " + std::string(forcing)},
-                  entry);
-
-      for (const auto &entry : {"diffusion", "reaction", "regularisation"})
-        declare_section("Runtime", entry);
-
-      for (const auto &entry : {"fixed region",
-                                "fixed boundary id",
-                                "control region",
-                                "control boundary id",
-                                "outflow region",
-                                "outflow boundary id",
-                                "upstream transition x",
-                                "outflow x",
-                                "transport boundary form",
-                                "conormal form",
-                                "normal orientation",
-                                "trace evaluation",
-                                "face quadrature"})
-        declare_section("Boundary", entry);
-
-      for (const auto &entry : {"dimension",
-                                "geometry",
-                                "lower",
-                                "upper",
-                                "refinement",
-                                "provenance"})
-        declare_section("Mesh", entry);
-      declare_section("Mesh", "generator", "framework-native");
-      declare_section("Mesh", "subdivisions", "0");
-      declare_section("Mesh", "axis subdivisions");
-      declare_section("Mesh", "centroid splits", "0");
-      declare_section("Mesh", "selection seed", "0");
-      for (const auto &entry : {"state degree",
-                                "execution",
-                                "product",
-                                "owned session",
-                                "stabilization"})
-        declare_section("Compile", entry);
-      declare_section("Compile", "volume observation quadrature order");
-      declare_section("Compile", "volume observation target realisation");
-      declare_section("Compile", "state solve maximum iterations", "0");
-      declare_section("Compile", "state solve relative tolerance", "1e-12");
-      declare_section("Compile", "state solve absolute tolerance", "1e-14");
-      declare_section("Compile", "adjoint solve maximum iterations", "0");
-      declare_section("Compile", "adjoint solve relative tolerance", "1e-12");
-      declare_section("Compile", "adjoint solve absolute tolerance", "1e-14");
-      declare_section("Compile",
-                      "control metric solve maximum iterations",
-                      "1000");
-      declare_section("Compile",
-                      "control metric solve relative tolerance",
-                      "1e-12");
-      declare_section("Compile",
-                      "control metric solve absolute tolerance",
-                      "1e-14");
-
-      declare_section("Solver", "globalization", "armijo");
-      for (const auto &entry : {"method",
-                                "initial control",
-                                "maximum iterations",
-                                "maximum line search trials",
-                                "maximum backtracking reductions",
-                                "gradient tolerance",
-                                "stopping criterion",
-                                "relative gradient tolerance",
-                                "objective change tolerance",
-                                "step tolerance",
-                                "objective target",
-                                "objective target policy",
-                                "objective target reference method",
-                                "initial step length",
-                                "Armijo fraction",
-                                "backtracking factor",
-                                "minimum step length",
-                                "declared minimum step length"})
-        declare_section("Solver", entry);
-      for (const auto &method : {"steepest-descent", "l-bfgs", "bfgs"})
-        for (const auto *entry : method_policy_entries)
-          declare(handler,
-                  {"Solver", "method policy " + std::string(method)},
-                  entry);
-
-      for (const auto &entry : {"kind",
-                                "build profile",
-                                "output root",
-                                "deterministic",
-                                "serialize artifacts",
-                                "measure timings",
-                                "measure memory"})
-        declare_section("Run", entry);
-      for (const auto &entry : {"retain fields", "selected fields"})
-        declare_section("Output", entry);
-      for (const auto &entry : {"style profile",
-                                "comparison rows",
-                                "comparison columns",
-                                "comparison group by",
-                                "output formats"})
-        declare_section("Postprocessing", entry);
+      for (const auto &schema_entry : parameter_schema_registry())
+        declare(handler, schema_entry);
     }
 
     inline std::map<std::string, std::string>
     read_values(::dealii::ParameterHandler &handler)
     {
       std::map<std::string, std::string> values;
-      const auto remember = [&](const std::string &section,
-                                const std::string &entry) {
-        values.emplace(section + "/" + entry,
-                       get(handler, {section}, entry));
-      };
-
-      for (const auto &entry : {"id",
-                                "label",
-                                "recipe",
-                                "source reference",
-                                "source revision"})
-        remember("Benchmark", entry);
-      for (const auto &entry : {"method",
-                                "regularisation",
-                                "case",
-                                "forcing",
-                                "observation-region",
-                                "target-profile"})
-        remember("Matrix", entry);
-      for (const auto &entry : {"method",
-                                "regularisation",
-                                "case",
-                                "forcing",
-                                "observation-region",
-                                "target-profile"})
-        remember("Selection", entry);
-      remember("Selection", "exclude combinations");
-      for (const auto &entry : {"control representation",
-                                "cellwise box constraint",
-                                "observation",
-                                "observed material id",
-                                "facewise box constraint",
-                                "initial control"})
-        remember("Problem", entry);
-      for (const auto &entry : {"active region", "material id"})
-        remember("Observation", entry);
-      for (const auto &region : {"wings", "full"})
-        values.emplace("Observation/region " + std::string(region) + "/geometry",
-                       get(handler,
-                           {"Observation", "region " + std::string(region)},
-                           "geometry"));
-      for (const auto &entry : {"forcing",
-                                "desired state",
-                                "fixed Dirichlet data",
-                                "conservative transport"})
-        remember("Functions", entry);
-      for (const auto &entry : {"kind", "expression", "provenance", "value"})
-        {
-          for (const auto &section : {"forcing",
-                                      "desired state",
-                                      "fixed-temperature",
-                                      "graetz"})
-            values.emplace("Functions/" + std::string(section) + "/" + entry,
-                           get(handler, {"Functions", section}, entry));
-        }
-      for (const auto &profile : {"constant", "parabolic"})
-        for (const auto &entry : {"id", "kind", "expression", "provenance", "value"})
-          values.emplace("Functions/target definitions/" +
-                           std::string(profile) + "/" + entry,
-                         get(handler,
-                             {"Functions", "target definitions", profile},
-                             entry));
-      for (const auto &forcing : {"zero", "constant-one", "constant-two"})
-        for (const auto &entry : {"kind", "provenance", "value"})
-          values.emplace("Functions/forcing definition " +
-                           std::string(forcing) + "/" + entry,
-                         get(handler,
-                             {"Functions",
-                              "forcing definition " + std::string(forcing)},
-                             entry));
-
-      for (const auto &section : {"Runtime", "Boundary", "Mesh", "Compile",
-                                  "Solver", "Run", "Output", "Postprocessing"})
-        {
-          const std::vector<std::string> entries =
-            section == "Runtime"
-              ? std::vector<std::string>{"diffusion", "reaction", "regularisation"}
-              : section == "Boundary"
-                  ? std::vector<std::string>{"fixed region",
-                                             "fixed boundary id",
-                                             "control region",
-                                             "control boundary id",
-                                             "outflow region",
-                                             "outflow boundary id",
-                                             "upstream transition x",
-                                             "outflow x",
-                                             "transport boundary form",
-                                             "conormal form",
-                                             "normal orientation",
-                                             "trace evaluation",
-                                             "face quadrature"}
-                  : section == "Mesh"
-                      ? std::vector<std::string>{"dimension",
-                                                 "geometry",
-                                                 "lower",
-                                                 "upper",
-                                                 "refinement",
-                                                 "generator",
-                                                 "subdivisions",
-                                                 "axis subdivisions",
-                                                 "centroid splits",
-                                                 "selection seed",
-                                                 "provenance"}
-                      : section == "Compile"
-                          ? std::vector<std::string>{"state degree",
-                                                     "execution",
-                                                     "product",
-                                                     "owned session",
-                                                     "stabilization",
-                                                     "volume observation quadrature order",
-                                                     "volume observation target realisation",
-                                                     "state solve maximum iterations",
-                                                     "state solve relative tolerance",
-                                                     "state solve absolute tolerance",
-                                                     "adjoint solve maximum iterations",
-                                                     "adjoint solve relative tolerance",
-                                                     "adjoint solve absolute tolerance",
-                                                     "control metric solve maximum iterations",
-                                                     "control metric solve relative tolerance",
-                                                     "control metric solve absolute tolerance"}
-                          : section == "Solver"
-                              ? std::vector<std::string>{"method",
-                                                         "globalization",
-                                                         "initial control",
-                                                         "maximum iterations",
-                                                         "maximum line search trials",
-                                                         "maximum backtracking reductions",
-                                                         "gradient tolerance",
-                                                         "stopping criterion",
-                                                         "relative gradient tolerance",
-                                                         "objective change tolerance",
-                                                         "step tolerance",
-                                                         "objective target",
-                                                         "objective target policy",
-                                                         "objective target reference method",
-                                                         "initial step length",
-                                                         "Armijo fraction",
-                                                         "backtracking factor",
-                                                         "minimum step length",
-                                                         "declared minimum step length"}
-                              : section == "Run"
-                                  ? std::vector<std::string>{"kind",
-                                                             "build profile",
-                                                             "output root",
-                                                             "deterministic",
-                                                             "serialize artifacts",
-                                                             "measure timings",
-                                                             "measure memory"}
-                                  : section == "Output"
-                                      ? std::vector<std::string>{"retain fields",
-                                                                 "selected fields"}
-                                      : std::vector<std::string>{"style profile",
-                                                                 "comparison rows",
-                                                                 "comparison columns",
-                                                                 "comparison group by",
-                                                                 "output formats"};
-          for (const auto &entry : entries)
-            remember(section, entry);
-        }
-      for (const auto &method : {"steepest-descent", "l-bfgs", "bfgs"})
-        for (const auto *entry : method_policy_entries)
-          values.emplace("Solver/method policy " + std::string(method) + "/" +
-                           entry,
-                         get(handler,
-                             {"Solver",
-                              "method policy " + std::string(method)},
-                             entry));
+      for (const auto &schema_entry : parameter_schema_registry())
+        values.emplace(schema_entry.path, get(handler, schema_entry));
       return values;
     }
 
@@ -906,13 +946,10 @@ namespace nmopt::application::runner
     result.path = path;
     result.content_hash = detail::hash_text(content);
     result.values = detail::read_values(handler);
-    for (const auto &axis_id : {"method",
-                                "regularisation",
-                                "case",
-                                "forcing",
-                                "observation-region",
-                                "target-profile"})
+    for (const auto &schema_entry : detail::parameter_schema_registry())
+      if (schema_entry.path.rfind("Matrix/", 0) == 0)
       {
+        const auto axis_id = schema_entry.path.substr(std::string("Matrix/").size());
         const auto values = detail::split_list(result.value(
           std::string("Matrix/") + axis_id));
         if (!values.empty())

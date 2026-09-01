@@ -97,7 +97,9 @@ namespace
   }
 
   nmopt::application::runner::ParameterFile
-  read_exclusion_parameter_file(const std::string &exclusions)
+  read_exclusion_parameter_file(
+    const std::string &exclusions,
+    const std::string &scalar_definitions = {})
   {
     const auto path = std::filesystem::temp_directory_path() /
                       "nmopt-parameter-exclusion-contract.prm";
@@ -113,6 +115,10 @@ namespace
            << "subsection Selection\n"
            << "  set exclude combinations = " << exclusions << '\n'
            << "end\n";
+    if (!scalar_definitions.empty())
+      output << "subsection Functions\n"
+             << "  set scalar definitions = " << scalar_definitions << '\n'
+             << "end\n";
     output.close();
     if (!output)
       throw std::runtime_error("could not write exclusion parameter fixture");
@@ -132,8 +138,20 @@ namespace
   void
   test_parameter_schema_registry_accounts_for_all_entries()
   {
-    const auto &registry =
-      nmopt::application::runner::detail::parameter_schema_registry();
+    const auto &common_registry =
+      nmopt::application::runner::detail::common_parameter_schema_registry();
+    require(std::none_of(common_registry.begin(),
+                         common_registry.end(),
+                         [](const auto &entry) {
+                           return entry.path.rfind("Matrix/", 0) == 0;
+                         }),
+            "common parameter schema must not own benchmark matrix axes");
+
+    const auto b1_adapter =
+      nmopt::application::runner::detail::parameter_schema_adapter_for(
+        "b1", "chapter-6.b1.distributed-laplace");
+    const auto registry =
+      nmopt::application::runner::detail::parameter_schema_registry(b1_adapter);
     require(!registry.empty(), "parameter schema registry must not be empty");
 
     const auto exclusion_file = read_exclusion_parameter_file("");
@@ -180,6 +198,32 @@ namespace
     require(find_entry("Solver/globalization").pattern->match("armijo") &&
               !find_entry("Solver/globalization").pattern->match("unknown"),
             "selection schema pattern should reject unknown values");
+
+    const auto b2_adapter =
+      nmopt::application::runner::detail::parameter_schema_adapter_for(
+        "chapter-6.b2.graetz-flow",
+        "chapter-5.scalar-neumann-convection-subdomain");
+    const auto b2_registry =
+      nmopt::application::runner::detail::parameter_schema_registry(b2_adapter);
+    require(std::any_of(b2_registry.begin(), b2_registry.end(), [](const auto &entry) {
+              return entry.path == "Matrix/forcing";
+            }) &&
+              std::none_of(b1_adapter.entries.begin(),
+                           b1_adapter.entries.end(),
+                           [](const auto &entry) {
+                             return entry.path == "Matrix/forcing";
+                           }),
+            "benchmark schema adapters must own their matrix axes");
+  }
+
+  void
+  test_dynamic_scalar_definition_is_one_parameter_value()
+  {
+    const std::string encoded =
+      R"json({"definitions":[{"expression":"atan2(x0,x1)","id":"candidate-with-comma","kind":"expression","port":"forcing","provenance":"test.dynamic"}],"selected":{"forcing":"candidate-with-comma"}})json";
+    const auto file = read_exclusion_parameter_file("", encoded);
+    require(file.value("Functions/scalar definitions") == encoded,
+            "dynamic scalar definitions must round-trip as one parameter value");
   }
 
   void
@@ -1382,6 +1426,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract"},
          30,
          test_parameter_schema_registry_accounts_for_all_entries},
+        {"dynamic_scalar_definition_is_one_parameter_value",
+         "nmopt.parameter_files.dynamic_scalar_definition_is_one_parameter_value",
+         {"backend", "dealii", "application", "runner", "contract"},
+         30,
+         test_dynamic_scalar_definition_is_one_parameter_value},
         {"checked_in_families_expand_and_filter",
          "nmopt.parameter_files.checked_in_families_expand_and_filter",
          {"backend", "dealii", "application", "runner", "contract"},

@@ -203,8 +203,34 @@ The checked `source-oriented-constant-half` ID is the authoritative replacement
 selected after the B1 investigation. `manufactured-zero` and
 `figure-inferred-constant-one` remain explicit development choices. None is a
 special case in the runner: a direct forcing subsection defines one function
-for the complete file. Named definitions selected by a `Matrix/forcing` sweep
-remain a separate, not-yet-generic schema capability.
+for the complete file. The legacy B2 named-definition subsections are retained
+by the B2 schema adapter for compatibility with the checked-in files.
+
+The generic representation for named scalar data is the single
+`Functions/scalar definitions` entry. Its value is compact canonical JSON with
+this shape:
+
+```text
+{"definitions":[{"expression":"0.4 + sin(pi*x0)*sin(pi*x1)","id":"spatial-candidate","kind":"expression","port":"forcing","provenance":"development.b1.spatial-candidate"}],"selected":{"forcing":"spatial-candidate"}}
+```
+
+The top-level keys are `definitions` and `selected`, and definition objects use
+the lexicographic key order shown above. Definitions are sorted by `(port, id)`
+and have unique pairs. A `zero` definition has neither `value` nor
+`expression`, a `constant` definition has finite `value`, and an
+`expression` definition has nonempty `expression`; all definitions have
+nonempty `port`, `id`, and `provenance`. The `selected` object maps each
+semantic port to one definition ID and is also lexicographically ordered. JSON
+string escaping is the only escaping rule, so commas, semicolons, and
+parentheses in a normal deal.II scalar expression are data rather than
+delimiters. The representation is therefore lossless and deterministic when
+serialized and parsed by the future shared scalar-definition resolver.
+
+`ParameterHandler` reads the complete JSON document as the value of one
+declared entry, so adding a definition ID changes only the `.prm` value and
+does not add a schema subsection or a central candidate list. The checked-in
+B1/B2 files continue to use their legacy syntax while the shared resolver is
+introduced incrementally.
 
 `Mesh/generator` defaults to `framework-native`, which consumes
 `Mesh/refinement` and leaves the simplex entries unset. A simplex configuration

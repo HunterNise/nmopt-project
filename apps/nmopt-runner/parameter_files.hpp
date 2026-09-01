@@ -96,6 +96,15 @@ namespace nmopt::application::runner
     ParameterOwnership ownership;
   };
 
+  struct ParameterSchemaAdapter
+  {
+    std::string                       id;
+    std::vector<std::string>          benchmark_ids;
+    std::vector<std::string>          benchmark_id_prefixes;
+    std::vector<std::string>          recipe_ids;
+    std::vector<ParameterSchemaEntry> entries;
+  };
+
   inline semantic::v1::TransportBoundaryForm
   b2_transport_boundary_form(const ParameterFile &file)
   {
@@ -627,7 +636,7 @@ namespace nmopt::application::runner
     }
 
     inline const std::vector<ParameterSchemaEntry> &
-    parameter_schema_registry()
+    common_parameter_schema_registry()
     {
       static const auto registry = [] {
         std::vector<ParameterSchemaEntry> result;
@@ -649,21 +658,7 @@ namespace nmopt::application::runner
                             {},
                             ParameterPresence::required);
         add_section("Benchmark", {"source reference", "source revision"});
-        add_section("Matrix",
-                    {"method",
-                     "regularisation",
-                     "case",
-                     "forcing",
-                     "observation-region",
-                     "target-profile"});
-        add_section("Selection",
-                    {"method",
-                     "regularisation",
-                     "case",
-                     "forcing",
-                     "observation-region",
-                     "target-profile",
-                     "exclude combinations"});
+        add_section("Selection", {"exclude combinations"});
         add_section("Problem",
                     {"control representation",
                      "cellwise box constraint",
@@ -690,16 +685,9 @@ namespace nmopt::application::runner
             append_schema_entry(result,
                                 "Functions/" + std::string(section) + "/" +
                                   entry);
-        for (const auto *profile : {"constant", "parabolic"})
-          for (const auto *entry : {"id", "kind", "expression", "provenance", "value"})
-            append_schema_entry(result,
-                                "Functions/target definitions/" +
-                                  std::string(profile) + "/" + entry);
-        for (const auto *forcing : {"zero", "constant-one", "constant-two"})
-          for (const auto *entry : {"kind", "provenance", "value"})
-            append_schema_entry(result,
-                                "Functions/forcing definition " +
-                                  std::string(forcing) + "/" + entry);
+        append_schema_entry(result,
+                            "Functions/scalar definitions",
+                            R"({"definitions":[],"selected":{}})");
 
         add_section("Runtime", {"diffusion", "reaction", "regularisation"});
         add_section("Boundary",
@@ -799,6 +787,118 @@ namespace nmopt::application::runner
       return registry;
     }
 
+    inline const std::vector<ParameterSchemaEntry> &
+    parameter_schema_registry()
+    {
+      return common_parameter_schema_registry();
+    }
+
+    inline void
+    append_matrix_axis(ParameterSchemaAdapter &adapter, const std::string &axis)
+    {
+      append_schema_entry(adapter.entries, "Matrix/" + axis);
+      append_schema_entry(adapter.entries, "Selection/" + axis);
+    }
+
+    inline void
+    append_legacy_b2_definition_entries(ParameterSchemaAdapter &adapter)
+    {
+      for (const auto *profile : {"constant", "parabolic"})
+        for (const auto *entry : {"id", "kind", "expression", "provenance", "value"})
+          append_schema_entry(adapter.entries,
+                              "Functions/target definitions/" +
+                                std::string(profile) + "/" + entry);
+      for (const auto *forcing : {"zero", "constant-one", "constant-two"})
+        for (const auto *entry : {"kind", "provenance", "value"})
+          append_schema_entry(adapter.entries,
+                              "Functions/forcing definition " +
+                                std::string(forcing) + "/" + entry);
+    }
+
+    inline const std::vector<ParameterSchemaAdapter> &
+    parameter_schema_adapters()
+    {
+      static const auto adapters = [] {
+        std::vector<ParameterSchemaAdapter> result;
+
+        ParameterSchemaAdapter b1{
+          "b1", {"b1"}, {"chapter-6.b1."}, {"chapter-5.scalar-diffusion-reaction-volume"}, {}};
+        for (const auto *axis : {"method", "regularisation"})
+          append_matrix_axis(b1, axis);
+        result.push_back(std::move(b1));
+
+        ParameterSchemaAdapter b2{
+          "b2", {"b2"}, {"chapter-6.b2."}, {"chapter-5.scalar-neumann-convection-subdomain"}, {}};
+        for (const auto *axis : {"regularisation",
+                                 "forcing",
+                                 "observation-region",
+                                 "target-profile"})
+          append_matrix_axis(b2, axis);
+        append_legacy_b2_definition_entries(b2);
+        result.push_back(std::move(b2));
+
+        return result;
+      }();
+      return adapters;
+    }
+
+    inline bool
+    starts_with(const std::string &value, const std::string &prefix)
+    {
+      return value.size() >= prefix.size() &&
+             value.compare(0, prefix.size(), prefix) == 0;
+    }
+
+    inline bool
+    adapter_matches(const ParameterSchemaAdapter &adapter,
+                    const std::string           &benchmark_id,
+                    const std::string           &recipe)
+    {
+      return std::find(adapter.benchmark_ids.begin(),
+                       adapter.benchmark_ids.end(),
+                       benchmark_id) != adapter.benchmark_ids.end() ||
+             std::any_of(adapter.benchmark_id_prefixes.begin(),
+                         adapter.benchmark_id_prefixes.end(),
+                         [&](const auto &prefix) {
+                           return starts_with(benchmark_id, prefix);
+                         }) ||
+             std::find(adapter.recipe_ids.begin(),
+                       adapter.recipe_ids.end(),
+                       recipe) != adapter.recipe_ids.end();
+    }
+
+    inline const ParameterSchemaAdapter &
+    parameter_schema_adapter_for(const std::string &benchmark_id,
+                                 const std::string &recipe)
+    {
+      const auto &adapters = parameter_schema_adapters();
+      const auto  found = std::find_if(
+        adapters.begin(), adapters.end(), [&](const auto &adapter) {
+          return adapter_matches(adapter, benchmark_id, recipe);
+        });
+      if (found == adapters.end())
+        throw std::invalid_argument(
+          "no parameter schema adapter is registered for benchmark '" +
+          benchmark_id + "' and recipe '" + recipe + "'");
+      return *found;
+    }
+
+    inline std::vector<ParameterSchemaEntry>
+    parameter_schema_registry(const ParameterSchemaAdapter &adapter)
+    {
+      auto result = common_parameter_schema_registry();
+      for (const auto &entry : adapter.entries)
+        {
+          if (std::any_of(result.begin(), result.end(), [&](const auto &candidate) {
+                return candidate.path == entry.path;
+              }))
+            throw std::logic_error("duplicate parameter schema path '" +
+                                   entry.path + "'");
+          result.push_back(entry);
+        }
+      return result;
+    }
+
     inline std::vector<std::string>
     schema_sections(const std::string &path)
     {
@@ -838,7 +938,9 @@ namespace nmopt::application::runner
         handler.enter_subsection(section);
       handler.declare_entry(schema_entry_name(schema_entry.path),
                             schema_entry.default_value,
-                            *schema_entry.pattern);
+                            *schema_entry.pattern,
+                            "",
+                            schema_entry.presence == ParameterPresence::required);
       for (std::size_t index = 0; index < sections.size(); ++index)
         handler.leave_subsection();
     }
@@ -857,19 +959,40 @@ namespace nmopt::application::runner
     }
 
     inline void
-    declare_schema(::dealii::ParameterHandler &handler)
+    declare_schema(::dealii::ParameterHandler &handler,
+                   const std::vector<ParameterSchemaEntry> &registry)
     {
-      for (const auto &schema_entry : parameter_schema_registry())
+      for (const auto &schema_entry : registry)
         declare(handler, schema_entry);
     }
 
     inline std::map<std::string, std::string>
-    read_values(::dealii::ParameterHandler &handler)
+    read_values(::dealii::ParameterHandler                  &handler,
+                const std::vector<ParameterSchemaEntry> &registry)
     {
       std::map<std::string, std::string> values;
-      for (const auto &schema_entry : parameter_schema_registry())
+      for (const auto &schema_entry : registry)
         values.emplace(schema_entry.path, get(handler, schema_entry));
       return values;
+    }
+
+    inline std::pair<std::string, std::string>
+    benchmark_identity(const std::string &content, const std::string &source)
+    {
+      ::dealii::ParameterHandler handler;
+      handler.enter_subsection("Benchmark");
+      handler.declare_entry("id", "", *anything_pattern());
+      handler.declare_entry("recipe", "", *anything_pattern());
+      handler.leave_subsection();
+
+      std::istringstream input_stream(content);
+      handler.parse_input(input_stream, source, "", true);
+
+      handler.enter_subsection("Benchmark");
+      const auto id = handler.get("id");
+      const auto recipe = handler.get("recipe");
+      handler.leave_subsection();
+      return {id, recipe};
     }
 
     inline bool
@@ -937,16 +1060,21 @@ namespace nmopt::application::runner
     const std::string content((std::istreambuf_iterator<char>(input)),
                               std::istreambuf_iterator<char>());
 
+    const auto identity = detail::benchmark_identity(content, path.string());
+    const auto &adapter =
+      detail::parameter_schema_adapter_for(identity.first, identity.second);
+    const auto registry = detail::parameter_schema_registry(adapter);
+
     ::dealii::ParameterHandler handler;
-    detail::declare_schema(handler);
+    detail::declare_schema(handler, registry);
     std::istringstream input_stream(content);
     handler.parse_input(input_stream, path.string());
 
     ParameterFile result;
     result.path = path;
     result.content_hash = detail::hash_text(content);
-    result.values = detail::read_values(handler);
-    for (const auto &schema_entry : detail::parameter_schema_registry())
+    result.values = detail::read_values(handler, registry);
+    for (const auto &schema_entry : registry)
       if (schema_entry.path.rfind("Matrix/", 0) == 0)
       {
         const auto axis_id = schema_entry.path.substr(std::string("Matrix/").size());

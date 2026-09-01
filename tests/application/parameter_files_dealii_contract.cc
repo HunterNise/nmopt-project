@@ -1455,6 +1455,66 @@ namespace
   }
 
   void
+  test_run_set_plan_is_generic_and_structured()
+  {
+    const auto b1 = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b1/authoritative.prm"));
+    const auto b1_plan =
+      nmopt::application::runner::make_run_set_plan(b1);
+    require(b1_plan.benchmark_id == "chapter-6.b1.distributed-laplace" &&
+              b1_plan.matrix_axes.size() == 2 &&
+              b1_plan.matrix_axes[0].id == "method" &&
+              b1_plan.matrix_axes[1].id == "regularisation" &&
+              b1_plan.resolved_combinations.size() == 7 &&
+              b1_plan.excluded_combinations.size() == 1,
+            "run-set planning changed the authoritative B1 matrix resolution");
+    require(b1_plan.parameter_provenance.file == b1.path &&
+              b1_plan.parameter_provenance.content_hash == b1.content_hash,
+            "run-set planning did not retain parameter-file provenance");
+    require(b1_plan.comparison.rows == "method" &&
+              b1_plan.comparison.columns == "regularisation" &&
+              b1_plan.comparison.group_by == "none",
+            "run-set planning did not retain comparison coordinates");
+    require(
+      b1_plan.resolved_combinations.front().artifact_coordinates.size() == 2 &&
+        b1_plan.resolved_combinations.front().artifact_coordinates[0].axis ==
+          "method" &&
+        b1_plan.resolved_combinations.front().artifact_coordinates[0].value ==
+          "steepest-descent" &&
+        b1_plan.resolved_combinations.front().artifact_coordinates[1].axis ==
+          "regularisation",
+      "run-set planning did not derive ordered artifact coordinates");
+
+    nmopt::application::runner::ParameterFile future;
+    future.path = "parameters/test/future.prm";
+    future.content_hash = "fnv1a64:future";
+    future.values = {{"Benchmark/id", "test.future"},
+                     {"Postprocessing/comparison rows", "beta"},
+                     {"Postprocessing/comparison columns", "profile"},
+                     {"Postprocessing/comparison group by", "none"}};
+    future.matrix = {{"beta", {"1", "2"}},
+                     {"profile", {"left", "right"}}};
+    future.selection = {{"beta", "1,2"}};
+    nmopt::application::runner::ParameterCombination excluded;
+    excluded.values = {{"beta", "2"}, {"profile", "left"}};
+    future.excluded_combinations.push_back(excluded);
+
+    const auto future_plan = nmopt::application::runner::make_run_set_plan(
+      future, {{"profile", "right"}});
+    require(future_plan.benchmark_id == "test.future" &&
+              future_plan.matrix_axes[1].id == "profile" &&
+              future_plan.selection.at("profile") == "right" &&
+              future_plan.resolved_combinations.size() == 2,
+            "run-set planning should accept a novel registered axis");
+    require(
+      future_plan.resolved_combinations[1].artifact_coordinates[0].value ==
+          "2" &&
+        future_plan.resolved_combinations[1].artifact_coordinates[1].value ==
+          "right",
+      "run-set planning should keep novel-axis coordinates independent of order");
+  }
+
+  void
   test_scalar_function_definitions_are_data_driven()
   {
     nmopt::application::runner::ParameterFile file;
@@ -1607,6 +1667,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract"},
          30,
          test_sparse_matrix_exclusions_are_validated_and_applied},
+        {"run_set_plan_is_generic_and_structured",
+         "nmopt.parameter_files.run_set_plan_is_generic_and_structured",
+         {"backend", "dealii", "application", "runner", "contract"},
+         30,
+         test_run_set_plan_is_generic_and_structured},
         {"scalar_function_definitions_are_data_driven",
          "nmopt.parameter_files.scalar_function_definitions_are_data_driven",
          {"backend", "dealii", "application", "runner", "contract"},

@@ -215,6 +215,29 @@ namespace
   }
 
   std::string
+  join_combinations(const nmopt::application::runner::RunSetPlan &plan)
+  {
+    std::ostringstream output;
+    for (std::size_t index = 0; index < plan.resolved_combinations.size();
+         ++index)
+      {
+        if (index != 0)
+          output << ';';
+        output << '[';
+        std::size_t value_index = 0;
+        for (const auto &[axis, value] :
+             plan.resolved_combinations[index].values.values)
+          {
+            if (value_index++ != 0)
+              output << ',';
+            output << axis << '=' << value;
+          }
+        output << ']';
+      }
+    return output.str();
+  }
+
+  std::string
   join_selection(const nmopt::application::runner::ParameterFile &file,
                  const std::vector<std::pair<std::string, std::string>> &cli)
   {
@@ -1015,7 +1038,7 @@ namespace
   snapshot_configuration(
     const nmopt::application::runner::ResolvedRunConfiguration &configuration,
     const nmopt::application::runner::ParameterFile &file,
-    const std::vector<nmopt::application::runner::ParameterCombination> &combinations)
+    const nmopt::application::runner::RunSetPlan &plan)
   {
     std::filesystem::create_directories(configuration.run_directory);
     copy_configuration_file(file.path,
@@ -1025,7 +1048,7 @@ namespace
     std::ofstream resolved(configuration.run_directory / "resolved-combinations.txt");
     if (!resolved)
       throw std::runtime_error("could not write resolved parameter combinations");
-    resolved << join_combinations(combinations) << '\n';
+    resolved << join_combinations(plan) << '\n';
   }
 
   struct PreparedRun
@@ -1033,7 +1056,7 @@ namespace
     nmopt::application::runner::CommandLineOptions options;
     nmopt::application::runner::ParameterFile       file;
     nmopt::application::runner::ResolvedRunConfiguration configuration;
-    std::vector<nmopt::application::runner::ParameterCombination> combinations;
+    nmopt::application::runner::RunSetPlan              plan;
   };
 
   PreparedRun
@@ -1075,8 +1098,8 @@ namespace
              *input_options.benchmark != registration->id)
       throw std::invalid_argument("--benchmark does not match its authoritative parameter file");
 
-    prepared.combinations =
-      prepared.file.combinations(prepared.options.selection_filters);
+    prepared.plan = make_run_set_plan(prepared.file,
+                                      prepared.options.selection_filters);
     const auto *execution_registration =
       find_benchmark_execution_registration(registration->id);
     if (execution_registration == nullptr)
@@ -1089,8 +1112,10 @@ namespace
 
     prepared.configuration = resolve_run_configuration(
       prepared.options, NMOPT_COMPILED_BUILD_PROFILE);
-    prepared.configuration.parameter_file = prepared.file.path;
-    prepared.configuration.parameter_hash = prepared.file.content_hash;
+    prepared.configuration.parameter_file =
+      prepared.plan.parameter_provenance.file;
+    prepared.configuration.parameter_hash =
+      prepared.plan.parameter_provenance.content_hash;
     const auto profile_path = find_file_from_current_or_parent(
       prepared.file.value("Postprocessing/style profile"));
     prepared.configuration.plotting_profile_file = profile_path;
@@ -1099,14 +1124,11 @@ namespace
       prepared.file, prepared.options.selection_filters);
     prepared.configuration.declared_matrix = join_matrix(prepared.file);
     prepared.configuration.excluded_combinations =
-      join_combinations(prepared.file.excluded_combinations);
-    prepared.configuration.resolved_combinations = join_combinations(prepared.combinations);
-    prepared.configuration.comparison_rows =
-      prepared.file.value("Postprocessing/comparison rows");
-    prepared.configuration.comparison_columns =
-      prepared.file.value("Postprocessing/comparison columns");
-    prepared.configuration.comparison_group_by =
-      prepared.file.value("Postprocessing/comparison group by");
+      join_combinations(prepared.plan.excluded_combinations);
+    prepared.configuration.resolved_combinations = join_combinations(prepared.plan);
+    prepared.configuration.comparison_rows = prepared.plan.comparison.rows;
+    prepared.configuration.comparison_columns = prepared.plan.comparison.columns;
+    prepared.configuration.comparison_group_by = prepared.plan.comparison.group_by;
     return prepared;
   }
 } // namespace
@@ -1130,7 +1152,7 @@ main(const int argc, char **argv)
           auto prepared = prepare_run(options);
           snapshot_configuration(prepared.configuration,
                                  prepared.file,
-                                 prepared.combinations);
+                                 prepared.plan);
           const auto *registration =
             find_benchmark_execution_registration(
               prepared.configuration.benchmark);

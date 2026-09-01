@@ -2,6 +2,7 @@
 
 #include "nmopt/application/chapter6.hpp"
 #include "nmopt/semantic/v1/types.hpp"
+#include "run_set_plan.hpp"
 
 #include <deal.II/base/parameter_handler.h>
 
@@ -26,17 +27,6 @@
 
 namespace nmopt::application::runner
 {
-  struct ParameterAxis
-  {
-    std::string              id;
-    std::vector<std::string> values;
-  };
-
-  struct ParameterCombination
-  {
-    std::map<std::string, std::string> values;
-  };
-
   struct ParameterFile
   {
     std::filesystem::path              path;
@@ -1207,6 +1197,36 @@ namespace nmopt::application::runner
       result.end());
     if (result.empty())
       throw std::invalid_argument("parameter selection resolves to no combinations");
+    return result;
+  }
+
+  inline RunSetPlan
+  make_run_set_plan(
+    const ParameterFile &file,
+    const std::vector<std::pair<std::string, std::string>> &cli_filters = {})
+  {
+    RunSetPlan result;
+    result.benchmark_id = file.value("Benchmark/id");
+    result.matrix_axes = file.matrix;
+    result.selection = file.selection;
+    for (const auto &filter : cli_filters)
+      result.selection[filter.first] = filter.second;
+    result.excluded_combinations = file.excluded_combinations;
+    result.comparison.rows = file.optional_value(
+      "Postprocessing/comparison rows", "none");
+    result.comparison.columns = file.optional_value(
+      "Postprocessing/comparison columns", "none");
+    result.comparison.group_by = file.optional_value(
+      "Postprocessing/comparison group by", "none");
+    result.parameter_provenance = {file.path, file.content_hash};
+
+    for (const auto &combination : file.combinations(cli_filters))
+      result.resolved_combinations.push_back(
+        {combination,
+         default_artifact_coordinate_components(result.matrix_axes,
+                                                combination)});
+
+    validate_run_set_plan(result);
     return result;
   }
 } // namespace nmopt::application::runner

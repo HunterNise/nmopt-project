@@ -1,5 +1,6 @@
 #pragma once
 
+#include "run_set_plan.hpp"
 #include "nmopt/solvers/reduced_search.hpp"
 
 #include <algorithm>

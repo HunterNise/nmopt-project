@@ -25,13 +25,13 @@ subsection Functions
   set forcing = manufactured-zero
   set desired state = b1-polynomial
 
-  subsection forcing
+  subsection forcing definition manufactured-zero
     set kind = zero
     set provenance = chapter-6.e6.5.1.manufactured-zero-forcing
   end
 
   subsection desired state
-    set kind = polynomial
+    set kind = expression
     set expression = 10*x0*(1-x0)*x1*(1-x1)
     set provenance = chapter-6.e6.5.1.desired-state
   end

@@ -49,23 +49,6 @@ namespace nmopt::application::chapter6::dealii
   } // namespace detail
 
   template <int dim>
-  class B1DesiredStateFunction final : public ::dealii::Function<dim>
-  {
-  public:
-    static_assert(dim >= 2,
-                  "The Chapter 6 B1 target requires at least two coordinates");
-
-    double
-    value(const ::dealii::Point<dim> &point,
-          const unsigned int          component = 0) const override
-    {
-      (void)component;
-      return 10.0 * point[0] * (1.0 - point[0]) * point[1] *
-             (1.0 - point[1]);
-    }
-  };
-
-  template <int dim>
   struct B1RuntimeDataT
   {
     B1RuntimeDataT(const ::dealii::Function<dim> &forcing_function,
@@ -84,10 +67,16 @@ namespace nmopt::application::chapter6::dealii
   public:
     explicit B1SelectedDataT(
       ScalarFunctionDefinition forcing_definition =
-        b1_manufactured_zero_forcing())
+        b1_manufactured_zero_forcing(),
+      ScalarFunctionDefinition desired_state_definition =
+        b1_manufactured_desired_state())
       : forcing_definition_(std::move(forcing_definition))
+      , desired_state_definition_(std::move(desired_state_definition))
       , forcing_(::nmopt::application::dealii_support::make_scalar_function<dim>(
                    forcing_definition_, "B1 forcing"))
+      , desired_state_(
+          ::nmopt::application::dealii_support::make_scalar_function<dim>(
+            desired_state_definition_, "B1 desired state"))
     {}
 
     const ScalarFunctionDefinition &
@@ -96,16 +85,23 @@ namespace nmopt::application::chapter6::dealii
       return forcing_definition_;
     }
 
+    const ScalarFunctionDefinition &
+    desired_state_definition() const
+    {
+      return desired_state_definition_;
+    }
+
     B1RuntimeDataT<dim>
     runtime_data() const
     {
-      return {*forcing_, desired_state_};
+      return {*forcing_, *desired_state_};
     }
 
   private:
     ScalarFunctionDefinition                  forcing_definition_;
+    ScalarFunctionDefinition                  desired_state_definition_;
     std::unique_ptr<::dealii::Function<dim>> forcing_;
-    B1DesiredStateFunction<dim>               desired_state_;
+    std::unique_ptr<::dealii::Function<dim>>  desired_state_;
   };
 
   template <int dim>
@@ -118,6 +114,9 @@ namespace nmopt::application::chapter6::dealii
     if (scenario.problem.forcing != data.forcing_definition())
       throw std::invalid_argument(
         "B1 runtime-data forcing does not match the scenario definition");
+    if (scenario.problem.desired_state != data.desired_state_definition())
+      throw std::invalid_argument(
+        "B1 runtime-data desired state does not match the scenario definition");
     if (scenario.compile.mesh.dimension != dim)
       throw std::invalid_argument(
         "B1 runtime data dimension does not match the scenario mesh");

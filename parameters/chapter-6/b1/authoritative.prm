@@ -30,14 +30,14 @@ subsection Functions
   set forcing = source-oriented-constant-half
   set desired state = b1-polynomial
 
-  subsection forcing
+  subsection forcing definition source-oriented-constant-half
     set kind = constant
     set value = 0.5
     set provenance = chapter-6.e6.5.1.source-oriented-constant-half-forcing
   end
 
   subsection desired state
-    set kind = polynomial
+    set kind = expression
     set expression = 10*x0*(1-x0)*x1*(1-x1)
     set provenance = chapter-6.e6.5.1.desired-state
   end

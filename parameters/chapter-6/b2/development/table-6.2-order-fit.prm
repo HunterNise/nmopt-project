@@ -43,7 +43,7 @@ subsection Functions
   set fixed Dirichlet data = fixed-temperature
   set conservative transport = graetz
 
-  subsection forcing
+  subsection forcing definition constant-one-diagnostic
     set kind = constant
     set value = 1.0
     set provenance = development.chapter-6.b2.constant-one-forcing

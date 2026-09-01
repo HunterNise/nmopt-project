@@ -798,7 +798,7 @@ namespace
               }
 
             nmopt::application::chapter6::dealii::B1SelectedDataT<2> data(
-              scenario.problem.forcing);
+              scenario.problem.forcing, scenario.problem.desired_state);
             const auto runtime =
               nmopt::application::chapter6::dealii::make_b1_runtime_data(
                 scenario, data);

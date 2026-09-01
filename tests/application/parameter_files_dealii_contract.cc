@@ -33,6 +33,13 @@ namespace
       throw std::runtime_error(message);
   }
 
+  std::string
+  forcing_definition_path(
+    const nmopt::application::runner::ParameterFile &file)
+  {
+    return "Functions/forcing definition " + file.value("Functions/forcing");
+  }
+
   template <typename Operation>
   void
   require_invalid_argument(Operation &&operation, const char *message)
@@ -436,8 +443,8 @@ end
                 "continuous-volume-homogeneous-dirichlet" &&
               b1.value("Functions/forcing") ==
                 "source-oriented-constant-half" &&
-              b1.value("Functions/forcing/kind") == "constant" &&
-              b1.value("Functions/forcing/value") == "0.5" &&
+              b1.value(forcing_definition_path(b1) + "/kind") == "constant" &&
+              b1.value(forcing_definition_path(b1) + "/value") == "0.5" &&
               b1.value("Mesh/generator") == "structured-simplex" &&
               b1.value("Mesh/refinement") == "0" &&
               b1.value("Mesh/subdivisions") == "131" &&
@@ -516,9 +523,12 @@ end
     require(constant_one_forcing.combinations().size() == 6 &&
               constant_one_forcing.value("Functions/forcing") ==
                 "figure-inferred-constant-one" &&
-              constant_one_forcing.value("Functions/forcing/kind") ==
+              constant_one_forcing.value(
+                forcing_definition_path(constant_one_forcing) + "/kind") ==
                 "constant" &&
-              constant_one_forcing.value("Functions/forcing/value") == "1.0",
+              constant_one_forcing.value(
+                forcing_definition_path(constant_one_forcing) + "/value") ==
+                "1.0",
             "B1 constant-one family lost its inferred forcing candidate");
 
     const auto structured_simplex = read_parameter_file(
@@ -561,8 +571,12 @@ end
         "figure-6.2-early-stop-constant-half.prm"));
     require(
       figure_6_2_constant_half.combinations().size() == 2 &&
-        figure_6_2_constant_half.value("Functions/forcing/kind") == "constant" &&
-        figure_6_2_constant_half.value("Functions/forcing/value") == "0.5" &&
+        figure_6_2_constant_half.value(
+          forcing_definition_path(figure_6_2_constant_half) + "/kind") ==
+          "constant" &&
+        figure_6_2_constant_half.value(
+          forcing_definition_path(figure_6_2_constant_half) + "/value") ==
+          "0.5" &&
         figure_6_2_constant_half.value("Mesh/generator") ==
           "structured-simplex" &&
         figure_6_2_constant_half.value("Mesh/subdivisions") == "131" &&
@@ -582,9 +596,11 @@ end
       figure_6_2_objective_matched.combinations().size() == 2 &&
         figure_6_2_objective_matched.value("Functions/forcing") ==
           "objective-matched-constant" &&
-        figure_6_2_objective_matched.value("Functions/forcing/kind") ==
+        figure_6_2_objective_matched.value(
+          forcing_definition_path(figure_6_2_objective_matched) + "/kind") ==
           "constant" &&
-        figure_6_2_objective_matched.value("Functions/forcing/value") ==
+        figure_6_2_objective_matched.value(
+          forcing_definition_path(figure_6_2_objective_matched) + "/value") ==
           "0.41506741762176758" &&
         figure_6_2_objective_matched.value("Mesh/generator") ==
           "structured-simplex" &&
@@ -600,10 +616,11 @@ end
     const auto require_figure_6_3_candidate = [](const auto &candidate,
                                                   const char *forcing_value,
                                                   const char *message) {
+      const auto forcing_path = forcing_definition_path(candidate);
       require(
         candidate.combinations().size() == 6 &&
-          candidate.value("Functions/forcing/kind") == "constant" &&
-          candidate.value("Functions/forcing/value") == forcing_value &&
+          candidate.value(forcing_path + "/kind") == "constant" &&
+          candidate.value(forcing_path + "/value") == forcing_value &&
           candidate.value("Mesh/generator") == "structured-simplex" &&
           candidate.value("Mesh/subdivisions") == "131" &&
           candidate.value("Solver/objective target policy") ==
@@ -666,12 +683,13 @@ end
       [](const auto &candidate,
          const char *forcing_value,
          const char *message) {
+        const auto forcing_path = forcing_definition_path(candidate);
         require(
           candidate.combinations().size() == 4 &&
             candidate.value("Problem/control representation") ==
               "continuous-nodal-trace" &&
-            candidate.value("Functions/forcing/kind") == "constant" &&
-            candidate.value("Functions/forcing/value") == forcing_value &&
+            candidate.value(forcing_path + "/kind") == "constant" &&
+            candidate.value(forcing_path + "/value") == forcing_value &&
             candidate.value("Runtime/regularisation") == "1e-2" &&
             candidate.value("Mesh/generator") == "structured-simplex" &&
             candidate.value("Mesh/axis subdivisions") == "160, 40" &&

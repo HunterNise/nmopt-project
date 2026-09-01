@@ -39,7 +39,8 @@ namespace
     scenario.compile.adjoint_solve = {124, 4.0e-12, 5.0e-14};
     scenario.compile.control_metric_solve = {321, 6.0e-12, 7.0e-14};
 
-    chapter6::dealii::B1SelectedDataT<2> selected_data(forcing);
+    chapter6::dealii::B1SelectedDataT<2> selected_data(
+      scenario.problem.forcing, scenario.problem.desired_state);
     const auto runtime =
       chapter6::dealii::make_b1_runtime_data(scenario, selected_data);
     require(std::abs(runtime.forcing.value(::dealii::Point<2>(0.5, 0.5)) -
@@ -349,6 +350,44 @@ namespace
   }
 
   void
+  test_b1_desired_state_is_data_driven()
+  {
+    const ScalarFunctionDefinition desired_state{
+      "custom-desired-state",
+      ScalarFunctionKind::expression,
+      0.0,
+      "x0 + 2.0*x1",
+      "test.chapter6.b1.custom-desired-state"};
+    auto scenario = chapter6::make_b1_scenario(
+      chapter6::ReducedMethod::steepest_descent);
+    scenario.problem.desired_state = desired_state;
+    scenario.problem.data.desired_state_provenance =
+      desired_state.provenance;
+
+    chapter6::dealii::B1SelectedDataT<2> selected_data(
+      scenario.problem.forcing, desired_state);
+    const auto runtime =
+      chapter6::dealii::make_b1_runtime_data(scenario, selected_data);
+    const ::dealii::Point<2> point{0.25, 0.5};
+    require(std::abs(runtime.desired_state.value(point) - 1.25) < 1.0e-14,
+            "B1 desired state did not use the shared scalar lowerer");
+
+    bool mismatch_rejected = false;
+    try
+      {
+        chapter6::dealii::B1SelectedDataT<2> default_data(
+          scenario.problem.forcing);
+        (void)chapter6::dealii::make_b1_runtime_data(scenario, default_data);
+      }
+    catch (const std::invalid_argument &)
+      {
+        mismatch_rejected = true;
+      }
+    require(mismatch_rejected,
+            "B1 accepted runtime data for another desired-state definition");
+  }
+
+  void
   test_b1_simplex_mesh_generation()
   {
     auto scenario = chapter6::make_b1_scenario(
@@ -459,6 +498,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b1", "contract"},
          30,
          test_b1_expression_forcing},
+        {"b1_desired_state_is_data_driven",
+         "nmopt.application.dealii.b1_desired_state_is_data_driven",
+         {"dealii", "application", "benchmark", "b1", "contract"},
+         30,
+         test_b1_desired_state_is_data_driven},
         {"b1_simplex_mesh_generation",
          "nmopt.application.dealii.b1_simplex_mesh_generation",
          {"dealii", "application", "benchmark", "b1", "contract"},

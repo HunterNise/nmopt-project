@@ -40,7 +40,7 @@ subsection Functions
   set fixed Dirichlet data = fixed-temperature
   set conservative transport = graetz
 
-  subsection forcing
+  subsection forcing definition zero
     set kind = zero
     set provenance = chapter-6.e6.5.2.zero-forcing
   end

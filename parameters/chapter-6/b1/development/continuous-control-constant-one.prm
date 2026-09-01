@@ -26,14 +26,14 @@ subsection Functions
   set forcing = figure-inferred-constant-one
   set desired state = b1-polynomial
 
-  subsection forcing
+  subsection forcing definition figure-inferred-constant-one
     set kind = constant
     set value = 1.0
     set provenance = chapter-6.e6.5.1.figure-6.2-inferred-constant-one-forcing
   end
 
   subsection desired state
-    set kind = polynomial
+    set kind = expression
     set expression = 10*x0*(1-x0)*x1*(1-x1)
     set provenance = chapter-6.e6.5.1.desired-state
   end

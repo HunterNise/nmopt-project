@@ -44,10 +44,6 @@ namespace nmopt::application::runner::binding
                       chapter6::b1_recipe_id);
     require_parameter(file, "Problem/observation", "full-domain");
     require_parameter(file, "Functions/desired state", "b1-polynomial");
-    require_parameter(file, "Functions/desired state/kind", "polynomial");
-    require_parameter(file,
-                      "Functions/desired state/expression",
-                      "10*x0*(1-x0)*x1*(1-x1)");
     require_parameter(file,
                       "Mesh/geometry",
                       "unit-hypercube");
@@ -76,11 +72,14 @@ namespace nmopt::application::runner::binding
     scenario.problem.data.diffusion = parameter_double(file, "Runtime/diffusion");
     scenario.problem.data.reaction = parameter_double(file, "Runtime/reaction");
     scenario.problem.data.regularisation_weight = beta;
+    scenario.problem.desired_state =
+      parameter_scalar_function_definition(file, "Functions/desired state");
     scenario.problem.data.desired_state_provenance =
-      file.value("Functions/desired state/provenance");
+      scenario.problem.desired_state.provenance;
     scenario.problem.regularisation_sweep = {beta};
     scenario.problem.forcing =
-      parameter_scalar_function_definition(file, "Functions/forcing");
+      parameter_scalar_function_definition_from_selector(
+        file, "Functions/forcing", "Functions/forcing definition ");
     scenario.problem.data.forcing_provenance =
       scenario.problem.forcing.provenance;
     scenario.solver.method = parse_method(method_id);
@@ -189,15 +188,9 @@ namespace nmopt::application::runner::binding
       forcing_axis == combination.values.end()
         ? file.value("Functions/forcing")
         : forcing_axis->second;
-    const std::string forcing_prefix =
-      forcing_axis == combination.values.end()
-        ? "Functions/forcing"
-        : "Functions/forcing definition " + forcing_id;
     scenario.problem.forcing =
-      forcing_axis == combination.values.end()
-        ? parameter_scalar_function_definition(file, forcing_prefix)
-        : parameter_scalar_function_definition_with_id(
-            file, forcing_prefix, forcing_id);
+      parameter_scalar_function_definition_with_id(
+        file, "Functions/forcing definition " + forcing_id, forcing_id);
     scenario.problem.data.forcing_provenance =
       scenario.problem.forcing.provenance;
     scenario.problem.data.desired_state_provenance =

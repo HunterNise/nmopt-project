@@ -356,6 +356,17 @@ namespace nmopt::application::runner
   }
 
   inline ScalarFunctionDefinition
+  parameter_scalar_function_definition_from_selector(
+    const ParameterFile    &file,
+    const std::string_view selector_path,
+    const std::string_view definition_path_prefix)
+  {
+    const auto id = file.value(selector_path);
+    return parameter_scalar_function_definition_with_id(
+      file, std::string(definition_path_prefix) + id, id);
+  }
+
+  inline ScalarFunctionDefinition
   parameter_scalar_function_section_definition(
     const ParameterFile &file,
     const std::string_view section)
@@ -1019,13 +1030,17 @@ namespace nmopt::application::runner
     scalar_definition_ids(::dealii::ParameterHandler       &handler,
                           const ScalarDefinitionSchema    &definition_schema)
     {
-      const auto &source_path = definition_schema.matrix_axis_path.empty()
-                                  ? definition_schema.selector_path
-                                  : definition_schema.matrix_axis_path;
-      if (source_path.empty())
+      if (!definition_schema.matrix_axis_path.empty())
+        {
+          const auto matrix_ids = split_list(
+            get_path(handler, definition_schema.matrix_axis_path));
+          if (!matrix_ids.empty())
+            return matrix_ids;
+        }
+      if (definition_schema.selector_path.empty())
         throw std::logic_error(
           "scalar definition schema needs a selector or matrix axis");
-      return split_list(get_path(handler, source_path));
+      return split_list(get_path(handler, definition_schema.selector_path));
     }
 
     inline std::vector<ParameterSchemaEntry>

@@ -44,7 +44,7 @@ subsection Functions
   set fixed Dirichlet data = fixed-temperature
   set conservative transport = graetz
 
-  subsection forcing
+  subsection forcing definition fitted-figure-state
     set kind = constant
     set value = 0.47009
     set provenance = development.chapter-6.b2.fitted-figure-state-forcing

@@ -223,6 +223,16 @@ namespace nmopt::application::chapter6
             "chapter-6.e6.5.1.manufactured-zero-forcing"};
   }
 
+  inline ScalarFunctionDefinition
+  b1_manufactured_desired_state()
+  {
+    return {"b1-polynomial",
+            ScalarFunctionKind::expression,
+            0.0,
+            "10*x0*(1-x0)*x1*(1-x1)",
+            "chapter-6.e6.5.1.desired-state"};
+  }
+
   struct B1ProblemParameters
   {
     chapter5::ScalarDistributedControlParameters recipe;
@@ -237,6 +247,7 @@ namespace nmopt::application::chapter6
     std::vector<double> regularisation_sweep = {
       1.0e-1, 1.0e-2, 1.0e-3, 1.0e-6};
     ScalarFunctionDefinition forcing = b1_manufactured_zero_forcing();
+    ScalarFunctionDefinition desired_state = b1_manufactured_desired_state();
   };
 
   enum class B2ObservationRegion
@@ -544,6 +555,12 @@ namespace nmopt::application::chapter6
         scenario.problem.forcing.provenance)
       throw std::invalid_argument(
         "B1 forcing definition and runtime provenance must agree");
+    validate_scalar_function_definition(scenario.problem.desired_state,
+                                        "B1 desired state");
+    if (scenario.problem.data.desired_state_provenance !=
+        scenario.problem.desired_state.provenance)
+      throw std::invalid_argument(
+        "B1 desired-state definition and runtime provenance must agree");
     if (scenario.solver.method != ReducedMethod::steepest_descent &&
         scenario.solver.method != ReducedMethod::limited_memory_bfgs)
       throw std::invalid_argument(

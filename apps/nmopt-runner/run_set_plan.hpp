@@ -84,6 +84,22 @@ namespace nmopt::application::runner
   }
 
   inline std::vector<std::string>
+  run_set_artifact_components(
+    const RunSetPlan                     &plan,
+    const RunSetCombination              &combination,
+    const RunSetArtifactCoordinatePolicy &coordinate_policy = {})
+  {
+    if (coordinate_policy)
+      return coordinate_policy(plan, combination);
+
+    std::vector<std::string> components;
+    components.reserve(combination.artifact_coordinates.size());
+    for (const auto &coordinate : combination.artifact_coordinates)
+      components.push_back(coordinate.axis + "-" + coordinate.value);
+    return components;
+  }
+
+  inline std::vector<std::string>
   run_set_artifact_paths(
     const RunSetPlan                     &plan,
     const RunSetArtifactCoordinatePolicy &coordinate_policy = {})
@@ -93,15 +109,8 @@ namespace nmopt::application::runner
     result.reserve(plan.resolved_combinations.size());
     for (const auto &combination : plan.resolved_combinations)
       {
-        std::vector<std::string> components;
-        if (coordinate_policy)
-          components = coordinate_policy(plan, combination);
-        else
-          {
-            components.reserve(combination.artifact_coordinates.size());
-            for (const auto &coordinate : combination.artifact_coordinates)
-              components.push_back(coordinate.axis + "-" + coordinate.value);
-          }
+        const auto components =
+          run_set_artifact_components(plan, combination, coordinate_policy);
 
         const auto relative_path = run_set_artifact_relative_path(components);
         if (std::find(result.begin(), result.end(), relative_path) != result.end())

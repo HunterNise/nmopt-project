@@ -306,26 +306,6 @@ namespace
     return components;
   }
 
-  std::vector<std::string>
-  b1_artifact_paths(
-    const nmopt::application::runner::ParameterFile &file,
-    const std::vector<std::pair<std::string, std::string>> &filters)
-  {
-    return nmopt::application::runner::run_set_artifact_paths(
-      nmopt::application::runner::make_run_set_plan(file, filters),
-      b1_artifact_coordinate_components);
-  }
-
-  std::vector<std::string>
-  b2_artifact_paths(
-    const nmopt::application::runner::ParameterFile &file,
-    const std::vector<std::pair<std::string, std::string>> &filters)
-  {
-    return nmopt::application::runner::run_set_artifact_paths(
-      nmopt::application::runner::make_run_set_plan(file, filters),
-      b2_artifact_coordinate_components);
-  }
-
   template <typename Scenario>
   nmopt::experiment::RunEnvironmentRecord
   make_environment(const Scenario &scenario)
@@ -722,9 +702,10 @@ namespace
 
   bool
   run_b1(const nmopt::application::runner::ResolvedRunConfiguration &configuration,
-         const std::vector<std::string> &command,
+         const std::vector<std::string> &,
+         const nmopt::application::runner::RunSetPlan &plan,
          const nmopt::application::runner::ParameterFile &file,
-         const std::vector<std::pair<std::string, std::string>> &filters)
+         nmopt::application::runner::RunSetManifest &run_manifest)
   {
     using namespace nmopt::application;
     using namespace chapter6;
@@ -732,8 +713,6 @@ namespace
     using Adapter =
       nmopt::application::chapter6::dealii::B1ReducedExecutionAdapterT<2>;
     const auto &output_directory = configuration.run_directory;
-    runner::RunSetManifest run_manifest(
-      configuration, command, b1_artifact_paths(file, filters));
     bool all_artifacts_succeeded = true;
 
     struct ObjectiveReference
@@ -742,7 +721,7 @@ namespace
       std::string artifact;
     };
     std::map<std::string, ObjectiveReference> objective_references;
-    auto combinations = file.combinations(filters);
+    auto combinations = plan.resolved_combinations;
     const bool matched_objective_target =
       file.optional_value("Solver/objective target policy", "none") ==
       "match-reference-method";
@@ -756,26 +735,27 @@ namespace
           combinations.end(),
           [reference_method](const auto &left, const auto &right) {
             const bool left_is_reference =
-              parse_method(combination_value(left, "method")) ==
+              parse_method(combination_value(left.values, "method")) ==
               reference_method;
             const bool right_is_reference =
-              parse_method(combination_value(right, "method")) ==
+              parse_method(combination_value(right.values, "method")) ==
               reference_method;
             return left_is_reference && !right_is_reference;
           });
       }
 
-    for (const auto &combination : combinations)
+    for (const auto &planned_combination : combinations)
       {
+        const auto &combination = planned_combination.values;
         const auto method_id = combination_value(combination, "method");
         const auto method = parse_method(method_id);
-        const auto method_slug = b1_method_slug(method);
         const auto beta = parse_number_text(
           combination_value(combination, "regularisation"), "Matrix/regularisation");
         const auto beta_slug = b1_beta_slug(beta);
         const auto path = runner::artifact_path(
           output_directory,
-          {method_slug, "beta-" + std::string(beta_slug)});
+          runner::run_set_artifact_components(
+            plan, planned_combination, b1_artifact_coordinate_components));
         try
           {
             auto scenario = make_b1_scenario(method);
@@ -870,14 +850,15 @@ namespace
                       << error.what() << '\n';
           }
       }
-    return run_manifest.finalize() && all_artifacts_succeeded;
+    return all_artifacts_succeeded;
   }
 
   bool
   run_b2(const nmopt::application::runner::ResolvedRunConfiguration &configuration,
-         const std::vector<std::string> &command,
+         const std::vector<std::string> &,
+         const nmopt::application::runner::RunSetPlan &plan,
          const nmopt::application::runner::ParameterFile &file,
-         const std::vector<std::pair<std::string, std::string>> &filters)
+         nmopt::application::runner::RunSetManifest &run_manifest)
   {
     using namespace nmopt::application;
     using namespace chapter6;
@@ -885,26 +866,17 @@ namespace
     using Adapter =
       nmopt::application::chapter6::dealii::B2ReducedExecutionAdapterT<2>;
     const auto &output_directory = configuration.run_directory;
-    runner::RunSetManifest run_manifest(
-      configuration, command, b2_artifact_paths(file, filters));
     bool all_artifacts_succeeded = true;
 
-    for (const auto &combination : file.combinations(filters))
+    for (const auto &planned_combination : plan.resolved_combinations)
       {
+        const auto &combination = planned_combination.values;
         const auto graetz_case = graetz_case_from_combination(combination);
         const auto case_slug = graetz_case_name(graetz_case);
-        std::vector<std::string> components;
-        const bool standard_case_matrix =
-          file.matrix.size() == 2 &&
-          file.matrix[0].id == "observation-region" &&
-          file.matrix[1].id == "target-profile";
-        if (standard_case_matrix)
-          components.push_back(case_slug);
-        else
-          for (const auto &axis : file.matrix)
-            components.push_back(axis.id + "-" + combination_value(combination, axis.id));
         const auto path = runner::artifact_path(
-          output_directory, components);
+          output_directory,
+          runner::run_set_artifact_components(
+            plan, planned_combination, b2_artifact_coordinate_components));
         try
           {
             auto scenario = make_b2_scenario(graetz_case);
@@ -976,7 +948,7 @@ namespace
                       << error.what() << '\n';
           }
       }
-    return run_manifest.finalize() && all_artifacts_succeeded;
+    return all_artifacts_succeeded;
   }
 
   const std::array<nmopt::application::runner::BenchmarkExecutionRegistration, 2> &
@@ -1173,12 +1145,17 @@ main(const int argc, char **argv)
             throw std::invalid_argument(
               "benchmark has no execution registration: " +
               prepared.configuration.benchmark);
-          return registration->execute(prepared.configuration,
-                                       command,
-                                       prepared.file,
-                                       prepared.options.selection_filters)
-                   ? 0
-                   : 1;
+          nmopt::application::runner::RunSetManifest run_manifest(
+            prepared.configuration,
+            command,
+            registration->artifact_planner(prepared.plan));
+          const bool execution_succeeded = registration->execute(
+            prepared.configuration,
+            command,
+            prepared.plan,
+            prepared.file,
+            run_manifest);
+          return run_manifest.finalize() && execution_succeeded ? 0 : 1;
         }
 
       nmopt::application::ApplicationCatalog catalog;

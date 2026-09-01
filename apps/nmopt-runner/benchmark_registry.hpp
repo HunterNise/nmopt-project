@@ -13,6 +13,7 @@ namespace nmopt::application::runner
 {
   struct ParameterFile;
   struct ResolvedRunConfiguration;
+  class RunSetManifest;
 
   struct BenchmarkRegistration
   {
@@ -73,8 +74,9 @@ namespace nmopt::application::runner
   using BenchmarkExecutionCallback = std::function<
     bool(const ResolvedRunConfiguration &,
          const std::vector<std::string> &,
+         const RunSetPlan &,
          const ParameterFile &,
-         const BenchmarkSelectionFilters &)>;
+         RunSetManifest &)>;
 
   struct BenchmarkExecutionRegistration
   {

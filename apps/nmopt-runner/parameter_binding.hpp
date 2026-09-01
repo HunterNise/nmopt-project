@@ -56,26 +56,6 @@ namespace nmopt::application::runner::binding
     throw std::invalid_argument("unknown mesh generator '" + value + "'");
   }
 
-  inline double
-  parse_number_text(const std::string &text, const std::string &key)
-  {
-    if (text.empty() || text == "none")
-      throw std::invalid_argument("parameter '" + key + "' needs a number");
-    std::size_t consumed = 0;
-    double      value = 0.0;
-    try
-      {
-        value = std::stod(text, &consumed);
-      }
-    catch (const std::exception &)
-      {
-        throw std::invalid_argument("parameter '" + key + "' needs a number");
-      }
-    if (consumed != text.size() || !std::isfinite(value))
-      throw std::invalid_argument("parameter '" + key + "' needs a finite number");
-    return value;
-  }
-
   inline unsigned int
   parse_unsigned_text(const std::string &text, const std::string &key)
   {

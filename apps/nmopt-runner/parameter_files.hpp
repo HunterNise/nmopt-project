@@ -219,9 +219,11 @@ namespace nmopt::application::runner
   }
 
   inline double
-  parameter_double(const ParameterFile &file, const std::string_view key)
+  parse_number_text(const std::string &text, const std::string_view key)
   {
-    const auto text = file.value(key);
+    if (text.empty() || text == "none")
+      throw std::invalid_argument("parameter '" + std::string(key) +
+                                  "' needs a number");
     std::size_t consumed = 0;
     double      result = 0.0;
     try
@@ -233,10 +235,16 @@ namespace nmopt::application::runner
         throw std::invalid_argument("parameter '" + std::string(key) +
                                     "' needs a finite number");
       }
-    if (consumed != text.size())
+    if (consumed != text.size() || !std::isfinite(result))
       throw std::invalid_argument("parameter '" + std::string(key) +
                                   "' needs a finite number");
     return result;
+  }
+
+  inline double
+  parameter_double(const ParameterFile &file, const std::string_view key)
+  {
+    return parse_number_text(file.value(key), key);
   }
 
   inline unsigned int

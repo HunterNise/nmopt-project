@@ -35,7 +35,7 @@ namespace
   using nmopt::application::runner::binding::parse_mesh_generation;
   using nmopt::application::runner::binding::graetz_case_from_combination;
   using nmopt::application::runner::binding::parse_method;
-  using nmopt::application::runner::binding::parse_number_text;
+  using nmopt::application::runner::parse_number_text;
   using nmopt::application::runner::binding::parse_stopping_criterion;
   using nmopt::application::runner::binding::parse_unsigned_text;
   using nmopt::application::runner::binding::require_parameter;

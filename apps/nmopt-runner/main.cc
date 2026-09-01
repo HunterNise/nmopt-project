@@ -2,6 +2,7 @@
 #include "nmopt/application/dealii/chapter6_b1.hpp"
 #include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "benchmark_registry.hpp"
+#include "parameter_binding.hpp"
 #include "parameter_files.hpp"
 #include "runner.hpp"
 
@@ -25,6 +26,14 @@
 
 namespace
 {
+  using nmopt::application::runner::binding::combination_value;
+  using nmopt::application::runner::binding::parse_mesh_generation;
+  using nmopt::application::runner::binding::parse_method;
+  using nmopt::application::runner::binding::parse_number_text;
+  using nmopt::application::runner::binding::parse_stopping_criterion;
+  using nmopt::application::runner::binding::parse_unsigned_text;
+  using nmopt::application::runner::binding::require_parameter;
+
   const char *
   entry_kind_name(const nmopt::application::CatalogEntryKind kind)
   {
@@ -157,104 +166,6 @@ namespace
     output.precision(17);
     output << value;
     return output.str();
-  }
-
-  const std::string &
-  combination_value(const nmopt::application::runner::ParameterCombination &combination,
-                    const std::string_view                                      axis)
-  {
-    const auto found = combination.values.find(std::string(axis));
-    if (found == combination.values.end())
-      throw std::invalid_argument("resolved combination has no matrix axis '" +
-                                  std::string(axis) + "'");
-    return found->second;
-  }
-
-  nmopt::application::chapter6::ReducedMethod
-  parse_method(const std::string &value)
-  {
-    using nmopt::application::chapter6::ReducedMethod;
-    if (value == "steepest-descent")
-      return ReducedMethod::steepest_descent;
-    if (value == "l-bfgs")
-      return ReducedMethod::limited_memory_bfgs;
-    if (value == "bfgs")
-      return ReducedMethod::bfgs;
-    throw std::invalid_argument("unknown solver method '" + value + "'");
-  }
-
-  nmopt::application::chapter6::MeshGeneration
-  parse_mesh_generation(const std::string &value)
-  {
-    using nmopt::application::chapter6::MeshGeneration;
-    if (value == "framework-native")
-      return MeshGeneration::framework_native;
-    if (value == "structured-simplex")
-      return MeshGeneration::structured_simplex;
-    if (value == "centroid-split-simplex")
-      return MeshGeneration::centroid_split_simplex;
-    throw std::invalid_argument("unknown mesh generator '" + value + "'");
-  }
-
-  double
-  parse_number_text(const std::string &text, const std::string &key)
-  {
-    if (text.empty() || text == "none")
-      throw std::invalid_argument("parameter '" + key + "' needs a number");
-    std::size_t consumed = 0;
-    double      value = 0.0;
-    try
-      {
-        value = std::stod(text, &consumed);
-      }
-    catch (const std::exception &)
-      {
-        throw std::invalid_argument("parameter '" + key + "' needs a number");
-      }
-    if (consumed != text.size() || !std::isfinite(value))
-      throw std::invalid_argument("parameter '" + key + "' needs a finite number");
-    return value;
-  }
-
-  unsigned int
-  parse_unsigned_text(const std::string &text, const std::string &key)
-  {
-    const auto value = parse_number_text(text, key);
-    if (value < 0.0 || value > std::numeric_limits<unsigned int>::max() ||
-        value != std::floor(value))
-      throw std::invalid_argument("parameter '" + key +
-                                  "' needs a nonnegative integer");
-    return static_cast<unsigned int>(value);
-  }
-
-  nmopt::solvers::ReducedStoppingCriterion
-  parse_stopping_criterion(const std::string &value)
-  {
-    using Criterion = nmopt::solvers::ReducedStoppingCriterion;
-    if (value == "automatic")
-      return Criterion::automatic;
-    if (value == "gradient-norm")
-      return Criterion::gradient_norm;
-    if (value == "relative-gradient-norm")
-      return Criterion::relative_gradient_norm;
-    if (value == "objective-change")
-      return Criterion::objective_change;
-    if (value == "step-norm")
-      return Criterion::step_norm;
-    throw std::invalid_argument("unknown reduced stopping criterion '" +
-                                value + "'");
-  }
-
-  void
-  require_parameter(const nmopt::application::runner::ParameterFile &file,
-                    const std::string_view                         key,
-                    const std::string_view                         expected)
-  {
-    if (file.value(key) != expected)
-      throw std::invalid_argument("parameter '" + std::string(key) +
-                                  "' is '" + file.value(key) +
-                                  "', but this adapter requires '" +
-                                  std::string(expected) + "'");
   }
 
   std::string

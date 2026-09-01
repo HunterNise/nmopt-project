@@ -1,10 +1,13 @@
 # Parameter files and plotting profiles
 
-**Status:** implemented for the Chapter 6 runner and post-processing pipeline.
+**Status:** implemented for the registered B1/B2 Chapter 6 runner slice;
+future B3–B6 extension contracts exist but are not registered as executable
+benchmarks.
 
-This document defines the first schema slice for versioned Chapter 6
-experiment inputs. It separates the values that select and execute a
-benchmark from the reusable visual policy that renders its persisted fields.
+This document defines the schema and resolution boundary for versioned
+Chapter 6 experiment inputs. It separates the values that select and execute a
+registered benchmark from the reusable visual policy that renders its persisted
+fields.
 
 The source catalogue and frozen benchmark contracts remain authoritative for
 the mathematical meaning of B1 and B2. A parameter file is an executable
@@ -60,7 +63,7 @@ configuration.
 
 ## Experiment parameter schema
 
-The proposed `.prm` sections are:
+The supported `.prm` sections are:
 
 | Section | Owns |
 | --- | --- |
@@ -75,6 +78,43 @@ The proposed `.prm` sections are:
 | `Run` | Authoritative/development policy, build profile, output root, and harness behavior. |
 | `Output` | Retained native fields and artifact output policy. |
 | `Postprocessing` | Plot-style reference and matrix-axis binding for comparisons. |
+
+### Schema registry and ownership
+
+`ParameterHandler` declaration and value extraction are driven by one ordered
+schema registry. The registry combines common run, mesh, compiler, solver,
+output, and post-processing entries with the selected benchmark's adapter
+entries. Each entry records its path, default, `ParameterHandler` pattern,
+presence policy, and ownership class.
+
+The ownership classes are:
+
+- `consumed`: parsed into a typed scenario or run-set record and used by the
+  selected execution path;
+- `locked_profile`: retained as an explicit benchmark profile choice and
+  checked by that benchmark's binder; and
+- `provenance_only`: retained for audit but excluded from numerical ownership.
+
+The current adapters register B1's `method` and `regularisation` axes and B2's
+`regularisation`, `forcing`, `observation-region`, and `target-profile` axes.
+Matrix expansion, filtering, exclusions, artifact coordinates, and manifest
+construction are generic over those registered axes. Adding a future axis is a
+benchmark-adapter change; it does not require a CLI, run-controller, or
+manifest-schema branch. Only B1 and B2 currently have parameter schema and
+execution registrations.
+
+Typed resolution occurs after parsing and matrix expansion. Product and
+execution IDs resolve to `ProductSelection` and `ExecutionSelection`; reduced
+method IDs resolve to `ReducedMethod`; and the quadratic-KKT extension contract
+provides typed KKT-method and identity-preconditioner selections. The B1
+validator accepts only its registered reduced methods, assembled execution, and
+reduced-DTO product. B2 accepts BFGS with the same assembled reduced-DTO
+profile. Unknown IDs fail lookup, while known but unsupported selections fail
+the benchmark capability validation before an output directory is populated.
+
+The runner also exposes typed scalar lower/upper bound records for future box
+constraints. Their scalar definitions are validated, but no B3/B4 bound
+lowering or executable adapter is registered.
 
 `Solver/maximum line search trials` counts all attempted steps, including the
 initial one. `Solver/maximum backtracking reductions` is the source-facing
@@ -206,9 +246,9 @@ special case in the runner: a direct forcing subsection defines one function
 for the complete file. The legacy B2 named-definition subsections are retained
 by the B2 schema adapter for compatibility with the checked-in files.
 
-The generic representation for named scalar data is the single
-`Functions/scalar definitions` entry. Its value is compact canonical JSON with
-this shape:
+The schema reserves one generic representation for named scalar data in the
+single `Functions/scalar definitions` entry. Its value is compact canonical
+JSON with this shape:
 
 ```text
 {"definitions":[{"expression":"0.4 + sin(pi*x0)*sin(pi*x1)","id":"spatial-candidate","kind":"expression","port":"forcing","provenance":"development.b1.spatial-candidate"}],"selected":{"forcing":"spatial-candidate"}}
@@ -224,13 +264,16 @@ semantic port to one definition ID and is also lexicographically ordered. JSON
 string escaping is the only escaping rule, so commas, semicolons, and
 parentheses in a normal deal.II scalar expression are data rather than
 delimiters. The representation is therefore lossless and deterministic when
-serialized and parsed by the future shared scalar-definition resolver.
+serialized as a lossless data port for future benchmark adapters. The current
+B1/B2 files use their registered direct forcing and legacy B2 target/forcing
+sections; their typed binders already lower the selected scalar definitions
+through the shared `ScalarFunctionDefinition` contract.
 
 `ParameterHandler` reads the complete JSON document as the value of one
 declared entry, so adding a definition ID changes only the `.prm` value and
 does not add a schema subsection or a central candidate list. The checked-in
-B1/B2 files continue to use their legacy syntax while the shared resolver is
-introduced incrementally.
+B1/B2 files continue to use their registered legacy syntax where required for
+compatibility; this does not add candidate IDs to the common schema.
 
 `Mesh/generator` defaults to `framework-native`, which consumes
 `Mesh/refinement` and leaves the simplex entries unset. A simplex configuration
@@ -263,7 +306,7 @@ compiled manifest, rather than the requested values alone, is authoritative:
 the current B2 target, for example, records direct UMFPACK state and adjoint
 solves even though the shared scenario carries fallback iterative values.
 
-The exact `ParameterHandler` declarations will use typed patterns. Strings
+The schema assigns typed patterns where a value has a common shape. Strings
 such as function IDs and method names are registry selections, not arbitrary
 code. Function expressions in the examples are declarative records consumed
 by registered function constructors; they are not an embedded programming
@@ -271,9 +314,10 @@ language.
 
 ### Matrix expansion
 
-Only entries under `Matrix` are expanded. If there is no `Selection` section,
-all combinations of the declared axes are executed. A selection is an
-optional filter for focused development or smoke work.
+Only entries under `Matrix` are expanded. The selected benchmark schema
+adapter declares which matrix entries exist. If there is no `Selection`
+section, all combinations of the declared axes are executed. A selection is
+an optional filter for focused development or smoke work.
 
 ```text
 subsection Matrix
@@ -308,9 +352,11 @@ not disable exclusions. A selection that retains only excluded coordinates is
 invalid because it resolves to an empty product. Duplicate, incomplete, or
 unknown exclusion coordinates are rejected while reading the parameter file.
 
-The resolver must validate every expanded combination before execution. It
-must reject unknown values, empty products, duplicate IDs, and combinations
-outside the registered benchmark capability.
+The resolver must validate every expanded combination before execution. Typed
+registry lookups reject unknown product, execution, method, KKT-method, and
+preconditioner IDs; benchmark capability validation rejects known but
+unsupported combinations. It must also reject empty products, duplicate IDs,
+and malformed coordinates before an output directory is populated.
 
 The matrix uses stable IDs for categorical values. Numeric values are stored
 in canonical form in the resolved configuration so that plotting and artifact
@@ -320,7 +366,7 @@ Cartesian product is the four public cases.
 
 ### CLI precedence
 
-The intended precedence is:
+The effective precedence is:
 
 ```text
 parameter-file defaults
@@ -328,6 +374,12 @@ parameter-file defaults
   → explicit CLI selection filter
   → explicit CLI refinement override
 ```
+
+With `--parameter-file`, the file supplies the benchmark, run kind, build
+profile, output root, and matrix. An explicit `--output` changes only the
+destination, while `--select` overrides the same matrix axis before exclusions
+are applied. The `--refinement` option is a runner mesh override for supported
+framework-native runs.
 
 The CLI refinement override is intentionally retained for framework-native
 smoke runs. It changes only the realized mesh refinement, updates mesh
@@ -341,6 +393,9 @@ revision should normally be recorded from the compiled executable or an
 explicit provenance argument. Neither is a mathematical experiment choice.
 All choices that affect the numerical run or retained evidence belong in the
 parameter file.
+
+The checked-in future-extension fixtures are contract tests only. They are not
+accepted as runnable benchmark IDs and do not appear in `--list`.
 
 ## Plotting profile schema
 

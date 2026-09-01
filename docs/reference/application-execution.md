@@ -148,6 +148,34 @@ invocation, envelope construction, and execution evidence. The runner owns
 orchestration and artifact finalization; it does not lower PDEs, solve the
 optimization problem, or select output paths.
 
+### Registry dispatch and run-set planning
+
+The executable boundary is registry-driven. `BenchmarkRegistration` maps a
+public benchmark ID to its parameter-file benchmark ID and default parameter
+file. The current registry contains only `b1` and `b2`. A corresponding
+`BenchmarkExecutionRegistration` binds that metadata to an artifact-coordinate
+planner and a typed execution callback.
+
+For a parameter-file run, `nmopt_runner` follows this sequence:
+
+```text
+CLI benchmark or parameter-file selection
+  -> benchmark registration and schema adapter
+  -> parsed ParameterFile and typed resolution
+  -> generic RunSetPlan
+  -> registered artifact planner and RunSetManifest
+  -> registered benchmark execution callback
+  -> centralized manifest finalization
+```
+
+`RunSetPlan` is backend-neutral. It retains the benchmark ID, declared matrix
+axes, selection filters, exclusions, resolved combinations, comparison
+coordinates, parameter-file path, and content hash. The generic planner
+expands and validates combinations; a benchmark registration supplies only the
+coordinate policy needed to turn each combination into an artifact path.
+Callbacks receive the complete plan, so benchmark execution loops do not need
+to reconstruct matrix state or duplicate run-set validation.
+
 ## Run-set organization
 
 The runner places every Chapter 6 run below the selected benchmark and run kind:
@@ -181,6 +209,11 @@ kind and matrix; repeatable `--select AXIS=VALUE` filters a declared matrix,
 while `--output` and the optional `--refinement` remain destination/smoke
 overrides. `--framework-revision` records executable provenance. Use
 `nmopt_runner --help` for the complete current option surface.
+
+Only B1 and B2 have both a benchmark registration and an execution
+registration. The B3–B6 extension fixtures exercise typed contracts in tests,
+but they are not listed or accepted as runnable benchmark IDs and have no
+execution adapter.
 
 Sparse experiment families use `Selection/exclude combinations` to remove
 validated full coordinates from the declared Cartesian product. Exclusions

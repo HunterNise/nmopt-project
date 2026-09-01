@@ -61,7 +61,7 @@ The roadmap distinguishes these states:
 | Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. The renderer uses `turbo` and explicit field-extrema colorbar endpoints; B1 visual validation is complete under its frozen contract, while B2 remains open. |
 | B1 source-oriented execution | Reproduction-verified | The selected seven-case release profile combines continuous P1 control, a regular triangular mesh, constant-half forcing, and the common early-stop policy. Revision `631537a` completed all seven artifacts and their PNG comparisons without failures; the selected replacements do not claim recovery of omitted source data. |
 | B2 framework-native execution | Framework-verified; reproduction audit open | The four-artifact release matrix exists, while the newer derivative-evidence fields are present in a refinement-6 development run rather than the authoritative release set. The source-sized release artifacts need a refresh after the audit. |
-| Parameter files | Implemented | Stable authoritative and development `.prm` families drive matrix expansion, exact exclusions, solver policy, run layout, and post-processing provenance. |
+| Parameter files | Implemented for registered B1/B2 slice | One ordered schema registry and benchmark adapters drive matrix expansion, exact exclusions, typed capability resolution, solver policy, run layout, and post-processing provenance. B3–B6 extension contracts are tested but not registered as executable benchmarks. |
 | Later Chapter 6 benchmarks | Planned | B3/B4 are the next selected benchmark families after B1/B2 reproduction is resolved; B5/B6 remain later. |
 | Complete Chapter 5 recipe library | Planned | The selected recipes used by B1/B2 exist, but the reusable recipe families listed in the problem-library roadmap are not all implemented. |
 
@@ -362,33 +362,47 @@ book.
 
 ### A7 — Add Deal.II-style parameter files
 
-**Status:** planned; after A6.
+**Status:** implemented for the registered B1/B2 slice; B3–B6 extension
+contracts remain unregistered.
 
 **Purpose:** Allow an agent or user to reproduce a declared scenario from a
 reviewable `.prm` file instead of relying on hidden defaults or a long CLI
 command.
 
-**Work to do:**
+**Work completed:**
 
-- Define which values belong to the scenario parameter file and which remain
-  runner policy or source-controlled benchmark contract.
-- Use a Deal.II-compatible `ParameterHandler` structure with explicit
-  subsections for benchmark identity, mesh, runtime data, solver, output, and
-  post-processing.
-- Load and validate parameters into the typed scenario records; reject values
-  outside the registered capability boundary.
-- Record the parameter-file path, content hash or revision, and effective
-  values in the run manifest and artifact.
-- Preserve CLI overrides only where precedence is explicit and auditable.
+- One ordered schema registry drives `ParameterHandler` declaration and
+  extraction, with benchmark-specific adapters for current axes and legacy B2
+  entries.
+- Typed binders resolve product, execution, reduced-method, and extension
+  capability IDs, then reject known-but-unsupported combinations before output
+  creation.
+- Generic run-set planning expands, filters, excludes, and records resolved
+  combinations; manifests retain parameter paths, content hashes, effective
+  values, and artifact coordinates.
+- CLI selection, output, and refinement overrides have explicit precedence and
+  are retained as provenance.
+- Future B3–B6 extension records have contract coverage but no parameter
+  adapters or executable registrations.
+
+**Still bounded:**
+
+- Only B1 and B2 currently have parameter schema and execution registrations.
+- The generic JSON scalar-definition entry is a reserved data port; checked-in
+  B1/B2 files retain their registered direct and legacy syntax where required
+  for compatibility.
+- B3–B6 are not runnable through the parameter-file or benchmark-ID boundary.
 
 **Done when:** a checked-in `.prm` reproduces a development run, the
 effective configuration is visible in the artifact, invalid combinations fail
 before execution, and a benchmark can declare whether its parameters are
-frozen or overridden.
+frozen or overridden. This criterion is met for the current registered B1/B2
+boundary; extending it to B3–B6 remains part of A8.
 
 ### A8 — Implement the next Chapter 6 benchmarks
 
-**Status:** planned; after A6, with A7 optional for the first slice.
+**Status:** planned; after the remaining A6 B2 reproduction audit and benchmark
+contracts. A7 is complete for the current registered B1/B2 slice.
 
 **Purpose:** Extend the application layer beyond the selected B1/B2 vertical
 slice while reusing the same recipe, runner, artifact, native-output, and

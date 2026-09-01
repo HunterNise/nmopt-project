@@ -5,6 +5,7 @@
 #include "parameter_files.hpp"
 #include "runner.hpp"
 
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -1436,6 +1437,30 @@ namespace
     return run_manifest.finalize() && all_artifacts_succeeded;
   }
 
+  const std::array<nmopt::application::runner::BenchmarkExecutionRegistration, 2> &
+  benchmark_execution_registrations()
+  {
+    using Registration =
+      nmopt::application::runner::BenchmarkExecutionRegistration;
+    static const std::array<Registration, 2> registrations{{
+      {nmopt::application::runner::find_benchmark_registration("b1"),
+       b1_expected_artifacts,
+       run_b1},
+      {nmopt::application::runner::find_benchmark_registration("b2"),
+       b2_expected_artifacts,
+       run_b2}}};
+    return registrations;
+  }
+
+  const nmopt::application::runner::BenchmarkExecutionRegistration *
+  find_benchmark_execution_registration(const std::string_view id)
+  {
+    for (const auto &registration : benchmark_execution_registrations())
+      if (registration.metadata != nullptr && registration.metadata->id == id)
+        return &registration;
+    return nullptr;
+  }
+
   nmopt::application::runner::ParameterFile
   load_parameter_file(const nmopt::application::runner::CommandLineOptions &options)
   {
@@ -1541,15 +1566,15 @@ namespace
 
     prepared.combinations =
       prepared.file.combinations(prepared.options.selection_filters);
-    if (registration->id == "b1")
-      {
-        // This also validates the required B1 matrix axes before creating output.
-        (void)b1_expected_artifacts(prepared.file,
-                                    prepared.options.selection_filters);
-      }
-    else
-      (void)b2_expected_artifacts(prepared.file,
-                                  prepared.options.selection_filters);
+    const auto *execution_registration =
+      find_benchmark_execution_registration(registration->id);
+    if (execution_registration == nullptr)
+      throw std::invalid_argument(
+        "benchmark registration has no execution callback: " +
+        std::string(registration->id));
+    // This also validates the required matrix axes before creating output.
+    (void)execution_registration->artifact_planner(
+      prepared.file, prepared.options.selection_filters);
 
     prepared.configuration = resolve_run_configuration(
       prepared.options, NMOPT_COMPILED_BUILD_PROFILE);
@@ -1595,17 +1620,17 @@ main(const int argc, char **argv)
           snapshot_configuration(prepared.configuration,
                                  prepared.file,
                                  prepared.combinations);
-          if (prepared.configuration.benchmark == "b1")
-            return run_b1(prepared.configuration,
-                          command,
-                          prepared.file,
-                          prepared.options.selection_filters)
-                     ? 0
-                     : 1;
-          return run_b2(prepared.configuration,
-                        command,
-                        prepared.file,
-                        prepared.options.selection_filters)
+          const auto *registration =
+            find_benchmark_execution_registration(
+              prepared.configuration.benchmark);
+          if (registration == nullptr)
+            throw std::invalid_argument(
+              "benchmark has no execution registration: " +
+              prepared.configuration.benchmark);
+          return registration->execute(prepared.configuration,
+                                       command,
+                                       prepared.file,
+                                       prepared.options.selection_filters)
                    ? 0
                    : 1;
         }

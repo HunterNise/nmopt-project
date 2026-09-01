@@ -1,11 +1,17 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace nmopt::application::runner
 {
+  struct ParameterFile;
+  struct ResolvedRunConfiguration;
+
   struct BenchmarkRegistration
   {
     std::string_view id;
@@ -57,4 +63,22 @@ namespace nmopt::application::runner
       }
     return result;
   }
+
+  using BenchmarkSelectionFilters =
+    std::vector<std::pair<std::string, std::string>>;
+  using BenchmarkArtifactPlanner = std::function<
+    std::vector<std::string>(const ParameterFile &,
+                             const BenchmarkSelectionFilters &)>;
+  using BenchmarkExecutionCallback = std::function<
+    bool(const ResolvedRunConfiguration &,
+         const std::vector<std::string> &,
+         const ParameterFile &,
+         const BenchmarkSelectionFilters &)>;
+
+  struct BenchmarkExecutionRegistration
+  {
+    const BenchmarkRegistration *metadata = nullptr;
+    BenchmarkArtifactPlanner      artifact_planner;
+    BenchmarkExecutionCallback    execute;
+  };
 } // namespace nmopt::application::runner

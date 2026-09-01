@@ -922,6 +922,31 @@ namespace
       "B2 accepted an observation material ID that disagrees with its canonical problem field");
   }
 
+  void
+  test_runner_execution_registrations_bind_callbacks()
+  {
+    const auto *b1 = find_benchmark_execution_registration("b1");
+    const auto *b2 = find_benchmark_execution_registration("b2");
+    require(b1 != nullptr && b2 != nullptr,
+            "B1 and B2 should have executable runner registrations");
+    require(b1->metadata != nullptr && b2->metadata != nullptr &&
+              b1->artifact_planner && b1->execute && b2->artifact_planner &&
+              b2->execute,
+            "runner registrations should bind artifact and execution callbacks");
+
+    const auto b1_file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b1/authoritative.prm"));
+    const auto b1_artifacts = b1->artifact_planner(b1_file, {});
+    require(b1_artifacts == b1_expected_artifacts(b1_file, {}),
+            "B1 registration should use its registered artifact planner");
+
+    const auto b2_file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    const auto b2_artifacts = b2->artifact_planner(b2_file, {});
+    require(b2_artifacts == b2_expected_artifacts(b2_file, {}),
+            "B2 registration should use its registered artifact planner");
+  }
+
   nmopt::application::runner::ResolvedRunConfiguration
   characterization_run_configuration(
     const nmopt::application::runner::ParameterFile &file,
@@ -1525,6 +1550,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "benchmark", "runner", "contract", "negative"},
          30,
          test_b2_profile_ownership_checks_are_explicit},
+        {"runner_execution_registrations_bind_callbacks",
+         "nmopt.parameter_files.runner_execution_registrations_bind_callbacks",
+         {"backend", "dealii", "application", "benchmark", "runner", "contract"},
+         30,
+         test_runner_execution_registrations_bind_callbacks},
         {"parameter_resolution_retains_artifact_fields_and_manifest_provenance",
          "nmopt.parameter_files.parameter_resolution_retains_artifact_fields_and_manifest_provenance",
          {"backend", "dealii", "application", "benchmark", "runner", "contract"},

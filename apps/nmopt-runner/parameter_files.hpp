@@ -628,8 +628,18 @@ namespace nmopt::application::runner
 
       if (path.rfind("Boundary/", 0) == 0 || path == "Mesh/geometry" ||
           path == "Mesh/generator" ||
+          path == "Compile/execution" || path == "Compile/product" ||
+          path == "Compile/stabilization" ||
+          path == "Functions/fixed Dirichlet data" ||
+          path == "Functions/fixed-temperature/kind" ||
+          path == "Functions/desired state" ||
           path == "Functions/conservative transport" ||
-          path.rfind("Functions/graetz/", 0) == 0)
+          path.rfind("Functions/graetz/", 0) == 0 ||
+          path == "Observation/active region" ||
+          path.rfind("Observation/region ", 0) == 0 ||
+          path == "Observation/material id" ||
+          path == "Problem/initial control" || path == "Solver/method" ||
+          path == "Output/selected fields")
         return ParameterOwnership::locked_profile;
 
       return ParameterOwnership::consumed;

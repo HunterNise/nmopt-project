@@ -20,9 +20,7 @@ end
 
 subsection Problem
   set control representation = continuous-nodal-trace
-  set observed material id = 1
   set facewise box constraint = false
-  set initial control = zero
 end
 
 subsection Observation

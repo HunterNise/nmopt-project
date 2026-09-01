@@ -170,9 +170,7 @@ end
 
 subsection Problem
   set control representation = facewise-constant
-  set observed material id = 1
   set facewise box constraint = false
-  set initial control = zero
 end
 
 subsection Observation
@@ -1077,29 +1075,11 @@ end
   }
 
   void
-  test_b2_profile_ownership_checks_are_explicit()
+  test_b2_output_selection_is_explicit()
   {
     const auto source = find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm");
     const auto combination = read_parameter_file(source).combinations().front();
-
-    auto mismatched_problem_alias = read_parameter_file(source);
-    mismatched_problem_alias.values["Problem/initial control"] = "nonzero";
-    require_invalid_argument(
-      [&] {
-        (void)resolve_b2_scenario_for_characterization(
-          mismatched_problem_alias, combination);
-      },
-      "B2 accepted a problem-level initial-control alias that disagrees with the solver field");
-
-    auto mismatched_solver_control = read_parameter_file(source);
-    mismatched_solver_control.values["Solver/initial control"] = "nonzero";
-    require_invalid_argument(
-      [&] {
-        (void)resolve_b2_scenario_for_characterization(
-          mismatched_solver_control, combination);
-      },
-      "B2 accepted a solver initial-control value without matching its compatibility alias");
 
     auto unsupported_output_selection = read_parameter_file(source);
     unsupported_output_selection.values["Output/selected fields"] =
@@ -1110,15 +1090,6 @@ end
           unsupported_output_selection, combination);
       },
       "B2 accepted an output selection that its adapter does not execute");
-
-    auto mismatched_observation_alias = read_parameter_file(source);
-    mismatched_observation_alias.values["Observation/material id"] = "2";
-    require_invalid_argument(
-      [&] {
-        (void)resolve_b2_scenario_for_characterization(
-          mismatched_observation_alias, combination);
-      },
-      "B2 accepted an observation material ID that disagrees with its canonical problem field");
   }
 
   void
@@ -1874,11 +1845,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "benchmark", "runner", "contract"},
          30,
          test_b2_authoritative_and_forcing_sweep_resolution_is_characterized},
-        {"b2_profile_ownership_checks_are_explicit",
-         "nmopt.parameter_files.b2_profile_ownership_checks_are_explicit",
+        {"b2_output_selection_is_explicit",
+         "nmopt.parameter_files.b2_output_selection_is_explicit",
          {"backend", "dealii", "application", "benchmark", "runner", "contract", "negative"},
          30,
-         test_b2_profile_ownership_checks_are_explicit},
+         test_b2_output_selection_is_explicit},
         {"runner_execution_registrations_bind_callbacks",
          "nmopt.parameter_files.runner_execution_registrations_bind_callbacks",
          {"backend", "dealii", "application", "benchmark", "runner", "contract"},

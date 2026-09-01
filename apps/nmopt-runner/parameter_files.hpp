@@ -634,7 +634,7 @@ namespace nmopt::application::runner
           path == "Observation/active region" ||
           path.rfind("Observation/region ", 0) == 0 ||
           path == "Observation/material id" ||
-          path == "Problem/initial control" || path == "Solver/method" ||
+          path == "Solver/method" ||
           path == "Output/selected fields")
         return ParameterOwnership::locked_profile;
 
@@ -700,9 +700,7 @@ namespace nmopt::application::runner
                     {"control representation",
                      "cellwise box constraint",
                      "observation",
-                     "observed material id",
-                     "facewise box constraint",
-                     "initial control"});
+                     "facewise box constraint"});
         add_section("Observation", {"active region", "material id"});
         for (const auto *region : {"wings", "full"})
           append_schema_entry(result,

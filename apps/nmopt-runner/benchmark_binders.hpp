@@ -99,10 +99,6 @@ namespace nmopt::application::runner::binding
     using namespace nmopt::application;
     require_parameter(file, "Benchmark/id", "chapter-6.b2.graetz-flow");
     require_parameter(file, "Benchmark/recipe", chapter6::b2_recipe_id);
-    if (file.value("Problem/initial control") !=
-        file.value("Solver/initial control"))
-      throw std::invalid_argument(
-        "B2 Problem/initial control must match the Solver/initial control compatibility alias");
     require_parameter(file, "Functions/fixed Dirichlet data", "fixed-temperature");
     require_parameter(file, "Functions/conservative transport", "graetz");
     require_parameter(file, "Functions/fixed-temperature/kind", "constant");
@@ -142,11 +138,7 @@ namespace nmopt::application::runner::binding
       "state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region");
 
     scenario.problem.recipe.observed_material_id =
-      parameter_unsigned(file, "Problem/observed material id");
-    if (parameter_unsigned(file, "Observation/material id") !=
-        scenario.problem.recipe.observed_material_id)
-      throw std::invalid_argument(
-        "B2 Observation/material id must match the Problem/observed material id compatibility alias");
+      parameter_unsigned(file, "Observation/material id");
     scenario.problem.recipe.with_facewise_box =
       parameter_bool(file, "Problem/facewise box constraint");
     scenario.problem.data.diffusion = parameter_double(file, "Runtime/diffusion");

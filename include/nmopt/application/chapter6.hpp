@@ -253,45 +253,56 @@ namespace nmopt::application::chapter6
      GraetzCase::observation_wings_parabolic_target,
      GraetzCase::observation_full_parabolic_target}};
 
-  struct B2TargetParameters
+  inline ScalarFunctionDefinition
+  b2_manufactured_constant_target()
   {
-    ScalarFunctionDefinition constant{
-      "constant-2",
-      ScalarFunctionKind::constant,
-      2.0,
-      "",
-      "chapter-6.e6.5.2.target"};
-    ScalarFunctionDefinition parabolic{
-      "parabolic-4*x1*(1-x1)",
-      ScalarFunctionKind::expression,
-      0.0,
-      "4.0*x1*(1.0-x1)",
-      "chapter-6.e6.5.2.target"};
-  };
+    return {"constant-2",
+            ScalarFunctionKind::constant,
+            2.0,
+            "",
+            "chapter-6.e6.5.2.target"};
+  }
+
+  inline ScalarFunctionDefinition
+  b2_manufactured_parabolic_target()
+  {
+    return {"parabolic-4*x1*(1-x1)",
+            ScalarFunctionKind::expression,
+            0.0,
+            "4.0*x1*(1.0-x1)",
+            "chapter-6.e6.5.2.target"};
+  }
+
+  inline ScalarFunctionCatalog
+  b2_manufactured_target_catalog(
+    const std::string_view selected_id = "constant-2")
+  {
+    ScalarFunctionCatalog catalog{{b2_manufactured_constant_target(),
+                                   b2_manufactured_parabolic_target()},
+                                  std::string(selected_id)};
+    validate_scalar_function_catalog(catalog, "B2 target catalog");
+    return catalog;
+  }
 
   inline const ScalarFunctionDefinition &
-  b2_target_definition(const B2TargetParameters &parameters,
-                       const GraetzCase             graetz_case)
+  b2_target_definition(const ScalarFunctionCatalog &catalog)
+  {
+    return selected_scalar_function_definition(catalog, "B2 target catalog");
+  }
+
+  inline const char *
+  b2_default_target_id(const GraetzCase graetz_case)
   {
     switch (graetz_case)
       {
         case GraetzCase::observation_wings_constant_target:
         case GraetzCase::observation_full_constant_target:
-          return parameters.constant;
+          return "constant-2";
         case GraetzCase::observation_wings_parabolic_target:
         case GraetzCase::observation_full_parabolic_target:
-          return parameters.parabolic;
+          return "parabolic-4*x1*(1-x1)";
       }
-    throw std::invalid_argument("B2 has an unknown Graetz target case");
-  }
-
-  inline void
-  validate_b2_target_parameters(const B2TargetParameters &parameters)
-  {
-    validate_scalar_function_definition(parameters.constant,
-                                        "B2 constant target");
-    validate_scalar_function_definition(parameters.parabolic,
-                                        "B2 parabolic target");
+    throw std::invalid_argument("B2 has an unknown target case");
   }
 
   inline ScalarFunctionDefinition
@@ -334,7 +345,7 @@ namespace nmopt::application::chapter6
       "chapter-6.e6.5.2.fixed-temperature",
       "chapter-6.e6.5.2.graetz-transport"};
     GraetzCase graetz_case = GraetzCase::observation_wings_constant_target;
-    B2TargetParameters target_parameters;
+    ScalarFunctionCatalog target_catalog = b2_manufactured_target_catalog();
     double                   fixed_temperature = 1.0;
     ScalarFunctionDefinition forcing = b2_manufactured_zero_forcing();
     semantic::v1::TransportBoundaryForm transport_boundary_form =
@@ -646,11 +657,10 @@ namespace nmopt::application::chapter6
       }
     if (!std::isfinite(scenario.problem.fixed_temperature))
       throw std::invalid_argument("B2 fixed temperature must be finite");
-    validate_b2_target_parameters(scenario.problem.target_parameters);
+    validate_scalar_function_catalog(scenario.problem.target_catalog,
+                                     "B2 target catalog");
     if (scenario.problem.data.desired_state_provenance !=
-        b2_target_definition(scenario.problem.target_parameters,
-                             scenario.problem.graetz_case)
-          .provenance)
+        b2_target_definition(scenario.problem.target_catalog).provenance)
       throw std::invalid_argument(
         "B2 desired-state provenance does not match the selected target");
     validate_scalar_function_definition(scenario.problem.forcing, "B2 forcing");
@@ -817,6 +827,7 @@ namespace nmopt::application::chapter6
   {
     B2ProblemParameters problem;
     problem.graetz_case             = graetz_case;
+    problem.target_catalog.selected_id = b2_default_target_id(graetz_case);
     problem.transport_boundary_form = transport_boundary_form;
     problem.recipe.control_discretisation =
       control_discretisation;

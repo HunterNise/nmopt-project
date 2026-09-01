@@ -29,6 +29,16 @@ namespace
       throw std::runtime_error(message);
   }
 
+  chapter6::dealii::B2ManufacturedDataT<2>
+  make_b2_manufactured_data(const chapter6::B2Scenario &scenario)
+  {
+    return chapter6::dealii::B2ManufacturedDataT<2>{
+      scenario.problem.graetz_case,
+      scenario.problem.fixed_temperature,
+      scenario.problem.forcing,
+      chapter6::b2_target_definition(scenario.problem.target_catalog)};
+  }
+
   void
   run_b2_target_parameterization()
   {
@@ -36,18 +46,21 @@ namespace
       chapter6::GraetzCase::observation_full_parabolic_target;
     auto scenario = chapter6::make_b2_scenario(graetz_case);
     scenario.compile.mesh.refinement = 1;
-    scenario.problem.target_parameters.constant = {
+    const ScalarFunctionDefinition constant_target_definition{
       "constant-20",
       ScalarFunctionKind::constant,
       20.0,
       "",
       "test.target"};
-    scenario.problem.target_parameters.parabolic = {
+    const ScalarFunctionDefinition parabolic_target_definition{
       "parabolic-6",
       ScalarFunctionKind::expression,
       0.0,
       "6.0*x1*(1.0-x1)",
       "test.target"};
+    scenario.problem.target_catalog = {
+      {constant_target_definition, parabolic_target_definition},
+      parabolic_target_definition.id};
     scenario.problem.forcing = {
       "expression-forcing",
       ScalarFunctionKind::expression,
@@ -61,7 +74,7 @@ namespace
       graetz_case,
       scenario.problem.fixed_temperature,
       scenario.problem.forcing,
-      scenario.problem.target_parameters};
+      chapter6::b2_target_definition(scenario.problem.target_catalog)};
     const auto runtime =
       chapter6::dealii::make_b2_manufactured_runtime_data(scenario, data);
     ::dealii::Point<2> point;
@@ -73,8 +86,7 @@ namespace
             "B2 forcing expression was not applied");
 
     chapter6::dealii::B2DesiredStateFunction<2> constant_target{
-      chapter6::GraetzCase::observation_full_constant_target,
-      scenario.problem.target_parameters};
+      scenario.problem.target_catalog.definitions.front()};
     require(std::abs(constant_target.value(point) - 20.0) < 1.0e-15,
             "B2 constant target value was not applied");
 
@@ -118,8 +130,7 @@ namespace
     scenario.compile.adjoint_solve = {126, 4.0e-12, 5.0e-14};
     scenario.compile.control_metric_solve = {322, 6.0e-12, 7.0e-14};
 
-    chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-      graetz_case, scenario.problem.fixed_temperature};
+    auto manufactured_data = make_b2_manufactured_data(scenario);
     const auto runtime =
       chapter6::dealii::make_b2_manufactured_runtime_data(
         scenario, manufactured_data);
@@ -341,6 +352,10 @@ namespace
                                    expected_target_expression + "\n") !=
                 std::string::npos,
             "B2 deal.II adapter omitted target-definition evidence");
+    require(result.document.find(
+              "b2.target_provenance=chapter-6.e6.5.2.target\n") !=
+              std::string::npos,
+            "B2 deal.II adapter omitted target provenance evidence");
     require(result.document.find("b2.forcing_definition=zero\n") !=
               std::string::npos &&
               result.document.find("b2.forcing_kind=zero\n") !=
@@ -572,8 +587,7 @@ namespace
     require(std::abs(observation_measure - 1.8) < 1.0e-12,
             "B2 structured simplex mesh did not align the wings observation region");
 
-    chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-      scenario.problem.graetz_case, scenario.problem.fixed_temperature};
+    auto manufactured_data = make_b2_manufactured_data(scenario);
     const auto runtime =
       chapter6::dealii::make_b2_manufactured_runtime_data(
         scenario, manufactured_data);
@@ -732,8 +746,7 @@ namespace
     require(std::abs(observation_measure - 1.8) < 1.0e-12,
             "B2 centroid splitting changed the wings observation measure");
 
-    chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-      scenario.problem.graetz_case, scenario.problem.fixed_temperature};
+    auto manufactured_data = make_b2_manufactured_data(scenario);
     const auto runtime =
       chapter6::dealii::make_b2_manufactured_runtime_data(
         scenario, manufactured_data);
@@ -792,8 +805,7 @@ namespace
         discretisation);
       scenario.compile.mesh.refinement = 1;
       scenario.experiment.retain_fields = false;
-      chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-        graetz_case, scenario.problem.fixed_temperature};
+      auto manufactured_data = make_b2_manufactured_data(scenario);
       const auto runtime =
         chapter6::dealii::make_b2_manufactured_runtime_data(
           scenario, manufactured_data);
@@ -909,9 +921,7 @@ namespace
             expected_compiler_target,
         "B2 adapter did not map its volume-observation policy");
 
-      chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-        scenario.problem.graetz_case,
-        scenario.problem.fixed_temperature};
+      auto manufactured_data = make_b2_manufactured_data(scenario);
       const auto runtime =
         chapter6::dealii::make_b2_manufactured_runtime_data(
           scenario, manufactured_data);
@@ -987,9 +997,7 @@ namespace
         scenario.solver.parameters.initial_step_length = 0.25;
         scenario.experiment.retain_fields = false;
 
-        chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-          scenario.problem.graetz_case,
-          scenario.problem.fixed_temperature};
+        auto manufactured_data = make_b2_manufactured_data(scenario);
         const auto runtime =
           chapter6::dealii::make_b2_manufactured_runtime_data(
             scenario, manufactured_data);
@@ -1076,8 +1084,7 @@ namespace
       [&](const nmopt::semantic::v1::TransportBoundaryForm boundary_form) {
         auto scenario = chapter6::make_b2_scenario(graetz_case, boundary_form);
         scenario.compile.mesh.refinement = 2;
-        chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-          graetz_case, scenario.problem.fixed_temperature};
+        auto manufactured_data = make_b2_manufactured_data(scenario);
         const auto runtime =
           chapter6::dealii::make_b2_manufactured_runtime_data(
             scenario, manufactured_data);
@@ -1140,8 +1147,7 @@ namespace
     auto scenario = chapter6::make_b2_scenario(graetz_case);
     scenario.compile.mesh.refinement = 1;
 
-    chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-      graetz_case, scenario.problem.fixed_temperature};
+    auto manufactured_data = make_b2_manufactured_data(scenario);
     const auto runtime =
       chapter6::dealii::make_b2_manufactured_runtime_data(
         scenario, manufactured_data);
@@ -1279,8 +1285,7 @@ namespace
       [&](const nmopt::semantic::v1::TransportBoundaryForm boundary_form) {
         auto scenario = chapter6::make_b2_scenario(graetz_case, boundary_form);
         scenario.compile.mesh.refinement = 1;
-        chapter6::dealii::B2ManufacturedDataT<2> manufactured_data{
-          graetz_case, scenario.problem.fixed_temperature};
+        auto manufactured_data = make_b2_manufactured_data(scenario);
         const auto runtime =
           chapter6::dealii::make_b2_manufactured_runtime_data(
             scenario, manufactured_data);

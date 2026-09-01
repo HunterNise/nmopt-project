@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace nmopt::application
 {
@@ -51,6 +53,12 @@ namespace nmopt::application
     std::string        provenance;
   };
 
+  struct ScalarFunctionCatalog
+  {
+    std::vector<ScalarFunctionDefinition> definitions;
+    std::string                           selected_id;
+  };
+
   inline bool
   operator==(const ScalarFunctionDefinition &lhs,
              const ScalarFunctionDefinition &rhs)
@@ -65,6 +73,26 @@ namespace nmopt::application
              const ScalarFunctionDefinition &rhs)
   {
     return !(lhs == rhs);
+  }
+
+  inline const ScalarFunctionDefinition &
+  selected_scalar_function_definition(
+    const ScalarFunctionCatalog &catalog,
+    const std::string_view        description = "scalar function catalog")
+  {
+    if (catalog.selected_id.empty())
+      throw std::invalid_argument(std::string(description) +
+                                  " needs a selected definition ID");
+    const auto selected = std::find_if(
+      catalog.definitions.begin(),
+      catalog.definitions.end(),
+      [&](const auto &definition) {
+        return definition.id == catalog.selected_id;
+      });
+    if (selected == catalog.definitions.end())
+      throw std::invalid_argument(std::string(description) +
+                                  " selected definition ID is not registered");
+    return *selected;
   }
 
   inline void
@@ -107,5 +135,26 @@ namespace nmopt::application
         default:
           throw std::invalid_argument(prefix + " has an unknown kind");
       }
+  }
+
+  inline void
+  validate_scalar_function_catalog(
+    const ScalarFunctionCatalog &catalog,
+    const std::string_view        description = "scalar function catalog")
+  {
+    if (catalog.definitions.empty())
+      throw std::invalid_argument(std::string(description) +
+                                  " needs at least one definition");
+    for (std::size_t index = 0; index < catalog.definitions.size(); ++index)
+      {
+        validate_scalar_function_definition(catalog.definitions[index],
+                                            description);
+        for (std::size_t previous = 0; previous < index; ++previous)
+          if (catalog.definitions[previous].id == catalog.definitions[index].id)
+            throw std::invalid_argument(std::string(description) +
+                                        " contains duplicate definition ID '" +
+                                        catalog.definitions[index].id + "'");
+      }
+    (void)selected_scalar_function_definition(catalog, description);
   }
 } // namespace nmopt::application

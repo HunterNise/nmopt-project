@@ -42,42 +42,29 @@ namespace nmopt::application::chapter6::dealii
     static_assert(dim >= 2,
                   "The Chapter 6 B2 target requires at least two coordinates");
 
-    B2DesiredStateFunction(const GraetzCase         graetz_case,
-                           const B2TargetParameters &target_parameters)
-      : graetz_case_(graetz_case)
-      , target_parameters_(target_parameters)
-      , constant_(::nmopt::application::dealii_support::make_scalar_function<dim>(
-                   target_parameters_.constant, "B2 target"))
-      , parabolic_(::nmopt::application::dealii_support::make_scalar_function<dim>(
-                    target_parameters_.parabolic, "B2 target"))
+    explicit B2DesiredStateFunction(
+      const ScalarFunctionDefinition &target_definition)
+      : target_definition_(target_definition)
+      , target_(::nmopt::application::dealii_support::make_scalar_function<dim>(
+                 target_definition_, "B2 target"))
     {}
 
     double
     value(const ::dealii::Point<dim> &point,
           const unsigned int          component = 0) const override
     {
-      const ::dealii::Function<dim> *target = nullptr;
-      switch (graetz_case_)
-        {
-          case GraetzCase::observation_wings_constant_target:
-          case GraetzCase::observation_full_constant_target:
-            target = constant_.get();
-            break;
-          case GraetzCase::observation_wings_parabolic_target:
-          case GraetzCase::observation_full_parabolic_target:
-            target = parabolic_.get();
-            break;
-        }
-      if (target == nullptr)
-        throw std::invalid_argument("B2 has an unknown Graetz target case");
-      return target->value(point, component);
+      return target_->value(point, component);
+    }
+
+    const ScalarFunctionDefinition &
+    target_definition() const
+    {
+      return target_definition_;
     }
 
   private:
-    GraetzCase                               graetz_case_;
-    B2TargetParameters                        target_parameters_;
-    std::unique_ptr<::dealii::Function<dim>> constant_;
-    std::unique_ptr<::dealii::Function<dim>> parabolic_;
+    ScalarFunctionDefinition                 target_definition_;
+    std::unique_ptr<::dealii::Function<dim>> target_;
   };
 
   template <int dim>
@@ -127,12 +114,12 @@ namespace nmopt::application::chapter6::dealii
       const double fixed_temperature = 1.0,
       ScalarFunctionDefinition forcing_definition =
         b2_manufactured_zero_forcing(),
-      B2TargetParameters target_parameters = {})
+      ScalarFunctionDefinition target_definition =
+        b2_manufactured_constant_target())
       : forcing_definition_(std::move(forcing_definition))
       , forcing_(::nmopt::application::dealii_support::make_scalar_function<dim>(
           forcing_definition_, "B2 forcing"))
-      , target_parameters_(std::move(target_parameters))
-      , desired_state_(graetz_case, target_parameters_)
+      , desired_state_(target_definition)
       , fixed_temperature_(fixed_temperature)
       , fixed_temperature_value_(fixed_temperature)
       , graetz_case_(graetz_case)
@@ -165,16 +152,15 @@ namespace nmopt::application::chapter6::dealii
       return forcing_definition_;
     }
 
-    const B2TargetParameters &
-    target_parameters() const
+    const ScalarFunctionDefinition &
+    target_definition() const
     {
-      return target_parameters_;
+      return desired_state_.target_definition();
     }
 
   private:
     ScalarFunctionDefinition                 forcing_definition_;
     std::unique_ptr<::dealii::Function<dim>> forcing_;
-    B2TargetParameters                      target_parameters_;
     B2DesiredStateFunction<dim>             desired_state_;
     ::dealii::Functions::ConstantFunction<dim> fixed_temperature_;
     B2ConservativeTransportFunction<dim>    conservative_transport_;
@@ -202,12 +188,10 @@ namespace nmopt::application::chapter6::dealii
     if (data.forcing_definition() != scenario.problem.forcing)
       throw std::invalid_argument(
         "B2 manufactured forcing does not match the scenario");
-    const auto &scenario_targets = scenario.problem.target_parameters;
-    const auto &data_targets = data.target_parameters();
-    if (data_targets.constant != scenario_targets.constant ||
-        data_targets.parabolic != scenario_targets.parabolic)
+    if (data.target_definition() !=
+        b2_target_definition(scenario.problem.target_catalog))
       throw std::invalid_argument(
-        "B2 manufactured target definitions do not match the scenario");
+        "B2 manufactured target definition does not match the scenario");
     return data.runtime_data();
   }
 
@@ -697,8 +681,8 @@ namespace nmopt::application::chapter6::dealii
         volume_observation_target_realisation_name(
           volume_observation.target_realisation);
       const auto target_profile = b2_target_profile(scenario.problem.graetz_case);
-      const auto &target_definition = b2_target_definition(
-        scenario.problem.target_parameters, scenario.problem.graetz_case);
+      const auto &target_definition =
+        b2_target_definition(scenario.problem.target_catalog);
       const auto &forcing_definition = scenario.problem.forcing;
       const auto &manifest = compilation.problem->manifest();
       contract::require(
@@ -883,6 +867,7 @@ namespace nmopt::application::chapter6::dealii
         {"b2.target_kind", scalar_function_kind_name(target_definition.kind)},
         {"b2.target_value", b2_number(target_definition.value)},
         {"b2.target_expression", target_definition.expression},
+        {"b2.target_provenance", target_definition.provenance},
         {"b2.forcing_definition", forcing_definition.id},
         {"b2.forcing_kind", scalar_function_kind_name(forcing_definition.kind)},
         {"b2.forcing_value", b2_number(forcing_definition.value)},

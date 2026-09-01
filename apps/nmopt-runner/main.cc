@@ -753,7 +753,12 @@ namespace
                         ? "x0 > 1.0 and (x1 < 0.3 or x1 > 0.7)"
                         : "x0 > 1.0");
     require_parameter(file, "Functions/desired state", "from-matrix");
-    scenario.problem.target_parameters = b2_target_parameters(file);
+    const auto target_axis = combination.values.find("target-profile");
+    const std::string target_profile =
+      target_axis == combination.values.end()
+        ? chapter6::dealii::b2_target_profile(scenario.problem.graetz_case)
+        : target_axis->second;
+    scenario.problem.target_catalog = b2_target_catalog(file, target_profile);
 
     const auto forcing_axis = combination.values.find("forcing");
     const std::string forcing_id =
@@ -772,9 +777,7 @@ namespace
     scenario.problem.data.forcing_provenance =
       scenario.problem.forcing.provenance;
     scenario.problem.data.desired_state_provenance =
-      chapter6::b2_target_definition(scenario.problem.target_parameters,
-                                     scenario.problem.graetz_case)
-        .provenance;
+      chapter6::b2_target_definition(scenario.problem.target_catalog).provenance;
 
     apply_common_parameter_options(scenario, file, scenario_id);
     apply_solver_options(scenario.solver, file, "bfgs");
@@ -1382,7 +1385,7 @@ namespace
               graetz_case,
               scenario.problem.fixed_temperature,
               scenario.problem.forcing,
-              scenario.problem.target_parameters);
+              chapter6::b2_target_definition(scenario.problem.target_catalog));
             const auto runtime =
               nmopt::application::chapter6::dealii::
                 make_b2_manufactured_runtime_data<2>(scenario, data);

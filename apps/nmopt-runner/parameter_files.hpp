@@ -357,16 +357,26 @@ namespace nmopt::application::runner
     return parameter_scalar_function_definition_at(file, path, path + "/id");
   }
 
-  inline chapter6::B2TargetParameters
-  b2_target_parameters(const ParameterFile &file)
+  inline ScalarFunctionCatalog
+  b2_target_catalog(const ParameterFile &file,
+                    const std::string_view selected_profile = "constant")
   {
-    chapter6::B2TargetParameters parameters;
-    parameters.constant =
+    const auto constant =
       parameter_scalar_function_section_definition(file, "constant");
-    parameters.parabolic =
+    const auto parabolic =
       parameter_scalar_function_section_definition(file, "parabolic");
-    chapter6::validate_b2_target_parameters(parameters);
-    return parameters;
+    std::string selected_id;
+    if (selected_profile == "constant")
+      selected_id = constant.id;
+    else if (selected_profile == "parabolic")
+      selected_id = parabolic.id;
+    else
+      throw std::invalid_argument("unknown B2 target profile '" +
+                                  std::string(selected_profile) + "'");
+
+    ScalarFunctionCatalog catalog{{constant, parabolic}, std::move(selected_id)};
+    validate_scalar_function_catalog(catalog, "B2 target catalog");
+    return catalog;
   }
 
   namespace detail

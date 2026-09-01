@@ -738,7 +738,7 @@ namespace
           resolve_b2_scenario_for_characterization(file, combination);
         const auto graetz_case = graetz_case_from_combination(combination);
         const auto &target = nmopt::application::chapter6::b2_target_definition(
-          scenario.problem.target_parameters, graetz_case);
+          scenario.problem.target_catalog);
         const auto expected_metadata_id =
           graetz_case == nmopt::application::chapter6::GraetzCase::
                            observation_wings_constant_target
@@ -768,10 +768,15 @@ namespace
                     target.value == 0.0 &&
                     target.expression == "4.0*x1*(1.0-x1)")),
                 "B2 resolution changed the selected target definition");
-        require(scenario.problem.target_parameters.constant.provenance ==
-                    "chapter-6.e6.5.2.target" &&
-                  scenario.problem.target_parameters.parabolic.provenance ==
-                    "chapter-6.e6.5.2.target" &&
+        require(scenario.problem.target_catalog.definitions.size() == 2 &&
+                  std::all_of(
+                    scenario.problem.target_catalog.definitions.begin(),
+                    scenario.problem.target_catalog.definitions.end(),
+                    [](const auto &definition) {
+                      return definition.provenance ==
+                             "chapter-6.e6.5.2.target";
+                    }) &&
+                  scenario.problem.target_catalog.selected_id == target.id &&
                   scenario.problem.data.desired_state_provenance ==
                     "chapter-6.e6.5.2.target",
                 "B2 resolution changed target provenance");
@@ -1014,7 +1019,8 @@ namespace
       b2_scenario.problem.graetz_case,
       b2_scenario.problem.fixed_temperature,
       b2_scenario.problem.forcing,
-      b2_scenario.problem.target_parameters};
+      nmopt::application::chapter6::b2_target_definition(
+        b2_scenario.problem.target_catalog)};
     const auto b2_runtime =
       nmopt::application::chapter6::dealii::make_b2_manufactured_runtime_data<2>(
         b2_scenario, b2_data);
@@ -1269,23 +1275,25 @@ namespace
   }
 
   void
-  test_b2_target_parameters_are_data_driven()
+  test_b2_target_catalog_is_data_driven()
   {
     auto file = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
     const auto defaults =
-      nmopt::application::runner::b2_target_parameters(file);
-    require(defaults.constant.id == "constant-2" &&
-              defaults.constant.kind ==
+      nmopt::application::runner::b2_target_catalog(file);
+    require(defaults.selected_id == "constant-2" &&
+              defaults.definitions.size() == 2 &&
+              defaults.definitions[0].id == "constant-2" &&
+              defaults.definitions[0].kind ==
                 nmopt::application::ScalarFunctionKind::constant &&
-              std::abs(defaults.constant.value - 2.0) < 1.0e-15 &&
-              defaults.constant.expression.empty() &&
-              defaults.parabolic.id == "parabolic-4*x1*(1-x1)" &&
-              defaults.parabolic.kind ==
+              std::abs(defaults.definitions[0].value - 2.0) < 1.0e-15 &&
+              defaults.definitions[0].expression.empty() &&
+              defaults.definitions[1].id == "parabolic-4*x1*(1-x1)" &&
+              defaults.definitions[1].kind ==
                 nmopt::application::ScalarFunctionKind::expression &&
-              defaults.parabolic.expression == "4.0*x1*(1.0-x1)" &&
-              defaults.parabolic.value == 0.0,
-            "B2 parameter parsing lost its source target definitions");
+              defaults.definitions[1].expression == "4.0*x1*(1.0-x1)" &&
+              defaults.definitions[1].value == 0.0,
+            "B2 parameter parsing lost its target catalog");
 
     file.values["Functions/target definitions/constant/id"] = "constant-20";
     file.values["Functions/target definitions/constant/value"] = "20.0";
@@ -1294,17 +1302,38 @@ namespace
     file.values["Functions/target definitions/parabolic/expression"] =
       "6.0*x1*(1.0-x1)";
     const auto candidate =
-      nmopt::application::runner::b2_target_parameters(file);
-    require(candidate.constant.id == "constant-20" &&
-              std::abs(candidate.constant.value - 20.0) < 1.0e-15 &&
-              candidate.parabolic.id == "parabolic-6*x1*(1-x1)" &&
-              candidate.parabolic.expression == "6.0*x1*(1.0-x1)",
-            "B2 target parameters were hardcoded instead of parsed");
+      nmopt::application::runner::b2_target_catalog(file, "parabolic");
+    require(candidate.selected_id == "parabolic-6*x1*(1-x1)" &&
+              candidate.definitions[0].id == "constant-20" &&
+              std::abs(candidate.definitions[0].value - 20.0) < 1.0e-15 &&
+              candidate.definitions[1].id == "parabolic-6*x1*(1-x1)" &&
+              candidate.definitions[1].expression == "6.0*x1*(1.0-x1)" &&
+              nmopt::application::chapter6::b2_target_definition(candidate).id ==
+                candidate.selected_id,
+            "B2 target catalog was hardcoded instead of parsed");
+
+    auto duplicate = candidate;
+    duplicate.definitions[1].id = duplicate.definitions[0].id;
+    require_invalid_argument(
+      [&] {
+        nmopt::application::validate_scalar_function_catalog(
+          duplicate, "test B2 target catalog");
+      },
+      "B2 target catalog accepted duplicate definition IDs");
+
+    auto missing_selection = candidate;
+    missing_selection.selected_id = "not-registered";
+    require_invalid_argument(
+      [&] {
+        nmopt::application::validate_scalar_function_catalog(
+          missing_selection, "test B2 target catalog");
+      },
+      "B2 target catalog accepted an unregistered selected definition");
 
     file.values["Functions/target definitions/constant/value"] = "nan";
     require_invalid_argument(
       [&] {
-        (void)nmopt::application::runner::b2_target_parameters(file);
+        (void)nmopt::application::runner::b2_target_catalog(file);
       },
       "B2 parameter parsing accepted a non-finite target value");
   }
@@ -1476,11 +1505,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
          test_b2_volume_observation_is_selected},
-        {"b2_target_parameters_are_data_driven",
-         "nmopt.parameter_files.b2_target_parameters_are_data_driven",
+        {"b2_target_catalog_is_data_driven",
+         "nmopt.parameter_files.b2_target_catalog_is_data_driven",
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
-         test_b2_target_parameters_are_data_driven},
+         test_b2_target_catalog_is_data_driven},
         {"reduced_globalization_is_selected",
          "nmopt.parameter_files.reduced_globalization_is_selected",
          {"backend", "dealii", "application", "runner", "contract", "negative"},

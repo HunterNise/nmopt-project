@@ -144,7 +144,11 @@ namespace nmopt::application::runner::binding
     require_parameter(file, "Mesh/lower", "(0.0, 0.0)");
     require_parameter(file, "Mesh/upper", "(4.0, 1.0)");
     require_parameter(file, "Compile/stabilization", "galerkin");
-    require_parameter(file, "Solver/method", "bfgs");
+    const auto method_id = file.value("Solver/method");
+    const auto method = parse_method(method_id);
+    if (method != chapter6::ReducedMethod::bfgs)
+      throw std::invalid_argument("B2 selects the BFGS method");
+    scenario.solver.method = method;
     require_parameter(
       file,
       "Output/selected fields",
@@ -210,6 +214,6 @@ namespace nmopt::application::runner::binding
       chapter6::b2_target_definition(scenario.problem.target_catalog).provenance;
 
     apply_common_parameter_options(scenario, file, scenario_id);
-    apply_solver_options(scenario.solver, file, "bfgs");
+    apply_solver_options(scenario.solver, file, method_id);
   }
 } // namespace nmopt::application::runner::binding

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "capability_registry.hpp"
 #include "nmopt/application/chapter6.hpp"
 #include "parameter_files.hpp"
 
@@ -25,14 +26,21 @@ namespace nmopt::application::runner::binding
   inline nmopt::application::chapter6::ReducedMethod
   parse_method(const std::string &value)
   {
-    using nmopt::application::chapter6::ReducedMethod;
-    if (value == "steepest-descent")
-      return ReducedMethod::steepest_descent;
-    if (value == "l-bfgs")
-      return ReducedMethod::limited_memory_bfgs;
-    if (value == "bfgs")
-      return ReducedMethod::bfgs;
-    throw std::invalid_argument("unknown solver method '" + value + "'");
+    return reduced_method_capability_registry().resolve(value,
+                                                         "solver method");
+  }
+
+  inline nmopt::application::chapter6::ExecutionSelection
+  parse_execution(const std::string &value)
+  {
+    return execution_capability_registry().resolve(value,
+                                                    "compile execution");
+  }
+
+  inline nmopt::application::chapter6::ProductSelection
+  parse_product(const std::string &value)
+  {
+    return product_capability_registry().resolve(value, "compile product");
   }
 
   inline nmopt::application::chapter6::MeshGeneration
@@ -160,8 +168,8 @@ namespace nmopt::application::runner::binding
                        "Compile/control metric solve relative tolerance"),
       parameter_double(file,
                        "Compile/control metric solve absolute tolerance")};
-    require_parameter(file, "Compile/execution", "assembled");
-    require_parameter(file, "Compile/product", "reduced-dto");
+    scenario.compile.execution = parse_execution(file.value("Compile/execution"));
+    scenario.compile.product = parse_product(file.value("Compile/product"));
   }
 
   inline void

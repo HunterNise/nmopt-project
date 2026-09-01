@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/application/chapter6.hpp"
+#include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "parameter_binding.hpp"
 
 #include <stdexcept>
@@ -8,6 +9,35 @@
 
 namespace nmopt::application::runner::binding
 {
+  inline nmopt::application::chapter6::GraetzCase
+  graetz_case_from_combination(const ParameterCombination &combination)
+  {
+    const auto region = combination.values.find("observation-region");
+    const auto target = combination.values.find("target-profile");
+    if (region != combination.values.end() && target != combination.values.end())
+      {
+        using namespace nmopt::application::chapter6;
+        if (region->second == "wings" && target->second == "constant")
+          return GraetzCase::observation_wings_constant_target;
+        if (region->second == "full" && target->second == "constant")
+          return GraetzCase::observation_full_constant_target;
+        if (region->second == "wings" && target->second == "parabolic")
+          return GraetzCase::observation_wings_parabolic_target;
+        if (region->second == "full" && target->second == "parabolic")
+          return GraetzCase::observation_full_parabolic_target;
+      }
+    const auto case_value = combination.values.find("case");
+    if (case_value != combination.values.end())
+      {
+        using namespace nmopt::application::chapter6;
+        for (const auto candidate : b2_case_order)
+          if (case_value->second == graetz_case_name(candidate))
+            return candidate;
+      }
+    throw std::invalid_argument(
+      "B2 combinations need observation-region/target-profile or case axes");
+  }
+
   inline void
   bind_b1_scenario(
     nmopt::application::chapter6::B1Scenario &scenario,
@@ -70,5 +100,116 @@ namespace nmopt::application::runner::binding
     apply_solver_options(scenario.solver, file, method_id);
     if (scenario.solver.method == chapter6::ReducedMethod::bfgs)
       throw std::invalid_argument("B1 does not support full BFGS");
+  }
+
+  inline void
+  bind_b2_scenario(
+    nmopt::application::chapter6::B2Scenario &scenario,
+    const ParameterFile &file,
+    const ParameterCombination &combination,
+    const std::string &scenario_id)
+  {
+    using namespace nmopt::application;
+    require_parameter(file, "Benchmark/id", "chapter-6.b2.graetz-flow");
+    require_parameter(file, "Benchmark/recipe", chapter6::b2_recipe_id);
+    if (file.value("Problem/initial control") !=
+        file.value("Solver/initial control"))
+      throw std::invalid_argument(
+        "B2 Problem/initial control must match the Solver/initial control compatibility alias");
+    require_parameter(file, "Functions/fixed Dirichlet data", "fixed-temperature");
+    require_parameter(file, "Functions/conservative transport", "graetz");
+    require_parameter(file, "Functions/fixed-temperature/kind", "constant");
+    require_parameter(file, "Functions/graetz/kind", "conservative-transport");
+    require_parameter(file,
+                      "Functions/graetz/expression",
+                      "(1.5*x1*(1-x1), 0.0)");
+    scenario.problem.transport_boundary_form =
+      b2_transport_boundary_form(file);
+    scenario.problem.recipe.control_discretisation =
+      b2_neumann_control_discretisation(file);
+    scenario.compile.volume_observation =
+      b2_volume_observation_options(file);
+    require_parameter(file, "Boundary/normal orientation", "outward");
+    require_parameter(file, "Boundary/trace evaluation", "fe-q-state-trace");
+    require_parameter(file, "Boundary/face quadrature", "qgauss-face");
+    require_parameter(file, "Boundary/fixed region", "dirichlet-boundary");
+    require_parameter(file, "Boundary/control region", "control-boundary");
+    require_parameter(file, "Boundary/outflow region", "outflow-boundary");
+    require_parameter(file, "Boundary/fixed boundary id", "0");
+    require_parameter(file, "Boundary/control boundary id", "1");
+    require_parameter(file, "Boundary/outflow boundary id", "2");
+    require_parameter(file, "Boundary/upstream transition x", "1.0");
+    require_parameter(file, "Boundary/outflow x", "4.0");
+    require_parameter(file, "Mesh/geometry", "rectangle");
+    require_parameter(file, "Mesh/lower", "(0.0, 0.0)");
+    require_parameter(file, "Mesh/upper", "(4.0, 1.0)");
+    require_parameter(file, "Compile/stabilization", "galerkin");
+    require_parameter(file, "Solver/method", "bfgs");
+    require_parameter(
+      file,
+      "Output/selected fields",
+      "state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region");
+
+    scenario.problem.recipe.observed_material_id =
+      parameter_unsigned(file, "Problem/observed material id");
+    if (parameter_unsigned(file, "Observation/material id") !=
+        scenario.problem.recipe.observed_material_id)
+      throw std::invalid_argument(
+        "B2 Observation/material id must match the Problem/observed material id compatibility alias");
+    scenario.problem.recipe.with_facewise_box =
+      parameter_bool(file, "Problem/facewise box constraint");
+    scenario.problem.data.diffusion = parameter_double(file, "Runtime/diffusion");
+    scenario.problem.data.reaction = parameter_double(file, "Runtime/reaction");
+    scenario.problem.data.regularisation_weight =
+      combination.values.count("regularisation")
+        ? parse_number_text(combination_value(combination, "regularisation"),
+                            "Matrix/regularisation")
+        : parameter_double(file, "Runtime/regularisation");
+    scenario.problem.fixed_temperature =
+      parse_number_text(file.value("Functions/fixed-temperature/value"),
+                        "Functions/fixed-temperature/value");
+    scenario.problem.data.fixed_dirichlet_data_provenance =
+      file.value("Functions/fixed-temperature/provenance");
+    scenario.problem.data.conservative_transport_provenance =
+      file.value("Functions/graetz/provenance");
+    scenario.problem.graetz_case = graetz_case_from_combination(combination);
+    const auto region = chapter6::dealii::b2_observation_region(
+      scenario.problem.graetz_case);
+    require_parameter(file, "Observation/active region", "from-matrix");
+    require_parameter(
+      file,
+      "Observation/region " + std::string(region) + "/geometry",
+      region == std::string("wings")
+        ? "x0 > 1.0 and (x1 < 0.3 or x1 > 0.7)"
+        : "x0 > 1.0");
+    require_parameter(file, "Functions/desired state", "from-matrix");
+    const auto target_axis = combination.values.find("target-profile");
+    const std::string target_profile =
+      target_axis == combination.values.end()
+        ? chapter6::dealii::b2_target_profile(scenario.problem.graetz_case)
+        : target_axis->second;
+    scenario.problem.target_catalog = b2_target_catalog(file, target_profile);
+
+    const auto forcing_axis = combination.values.find("forcing");
+    const std::string forcing_id =
+      forcing_axis == combination.values.end()
+        ? file.value("Functions/forcing")
+        : forcing_axis->second;
+    const std::string forcing_prefix =
+      forcing_axis == combination.values.end()
+        ? "Functions/forcing"
+        : "Functions/forcing definition " + forcing_id;
+    scenario.problem.forcing =
+      forcing_axis == combination.values.end()
+        ? parameter_scalar_function_definition(file, forcing_prefix)
+        : parameter_scalar_function_definition_with_id(
+            file, forcing_prefix, forcing_id);
+    scenario.problem.data.forcing_provenance =
+      scenario.problem.forcing.provenance;
+    scenario.problem.data.desired_state_provenance =
+      chapter6::b2_target_definition(scenario.problem.target_catalog).provenance;
+
+    apply_common_parameter_options(scenario, file, scenario_id);
+    apply_solver_options(scenario.solver, file, "bfgs");
   }
 } // namespace nmopt::application::runner::binding

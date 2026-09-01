@@ -77,7 +77,7 @@ namespace
   {
     const auto graetz_case = graetz_case_from_combination(combination);
     auto scenario = nmopt::application::chapter6::make_b2_scenario(graetz_case);
-    configure_b2_scenario(
+    bind_b2_scenario(
       scenario,
       file,
       combination,

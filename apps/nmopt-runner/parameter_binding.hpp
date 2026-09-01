@@ -108,4 +108,205 @@ namespace nmopt::application::runner::binding
                                   "', but this adapter requires '" +
                                   std::string(expected) + "'");
   }
+
+  template <typename Scenario>
+  inline void
+  apply_common_parameter_options(Scenario              &scenario,
+                                 const ParameterFile   &file,
+                                 const std::string     &scenario_id)
+  {
+    scenario.experiment.scenario_output_id = scenario_id;
+    scenario.experiment.source_reference = file.value("Benchmark/source reference");
+    scenario.experiment.source_revision = file.value("Benchmark/source revision");
+    scenario.experiment.retain_fields = parameter_bool(file, "Output/retain fields");
+    scenario.experiment.harness.deterministic =
+      parameter_bool(file, "Run/deterministic");
+    scenario.experiment.harness.serialize_artifacts =
+      parameter_bool(file, "Run/serialize artifacts");
+    scenario.experiment.harness.measure_timings =
+      parameter_bool(file, "Run/measure timings");
+    scenario.experiment.harness.measure_memory =
+      parameter_bool(file, "Run/measure memory");
+    scenario.experiment.harness.artifact_directory =
+      file.value("Run/output root");
+
+    scenario.compile.mesh.dimension = parameter_unsigned(file, "Mesh/dimension");
+    scenario.compile.mesh.generation =
+      parse_mesh_generation(file.value("Mesh/generator"));
+    scenario.compile.mesh.refinement = parameter_unsigned(file, "Mesh/refinement");
+    scenario.compile.mesh.subdivisions =
+      parameter_unsigned(file, "Mesh/subdivisions");
+    scenario.compile.mesh.axis_subdivisions =
+      parameter_positive_unsigned_list(file, "Mesh/axis subdivisions");
+    scenario.compile.mesh.centroid_splits =
+      parameter_unsigned(file, "Mesh/centroid splits");
+    scenario.compile.mesh.selection_seed =
+      parameter_unsigned(file, "Mesh/selection seed");
+    scenario.compile.mesh.mesh_provenance = file.value("Mesh/provenance");
+    scenario.compile.state_degree = parameter_unsigned(file, "Compile/state degree");
+    scenario.compile.owned_session = parameter_bool(file, "Compile/owned session");
+    scenario.compile.state_solve = {
+      parameter_unsigned(file, "Compile/state solve maximum iterations"),
+      parameter_double(file, "Compile/state solve relative tolerance"),
+      parameter_double(file, "Compile/state solve absolute tolerance")};
+    scenario.compile.adjoint_solve = {
+      parameter_unsigned(file, "Compile/adjoint solve maximum iterations"),
+      parameter_double(file, "Compile/adjoint solve relative tolerance"),
+      parameter_double(file, "Compile/adjoint solve absolute tolerance")};
+    scenario.compile.control_metric_solve = {
+      parameter_unsigned(file,
+                         "Compile/control metric solve maximum iterations"),
+      parameter_double(file,
+                       "Compile/control metric solve relative tolerance"),
+      parameter_double(file,
+                       "Compile/control metric solve absolute tolerance")};
+    require_parameter(file, "Compile/execution", "assembled");
+    require_parameter(file, "Compile/product", "reduced-dto");
+  }
+
+  inline void
+  apply_solver_options(nmopt::application::chapter6::SolverOptions &solver,
+                       const ParameterFile                     &file,
+                       const std::string                        &method_id)
+  {
+    solver.globalization = reduced_globalization(file);
+    const auto method_prefix = "Solver/method policy " + method_id + "/";
+    const auto resolve = [&](const std::string_view entry) {
+      return resolve_method_parameter(file, method_id, entry);
+    };
+
+    solver.initial_control = file.value("Solver/initial control");
+    const auto maximum_iterations = resolve("maximum iterations");
+    solver.parameters.maximum_iterations = parse_unsigned_text(
+      maximum_iterations.value, maximum_iterations.key);
+
+    ResolvedParameterValue trials;
+    ResolvedParameterValue reductions;
+    const auto method_trials =
+      file.optional_value(method_prefix + "maximum line search trials");
+    const auto method_reductions =
+      file.optional_value(method_prefix + "maximum backtracking reductions");
+    if (!method_trials.empty() || !method_reductions.empty())
+      {
+        trials = {method_prefix + "maximum line search trials", method_trials};
+        reductions = {method_prefix + "maximum backtracking reductions",
+                      method_reductions};
+      }
+    else
+      {
+        trials = {"Solver/maximum line search trials",
+                  file.optional_value("Solver/maximum line search trials")};
+        reductions = {
+          "Solver/maximum backtracking reductions",
+          file.optional_value("Solver/maximum backtracking reductions")};
+      }
+    if (!trials.value.empty() && !reductions.value.empty())
+      throw std::invalid_argument(
+        "select either maximum line-search trials or maximum backtracking reductions");
+    if (!reductions.value.empty())
+      {
+        const auto count = parse_unsigned_text(reductions.value, reductions.key);
+        if (count == std::numeric_limits<unsigned int>::max())
+          throw std::invalid_argument("parameter '" + reductions.key +
+                                      "' is too large");
+        solver.parameters.maximum_line_search_trials = count + 1;
+      }
+    else if (!trials.value.empty())
+      solver.parameters.maximum_line_search_trials =
+        parse_unsigned_text(trials.value, trials.key);
+
+    const auto stopping = resolve("stopping criterion");
+    solver.parameters.stopping_criterion =
+      parse_stopping_criterion(stopping.value);
+    const auto relative = resolve("relative gradient tolerance");
+    solver.parameters.relative_gradient_tolerance =
+      parse_number_text(relative.value, relative.key);
+    const auto objective_change = resolve("objective change tolerance");
+    solver.parameters.objective_change_tolerance =
+      parse_number_text(objective_change.value, objective_change.key);
+    const auto step = resolve("step tolerance");
+    solver.parameters.step_tolerance = parse_number_text(step.value, step.key);
+    const auto initial_step = resolve("initial step length");
+    solver.parameters.initial_step_length =
+      parse_number_text(initial_step.value, initial_step.key);
+    const auto armijo = resolve("Armijo fraction");
+    solver.parameters.armijo_fraction =
+      parse_number_text(armijo.value, armijo.key);
+    const auto backtracking = resolve("backtracking factor");
+    solver.parameters.backtracking_factor =
+      parse_number_text(backtracking.value, backtracking.key);
+
+    const auto objective_target_policy =
+      file.optional_value("Solver/objective target policy", "none");
+    const auto objective_target = file.optional_value("Solver/objective target");
+    if (objective_target_policy.empty() || objective_target_policy == "none")
+      {
+        solver.objective_target_policy =
+          nmopt::application::chapter6::ObjectiveTargetPolicy::none;
+        solver.parameters.objective_target = std::nullopt;
+      }
+    else if (objective_target_policy == "explicit")
+      {
+        if (objective_target.empty() || objective_target == "none")
+          throw std::invalid_argument(
+            "an explicit objective-target policy needs a numeric target");
+        solver.objective_target_policy =
+          nmopt::application::chapter6::ObjectiveTargetPolicy::explicit_value;
+        solver.parameters.objective_target = parse_number_text(
+          objective_target, "Solver/objective target");
+      }
+    else if (objective_target_policy == "match-reference-method")
+      {
+        solver.objective_target_policy = nmopt::application::chapter6::
+          ObjectiveTargetPolicy::matched_reference_method;
+        solver.parameters.objective_target = std::nullopt;
+        solver.objective_target_reference_method =
+          file.value("Solver/objective target reference method");
+        if (solver.objective_target_reference_method.empty())
+          throw std::invalid_argument(
+            "a matched objective target needs a reference method");
+      }
+    else
+      throw std::invalid_argument("unknown objective-target policy '" +
+                                  objective_target_policy + "'");
+
+    const auto gradient = resolve("gradient tolerance");
+    solver.parameters.gradient_tolerance =
+      parse_number_text(gradient.value, gradient.key);
+    const auto minimum = resolve("minimum step length");
+    if (!minimum.value.empty() && minimum.value != "none")
+      solver.parameters.minimum_step_length =
+        parse_number_text(minimum.value, minimum.key);
+    else
+      solver.parameters.minimum_step_length = 0.0;
+
+    const auto declared_minimum = resolve("declared minimum step length");
+    if (!declared_minimum.value.empty() && declared_minimum.value != "none")
+      solver.declared_minimum_step_length =
+        parse_number_text(declared_minimum.value, declared_minimum.key);
+    else
+      solver.declared_minimum_step_length = std::nullopt;
+
+    const auto memory = file.optional_value(method_prefix + "memory");
+    if (!memory.empty())
+      solver.limited_memory_bfgs.memory_size =
+        parse_unsigned_text(memory, method_prefix + "memory");
+    const auto curvature =
+      file.optional_value(method_prefix + "curvature tolerance");
+    if (!curvature.empty())
+      solver.limited_memory_bfgs.curvature_tolerance = parse_number_text(
+        curvature, method_prefix + "curvature tolerance");
+    const auto scaling =
+      file.optional_value(method_prefix + "initial inverse Hessian scaling");
+    if (!scaling.empty() && scaling != "metric-inverse" &&
+        scaling != "scalar-secant")
+      throw std::invalid_argument("unknown L-BFGS initial scaling '" + scaling +
+                                  "'");
+    if (scaling == "metric-inverse")
+      solver.limited_memory_bfgs.initial_inverse_hessian_scaling =
+        nmopt::solvers::LimitedMemoryBfgsInitialScaling::metric_inverse;
+    else if (scaling == "scalar-secant")
+      solver.limited_memory_bfgs.initial_inverse_hessian_scaling =
+        nmopt::solvers::LimitedMemoryBfgsInitialScaling::scalar_secant;
+  }
 } // namespace nmopt::application::runner::binding

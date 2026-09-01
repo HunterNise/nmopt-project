@@ -22,21 +22,11 @@ subsection Problem
 end
 
 subsection Observation
-  set active region = from-matrix
   set material id = 1
-
-  subsection region wings
-    set geometry = x0 > 1.0 and (x1 < 0.3 or x1 > 0.7)
-  end
-
-  subsection region full
-    set geometry = x0 > 1.0
-  end
 end
 
 subsection Functions
   set forcing = from-matrix
-  set desired state = from-matrix
   set fixed Dirichlet data = fixed-temperature
   set conservative transport = graetz
 

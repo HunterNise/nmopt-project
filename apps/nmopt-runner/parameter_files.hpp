@@ -663,11 +663,7 @@ namespace nmopt::application::runner
                      "cellwise box constraint",
                      "observation",
                      "facewise box constraint"});
-        add_section("Observation", {"active region", "material id"});
-        for (const auto *region : {"wings", "full"})
-          append_schema_entry(result,
-                              "Observation/region " + std::string(region) +
-                                "/geometry");
+        add_section("Observation", {"material id"});
 
         add_section("Functions",
                     {"forcing",

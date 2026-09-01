@@ -162,16 +162,6 @@ namespace nmopt::application::runner::binding
       throw std::invalid_argument(
         "B2 combinations need a target-profile axis");
     scenario.problem.target_profile = target_axis->second;
-    const auto region = chapter6::b2_observation_region_name(
-      scenario.problem.observation_region);
-    require_parameter(file, "Observation/active region", "from-matrix");
-    require_parameter(
-      file,
-      "Observation/region " + std::string(region) + "/geometry",
-      region == std::string("wings")
-        ? "x0 > 1.0 and (x1 < 0.3 or x1 > 0.7)"
-        : "x0 > 1.0");
-    require_parameter(file, "Functions/desired state", "from-matrix");
     scenario.problem.target_catalog =
       b2_target_catalog(file, scenario.problem.target_profile);
 

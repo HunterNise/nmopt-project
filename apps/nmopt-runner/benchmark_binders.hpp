@@ -9,33 +9,21 @@
 
 namespace nmopt::application::runner::binding
 {
-  inline nmopt::application::chapter6::GraetzCase
-  graetz_case_from_combination(const ParameterCombination &combination)
+  inline nmopt::application::chapter6::B2ObservationRegion
+  b2_observation_region_from_combination(
+    const ParameterCombination &combination)
   {
     const auto region = combination.values.find("observation-region");
-    const auto target = combination.values.find("target-profile");
-    if (region != combination.values.end() && target != combination.values.end())
+    if (region != combination.values.end())
       {
         using namespace nmopt::application::chapter6;
-        if (region->second == "wings" && target->second == "constant")
-          return GraetzCase::observation_wings_constant_target;
-        if (region->second == "full" && target->second == "constant")
-          return GraetzCase::observation_full_constant_target;
-        if (region->second == "wings" && target->second == "parabolic")
-          return GraetzCase::observation_wings_parabolic_target;
-        if (region->second == "full" && target->second == "parabolic")
-          return GraetzCase::observation_full_parabolic_target;
-      }
-    const auto case_value = combination.values.find("case");
-    if (case_value != combination.values.end())
-      {
-        using namespace nmopt::application::chapter6;
-        for (const auto candidate : b2_case_order)
-          if (case_value->second == graetz_case_name(candidate))
-            return candidate;
+        if (region->second == "wings")
+          return B2ObservationRegion::wings;
+        if (region->second == "full")
+          return B2ObservationRegion::full;
       }
     throw std::invalid_argument(
-      "B2 combinations need observation-region/target-profile or case axes");
+      "B2 combinations need an observation-region axis with value wings or full");
   }
 
   inline void
@@ -176,9 +164,15 @@ namespace nmopt::application::runner::binding
       file.value("Functions/fixed-temperature/provenance");
     scenario.problem.data.conservative_transport_provenance =
       file.value("Functions/graetz/provenance");
-    scenario.problem.graetz_case = graetz_case_from_combination(combination);
-    const auto region = chapter6::dealii::b2_observation_region(
-      scenario.problem.graetz_case);
+    scenario.problem.observation_region =
+      b2_observation_region_from_combination(combination);
+    const auto target_axis = combination.values.find("target-profile");
+    if (target_axis == combination.values.end())
+      throw std::invalid_argument(
+        "B2 combinations need a target-profile axis");
+    scenario.problem.target_profile = target_axis->second;
+    const auto region = chapter6::b2_observation_region_name(
+      scenario.problem.observation_region);
     require_parameter(file, "Observation/active region", "from-matrix");
     require_parameter(
       file,
@@ -187,12 +181,8 @@ namespace nmopt::application::runner::binding
         ? "x0 > 1.0 and (x1 < 0.3 or x1 > 0.7)"
         : "x0 > 1.0");
     require_parameter(file, "Functions/desired state", "from-matrix");
-    const auto target_axis = combination.values.find("target-profile");
-    const std::string target_profile =
-      target_axis == combination.values.end()
-        ? chapter6::dealii::b2_target_profile(scenario.problem.graetz_case)
-        : target_axis->second;
-    scenario.problem.target_catalog = b2_target_catalog(file, target_profile);
+    scenario.problem.target_catalog =
+      b2_target_catalog(file, scenario.problem.target_profile);
 
     const auto forcing_axis = combination.values.find("forcing");
     const std::string forcing_id =

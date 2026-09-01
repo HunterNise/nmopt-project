@@ -109,8 +109,8 @@ namespace nmopt::application::chapter6::dealii
   {
   public:
     explicit B2ManufacturedDataT(
-      const GraetzCase graetz_case =
-        GraetzCase::observation_wings_constant_target,
+      const B2ObservationRegion observation_region =
+        B2ObservationRegion::wings,
       const double fixed_temperature = 1.0,
       ScalarFunctionDefinition forcing_definition =
         b2_manufactured_zero_forcing(),
@@ -122,7 +122,7 @@ namespace nmopt::application::chapter6::dealii
       , desired_state_(target_definition)
       , fixed_temperature_(fixed_temperature)
       , fixed_temperature_value_(fixed_temperature)
-      , graetz_case_(graetz_case)
+      , observation_region_(observation_region)
     {}
 
     B2RuntimeDataT<dim>
@@ -140,10 +140,10 @@ namespace nmopt::application::chapter6::dealii
       return fixed_temperature_value_;
     }
 
-    GraetzCase
-    graetz_case() const
+    B2ObservationRegion
+    observation_region() const
     {
-      return graetz_case_;
+      return observation_region_;
     }
 
     const ScalarFunctionDefinition &
@@ -165,7 +165,7 @@ namespace nmopt::application::chapter6::dealii
     ::dealii::Functions::ConstantFunction<dim> fixed_temperature_;
     B2ConservativeTransportFunction<dim>    conservative_transport_;
     double                                  fixed_temperature_value_;
-    GraetzCase                              graetz_case_;
+    B2ObservationRegion                     observation_region_;
   };
 
   template <int dim>
@@ -178,9 +178,9 @@ namespace nmopt::application::chapter6::dealii
     if (scenario.compile.mesh.dimension != dim)
       throw std::invalid_argument(
         "B2 runtime data dimension does not match the scenario mesh");
-    if (data.graetz_case() != scenario.problem.graetz_case)
+    if (data.observation_region() != scenario.problem.observation_region)
       throw std::invalid_argument(
-        "B2 manufactured target case does not match the scenario");
+        "B2 manufactured observation region does not match the scenario");
     if (std::abs(data.fixed_temperature_value() -
                  scenario.problem.fixed_temperature) > 1.0e-14)
       throw std::invalid_argument(
@@ -289,10 +289,8 @@ namespace nmopt::application::chapter6::dealii
         const bool downstream = center[0] > 1.0;
         const bool wings = center[1] < 0.3 || center[1] > 0.7;
         const bool observed = downstream &&
-                              (scenario.problem.graetz_case ==
-                                 GraetzCase::observation_full_constant_target ||
-                               scenario.problem.graetz_case ==
-                                 GraetzCase::observation_full_parabolic_target ||
+                              (scenario.problem.observation_region ==
+                                 B2ObservationRegion::full ||
                                wings);
         cell->set_material_id(
           observed ? scenario.problem.recipe.observed_material_id : 0);
@@ -383,38 +381,6 @@ namespace nmopt::application::chapter6::dealii
     std::ostringstream output;
     output << std::setprecision(17) << value;
     return output.str();
-  }
-
-  inline const char *
-  b2_observation_region(const GraetzCase graetz_case)
-  {
-    switch (graetz_case)
-      {
-        case GraetzCase::observation_wings_constant_target:
-        case GraetzCase::observation_wings_parabolic_target:
-          return "wings";
-        case GraetzCase::observation_full_constant_target:
-        case GraetzCase::observation_full_parabolic_target:
-          return "full";
-        default:
-          throw std::invalid_argument("B2 has an unknown observation region");
-      }
-  }
-
-  inline const char *
-  b2_target_profile(const GraetzCase graetz_case)
-  {
-    switch (graetz_case)
-      {
-        case GraetzCase::observation_wings_constant_target:
-        case GraetzCase::observation_full_constant_target:
-          return "constant";
-        case GraetzCase::observation_wings_parabolic_target:
-        case GraetzCase::observation_full_parabolic_target:
-          return "parabolic";
-        default:
-          throw std::invalid_argument("B2 has an unknown target profile");
-      }
   }
 
   inline double
@@ -680,7 +646,7 @@ namespace nmopt::application::chapter6::dealii
       const std::string volume_observation_target =
         volume_observation_target_realisation_name(
           volume_observation.target_realisation);
-      const auto target_profile = b2_target_profile(scenario.problem.graetz_case);
+      const auto &target_profile = scenario.problem.target_profile;
       const auto &target_definition =
         b2_target_definition(scenario.problem.target_catalog);
       const auto &forcing_definition = scenario.problem.forcing;
@@ -852,7 +818,8 @@ namespace nmopt::application::chapter6::dealii
         }
 
       std::vector<benchmark::ArtifactField> fields{
-        {"b2.graetz_case", graetz_case_name(scenario.problem.graetz_case)},
+        {"b2.graetz_case",
+         b2_case_name(scenario.problem.observation_region, target_profile)},
         {"b2.control_discretisation",
          chapter5::neumann_control_discretisation_name(
            scenario.problem.recipe.control_discretisation)},
@@ -861,7 +828,7 @@ namespace nmopt::application::chapter6::dealii
         {"b2.volume_observation_target_realisation",
          volume_observation_target},
         {"b2.observation_region",
-         b2_observation_region(scenario.problem.graetz_case)},
+         b2_observation_region_name(scenario.problem.observation_region)},
         {"b2.target_profile", target_profile},
         {"b2.target_definition", target_definition.id},
         {"b2.target_kind", scalar_function_kind_name(target_definition.kind)},

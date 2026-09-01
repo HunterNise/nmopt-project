@@ -15,6 +15,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,7 +34,7 @@ namespace
   make_b2_manufactured_data(const chapter6::B2Scenario &scenario)
   {
     return chapter6::dealii::B2ManufacturedDataT<2>{
-      scenario.problem.graetz_case,
+      scenario.problem.observation_region,
       scenario.problem.fixed_temperature,
       scenario.problem.forcing,
       chapter6::b2_target_definition(scenario.problem.target_catalog)};
@@ -42,9 +43,10 @@ namespace
   void
   run_b2_target_parameterization()
   {
-    const auto graetz_case =
-      chapter6::GraetzCase::observation_full_parabolic_target;
-    auto scenario = chapter6::make_b2_scenario(graetz_case);
+    const auto observation_region = chapter6::B2ObservationRegion::full;
+    const std::string target_profile = "parabolic";
+    auto scenario = chapter6::make_b2_scenario(observation_region,
+                                               target_profile);
     scenario.compile.mesh.refinement = 1;
     const ScalarFunctionDefinition constant_target_definition{
       "constant-20",
@@ -71,7 +73,7 @@ namespace
     scenario.problem.data.forcing_provenance = "test.forcing";
 
     chapter6::dealii::B2ManufacturedDataT<2> data{
-      graetz_case,
+      observation_region,
       scenario.problem.fixed_temperature,
       scenario.problem.forcing,
       chapter6::b2_target_definition(scenario.problem.target_catalog)};
@@ -91,7 +93,7 @@ namespace
             "B2 constant target value was not applied");
 
     chapter6::dealii::B2ManufacturedDataT<2> mismatched_data{
-      graetz_case, scenario.problem.fixed_temperature};
+      observation_region, scenario.problem.fixed_temperature};
     bool mismatch_rejected = false;
     try
       {
@@ -120,9 +122,12 @@ namespace
   }
 
   void
-  run_b2_manufactured_case(const chapter6::GraetzCase graetz_case)
+  run_b2_manufactured_case(
+    const chapter6::B2ObservationRegion observation_region,
+    const std::string_view             target_profile)
   {
-    auto scenario = chapter6::make_b2_scenario(graetz_case);
+    auto scenario = chapter6::make_b2_scenario(observation_region,
+                                               target_profile);
     scenario.compile.mesh.refinement = 1;
     scenario.solver.parameters.maximum_iterations = 5;
     scenario.solver.parameters.gradient_tolerance = 1.0e-4;
@@ -141,7 +146,7 @@ namespace
     const auto native_output_directory =
       std::filesystem::temp_directory_path() /
       ("nmopt-b2-native-contract-" +
-       std::to_string(static_cast<int>(graetz_case)));
+       chapter6::b2_case_name(observation_region, target_profile));
     std::filesystem::remove_all(native_output_directory);
 
     const auto specification = chapter6::make_b2_problem_spec(scenario);
@@ -313,15 +318,8 @@ namespace
               std::string::npos,
             "B2 deal.II adapter omitted fixed-temperature evidence");
     const auto expected_observation_region =
-      graetz_case == chapter6::GraetzCase::observation_wings_constant_target ||
-          graetz_case == chapter6::GraetzCase::observation_wings_parabolic_target
-        ? "wings"
-        : "full";
-    const auto expected_target_profile =
-      graetz_case == chapter6::GraetzCase::observation_wings_constant_target ||
-          graetz_case == chapter6::GraetzCase::observation_full_constant_target
-        ? "constant"
-        : "parabolic";
+      chapter6::b2_observation_region_name(observation_region);
+    const std::string expected_target_profile(target_profile);
     require(result.document.find(
               std::string("b2.observation_region=") +
               expected_observation_region + "\n") != std::string::npos,
@@ -522,7 +520,7 @@ namespace
   run_b2_structured_simplex_mesh()
   {
     auto scenario = chapter6::make_b2_scenario(
-      chapter6::GraetzCase::observation_wings_constant_target);
+      chapter6::B2ObservationRegion::wings, "constant");
     scenario.compile.mesh.generation =
       chapter6::MeshGeneration::structured_simplex;
     scenario.compile.mesh.refinement = 0;
@@ -632,7 +630,7 @@ namespace
     constexpr unsigned int split_count = 7;
 
     auto scenario = chapter6::make_b2_scenario(
-      chapter6::GraetzCase::observation_wings_constant_target);
+      chapter6::B2ObservationRegion::wings, "constant");
     scenario.compile.mesh.generation =
       chapter6::MeshGeneration::centroid_split_simplex;
     scenario.compile.mesh.refinement = 0;
@@ -796,10 +794,9 @@ namespace
                              const std::size_t    expected_dimension,
                              const std::string &  expected_metric,
                              const std::string &  expected_space) {
-      const auto graetz_case =
-        chapter6::GraetzCase::observation_full_constant_target;
       auto scenario = chapter6::make_b2_scenario(
-        graetz_case,
+        chapter6::B2ObservationRegion::full,
+        "constant",
         nmopt::semantic::v1::TransportBoundaryForm::
           ordinary_normal_minus_transport,
         discretisation);
@@ -894,7 +891,8 @@ namespace
 
     const auto execute = [](const chapter6::VolumeObservationOptions options) {
       auto scenario = chapter6::make_b2_scenario(
-        chapter6::GraetzCase::observation_full_parabolic_target,
+        chapter6::B2ObservationRegion::full,
+        "parabolic",
         nmopt::semantic::v1::TransportBoundaryForm::
           ordinary_normal_minus_transport,
         nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
@@ -986,7 +984,8 @@ namespace
           chapter6::ReducedGlobalization::fixed_step})
       {
         auto scenario = chapter6::make_b2_scenario(
-          chapter6::GraetzCase::observation_wings_constant_target,
+          chapter6::B2ObservationRegion::wings,
+          "constant",
           nmopt::semantic::v1::TransportBoundaryForm::
             ordinary_normal_minus_transport,
           nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
@@ -1077,12 +1076,13 @@ namespace
   void
   run_b2_transport_boundary_realisation_comparison()
   {
-    const auto graetz_case =
-      chapter6::GraetzCase::observation_full_constant_target;
+    const auto observation_region = chapter6::B2ObservationRegion::full;
+    const std::string target_profile = "constant";
 
     const auto zero_control_state_linf =
       [&](const nmopt::semantic::v1::TransportBoundaryForm boundary_form) {
-        auto scenario = chapter6::make_b2_scenario(graetz_case, boundary_form);
+        auto scenario = chapter6::make_b2_scenario(
+          observation_region, target_profile, boundary_form);
         scenario.compile.mesh.refinement = 2;
         auto manufactured_data = make_b2_manufactured_data(scenario);
         const auto runtime =
@@ -1142,9 +1142,8 @@ namespace
   void
   run_b2_ordinary_transport_residual_oracle()
   {
-    const auto graetz_case =
-      chapter6::GraetzCase::observation_full_constant_target;
-    auto scenario = chapter6::make_b2_scenario(graetz_case);
+    auto scenario = chapter6::make_b2_scenario(
+      chapter6::B2ObservationRegion::full, "constant");
     scenario.compile.mesh.refinement = 1;
 
     auto manufactured_data = make_b2_manufactured_data(scenario);
@@ -1279,11 +1278,12 @@ namespace
   void
   run_b2_ordinary_transport_boundary_operator_contract()
   {
-    const auto graetz_case =
-      chapter6::GraetzCase::observation_full_constant_target;
+    const auto observation_region = chapter6::B2ObservationRegion::full;
+    const std::string target_profile = "constant";
     const auto residual_sum_for =
       [&](const nmopt::semantic::v1::TransportBoundaryForm boundary_form) {
-        auto scenario = chapter6::make_b2_scenario(graetz_case, boundary_form);
+        auto scenario = chapter6::make_b2_scenario(
+          observation_region, target_profile, boundary_form);
         scenario.compile.mesh.refinement = 1;
         auto manufactured_data = make_b2_manufactured_data(scenario);
         const auto runtime =
@@ -1350,8 +1350,8 @@ main(const int argc, char **argv)
          120,
          []() {
            run_b2_manufactured_case(
-             nmopt::application::chapter6::GraetzCase::
-               observation_wings_constant_target);
+             nmopt::application::chapter6::B2ObservationRegion::wings,
+             "constant");
          }},
         {"b2_manufactured_wings_parabolic",
          "nmopt.application.dealii.b2_manufactured_wings_parabolic",
@@ -1359,8 +1359,8 @@ main(const int argc, char **argv)
          120,
          []() {
            run_b2_manufactured_case(
-             nmopt::application::chapter6::GraetzCase::
-               observation_wings_parabolic_target);
+             nmopt::application::chapter6::B2ObservationRegion::wings,
+             "parabolic");
          }},
         {"b2_manufactured_full_constant",
          "nmopt.application.dealii.b2_manufactured_full_constant",
@@ -1368,8 +1368,8 @@ main(const int argc, char **argv)
          120,
          []() {
            run_b2_manufactured_case(
-             nmopt::application::chapter6::GraetzCase::
-               observation_full_constant_target);
+             nmopt::application::chapter6::B2ObservationRegion::full,
+             "constant");
          }},
         {"b2_manufactured_full_parabolic",
          "nmopt.application.dealii.b2_manufactured_full_parabolic",
@@ -1377,8 +1377,8 @@ main(const int argc, char **argv)
          120,
          []() {
            run_b2_manufactured_case(
-             nmopt::application::chapter6::GraetzCase::
-               observation_full_parabolic_target);
+             nmopt::application::chapter6::B2ObservationRegion::full,
+             "parabolic");
          }},
         {"b2_transport_boundary_realisation_comparison",
          "nmopt.application.dealii.b2_transport_boundary_realisation_comparison",

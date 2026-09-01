@@ -239,19 +239,28 @@ namespace nmopt::application::chapter6
     ScalarFunctionDefinition forcing = b1_manufactured_zero_forcing();
   };
 
-  enum class GraetzCase
+  enum class B2ObservationRegion
   {
-    observation_wings_constant_target,
-    observation_full_constant_target,
-    observation_wings_parabolic_target,
-    observation_full_parabolic_target
+    wings,
+    full
   };
 
-  inline constexpr std::array<GraetzCase, 4> b2_case_order = {
-    {GraetzCase::observation_wings_constant_target,
-     GraetzCase::observation_full_constant_target,
-     GraetzCase::observation_wings_parabolic_target,
-     GraetzCase::observation_full_parabolic_target}};
+  inline constexpr std::array<B2ObservationRegion, 2>
+    b2_observation_region_order = {{B2ObservationRegion::wings,
+                                    B2ObservationRegion::full}};
+
+  inline const char *
+  b2_observation_region_name(const B2ObservationRegion region)
+  {
+    switch (region)
+      {
+        case B2ObservationRegion::wings:
+          return "wings";
+        case B2ObservationRegion::full:
+          return "full";
+      }
+    throw std::invalid_argument("B2 has an unknown observation region");
+  }
 
   inline ScalarFunctionDefinition
   b2_manufactured_constant_target()
@@ -291,18 +300,14 @@ namespace nmopt::application::chapter6
   }
 
   inline const char *
-  b2_default_target_id(const GraetzCase graetz_case)
+  b2_manufactured_target_id(const std::string_view target_profile)
   {
-    switch (graetz_case)
-      {
-        case GraetzCase::observation_wings_constant_target:
-        case GraetzCase::observation_full_constant_target:
-          return "constant-2";
-        case GraetzCase::observation_wings_parabolic_target:
-        case GraetzCase::observation_full_parabolic_target:
-          return "parabolic-4*x1*(1-x1)";
-      }
-    throw std::invalid_argument("B2 has an unknown target case");
+    if (target_profile == "constant")
+      return "constant-2";
+    if (target_profile == "parabolic")
+      return "parabolic-4*x1*(1-x1)";
+    throw std::invalid_argument("B2 has an unknown target profile '" +
+                                std::string(target_profile) + "'");
   }
 
   inline ScalarFunctionDefinition
@@ -315,22 +320,15 @@ namespace nmopt::application::chapter6
             "chapter-6.e6.5.2.zero-forcing"};
   }
 
-  inline const char *
-  graetz_case_name(const GraetzCase graetz_case)
+  inline std::string
+  b2_case_name(const B2ObservationRegion region,
+               const std::string_view  target_profile)
   {
-    switch (graetz_case)
-      {
-        case GraetzCase::observation_wings_constant_target:
-          return "wings-constant";
-        case GraetzCase::observation_full_constant_target:
-          return "full-constant";
-        case GraetzCase::observation_wings_parabolic_target:
-          return "wings-parabolic";
-        case GraetzCase::observation_full_parabolic_target:
-          return "full-parabolic";
-        default:
-          throw std::invalid_argument("B2 has an unknown Graetz case");
-      }
+    if (target_profile != "constant" && target_profile != "parabolic")
+      throw std::invalid_argument("B2 has an unknown target profile '" +
+                                  std::string(target_profile) + "'");
+    return std::string(b2_observation_region_name(region)) + "-" +
+           std::string(target_profile);
   }
 
   struct B2ProblemParameters
@@ -344,7 +342,8 @@ namespace nmopt::application::chapter6
       "chapter-6.e6.5.2.target",
       "chapter-6.e6.5.2.fixed-temperature",
       "chapter-6.e6.5.2.graetz-transport"};
-    GraetzCase graetz_case = GraetzCase::observation_wings_constant_target;
+    B2ObservationRegion observation_region = B2ObservationRegion::wings;
+    std::string          target_profile = "constant";
     ScalarFunctionCatalog target_catalog = b2_manufactured_target_catalog();
     double                   fixed_temperature = 1.0;
     ScalarFunctionDefinition forcing = b2_manufactured_zero_forcing();
@@ -816,8 +815,8 @@ namespace nmopt::application::chapter6
 
   inline B2Scenario
   make_b2_scenario(
-    const GraetzCase graetz_case =
-      GraetzCase::observation_wings_constant_target,
+    const B2ObservationRegion observation_region = B2ObservationRegion::wings,
+    const std::string_view target_profile = "constant",
     const semantic::v1::TransportBoundaryForm transport_boundary_form =
       semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
     const semantic::v1::NeumannControlDiscretisation control_discretisation =
@@ -826,8 +825,10 @@ namespace nmopt::application::chapter6
     const VolumeObservationOptions volume_observation = {})
   {
     B2ProblemParameters problem;
-    problem.graetz_case             = graetz_case;
-    problem.target_catalog.selected_id = b2_default_target_id(graetz_case);
+    problem.observation_region = observation_region;
+    problem.target_profile = target_profile;
+    problem.target_catalog.selected_id =
+      b2_manufactured_target_id(target_profile);
     problem.transport_boundary_form = transport_boundary_form;
     problem.recipe.control_discretisation =
       control_discretisation;
@@ -837,8 +838,9 @@ namespace nmopt::application::chapter6
     compile.volume_observation = volume_observation;
 
     std::string scenario_id = "chapter-6.b2.graetz-flow";
-    if (graetz_case != GraetzCase::observation_wings_constant_target)
-      scenario_id += "." + std::string(graetz_case_name(graetz_case));
+    if (observation_region != B2ObservationRegion::wings ||
+        target_profile != "constant")
+      scenario_id += "." + b2_case_name(observation_region, target_profile);
 
     B2Scenario scenario{
       {scenario_id,
@@ -873,8 +875,9 @@ namespace nmopt::application::chapter6
     ApplicationCatalog catalog;
     const auto b1 = make_b1_scenario();
     catalog.add(b1.metadata);
-    for (const auto graetz_case : b2_case_order)
-      catalog.add(make_b2_scenario(graetz_case).metadata);
+    for (const auto observation_region : b2_observation_region_order)
+      for (const auto target_profile : {"constant", "parabolic"})
+        catalog.add(make_b2_scenario(observation_region, target_profile).metadata);
     return catalog;
   }
 } // namespace nmopt::application::chapter6

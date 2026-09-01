@@ -33,7 +33,8 @@ namespace
   using nmopt::application::runner::binding::bind_b1_scenario;
   using nmopt::application::runner::binding::bind_b2_scenario;
   using nmopt::application::runner::binding::parse_mesh_generation;
-  using nmopt::application::runner::binding::graetz_case_from_combination;
+  using nmopt::application::runner::binding::
+    b2_observation_region_from_combination;
   using nmopt::application::runner::binding::parse_method;
   using nmopt::application::runner::parse_number_text;
   using nmopt::application::runner::binding::parse_stopping_criterion;
@@ -565,8 +566,8 @@ namespace
     const std::string &framework_revision,
     const nmopt::application::runner::RunKind run_kind)
   {
-    const auto  case_slug = nmopt::application::chapter6::graetz_case_name(
-      scenario.problem.graetz_case);
+    const auto case_slug = nmopt::application::chapter6::b2_case_name(
+      scenario.problem.observation_region, scenario.problem.target_profile);
     const auto &manifest = evidence.envelope.compilation_manifest();
     const auto &volume_observation = *scenario.compile.volume_observation;
     const std::string volume_observation_target =
@@ -871,15 +872,18 @@ namespace
     for (const auto &planned_combination : plan.resolved_combinations)
       {
         const auto &combination = planned_combination.values;
-        const auto graetz_case = graetz_case_from_combination(combination);
-        const auto case_slug = graetz_case_name(graetz_case);
+        const auto observation_region =
+          b2_observation_region_from_combination(combination);
+        const auto target_profile = combination_value(combination,
+                                                       "target-profile");
+        const auto case_slug = b2_case_name(observation_region, target_profile);
         const auto path = runner::artifact_path(
           output_directory,
           runner::run_set_artifact_components(
             plan, planned_combination, b2_artifact_coordinate_components));
         try
           {
-            auto scenario = make_b2_scenario(graetz_case);
+            auto scenario = make_b2_scenario(observation_region, target_profile);
             bind_b2_scenario(
               scenario,
               file,
@@ -904,7 +908,7 @@ namespace
               "chapter-6.b2.graetz-flow." + std::string(case_slug);
 
             nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data(
-              graetz_case,
+              observation_region,
               scenario.problem.fixed_temperature,
               scenario.problem.forcing,
               chapter6::b2_target_definition(scenario.problem.target_catalog));

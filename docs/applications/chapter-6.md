@@ -185,7 +185,8 @@ runtime functions:
 ```cpp
 const auto scenario =
   nmopt::application::chapter6::make_b2_scenario(
-    nmopt::application::chapter6::GraetzCase::observation_wings_constant_target);
+    nmopt::application::chapter6::B2ObservationRegion::wings,
+    "constant");
 const auto specification =
   nmopt::application::chapter6::make_b2_problem_spec(scenario);
 ```
@@ -228,10 +229,11 @@ definition](../guides/chapter-6-numerical-examples.md)
 and [frozen benchmark policy](../benchmarks/chapter-6.md) are maintained in
 their respective documents.
 
-The public catalog exposes the four B2 case records through `make_catalog()`.
-The application owns their stable IDs and recipe/runtime construction; the
-benchmark specification owns the observation/target values and frozen run
-matrix.
+The public catalog exposes the four B2 records through the Cartesian product
+of the independent observation-region and target-profile selections in
+`make_catalog()`. The application owns their stable IDs and recipe/runtime
+construction; the benchmark specification owns the observation/target values
+and frozen run matrix.
 
 ### B2 backend execution adapter
 

@@ -455,13 +455,14 @@ namespace
       "B1 accepted an unselected volume-observation policy");
 
     const auto b2 = nmopt::application::chapter6::make_b2_scenario(
-      nmopt::application::chapter6::GraetzCase::observation_full_parabolic_target);
+      nmopt::application::chapter6::B2ObservationRegion::full, "parabolic");
     require(b2.metadata.recipe_id ==
               nmopt::application::chapter6::b2_recipe_id,
             "B2 scenario is not linked to the Neumann recipe");
-    require(b2.problem.graetz_case ==
-              nmopt::application::chapter6::GraetzCase::observation_full_parabolic_target,
-            "B2 did not retain its observation/target case");
+    require(b2.problem.observation_region ==
+              nmopt::application::chapter6::B2ObservationRegion::full &&
+              b2.problem.target_profile == "parabolic",
+            "B2 did not retain its independent observation/target choices");
     require(b2.problem.fixed_temperature == 1.0,
             "B2 did not retain the fixed temperature");
     require(b2.problem.data.conservative_transport_provenance ==
@@ -498,8 +499,8 @@ namespace
 
     const auto fixed_step_b2 =
       nmopt::application::chapter6::make_b2_scenario(
-        nmopt::application::chapter6::GraetzCase::
-          observation_full_parabolic_target,
+        nmopt::application::chapter6::B2ObservationRegion::full,
+        "parabolic",
         nmopt::semantic::v1::TransportBoundaryForm::
           ordinary_normal_minus_transport,
         nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
@@ -515,8 +516,8 @@ namespace
 
     const auto interpolated_observation_b2 =
       nmopt::application::chapter6::make_b2_scenario(
-        nmopt::application::chapter6::GraetzCase::
-          observation_full_parabolic_target,
+        nmopt::application::chapter6::B2ObservationRegion::full,
+        "parabolic",
         nmopt::semantic::v1::TransportBoundaryForm::
           ordinary_normal_minus_transport,
         nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant,
@@ -617,8 +618,8 @@ namespace
 
     const auto total_conormal =
       nmopt::application::chapter6::make_b2_scenario(
-        nmopt::application::chapter6::GraetzCase::
-          observation_full_parabolic_target,
+        nmopt::application::chapter6::B2ObservationRegion::full,
+        "parabolic",
         nmopt::semantic::v1::TransportBoundaryForm::total_conormal);
     require(total_conormal.problem.transport_boundary_form ==
               nmopt::semantic::v1::TransportBoundaryForm::total_conormal,
@@ -626,8 +627,8 @@ namespace
 
     const auto continuous_control =
       nmopt::application::chapter6::make_b2_scenario(
-        nmopt::application::chapter6::GraetzCase::
-          observation_full_parabolic_target,
+        nmopt::application::chapter6::B2ObservationRegion::full,
+        "parabolic",
         nmopt::semantic::v1::TransportBoundaryForm::
           ordinary_normal_minus_transport,
         nmopt::semantic::v1::NeumannControlDiscretisation::
@@ -720,11 +721,13 @@ namespace
   test_b2_scenarios_assemble_fixed_temperature_problem_specs()
   {
     const auto validator = nmopt::semantic::v1::SemanticValidator{};
-    for (const auto graetz_case :
-         nmopt::application::chapter6::b2_case_order)
+    for (const auto observation_region :
+         nmopt::application::chapter6::b2_observation_region_order)
+      for (const auto &target_profile :
+           {std::string("constant"), std::string("parabolic")})
       {
-        const auto scenario =
-          nmopt::application::chapter6::make_b2_scenario(graetz_case);
+        const auto scenario = nmopt::application::chapter6::make_b2_scenario(
+          observation_region, target_profile);
         const auto specification =
           nmopt::application::chapter6::make_b2_problem_spec(scenario);
         require(specification.id ==
@@ -794,8 +797,8 @@ namespace
 
     const auto total_conormal_scenario =
       nmopt::application::chapter6::make_b2_scenario(
-        nmopt::application::chapter6::GraetzCase::
-          observation_wings_constant_target,
+        nmopt::application::chapter6::B2ObservationRegion::wings,
+        "constant",
         nmopt::semantic::v1::TransportBoundaryForm::total_conormal);
     const auto total_conormal_specification =
       nmopt::application::chapter6::make_b2_problem_spec(
@@ -829,16 +832,18 @@ namespace
             "Chapter 6 catalog did not retain B1 and all B2 cases");
     require(catalog.find("chapter-6.b1.distributed-laplace") != nullptr,
             "Chapter 6 catalog cannot discover B1");
-    for (const auto graetz_case :
-         nmopt::application::chapter6::b2_case_order)
+    for (const auto observation_region :
+         nmopt::application::chapter6::b2_observation_region_order)
+      for (const auto &target_profile :
+           {std::string("constant"), std::string("parabolic")})
       {
         const auto id = std::string("chapter-6.b2.graetz-flow") +
-                        (graetz_case ==
-                           nmopt::application::chapter6::GraetzCase::observation_wings_constant_target
+                        (observation_region ==
+                           nmopt::application::chapter6::B2ObservationRegion::wings &&
+                         target_profile == "constant"
                            ? ""
-                           : "." + std::string(
-                                     nmopt::application::chapter6::graetz_case_name(
-                                       graetz_case)));
+                           : "." + nmopt::application::chapter6::b2_case_name(
+                                     observation_region, target_profile));
         require(catalog.find(id) != nullptr,
                 "Chapter 6 catalog cannot discover a B2 case");
       }

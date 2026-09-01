@@ -181,14 +181,15 @@ and source omissions are recorded in the [E6.5.2 source entry](../guides/chapter
 The development evidence, count-based deductions, candidate experiment order,
 and current source-parity assessment are recorded in the
 [B2 replication findings](b2-replication.md).
-The application scenario owns the recipe, case enum, material-region
-realization, runtime ports, and backend construction.
+The application scenario owns the recipe, independent observation-region and
+target-profile selections, material-region realization, runtime ports, and
+backend construction.
 
 ### Frozen benchmark choices
 
 | Choice | Frozen value |
 | --- | --- |
-| Run matrix | All four public `GraetzCase` values from `make_catalog()`. |
+| Run matrix | Independent `observation-region={wings, full}` and `target-profile={constant, parabolic}` axes; their Cartesian product gives four cases. |
 | Forcing | Zero forcing, with provenance `chapter-6.e6.5.2.zero-forcing`. |
 | Control realization | Facewise constants with `l2_facewise`; continuous nodal traces are development candidates, not part of the freeze. |
 | Volume observation | Order-three quadrature with analytic desired-state evaluation; state-FE interpolation and other positive orders are development candidates. |
@@ -199,12 +200,12 @@ realization, runtime ports, and backend construction.
 
 The four stable output IDs are:
 
-| Case enum | Scenario ID |
-| --- | --- |
-| `observation_wings_constant_target` | `chapter-6.b2.graetz-flow` |
-| `observation_full_constant_target` | `chapter-6.b2.graetz-flow.full-constant` |
-| `observation_wings_parabolic_target` | `chapter-6.b2.graetz-flow.wings-parabolic` |
-| `observation_full_parabolic_target` | `chapter-6.b2.graetz-flow.full-parabolic` |
+| Observation region | Target profile | Scenario ID |
+| --- | --- | --- |
+| `wings` | `constant` | `chapter-6.b2.graetz-flow` |
+| `full` | `constant` | `chapter-6.b2.graetz-flow.full-constant` |
+| `wings` | `parabolic` | `chapter-6.b2.graetz-flow.wings-parabolic` |
+| `full` | `parabolic` | `chapter-6.b2.graetz-flow.full-parabolic` |
 
 The frozen runtime and region metadata are:
 

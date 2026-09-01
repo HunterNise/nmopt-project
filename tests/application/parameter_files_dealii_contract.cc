@@ -75,14 +75,18 @@ namespace
     const nmopt::application::runner::ParameterFile &file,
     const nmopt::application::runner::ParameterCombination &combination)
   {
-    const auto graetz_case = graetz_case_from_combination(combination);
-    auto scenario = nmopt::application::chapter6::make_b2_scenario(graetz_case);
+    const auto observation_region =
+      b2_observation_region_from_combination(combination);
+    const auto target_profile = combination_value(combination, "target-profile");
+    auto scenario = nmopt::application::chapter6::make_b2_scenario(
+      observation_region, target_profile);
     bind_b2_scenario(
       scenario,
       file,
       combination,
       std::string("chapter-6.b2.graetz-flow.") +
-        nmopt::application::chapter6::graetz_case_name(graetz_case));
+        nmopt::application::chapter6::b2_case_name(observation_region,
+                                                   target_profile));
     return scenario;
   }
 
@@ -749,26 +753,31 @@ namespace
           combination_value(combination, "target-profile");
         const auto scenario =
           resolve_b2_scenario_for_characterization(file, combination);
-        const auto graetz_case = graetz_case_from_combination(combination);
+        const auto observation_region =
+          b2_observation_region_from_combination(combination);
         const auto &target = nmopt::application::chapter6::b2_target_definition(
           scenario.problem.target_catalog);
         const auto expected_metadata_id =
-          graetz_case == nmopt::application::chapter6::GraetzCase::
-                           observation_wings_constant_target
+          observation_region ==
+              nmopt::application::chapter6::B2ObservationRegion::wings &&
+          target_profile == "constant"
             ? std::string("chapter-6.b2.graetz-flow")
             : std::string("chapter-6.b2.graetz-flow.") +
-                nmopt::application::chapter6::graetz_case_name(graetz_case);
+                nmopt::application::chapter6::b2_case_name(
+                  observation_region, target_profile);
 
         require(scenario.metadata.id == expected_metadata_id &&
                   scenario.metadata.recipe_id ==
                     nmopt::application::chapter6::b2_recipe_id &&
                   scenario.experiment.scenario_output_id ==
                     std::string("chapter-6.b2.graetz-flow.") +
-                      nmopt::application::chapter6::graetz_case_name(graetz_case),
+                      nmopt::application::chapter6::b2_case_name(
+                        observation_region, target_profile),
                 "B2 resolution changed the benchmark identity");
-        require(scenario.problem.graetz_case == graetz_case &&
-                  nmopt::application::chapter6::dealii::b2_observation_region(
-                    graetz_case) == region &&
+        require(scenario.problem.observation_region == observation_region &&
+                  nmopt::application::chapter6::b2_observation_region_name(
+                    observation_region) == region &&
+                  scenario.problem.target_profile == target_profile &&
                   ((target_profile == "constant" &&
                     target.id == "constant-2" &&
                     target.kind ==
@@ -882,9 +891,9 @@ namespace
                   scenario.problem.forcing.provenance == expected_provenance &&
                   scenario.problem.data.forcing_provenance ==
                     expected_provenance &&
-                  scenario.problem.graetz_case ==
-                    nmopt::application::chapter6::GraetzCase::
-                      observation_wings_constant_target &&
+                  scenario.problem.observation_region ==
+                    nmopt::application::chapter6::B2ObservationRegion::wings &&
+                  scenario.problem.target_profile == "constant" &&
                   scenario.problem.data.regularisation_weight == 1.0e-3 &&
                   scenario.compile.mesh.refinement == 6 &&
                   scenario.compile.mesh.mesh_provenance ==
@@ -1106,7 +1115,7 @@ namespace
                                   "nmopt-parameter-resolution-b2";
     std::filesystem::remove_all(b2_native_output);
     nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> b2_data{
-      b2_scenario.problem.graetz_case,
+      b2_scenario.problem.observation_region,
       b2_scenario.problem.fixed_temperature,
       b2_scenario.problem.forcing,
       nmopt::application::chapter6::b2_target_definition(

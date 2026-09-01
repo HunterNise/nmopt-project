@@ -1,5 +1,6 @@
 #include "../../apps/nmopt-runner/runner.hpp"
 #include "../../apps/nmopt-runner/benchmark_registry.hpp"
+#include "../../apps/nmopt-runner/capability_registry.hpp"
 #include "nmopt/application/chapter6.hpp"
 #include "../support/scenario_dispatch.hpp"
 
@@ -208,6 +209,41 @@ namespace
   }
 
   void
+  test_typed_capability_registries()
+  {
+    using nmopt::application::chapter6::ExecutionSelection;
+    using nmopt::application::chapter6::ProductSelection;
+    using nmopt::application::chapter6::ReducedMethod;
+    using nmopt::application::runner::PreconditionerSelection;
+    using nmopt::application::runner::execution_capability_registry;
+    using nmopt::application::runner::preconditioner_capability_registry;
+    using nmopt::application::runner::product_capability_registry;
+    using nmopt::application::runner::reduced_method_capability_registry;
+
+    require(product_capability_registry().resolve("reduced-dto", "product") ==
+              ProductSelection::reduced_dto,
+            "product capability lookup should return the typed selection");
+    require(execution_capability_registry().resolve("assembled", "execution") ==
+              ExecutionSelection::assembled,
+            "execution capability lookup should return the typed selection");
+    require(reduced_method_capability_registry().resolve("bfgs", "method") ==
+              ReducedMethod::bfgs,
+            "method capability lookup should return the typed selection");
+    require(preconditioner_capability_registry().resolve("identity",
+                                                          "preconditioner") ==
+              PreconditionerSelection::identity_baseline,
+            "preconditioner capability lookup should return the typed selection");
+
+    require(reduced_method_capability_registry().find("not-a-method") == nullptr,
+            "unknown capability IDs should not resolve through find");
+    require_invalid_argument(
+      [] {
+        reduced_method_capability_registry().resolve("not-a-method", "method");
+      },
+      "unknown capability IDs should fail typed resolution");
+  }
+
+  void
   test_run_kind_parser_rejects_unknown_values()
   {
     require_invalid_argument(
@@ -360,6 +396,11 @@ main(const int argc, char **argv)
   try
     {
       const std::vector<nmopt::test_support::Scenario> scenarios{
+        {"typed_capability_registries",
+         "nmopt.runner.typed_capability_registries",
+         {"backend-neutral", "application", "runner", "contract"},
+         30,
+         test_typed_capability_registries},
         {"reproduction_policy",
          "nmopt.runner.reproduction_policy",
          {"backend-neutral", "application", "runner", "contract"},

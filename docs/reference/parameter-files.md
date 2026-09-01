@@ -1,8 +1,6 @@
 # Parameter files and plotting profiles
 
-**Status:** implemented for the registered B1/B2 Chapter 6 runner slice;
-future B3–B6 extension contracts exist but are not registered as executable
-benchmarks.
+**Status:** implemented for the registered B1/B2 Chapter 6 runner slice.
 
 This document defines the schema and resolution boundary for versioned
 Chapter 6 experiment inputs. It separates the values that select and execute a
@@ -79,21 +77,13 @@ The supported `.prm` sections are:
 | `Output` | Retained native fields and artifact output policy. |
 | `Postprocessing` | Plot-style reference and matrix-axis binding for comparisons. |
 
-### Schema registry and ownership
+### Schema registry
 
 `ParameterHandler` declaration and value extraction are driven by one ordered
 schema registry. The registry combines common run, mesh, compiler, solver,
 output, and post-processing entries with the selected benchmark's adapter
-entries. Each entry records its path, default, `ParameterHandler` pattern,
-presence policy, and ownership class.
-
-The ownership classes are:
-
-- `consumed`: parsed into a typed scenario or run-set record and used by the
-  selected execution path;
-- `locked_profile`: retained as an explicit benchmark profile choice and
-  checked by that benchmark's binder; and
-- `provenance_only`: retained for audit but excluded from numerical ownership.
+entries. Each entry records its path, default, `ParameterHandler` pattern, and
+presence policy.
 
 The current adapters register B1's `method` and `regularisation` axes and B2's
 `regularisation`, `forcing`, `observation-region`, and `target-profile` axes.
@@ -105,23 +95,17 @@ execution registrations.
 
 Typed resolution occurs after parsing and matrix expansion. Product and
 execution IDs resolve to `ProductSelection` and `ExecutionSelection`; reduced
-method IDs resolve to `ReducedMethod`; and the quadratic-KKT extension contract
-provides typed KKT-method and identity-preconditioner selections. The B1
-validator accepts only its registered reduced methods, assembled execution, and
-reduced-DTO product. B2 accepts BFGS with the same assembled reduced-DTO
-profile. Unknown IDs fail lookup, while known but unsupported selections fail
-the benchmark capability validation before an output directory is populated.
-
-The runner also exposes typed scalar lower/upper bound records for future box
-constraints. Their scalar definitions are validated, but no B3/B4 bound
-lowering or executable adapter is registered.
+method IDs resolve to `ReducedMethod`. The B1 validator accepts only its
+registered reduced methods, assembled execution, and reduced-DTO product. B2
+accepts BFGS with the same assembled reduced-DTO profile. Unknown IDs fail
+lookup, while known but unsupported selections fail the benchmark capability
+validation before an output directory is populated.
 
 `Solver/maximum line search trials` counts all attempted steps, including the
 initial one. `Solver/maximum backtracking reductions` is the source-facing
 alternative and maps to one additional possible trial; a file must not set
-both. `minimum step length` is operative, while the legacy
-`declared minimum step length` remains provenance-only for stale benchmark
-files.
+both. `minimum step length` is operative. The benchmark source declares no
+separate minimum-step value, so its absence is intentional.
 
 `Solver/globalization` accepts `armijo` or `fixed-step` and defaults to
 `armijo` for compatibility. It is global rather than method-specific. Armijo
@@ -330,10 +314,10 @@ invalid because it resolves to an empty product. Duplicate, incomplete, or
 unknown exclusion coordinates are rejected while reading the parameter file.
 
 The resolver must validate every expanded combination before execution. Typed
-registry lookups reject unknown product, execution, method, KKT-method, and
-preconditioner IDs; benchmark capability validation rejects known but
-unsupported combinations. It must also reject empty products, duplicate IDs,
-and malformed coordinates before an output directory is populated.
+registry lookups reject unknown product, execution, and method IDs; benchmark
+capability validation rejects unsupported combinations. It must also reject
+empty products, duplicate IDs, and malformed coordinates before an output
+directory is populated.
 
 The matrix uses stable IDs for categorical values. Numeric values are stored
 in canonical form in the resolved configuration so that plotting and artifact
@@ -371,8 +355,8 @@ explicit provenance argument. Neither is a mathematical experiment choice.
 All choices that affect the numerical run or retained evidence belong in the
 parameter file.
 
-The checked-in future-extension fixtures are contract tests only. They are not
-accepted as runnable benchmark IDs and do not appear in `--list`.
+Only registered B1 and B2 benchmark IDs are executable and appear in `--list`;
+generic CLI and run-set mechanisms do not advertise synthetic benchmark IDs.
 
 ## Plotting profile schema
 

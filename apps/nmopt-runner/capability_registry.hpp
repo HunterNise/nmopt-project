@@ -1,7 +1,6 @@
 #pragma once
 
 #include "nmopt/application/chapter6.hpp"
-#include "nmopt/contract/quadratic_kkt_solver.hpp"
 
 #include <cstddef>
 #include <initializer_list>
@@ -76,18 +75,11 @@ namespace nmopt::application::runner
     std::vector<definition_type> definitions_;
   };
 
-  enum class PreconditionerSelection
-  {
-    identity_baseline
-  };
-
   inline const CapabilityRegistry<chapter6::ProductSelection> &
   product_capability_registry()
   {
     static const CapabilityRegistry<chapter6::ProductSelection> registry{
-      {"reduced-dto", chapter6::ProductSelection::reduced_dto},
-      {"quadratic-kkt", chapter6::ProductSelection::quadratic_kkt},
-      {"pdas", chapter6::ProductSelection::pdas}};
+      {"reduced-dto", chapter6::ProductSelection::reduced_dto}};
     return registry;
   }
 
@@ -95,8 +87,7 @@ namespace nmopt::application::runner
   execution_capability_registry()
   {
     static const CapabilityRegistry<chapter6::ExecutionSelection> registry{
-      {"assembled", chapter6::ExecutionSelection::assembled},
-      {"matrix-free", chapter6::ExecutionSelection::matrix_free}};
+      {"assembled", chapter6::ExecutionSelection::assembled}};
     return registry;
   }
 
@@ -110,20 +101,4 @@ namespace nmopt::application::runner
     return registry;
   }
 
-  inline const CapabilityRegistry<contract::QuadraticKKTSolverMethod> &
-  quadratic_kkt_method_capability_registry()
-  {
-    static const CapabilityRegistry<contract::QuadraticKKTSolverMethod> registry{
-      {"minres", contract::QuadraticKKTSolverMethod::minres},
-      {"gmres", contract::QuadraticKKTSolverMethod::gmres}};
-    return registry;
-  }
-
-  inline const CapabilityRegistry<PreconditionerSelection> &
-  preconditioner_capability_registry()
-  {
-    static const CapabilityRegistry<PreconditionerSelection> registry{
-      {"identity", PreconditionerSelection::identity_baseline}};
-    return registry;
-  }
 } // namespace nmopt::application::runner

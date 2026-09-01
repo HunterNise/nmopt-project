@@ -1,9 +1,8 @@
 #include "../../apps/nmopt-runner/parameter_files.hpp"
 #include "../support/scenario_dispatch.hpp"
 
-// Unit 0 deliberately characterizes the current production resolution path.
-// The ownership refactor will replace this temporary test seam with a public
-// typed resolver, while these tests preserve the behavior being migrated.
+// These tests characterize the current production resolution path through the
+// runner entry point while preserving the behavior being migrated.
 #define main nmopt_runner_characterization_entrypoint
 #include "../../apps/nmopt-runner/main.cc"
 #undef main
@@ -338,9 +337,6 @@ end
 
     const auto exclusion_file = read_exclusion_parameter_file("");
     std::size_t required_entries = 0;
-    std::size_t consumed_entries = 0;
-    std::size_t locked_entries = 0;
-    std::size_t provenance_entries = 0;
     for (const auto &entry : registry)
       {
         require(!entry.path.empty() && entry.pattern,
@@ -349,16 +345,9 @@ end
                 "schema extraction must account for every declared entry");
         required_entries += entry.presence ==
                             nmopt::application::runner::ParameterPresence::required;
-        consumed_entries += entry.ownership ==
-                            nmopt::application::runner::ParameterOwnership::consumed;
-        locked_entries += entry.ownership ==
-                          nmopt::application::runner::ParameterOwnership::locked_profile;
-        provenance_entries += entry.ownership ==
-                              nmopt::application::runner::ParameterOwnership::provenance_only;
       }
-    require(exclusion_file.values.size() == registry.size() && required_entries == 2 &&
-              consumed_entries > 0 && locked_entries > 0 && provenance_entries > 0,
-            "schema registry ownership and extraction accounting is incomplete");
+    require(exclusion_file.values.size() == registry.size() && required_entries == 2,
+            "schema registry and extraction accounting is incomplete");
 
     const auto find_entry = [&](const std::string &path) -> const auto & {
       const auto found = std::find_if(
@@ -720,12 +709,6 @@ end
             throw std::runtime_error(
               "tracked parameter file must use the stable runs root: " +
               entry.path().string());
-          if (entry.path().parent_path().filename() == "development" &&
-              !stable.optional_value("Solver/declared minimum step length")
-                 .empty())
-            throw std::runtime_error(
-              "development parameter file uses a legacy minimum-step entry: " +
-              entry.path().string());
         }
   }
 
@@ -872,8 +855,7 @@ end
             scenario.solver.parameters.step_tolerance == 0.0 &&
             scenario.solver.parameters.initial_step_length == 1.0 &&
             scenario.solver.parameters.armijo_fraction == 1.0e-5 &&
-            scenario.solver.parameters.backtracking_factor == 0.7 &&
-            !scenario.solver.declared_minimum_step_length.has_value(),
+            scenario.solver.parameters.backtracking_factor == 0.7,
           "B1 resolution changed the common solver policy");
 
         if (method_id == "steepest-descent")

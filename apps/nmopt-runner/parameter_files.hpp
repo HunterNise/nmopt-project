@@ -70,20 +70,12 @@ namespace nmopt::application::runner
     required
   };
 
-  enum class ParameterOwnership
-  {
-    consumed,
-    locked_profile,
-    provenance_only
-  };
-
   struct ParameterSchemaEntry
   {
     std::string path;
     std::string default_value;
     std::shared_ptr<const ::dealii::Patterns::PatternBase> pattern;
     ParameterPresence presence;
-    ParameterOwnership ownership;
   };
 
   struct ScalarDefinitionSchema
@@ -169,7 +161,7 @@ namespace nmopt::application::runner
 
   namespace detail
   {
-    inline constexpr std::array<const char *, 16> method_policy_entries = {
+    inline constexpr std::array<const char *, 15> method_policy_entries = {
       {"maximum iterations",
        "maximum line search trials",
        "maximum backtracking reductions",
@@ -184,8 +176,7 @@ namespace nmopt::application::runner
        "minimum step length",
        "memory",
        "curvature tolerance",
-       "initial inverse Hessian scaling",
-       "declared minimum step length"}};
+       "initial inverse Hessian scaling"}};
 
     inline std::string hash_text(const std::string &text);
   }
@@ -613,34 +604,6 @@ namespace nmopt::application::runner
       return anything_pattern();
     }
 
-    inline ParameterOwnership
-    ownership_for(const std::string &path)
-    {
-      if (path == "Benchmark/source reference" ||
-          path == "Benchmark/source revision" ||
-          path == "Solver/declared minimum step length" ||
-          ends_with(path, "/provenance"))
-        return ParameterOwnership::provenance_only;
-
-      if (path.rfind("Boundary/", 0) == 0 || path == "Mesh/geometry" ||
-          path == "Mesh/generator" ||
-          path == "Compile/execution" || path == "Compile/product" ||
-          path == "Compile/stabilization" ||
-          path == "Functions/fixed Dirichlet data" ||
-          path == "Functions/fixed-temperature/kind" ||
-          path == "Functions/desired state" ||
-          path == "Functions/conservative transport" ||
-          path.rfind("Functions/graetz/", 0) == 0 ||
-          path == "Observation/active region" ||
-          path.rfind("Observation/region ", 0) == 0 ||
-          path == "Observation/material id" ||
-          path == "Solver/method" ||
-          path == "Output/selected fields")
-        return ParameterOwnership::locked_profile;
-
-      return ParameterOwnership::consumed;
-    }
-
     inline void
     append_schema_entry(std::vector<ParameterSchemaEntry> &registry,
                         const std::string                      &path,
@@ -656,8 +619,7 @@ namespace nmopt::application::runner
       registry.push_back({path,
                           default_value,
                           pattern_for(path),
-                          presence,
-                          ownership_for(path)});
+                          presence});
     }
 
     inline void
@@ -790,8 +752,7 @@ namespace nmopt::application::runner
                      "initial step length",
                      "Armijo fraction",
                      "backtracking factor",
-                     "minimum step length",
-                     "declared minimum step length"});
+                     "minimum step length"});
         for (const auto *method : {"steepest-descent", "l-bfgs", "bfgs"})
           for (const auto *entry : method_policy_entries)
             append_schema_entry(result,

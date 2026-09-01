@@ -268,13 +268,6 @@ namespace nmopt::application::runner::binding
     else
       solver.parameters.minimum_step_length = 0.0;
 
-    const auto declared_minimum = resolve("declared minimum step length");
-    if (!declared_minimum.value.empty() && declared_minimum.value != "none")
-      solver.declared_minimum_step_length =
-        parse_number_text(declared_minimum.value, declared_minimum.key);
-    else
-      solver.declared_minimum_step_length = std::nullopt;
-
     const auto memory = file.optional_value(method_prefix + "memory");
     if (!memory.empty())
       solver.limited_memory_bfgs.memory_size =

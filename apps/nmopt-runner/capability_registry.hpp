@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/application/chapter6.hpp"
+#include "nmopt/contract/quadratic_kkt_solver.hpp"
 
 #include <cstddef>
 #include <initializer_list>
@@ -106,6 +107,15 @@ namespace nmopt::application::runner
       {"steepest-descent", chapter6::ReducedMethod::steepest_descent},
       {"bfgs", chapter6::ReducedMethod::bfgs},
       {"l-bfgs", chapter6::ReducedMethod::limited_memory_bfgs}};
+    return registry;
+  }
+
+  inline const CapabilityRegistry<contract::QuadraticKKTSolverMethod> &
+  quadratic_kkt_method_capability_registry()
+  {
+    static const CapabilityRegistry<contract::QuadraticKKTSolverMethod> registry{
+      {"minres", contract::QuadraticKKTSolverMethod::minres},
+      {"gmres", contract::QuadraticKKTSolverMethod::gmres}};
     return registry;
   }
 

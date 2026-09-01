@@ -1,6 +1,7 @@
 #include "../../apps/nmopt-runner/runner.hpp"
 #include "../../apps/nmopt-runner/benchmark_registry.hpp"
 #include "../../apps/nmopt-runner/capability_registry.hpp"
+#include "../../apps/nmopt-runner/extension_contracts.hpp"
 #include "nmopt/application/chapter6.hpp"
 #include "../support/scenario_dispatch.hpp"
 
@@ -260,6 +261,44 @@ namespace
   }
 
   void
+  test_future_extension_selection_contracts()
+  {
+    using nmopt::application::ScalarFunctionKind;
+    using nmopt::application::chapter6::ExecutionSelection;
+    using nmopt::application::chapter6::ProductSelection;
+    using nmopt::application::runner::BoxBoundDataSelection;
+    using nmopt::application::runner::CapabilityRegistry;
+    using nmopt::application::runner::PreconditionerSelection;
+    using nmopt::application::runner::resolve_quadratic_kkt_solver_selection;
+
+    const BoxBoundDataSelection bounds{
+      {"lower", ScalarFunctionKind::constant, -1.0, "", "test.lower"},
+      {"upper", ScalarFunctionKind::expression, 0.0, "1.0 + x0", "test.upper"}};
+    nmopt::application::runner::validate_box_bound_data_selection(bounds);
+
+    const auto kkt = resolve_quadratic_kkt_solver_selection(
+      "quadratic-kkt", "minres", "identity");
+    require(kkt.product == ProductSelection::quadratic_kkt &&
+              kkt.solver.method ==
+                nmopt::contract::QuadraticKKTSolverMethod::minres &&
+              kkt.preconditioner == PreconditionerSelection::identity_baseline,
+            "future KKT selections should remain independently typed");
+
+    const CapabilityRegistry<ExecutionSelection> assembled_only{
+      {"assembled", ExecutionSelection::assembled}};
+    require_invalid_argument(
+      [&] { assembled_only.resolve("matrix-free", "execution"); },
+      "an unregistered execution capability should fail resolution");
+
+    require_invalid_argument(
+      [] {
+        (void)resolve_quadratic_kkt_solver_selection(
+          "reduced-dto", "minres", "identity");
+      },
+      "a KKT extension should reject a non-KKT product");
+  }
+
+  void
   test_matched_reference_stopping_criteria()
   {
     using Criterion = nmopt::solvers::ReducedStoppingCriterion;
@@ -401,6 +440,11 @@ main(const int argc, char **argv)
          {"backend-neutral", "application", "runner", "contract"},
          30,
          test_typed_capability_registries},
+        {"future_extension_selection_contracts",
+         "nmopt.runner.future_extension_selection_contracts",
+         {"backend-neutral", "application", "runner", "contract", "extension"},
+         30,
+         test_future_extension_selection_contracts},
         {"reproduction_policy",
          "nmopt.runner.reproduction_policy",
          {"backend-neutral", "application", "runner", "contract"},

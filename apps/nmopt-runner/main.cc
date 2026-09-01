@@ -69,17 +69,13 @@ namespace
            << "       nmopt_runner --parameter-file FILE --framework-revision REV"
               " [--output DIRECTORY] [--run-slot SLOT] [--select AXIS=VALUE]"
               " [--refinement N]\n"
-           << "       nmopt_runner --benchmark b1 --framework-revision REV"
-              " [--output DIRECTORY] [--run-kind KIND] [--run-slot SLOT]"
-              " [--refinement N]\n"
-           << "       nmopt_runner --benchmark b2 --framework-revision REV"
+           << "       nmopt_runner --benchmark ID --framework-revision REV"
               " [--output DIRECTORY] [--run-kind KIND] [--run-slot SLOT]"
               " [--refinement N]\n"
            << "       nmopt_runner --help\n"
            << "\n"
            << "--list             list registered Chapter 5/6 application entries\n"
-           << "--benchmark b1     run the frozen B1 matrix (eight artifacts)\n"
-           << "--benchmark b2     run the frozen B2 case batch (four artifacts)\n"
+           << "--benchmark ID     run a registered benchmark by identifier\n"
            << "--parameter-file FILE\n"
            << "                   load a versioned experiment family\n"
            << "--select AXIS=VALUE\n"
@@ -1446,12 +1442,16 @@ namespace
     if (options.parameter_file.has_value())
       path = nmopt::application::runner::find_file_from_current_or_parent(
         *options.parameter_file);
-    else if (options.run_b1)
+    else if (options.benchmark == "b1")
       path = nmopt::application::runner::find_file_from_current_or_parent(
         "parameters/chapter-6/b1/authoritative.prm");
-    else
+    else if (options.benchmark == "b2")
       path = nmopt::application::runner::find_file_from_current_or_parent(
         "parameters/chapter-6/b2/authoritative.prm");
+    else
+      throw std::invalid_argument(
+        "benchmark '" + options.benchmark.value_or("") +
+        "' needs an explicit parameter file");
     return nmopt::application::runner::read_parameter_file(path);
   }
 
@@ -1519,8 +1519,7 @@ namespace
                                   benchmark_id + "'");
     if (input_options.parameter_file.has_value())
       {
-        prepared.options.run_b1 = is_b1;
-        prepared.options.run_b2 = is_b2;
+        prepared.options.benchmark = is_b1 ? "b1" : "b2";
         prepared.options.run_kind =
           parse_run_kind(prepared.file.value("Run/kind"));
         if (!input_options.output_directory_explicit)
@@ -1530,7 +1529,8 @@ namespace
           throw std::invalid_argument(
             "parameter Run/build profile does not match the compiled runner profile");
       }
-    else if ((input_options.run_b1 != is_b1) || (input_options.run_b2 != is_b2))
+    else if (!input_options.benchmark.has_value() ||
+             *input_options.benchmark != (is_b1 ? "b1" : "b2"))
       throw std::invalid_argument("--benchmark does not match its authoritative parameter file");
 
     prepared.combinations =
@@ -1583,7 +1583,7 @@ main(const int argc, char **argv)
           return 0;
         }
 
-      if (options.run_b1 || options.run_b2 || options.parameter_file.has_value())
+      if (options.benchmark.has_value() || options.parameter_file.has_value())
         {
           auto prepared = prepare_run(options);
           snapshot_configuration(prepared.configuration,

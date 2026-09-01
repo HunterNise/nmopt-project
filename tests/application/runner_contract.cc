@@ -59,6 +59,8 @@ namespace
                           "b1",
                           "--framework-revision",
                           "source-revision"});
+    require(options.benchmark == "b1",
+            "benchmark selection should retain one benchmark identifier");
     require(options.run_kind == RunKind::reproduction,
             "benchmark runs should default to reproduction kind");
     require(!options.refinement_override.has_value(),
@@ -114,6 +116,8 @@ namespace
                                "development",
                                "--refinement",
                                "1"});
+    require(development.benchmark == "b2",
+            "development benchmark selection should retain its identifier");
     require(development.run_kind == RunKind::development,
             "the development run kind was not parsed");
     nmopt::application::runner::validate_run_policy(development,
@@ -176,6 +180,14 @@ namespace
         revision_options, "release-dealii");
     require(revision_configuration.framework_revision == "feature/branch",
             "framework revisions should remain metadata rather than paths");
+
+    const auto future_benchmark = parse({"nmopt_runner",
+                                         "--benchmark",
+                                         "b3",
+                                         "--framework-revision",
+                                         "source-revision"});
+    require(future_benchmark.benchmark == "b3",
+            "CLI parsing should not own a closed B1/B2 benchmark list");
   }
 
   void

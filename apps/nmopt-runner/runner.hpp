@@ -77,14 +77,13 @@ namespace nmopt::application::runner
   struct CommandLineOptions
   {
     bool                  list = false;
-    bool                  run_b1 = false;
-    bool                  run_b2 = false;
     bool                  help = false;
     bool                  output_directory_explicit = false;
     bool                  run_kind_explicit = false;
     RunKind               run_kind = RunKind::reproduction;
     std::filesystem::path output_directory = "runs";
     std::string            framework_revision;
+    std::optional<std::string> benchmark;
     std::optional<std::filesystem::path> parameter_file;
     std::optional<std::string> run_slot;
     std::vector<std::pair<std::string, std::string>> selection_filters;
@@ -153,11 +152,10 @@ namespace nmopt::application::runner
               throw std::invalid_argument(
                 "--benchmark needs a benchmark identifier");
             const std::string_view benchmark(argv[++index]);
-            if (benchmark != "b1" && benchmark != "b2")
+            if (benchmark.empty())
               throw std::invalid_argument(
-                "only benchmarks 'b1' and 'b2' are registered in this runner unit");
-            options.run_b1 = benchmark == "b1";
-            options.run_b2 = benchmark == "b2";
+                "--benchmark needs a nonempty benchmark identifier");
+            options.benchmark = std::string(benchmark);
             continue;
           }
         if (argument == "--parameter-file")
@@ -254,20 +252,17 @@ namespace nmopt::application::runner
       }
 
     if (options.list &&
-        (options.run_b1 || options.run_b2 || options.parameter_file.has_value()))
+        (options.benchmark.has_value() || options.parameter_file.has_value()))
       throw std::invalid_argument(
         "--list and a run selection cannot be selected together");
-    if (options.parameter_file.has_value() && (options.run_b1 || options.run_b2))
+    if (options.parameter_file.has_value() && options.benchmark.has_value())
       throw std::invalid_argument(
         "use either --parameter-file or --benchmark, not both");
-    if (options.run_b1 && options.run_b2)
-      throw std::invalid_argument(
-        "select only one benchmark per runner invocation");
-    if (!options.help && !options.list && !options.run_b1 && !options.run_b2 &&
+    if (!options.help && !options.list && !options.benchmark.has_value() &&
         !options.parameter_file.has_value())
       throw std::invalid_argument(
-        "select --list, --parameter-file, --benchmark b1/b2, or --help");
-    if ((options.run_b1 || options.run_b2 || options.parameter_file.has_value()) &&
+        "select --list, --parameter-file, --benchmark ID, or --help");
+    if ((options.benchmark.has_value() || options.parameter_file.has_value()) &&
         options.framework_revision.empty())
       throw std::invalid_argument(
         "benchmark runs require --framework-revision for provenance");
@@ -285,7 +280,7 @@ namespace nmopt::application::runner
   validate_run_policy(const CommandLineOptions &options,
                       const std::string_view  compiled_build_profile)
   {
-    if ((!options.run_b1 && !options.run_b2) ||
+    if (!options.benchmark.has_value() ||
         options.run_kind == RunKind::development)
       return;
 
@@ -299,10 +294,8 @@ namespace nmopt::application::runner
   inline std::string
   benchmark_name(const CommandLineOptions &options)
   {
-    if (options.run_b1)
-      return "b1";
-    if (options.run_b2)
-      return "b2";
+    if (options.benchmark.has_value())
+      return *options.benchmark;
     throw std::invalid_argument(
       "a run configuration needs a selected benchmark");
   }
@@ -338,7 +331,7 @@ namespace nmopt::application::runner
   resolve_run_configuration(const CommandLineOptions &options,
                             const std::string_view  compiled_build_profile)
   {
-    if (!options.run_b1 && !options.run_b2)
+    if (!options.benchmark.has_value())
       throw std::invalid_argument(
         "a run configuration needs a selected benchmark");
     validate_run_policy(options, compiled_build_profile);

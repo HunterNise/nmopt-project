@@ -1,12 +1,22 @@
 #include "../../apps/nmopt-runner/parameter_files.hpp"
 #include "../support/scenario_dispatch.hpp"
 
+// Unit 0 deliberately characterizes the current production resolution path.
+// The ownership refactor will replace this temporary test seam with a public
+// typed resolver, while these tests preserve the behavior being migrated.
+#define main nmopt_runner_characterization_entrypoint
+#include "../../apps/nmopt-runner/main.cc"
+#undef main
+
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -36,6 +46,54 @@ namespace
         return;
       }
     throw std::runtime_error(message);
+  }
+
+  nmopt::application::chapter6::B1Scenario
+  resolve_b1_scenario_for_characterization(
+    const nmopt::application::runner::ParameterFile &file,
+    const nmopt::application::runner::ParameterCombination &combination)
+  {
+    const auto method_id = combination_value(combination, "method");
+    const auto method = parse_method(method_id);
+    const auto beta = parse_number_text(
+      combination_value(combination, "regularisation"),
+      "Matrix/regularisation");
+    auto scenario = nmopt::application::chapter6::make_b1_scenario(method);
+    configure_b1_scenario(scenario, file, combination, method_id, beta);
+    return scenario;
+  }
+
+  nmopt::application::chapter6::B2Scenario
+  resolve_b2_scenario_for_characterization(
+    const nmopt::application::runner::ParameterFile &file,
+    const nmopt::application::runner::ParameterCombination &combination)
+  {
+    const auto graetz_case = graetz_case_from_combination(combination);
+    auto scenario = nmopt::application::chapter6::make_b2_scenario(graetz_case);
+    configure_b2_scenario(
+      scenario,
+      file,
+      combination,
+      std::string("chapter-6.b2.graetz-flow.") +
+        nmopt::application::chapter6::graetz_case_name(graetz_case));
+    return scenario;
+  }
+
+  void
+  require_binding_provenance(
+    const nmopt::compiler::v1::CompilationManifest &manifest,
+    const std::string                             &semantic_id,
+    const std::string                             &provenance,
+    const char                                    *message)
+  {
+    require(
+      std::any_of(manifest.bindings.begin(),
+                  manifest.bindings.end(),
+                  [&](const auto &binding) {
+                    return binding.semantic_id == semantic_id &&
+                           binding.provenance == provenance;
+                  }),
+      message);
   }
 
   nmopt::application::runner::ParameterFile
@@ -425,6 +483,520 @@ namespace
   }
 
   void
+  test_b1_authoritative_resolution_is_characterized()
+  {
+    const auto file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b1/authoritative.prm"));
+    const auto combinations = file.combinations();
+    require(combinations.size() == 7 &&
+              file.excluded_combinations.size() == 1,
+            "B1 characterization lost its seven-case sparse matrix");
+
+    const std::vector<std::string> expected_paths{
+      "artifacts/steepest-descent/beta-1e-1/artifact.kv",
+      "artifacts/steepest-descent/beta-1e-2/artifact.kv",
+      "artifacts/steepest-descent/beta-1e-3/artifact.kv",
+      "artifacts/l-bfgs/beta-1e-1/artifact.kv",
+      "artifacts/l-bfgs/beta-1e-2/artifact.kv",
+      "artifacts/l-bfgs/beta-1e-3/artifact.kv",
+      "artifacts/l-bfgs/beta-1e-6/artifact.kv"};
+    require(b1_expected_artifacts(file, {}) == expected_paths,
+            "B1 characterization changed artifact coordinate paths");
+
+    for (const auto &combination : combinations)
+      {
+        const auto method_id = combination_value(combination, "method");
+        const auto beta = parse_number_text(
+          combination_value(combination, "regularisation"),
+          "Matrix/regularisation");
+        const auto scenario =
+          resolve_b1_scenario_for_characterization(file, combination);
+
+        require(scenario.metadata.id ==
+                  "chapter-6.b1.distributed-laplace" &&
+                  scenario.metadata.recipe_id ==
+                    nmopt::application::chapter6::b1_recipe_id,
+                "B1 resolution changed the benchmark or recipe identity");
+        require(scenario.experiment.scenario_output_id ==
+                  std::string("chapter-6.b1.distributed-laplace.") +
+                    method_id + ".beta-" + combination_value(
+                      combination, "regularisation"),
+                "B1 resolution changed the scenario output identity");
+        require(scenario.experiment.source_reference ==
+                  "E6.5.1 equations (6.64), Figures 6.2-6.3" &&
+                  scenario.experiment.source_revision ==
+                    "1aaefbe473f9941a89d1df36192251511c052933" &&
+                  scenario.experiment.harness.artifact_directory == "runs" &&
+                  scenario.experiment.harness.deterministic &&
+                  scenario.experiment.harness.serialize_artifacts &&
+                  scenario.experiment.harness.measure_timings &&
+                  !scenario.experiment.harness.measure_memory &&
+                  scenario.experiment.retain_fields,
+                "B1 resolution changed run provenance or output policy");
+
+        require(
+          scenario.problem.recipe.discretisation ==
+              nmopt::application::chapter5::DistributedControlDiscretisation::
+                homogeneous_dirichlet_continuous &&
+            !scenario.problem.recipe.with_cellwise_box &&
+            scenario.problem.data.diffusion == 1.0 &&
+            scenario.problem.data.reaction == 0.0 &&
+            scenario.problem.data.regularisation_weight == beta &&
+            scenario.problem.regularisation_sweep.size() == 1 &&
+            scenario.problem.regularisation_sweep.front() == beta &&
+            scenario.problem.data.desired_state_provenance ==
+              "chapter-6.e6.5.1.desired-state" &&
+            scenario.problem.forcing.id == "source-oriented-constant-half" &&
+            scenario.problem.forcing.kind ==
+              nmopt::application::ScalarFunctionKind::constant &&
+            scenario.problem.forcing.value == 0.5 &&
+            scenario.problem.forcing.expression.empty() &&
+            scenario.problem.data.forcing_provenance ==
+              "chapter-6.e6.5.1.source-oriented-constant-half-forcing",
+          "B1 resolution changed effective runtime data or control choice");
+
+        require(
+          scenario.compile.mesh.dimension == 2 &&
+            scenario.compile.mesh.generation ==
+              nmopt::application::chapter6::MeshGeneration::structured_simplex &&
+            scenario.compile.mesh.refinement == 0 &&
+            scenario.compile.mesh.subdivisions == 131 &&
+            scenario.compile.mesh.axis_subdivisions.empty() &&
+            scenario.compile.mesh.centroid_splits == 0 &&
+            scenario.compile.mesh.selection_seed == 0 &&
+            scenario.compile.mesh.mesh_provenance ==
+              "chapter-6.e6.5.1.structured-simplex-n131" &&
+            scenario.compile.state_degree == 1 &&
+            scenario.compile.execution ==
+              nmopt::application::chapter6::ExecutionSelection::assembled &&
+            scenario.compile.product ==
+              nmopt::application::chapter6::ProductSelection::reduced_dto &&
+            scenario.compile.owned_session &&
+            scenario.compile.state_solve.maximum_iterations == 0 &&
+            scenario.compile.adjoint_solve.maximum_iterations == 0 &&
+            scenario.compile.control_metric_solve.maximum_iterations == 1000,
+          "B1 resolution changed effective mesh or compile policy");
+
+        require(
+          scenario.solver.initial_control == "zero" &&
+            scenario.solver.objective_target_policy ==
+              nmopt::application::chapter6::ObjectiveTargetPolicy::none &&
+            scenario.solver.parameters.maximum_iterations == 5000 &&
+            scenario.solver.parameters.maximum_line_search_trials == 6 &&
+            scenario.solver.parameters.gradient_tolerance == 1.0e-30 &&
+            scenario.solver.parameters.relative_gradient_tolerance == 1.0e-3 &&
+            scenario.solver.parameters.objective_change_tolerance == 0.0 &&
+            scenario.solver.parameters.step_tolerance == 0.0 &&
+            scenario.solver.parameters.initial_step_length == 1.0 &&
+            scenario.solver.parameters.armijo_fraction == 1.0e-5 &&
+            scenario.solver.parameters.backtracking_factor == 0.7 &&
+            !scenario.solver.declared_minimum_step_length.has_value(),
+          "B1 resolution changed the common solver policy");
+
+        if (method_id == "steepest-descent")
+          require(
+            scenario.solver.method ==
+                nmopt::application::chapter6::ReducedMethod::steepest_descent &&
+              scenario.solver.parameters.minimum_step_length == 0.2,
+            "B1 steepest-descent resolution changed its policy");
+        else
+          require(
+            scenario.solver.method ==
+                nmopt::application::chapter6::ReducedMethod::
+                  limited_memory_bfgs &&
+              scenario.solver.parameters.minimum_step_length == 0.01 &&
+              scenario.solver.limited_memory_bfgs.memory_size == 5 &&
+              scenario.solver.limited_memory_bfgs.curvature_tolerance ==
+                1.0e-14 &&
+              scenario.solver.limited_memory_bfgs.
+                  initial_inverse_hessian_scaling ==
+                nmopt::solvers::LimitedMemoryBfgsInitialScaling::metric_inverse,
+            "B1 L-BFGS resolution changed its policy");
+      }
+  }
+
+  void
+  test_b2_authoritative_and_forcing_sweep_resolution_is_characterized()
+  {
+    const auto file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    const auto combinations = file.combinations();
+    require(combinations.size() == 4,
+            "B2 characterization lost its four-case matrix");
+
+    const std::vector<std::string> expected_paths{
+      "artifacts/wings-constant/artifact.kv",
+      "artifacts/wings-parabolic/artifact.kv",
+      "artifacts/full-constant/artifact.kv",
+      "artifacts/full-parabolic/artifact.kv"};
+    require(b2_expected_artifacts(file, {}) == expected_paths,
+            "B2 characterization changed artifact coordinate paths");
+
+    for (const auto &combination : combinations)
+      {
+        const auto region = combination_value(combination, "observation-region");
+        const auto target_profile =
+          combination_value(combination, "target-profile");
+        const auto scenario =
+          resolve_b2_scenario_for_characterization(file, combination);
+        const auto graetz_case = graetz_case_from_combination(combination);
+        const auto &target = nmopt::application::chapter6::b2_target_definition(
+          scenario.problem.target_parameters, graetz_case);
+        const auto expected_metadata_id =
+          graetz_case == nmopt::application::chapter6::GraetzCase::
+                           observation_wings_constant_target
+            ? std::string("chapter-6.b2.graetz-flow")
+            : std::string("chapter-6.b2.graetz-flow.") +
+                nmopt::application::chapter6::graetz_case_name(graetz_case);
+
+        require(scenario.metadata.id == expected_metadata_id &&
+                  scenario.metadata.recipe_id ==
+                    nmopt::application::chapter6::b2_recipe_id &&
+                  scenario.experiment.scenario_output_id ==
+                    std::string("chapter-6.b2.graetz-flow.") +
+                      nmopt::application::chapter6::graetz_case_name(graetz_case),
+                "B2 resolution changed the benchmark identity");
+        require(scenario.problem.graetz_case == graetz_case &&
+                  nmopt::application::chapter6::dealii::b2_observation_region(
+                    graetz_case) == region &&
+                  ((target_profile == "constant" &&
+                    target.id == "constant-2" &&
+                    target.kind ==
+                      nmopt::application::ScalarFunctionKind::constant &&
+                    target.value == 2.0 && target.expression.empty()) ||
+                   (target_profile == "parabolic" &&
+                    target.id == "parabolic-4*x1*(1-x1)" &&
+                    target.kind ==
+                      nmopt::application::ScalarFunctionKind::expression &&
+                    target.value == 0.0 &&
+                    target.expression == "4.0*x1*(1.0-x1)")),
+                "B2 resolution changed the selected target definition");
+        require(scenario.problem.target_parameters.constant.provenance ==
+                    "chapter-6.e6.5.2.target" &&
+                  scenario.problem.target_parameters.parabolic.provenance ==
+                    "chapter-6.e6.5.2.target" &&
+                  scenario.problem.data.desired_state_provenance ==
+                    "chapter-6.e6.5.2.target",
+                "B2 resolution changed target provenance");
+        require(
+          scenario.problem.recipe.control_discretisation ==
+              nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant &&
+            !scenario.problem.recipe.with_facewise_box &&
+            scenario.problem.recipe.observed_material_id == 1 &&
+            scenario.problem.fixed_temperature == 1.0 &&
+            scenario.problem.forcing_selection ==
+              nmopt::application::chapter6::B2ProblemParameters::
+                ForcingSelection::zero &&
+            scenario.problem.forcing_value == 0.0 &&
+            scenario.problem.data.forcing_provenance ==
+              "chapter-6.e6.5.2.zero-forcing" &&
+            scenario.problem.transport_boundary_form ==
+              nmopt::semantic::v1::TransportBoundaryForm::
+                ordinary_normal_minus_transport,
+          "B2 resolution changed effective forcing, control, or boundary data");
+        require(
+          scenario.compile.mesh.dimension == 2 &&
+            scenario.compile.mesh.generation ==
+              nmopt::application::chapter6::MeshGeneration::framework_native &&
+            scenario.compile.mesh.refinement == 7 &&
+            scenario.compile.mesh.mesh_provenance ==
+              "chapter-6.e6.5.2.framework-native-rectangle-r7" &&
+            scenario.compile.volume_observation.has_value() &&
+            scenario.compile.volume_observation->quadrature_order == 3 &&
+            scenario.compile.volume_observation->target_realisation ==
+              nmopt::application::chapter6::VolumeObservationTargetRealisation::
+                analytic_quadrature &&
+            scenario.compile.execution ==
+              nmopt::application::chapter6::ExecutionSelection::assembled &&
+            scenario.compile.product ==
+              nmopt::application::chapter6::ProductSelection::reduced_dto,
+          "B2 resolution changed effective mesh or compile policy");
+        require(
+          scenario.solver.method ==
+              nmopt::application::chapter6::ReducedMethod::bfgs &&
+            scenario.solver.globalization ==
+              nmopt::application::chapter6::ReducedGlobalization::armijo &&
+            scenario.solver.initial_control == "zero" &&
+            scenario.solver.parameters.maximum_iterations == 100 &&
+            scenario.solver.parameters.maximum_line_search_trials == 20 &&
+            scenario.solver.parameters.gradient_tolerance == 1.0e-8 &&
+            scenario.solver.parameters.initial_step_length == 1.0 &&
+            scenario.solver.parameters.armijo_fraction == 1.0e-4 &&
+            scenario.solver.parameters.backtracking_factor == 0.5 &&
+            scenario.solver.parameters.minimum_step_length == 0.0,
+          "B2 resolution changed the frozen solver policy");
+      }
+
+    const auto forcing_sweep = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/development/forcing-sweep.prm"));
+    const auto forcing_combinations = forcing_sweep.combinations();
+    const std::vector<std::string> forcing_paths{
+      "artifacts/regularisation-1e-3/forcing-zero/observation-region-wings/"
+      "target-profile-constant/artifact.kv",
+      "artifacts/regularisation-1e-3/forcing-constant-one/"
+      "observation-region-wings/target-profile-constant/artifact.kv",
+      "artifacts/regularisation-1e-3/forcing-constant-two/"
+      "observation-region-wings/target-profile-constant/artifact.kv"};
+    require(forcing_combinations.size() == 3 &&
+              b2_expected_artifacts(forcing_sweep, {}) == forcing_paths,
+            "B2 forcing-sweep characterization changed its matrix paths");
+
+    for (const auto &combination : forcing_combinations)
+      {
+        const auto forcing_id = combination_value(combination, "forcing");
+        const auto scenario =
+          resolve_b2_scenario_for_characterization(forcing_sweep, combination);
+        const auto expected_selection = forcing_id == "zero"
+                                          ? nmopt::application::chapter6::
+                                              B2ProblemParameters::
+                                                ForcingSelection::zero
+                                          : nmopt::application::chapter6::
+                                              B2ProblemParameters::
+                                                ForcingSelection::constant;
+        const auto expected_value = forcing_id == "zero"
+                                      ? 0.0
+                                      : forcing_id == "constant-one" ? 1.0 : 2.0;
+        const auto expected_provenance =
+          std::string("development.b2.") + forcing_id + "-forcing";
+        require(scenario.problem.forcing_selection ==
+                  expected_selection &&
+                  scenario.problem.forcing_value == expected_value &&
+                  scenario.problem.data.forcing_provenance ==
+                    expected_provenance &&
+                  scenario.problem.graetz_case ==
+                    nmopt::application::chapter6::GraetzCase::
+                      observation_wings_constant_target &&
+                  scenario.problem.data.regularisation_weight == 1.0e-3 &&
+                  scenario.compile.mesh.refinement == 6 &&
+                  scenario.compile.mesh.mesh_provenance ==
+                    "chapter-6.e6.5.2.framework-native-rectangle-r6",
+                "B2 forcing-sweep resolution changed effective forcing data");
+      }
+  }
+
+  nmopt::application::runner::ResolvedRunConfiguration
+  characterization_run_configuration(
+    const nmopt::application::runner::ParameterFile &file,
+    const std::filesystem::path                    &root,
+    const std::string                               &benchmark)
+  {
+    using nmopt::application::runner::ResolvedRunConfiguration;
+    using nmopt::application::runner::RunKind;
+    ResolvedRunConfiguration configuration{root,
+                                           root / "artifact",
+                                           benchmark,
+                                           "debug-dealii",
+                                           "characterization-revision",
+                                           RunKind::development,
+                                           0};
+    configuration.parameter_file = file.path;
+    configuration.parameter_hash = file.content_hash;
+    configuration.plotting_profile_file = find_file_from_current_or_parent(
+      benchmark == "b1" ? "parameters/plotting/chapter-6-b1.json"
+                         : "parameters/plotting/chapter-6-b2.json");
+    configuration.plotting_profile_hash =
+      nmopt::application::runner::parameter_file_hash(
+      configuration.plotting_profile_file);
+    return configuration;
+  }
+
+  void
+  test_parameter_resolution_retains_artifact_fields_and_manifest_provenance()
+  {
+    const auto b1_file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b1/authoritative.prm"));
+    const auto b1_combination = b1_file.combinations().front();
+    const auto b1_beta = parse_number_text(
+      combination_value(b1_combination, "regularisation"),
+      "Matrix/regularisation");
+    auto b1_scenario = resolve_b1_scenario_for_characterization(
+      b1_file, b1_combination);
+    b1_scenario.compile.mesh.generation =
+      nmopt::application::chapter6::MeshGeneration::framework_native;
+    b1_scenario.compile.mesh.subdivisions = 0;
+    b1_scenario.compile.mesh.refinement = 1;
+    b1_scenario.compile.mesh.mesh_provenance =
+      "test.parameter-resolution.b1-small-mesh";
+    b1_scenario.solver.parameters.maximum_iterations = 2;
+    b1_scenario.solver.parameters.gradient_tolerance = 1.0e-3;
+    b1_scenario.experiment.harness.measure_timings = false;
+
+    const auto b1_native_output = std::filesystem::temp_directory_path() /
+                                  "nmopt-parameter-resolution-b1";
+    std::filesystem::remove_all(b1_native_output);
+    nmopt::application::chapter6::dealii::B1SelectedDataT<2> b1_data(
+      b1_scenario.problem.forcing);
+    const auto b1_runtime =
+      nmopt::application::chapter6::dealii::make_b1_runtime_data(
+        b1_scenario, b1_data);
+    const auto b1_session =
+      nmopt::application::chapter6::dealii::make_b1_compilation_session<2>(
+        b1_scenario);
+    nmopt::application::chapter6::dealii::B1ReducedExecutionAdapterT<2>
+      b1_execute{
+        b1_beta,
+        b1_runtime,
+        b1_session,
+        {"characterization-revision",
+         "debug-dealii",
+         "test-compiler",
+         "test-version",
+         "test-standard-library",
+         "test-os",
+         "test-architecture",
+         "test-hardware"},
+        b1_native_output};
+    using B1Runner = nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
+      nmopt::application::chapter6::B1Scenario>;
+    const auto b1_configuration = characterization_run_configuration(
+      b1_file, b1_native_output, "b1");
+    const auto b1_result = B1Runner(b1_scenario).run(
+      [](const auto &parameters) {
+        return nmopt::application::chapter6::make_b1_problem_spec(parameters);
+      },
+      [&](const auto &specification, const auto &scenario) {
+        auto evidence = b1_execute(specification, scenario);
+        add_parameter_artifact_fields(
+          evidence, b1_configuration, b1_combination);
+        return evidence;
+      });
+    const std::vector<std::string> expected_b1_fields{
+      "objective_history",
+      "gradient_norm_history",
+      "step_length_history",
+      "objective_change_history",
+      "solve_counts",
+      "hessian_evidence",
+      "state",
+      "control",
+      "adjoint",
+      "target",
+      "forcing",
+      "negative_adjoint"};
+    require(b1_result.artifact.selected_fields() == expected_b1_fields,
+            "B1 parameter resolution changed selected artifact fields");
+    require(b1_result.document.find(
+              "provenance.parameters_file=" + b1_file.path.string() + "\n") !=
+              std::string::npos &&
+              b1_result.document.find(
+                "provenance.parameters_hash=" + b1_file.content_hash + "\n") !=
+                std::string::npos &&
+              b1_result.document.find("parameters.method=steepest-descent\n") !=
+                std::string::npos &&
+              b1_result.document.find("parameters.regularisation=1e-1\n") !=
+                std::string::npos,
+            "B1 artifact lost parameter-file provenance");
+    require_binding_provenance(
+      b1_result.artifact.envelope().compilation_manifest(),
+      "forcing",
+      "chapter-6.e6.5.1.source-oriented-constant-half-forcing",
+      "B1 manifest lost forcing provenance");
+    require_binding_provenance(
+      b1_result.artifact.envelope().compilation_manifest(),
+      "desired_state",
+      "chapter-6.e6.5.1.desired-state",
+      "B1 manifest lost desired-state provenance");
+
+    const auto b2_file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    const auto b2_combination = b2_file.combinations().front();
+    auto b2_scenario = resolve_b2_scenario_for_characterization(
+      b2_file, b2_combination);
+    b2_scenario.compile.mesh.refinement = 1;
+    b2_scenario.compile.mesh.mesh_provenance =
+      "test.parameter-resolution.b2-small-mesh";
+    b2_scenario.solver.parameters.maximum_iterations = 2;
+    b2_scenario.solver.parameters.gradient_tolerance = 1.0e-3;
+    b2_scenario.experiment.harness.measure_timings = false;
+
+    const auto b2_native_output = std::filesystem::temp_directory_path() /
+                                  "nmopt-parameter-resolution-b2";
+    std::filesystem::remove_all(b2_native_output);
+    nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> b2_data{
+      b2_scenario.problem.graetz_case,
+      b2_scenario.problem.fixed_temperature,
+      b2_scenario.problem.forcing_selection,
+      b2_scenario.problem.forcing_value,
+      b2_scenario.problem.target_parameters};
+    const auto b2_runtime =
+      nmopt::application::chapter6::dealii::make_b2_manufactured_runtime_data<2>(
+        b2_scenario, b2_data);
+    const auto b2_session =
+      nmopt::application::chapter6::dealii::make_b2_compilation_session<2>(
+        b2_scenario);
+    nmopt::application::chapter6::dealii::B2ReducedExecutionAdapterT<2>
+      b2_execute{
+        b2_runtime,
+        b2_session,
+        {"characterization-revision",
+         "debug-dealii",
+         "test-compiler",
+         "test-version",
+         "test-standard-library",
+         "test-os",
+         "test-architecture",
+         "test-hardware"},
+        b2_native_output};
+    using B2Runner = nmopt::application::benchmark::HeadlessBenchmarkRunnerT<
+      nmopt::application::chapter6::B2Scenario>;
+    const auto b2_configuration = characterization_run_configuration(
+      b2_file, b2_native_output, "b2");
+    const auto b2_result = B2Runner(b2_scenario).run(
+      [](const auto &parameters) {
+        return nmopt::application::chapter6::make_b2_problem_spec(parameters);
+      },
+      [&](const auto &specification, const auto &scenario) {
+        auto evidence = b2_execute(specification, scenario);
+        add_b2_artifact_fields(evidence,
+                               scenario,
+                               "characterization-revision",
+                               nmopt::application::runner::RunKind::development);
+        add_parameter_artifact_fields(
+          evidence, b2_configuration, b2_combination);
+        return evidence;
+      });
+    const std::vector<std::string> expected_b2_fields{
+      "objective_history",
+      "gradient_norm_history",
+      "step_length_history",
+      "objective_change_history",
+      "solve_counts",
+      "state",
+      "state_uncontrolled",
+      "control",
+      "adjoint",
+      "negative_adjoint",
+      "target",
+      "forcing",
+      "observation_region"};
+    require(b2_result.artifact.selected_fields() == expected_b2_fields,
+            "B2 parameter resolution changed selected artifact fields");
+    require(b2_result.document.find(
+              "provenance.parameters_file=" + b2_file.path.string() + "\n") !=
+              std::string::npos &&
+              b2_result.document.find(
+                "provenance.parameters_hash=" + b2_file.content_hash + "\n") !=
+                std::string::npos &&
+              b2_result.document.find(
+                "parameters.observation-region=wings\n") != std::string::npos &&
+              b2_result.document.find("parameters.target-profile=constant\n") !=
+                std::string::npos,
+            "B2 artifact lost parameter-file provenance");
+    require_binding_provenance(
+      b2_result.artifact.envelope().compilation_manifest(),
+      "forcing",
+      "chapter-6.e6.5.2.zero-forcing",
+      "B2 manifest lost forcing provenance");
+    require_binding_provenance(
+      b2_result.artifact.envelope().compilation_manifest(),
+      "fixed_dirichlet_data",
+      "chapter-6.e6.5.2.fixed-temperature",
+      "B2 manifest lost fixed-temperature provenance");
+    std::filesystem::remove_all(b1_native_output);
+    std::filesystem::remove_all(b2_native_output);
+  }
+
+  void
   test_unknown_selection_is_rejected()
   {
     const auto b1 = read_parameter_file(find_file_from_current_or_parent(
@@ -757,6 +1329,21 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract"},
          30,
          test_checked_in_families_expand_and_filter},
+        {"b1_authoritative_resolution_is_characterized",
+         "nmopt.parameter_files.b1_authoritative_resolution_is_characterized",
+         {"backend", "dealii", "application", "benchmark", "runner", "contract"},
+         30,
+         test_b1_authoritative_resolution_is_characterized},
+        {"b2_authoritative_and_forcing_sweep_resolution_is_characterized",
+         "nmopt.parameter_files.b2_authoritative_and_forcing_sweep_resolution_is_characterized",
+         {"backend", "dealii", "application", "benchmark", "runner", "contract"},
+         30,
+         test_b2_authoritative_and_forcing_sweep_resolution_is_characterized},
+        {"parameter_resolution_retains_artifact_fields_and_manifest_provenance",
+         "nmopt.parameter_files.parameter_resolution_retains_artifact_fields_and_manifest_provenance",
+         {"backend", "dealii", "application", "benchmark", "runner", "contract"},
+         120,
+         test_parameter_resolution_retains_artifact_fields_and_manifest_provenance},
         {"unknown_selection_is_rejected",
          "nmopt.parameter_files.unknown_selection_is_rejected",
          {"backend", "dealii", "application", "runner", "contract", "negative"},

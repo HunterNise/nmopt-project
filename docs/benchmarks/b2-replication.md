@@ -7,9 +7,10 @@ boundary-control example shown in Table 6.2 and Figures 6.4--6.5 of the source.
 It supplements the [frozen B2 benchmark contract](chapter-6.md#b2--e652-graetz-flow-boundary-control)
 and the [source catalogue](../guides/chapter-6-numerical-examples.md#e652--graetz-flow-boundary-control).
 It separates source facts, deductions from the published counts, framework
-replacement choices, and hypotheses that still need experiments.
+replacement choices, completed negative evidence, and hypotheses that still
+need experiments.
 
-The persisted comparison baseline is Debug deal.II run `003` at framework
+The historical persisted comparison baseline is Debug deal.II run `003` at framework
 revision `923e4b9`, using refinement 6 of the framework-native quadrilateral
 mesh. A behavior-neutral rerun at revision `db5a07a` reproduced its objectives
 and solver histories and additionally recorded structural,
@@ -23,6 +24,19 @@ the source-oriented $160\times40$ simplex mesh with continuous trace control.
 These are development experiments rather than reproduction evidence.
 Generated outputs remain disposable; the conclusions and change boundaries
 are recorded here.
+
+A September 2026 release campaign at framework revision `df50946` then
+regenerated the authoritative and retained development profiles, calibrated a
+quantitative comparison against the source raster, tested the zero-forcing
+target-transcription hypothesis, and completed a deliberately non-source
+forcing/target factorial. Across the seven release run sets used in the final
+campaign comparison, all `37/37` manifest artifacts completed, passed their
+derivative evidence, and postprocessed successfully, with no failed or pending
+cases. The campaign established documented non-reproducibility for the tested
+joint interpretations of equation (6.65), Figure 6.5, and Table 6.2. B2 remains
+open only for a new, forward-state-first audit of basic PDE and boundary-data
+interpretations; optimization changes are gated until that audit reproduces
+the no-control field.
 
 The current assessment is:
 
@@ -46,6 +60,16 @@ The current assessment is:
 - positive constant-forcing screens can recover some plotted magnitudes and
   objective orders, but they contradict the source and must not be treated as
   B2 replication candidates;
+- calibrated source-raster comparison confirms that forcing $f=0.47009$
+  closely reproduces the no-control field's displayed range and normalized
+  shape, while none of the retained optimized fields reproduces all four
+  panels' sign and spatial behavior;
+- the zero-forcing target-transcription gate finds a common positive constant
+  target near $15.60$ only after swapping the two printed constant rows, but
+  this does not explain the parabolic rows or the no-control field;
+- the closest four-row initial-objective reconstruction needs $f=0.64$, a
+  constant target $20$, and the same row swap; these are three explicit source
+  contradictions rather than a replacement specification;
 - the source counts constrain aggregate boundary subdivision under standard
   $P_1$ assumptions, but do not determine interior mesh connectivity;
 - the current uniform facewise metric makes the relative metric-gradient and
@@ -55,9 +79,12 @@ The current assessment is:
   as source ambiguities rather than fitted silently through a framework
   change.
 
-B2 is therefore **executable but not replication-verified**. The completed
-screens rule out several low-cost explanations, but do not identify one
-coherent realization of both Figure 6.5 and Table 6.2.
+B2 is therefore **framework-verified but not replication-verified**. The
+completed campaign supports documented non-reproducibility for its tested
+joint interpretations. A bounded forward-only audit remains open to determine
+whether a more basic boundary partition, transport, or data interpretation can
+first reproduce Figure 6.5's no-control state. No BFGS or regularisation result
+can enter that audit before the forward-state gate passes.
 
 ## Source facts and omissions
 
@@ -347,7 +374,7 @@ swapped constant-case labels. Every part of that reconstruction contradicts
 the printed source, so it is a candidate for further testing rather than a
 replacement benchmark contract.
 
-Three tracked development families retain the strongest distinct historical
+Four tracked development families retain the strongest distinct historical
 diagnostics, not source-replication hypotheses:
 
 - `figure-6.5-state-fit.prm` uses $f=0.47009$ to reproduce the uncontrolled
@@ -355,12 +382,16 @@ diagnostics, not source-replication hypotheses:
 - `table-6.2-order-fit.prm` uses $f=1$ for the strongest all-case decimal-order
   agreement; and
 - `figure-6.5-table-6.2-parabolic-fit.prm` uses $f=0.65$ for the strongest
-  simultaneous field and parabolic-row agreement.
+  simultaneous field and parabolic-row agreement; and
+- `target-transcription-gate.prm` holds the source PDE and zero forcing fixed
+  while comparing targets $2$, $20$, and $4x_{2}(1-x_{2})$ at zero control.
 
-All three use continuous trace control, the source-oriented structured simplex
-mesh, $\beta=10^{-2}$, fixed step $0.05$, and retained fields. Their manifests
-identify them as Debug development runs and explicitly preserve the source
-contradictions. They must not be promoted to B2 reproduction evidence.
+All four use continuous trace control, the source-oriented structured simplex
+mesh, fixed step $0.05$, and retained fields. The three fitted optimization
+families use $\beta=10^{-2}$ and 100 steps; the target-transcription gate keeps
+the source $\beta=10^{-3}$ and retains one step only to serialize the complete
+artifact contract. Their manifests and parameter provenance preserve every
+source contradiction. They must not be promoted to B2 reproduction evidence.
 
 The retained executions are canonical historical development runs `004`,
 `005`, and `006`, respectively. Each manifest is complete with four successful
@@ -430,6 +461,114 @@ configuration rather than a current named development profile. The historical
 numbered runs and the regenerated named runs use different build profiles in
 some cases, but the mapped B2 numeric records remain identical.
 
+## September 2026 release evidence campaign
+
+The release evidence campaign used the rebuilt `release-dealii` runner at
+framework revision `df50946`. Its seven retained run sets comprise the
+authoritative matrix, the three named fitted profiles, the forcing sweep, the
+six-case zero-forcing target-transcription gate, and the 12-case forensic
+forcing/target factorial. Their manifests report `37/37` successful artifacts,
+zero failures or pending cases, `37/37` passed derivative records, and `37/37`
+successful postprocessing records. Every artifact stopped at its configured
+iteration limit: 100 accepted iterations in the optimization and forcing
+profiles, and one retained iteration in the two initial-objective gates.
+
+### Figure 6.5 raster evidence
+
+The source comparison decodes the tracked `source-page-190.png` image with
+SHA-256
+`2cddb01d9f53bb7da2eaaa6d17e5a22b8e006704ee491d3301770ec2fe5246f7`.
+It calibrates each panel independently against its printed colorbar and
+compares the reconstructed raster with native finite-element fields in source
+coordinates. The audit examined 144 retained artifact paths, representing 63
+unique panel/field comparisons after duplicate field hashes were collapsed.
+
+The no-control panel sharply separates the literal and fitted inputs:
+
+| Candidate | Native state range | Normalized raster correlation | Normalized MAE | Classification |
+| --- | ---: | ---: | ---: | --- |
+| zero forcing | $[1,1.119597]$ | $0.6969$ | $0.3722$ | source literal |
+| $f=0.47009$ | $[1,7.219451]$ | $0.9986$ | $0.0417$ | fitted, non-source |
+| $f=0.65$ | $[1,9.553958]$ | $0.9987$ | $0.0399$ | fitted, non-source and too large |
+
+The strong $f=0.47009$ match identifies a positive volume load, or
+mathematically equivalent unprinted PDE or boundary data, as the best
+descriptive explanation found for this panel. It does not identify source
+data because equation (6.65) explicitly has zero right-hand side.
+
+The optimized panels cannot be explained by rescaling the same fields. For
+cases a--d, the source-literal normalized correlations are respectively
+$0.368$, $-0.092$, $0.246$, and $0.554$. Their signs, peak locations, and
+streamwise trends also differ. The printed panel b has about $11.28\%$
+negative decoded pixels, while none of the 13 unique retained panel-b fields
+crosses zero. The no-control fit is therefore not a hidden four-panel
+reproduction.
+
+### Zero-forcing target-transcription gate
+
+The promoted [target-transcription gate](../../parameters/chapter-6/b2/development/target-transcription-gate.prm)
+uses the source-oriented $160\mathbin\times40$ simplex mesh, continuous
+$P_{1}$ trace control, zero forcing, source coefficients, and zero initial
+control. It compares constant targets $2$ and $20$ with the source parabolic
+target. The preserved release run completed all six artifacts and
+postprocessed all six without failures.
+
+| Target | Wings $J(u_{0})$ | Full $J(u_{0})$ | Full minus wings |
+| --- | ---: | ---: | ---: |
+| constant $2$ | $0.875017$ | $1.458699$ | $0.583682$ |
+| constant $20$ | $324.413590$ | $540.695200$ | $216.281610$ |
+| $4x_{2}(1-x_{2})$ | $0.310938$ | $0.315372$ | $0.004433$ |
+
+Every computed pair satisfies the required nesting order. Solving the
+constant-target quadratic for each printed objective gives incompatible
+positive roots $19.7719$ and $12.3525$ under the printed row association.
+Swapping only the two printed constant rows gives roots $15.6520$ and
+$15.5438$. Their midpoint, $15.5979$, predicts both swapped objectives within
+$0.75\%$. This is a qualified table-only transcription clue: it changes the
+association of printed rows, not the selected wings/full scenario, and it does
+not explain the parabolic objectives or Figure 6.5.
+
+### Forensic forcing/target factorial
+
+The release factorial tested $f\in\{0,0.64\}$, both regions, and targets
+$2$, $20$, and $4x_{2}(1-x_{2})$ in 12 one-step cases. The best tested table
+reconstruction uses $f=0.64$, target $20$, and the swapped constant-row
+association:
+
+| Compared case | Candidate $J(u_{0})$ | Printed $J(u_{0})$ | Relative error |
+| --- | ---: | ---: | ---: |
+| wings/constant $20$ to row b | $189.5193$ | $192.8385$ | $-1.72\%$ |
+| full/constant $20$ to row a | $317.1569$ | $316.6661$ | $+0.16\%$ |
+| wings/parabolic | $28.5555$ | $29.2188$ | $-2.27\%$ |
+| full/parabolic | $44.2697$ | $45.9996$ | $-3.76\%$ |
+
+The next-best tested combination has maximum relative error above $64\%$, so
+the clustering is real. It is nevertheless explicitly non-source: it jointly
+requires nonzero forcing, target $20$, and a row reinterpretation, while its
+no-control maximum $9.42435$ is $30.53\%$ above the displayed $7.22$. The
+factorial is recorded as contradiction evidence and is not promoted as stable
+configuration.
+
+### Source-literal trace checkpoints
+
+The authoritative release histories sampled at the four source iteration
+counts remain far from the source. Table 6.2 reports one gradient ratio; the
+artifacts retain both the metric-gradient and coefficient-derivative ratios,
+which coincide for the uniform facewise control realization.
+
+| Case | Count | Source/current $J(u_{0})$ | Source/current $J$ | Source/current reduction | Source/current metric ratio | Current coefficient ratio |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| a | 59 | $316.6661/0.865904$ | $3.5682/0.0232535$ | $98.87\%/97.31\%$ | $0.0250/4.600\mathbin\times10^{-5}$ | $4.600\mathbin\times10^{-5}$ |
+| b | 54 | $192.8385/1.458708$ | $2.6368/0.0437242$ | $98.63\%/97.00\%$ | $0.0569/4.895\mathbin\times10^{-5}$ | $4.895\mathbin\times10^{-5}$ |
+| c | 48 | $29.2188/0.310638$ | $0.7826/0.0500038$ | $97.32\%/83.90\%$ | $0.0753/1.843\mathbin\times10^{-4}$ | $1.843\mathbin\times10^{-4}$ |
+| d | 87 | $45.9996/0.315369$ | $0.8464/0.122407$ | $98.16\%/61.19\%$ | $0.0387/2.126\mathbin\times10^{-7}$ | $2.126\mathbin\times10^{-7}$ |
+
+These results establish documented non-reproducibility for the completed
+joint campaign, but they do not justify ending all B2 investigation. The next
+campaign returns to the no-control forward state and admits optimization
+evidence only after a candidate matches its range, sign, peak, and normalized
+shape.
+
 ## Published consistency questions
 
 The source audit used the book's references [187] and [205]. Reference [187]
@@ -437,6 +576,20 @@ also writes the Graetz state equation with zero volume right-hand side. In
 reference [205], Test 2 is a different distributed heat-source-control
 problem, while Test 3 is a boundary-control problem with zero volume source.
 Neither reference supports introducing a fitted volume forcing into B2.
+
+Reference [205] does expose a historically relevant difference: its Test 3
+uses diffusion-only Neumann data on the control walls and outlet, rather than
+the book's ordinary-normal-minus-transport condition. That difference does
+not explain Figure 6.5's no-control field. With zero control and forcing, the
+constant field $y=1$ satisfies the Test 3 PDE, inlet value, and homogeneous
+diffusion-Neumann conditions. In the cross-section-averaged model
+$\bar y=C_{1}+C_{2}e^{2.5x_{1}}$, the outlet condition
+$\bar y'(4)=0$ forces $C_{2}=0$. The state shown on the retained
+[reference page](../guides/assets/chapter-6/reference-205-page-A2336.png) is
+an optimized controlled state, not an uncontrolled-state record. The
+ancestral natural-Neumann form is therefore analytically rejected as a
+global explanation of the displayed range; adding a third production
+boundary policy solely to run that zero-control check is not justified.
 
 The wings observation region is a subset of the full downstream region. At
 the common zero control and for the same target, a positively weighted
@@ -480,6 +633,9 @@ can make that comparison without a further artifact-schema change.
 
 | Priority | Candidate | Motivation and decisive evidence | Required change |
 | ---: | --- | --- | --- |
+| F0 | [205] diffusion-only natural Neumann | **Analytically rejected for the no-control field.** At zero forcing and control, $y=1$ satisfies the PDE and all boundary data, independently of the transport amplitude. | Do not add a production boundary policy for this check. Reconsider only for a separately motivated nonzero-control ancestry audit. |
+| F1 | Ancestral inlet-only Dirichlet partition with the book outflow form | **Open as a forward-only forensic check.** Figure 6.4 fixes the source partition, but reference [205] fixes only the inlet and controls the horizontal walls. This combination can change the no-control state because it retains the book outflow condition. | Parameter-only through the upstream transition; label it non-source. |
+| F2 | Historically motivated transport amplitudes and direction | **Open only under the book outflow form.** Zero, unit, source $1.5$, and referenced scaled amplitudes can localize whether the field gap enters through volume transport or its coupled outlet term. | Parameter-only through the transport expression; retain exact provenance. |
 | 1 | Diffusion-weighted conormal alternative | **Rejected as a source interpretation.** Equation (6.65) explicitly uses the ordinary-normal-minus-transport form; the total-conormal screen is retained only as historical diagnostic evidence. | No further framework change for B2. Any independently scaled boundary-transport coefficient would be a new, explicitly non-source hypothesis. |
 | 2 | Source-oriented triangular $P_{1}$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
 | 3 | Continuous $P_{1}$ boundary control | **Screened and retained in historical diagnostics.** The source states linear finite elements and $N_{u}=243$; the $160\times40$ realization has 242 trace controls and distinguishes the metric from coefficient geometry. It does not by itself repair the field scale. | No further change for the current diagnostic; exact odd source counts would require an asymmetric or imported mesh. |
@@ -495,21 +651,40 @@ screens. Stabilisation should be introduced only if a source-oriented mesh
 shows a numerical inadequacy, and then reported as a project alternative
 rather than an inferred source choice.
 
-## Next evidence gate
+## Reopened forward-state evidence gate
 
-The low-cost state, objective, and optimization screens are complete. No
-literal realization of the printed data gives one coherent account of both
-Figure 6.5 and Table 6.2. The positive-forcing family recovered some decimal
-orders, but the source audit now classifies that success as an invalid
-calibration of the B2 PDE rather than evidence for omitted forcing.
+The completed joint campaign found no coherent literal realization of
+equation (6.65), Figure 6.5, and Table 6.2. The positive-forcing family
+recovers selected ranges and decimal orders, but remains an invalid
+calibration of the printed PDE rather than evidence for omitted forcing.
+The target-transcription gate and forensic factorial are now complete; no
+objective convention or BFGS change is the next experiment.
 
-The three four-case Debug run sets have completed and their traces
-confirm the screened diagnostic comparisons. The direct weak-form and
-outflow-boundary audit against equation (6.65) also passes. Target definitions
-are now parameterized as scalar values or expressions without changing the
-frozen defaults, so the next evidence gate is the explicit constant-target
-transcription experiment, followed by objective conventions or named
-full-BFGS initial-scaling policies.
-A fitted volume
-forcing, independently scaled boundary term, or arbitrary objective multiplier
-remains excluded from source-replication evidence.
+B2 is reopened at the more basic no-control forward problem. The next bounded
+campaign must use one-step development runs only as a serialization vehicle
+and compare the recorded `state_uncontrolled` field before considering the
+objective, adjoint, gradient, or optimized state. It begins with the existing
+source-literal release baseline, then tests the parameter-expressible
+ancestral boundary partition and historically motivated transport choices
+under the book boundary form. Analytically constant natural-Neumann cases,
+completed mesh/connectivity screens, targets, regularisation, and optimizer
+settings are excluded from this first stage.
+
+A forward candidate may advance only if it simultaneously:
+
+- preserves a defensible source or explicitly labelled historical provenance;
+- reproduces the displayed $[1,7.22]$ range to the precision supported by the
+  source raster;
+- matches normalized shape, sign, streamwise trend, and peak location rather
+  than only one endpoint; and
+- remains stable under one coarser/finer paired mesh check.
+
+Only after this gate passes should the four initial objectives be evaluated
+with the source targets and nested-region invariant. Optimization policy,
+gradient convention, and control scaling remain a later stage. If the
+parameter-only forward tests isolate a missing boundary coefficient or weak
+form that the current framework cannot express, that need must be reported as
+a separate architectural decision before tracked implementation. A fitted
+forcing, independently scaled boundary term, or arbitrary objective
+multiplier remains excluded from source-replication evidence unless new
+primary evidence supports it.

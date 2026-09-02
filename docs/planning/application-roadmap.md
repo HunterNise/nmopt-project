@@ -58,9 +58,9 @@ The roadmap distinguishes these states:
 | Runner and run sets | Implemented | `nmopt_runner` resolves benchmark, run kind, build profile, revision, and optional refinement; it writes manifests, artifacts, failures, and native outputs. |
 | B0 artifact boundary | Implemented and contract-tested | The deterministic `nmopt-benchmark-v1` projection, manifest records, provenance fields, selected fields, and failure visibility are present. |
 | Native deal.II output | Implemented for B1/B2 | B1 writes volume mesh/fields; B2 additionally writes facewise control on the boundary topology, together with solver traces and mesh previews. |
-| Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. The renderer uses `turbo` and explicit field-extrema colorbar endpoints; B1 visual validation is complete under its frozen contract, while B2 remains open. |
+| Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. The renderer uses `turbo` and explicit field-extrema colorbar endpoints; B1 visual validation is complete under its frozen contract, and B2 now has a calibrated source-raster comparison while its forward-state interpretation remains open. |
 | B1 source-oriented execution | Reproduction-verified | The selected seven-case release profile combines continuous P1 control, a regular triangular mesh, constant-half forcing, and the common early-stop policy. Revision `631537a` completed all seven artifacts and their PNG comparisons without failures; the selected replacements do not claim recovery of omitted source data. |
-| B2 framework-native execution | Framework-verified; reproduction audit open | The four-artifact release matrix exists, while the newer derivative-evidence fields are present in a refinement-6 development run rather than the authoritative release set. The source-sized release artifacts need a refresh after the audit. |
+| B2 framework-native execution | Framework-verified; forward replication audit open | A refreshed four-artifact `release-dealii` matrix at revision `df50946` contains current derivative, objective, field, and manifest evidence. The completed joint campaign documents non-reproducibility for the tested interpretations; a no-control forward-state audit now precedes any further optimizer work. |
 | Parameter files | Implemented for registered B1/B2 slice | One ordered schema registry and benchmark adapters drive matrix expansion, exact exclusions, typed capability resolution, solver policy, run layout, and post-processing provenance. B3–B6 extension contracts are tested but not registered as executable benchmarks. |
 | Later Chapter 6 benchmarks | Planned | B3/B4 are the next selected benchmark families after B1/B2 reproduction is resolved; B5/B6 remain later. |
 | Complete Chapter 5 recipe library | Planned | The selected recipes used by B1/B2 exist, but the reusable recipe families listed in the problem-library roadmap are not all implemented. |
@@ -75,17 +75,20 @@ native fields, and PNG comparisons satisfy the frozen B1 contract; the
 [replication findings](../benchmarks/b1-replication.md) retain the unresolved
 source omissions and replacement rationale.
 
-The B2 authoritative manifest records a complete four-case release matrix and
-native fields, but all four cases terminate at the configured maximum
-iteration count. Its newer derivative evidence remains development-only.
-These outcomes are evidence to preserve, not reasons to silently change the
-frozen benchmark policy.
+The refreshed B2 authoritative evidence records a complete four-case release
+matrix with current derivative, objective-reduction, state/control, and
+manifest fields. A subsequent 37-artifact release campaign completed without
+manifest, derivative-check, or post-processing failures, but no tested joint
+interpretation reproduced both the published no-control range and the four
+optimized panels. These outcomes are evidence to preserve, not reasons to
+silently change the frozen benchmark policy.
 
-The development snapshot
+The historical development snapshot
 `runs/chapter-6/b2/development/001/` was produced with refinement 6 and
 contains the newer `b2.*` derivative, objective-reduction, and
-state/control evidence. It is useful for diagnosis but is not source-sized
-acceptance evidence. The existing `postprocessed/<case>/state.png` files
+state/control evidence. It remains useful for historical diagnosis but is not
+the current source-sized acceptance evidence. The existing
+`postprocessed/<case>/state.png` files
 belong to that development snapshot; the current wrapper writes the
 `postprocess/` directory name.
 
@@ -241,7 +244,7 @@ B1/B2 output inventory.
 
 ### A4 — Define records, diagnostics, and provenance
 
-**Status:** implemented; B2 source-sized refresh remains open.
+**Status:** implemented for B1/B2.
 
 **Purpose:** Make every run auditable: identify what was selected, how it was
 compiled and executed, what data was bound, and why a matrix entry failed.
@@ -252,23 +255,20 @@ compiled and executed, what data was bound, and why a matrix entry failed.
 - Artifacts retain identity, provenance, compilation manifest, diagnostics,
   solver histories, benchmark fields, measurements, and selected fields.
 - B1 records forcing and Hessian finite-difference evidence.
-- B2 development artifacts record boundary form, case, provenance, derivative
-  checks, objective/gradient reduction, and state/control norms.
+- Refreshed B2 source-sized artifacts record boundary form, case, provenance,
+  derivative checks, objective/gradient reduction, and state/control norms.
 - The report consumes the run manifest rather than discovering an arbitrary
   directory tree.
 
-**Still needed:** refresh the authoritative B2 matrix so it contains the
-current B2 evidence fields, then project those fields into the report's
-comparison and acceptance views.
-
 **Done when:** the source-sized artifacts for an activated benchmark contain
 all evidence listed in its benchmark contract, and the report preserves
-successes, failures, and missing evidence without inventing values. B0 and B1
-meet this boundary; B2 does not yet.
+successes, failures, and missing evidence without inventing values. B0, B1,
+and B2 meet this evidence boundary; B2's remaining question is numerical
+interpretation rather than artifact completeness.
 
 ### A5 — Build and validate post-processing tooling
 
-**Status:** implementation-complete; B1 visual validation complete, B2 open.
+**Status:** implementation-complete; B1/B2 source comparison complete.
 
 **Purpose:** Turn native fields into inspectable plots and comparisons without
 making post-processing a second numerical implementation.
@@ -289,20 +289,21 @@ making post-processing a second numerical implementation.
 - `meshio` and `matplotlib` are runtime dependencies only; they are not
   C++ build or CTest dependencies.
 
-**Still needed:** complete the corresponding B2 validation of field
-orientation, value ranges, normalization, interpolation, colorbar semantics,
-and source-figure palette before treating its plots as reproduction evidence.
-A visually plausible plot is not enough.
+The calibrated B2 source-raster audit now covers orientation, decoded value
+ranges, normalization, interpolation, colorbar semantics, and spatial-error
+metrics. It demonstrates a numerical mismatch rather than a renderer-only
+difference; diagnosing that mismatch belongs to A6.
 
 **Done when:** the tool preserves field identity and geometry, documents its
 rendering policy, produces deterministic comparisons from persisted inputs,
-and a benchmark-specific visual check confirms that any difference from the
-source is understood. B1 meets this boundary under its frozen replacement
-contract; B2 does not yet.
+and a benchmark-specific visual check confirms whether a difference is
+numerical or presentational. B1 meets this boundary under its frozen
+replacement contract; B2 meets it through its audited mismatch report without
+claiming reproduction.
 
 ### A6 — Correctly reproduce B1 and B2
 
-**Status:** in progress; B1 reproduction-verified, B2 audit open.
+**Status:** in progress; B1 reproduction-verified, B2 forward-state audit open.
 
 **Purpose:** Establish whether the current framework-native fields and plots
 represent the same mathematical quantities and visual conventions as the
@@ -322,16 +323,29 @@ book's B1/B2 figures.
   successful artifacts and distinguish qualitative reproduction from the
   source details that cannot be recovered.
 
+**Work completed for B2:**
+
+- the source pages and Figure 6.5 raster are calibrated against native fields,
+  including orientation, range, spatial correlation, and error metrics;
+- the refreshed `release-dealii` evidence at revision `df50946` contains
+  current derivative, objective, field, post-processing, and manifest data;
+- zero-forcing target-transcription and forcing/target/association factorial
+  campaigns separate objective-table clues from image-fit evidence; and
+- the completed 37-artifact campaign documents non-reproducibility for the
+  tested joint interpretations instead of selecting a fitted replacement.
+
 **Still needed for B2:**
 
-1. Complete the E6.5.2 source-to-artifact comparison for every observation and
-   target case.
-2. Inspect raw native values, boundary-control association, extrema, mesh
-   orientation, and observation-domain realization before adjusting plots.
-3. Diagnose numerical-field discrepancies separately from renderer differences
-   and add the smallest focused regression where needed.
-4. Settle the interpretation, refresh the source-sized release matrix with the
-   current derivative evidence, and update its report and benchmark handoff.
+1. Run a parameter-only no-control audit of the remaining historically
+   grounded boundary-partition and transport hypotheses.
+2. Require agreement in value range, decoded spatial shape, sign/trend, peak
+   location, and a refinement pair before accepting a forward interpretation.
+3. Only after that gate passes, compare initial objectives and the expected
+   nested-observation ordering under the candidate interpretation.
+4. Resume optimized runs only after the forward and initial-objective gates
+   pass.
+5. Report any missing boundary form or independent boundary coefficient as a
+   framework decision; do not introduce it as an unrecorded replication tweak.
 
 **Done when:**
 
@@ -345,20 +359,19 @@ book's B1/B2 figures.
 - the source-sized matrices are regenerated only after the interpretation is
   settled; and
 - the benchmark report separates framework-native evidence, source comparison,
-  and unresolved source omissions.
+  and unresolved source omissions;
+- the cause of the no-control discrepancy is either localized or bounded by
+  explicit negative evidence; and
+- optimizer conclusions are gated on a forward interpretation that passes the
+  no-control checks.
 
-B1 meets these criteria under its frozen replacement contract. A6 remains open
-for B2.
+B1 meets these criteria under its frozen replacement contract. B2 remains open
+at the forward-state gate; its artifact and rendering evidence are complete.
 
-The first diagnostic input is:
-
-```text
-runs/chapter-6/b2/development/001/postprocessed/<case>/state.png
-```
-
-It is development evidence only. Do not change the frozen Galerkin,
-ordinary-normal, case, or mesh policy merely to make a plot look like the
-book.
+The current diagnostic basis is the
+[B2 replication report](../benchmarks/b2-replication.md). Continue from its
+forward-state candidate table and preserve the distinction between source
+facts, historically grounded hypotheses, and fitted controls.
 
 ### A7 — Add Deal.II-style parameter files
 
@@ -474,11 +487,12 @@ Known limitations:
 Next unit:
 ```
 
-The next handoff is the remaining A6 B2 reproduction audit. It should continue
-with development-only native-field inspection and post-processing experiments.
-Rebuilding `release-dealii` or replacing B2 authoritative artifacts requires
-an explicit permission request after the cause of any visual or numerical
-discrepancy is understood.
+The next handoff is the A6 B2 forward-state audit: begin with the no-control
+state and test only the remaining parameter-expressible, historically grounded
+boundary-partition and transport hypotheses. Use the existing
+`release-dealii` build without rebuilding it, and do not resume optimization
+until a candidate passes the range, shape, trend, peak-location, and refinement
+checks recorded in the B2 replication report.
 
 ## Exclusions
 

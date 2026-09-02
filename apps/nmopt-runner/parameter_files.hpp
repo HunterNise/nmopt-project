@@ -5,6 +5,7 @@
 #include "run_set_plan.hpp"
 
 #include <deal.II/base/parameter_handler.h>
+#include <deal.II/base/utilities.h>
 
 #include <algorithm>
 #include <array>
@@ -561,6 +562,10 @@ namespace nmopt::application::runner
         return std::make_shared<::dealii::Patterns::MultipleSelection>(
           "analytic-quadrature|state-fe-interpolation");
 
+      if (path == "Mesh/lower" || path == "Mesh/upper")
+        return std::make_shared<::dealii::Patterns::List>(
+          ::dealii::Patterns::Double());
+
       if (path == "Problem/control representation")
         return std::make_shared<::dealii::Patterns::MultipleSelection>(
           "cellwise-volume|continuous-volume-homogeneous-dirichlet|"
@@ -653,7 +658,6 @@ namespace nmopt::application::runner
                             "Benchmark/id",
                             {},
                             ParameterPresence::required);
-        add_section("Benchmark", {"label"});
         append_schema_entry(result,
                             "Benchmark/recipe",
                             {},
@@ -1202,32 +1206,12 @@ namespace nmopt::application::runner
   parameter_finite_list(const ParameterFile &file,
                         const std::string_view key)
   {
-    const auto text = detail::trim(file.value(key));
-    if (text.size() < 2 || text.front() != '(' || text.back() != ')')
-      throw std::invalid_argument(
-        "parameter '" + std::string(key) +
-        "' needs a parenthesized comma-separated list of finite numbers");
-
-    const auto contents = detail::trim(text.substr(1, text.size() - 2));
-    if (contents.empty())
-      return {};
-
+    const auto entries =
+      ::dealii::Utilities::split_string_list(file.value(key));
     std::vector<double> result;
-    std::size_t         begin = 0;
-    while (begin <= contents.size())
-      {
-        const auto end = contents.find(',', begin);
-        const auto item = detail::trim(contents.substr(
-          begin, end == std::string::npos ? std::string::npos : end - begin));
-        if (item.empty())
-          throw std::invalid_argument(
-            "parameter '" + std::string(key) +
-            "' needs a parenthesized comma-separated list of finite numbers");
-        result.push_back(parse_number_text(item, key));
-        if (end == std::string::npos)
-          break;
-        begin = end + 1;
-      }
+    result.reserve(entries.size());
+    for (const auto &entry : entries)
+      result.push_back(parse_number_text(entry, key));
     return result;
   }
 

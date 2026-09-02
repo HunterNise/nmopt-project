@@ -247,8 +247,8 @@ end
 
 subsection Mesh
   set dimension = 2
-  set lower = (0.0, 0.0)
-  set upper = (4.0, 1.0)
+  set lower = 0.0, 0.0
+  set upper = 4.0, 1.0
   set refinement = 1
   set provenance = test.rectangle
 end
@@ -371,6 +371,7 @@ end
     };
     require(std::none_of(registry.begin(), registry.end(), [](const auto &entry) {
               return entry.path == "Run/deterministic" ||
+                     entry.path == "Benchmark/label" ||
                      entry.path == "Run/serialize artifacts" ||
                      entry.path == "Run/measure memory" ||
                      entry.path == "Output/selected fields" ||
@@ -392,6 +393,9 @@ end
     require(find_entry("Runtime/diffusion").pattern->match("1.25") &&
               !find_entry("Runtime/diffusion").pattern->match("not-a-number"),
             "double schema pattern should reject non-numeric values");
+    require(find_entry("Mesh/lower").pattern->match("-1.5, 0.25") &&
+              !find_entry("Mesh/lower").pattern->match("(-1.5, 0.25)"),
+            "mesh bounds should use native deal.II list syntax");
     require(find_entry("Solver/globalization").pattern->match("armijo") &&
               !find_entry("Solver/globalization").pattern->match("unknown"),
             "selection schema pattern should reject unknown values");
@@ -806,8 +810,8 @@ end
   {
     auto file = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
-    file.values["Mesh/lower"] = "(-1.5, 0.25)";
-    file.values["Mesh/upper"] = "(3.5, 1.75)";
+    file.values["Mesh/lower"] = "-1.5, 0.25";
+    file.values["Mesh/upper"] = "3.5, 1.75";
     file.values["Mesh/refinement"] = "0";
     const auto combination = file.combinations().front();
     const auto scenario = resolve_b2_scenario_for_characterization(
@@ -838,7 +842,7 @@ end
             "B2 mesh construction ignored the configured bounds");
 
     auto invalid_size = file;
-    invalid_size.values["Mesh/lower"] = "(-1.5)";
+    invalid_size.values["Mesh/lower"] = "-1.5";
     const auto invalid_size_scenario =
       resolve_b2_scenario_for_characterization(
         invalid_size, invalid_size.combinations().front());
@@ -849,8 +853,8 @@ end
       "B2 accepted mesh bounds with the wrong dimension");
 
     auto invalid_order = file;
-    invalid_order.values["Mesh/lower"] = "(2.0, 0.25)";
-    invalid_order.values["Mesh/upper"] = "(1.0, 1.75)";
+    invalid_order.values["Mesh/lower"] = "2.0, 0.25";
+    invalid_order.values["Mesh/upper"] = "1.0, 1.75";
     const auto invalid_order_scenario =
       resolve_b2_scenario_for_characterization(
         invalid_order, invalid_order.combinations().front());
@@ -861,7 +865,7 @@ end
       "B2 accepted mesh bounds with reversed coordinates");
 
     auto invalid_finite = file;
-    invalid_finite.values["Mesh/lower"] = "(nan, 0.25)";
+    invalid_finite.values["Mesh/lower"] = "nan, 0.25";
     require_invalid_argument(
       [&] {
         (void)parameter_finite_list(invalid_finite, "Mesh/lower");

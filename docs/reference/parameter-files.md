@@ -275,11 +275,13 @@ objective. The matrix axis selects the definition ID, while
 `Observation/material id` supplies the externally meaningful material label.
 
 `Mesh/lower` and `Mesh/upper` are finite, dimension-sized point lists owned by
-the parameter file. For example, `set lower = (0.0, 0.0)` and
-`set upper = (4.0, 1.0)` define the B2 rectangle. Every selected mesh
+the parameter file. They use native deal.II comma-separated list syntax; for
+example, `set lower = 0.0, 0.0` and `set upper = 4.0, 1.0` define the B2
+rectangle. Every selected mesh
 generator consumes these typed bounds; `Mesh/geometry` is not a separate
-selector. `Mesh/generator` defaults to `framework-native`, which consumes
-`Mesh/refinement` and leaves the simplex entries unset. A simplex configuration
+selector. Tracked profiles state `Mesh/generator` explicitly. The
+`framework-native` generator consumes `Mesh/refinement` and leaves the simplex
+entries unset. A simplex configuration
 selects exactly one subdivision representation: positive `Mesh/subdivisions`
 for one isotropic count, or `Mesh/axis subdivisions` for a comma-separated
 positive count along each mesh axis. The per-axis list must have
@@ -313,6 +315,11 @@ solves even though the shared scenario carries fallback iterative values.
 every independent control coefficient before the first solve. This is the
 supported initial-control capability; a spatial expression would require a
 separate projection capability and is not accepted here.
+
+Tracked B2 profiles also state the operative zero minimum step length and the
+disabled objective-target policy explicitly. These values may be changed in a
+development parameter file without adding a solver branch or rebuilding the
+runner.
 
 Deterministic artifact identity and serialization are runner invariants, not
 run-time switches. `Run/measure timings` is the only harness measurement

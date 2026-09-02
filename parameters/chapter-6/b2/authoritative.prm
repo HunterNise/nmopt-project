@@ -3,7 +3,6 @@
 
 subsection Benchmark
   set id = chapter-6.b2.graetz-flow
-  set label = E6.5.2 Graetz-flow boundary control
   set recipe = chapter-5.scalar-neumann-convection-subdomain
   set source reference = E6.5.2 equation (6.65), Table 6.2, Figures 6.4-6.5
   set source revision = 1aaefbe473f9941a89d1df36192251511c052933
@@ -87,8 +86,9 @@ end
 
 subsection Mesh
   set dimension = 2
-  set lower = (0.0, 0.0)
-  set upper = (4.0, 1.0)
+  set lower = 0.0, 0.0
+  set upper = 4.0, 1.0
+  set generator = framework-native
   set refinement = 7
   set provenance = chapter-6.e6.5.2.framework-native-rectangle-r7
 end
@@ -121,9 +121,12 @@ subsection Solver
   set relative gradient tolerance = 0.0
   set objective change tolerance = 0.0
   set step tolerance = 0.0
+  set objective target = none
+  set objective target policy = none
   set initial step length = 1.0
   set Armijo fraction = 1e-4
   set backtracking factor = 0.5
+  set minimum step length = 0.0
 
   subsection method policy bfgs
     set curvature tolerance = 1e-14

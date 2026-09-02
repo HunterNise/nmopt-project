@@ -57,6 +57,10 @@ def main() -> int:
         configuration.comparison_plan.group_by == (),
         "comparison 'none' sentinel was treated as a matrix axis",
     )
+    require(
+        configuration.fields == (),
+        "removed selected-field parameter unexpectedly remained authoritative",
+    )
 
     profile = load_json_profile(
         REPOSITORY_ROOT / "parameters/plotting/chapter-6-b1.json"
@@ -72,8 +76,12 @@ def main() -> int:
     )
     require(
         {field.output_name for field in effective.volume_fields}
-        == set(configuration.fields),
-        "selected plotting fields did not come from the .prm file",
+        == {field.output_name for field in profile.volume_fields}
+        and {
+            field.output_name for field in effective.boundary_fields
+        }
+        == {field.output_name for field in profile.boundary_fields},
+        "the fixed plotting field inventory was not retained without a selection",
     )
 
     b2_configuration = load_postprocess_configuration(
@@ -151,7 +159,7 @@ def main() -> int:
         )
         require(
             provenance["parameters"]["content_hash"]
-            == "fnv1a64:c118220bc5bd1849",
+            == "fnv1a64:257905ca5cbe9055",
             "parameter provenance hash was not retained",
         )
         require(

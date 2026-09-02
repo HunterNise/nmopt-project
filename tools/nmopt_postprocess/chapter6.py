@@ -331,40 +331,52 @@ def with_parameter_configuration(
 
     selected = set(configuration.fields)
 
-    def matches(field: FieldSpec) -> bool:
-        keys = {field.output_name, field.mesh_name, field.mesh_name.replace("_", "-")}
-        if field.output_name == "state-no-control":
-            keys.add("state-uncontrolled")
-        return bool(keys & selected)
-
-    configured_fields = profile.volume_fields + profile.boundary_fields
-    unknown = selected.difference(
-        {
-            key
-            for field in configured_fields
-            for key in (
+    if selected:
+        def matches(field: FieldSpec) -> bool:
+            keys = {
                 field.output_name,
                 field.mesh_name,
                 field.mesh_name.replace("_", "-"),
-                "state-uncontrolled"
-                if field.output_name == "state-no-control"
-                else "",
-            )
-            if key
-        }
-    )
-    if unknown:
-        raise ValueError(
-            "post-processing fields are not present in the style profile: "
-            + ", ".join(sorted(unknown))
+            }
+            if field.output_name == "state-no-control":
+                keys.add("state-uncontrolled")
+            return bool(keys & selected)
+
+        configured_fields = profile.volume_fields + profile.boundary_fields
+        unknown = selected.difference(
+            {
+                key
+                for field in configured_fields
+                for key in (
+                    field.output_name,
+                    field.mesh_name,
+                    field.mesh_name.replace("_", "-"),
+                    "state-uncontrolled"
+                    if field.output_name == "state-no-control"
+                    else "",
+                )
+                if key
+            }
         )
+        if unknown:
+            raise ValueError(
+                "post-processing fields are not present in the style profile: "
+                + ", ".join(sorted(unknown))
+            )
+        volume_fields = tuple(
+            field for field in profile.volume_fields if matches(field)
+        )
+        boundary_fields = tuple(
+            field for field in profile.boundary_fields if matches(field)
+        )
+    else:
+        volume_fields = profile.volume_fields
+        boundary_fields = profile.boundary_fields
 
     return replace(
         profile,
-        volume_fields=tuple(field for field in profile.volume_fields if matches(field)),
-        boundary_fields=tuple(
-            field for field in profile.boundary_fields if matches(field)
-        ),
+        volume_fields=volume_fields,
+        boundary_fields=boundary_fields,
         comparison_plan=configuration.comparison_plan,
         matrix_axis_values=configuration.matrix_axes,
         matrix_combinations=configuration.matrix_combinations,

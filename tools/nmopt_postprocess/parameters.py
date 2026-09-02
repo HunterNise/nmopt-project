@@ -207,8 +207,6 @@ def load_postprocess_configuration(path: Path) -> PostprocessConfiguration:
         _value(values, "Postprocessing", "fields")
         or _value(values, "Output", "selected fields")
     )
-    if not fields:
-        raise ValueError(f"'{path}' must declare post-processing fields")
 
     rows = _comparison_axes(_value(values, "Postprocessing", "comparison rows"))
     columns = _comparison_axes(

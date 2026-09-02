@@ -129,7 +129,7 @@ end
 subsection Solver
   set method = bfgs
   set globalization = fixed-step
-  set initial control = zero
+  set initial independent control value = 0.0
   set maximum iterations = 100
   set maximum line search trials = 20
   set gradient tolerance = 1e-30
@@ -140,6 +140,10 @@ subsection Solver
   set initial step length = 0.05
   set Armijo fraction = 1e-4
   set backtracking factor = 0.5
+
+  subsection method policy bfgs
+    set curvature tolerance = 1e-14
+  end
 end
 
 subsection Run

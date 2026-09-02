@@ -56,6 +56,26 @@ namespace nmopt::application::chapter6::dealii
                                               options.selection_seed);
     }
 
+    template <typename Backend>
+    contract::PrimalBlockT<Backend>
+    make_b1_uniform_control(const contract::LayoutPtr &layout,
+                            const double              value)
+    {
+      if (!std::isfinite(value))
+        throw std::invalid_argument(
+          "B1 initial independent control value must be finite");
+      std::vector<typename Backend::Vector> blocks;
+      blocks.reserve(layout->n_blocks());
+      for (std::size_t block = 0; block < layout->n_blocks(); ++block)
+        {
+          auto values = Backend::zeros(layout->dimension(block));
+          for (std::size_t index = 0; index < layout->dimension(block); ++index)
+            Backend::set_value(values, index, value);
+          blocks.push_back(std::move(values));
+        }
+      return contract::PrimalBlockT<Backend>(layout, std::move(blocks));
+    }
+
   } // namespace detail
 
   template <int dim>
@@ -440,7 +460,8 @@ namespace nmopt::application::chapter6::dealii
       const contract::StateControlPartitionT<Backend> partition(
         compilation.problem->executable_model(), 0, 1);
       const auto initial_control =
-        contract::PrimalBlockT<Backend>::zeros(partition.control_layout());
+        detail::make_b1_uniform_control<Backend>(
+          partition.control_layout(), scenario.solver.initial_control_value);
       const auto hessian_evidence =
         make_b1_hessian_evidence(*compilation.problem, initial_control);
 
@@ -585,7 +606,8 @@ namespace nmopt::application::chapter6::dealii
          b1_number(hessian_evidence.finite_difference_error)},
         {"b1.hessian_finite_difference_passed", "true"},
         {"solver.method", b1_method_name(scenario.solver.method)},
-        {"solver.initial_control", scenario.solver.initial_control},
+        {"solver.initial_control_value",
+         b1_number(scenario.solver.initial_control_value)},
         {"solver.policy", report_value.policy_name},
         {"solver.stopping_reason",
          solvers::reduced_stopping_reason_name(report_value.stopping_reason)},

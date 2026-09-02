@@ -161,7 +161,7 @@ namespace nmopt::application::runner
 
   namespace detail
   {
-    inline constexpr std::array<const char *, 15> method_policy_entries = {
+    inline constexpr std::array<const char *, 12> shared_method_policy_entries = {
       {"maximum iterations",
        "maximum line search trials",
        "maximum backtracking reductions",
@@ -173,10 +173,12 @@ namespace nmopt::application::runner
        "initial step length",
        "Armijo fraction",
        "backtracking factor",
-       "minimum step length",
-       "memory",
-       "curvature tolerance",
-       "initial inverse Hessian scaling"}};
+       "minimum step length"}};
+    inline constexpr std::array<const char *, 3>
+      limited_memory_bfgs_policy_entries = {
+        {"memory", "curvature tolerance", "initial inverse Hessian scaling"}};
+    inline constexpr std::array<const char *, 1> full_bfgs_policy_entries = {
+      {"curvature tolerance"}};
 
     inline std::string hash_text(const std::string &text);
   }
@@ -613,7 +615,7 @@ namespace nmopt::application::runner
 
       if (entry == "diffusion" || entry == "reaction" ||
           entry == "regularisation" || entry == "upstream transition" ||
-          entry == "value" ||
+          entry == "value" || entry == "initial independent control value" ||
           ends_with(entry, "tolerance") || entry == "initial step length" ||
           entry == "Armijo fraction" || entry == "backtracking factor" ||
           entry == "minimum step length")
@@ -638,6 +640,22 @@ namespace nmopt::application::runner
                           default_value,
                           pattern_for(path),
                           presence});
+    }
+
+    inline void
+    append_method_policy_schema_entries(
+      std::vector<ParameterSchemaEntry> &registry,
+      const std::string_view              method)
+    {
+      const auto prefix = "Solver/method policy " + std::string(method) + "/";
+      for (const auto *entry : shared_method_policy_entries)
+        append_schema_entry(registry, prefix + entry);
+      if (method == "l-bfgs")
+        for (const auto *entry : limited_memory_bfgs_policy_entries)
+          append_schema_entry(registry, prefix + entry);
+      else if (method == "bfgs")
+        for (const auto *entry : full_bfgs_policy_entries)
+          append_schema_entry(registry, prefix + entry);
     }
 
     inline void
@@ -742,7 +760,7 @@ namespace nmopt::application::runner
         append_schema_entry(result, "Solver/globalization", "armijo");
         add_section("Solver",
                     {"method",
-                     "initial control",
+                     "initial independent control value",
                      "maximum iterations",
                      "maximum line search trials",
                      "maximum backtracking reductions",
@@ -758,11 +776,6 @@ namespace nmopt::application::runner
                      "Armijo fraction",
                      "backtracking factor",
                      "minimum step length"});
-        for (const auto *method : {"steepest-descent", "l-bfgs", "bfgs"})
-          for (const auto *entry : method_policy_entries)
-            append_schema_entry(result,
-                                "Solver/method policy " + std::string(method) +
-                                  "/" + entry);
 
         add_section("Run",
                     {"kind",
@@ -1048,6 +1061,29 @@ namespace nmopt::application::runner
       declare_schema(discovery_handler, registry);
       std::istringstream input_stream(content);
       discovery_handler.parse_input(input_stream, source, "", true);
+
+      const auto has_schema_path = [&](const std::string &path) {
+        return std::any_of(registry.begin(), registry.end(),
+                           [&](const auto &entry) {
+                             return entry.path == path;
+                           });
+      };
+      std::vector<std::string> method_ids;
+      if (has_schema_path("Matrix/method"))
+        method_ids = split_list(get_path(discovery_handler, "Matrix/method"));
+      else if (has_schema_path("Solver/method"))
+        {
+          const auto method = get_path(discovery_handler, "Solver/method");
+          if (!method.empty())
+            method_ids.push_back(method);
+        }
+      for (std::size_t index = 0; index < method_ids.size(); ++index)
+        {
+          if (std::find(method_ids.begin(), method_ids.begin() + index,
+                        method_ids[index]) != method_ids.begin() + index)
+            continue;
+          append_method_policy_schema_entries(registry, method_ids[index]);
+        }
 
       for (const auto &definition_schema : adapter.scalar_definitions)
         {

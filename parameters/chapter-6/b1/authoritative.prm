@@ -78,7 +78,7 @@ subsection Compile
 end
 
 subsection Solver
-  set initial control = zero
+  set initial independent control value = 0.0
   set maximum iterations = 5000
   set maximum backtracking reductions = 5
   set stopping criterion = automatic

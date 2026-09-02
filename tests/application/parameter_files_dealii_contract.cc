@@ -282,7 +282,7 @@ end
 subsection Solver
   set method = bfgs
   set globalization = armijo
-  set initial control = zero
+  set initial independent control value = 0.0
   set maximum iterations = 2
   set maximum line search trials = 20
   set gradient tolerance = 1e-8
@@ -293,6 +293,10 @@ subsection Solver
   set initial step length = 1.0
   set Armijo fraction = 1e-4
   set backtracking factor = 0.5
+
+  subsection method policy bfgs
+    set curvature tolerance = 1e-14
+  end
 end
 
 subsection Run
@@ -356,8 +360,19 @@ end
         required_entries += entry.presence ==
                             nmopt::application::runner::ParameterPresence::required;
       }
-    require(exclusion_file.values.size() == registry.size() && required_entries == 2,
+    require(exclusion_file.values.size() > registry.size() && required_entries == 2,
             "schema registry and extraction accounting is incomplete");
+    require(
+      exclusion_file.values.count(
+        "Solver/method policy steepest-descent/maximum iterations") == 1 &&
+        exclusion_file.values.count("Solver/method policy l-bfgs/memory") == 1 &&
+        exclusion_file.values.count(
+          "Solver/method policy l-bfgs/initial inverse Hessian scaling") == 1 &&
+        exclusion_file.values.count(
+          "Solver/method policy bfgs/curvature tolerance") == 0 &&
+        exclusion_file.values.count(
+          "Solver/method policy steepest-descent/memory") == 0,
+      "method-specific schema discovery exposed the wrong solver leaves");
 
     const auto find_entry = [&](const std::string &path) -> const auto & {
       const auto found = std::find_if(
@@ -395,6 +410,16 @@ end
                              return entry.path == "Matrix/forcing";
                            }),
             "benchmark schema adapters must own their matrix axes");
+
+    const auto b2_file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    require(
+      b2_file.values.count(
+        "Solver/method policy bfgs/curvature tolerance") == 1 &&
+        b2_file.values.count("Solver/method policy l-bfgs/memory") == 0 &&
+        b2_file.values.count("Solver/method policy l-bfgs/initial inverse Hessian scaling") ==
+          0,
+      "B2 schema discovery exposed L-BFGS policy leaves for full BFGS");
   }
 
   void
@@ -939,7 +964,7 @@ end
           "B1 resolution changed effective mesh or compile policy");
 
         require(
-          scenario.solver.initial_control == "zero" &&
+          scenario.solver.initial_control_value == 0.0 &&
             scenario.solver.objective_target_policy ==
               nmopt::application::chapter6::ObjectiveTargetPolicy::none &&
             scenario.solver.parameters.maximum_iterations == 5000 &&
@@ -1104,14 +1129,15 @@ end
               nmopt::application::chapter6::ReducedMethod::bfgs &&
             scenario.solver.globalization ==
               nmopt::application::chapter6::ReducedGlobalization::armijo &&
-            scenario.solver.initial_control == "zero" &&
+            scenario.solver.initial_control_value == 0.0 &&
             scenario.solver.parameters.maximum_iterations == 100 &&
             scenario.solver.parameters.maximum_line_search_trials == 20 &&
             scenario.solver.parameters.gradient_tolerance == 1.0e-8 &&
             scenario.solver.parameters.initial_step_length == 1.0 &&
             scenario.solver.parameters.armijo_fraction == 1.0e-4 &&
             scenario.solver.parameters.backtracking_factor == 0.5 &&
-            scenario.solver.parameters.minimum_step_length == 0.0,
+            scenario.solver.parameters.minimum_step_length == 0.0 &&
+            scenario.solver.full_bfgs.curvature_tolerance == 1.0e-14,
           "B2 resolution changed the frozen solver policy");
       }
 
@@ -1334,9 +1360,18 @@ end
 
     const auto b2_file = read_parameter_file(find_file_from_current_or_parent(
       "parameters/chapter-6/b2/authoritative.prm"));
+    auto b2_customized_file = b2_file;
+    b2_customized_file.values["Solver/initial independent control value"] =
+      "0.25";
+    b2_customized_file.values[
+      "Solver/method policy bfgs/curvature tolerance"] =
+      "1e-8";
     const auto b2_combination = b2_file.combinations().front();
     auto b2_scenario = resolve_b2_scenario_for_characterization(
-      b2_file, b2_combination);
+      b2_customized_file, b2_combination);
+    require(b2_scenario.solver.initial_control_value == 0.25 &&
+              b2_scenario.solver.full_bfgs.curvature_tolerance == 1.0e-8,
+            "changed B2 solver numerics were not bound from the parameter file");
     b2_scenario.compile.mesh.refinement = 1;
     b2_scenario.compile.mesh.mesh_provenance =
       "test.parameter-resolution.b2-small-mesh";
@@ -1419,6 +1454,15 @@ end
               b2_result.document.find("parameters.target-profile=constant\n") !=
                 std::string::npos,
             "B2 artifact lost parameter-file provenance");
+    require(
+      b2_result.document.find("solver.initial_control_value=0.25\n") !=
+          std::string::npos &&
+        b2_result.document.find("solver.full_bfgs_curvature_tolerance=1e-08\n") !=
+          std::string::npos &&
+        b2_result.document.find(
+          "b2.initial_control_regularisation_objective=0\n") ==
+          std::string::npos,
+      "changed B2 solver numerics did not affect execution evidence");
     require_binding_provenance(
       b2_result.artifact.envelope().compilation_manifest(),
       "forcing",

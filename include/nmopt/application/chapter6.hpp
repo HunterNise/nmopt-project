@@ -178,13 +178,14 @@ namespace nmopt::application::chapter6
     ReducedGlobalization           globalization = ReducedGlobalization::armijo;
     solvers::ReducedSolverParameters parameters;
     solvers::LimitedMemoryBfgsParameters limited_memory_bfgs;
+    solvers::FullBfgsParameters             full_bfgs;
     ObjectiveTargetPolicy              objective_target_policy =
       ObjectiveTargetPolicy::none;
     std::string objective_target_reference_method;
     // Retained for old benchmark files that recorded a source value without
     // executing it. New experiments use parameters.minimum_step_length.
     std::optional<double> declared_minimum_step_length = std::nullopt;
-    std::string           initial_control = "zero";
+    double                initial_control_value = 0.0;
   };
 
   struct ExperimentOptions
@@ -618,10 +619,19 @@ namespace nmopt::application::chapter6
   }
 
   inline void
+  validate_initial_control_value(const SolverOptions &options)
+  {
+    if (!std::isfinite(options.initial_control_value))
+      throw std::invalid_argument(
+        "initial independent control value must be finite");
+  }
+
+  inline void
   validate_b1(const B1Scenario &scenario)
   {
     scenario.validate();
     validate_common_compile_options(scenario.compile);
+    validate_initial_control_value(scenario.solver);
     if (scenario.compile.volume_observation)
       throw std::invalid_argument(
         "B1 does not select a material-subdomain volume observation policy");
@@ -754,6 +764,11 @@ namespace nmopt::application::chapter6
   {
     scenario.validate();
     validate_common_compile_options(scenario.compile);
+    validate_initial_control_value(scenario.solver);
+    if (!std::isfinite(scenario.solver.full_bfgs.curvature_tolerance) ||
+        scenario.solver.full_bfgs.curvature_tolerance <= 0.0)
+      throw std::invalid_argument(
+        "full BFGS curvature tolerance must be positive and finite");
     validate_runtime_data(scenario.problem.data);
     validate_b2_transport_boundary_form(
       scenario.problem.transport_boundary_form);
@@ -1030,10 +1045,11 @@ namespace nmopt::application::chapter6
        globalization,
        {},
        {},
+       {},
        ObjectiveTargetPolicy::none,
        "",
        std::nullopt,
-       "zero"},
+       0.0},
       {scenario_id,
        "E6.5.2 equation (6.65), Table 6.2, Figures 6.4-6.5",
        chapter6_numerical_examples_source_revision,

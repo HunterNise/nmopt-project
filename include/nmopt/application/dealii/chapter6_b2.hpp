@@ -108,6 +108,26 @@ namespace nmopt::application::chapter6::dealii
         }
       return function;
     }
+
+    template <typename Backend>
+    contract::PrimalBlockT<Backend>
+    make_b2_uniform_control(const contract::LayoutPtr &layout,
+                            const double              value)
+    {
+      if (!std::isfinite(value))
+        throw std::invalid_argument(
+          "B2 initial independent control value must be finite");
+      std::vector<typename Backend::Vector> blocks;
+      blocks.reserve(layout->n_blocks());
+      for (std::size_t block = 0; block < layout->n_blocks(); ++block)
+        {
+          auto values = Backend::zeros(layout->dimension(block));
+          for (std::size_t index = 0; index < layout->dimension(block); ++index)
+            Backend::set_value(values, index, value);
+          blocks.push_back(std::move(values));
+        }
+      return contract::PrimalBlockT<Backend>(layout, std::move(blocks));
+    }
   } // namespace detail
 
   template <int dim>
@@ -766,7 +786,8 @@ namespace nmopt::application::chapter6::dealii
       const contract::StateControlPartitionT<Backend> partition(
         compilation.problem->executable_model(), 0, 1);
       const auto initial_control =
-        contract::PrimalBlockT<Backend>::zeros(partition.control_layout());
+        detail::make_b2_uniform_control<Backend>(
+          partition.control_layout(), scenario.solver.initial_control_value);
       const auto initial_evaluation = reduced.evaluate(initial_control);
       const auto derivative_evidence = make_b2_derivative_evidence(
         *compilation.problem, reduced, partition, initial_control);
@@ -777,13 +798,17 @@ namespace nmopt::application::chapter6::dealii
               return solvers::ReducedFullBfgsSolverT<Backend>(
                        reduced,
                        compilation.problem->metric(),
-                       scenario.solver.parameters)
+                       scenario.solver.parameters,
+                       solvers::FullBfgsDirectionPolicyT<Backend>(
+                         scenario.solver.full_bfgs))
                 .solve(initial_control);
             case ReducedGlobalization::fixed_step:
               return solvers::ReducedFixedStepFullBfgsSolverT<Backend>(
                        reduced,
                        compilation.problem->metric(),
-                       scenario.solver.parameters)
+                       scenario.solver.parameters,
+                       solvers::FullBfgsDirectionPolicyT<Backend>(
+                         scenario.solver.full_bfgs))
                 .solve(initial_control);
           }
         throw std::invalid_argument(
@@ -1059,7 +1084,10 @@ namespace nmopt::application::chapter6::dealii
         {"solver.method", "bfgs"},
         {"solver.globalization",
          reduced_globalization_name(scenario.solver.globalization)},
-        {"solver.initial_control", scenario.solver.initial_control},
+        {"solver.initial_control_value",
+         b2_number(scenario.solver.initial_control_value)},
+        {"solver.full_bfgs_curvature_tolerance",
+         b2_number(scenario.solver.full_bfgs.curvature_tolerance)},
         {"solver.policy", report.policy_name},
         {"solver.stopping_reason",
          solvers::reduced_stopping_reason_name(report.stopping_reason)},

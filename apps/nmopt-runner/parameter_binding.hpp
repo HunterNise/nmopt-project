@@ -165,7 +165,8 @@ namespace nmopt::application::runner::binding
       return resolve_method_parameter(file, method_id, entry);
     };
 
-    solver.initial_control = file.value("Solver/initial control");
+    solver.initial_control_value =
+      parameter_double(file, "Solver/initial independent control value");
     const auto maximum_iterations = resolve("maximum iterations");
     solver.parameters.maximum_iterations = parse_unsigned_text(
       maximum_iterations.value, maximum_iterations.key);
@@ -270,26 +271,34 @@ namespace nmopt::application::runner::binding
     else
       solver.parameters.minimum_step_length = 0.0;
 
-    const auto memory = file.optional_value(method_prefix + "memory");
-    if (!memory.empty())
-      solver.limited_memory_bfgs.memory_size =
-        parse_unsigned_text(memory, method_prefix + "memory");
-    const auto curvature =
-      file.optional_value(method_prefix + "curvature tolerance");
-    if (!curvature.empty())
-      solver.limited_memory_bfgs.curvature_tolerance = parse_number_text(
-        curvature, method_prefix + "curvature tolerance");
-    const auto scaling =
-      file.optional_value(method_prefix + "initial inverse Hessian scaling");
-    if (!scaling.empty() && scaling != "metric-inverse" &&
-        scaling != "scalar-secant")
-      throw std::invalid_argument("unknown L-BFGS initial scaling '" + scaling +
-                                  "'");
-    if (scaling == "metric-inverse")
-      solver.limited_memory_bfgs.initial_inverse_hessian_scaling =
-        nmopt::solvers::LimitedMemoryBfgsInitialScaling::metric_inverse;
-    else if (scaling == "scalar-secant")
-      solver.limited_memory_bfgs.initial_inverse_hessian_scaling =
-        nmopt::solvers::LimitedMemoryBfgsInitialScaling::scalar_secant;
+    if (method_id == "l-bfgs")
+      {
+        const auto memory = file.optional_value(method_prefix + "memory");
+        if (!memory.empty())
+          solver.limited_memory_bfgs.memory_size =
+            parse_unsigned_text(memory, method_prefix + "memory");
+        const auto curvature =
+          file.optional_value(method_prefix + "curvature tolerance");
+        if (!curvature.empty())
+          solver.limited_memory_bfgs.curvature_tolerance = parse_number_text(
+            curvature, method_prefix + "curvature tolerance");
+        const auto scaling = file.optional_value(
+          method_prefix + "initial inverse Hessian scaling");
+        if (!scaling.empty() && scaling != "metric-inverse" &&
+            scaling != "scalar-secant")
+          throw std::invalid_argument(
+            "unknown L-BFGS initial scaling '" + scaling + "'");
+        if (scaling == "metric-inverse")
+          solver.limited_memory_bfgs.initial_inverse_hessian_scaling =
+            nmopt::solvers::LimitedMemoryBfgsInitialScaling::metric_inverse;
+        else if (scaling == "scalar-secant")
+          solver.limited_memory_bfgs.initial_inverse_hessian_scaling =
+            nmopt::solvers::LimitedMemoryBfgsInitialScaling::scalar_secant;
+      }
+    else if (method_id == "bfgs")
+      {
+        const auto key = method_prefix + "curvature tolerance";
+        solver.full_bfgs.curvature_tolerance = parameter_double(file, key);
+      }
   }
 } // namespace nmopt::application::runner::binding

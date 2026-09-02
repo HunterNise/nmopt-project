@@ -231,9 +231,10 @@ their respective documents.
 
 The public catalog exposes the four B2 records through the Cartesian product
 of the independent observation-region and target-profile selections in
-`make_catalog()`. The application owns their stable IDs and recipe/runtime
-construction; the benchmark specification owns the observation/target values
-and frozen run matrix.
+`make_catalog()`. Production parameter files carry the selected observation
+ID and its scalar indicator definition; the application owns the stable IDs
+and recipe/runtime construction, while the benchmark specification owns the
+observation/target values and frozen run matrix.
 
 ### B2 backend execution adapter
 
@@ -254,12 +255,13 @@ complete manufactured-data path is:
 #include "nmopt/application/dealii/chapter6_b2.hpp"
 
 const auto scenario =
-  nmopt::application::chapter6::make_b2_scenario(graetz_case);
+  nmopt::application::chapter6::make_b2_scenario(
+    nmopt::application::chapter6::B2ObservationRegion::wings);
 const auto specification =
   nmopt::application::chapter6::make_b2_problem_spec(scenario);
 
 nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data{
-  graetz_case,
+  nmopt::application::chapter6::b2_manufactured_wings_observation(),
   scenario.problem.fixed_dirichlet_data,
   scenario.problem.forcing,
   nmopt::application::chapter6::b2_target_definition(

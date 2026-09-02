@@ -82,8 +82,8 @@ namespace
     const nmopt::application::runner::ParameterFile &file,
     const nmopt::application::runner::ParameterCombination &combination)
   {
-    const auto observation_region =
-      b2_observation_region_from_combination(combination);
+    const auto &observation_region =
+      combination_value(combination, "observation-region");
     const auto target_profile = combination_value(combination, "target-profile");
     auto scenario = nmopt::application::chapter6::make_b2_scenario(
       observation_region, target_profile);
@@ -148,7 +148,12 @@ namespace
   }
 
   nmopt::application::runner::ParameterFile
-  read_b2_scalar_discovery_parameter_file()
+  read_b2_scalar_discovery_parameter_file(
+    const std::string_view observation_expression =
+      "x0 > 1.0 ? (x1 < 0.3 ? 1 : (x1 > 0.7 ? 1 : 0)) : 0",
+    const unsigned int fixed_boundary_id = 0,
+    const unsigned int control_boundary_id = 1,
+    const unsigned int outflow_boundary_id = 2)
   {
     const auto path = std::filesystem::temp_directory_path() /
                       "nmopt-b2-scalar-discovery-contract.prm";
@@ -175,6 +180,16 @@ end
 
 subsection Observation
   set material id = 1
+  set realization = cell-center-indicator
+
+  subsection region definitions
+    subsection wings
+      set kind = expression
+      set expression = )prm"
+           << observation_expression << R"prm(
+      set provenance = test.wings-observation
+    end
+  end
 end
 
 subsection Functions
@@ -222,14 +237,13 @@ subsection Runtime
 end
 
 subsection Boundary
-  set fixed region = dirichlet-boundary
-  set fixed boundary id = 0
-  set control region = control-boundary
-  set control boundary id = 1
-  set outflow region = outflow-boundary
-  set outflow boundary id = 2
-  set upstream transition x = 1.0
-  set outflow x = 4.0
+  set fixed id = )prm"
+           << fixed_boundary_id << R"prm(
+  set control id = )prm"
+           << control_boundary_id << R"prm(
+  set outflow id = )prm"
+           << outflow_boundary_id << R"prm(
+  set upstream transition = 1.0
   set transport boundary form = ordinary-normal-minus-transport
   set conormal form = unspecified
   set normal orientation = outward
@@ -988,18 +1002,17 @@ end
           combination_value(combination, "target-profile");
         const auto scenario =
           resolve_b2_scenario_for_characterization(file, combination);
-        const auto observation_region =
-          b2_observation_region_from_combination(combination);
+        const auto &observation_region =
+          combination_value(combination, "observation-region");
         const auto &target = nmopt::application::chapter6::b2_target_definition(
           scenario.problem.target_catalog);
         const auto expected_metadata_id =
-          observation_region ==
-              nmopt::application::chapter6::B2ObservationRegion::wings &&
+          observation_region == "wings" &&
           target_profile == "constant"
             ? std::string("chapter-6.b2.graetz-flow")
             : std::string("chapter-6.b2.graetz-flow.") +
-                nmopt::application::chapter6::b2_case_name(
-                  observation_region, target_profile);
+                  nmopt::application::chapter6::b2_case_name(
+                    observation_region, target_profile);
 
         require(scenario.metadata.id == expected_metadata_id &&
                   scenario.metadata.recipe_id ==
@@ -1139,8 +1152,7 @@ end
                   scenario.problem.forcing.provenance == expected_provenance &&
                   scenario.problem.data.forcing_provenance ==
                     expected_provenance &&
-                  scenario.problem.observation_region ==
-                    nmopt::application::chapter6::B2ObservationRegion::wings &&
+                  scenario.problem.observation_region == "wings" &&
                   scenario.problem.target_profile == "constant" &&
                   scenario.problem.data.regularisation_weight == 1.0e-3 &&
                   scenario.compile.mesh.refinement == 6 &&
@@ -1336,7 +1348,8 @@ end
                                   "nmopt-parameter-resolution-b2";
     std::filesystem::remove_all(b2_native_output);
     nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> b2_data{
-      b2_scenario.problem.observation_region,
+      nmopt::application::selected_scalar_function_definition(
+        b2_scenario.problem.observation_region_catalog),
       b2_scenario.problem.fixed_dirichlet_data,
       b2_scenario.problem.forcing,
       nmopt::application::chapter6::b2_target_definition(
@@ -1729,6 +1742,89 @@ end
   }
 
   void
+  test_b2_observation_and_boundary_numerics_are_prm_owned()
+  {
+    const auto default_file = read_b2_scalar_discovery_parameter_file();
+    const auto customized_file = read_b2_scalar_discovery_parameter_file(
+      "x0 > 1.0 ? (x1 < 0.6 ? 1 : 0) : 0", 7, 8, 9);
+
+    auto default_scenario =
+      nmopt::application::chapter6::make_b2_scenario_with_target_catalog(
+        "wings",
+        "candidate-target",
+        nmopt::application::runner::b2_target_catalog(
+          default_file, "candidate-target"));
+    bind_b2_scenario(default_scenario,
+                     default_file,
+                     default_file.combinations().front(),
+                     "chapter-6.b2.graetz-flow.wings-candidate-target");
+    auto customized_scenario =
+      nmopt::application::chapter6::make_b2_scenario_with_target_catalog(
+        "wings",
+        "candidate-target",
+        nmopt::application::runner::b2_target_catalog(
+          customized_file, "candidate-target"));
+    bind_b2_scenario(customized_scenario,
+                     customized_file,
+                     customized_file.combinations().front(),
+                     "chapter-6.b2.graetz-flow.wings-candidate-target");
+    const auto default_session =
+      nmopt::application::chapter6::dealii::make_b2_compilation_session<2>(
+        default_scenario);
+    const auto customized_session =
+      nmopt::application::chapter6::dealii::make_b2_compilation_session<2>(
+        customized_scenario);
+
+    const auto observation_summary = [](const auto &session, const auto &scenario) {
+      std::size_t observed_cells = 0;
+      double      observed_measure = 0.0;
+      for (const auto &cell : session->triangulation().active_cell_iterators())
+        if (cell->material_id() ==
+            scenario.problem.recipe.observed_material_id)
+          {
+            ++observed_cells;
+            observed_measure += cell->measure();
+          }
+      return std::pair<std::size_t, double>{observed_cells, observed_measure};
+    };
+    const auto default_observation =
+      observation_summary(default_session, default_scenario);
+    const auto customized_observation =
+      observation_summary(customized_session, customized_scenario);
+    require(default_observation.first == 2 &&
+              std::abs(default_observation.second - 2.0) < 1.0e-12 &&
+              customized_observation.first == 1 &&
+              std::abs(customized_observation.second - 1.0) < 1.0e-12,
+            "B2 observation classification did not follow the edited .prm expression");
+
+    require(customized_scenario.problem.boundary.fixed_id == 7 &&
+              customized_scenario.problem.boundary.control_id == 8 &&
+              customized_scenario.problem.boundary.outflow_id == 9,
+            "B2 boundary IDs were not retained from the edited .prm file");
+    std::array<std::size_t, 3> boundary_face_counts{};
+    for (const auto &cell :
+         customized_session->triangulation().active_cell_iterators())
+      for (unsigned int face = 0; face < cell->n_faces(); ++face)
+        if (cell->face(face)->at_boundary())
+          {
+            const auto boundary_id = cell->face(face)->boundary_id();
+            if (boundary_id == customized_scenario.problem.boundary.fixed_id)
+              ++boundary_face_counts[0];
+            else if (boundary_id ==
+                     customized_scenario.problem.boundary.control_id)
+              ++boundary_face_counts[1];
+            else if (boundary_id ==
+                     customized_scenario.problem.boundary.outflow_id)
+              ++boundary_face_counts[2];
+            else
+              throw std::runtime_error(
+                "B2 customized mesh has an unclassified boundary face");
+          }
+    require(boundary_face_counts == std::array<std::size_t, 3>{{2, 4, 2}},
+            "B2 customized boundary geometry did not retain the .prm IDs");
+  }
+
+  void
   test_sparse_matrix_exclusions_are_validated_and_applied()
   {
     const std::string excluded =
@@ -1990,6 +2086,11 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "benchmark", "runner", "contract"},
          30,
          test_b2_scalar_definitions_are_discovered_from_prm_ids},
+        {"b2_observation_and_boundary_numerics_are_prm_owned",
+         "nmopt.parameter_files.b2_observation_and_boundary_numerics_are_prm_owned",
+         {"backend", "dealii", "application", "benchmark", "runner", "contract"},
+         30,
+         test_b2_observation_and_boundary_numerics_are_prm_owned},
         {"reduced_globalization_is_selected",
          "nmopt.parameter_files.reduced_globalization_is_selected",
          {"backend", "dealii", "application", "runner", "contract", "negative"},

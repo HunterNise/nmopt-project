@@ -9,23 +9,6 @@
 
 namespace nmopt::application::runner::binding
 {
-  inline nmopt::application::chapter6::B2ObservationRegion
-  b2_observation_region_from_combination(
-    const ParameterCombination &combination)
-  {
-    const auto region = combination.values.find("observation-region");
-    if (region != combination.values.end())
-      {
-        using namespace nmopt::application::chapter6;
-        if (region->second == "wings")
-          return B2ObservationRegion::wings;
-        if (region->second == "full")
-          return B2ObservationRegion::full;
-      }
-    throw std::invalid_argument(
-      "B2 combinations need an observation-region axis with value wings or full");
-  }
-
   inline void
   bind_b1_scenario(
     nmopt::application::chapter6::B1Scenario &scenario,
@@ -99,17 +82,14 @@ namespace nmopt::application::runner::binding
       b2_neumann_control_discretisation(file);
     scenario.compile.volume_observation =
       b2_volume_observation_options(file);
+    const auto observation_region =
+      combination_value(combination, "observation-region");
+    require_parameter(file,
+                      "Observation/realization",
+                      "cell-center-indicator");
     require_parameter(file, "Boundary/normal orientation", "outward");
     require_parameter(file, "Boundary/trace evaluation", "fe-q-state-trace");
     require_parameter(file, "Boundary/face quadrature", "qgauss-face");
-    require_parameter(file, "Boundary/fixed region", "dirichlet-boundary");
-    require_parameter(file, "Boundary/control region", "control-boundary");
-    require_parameter(file, "Boundary/outflow region", "outflow-boundary");
-    require_parameter(file, "Boundary/fixed boundary id", "0");
-    require_parameter(file, "Boundary/control boundary id", "1");
-    require_parameter(file, "Boundary/outflow boundary id", "2");
-    require_parameter(file, "Boundary/upstream transition x", "1.0");
-    require_parameter(file, "Boundary/outflow x", "4.0");
     require_parameter(file, "Compile/stabilization", "galerkin");
     const auto method_id = file.value("Solver/method");
     const auto method = parse_method(method_id);
@@ -123,6 +103,17 @@ namespace nmopt::application::runner::binding
 
     scenario.problem.recipe.observed_material_id =
       parameter_unsigned(file, "Observation/material id");
+    scenario.problem.observation_region = observation_region;
+    scenario.problem.observation_region_catalog =
+      b2_observation_region_catalog(file, observation_region);
+    scenario.problem.boundary.fixed_id =
+      parameter_unsigned(file, "Boundary/fixed id");
+    scenario.problem.boundary.control_id =
+      parameter_unsigned(file, "Boundary/control id");
+    scenario.problem.boundary.outflow_id =
+      parameter_unsigned(file, "Boundary/outflow id");
+    scenario.problem.boundary.upstream_transition =
+      parameter_double(file, "Boundary/upstream transition");
     scenario.problem.recipe.with_facewise_box =
       parameter_bool(file, "Problem/facewise box constraint");
     scenario.problem.data.diffusion = parameter_double(file, "Runtime/diffusion");
@@ -142,8 +133,6 @@ namespace nmopt::application::runner::binding
         file, "Functions/conservative transport");
     scenario.problem.data.conservative_transport_provenance =
       scenario.problem.conservative_transport.provenance;
-    scenario.problem.observation_region =
-      b2_observation_region_from_combination(combination);
     const auto target_axis = combination.values.find("target-profile");
     if (target_axis == combination.values.end())
       throw std::invalid_argument(

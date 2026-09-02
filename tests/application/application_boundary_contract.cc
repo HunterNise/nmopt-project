@@ -459,8 +459,7 @@ namespace
     require(b2.metadata.recipe_id ==
               nmopt::application::chapter6::b2_recipe_id,
             "B2 scenario is not linked to the Neumann recipe");
-    require(b2.problem.observation_region ==
-              nmopt::application::chapter6::B2ObservationRegion::full &&
+    require(b2.problem.observation_region == "full" &&
               b2.problem.target_profile == "parabolic",
             "B2 did not retain its independent observation/target choices");
     require(b2.problem.fixed_dirichlet_data.id == "fixed-temperature" &&
@@ -770,13 +769,13 @@ namespace
         const auto outflow_region = std::find_if(
           specification.regions.begin(),
           specification.regions.end(),
-          [](const auto &region) {
+          [&scenario](const auto &region) {
             return region.id ==
                      nmopt::application::chapter6::b2_outflow_boundary_region_id &&
                    region.kind == nmopt::semantic::v1::RegionKind::boundary &&
                    region.boundary_ids ==
                      std::vector<unsigned int>{
-                       nmopt::application::chapter6::b2_outflow_boundary_id};
+                       scenario.problem.boundary.outflow_id};
           });
         require(outflow_region != specification.regions.end(),
                 "B2 spec assembly lost the natural outflow region");

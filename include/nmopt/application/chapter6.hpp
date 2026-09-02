@@ -275,6 +275,65 @@ namespace nmopt::application::chapter6
     throw std::invalid_argument("B2 has an unknown observation region");
   }
 
+  inline std::string
+  b2_observation_region_name(const std::string_view region)
+  {
+    if (region.empty())
+      throw std::invalid_argument("B2 needs a nonempty observation region ID");
+    return std::string(region);
+  }
+
+  inline ScalarFunctionDefinition
+  b2_manufactured_wings_observation()
+  {
+    return {"wings",
+            ScalarFunctionKind::expression,
+            0.0,
+            "x0 > 1.0 ? (x1 < 0.3 ? 1 : (x1 > 0.7 ? 1 : 0)) : 0",
+            "chapter-6.e6.5.2.wings-observation"};
+  }
+
+  inline ScalarFunctionDefinition
+  b2_manufactured_full_observation()
+  {
+    return {"full",
+            ScalarFunctionKind::expression,
+            0.0,
+            "x0 > 1.0 ? 1 : 0",
+            "chapter-6.e6.5.2.full-observation"};
+  }
+
+  inline ScalarFunctionCatalog
+  b2_manufactured_observation_catalog(
+    const std::string_view selected_id = "wings")
+  {
+    ScalarFunctionCatalog catalog{{b2_manufactured_wings_observation(),
+                                   b2_manufactured_full_observation()},
+                                  std::string(selected_id)};
+    validate_scalar_function_catalog(catalog, "B2 observation catalog");
+    return catalog;
+  }
+
+  struct B2BoundaryOptions
+  {
+    unsigned int fixed_id = b2_fixed_boundary_id;
+    unsigned int control_id = b2_control_boundary_id;
+    unsigned int outflow_id = b2_outflow_boundary_id;
+    double       upstream_transition = 1.0;
+  };
+
+  inline void
+  validate_b2_boundary_options(const B2BoundaryOptions &options)
+  {
+    if (options.fixed_id == options.control_id ||
+        options.fixed_id == options.outflow_id ||
+        options.control_id == options.outflow_id)
+      throw std::invalid_argument("B2 boundary IDs must be distinct");
+    if (!std::isfinite(options.upstream_transition))
+      throw std::invalid_argument(
+        "B2 upstream transition must be finite");
+  }
+
   inline ScalarFunctionDefinition
   b2_manufactured_constant_target()
   {
@@ -359,6 +418,14 @@ namespace nmopt::application::chapter6
            std::string(target_profile);
   }
 
+  inline std::string
+  b2_case_name(const std::string_view observation_region,
+               const std::string_view target_profile)
+  {
+    return std::string(observation_region) + "-" +
+           std::string(target_profile);
+  }
+
   struct B2ProblemParameters
   {
     chapter5::NeumannConvectionParameters recipe;
@@ -370,7 +437,10 @@ namespace nmopt::application::chapter6
       "chapter-6.e6.5.2.target",
       "chapter-6.e6.5.2.fixed-temperature",
       "chapter-6.e6.5.2.graetz-transport"};
-    B2ObservationRegion observation_region = B2ObservationRegion::wings;
+    B2BoundaryOptions boundary;
+    std::string       observation_region = "wings";
+    ScalarFunctionCatalog observation_region_catalog =
+      b2_manufactured_observation_catalog();
     std::string          target_profile = "constant";
     ScalarFunctionCatalog target_catalog = b2_manufactured_target_catalog();
     ScalarFunctionDefinition fixed_dirichlet_data =
@@ -688,6 +758,13 @@ namespace nmopt::application::chapter6
     validate_b2_transport_boundary_form(
       scenario.problem.transport_boundary_form);
     validate_b2_control_discretisation(scenario.problem.recipe);
+    validate_b2_boundary_options(scenario.problem.boundary);
+    if (!(scenario.compile.mesh.lower[0] <
+          scenario.problem.boundary.upstream_transition &&
+          scenario.problem.boundary.upstream_transition <
+            scenario.compile.mesh.upper[0]))
+      throw std::invalid_argument(
+        "B2 upstream transition must lie strictly inside the mesh in x");
     if (!scenario.compile.volume_observation)
       throw std::invalid_argument(
         "B2 needs a volume-observation discretisation policy");
@@ -708,6 +785,14 @@ namespace nmopt::application::chapter6
       }
     validate_scalar_function_catalog(scenario.problem.target_catalog,
                                      "B2 target catalog");
+    validate_scalar_function_catalog(scenario.problem.observation_region_catalog,
+                                     "B2 observation catalog");
+    if (selected_scalar_function_definition(
+          scenario.problem.observation_region_catalog,
+          "B2 observation catalog")
+          .id != scenario.problem.observation_region)
+      throw std::invalid_argument(
+        "B2 observation ID and selected observation definition must agree");
     if (scenario.problem.data.desired_state_provenance !=
         b2_target_definition(scenario.problem.target_catalog).provenance)
       throw std::invalid_argument(
@@ -777,6 +862,7 @@ namespace nmopt::application::chapter6
   inline semantic::v1::ProblemSpec
   make_b2_problem_spec(const B2ProblemParameters &parameters)
   {
+    validate_b2_boundary_options(parameters.boundary);
     validate_b2_transport_boundary_form(parameters.transport_boundary_form);
     validate_b2_control_discretisation(parameters.recipe);
     auto specification =
@@ -792,12 +878,30 @@ namespace nmopt::application::chapter6
       throw std::invalid_argument(
         "B2 requires the registered Neumann-convection boundary partition");
 
+    const auto fixed_region = std::find_if(
+      specification.regions.begin(),
+      specification.regions.end(),
+      [](const semantic::v1::RegionSpec &region) {
+        return region.id == b2_fixed_boundary_region_id;
+      });
+    const auto control_region = std::find_if(
+      specification.regions.begin(),
+      specification.regions.end(),
+      [](const semantic::v1::RegionSpec &region) {
+        return region.id == b2_control_boundary_region_id;
+      });
+    if (fixed_region == specification.regions.end() ||
+        control_region == specification.regions.end())
+      throw std::invalid_argument(
+        "B2 recipe did not provide fixed and control boundary regions");
+    fixed_region->boundary_ids = {parameters.boundary.fixed_id};
+    control_region->boundary_ids = {parameters.boundary.control_id};
     specification.regions.push_back(
       {b2_outflow_boundary_region_id,
        "Natural transport outflow boundary",
        semantic::v1::RegionKind::boundary,
        false,
-       {b2_outflow_boundary_id},
+       {parameters.boundary.outflow_id},
        {},
        {}});
     const bool ordinary_normal =
@@ -880,7 +984,7 @@ namespace nmopt::application::chapter6
 
   inline B2Scenario
   make_b2_scenario_with_target_catalog(
-    const B2ObservationRegion observation_region,
+    const std::string_view observation_region,
     const std::string_view target_profile,
     ScalarFunctionCatalog target_catalog,
     const semantic::v1::TransportBoundaryForm transport_boundary_form =
@@ -891,7 +995,9 @@ namespace nmopt::application::chapter6
     const VolumeObservationOptions volume_observation = {})
   {
     B2ProblemParameters problem;
-    problem.observation_region = observation_region;
+    problem.observation_region = std::string(observation_region);
+    problem.observation_region_catalog =
+      b2_manufactured_observation_catalog(observation_region);
     problem.target_profile = target_profile;
     problem.target_catalog = std::move(target_catalog);
     problem.data.desired_state_provenance =
@@ -907,7 +1013,7 @@ namespace nmopt::application::chapter6
     compile.volume_observation = volume_observation;
 
     std::string scenario_id = "chapter-6.b2.graetz-flow";
-    if (observation_region != B2ObservationRegion::wings ||
+    if (observation_region != "wings" ||
         target_profile != "constant")
       scenario_id += "." + b2_case_name(observation_region, target_profile);
 
@@ -939,8 +1045,51 @@ namespace nmopt::application::chapter6
   }
 
   inline B2Scenario
+  make_b2_scenario_with_target_catalog(
+    const B2ObservationRegion observation_region,
+    const std::string_view    target_profile,
+    ScalarFunctionCatalog     target_catalog,
+    const semantic::v1::TransportBoundaryForm transport_boundary_form =
+      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
+    const semantic::v1::NeumannControlDiscretisation control_discretisation =
+      semantic::v1::NeumannControlDiscretisation::facewise_constant,
+    const ReducedGlobalization globalization = ReducedGlobalization::armijo,
+    const VolumeObservationOptions volume_observation = {})
+  {
+    return make_b2_scenario_with_target_catalog(
+      std::string_view(b2_observation_region_name(observation_region)),
+      target_profile,
+      std::move(target_catalog),
+      transport_boundary_form,
+      control_discretisation,
+      globalization,
+      volume_observation);
+  }
+
+  inline B2Scenario
   make_b2_scenario(
     const B2ObservationRegion observation_region = B2ObservationRegion::wings,
+    const std::string_view target_profile = "constant",
+    const semantic::v1::TransportBoundaryForm transport_boundary_form =
+      semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
+    const semantic::v1::NeumannControlDiscretisation control_discretisation =
+      semantic::v1::NeumannControlDiscretisation::facewise_constant,
+    const ReducedGlobalization globalization = ReducedGlobalization::armijo,
+    const VolumeObservationOptions volume_observation = {})
+  {
+    return make_b2_scenario_with_target_catalog(
+      observation_region,
+      target_profile,
+      b2_manufactured_target_catalog(b2_manufactured_target_id(target_profile)),
+      transport_boundary_form,
+      control_discretisation,
+      globalization,
+      volume_observation);
+  }
+
+  inline B2Scenario
+  make_b2_scenario(
+    const std::string_view observation_region,
     const std::string_view target_profile = "constant",
     const semantic::v1::TransportBoundaryForm transport_boundary_form =
       semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,

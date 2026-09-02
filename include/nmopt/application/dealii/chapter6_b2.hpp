@@ -12,6 +12,7 @@
 #include <deal.II/base/numbers.h>
 #include <deal.II/base/tensor_function.h>
 #include <deal.II/base/tensor_function_parser.h>
+#include <deal.II/base/types.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 
@@ -134,8 +135,8 @@ namespace nmopt::application::chapter6::dealii
   {
   public:
     explicit B2ManufacturedDataT(
-      const B2ObservationRegion observation_region =
-        B2ObservationRegion::wings,
+      ScalarFunctionDefinition observation_definition =
+        b2_manufactured_wings_observation(),
       ScalarFunctionDefinition fixed_dirichlet_data =
         b2_manufactured_fixed_temperature(),
       ScalarFunctionDefinition forcing_definition =
@@ -144,7 +145,8 @@ namespace nmopt::application::chapter6::dealii
         b2_manufactured_constant_target(),
       RankOneVectorFunctionDefinition conservative_transport =
         b2_manufactured_graetz_transport())
-      : fixed_dirichlet_data_(std::move(fixed_dirichlet_data))
+      : observation_definition_(std::move(observation_definition))
+      , fixed_dirichlet_data_(std::move(fixed_dirichlet_data))
       , fixed_temperature_(
           ::nmopt::application::dealii_support::make_scalar_function<dim>(
             fixed_dirichlet_data_, "B2 fixed Dirichlet data"))
@@ -155,8 +157,13 @@ namespace nmopt::application::chapter6::dealii
       , conservative_transport_definition_(std::move(conservative_transport))
       , conservative_transport_(detail::make_rank_one_vector_function<dim>(
           conservative_transport_definition_, "B2 conservative transport"))
-      , observation_region_(observation_region)
-    {}
+      {}
+
+    const ScalarFunctionDefinition &
+    observation_definition() const
+    {
+      return observation_definition_;
+    }
 
     B2RuntimeDataT<dim>
     runtime_data() const
@@ -171,12 +178,6 @@ namespace nmopt::application::chapter6::dealii
     fixed_dirichlet_data() const
     {
       return fixed_dirichlet_data_;
-    }
-
-    B2ObservationRegion
-    observation_region() const
-    {
-      return observation_region_;
     }
 
     const ScalarFunctionDefinition &
@@ -198,6 +199,7 @@ namespace nmopt::application::chapter6::dealii
     }
 
   private:
+    ScalarFunctionDefinition                 observation_definition_;
     ScalarFunctionDefinition                 fixed_dirichlet_data_;
     std::unique_ptr<::dealii::Function<dim>> fixed_temperature_;
     ScalarFunctionDefinition                 forcing_definition_;
@@ -206,7 +208,6 @@ namespace nmopt::application::chapter6::dealii
     RankOneVectorFunctionDefinition          conservative_transport_definition_;
     std::unique_ptr<::dealii::TensorFunctionParser<1, dim>>
       conservative_transport_;
-    B2ObservationRegion                     observation_region_;
   };
 
   template <int dim>
@@ -219,9 +220,12 @@ namespace nmopt::application::chapter6::dealii
     if (scenario.compile.mesh.dimension != dim)
       throw std::invalid_argument(
         "B2 runtime data dimension does not match the scenario mesh");
-    if (data.observation_region() != scenario.problem.observation_region)
+    if (data.observation_definition() !=
+        selected_scalar_function_definition(
+          scenario.problem.observation_region_catalog,
+          "B2 observation catalog"))
       throw std::invalid_argument(
-        "B2 manufactured observation region does not match the scenario");
+        "B2 manufactured observation definition does not match the scenario");
     if (data.fixed_dirichlet_data() !=
         scenario.problem.fixed_dirichlet_data)
       throw std::invalid_argument(
@@ -267,6 +271,17 @@ namespace nmopt::application::chapter6::dealii
               {parameters.data.conservative_transport_provenance}}};
   }
 
+  inline void
+  validate_b2_dealii_boundary_options(const B2BoundaryOptions &options)
+  {
+    validate_b2_boundary_options(options);
+    if (options.fixed_id == ::dealii::numbers::invalid_boundary_id ||
+        options.control_id == ::dealii::numbers::invalid_boundary_id ||
+        options.outflow_id == ::dealii::numbers::invalid_boundary_id)
+      throw std::invalid_argument(
+        "B2 boundary IDs must be valid deal.II boundary IDs");
+  }
+
   template <int dim>
   std::shared_ptr<compiler::v1::DealiiCompilationSession<dim>>
   make_b2_compilation_session(const B2Scenario &scenario)
@@ -278,6 +293,23 @@ namespace nmopt::application::chapter6::dealii
     if (scenario.problem.recipe.observed_material_id == 0)
       throw std::invalid_argument(
         "B2 needs a nonzero observed material id");
+    validate_b2_dealii_boundary_options(scenario.problem.boundary);
+
+    const auto &observation_definition = selected_scalar_function_definition(
+      scenario.problem.observation_region_catalog, "B2 observation catalog");
+    std::unique_ptr<::dealii::Function<dim>> observation_indicator;
+    try
+      {
+        observation_indicator =
+          ::nmopt::application::dealii_support::make_scalar_function<dim>(
+            observation_definition, "B2 observation region");
+      }
+    catch (const std::exception &exception)
+      {
+        throw std::invalid_argument(
+          std::string("B2 observation region expression is invalid: ") +
+          exception.what());
+      }
 
     auto mesh = std::make_unique<::dealii::Triangulation<dim>>();
     ::dealii::Point<dim> lower;
@@ -334,12 +366,11 @@ namespace nmopt::application::chapter6::dealii
     for (auto cell = mesh->begin_active(); cell != mesh->end(); ++cell)
       {
         const auto center = cell->center();
-        const bool downstream = center[0] > 1.0;
-        const bool wings = center[1] < 0.3 || center[1] > 0.7;
-        const bool observed = downstream &&
-                              (scenario.problem.observation_region ==
-                                 B2ObservationRegion::full ||
-                               wings);
+        const double indicator = observation_indicator->value(center);
+        if (!std::isfinite(indicator))
+          throw std::invalid_argument(
+            "B2 observation region indicator returned a non-finite value");
+        const bool observed = indicator > 0.0;
         cell->set_material_id(
           observed ? scenario.problem.recipe.observed_material_id : 0);
         for (unsigned int face = 0; face < cell->n_faces(); ++face)
@@ -356,12 +387,13 @@ namespace nmopt::application::chapter6::dealii
                   "B2 mesh contains an unclassified exterior boundary face");
               const auto boundary_id =
                 left_boundary
-                  ? chapter6::b2_fixed_boundary_id
+                  ? scenario.problem.boundary.fixed_id
                   : right_boundary
-                    ? chapter6::b2_outflow_boundary_id
-                    : face_center[0] < 1.0
-                      ? chapter6::b2_fixed_boundary_id
-                      : chapter6::b2_control_boundary_id;
+                    ? scenario.problem.boundary.outflow_id
+                    : face_center[0] <
+                        scenario.problem.boundary.upstream_transition
+                      ? scenario.problem.boundary.fixed_id
+                      : scenario.problem.boundary.control_id;
               cell->face(face)->set_boundary_id(boundary_id);
             }
       }
@@ -428,6 +460,20 @@ namespace nmopt::application::chapter6::dealii
   {
     std::ostringstream output;
     output << std::setprecision(17) << value;
+    return output.str();
+  }
+
+  inline std::string
+  b2_coordinates(const std::vector<double> &coordinates)
+  {
+    std::ostringstream output;
+    output << std::setprecision(17);
+    for (std::size_t index = 0; index < coordinates.size(); ++index)
+      {
+        if (index != 0)
+          output << ',';
+        output << coordinates[index];
+      }
     return output.str();
   }
 
@@ -698,6 +744,8 @@ namespace nmopt::application::chapter6::dealii
       const auto &target_definition =
         b2_target_definition(scenario.problem.target_catalog);
       const auto &forcing_definition = scenario.problem.forcing;
+      const auto &observation_definition = selected_scalar_function_definition(
+        scenario.problem.observation_region_catalog, "B2 observation catalog");
       const auto &manifest = compilation.problem->manifest();
       contract::require(
         manifest.observation_realisation.find(
@@ -820,21 +868,18 @@ namespace nmopt::application::chapter6::dealii
             if (cell->face(face)->at_boundary())
               {
                 ++boundary_face_count;
-                switch (cell->face(face)->boundary_id())
-                  {
-                    case chapter6::b2_fixed_boundary_id:
-                      ++fixed_boundary_face_count;
-                      break;
-                    case chapter6::b2_control_boundary_id:
-                      ++control_boundary_face_count;
-                      break;
-                    case chapter6::b2_outflow_boundary_id:
-                      ++outflow_boundary_face_count;
-                      break;
-                    default:
-                      throw std::runtime_error(
-                        "B2 evidence found an unclassified boundary face");
-                  }
+                if (cell->face(face)->boundary_id() ==
+                    scenario.problem.boundary.fixed_id)
+                  ++fixed_boundary_face_count;
+                else if (cell->face(face)->boundary_id() ==
+                         scenario.problem.boundary.control_id)
+                  ++control_boundary_face_count;
+                else if (cell->face(face)->boundary_id() ==
+                         scenario.problem.boundary.outflow_id)
+                  ++outflow_boundary_face_count;
+                else
+                  throw std::runtime_error(
+                    "B2 evidence found an unclassified boundary face");
               }
         }
       contract::require(
@@ -876,7 +921,24 @@ namespace nmopt::application::chapter6::dealii
         {"b2.volume_observation_target_realisation",
          volume_observation_target},
         {"b2.observation_region",
-         b2_observation_region_name(scenario.problem.observation_region)},
+         scenario.problem.observation_region},
+        {"b2.observation_definition", observation_definition.id},
+        {"b2.observation_kind", scalar_function_kind_name(
+                                   observation_definition.kind)},
+        {"b2.observation_value", b2_number(observation_definition.value)},
+        {"b2.observation_expression", observation_definition.expression},
+        {"b2.observation_provenance", observation_definition.provenance},
+        {"b2.observation_realisation", "cell-center-indicator"},
+        {"b2.observed_material_id",
+         std::to_string(scenario.problem.recipe.observed_material_id)},
+        {"b2.fixed_boundary_id",
+         std::to_string(scenario.problem.boundary.fixed_id)},
+        {"b2.control_boundary_id",
+         std::to_string(scenario.problem.boundary.control_id)},
+        {"b2.outflow_boundary_id",
+         std::to_string(scenario.problem.boundary.outflow_id)},
+        {"b2.upstream_transition",
+         b2_number(scenario.problem.boundary.upstream_transition)},
         {"b2.target_profile", target_profile},
         {"b2.target_definition", target_definition.id},
         {"b2.target_kind", scalar_function_kind_name(target_definition.kind)},
@@ -910,6 +972,8 @@ namespace nmopt::application::chapter6::dealii
          std::to_string(triangulation.n_vertices())},
         {"benchmark.mesh_active_cells",
          std::to_string(triangulation.n_active_cells())},
+        {"benchmark.mesh_lower", b2_coordinates(scenario.compile.mesh.lower)},
+        {"benchmark.mesh_upper", b2_coordinates(scenario.compile.mesh.upper)},
         {"benchmark.boundary_face_count",
          std::to_string(boundary_face_count)},
         {"benchmark.fixed_boundary_face_count",

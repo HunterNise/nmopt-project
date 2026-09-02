@@ -605,15 +605,15 @@ namespace nmopt::application::runner
           entry == "selection seed" || entry == "state degree" ||
           entry == "volume observation quadrature order" ||
           entry == "observed material id" || entry == "material id" ||
-          entry == "fixed boundary id" || entry == "control boundary id" ||
-          entry == "outflow boundary id" || entry == "maximum iterations" ||
+          entry == "fixed id" || entry == "control id" ||
+          entry == "outflow id" || entry == "maximum iterations" ||
           entry == "maximum line search trials" ||
           entry == "maximum backtracking reductions" || entry == "memory")
         return empty_or(std::make_shared<::dealii::Patterns::Integer>());
 
       if (entry == "diffusion" || entry == "reaction" ||
-          entry == "regularisation" || entry == "upstream transition x" ||
-          entry == "outflow x" || entry == "value" ||
+          entry == "regularisation" || entry == "upstream transition" ||
+          entry == "value" ||
           ends_with(entry, "tolerance") || entry == "initial step length" ||
           entry == "Armijo fraction" || entry == "backtracking factor" ||
           entry == "minimum step length")
@@ -678,7 +678,7 @@ namespace nmopt::application::runner
                      "cellwise box constraint",
                      "observation",
                      "facewise box constraint"});
-        add_section("Observation", {"material id"});
+        add_section("Observation", {"material id", "realization"});
 
         add_section("Functions",
                     {"forcing",
@@ -693,14 +693,10 @@ namespace nmopt::application::runner
 
         add_section("Runtime", {"diffusion", "reaction", "regularisation"});
         add_section("Boundary",
-                    {"fixed region",
-                     "fixed boundary id",
-                     "control region",
-                     "control boundary id",
-                     "outflow region",
-                     "outflow boundary id",
-                     "upstream transition x",
-                     "outflow x",
+                    {"fixed id",
+                     "control id",
+                     "outflow id",
+                     "upstream transition",
                      "transport boundary form",
                      "conormal form",
                      "normal orientation",
@@ -833,6 +829,10 @@ namespace nmopt::application::runner
             "Matrix/target-profile",
             "",
             "Functions/target definitions/"},
+           {"",
+            "Matrix/observation-region",
+            "",
+            "Observation/region definitions/"},
            {"Functions/fixed Dirichlet data",
             "",
             "Functions/fixed Dirichlet data",
@@ -1132,6 +1132,30 @@ namespace nmopt::application::runner
 
     ScalarFunctionCatalog catalog{std::move(definitions), std::move(selected_id)};
     validate_scalar_function_catalog(catalog, "B2 target catalog");
+    return catalog;
+  }
+
+  inline ScalarFunctionCatalog
+  b2_observation_region_catalog(
+    const ParameterFile &file,
+    const std::string_view selected_id)
+  {
+    const auto profiles = detail::split_list(
+      file.value("Matrix/observation-region"));
+    if (profiles.empty())
+      throw std::invalid_argument(
+        "B2 observation catalog needs a nonempty Matrix/observation-region axis");
+
+    std::vector<ScalarFunctionDefinition> definitions;
+    definitions.reserve(profiles.size());
+    for (const auto &profile : profiles)
+      definitions.push_back(
+        parameter_scalar_function_definition_from_catalog(
+          file, "Observation/region definitions/", profile));
+
+    ScalarFunctionCatalog catalog{std::move(definitions), std::string(selected_id)};
+    validate_scalar_function_catalog(catalog, "B2 observation catalog");
+    (void)selected_scalar_function_definition(catalog, "B2 observation catalog");
     return catalog;
   }
 

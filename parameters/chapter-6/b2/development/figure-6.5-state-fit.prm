@@ -25,6 +25,20 @@ end
 
 subsection Observation
   set material id = 1
+  set realization = cell-center-indicator
+
+  subsection region definitions
+    subsection wings
+      set kind = expression
+      set expression = x0 > 1.0 ? (x1 < 0.3 ? 1 : (x1 > 0.7 ? 1 : 0)) : 0
+      set provenance = chapter-6.e6.5.2.wings-observation
+    end
+    subsection full
+      set kind = expression
+      set expression = x0 > 1.0 ? 1 : 0
+      set provenance = chapter-6.e6.5.2.full-observation
+    end
+  end
 end
 
 subsection Functions
@@ -71,14 +85,10 @@ subsection Runtime
 end
 
 subsection Boundary
-  set fixed region = dirichlet-boundary
-  set fixed boundary id = 0
-  set control region = control-boundary
-  set control boundary id = 1
-  set outflow region = outflow-boundary
-  set outflow boundary id = 2
-  set upstream transition x = 1.0
-  set outflow x = 4.0
+  set fixed id = 0
+  set control id = 1
+  set outflow id = 2
+  set upstream transition = 1.0
   set transport boundary form = ordinary-normal-minus-transport
   set conormal form = unspecified
   set normal orientation = outward

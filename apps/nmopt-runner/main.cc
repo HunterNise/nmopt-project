@@ -33,8 +33,6 @@ namespace
   using nmopt::application::runner::binding::bind_b1_scenario;
   using nmopt::application::runner::binding::bind_b2_scenario;
   using nmopt::application::runner::binding::parse_mesh_generation;
-  using nmopt::application::runner::binding::
-    b2_observation_region_from_combination;
   using nmopt::application::runner::binding::parse_method;
   using nmopt::application::runner::parse_number_text;
   using nmopt::application::runner::binding::parse_stopping_criterion;
@@ -584,6 +582,9 @@ namespace
           volume_observation.target_realisation);
     const std::string quadrature_order =
       std::to_string(volume_observation.quadrature_order);
+    const auto &observation_definition =
+      nmopt::application::selected_scalar_function_definition(
+        scenario.problem.observation_region_catalog, "B2 observation catalog");
     nmopt::contract::require(
       manifest.observation_realisation.find(
         "target=" + volume_observation_target) != std::string::npos &&
@@ -600,6 +601,35 @@ namespace
     evidence.fields.push_back(
       {"benchmark.volume_observation_target_realisation",
        volume_observation_target});
+    evidence.fields.push_back({"benchmark.observation_definition",
+                               observation_definition.id});
+    evidence.fields.push_back(
+      {"benchmark.observation_kind",
+       nmopt::application::scalar_function_kind_name(
+         observation_definition.kind)});
+    evidence.fields.push_back(
+      {"benchmark.observation_value", b1_number(observation_definition.value)});
+    evidence.fields.push_back({"benchmark.observation_expression",
+                               observation_definition.expression});
+    evidence.fields.push_back({"benchmark.observation_provenance",
+                               observation_definition.provenance});
+    evidence.fields.push_back({"benchmark.observation_realisation",
+                               "cell-center-indicator"});
+    evidence.fields.push_back(
+      {"benchmark.observed_material_id",
+       std::to_string(scenario.problem.recipe.observed_material_id)});
+    evidence.fields.push_back(
+      {"benchmark.fixed_boundary_id",
+       std::to_string(scenario.problem.boundary.fixed_id)});
+    evidence.fields.push_back(
+      {"benchmark.control_boundary_id",
+       std::to_string(scenario.problem.boundary.control_id)});
+    evidence.fields.push_back(
+      {"benchmark.outflow_boundary_id",
+       std::to_string(scenario.problem.boundary.outflow_id)});
+    evidence.fields.push_back(
+      {"benchmark.upstream_transition",
+       b1_number(scenario.problem.boundary.upstream_transition)});
     evidence.fields.push_back({"benchmark.fixed_dirichlet_data",
                                scenario.problem.fixed_dirichlet_data.id});
     evidence.fields.push_back(
@@ -626,10 +656,6 @@ namespace
       {"benchmark.mesh_generator",
        nmopt::application::chapter6::mesh_generation_name(
          scenario.compile.mesh.generation)});
-    evidence.fields.push_back(
-      {"benchmark.mesh_lower", join_coordinates(scenario.compile.mesh.lower)});
-    evidence.fields.push_back(
-      {"benchmark.mesh_upper", join_coordinates(scenario.compile.mesh.upper)});
     evidence.fields.push_back(
       {"benchmark.mesh_subdivisions",
        std::to_string(scenario.compile.mesh.subdivisions)});
@@ -900,8 +926,8 @@ namespace
     for (const auto &planned_combination : plan.resolved_combinations)
       {
         const auto &combination = planned_combination.values;
-        const auto observation_region =
-          b2_observation_region_from_combination(combination);
+        const auto &observation_region =
+          combination_value(combination, "observation-region");
         const auto target_profile = combination_value(combination,
                                                        "target-profile");
         const auto case_slug = b2_case_name(observation_region, target_profile);
@@ -939,7 +965,8 @@ namespace
               "chapter-6.b2.graetz-flow." + std::string(case_slug);
 
             nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data(
-              observation_region,
+              selected_scalar_function_definition(
+                scenario.problem.observation_region_catalog),
               scenario.problem.fixed_dirichlet_data,
               scenario.problem.forcing,
               chapter6::b2_target_definition(scenario.problem.target_catalog),

@@ -34,7 +34,8 @@ namespace
   make_b2_manufactured_data(const chapter6::B2Scenario &scenario)
   {
     return chapter6::dealii::B2ManufacturedDataT<2>{
-      scenario.problem.observation_region,
+      nmopt::application::selected_scalar_function_definition(
+        scenario.problem.observation_region_catalog),
       scenario.problem.fixed_dirichlet_data,
       scenario.problem.forcing,
       chapter6::b2_target_definition(scenario.problem.target_catalog),
@@ -74,7 +75,8 @@ namespace
     scenario.problem.data.forcing_provenance = "test.forcing";
 
     chapter6::dealii::B2ManufacturedDataT<2> data{
-      observation_region,
+      nmopt::application::selected_scalar_function_definition(
+        scenario.problem.observation_region_catalog),
       scenario.problem.fixed_dirichlet_data,
       scenario.problem.forcing,
       chapter6::b2_target_definition(scenario.problem.target_catalog),
@@ -95,7 +97,9 @@ namespace
             "B2 constant target value was not applied");
 
     chapter6::dealii::B2ManufacturedDataT<2> mismatched_data{
-      observation_region, scenario.problem.fixed_dirichlet_data};
+      nmopt::application::selected_scalar_function_definition(
+        scenario.problem.observation_region_catalog),
+      scenario.problem.fixed_dirichlet_data};
     bool mismatch_rejected = false;
     try
       {
@@ -132,7 +136,8 @@ namespace
       scenario.problem.conservative_transport.provenance;
 
     chapter6::dealii::B2ManufacturedDataT<2> data{
-      scenario.problem.observation_region,
+      nmopt::application::selected_scalar_function_definition(
+        scenario.problem.observation_region_catalog),
       scenario.problem.fixed_dirichlet_data,
       scenario.problem.forcing,
       chapter6::b2_target_definition(scenario.problem.target_catalog),

@@ -237,8 +237,11 @@ namespace nmopt::application::chapter6::dealii
     auto mesh = std::make_unique<::dealii::Triangulation<dim>>();
     ::dealii::Point<dim> lower;
     ::dealii::Point<dim> upper;
-    upper[0] = 4.0;
-    upper[1] = 1.0;
+    for (unsigned int coordinate = 0; coordinate < dim; ++coordinate)
+      {
+        lower[coordinate] = scenario.compile.mesh.lower[coordinate];
+        upper[coordinate] = scenario.compile.mesh.upper[coordinate];
+      }
     switch (scenario.compile.mesh.generation)
       {
         case MeshGeneration::framework_native:
@@ -298,11 +301,11 @@ namespace nmopt::application::chapter6::dealii
           if (cell->face(face)->at_boundary())
             {
               const auto face_center = cell->face(face)->center();
-              const bool left_boundary = is_close(face_center[0], 0.0);
-              const bool right_boundary = is_close(face_center[0], 4.0);
+              const bool left_boundary = is_close(face_center[0], lower[0]);
+              const bool right_boundary = is_close(face_center[0], upper[0]);
               const bool horizontal_boundary =
-                is_close(face_center[1], 0.0) ||
-                is_close(face_center[1], 1.0);
+                is_close(face_center[1], lower[1]) ||
+                is_close(face_center[1], upper[1]);
               if (!left_boundary && !right_boundary && !horizontal_boundary)
                 throw std::invalid_argument(
                   "B2 mesh contains an unclassified exterior boundary face");

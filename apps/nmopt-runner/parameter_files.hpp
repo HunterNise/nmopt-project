@@ -1165,6 +1165,39 @@ namespace nmopt::application::runner
     return result;
   }
 
+  inline std::vector<double>
+  parameter_finite_list(const ParameterFile &file,
+                        const std::string_view key)
+  {
+    const auto text = detail::trim(file.value(key));
+    if (text.size() < 2 || text.front() != '(' || text.back() != ')')
+      throw std::invalid_argument(
+        "parameter '" + std::string(key) +
+        "' needs a parenthesized comma-separated list of finite numbers");
+
+    const auto contents = detail::trim(text.substr(1, text.size() - 2));
+    if (contents.empty())
+      return {};
+
+    std::vector<double> result;
+    std::size_t         begin = 0;
+    while (begin <= contents.size())
+      {
+        const auto end = contents.find(',', begin);
+        const auto item = detail::trim(contents.substr(
+          begin, end == std::string::npos ? std::string::npos : end - begin));
+        if (item.empty())
+          throw std::invalid_argument(
+            "parameter '" + std::string(key) +
+            "' needs a parenthesized comma-separated list of finite numbers");
+        result.push_back(parse_number_text(item, key));
+        if (end == std::string::npos)
+          break;
+        begin = end + 1;
+      }
+    return result;
+  }
+
   inline ParameterFile
   read_parameter_file(const std::filesystem::path &path)
   {

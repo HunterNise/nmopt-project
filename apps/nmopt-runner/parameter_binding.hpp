@@ -126,6 +126,8 @@ namespace nmopt::application::runner::binding
       parameter_unsigned(file, "Mesh/subdivisions");
     scenario.compile.mesh.axis_subdivisions =
       parameter_positive_unsigned_list(file, "Mesh/axis subdivisions");
+    scenario.compile.mesh.lower = parameter_finite_list(file, "Mesh/lower");
+    scenario.compile.mesh.upper = parameter_finite_list(file, "Mesh/upper");
     scenario.compile.mesh.centroid_splits =
       parameter_unsigned(file, "Mesh/centroid splits");
     scenario.compile.mesh.selection_seed =

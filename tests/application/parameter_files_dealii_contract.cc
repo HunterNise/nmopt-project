@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -21,6 +22,7 @@
 namespace
 {
   using nmopt::application::runner::find_file_from_current_or_parent;
+  using nmopt::application::runner::parameter_finite_list;
   using nmopt::application::runner::parameter_positive_unsigned_list;
   using nmopt::application::runner::read_parameter_file;
   using nmopt::application::runner::resolve_method_parameter;
@@ -740,6 +742,89 @@ end
   }
 
   void
+  test_mesh_bounds_are_data_driven_and_validated()
+  {
+    auto file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b2/authoritative.prm"));
+    file.values["Mesh/lower"] = "(-1.5, 0.25)";
+    file.values["Mesh/upper"] = "(3.5, 1.75)";
+    file.values["Mesh/refinement"] = "0";
+    const auto combination = file.combinations().front();
+    const auto scenario = resolve_b2_scenario_for_characterization(
+      file, combination);
+    require(scenario.compile.mesh.lower == std::vector<double>({-1.5, 0.25}) &&
+              scenario.compile.mesh.upper == std::vector<double>({3.5, 1.75}),
+            "B2 binding did not retain the configured mesh bounds");
+
+    const auto session =
+      nmopt::application::chapter6::dealii::make_b2_compilation_session<2>(
+        scenario);
+    const auto &mesh = session->triangulation();
+    double min_x = std::numeric_limits<double>::max();
+    double min_y = std::numeric_limits<double>::max();
+    double max_x = std::numeric_limits<double>::lowest();
+    double max_y = std::numeric_limits<double>::lowest();
+    for (unsigned int vertex = 0; vertex < mesh.n_vertices(); ++vertex)
+      {
+        min_x = std::min(min_x, mesh.get_vertices()[vertex][0]);
+        min_y = std::min(min_y, mesh.get_vertices()[vertex][1]);
+        max_x = std::max(max_x, mesh.get_vertices()[vertex][0]);
+        max_y = std::max(max_y, mesh.get_vertices()[vertex][1]);
+      }
+    require(std::abs(min_x + 1.5) < 1.0e-15 &&
+              std::abs(min_y - 0.25) < 1.0e-15 &&
+              std::abs(max_x - 3.5) < 1.0e-15 &&
+              std::abs(max_y - 1.75) < 1.0e-15,
+            "B2 mesh construction ignored the configured bounds");
+
+    auto invalid_size = file;
+    invalid_size.values["Mesh/lower"] = "(-1.5)";
+    const auto invalid_size_scenario =
+      resolve_b2_scenario_for_characterization(
+        invalid_size, invalid_size.combinations().front());
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_b2(invalid_size_scenario);
+      },
+      "B2 accepted mesh bounds with the wrong dimension");
+
+    auto invalid_order = file;
+    invalid_order.values["Mesh/lower"] = "(2.0, 0.25)";
+    invalid_order.values["Mesh/upper"] = "(1.0, 1.75)";
+    const auto invalid_order_scenario =
+      resolve_b2_scenario_for_characterization(
+        invalid_order, invalid_order.combinations().front());
+    require_invalid_argument(
+      [&] {
+        nmopt::application::chapter6::validate_b2(invalid_order_scenario);
+      },
+      "B2 accepted mesh bounds with reversed coordinates");
+
+    auto invalid_finite = file;
+    invalid_finite.values["Mesh/lower"] = "(nan, 0.25)";
+    require_invalid_argument(
+      [&] {
+        (void)parameter_finite_list(invalid_finite, "Mesh/lower");
+      },
+      "runner parsing accepted a non-finite mesh bound");
+  }
+
+  void
+  test_b1_beta_coordinates_are_text_stable()
+  {
+    for (const auto *value : {"1e-1", "1e-2", "1e-3", "1e-6", "5e-4"})
+      require(b1_beta_coordinate(value) == value,
+              "B1 beta artifact coordinates changed their matrix spelling");
+
+    nmopt::application::runner::RunSetCombination combination;
+    combination.values.values = {
+      {"method", "l-bfgs"}, {"regularisation", "5e-4"}};
+    require(b1_artifact_coordinate_components({}, combination) ==
+              std::vector<std::string>({"l-bfgs", "beta-5e-4"}),
+            "B1 did not derive an arbitrary beta coordinate from matrix text");
+  }
+
+  void
   test_b1_authoritative_resolution_is_characterized()
   {
     const auto file = read_parameter_file(find_file_from_current_or_parent(
@@ -822,6 +907,8 @@ end
             scenario.compile.mesh.refinement == 0 &&
             scenario.compile.mesh.subdivisions == 131 &&
             scenario.compile.mesh.axis_subdivisions.empty() &&
+            scenario.compile.mesh.lower == std::vector<double>({0.0, 0.0}) &&
+            scenario.compile.mesh.upper == std::vector<double>({1.0, 1.0}) &&
             scenario.compile.mesh.centroid_splits == 0 &&
             scenario.compile.mesh.selection_seed == 0 &&
             scenario.compile.mesh.mesh_provenance ==
@@ -974,6 +1061,8 @@ end
             scenario.compile.mesh.generation ==
               nmopt::application::chapter6::MeshGeneration::framework_native &&
             scenario.compile.mesh.refinement == 7 &&
+            scenario.compile.mesh.lower == std::vector<double>({0.0, 0.0}) &&
+            scenario.compile.mesh.upper == std::vector<double>({4.0, 1.0}) &&
             scenario.compile.mesh.mesh_provenance ==
               "chapter-6.e6.5.2.framework-native-rectangle-r7" &&
             scenario.compile.volume_observation.has_value() &&
@@ -1854,6 +1943,16 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "runner", "contract", "negative"},
          30,
          test_axis_mesh_subdivisions_are_parsed},
+        {"mesh_bounds_are_data_driven_and_validated",
+         "nmopt.parameter_files.mesh_bounds_are_data_driven_and_validated",
+         {"backend", "dealii", "application", "runner", "contract", "negative"},
+         30,
+         test_mesh_bounds_are_data_driven_and_validated},
+        {"b1_beta_coordinates_are_text_stable",
+         "nmopt.parameter_files.b1_beta_coordinates_are_text_stable",
+         {"backend", "dealii", "application", "runner", "contract"},
+         30,
+         test_b1_beta_coordinates_are_text_stable},
         {"b2_transport_boundary_form_is_selected_coherently",
          "nmopt.parameter_files.b2_transport_boundary_form_is_selected_coherently",
          {"backend", "dealii", "application", "runner", "contract"},

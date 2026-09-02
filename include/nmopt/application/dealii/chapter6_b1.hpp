@@ -39,8 +39,18 @@ namespace nmopt::application::chapter6::dealii
     make_b1_centroid_split_simplex_mesh(const MeshOptions &options)
     {
       ::dealii::Triangulation<2> base_mesh;
-      ::dealii::GridGenerator::subdivided_hyper_cube_with_simplices(
-        base_mesh, options.subdivisions, 0.0, 1.0, false);
+      ::dealii::Point<2>         lower;
+      ::dealii::Point<2>         upper;
+      lower[0] = options.lower[0];
+      lower[1] = options.lower[1];
+      upper[0] = options.upper[0];
+      upper[1] = options.upper[1];
+      ::dealii::GridGenerator::subdivided_hyper_rectangle_with_simplices(
+        base_mesh,
+        {options.subdivisions, options.subdivisions},
+        lower,
+        upper,
+        false);
       return make_centroid_split_simplex_mesh(base_mesh,
                                               options.centroid_splits,
                                               options.selection_seed);
@@ -163,19 +173,27 @@ namespace nmopt::application::chapter6::dealii
         "B1 compilation session dimension does not match the scenario mesh");
 
     auto mesh = std::make_unique<::dealii::Triangulation<dim>>();
+    ::dealii::Point<dim> lower;
+    ::dealii::Point<dim> upper;
+    for (unsigned int coordinate = 0; coordinate < dim; ++coordinate)
+      {
+        lower[coordinate] = scenario.compile.mesh.lower[coordinate];
+        upper[coordinate] = scenario.compile.mesh.upper[coordinate];
+      }
     switch (scenario.compile.mesh.generation)
       {
         case MeshGeneration::framework_native:
-          ::dealii::GridGenerator::hyper_cube(*mesh, 0.0, 1.0);
+          ::dealii::GridGenerator::hyper_rectangle(*mesh, lower, upper);
           mesh->refine_global(scenario.compile.mesh.refinement);
           break;
         case MeshGeneration::structured_simplex:
           if constexpr (dim == 2)
-            ::dealii::GridGenerator::subdivided_hyper_cube_with_simplices(
+            ::dealii::GridGenerator::subdivided_hyper_rectangle_with_simplices(
               *mesh,
-              scenario.compile.mesh.subdivisions,
-              0.0,
-              1.0,
+              {scenario.compile.mesh.subdivisions,
+               scenario.compile.mesh.subdivisions},
+              lower,
+              upper,
               false);
           else
             throw std::invalid_argument(

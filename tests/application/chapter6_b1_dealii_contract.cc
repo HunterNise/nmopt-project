@@ -412,6 +412,8 @@ namespace
       chapter6::MeshGeneration::structured_simplex;
     scenario.compile.mesh.refinement = 0;
     scenario.compile.mesh.subdivisions = 3;
+    scenario.compile.mesh.lower = {-2.0, 0.25};
+    scenario.compile.mesh.upper = {3.0, 1.75};
     scenario.compile.mesh.mesh_provenance =
       "test.chapter6.b1.structured-simplex-n3";
 

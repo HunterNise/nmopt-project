@@ -137,19 +137,11 @@ namespace
     throw std::invalid_argument("B1 has no artifact slug for this method");
   }
 
-  const char *
-  b1_beta_slug(const double beta)
+  std::string
+  b1_beta_coordinate(const std::string &value_text)
   {
-    if (std::abs(beta - 1.0e-1) < 1.0e-15)
-      return "1e-1";
-    if (std::abs(beta - 1.0e-2) < 1.0e-15)
-      return "1e-2";
-    if (std::abs(beta - 1.0e-3) < 1.0e-15)
-      return "1e-3";
-    if (std::abs(beta - 1.0e-6) < 1.0e-18)
-      return "1e-6";
-    throw std::invalid_argument(
-      "B1 has no frozen artifact slug for the regularisation value");
+    parse_number_text(value_text, "Matrix/regularisation");
+    return value_text;
   }
 
   std::string
@@ -172,6 +164,19 @@ namespace
     std::ostringstream output;
     output.precision(17);
     output << value;
+    return output.str();
+  }
+
+  std::string
+  join_coordinates(const std::vector<double> &coordinates)
+  {
+    std::ostringstream output;
+    for (std::size_t index = 0; index < coordinates.size(); ++index)
+      {
+        if (index != 0)
+          output << ',';
+        output << b1_number(coordinates[index]);
+      }
     return output.str();
   }
 
@@ -278,10 +283,9 @@ namespace
   {
     const auto method =
       parse_method(combination_value(combination.values, "method"));
-    const auto beta = parse_number_text(
-      combination_value(combination.values, "regularisation"),
-      "Matrix/regularisation");
-    return {b1_method_slug(method), "beta-" + std::string(b1_beta_slug(beta))};
+    const auto &beta_text = combination_value(combination.values,
+                                              "regularisation");
+    return {b1_method_slug(method), "beta-" + b1_beta_coordinate(beta_text)};
   }
 
   std::vector<std::string>
@@ -520,6 +524,10 @@ namespace
        nmopt::application::chapter6::mesh_generation_name(
          scenario.compile.mesh.generation)});
     evidence.fields.push_back(
+      {"benchmark.mesh_lower", join_coordinates(scenario.compile.mesh.lower)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_upper", join_coordinates(scenario.compile.mesh.upper)});
+    evidence.fields.push_back(
       {"benchmark.mesh_subdivisions",
        std::to_string(scenario.compile.mesh.subdivisions)});
     evidence.fields.push_back(
@@ -603,6 +611,10 @@ namespace
       {"benchmark.mesh_generator",
        nmopt::application::chapter6::mesh_generation_name(
          scenario.compile.mesh.generation)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_lower", join_coordinates(scenario.compile.mesh.lower)});
+    evidence.fields.push_back(
+      {"benchmark.mesh_upper", join_coordinates(scenario.compile.mesh.upper)});
     evidence.fields.push_back(
       {"benchmark.mesh_subdivisions",
        std::to_string(scenario.compile.mesh.subdivisions)});
@@ -750,9 +762,10 @@ namespace
         const auto &combination = planned_combination.values;
         const auto method_id = combination_value(combination, "method");
         const auto method = parse_method(method_id);
-        const auto beta = parse_number_text(
-          combination_value(combination, "regularisation"), "Matrix/regularisation");
-        const auto beta_slug = b1_beta_slug(beta);
+        const auto &beta_text = combination_value(combination,
+                                                  "regularisation");
+        const auto beta = parse_number_text(beta_text, "Matrix/regularisation");
+        const auto beta_coordinate = b1_beta_coordinate(beta_text);
         const auto path = runner::artifact_path(
           output_directory,
           runner::run_set_artifact_components(
@@ -767,7 +780,7 @@ namespace
               method_id,
               beta,
               std::string(file.value("Benchmark/id")) + "." + method_id +
-                ".beta-" + b1_beta_slug(beta));
+                ".beta-" + beta_coordinate);
             scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
             if (configuration.refinement_override.has_value())
               {
@@ -786,11 +799,11 @@ namespace
             std::string objective_target_reference_artifact;
             if (matched_objective_target && method != reference_method)
               {
-                const auto reference = objective_references.find(beta_slug);
+                const auto reference = objective_references.find(beta_coordinate);
                 if (reference == objective_references.end())
                   throw std::invalid_argument(
                     "objective-target reference method did not reach its stopping tolerance for beta " +
-                    std::string(beta_slug));
+                    beta_coordinate);
                 scenario.solver.parameters.objective_target =
                   reference->second.value;
                 objective_target_reference_artifact =
@@ -837,7 +850,7 @@ namespace
                 runner::reference_reached_stopping_tolerance(
                   scenario.solver.parameters.stopping_criterion,
                   result.artifact.envelope().report().stopping_reason))
-              objective_references[beta_slug] = {
+              objective_references[beta_coordinate] = {
                 result.artifact.envelope().report().final_evaluation.
                   objective_value,
                 std::filesystem::relative(path, output_directory).string()};

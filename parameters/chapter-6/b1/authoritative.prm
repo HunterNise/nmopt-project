@@ -51,6 +51,8 @@ end
 subsection Mesh
   set dimension = 2
   set geometry = unit-hypercube
+  set lower = (0.0, 0.0)
+  set upper = (1.0, 1.0)
   set generator = structured-simplex
   set refinement = 0
   set subdivisions = 131

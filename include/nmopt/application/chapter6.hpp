@@ -84,6 +84,8 @@ namespace nmopt::application::chapter6
     unsigned int              refinement = 0;
     unsigned int              subdivisions = 0;
     std::vector<unsigned int> axis_subdivisions;
+    std::vector<double>        lower = {0.0, 0.0};
+    std::vector<double>        upper = {1.0, 1.0};
     unsigned int              centroid_splits = 0;
     unsigned int              selection_seed = 0;
     std::string               mesh_provenance = "scenario-owned-mesh";
@@ -391,6 +393,21 @@ namespace nmopt::application::chapter6
 
     if (options.mesh.dimension == 0)
       throw std::invalid_argument("benchmark scenarios need a mesh dimension");
+    if (options.mesh.lower.size() != options.mesh.dimension ||
+        options.mesh.upper.size() != options.mesh.dimension)
+      throw std::invalid_argument(
+        "mesh lower and upper coordinates must match the mesh dimension");
+    for (unsigned int coordinate = 0; coordinate < options.mesh.dimension;
+         ++coordinate)
+      {
+        if (!std::isfinite(options.mesh.lower[coordinate]) ||
+            !std::isfinite(options.mesh.upper[coordinate]))
+          throw std::invalid_argument(
+            "mesh lower and upper coordinates must be finite");
+        if (!(options.mesh.lower[coordinate] < options.mesh.upper[coordinate]))
+          throw std::invalid_argument(
+            "mesh lower coordinates must be strictly below upper coordinates");
+      }
     const bool has_axis_subdivisions =
       !options.mesh.axis_subdivisions.empty();
     if (has_axis_subdivisions &&
@@ -805,6 +822,8 @@ namespace nmopt::application::chapter6
 
     CompileOptions compile;
     compile.mesh.refinement = b1_default_mesh_refinement;
+    compile.mesh.lower = {0.0, 0.0};
+    compile.mesh.upper = {1.0, 1.0};
 
     B1Scenario scenario{
       {"chapter-6.b1.distributed-laplace",
@@ -851,6 +870,8 @@ namespace nmopt::application::chapter6
 
     CompileOptions compile;
     compile.mesh.refinement = b2_default_mesh_refinement;
+    compile.mesh.lower = {0.0, 0.0};
+    compile.mesh.upper = {4.0, 1.0};
     compile.volume_observation = volume_observation;
 
     std::string scenario_id = "chapter-6.b2.graetz-flow";

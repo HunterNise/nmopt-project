@@ -44,9 +44,6 @@ namespace nmopt::application::runner::binding
                       chapter6::b1_recipe_id);
     require_parameter(file, "Problem/observation", "full-domain");
     require_parameter(file,
-                      "Mesh/geometry",
-                      "unit-hypercube");
-    require_parameter(file,
                       "Output/selected fields",
                       "state, control, adjoint, negative-adjoint, target, forcing");
     if (combination.values.size() < 2)
@@ -128,9 +125,6 @@ namespace nmopt::application::runner::binding
     require_parameter(file, "Boundary/outflow boundary id", "2");
     require_parameter(file, "Boundary/upstream transition x", "1.0");
     require_parameter(file, "Boundary/outflow x", "4.0");
-    require_parameter(file, "Mesh/geometry", "rectangle");
-    require_parameter(file, "Mesh/lower", "(0.0, 0.0)");
-    require_parameter(file, "Mesh/upper", "(4.0, 1.0)");
     require_parameter(file, "Compile/stabilization", "galerkin");
     const auto method_id = file.value("Solver/method");
     const auto method = parse_method(method_id);

@@ -33,10 +33,9 @@ namespace
   }
 
   std::string
-  forcing_definition_path(
-    const nmopt::application::runner::ParameterFile &file)
+  forcing_definition_path()
   {
-    return "Functions/forcing definition " + file.value("Functions/forcing");
+    return "Functions/forcing";
   }
 
   template <typename Operation>
@@ -177,28 +176,29 @@ subsection Observation
 end
 
 subsection Functions
-  set forcing = from-matrix
   set fixed Dirichlet data = fixed-temperature
   set conservative transport = graetz
 
-  subsection forcing definition zero
-    set kind = zero
-    set provenance = test.zero-forcing
+  subsection forcing definitions
+    subsection zero
+      set kind = zero
+      set provenance = test.zero-forcing
+    end
+
+    subsection spatial-candidate
+      set kind = expression
+      set expression = 0.25 + sin(pi*x0)*sin(pi*x1)
+      set provenance = test.spatial-candidate-forcing
+    end
   end
 
-  subsection forcing definition spatial-candidate
-    set kind = expression
-    set expression = 0.25 + sin(pi*x0)*sin(pi*x1)
-    set provenance = test.spatial-candidate-forcing
-  end
-
-  subsection fixed-temperature
+  subsection fixed Dirichlet data
     set kind = constant
     set value = 1.0
     set provenance = test.fixed-temperature
   end
 
-  subsection graetz
+  subsection conservative transport
     set kind = conservative-transport
     set expression = (1.5*x1*(1-x1), 0.0)
     set provenance = test.graetz-transport
@@ -206,7 +206,6 @@ subsection Functions
 
   subsection target definitions
     subsection candidate-target
-      set id = target-candidate
       set kind = expression
       set expression = x0 + 2.0*x1
       set provenance = test.target-candidate
@@ -409,8 +408,8 @@ end
                 "continuous-volume-homogeneous-dirichlet" &&
               b1.value("Functions/forcing") ==
                 "source-oriented-constant-half" &&
-              b1.value(forcing_definition_path(b1) + "/kind") == "constant" &&
-              b1.value(forcing_definition_path(b1) + "/value") == "0.5" &&
+              b1.value(forcing_definition_path() + "/kind") == "constant" &&
+              b1.value(forcing_definition_path() + "/value") == "0.5" &&
               b1.value("Mesh/generator") == "structured-simplex" &&
               b1.value("Mesh/refinement") == "0" &&
               b1.value("Mesh/subdivisions") == "131" &&
@@ -490,10 +489,10 @@ end
               constant_one_forcing.value("Functions/forcing") ==
                 "figure-inferred-constant-one" &&
               constant_one_forcing.value(
-                forcing_definition_path(constant_one_forcing) + "/kind") ==
+                forcing_definition_path() + "/kind") ==
                 "constant" &&
               constant_one_forcing.value(
-                forcing_definition_path(constant_one_forcing) + "/value") ==
+                forcing_definition_path() + "/value") ==
                 "1.0",
             "B1 constant-one family lost its inferred forcing candidate");
 
@@ -538,10 +537,10 @@ end
     require(
       figure_6_2_constant_half.combinations().size() == 2 &&
         figure_6_2_constant_half.value(
-          forcing_definition_path(figure_6_2_constant_half) + "/kind") ==
+          forcing_definition_path() + "/kind") ==
           "constant" &&
         figure_6_2_constant_half.value(
-          forcing_definition_path(figure_6_2_constant_half) + "/value") ==
+          forcing_definition_path() + "/value") ==
           "0.5" &&
         figure_6_2_constant_half.value("Mesh/generator") ==
           "structured-simplex" &&
@@ -563,10 +562,10 @@ end
         figure_6_2_objective_matched.value("Functions/forcing") ==
           "objective-matched-constant" &&
         figure_6_2_objective_matched.value(
-          forcing_definition_path(figure_6_2_objective_matched) + "/kind") ==
+          forcing_definition_path() + "/kind") ==
           "constant" &&
         figure_6_2_objective_matched.value(
-          forcing_definition_path(figure_6_2_objective_matched) + "/value") ==
+          forcing_definition_path() + "/value") ==
           "0.41506741762176758" &&
         figure_6_2_objective_matched.value("Mesh/generator") ==
           "structured-simplex" &&
@@ -582,7 +581,7 @@ end
     const auto require_figure_6_3_candidate = [](const auto &candidate,
                                                   const char *forcing_value,
                                                   const char *message) {
-      const auto forcing_path = forcing_definition_path(candidate);
+      const auto forcing_path = forcing_definition_path();
       require(
         candidate.combinations().size() == 6 &&
           candidate.value(forcing_path + "/kind") == "constant" &&
@@ -649,7 +648,7 @@ end
       [](const auto &candidate,
          const char *forcing_value,
          const char *message) {
-        const auto forcing_path = forcing_definition_path(candidate);
+        const auto forcing_path = forcing_definition_path();
         require(
           candidate.combinations().size() == 4 &&
             candidate.value("Problem/control representation") ==
@@ -928,12 +927,12 @@ end
                     observation_region) == region &&
                   scenario.problem.target_profile == target_profile &&
                   ((target_profile == "constant" &&
-                    target.id == "constant-2" &&
+                    target.id == "constant" &&
                     target.kind ==
                       nmopt::application::ScalarFunctionKind::constant &&
                     target.value == 2.0 && target.expression.empty()) ||
                    (target_profile == "parabolic" &&
-                    target.id == "parabolic-4*x1*(1-x1)" &&
+                    target.id == "parabolic" &&
                     target.kind ==
                       nmopt::application::ScalarFunctionKind::expression &&
                     target.value == 0.0 &&
@@ -1502,32 +1501,29 @@ end
       "parameters/chapter-6/b2/authoritative.prm"));
     const auto defaults =
       nmopt::application::runner::b2_target_catalog(file);
-    require(defaults.selected_id == "constant-2" &&
+    require(defaults.selected_id == "constant" &&
               defaults.definitions.size() == 2 &&
-              defaults.definitions[0].id == "constant-2" &&
+              defaults.definitions[0].id == "constant" &&
               defaults.definitions[0].kind ==
                 nmopt::application::ScalarFunctionKind::constant &&
               std::abs(defaults.definitions[0].value - 2.0) < 1.0e-15 &&
               defaults.definitions[0].expression.empty() &&
-              defaults.definitions[1].id == "parabolic-4*x1*(1-x1)" &&
+              defaults.definitions[1].id == "parabolic" &&
               defaults.definitions[1].kind ==
                 nmopt::application::ScalarFunctionKind::expression &&
               defaults.definitions[1].expression == "4.0*x1*(1.0-x1)" &&
               defaults.definitions[1].value == 0.0,
             "B2 parameter parsing lost its target catalog");
 
-    file.values["Functions/target definitions/constant/id"] = "constant-20";
     file.values["Functions/target definitions/constant/value"] = "20.0";
-    file.values["Functions/target definitions/parabolic/id"] =
-      "parabolic-6*x1*(1-x1)";
     file.values["Functions/target definitions/parabolic/expression"] =
       "6.0*x1*(1.0-x1)";
     const auto candidate =
       nmopt::application::runner::b2_target_catalog(file, "parabolic");
-    require(candidate.selected_id == "parabolic-6*x1*(1-x1)" &&
-              candidate.definitions[0].id == "constant-20" &&
+    require(candidate.selected_id == "parabolic" &&
+              candidate.definitions[0].id == "constant" &&
               std::abs(candidate.definitions[0].value - 20.0) < 1.0e-15 &&
-              candidate.definitions[1].id == "parabolic-6*x1*(1-x1)" &&
+              candidate.definitions[1].id == "parabolic" &&
               candidate.definitions[1].expression == "6.0*x1*(1.0-x1)" &&
               nmopt::application::chapter6::b2_target_definition(candidate).id ==
                 candidate.selected_id,
@@ -1564,14 +1560,13 @@ end
   {
     const auto file = read_b2_scalar_discovery_parameter_file();
     require(
-      file.value("Functions/forcing definition spatial-candidate/kind") ==
+      file.value("Functions/forcing definitions/spatial-candidate/kind") ==
           "expression" &&
         file.value(
-          "Functions/forcing definition spatial-candidate/expression") ==
+          "Functions/forcing definitions/spatial-candidate/expression") ==
           "0.25 + sin(pi*x0)*sin(pi*x1)" &&
-        file.value(
-          "Functions/target definitions/candidate-target/id") ==
-          "target-candidate",
+        file.value("Functions/target definitions/candidate-target/kind") ==
+          "expression",
       "native scalar subsections were not declared from matrix IDs");
 
     const auto combinations = file.combinations();
@@ -1585,6 +1580,20 @@ end
     require(combination_it != combinations.end(),
             "scalar discovery fixture lost its selected forcing combination");
     const auto &combination = *combination_it;
+
+    auto missing_selected_definition = file;
+    missing_selected_definition.values.erase(
+      "Functions/forcing definitions/spatial-candidate/kind");
+    require_invalid_argument(
+      [&] {
+        (void)nmopt::application::runner::
+          parameter_scalar_function_definition_from_catalog(
+            missing_selected_definition,
+            "Functions/forcing definitions/",
+            "spatial-candidate");
+      },
+      "a selected matrix scalar definition may not be missing");
+
     const auto target_catalog =
       nmopt::application::runner::b2_target_catalog(file, "candidate-target");
     auto scenario =
@@ -1608,7 +1617,7 @@ end
                 "0.25 + sin(pi*x0)*sin(pi*x1)" &&
               scenario.problem.forcing.provenance ==
                 "test.spatial-candidate-forcing" &&
-              target.id == "target-candidate" &&
+              target.id == "candidate-target" &&
               target.kind ==
                 nmopt::application::ScalarFunctionKind::expression &&
               target.expression == "x0 + 2.0*x1" &&
@@ -1728,15 +1737,15 @@ end
   {
     nmopt::application::runner::ParameterFile file;
     file.values = {{"Functions/forcing", "candidate-045"},
-                   {"Functions/forcing definition candidate-045/kind",
+                   {"Functions/forcing/kind",
                     "constant"},
-                   {"Functions/forcing definition candidate-045/value", "0.45"},
-                   {"Functions/forcing definition candidate-045/expression", ""},
-                   {"Functions/forcing definition candidate-045/provenance",
+                   {"Functions/forcing/value", "0.45"},
+                   {"Functions/forcing/expression", ""},
+                   {"Functions/forcing/provenance",
                     "development.b1.candidate-045"}};
     const auto constant =
-      nmopt::application::runner::parameter_scalar_function_definition_from_selector(
-        file, "Functions/forcing", "Functions/forcing definition ");
+      nmopt::application::runner::parameter_scalar_function_definition(
+        file, "Functions/forcing");
     require(constant.id == "candidate-045" &&
               constant.kind ==
                 nmopt::application::ScalarFunctionKind::constant &&
@@ -1744,16 +1753,16 @@ end
             "parameter parsing hardcoded the constant forcing value");
 
     file.values["Functions/forcing"] = "spatial-candidate";
-    file.values["Functions/forcing definition spatial-candidate/kind"] =
+    file.values["Functions/forcing/kind"] =
       "expression";
-    file.values["Functions/forcing definition spatial-candidate/value"] = "";
-    file.values["Functions/forcing definition spatial-candidate/expression"] =
+    file.values["Functions/forcing/value"] = "";
+    file.values["Functions/forcing/expression"] =
       "0.4 + x0*(1-x0)*x1*(1-x1)";
-    file.values["Functions/forcing definition spatial-candidate/provenance"] =
+    file.values["Functions/forcing/provenance"] =
       "development.b1.spatial-candidate";
     const auto expression =
-      nmopt::application::runner::parameter_scalar_function_definition_from_selector(
-        file, "Functions/forcing", "Functions/forcing definition ");
+      nmopt::application::runner::parameter_scalar_function_definition(
+        file, "Functions/forcing");
     require(expression.id == "spatial-candidate" &&
               expression.kind ==
                 nmopt::application::ScalarFunctionKind::expression &&
@@ -1761,14 +1770,13 @@ end
                 "0.4 + x0*(1-x0)*x1*(1-x1)",
             "parameter parsing did not retain a forcing expression");
 
-    file.values["Functions/forcing definition spatial-candidate/value"] =
-      "0.45";
+    file.values["Functions/forcing/value"] = "0.45";
     bool ambiguous_definition_rejected = false;
     try
       {
         (void)nmopt::application::runner::
           parameter_scalar_function_definition_from_selector(
-            file, "Functions/forcing", "Functions/forcing definition ");
+            file, "Functions/forcing");
       }
     catch (const std::invalid_argument &)
       {
@@ -1777,15 +1785,14 @@ end
     require(ambiguous_definition_rejected,
             "parameter parsing accepted both forcing value and expression");
 
-    file.values["Functions/forcing definition spatial-candidate/value"] = "";
-    file.values["Functions/forcing definition spatial-candidate/kind"] =
-      "registered-only";
+    file.values["Functions/forcing/value"] = "";
+    file.values["Functions/forcing/kind"] = "registered-only";
     bool unknown_kind_rejected = false;
     try
       {
         (void)nmopt::application::runner::
           parameter_scalar_function_definition_from_selector(
-            file, "Functions/forcing", "Functions/forcing definition ");
+            file, "Functions/forcing");
       }
     catch (const std::invalid_argument &)
       {

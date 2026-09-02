@@ -24,7 +24,7 @@ subsection Functions
   set forcing = objective-matched-constant
   set desired state = b1-polynomial
 
-  subsection forcing definition objective-matched-constant
+  subsection forcing
     set kind = constant
     set value = 0.41506741762176758
     set provenance = experiment.chapter-6.b1.figure-6.3-initial-objective-match
@@ -70,7 +70,6 @@ subsection Compile
 end
 
 subsection Solver
-  set method = from-matrix
   set initial control = zero
   set maximum iterations = 5000
   set maximum backtracking reductions = 5

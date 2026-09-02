@@ -43,11 +43,9 @@ namespace nmopt::application::runner::binding
                       "Benchmark/recipe",
                       chapter6::b1_recipe_id);
     require_parameter(file, "Problem/observation", "full-domain");
-    require_parameter(file, "Functions/desired state", "b1-polynomial");
     require_parameter(file,
                       "Mesh/geometry",
                       "unit-hypercube");
-    require_parameter(file, "Solver/method", "from-matrix");
     require_parameter(file,
                       "Output/selected fields",
                       "state, control, adjoint, negative-adjoint, target, forcing");
@@ -77,9 +75,8 @@ namespace nmopt::application::runner::binding
     scenario.problem.data.desired_state_provenance =
       scenario.problem.desired_state.provenance;
     scenario.problem.regularisation_sweep = {beta};
-    scenario.problem.forcing =
-      parameter_scalar_function_definition_from_selector(
-        file, "Functions/forcing", "Functions/forcing definition ");
+    scenario.problem.forcing = parameter_scalar_function_definition(
+      file, "Functions/forcing");
     scenario.problem.data.forcing_provenance =
       scenario.problem.forcing.provenance;
     scenario.solver.method = parse_method(method_id);
@@ -99,12 +96,20 @@ namespace nmopt::application::runner::binding
     using namespace nmopt::application;
     require_parameter(file, "Benchmark/id", "chapter-6.b2.graetz-flow");
     require_parameter(file, "Benchmark/recipe", chapter6::b2_recipe_id);
-    require_parameter(file, "Functions/fixed Dirichlet data", "fixed-temperature");
-    require_parameter(file, "Functions/conservative transport", "graetz");
-    require_parameter(file, "Functions/fixed-temperature/kind", "constant");
-    require_parameter(file, "Functions/graetz/kind", "conservative-transport");
     require_parameter(file,
-                      "Functions/graetz/expression",
+                      "Functions/fixed Dirichlet data",
+                      "fixed-temperature");
+    require_parameter(file,
+                      "Functions/conservative transport",
+                      "graetz");
+    require_parameter(file,
+                      "Functions/fixed Dirichlet data/kind",
+                      "constant");
+    require_parameter(file,
+                      "Functions/conservative transport/kind",
+                      "conservative-transport");
+    require_parameter(file,
+                      "Functions/conservative transport/expression",
                       "(1.5*x1*(1-x1), 0.0)");
     scenario.problem.transport_boundary_form =
       b2_transport_boundary_form(file);
@@ -149,12 +154,12 @@ namespace nmopt::application::runner::binding
                             "Matrix/regularisation")
         : parameter_double(file, "Runtime/regularisation");
     scenario.problem.fixed_temperature =
-      parse_number_text(file.value("Functions/fixed-temperature/value"),
-                        "Functions/fixed-temperature/value");
+      parse_number_text(file.value("Functions/fixed Dirichlet data/value"),
+                        "Functions/fixed Dirichlet data/value");
     scenario.problem.data.fixed_dirichlet_data_provenance =
-      file.value("Functions/fixed-temperature/provenance");
+      file.value("Functions/fixed Dirichlet data/provenance");
     scenario.problem.data.conservative_transport_provenance =
-      file.value("Functions/graetz/provenance");
+      file.value("Functions/conservative transport/provenance");
     scenario.problem.observation_region =
       b2_observation_region_from_combination(combination);
     const auto target_axis = combination.values.find("target-profile");
@@ -166,13 +171,13 @@ namespace nmopt::application::runner::binding
       b2_target_catalog(file, scenario.problem.target_profile);
 
     const auto forcing_axis = combination.values.find("forcing");
-    const std::string forcing_id =
-      forcing_axis == combination.values.end()
-        ? file.value("Functions/forcing")
-        : forcing_axis->second;
-    scenario.problem.forcing =
-      parameter_scalar_function_definition_with_id(
-        file, "Functions/forcing definition " + forcing_id, forcing_id);
+    if (forcing_axis == combination.values.end())
+      scenario.problem.forcing = parameter_scalar_function_definition(
+        file, "Functions/forcing");
+    else
+      scenario.problem.forcing =
+        parameter_scalar_function_definition_from_catalog(
+          file, "Functions/forcing definitions/", forcing_axis->second);
     scenario.problem.data.forcing_provenance =
       scenario.problem.forcing.provenance;
     scenario.problem.data.desired_state_provenance =

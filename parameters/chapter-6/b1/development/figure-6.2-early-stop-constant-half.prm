@@ -24,7 +24,7 @@ subsection Functions
   set forcing = early-stop-constant-half
   set desired state = b1-polynomial
 
-  subsection forcing definition early-stop-constant-half
+  subsection forcing
     set kind = constant
     set value = 0.5
     set provenance = experiment.chapter-6.b1.early-stop-constant-half-forcing
@@ -70,7 +70,6 @@ subsection Compile
 end
 
 subsection Solver
-  set method = from-matrix
   set initial control = zero
   set maximum iterations = 5000
   set maximum backtracking reductions = 5

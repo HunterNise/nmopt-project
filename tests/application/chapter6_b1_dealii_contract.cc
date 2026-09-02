@@ -128,6 +128,19 @@ namespace
                 scalar_function_kind_name(forcing.kind) + "\n") !=
                 std::string::npos,
             "B1 dealii adapter omitted resolved forcing evidence");
+    require(result.document.find(
+              std::string("b1.desired_state_selection=") +
+              scenario.problem.desired_state.id + "\n") !=
+              std::string::npos &&
+              result.document.find(
+                std::string("b1.desired_state_kind=") +
+                scalar_function_kind_name(scenario.problem.desired_state.kind) +
+                "\n") != std::string::npos &&
+              result.document.find(
+                std::string("b1.desired_state_provenance=") +
+                scenario.problem.desired_state.provenance + "\n") !=
+                std::string::npos,
+            "B1 dealii adapter omitted resolved desired-state evidence");
     if (forcing.kind == ScalarFunctionKind::expression)
       require(result.document.find(
                 std::string("b1.forcing_expression=") +

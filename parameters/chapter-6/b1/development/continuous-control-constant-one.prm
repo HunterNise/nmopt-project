@@ -26,7 +26,7 @@ subsection Functions
   set forcing = figure-inferred-constant-one
   set desired state = b1-polynomial
 
-  subsection forcing definition figure-inferred-constant-one
+  subsection forcing
     set kind = constant
     set value = 1.0
     set provenance = chapter-6.e6.5.1.figure-6.2-inferred-constant-one-forcing
@@ -68,7 +68,6 @@ subsection Compile
 end
 
 subsection Solver
-  set method = from-matrix
   set initial control = zero
   set maximum iterations = 5000
   set maximum backtracking reductions = 5

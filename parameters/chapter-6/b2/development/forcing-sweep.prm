@@ -26,34 +26,35 @@ subsection Observation
 end
 
 subsection Functions
-  set forcing = from-matrix
   set fixed Dirichlet data = fixed-temperature
   set conservative transport = graetz
 
-  subsection forcing definition zero
-    set kind = zero
-    set provenance = development.b2.zero-forcing
+  subsection forcing definitions
+    subsection zero
+      set kind = zero
+      set provenance = development.b2.zero-forcing
+    end
+
+    subsection constant-one
+      set kind = constant
+      set value = 1.0
+      set provenance = development.b2.constant-one-forcing
+    end
+
+    subsection constant-two
+      set kind = constant
+      set value = 2.0
+      set provenance = development.b2.constant-two-forcing
+    end
   end
 
-  subsection forcing definition constant-one
-    set kind = constant
-    set value = 1.0
-    set provenance = development.b2.constant-one-forcing
-  end
-
-  subsection forcing definition constant-two
-    set kind = constant
-    set value = 2.0
-    set provenance = development.b2.constant-two-forcing
-  end
-
-  subsection fixed-temperature
+  subsection fixed Dirichlet data
     set kind = constant
     set value = 1.0
     set provenance = chapter-6.e6.5.2.fixed-temperature
   end
 
-  subsection graetz
+  subsection conservative transport
     set kind = conservative-transport
     set expression = (1.5*x1*(1-x1), 0.0)
     set provenance = chapter-6.e6.5.2.graetz-transport
@@ -61,7 +62,6 @@ subsection Functions
 
   subsection target definitions
     subsection constant
-      set id = constant-2
       set kind = constant
       set value = 2.0
       set provenance = chapter-6.e6.5.2.target

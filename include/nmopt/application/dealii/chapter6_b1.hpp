@@ -528,6 +528,12 @@ namespace nmopt::application::chapter6::dealii
         {"b1.forcing_selection", scenario.problem.forcing.id},
         {"b1.forcing_kind",
          scalar_function_kind_name(scenario.problem.forcing.kind)},
+        {"b1.forcing_provenance", scenario.problem.forcing.provenance},
+        {"b1.desired_state_selection", scenario.problem.desired_state.id},
+        {"b1.desired_state_kind",
+         scalar_function_kind_name(scenario.problem.desired_state.kind)},
+        {"b1.desired_state_provenance",
+         scenario.problem.desired_state.provenance},
         {"b1.control_discretisation",
          chapter5::distributed_control_discretisation_name(
            scenario.problem.recipe.discretisation)},
@@ -596,6 +602,15 @@ namespace nmopt::application::chapter6::dealii
       else
         fields.push_back(
           {"b1.forcing_expression", scenario.problem.forcing.expression});
+      if (scenario.problem.desired_state.kind == ScalarFunctionKind::zero ||
+          scenario.problem.desired_state.kind == ScalarFunctionKind::constant)
+        fields.push_back(
+          {"b1.desired_state_value",
+           b1_number(scenario.problem.desired_state.value)});
+      else
+        fields.push_back(
+          {"b1.desired_state_expression",
+           scenario.problem.desired_state.expression});
       if (scenario.solver.declared_minimum_step_length.has_value())
         fields.push_back({"solver.declared_minimum_step_length",
                           b1_number(

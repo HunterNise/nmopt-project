@@ -82,8 +82,8 @@ namespace nmopt::application::runner
   {
     std::string selector_path;
     std::string matrix_axis_path;
-    std::string definition_path_prefix;
-    bool        definition_has_id = false;
+    std::string direct_definition_path;
+    std::string catalog_path_prefix;
   };
 
   struct ParameterSchemaAdapter
@@ -330,31 +330,33 @@ namespace nmopt::application::runner
   }
 
   inline ScalarFunctionDefinition
-  parameter_scalar_function_definition_at(const ParameterFile &file,
-                                          const std::string &path,
-                                          const std::string &id_path)
+  parameter_scalar_function_definition(const ParameterFile &file,
+                                       const std::string_view selector_path)
   {
     return parameter_scalar_function_definition_with_id(
-      file, path, file.value(id_path));
-  }
-
-  inline ScalarFunctionDefinition
-  parameter_scalar_function_definition(const ParameterFile &file,
-                                       const std::string_view key)
-  {
-    const auto path = std::string(key);
-    return parameter_scalar_function_definition_at(file, path, path);
+      file,
+      std::string(selector_path),
+      file.value(selector_path));
   }
 
   inline ScalarFunctionDefinition
   parameter_scalar_function_definition_from_selector(
-    const ParameterFile    &file,
-    const std::string_view selector_path,
-    const std::string_view definition_path_prefix)
+    const ParameterFile &file,
+    const std::string_view selector_path)
   {
-    const auto id = file.value(selector_path);
+    return parameter_scalar_function_definition(file, selector_path);
+  }
+
+  inline ScalarFunctionDefinition
+  parameter_scalar_function_definition_from_catalog(
+    const ParameterFile    &file,
+    const std::string_view catalog_path_prefix,
+    const std::string_view id)
+  {
     return parameter_scalar_function_definition_with_id(
-      file, std::string(definition_path_prefix) + id, id);
+      file,
+      std::string(catalog_path_prefix) + std::string(id),
+      std::string(id));
   }
 
   inline ScalarFunctionDefinition
@@ -362,8 +364,8 @@ namespace nmopt::application::runner
     const ParameterFile &file,
     const std::string_view section)
   {
-    const auto path = "Functions/target definitions/" + std::string(section);
-    return parameter_scalar_function_definition_at(file, path, path + "/id");
+    return parameter_scalar_function_definition_from_catalog(
+      file, "Functions/target definitions/", section);
   }
 
   namespace detail
@@ -625,11 +627,8 @@ namespace nmopt::application::runner
     inline void
     append_scalar_definition_entries(
       std::vector<ParameterSchemaEntry> &registry,
-      const std::string                 &definition_path,
-      const bool                         definition_has_id)
+      const std::string                 &definition_path)
     {
-      if (definition_has_id)
-        append_schema_entry(registry, definition_path + "/id");
       for (const auto *entry : {"kind", "value", "expression", "provenance"})
         append_schema_entry(registry, definition_path + "/" + entry);
     }
@@ -670,9 +669,7 @@ namespace nmopt::application::runner
                      "desired state",
                      "fixed Dirichlet data",
                      "conservative transport"});
-        for (const auto *section : {"desired state",
-                                    "fixed-temperature",
-                                    "graetz"})
+        for (const auto *section : {"conservative transport"})
           for (const auto *entry : {"kind", "expression", "provenance", "value"})
             append_schema_entry(result,
                                 "Functions/" + std::string(section) + "/" +
@@ -800,7 +797,8 @@ namespace nmopt::application::runner
           {"chapter-6.b1."},
           {"chapter-5.scalar-diffusion-reaction-volume"},
           {},
-          {{"Functions/forcing", "", "Functions/forcing definition ", false}}};
+          {{"Functions/forcing", "", "Functions/forcing", ""},
+           {"Functions/desired state", "", "Functions/desired state", ""}}};
         for (const auto *axis : {"method", "regularisation"})
           append_matrix_axis(b1, axis);
         result.push_back(std::move(b1));
@@ -813,12 +811,16 @@ namespace nmopt::application::runner
           {},
           {{"Functions/forcing",
             "Matrix/forcing",
-            "Functions/forcing definition ",
-            false},
+            "Functions/forcing",
+            "Functions/forcing definitions/"},
            {"",
             "Matrix/target-profile",
-            "Functions/target definitions/",
-            true}}};
+            "",
+            "Functions/target definitions/"},
+           {"Functions/fixed Dirichlet data",
+            "",
+            "Functions/fixed Dirichlet data",
+            ""}}};
         for (const auto *axis : {"regularisation",
                                  "forcing",
                                  "observation-region",
@@ -981,17 +983,41 @@ namespace nmopt::application::runner
     scalar_definition_ids(::dealii::ParameterHandler       &handler,
                           const ScalarDefinitionSchema    &definition_schema)
     {
-      if (!definition_schema.matrix_axis_path.empty())
-        {
-          const auto matrix_ids = split_list(
-            get_path(handler, definition_schema.matrix_axis_path));
-          if (!matrix_ids.empty())
-            return matrix_ids;
-        }
-      if (definition_schema.selector_path.empty())
+      if (definition_schema.selector_path.empty() &&
+          definition_schema.matrix_axis_path.empty())
         throw std::logic_error(
           "scalar definition schema needs a selector or matrix axis");
-      return split_list(get_path(handler, definition_schema.selector_path));
+
+      const auto selector_ids = definition_schema.selector_path.empty() ?
+                                  std::vector<std::string>{} :
+                                  split_list(get_path(
+                                    handler, definition_schema.selector_path));
+      const auto matrix_ids = definition_schema.matrix_axis_path.empty() ?
+                                std::vector<std::string>{} :
+                                split_list(get_path(
+                                  handler, definition_schema.matrix_axis_path));
+
+      if (!selector_ids.empty() && !matrix_ids.empty())
+        throw std::invalid_argument(
+          "scalar definition cannot select both a direct ID and a matrix catalog");
+
+      const auto &ids = matrix_ids.empty() ? selector_ids : matrix_ids;
+      if (ids.empty())
+        return {};
+
+      if (matrix_ids.empty() && ids.size() != 1)
+        throw std::invalid_argument(
+          "a direct scalar definition selector must contain exactly one ID");
+
+      for (std::size_t index = 0; index < ids.size(); ++index)
+        if (std::find(ids.begin() + static_cast<std::ptrdiff_t>(index + 1),
+                      ids.end(),
+                      ids[index]) != ids.end())
+          throw std::invalid_argument(
+            "scalar definition selection contains duplicate ID '" +
+            ids[index] + "'");
+
+      return ids;
     }
 
     inline std::vector<ParameterSchemaEntry>
@@ -1008,12 +1034,29 @@ namespace nmopt::application::runner
       discovery_handler.parse_input(input_stream, source, "", true);
 
       for (const auto &definition_schema : adapter.scalar_definitions)
-        for (const auto &id : scalar_definition_ids(discovery_handler,
-                                                     definition_schema))
-          append_scalar_definition_entries(
-            registry,
-            definition_schema.definition_path_prefix + id,
-            definition_schema.definition_has_id);
+        {
+          const auto ids = scalar_definition_ids(discovery_handler,
+                                                 definition_schema);
+          if (ids.empty())
+            continue;
+          const bool  matrix_catalog =
+            !definition_schema.matrix_axis_path.empty() &&
+            !split_list(get_path(discovery_handler,
+                                 definition_schema.matrix_axis_path))
+               .empty();
+          if (matrix_catalog)
+            for (const auto &id : ids)
+              append_scalar_definition_entries(
+                registry, definition_schema.catalog_path_prefix + id);
+          else
+            {
+              if (definition_schema.direct_definition_path.empty())
+                throw std::logic_error(
+                  "direct scalar definition schema needs a definition path");
+              append_scalar_definition_entries(
+                registry, definition_schema.direct_definition_path);
+            }
+        }
       return registry;
     }
 
@@ -1061,7 +1104,8 @@ namespace nmopt::application::runner
     for (const auto &profile : profiles)
       {
         const auto definition =
-          parameter_scalar_function_section_definition(file, profile);
+          parameter_scalar_function_definition_from_catalog(
+            file, "Functions/target definitions/", profile);
         if (profile == selected_profile)
           selected_id = definition.id;
         definitions.push_back(definition);

@@ -215,7 +215,6 @@ subsection Functions
   end
 
   subsection conservative transport
-    set kind = conservative-transport
     set expression = 1.5*x1*(1-x1); 0.0
     set provenance = test.graetz-transport
   end
@@ -933,10 +932,7 @@ end
                   scenario.experiment.source_revision ==
                     "1aaefbe473f9941a89d1df36192251511c052933" &&
                   scenario.experiment.harness.artifact_directory == "runs" &&
-                  scenario.experiment.harness.deterministic &&
-                  scenario.experiment.harness.serialize_artifacts &&
                   scenario.experiment.harness.measure_timings &&
-                  !scenario.experiment.harness.measure_memory &&
                   scenario.experiment.retain_fields,
                 "B1 resolution changed run provenance or output policy");
 
@@ -979,7 +975,6 @@ end
               nmopt::application::chapter6::ExecutionSelection::assembled &&
             scenario.compile.product ==
               nmopt::application::chapter6::ProductSelection::reduced_dto &&
-            scenario.compile.owned_session &&
             scenario.compile.state_solve.maximum_iterations == 0 &&
             scenario.compile.adjoint_solve.maximum_iterations == 0 &&
             scenario.compile.control_metric_solve.maximum_iterations == 1000,
@@ -1998,9 +1993,8 @@ end
     bool ambiguous_definition_rejected = false;
     try
       {
-        (void)nmopt::application::runner::
-          parameter_scalar_function_definition_from_selector(
-            file, "Functions/forcing");
+        (void)nmopt::application::runner::parameter_scalar_function_definition(
+          file, "Functions/forcing");
       }
     catch (const std::invalid_argument &)
       {
@@ -2014,9 +2008,8 @@ end
     bool unknown_kind_rejected = false;
     try
       {
-        (void)nmopt::application::runner::
-          parameter_scalar_function_definition_from_selector(
-            file, "Functions/forcing");
+        (void)nmopt::application::runner::parameter_scalar_function_definition(
+          file, "Functions/forcing");
       }
     catch (const std::invalid_argument &)
       {

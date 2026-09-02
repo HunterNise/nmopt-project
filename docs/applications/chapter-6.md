@@ -185,7 +185,7 @@ runtime functions:
 ```cpp
 const auto scenario =
   nmopt::application::chapter6::make_b2_scenario(
-    nmopt::application::chapter6::B2ObservationRegion::wings,
+    "wings",
     "constant");
 const auto specification =
   nmopt::application::chapter6::make_b2_problem_spec(scenario);
@@ -256,12 +256,13 @@ complete manufactured-data path is:
 
 const auto scenario =
   nmopt::application::chapter6::make_b2_scenario(
-    nmopt::application::chapter6::B2ObservationRegion::wings);
+    "wings");
 const auto specification =
   nmopt::application::chapter6::make_b2_problem_spec(scenario);
 
 nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data{
-  nmopt::application::chapter6::b2_manufactured_wings_observation(),
+  nmopt::application::selected_scalar_function_definition(
+    scenario.problem.observation_region_catalog),
   scenario.problem.fixed_dirichlet_data,
   scenario.problem.forcing,
   nmopt::application::chapter6::b2_target_definition(

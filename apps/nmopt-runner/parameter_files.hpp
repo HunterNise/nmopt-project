@@ -330,14 +330,6 @@ namespace nmopt::application::runner
   }
 
   inline ScalarFunctionDefinition
-  parameter_scalar_function_definition_from_selector(
-    const ParameterFile &file,
-    const std::string_view selector_path)
-  {
-    return parameter_scalar_function_definition(file, selector_path);
-  }
-
-  inline ScalarFunctionDefinition
   parameter_scalar_function_definition_from_catalog(
     const ParameterFile    &file,
     const std::string_view catalog_path_prefix,
@@ -363,15 +355,6 @@ namespace nmopt::application::runner
     validate_rank_one_vector_function_definition(
       definition, std::string("parameter ") + std::string(selector_path));
     return definition;
-  }
-
-  inline ScalarFunctionDefinition
-  parameter_scalar_function_section_definition(
-    const ParameterFile &file,
-    const std::string_view section)
-  {
-    return parameter_scalar_function_definition_from_catalog(
-      file, "Functions/target definitions/", section);
   }
 
   namespace detail
@@ -688,11 +671,10 @@ namespace nmopt::application::runner
                      "desired state",
                      "fixed Dirichlet data",
                      "conservative transport"});
-        for (const auto *section : {"conservative transport"})
-          for (const auto *entry : {"kind", "expression", "provenance", "value"})
-            append_schema_entry(result,
-                                "Functions/" + std::string(section) + "/" +
-                                  entry);
+        for (const auto *entry : {"expression", "provenance"})
+          append_schema_entry(result,
+                              "Functions/conservative transport/" +
+                                std::string(entry));
 
         add_section("Runtime", {"diffusion", "reaction", "regularisation"});
         add_section("Boundary",

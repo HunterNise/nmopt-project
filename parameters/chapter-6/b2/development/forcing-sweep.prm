@@ -63,7 +63,6 @@ subsection Functions
   end
 
   subsection conservative transport
-    set kind = conservative-transport
     set expression = 1.5*x1*(1-x1); 0.0
     set provenance = chapter-6.e6.5.2.graetz-transport
   end

@@ -651,10 +651,6 @@ namespace nmopt::application::chapter6::dealii
         fields.push_back(
           {"b1.desired_state_expression",
            scenario.problem.desired_state.expression});
-      if (scenario.solver.declared_minimum_step_length.has_value())
-        fields.push_back({"solver.declared_minimum_step_length",
-                          b1_number(
-                            *scenario.solver.declared_minimum_step_length)});
       if (scenario.solver.method == ReducedMethod::limited_memory_bfgs)
         {
           fields.push_back(

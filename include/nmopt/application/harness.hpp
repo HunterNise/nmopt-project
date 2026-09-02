@@ -148,7 +148,7 @@ namespace nmopt::application::benchmark
             scenario.experiment.source_revision,
             scenario.experiment.build_profile,
             scenario.experiment.harness.artifact_directory,
-            scenario.experiment.harness.deterministic,
+            true,
             scenario.metadata.requirements};
   }
 

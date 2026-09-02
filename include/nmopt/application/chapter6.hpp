@@ -41,15 +41,12 @@ namespace nmopt::application::chapter6
 
   enum class ProductSelection
   {
-    reduced_dto,
-    quadratic_kkt,
-    pdas
+    reduced_dto
   };
 
   enum class ExecutionSelection
   {
-    assembled,
-    matrix_free
+    assembled
   };
 
   enum class MeshGeneration
@@ -132,7 +129,6 @@ namespace nmopt::application::chapter6
     unsigned int          state_degree = 1;
     ExecutionSelection    execution = ExecutionSelection::assembled;
     ProductSelection      product = ProductSelection::reduced_dto;
-    bool                  owned_session = true;
     std::optional<VolumeObservationOptions> volume_observation;
     IterativeSolveOptions state_solve;
     IterativeSolveOptions adjoint_solve;
@@ -182,9 +178,6 @@ namespace nmopt::application::chapter6
     ObjectiveTargetPolicy              objective_target_policy =
       ObjectiveTargetPolicy::none;
     std::string objective_target_reference_method;
-    // Retained for old benchmark files that recorded a source value without
-    // executing it. New experiments use parameters.minimum_step_length.
-    std::optional<double> declared_minimum_step_length = std::nullopt;
     double                initial_control_value = 0.0;
   };
 
@@ -197,10 +190,7 @@ namespace nmopt::application::chapter6
     bool        retain_fields = true;
     struct Harness
     {
-      bool        deterministic = true;
-      bool        serialize_artifacts = true;
       bool        measure_timings = true;
-      bool        measure_memory = false;
       std::string artifact_directory = "runs";
     } harness;
   };
@@ -577,9 +567,6 @@ namespace nmopt::application::chapter6
     if (options.mesh.mesh_provenance.empty())
       throw std::invalid_argument(
         "benchmark scenarios need mesh provenance");
-    if (!options.owned_session)
-      throw std::invalid_argument(
-        "selected benchmark scenarios require an owned compilation session");
     validate_solve(options.state_solve, true, "state solve");
     validate_solve(options.adjoint_solve, true, "adjoint solve");
     validate_solve(options.control_metric_solve,
@@ -992,7 +979,7 @@ namespace nmopt::application::chapter6
        chapter6_numerical_examples_source_revision,
        "release-dealii",
        true,
-       {true, true, true, false, "runs"}}};
+       {true, "runs"}}};
     validate_b1(scenario);
     return scenario;
   }
@@ -1048,14 +1035,13 @@ namespace nmopt::application::chapter6
        {},
        ObjectiveTargetPolicy::none,
        "",
-       std::nullopt,
        0.0},
       {scenario_id,
        "E6.5.2 equation (6.65), Table 6.2, Figures 6.4-6.5",
        chapter6_numerical_examples_source_revision,
        "release-dealii",
        true,
-       {true, true, true, false, "runs"}}};
+       {true, "runs"}}};
     validate_b2(scenario);
     return scenario;
   }
@@ -1130,7 +1116,7 @@ namespace nmopt::application::chapter6
     ApplicationCatalog catalog;
     const auto b1 = make_b1_scenario();
     catalog.add(b1.metadata);
-    for (const auto observation_region : b2_observation_region_order)
+    for (const auto observation_region : {"wings", "full"})
       for (const auto target_profile : {"constant", "parabolic"})
         catalog.add(make_b2_scenario(observation_region, target_profile).metadata);
     return catalog;

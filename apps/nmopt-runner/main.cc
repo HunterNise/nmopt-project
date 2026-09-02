@@ -940,12 +940,14 @@ namespace
             const auto target_catalog = runner::b2_target_catalog(
               file, target_profile);
             auto scenario = make_b2_scenario_with_target_catalog(
-              observation_region, target_profile, target_catalog);
+              "wings", target_profile, target_catalog);
             bind_b2_scenario(
               scenario,
               file,
               combination,
               std::string("chapter-6.b2.graetz-flow.") + case_slug);
+            scenario.metadata.id =
+              "chapter-6.b2.graetz-flow." + std::string(case_slug);
             scenario.experiment.build_profile = NMOPT_COMPILED_BUILD_PROFILE;
             if (configuration.refinement_override.has_value())
               {

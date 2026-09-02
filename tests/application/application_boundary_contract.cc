@@ -300,8 +300,10 @@ namespace
               std::abs(b1.compile.adjoint_solve.absolute_tolerance - 1.0e-14) <
                 1.0e-26,
             "B1 did not retain the default linear-solve tolerances");
-    require(b1.experiment.harness.deterministic,
-            "B1 did not retain the deterministic B0 harness policy");
+    const auto identity =
+      nmopt::application::benchmark::make_benchmark_identity(b1);
+    require(identity.deterministic,
+            "B1 did not retain the deterministic B0 artifact policy");
     require(b1.experiment.source_revision ==
               nmopt::application::chapter6::
                 chapter6_numerical_examples_source_revision,

@@ -67,14 +67,14 @@ The supported `.prm` sections are:
 | --- | --- |
 | `Benchmark` | Scenario identity, recipe, source reference, and source revision. |
 | `Matrix` | Explicit axes whose Cartesian product becomes the run-set. |
-| `Problem` | Recipe-level semantic choices such as control representation, observation region, and bounds. |
-| `Functions` | Registered forcing, target, fixed-data, and transport function selections and coefficients. |
-| `Boundary` | Boundary IDs, regions, normal/conormal interpretation, trace, and face quadrature choices. |
-| `Mesh` | Dimension, geometry, generator parameters, refinement, and mesh provenance. |
-| `Compile` | State degree, observation discretization, execution, product, session ownership, and state/adjoint/control-metric solve policies. |
+| `Problem` | Recipe-level control representations and box-constraint choices. |
+| `Functions` | Direct or catalogued forcing, target, fixed-data, and transport definitions. |
+| `Boundary` | External boundary IDs, the upstream transition coordinate, and the selected transport boundary form. |
+| `Mesh` | Dimension, typed lower/upper bounds, generator parameters, refinement, and mesh provenance. |
+| `Compile` | State degree, observation discretization, execution, product, and state/adjoint/control-metric solve policies. |
 | `Solver` | Method, initial control, stopping rules, line search, iteration limits, and method-specific policies. |
-| `Run` | Authoritative/development policy, build profile, output root, and harness behavior. |
-| `Output` | Retained native fields and artifact output policy. |
+| `Run` | Authoritative/development policy, build profile, output root, and timing collection. |
+| `Output` | The all-or-none retained native-field toggle. |
 | `Postprocessing` | Plot-style reference and matrix-axis binding for comparisons. |
 
 ### Schema registry
@@ -150,13 +150,11 @@ For B2, `Problem/control representation` accepts `facewise-constant` and
 `continuous-nodal-trace`. The former is the frozen default with
 `l2_facewise`; the latter uses a continuous degree-one trace with
 `l2_neumann_trace` and rejects a facewise box. The
-`Boundary/transport boundary form` entry independently selects the boundary
-operator. The ordinary-normal value
-`ordinary-normal-minus-transport` requires
-`Boundary/conormal form = unspecified`. The diagnostic `total-conormal` value
-requires `Boundary/conormal form = diffusion-minus-transport`. The latter
-entry is a consistency declaration, not an independently selectable boundary
-operator. Other values and incoherent pairs are rejected before execution.
+`Boundary/transport boundary form` independently selects the boundary
+operator. The fixed outward normal, state trace realization, and face
+quadrature are properties of the supported compiled boundary operator; they
+are not parameter choices. Other transport-form values are rejected before
+execution.
 
 B2 also requires `Compile/volume observation quadrature order` to be a
 positive integer and accepts `analytic-quadrature` or
@@ -167,20 +165,19 @@ the scalar state finite-element space; it does not change the stated
 $L^{2}$ observation functional or introduce an objective multiplier.
 
 The B2 `Functions/target definitions` subsection declares each target profile
-listed in the `Matrix/target-profile` axis. Each nested profile subsection is
-a scalar-function definition with `id`, `kind`, `provenance`, and either
-`value` or `expression`:
+listed in the `Matrix/target-profile` axis. The nested subsection name is the
+stable definition ID; it does not need a duplicate `id` entry. Each member is
+a scalar-function definition with `kind`, `provenance`, and either `value` or
+`expression`:
 
 ```text
 subsection target definitions
   subsection constant
-    set id = constant-2
     set kind = constant
     set value = 2.0
     set provenance = chapter-6.e6.5.2.target
   end
   subsection parabolic
-    set id = parabolic-4*x1*(1-x1)
     set kind = expression
     set expression = 4.0*x1*(1.0-x1)
     set provenance = chapter-6.e6.5.2.target
@@ -198,10 +195,27 @@ B2 benchmark. The effective selected definition, kind, value, and expression
 are written to B2 artifact evidence.
 
 B1 and B2 read `Functions/forcing` as a stable definition ID. The selected
-forcing is declared in the named `Functions/forcing definition <id>` subsection.
-For B2, a populated `Matrix/forcing` axis owns the forcing IDs; otherwise the
-direct `Functions/forcing` selector owns the one ID. Both forms use the same
-declarative scalar records:
+For one direct definition, the selector owns the ID and the definition uses the
+standard port subsection name:
+
+```text
+subsection Functions
+  set forcing = source-oriented-constant-half
+
+  subsection forcing
+    set kind = constant
+    set value = 0.5
+    set provenance = chapter-6-b1
+  end
+end
+```
+
+For a matrix-selected family, `Matrix/forcing` owns the IDs and the plural
+`Functions/forcing definitions` subsection contains one nested definition per
+axis value. The same direct-versus-catalog convention applies to target and
+observation-region definitions. The selector is never `from-matrix`; the
+matrix axis itself is the selection. Both forms use the same declarative
+scalar records:
 
 | `kind` | Required data | Realization |
 | --- | --- | --- |
@@ -213,16 +227,33 @@ Expressions use the deterministic scalar arithmetic and function syntax
 supported by deal.II `FunctionParser`; semicolon-separated components and the
 `rand`/`rand_seed` functions are rejected. Parser errors, unknown coordinates,
 and coordinates beyond `Mesh/dimension` are rejected before assembly. For
-example:
+example, a direct scalar expression is:
 
 ```text
 subsection Functions
   set forcing = spatial-candidate
 
-  subsection forcing definition spatial-candidate
+  subsection forcing
     set kind = expression
     set expression = 0.4 + sin(pi*x0)*sin(pi*x1)
     set provenance = development.b1.spatial-candidate
+  end
+end
+```
+
+B2 conservative transport is the one rank-one vector definition. Its
+`expression` uses deal.II `TensorFunctionParser` syntax: one scalar component
+per vector component, separated by semicolons. The definition has only the
+selected ID, expression, and provenance; the vector kind is not a second
+choice:
+
+```text
+subsection Functions
+  set conservative transport = graetz
+
+  subsection conservative transport
+    set expression = 1.5*x1*(1-x1); 0.0
+    set provenance = chapter-6.e6.5.2.graetz-transport
   end
 end
 ```
@@ -236,7 +267,18 @@ and is lowered through the shared `ScalarFunctionDefinition` contract. B1's
 it is not a matrix axis; its `kind`, `expression`, and `provenance` entries are
 parsed from the adjacent `desired state` subsection.
 
-`Mesh/generator` defaults to `framework-native`, which consumes
+For B2, each `Observation/region definitions/<id>` member is a scalar
+indicator evaluated at cell centers during material tagging. A positive
+nonzero value marks the observed material; changing the expression or its
+cutoff therefore changes the realized material measure and the downstream
+objective. The matrix axis selects the definition ID, while
+`Observation/material id` supplies the externally meaningful material label.
+
+`Mesh/lower` and `Mesh/upper` are finite, dimension-sized point lists owned by
+the parameter file. For example, `set lower = (0.0, 0.0)` and
+`set upper = (4.0, 1.0)` define the B2 rectangle. Every selected mesh
+generator consumes these typed bounds; `Mesh/geometry` is not a separate
+selector. `Mesh/generator` defaults to `framework-native`, which consumes
 `Mesh/refinement` and leaves the simplex entries unset. A simplex configuration
 selects exactly one subdivision representation: positive `Mesh/subdivisions`
 for one isotropic count, or `Mesh/axis subdivisions` for a comma-separated
@@ -266,6 +308,16 @@ dimension-dependent rule; the control-metric limit must be positive. The
 compiled manifest, rather than the requested values alone, is authoritative:
 the current B2 target, for example, records direct UMFPACK state and adjoint
 solves even though the shared scenario carries fallback iterative values.
+
+`Solver/initial independent control value` is one finite scalar assigned to
+every independent control coefficient before the first solve. This is the
+supported initial-control capability; a spatial expression would require a
+separate projection capability and is not accepted here.
+
+Deterministic artifact identity and serialization are runner invariants, not
+run-time switches. `Run/measure timings` is the only harness measurement
+choice, and `Output/retain fields` controls whether the fixed optional native
+field set is emitted; complete artifact evidence remains stable either way.
 
 The schema assigns typed patterns where a value has a common shape. Strings
 such as function IDs and method names are registry selections, not arbitrary

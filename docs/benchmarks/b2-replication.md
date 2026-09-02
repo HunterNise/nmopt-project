@@ -408,6 +408,28 @@ the eight expected PNG outputs, and a generated Chapter 6 report. These are
 fresh diagnostic evidence and do not replace the historical `004`--`006`
 snapshots.
 
+### Regenerated run correspondence
+
+The September 2026 profile rebuild regenerated the tracked B2 profiles with
+the release runner and descriptive output names. The mapping to the retained
+numbered runs is:
+
+| Current named run | Tracked parameter file | Numbered predecessor | Numeric comparison |
+| --- | --- | --- | --- |
+| `figure-6.5-state-fit` | [figure-6.5-state-fit.prm](../../parameters/chapter-6/b2/development/figure-6.5-state-fit.prm) | `004`, `004-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
+| `figure-6.5-table-6.2-parabolic-fit` | [figure-6.5-table-6.2-parabolic-fit.prm](../../parameters/chapter-6/b2/development/figure-6.5-table-6.2-parabolic-fit.prm) | `006`, `006-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
+| `forcing-sweep` | [forcing-sweep.prm](../../parameters/chapter-6/b2/development/forcing-sweep.prm) | none | No numbered run contains a matching forcing-sweep parameter snapshot. |
+| `table-6.2-order-fit` | [table-6.2-order-fit.prm](../../parameters/chapter-6/b2/development/table-6.2-order-fit.prm) | `005`, `005-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
+
+The new authoritative output is `runs/chapter-6/b2/authoritative/`; its
+preserved pre-refactor counterpart is
+`runs/chapter-6/b2/development/authoritative-20260818-f1a32e9/`. Those four
+authoritative artifacts also have identical numeric records. Runs `001` and
+`002` have no parameter-file snapshot, while `003` used the then-authoritative
+configuration rather than a current named development profile. The historical
+numbered runs and the regenerated named runs use different build profiles in
+some cases, but the mapped B2 numeric records remain identical.
+
 ## Published consistency questions
 
 The source audit used the book's references [187] and [205]. Reference [187]

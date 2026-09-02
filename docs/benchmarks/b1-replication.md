@@ -318,6 +318,41 @@ The $f=0.5$ profiles are the simple balanced development candidates; the
 $f=0.4150674$ profiles preserve the independent initial-objective clue. Neither
 family is authoritative or establishes the omitted source forcing.
 
+### Regenerated run correspondence
+
+The September 2026 profile rebuild regenerated every tracked B1 development
+profile with the release runner. The current descriptive output directories
+are listed below so that they can be compared with the retained numbered
+experiments without relying on directory order.
+
+| Current named run | Tracked parameter file | Numbered predecessor | Comparison note |
+| --- | --- | --- | --- |
+| `continuous-control` | [continuous-control.prm](../../parameters/chapter-6/b1/development/continuous-control.prm) | `009` | Same named profile; the historical manifest forced refinement 4, while the regenerated run uses refinement 7. |
+| `continuous-control-constant-one` | [continuous-control-constant-one.prm](../../parameters/chapter-6/b1/development/continuous-control-constant-one.prm) | `010` | Same named profile; the historical manifest forced refinement 4, while the regenerated run uses refinement 7. |
+| `continuous-control-count-matched-simplex` | [continuous-control-count-matched-simplex.prm](../../parameters/chapter-6/b1/development/continuous-control-count-matched-simplex.prm) | none | No numbered run contains a matching parameter snapshot. |
+| `continuous-control-structured-simplex` | [continuous-control-structured-simplex.prm](../../parameters/chapter-6/b1/development/continuous-control-structured-simplex.prm) | none | No numbered run contains a matching parameter snapshot. |
+| `figure-6.2-early-stop-constant-half` | [figure-6.2-early-stop-constant-half.prm](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-constant-half.prm) | rough relation to `006` | `006` used a different standalone PRM, zero forcing, cellwise control, and a different mesh. |
+| `figure-6.2-early-stop-objective-matched` | [figure-6.2-early-stop-objective-matched.prm](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-objective-matched.prm) | rough relation to `006` | `006` used a different standalone PRM, zero forcing, cellwise control, and a different mesh. |
+| `figure-6.3-book-policy` | [figure-6.3-book-policy.prm](../../parameters/chapter-6/b1/development/figure-6.3-book-policy.prm) | `007`, `008` | `008` is the latest numbered snapshot for this parameter-file path; its manifest forced refinement 4, while the regenerated run uses refinement 7. |
+| `figure-6.3-constant-half` | [figure-6.3-constant-half.prm](../../parameters/chapter-6/b1/development/figure-6.3-constant-half.prm) | none | No numbered run contains a matching parameter snapshot. |
+| `figure-6.3-objective-matched` | [figure-6.3-objective-matched.prm](../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm) | none | No numbered run contains a matching parameter snapshot. |
+
+The old `005` run used the then-authoritative parameter content, and `006`
+used `runs/parameters/b1-lbfgs-four-iterations.prm`; neither is an exact
+predecessor of a current named development profile. Runs `001`--`004` have no
+parameter-file snapshot and therefore cannot be mapped exactly. The new
+authoritative output is `runs/chapter-6/b1/authoritative/`; its preserved
+pre-refactor counterpart is
+`runs/chapter-6/b1/development/authoritative-20260822-631537a/`.
+
+The authoritative pair has identical numeric `artifact.kv` records for all
+seven artifacts. The three direct numbered comparisons (`008`--`010`) retain
+the same six artifact paths, but are not like-for-like numerical comparisons:
+the old artifacts use refinement 4 and Debug, while the named reruns use
+refinement 7 and Release. Their differing mesh dimensions explain the
+different objective histories; no figure inspection is required to establish
+that distinction.
+
 ### Complete source matrix
 
 The two source figures contain seven unique method–regularisation

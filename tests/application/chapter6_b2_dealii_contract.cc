@@ -35,9 +35,10 @@ namespace
   {
     return chapter6::dealii::B2ManufacturedDataT<2>{
       scenario.problem.observation_region,
-      scenario.problem.fixed_temperature,
+      scenario.problem.fixed_dirichlet_data,
       scenario.problem.forcing,
-      chapter6::b2_target_definition(scenario.problem.target_catalog)};
+      chapter6::b2_target_definition(scenario.problem.target_catalog),
+      scenario.problem.conservative_transport};
   }
 
   void
@@ -74,9 +75,10 @@ namespace
 
     chapter6::dealii::B2ManufacturedDataT<2> data{
       observation_region,
-      scenario.problem.fixed_temperature,
+      scenario.problem.fixed_dirichlet_data,
       scenario.problem.forcing,
-      chapter6::b2_target_definition(scenario.problem.target_catalog)};
+      chapter6::b2_target_definition(scenario.problem.target_catalog),
+      scenario.problem.conservative_transport};
     const auto runtime =
       chapter6::dealii::make_b2_manufactured_runtime_data(scenario, data);
     ::dealii::Point<2> point;
@@ -93,7 +95,7 @@ namespace
             "B2 constant target value was not applied");
 
     chapter6::dealii::B2ManufacturedDataT<2> mismatched_data{
-      observation_region, scenario.problem.fixed_temperature};
+      observation_region, scenario.problem.fixed_dirichlet_data};
     bool mismatch_rejected = false;
     try
       {
@@ -106,6 +108,61 @@ namespace
       }
     require(mismatch_rejected,
             "B2 runtime data accepted mismatched target parameters");
+  }
+
+  void
+  run_b2_function_parameterization()
+  {
+    auto scenario = chapter6::make_b2_scenario(
+      chapter6::B2ObservationRegion::full, "constant");
+    scenario.compile.mesh.refinement = 0;
+    scenario.problem.fixed_dirichlet_data = {
+      "affine-fixed",
+      ScalarFunctionKind::expression,
+      0.0,
+      "2.0 + x0",
+      "test.b2.affine-fixed"};
+    scenario.problem.data.fixed_dirichlet_data_provenance =
+      scenario.problem.fixed_dirichlet_data.provenance;
+    scenario.problem.conservative_transport = {
+      "scaled-graetz",
+      "2.0*x1*(1-x1); 0.0",
+      "test.b2.scaled-graetz"};
+    scenario.problem.data.conservative_transport_provenance =
+      scenario.problem.conservative_transport.provenance;
+
+    chapter6::dealii::B2ManufacturedDataT<2> data{
+      scenario.problem.observation_region,
+      scenario.problem.fixed_dirichlet_data,
+      scenario.problem.forcing,
+      chapter6::b2_target_definition(scenario.problem.target_catalog),
+      scenario.problem.conservative_transport};
+    const auto runtime =
+      chapter6::dealii::make_b2_manufactured_runtime_data<2>(scenario, data);
+    ::dealii::Point<2> point(0.4, 0.25);
+    const auto transport = runtime.conservative_transport.value(point);
+    require(std::abs(runtime.fixed_temperature.value(point) - 2.4) <
+                1.0e-15 &&
+              std::abs(transport[0] - 0.375) < 1.0e-15 &&
+              std::abs(transport[1]) < 1.0e-15,
+            "B2 function definitions were not lowered to their configured values");
+
+    const auto specification = chapter6::make_b2_problem_spec(scenario);
+    const auto session =
+      chapter6::dealii::make_b2_compilation_session<2>(scenario);
+    const auto bindings =
+      chapter6::dealii::make_b2_data_bindings(scenario.problem, runtime);
+    nmopt::compiler::v1::DealiiCompiler compiler;
+    const auto compilation = compiler.compile(
+      specification,
+      session,
+      bindings,
+      chapter6::dealii::make_b2_discretisation_policy(scenario.compile),
+      std::nullopt,
+      std::nullopt,
+      nmopt::compiler::v1::CompilationProduct::reduced_dto);
+    require(compilation.succeeded() && compilation.problem,
+            "B2 configured function definitions did not reach assembly");
   }
 
   double
@@ -314,9 +371,13 @@ namespace
                 "b2.volume_observation_target_realisation=analytic-quadrature\n") !=
                 std::string::npos,
             "B2 deal.II adapter omitted case, control, or observation evidence");
-    require(result.document.find("b2.fixed_temperature=1") !=
+    require(result.document.find("b2.fixed_dirichlet_data=fixed-temperature") !=
               std::string::npos,
-            "B2 deal.II adapter omitted fixed-temperature evidence");
+            "B2 deal.II adapter omitted fixed Dirichlet evidence");
+    require(result.document.find(
+              "b2.conservative_transport_expression=1.5*x1*(1-x1); 0.0") !=
+              std::string::npos,
+            "B2 deal.II adapter omitted conservative transport evidence");
     const auto expected_observation_region =
       chapter6::b2_observation_region_name(observation_region);
     const std::string expected_target_profile(target_profile);
@@ -1344,6 +1405,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b2", "contract"},
          30,
          run_b2_target_parameterization},
+        {"b2_function_parameterization",
+         "nmopt.application.dealii.b2_function_parameterization",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         60,
+         run_b2_function_parameterization},
         {"b2_manufactured_wings_constant",
          "nmopt.application.dealii.b2_manufactured_wings_constant",
          {"dealii", "application", "benchmark", "b2", "contract"},

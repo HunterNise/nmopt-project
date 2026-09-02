@@ -359,6 +359,22 @@ namespace nmopt::application::runner
       std::string(id));
   }
 
+  inline RankOneVectorFunctionDefinition
+  parameter_rank_one_vector_function_definition(
+    const ParameterFile &file,
+    const std::string_view selector_path)
+  {
+    RankOneVectorFunctionDefinition definition;
+    definition.id = file.value(selector_path);
+    definition.expression = file.value(std::string(selector_path) +
+                                       "/expression");
+    definition.provenance = file.value(std::string(selector_path) +
+                                       "/provenance");
+    validate_rank_one_vector_function_definition(
+      definition, std::string("parameter ") + std::string(selector_path));
+    return definition;
+  }
+
   inline ScalarFunctionDefinition
   parameter_scalar_function_section_definition(
     const ParameterFile &file,

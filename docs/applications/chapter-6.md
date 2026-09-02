@@ -246,9 +246,9 @@ mesh. All paths use the same material-ID observation realization and boundary
 labels. Each centroid split replaces one selected base triangle by three,
 adding one vertex and two cells; the seed makes this topology candidate
 repeatable but does not identify the source's omitted connectivity. The
-adapter also supplies zero forcing, the selected target function, fixed
-temperature, and the conservative transport field. The complete
-manufactured-data path is:
+adapter also supplies zero forcing, the selected target function, the selected
+fixed Dirichlet function, and the selected conservative transport field. The
+complete manufactured-data path is:
 
 ```cpp
 #include "nmopt/application/dealii/chapter6_b2.hpp"
@@ -259,7 +259,12 @@ const auto specification =
   nmopt::application::chapter6::make_b2_problem_spec(scenario);
 
 nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data{
-  graetz_case, scenario.problem.fixed_temperature};
+  graetz_case,
+  scenario.problem.fixed_dirichlet_data,
+  scenario.problem.forcing,
+  nmopt::application::chapter6::b2_target_definition(
+    scenario.problem.target_catalog),
+  scenario.problem.conservative_transport};
 const auto runtime =
   nmopt::application::chapter6::dealii::make_b2_manufactured_runtime_data(
     scenario, data);

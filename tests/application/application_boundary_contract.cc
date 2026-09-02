@@ -463,11 +463,18 @@ namespace
               nmopt::application::chapter6::B2ObservationRegion::full &&
               b2.problem.target_profile == "parabolic",
             "B2 did not retain its independent observation/target choices");
-    require(b2.problem.fixed_temperature == 1.0,
-            "B2 did not retain the fixed temperature");
+    require(b2.problem.fixed_dirichlet_data.id == "fixed-temperature" &&
+              b2.problem.fixed_dirichlet_data.kind ==
+                nmopt::application::ScalarFunctionKind::constant &&
+              b2.problem.fixed_dirichlet_data.value == 1.0,
+            "B2 did not retain the fixed Dirichlet data");
     require(b2.problem.data.conservative_transport_provenance ==
               "chapter-6.e6.5.2.graetz-transport",
             "B2 did not retain transport provenance");
+    require(b2.problem.conservative_transport.id == "graetz" &&
+              b2.problem.conservative_transport.expression ==
+                "1.5*x1*(1-x1); 0.0",
+            "B2 did not retain the conservative transport definition");
     require(
       b2.problem.transport_boundary_form ==
         nmopt::semantic::v1::TransportBoundaryForm::

@@ -202,7 +202,7 @@ subsection Functions
 
   subsection conservative transport
     set kind = conservative-transport
-    set expression = (1.5*x1*(1-x1), 0.0)
+    set expression = 1.5*x1*(1-x1); 0.0
     set provenance = test.graetz-transport
   end
 
@@ -1042,7 +1042,18 @@ end
               nmopt::semantic::v1::NeumannControlDiscretisation::facewise_constant &&
             !scenario.problem.recipe.with_facewise_box &&
             scenario.problem.recipe.observed_material_id == 1 &&
-            scenario.problem.fixed_temperature == 1.0 &&
+            scenario.problem.fixed_dirichlet_data.id == "fixed-temperature" &&
+            scenario.problem.fixed_dirichlet_data.kind ==
+              nmopt::application::ScalarFunctionKind::constant &&
+            scenario.problem.fixed_dirichlet_data.value == 1.0 &&
+            scenario.problem.fixed_dirichlet_data.expression.empty() &&
+            scenario.problem.fixed_dirichlet_data.provenance ==
+              "chapter-6.e6.5.2.fixed-temperature" &&
+            scenario.problem.conservative_transport.id == "graetz" &&
+            scenario.problem.conservative_transport.expression ==
+              "1.5*x1*(1-x1); 0.0" &&
+            scenario.problem.conservative_transport.provenance ==
+              "chapter-6.e6.5.2.graetz-transport" &&
             scenario.problem.forcing.id == "zero" &&
             scenario.problem.forcing.kind ==
               nmopt::application::ScalarFunctionKind::zero &&
@@ -1326,10 +1337,11 @@ end
     std::filesystem::remove_all(b2_native_output);
     nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> b2_data{
       b2_scenario.problem.observation_region,
-      b2_scenario.problem.fixed_temperature,
+      b2_scenario.problem.fixed_dirichlet_data,
       b2_scenario.problem.forcing,
       nmopt::application::chapter6::b2_target_definition(
-        b2_scenario.problem.target_catalog)};
+        b2_scenario.problem.target_catalog),
+      b2_scenario.problem.conservative_transport};
     const auto b2_runtime =
       nmopt::application::chapter6::dealii::make_b2_manufactured_runtime_data<2>(
         b2_scenario, b2_data);

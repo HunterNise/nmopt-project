@@ -333,6 +333,24 @@ namespace nmopt::application::chapter6
             "chapter-6.e6.5.2.zero-forcing"};
   }
 
+  inline ScalarFunctionDefinition
+  b2_manufactured_fixed_temperature()
+  {
+    return {"fixed-temperature",
+            ScalarFunctionKind::constant,
+            1.0,
+            "",
+            "chapter-6.e6.5.2.fixed-temperature"};
+  }
+
+  inline RankOneVectorFunctionDefinition
+  b2_manufactured_graetz_transport()
+  {
+    return {"graetz",
+            "1.5*x1*(1-x1); 0.0",
+            "chapter-6.e6.5.2.graetz-transport"};
+  }
+
   inline std::string
   b2_case_name(const B2ObservationRegion region,
                const std::string_view  target_profile)
@@ -355,8 +373,11 @@ namespace nmopt::application::chapter6
     B2ObservationRegion observation_region = B2ObservationRegion::wings;
     std::string          target_profile = "constant";
     ScalarFunctionCatalog target_catalog = b2_manufactured_target_catalog();
-    double                   fixed_temperature = 1.0;
+    ScalarFunctionDefinition fixed_dirichlet_data =
+      b2_manufactured_fixed_temperature();
     ScalarFunctionDefinition forcing = b2_manufactured_zero_forcing();
+    RankOneVectorFunctionDefinition conservative_transport =
+      b2_manufactured_graetz_transport();
     semantic::v1::TransportBoundaryForm transport_boundary_form =
       semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport;
   };
@@ -685,8 +706,6 @@ namespace nmopt::application::chapter6
               "B2 centroid-split-simplex meshes require per-axis subdivisions");
           break;
       }
-    if (!std::isfinite(scenario.problem.fixed_temperature))
-      throw std::invalid_argument("B2 fixed temperature must be finite");
     validate_scalar_function_catalog(scenario.problem.target_catalog,
                                      "B2 target catalog");
     if (scenario.problem.data.desired_state_provenance !=
@@ -698,6 +717,19 @@ namespace nmopt::application::chapter6
         scenario.problem.forcing.provenance)
       throw std::invalid_argument(
         "B2 forcing definition and runtime provenance must agree");
+    validate_scalar_function_definition(scenario.problem.fixed_dirichlet_data,
+                                        "B2 fixed Dirichlet data");
+    if (scenario.problem.data.fixed_dirichlet_data_provenance !=
+        scenario.problem.fixed_dirichlet_data.provenance)
+      throw std::invalid_argument(
+        "B2 fixed-data definition and runtime provenance must agree");
+    validate_rank_one_vector_function_definition(
+      scenario.problem.conservative_transport,
+      "B2 conservative transport");
+    if (scenario.problem.data.conservative_transport_provenance !=
+        scenario.problem.conservative_transport.provenance)
+      throw std::invalid_argument(
+        "B2 transport definition and runtime provenance must agree");
     if (scenario.problem.data.fixed_dirichlet_data_provenance.empty() ||
         scenario.problem.data.conservative_transport_provenance.empty())
       throw std::invalid_argument(

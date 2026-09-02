@@ -93,21 +93,6 @@ namespace nmopt::application::runner::binding
     using namespace nmopt::application;
     require_parameter(file, "Benchmark/id", "chapter-6.b2.graetz-flow");
     require_parameter(file, "Benchmark/recipe", chapter6::b2_recipe_id);
-    require_parameter(file,
-                      "Functions/fixed Dirichlet data",
-                      "fixed-temperature");
-    require_parameter(file,
-                      "Functions/conservative transport",
-                      "graetz");
-    require_parameter(file,
-                      "Functions/fixed Dirichlet data/kind",
-                      "constant");
-    require_parameter(file,
-                      "Functions/conservative transport/kind",
-                      "conservative-transport");
-    require_parameter(file,
-                      "Functions/conservative transport/expression",
-                      "(1.5*x1*(1-x1), 0.0)");
     scenario.problem.transport_boundary_form =
       b2_transport_boundary_form(file);
     scenario.problem.recipe.control_discretisation =
@@ -147,13 +132,16 @@ namespace nmopt::application::runner::binding
         ? parse_number_text(combination_value(combination, "regularisation"),
                             "Matrix/regularisation")
         : parameter_double(file, "Runtime/regularisation");
-    scenario.problem.fixed_temperature =
-      parse_number_text(file.value("Functions/fixed Dirichlet data/value"),
-                        "Functions/fixed Dirichlet data/value");
+    scenario.problem.fixed_dirichlet_data =
+      parameter_scalar_function_definition(file,
+                                           "Functions/fixed Dirichlet data");
     scenario.problem.data.fixed_dirichlet_data_provenance =
-      file.value("Functions/fixed Dirichlet data/provenance");
+      scenario.problem.fixed_dirichlet_data.provenance;
+    scenario.problem.conservative_transport =
+      parameter_rank_one_vector_function_definition(
+        file, "Functions/conservative transport");
     scenario.problem.data.conservative_transport_provenance =
-      file.value("Functions/conservative transport/provenance");
+      scenario.problem.conservative_transport.provenance;
     scenario.problem.observation_region =
       b2_observation_region_from_combination(combination);
     const auto target_axis = combination.values.find("target-profile");

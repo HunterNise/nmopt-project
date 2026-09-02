@@ -9,7 +9,9 @@
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/function_lib.h>
+#include <deal.II/base/numbers.h>
 #include <deal.II/base/tensor_function.h>
+#include <deal.II/base/tensor_function_parser.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 
@@ -67,22 +69,45 @@ namespace nmopt::application::chapter6::dealii
     std::unique_ptr<::dealii::Function<dim>> target_;
   };
 
-  template <int dim>
-  class B2ConservativeTransportFunction final
-    : public ::dealii::TensorFunction<1, dim>
+  namespace detail
   {
-  public:
-    static_assert(dim >= 2,
-                  "The Chapter 6 B2 transport requires at least two coordinates");
-
-    ::dealii::Tensor<1, dim>
-    value(const ::dealii::Point<dim> &point) const override
+    template <int dim>
+    std::unique_ptr<::dealii::TensorFunctionParser<1, dim>>
+    make_rank_one_vector_function(
+      const RankOneVectorFunctionDefinition &definition,
+      const std::string_view                  description)
     {
-      ::dealii::Tensor<1, dim> transport;
-      transport[0] = 1.5 * point[1] * (1.0 - point[1]);
-      return transport;
+      validate_rank_one_vector_function_definition(definition, description);
+      std::ostringstream variable_names;
+      for (unsigned int coordinate = 0; coordinate < dim; ++coordinate)
+        {
+          if (coordinate != 0)
+            variable_names << ',';
+          variable_names << 'x' << coordinate;
+        }
+
+      auto function =
+        std::make_unique<::dealii::TensorFunctionParser<1, dim>>();
+      try
+        {
+          function->initialize(
+            variable_names.str(),
+            definition.expression,
+            {{"e", ::dealii::numbers::E}, {"pi", ::dealii::numbers::PI}});
+          ::dealii::Point<dim> validation_point;
+          for (unsigned int coordinate = 0; coordinate < dim; ++coordinate)
+            validation_point[coordinate] = 0.371 + 0.113 * coordinate;
+          (void)function->value(validation_point);
+        }
+      catch (const std::exception &exception)
+        {
+          throw std::invalid_argument(std::string(description) +
+                                      " expression is invalid: " +
+                                      exception.what());
+        }
+      return function;
     }
-  };
+  } // namespace detail
 
   template <int dim>
   struct B2RuntimeDataT
@@ -111,17 +136,25 @@ namespace nmopt::application::chapter6::dealii
     explicit B2ManufacturedDataT(
       const B2ObservationRegion observation_region =
         B2ObservationRegion::wings,
-      const double fixed_temperature = 1.0,
+      ScalarFunctionDefinition fixed_dirichlet_data =
+        b2_manufactured_fixed_temperature(),
       ScalarFunctionDefinition forcing_definition =
         b2_manufactured_zero_forcing(),
       ScalarFunctionDefinition target_definition =
-        b2_manufactured_constant_target())
-      : forcing_definition_(std::move(forcing_definition))
+        b2_manufactured_constant_target(),
+      RankOneVectorFunctionDefinition conservative_transport =
+        b2_manufactured_graetz_transport())
+      : fixed_dirichlet_data_(std::move(fixed_dirichlet_data))
+      , fixed_temperature_(
+          ::nmopt::application::dealii_support::make_scalar_function<dim>(
+            fixed_dirichlet_data_, "B2 fixed Dirichlet data"))
+      , forcing_definition_(std::move(forcing_definition))
       , forcing_(::nmopt::application::dealii_support::make_scalar_function<dim>(
           forcing_definition_, "B2 forcing"))
       , desired_state_(target_definition)
-      , fixed_temperature_(fixed_temperature)
-      , fixed_temperature_value_(fixed_temperature)
+      , conservative_transport_definition_(std::move(conservative_transport))
+      , conservative_transport_(detail::make_rank_one_vector_function<dim>(
+          conservative_transport_definition_, "B2 conservative transport"))
       , observation_region_(observation_region)
     {}
 
@@ -130,14 +163,14 @@ namespace nmopt::application::chapter6::dealii
     {
       return {*forcing_,
               desired_state_,
-              fixed_temperature_,
-              conservative_transport_};
+              *fixed_temperature_,
+              *conservative_transport_};
     }
 
-    double
-    fixed_temperature_value() const
+    const ScalarFunctionDefinition &
+    fixed_dirichlet_data() const
     {
-      return fixed_temperature_value_;
+      return fixed_dirichlet_data_;
     }
 
     B2ObservationRegion
@@ -158,13 +191,21 @@ namespace nmopt::application::chapter6::dealii
       return desired_state_.target_definition();
     }
 
+    const RankOneVectorFunctionDefinition &
+    conservative_transport() const
+    {
+      return conservative_transport_definition_;
+    }
+
   private:
+    ScalarFunctionDefinition                 fixed_dirichlet_data_;
+    std::unique_ptr<::dealii::Function<dim>> fixed_temperature_;
     ScalarFunctionDefinition                 forcing_definition_;
     std::unique_ptr<::dealii::Function<dim>> forcing_;
     B2DesiredStateFunction<dim>             desired_state_;
-    ::dealii::Functions::ConstantFunction<dim> fixed_temperature_;
-    B2ConservativeTransportFunction<dim>    conservative_transport_;
-    double                                  fixed_temperature_value_;
+    RankOneVectorFunctionDefinition          conservative_transport_definition_;
+    std::unique_ptr<::dealii::TensorFunctionParser<1, dim>>
+      conservative_transport_;
     B2ObservationRegion                     observation_region_;
   };
 
@@ -181,10 +222,10 @@ namespace nmopt::application::chapter6::dealii
     if (data.observation_region() != scenario.problem.observation_region)
       throw std::invalid_argument(
         "B2 manufactured observation region does not match the scenario");
-    if (std::abs(data.fixed_temperature_value() -
-                 scenario.problem.fixed_temperature) > 1.0e-14)
+    if (data.fixed_dirichlet_data() !=
+        scenario.problem.fixed_dirichlet_data)
       throw std::invalid_argument(
-        "B2 manufactured fixed temperature does not match the scenario");
+        "B2 manufactured fixed Dirichlet data does not match the scenario");
     if (data.forcing_definition() != scenario.problem.forcing)
       throw std::invalid_argument(
         "B2 manufactured forcing does not match the scenario");
@@ -192,6 +233,10 @@ namespace nmopt::application::chapter6::dealii
         b2_target_definition(scenario.problem.target_catalog))
       throw std::invalid_argument(
         "B2 manufactured target definition does not match the scenario");
+    if (data.conservative_transport() !=
+        scenario.problem.conservative_transport)
+      throw std::invalid_argument(
+        "B2 manufactured conservative transport does not match the scenario");
     return data.runtime_data();
   }
 
@@ -843,7 +888,22 @@ namespace nmopt::application::chapter6::dealii
         {"b2.forcing_value", b2_number(forcing_definition.value)},
         {"b2.forcing_expression", forcing_definition.expression},
         {"b2.forcing_provenance", forcing_definition.provenance},
-        {"b2.fixed_temperature", b2_number(scenario.problem.fixed_temperature)},
+        {"b2.fixed_dirichlet_data",
+         scenario.problem.fixed_dirichlet_data.id},
+        {"b2.fixed_dirichlet_data_kind",
+         scalar_function_kind_name(scenario.problem.fixed_dirichlet_data.kind)},
+        {"b2.fixed_dirichlet_data_value",
+         b2_number(scenario.problem.fixed_dirichlet_data.value)},
+        {"b2.fixed_dirichlet_data_expression",
+         scenario.problem.fixed_dirichlet_data.expression},
+        {"b2.fixed_dirichlet_data_provenance",
+         scenario.problem.fixed_dirichlet_data.provenance},
+        {"b2.conservative_transport",
+         scenario.problem.conservative_transport.id},
+        {"b2.conservative_transport_expression",
+         scenario.problem.conservative_transport.expression},
+        {"b2.conservative_transport_provenance",
+         scenario.problem.conservative_transport.provenance},
         {"b2.regularisation_weight",
          b2_number(scenario.problem.data.regularisation_weight)},
         {"benchmark.mesh_vertices",

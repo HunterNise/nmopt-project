@@ -59,6 +59,28 @@ namespace nmopt::application
     std::string                           selected_id;
   };
 
+  struct RankOneVectorFunctionDefinition
+  {
+    std::string id;
+    std::string expression;
+    std::string provenance;
+  };
+
+  inline bool
+  operator==(const RankOneVectorFunctionDefinition &lhs,
+             const RankOneVectorFunctionDefinition &rhs)
+  {
+    return lhs.id == rhs.id && lhs.expression == rhs.expression &&
+           lhs.provenance == rhs.provenance;
+  }
+
+  inline bool
+  operator!=(const RankOneVectorFunctionDefinition &lhs,
+             const RankOneVectorFunctionDefinition &rhs)
+  {
+    return !(lhs == rhs);
+  }
+
   inline bool
   operator==(const ScalarFunctionDefinition &lhs,
              const ScalarFunctionDefinition &rhs)
@@ -135,6 +157,21 @@ namespace nmopt::application
         default:
           throw std::invalid_argument(prefix + " has an unknown kind");
       }
+  }
+
+  inline void
+  validate_rank_one_vector_function_definition(
+    const RankOneVectorFunctionDefinition &definition,
+    const std::string_view                  description =
+      "rank-one vector function")
+  {
+    const auto prefix = std::string(description);
+    if (definition.id.empty())
+      throw std::invalid_argument(prefix + " needs a stable ID");
+    if (definition.expression.empty())
+      throw std::invalid_argument(prefix + " needs an expression");
+    if (definition.provenance.empty())
+      throw std::invalid_argument(prefix + " needs provenance");
   }
 
   inline void

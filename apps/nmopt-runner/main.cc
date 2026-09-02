@@ -600,8 +600,23 @@ namespace
     evidence.fields.push_back(
       {"benchmark.volume_observation_target_realisation",
        volume_observation_target});
-    evidence.fields.push_back({"benchmark.fixed_temperature",
-                               b1_number(scenario.problem.fixed_temperature)});
+    evidence.fields.push_back({"benchmark.fixed_dirichlet_data",
+                               scenario.problem.fixed_dirichlet_data.id});
+    evidence.fields.push_back(
+      {"benchmark.fixed_dirichlet_data_kind",
+       nmopt::application::scalar_function_kind_name(
+         scenario.problem.fixed_dirichlet_data.kind)});
+    evidence.fields.push_back(
+      {"benchmark.fixed_dirichlet_data_value",
+       b1_number(scenario.problem.fixed_dirichlet_data.value)});
+    evidence.fields.push_back(
+      {"benchmark.fixed_dirichlet_data_expression",
+       scenario.problem.fixed_dirichlet_data.expression});
+    evidence.fields.push_back({"benchmark.conservative_transport",
+                               scenario.problem.conservative_transport.id});
+    evidence.fields.push_back(
+      {"benchmark.conservative_transport_expression",
+       scenario.problem.conservative_transport.expression});
     evidence.fields.push_back({"benchmark.regularisation",
                                b1_number(
                                  scenario.problem.data.regularisation_weight)});
@@ -635,7 +650,7 @@ namespace
                                scenario.problem.data.forcing_provenance});
     evidence.fields.push_back({"provenance.desired_state",
                                scenario.problem.data.desired_state_provenance});
-    evidence.fields.push_back({"provenance.fixed_temperature",
+    evidence.fields.push_back({"provenance.fixed_dirichlet_data",
                                scenario.problem.data.fixed_dirichlet_data_provenance});
     evidence.fields.push_back({"provenance.conservative_transport",
                                scenario.problem.data.conservative_transport_provenance});
@@ -925,9 +940,10 @@ namespace
 
             nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> data(
               observation_region,
-              scenario.problem.fixed_temperature,
+              scenario.problem.fixed_dirichlet_data,
               scenario.problem.forcing,
-              chapter6::b2_target_definition(scenario.problem.target_catalog));
+              chapter6::b2_target_definition(scenario.problem.target_catalog),
+              scenario.problem.conservative_transport);
             const auto runtime =
               nmopt::application::chapter6::dealii::
                 make_b2_manufactured_runtime_data<2>(scenario, data);

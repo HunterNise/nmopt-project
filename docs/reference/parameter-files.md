@@ -38,6 +38,7 @@ parameters/
         figure-6.5-table-6.2-parabolic-fit.prm
         forcing-sweep.prm
         table-6.2-order-fit.prm
+        target-transcription-gate.prm
     plotting/
       chapter-6-b1.json
       chapter-6-b2.json
@@ -502,6 +503,7 @@ different profile is an explicit derived-output override.
 - [B2 Figure 6.5 state-magnitude diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-state-fit.prm)
 - [B2 Figure 6.5 and Table 6.2 parabolic diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-table-6.2-parabolic-fit.prm)
 - [B2 Table 6.2 order-of-magnitude diagnostic](../../parameters/chapter-6/b2/development/table-6.2-order-fit.prm)
+- [B2 zero-forcing target-transcription gate](../../parameters/chapter-6/b2/development/target-transcription-gate.prm)
 - [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json)
 - [B2 plotting profile](../../parameters/plotting/chapter-6-b2.json)
 

@@ -85,8 +85,11 @@ namespace
     const auto &observation_region =
       combination_value(combination, "observation-region");
     const auto target_profile = combination_value(combination, "target-profile");
-    auto scenario = nmopt::application::chapter6::make_b2_scenario(
-      observation_region, target_profile);
+    const auto target_catalog =
+      nmopt::application::runner::b2_target_catalog(file, target_profile);
+    auto scenario =
+      nmopt::application::chapter6::make_b2_scenario_with_target_catalog(
+        observation_region, target_profile, target_catalog);
     bind_b2_scenario(
       scenario,
       file,
@@ -757,6 +760,70 @@ end
       figure_table_parabolic_fit,
       "0.65",
       "B2 combined candidate lost its parabolic-fit hypothesis");
+
+    const auto target_transcription_gate = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b2/development/target-transcription-gate.prm"));
+    require(
+      target_transcription_gate.matrix.size() == 2 &&
+        target_transcription_gate.combinations().size() == 6 &&
+        target_transcription_gate.value("Problem/control representation") ==
+          "continuous-nodal-trace" &&
+        target_transcription_gate.value(forcing_definition_path() + "/kind") ==
+          "zero" &&
+        target_transcription_gate.value(
+          "Functions/target definitions/constant-2/value") == "2.0" &&
+        target_transcription_gate.value(
+          "Functions/target definitions/constant-20/value") == "20.0" &&
+        target_transcription_gate.value(
+          "Functions/target definitions/constant-20/provenance") ==
+          "development.chapter-6.b2.constant-20-transcription" &&
+        target_transcription_gate.value("Runtime/regularisation") == "1e-3" &&
+        target_transcription_gate.value("Mesh/generator") ==
+          "structured-simplex" &&
+        target_transcription_gate.value("Mesh/axis subdivisions") ==
+          "160, 40" &&
+        target_transcription_gate.value("Solver/globalization") ==
+          "fixed-step" &&
+        target_transcription_gate.value("Solver/maximum iterations") == "1" &&
+        target_transcription_gate.value("Run/kind") == "development" &&
+        target_transcription_gate.value("Run/build profile") ==
+          "release-dealii" &&
+        target_transcription_gate.value("Run/output root") == "runs" &&
+        target_transcription_gate.value("Output/retain fields") == "true",
+      "B2 target-transcription gate lost its source and hypothesis boundary");
+
+    for (const auto &combination : target_transcription_gate.combinations())
+      {
+        const auto target_profile =
+          combination_value(combination, "target-profile");
+        const auto scenario = resolve_b2_scenario_for_characterization(
+          target_transcription_gate, combination);
+        const auto &target =
+          nmopt::application::chapter6::b2_target_definition(
+            scenario.problem.target_catalog);
+        require(
+          scenario.problem.forcing.kind ==
+              nmopt::application::ScalarFunctionKind::zero &&
+            scenario.problem.forcing.provenance ==
+              "chapter-6.e6.5.2.zero-forcing" &&
+            target.id == target_profile &&
+            ((target_profile == "constant-2" &&
+              target.kind == nmopt::application::ScalarFunctionKind::constant &&
+              target.value == 2.0 &&
+              target.provenance == "chapter-6.e6.5.2.target") ||
+             (target_profile == "constant-20" &&
+              target.kind == nmopt::application::ScalarFunctionKind::constant &&
+              target.value == 20.0 &&
+              target.provenance ==
+                "development.chapter-6.b2.constant-20-transcription") ||
+             (target_profile == "parabolic-source" &&
+              target.kind ==
+                nmopt::application::ScalarFunctionKind::expression &&
+              target.expression == "4.0*x1*(1.0-x1)" &&
+              target.provenance == "chapter-6.e6.5.2.target")),
+          "B2 target-transcription gate changed its resolved data boundary");
+      }
 
     const auto chapter_6_parameters =
       find_file_from_current_or_parent("parameters/chapter-6");

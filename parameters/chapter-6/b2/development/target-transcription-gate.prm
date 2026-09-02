@@ -1,0 +1,164 @@
+# Self-contained B2 target-transcription diagnostic.
+#
+# The zero forcing, PDE data, boundary form, parabolic target, and initial
+# control are source literal.  The constant-20 target is an explicit
+# non-source transcription hypothesis.  One fixed-step iteration is retained
+# only so the runner serializes the derivative and artifact contracts; only
+# the iteration-zero objective and uncontrolled state are comparison evidence.
+
+subsection Benchmark
+  set id = chapter-6.b2.graetz-flow
+  set recipe = chapter-5.scalar-neumann-convection-subdomain
+  set source reference = E6.5.2 equation (6.65), Table 6.2 target transcription gate
+  set source revision = 1aaefbe473f9941a89d1df36192251511c052933
+end
+
+subsection Matrix
+  set observation-region = wings, full
+  set target-profile = constant-2, constant-20, parabolic-source
+end
+
+subsection Problem
+  set control representation = continuous-nodal-trace
+  set facewise box constraint = false
+end
+
+subsection Observation
+  set material id = 1
+
+  subsection region definitions
+    subsection wings
+      set kind = expression
+      set expression = x0 > 1.0 ? (x1 < 0.3 ? 1 : (x1 > 0.7 ? 1 : 0)) : 0
+      set provenance = chapter-6.e6.5.2.wings-observation
+    end
+    subsection full
+      set kind = expression
+      set expression = x0 > 1.0 ? 1 : 0
+      set provenance = chapter-6.e6.5.2.full-observation
+    end
+  end
+end
+
+subsection Functions
+  set forcing = zero
+  set fixed Dirichlet data = fixed-temperature
+  set conservative transport = graetz
+
+  subsection forcing
+    set kind = zero
+    set provenance = chapter-6.e6.5.2.zero-forcing
+  end
+
+  subsection fixed Dirichlet data
+    set kind = constant
+    set value = 1.0
+    set provenance = chapter-6.e6.5.2.fixed-temperature
+  end
+
+  subsection conservative transport
+    set expression = 1.5*x1*(1-x1); 0.0
+    set provenance = chapter-6.e6.5.2.graetz-transport
+  end
+
+  subsection target definitions
+    subsection constant-2
+      set kind = constant
+      set value = 2.0
+      set provenance = chapter-6.e6.5.2.target
+    end
+    subsection constant-20
+      set kind = constant
+      set value = 20.0
+      set provenance = development.chapter-6.b2.constant-20-transcription
+    end
+    subsection parabolic-source
+      set kind = expression
+      set expression = 4.0*x1*(1.0-x1)
+      set provenance = chapter-6.e6.5.2.target
+    end
+  end
+end
+
+subsection Runtime
+  set diffusion = 0.1
+  set reaction = 0.0
+  set regularisation = 1e-3
+end
+
+subsection Boundary
+  set fixed id = 0
+  set control id = 1
+  set outflow id = 2
+  set upstream transition = 1.0
+  set transport boundary form = ordinary-normal-minus-transport
+end
+
+subsection Mesh
+  set dimension = 2
+  set lower = 0.0, 0.0
+  set upper = 4.0, 1.0
+  set generator = structured-simplex
+  set refinement = 0
+  set axis subdivisions = 160, 40
+  set provenance = development.chapter-6.b2.structured-simplex-160x40
+end
+
+subsection Compile
+  set state degree = 1
+  set volume observation quadrature order = 3
+  set volume observation target realisation = analytic-quadrature
+  set execution = assembled
+  set product = reduced-dto
+  set state solve maximum iterations = 0
+  set state solve relative tolerance = 1e-12
+  set state solve absolute tolerance = 1e-14
+  set adjoint solve maximum iterations = 0
+  set adjoint solve relative tolerance = 1e-12
+  set adjoint solve absolute tolerance = 1e-14
+  set control metric solve maximum iterations = 1000
+  set control metric solve relative tolerance = 1e-12
+  set control metric solve absolute tolerance = 1e-14
+end
+
+subsection Solver
+  set method = bfgs
+  set globalization = fixed-step
+  set initial independent control value = 0.0
+  set maximum iterations = 1
+  set maximum line search trials = 20
+  set gradient tolerance = 1e-30
+  set stopping criterion = gradient-norm
+  set relative gradient tolerance = 0.0
+  set objective change tolerance = 0.0
+  set step tolerance = 0.0
+  set objective target = none
+  set objective target policy = none
+  set initial step length = 0.05
+  set Armijo fraction = 1e-4
+  set backtracking factor = 0.5
+  set minimum step length = 0.0
+
+  subsection method policy bfgs
+    set curvature tolerance = 1e-14
+  end
+end
+
+subsection Run
+  set kind = development
+  set build profile = release-dealii
+  set output root = runs
+  set measure timings = false
+end
+
+subsection Output
+  set retain fields = true
+end
+
+subsection Postprocessing
+  set style profile = parameters/plotting/chapter-6-b2.json
+  set comparison rows = target-profile
+  set comparison columns = observation-region
+  set comparison group by = none
+  set output formats = png
+end

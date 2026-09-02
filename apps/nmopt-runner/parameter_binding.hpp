@@ -107,14 +107,8 @@ namespace nmopt::application::runner::binding
     scenario.experiment.source_reference = file.value("Benchmark/source reference");
     scenario.experiment.source_revision = file.value("Benchmark/source revision");
     scenario.experiment.retain_fields = parameter_bool(file, "Output/retain fields");
-    scenario.experiment.harness.deterministic =
-      parameter_bool(file, "Run/deterministic");
-    scenario.experiment.harness.serialize_artifacts =
-      parameter_bool(file, "Run/serialize artifacts");
     scenario.experiment.harness.measure_timings =
       parameter_bool(file, "Run/measure timings");
-    scenario.experiment.harness.measure_memory =
-      parameter_bool(file, "Run/measure memory");
     scenario.experiment.harness.artifact_directory =
       file.value("Run/output root");
 
@@ -134,7 +128,6 @@ namespace nmopt::application::runner::binding
       parameter_unsigned(file, "Mesh/selection seed");
     scenario.compile.mesh.mesh_provenance = file.value("Mesh/provenance");
     scenario.compile.state_degree = parameter_unsigned(file, "Compile/state degree");
-    scenario.compile.owned_session = parameter_bool(file, "Compile/owned session");
     scenario.compile.state_solve = {
       parameter_unsigned(file, "Compile/state solve maximum iterations"),
       parameter_double(file, "Compile/state solve relative tolerance"),

@@ -99,24 +99,12 @@ namespace nmopt::application::runner
   inline semantic::v1::TransportBoundaryForm
   b2_transport_boundary_form(const ParameterFile &file)
   {
-    const auto &boundary_form =
-      file.value("Boundary/transport boundary form");
-    const auto &conormal_form = file.value("Boundary/conormal form");
+    const auto &boundary_form = file.value("Boundary/transport boundary form");
     if (boundary_form == "ordinary-normal-minus-transport")
-      {
-        if (conormal_form != "unspecified")
-          throw std::invalid_argument(
-            "B2 ordinary-normal-minus-transport requires an unspecified conormal form");
-        return semantic::v1::TransportBoundaryForm::
-          ordinary_normal_minus_transport;
-      }
+      return semantic::v1::TransportBoundaryForm::
+        ordinary_normal_minus_transport;
     if (boundary_form == "total-conormal")
-      {
-        if (conormal_form != "diffusion-minus-transport")
-          throw std::invalid_argument(
-            "B2 total-conormal requires the diffusion-minus-transport conormal form");
-        return semantic::v1::TransportBoundaryForm::total_conormal;
-      }
+      return semantic::v1::TransportBoundaryForm::total_conormal;
     throw std::invalid_argument("unknown B2 transport boundary form '" +
                                 boundary_form + "'");
   }
@@ -596,10 +584,8 @@ namespace nmopt::application::runner
           "facewise-constant|continuous-nodal-trace");
 
       if (entry == "cellwise box constraint" ||
-          entry == "facewise box constraint" || entry == "owned session" ||
-          entry == "deterministic" ||
-          entry == "serialize artifacts" || entry == "measure timings" ||
-          entry == "measure memory" || entry == "retain fields")
+          entry == "facewise box constraint" || entry == "measure timings" ||
+          entry == "retain fields")
         return empty_or(std::make_shared<::dealii::Patterns::Bool>());
 
       if (entry == "dimension" || entry == "refinement" ||
@@ -694,9 +680,8 @@ namespace nmopt::application::runner
         add_section("Problem",
                     {"control representation",
                      "cellwise box constraint",
-                     "observation",
                      "facewise box constraint"});
-        add_section("Observation", {"material id", "realization"});
+        add_section("Observation", {"material id"});
 
         add_section("Functions",
                     {"forcing",
@@ -715,14 +700,9 @@ namespace nmopt::application::runner
                      "control id",
                      "outflow id",
                      "upstream transition",
-                     "transport boundary form",
-                     "conormal form",
-                     "normal orientation",
-                     "trace evaluation",
-                     "face quadrature"});
+                     "transport boundary form"});
         add_section("Mesh",
                     {"dimension",
-                     "geometry",
                      "lower",
                      "upper",
                      "refinement",
@@ -736,9 +716,7 @@ namespace nmopt::application::runner
         add_section("Compile",
                     {"state degree",
                      "execution",
-                     "product",
-                     "owned session",
-                     "stabilization"});
+                     "product"});
         append_schema_entry(result, "Compile/volume observation quadrature order");
         append_schema_entry(result, "Compile/volume observation target realisation");
         append_schema_entry(result, "Compile/state solve maximum iterations", "0");
@@ -781,11 +759,8 @@ namespace nmopt::application::runner
                     {"kind",
                      "build profile",
                      "output root",
-                     "deterministic",
-                     "serialize artifacts",
-                     "measure timings",
-                     "measure memory"});
-        add_section("Output", {"retain fields", "selected fields"});
+                     "measure timings"});
+        add_section("Output", {"retain fields"});
         add_section("Postprocessing",
                     {"style profile",
                      "comparison rows",

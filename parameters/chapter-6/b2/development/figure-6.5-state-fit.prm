@@ -25,7 +25,6 @@ end
 
 subsection Observation
   set material id = 1
-  set realization = cell-center-indicator
 
   subsection region definitions
     subsection wings
@@ -90,15 +89,10 @@ subsection Boundary
   set outflow id = 2
   set upstream transition = 1.0
   set transport boundary form = ordinary-normal-minus-transport
-  set conormal form = unspecified
-  set normal orientation = outward
-  set trace evaluation = fe-q-state-trace
-  set face quadrature = qgauss-face
 end
 
 subsection Mesh
   set dimension = 2
-  set geometry = rectangle
   set lower = (0.0, 0.0)
   set upper = (4.0, 1.0)
   set generator = structured-simplex
@@ -113,7 +107,6 @@ subsection Compile
   set volume observation target realisation = analytic-quadrature
   set execution = assembled
   set product = reduced-dto
-  set owned session = true
   set state solve maximum iterations = 0
   set state solve relative tolerance = 1e-12
   set state solve absolute tolerance = 1e-14
@@ -123,7 +116,6 @@ subsection Compile
   set control metric solve maximum iterations = 1000
   set control metric solve relative tolerance = 1e-12
   set control metric solve absolute tolerance = 1e-14
-  set stabilization = galerkin
 end
 
 subsection Solver
@@ -150,15 +142,11 @@ subsection Run
   set kind = development
   set build profile = debug-dealii
   set output root = runs
-  set deterministic = true
-  set serialize artifacts = true
   set measure timings = false
-  set measure memory = false
 end
 
 subsection Output
   set retain fields = true
-  set selected fields = state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region
 end
 
 subsection Postprocessing

@@ -23,7 +23,6 @@ end
 subsection Problem
   set control representation = continuous-volume-homogeneous-dirichlet
   set cellwise box constraint = false
-  set observation = full-domain
 end
 
 subsection Functions
@@ -50,7 +49,6 @@ end
 
 subsection Mesh
   set dimension = 2
-  set geometry = unit-hypercube
   set lower = (0.0, 0.0)
   set upper = (1.0, 1.0)
   set generator = structured-simplex
@@ -65,7 +63,6 @@ subsection Compile
   set state degree = 1
   set execution = assembled
   set product = reduced-dto
-  set owned session = true
   set state solve maximum iterations = 0
   set state solve relative tolerance = 1e-12
   set state solve absolute tolerance = 1e-14
@@ -114,15 +111,11 @@ subsection Run
   set kind = reproduction
   set build profile = release-dealii
   set output root = runs
-  set deterministic = true
-  set serialize artifacts = true
   set measure timings = true
-  set measure memory = false
 end
 
 subsection Output
   set retain fields = true
-  set selected fields = state, control, adjoint, negative-adjoint, target, forcing
 end
 
 subsection Postprocessing

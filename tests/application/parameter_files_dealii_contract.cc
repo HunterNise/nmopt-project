@@ -180,7 +180,6 @@ end
 
 subsection Observation
   set material id = 1
-  set realization = cell-center-indicator
 
   subsection region definitions
     subsection wings
@@ -245,15 +244,10 @@ subsection Boundary
            << outflow_boundary_id << R"prm(
   set upstream transition = 1.0
   set transport boundary form = ordinary-normal-minus-transport
-  set conormal form = unspecified
-  set normal orientation = outward
-  set trace evaluation = fe-q-state-trace
-  set face quadrature = qgauss-face
 end
 
 subsection Mesh
   set dimension = 2
-  set geometry = rectangle
   set lower = (0.0, 0.0)
   set upper = (4.0, 1.0)
   set refinement = 1
@@ -266,7 +260,6 @@ subsection Compile
   set volume observation target realisation = analytic-quadrature
   set execution = assembled
   set product = reduced-dto
-  set owned session = true
   set state solve maximum iterations = 0
   set state solve relative tolerance = 1e-12
   set state solve absolute tolerance = 1e-14
@@ -276,7 +269,6 @@ subsection Compile
   set control metric solve maximum iterations = 1000
   set control metric solve relative tolerance = 1e-12
   set control metric solve absolute tolerance = 1e-14
-  set stabilization = galerkin
 end
 
 subsection Solver
@@ -303,15 +295,11 @@ subsection Run
   set kind = development
   set build profile = debug-dealii
   set output root = runs
-  set deterministic = true
-  set serialize artifacts = true
   set measure timings = false
-  set measure memory = false
 end
 
 subsection Output
   set retain fields = true
-  set selected fields = state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region
 end
 )prm";
     output.close();
@@ -382,9 +370,23 @@ end
       require(found != registry.end(), "expected typed schema entry is missing");
       return *found;
     };
-    require(find_entry("Run/deterministic").pattern->match("true") &&
-              !find_entry("Run/deterministic").pattern->match("maybe"),
-            "boolean schema pattern should reject non-boolean values");
+    require(std::none_of(registry.begin(), registry.end(), [](const auto &entry) {
+              return entry.path == "Run/deterministic" ||
+                     entry.path == "Run/serialize artifacts" ||
+                     entry.path == "Run/measure memory" ||
+                     entry.path == "Output/selected fields" ||
+                     entry.path == "Compile/owned session" ||
+                     entry.path == "Compile/stabilization" ||
+                     entry.path == "Mesh/geometry" ||
+                     entry.path == "Boundary/conormal form" ||
+                     entry.path == "Boundary/normal orientation" ||
+                     entry.path == "Boundary/trace evaluation" ||
+                     entry.path == "Boundary/face quadrature";
+            }),
+            "schema registry retained a non-operative parameter leaf");
+    require(find_entry("Run/measure timings").pattern->match("true") &&
+              !find_entry("Run/measure timings").pattern->match("maybe"),
+            "timing measurement schema should remain boolean");
     require(find_entry("Mesh/refinement").pattern->match("7") &&
               !find_entry("Mesh/refinement").pattern->match("seven"),
             "integer schema pattern should reject non-integer values");
@@ -420,6 +422,26 @@ end
         b2_file.values.count("Solver/method policy l-bfgs/initial inverse Hessian scaling") ==
           0,
       "B2 schema discovery exposed L-BFGS policy leaves for full BFGS");
+    const std::array<const char *, 12> removed_paths = {
+      {"Problem/observation",
+       "Observation/realization",
+       "Boundary/conormal form",
+       "Boundary/normal orientation",
+       "Boundary/trace evaluation",
+       "Boundary/face quadrature",
+       "Mesh/geometry",
+       "Compile/owned session",
+       "Compile/stabilization",
+       "Run/deterministic",
+       "Run/serialize artifacts",
+       "Run/measure memory"}};
+    const auto b1_file = read_parameter_file(find_file_from_current_or_parent(
+      "parameters/chapter-6/b1/authoritative.prm"));
+    require(
+      std::all_of(removed_paths.begin(), removed_paths.end(), [&](const auto path) {
+        return b1_file.values.count(path) == 0 && b2_file.values.count(path) == 0;
+      }),
+      "tracked application profiles retained a removed parameter leaf");
   }
 
   void
@@ -1189,24 +1211,6 @@ end
   }
 
   void
-  test_b2_output_selection_is_explicit()
-  {
-    const auto source = find_file_from_current_or_parent(
-      "parameters/chapter-6/b2/authoritative.prm");
-    const auto combination = read_parameter_file(source).combinations().front();
-
-    auto unsupported_output_selection = read_parameter_file(source);
-    unsupported_output_selection.values["Output/selected fields"] =
-      "state, control";
-    require_invalid_argument(
-      [&] {
-        (void)resolve_b2_scenario_for_characterization(
-          unsupported_output_selection, combination);
-      },
-      "B2 accepted an output selection that its adapter does not execute");
-  }
-
-  void
   test_runner_execution_registrations_bind_callbacks()
   {
     const auto *b1 = find_benchmark_execution_registration("b1");
@@ -1507,31 +1511,10 @@ end
     auto total_conormal = ordinary;
     total_conormal.values["Boundary/transport boundary form"] =
       "total-conormal";
-    total_conormal.values["Boundary/conormal form"] =
-      "diffusion-minus-transport";
     require(
       nmopt::application::runner::b2_transport_boundary_form(total_conormal) ==
         nmopt::semantic::v1::TransportBoundaryForm::total_conormal,
       "B2 parameter parsing lost the total-conormal boundary selection");
-
-    auto inconsistent_total = total_conormal;
-    inconsistent_total.values["Boundary/conormal form"] = "unspecified";
-    require_invalid_argument(
-      [&] {
-        (void)nmopt::application::runner::b2_transport_boundary_form(
-          inconsistent_total);
-      },
-      "B2 accepted total conormal without diffusion-minus-transport");
-
-    auto inconsistent_ordinary = ordinary;
-    inconsistent_ordinary.values["Boundary/conormal form"] =
-      "diffusion-minus-transport";
-    require_invalid_argument(
-      [&] {
-        (void)nmopt::application::runner::b2_transport_boundary_form(
-          inconsistent_ordinary);
-      },
-      "B2 accepted an independently selected ordinary conormal form");
 
     auto unknown = ordinary;
     unknown.values["Boundary/transport boundary form"] = "book-notation";
@@ -2070,11 +2053,6 @@ main(const int argc, char **argv)
          {"backend", "dealii", "application", "benchmark", "runner", "contract"},
          30,
          test_b2_authoritative_and_forcing_sweep_resolution_is_characterized},
-        {"b2_output_selection_is_explicit",
-         "nmopt.parameter_files.b2_output_selection_is_explicit",
-         {"backend", "dealii", "application", "benchmark", "runner", "contract", "negative"},
-         30,
-         test_b2_output_selection_is_explicit},
         {"runner_execution_registrations_bind_callbacks",
          "nmopt.parameter_files.runner_execution_registrations_bind_callbacks",
          {"backend", "dealii", "application", "benchmark", "runner", "contract"},

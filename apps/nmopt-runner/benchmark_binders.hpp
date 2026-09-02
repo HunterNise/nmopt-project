@@ -25,10 +25,6 @@ namespace nmopt::application::runner::binding
     require_parameter(file,
                       "Benchmark/recipe",
                       chapter6::b1_recipe_id);
-    require_parameter(file, "Problem/observation", "full-domain");
-    require_parameter(file,
-                      "Output/selected fields",
-                      "state, control, adjoint, negative-adjoint, target, forcing");
     if (combination.values.size() < 2)
       throw std::invalid_argument("B1 needs method and regularisation matrix axes");
 
@@ -84,22 +80,11 @@ namespace nmopt::application::runner::binding
       b2_volume_observation_options(file);
     const auto observation_region =
       combination_value(combination, "observation-region");
-    require_parameter(file,
-                      "Observation/realization",
-                      "cell-center-indicator");
-    require_parameter(file, "Boundary/normal orientation", "outward");
-    require_parameter(file, "Boundary/trace evaluation", "fe-q-state-trace");
-    require_parameter(file, "Boundary/face quadrature", "qgauss-face");
-    require_parameter(file, "Compile/stabilization", "galerkin");
     const auto method_id = file.value("Solver/method");
     const auto method = parse_method(method_id);
     if (method != chapter6::ReducedMethod::bfgs)
       throw std::invalid_argument("B2 selects the BFGS method");
     scenario.solver.method = method;
-    require_parameter(
-      file,
-      "Output/selected fields",
-      "state, state-uncontrolled, control, adjoint, negative-adjoint, target, forcing, observation-region");
 
     scenario.problem.recipe.observed_material_id =
       parameter_unsigned(file, "Observation/material id");

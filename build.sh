@@ -427,9 +427,27 @@ print_pipeline_phase() {
   print_rule
 }
 
+format_elapsed() {
+  local total_seconds="$1"
+  local hours minutes seconds
+
+  hours=$((total_seconds / 3600))
+  minutes=$(((total_seconds % 3600) / 60))
+  seconds=$((total_seconds % 60))
+
+  # Keep short builds compact while making long builds readable at a glance.
+  if ((hours > 0)); then
+    printf '%dh %02dm %02ds' "$hours" "$minutes" "$seconds"
+  elif ((minutes > 0)); then
+    printf '%dm %02ds' "$minutes" "$seconds"
+  else
+    printf '%ds' "$seconds"
+  fi
+}
+
 run_timed_build() {
   local profile="$1"
-  local started elapsed status
+  local started elapsed elapsed_display status
 
   if [[ "$dry_run" == true ]]; then
     run_build "$profile"
@@ -444,7 +462,8 @@ run_timed_build() {
     status=$?
   fi
   elapsed=$((SECONDS - started))
-  printf '%s: build elapsed %ss\n' "$profile" "$elapsed"
+  elapsed_display="$(format_elapsed "$elapsed")"
+  printf '%s: build elapsed %s\n' "$profile" "$elapsed_display"
   return "$status"
 }
 

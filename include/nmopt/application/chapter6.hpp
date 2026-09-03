@@ -384,6 +384,16 @@ namespace nmopt::application::chapter6
   }
 
   inline ScalarFunctionDefinition
+  b2_manufactured_zero_natural_boundary_source()
+  {
+    return {"zero-natural-boundary-source",
+            ScalarFunctionKind::zero,
+            0.0,
+            "",
+            "chapter-6.e6.5.2.zero-natural-boundary-source"};
+  }
+
+  inline ScalarFunctionDefinition
   b2_manufactured_fixed_temperature()
   {
     return {"fixed-temperature",
@@ -437,6 +447,7 @@ namespace nmopt::application::chapter6
     ScalarFunctionDefinition fixed_dirichlet_data =
       b2_manufactured_fixed_temperature();
     ScalarFunctionDefinition forcing = b2_manufactured_zero_forcing();
+    std::optional<ScalarFunctionDefinition> natural_boundary_source;
     RankOneVectorFunctionDefinition conservative_transport =
       b2_manufactured_graetz_transport();
     semantic::v1::TransportBoundaryForm transport_boundary_form =
@@ -814,6 +825,10 @@ namespace nmopt::application::chapter6
         scenario.problem.fixed_dirichlet_data.provenance)
       throw std::invalid_argument(
         "B2 fixed-data definition and runtime provenance must agree");
+    if (scenario.problem.natural_boundary_source)
+      validate_scalar_function_definition(
+        *scenario.problem.natural_boundary_source,
+        "B2 natural boundary source");
     validate_rank_one_vector_function_definition(
       scenario.problem.conservative_transport,
       "B2 conservative transport");
@@ -871,6 +886,10 @@ namespace nmopt::application::chapter6
     validate_b2_boundary_options(parameters.boundary);
     validate_b2_transport_boundary_form(parameters.transport_boundary_form);
     validate_b2_control_discretisation(parameters.recipe);
+    if (parameters.natural_boundary_source)
+      validate_scalar_function_definition(
+        *parameters.natural_boundary_source,
+        "B2 natural boundary source");
     auto specification =
       chapter5::make_neumann_convection_recipe()(parameters.recipe);
 
@@ -910,6 +929,29 @@ namespace nmopt::application::chapter6
        {parameters.boundary.outflow_id},
        {},
        {}});
+    if (parameters.natural_boundary_source)
+      {
+        specification.spaces.push_back(
+          {"natural_boundary_source_space",
+           "Natural boundary source space",
+           b2_outflow_boundary_region_id,
+           semantic::v1::SpaceTopology::l2,
+           semantic::v1::SpaceRole::data});
+        specification.data.push_back(
+          {"natural_boundary_source",
+           "Natural boundary source",
+           semantic::v1::DataKind::function,
+           semantic::v1::DataRole::natural_boundary_source,
+           "natural_boundary_source_space"});
+        specification.residual_terms.push_back(
+          {"natural_boundary_source",
+           "Immutable natural boundary source",
+           semantic::v1::ResidualTermKind::natural_boundary_source,
+           "state_equation",
+           {},
+           {"natural_boundary_source"},
+           b2_outflow_boundary_region_id});
+      }
     const bool ordinary_normal =
       parameters.transport_boundary_form ==
       semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport;
@@ -931,6 +973,17 @@ namespace nmopt::application::chapter6
       semantic::v1::TraceEvaluationRealisation::fe_q_state_trace,
       semantic::v1::FaceQuadratureRealisation::qgauss_face,
       parameters.transport_boundary_form};
+    if (parameters.natural_boundary_source)
+      {
+        const auto state_equation = std::find_if(
+          specification.equations.begin(),
+          specification.equations.end(),
+          [](const auto &equation) { return equation.id == "state_equation"; });
+        if (state_equation == specification.equations.end())
+          throw std::invalid_argument(
+            "B2 recipe did not provide a state equation");
+        state_equation->residual_term_ids.push_back("natural_boundary_source");
+      }
     add_b2_fixed_dirichlet_reconstruction(specification);
     return specification;
   }

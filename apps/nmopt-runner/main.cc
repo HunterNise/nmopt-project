@@ -972,7 +972,8 @@ namespace
               scenario.problem.fixed_dirichlet_data,
               scenario.problem.forcing,
               chapter6::b2_target_definition(scenario.problem.target_catalog),
-              scenario.problem.conservative_transport);
+              scenario.problem.conservative_transport,
+              scenario.problem.natural_boundary_source);
             const auto runtime =
               nmopt::application::chapter6::dealii::
                 make_b2_manufactured_runtime_data<2>(scenario, data);

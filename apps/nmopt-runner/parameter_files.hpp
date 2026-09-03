@@ -674,6 +674,7 @@ namespace nmopt::application::runner
                     {"forcing",
                      "desired state",
                      "fixed Dirichlet data",
+                     "natural boundary source",
                      "conservative transport"});
         for (const auto *entry : {"expression", "provenance"})
           append_schema_entry(result,
@@ -810,6 +811,10 @@ namespace nmopt::application::runner
            {"Functions/fixed Dirichlet data",
             "",
             "Functions/fixed Dirichlet data",
+            ""},
+           {"Functions/natural boundary source",
+            "",
+            "Functions/natural boundary source",
             ""}}};
         for (const auto *axis : {"regularisation",
                                  "forcing",

@@ -134,6 +134,12 @@ namespace
       "test.b2.scaled-graetz"};
     scenario.problem.data.conservative_transport_provenance =
       scenario.problem.conservative_transport.provenance;
+    scenario.problem.natural_boundary_source = {
+      "wall-flux",
+      ScalarFunctionKind::constant,
+      0.25,
+      "",
+      "test.b2.wall-flux"};
 
     chapter6::dealii::B2ManufacturedDataT<2> data{
       nmopt::application::selected_scalar_function_definition(
@@ -141,7 +147,8 @@ namespace
       scenario.problem.fixed_dirichlet_data,
       scenario.problem.forcing,
       chapter6::b2_target_definition(scenario.problem.target_catalog),
-      scenario.problem.conservative_transport};
+      scenario.problem.conservative_transport,
+      scenario.problem.natural_boundary_source};
     const auto runtime =
       chapter6::dealii::make_b2_manufactured_runtime_data<2>(scenario, data);
     ::dealii::Point<2> point(0.4, 0.25);
@@ -168,6 +175,20 @@ namespace
       nmopt::compiler::v1::CompilationProduct::reduced_dto);
     require(compilation.succeeded() && compilation.problem,
             "B2 configured function definitions did not reach assembly");
+    const auto natural_source_data = std::find_if(
+      specification.data.begin(),
+      specification.data.end(),
+      [](const auto &data) { return data.id == "natural_boundary_source"; });
+    const auto natural_source_term = std::find_if(
+      specification.residual_terms.begin(),
+      specification.residual_terms.end(),
+      [](const auto &term) { return term.id == "natural_boundary_source"; });
+    require(natural_source_data != specification.data.end() &&
+              natural_source_data->role ==
+                nmopt::semantic::v1::DataRole::natural_boundary_source &&
+              natural_source_term != specification.residual_terms.end() &&
+              natural_source_term->region_id == chapter6::b2_outflow_boundary_region_id,
+            "B2 natural-boundary source was not represented on the outflow graph");
   }
 
   double

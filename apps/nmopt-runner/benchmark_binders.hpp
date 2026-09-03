@@ -113,6 +113,14 @@ namespace nmopt::application::runner::binding
                                            "Functions/fixed Dirichlet data");
     scenario.problem.data.fixed_dirichlet_data_provenance =
       scenario.problem.fixed_dirichlet_data.provenance;
+    const auto natural_boundary_source_selector =
+      file.optional_value("Functions/natural boundary source");
+    if (natural_boundary_source_selector.empty())
+      scenario.problem.natural_boundary_source = std::nullopt;
+    else
+      scenario.problem.natural_boundary_source =
+        parameter_scalar_function_definition(
+          file, "Functions/natural boundary source");
     scenario.problem.conservative_transport =
       parameter_rank_one_vector_function_definition(
         file, "Functions/conservative transport");

@@ -156,7 +156,8 @@ namespace
       "x0 > 1.0 ? (x1 < 0.3 ? 1 : (x1 > 0.7 ? 1 : 0)) : 0",
     const unsigned int fixed_boundary_id = 0,
     const unsigned int control_boundary_id = 1,
-    const unsigned int outflow_boundary_id = 2)
+    const unsigned int outflow_boundary_id = 2,
+    const bool         with_natural_boundary_source = false)
   {
     const auto path = std::filesystem::temp_directory_path() /
                       "nmopt-b2-scalar-discovery-contract.prm";
@@ -221,6 +222,17 @@ subsection Functions
     set expression = 1.5*x1*(1-x1); 0.0
     set provenance = test.graetz-transport
   end
+)prm";
+    if (with_natural_boundary_source)
+      output << R"prm(
+  set natural boundary source = wall-flux
+  subsection natural boundary source
+    set kind = constant
+    set value = 0.25
+    set provenance = test.wall-flux
+  end
+)prm";
+    output << R"prm(
 
   subsection target definitions
     subsection candidate-target
@@ -1832,6 +1844,64 @@ end
               scenario.metadata.id ==
                 "chapter-6.b2.graetz-flow.wings-candidate-target",
             "B2 scalar definitions were not resolved from native subsections");
+
+    const auto source_file = read_b2_scalar_discovery_parameter_file(
+      "x0 > 1.0 ? (x1 < 0.3 ? 1 : (x1 > 0.7 ? 1 : 0)) : 0",
+      0,
+      1,
+      2,
+      true);
+    require(
+      source_file.value("Functions/natural boundary source") == "wall-flux" &&
+        source_file.value("Functions/natural boundary source/kind") ==
+          "constant" &&
+        source_file.value("Functions/natural boundary source/value") == "0.25",
+      "natural-boundary source subsections were not discovered from the PRM");
+    const auto source_target_catalog =
+      nmopt::application::runner::b2_target_catalog(source_file,
+                                                    "candidate-target");
+    auto source_scenario =
+      nmopt::application::chapter6::make_b2_scenario_with_target_catalog(
+        nmopt::application::chapter6::B2ObservationRegion::wings,
+        "candidate-target",
+        source_target_catalog);
+    bind_b2_scenario(
+      source_scenario,
+      source_file,
+      source_file.combinations().front(),
+      "chapter-6.b2.graetz-flow.wings-candidate-target");
+    require(
+      source_scenario.problem.natural_boundary_source.has_value() &&
+        source_scenario.problem.natural_boundary_source->id == "wall-flux" &&
+        source_scenario.problem.natural_boundary_source->kind ==
+          nmopt::application::ScalarFunctionKind::constant &&
+        source_scenario.problem.natural_boundary_source->value == 0.25 &&
+        source_scenario.problem.natural_boundary_source->provenance ==
+          "test.wall-flux",
+      "B2 did not bind its natural-boundary source definition");
+    const auto source_specification =
+      nmopt::application::chapter6::make_b2_problem_spec(source_scenario);
+    const auto source_data = std::find_if(
+      source_specification.data.begin(),
+      source_specification.data.end(),
+      [](const auto &data) { return data.id == "natural_boundary_source"; });
+    const auto source_term = std::find_if(
+      source_specification.residual_terms.begin(),
+      source_specification.residual_terms.end(),
+      [](const auto &term) { return term.id == "natural_boundary_source"; });
+    require(source_data != source_specification.data.end() &&
+              source_data->role ==
+                nmopt::semantic::v1::DataRole::natural_boundary_source &&
+              source_data->space_id == "natural_boundary_source_space" &&
+              source_term != source_specification.residual_terms.end() &&
+              source_term->kind ==
+                nmopt::semantic::v1::ResidualTermKind::natural_boundary_source &&
+              source_term->region_id ==
+                nmopt::application::chapter6::b2_outflow_boundary_region_id &&
+              source_term->variable_ids.empty() &&
+              source_term->data_ids == std::vector<std::string>{
+                "natural_boundary_source"},
+            "B2 natural-boundary source graph was not lowered on outflow");
   }
 
   void

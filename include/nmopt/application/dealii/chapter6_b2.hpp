@@ -137,17 +137,21 @@ namespace nmopt::application::chapter6::dealii
       const ::dealii::Function<dim> &             forcing_function,
       const ::dealii::Function<dim> &             desired_state_function,
       const ::dealii::Function<dim> &             fixed_temperature_function,
-      const ::dealii::TensorFunction<1, dim> &transport_function)
+      const ::dealii::TensorFunction<1, dim> &transport_function,
+      const ::dealii::Function<dim> *           natural_boundary_source_function =
+        nullptr)
       : forcing(forcing_function)
       , desired_state(desired_state_function)
       , fixed_temperature(fixed_temperature_function)
       , conservative_transport(transport_function)
+      , natural_boundary_source(natural_boundary_source_function)
     {}
 
     const ::dealii::Function<dim> &             forcing;
     const ::dealii::Function<dim> &             desired_state;
     const ::dealii::Function<dim> &             fixed_temperature;
     const ::dealii::TensorFunction<1, dim> &conservative_transport;
+    const ::dealii::Function<dim> *            natural_boundary_source;
   };
 
   template <int dim>
@@ -164,7 +168,9 @@ namespace nmopt::application::chapter6::dealii
       ScalarFunctionDefinition target_definition =
         b2_manufactured_constant_target(),
       RankOneVectorFunctionDefinition conservative_transport =
-        b2_manufactured_graetz_transport())
+        b2_manufactured_graetz_transport(),
+      std::optional<ScalarFunctionDefinition> natural_boundary_source =
+        std::nullopt)
       : observation_definition_(std::move(observation_definition))
       , fixed_dirichlet_data_(std::move(fixed_dirichlet_data))
       , fixed_temperature_(
@@ -177,6 +183,14 @@ namespace nmopt::application::chapter6::dealii
       , conservative_transport_definition_(std::move(conservative_transport))
       , conservative_transport_(detail::make_rank_one_vector_function<dim>(
           conservative_transport_definition_, "B2 conservative transport"))
+      , natural_boundary_source_definition_(
+          std::move(natural_boundary_source))
+      , natural_boundary_source_(
+          natural_boundary_source_definition_
+            ? ::nmopt::application::dealii_support::make_scalar_function<dim>(
+                *natural_boundary_source_definition_,
+                "B2 natural boundary source")
+            : nullptr)
       {}
 
     const ScalarFunctionDefinition &
@@ -191,7 +205,8 @@ namespace nmopt::application::chapter6::dealii
       return {*forcing_,
               desired_state_,
               *fixed_temperature_,
-              *conservative_transport_};
+              *conservative_transport_,
+              natural_boundary_source_ ? natural_boundary_source_.get() : nullptr};
     }
 
     const ScalarFunctionDefinition &
@@ -218,6 +233,12 @@ namespace nmopt::application::chapter6::dealii
       return conservative_transport_definition_;
     }
 
+    const std::optional<ScalarFunctionDefinition> &
+    natural_boundary_source() const
+    {
+      return natural_boundary_source_definition_;
+    }
+
   private:
     ScalarFunctionDefinition                 observation_definition_;
     ScalarFunctionDefinition                 fixed_dirichlet_data_;
@@ -228,6 +249,8 @@ namespace nmopt::application::chapter6::dealii
     RankOneVectorFunctionDefinition          conservative_transport_definition_;
     std::unique_ptr<::dealii::TensorFunctionParser<1, dim>>
       conservative_transport_;
+    std::optional<ScalarFunctionDefinition> natural_boundary_source_definition_;
+    std::unique_ptr<::dealii::Function<dim>> natural_boundary_source_;
   };
 
   template <int dim>
@@ -261,6 +284,10 @@ namespace nmopt::application::chapter6::dealii
         scenario.problem.conservative_transport)
       throw std::invalid_argument(
         "B2 manufactured conservative transport does not match the scenario");
+    if (data.natural_boundary_source() !=
+        scenario.problem.natural_boundary_source)
+      throw std::invalid_argument(
+        "B2 manufactured natural boundary source does not match the scenario");
     return data.runtime_data();
   }
 
@@ -275,6 +302,18 @@ namespace nmopt::application::chapter6::dealii
       throw std::invalid_argument(
         "B2 runtime bindings need fixed-data and transport provenance");
 
+    if (parameters.natural_boundary_source.has_value() !=
+        (runtime.natural_boundary_source != nullptr))
+      throw std::invalid_argument(
+        "B2 natural boundary source definition and runtime binding must agree");
+
+    std::optional<compiler::v1::DealiiNaturalBoundarySourceBinding<dim>>
+      natural_boundary_source_binding;
+    if (parameters.natural_boundary_source)
+      natural_boundary_source_binding.emplace(
+        *runtime.natural_boundary_source,
+        parameters.natural_boundary_source->provenance);
+
     return {runtime.forcing,
             runtime.desired_state,
             std::optional<double>{parameters.data.diffusion},
@@ -288,7 +327,8 @@ namespace nmopt::application::chapter6::dealii
             std::nullopt,
             compiler::v1::DealiiConservativeTransportDataBindings<dim>{
               runtime.conservative_transport,
-              {parameters.data.conservative_transport_provenance}}};
+              {parameters.data.conservative_transport_provenance}},
+            std::move(natural_boundary_source_binding)};
   }
 
   inline void

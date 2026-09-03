@@ -303,7 +303,8 @@ claiming reproduction.
 
 ### A6 — Correctly reproduce B1 and B2
 
-**Status:** in progress; B1 reproduction-verified, B2 forward-state audit open.
+**Status:** in progress; B1 reproduction-verified, B2 F0 provenance repaired,
+coupled-scaling forward audit open.
 
 **Purpose:** Establish whether the current framework-native fields and plots
 represent the same mathematical quantities and visual conventions as the
@@ -332,20 +333,27 @@ book's B1/B2 figures.
 - zero-forcing target-transcription and forcing/target/association factorial
   campaigns separate objective-table clues from image-fit evidence; and
 - the completed 37-artifact campaign documents non-reproducibility for the
-  tested joint interpretations instead of selecting a fitted replacement.
+  tested joint interpretations instead of selecting a fitted replacement;
+- Follow-up F0 now has one correctly labelled Debug inlet-only diagnostic and
+  six correctly labelled Release transport/ordinary provenance repairs, all
+  with complete manifests, derivative evidence, native fields, and clean
+  post-processing; and
+- the F0 reconstruction script records seven complete exclusions with no
+  pre-refinement forward-gate pass.
 
 **Still needed for B2:**
 
-1. Run a parameter-only no-control audit of the remaining historically
-   grounded boundary-partition and transport hypotheses.
-2. Require agreement in value range, decoded spatial shape, sign/trend, peak
-   location, and a refinement pair before accepting a forward interpretation.
-3. Only after that gate passes, compare initial objectives and the expected
-   nested-observation ordering under the candidate interpretation.
-4. Resume optimized runs only after the forward and initial-objective gates
-   pass.
-5. Report any missing boundary form or independent boundary coefficient as a
-   framework decision; do not introduce it as an unrecorded replication tweak.
+1. Run the coupled interior-scaling ray in F1 at the prescribed Release
+   values and apply the complete forward gate.
+2. If F1 fails the shape gate, run the conditional F2 normalized load
+   fingerprints or report the required weak-form contract.
+3. Prepare, but do not implement without a separate decision, the F3
+   forward-only serialization and scale-aware derivative-check proposals.
+4. Require agreement in value range, decoded spatial shape, sign/trend, peak
+   location, provenance, and a refinement pair before accepting a forward
+   interpretation.
+5. Only after F4 passes, compare initial objectives and the expected
+   nested-observation ordering, then design the optimizer campaign.
 
 **Done when:**
 
@@ -487,12 +495,11 @@ Known limitations:
 Next unit:
 ```
 
-The next handoff is the A6 B2 forward-state audit: begin with the no-control
-state and test only the remaining parameter-expressible, historically grounded
-boundary-partition and transport hypotheses. Use the existing
-`release-dealii` build without rebuilding it, and do not resume optimization
-until a candidate passes the range, shape, trend, peak-location, and refinement
-checks recorded in the B2 replication report.
+The next handoff is the A6 B2 coupled-scaling forward screen: use the existing
+`release-dealii` build without rebuilding it, test only the prescribed F1
+values, and do not resume optimization until a candidate passes the range,
+shape, trend, peak-location, provenance, and refinement checks recorded in the
+B2 replication report.
 
 ## Exclusions
 

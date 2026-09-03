@@ -688,3 +688,96 @@ a separate architectural decision before tracked implementation. A fitted
 forcing, independently scaled boundary term, or arbitrary objective
 multiplier remains excluded from source-replication evidence unless new
 primary evidence supports it.
+
+## Forward-state replication handoff
+
+The bounded forward campaign specified in the reopened plan was provisionally
+executed through Units 0–4 on 2026-09-03, then followed by the F0 provenance
+repair. The original exploratory runs used `debug-dealii` at framework
+revision `df50946`, while the fresh F0 transport/ordinary confirmations use
+the existing clean `release-dealii` executable at `df50946`. The fresh
+inlet-only endpoint uses `debug-dealii` at `d403dfc` because the clean Release
+executable cannot represent transition `0.0`. The existing source-literal
+comparison point remains the release artifact at
+`runs/chapter-6/b2/authoritative` and was not rebuilt.
+
+The required framework change was to make the lower endpoint of
+`Boundary/upstream transition` inclusive while retaining the strict upper
+endpoint. This permits the exact inlet-only diagnostic at transition `0.0`:
+the left edge remains fixed Dirichlet and the horizontal exterior faces are
+controlled. The change, regression contract, and parameter-contract note are
+in commit `d403dfc` (`fix(b2): support inlet-only boundary partition`). The
+Debug build and full pipeline passed all 148 tests after that change.
+
+### Experiments performed
+
+Every successful new family below declared the six-case matrix
+`observation-region=wings,full` by
+`target-profile=constant-2,constant-20,parabolic-source`. Each completed
+family produced six native artifacts, six derivative-evidence passes, and
+six successful PNG post-processing results.
+
+| Unit | Parameter family and run root | Forward change | Result |
+| --- | --- | --- | --- |
+| 1 | `b2-forward-inlet-only-book-outflow-release` | Source partition changed to inlet-only, transition `0.0`, printed ordinary outlet form | Completed `6/6`; uncontrolled range `[1, 1.119651]`, raster correlation `0.6971`, and normalized MAE `0.3720`; effectively identical to the literal baseline and rejected as the range explanation. |
+| 2 | `b2-forward-transport-c0-book-release`, `c1`, `c10`, `c15`, and `cminus1p5` | Source partition restored, transport `c*x1*(1-x1)` with `c` equal to `0`, `1`, `10`, `15`, and `-1.5` | All five completed `6/6`; `c=0` gives `y=1` to `2.5×10^-12`, positive coefficients remain near maximum `1.115`–`1.117`, and `c=-1.5` reverses the trend with range `[0.00376,1]`; no coefficient passes the source gate. |
+| 3 | `b2-forward-boundary-ordinary-c1p5-book-release` | Source partition, `c=1.5`, μ=`0.1`, ordinary-normal-minus-transport | Completed `6/6`; range `[1, 1.119607]`, correlation `0.6969`, normalized MAE `0.3722`; it reproduces the literal low branch, not Figure 6.5. |
+| 3 | `b2-forward-boundary-total-conormal-c1p5-book-release` | Same data with the implemented total-conormal endpoint diagnostic | All six cases were rejected before serialization by the absolute reduced-gradient finite-difference guard. The existing typed boundary comparison passes and separates the total-conormal zero-control state by more than `10×` at refinement 2; the documented μ=`0.1` diagnostic reaches approximately `1393.5`, so this form is rejected as a source interpretation. |
+
+The existing literal `c=1.5` point is the sixth transport reference. Its
+uncontrolled range is `[1,1.119607]`, with source-raster correlation
+`0.6969`; it agrees with the new ordinary-form `c=1.5` result. The negative
+coefficient reverses the downstream trend as an implementation-sign check,
+so the positive branch is not a sign-orientation artifact. None of the
+parameter-expressible homogeneous forward cases reaches the acceptance range
+`[0.98,1.02]` to `[7.00,7.45]`, normalized correlation `0.98`, and normalized
+MAE `0.06` simultaneously. Since no candidate passed the forward gate, no
+refinement partner was justified.
+
+### Follow-up F0 — provenance repair
+
+F0 allocated fresh, profile-labelled, one-case parameter files and immutable
+run roots. The selected case was wings/constant-2 because the uncontrolled
+state is independent of target and observation-region selection. Every fresh
+run has one expected and one successful artifact, passed derivative evidence,
+and a post-processing index with no comparison errors.
+An initial Debug slot `001` used a command-line-only narrowing and is retained
+as historical evidence with an incomplete comparison index; the F0 record is
+the clean `002` replacement and is the only Debug row in the F0 ledger.
+
+| Replacement | Profile/revision | Run result |
+| --- | --- | --- |
+| `b2-f0-debug-inlet-only-d403dfc` | `debug-dealii` / `d403dfc` | Range `[1, 1.119651]`, no-flip correlation `0.6971`, normalized MAE `0.3720`; exploratory Debug-only record, rejected as the range explanation. |
+| `b2-f0-release-transport-c0-df50946`, `c1`, `c10`, `c15`, `cminus1p5` | `release-dealii` / `df50946` | Maxima `[1.000000, 1.117482, 1.114968, 1.114573]` for `c=0,1,10,15`; `c=-1.5` gives `[0.003762,1]`. Correlations/MAEs remain `[0.0129,0.3029]`, `[0.8010,0.3283]`, `[0.3051,0.4454]`, `[0.2537,0.4500]`, and `[-0.8568,0.6267]`; all are promotion-quality provenance exclusions, not source candidates. |
+| `b2-f0-release-ordinary-c1p5-df50946` | `release-dealii` / `df50946` | Range `[1, 1.119609]`, no-flip correlation `0.6969`, normalized MAE `0.3722`; promotion-quality provenance exclusion matching the literal Release baseline. |
+
+The F0 analysis script reconstructs the raw native extrema, calibrated raster
+metrics, profiles, provenance, and decisions from each manifest and native
+field. Its output records seven complete records, one exploratory Debug-only
+exclusion, six clean Release exclusions, and zero source-gate passes. This
+repairs the evidence classification but does not close the reopened Unit 4:
+the coupled interior-scaling ray in F1 remains the next scientific screen.
+
+The provisional negative result still leaves the coupled-scaling boundary
+normalization, missing or nonzero volume data, and inconsistency between the
+printed problem and Figure 6.5 as the remaining plausible classes. The
+total-conormal form is already implemented as an endpoint diagnostic; no new
+boundary policy was added. Unit 5 (initial-objective checksum) is explicitly
+forbidden by the plan unless Unit 4/F4 passes, and Unit 6 (optimizer campaign
+design) is therefore not launched.
+
+Detailed ignored evidence is consolidated in
+`runs/analysis/b2-forward-state-replication/`:
+
+- `b2-forward-ledger.csv` contains the baseline and Units 1–3 provenance,
+  hashes, counts, extrema, raster metrics, profiles, and decisions.
+- `b2-transport-sweep.json` contains the complete Unit 2 profiles and the
+  existing literal sixth-point reference.
+- `b2-boundary-form-endpoint.json` contains the Unit 3 ordinary artifact and
+  total-conormal failure/endpoint evidence.
+- `b2-source-sized-forward-confirmation.json` records the Unit 4 gate and
+  negative conclusion.
+- `analyze_f0.py` is the reproducible F0 analysis entry point.
+- `b2-f0-provenance-ledger.csv` and `b2-f0-provenance-analysis.json` contain
+  the fresh F0 provenance, hashes, native extrema, calibrated metrics, and
+  classifications.

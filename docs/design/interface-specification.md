@@ -142,6 +142,55 @@ facewise coefficient box applies only to the facewise-constant realization.
 The compiler MUST diagnose a selected realization for which it has no
 registered coupling, metric, or constraint lowerer.
 
+An additive natural-boundary source is a separate immutable residual datum. It
+MUST declare a boundary region, a source space $L^{2}$ on that region, a
+face-trace pairing, a value source, and provenance. Its
+source region MUST be a declared boundary region and MUST be disjoint from
+the fixed-Dirichlet region. It MAY coincide with a Neumann-control or
+transport-outflow region, because an additive source and an optimised control
+are distinct residual contributions. It MUST NOT be represented as a state
+lifting or as a control variable.
+
+For the selected natural-boundary convention, the source contributes the
+functional
+
+$$
+  B_{s}(g,v)=\left\langle g,\operatorname{tr}_{\Gamma_{s}}v\right\rangle_{L^{2}(\Gamma_{s})}
+$$
+
+to the state residual with the same datum scaling as the selected boundary
+condition. For the Chapter 6 transport forms this is
+
+$$
+  \sigma_{\mathrm{ordinary}}=\mu,
+  \qquad
+  \sigma_{\mathrm{total}}=1,
+  \qquad
+  R(y,u,g;v)=a_{\mu,b}(y,v)-\langle f,v\rangle_{\Omega}
+    -\sigma_{\mathrm{form}}B_{N}(u,v)
+    -\sigma_{\mathrm{form}}B_{s}(g,v).
+$$
+
+The ordinary convention interprets the datum by
+
+$$
+\partial_{n}y-(b\mathbin\cdot n)y=g,
+$$
+
+while the total convention interprets it by
+
+$$
+\mu\partial_{n}y-(b\mathbin\cdot n)y=g.
+$$
+
+A fixed source has zero
+state and control derivatives; the compiler and backend MUST nevertheless
+preserve the residual value, declared pairing, convention, region, and
+provenance in the resolved plan and manifest. The existing P5.1
+`robin_source` component is the initial implementation of this additive
+boundary-functional contract; extending its lowerer to another residual
+family MUST preserve the existing P5.1 semantics and identifiers.
+
 ### 3.2 Space and pairing
 
 A space describes a mathematical source or target.  It MUST declare:

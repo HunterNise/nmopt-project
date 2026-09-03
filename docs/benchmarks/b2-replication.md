@@ -772,30 +772,41 @@ F1 was run on 2026-09-03 using the existing `debug-dealii` executable at
 framework revision `d403dfc`, because rebuilding Release was too costly for
 this screen. These are diagnostic results only; they are not promotion-quality
 source evidence. The seven self-contained parameter files scale both
-`mu=0.1s` and the interior source
-`b=s[1.5*x2*(1-x2),0]`, with the prescribed values
-`s={5,7,8,8.5,8.75,9,9.5}`. Each case uses the source-sized `160,40`
+
+$$
+\mu=0.1s,
+\qquad
+b=s[1.5x_{2}(1-x_{2}),0],
+$$
+
+with the prescribed values
+
+$$
+s\in\{5,7,8,8.5,8.75,9,9.5\}.
+$$
+
+Each case uses the source-sized `160,40`
 structured-simplex mesh, the ordinary boundary form, and one fixed step.
 
 All seven fresh run roots completed with one expected/successful artifact,
 derivative evidence, and a clean PNG post-processing index. The range bracket
-is hit at `s=8.5`, but the spatial gate fails throughout the ray:
+is hit at $s=8.5$, but the spatial gate fails throughout the ray:
 
-| s | Native uncontrolled range | No-flip raster correlation | Normalized MAE | Peak `(x,y)` |
+| $s$ | Native uncontrolled range | No-flip raster correlation | Normalized MAE | Peak $(x,y)$ |
 | --- | --- | --- | --- | --- |
-| 5 | `[1, 2.0883]` | `0.6964` | `0.3737` | `(3.976, 0.502)` |
-| 7 | `[1, 3.5558]` | `0.6962` | `0.3746` | `(3.976, 0.501)` |
-| 8 | `[1, 5.3956]` | `0.6960` | `0.3751` | `(3.975, 0.502)` |
-| 8.5 | `[1, 7.2360]` | `0.6959` | `0.3753` | `(3.975, 0.502)` |
-| 8.75 | `[1, 8.7075]` | `0.6958` | `0.3754` | `(3.975, 0.501)` |
-| 9 | `[1, 10.9128]` | `0.6958` | `0.3756` | `(3.975, 0.501)` |
-| 9.5 | `[1, 21.8934]` | `0.6957` | `0.3759` | `(3.975, 0.502)` |
+| $5$ | $[1, 2.0883]$ | $0.6964$ | $0.3737$ | $(3.976, 0.502)$ |
+| $7$ | $[1, 3.5558]$ | $0.6962$ | $0.3746$ | $(3.976, 0.501)$ |
+| $8$ | $[1, 5.3956]$ | $0.6960$ | $0.3751$ | $(3.975, 0.502)$ |
+| $8.5$ | $[1, 7.2360]$ | $0.6959$ | $0.3753$ | $(3.975, 0.502)$ |
+| $8.75$ | $[1, 8.7075]$ | $0.6958$ | $0.3754$ | $(3.975, 0.501)$ |
+| $9$ | $[1, 10.9128]$ | $0.6958$ | $0.3756$ | $(3.975, 0.501)$ |
+| $9.5$ | $[1, 21.8934]$ | $0.6957$ | $0.3759$ | $(3.975, 0.502)$ |
 
 The streamwise trend remains positive and the peak stays near the source
 location, but the normalized shape is far outside the acceptance gate
-`correlation >= 0.98`, `MAE <= 0.06`. Streamwise, centreline, and source-peak
+$\mathrm{corr}\ge 0.98$, $\mathrm{MAE}\le 0.06$. Streamwise, centreline, and source-peak
 cross-stream profile correlations are also only approximately
-`0.696`, `0.672`, and `0.260`, respectively. Therefore F1 has no candidate
+$0.696$, $0.672$, and $0.260$, respectively. Therefore F1 has no candidate
 for local or mesh refinement: no complete forward gate passed. A Release
 confirmation would still be required even if a Debug case had passed.
 
@@ -813,7 +824,7 @@ The reproducible F1 ledger and analysis are retained as ignored artifacts in
 Because F1 failed the shape gate, the plan's conditional F2 was audited. The
 existing B2 parameter contract can express the normalized interior-volume
 forcing diagnostic already recorded in the earlier campaign (best fit
-approximately `f=0.47009`, correlation `0.9986`, normalized MAE `0.0417`). It
+approximately $f=0.47009$, correlation $0.9986$, normalized MAE $0.0417$). It
 does not expose a fixed wall-flux offset or an outlet-only boundary load as a
 separate source datum. The B2 helper currently distinguishes fixed Dirichlet
 data, controlled Neumann flux, and the ordinary/total-conormal boundary forms;
@@ -827,7 +838,7 @@ fingerprints, the reusable weak-form contract should provide:
   Dirichlet lifting and the Neumann control, with a declared trace/boundary
   pairing;
 - an explicit normal/orientation policy and a choice between ordinary
-  $\partial_n y-(b \cdot n)y$ and total-conormal boundary terms;
+  $`\partial_{n}y-(b\mathbin\cdot n)y`$ and total-conormal boundary terms;
 - distinct wall and outlet source locations, with provenance, scaling, units,
   and face-partition information persisted in the run manifest; and
 - regression coverage for zero-source identity, constant wall source,

@@ -113,6 +113,23 @@ must make them explicit rather than hide them in a component.
 These are the cases where a validator should require a policy or a supplied
 map.  It may not silently choose one.
 
+An additive natural-boundary source belongs to the residual graph even when it
+shares a boundary region with an optimised Neumann control. For a declared
+source $g$ on the source boundary region, the source map is
+
+$$
+  B_{s}:L^{2}(\Gamma_{s})\longrightarrow V^{\ast},
+  \qquad
+  \left\langle B_{s}g,v\right\rangle
+    =\left\langle g,\operatorname{tr}_{\Gamma_{s}}v\right\rangle.
+$$
+
+The source is immutable in the first implementation, so it contributes no
+variable derivative block. Its boundary convention and scaling remain part of
+the selected residual realization. A Robin source is the existing special
+case of this same additive boundary functional when paired with a Robin
+bilinear term; it must not be duplicated as a B2-specific interface.
+
 ## Boundary conditions: ownership rules
 
 | Boundary statement | Semantic owner | Additional components touched |
@@ -120,6 +137,7 @@ map.  It may not silently choose one.
 | Fixed Dirichlet datum | lifting/transformation of state | state space, compiler’s affine constraints |
 | Dirichlet control | control-to-state lifting | control space, residual, objective through physical state, chain rule |
 | Neumann datum/control | boundary residual term | trace pairing; control variable if optimised |
+| Additive natural-boundary source | boundary residual functional | declared $L^{2}$ pairing on the source region, form scaling, and provenance |
 | Robin datum | boundary bilinear residual term plus boundary functional | coefficient/data and region |
 | Periodic/hanging relation | discrete constraint realization | matching semantic region/identification metadata |
 | Pure Neumann | residual terms plus nullspace policy | constraints, metric, linear solver/preconditioner |

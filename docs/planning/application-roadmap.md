@@ -58,9 +58,9 @@ The roadmap distinguishes these states:
 | Runner and run sets | Implemented | `nmopt_runner` resolves benchmark, run kind, build profile, revision, and optional refinement; it writes manifests, artifacts, failures, and native outputs. |
 | B0 artifact boundary | Implemented and contract-tested | The deterministic `nmopt-benchmark-v1` projection, manifest records, provenance fields, selected fields, and failure visibility are present. |
 | Native deal.II output | Implemented for B1/B2 | B1 writes volume mesh/fields; B2 additionally writes facewise control on the boundary topology, together with solver traces and mesh previews. |
-| Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. The renderer uses `turbo` and explicit field-extrema colorbar endpoints; B1 visual validation is complete under its frozen contract, and B2 now has a calibrated source-raster comparison while its forward-state interpretation remains open. |
+| Reports and post-processing | Implemented as tooling | Python reads persisted `artifact.kv`, solver traces, and VTU files; it produces field plots, comparisons, post-process indexes, and deterministic benchmark reports. The renderer uses `turbo` and explicit field-extrema colorbar endpoints; B1 visual validation is complete under its frozen contract, and B2 has a calibrated source-raster comparison with a documented negative forward closure. |
 | B1 source-oriented execution | Reproduction-verified | The selected seven-case release profile combines continuous P1 control, a regular triangular mesh, constant-half forcing, and the common early-stop policy. Revision `631537a` completed all seven artifacts and their PNG comparisons without failures; the selected replacements do not claim recovery of omitted source data. |
-| B2 framework-native execution | Framework-verified; forward replication audit open | A refreshed four-artifact `release-dealii` matrix at revision `df50946` contains current derivative, objective, field, and manifest evidence. The completed joint campaign documents non-reproducibility for the tested interpretations; a no-control forward-state audit now precedes any further optimizer work. |
+| B2 framework-native execution | Framework-verified; replication attempt closed negatively | The refreshed historical Release matrix and the final 17-record Debug forward audit contain derivative, objective, field, post-processing, and manifest evidence. The reusable immutable natural-boundary-source contract is implemented and tested; no source-compatible interpretation reproduces Figure 6.5, so no optimizer campaign is promoted. |
 | Parameter files | Implemented for registered B1/B2 slice | One ordered schema registry and benchmark adapters drive matrix expansion, exact exclusions, typed capability resolution, solver policy, run layout, and post-processing provenance. B3–B6 extension contracts are tested but not registered as executable benchmarks. |
 | Later Chapter 6 benchmarks | Planned | B3/B4 are the next selected benchmark families after B1/B2 reproduction is resolved; B5/B6 remain later. |
 | Complete Chapter 5 recipe library | Planned | The selected recipes used by B1/B2 exist, but the reusable recipe families listed in the problem-library roadmap are not all implemented. |
@@ -303,8 +303,8 @@ claiming reproduction.
 
 ### A6 — Correctly reproduce B1 and B2
 
-**Status:** in progress; B1 reproduction-verified, B2 F0 provenance repaired,
-F1 Debug coupled-scaling screen complete, forward audit open.
+**Status:** complete for the current scope; B1 reproduction-verified, B2
+framework-verified with a negative forward-replication closure.
 
 **Purpose:** Establish whether the current framework-native fields and plots
 represent the same mathematical quantities and visual conventions as the
@@ -314,7 +314,7 @@ book's B1/B2 figures.
 
 - source facts and omissions are separated from project replacement choices;
 - raw and plotted field identities, extrema, orientation, point association,
-  and the comparison-only $`p_{\mathrm{book}}=-p`$ sign are auditable;
+  and the comparison-only $p_{\mathrm{book}}=-p$ sign are auditable;
 - desired-state and forcing plots retain provenance and coordinate mapping;
 - the `turbo` rendering, interpolation, shared normalization, and endpoint
   colorbar policy are explicit;
@@ -334,36 +334,34 @@ book's B1/B2 figures.
   campaigns separate objective-table clues from image-fit evidence; and
 - the completed 37-artifact campaign documents non-reproducibility for the
   tested joint interpretations instead of selecting a fitted replacement;
-- Follow-up F0 now has one correctly labelled Debug inlet-only diagnostic and
-  six correctly labelled Release transport/ordinary provenance repairs, all
-  with complete manifests, derivative evidence, native fields, and clean
-  post-processing; and
+- Follow-up F0 now has seven correctly labelled Debug transport/ordinary
+  provenance records, all with complete manifests, derivative evidence, native
+  fields, and clean post-processing; and
 - the F0 reconstruction script records seven complete exclusions with no
   pre-refinement forward-gate pass; and
 - Follow-up F1 ran the prescribed coupled interior-scaling ray at seven values
   with fresh Debug manifests and clean post-processing; `s=8.5` brackets the
   source range, but every case fails the normalized spatial-shape gate, so no
   refinement was justified; and
-- the conditional F2 load-fingerprint audit found that the current B2
-  parameter contract has no separate wall-flux-offset or outlet-only boundary
-  source datum. The required reusable weak-form contract and regression cases
-  are recorded in the benchmark report; no framework change was made.
+- the conditional F2 load-fingerprint audit found that the constant volume-load
+  diagnostic matches the source raster while the calibrated outlet-only load
+  fails its spatial-shape gate; and
+- the reusable immutable natural-boundary-source contract is now represented in
+  the semantic graph, lowered through the compiler, assembled by deal.II, and
+  covered by semantic, backend, application, and parameter-contract tests;
+- the final Debug F0–F2 records and the F3/F4 handoff close the forward audit
+  without claiming that the non-source volume-load diagnostic is a B2
+  reconstruction.
 
 **Still needed for B2:**
 
-1. Decide whether to adopt and implement the reusable boundary-source contract
-   needed for the conditional F2 normalized load fingerprints; do not add a
-   B2-only parameter switch.
-2. If that contract is approved and implemented, run the wall-flux and
-   outlet-only fingerprints; otherwise sharpen the negative forward closure
-   under F4.
-3. Prepare, but do not implement without a separate decision, the F3
-   forward-only serialization and scale-aware derivative-check proposals.
-4. Require agreement in value range, decoded spatial shape, sign/trend, peak
-   location, provenance, and a refinement pair before accepting a forward
-   interpretation.
-5. Only after F4 passes, compare initial objectives and the expected
-   nested-observation ordering, then design the optimizer campaign.
+1. Nothing further is required for the closed replication attempt.
+2. A separate framework decision may adopt the proposed forward-only
+   serialization and scale-aware derivative-check improvements.
+3. The wall-flux fingerprint remains deferred unless a reusable source-region
+   selector is explicitly adopted.
+4. Units 5 and 6 remain out of scope unless new source evidence reopens the
+   forward gate.
 
 **Done when:**
 
@@ -383,8 +381,10 @@ book's B1/B2 figures.
 - optimizer conclusions are gated on a forward interpretation that passes the
   no-control checks.
 
-B1 meets these criteria under its frozen replacement contract. B2 remains open
-at the forward-state gate; its artifact and rendering evidence are complete.
+B1 meets these criteria under its frozen replacement contract. B2 meets the
+closure criterion through explicit negative evidence: its artifact and
+rendering evidence are complete, but no tested source-compatible forward
+interpretation passes the range and shape gate.
 
 The current diagnostic basis is the
 [B2 replication report](../benchmarks/b2-replication.md). Continue from its

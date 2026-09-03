@@ -35,6 +35,7 @@ parameters/
       authoritative.prm
       development/
         figure-6.5-state-fit.prm
+        figure-6.5-volume-load-diagnostic.prm
         figure-6.5-table-6.2-parabolic-fit.prm
         forcing-sweep.prm
         table-6.2-order-fit.prm
@@ -157,7 +158,7 @@ quadrature are properties of the supported compiled boundary operator; they
 are not parameter choices. Other transport-form values are rejected before
 execution. `Boundary/upstream transition` is resolved against the mesh
 coordinates and must satisfy
-$`\mathrm{lower}_{x_{1}} \leq \mathrm{transition} < \mathrm{upper}_{x_{1}}`$.
+$\mathrm{lower}_{x_{1}} \leq \mathrm{transition} < \mathrm{upper}_{x_{1}}$.
 The lower endpoint is supported for the diagnostic inlet-only partition: the
 left edge remains fixed Dirichlet and all horizontal exterior faces are
 controlled. The upper endpoint remains invalid because it removes the
@@ -508,6 +509,7 @@ different profile is an explicit derived-output override.
 - [B2 authoritative parameter family](../../parameters/chapter-6/b2/authoritative.prm)
 - [B2 development forcing sweep](../../parameters/chapter-6/b2/development/forcing-sweep.prm)
 - [B2 Figure 6.5 state-magnitude diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-state-fit.prm)
+- [B2 Figure 6.5 volume-load image-fit diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-volume-load-diagnostic.prm)
 - [B2 Figure 6.5 and Table 6.2 parabolic diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-table-6.2-parabolic-fit.prm)
 - [B2 Table 6.2 order-of-magnitude diagnostic](../../parameters/chapter-6/b2/development/table-6.2-order-fit.prm)
 - [B2 zero-forcing target-transcription gate](../../parameters/chapter-6/b2/development/target-transcription-gate.prm)

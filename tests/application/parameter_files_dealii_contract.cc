@@ -756,6 +756,39 @@ end
       "0.47009",
       "B2 Figure 6.5 candidate lost its fitted-state hypothesis");
 
+    const auto figure_6_5_volume_load_diagnostic = read_parameter_file(
+      find_file_from_current_or_parent(
+        "parameters/chapter-6/b2/development/"
+        "figure-6.5-volume-load-diagnostic.prm"));
+    require(
+      figure_6_5_volume_load_diagnostic.combinations().size() == 1 &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Problem/control representation") == "continuous-nodal-trace" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Functions/forcing") == "fitted-figure-state" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Functions/forcing/kind") == "constant" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Functions/forcing/value") == "0.47009" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Functions/forcing/provenance") ==
+          "development.chapter-6.b2.fitted-figure-state-forcing" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Runtime/regularisation") == "1e-3" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Mesh/generator") == "structured-simplex" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Mesh/axis subdivisions") == "160, 40" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Solver/maximum iterations") == "1" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Run/build profile") == "debug-dealii" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Run/output root") == "runs" &&
+        figure_6_5_volume_load_diagnostic.value(
+          "Output/retain fields") == "true",
+      "B2 volume-load diagnostic lost its promoted parameter contract");
+
     const auto table_6_2_order_fit = read_parameter_file(
       find_file_from_current_or_parent(
         "parameters/chapter-6/b2/development/table-6.2-order-fit.prm"));

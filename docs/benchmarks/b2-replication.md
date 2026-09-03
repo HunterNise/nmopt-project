@@ -29,14 +29,14 @@ A September 2026 release campaign at framework revision `df50946` then
 regenerated the authoritative and retained development profiles, calibrated a
 quantitative comparison against the source raster, tested the zero-forcing
 target-transcription hypothesis, and completed a deliberately non-source
-forcing/target factorial. Across the seven release run sets used in the final
+forcing/target factorial. Across the seven release run sets used in that
 campaign comparison, all `37/37` manifest artifacts completed, passed their
 derivative evidence, and postprocessed successfully, with no failed or pending
-cases. The campaign established documented non-reproducibility for the tested
-joint interpretations of equation (6.65), Figure 6.5, and Table 6.2. B2 remains
-open only for a new, forward-state-first audit of basic PDE and boundary-data
-interpretations; optimization changes are gated until that audit reproduces
-the no-control field.
+cases. The follow-up Debug audit at revision `038cd7f` added 17 fresh,
+profile-labelled forward records across F0–F2. Together these campaigns close
+the replication attempt negatively: no source-compatible interpretation
+reproduces the Figure 6.5 no-control field. Further optimization work is not
+part of this replication attempt.
 
 The current assessment is:
 
@@ -63,7 +63,15 @@ The current assessment is:
 - calibrated source-raster comparison confirms that forcing $f=0.47009$
   closely reproduces the no-control field's displayed range and normalized
   shape, while none of the retained optimized fields reproduces all four
-  panels' sign and spatial behavior;
+  panels' sign and spatial behavior; this remains a non-source diagnostic;
+- the coupled interior-scaling ray reaches the displayed range near $s=8.5$,
+  but its normalized raster correlation remains approximately $0.696$ and
+  its normalized MAE approximately $0.375$;
+- a calibrated outlet-only natural source reaches the displayed range at
+  $g=13.0$, but its normalized raster correlation is approximately $0.700$
+  and its cross-stream profile MAE is approximately $0.171$; and
+- the wall-flux fingerprint is intentionally deferred because a separate
+  source-region selector would be a new reusable framework decision;
 - the zero-forcing target-transcription gate finds a common positive constant
   target near $15.60$ only after swapping the two printed constant rows, but
   this does not explain the parabolic rows or the no-control field;
@@ -80,11 +88,11 @@ The current assessment is:
   change.
 
 B2 is therefore **framework-verified but not replication-verified**. The
-completed campaign supports documented non-reproducibility for its tested
-joint interpretations. A bounded forward-only audit remains open to determine
-whether a more basic boundary partition, transport, or data interpretation can
-first reproduce Figure 6.5's no-control state. No BFGS or regularisation result
-can enter that audit before the forward-state gate passes.
+completed campaign supports a bounded negative conclusion for the tested
+homogeneous, coupled-scaling, and outlet-load interpretations. The best image
+fit is the explicitly non-source volume-load diagnostic. No BFGS or
+regularisation result is promoted as replication evidence, and the replication
+attempt is closed unless new source evidence justifies reopening it.
 
 ## Source facts and omissions
 
@@ -693,13 +701,11 @@ primary evidence supports it.
 
 The bounded forward campaign specified in the reopened plan was provisionally
 executed through Units 0–4 on 2026-09-03, then followed by the F0 provenance
-repair. The original exploratory runs used `debug-dealii` at framework
-revision `df50946`, while the fresh F0 transport/ordinary confirmations use
-the existing clean `release-dealii` executable at `df50946`. The fresh
-inlet-only endpoint uses `debug-dealii` at `d403dfc` because the clean Release
-executable cannot represent transition `0.0`. The existing source-literal
-comparison point remains the release artifact at
-`runs/chapter-6/b2/authoritative` and was not rebuilt.
+repair and F1–F2 Debug diagnostics. The fresh F0–F2 records use the current
+`debug-dealii` executable at framework revision
+`038cd7f59242567b7df27be6d60efd43029d0a9a`; the Release rebuild was not
+repeated. The existing source-literal comparison point remains the historical
+release artifact at `runs/chapter-6/b2/authoritative` and was not rebuilt.
 
 The required framework change was to make the lower endpoint of
 `Boundary/upstream transition` inclusive while retaining the strict upper
@@ -740,36 +746,35 @@ F0 allocated fresh, profile-labelled, one-case parameter files and immutable
 run roots. The selected case was wings/constant-2 because the uncontrolled
 state is independent of target and observation-region selection. Every fresh
 run has one expected and one successful artifact, passed derivative evidence,
-and a post-processing index with no comparison errors.
-An initial Debug slot `001` used a command-line-only narrowing and is retained
-as historical evidence with an incomplete comparison index; the F0 record is
-the clean `002` replacement and is the only Debug row in the F0 ledger.
+and a post-processing index with no comparison errors. The current F0 ledger
+contains seven complete Debug records at revision `038cd7f`; earlier
+mislabelled or exploratory records remain historical evidence only.
 
 | Replacement | Profile/revision | Run result |
 | --- | --- | --- |
-| `b2-f0-debug-inlet-only-d403dfc` | `debug-dealii` / `d403dfc` | Range `[1, 1.119651]`, no-flip correlation `0.6971`, normalized MAE `0.3720`; exploratory Debug-only record, rejected as the range explanation. |
-| `b2-f0-release-transport-c0-df50946`, `c1`, `c10`, `c15`, `cminus1p5` | `release-dealii` / `df50946` | Maxima `[1.000000, 1.117482, 1.114968, 1.114573]` for `c=0,1,10,15`; `c=-1.5` gives `[0.003762,1]`. Correlations/MAEs remain `[0.0129,0.3029]`, `[0.8010,0.3283]`, `[0.3051,0.4454]`, `[0.2537,0.4500]`, and `[-0.8568,0.6267]`; all are promotion-quality provenance exclusions, not source candidates. |
-| `b2-f0-release-ordinary-c1p5-df50946` | `release-dealii` / `df50946` | Range `[1, 1.119609]`, no-flip correlation `0.6969`, normalized MAE `0.3722`; promotion-quality provenance exclusion matching the literal Release baseline. |
+| `b2-f0-debug-inlet-only-038cd7f` | `debug-dealii` / `038cd7f` | Range `[1, 1.119651]`, no-flip correlation `0.6971`, normalized MAE `0.3720`; rejected as the range explanation. |
+| `b2-f0-debug-transport-{c0,c1,c10,c15,cminus1p5}-038cd7f` | `debug-dealii` / `038cd7f` | Maxima `[1.000000, 1.117482, 1.114968, 1.114573]` for `c=0,1,10,15`; `c=-1.5` gives `[0.003762,1]`. All are provenance-clean exclusions, not source candidates. |
+| `b2-f0-debug-ordinary-c1p5-038cd7f` | `debug-dealii` / `038cd7f` | Range `[1, 1.119609]`, no-flip correlation `0.6969`, normalized MAE `0.3722`; it matches the historical Release baseline. |
 
 The F0 analysis script reconstructs the raw native extrema, calibrated raster
 metrics, profiles, provenance, and decisions from each manifest and native
-field. Its output records seven complete records, one exploratory Debug-only
-exclusion, six clean Release exclusions, and zero source-gate passes. This
-repairs the evidence classification but does not close the reopened Unit 4:
-the coupled interior-scaling ray in F1 remains the next scientific screen.
+field. Its output records seven complete Debug records and zero source-gate
+passes. This repairs the evidence classification and supplies the baseline for
+the final F4 closure.
 
-The provisional negative result still leaves the coupled-scaling boundary
+The provisional negative result left the coupled-scaling boundary
 normalization, missing or nonzero volume data, and inconsistency between the
-printed problem and Figure 6.5 as the remaining plausible classes. The
-total-conormal form is already implemented as an endpoint diagnostic; no new
-boundary policy was added. Unit 5 (initial-objective checksum) is explicitly
-forbidden by the plan unless Unit 4/F4 passes, and Unit 6 (optimizer campaign
-design) is therefore not launched.
+printed problem and Figure 6.5 as the remaining plausible classes. F1 and F2
+now bound those parameter-expressible load classes: coupled scaling fails the
+shape gate, the outlet-only source fails the shape/profile gate, and the
+constant volume load is the best image fit but contradicts the printed zero
+volume forcing. Unit 5 (initial-objective checksum) and Unit 6 (optimizer
+campaign design) were not launched because F4 did not pass.
 
 ### Follow-up F1 — coupled interior-scaling ray
 
 F1 was run on 2026-09-03 using the existing `debug-dealii` executable at
-framework revision `d403dfc`, because rebuilding Release was too costly for
+framework revision `038cd7f`, because rebuilding Release was too costly for
 this screen. These are diagnostic results only; they are not promotion-quality
 source evidence. The seven self-contained parameter files scale both
 
@@ -830,25 +835,30 @@ separate source datum. The B2 helper currently distinguishes fixed Dirichlet
 data, controlled Neumann flux, and the ordinary/total-conormal boundary forms;
 those controls do not provide the missing F2 load fingerprints.
 
-F2 is therefore stopped at an architectural contract decision rather than
-implemented as a B2-only parameter switch. If the project elects to run these
-fingerprints, the reusable weak-form contract should provide:
+F2 therefore separated the parameter-expressible volume-load diagnostic from
+the boundary-load cases. The branch now implements the reusable immutable
+natural-boundary-source contract and binds the B2 source to the outflow region
+for its outlet-only diagnostic. The wall-flux case remains deferred because
+the B2 parameter binding does not yet select a separate wall source region.
+The reusable contract provides:
 
 - an explicit boundary source datum and boundary region, separate from
   Dirichlet lifting and the Neumann control, with a declared trace/boundary
   pairing;
 - an explicit normal/orientation policy and a choice between ordinary
-  $`\partial_{n}y-(b\mathbin\cdot n)y`$ and total-conormal boundary terms;
+  $\partial_{n}y-(b\mathbin\cdot n)y$ and total-conormal boundary terms;
 - distinct wall and outlet source locations, with provenance, scaling, units,
   and face-partition information persisted in the run manifest; and
 - regression coverage for zero-source identity, constant wall source,
   outlet-only source, sign/orientation reversal, disjoint partitions, and
   scale-aware derivative evidence.
 
-No framework or application code was changed for F2. The next decision is
-whether to adopt this general boundary-source contract and implement it under
-the framework roadmap. Until that decision and a positive F4 forward gate,
-Units 5 and 6 remain out of scope.
+The outlet-only source reaches the source range at $g=13.0$ but fails the
+normalized shape and profile gates. The volume diagnostic at $f=0.47009$ is
+the strongest image fit, with native range $[1,7.2195725]$, raster
+correlation $0.998648$, and normalized MAE $0.041690$, but it is explicitly
+not a source reconstruction. This closes the forward replication attempt;
+Units 5 and 6 remain out of scope unless new source evidence reopens it.
 
 Detailed ignored evidence is consolidated in
 `runs/analysis/b2-forward-state-replication/`:
@@ -865,3 +875,30 @@ Detailed ignored evidence is consolidated in
 - `b2-f0-provenance-ledger.csv` and `b2-f0-provenance-analysis.json` contain
   the fresh F0 provenance, hashes, native extrema, calibrated metrics, and
   classifications.
+
+## Final forward closure
+
+The F0–F2 follow-up was completed at framework revision `038cd7f` with the
+existing `debug-dealii` executable. It produced 17 fresh one-case records:
+seven F0 provenance checks, seven F1 coupled-scaling checks, and three F2 load
+fingerprints. All had complete manifests, one successful artifact, derivative
+evidence, native fields, and clean PNG post-processing.
+
+The constant volume-load case with $f=0.47009$ is the most informative
+diagnostic. It reaches native range $[1,7.2195725]$, raster correlation
+$0.998648$, normalized MAE $0.041690$, and passing streamwise and centreline
+profile gates. It is nevertheless not a B2 reconstruction because the source
+specifies zero volume forcing. It is promoted as the explicitly labelled
+[Figure 6.5 volume-load image-fit diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-volume-load-diagnostic.prm).
+
+The outlet-only source reaches the displayed range at $g=13.0$ but fails the
+spatial-shape and profile gates. The coupled-scaling ray reaches the range near
+$s=8.5$ but also fails the shape gate. The wall-flux fingerprint is deferred:
+running it would require a separate reusable source-region selector, not a
+B2-specific switch.
+
+The final verdict is **framework-verified but not replication-verified**. The
+tested forward interpretations do not reproduce Figure 6.5, and no optimizer
+result is promoted as replication evidence. Units 5 and 6 are not launched.
+The reproducible final handoff is retained in the ignored
+`runs/analysis/b2-forward-state-replication/b2-f3-f4-handoff.md` record.

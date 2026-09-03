@@ -304,7 +304,7 @@ claiming reproduction.
 ### A6 — Correctly reproduce B1 and B2
 
 **Status:** in progress; B1 reproduction-verified, B2 F0 provenance repaired,
-coupled-scaling forward audit open.
+F1 Debug coupled-scaling screen complete, forward audit open.
 
 **Purpose:** Establish whether the current framework-native fields and plots
 represent the same mathematical quantities and visual conventions as the
@@ -339,14 +339,24 @@ book's B1/B2 figures.
   with complete manifests, derivative evidence, native fields, and clean
   post-processing; and
 - the F0 reconstruction script records seven complete exclusions with no
-  pre-refinement forward-gate pass.
+  pre-refinement forward-gate pass; and
+- Follow-up F1 ran the prescribed coupled interior-scaling ray at seven values
+  with fresh Debug manifests and clean post-processing; `s=8.5` brackets the
+  source range, but every case fails the normalized spatial-shape gate, so no
+  refinement was justified; and
+- the conditional F2 load-fingerprint audit found that the current B2
+  parameter contract has no separate wall-flux-offset or outlet-only boundary
+  source datum. The required reusable weak-form contract and regression cases
+  are recorded in the benchmark report; no framework change was made.
 
 **Still needed for B2:**
 
-1. Run the coupled interior-scaling ray in F1 at the prescribed Release
-   values and apply the complete forward gate.
-2. If F1 fails the shape gate, run the conditional F2 normalized load
-   fingerprints or report the required weak-form contract.
+1. Decide whether to adopt and implement the reusable boundary-source contract
+   needed for the conditional F2 normalized load fingerprints; do not add a
+   B2-only parameter switch.
+2. If that contract is approved and implemented, run the wall-flux and
+   outlet-only fingerprints; otherwise sharpen the negative forward closure
+   under F4.
 3. Prepare, but do not implement without a separate decision, the F3
    forward-only serialization and scale-aware derivative-check proposals.
 4. Require agreement in value range, decoded spatial shape, sign/trend, peak

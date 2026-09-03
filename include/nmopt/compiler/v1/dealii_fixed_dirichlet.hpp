@@ -1176,6 +1176,7 @@ namespace nmopt::compiler::v1::detail
                     case ScalarResidualOperatorKind::volume_control:
                     case ScalarResidualOperatorKind::robin_bilinear:
                     case ScalarResidualOperatorKind::robin_source:
+                    case ScalarResidualOperatorKind::natural_boundary_source:
                       break;
                     case ScalarResidualOperatorKind::volume_source:
                       forcing_value = forcing.value(point);
@@ -1281,6 +1282,7 @@ namespace nmopt::compiler::v1::detail
                           break;
                         case ScalarResidualOperatorKind::robin_bilinear:
                         case ScalarResidualOperatorKind::robin_source:
+                        case ScalarResidualOperatorKind::natural_boundary_source:
                           break;
                       }
                   if (observe_cell)
@@ -1361,6 +1363,7 @@ namespace nmopt::compiler::v1::detail
                             case ScalarResidualOperatorKind::reaction:
                             case ScalarResidualOperatorKind::volume_source:
                             case ScalarResidualOperatorKind::volume_control:
+                            case ScalarResidualOperatorKind::natural_boundary_source:
                               break;
                           }
                     }

@@ -132,6 +132,11 @@ namespace nmopt::semantic::v1
                      spaces,
                      regions,
                      report);
+      validate_natural_boundary_sources(specification,
+                                        data,
+                                        spaces,
+                                        regions,
+                                        report);
       validate_observations(specification,
                             variables,
                             data,
@@ -546,6 +551,8 @@ namespace nmopt::semantic::v1
             (datum.role == DataRole::robin_coefficient &&
              datum.kind == DataKind::function) ||
             (datum.role == DataRole::robin_source &&
+             datum.kind == DataKind::function) ||
+            (datum.role == DataRole::natural_boundary_source &&
              datum.kind == DataKind::function);
           const bool coefficient_role =
             datum.role == DataRole::diffusion ||
@@ -553,7 +560,8 @@ namespace nmopt::semantic::v1
             datum.role == DataRole::advective_transport ||
             datum.role == DataRole::reaction ||
             datum.role == DataRole::robin_coefficient ||
-            datum.role == DataRole::robin_source;
+            datum.role == DataRole::robin_source ||
+            datum.role == DataRole::natural_boundary_source;
           if (coefficient_role && !selected_shape)
             report.add(
               DiagnosticCategory::structural,
@@ -617,7 +625,8 @@ namespace nmopt::semantic::v1
             datum.role == DataRole::advective_transport ||
             datum.role == DataRole::reaction ||
             datum.role == DataRole::robin_coefficient ||
-            datum.role == DataRole::robin_source;
+            datum.role == DataRole::robin_source ||
+            datum.role == DataRole::natural_boundary_source;
           if (!coefficient_role)
             continue;
 
@@ -636,7 +645,8 @@ namespace nmopt::semantic::v1
           const bool expected_scalar =
             datum.role == DataRole::reaction ||
             datum.role == DataRole::robin_coefficient ||
-            datum.role == DataRole::robin_source;
+            datum.role == DataRole::robin_source ||
+            datum.role == DataRole::natural_boundary_source;
           if (space->second->role != SpaceRole::data ||
               space->second->is_scalar != expected_scalar)
             {
@@ -648,7 +658,8 @@ namespace nmopt::semantic::v1
             }
 
           if (datum.role == DataRole::robin_coefficient ||
-              datum.role == DataRole::robin_source)
+              datum.role == DataRole::robin_source ||
+              datum.role == DataRole::natural_boundary_source)
             {
               const auto expected_term = term_for_role(datum.role);
               const auto expected_region = expected_term ==
@@ -663,8 +674,10 @@ namespace nmopt::semantic::v1
                     datum.id,
                     datum.role == DataRole::robin_coefficient
                       ? "robin_coefficient_region"
-                      : "robin_source_region",
-                    "Place Robin coefficient and source data on the boundary region owned by their residual term.");
+                      : datum.role == DataRole::robin_source
+                          ? "robin_source_region"
+                          : "natural_boundary_source_region",
+                    "Place boundary coefficient and source data on the boundary region owned by their residual term.");
                 }
               else if (datum.role == DataRole::robin_source &&
                        space->second->topology != SpaceTopology::l2)
@@ -673,6 +686,13 @@ namespace nmopt::semantic::v1
                   datum.id,
                   "robin_source_trace_pairing",
                   "Declare Robin source data in the boundary L2 space used by the selected trace pairing.");
+              else if (datum.role == DataRole::natural_boundary_source &&
+                       space->second->topology != SpaceTopology::l2)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "natural_boundary_source_trace_pairing",
+                  "Declare natural-boundary source data in the boundary L2 space used by the selected trace pairing.");
               else if (datum.role == DataRole::robin_coefficient &&
                        space->second->topology != SpaceTopology::bounded_function)
                 report.add(
@@ -868,7 +888,8 @@ namespace nmopt::semantic::v1
             term.kind == ResidualTermKind::neumann_control ||
             term.kind == ResidualTermKind::dirichlet_transposition_control ||
             term.kind == ResidualTermKind::robin_bilinear ||
-            term.kind == ResidualTermKind::robin_source;
+            term.kind == ResidualTermKind::robin_source ||
+            term.kind == ResidualTermKind::natural_boundary_source;
           if (!boundary_term && !term.region_id.empty())
             report.add(DiagnosticCategory::structural,
                        term.id,
@@ -887,6 +908,8 @@ namespace nmopt::semantic::v1
                        : term.kind ==
                            ResidualTermKind::dirichlet_transposition_control
                          ? "dirichlet_transposition_boundary_region"
+                       : term.kind == ResidualTermKind::natural_boundary_source
+                         ? "natural_boundary_source_region"
                          : "robin_boundary_region",
                        "Declare this natural residual contribution on a boundary region.");
           if (term.kind != ResidualTermKind::neumann_control &&
@@ -908,6 +931,99 @@ namespace nmopt::semantic::v1
                          : "dirichlet_transposition_control_space_region",
                        "Place the boundary control space on the residual term's declared boundary region.");
         }
+    }
+
+    static void
+    validate_natural_boundary_sources(
+      const ProblemSpec &      specification,
+      const Index<DataSpec> &  data,
+      const Index<SpaceSpec> & spaces,
+      const Index<RegionSpec> &regions,
+      ValidationReport &       report)
+    {
+      std::string fixed_region_id;
+      const auto fixed_policy = std::find_if(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [&specification](const RequirementPolicySpec &policy) {
+          return policy.subject_id == specification.formulation.state_variable_id &&
+                 policy.kind == RequirementKind::fixed_dirichlet;
+        });
+      if (fixed_policy != specification.requirement_policies.end())
+        fixed_region_id = fixed_policy->region_id;
+      else
+        {
+          const auto boundary_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&specification](const RequirementPolicySpec &policy) {
+              return policy.subject_id == specification.formulation.state_variable_id &&
+                     policy.kind == RequirementKind::boundary_partition &&
+                     policy.typed_selection.has_value();
+            });
+          if (boundary_policy != specification.requirement_policies.end())
+            fixed_region_id =
+              boundary_policy->typed_selection->fixed_dirichlet_region_id;
+        }
+      const auto fixed_region = regions.find(fixed_region_id);
+      for (const auto &term : specification.residual_terms)
+        if (term.kind == ResidualTermKind::natural_boundary_source)
+          {
+            if (term.data_ids.size() != 1)
+              continue;
+            const auto datum = data.find(term.data_ids.front());
+            if (datum == data.end())
+              continue;
+            if (datum->second->space_id.empty())
+              {
+                report.add(DiagnosticCategory::structural,
+                           datum->second->id,
+                           "natural_boundary_source_data_space",
+                           "Declare the source space and boundary region for the natural-boundary source datum.");
+                continue;
+              }
+            const auto space = spaces.find(datum->second->space_id);
+            if (space == spaces.end())
+              continue;
+            if (space->second->role != SpaceRole::data ||
+                !space->second->is_scalar)
+              {
+                report.add(DiagnosticCategory::structural,
+                           datum->second->id,
+                           "natural_boundary_source_data_space",
+                           "Use a scalar data space for the natural-boundary source datum.");
+                continue;
+              }
+            if (space->second->topology != SpaceTopology::l2)
+              report.add(DiagnosticCategory::structural,
+                         datum->second->id,
+                         "natural_boundary_source_trace_pairing",
+                         "Declare the natural-boundary source in the boundary L2 trace-pairing space.");
+            if (space->second->region_id != term.region_id)
+              report.add(DiagnosticCategory::structural,
+                         datum->second->id,
+                         "natural_boundary_source_region",
+                         "Match the source data space region to the source residual region.");
+
+            const auto source_region = regions.find(term.region_id);
+            if (fixed_region == regions.end() || source_region == regions.end())
+              continue;
+            const bool overlaps_fixed_region =
+              source_region->first == fixed_region->first ||
+              std::any_of(source_region->second->boundary_ids.begin(),
+                          source_region->second->boundary_ids.end(),
+                          [&fixed_region](const unsigned int boundary_id) {
+                            return std::find(fixed_region->second->boundary_ids.begin(),
+                                             fixed_region->second->boundary_ids.end(),
+                                             boundary_id) !=
+                                   fixed_region->second->boundary_ids.end();
+                          });
+            if (overlaps_fixed_region)
+              report.add(DiagnosticCategory::structural,
+                         term.id,
+                         "natural_boundary_source_fixed_overlap",
+                         "Place the natural-boundary source on a boundary disjoint from fixed Dirichlet data.");
+          }
     }
 
     static void
@@ -1379,6 +1495,13 @@ namespace nmopt::semantic::v1
           case ResidualTermKind::robin_source:
             valid = term.variable_ids.empty() && term.data_ids.size() == 1 &&
                     has_role(term.data_ids, data, DataRole::robin_source) &&
+                    !term.region_id.empty();
+            break;
+          case ResidualTermKind::natural_boundary_source:
+            valid = term.variable_ids.empty() && term.data_ids.size() == 1 &&
+                    has_role(term.data_ids,
+                             data,
+                             DataRole::natural_boundary_source) &&
                     !term.region_id.empty();
             break;
         }

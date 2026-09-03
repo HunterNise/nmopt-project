@@ -31,6 +31,7 @@ namespace nmopt::compiler::v1
           case semantic::v1::ResidualTermKind::neumann_control:
           case semantic::v1::ResidualTermKind::robin_bilinear:
           case semantic::v1::ResidualTermKind::robin_source:
+          case semantic::v1::ResidualTermKind::natural_boundary_source:
             return true;
         }
       return false;

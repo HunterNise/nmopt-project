@@ -62,7 +62,8 @@ namespace nmopt::compiler::v1
     fixed_dirichlet_data,
     observation_weight,
     general_scalar_data,
-    conservative_transport_data
+    conservative_transport_data,
+    natural_boundary_source
   };
 
   struct ResolvedDataBindingRequest
@@ -133,6 +134,7 @@ namespace nmopt::compiler::v1
     bool                                   uses_partial_dirichlet_control = false;
     bool                                   uses_neumann_boundary_control = false;
     bool                                   uses_neumann_convection = false;
+    bool                                   uses_natural_boundary_source = false;
     bool                                   uses_mean_zero_gauge = false;
     bool                                   uses_h1_control_regularisation_loss = false;
     bool                                   uses_hhalf_control_regularisation_loss = false;
@@ -155,6 +157,7 @@ namespace nmopt::compiler::v1
     std::string                            tracking_region_id;
     std::string                            robin_boundary_region_id;
     std::string                            transport_outflow_region_id;
+    std::vector<std::string>               natural_boundary_source_data_ids;
     std::string                            mean_zero_region_id;
     std::string                            fixed_boundary_region_id;
     std::string                            partial_fixed_boundary_region_id;

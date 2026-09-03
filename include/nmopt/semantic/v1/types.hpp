@@ -74,6 +74,7 @@ namespace nmopt::semantic::v1
     reaction,
     robin_coefficient,
     robin_source,
+    natural_boundary_source,
     regularisation_weight,
     lower_bound,
     upper_bound,
@@ -96,7 +97,8 @@ namespace nmopt::semantic::v1
     volume_control,
     neumann_control,
     robin_bilinear,
-    robin_source
+    robin_source,
+    natural_boundary_source
   };
 
   enum class ObservationKind

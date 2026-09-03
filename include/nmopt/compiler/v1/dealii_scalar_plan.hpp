@@ -23,7 +23,8 @@ namespace nmopt::compiler::v1
     volume_source,
     volume_control,
     robin_bilinear,
-    robin_source
+    robin_source,
+    natural_boundary_source
   };
 
   enum class ScalarObservationOperatorKind
@@ -550,7 +551,10 @@ namespace nmopt::compiler::v1
            "dealii.scalar.residual.robin_bilinear"},
           {semantic::v1::ResidualTermKind::robin_source,
            ScalarResidualOperatorKind::robin_source,
-           "dealii.scalar.residual.robin_source"}}
+           "dealii.scalar.residual.robin_source"},
+          {semantic::v1::ResidualTermKind::natural_boundary_source,
+           ScalarResidualOperatorKind::natural_boundary_source,
+           "dealii.scalar.residual.natural_boundary_source"}}
       , observation_handlers_{
           {semantic::v1::ObservationKind::volume_restriction,
            ScalarObservationOperatorKind::volume_restriction,

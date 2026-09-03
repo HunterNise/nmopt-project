@@ -625,6 +625,65 @@ namespace
                 "boundary face") == std::string::npos,
             "the C5.6 desired-state policy did not select volume quadrature");
 
+    auto natural_source_specification = neumann_convection_specification;
+    natural_source_specification.spaces.push_back(
+      {"natural_boundary_source_space",
+       "Natural boundary source space",
+       "control_boundary",
+       SpaceTopology::l2,
+       SpaceRole::data});
+    natural_source_specification.data.push_back(
+      {"natural_boundary_source",
+       "Natural boundary source",
+       DataKind::function,
+       DataRole::natural_boundary_source,
+       "natural_boundary_source_space"});
+    natural_source_specification.residual_terms.push_back(
+      {"natural_boundary_source",
+       "Immutable natural boundary source",
+       ResidualTermKind::natural_boundary_source,
+       "state_equation",
+       {},
+       {"natural_boundary_source"},
+       "control_boundary"});
+    component_by_id(natural_source_specification.equations,
+                    "state_equation")
+      .residual_term_ids.push_back("natural_boundary_source");
+    require(validator.validate(natural_source_specification).valid(),
+            "the immutable natural-boundary source graph is invalid");
+    require(component_by_id(natural_source_specification.data,
+                            "natural_boundary_source")
+                .role == DataRole::natural_boundary_source &&
+              component_by_id(natural_source_specification.residual_terms,
+                              "natural_boundary_source")
+                .kind == ResidualTermKind::natural_boundary_source,
+            "the natural-boundary source graph lost its typed role or term");
+
+    auto natural_source_wrong_trace = natural_source_specification;
+    component_by_id(natural_source_wrong_trace.spaces,
+                    "natural_boundary_source_space")
+      .topology = SpaceTopology::h1;
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(natural_source_wrong_trace),
+      DiagnosticCategory::structural,
+      "natural_boundary_source",
+      "natural_boundary_source_trace_pairing",
+      "v1 semantic validation accepted a non-L2 natural-boundary source");
+
+    auto natural_source_fixed_overlap = natural_source_specification;
+    component_by_id(natural_source_fixed_overlap.residual_terms,
+                    "natural_boundary_source")
+      .region_id = "dirichlet_boundary";
+    component_by_id(natural_source_fixed_overlap.spaces,
+                    "natural_boundary_source_space")
+      .region_id = "dirichlet_boundary";
+    nmopt::test_support::require_exact_diagnostic(
+      validator.validate(natural_source_fixed_overlap),
+      DiagnosticCategory::structural,
+      "natural_boundary_source",
+      "natural_boundary_source_fixed_overlap",
+      "v1 semantic validation accepted a source overlapping fixed Dirichlet data");
+
     const auto subdomain_specification =
       nmopt::semantic::v1::make_subdomain_tracking_scalar_diffusion_reaction_problem(
         1);
@@ -2008,6 +2067,40 @@ namespace
     require(general_resolution.succeeded(),
             "general scalar lowering-plan setup did not resolve");
     const auto general_plan = planner.plan(*general_resolution.problem);
+    auto natural_source_plan_specification = general_specification;
+    component_by_id(natural_source_plan_specification.data, "robin_source").role =
+      DataRole::natural_boundary_source;
+    component_by_id(natural_source_plan_specification.residual_terms, "robin_source")
+      .kind = ResidualTermKind::natural_boundary_source;
+    const auto natural_source_resolution =
+      resolver.resolve(natural_source_plan_specification);
+    require(natural_source_resolution.succeeded(),
+            "natural-boundary source lowering-plan setup did not resolve");
+    const auto natural_source_plan =
+      planner.plan(*natural_source_resolution.problem);
+    require(natural_source_plan.succeeded(),
+            "natural-boundary source lowering plan did not succeed");
+    const auto natural_source_residual_assembly =
+      nmopt::compiler::v1::residual_assembly_plan(*natural_source_plan.plan);
+    const auto natural_source_placement =
+      std::find_if(natural_source_plan.plan->data_placements.begin(),
+                   natural_source_plan.plan->data_placements.end(),
+                   [](const nmopt::compiler::v1::ScalarDataPlacement &placement) {
+                     return placement.role == DataRole::natural_boundary_source;
+                   });
+    require(!natural_source_residual_assembly.registration().has_value() &&
+              natural_source_placement !=
+                natural_source_plan.plan->data_placements.end() &&
+              natural_source_placement->region_id == "robin_boundary" &&
+              natural_source_placement->evaluation ==
+                nmopt::compiler::v1::ScalarDataEvaluationKind::boundary_face_quadrature &&
+              std::any_of(natural_source_plan.plan->residual_terms.begin(),
+                          natural_source_plan.plan->residual_terms.end(),
+                          [](const nmopt::compiler::v1::ScalarResidualContribution &term) {
+                            return term.operator_kind ==
+                                   nmopt::compiler::v1::ScalarResidualOperatorKind::natural_boundary_source;
+                          }),
+            "the scalar lowering plan did not preserve the natural-boundary source contribution");
     const auto placement_for_role =
       [](const auto &placements, const DataRole role) {
         return std::find_if(

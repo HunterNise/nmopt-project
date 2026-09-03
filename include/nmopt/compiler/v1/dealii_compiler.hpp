@@ -302,6 +302,31 @@ namespace nmopt::compiler::v1
                   : "dealii::Function<dim>",
               request.requires_general_scalar_data);
 
+      request.uses_natural_boundary_source = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const semantic::v1::ResidualTermSpec &term) {
+          return term.kind ==
+                 semantic::v1::ResidualTermKind::natural_boundary_source;
+        });
+      for (const auto &term : specification.residual_terms)
+        if (term.kind ==
+            semantic::v1::ResidualTermKind::natural_boundary_source)
+          for (const auto &data_id : term.data_ids)
+            if (resolved.datum(data_id).role ==
+                semantic::v1::DataRole::natural_boundary_source)
+              {
+                request.natural_boundary_source_data_ids.push_back(data_id);
+                append_data_binding_request(
+                  request,
+                  resolved,
+                  data_id,
+                  ResolvedBindingPort::natural_boundary_source,
+                  "boundary_face_quadrature",
+                  "dealii::Function<dim>",
+                  true);
+              }
+
       request.requires_conservative_transport_data = std::any_of(
         specification.residual_terms.begin(),
         specification.residual_terms.end(),
@@ -5504,6 +5529,11 @@ namespace nmopt::compiler::v1
               case semantic::v1::DataRole::robin_source:
                 record.representation = "scalar Function at boundary quadrature";
                 record.provenance = data.general_scalar->provenance.robin_source;
+                break;
+              case semantic::v1::DataRole::natural_boundary_source:
+                record.representation =
+                  "scalar Function at boundary face quadrature";
+                record.provenance = "unbound natural-boundary source";
                 break;
               case semantic::v1::DataRole::observation_weight:
                 record.representation = "scalar Function at boundary face quadrature";

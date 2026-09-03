@@ -312,20 +312,24 @@ namespace nmopt::compiler::v1
       for (const auto &term : specification.residual_terms)
         if (term.kind ==
             semantic::v1::ResidualTermKind::natural_boundary_source)
-          for (const auto &data_id : term.data_ids)
-            if (resolved.datum(data_id).role ==
-                semantic::v1::DataRole::natural_boundary_source)
-              {
-                request.natural_boundary_source_data_ids.push_back(data_id);
-                append_data_binding_request(
-                  request,
-                  resolved,
-                  data_id,
-                  ResolvedBindingPort::natural_boundary_source,
-                  "boundary_face_quadrature",
-                  "dealii::Function<dim>",
-                  true);
-              }
+          {
+            if (request.natural_boundary_source_region_id.empty())
+              request.natural_boundary_source_region_id = term.region_id;
+            for (const auto &data_id : term.data_ids)
+              if (resolved.datum(data_id).role ==
+                  semantic::v1::DataRole::natural_boundary_source)
+                {
+                  request.natural_boundary_source_data_ids.push_back(data_id);
+                  append_data_binding_request(
+                    request,
+                    resolved,
+                    data_id,
+                    ResolvedBindingPort::natural_boundary_source,
+                    "boundary_face_quadrature",
+                    "dealii::Function<dim>",
+                    true);
+                }
+          }
 
       request.requires_conservative_transport_data = std::any_of(
         specification.residual_terms.begin(),
@@ -557,6 +561,21 @@ namespace nmopt::compiler::v1
         require_provenance(*binding,
                            data.weighted_trace->provenance,
                            "boundary_weight_binding_provenance");
+
+      if (const auto *binding = find_data_binding_request(
+            request,
+            DataRole::natural_boundary_source,
+            ResolvedBindingPort::natural_boundary_source);
+          binding != nullptr && request.uses_natural_boundary_source &&
+          data.natural_boundary_source)
+        {
+          require_scalar(*binding,
+                         data.natural_boundary_source->source.n_components,
+                         "natural_boundary_source_binding_shape");
+          require_provenance(*binding,
+                             data.natural_boundary_source->provenance,
+                             "natural_boundary_source_binding_provenance");
+        }
 
       if (!request.requires_general_scalar_data || !data.general_scalar)
         return;
@@ -883,6 +902,11 @@ namespace nmopt::compiler::v1
         request.transport_outflow_region_id.empty()
           ? nullptr
           : find_region(specification, request.transport_outflow_region_id);
+      const auto *natural_boundary_source_region =
+        request.natural_boundary_source_region_id.empty()
+          ? nullptr
+          : find_region(specification,
+                        request.natural_boundary_source_region_id);
       const auto *partial_fixed_boundary_region =
         request.partial_fixed_boundary_region_id.empty()
           ? nullptr
@@ -1005,6 +1029,28 @@ namespace nmopt::compiler::v1
           specification.id,
           "selected_general_scalar_target",
           "Remove general scalar coefficient bindings unless the graph selects the P5.1 target.");
+      if (request.uses_natural_boundary_source &&
+          !data.natural_boundary_source)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "natural_boundary_source_data_binding",
+          "Bind the immutable scalar Function selected by the natural-boundary source term.");
+      if (!request.uses_natural_boundary_source &&
+          data.natural_boundary_source)
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "selected_natural_boundary_source",
+          "Remove natural-boundary source data unless the graph declares the source term.");
+      if (request.uses_natural_boundary_source &&
+          data.natural_boundary_source &&
+          data.natural_boundary_source->provenance.empty())
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          specification.id,
+          "natural_boundary_source_binding_provenance",
+          "Supply a stable provenance label for the natural-boundary source Function binding.");
       if (request.requires_conservative_transport_data &&
           !data.conservative_transport)
         result.diagnostics.add(
@@ -1280,6 +1326,18 @@ namespace nmopt::compiler::v1
           specification.formulation.state_variable_id,
           "complete_neumann_convection_boundary_partition",
           "Partition every exterior boundary face into the declared fixed-Dirichlet, Neumann-control, or natural outflow region.");
+      if (request.uses_natural_boundary_source &&
+          natural_boundary_source_region != nullptr &&
+          (natural_boundary_source_region->kind !=
+             semantic::v1::RegionKind::boundary ||
+           !contains_all_boundary_ids(
+             triangulation,
+             boundary_ids(*natural_boundary_source_region))))
+        result.diagnostics.add(
+          semantic::v1::DiagnosticCategory::lowerability,
+          request.natural_boundary_source_region_id,
+          "natural_boundary_source_boundary_presence",
+          "Select natural-boundary source ids present on the compiled mesh.");
       if (uses_neumann_boundary_control && !uses_neumann_convection &&
           tracking_region != nullptr &&
           !contains_all_boundary_ids(triangulation,
@@ -1414,7 +1472,15 @@ namespace nmopt::compiler::v1
                                        : std::nullopt,
             uses_continuous_neumann_trace
               ? detail::NeumannControlRealisationKind::continuous_p1_trace
-              : detail::NeumannControlRealisationKind::facewise_constant);
+              : detail::NeumannControlRealisationKind::facewise_constant,
+            request.uses_natural_boundary_source &&
+                data.natural_boundary_source
+              ? &data.natural_boundary_source->source
+              : nullptr,
+            request.uses_natural_boundary_source &&
+                natural_boundary_source_region != nullptr
+              ? boundary_ids(*natural_boundary_source_region)
+              : std::set<dealii::types::boundary_id>{});
           if (uses_mean_zero_gauge && !boundary->forcing_is_compatible())
             {
               result.diagnostics.add(
@@ -4013,6 +4079,8 @@ namespace nmopt::compiler::v1
         request.uses_general_scalar;
       const bool neumann_convection =
         request.uses_neumann_convection;
+      const bool natural_boundary_source =
+        request.uses_natural_boundary_source;
       const bool weighted_boundary_trace =
         request.uses_weighted_boundary_trace;
       const bool point_sensor = request.uses_point_sensor;
@@ -4040,11 +4108,16 @@ namespace nmopt::compiler::v1
                  count_terms(ResidualTermKind::volume_source) == 1 &&
                  count_terms(ResidualTermKind::neumann_control) == 1 &&
                  count_terms(ResidualTermKind::volume_control) == 0 &&
-                 specification.residual_terms.size() == 4
+                 count_terms(ResidualTermKind::natural_boundary_source) ==
+                   (natural_boundary_source ? 1 : 0) &&
+                 specification.residual_terms.size() ==
+                   4 + (natural_boundary_source ? 1 : 0)
              : count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
                  count_terms(ResidualTermKind::volume_source) == 1 &&
                  count_terms(ResidualTermKind::neumann_control) == 1 &&
-                 count_terms(ResidualTermKind::volume_control) == 0)
+                 count_terms(ResidualTermKind::volume_control) == 0 &&
+                 count_terms(ResidualTermKind::natural_boundary_source) ==
+                   (natural_boundary_source ? 1 : 0))
         : l2_dirichlet_transposition
         ? count_terms(ResidualTermKind::transposition_laplacian) == 1 &&
             count_terms(
@@ -4060,7 +4133,8 @@ namespace nmopt::compiler::v1
             count_terms(ResidualTermKind::volume_source) == 1 &&
             count_terms(ResidualTermKind::volume_control) == 0 &&
             count_terms(ResidualTermKind::neumann_control) == 0
-        : count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
+        : !natural_boundary_source &&
+            count_terms(ResidualTermKind::diffusion_reaction) == 1 &&
             count_terms(ResidualTermKind::volume_source) == 1 &&
             count_terms(ResidualTermKind::volume_control) == 1 &&
             count_terms(ResidualTermKind::neumann_control) == 0;
@@ -4088,8 +4162,12 @@ namespace nmopt::compiler::v1
                      ? "Declare exactly one parameter diffusion-reaction and one volume-source term."
                      : boundary_control
                      ? neumann_convection
-                         ? "Declare exactly one diffusion-reaction, conservative-transport, volume-source, and Neumann-control term."
-                         : "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term."
+                         ? (natural_boundary_source
+                             ? "Declare exactly one diffusion-reaction, conservative-transport, volume-source, Neumann-control, and natural-boundary source term."
+                             : "Declare exactly one diffusion-reaction, conservative-transport, volume-source, and Neumann-control term.")
+                         : (natural_boundary_source
+                             ? "Declare exactly one diffusion-reaction, volume-source, Neumann-control, and natural-boundary source term."
+                             : "Declare exactly one diffusion-reaction, volume-source, and Neumann-control term.")
                      : l2_dirichlet_transposition
                      ? "Declare exactly one transposition Laplace state action, volume source, and Dirichlet normal-test-derivative control action."
                      : normalized_dirichlet_laplace
@@ -4113,24 +4191,29 @@ namespace nmopt::compiler::v1
         count_data(DataRole::reaction) == 1 &&
         count_data(DataRole::robin_coefficient) == 1 &&
         count_data(DataRole::robin_source) == 1;
+      const bool complete_natural_boundary_source_data =
+        count_data(DataRole::natural_boundary_source) ==
+        (boundary_control && natural_boundary_source ? 1 : 0);
+      const bool complete_registered_data = normalized_laplacian
+        ? count_data(DataRole::diffusion) == 0 &&
+            count_data(DataRole::reaction) == 0
+        : general_scalar
+        ? complete_general_scalar_data
+        : neumann_convection
+        ? count_data(DataRole::diffusion) == 1 &&
+            count_data(DataRole::reaction) == 1 &&
+            count_data(DataRole::conservative_transport) == 1
+        : count_data(DataRole::reaction) == 1 &&
+            (coefficient_identification
+               ? count_data(DataRole::diffusion) == 0
+               : count_data(DataRole::diffusion) == 1);
       if (count_data(DataRole::forcing) != 1 ||
           count_data(DataRole::desired_state) != 1 ||
           count_data(DataRole::observation_weight) !=
             (weighted_boundary_trace ? 1 : 0) ||
           count_data(DataRole::regularisation_weight) != 1 ||
-          (normalized_laplacian
-             ? count_data(DataRole::diffusion) != 0 ||
-                 count_data(DataRole::reaction) != 0
-           : general_scalar
-             ? !complete_general_scalar_data
-             : neumann_convection
-               ? count_data(DataRole::diffusion) != 1 ||
-                 count_data(DataRole::reaction) != 1 ||
-                 count_data(DataRole::conservative_transport) != 1
-             : (count_data(DataRole::reaction) != 1 ||
-                (coefficient_identification
-                   ? count_data(DataRole::diffusion) != 0
-                   : count_data(DataRole::diffusion) != 1))))
+          !complete_registered_data ||
+          !complete_natural_boundary_source_data)
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
                    normalized_laplacian
@@ -4153,7 +4236,9 @@ namespace nmopt::compiler::v1
                    : weighted_boundary_trace
                      ? "Declare one forcing, target, boundary weight, diffusion, reaction, and regularisation datum."
                      : neumann_convection
-                       ? "Declare one forcing, target, scalar diffusion/reaction, conservative transport, and regularisation datum."
+                       ? (natural_boundary_source
+                           ? "Declare one forcing, target, scalar diffusion/reaction, conservative transport, natural-boundary source, and regularisation datum."
+                           : "Declare one forcing, target, scalar diffusion/reaction, conservative transport, and regularisation datum.")
                      : "Declare one forcing, target, diffusion, reaction, and regularisation datum.");
 
       const auto count_losses = [&specification](const LossKind kind) {
@@ -5533,7 +5618,9 @@ namespace nmopt::compiler::v1
               case semantic::v1::DataRole::natural_boundary_source:
                 record.representation =
                   "scalar Function at boundary face quadrature";
-                record.provenance = "unbound natural-boundary source";
+                record.provenance = data.natural_boundary_source
+                                      ? data.natural_boundary_source->provenance
+                                      : "unbound natural-boundary source";
                 break;
               case semantic::v1::DataRole::observation_weight:
                 record.representation = "scalar Function at boundary face quadrature";
@@ -6315,6 +6402,8 @@ namespace nmopt::compiler::v1
         request.neumann_control_selection->discretisation ==
           semantic::v1::NeumannControlDiscretisation::continuous_nodal_trace;
       const bool uses_neumann_convection = request.uses_neumann_convection;
+      const bool uses_natural_boundary_source =
+        request.uses_natural_boundary_source;
       const auto volume_observation_policy =
         effective_volume_observation_policy(policy);
       const bool uses_mean_zero_gauge = request.uses_mean_zero_gauge;
@@ -6488,6 +6577,9 @@ namespace nmopt::compiler::v1
           std::string("state_observation <- dealii.volume_observation.") +
           volume_observation_target_realisation_name(
             volume_observation_policy.target_realisation));
+      if (uses_natural_boundary_source)
+        manifest.lowering_handler_records.push_back(
+          "natural_boundary_source <- dealii.neumann.residual.natural_boundary_source");
       if (uses_l2_dirichlet_control)
         manifest.lowering_handler_records.push_back(
           "l2_dirichlet_transposition <- "
@@ -6597,7 +6689,10 @@ namespace nmopt::compiler::v1
                  volume_observation_quadrature +
                  " volume-observation quadrature; conservative transport and forcing Functions at selected " +
                  volume_quadrature +
-                 " volume quadrature; scalar diffusion, reaction, and regularisation constants"
+                 " volume quadrature; scalar diffusion, reaction, and regularisation constants" +
+                 (uses_natural_boundary_source
+                    ? "; natural-boundary source Function at selected boundary face quadrature"
+                    : "")
              : "analytic desired-state Function at selected QGauss(" +
             std::to_string(policy.state_degree + 2) +
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature")
@@ -6677,6 +6772,35 @@ namespace nmopt::compiler::v1
             "neumann_convection_subdomain: conservative transport is assembled in the scalar residual; " +
             boundary_realisation_description(*manifest.boundary_realisation) +
             "; state tracking is restricted to declared material ids");
+        }
+      if (uses_natural_boundary_source)
+        {
+          const auto *source_region =
+            region_by_id(request.natural_boundary_source_region_id);
+          contract::require(
+            source_region != nullptr,
+            "Natural-boundary source manifest needs its declared region");
+          const auto source_binding = std::find_if(
+            manifest.bindings.begin(),
+            manifest.bindings.end(),
+            [](const CompiledBindingRecord &binding) {
+              return binding.role ==
+                     semantic::v1::DataRole::natural_boundary_source;
+            });
+          contract::require(
+            source_binding != manifest.bindings.end(),
+            "Natural-boundary source manifest needs its binding record");
+          const bool ordinary_transport_form =
+            manifest.boundary_realisation.has_value() &&
+            manifest.boundary_realisation->transport_boundary_form ==
+              semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport;
+          manifest.declared_assumptions.push_back(
+            "natural_boundary_source: immutable scalar Function paired by "
+            "FEFaceValues on region " + source_region->semantic_id +
+            " (boundary ids " + boundary_id_list(*source_region) +
+            "); scale=" + (ordinary_transport_form ? "diffusion" : "one") +
+            "; enters the state load; state/control derivatives are zero; "
+            "provenance=" + source_binding->provenance);
         }
       if (uses_dirichlet_control_lifting && control_boundary_region != nullptr)
         manifest.declared_assumptions.push_back(

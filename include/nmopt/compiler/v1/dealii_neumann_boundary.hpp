@@ -109,7 +109,9 @@ namespace nmopt::compiler::v1::detail
       std::optional<std::reference_wrapper<const dealii::Function<dim>>>
         fixed_dirichlet_data = std::nullopt,
       const NeumannControlRealisationKind control_realisation_kind =
-        NeumannControlRealisationKind::facewise_constant)
+        NeumannControlRealisationKind::facewise_constant,
+      const dealii::Function<dim> *            natural_boundary_source = nullptr,
+      std::set<dealii::types::boundary_id>      natural_boundary_source_ids = {})
       : state_fe_(make_scalar_lagrange_element(
           triangulation, state_degree, "The Neumann v1 target"))
       , state_dof_handler_(triangulation)
@@ -126,6 +128,8 @@ namespace nmopt::compiler::v1::detail
       , transport_boundary_realisation_(transport_boundary_realisation)
       , weighted_trace_realisation_(weighted_trace_realisation)
       , has_fixed_dirichlet_data_(fixed_dirichlet_data.has_value())
+      , natural_boundary_source_(natural_boundary_source)
+      , natural_boundary_source_ids_(std::move(natural_boundary_source_ids))
     {
       contract::require(diffusion_ > 0.0,
                         "Diffusion coefficient must be strictly positive");
@@ -169,6 +173,17 @@ namespace nmopt::compiler::v1::detail
             TransportBoundaryRealisation::total_conormal ||
           uses_conservative_transport_,
         "The ordinary transport boundary realization needs conservative transport data");
+      contract::require(
+        natural_boundary_source_ == nullptr ||
+          !natural_boundary_source_ids_.empty(),
+        "The natural-boundary source needs a marked source boundary");
+      contract::require(
+        natural_boundary_source_ != nullptr ||
+          natural_boundary_source_ids_.empty(),
+        "Natural-boundary source ids need a source Function");
+      if (natural_boundary_source_ != nullptr)
+        contract::require(natural_boundary_source_->n_components == 1,
+                          "The natural-boundary source must be scalar");
 
       state_dof_handler_.distribute_dofs(*state_fe_);
       build_constraints(fixed_dirichlet_data);
@@ -957,7 +972,12 @@ namespace nmopt::compiler::v1::detail
               const bool transport_face =
                 uses_ordinary_transport_boundary_realisation() &&
                 is_transport_boundary_face(cell, face);
-              if (!observation_face && !transport_face)
+              const bool natural_source_face =
+                cell->face(face)->at_boundary() &&
+                natural_boundary_source_ids_.count(
+                  cell->face(face)->boundary_id()) != 0;
+              if (!observation_face && !transport_face &&
+                  !natural_source_face)
                 continue;
               face_values.reinit(cell, face);
               for (unsigned int q = 0; q < face_quadrature->size(); ++q)
@@ -970,6 +990,12 @@ namespace nmopt::compiler::v1::detail
                            face_values.quadrature_point(q)) *
                          face_values.normal_vector(q)) *
                         weight
+                      : 0.0;
+                  const double natural_source_value =
+                    natural_source_face
+                      ? boundary_source_scale() *
+                          natural_boundary_source_->value(
+                            face_values.quadrature_point(q))
                       : 0.0;
                   const double desired_value = observation_face
                     ? desired_state.value(face_values.quadrature_point(q))
@@ -1029,6 +1055,9 @@ namespace nmopt::compiler::v1::detail
                                     face_values.shape_value(j, q) * weight);
                             }
                         }
+                      if (natural_source_face)
+                        forcing_load_[global_i] +=
+                          natural_source_value * phi_i * weight;
                     }
                   if (observation_face)
                     {
@@ -1058,6 +1087,12 @@ namespace nmopt::compiler::v1::detail
     {
       const double tolerance = std::max(1e-12, 1e-11 * load.l2_norm());
       return std::abs(constant_mode_ * load) <= tolerance;
+    }
+
+    double
+    boundary_source_scale() const
+    {
+      return uses_ordinary_transport_boundary_realisation() ? diffusion_ : 1.0;
     }
 
     void
@@ -1123,6 +1158,8 @@ namespace nmopt::compiler::v1::detail
     const TransportBoundaryRealisation transport_boundary_realisation_;
     const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
     const bool has_fixed_dirichlet_data_;
+    const dealii::Function<dim> *natural_boundary_source_;
+    const std::set<dealii::types::boundary_id> natural_boundary_source_ids_;
     std::unique_ptr<NeumannControlRealisation<dim>> control_realisation_;
     std::unique_ptr<VolumeObservationAssembly<dim>> volume_observation_;
     std::vector<Vector> observation_evaluations_;

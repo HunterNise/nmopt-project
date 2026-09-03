@@ -51,6 +51,20 @@ namespace nmopt::compiler::v1
     std::string conservative_transport;
   };
 
+  template <int dim>
+  struct DealiiNaturalBoundarySourceBinding
+  {
+    DealiiNaturalBoundarySourceBinding(
+      const dealii::Function<dim> &source_function,
+      std::string                  binding_provenance)
+      : source(source_function)
+      , provenance(std::move(binding_provenance))
+    {}
+
+    const dealii::Function<dim> &source;
+    std::string                  provenance;
+  };
+
   // These are compiler-owned ports, not semantic component kinds.  A
   // resolved request records which concrete binding surface consumes each
   // semantic datum so validation and later manifest construction do not have
@@ -157,6 +171,7 @@ namespace nmopt::compiler::v1
     std::string                            tracking_region_id;
     std::string                            robin_boundary_region_id;
     std::string                            transport_outflow_region_id;
+    std::string                            natural_boundary_source_region_id;
     std::vector<std::string>               natural_boundary_source_data_ids;
     std::string                            mean_zero_region_id;
     std::string                            fixed_boundary_region_id;
@@ -274,7 +289,9 @@ namespace nmopt::compiler::v1
       std::optional<DealiiWeightedTraceDataBindings<dim>>
         weighted_trace_data = std::nullopt,
       std::optional<DealiiConservativeTransportDataBindings<dim>>
-        conservative_transport_data = std::nullopt)
+        conservative_transport_data = std::nullopt,
+      std::optional<DealiiNaturalBoundarySourceBinding<dim>>
+        natural_boundary_source_data = std::nullopt)
       : forcing(forcing_function)
       , desired_state(desired_state_function)
       , diffusion(diffusion_value)
@@ -285,6 +302,7 @@ namespace nmopt::compiler::v1
       , general_scalar(std::move(general_scalar_data))
       , weighted_trace(std::move(weighted_trace_data))
       , conservative_transport(std::move(conservative_transport_data))
+      , natural_boundary_source(std::move(natural_boundary_source_data))
     {}
 
     const dealii::Function<dim> &forcing;
@@ -315,6 +333,11 @@ namespace nmopt::compiler::v1
     // surface avoids requiring the unused P5.1 coefficient ports.
     std::optional<DealiiConservativeTransportDataBindings<dim>>
       conservative_transport;
+    // Present only when the semantic graph declares an additive immutable
+    // natural-boundary source. Its value enters the state load; it owns no
+    // state or control derivative.
+    std::optional<DealiiNaturalBoundarySourceBinding<dim>>
+      natural_boundary_source;
   };
 
   using CellwiseBoundValue = std::variant<double, dealii::Vector<double>>;

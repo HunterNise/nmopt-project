@@ -3800,6 +3800,191 @@ namespace
                                               policy);
     contract::require(compilation.succeeded(),
                       "C5.6 Neumann convection compilation failed");
+
+    auto natural_source_specification = specification;
+    natural_source_specification.spaces.push_back(
+      {"natural_boundary_source_space",
+       "Natural boundary source space",
+       "control_boundary",
+       semantic::v1::SpaceTopology::l2,
+       semantic::v1::SpaceRole::data});
+    natural_source_specification.data.push_back(
+      {"natural_boundary_source",
+       "Natural boundary source",
+       semantic::v1::DataKind::function,
+       semantic::v1::DataRole::natural_boundary_source,
+       "natural_boundary_source_space"});
+    natural_source_specification.residual_terms.push_back(
+      {"natural_boundary_source",
+       "Immutable natural boundary source",
+       semantic::v1::ResidualTermKind::natural_boundary_source,
+       "state_equation",
+       {},
+       {"natural_boundary_source"},
+       "control_boundary"});
+    component_by_id(natural_source_specification.equations, "state_equation")
+      .residual_term_ids.push_back("natural_boundary_source");
+    const auto missing_natural_source = compiler.compile(
+      natural_source_specification, triangulation, bindings, policy);
+    test_support::require_exact_diagnostic(
+      missing_natural_source.diagnostics,
+      semantic::v1::DiagnosticCategory::lowerability,
+      natural_source_specification.id,
+      "natural_boundary_source_data_binding",
+      "C5.6 compiler did not require the natural-boundary source binding");
+
+    const dealii::Functions::ConstantFunction<dim> natural_source(0.25);
+    const dealii::Functions::ConstantFunction<dim> zero_natural_source(0.0);
+    const auto make_natural_source_bindings =
+      [&bindings](const dealii::Function<dim> &source,
+                  const std::string &           provenance) {
+        return compiler::v1::DealiiDataBindings<dim>{
+          bindings.forcing,
+          bindings.desired_state,
+          bindings.diffusion,
+          bindings.reaction,
+          bindings.regularisation_weight,
+          bindings.provenance,
+          bindings.fixed_dirichlet_data,
+          bindings.general_scalar,
+          bindings.weighted_trace,
+          bindings.conservative_transport,
+          compiler::v1::DealiiNaturalBoundarySourceBinding<dim>{
+            source, provenance}};
+      };
+    const auto natural_source_bindings = make_natural_source_bindings(
+      natural_source, "test.neumann_convection.natural_boundary_source");
+    const auto zero_natural_source_bindings = make_natural_source_bindings(
+      zero_natural_source, "test.neumann_convection.zero_natural_source");
+    const auto natural_source_compilation = compiler.compile(
+      natural_source_specification,
+      triangulation,
+      natural_source_bindings,
+      policy);
+    const auto zero_natural_source_compilation = compiler.compile(
+      natural_source_specification,
+      triangulation,
+      zero_natural_source_bindings,
+      policy);
+    contract::require(
+      natural_source_compilation.succeeded() &&
+        zero_natural_source_compilation.succeeded(),
+      "C5.6 natural-boundary source compilation failed");
+    const auto &natural_source_model =
+      natural_source_compilation.problem->executable_model();
+    const auto &zero_natural_source_model =
+      zero_natural_source_compilation.problem->executable_model();
+    dealii::Vector<double> natural_state(
+      natural_source_model.variable_layout()->dimension(0));
+    dealii::Vector<double> zero_natural_state = natural_state;
+    dealii::Vector<double> natural_control(
+      natural_source_model.variable_layout()->dimension(1));
+    dealii::Vector<double> zero_natural_control = natural_control;
+    const Primal natural_point(natural_source_model.variable_layout(),
+                               {std::move(natural_state),
+                                std::move(natural_control)});
+    const Primal zero_natural_point(
+      zero_natural_source_model.variable_layout(),
+      {std::move(zero_natural_state), std::move(zero_natural_control)});
+    auto natural_residual = natural_source_model.residual(natural_point);
+    const auto zero_natural_residual =
+      zero_natural_source_model.residual(zero_natural_point);
+    natural_residual.add_scaled_block(0,
+                                      -1.0,
+                                      zero_natural_residual.block(0));
+    contract::require(natural_residual.block(0).l2_norm() > 1e-8,
+                      "C5.6 natural-boundary source did not enter the state load");
+
+    dealii::Vector<double> natural_state_tangent(
+      natural_source_model.variable_layout()->dimension(0));
+    dealii::Vector<double> natural_control_tangent(
+      natural_source_model.variable_layout()->dimension(1));
+    dealii::Vector<double> zero_natural_state_tangent = natural_state_tangent;
+    dealii::Vector<double> zero_natural_control_tangent = natural_control_tangent;
+    for (dealii::types::global_dof_index index = 0;
+         index < natural_state_tangent.size();
+         ++index)
+      natural_state_tangent[index] =
+        zero_natural_state_tangent[index] = 0.017 * (index + 1);
+    for (dealii::types::global_dof_index index = 0;
+         index < natural_control_tangent.size();
+         ++index)
+      natural_control_tangent[index] =
+        zero_natural_control_tangent[index] = -0.013 * (index + 1);
+    const Primal natural_tangent(natural_source_model.variable_layout(),
+                                 {std::move(natural_state_tangent),
+                                  std::move(natural_control_tangent)});
+    const Primal zero_natural_tangent(
+      zero_natural_source_model.variable_layout(),
+      {std::move(zero_natural_state_tangent),
+       std::move(zero_natural_control_tangent)});
+    auto natural_jvp =
+      natural_source_model.residual_jvp(natural_point, natural_tangent);
+    const auto zero_natural_jvp = zero_natural_source_model.residual_jvp(
+      zero_natural_point, zero_natural_tangent);
+    natural_jvp.add_scaled_block(0, -1.0, zero_natural_jvp.block(0));
+    require_close(natural_jvp.block(0).l2_norm(),
+                  0.0,
+                  1e-12,
+                  "C5.6 natural-boundary source changed the residual JVP");
+
+    dealii::Vector<double> natural_seed(
+      natural_source_model.test_layout()->dimension(0));
+    dealii::Vector<double> zero_natural_seed = natural_seed;
+    for (dealii::types::global_dof_index index = 0;
+         index < natural_seed.size();
+         ++index)
+      natural_seed[index] = zero_natural_seed[index] = 0.021 * (index + 1);
+    const Primal natural_test_seed(natural_source_model.test_layout(),
+                                   {std::move(natural_seed)});
+    const Primal zero_natural_test_seed(
+      zero_natural_source_model.test_layout(),
+      {std::move(zero_natural_seed)});
+    auto natural_vjp =
+      natural_source_model.residual_vjp(natural_point, natural_test_seed);
+    const auto zero_natural_vjp = zero_natural_source_model.residual_vjp(
+      zero_natural_point, zero_natural_test_seed);
+    for (std::size_t block = 0; block < natural_vjp.n_blocks(); ++block)
+      {
+        natural_vjp.add_scaled_block(block,
+                                     -1.0,
+                                     zero_natural_vjp.block(block));
+        require_close(natural_vjp.block(block).l2_norm(),
+                      0.0,
+                      1e-12,
+                      "C5.6 natural-boundary source changed the residual VJP");
+      }
+    const auto &natural_manifest =
+      natural_source_compilation.problem->manifest();
+    contract::require(
+      std::any_of(natural_manifest.bindings.begin(),
+                  natural_manifest.bindings.end(),
+                  [](const compiler::v1::CompiledBindingRecord &record) {
+                    return record.role ==
+                             semantic::v1::DataRole::natural_boundary_source &&
+                           record.evaluation_realisation ==
+                             "boundary_face_quadrature" &&
+                           record.provenance ==
+                             "test.neumann_convection.natural_boundary_source";
+                  }) &&
+        std::find(natural_manifest.lowering_handler_records.begin(),
+                  natural_manifest.lowering_handler_records.end(),
+                  "natural_boundary_source <- dealii.neumann.residual.natural_boundary_source") !=
+          natural_manifest.lowering_handler_records.end() &&
+        natural_manifest.data_rule.find(
+          "natural-boundary source Function at selected boundary face quadrature") !=
+          std::string::npos &&
+        std::any_of(natural_manifest.declared_assumptions.begin(),
+                    natural_manifest.declared_assumptions.end(),
+                    [](const std::string &assumption) {
+                      return assumption.find(
+                               "natural_boundary_source: immutable scalar Function") !=
+                             std::string::npos &&
+                             assumption.find("scale=one") != std::string::npos &&
+                             assumption.find("state/control derivatives are zero") !=
+                               std::string::npos;
+                    }),
+      "C5.6 manifest omitted natural-boundary source provenance");
     auto explicit_analytic_policy = policy;
     explicit_analytic_policy.volume_observation =
       compiler::v1::VolumeObservationDiscretisationPolicy{

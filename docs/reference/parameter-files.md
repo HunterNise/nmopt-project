@@ -155,7 +155,14 @@ For B2, `Problem/control representation` accepts `facewise-constant` and
 operator. The fixed outward normal, state trace realization, and face
 quadrature are properties of the supported compiled boundary operator; they
 are not parameter choices. Other transport-form values are rejected before
-execution.
+execution. `Boundary/upstream transition` is resolved against the mesh
+coordinates and must satisfy
+$`\mathrm{lower}_{x_{1}} \leq \mathrm{transition} < \mathrm{upper}_{x_{1}}`$.
+The lower endpoint is supported for the diagnostic inlet-only partition: the
+left edge remains fixed Dirichlet and all horizontal exterior faces are
+controlled. The upper endpoint remains invalid because it removes the
+controlled wall. This endpoint policy does not change the frozen B2 source
+partition at transition `1.0`.
 
 B2 also requires `Compile/volume observation quadrature order` to be a
 positive integer and accepts `analytic-quadrature` or

@@ -761,7 +761,11 @@ namespace nmopt::application::chapter6
       scenario.problem.transport_boundary_form);
     validate_b2_control_discretisation(scenario.problem.recipe);
     validate_b2_boundary_options(scenario.problem.boundary);
-    if (!(scenario.compile.mesh.lower[0] <
+    // The lower endpoint denotes an inlet-only Dirichlet partition: the
+    // horizontal boundary starts in the controlled region while the left
+    // edge remains fixed Dirichlet.  The upper endpoint would remove the
+    // controlled wall and remains excluded.
+    if (!(scenario.compile.mesh.lower[0] <=
           scenario.problem.boundary.upstream_transition &&
           scenario.problem.boundary.upstream_transition <
             scenario.compile.mesh.upper[0]))

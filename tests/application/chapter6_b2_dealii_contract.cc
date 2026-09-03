@@ -690,6 +690,109 @@ namespace
   }
 
   void
+  run_b2_inlet_only_boundary_partition()
+  {
+    auto scenario = chapter6::make_b2_scenario(
+      chapter6::B2ObservationRegion::wings, "constant");
+    scenario.compile.mesh.generation =
+      chapter6::MeshGeneration::structured_simplex;
+    scenario.compile.mesh.refinement = 0;
+    scenario.compile.mesh.axis_subdivisions = {4, 10};
+    scenario.compile.mesh.mesh_provenance =
+      "test.chapter6.b2.inlet-only-boundary-partition-4x10";
+    scenario.problem.boundary.upstream_transition = 0.0;
+    scenario.solver.parameters.maximum_iterations = 1;
+    scenario.solver.parameters.gradient_tolerance = 1.0e-4;
+    scenario.experiment.retain_fields = false;
+
+    const auto specification = chapter6::make_b2_problem_spec(scenario);
+    require(std::any_of(
+              specification.regions.begin(),
+              specification.regions.end(),
+              [](const auto &region) {
+                return region.id == chapter6::b2_fixed_boundary_region_id &&
+                       region.boundary_ids ==
+                         std::vector<unsigned int>{
+                           chapter6::b2_fixed_boundary_id};
+              }) &&
+              std::any_of(
+                specification.regions.begin(),
+                specification.regions.end(),
+                [](const auto &region) {
+                  return region.id == chapter6::b2_control_boundary_region_id &&
+                         region.boundary_ids ==
+                           std::vector<unsigned int>{
+                             chapter6::b2_control_boundary_id};
+                }),
+            "B2 inlet-only partition lost its fixed/control region bindings");
+
+    const auto session =
+      chapter6::dealii::make_b2_compilation_session<2>(scenario);
+    const auto &mesh = session->triangulation();
+    std::size_t boundary_face_count = 0;
+    std::size_t fixed_boundary_face_count = 0;
+    std::size_t control_boundary_face_count = 0;
+    std::size_t outflow_boundary_face_count = 0;
+    for (const auto &cell : mesh.active_cell_iterators())
+      for (unsigned int face = 0; face < cell->n_faces(); ++face)
+        if (cell->face(face)->at_boundary())
+          {
+            ++boundary_face_count;
+            switch (cell->face(face)->boundary_id())
+              {
+                case chapter6::b2_fixed_boundary_id:
+                  ++fixed_boundary_face_count;
+                  break;
+                case chapter6::b2_control_boundary_id:
+                  ++control_boundary_face_count;
+                  break;
+                case chapter6::b2_outflow_boundary_id:
+                  ++outflow_boundary_face_count;
+                  break;
+                default:
+                  throw std::runtime_error(
+                    "B2 inlet-only partition has an unclassified boundary face");
+              }
+          }
+    require(boundary_face_count == 28 && fixed_boundary_face_count == 10 &&
+              control_boundary_face_count == 8 &&
+              outflow_boundary_face_count == 10,
+            "B2 inlet-only partition produced the wrong boundary counts");
+
+    auto manufactured_data = make_b2_manufactured_data(scenario);
+    const auto runtime =
+      chapter6::dealii::make_b2_manufactured_runtime_data(
+        scenario, manufactured_data);
+    const auto bindings =
+      chapter6::dealii::make_b2_data_bindings(scenario.problem, runtime);
+    nmopt::compiler::v1::DealiiCompiler compiler;
+    const auto compilation = compiler.compile(
+      specification,
+      session,
+      bindings,
+      chapter6::dealii::make_b2_discretisation_policy(scenario.compile),
+      std::nullopt,
+      std::nullopt,
+      nmopt::compiler::v1::CompilationProduct::reduced_dto);
+    require(compilation.succeeded() && compilation.problem,
+            "B2 inlet-only partition did not reach assembly");
+
+    auto invalid_upper_endpoint = scenario;
+    invalid_upper_endpoint.problem.boundary.upstream_transition = 4.0;
+    bool upper_endpoint_rejected = false;
+    try
+      {
+        (void)chapter6::make_b2_problem_spec(invalid_upper_endpoint);
+      }
+    catch (const std::invalid_argument &)
+      {
+        upper_endpoint_rejected = true;
+      }
+    require(upper_endpoint_rejected,
+            "B2 accepted an upstream transition at the outflow endpoint");
+  }
+
+  void
   run_b2_centroid_split_simplex_mesh()
   {
     constexpr unsigned int base_vertex_count = 55;
@@ -1486,6 +1589,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "benchmark", "b2", "contract"},
          120,
          []() { run_b2_structured_simplex_mesh(); }},
+        {"b2_inlet_only_boundary_partition",
+         "nmopt.application.dealii.b2_inlet_only_boundary_partition",
+         {"dealii", "application", "benchmark", "b2", "contract"},
+         120,
+         []() { run_b2_inlet_only_boundary_partition(); }},
         {"b2_centroid_split_simplex_mesh",
          "nmopt.application.dealii.b2_centroid_split_simplex_mesh",
          {"dealii", "application", "benchmark", "b2", "contract"},

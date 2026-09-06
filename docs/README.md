@@ -17,6 +17,10 @@ architectural boundaries.
   rationale.
 - [Composition boundaries](design/composition-boundaries.md) summarizes
   component ownership and cross-cutting seams.
+- [PDE, formulation, and solver boundary](design/pde-solver-boundary.md)
+  defines how semantic/compiler and external-application paths produce the
+  common executable/formulation contracts while typed numerical ownership and
+  application output remain outside the solver boundary.
 - [System blueprint](design/system-blueprint.md) is the shortest end-to-end
   mental model and code correspondence.
 - [Theoretical formalism](design/theoretical-formalism.md) records the
@@ -115,6 +119,10 @@ stress the interfaces.
   tradeoff or scope decision requires wider context.
 - [Assessment plan](planning/review/pre-ch5-ch6/assessment-plan.md) records the
   completed Stage A audit method and is not normal Stage B reading.
+- [PDE–solver boundary refactor review](planning/review/pde-solver-refactor/README.md)
+  routes the accepted boundary, detailed architecture map, audit findings,
+  deletion ledger, and bounded implementation roadmap for the current
+  PDE/formulation/compiler cleanup.
 
 Agent working instructions live in the
 [agent instructions](../.agents/README.md). Read the applicable instruction
@@ -151,3 +159,6 @@ before inspecting or changing repository content.
 | Review the complete pre-Chapter 5/6 evidence | [Pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md) | [Assessment plan](planning/review/pre-ch5-ch6/assessment-plan.md) only when the audit method matters |
 | Choose the next implementation task | [Implementation roadmap](planning/implementation-roadmap.md) | The task-specific compiler, solver, backend, or semantic contract listed above |
 | Edit Markdown or LaTeX | [Documentation instructions](../.agents/documentation.md) | The document being changed |
+| Understand the current PDE/compiler/application architecture in detail | [PDE–solver architecture map](planning/review/pde-solver-refactor/architecture-map.md) | [PDE–solver boundary](design/pde-solver-boundary.md) and only the relevant [assessment](planning/review/pde-solver-refactor/assessment.md) findings |
+| Understand or change the PDE/formulation/application ownership boundary | [PDE–solver boundary](design/pde-solver-boundary.md) | [Architecture map](planning/review/pde-solver-refactor/architecture-map.md) and [composition boundaries](design/composition-boundaries.md) |
+| Implement one PDE–solver refactor unit | [PDE–solver refactor roadmap](planning/review/pde-solver-refactor/roadmap.md) | Only the boundary sections, architecture-map sections, assessment findings, deletion-ledger entries, and current code/tests named by that unit |

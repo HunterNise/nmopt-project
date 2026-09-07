@@ -193,6 +193,10 @@ if(NMOPT_ENABLE_DEAL_II)
       PROPERTIES LABELS "dealii;application;external" TIMEOUT 30)
 
     nmopt_add_dealii_test(
+      nmopt_external_application_dealii_contract_test
+      tests/application/external_application_dealii_contract.cc)
+
+    nmopt_add_dealii_test(
       nmopt_dealii_diffusion_contract_test
       tests/dealii/dealii_diffusion_contract.cc)
 

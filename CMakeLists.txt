@@ -180,7 +180,18 @@ if(NMOPT_ENABLE_DEAL_II)
     nmopt_runner
     apps/nmopt-runner/main.cc)
 
+  nmopt_add_dealii_executable(
+    nmopt_external_poisson_forward
+    tests/dealii/external_poisson_forward.cc)
+
   if(BUILD_TESTING)
+    add_test(
+      NAME nmopt.external_application.standalone_forward
+      COMMAND nmopt_external_poisson_forward)
+    set_tests_properties(
+      nmopt.external_application.standalone_forward
+      PROPERTIES LABELS "dealii;application;external" TIMEOUT 30)
+
     nmopt_add_dealii_test(
       nmopt_dealii_diffusion_contract_test
       tests/dealii/dealii_diffusion_contract.cc)

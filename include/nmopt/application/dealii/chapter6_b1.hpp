@@ -4,7 +4,6 @@
 #include "nmopt/application/dealii/centroid_split_simplex_mesh.hpp"
 #include "nmopt/application/dealii/scalar_function.hpp"
 #include "nmopt/application/runner.hpp"
-#include "nmopt/compiler/v1/dealii_continuous_control.hpp"
 #include "nmopt/compiler/v1/dealii_compiler.hpp"
 #include "nmopt/experiment/reduced_envelope.hpp"
 
@@ -500,49 +499,23 @@ namespace nmopt::application::chapter6::dealii
         std::size_t control_independent;
       };
       std::optional<DiscreteDimensions> dimensions;
-      const auto &executable = compilation.problem->executable_model();
-      const auto record_model = [this, &report_value, &scenario, &dimensions](
-                                  const auto &model) {
-        dimensions = DiscreteDimensions{model.physical_state_dimension(),
-                                        model.independent_state_dimension(),
-                                        model.physical_control_dimension(),
-                                        model.independent_control_dimension()};
-        if (scenario.experiment.retain_fields &&
-            !native_output_directory_.empty())
-          model.write_native_output(native_output_directory_,
-                                    report_value.final_evaluation.state,
-                                    report_value.control,
-                                    report_value.final_evaluation.adjoint,
-                                    &runtime_->forcing,
-                                    &runtime_->desired_state);
-      };
-      switch (scenario.problem.recipe.discretisation)
-        {
-          case chapter5::DistributedControlDiscretisation::cellwise_constant:
-            {
-              const auto *model = dynamic_cast<const
-                nmopt::dealii_backend::ScalarDiffusionReactionModel<dim> *>(
-                &executable);
-              if (model == nullptr)
-                throw std::runtime_error(
-                  "B1 cellwise execution needs the scalar diffusion model");
-              record_model(*model);
-              break;
-            }
-          case chapter5::DistributedControlDiscretisation::
-            homogeneous_dirichlet_continuous:
-            {
-              using ContinuousModel =
-                compiler::v1::detail::ContinuousControlModel<dim>;
-              const auto *model =
-                dynamic_cast<const ContinuousModel *>(&executable);
-              if (model == nullptr)
-                throw std::runtime_error(
-                  "B1 continuous execution needs the continuous-control model");
-              record_model(*model);
-              break;
-            }
-        }
+      const auto *const native_view =
+        compilation.problem->native_application_view();
+      if (native_view == nullptr)
+        throw std::runtime_error(
+          "B1 execution needs the retained native application view");
+      const auto &native_dimensions = native_view->dimensions();
+      dimensions = DiscreteDimensions{native_dimensions.physical_state,
+                                     native_dimensions.independent_state,
+                                     native_dimensions.physical_control,
+                                     native_dimensions.independent_control};
+      if (scenario.experiment.retain_fields &&
+          !native_output_directory_.empty())
+        native_view->write_native_output(
+          native_output_directory_,
+          report_value.final_evaluation.state,
+          report_value.control,
+          report_value.final_evaluation.adjoint);
       contract::require(dimensions.has_value(),
                         "B1 execution omitted discrete dimension evidence");
       const auto solver_policy =

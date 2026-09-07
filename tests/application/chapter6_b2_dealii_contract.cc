@@ -1015,13 +1015,11 @@ namespace
       require(compilation.succeeded() && compilation.problem,
               "B2 control realization comparison did not compile");
 
-      using Model = nmopt::compiler::v1::detail::
-        NeumannBoundaryControlModel<2>;
-      const auto *model = dynamic_cast<const Model *>(
-        &compilation.problem->executable_model());
-      require(model != nullptr &&
-                model->physical_control_dimension() == expected_dimension &&
-                model->independent_control_dimension() == expected_dimension,
+      const auto *const native_view =
+        compilation.problem->native_application_view();
+      require(native_view != nullptr &&
+                native_view->dimensions().physical_control == expected_dimension &&
+                native_view->dimensions().independent_control == expected_dimension,
               "B2 control realization produced the wrong dimensions");
 
       const auto &metric = compilation.problem->metric();
@@ -1356,22 +1354,16 @@ namespace
     require(compilation.succeeded() && compilation.problem,
             "B2 ordinary residual oracle did not compile");
 
-    using Model = nmopt::compiler::v1::detail::
-      NeumannBoundaryControlModel<2>;
-    const auto *model = dynamic_cast<const Model *>(
-      &compilation.problem->executable_model());
-    require(model != nullptr,
-            "B2 ordinary residual oracle needs the Neumann model");
-
-    const auto state_size = model->variable_layout()->dimension(0);
-    const auto control_size = model->variable_layout()->dimension(1);
+    const auto &model = compilation.problem->executable_model();
+    const auto state_size = model.variable_layout()->dimension(0);
+    const auto control_size = model.variable_layout()->dimension(1);
     dealii::Vector<double> state_values(state_size);
     state_values = 1.0;
     dealii::Vector<double> control_values(control_size);
     const nmopt::contract::PrimalBlockT<chapter6::dealii::Backend> point(
-      model->variable_layout(),
+      model.variable_layout(),
       {std::move(state_values), std::move(control_values)});
-    const auto assembled_residual = model->residual(point).block(0);
+    const auto assembled_residual = model.residual(point).block(0);
 
     dealii::DoFHandler<2> oracle_dof_handler(session->triangulation());
     dealii::FE_Q<2>       oracle_fe(1);

@@ -815,12 +815,11 @@ namespace nmopt::application::chapter6::dealii
             std::string::npos,
         "B2 compilation manifest does not match the selected volume observation");
 
-      using Model = compiler::v1::detail::NeumannBoundaryControlModel<dim>;
-      const auto *model =
-        dynamic_cast<const Model *>(&compilation.problem->executable_model());
-      if (model == nullptr)
+      const auto *const native_view =
+        compilation.problem->native_application_view();
+      if (native_view == nullptr)
         throw std::runtime_error(
-          "B2 execution needs the Neumann boundary model");
+          "B2 execution needs the retained native application view");
 
       const auto reduced = compilation.problem->make_reduced_dto();
       const contract::StateControlPartitionT<Backend> partition(
@@ -865,13 +864,12 @@ namespace nmopt::application::chapter6::dealii
       if (scenario.experiment.retain_fields &&
           !native_output_directory_.empty())
         {
-          model->write_native_output(native_output_directory_,
-                                     report.final_evaluation.state,
-                                     report.control,
-                                     report.final_evaluation.adjoint,
-                                     &initial_evaluation.state,
-                                     &runtime_->forcing,
-                                     &runtime_->desired_state);
+          native_view->write_native_output(
+            native_output_directory_,
+            report.final_evaluation.state,
+            report.control,
+            report.final_evaluation.adjoint,
+            &initial_evaluation.state);
         }
       contract::require(!report.objective_history.empty() &&
                           !report.gradient_norm_history.empty(),
@@ -883,9 +881,9 @@ namespace nmopt::application::chapter6::dealii
       const double final_gradient_norm = report.gradient_norm_history.back();
 
       const auto initial_objective_components =
-        model->objective_components(initial_evaluation.full_point);
+        native_view->objective_components(initial_evaluation.full_point);
       const auto final_objective_components =
-        model->objective_components(report.final_evaluation.full_point);
+        native_view->objective_components(report.final_evaluation.full_point);
       contract::require(
         std::abs(initial_objective_components.state_tracking +
                    initial_objective_components.control_regularisation -
@@ -1051,21 +1049,21 @@ namespace nmopt::application::chapter6::dealii
         {"benchmark.state_dimension",
          std::to_string(report.final_evaluation.state.block(0).size())},
         {"benchmark.state_physical_dimension",
-         std::to_string(model->physical_state_dimension())},
+         std::to_string(native_view->dimensions().physical_state)},
         {"benchmark.state_independent_dimension",
-         std::to_string(model->independent_state_dimension())},
+         std::to_string(native_view->dimensions().independent_state)},
         {"benchmark.control_dimension",
          std::to_string(report.control.block(0).size())},
         {"benchmark.control_physical_dimension",
-         std::to_string(model->physical_control_dimension())},
+         std::to_string(native_view->dimensions().physical_control)},
         {"benchmark.control_independent_dimension",
-         std::to_string(model->independent_control_dimension())},
+         std::to_string(native_view->dimensions().independent_control)},
         {"benchmark.adjoint_dimension",
          std::to_string(report.final_evaluation.adjoint.block(0).size())},
         {"benchmark.adjoint_physical_dimension",
-         std::to_string(model->physical_state_dimension())},
+         std::to_string(native_view->dimensions().physical_state)},
         {"benchmark.adjoint_independent_dimension",
-         std::to_string(model->independent_state_dimension())},
+         std::to_string(native_view->dimensions().independent_state)},
         {"b2.derivative_evidence", "finite_difference_and_taylor"},
         {"b2.residual_jvp_error",
          b2_number(derivative_evidence.residual_jvp_error)},

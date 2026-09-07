@@ -5,6 +5,7 @@
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
+#include "nmopt/dealii/independent_state_coordinates.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
@@ -441,9 +442,9 @@ namespace nmopt::compiler::v1::detail
                           has_control_regularisation_loss(),
                         "Reduced Hessian needs tracking and control regularisation losses");
 
-      Vector tangent_rhs(independent_state_dofs_.size());
+      Vector tangent_rhs(state_coordinates_.independent_dimension());
       reduced_control_coupling_.vmult(tangent_rhs, direction.block(0));
-      Vector tangent_state(independent_state_dofs_.size());
+      Vector tangent_state(state_coordinates_.independent_dimension());
       if (has_nonsymmetric_residual())
         nonsymmetric_solver_->vmult(tangent_state, tangent_rhs);
       else
@@ -460,7 +461,7 @@ namespace nmopt::compiler::v1::detail
       physical_state_tracking_operator_.vmult(
         physical_tracking_rhs, embed_tangent(tangent_state));
       Vector reduced_adjoint_rhs = pullback(physical_tracking_rhs);
-      Vector incremental_adjoint(independent_state_dofs_.size());
+      Vector incremental_adjoint(state_coordinates_.independent_dimension());
       if (has_nonsymmetric_residual())
         nonsymmetric_solver_->Tvmult(incremental_adjoint,
                                      reduced_adjoint_rhs);
@@ -607,11 +608,11 @@ namespace nmopt::compiler::v1::detail
       contract::require(control.layout()->compatible_with(*control_layout_),
                         "State solve control has an incompatible layout");
       Vector right_hand_side = reduced_forcing_load_;
-      Vector control_contribution(independent_state_dofs_.size());
+      Vector control_contribution(state_coordinates_.independent_dimension());
       reduced_control_coupling_.vmult(control_contribution, control.block(0));
       right_hand_side.add(1.0, control_contribution);
 
-      Vector state(independent_state_dofs_.size());
+      Vector state(state_coordinates_.independent_dimension());
       if (has_nonsymmetric_residual())
         {
           (void)policy;
@@ -650,7 +651,7 @@ namespace nmopt::compiler::v1::detail
         state_objective_derivative.layout()->compatible_with(*state_layout_),
         "Adjoint solve right-hand side has an incompatible state layout");
 
-      Vector adjoint(independent_state_dofs_.size());
+      Vector adjoint(state_coordinates_.independent_dimension());
       if (has_nonsymmetric_residual())
         {
           (void)policy;
@@ -980,43 +981,11 @@ namespace nmopt::compiler::v1::detail
     void
     build_reconstruction()
     {
-      const auto physical_size = state_dof_handler_.n_dofs();
-      for (dealii::types::global_dof_index index = 0; index < physical_size;
-           ++index)
-        if (!homogeneous_constraints_.is_constrained(index))
-          independent_state_dofs_.push_back(index);
-      contract::require(!independent_state_dofs_.empty(),
-                        "State reconstruction needs an independent state DoF");
-
-      dealii::DynamicSparsityPattern reconstruction_dsp(
-        physical_size, independent_state_dofs_.size());
-      for (std::size_t column = 0; column < independent_state_dofs_.size();
-           ++column)
-        {
-          Vector basis(physical_size);
-          basis[independent_state_dofs_[column]] = 1.0;
-          homogeneous_constraints_.distribute(basis);
-          for (dealii::types::global_dof_index row = 0; row < physical_size;
-               ++row)
-            if (basis[row] != 0.0)
-              reconstruction_dsp.add(row, column);
-        }
-      reconstruction_sparsity_.copy_from(reconstruction_dsp);
-      reconstruction_.reinit(reconstruction_sparsity_);
-      for (std::size_t column = 0; column < independent_state_dofs_.size();
-           ++column)
-        {
-          Vector basis(physical_size);
-          basis[independent_state_dofs_[column]] = 1.0;
-          homogeneous_constraints_.distribute(basis);
-          for (dealii::types::global_dof_index row = 0; row < physical_size;
-               ++row)
-            if (basis[row] != 0.0)
-              reconstruction_.set(row, column, basis[row]);
-        }
-
-      lifting_.reinit(physical_size);
-      physical_constraints_.distribute(lifting_);
+      Vector fixed_lifting(state_dof_handler_.n_dofs());
+      physical_constraints_.distribute(fixed_lifting);
+      state_coordinates_.initialize(state_dof_handler_.n_dofs(),
+                                    homogeneous_constraints_,
+                                    std::move(fixed_lifting));
     }
 
     void
@@ -1024,7 +993,7 @@ namespace nmopt::compiler::v1::detail
     {
       const auto physical_state_size = state_dof_handler_.n_dofs();
       const auto control_size = control_dof_handler_.n_dofs();
-      const auto independent_size = independent_state_dofs_.size();
+      const auto independent_size = state_coordinates_.independent_dimension();
 
       variable_layout_ = std::make_shared<const contract::BlockLayout>(
         "reconstructed_variables",
@@ -1515,7 +1484,8 @@ namespace nmopt::compiler::v1::detail
       build_reduced_state_matrix();
       build_reduced_control_coupling();
       Vector lifting_contribution(state_dof_handler_.n_dofs());
-      physical_system_matrix_.vmult(lifting_contribution, lifting_);
+      physical_system_matrix_.vmult(lifting_contribution,
+                                    state_coordinates_.fixed_lifting());
       Vector right_hand_side = forcing_load_;
       right_hand_side.add(-1.0, lifting_contribution);
       reduced_forcing_load_ = pullback(right_hand_side);
@@ -1524,14 +1494,13 @@ namespace nmopt::compiler::v1::detail
     void
     build_reduced_state_matrix()
     {
-      const auto size = independent_state_dofs_.size();
+      const auto size = state_coordinates_.independent_dimension();
       dealii::DynamicSparsityPattern dsp(size, size);
       for (std::size_t column = 0; column < size; ++column)
         {
           Vector basis(size);
           basis[column] = 1.0;
-          Vector physical_column(state_dof_handler_.n_dofs());
-          reconstruction_.vmult(physical_column, basis);
+          const Vector physical_column = state_coordinates_.embed(basis);
           Vector physical_result(state_dof_handler_.n_dofs());
           physical_system_matrix_.vmult(physical_result, physical_column);
           const Vector reduced_result = pullback(physical_result);
@@ -1545,8 +1514,7 @@ namespace nmopt::compiler::v1::detail
         {
           Vector basis(size);
           basis[column] = 1.0;
-          Vector physical_column(state_dof_handler_.n_dofs());
-          reconstruction_.vmult(physical_column, basis);
+          const Vector physical_column = state_coordinates_.embed(basis);
           Vector physical_result(state_dof_handler_.n_dofs());
           physical_system_matrix_.vmult(physical_result, physical_column);
           const Vector reduced_result = pullback(physical_result);
@@ -1559,7 +1527,7 @@ namespace nmopt::compiler::v1::detail
     void
     build_reduced_control_coupling()
     {
-      const auto state_size = independent_state_dofs_.size();
+      const auto state_size = state_coordinates_.independent_dimension();
       const auto control_size = control_dof_handler_.n_dofs();
       dealii::DynamicSparsityPattern dsp(state_size, control_size);
       for (std::size_t column = 0; column < control_size; ++column)
@@ -1591,32 +1559,19 @@ namespace nmopt::compiler::v1::detail
     Vector
     reconstruct(const Vector &independent_state) const
     {
-      contract::require(independent_state.size() == independent_state_dofs_.size(),
-                        "State reconstruction received incompatible coordinates");
-      Vector physical(state_dof_handler_.n_dofs());
-      reconstruction_.vmult(physical, independent_state);
-      physical.add(1.0, lifting_);
-      return physical;
+      return state_coordinates_.reconstruct(independent_state);
     }
 
     Vector
     embed_tangent(const Vector &independent_state) const
     {
-      contract::require(independent_state.size() == independent_state_dofs_.size(),
-                        "State tangent has incompatible independent coordinates");
-      Vector physical(state_dof_handler_.n_dofs());
-      reconstruction_.vmult(physical, independent_state);
-      return physical;
+      return state_coordinates_.embed(independent_state);
     }
 
     Vector
     pullback(const Vector &physical_covector) const
     {
-      contract::require(physical_covector.size() == state_dof_handler_.n_dofs(),
-                        "State pullback received an incompatible physical covector");
-      Vector independent(independent_state_dofs_.size());
-      reconstruction_.Tvmult(independent, physical_covector);
-      return independent;
+      return state_coordinates_.pullback(physical_covector);
     }
 
     static contract::LinearSolveReport
@@ -1637,7 +1592,7 @@ namespace nmopt::compiler::v1::detail
     dealii::DoFHandler<dim> control_dof_handler_;
     dealii::AffineConstraints<double> homogeneous_constraints_;
     dealii::AffineConstraints<double> physical_constraints_;
-    std::vector<dealii::types::global_dof_index> independent_state_dofs_;
+    dealii_backend::IndependentStateCoordinates state_coordinates_;
 
     const double diffusion_;
     const double reaction_;
@@ -1652,10 +1607,6 @@ namespace nmopt::compiler::v1::detail
     const std::vector<std::vector<double>> point_sensor_coordinates_;
     const bool uses_point_sensor_;
     const std::set<dealii::types::boundary_id> robin_boundary_ids_;
-
-    dealii::SparsityPattern reconstruction_sparsity_;
-    dealii::SparseMatrix<double> reconstruction_;
-    Vector lifting_;
 
     dealii::SparsityPattern physical_state_sparsity_;
     dealii::SparsityPattern physical_control_sparsity_;

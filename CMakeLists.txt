@@ -122,6 +122,10 @@ if(BUILD_TESTING)
     tests/contract/reduced_dto_contract.cc)
 
   nmopt_add_neutral_test(
+    nmopt_executable_model_contract_test
+    tests/contract/executable_model_contract.cc)
+
+  nmopt_add_neutral_test(
     nmopt_supplied_otd_contract_test
     tests/contract/supplied_otd_contract.cc)
 

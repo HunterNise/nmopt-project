@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nmopt/compiler/v1/native_application_view.hpp"
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/contract/quadratic_kkt.hpp"
@@ -960,9 +961,11 @@ namespace nmopt::compiler::v1
     CompilationManifest                      manifest_;
   };
 
-  // The compiler product contains only the backend-neutral executable ports.
-  // A concrete lowerer stays private to its compiler and supplies the model,
-  // metric, optional constraint, and formulation services below.
+  // The compiler product contains the backend-neutral executable ports plus
+  // an optional compiler-path native application view. A concrete lowerer
+  // stays private to its compiler and supplies the model, metric, optional
+  // constraint, formulation services, and explicitly typed application seam
+  // below; the native view is not part of ExecutableModelT.
   template <typename Backend>
   class CompiledProblemT final
   {
@@ -972,6 +975,7 @@ namespace nmopt::compiler::v1
     using Constraint = contract::ConstraintT<Backend>;
     using ReducedHessian = contract::ReducedHessianT<Backend>;
     using BoxData = CompiledCellwiseBoxDataT<Backend>;
+    using NativeApplicationView = NativeApplicationViewT<Backend>;
 
     CompiledProblemT(std::shared_ptr<const Model>             executable,
                      std::shared_ptr<const Metric>            metric,
@@ -980,8 +984,11 @@ namespace nmopt::compiler::v1
                      CompilationManifest                       manifest,
                      std::shared_ptr<const void>               lifetime_owner = {},
                      std::shared_ptr<const ReducedHessian>     reduced_hessian = {},
-                     std::shared_ptr<const BoxData>            box_data = {})
+                     std::shared_ptr<const BoxData>            box_data = {},
+                     std::shared_ptr<const NativeApplicationView>
+                       native_application_view = {})
       : executable_(std::move(executable))
+      , native_application_view_(std::move(native_application_view))
       , metric_(std::move(metric))
       , constraint_(std::move(constraint))
       , solvers_(std::move(solvers))
@@ -1039,6 +1046,12 @@ namespace nmopt::compiler::v1
       return *executable_;
     }
 
+    const NativeApplicationView *
+    native_application_view() const noexcept
+    {
+      return native_application_view_ ? native_application_view_.get() : nullptr;
+    }
+
     const Metric &
     metric() const
     {
@@ -1087,6 +1100,7 @@ namespace nmopt::compiler::v1
 
   private:
     std::shared_ptr<const Model>           executable_;
+    std::shared_ptr<const NativeApplicationView> native_application_view_;
     std::shared_ptr<const Metric>          metric_;
     std::shared_ptr<const Constraint>      constraint_;
     contract::StateAdjointSolversT<Backend> solvers_;

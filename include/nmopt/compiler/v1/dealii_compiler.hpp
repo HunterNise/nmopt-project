@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <iomanip>
 #include <limits>
 #include <memory>
@@ -1412,6 +1413,8 @@ namespace nmopt::compiler::v1
       std::shared_ptr<const CompiledCellwiseBoxDataT<Backend>> box_data;
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
+      std::shared_ptr<const NativeApplicationViewT<Backend>>
+        native_application_view;
       std::shared_ptr<const contract::ReducedHessianT<Backend>> reduced_hessian;
       std::shared_ptr<const contract::SuppliedOTDSystemT<Backend>>
         supplied_otd_system;
@@ -1513,6 +1516,8 @@ namespace nmopt::compiler::v1
                                                          state_rhs,
                                                          solve_policy);
             }};
+          native_application_view =
+            make_neumann_native_application_view<dim>(boundary, data);
           executable = boundary;
         }
       else if (uses_dirichlet_control)
@@ -1622,6 +1627,8 @@ namespace nmopt::compiler::v1
                                                            state_rhs,
                                                            solve_policy);
             }};
+          native_application_view =
+            make_volume_native_application_view<dim>(h1_control, data);
           executable = h1_control;
         }
       else if (uses_coefficient_identification)
@@ -1762,6 +1769,8 @@ namespace nmopt::compiler::v1
                                                        state_rhs,
                                                        solve_policy);
             }};
+          native_application_view =
+            make_volume_native_application_view<dim>(direct, data);
           executable = direct;
           if (uses_supplied_otd)
             supplied_otd_system = std::make_shared<
@@ -1882,7 +1891,8 @@ namespace nmopt::compiler::v1
           manifest,
           std::move(lifetime_owner),
           std::move(reduced_hessian),
-          std::move(box_data));
+          std::move(box_data),
+          std::move(native_application_view));
       return result;
     }
 
@@ -5175,6 +5185,90 @@ namespace nmopt::compiler::v1
               policy.absolute_tolerance,
               std::move(nullspace_policy),
               {}};
+    }
+
+    template <int dim, typename Model>
+    static std::shared_ptr<const NativeApplicationViewT<
+      dealii_backend::SerialBackend>>
+    make_volume_native_application_view(
+      const std::shared_ptr<Model> &model,
+      const DealiiDataBindings<dim> &data)
+    {
+      using Backend = dealii_backend::SerialBackend;
+      using View = NativeApplicationViewT<Backend>;
+      using Primal = contract::PrimalBlockT<Backend>;
+
+      contract::require(static_cast<bool>(model),
+                        "Volume native application view needs a model");
+      const auto *const forcing = &data.forcing;
+      const auto *const desired_state = &data.desired_state;
+      typename View::OutputAction output =
+        [model, forcing, desired_state](const std::filesystem::path &directory,
+                                        const Primal &state,
+                                        const Primal &control,
+                                        const Primal &adjoint,
+                                        const Primal *) {
+          model->write_native_output(directory,
+                                     state,
+                                     control,
+                                     adjoint,
+                                     forcing,
+                                     desired_state);
+        };
+      const typename View::Dimensions dimensions{
+        model->physical_state_dimension(),
+        model->independent_state_dimension(),
+        model->physical_control_dimension(),
+        model->independent_control_dimension(),
+        model->physical_state_dimension()};
+      return std::make_shared<const View>(std::move(dimensions),
+                                          std::move(output));
+    }
+
+    template <int dim>
+    static std::shared_ptr<const NativeApplicationViewT<
+      dealii_backend::SerialBackend>>
+    make_neumann_native_application_view(
+      const std::shared_ptr<detail::NeumannBoundaryControlModel<dim>> &model,
+      const DealiiDataBindings<dim> &                                     data)
+    {
+      using Backend = dealii_backend::SerialBackend;
+      using View = NativeApplicationViewT<Backend>;
+      using Primal = contract::PrimalBlockT<Backend>;
+
+      contract::require(static_cast<bool>(model),
+                        "Neumann native application view needs a model");
+      const auto *const forcing = &data.forcing;
+      const auto *const desired_state = &data.desired_state;
+      typename View::OutputAction output =
+        [model, forcing, desired_state](const std::filesystem::path &directory,
+                                        const Primal &state,
+                                        const Primal &control,
+                                        const Primal &adjoint,
+                                        const Primal *uncontrolled_state) {
+          model->write_native_output(directory,
+                                     state,
+                                     control,
+                                     adjoint,
+                                     uncontrolled_state,
+                                     forcing,
+                                     desired_state);
+        };
+      typename View::ObjectiveComponentsAction objective_components =
+        [model](const Primal &full_point) {
+          const auto components = model->objective_components(full_point);
+          return typename View::ObjectiveComponents{
+            components.state_tracking, components.control_regularisation};
+        };
+      const typename View::Dimensions dimensions{
+        model->physical_state_dimension(),
+        model->independent_state_dimension(),
+        model->physical_control_dimension(),
+        model->independent_control_dimension(),
+        model->realized_observation_dimension()};
+      return std::make_shared<const View>(std::move(dimensions),
+                                          std::move(output),
+                                          std::move(objective_components));
     }
 
     template <int dim>

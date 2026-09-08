@@ -355,6 +355,8 @@ namespace
                              const std::string &framework_revision)
   {
     const auto &manifest = evidence.envelope.compilation_manifest();
+    const auto &decision = manifest.resolved_decision;
+    const auto &compatibility = decision.compatibility;
     const auto &environment = evidence.envelope.environment();
     const auto algorithm_name = [](const auto algorithm) {
       switch (algorithm)
@@ -389,9 +391,9 @@ namespace
       "provenance.recipe_revision",
       "application-chapter6@" + framework_revision});
     evidence.fields.push_back({"provenance.mesh_provenance",
-                               manifest.mesh_record.provenance});
+                               decision.mesh_record.provenance});
     evidence.fields.push_back({"provenance.mesh_structural_identity",
-                               manifest.mesh_record.structural_identity});
+                               decision.mesh_record.structural_identity});
     evidence.fields.push_back({"provenance.compiler", environment.compiler});
     evidence.fields.push_back({"provenance.compiler_version",
                                environment.compiler_version});
@@ -405,26 +407,26 @@ namespace
     evidence.fields.push_back({"manifest.schema_version",
                                std::to_string(manifest.schema_version)});
     evidence.fields.push_back({"manifest.semantic_problem_id",
-                               manifest.semantic_problem_id});
-    evidence.fields.push_back({"manifest.compiler_id", manifest.compiler_id});
-    evidence.fields.push_back({"manifest.backend", manifest.backend});
-    evidence.fields.push_back({"manifest.execution", manifest.execution});
-    evidence.fields.push_back({"manifest.state_space", manifest.state_space});
+                               decision.semantic_problem_id});
+    evidence.fields.push_back({"manifest.compiler_id", compatibility.compiler_id});
+    evidence.fields.push_back({"manifest.backend", compatibility.backend});
+    evidence.fields.push_back({"manifest.execution", compatibility.execution});
+    evidence.fields.push_back({"manifest.state_space", compatibility.state_space});
     evidence.fields.push_back({"manifest.control_space",
-                               manifest.control_space});
+                               compatibility.control_space});
     evidence.fields.push_back({"manifest.mesh_dimension",
-                               std::to_string(manifest.mesh_record.dimension)});
+                               std::to_string(decision.mesh_record.dimension)});
     evidence.fields.push_back({"manifest.active_cells",
-                               std::to_string(manifest.mesh_record.active_cells)});
+                               std::to_string(decision.mesh_record.active_cells)});
     evidence.fields.push_back({"manifest.space_count",
-                               std::to_string(manifest.spaces.size())});
+                               std::to_string(decision.spaces.size())});
     evidence.fields.push_back({"manifest.binding_count",
-                               std::to_string(manifest.bindings.size())});
+                               std::to_string(decision.bindings.size())});
     evidence.fields.push_back({"manifest.realized_space_count",
-                               std::to_string(manifest.realized_spaces.size())});
+                               std::to_string(decision.realized_spaces.size())});
     evidence.fields.push_back({"manifest.realized_map_count",
-                               std::to_string(manifest.realized_maps.size())});
-    for (const auto &space : manifest.spaces)
+                               std::to_string(decision.realized_maps.size())});
+    for (const auto &space : decision.spaces)
       {
         const auto prefix = "manifest.space." + space.semantic_id;
         evidence.fields.push_back(
@@ -435,10 +437,10 @@ namespace
           {prefix + ".finite_element", space.finite_element});
         evidence.fields.push_back({prefix + ".region", space.region_id});
       }
-    add_solve_policy("manifest.state_solve", manifest.state_solve_record);
-    add_solve_policy("manifest.adjoint_solve", manifest.adjoint_solve_record);
+    add_solve_policy("manifest.state_solve", decision.state_solve_record);
+    add_solve_policy("manifest.adjoint_solve", decision.adjoint_solve_record);
     add_solve_policy("manifest.control_metric_solve",
-                     manifest.metric_record.solve_policy);
+                     decision.metric_record.solve_policy);
     evidence.fields.push_back({
       "solver.final_objective",
       b1_number(evidence.envelope.report().final_evaluation.objective_value)});
@@ -575,6 +577,8 @@ namespace
     const auto case_slug = nmopt::application::chapter6::b2_case_name(
       scenario.problem.observation_region, scenario.problem.target_profile);
     const auto &manifest = evidence.envelope.compilation_manifest();
+    const auto &decision = manifest.resolved_decision;
+    const auto &compatibility = decision.compatibility;
     const auto &volume_observation = *scenario.compile.volume_observation;
     const std::string volume_observation_target =
       nmopt::application::chapter6::
@@ -586,9 +590,9 @@ namespace
       nmopt::application::selected_scalar_function_definition(
         scenario.problem.observation_region_catalog, "B2 observation catalog");
     nmopt::contract::require(
-      manifest.observation_realisation.find(
+      compatibility.observation_realisation.find(
         "target=" + volume_observation_target) != std::string::npos &&
-        manifest.observation_realisation.find("(" + quadrature_order + ")") !=
+        compatibility.observation_realisation.find("(" + quadrature_order + ")") !=
           std::string::npos,
       "B2 artifact manifest does not match the declared volume observation");
     evidence.fields.push_back({"benchmark.graetz_case", case_slug});
@@ -682,7 +686,7 @@ namespace
                                scenario.problem.data.conservative_transport_provenance});
     evidence.fields.push_back({"provenance.observation_case", case_slug});
     evidence.fields.push_back({"manifest.control_metric_realisation",
-                               manifest.metric_record.realisation_id});
+                               decision.metric_record.realisation_id});
     evidence.fields.push_back(
       {"manifest.volume_observation_quadrature_order", quadrature_order});
     evidence.fields.push_back(
@@ -690,14 +694,14 @@ namespace
        volume_observation_target});
     evidence.fields.push_back(
       {"manifest.volume_observation_realisation",
-       manifest.observation_realisation});
-    if (manifest.boundary_realisation)
+       compatibility.observation_realisation});
+    if (decision.boundary_realisation)
       {
         const auto boundary_form =
-          manifest.boundary_realisation->transport_boundary_form ==
+          decision.boundary_realisation->transport_boundary_form ==
               nmopt::semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport
             ? "ordinary-normal-minus-transport"
-            : manifest.boundary_realisation->conormal_form ==
+            : decision.boundary_realisation->conormal_form ==
                 nmopt::semantic::v1::ConormalForm::transport_minus_diffusion
               ? "transport-minus-diffusion-conormal"
               : "total-conormal";
@@ -706,7 +710,7 @@ namespace
         evidence.fields.push_back({"manifest.transport_boundary_form",
                                    boundary_form});
       }
-    for (const auto &region : manifest.resolved_decision.regions)
+    for (const auto &region : decision.regions)
       if (!region.boundary_ids.empty())
         evidence.fields.push_back(
           {"manifest.region." + region.semantic_id + ".boundary_ids",

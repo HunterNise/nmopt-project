@@ -95,10 +95,11 @@ namespace nmopt::compiler::v1
     bool                            required = true;
   };
 
-  // The closed compiler request carries the target family selected from the
-  // validated graph.  These are compiler-layer choices, not semantic node
-  // kinds; keeping them here prevents later lowering stages from rebuilding
-  // the same cross-product from ProblemSpec predicates.
+  // The closed compiler request carries the branch choice and independently
+  // meaningful realization facts selected from the validated graph.  These
+  // are compiler-layer choices, not semantic node kinds; keeping them here
+  // prevents later lowering stages from rebuilding the same cross-product
+  // from ProblemSpec predicates.
   enum class ResolvedTargetFamily
   {
     unresolved,
@@ -144,7 +145,6 @@ namespace nmopt::compiler::v1
     bool                                   uses_dirichlet_control = false;
     bool                                   uses_l2_dirichlet_control = false;
     bool                                   uses_normalized_dirichlet_laplace = false;
-    bool                                   uses_normalized_laplacian = false;
     bool                                   uses_partial_dirichlet_control = false;
     bool                                   uses_neumann_boundary_control = false;
     bool                                   uses_neumann_convection = false;
@@ -152,7 +152,6 @@ namespace nmopt::compiler::v1
     bool                                   uses_mean_zero_gauge = false;
     bool                                   uses_h1_control_regularisation_loss = false;
     bool                                   uses_hhalf_control_regularisation_loss = false;
-    bool                                   uses_h1_control_regularisation = false;
     bool                                   uses_h1_control_metric = false;
     bool                                   uses_hhalf_control_metric = false;
     bool                                   uses_hminus1_control_metric = false;
@@ -163,11 +162,7 @@ namespace nmopt::compiler::v1
     bool                                   uses_weighted_boundary_trace = false;
     bool                                   uses_point_sensor = false;
     bool                                   uses_normal_flux = false;
-    bool                                   uses_h1_dirichlet_control = false;
-    bool                                   uses_hhalf_dirichlet_registration = false;
-    bool                                   uses_h1_tracking_hhalf_dirichlet_registration = false;
     bool                                   uses_subdomain_observation = false;
-    bool                                   uses_assembled_v1_target = false;
     std::string                            tracking_region_id;
     std::string                            robin_boundary_region_id;
     std::string                            transport_outflow_region_id;
@@ -207,6 +202,53 @@ namespace nmopt::compiler::v1
     std::optional<semantic::v1::H1TargetDataMembershipSelection>
       h1_target_data_membership_selection;
     std::string continuous_control_boundary_region_id;
+
+    bool
+    uses_normalized_laplacian() const
+    {
+      return uses_l2_dirichlet_control || uses_normalized_dirichlet_laplace;
+    }
+
+    bool
+    uses_h1_control_regularisation() const
+    {
+      return uses_h1_control_regularisation_loss && !uses_dirichlet_control;
+    }
+
+    bool
+    uses_h1_dirichlet_control() const
+    {
+      return dirichlet_registration ==
+             ResolvedDirichletRegistration::h1_control;
+    }
+
+    bool
+    uses_hhalf_dirichlet_registration() const
+    {
+      return dirichlet_registration ==
+               ResolvedDirichletRegistration::hhalf_control ||
+             dirichlet_registration ==
+               ResolvedDirichletRegistration::h1_tracking_hhalf_control;
+    }
+
+    bool
+    uses_h1_tracking_hhalf_dirichlet_registration() const
+    {
+      return dirichlet_registration ==
+             ResolvedDirichletRegistration::h1_tracking_hhalf_control;
+    }
+
+    bool
+    uses_assembled_v1_target() const
+    {
+      return !uses_neumann_boundary_control &&
+             !uses_h1_control_regularisation() &&
+             !uses_homogeneous_dirichlet_continuous_control &&
+             !uses_coefficient_identification && !uses_dirichlet_control &&
+             (uses_fixed_reconstruction || uses_subdomain_observation ||
+              uses_general_scalar || uses_h1_state_observation ||
+              uses_point_sensor || uses_normal_flux);
+    }
   };
 
   // C5.6 consumes only the conservative transport coefficient in addition

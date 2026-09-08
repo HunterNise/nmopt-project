@@ -665,7 +665,7 @@ namespace nmopt::compiler::v1
       const bool uses_dirichlet_control = request.uses_dirichlet_control;
       const bool uses_l2_dirichlet_control =
         request.uses_l2_dirichlet_control;
-      const bool uses_normalized_laplacian = request.uses_normalized_laplacian;
+      const bool uses_normalized_laplacian = request.uses_normalized_laplacian();
       const bool uses_partial_dirichlet_control =
         request.uses_partial_dirichlet_control;
       const bool uses_neumann_boundary_control =
@@ -679,7 +679,7 @@ namespace nmopt::compiler::v1
         effective_volume_observation_policy(policy);
       const bool uses_mean_zero_gauge = request.uses_mean_zero_gauge;
       const bool uses_h1_control_regularisation =
-        request.uses_h1_control_regularisation;
+        request.uses_h1_control_regularisation();
       const bool uses_h1_control_metric = request.uses_h1_control_metric;
       const bool uses_hhalf_control_metric = request.uses_hhalf_control_metric;
       const bool uses_hminus1_control_metric =
@@ -699,11 +699,11 @@ namespace nmopt::compiler::v1
           semantic::v1::FormulationKind::all_at_once &&
         specification.formulation.provenance ==
           semantic::v1::FormulationProvenance::supplied_otd;
-      const bool uses_h1_dirichlet_control = request.uses_h1_dirichlet_control;
+      const bool uses_h1_dirichlet_control = request.uses_h1_dirichlet_control();
       const bool uses_hhalf_dirichlet_registration =
-        request.uses_hhalf_dirichlet_registration;
+        request.uses_hhalf_dirichlet_registration();
       const bool uses_h1_tracking_hhalf_dirichlet_registration =
-        request.uses_h1_tracking_hhalf_dirichlet_registration;
+        request.uses_h1_tracking_hhalf_dirichlet_registration();
       const bool has_active_cells = triangulation.n_active_cells() != 0;
       const bool uses_hypercube_reference_cells =
         has_active_cells && triangulation.all_reference_cells_are_hyper_cube();
@@ -932,7 +932,7 @@ namespace nmopt::compiler::v1
           : find_region(specification,
                         request.continuous_control_boundary_region_id);
       const bool uses_assembled_v1_target =
-        request.uses_assembled_v1_target;
+        request.uses_assembled_v1_target();
       std::optional<ScalarLoweringPlan> scalar_plan;
       if (uses_assembled_v1_target)
         {
@@ -1193,12 +1193,10 @@ namespace nmopt::compiler::v1
       // Resolve the target and all semantic component choices before any
       // backend model is constructed. The executable consumes the same
       // closed request and scalar plan captured by this decision.
-      const CompiledTargetKind target_kind =
-        target_kind_from_request(request);
       const ResolvedCompilationDecision resolved_decision =
         make_resolved_decision(specification,
                                policy,
-                               target_kind,
+                               request.target_family,
                                uses_simplex_reference_cells,
                                request,
                                scalar_plan ? &*scalar_plan : nullptr,
@@ -1842,44 +1840,12 @@ namespace nmopt::compiler::v1
     }
 
   private:
-    enum class DirichletControlRegistration
-    {
-      complete_nodal_l2,
-      partial_nodal_l2,
-      l2_transposition,
-      hhalf_control,
-      h1_tracking_hhalf_control,
-      h1_control
-    };
-
     enum class ConstraintRealisation
     {
       none,
       cellwise_l2,
       cellwise_parameter_l2,
       facewise_l2
-    };
-
-    enum class CompiledTargetKind
-    {
-      direct_volume,
-      assembled_volume,
-      neumann_boundary,
-      weighted_boundary_trace,
-      pure_neumann,
-      dirichlet_control,
-      l2_dirichlet_transposition,
-      hhalf_dirichlet_control,
-      h1_tracking_hhalf_dirichlet_control,
-      h1_dirichlet_control,
-      h1_control_l2_metric,
-      h1_control_h1_metric,
-      hminus1_control_metric,
-      continuous_control_l2_metric,
-      coefficient_identification,
-      general_scalar_robin,
-      point_sensor,
-      normal_flux
     };
 
     static const semantic::v1::RegionSpec *
@@ -2378,28 +2344,6 @@ namespace nmopt::compiler::v1
       return transformation != nullptr && !transformation->fixed_data_id.empty();
     }
 
-    static CompiledTargetKind
-    target_kind_for_dirichlet_registration(
-      const DirichletControlRegistration registration)
-    {
-      switch (registration)
-        {
-          case DirichletControlRegistration::complete_nodal_l2:
-          case DirichletControlRegistration::partial_nodal_l2:
-            return CompiledTargetKind::dirichlet_control;
-          case DirichletControlRegistration::l2_transposition:
-            return CompiledTargetKind::l2_dirichlet_transposition;
-          case DirichletControlRegistration::hhalf_control:
-            return CompiledTargetKind::hhalf_dirichlet_control;
-          case DirichletControlRegistration::h1_tracking_hhalf_control:
-            return CompiledTargetKind::h1_tracking_hhalf_dirichlet_control;
-          case DirichletControlRegistration::h1_control:
-            return CompiledTargetKind::h1_dirichlet_control;
-        }
-      contract::require(false, "Unknown Dirichlet control registration");
-      return CompiledTargetKind::dirichlet_control;
-    }
-
     static bool
     has_residual_signature(
       const semantic::v1::ResolvedProblemView &resolved,
@@ -2539,7 +2483,7 @@ namespace nmopt::compiler::v1
                semantic::v1::RegionKind::boundary;
     }
 
-    static std::optional<DirichletControlRegistration>
+    static std::optional<ResolvedDirichletRegistration>
     resolve_dirichlet_control_registration(
       const semantic::v1::ResolvedProblemView &resolved,
       const ResolvedCompilationRequest &        request)
@@ -2724,7 +2668,7 @@ namespace nmopt::compiler::v1
                                                    *control_observation,
                                                    *control))
             return std::nullopt;
-          return DirichletControlRegistration::l2_transposition;
+          return ResolvedDirichletRegistration::l2_transposition;
         }
 
       if (specification.transformations.size() != 1 ||
@@ -2777,8 +2721,8 @@ namespace nmopt::compiler::v1
           control_loss->kind ==
             semantic::v1::LossKind::quadratic_control_regularisation &&
           metric->kind == semantic::v1::MetricKind::l2)
-        return partial ? DirichletControlRegistration::partial_nodal_l2
-                       : DirichletControlRegistration::complete_nodal_l2;
+        return partial ? ResolvedDirichletRegistration::partial_nodal_l2
+                       : ResolvedDirichletRegistration::complete_nodal_l2;
 
       if (!normalized || partial)
         return std::nullopt;
@@ -2795,7 +2739,7 @@ namespace nmopt::compiler::v1
                                                  *metric,
                                                  *control,
                                                  *state))
-        return DirichletControlRegistration::hhalf_control;
+        return ResolvedDirichletRegistration::hhalf_control;
 
       if (control_space->topology == semantic::v1::SpaceTopology::hhalf &&
           control_observation_space->topology ==
@@ -2822,7 +2766,7 @@ namespace nmopt::compiler::v1
           request.h1_target_data_membership_selection->trace_realisation ==
             semantic::v1::H1TargetDataTraceRealisation::
               zero_trace_on_fixed_boundary)
-        return DirichletControlRegistration::h1_tracking_hhalf_control;
+        return ResolvedDirichletRegistration::h1_tracking_hhalf_control;
 
       if (control_space->topology == semantic::v1::SpaceTopology::h1 &&
           control_observation_space->topology ==
@@ -2836,118 +2780,20 @@ namespace nmopt::compiler::v1
                                                   *metric,
                                                   *control,
                                                   *controlled_region))
-        return DirichletControlRegistration::h1_control;
+        return ResolvedDirichletRegistration::h1_control;
 
       return std::nullopt;
-    }
-
-    static ResolvedDirichletRegistration
-    resolved_dirichlet_registration(
-      const std::optional<DirichletControlRegistration> &registration)
-    {
-      if (!registration)
-        return ResolvedDirichletRegistration::none;
-      switch (*registration)
-        {
-          case DirichletControlRegistration::complete_nodal_l2:
-            return ResolvedDirichletRegistration::complete_nodal_l2;
-          case DirichletControlRegistration::partial_nodal_l2:
-            return ResolvedDirichletRegistration::partial_nodal_l2;
-          case DirichletControlRegistration::l2_transposition:
-            return ResolvedDirichletRegistration::l2_transposition;
-          case DirichletControlRegistration::hhalf_control:
-            return ResolvedDirichletRegistration::hhalf_control;
-          case DirichletControlRegistration::h1_tracking_hhalf_control:
-            return ResolvedDirichletRegistration::h1_tracking_hhalf_control;
-          case DirichletControlRegistration::h1_control:
-            return ResolvedDirichletRegistration::h1_control;
-        }
-      contract::require(false, "Unknown resolved Dirichlet registration");
-      return ResolvedDirichletRegistration::none;
-    }
-
-    static std::optional<DirichletControlRegistration>
-    dirichlet_registration_from_request(
-      const ResolvedCompilationRequest &request)
-    {
-      switch (request.dirichlet_registration)
-        {
-          case ResolvedDirichletRegistration::complete_nodal_l2:
-            return DirichletControlRegistration::complete_nodal_l2;
-          case ResolvedDirichletRegistration::partial_nodal_l2:
-            return DirichletControlRegistration::partial_nodal_l2;
-          case ResolvedDirichletRegistration::l2_transposition:
-            return DirichletControlRegistration::l2_transposition;
-          case ResolvedDirichletRegistration::hhalf_control:
-            return DirichletControlRegistration::hhalf_control;
-          case ResolvedDirichletRegistration::h1_tracking_hhalf_control:
-            return DirichletControlRegistration::h1_tracking_hhalf_control;
-          case ResolvedDirichletRegistration::h1_control:
-            return DirichletControlRegistration::h1_control;
-          case ResolvedDirichletRegistration::none:
-            return std::nullopt;
-        }
-      contract::require(false, "Unknown request Dirichlet registration");
-      return std::nullopt;
-    }
-
-    static CompiledTargetKind
-    target_kind_from_request(const ResolvedCompilationRequest &request)
-    {
-      switch (request.target_family)
-        {
-          case ResolvedTargetFamily::direct_volume:
-            return CompiledTargetKind::direct_volume;
-          case ResolvedTargetFamily::assembled_volume:
-            return CompiledTargetKind::assembled_volume;
-          case ResolvedTargetFamily::neumann_boundary:
-            return CompiledTargetKind::neumann_boundary;
-          case ResolvedTargetFamily::weighted_boundary_trace:
-            return CompiledTargetKind::weighted_boundary_trace;
-          case ResolvedTargetFamily::pure_neumann:
-            return CompiledTargetKind::pure_neumann;
-          case ResolvedTargetFamily::dirichlet_control:
-            return CompiledTargetKind::dirichlet_control;
-          case ResolvedTargetFamily::l2_dirichlet_transposition:
-            return CompiledTargetKind::l2_dirichlet_transposition;
-          case ResolvedTargetFamily::hhalf_dirichlet_control:
-            return CompiledTargetKind::hhalf_dirichlet_control;
-          case ResolvedTargetFamily::h1_tracking_hhalf_dirichlet_control:
-            return CompiledTargetKind::h1_tracking_hhalf_dirichlet_control;
-          case ResolvedTargetFamily::h1_dirichlet_control:
-            return CompiledTargetKind::h1_dirichlet_control;
-          case ResolvedTargetFamily::h1_control_l2_metric:
-            return CompiledTargetKind::h1_control_l2_metric;
-          case ResolvedTargetFamily::h1_control_h1_metric:
-            return CompiledTargetKind::h1_control_h1_metric;
-          case ResolvedTargetFamily::hminus1_control_metric:
-            return CompiledTargetKind::hminus1_control_metric;
-          case ResolvedTargetFamily::continuous_control_l2_metric:
-            return CompiledTargetKind::continuous_control_l2_metric;
-          case ResolvedTargetFamily::coefficient_identification:
-            return CompiledTargetKind::coefficient_identification;
-          case ResolvedTargetFamily::general_scalar_robin:
-            return CompiledTargetKind::general_scalar_robin;
-          case ResolvedTargetFamily::point_sensor:
-            return CompiledTargetKind::point_sensor;
-          case ResolvedTargetFamily::normal_flux:
-            return CompiledTargetKind::normal_flux;
-          case ResolvedTargetFamily::unresolved:
-            break;
-        }
-      contract::require(false, "The compiler request has no resolved target family");
-      return CompiledTargetKind::direct_volume;
     }
 
     static void
     close_compilation_request(
       const semantic::v1::ResolvedProblemView &resolved,
       ResolvedCompilationRequest &              request,
-      const std::optional<DirichletControlRegistration> &registration)
+      const std::optional<ResolvedDirichletRegistration> &registration)
     {
       const auto &specification = resolved.specification();
       request.dirichlet_registration =
-        resolved_dirichlet_registration(registration);
+        registration.value_or(ResolvedDirichletRegistration::none);
       request.uses_fixed_reconstruction =
         uses_fixed_dirichlet_reconstruction(specification);
       request.uses_dirichlet_control =
@@ -2956,9 +2802,6 @@ namespace nmopt::compiler::v1
         uses_l2_dirichlet_transposition(specification);
       request.uses_normalized_dirichlet_laplace =
         uses_normalized_dirichlet_laplace_control(specification);
-      request.uses_normalized_laplacian =
-        request.uses_l2_dirichlet_control ||
-        request.uses_normalized_dirichlet_laplace;
       request.uses_partial_dirichlet_control =
         uses_partial_dirichlet_control_lifting(specification);
       request.uses_neumann_boundary_control = uses_neumann_control(specification);
@@ -2969,9 +2812,6 @@ namespace nmopt::compiler::v1
         uses_h1_control_regularisation_loss(specification);
       request.uses_hhalf_control_regularisation_loss =
         uses_hhalf_control_regularisation_loss(specification);
-      request.uses_h1_control_regularisation =
-        request.uses_h1_control_regularisation_loss &&
-        !request.uses_dirichlet_control;
       request.uses_h1_control_metric = selects_h1_control_metric(specification);
       request.uses_hhalf_control_metric =
         selects_hhalf_control_metric(specification);
@@ -2986,15 +2826,6 @@ namespace nmopt::compiler::v1
       request.uses_weighted_boundary_trace = has_weighted_boundary_trace(specification);
       request.uses_point_sensor = has_point_sensor_observation(specification);
       request.uses_normal_flux = has_normal_flux_observation(specification);
-      request.uses_h1_dirichlet_control =
-        request.dirichlet_registration == ResolvedDirichletRegistration::h1_control;
-      request.uses_hhalf_dirichlet_registration =
-        request.dirichlet_registration == ResolvedDirichletRegistration::hhalf_control ||
-        request.dirichlet_registration ==
-          ResolvedDirichletRegistration::h1_tracking_hhalf_control;
-      request.uses_h1_tracking_hhalf_dirichlet_registration =
-        request.dirichlet_registration ==
-        ResolvedDirichletRegistration::h1_tracking_hhalf_control;
 
       const auto *tracking_region = selected_tracking_region(specification);
       const auto *robin_region = selected_robin_boundary_region(specification);
@@ -3061,16 +2892,6 @@ namespace nmopt::compiler::v1
           request.partial_control_boundary_region_id;
       request.uses_subdomain_observation =
         tracking_region != nullptr && !tracking_region->is_full_domain;
-      request.uses_assembled_v1_target =
-        !request.uses_neumann_boundary_control &&
-        !request.uses_h1_control_regularisation &&
-        !request.uses_homogeneous_dirichlet_continuous_control &&
-        !request.uses_coefficient_identification &&
-        !request.uses_dirichlet_control &&
-        (request.uses_fixed_reconstruction ||
-         request.uses_subdomain_observation || request.uses_general_scalar ||
-         request.uses_h1_state_observation || request.uses_point_sensor ||
-         request.uses_normal_flux);
 
       if (request.uses_mean_zero_gauge)
         request.target_family = ResolvedTargetFamily::pure_neumann;
@@ -3108,7 +2929,7 @@ namespace nmopt::compiler::v1
         request.target_family = ResolvedTargetFamily::coefficient_identification;
       else if (request.uses_hminus1_control_metric)
         request.target_family = ResolvedTargetFamily::hminus1_control_metric;
-      else if (request.uses_h1_control_regularisation)
+      else if (request.uses_h1_control_regularisation())
         request.target_family = request.uses_h1_control_metric
                                   ? ResolvedTargetFamily::h1_control_h1_metric
                                   : ResolvedTargetFamily::h1_control_l2_metric;
@@ -3119,7 +2940,7 @@ namespace nmopt::compiler::v1
         request.target_family = ResolvedTargetFamily::point_sensor;
       else if (request.uses_normal_flux)
         request.target_family = ResolvedTargetFamily::normal_flux;
-      else if (request.uses_assembled_v1_target)
+      else if (request.uses_assembled_v1_target())
         request.target_family = request.uses_general_scalar
                                   ? ResolvedTargetFamily::general_scalar_robin
                                   : ResolvedTargetFamily::assembled_volume;
@@ -4025,7 +3846,7 @@ namespace nmopt::compiler::v1
       const bool normalized_dirichlet_laplace =
         request.uses_normalized_dirichlet_laplace;
       const bool normalized_laplacian =
-        request.uses_normalized_laplacian;
+        request.uses_normalized_laplacian();
       const bool dirichlet_control =
         request.uses_dirichlet_control;
       const bool coefficient_identification =
@@ -4761,7 +4582,7 @@ namespace nmopt::compiler::v1
 
       const bool canonical_scalar_dto =
         specification.id == "scalar_diffusion_reaction_fixed_dirichlet" &&
-        request.uses_assembled_v1_target &&
+        request.uses_assembled_v1_target() &&
         specification.formulation.kind ==
           semantic::v1::FormulationKind::reduced_dto &&
         specification.formulation.provenance ==
@@ -5042,66 +4863,60 @@ namespace nmopt::compiler::v1
         box_data.token());
     }
 
-    static bool
-    uses_neumann_target(const CompiledTargetKind target)
-    {
-      return target == CompiledTargetKind::neumann_boundary ||
-             target == CompiledTargetKind::weighted_boundary_trace ||
-             target == CompiledTargetKind::pure_neumann;
-    }
-
     static std::string
-    control_space_description(const CompiledTargetKind       target,
+    control_space_description(const ResolvedTargetFamily       target,
                               const DealiiDiscretisationPolicy &policy,
                               const bool uses_simplex_reference_cells = false,
                               const bool uses_continuous_neumann_trace = false,
-                              const std::optional<DirichletControlRegistration> &
+                              const std::optional<ResolvedDirichletRegistration> &
                                 registration = std::nullopt)
     {
       switch (target)
         {
-          case CompiledTargetKind::dirichlet_control:
+          case ResolvedTargetFamily::dirichlet_control:
             return registration.has_value() &&
                      *registration ==
-                       DirichletControlRegistration::partial_nodal_l2
+                       ResolvedDirichletRegistration::partial_nodal_l2
               ? "relative-interior nodal trace coefficients on the partial controlled boundary with fixed endpoint precedence"
               : "one shared nodal trace coefficient per state DoF on the complete controlled exterior boundary";
-          case CompiledTargetKind::l2_dirichlet_transposition:
+          case ResolvedTargetFamily::l2_dirichlet_transposition:
             return "conforming nodal trace FE subspace U_h=trace(V_h) of the continuous L2 boundary control";
-          case CompiledTargetKind::hhalf_dirichlet_control:
-          case CompiledTargetKind::h1_tracking_hhalf_dirichlet_control:
+          case ResolvedTargetFamily::hhalf_dirichlet_control:
+          case ResolvedTargetFamily::h1_tracking_hhalf_dirichlet_control:
             return "conforming nodal trace FE subspace U_h=trace(V_h) with the minimum-extension H1/2 geometry";
-          case CompiledTargetKind::h1_dirichlet_control:
+          case ResolvedTargetFamily::h1_dirichlet_control:
             return "conforming nodal trace FE subspace with boundary mass-plus-tangential-stiffness H1 geometry";
-          case CompiledTargetKind::neumann_boundary:
-          case CompiledTargetKind::weighted_boundary_trace:
-          case CompiledTargetKind::pure_neumann:
+          case ResolvedTargetFamily::neumann_boundary:
+          case ResolvedTargetFamily::weighted_boundary_trace:
+          case ResolvedTargetFamily::pure_neumann:
             return uses_continuous_neumann_trace
                      ? "continuous scalar degree-one nodal trace coefficients on the closure of the marked state boundary"
                      : "one facewise-constant coefficient per marked state boundary face";
-          case CompiledTargetKind::coefficient_identification:
+          case ResolvedTargetFamily::coefficient_identification:
             return "cellwise-constant positive diffusion parameter FE_DGQ(0) on the state mesh";
-          case CompiledTargetKind::h1_control_l2_metric:
-          case CompiledTargetKind::h1_control_h1_metric:
+          case ResolvedTargetFamily::h1_control_l2_metric:
+          case ResolvedTargetFamily::h1_control_h1_metric:
             return "continuous scalar " +
                    std::string(uses_simplex_reference_cells ? "FE_SimplexP("
                                                             : "FE_Q(") +
                    std::to_string(policy.state_degree) + ") on the state mesh";
-          case CompiledTargetKind::hminus1_control_metric:
-          case CompiledTargetKind::continuous_control_l2_metric:
+          case ResolvedTargetFamily::hminus1_control_metric:
+          case ResolvedTargetFamily::continuous_control_l2_metric:
             return "independent homogeneous-Dirichlet scalar " +
                    std::string(uses_simplex_reference_cells ? "FE_SimplexP("
                                                             : "FE_Q(") +
                    std::to_string(policy.state_degree) +
                    ") coefficients on the state mesh";
-          case CompiledTargetKind::direct_volume:
-          case CompiledTargetKind::assembled_volume:
-          case CompiledTargetKind::general_scalar_robin:
-          case CompiledTargetKind::point_sensor:
-          case CompiledTargetKind::normal_flux:
+          case ResolvedTargetFamily::direct_volume:
+          case ResolvedTargetFamily::assembled_volume:
+          case ResolvedTargetFamily::general_scalar_robin:
+          case ResolvedTargetFamily::point_sensor:
+          case ResolvedTargetFamily::normal_flux:
             return "FE_DGQ(0) on the state active-cell mesh";
+          case ResolvedTargetFamily::unresolved:
+            break;
         }
-      contract::require(false, "Unknown compiled target kind");
+      contract::require(false, "Unknown resolved lowering family");
       return {};
     }
 
@@ -5351,7 +5166,7 @@ namespace nmopt::compiler::v1
     static std::string
     compiled_space_finite_element(
       const semantic::v1::SpaceSpec &   space,
-      const CompiledTargetKind          target,
+      const ResolvedTargetFamily        target,
       const DealiiDiscretisationPolicy &policy,
       const bool uses_simplex_reference_cells,
       const bool uses_continuous_neumann_trace)
@@ -5561,23 +5376,23 @@ namespace nmopt::compiler::v1
     static std::vector<CompiledBindingRecord>
     make_resolved_binding_records(
       const semantic::v1::ProblemSpec &              specification,
-      const CompiledTargetKind                       target,
+      const ResolvedTargetFamily                    target,
       const ResolvedCompilationRequest &             request,
       const DealiiDataBindings<dim> &                data,
       const std::optional<CellwiseBoxDataBindings> & bounds,
       const std::optional<FacewiseBoxDataBindings> & facewise_bounds)
     {
       const bool uses_coefficient_identification =
-        target == CompiledTargetKind::coefficient_identification;
+        target == ResolvedTargetFamily::coefficient_identification;
       const bool uses_general_scalar =
-        target == CompiledTargetKind::general_scalar_robin;
+        target == ResolvedTargetFamily::general_scalar_robin;
       const bool uses_h1_state_observation =
         has_h1_state_observation(specification);
       const bool uses_point_sensor =
-        target == CompiledTargetKind::point_sensor ||
+        target == ResolvedTargetFamily::point_sensor ||
         has_point_sensor_observation(specification);
       const bool uses_normal_flux =
-        target == CompiledTargetKind::normal_flux ||
+        target == ResolvedTargetFamily::normal_flux ||
         has_normal_flux_observation(specification);
 
       const auto request_for = [&request](const std::string &semantic_id) {
@@ -5784,7 +5599,7 @@ namespace nmopt::compiler::v1
     }
 
     static std::string
-    target_id(const CompiledTargetKind target)
+    target_id(const ResolvedTargetFamily target)
     {
       return "compiled_target:" + std::to_string(static_cast<int>(target));
     }
@@ -5921,7 +5736,7 @@ namespace nmopt::compiler::v1
     static ResolvedCompilationDecision
     make_resolved_decision(const semantic::v1::ProblemSpec &specification,
                            const DealiiDiscretisationPolicy &policy,
-                           const CompiledTargetKind target,
+                           const ResolvedTargetFamily target,
                            const bool uses_simplex_reference_cells,
                            const ResolvedCompilationRequest &request,
                            const ScalarLoweringPlan *scalar_plan,
@@ -6434,15 +6249,19 @@ namespace nmopt::compiler::v1
           manifest.resolved_decision.supplied_otd_record =
             manifest.supplied_otd_record;
         }
-      const CompiledTargetKind target = target_kind_from_request(request);
-      const auto registration = dirichlet_registration_from_request(request);
+      const ResolvedTargetFamily target = request.target_family;
+      const auto registration = request.dirichlet_registration ==
+                                  ResolvedDirichletRegistration::none
+                                  ? std::optional<ResolvedDirichletRegistration>{}
+                                  : std::optional<ResolvedDirichletRegistration>{
+                                      request.dirichlet_registration};
       const bool uses_fixed_reconstruction = request.uses_fixed_reconstruction;
       const bool uses_hhalf_dirichlet_control =
         request.dirichlet_registration ==
         ResolvedDirichletRegistration::hhalf_control;
       const bool uses_h1_tracking_hhalf_dirichlet_control =
-        request.uses_h1_tracking_hhalf_dirichlet_registration;
-      const bool uses_h1_dirichlet_control = request.uses_h1_dirichlet_control;
+        request.uses_h1_tracking_hhalf_dirichlet_registration();
+      const bool uses_h1_dirichlet_control = request.uses_h1_dirichlet_control();
       const bool uses_section_5_11_dirichlet_control =
         uses_hhalf_dirichlet_control ||
         uses_h1_tracking_hhalf_dirichlet_control ||
@@ -6451,10 +6270,10 @@ namespace nmopt::compiler::v1
         request.uses_dirichlet_control;
       const bool uses_l2_dirichlet_control = request.uses_l2_dirichlet_control;
       const bool uses_normalized_dirichlet_control =
-        request.uses_normalized_laplacian;
+        request.uses_normalized_laplacian();
       const bool uses_partial_dirichlet_control =
         request.uses_partial_dirichlet_control;
-      const bool uses_assembled_v1_target = request.uses_assembled_v1_target;
+      const bool uses_assembled_v1_target = request.uses_assembled_v1_target();
       const bool uses_general_scalar = request.uses_general_scalar;
       const bool uses_h1_state_observation = request.uses_h1_state_observation;
       const bool uses_weighted_boundary_trace =

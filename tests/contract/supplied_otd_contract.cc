@@ -204,12 +204,12 @@ namespace
       auto system = std::make_shared<const System>(make_system(probe));
 
       nmopt::compiler::v1::CompilationManifest manifest;
-      manifest.formulation_record.kind =
+      manifest.resolved_decision.formulation_record.kind =
         nmopt::semantic::v1::FormulationKind::all_at_once;
-      manifest.formulation_record.provenance =
+      manifest.resolved_decision.formulation_record.provenance =
         nmopt::semantic::v1::FormulationProvenance::supplied_otd;
-      manifest.supplied_otd_record.present = true;
-      manifest.supplied_otd_record.declaration =
+      manifest.resolved_decision.supplied_otd_record.present = true;
+      manifest.resolved_decision.supplied_otd_record.declaration =
         nmopt::semantic::v1::SuppliedOTDDeclaration{};
 
       return std::make_shared<const nmopt::compiler::v1::CompiledSuppliedOTDProblemT<

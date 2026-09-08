@@ -817,8 +817,8 @@ namespace
                       "Continuous-control compilation rejected a simplex mesh");
     const auto &manifest = compilation.problem->manifest();
     const auto state_observation = std::find_if(
-      manifest.realized_maps.begin(),
-      manifest.realized_maps.end(),
+      manifest.resolved_decision.realized_maps.begin(),
+      manifest.resolved_decision.realized_maps.end(),
       [](const compiler::v1::CompiledRealizedMapRecord &map) {
         return map.semantic_id == "state_observation";
       });
@@ -831,7 +831,7 @@ namespace
         manifest.resolved_decision.compatibility.quadrature == "QGaussSimplex(3)" &&
         manifest.resolved_decision.compatibility.data_rule.find("QGaussSimplex(3) volume quadrature") !=
           std::string::npos &&
-        state_observation != manifest.realized_maps.end() &&
+        state_observation != manifest.resolved_decision.realized_maps.end() &&
         state_observation->realization_id ==
           "fe_simplex_p_coefficient_restriction" &&
         state_observation->output_layout.find("FE_SimplexP") !=
@@ -863,39 +863,15 @@ namespace
   {
     const auto &compatibility = manifest.resolved_decision.compatibility;
     contract::require(
-      manifest.resolved_decision.compatibility.compiler_id == compatibility.compiler_id &&
-        manifest.resolved_decision.compatibility.backend == compatibility.backend &&
-        manifest.resolved_decision.compatibility.execution == compatibility.execution &&
-        manifest.resolved_decision.compatibility.state_space == compatibility.state_space &&
-        manifest.resolved_decision.compatibility.control_space == compatibility.control_space &&
-        manifest.resolved_decision.compatibility.quadrature == compatibility.quadrature &&
-        manifest.resolved_decision.compatibility.dual_representation == compatibility.dual_representation &&
-        manifest.resolved_decision.compatibility.data_rule == compatibility.data_rule &&
-        manifest.resolved_decision.compatibility.observation_realisation ==
-          compatibility.observation_realisation &&
-        manifest.resolved_decision.compatibility.metric_solve_policy == compatibility.metric_solve_policy &&
-        manifest.resolved_decision.compatibility.constraint_realisation ==
-          compatibility.constraint_realisation &&
-        manifest.resolved_decision.compatibility.lifting_realisation == compatibility.lifting_realisation &&
-        manifest.resolved_decision.compatibility.nullspace_policy == compatibility.nullspace_policy &&
-        manifest.resolved_decision.compatibility.state_adjoint_solve_policy ==
-          compatibility.state_adjoint_solve_policy &&
-        manifest.resolved_decision.compatibility.provenance == compatibility.provenance &&
-        manifest.resolved_decision.compatibility.lowering_handler_records ==
-          compatibility.lowering_handler_records &&
-        manifest.resolved_decision.compatibility.region_ids == compatibility.region_ids &&
-        manifest.resolved_decision.compatibility.space_ids == compatibility.space_ids &&
-        manifest.resolved_decision.compatibility.pairing_ids == compatibility.pairing_ids &&
-        manifest.resolved_decision.compatibility.variable_ids == compatibility.variable_ids &&
-        manifest.resolved_decision.compatibility.data_ids == compatibility.data_ids &&
-        manifest.resolved_decision.compatibility.transformation_ids == compatibility.transformation_ids &&
-        manifest.resolved_decision.compatibility.residual_term_ids == compatibility.residual_term_ids &&
-        manifest.resolved_decision.compatibility.observation_ids == compatibility.observation_ids &&
-        manifest.resolved_decision.compatibility.loss_ids == compatibility.loss_ids &&
-        manifest.resolved_decision.compatibility.metric_ids == compatibility.metric_ids &&
-        manifest.resolved_decision.compatibility.constraint_ids == compatibility.constraint_ids &&
-        manifest.resolved_decision.compatibility.declared_assumptions == compatibility.declared_assumptions,
-      target + " manifest compatibility view was not projected from the decision");
+      !compatibility.compiler_id.empty() && !compatibility.backend.empty() &&
+        compatibility.execution == manifest.resolved_decision.execution_id &&
+        compatibility.dual_representation ==
+          manifest.resolved_decision.formulation_record.dual_representation &&
+        compatibility.metric_solve_policy.find(
+          manifest.resolved_decision.metric_record.realisation_id) !=
+          std::string::npos &&
+        compatibility.constraint_realisation == expected,
+      target + " manifest compatibility view is incomplete");
     std::string structured_expected = "none";
     if (expected.find("l2_cellwise_parameter") != std::string::npos)
       structured_expected = "l2_cellwise_parameter";
@@ -905,24 +881,24 @@ namespace
       structured_expected = "l2_facewise";
     contract::require(
       manifest.resolved_decision.compatibility.constraint_realisation == expected &&
-        manifest.constraint_record.realisation_id == structured_expected &&
-        manifest.constraint_record.present == (structured_expected != "none") &&
+        manifest.resolved_decision.constraint_record.realisation_id == structured_expected &&
+        manifest.resolved_decision.constraint_record.present == (structured_expected != "none") &&
         (structured_expected == "none" ||
-         manifest.constraint_record.projection_metric_id == structured_expected),
+         manifest.resolved_decision.constraint_record.projection_metric_id == structured_expected),
       target + " manifest constraint realization: expected " + expected +
         ", got " + manifest.resolved_decision.compatibility.constraint_realisation);
     const auto has_runtime_role = [&manifest](const std::string &role) {
       return std::any_of(
-        manifest.spaces.begin(),
-        manifest.spaces.end(),
+        manifest.resolved_decision.spaces.begin(),
+        manifest.resolved_decision.spaces.end(),
         [&role](const compiler::v1::CompiledSpaceRecord &space) {
           return space.runtime_role == role;
         });
     };
     const auto has_realized_map = [&manifest](const std::string &id) {
       return std::any_of(
-        manifest.realized_maps.begin(),
-        manifest.realized_maps.end(),
+        manifest.resolved_decision.realized_maps.begin(),
+        manifest.resolved_decision.realized_maps.end(),
         [&id](const compiler::v1::CompiledRealizedMapRecord &map) {
           return map.semantic_id == id && !map.source_space_id.empty() &&
                  !map.output_space_id.empty() && map.source_dimension > 0 &&
@@ -933,8 +909,8 @@ namespace
     };
     const auto control_restrictions_are_coefficient_maps =
       std::all_of(
-        manifest.realized_maps.begin(),
-        manifest.realized_maps.end(),
+        manifest.resolved_decision.realized_maps.begin(),
+        manifest.resolved_decision.realized_maps.end(),
         [](const compiler::v1::CompiledRealizedMapRecord &map) {
           return map.realization_id != "coefficient_restriction" ||
                  (map.input_dimensions.size() == 1 &&
@@ -942,20 +918,20 @@ namespace
         });
     const auto observation_map_dimensions_match_spaces =
       std::all_of(
-        manifest.realized_maps.begin(),
-        manifest.realized_maps.end(),
+        manifest.resolved_decision.realized_maps.begin(),
+        manifest.resolved_decision.realized_maps.end(),
         [&manifest](const compiler::v1::CompiledRealizedMapRecord &map) {
           if (std::find(manifest.resolved_decision.compatibility.observation_ids.begin(),
                         manifest.resolved_decision.compatibility.observation_ids.end(),
                         map.semantic_id) == manifest.resolved_decision.compatibility.observation_ids.end())
             return true;
           const auto space = std::find_if(
-            manifest.spaces.begin(),
-            manifest.spaces.end(),
+            manifest.resolved_decision.spaces.begin(),
+            manifest.resolved_decision.spaces.end(),
             [&map](const compiler::v1::CompiledSpaceRecord &candidate) {
               return candidate.semantic_id == map.output_space_id;
             });
-          return space != manifest.spaces.end() &&
+          return space != manifest.resolved_decision.spaces.end() &&
                  space->dimension == map.output_dimension;
         });
     contract::require(
@@ -970,36 +946,28 @@ namespace
       target + " manifest omitted a realized observation or transformation map");
     contract::require(
       manifest.schema_version == 4 &&
-        manifest.formulation_record.kind ==
+        manifest.resolved_decision.formulation_record.kind ==
           semantic::v1::FormulationKind::reduced_dto &&
-        manifest.formulation_record.provenance ==
+        manifest.resolved_decision.formulation_record.provenance ==
           semantic::v1::FormulationProvenance::dto &&
-        manifest.formulation_record.execution ==
+        manifest.resolved_decision.formulation_record.execution ==
           compiler::v1::ExecutionRealisation::assembled &&
-        manifest.mesh_record.dimension > 0 &&
-        manifest.mesh_record.active_cells > 0 &&
-        !manifest.mesh_record.provenance.empty() &&
+        manifest.resolved_decision.mesh_record.dimension > 0 &&
+        manifest.resolved_decision.mesh_record.active_cells > 0 &&
+        !manifest.resolved_decision.mesh_record.provenance.empty() &&
         has_runtime_role("state") &&
         has_runtime_role("test_and_adjoint") &&
         (has_runtime_role("decision_control") ||
          has_runtime_role("decision_parameter")) &&
         has_runtime_role("observation") &&
-        !manifest.bindings.empty() &&
-        manifest.state_solve_record.maximum_iterations > 0 &&
-        manifest.adjoint_solve_record.maximum_iterations > 0 &&
-        !manifest.metric_record.semantic_id.empty() &&
-        !manifest.metric_record.realisation_id.empty() &&
-        !manifest.mesh_record.structural_identity.empty() &&
-        manifest.resolved_decision.semantic_problem_id ==
-          manifest.resolved_decision.semantic_problem_id &&
+        !manifest.resolved_decision.bindings.empty() &&
+        manifest.resolved_decision.state_solve_record.maximum_iterations > 0 &&
+        manifest.resolved_decision.adjoint_solve_record.maximum_iterations > 0 &&
+        !manifest.resolved_decision.metric_record.semantic_id.empty() &&
+        !manifest.resolved_decision.metric_record.realisation_id.empty() &&
+        !manifest.resolved_decision.mesh_record.structural_identity.empty() &&
         manifest.resolved_decision.formulation_id ==
-          manifest.formulation_record.semantic_id &&
-        manifest.resolved_decision.spaces.size() == manifest.spaces.size() &&
-        manifest.resolved_decision.bindings.size() == manifest.bindings.size() &&
-        manifest.resolved_decision.realized_maps.size() ==
-          manifest.realized_maps.size() &&
-        manifest.resolved_decision.realized_spaces.size() ==
-          manifest.realized_spaces.size() &&
+          manifest.resolved_decision.formulation_record.semantic_id &&
         !manifest.resolved_decision.residuals.empty() &&
         !manifest.resolved_decision.observations.empty(),
       target + " structured manifest is incomplete");
@@ -1046,55 +1014,17 @@ namespace
   {
     const auto &decision = manifest.resolved_decision;
     contract::require(
-      decision.formulation_record.semantic_id ==
-          manifest.formulation_record.semantic_id &&
-        decision.formulation_record.kind == manifest.formulation_record.kind &&
-        decision.formulation_record.provenance ==
-          manifest.formulation_record.provenance &&
-        decision.formulation_record.execution ==
-          manifest.formulation_record.execution &&
+      decision.formulation_id == decision.formulation_record.semantic_id &&
         decision.formulation_record.dual_representation ==
-          manifest.formulation_record.dual_representation &&
-        decision.mesh_record.dimension == manifest.mesh_record.dimension &&
-        decision.mesh_record.active_cells == manifest.mesh_record.active_cells &&
-        decision.mesh_record.provenance == manifest.mesh_record.provenance &&
-        decision.mesh_record.lifetime == manifest.mesh_record.lifetime &&
-        decision.mesh_record.structural_identity ==
-          manifest.mesh_record.structural_identity &&
-        decision.spaces.size() == manifest.spaces.size() &&
-        decision.bindings.size() == manifest.bindings.size() &&
-        decision.state_solve_record.algorithm ==
-          manifest.state_solve_record.algorithm &&
-        decision.state_solve_record.maximum_iterations ==
-          manifest.state_solve_record.maximum_iterations &&
-        decision.state_solve_record.relative_tolerance ==
-          manifest.state_solve_record.relative_tolerance &&
-        decision.state_solve_record.absolute_tolerance ==
-          manifest.state_solve_record.absolute_tolerance &&
-        decision.state_solve_record.nullspace_policy ==
-          manifest.state_solve_record.nullspace_policy &&
-        decision.state_solve_record.operator_realisation ==
-          manifest.state_solve_record.operator_realisation &&
-        decision.adjoint_solve_record.algorithm ==
-          manifest.adjoint_solve_record.algorithm &&
-        decision.adjoint_solve_record.maximum_iterations ==
-          manifest.adjoint_solve_record.maximum_iterations &&
-        decision.adjoint_solve_record.relative_tolerance ==
-          manifest.adjoint_solve_record.relative_tolerance &&
-        decision.adjoint_solve_record.absolute_tolerance ==
-          manifest.adjoint_solve_record.absolute_tolerance &&
-        decision.adjoint_solve_record.nullspace_policy ==
-          manifest.adjoint_solve_record.nullspace_policy &&
-        decision.adjoint_solve_record.operator_realisation ==
-          manifest.adjoint_solve_record.operator_realisation &&
-        manifest.resolved_decision.compatibility.dual_representation ==
-          decision.formulation_record.dual_representation &&
-        manifest.resolved_decision.compatibility.execution == decision.execution_id &&
-        manifest.resolved_decision.compatibility.metric_solve_policy.find(
-          manifest.metric_record.realisation_id) != std::string::npos &&
-        manifest.resolved_decision.compatibility.state_adjoint_solve_policy.find(
-          manifest.state_solve_record.operator_realisation) !=
-          std::string::npos,
+          decision.compatibility.dual_representation &&
+        decision.compatibility.execution == decision.execution_id &&
+        decision.compatibility.metric_solve_policy.find(
+          decision.metric_record.realisation_id) != std::string::npos &&
+        decision.compatibility.state_adjoint_solve_policy.find(
+          decision.state_solve_record.operator_realisation) !=
+          std::string::npos &&
+        !decision.spaces.empty() && !decision.bindings.empty() &&
+        !decision.realized_maps.empty() && !decision.realized_spaces.empty(),
       description + " was not rendered from its resolved typed records");
   }
 
@@ -1406,13 +1336,13 @@ namespace
 
     const auto &manifest = compilation.problem->manifest();
     const auto fixed_map = std::find_if(
-      manifest.realized_maps.begin(),
-      manifest.realized_maps.end(),
+      manifest.resolved_decision.realized_maps.begin(),
+      manifest.resolved_decision.realized_maps.end(),
       [](const compiler::v1::CompiledRealizedMapRecord &map) {
         return map.semantic_id == "fixed_dirichlet_reconstruction";
       });
     require_constraint_realisation(manifest, "none", "fixed-Dirichlet");
-    contract::require(fixed_map != manifest.realized_maps.end(),
+    contract::require(fixed_map != manifest.resolved_decision.realized_maps.end(),
                       "fixed-Dirichlet realized transformation is missing");
     contract::require(
       fixed_map->input_dimensions.size() == 1 &&
@@ -1569,8 +1499,8 @@ namespace
                            "Dirichlet-control trace metric inverse/apply");
     const auto &manifest = compilation.problem->manifest();
     const auto dirichlet_map = std::find_if(
-      manifest.realized_maps.begin(),
-      manifest.realized_maps.end(),
+      manifest.resolved_decision.realized_maps.begin(),
+      manifest.resolved_decision.realized_maps.end(),
       [](const compiler::v1::CompiledRealizedMapRecord &map) {
         return map.semantic_id == "dirichlet_control_lifting";
       });
@@ -1578,7 +1508,7 @@ namespace
     contract::require(
       manifest.resolved_decision.compatibility.control_space.find("nodal trace") != std::string::npos &&
         manifest.resolved_decision.compatibility.lifting_realisation.find("L_D,h") != std::string::npos &&
-        dirichlet_map != manifest.realized_maps.end() &&
+        dirichlet_map != manifest.resolved_decision.realized_maps.end() &&
         dirichlet_map->input_space_ids.size() == 2 &&
         dirichlet_map->output_dimension > 0 &&
         manifest.resolved_decision.compatibility.metric_solve_policy.find("l2_dirichlet_trace") !=
@@ -1721,8 +1651,8 @@ namespace
     };
     const auto has_binding_role = [&manifest](const auto role) {
       return std::any_of(
-        manifest.bindings.begin(),
-        manifest.bindings.end(),
+        manifest.resolved_decision.bindings.begin(),
+        manifest.resolved_decision.bindings.end(),
         [role](const compiler::v1::CompiledBindingRecord &binding) {
           return binding.role == role;
         });
@@ -1730,14 +1660,14 @@ namespace
     contract::require(
       manifest.resolved_decision.compatibility.compiler_id ==
           "nmopt.compiler.v1.dealii.l2_dirichlet_transposition" &&
-        manifest.transposition_realisation.has_value() &&
-        manifest.transposition_realisation->id ==
+        manifest.resolved_decision.transposition_realisation.has_value() &&
+        manifest.resolved_decision.transposition_realisation->id ==
           "transposition_formulation" &&
-        manifest.transposition_realisation->continuous_parent_space_id ==
+        manifest.resolved_decision.transposition_realisation->continuous_parent_space_id ==
           "control_space" &&
-        manifest.transposition_realisation->equivalence_policy_id ==
+        manifest.resolved_decision.transposition_realisation->equivalence_policy_id ==
           "conforming_trace_subspace" &&
-        manifest.transposition_realisation->discrete_realisation ==
+        manifest.resolved_decision.transposition_realisation->discrete_realisation ==
           semantic::v1::TranspositionDiscreteRealisation::
             conforming_nodal_lifting_equivalence &&
         manifest.resolved_decision.compatibility.state_space.find("continuous L2(Omega) parent") !=
@@ -2013,15 +1943,15 @@ namespace
       dirichlet_model->physical_state_dimension(),
       "partial Dirichlet-control");
     contract::require(
-      manifest.partial_boundary_selection.has_value() &&
-        manifest.partial_boundary_selection->fixed_boundary_region_id ==
+      manifest.resolved_decision.partial_boundary_selection.has_value() &&
+        manifest.resolved_decision.partial_boundary_selection->fixed_boundary_region_id ==
           "fixed_dirichlet_boundary" &&
-        manifest.partial_boundary_selection->controlled_boundary_region_id ==
+        manifest.resolved_decision.partial_boundary_selection->controlled_boundary_region_id ==
           "control_boundary" &&
-        manifest.partial_boundary_selection->interface_realisation ==
+        manifest.resolved_decision.partial_boundary_selection->interface_realisation ==
           semantic::v1::PartialDirichletInterfaceRealisation::
             fixed_data_precedence &&
-        manifest.partial_boundary_selection->trace_realisation ==
+        manifest.resolved_decision.partial_boundary_selection->trace_realisation ==
           semantic::v1::PartialDirichletTraceRealisation::
             relative_interior_nodal_zero_endpoint &&
       manifest.resolved_decision.compatibility.lifting_realisation.find("ell_0,h + L_D,h") != std::string::npos &&
@@ -2237,8 +2167,8 @@ namespace
     contract::require(
       fixed_full.problem->manifest().resolved_decision.compatibility.lowering_handler_records ==
         fixed_subdomain.problem->manifest().resolved_decision.compatibility.lowering_handler_records &&
-        fixed_full.problem->manifest().metric_record.realisation_id ==
-          fixed_subdomain.problem->manifest().metric_record.realisation_id &&
+        fixed_full.problem->manifest().resolved_decision.metric_record.realisation_id ==
+          fixed_subdomain.problem->manifest().resolved_decision.metric_record.realisation_id &&
         fixed_subdomain.problem->manifest().resolved_decision.compatibility.observation_realisation.find(
           "material-id volume restriction: 1") != std::string::npos,
       "fixed observation recombination did not preserve unchanged service records");
@@ -2363,12 +2293,12 @@ namespace
     const auto &manifest = compilation.problem->manifest();
     require_constraint_realisation(manifest, "none", "H1-state observation");
     contract::require(
-      manifest.h1_target_data_membership_selection.has_value() &&
-        manifest.h1_target_data_membership_selection->data_id ==
+      manifest.resolved_decision.h1_target_data_membership_selection.has_value() &&
+        manifest.resolved_decision.h1_target_data_membership_selection->data_id ==
           "desired_state" &&
-        manifest.h1_target_data_membership_selection->observation_space_id ==
+        manifest.resolved_decision.h1_target_data_membership_selection->observation_space_id ==
           "state_observation_space" &&
-        manifest.h1_target_data_membership_selection
+        manifest.resolved_decision.h1_target_data_membership_selection
             ->fixed_boundary_region_id == "dirichlet_boundary" &&
         std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
                     manifest.resolved_decision.compatibility.declared_assumptions.end(),
@@ -2382,7 +2312,7 @@ namespace
         manifest.resolved_decision.compatibility.observation_realisation.find("mass-plus-stiffness") !=
           std::string::npos &&
         manifest.resolved_decision.compatibility.data_rule.find("value and gradient") != std::string::npos &&
-        manifest.metric_record.realisation_id == "l2_cellwise" &&
+        manifest.resolved_decision.metric_record.realisation_id == "l2_cellwise" &&
         std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
                   manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "state_observation <- "
@@ -2596,34 +2526,34 @@ namespace
 
     const auto &manifest = compilation.problem->manifest();
     const auto point_map = std::find_if(
-      manifest.realized_maps.begin(),
-      manifest.realized_maps.end(),
+      manifest.resolved_decision.realized_maps.begin(),
+      manifest.resolved_decision.realized_maps.end(),
       [](const compiler::v1::CompiledRealizedMapRecord &map) {
         return map.semantic_id == "state_observation" &&
                map.realization_id == "ordered_point_sensor_values";
       });
     const auto point_space = std::find_if(
-      manifest.spaces.begin(),
-      manifest.spaces.end(),
+      manifest.resolved_decision.spaces.begin(),
+      manifest.resolved_decision.spaces.end(),
       [](const compiler::v1::CompiledSpaceRecord &space) {
         return space.semantic_id == "state_observation_space" &&
                space.role == semantic::v1::SpaceRole::observation;
       });
     contract::require(
-      point_space != manifest.spaces.end() &&
+      point_space != manifest.resolved_decision.spaces.end() &&
         point_space->dimension == values.size() &&
         point_space->dimension == sensor_jvp.block(0).size(),
       "point-sensor manifest recorded a dimension different from its realized output");
     contract::require(
       manifest.resolved_decision.compatibility.compiler_id == "nmopt.compiler.v1.dealii.point_sensor" &&
-        point_map != manifest.realized_maps.end() &&
+        point_map != manifest.resolved_decision.realized_maps.end() &&
         point_map->output_dimension == values.size() &&
         point_map->output_layout.find("sensor values") != std::string::npos &&
         manifest.resolved_decision.compatibility.observation_realisation.find("immutable physical coordinates") !=
           std::string::npos &&
-        manifest.transposition_realisation.has_value() &&
-        manifest.transposition_realisation->diffusion_data_id == "diffusion" &&
-        manifest.transposition_realisation->reaction_data_id == "reaction" &&
+        manifest.resolved_decision.transposition_realisation.has_value() &&
+        manifest.resolved_decision.transposition_realisation->diffusion_data_id == "diffusion" &&
+        manifest.resolved_decision.transposition_realisation->reaction_data_id == "reaction" &&
         manifest.resolved_decision.compatibility.data_rule.find("assembled C_h^T point-load transpose") !=
           std::string::npos &&
         std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
@@ -2688,11 +2618,11 @@ namespace
       specification, triangulation, nonunit_bindings, policy);
     contract::require(
       nonunit_compilation.succeeded() &&
-        nonunit_compilation.problem->manifest().transposition_realisation
+        nonunit_compilation.problem->manifest().resolved_decision.transposition_realisation
           .has_value() &&
-        nonunit_compilation.problem->manifest().transposition_realisation
+        nonunit_compilation.problem->manifest().resolved_decision.transposition_realisation
             ->diffusion_data_id == "diffusion" &&
-        nonunit_compilation.problem->manifest().transposition_realisation
+        nonunit_compilation.problem->manifest().resolved_decision.transposition_realisation
             ->reaction_data_id == "reaction" &&
         nonunit_compilation.problem->manifest().resolved_decision.compatibility.data_rule.find(
           "T=-kappa Delta+rI with kappa <- diffusion and r <- reaction") !=
@@ -2919,35 +2849,35 @@ namespace
 
     const auto &manifest = compilation.problem->manifest();
     const auto normal_flux_map = std::find_if(
-      manifest.realized_maps.begin(),
-      manifest.realized_maps.end(),
+      manifest.resolved_decision.realized_maps.begin(),
+      manifest.resolved_decision.realized_maps.end(),
       [](const compiler::v1::CompiledRealizedMapRecord &map) {
         return map.semantic_id == "state_observation" &&
                map.realization_id == "ordered_normal_flux_face_quadrature";
       });
     const auto normal_flux_space = std::find_if(
-      manifest.spaces.begin(),
-      manifest.spaces.end(),
+      manifest.resolved_decision.spaces.begin(),
+      manifest.resolved_decision.spaces.end(),
       [](const compiler::v1::CompiledSpaceRecord &space) {
         return space.semantic_id == "state_observation_space" &&
                space.role == semantic::v1::SpaceRole::observation;
       });
     contract::require(
-      normal_flux_space != manifest.spaces.end() &&
+      normal_flux_space != manifest.resolved_decision.spaces.end() &&
         normal_flux_space->dimension == normal_flux_values.size() &&
         normal_flux_space->dimension == normal_flux_jvp.block(0).size(),
       "normal-flux manifest recorded the state dimension instead of its realized face output");
     contract::require(
       manifest.resolved_decision.compatibility.compiler_id == "nmopt.compiler.v1.dealii.normal_flux" &&
-        normal_flux_map != manifest.realized_maps.end() &&
+        normal_flux_map != manifest.resolved_decision.realized_maps.end() &&
         normal_flux_map->output_dimension == normal_flux_values.size() &&
         normal_flux_map->pairing_realization.find("declared pairing") !=
           std::string::npos &&
         manifest.resolved_decision.compatibility.observation_realisation.find("outward normal-flux") !=
           std::string::npos &&
-        manifest.transposition_realisation.has_value() &&
-        manifest.transposition_realisation->diffusion_data_id == "diffusion" &&
-        manifest.transposition_realisation->reaction_data_id == "reaction" &&
+        manifest.resolved_decision.transposition_realisation.has_value() &&
+        manifest.resolved_decision.transposition_realisation->diffusion_data_id == "diffusion" &&
+        manifest.resolved_decision.transposition_realisation->reaction_data_id == "reaction" &&
         manifest.resolved_decision.compatibility.data_rule.find(
           "T=-kappa Delta+rI with kappa <- diffusion and r <- reaction") !=
           std::string::npos &&
@@ -3411,8 +3341,8 @@ namespace
 
         const auto &manifest = compilation.problem->manifest();
         const bool has_control_space = std::any_of(
-          manifest.spaces.begin(),
-          manifest.spaces.end(),
+          manifest.resolved_decision.spaces.begin(),
+          manifest.resolved_decision.spaces.end(),
           [](const compiler::v1::CompiledSpaceRecord &space) {
             return space.role == semantic::v1::SpaceRole::control &&
                    space.dimension == 3 &&
@@ -3422,7 +3352,7 @@ namespace
           });
         contract::require(
           has_control_space &&
-            manifest.metric_record.realisation_id == "l2_neumann_trace" &&
+            manifest.resolved_decision.metric_record.realisation_id == "l2_neumann_trace" &&
             std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
                       manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                       "neumann_control <- dealii.neumann.control.continuous_p1_trace") !=
@@ -3758,8 +3688,8 @@ namespace
         manifest.resolved_decision.compatibility.data_rule.find("boundary face quadrature") != std::string::npos &&
         manifest.resolved_decision.compatibility.constraint_realisation.find("l2_facewise") != std::string::npos &&
         std::any_of(
-          manifest.realized_maps.begin(),
-          manifest.realized_maps.end(),
+          manifest.resolved_decision.realized_maps.begin(),
+          manifest.resolved_decision.realized_maps.end(),
           [expected_boundary_trace_samples](
             const compiler::v1::CompiledRealizedMapRecord &map) {
             return map.semantic_id == "state_boundary_trace" &&
@@ -4018,8 +3948,8 @@ namespace
     const auto &natural_manifest =
       natural_source_compilation.problem->manifest();
     contract::require(
-      std::any_of(natural_manifest.bindings.begin(),
-                  natural_manifest.bindings.end(),
+      std::any_of(natural_manifest.resolved_decision.bindings.begin(),
+                  natural_manifest.resolved_decision.bindings.end(),
                   [](const compiler::v1::CompiledBindingRecord &record) {
                     return record.role ==
                              semantic::v1::DataRole::natural_boundary_source &&
@@ -4222,21 +4152,21 @@ namespace
           manifest.resolved_decision.compatibility.lowering_handler_records.end(),
           "state_observation <- dealii.volume_observation.analytic-quadrature") !=
           manifest.resolved_decision.compatibility.lowering_handler_records.end() &&
-        manifest.boundary_realisation.has_value() &&
-        manifest.boundary_realisation->id == "neumann_convection_partition" &&
-        manifest.boundary_realisation->fixed_dirichlet_region_id ==
+        manifest.resolved_decision.boundary_realisation.has_value() &&
+        manifest.resolved_decision.boundary_realisation->id == "neumann_convection_partition" &&
+        manifest.resolved_decision.boundary_realisation->fixed_dirichlet_region_id ==
           "dirichlet_boundary" &&
-        manifest.boundary_realisation->neumann_region_ids ==
+        manifest.resolved_decision.boundary_realisation->neumann_region_ids ==
           std::vector<std::string>{"control_boundary"} &&
-        manifest.boundary_realisation->conormal_form ==
+        manifest.resolved_decision.boundary_realisation->conormal_form ==
           semantic::v1::ConormalForm::diffusion_minus_transport &&
-        manifest.boundary_realisation->normal_orientation ==
+        manifest.resolved_decision.boundary_realisation->normal_orientation ==
           semantic::v1::NormalOrientation::outward &&
-        manifest.boundary_realisation->transport_boundary_form ==
+        manifest.resolved_decision.boundary_realisation->transport_boundary_form ==
           semantic::v1::TransportBoundaryForm::total_conormal &&
-        manifest.state_solve_record.algorithm ==
+        manifest.resolved_decision.state_solve_record.algorithm ==
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
-        std::any_of(manifest.bindings.begin(), manifest.bindings.end(),
+        std::any_of(manifest.resolved_decision.bindings.begin(), manifest.resolved_decision.bindings.end(),
                     [](const compiler::v1::CompiledBindingRecord &record) {
                       return record.semantic_id == "conservative_transport" &&
                              record.provenance ==
@@ -4577,20 +4507,20 @@ namespace
 
     const auto &manifest = weighted.problem->manifest();
     const auto weighted_map = std::find_if(
-      manifest.realized_maps.begin(),
-      manifest.realized_maps.end(),
+      manifest.resolved_decision.realized_maps.begin(),
+      manifest.resolved_decision.realized_maps.end(),
       [](const compiler::v1::CompiledRealizedMapRecord &map) {
         return map.semantic_id == "weighted_state_boundary_trace" &&
                map.realization_id == "ordered_boundary_face_quadrature_trace";
       });
     const auto weight_record = std::find_if(
-      manifest.bindings.begin(),
-      manifest.bindings.end(),
+      manifest.resolved_decision.bindings.begin(),
+      manifest.resolved_decision.bindings.end(),
       [](const compiler::v1::CompiledBindingRecord &record) {
         return record.semantic_id == "boundary_weight";
       });
     contract::require(
-      weight_record != manifest.bindings.end() &&
+      weight_record != manifest.resolved_decision.bindings.end() &&
         weight_record->provenance == "test.weighted_boundary.weight" &&
         weight_record->representation.find("boundary face quadrature") !=
           std::string::npos &&
@@ -4602,7 +4532,7 @@ namespace
           std::string::npos &&
         manifest.resolved_decision.compatibility.data_rule.find("boundary face quadrature") !=
           std::string::npos &&
-        manifest.metric_record.realisation_id == "l2_facewise" &&
+        manifest.resolved_decision.metric_record.realisation_id == "l2_facewise" &&
         std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
                   manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "weighted_state_boundary_trace <- "
@@ -4610,7 +4540,7 @@ namespace
           manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "weighted trace manifest omitted weight, target, quadrature, or metric provenance");
     contract::require(
-      weighted_map != manifest.realized_maps.end() &&
+      weighted_map != manifest.resolved_decision.realized_maps.end() &&
         weighted_map->output_dimension ==
           weighted_trace_values.size() &&
         weighted_map->output_dimension == expected_weighted_trace_samples &&
@@ -5030,11 +4960,11 @@ namespace
     const auto &manifest = hminus1_compilation.problem->manifest();
     const auto &l2_manifest = l2_compilation.problem->manifest();
     contract::require(
-      manifest.h1_target_data_membership_selection.has_value() &&
-        l2_manifest.h1_target_data_membership_selection.has_value() &&
-        manifest.h1_target_data_membership_selection->data_id ==
-          l2_manifest.h1_target_data_membership_selection->data_id &&
-        manifest.h1_target_data_membership_selection
+      manifest.resolved_decision.h1_target_data_membership_selection.has_value() &&
+        l2_manifest.resolved_decision.h1_target_data_membership_selection.has_value() &&
+        manifest.resolved_decision.h1_target_data_membership_selection->data_id ==
+          l2_manifest.resolved_decision.h1_target_data_membership_selection->data_id &&
+        manifest.resolved_decision.h1_target_data_membership_selection
             ->fixed_boundary_region_id == "dirichlet_boundary" &&
         std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
                     manifest.resolved_decision.compatibility.declared_assumptions.end(),
@@ -5045,16 +4975,16 @@ namespace
                     }) &&
       hminus1_compilation.problem->metric().id() == "hminus1_continuous" &&
         l2_compilation.problem->metric().id() == "l2_continuous" &&
-        manifest.metric_record.operator_description.find("M_h K_h^{-1} M_h") !=
+        manifest.resolved_decision.metric_record.operator_description.find("M_h K_h^{-1} M_h") !=
           std::string::npos &&
-        manifest.metric_record.operator_id ==
+        manifest.resolved_decision.metric_record.operator_id ==
           "mass_laplacian_inverse_mass" &&
-        manifest.metric_record.inverse_operator_id ==
+        manifest.resolved_decision.metric_record.inverse_operator_id ==
           "mass_inverse_laplacian_mass_inverse" &&
-        manifest.metric_record.boundary_region_id == "dirichlet_boundary" &&
-        manifest.metric_record.laplacian_solve_policy_id ==
+        manifest.resolved_decision.metric_record.boundary_region_id == "dirichlet_boundary" &&
+        manifest.resolved_decision.metric_record.laplacian_solve_policy_id ==
           "control_metric_solve.laplacian_inverse" &&
-        manifest.metric_record.mass_solve_policy_id ==
+        manifest.resolved_decision.metric_record.mass_solve_policy_id ==
           "control_metric_solve.mass_inverse" &&
         manifest.resolved_decision.compatibility.metric_solve_policy.find("hminus1_continuous") !=
           std::string::npos &&
@@ -5725,7 +5655,7 @@ namespace
 
     const auto &manifest = combined.problem->manifest();
     require_constraint_realisation(manifest, "none", "general scalar Robin");
-    const auto &boundary_selection = manifest.boundary_realisation;
+    const auto &boundary_selection = manifest.resolved_decision.boundary_realisation;
     const auto has_binding = [&manifest](
                                const std::string &semantic_id,
                                const semantic::v1::DataRole role,
@@ -5734,8 +5664,8 @@ namespace
                                const std::string &region_id,
                                const std::string &evaluation) {
       return std::any_of(
-        manifest.bindings.begin(),
-        manifest.bindings.end(),
+        manifest.resolved_decision.bindings.begin(),
+        manifest.resolved_decision.bindings.end(),
         [&](const compiler::v1::CompiledBindingRecord &binding) {
           return binding.semantic_id == semantic_id && binding.role == role &&
                  binding.kind == kind && binding.space_id == space_id &&
@@ -5745,9 +5675,9 @@ namespace
         });
     };
     contract::require(
-        manifest.state_solve_record.algorithm ==
+        manifest.resolved_decision.state_solve_record.algorithm ==
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
-        manifest.adjoint_solve_record.algorithm ==
+        manifest.resolved_decision.adjoint_solve_record.algorithm ==
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
         manifest.resolved_decision.compatibility.lowering_handler_records.size() == 13 &&
         boundary_selection.has_value() &&
@@ -5934,7 +5864,7 @@ namespace
     const auto &product = kkt.product();
     using KKTProduct = contract::EqualityConstrainedQuadraticKKTProductT<Backend>;
     const auto &manifest = kkt.manifest();
-    const auto &record = manifest.kkt_record;
+    const auto &record = manifest.resolved_decision.kkt_record;
     contract::require(
       record.present && record.product_id == "compiled.scalar.dto.kkt" &&
         record.construction_realisation.find("canonical DTO") !=
@@ -6027,12 +5957,12 @@ namespace
 
     const auto &supplied_kkt = *supplied_compilation.kkt_problem;
     const auto &supplied_manifest = supplied_kkt.manifest();
-    const auto &supplied_record = supplied_manifest.kkt_record;
+    const auto &supplied_record = supplied_manifest.resolved_decision.kkt_record;
     contract::require(
-      supplied_manifest.formulation_record.provenance ==
+      supplied_manifest.resolved_decision.formulation_record.provenance ==
           semantic::v1::FormulationProvenance::supplied_otd &&
-        supplied_manifest.supplied_otd_record.present &&
-        supplied_manifest.supplied_otd_record.declaration.has_value() &&
+        supplied_manifest.resolved_decision.supplied_otd_record.present &&
+        supplied_manifest.resolved_decision.supplied_otd_record.declaration.has_value() &&
         supplied_record.present &&
         supplied_record.product_id == "compiled.scalar.supplied_otd.kkt" &&
         supplied_record.construction_realisation.find("supplied-OTD") !=
@@ -6142,7 +6072,7 @@ namespace
 
     const auto &pdas = *compilation.pdas_problem;
     const auto &manifest = pdas.manifest();
-    const auto &record = manifest.pdas_record;
+    const auto &record = manifest.resolved_decision.pdas_record;
     contract::require(
       record.present && record.product_id == "compiled.scalar.dto.pdas" &&
         record.bound_source.find("cellwise_box") != std::string::npos &&
@@ -6175,10 +6105,10 @@ namespace
         record.bounds_digest == box_data.bounds_digest() &&
         record.control_ordering == box_data.layout_signature() &&
         record.data_provenance == box_data.data_provenance() &&
-        manifest.constraint_record.box_data_token == box_data.token_id() &&
-        manifest.constraint_record.bounds_digest == box_data.bounds_digest() &&
-        manifest.constraint_record.control_layout == box_data.layout_signature() &&
-        manifest.constraint_record.metric_identity == pdas.metric().id(),
+        manifest.resolved_decision.constraint_record.box_data_token == box_data.token_id() &&
+        manifest.resolved_decision.constraint_record.bounds_digest == box_data.bounds_digest() &&
+        manifest.resolved_decision.constraint_record.control_layout == box_data.layout_signature() &&
+        manifest.resolved_decision.constraint_record.metric_identity == pdas.metric().id(),
       "compiled DTO projection and complementarity did not share box data");
     for (std::size_t index = 0;
          index < box_data.layout()->dimension(0);
@@ -6548,9 +6478,9 @@ namespace
     contract::require(
       supplied_compilation.succeeded() && supplied_compilation.pdas_problem &&
         supplied_compilation.pdas_problem->manifest()
-              .formulation_record.provenance ==
+              .resolved_decision.formulation_record.provenance ==
           semantic::v1::FormulationProvenance::supplied_otd &&
-        supplied_compilation.pdas_problem->manifest().pdas_record.product_id ==
+        supplied_compilation.pdas_problem->manifest().resolved_decision.pdas_record.product_id ==
           "compiled.scalar.supplied_otd.pdas",
       "compiler did not preserve the supplied-OTD route through the PDAS product");
 
@@ -6881,25 +6811,25 @@ namespace
       "detached compiled service did not retain its solve policies and reports");
     contract::require(
       detached.manifest.schema_version == 4 &&
-        detached.manifest.mesh_record.dimension ==
+        detached.manifest.resolved_decision.mesh_record.dimension ==
           static_cast<unsigned int>(dim) &&
-        detached.manifest.mesh_record.active_cells == 16 &&
-        detached.manifest.mesh_record.provenance ==
+        detached.manifest.resolved_decision.mesh_record.active_cells == 16 &&
+        detached.manifest.resolved_decision.mesh_record.provenance ==
           "test.unit_square.refine_2" &&
-        detached.manifest.mesh_record.lifetime ==
+        detached.manifest.resolved_decision.mesh_record.lifetime ==
           compiler::v1::MeshLifetimePolicy::owned_session &&
-        detached.manifest.formulation_record.kind ==
+        detached.manifest.resolved_decision.formulation_record.kind ==
           semantic::v1::FormulationKind::reduced_dto &&
-        detached.manifest.state_solve_record.maximum_iterations == 317 &&
-        detached.manifest.adjoint_solve_record.maximum_iterations == 419 &&
-        detached.manifest.constraint_record.realisation_id == "l2_cellwise" &&
-        detached.manifest.constraint_record.projection_metric_id ==
-          detached.manifest.metric_record.realisation_id &&
-        !detached.manifest.mesh_record.structural_identity.empty() &&
+        detached.manifest.resolved_decision.state_solve_record.maximum_iterations == 317 &&
+        detached.manifest.resolved_decision.adjoint_solve_record.maximum_iterations == 419 &&
+        detached.manifest.resolved_decision.constraint_record.realisation_id == "l2_cellwise" &&
+        detached.manifest.resolved_decision.constraint_record.projection_metric_id ==
+          detached.manifest.resolved_decision.metric_record.realisation_id &&
+        !detached.manifest.resolved_decision.mesh_record.structural_identity.empty() &&
         detached.manifest.resolved_decision.semantic_problem_id ==
           detached.manifest.resolved_decision.semantic_problem_id &&
-        !detached.manifest.spaces.empty() &&
-        !detached.manifest.bindings.empty(),
+        !detached.manifest.resolved_decision.spaces.empty() &&
+        !detached.manifest.resolved_decision.bindings.empty(),
       "structured compilation manifest omitted resolved session decisions");
   }
 
@@ -7456,8 +7386,8 @@ namespace
     const Primal supplied_comparison_point =
       shifted(supplied_solution.solution, supplied_tangent, 0.37);
     contract::require(
-      supplied_otd.manifest().supplied_otd_record.declaration.has_value() &&
-        supplied_otd.manifest().supplied_otd_record.declaration
+      supplied_otd.manifest().resolved_decision.supplied_otd_record.declaration.has_value() &&
+        supplied_otd.manifest().resolved_decision.supplied_otd_record.declaration
             ->multiplier_conversion ==
           semantic::v1::SuppliedOTDMultiplierConversion::identity,
       "serial supplied OTD DTO comparison used an undeclared multiplier conversion");
@@ -7569,27 +7499,27 @@ namespace
       "manufactured-point block, JVP finite-difference, transpose-pairing, "
       "and DTO-action comparisons";
     contract::require(
-      supplied_manifest.formulation_record.kind ==
+      supplied_manifest.resolved_decision.formulation_record.kind ==
           semantic::v1::FormulationKind::all_at_once &&
-        supplied_manifest.formulation_record.provenance ==
+        supplied_manifest.resolved_decision.formulation_record.provenance ==
           semantic::v1::FormulationProvenance::supplied_otd &&
         supplied_manifest.resolved_decision.compatibility.provenance == "supplied OTD" &&
-        supplied_manifest.supplied_otd_record.present &&
-        supplied_manifest.supplied_otd_record.declaration.has_value() &&
-        supplied_manifest.supplied_otd_record.declaration->id ==
+        supplied_manifest.resolved_decision.supplied_otd_record.present &&
+        supplied_manifest.resolved_decision.supplied_otd_record.declaration.has_value() &&
+        supplied_manifest.resolved_decision.supplied_otd_record.declaration->id ==
           "canonical_scalar_supplied_otd" &&
-        supplied_manifest.supplied_otd_record.declaration->adjoint_block
+        supplied_manifest.resolved_decision.supplied_otd_record.declaration->adjoint_block
             .test_pairing_id == "state_test_pairing" &&
-        supplied_manifest.supplied_otd_record.declaration
+        supplied_manifest.resolved_decision.supplied_otd_record.declaration
             ->multiplier_conversion ==
           semantic::v1::SuppliedOTDMultiplierConversion::identity &&
-        supplied_manifest.supplied_otd_record.variable_space_ids ==
+        supplied_manifest.resolved_decision.supplied_otd_record.variable_space_ids ==
           std::vector<std::string>{"state", "state_test", "control"} &&
-        supplied_manifest.supplied_otd_record.residual_space_ids ==
+        supplied_manifest.resolved_decision.supplied_otd_record.residual_space_ids ==
           std::vector<std::string>{"state_equation",
                                    "adjoint_equation",
                                    "control_stationarity"} &&
-        supplied_manifest.supplied_otd_record.comparison_status ==
+        supplied_manifest.resolved_decision.supplied_otd_record.comparison_status ==
           expected_comparison_status,
       "serial supplied OTD manifest omitted formulation and comparison provenance");
     const auto &compiled_model = compilation.problem->executable_model();
@@ -7640,8 +7570,8 @@ namespace
       bound_bindings);
     contract::require(
       coarser_compilation.succeeded() &&
-        coarser_compilation.problem->manifest().mesh_record.structural_identity !=
-          manifest.mesh_record.structural_identity,
+        coarser_compilation.problem->manifest().resolved_decision.mesh_record.structural_identity !=
+          manifest.resolved_decision.mesh_record.structural_identity,
       "v1 mesh provenance did not distinguish different compiled structures");
 
     auto relabeled_specification = specification;
@@ -7668,8 +7598,8 @@ namespace
     contract::require(
       relabeled_compilation.problem->manifest().resolved_decision.target_id ==
         manifest.resolved_decision.target_id &&
-        relabeled_compilation.problem->manifest().metric_record.realisation_id ==
-          manifest.metric_record.realisation_id,
+        relabeled_compilation.problem->manifest().resolved_decision.metric_record.realisation_id ==
+          manifest.resolved_decision.metric_record.realisation_id,
       "label-only graph change altered typed execution records");
 
     auto reordered_specification = specification;
@@ -7717,18 +7647,18 @@ namespace
     contract::require(
       reordered_manifest.resolved_decision.target_id ==
           manifest.resolved_decision.target_id &&
-        reordered_manifest.formulation_record.semantic_id ==
-          manifest.formulation_record.semantic_id &&
-        reordered_manifest.mesh_record.structural_identity ==
-          manifest.mesh_record.structural_identity &&
-        reordered_manifest.metric_record.realisation_id ==
-          manifest.metric_record.realisation_id &&
-        reordered_manifest.constraint_record.realisation_id ==
-          manifest.constraint_record.realisation_id &&
-        reordered_manifest.state_solve_record.maximum_iterations ==
-          manifest.state_solve_record.maximum_iterations &&
-        reordered_manifest.adjoint_solve_record.maximum_iterations ==
-          manifest.adjoint_solve_record.maximum_iterations,
+        reordered_manifest.resolved_decision.formulation_record.semantic_id ==
+          manifest.resolved_decision.formulation_record.semantic_id &&
+        reordered_manifest.resolved_decision.mesh_record.structural_identity ==
+          manifest.resolved_decision.mesh_record.structural_identity &&
+        reordered_manifest.resolved_decision.metric_record.realisation_id ==
+          manifest.resolved_decision.metric_record.realisation_id &&
+        reordered_manifest.resolved_decision.constraint_record.realisation_id ==
+          manifest.resolved_decision.constraint_record.realisation_id &&
+        reordered_manifest.resolved_decision.state_solve_record.maximum_iterations ==
+          manifest.resolved_decision.state_solve_record.maximum_iterations &&
+        reordered_manifest.resolved_decision.adjoint_solve_record.maximum_iterations ==
+          manifest.resolved_decision.adjoint_solve_record.maximum_iterations,
       "declaration-order permutation changed the closed compiler selection");
 
     const compiler::v1::CellwiseBoxDataBindings changed_bound_bindings{
@@ -7745,8 +7675,8 @@ namespace
     const auto find_binding = [](const compiler::v1::CompilationManifest &record,
                                  const semantic::v1::DataRole role) {
       return std::find_if(
-        record.bindings.begin(),
-        record.bindings.end(),
+        record.resolved_decision.bindings.begin(),
+        record.resolved_decision.bindings.end(),
         [role](const compiler::v1::CompiledBindingRecord &binding) {
           return binding.role == role;
         });
@@ -7757,8 +7687,8 @@ namespace
       changed_bound_compilation.problem->manifest(),
       semantic::v1::DataRole::upper_bound);
     contract::require(
-      original_upper != manifest.bindings.end() &&
-        changed_upper != changed_bound_compilation.problem->manifest().bindings.end() &&
+      original_upper != manifest.resolved_decision.bindings.end() &&
+        changed_upper != changed_bound_compilation.problem->manifest().resolved_decision.bindings.end() &&
         original_upper->scalar_value.has_value() &&
         changed_upper->scalar_value.has_value() &&
         *original_upper->scalar_value == 0.05 &&
@@ -7771,34 +7701,34 @@ namespace
       "FE_DGQ(0) coefficientwise l2_cellwise clipping",
       "canonical volume control");
     const auto diffusion_binding = std::find_if(
-      manifest.bindings.begin(),
-      manifest.bindings.end(),
+      manifest.resolved_decision.bindings.begin(),
+      manifest.resolved_decision.bindings.end(),
       [](const compiler::v1::CompiledBindingRecord &record) {
         return record.role == semantic::v1::DataRole::diffusion;
       });
     const auto lower_binding = std::find_if(
-      manifest.bindings.begin(),
-      manifest.bindings.end(),
+      manifest.resolved_decision.bindings.begin(),
+      manifest.resolved_decision.bindings.end(),
       [](const compiler::v1::CompiledBindingRecord &record) {
         return record.role == semantic::v1::DataRole::lower_bound;
       });
     const auto upper_binding = std::find_if(
-      manifest.bindings.begin(),
-      manifest.bindings.end(),
+      manifest.resolved_decision.bindings.begin(),
+      manifest.resolved_decision.bindings.end(),
       [](const compiler::v1::CompiledBindingRecord &record) {
         return record.role == semantic::v1::DataRole::upper_bound;
       });
     contract::require(
-      diffusion_binding != manifest.bindings.end() &&
+      diffusion_binding != manifest.resolved_decision.bindings.end() &&
         diffusion_binding->field_shape ==
           compiler::v1::CompiledFieldShape::scalar_constant &&
         diffusion_binding->scalar_value.has_value() &&
         *diffusion_binding->scalar_value == 1.0 &&
         !diffusion_binding->value_digest.empty() &&
-        lower_binding != manifest.bindings.end() &&
+        lower_binding != manifest.resolved_decision.bindings.end() &&
         lower_binding->scalar_value.has_value() &&
         *lower_binding->scalar_value == -1.0 &&
-        upper_binding != manifest.bindings.end() &&
+        upper_binding != manifest.resolved_decision.bindings.end() &&
         upper_binding->scalar_value.has_value() &&
         *upper_binding->scalar_value == 0.05 &&
         manifest.resolved_decision.target_id.find("compiled_target:") == 0,
@@ -7863,7 +7793,7 @@ namespace
 
     const auto &product = *detached.product;
     contract::require(
-      detached.manifest.mesh_record.lifetime ==
+      detached.manifest.resolved_decision.mesh_record.lifetime ==
         compiler::v1::MeshLifetimePolicy::owned_session,
       "supplied OTD owned-session manifest lost its mesh lifetime policy");
 

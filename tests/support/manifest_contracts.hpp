@@ -54,12 +54,12 @@ namespace nmopt::test_support
   {
     const auto dimension = [&manifest, &description](const std::string &id) {
       const auto space = std::find_if(
-        manifest.spaces.begin(),
-        manifest.spaces.end(),
+        manifest.resolved_decision.spaces.begin(),
+        manifest.resolved_decision.spaces.end(),
         [&id](const compiler::v1::CompiledSpaceRecord &candidate) {
           return candidate.semantic_id == id;
         });
-      contract::require(space != manifest.spaces.end(),
+      contract::require(space != manifest.resolved_decision.spaces.end(),
                         description + " omitted manifest space " + id);
       return space->dimension;
     };

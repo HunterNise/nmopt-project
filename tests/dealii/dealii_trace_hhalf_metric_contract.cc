@@ -613,7 +613,7 @@ namespace
         });
       nmopt::contract::require(
         !has_h1_state_observation ||
-          (manifest.h1_target_data_membership_selection.has_value() &&
+          (manifest.resolved_decision.h1_target_data_membership_selection.has_value() &&
            std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
                        manifest.resolved_decision.compatibility.declared_assumptions.end(),
                        [](const std::string &assumption) {
@@ -624,26 +624,26 @@ namespace
         specification.id + " omitted its typed H1 target-data assumption");
       nmopt::contract::require(
         (expected_metric_id == "h1_dirichlet_trace"
-           ? manifest.boundary_h1_metric_selection.has_value() &&
-               manifest.boundary_h1_metric_selection->metric_id ==
+           ? manifest.resolved_decision.boundary_h1_metric_selection.has_value() &&
+               manifest.resolved_decision.boundary_h1_metric_selection->metric_id ==
                  "control_h1_metric" &&
-               manifest.boundary_h1_metric_selection->boundary_region_id ==
+               manifest.resolved_decision.boundary_h1_metric_selection->boundary_region_id ==
                  "control_boundary" &&
-               manifest.boundary_h1_metric_selection
+               manifest.resolved_decision.boundary_h1_metric_selection
                    ->tangential_gradient_realisation ==
                  nmopt::semantic::v1::BoundaryH1TangentialGradientRealisation::
                    projected_ambient_gradient
-           : manifest.fractional_metric_selection.has_value() &&
-               manifest.fractional_metric_selection->metric_id ==
+           : manifest.resolved_decision.fractional_metric_selection.has_value() &&
+               manifest.resolved_decision.fractional_metric_selection->metric_id ==
                  "control_hhalf_metric" &&
-               manifest.fractional_metric_selection->volume_operator_id ==
+               manifest.resolved_decision.fractional_metric_selection->volume_operator_id ==
                  "volume_mass_plus_stiffness" &&
-               manifest.fractional_metric_selection->apply_realisation ==
+               manifest.resolved_decision.fractional_metric_selection->apply_realisation ==
                  nmopt::semantic::v1::FractionalTraceApplyRealisation::
                    minimum_h1_extension) &&
         manifest.resolved_decision.compatibility.compiler_id == expected_compiler_id &&
-          manifest.metric_record.realisation_id == expected_metric_id &&
-          manifest.metric_record.operator_description.find(
+          manifest.resolved_decision.metric_record.realisation_id == expected_metric_id &&
+          manifest.resolved_decision.metric_record.operator_description.find(
             expected_metric_operator) != std::string::npos &&
           manifest.resolved_decision.compatibility.data_rule.find("normalized unit-diffusion zero-reaction") !=
             std::string::npos &&

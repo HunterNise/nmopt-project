@@ -317,25 +317,25 @@ namespace
               result.artifact.envelope().report().adjoint_solve_count > 0,
             "B2 deal.II adapter did not retain solve counts");
     const auto &manifest = result.artifact.envelope().compilation_manifest();
-    require(manifest.state_solve_record.algorithm ==
+    require(manifest.resolved_decision.state_solve_record.algorithm ==
                 nmopt::compiler::v1::LinearSolveAlgorithm::
                   serial_sparse_direct_umfpack &&
-              manifest.state_solve_record.maximum_iterations == 1 &&
-              manifest.state_solve_record.relative_tolerance == 0.0 &&
-              manifest.adjoint_solve_record.algorithm ==
+              manifest.resolved_decision.state_solve_record.maximum_iterations == 1 &&
+              manifest.resolved_decision.state_solve_record.relative_tolerance == 0.0 &&
+              manifest.resolved_decision.adjoint_solve_record.algorithm ==
                 nmopt::compiler::v1::LinearSolveAlgorithm::
                   serial_sparse_direct_umfpack &&
-              manifest.adjoint_solve_record.maximum_iterations == 1 &&
-              manifest.adjoint_solve_record.relative_tolerance == 0.0,
+              manifest.resolved_decision.adjoint_solve_record.maximum_iterations == 1 &&
+              manifest.resolved_decision.adjoint_solve_record.relative_tolerance == 0.0,
             "B2 manifest did not distinguish its direct state/adjoint solves");
-    require(manifest.metric_record.solve_policy.maximum_iterations == 322 &&
-              manifest.metric_record.solve_policy.relative_tolerance ==
+    require(manifest.resolved_decision.metric_record.solve_policy.maximum_iterations == 322 &&
+              manifest.resolved_decision.metric_record.solve_policy.relative_tolerance ==
                 6.0e-12 &&
-              manifest.metric_record.solve_policy.absolute_tolerance ==
+              manifest.resolved_decision.metric_record.solve_policy.absolute_tolerance ==
                 7.0e-14,
             "B2 dealii adapter did not map the control-metric solve policy");
-    require(manifest.boundary_realisation.has_value() &&
-              manifest.boundary_realisation->transport_boundary_form ==
+    require(manifest.resolved_decision.boundary_realisation.has_value() &&
+              manifest.resolved_decision.boundary_realisation->transport_boundary_form ==
                 nmopt::semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
             "B2 manifest did not retain the ordinary-normal boundary form");
     require(std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
@@ -372,14 +372,14 @@ namespace
             "B2 deal.II adapter selected the wrong compiler target");
     require(manifest.resolved_decision.compatibility.lifting_realisation.find("ell_0") != std::string::npos,
             "B2 deal.II adapter did not retain fixed lifting evidence");
-    require(std::any_of(manifest.bindings.begin(),
-                        manifest.bindings.end(),
+    require(std::any_of(manifest.resolved_decision.bindings.begin(),
+                        manifest.resolved_decision.bindings.end(),
                         [](const auto &binding) {
                           return binding.semantic_id == "fixed_dirichlet_data";
                         }),
             "B2 deal.II adapter did not retain the fixed-data binding");
-    require(std::any_of(manifest.bindings.begin(),
-                        manifest.bindings.end(),
+    require(std::any_of(manifest.resolved_decision.bindings.begin(),
+                        manifest.resolved_decision.bindings.end(),
                         [](const auto &binding) {
                           return binding.semantic_id == "fixed_dirichlet_data" &&
                                  binding.provenance ==
@@ -1048,16 +1048,16 @@ namespace
 
       const auto &manifest = compilation.problem->manifest();
       const auto control_space = std::find_if(
-        manifest.spaces.begin(),
-        manifest.spaces.end(),
+        manifest.resolved_decision.spaces.begin(),
+        manifest.resolved_decision.spaces.end(),
         [](const auto &space) {
           return space.role == nmopt::semantic::v1::SpaceRole::control;
         });
-      require(control_space != manifest.spaces.end() &&
+      require(control_space != manifest.resolved_decision.spaces.end() &&
                 control_space->dimension == expected_dimension &&
                 control_space->finite_element.find(expected_space) !=
                   std::string::npos &&
-                manifest.metric_record.realisation_id == expected_metric,
+                manifest.resolved_decision.metric_record.realisation_id == expected_metric,
               "B2 control realization manifest is incomplete");
     };
 
@@ -1294,9 +1294,9 @@ namespace
         require(compilation.succeeded() && compilation.problem,
                 "B2 transport realization comparison did not compile");
         require(
-          compilation.problem->manifest().boundary_realisation.has_value() &&
+          compilation.problem->manifest().resolved_decision.boundary_realisation.has_value() &&
             compilation.problem->manifest()
-                .boundary_realisation->transport_boundary_form == boundary_form,
+                .resolved_decision.boundary_realisation->transport_boundary_form == boundary_form,
           "B2 transport realization did not propagate through the application boundary");
         const auto reduced = compilation.problem->make_reduced_dto();
         const nmopt::contract::StateControlPartitionT<

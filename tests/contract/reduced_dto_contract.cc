@@ -2691,12 +2691,12 @@ namespace
       manifest.resolved_decision.compatibility.backend = "dense";
       manifest.resolved_decision.compatibility.execution = "assembled";
       manifest.resolved_decision.compatibility.provenance = "DTO";
-      manifest.mesh_record.provenance = "manufactured scalar mesh";
-      manifest.mesh_record.structural_identity = "mesh-a";
-      manifest.formulation_record.semantic_id = "reduced_dto";
-      manifest.formulation_record.kind =
+      manifest.resolved_decision.mesh_record.provenance = "manufactured scalar mesh";
+      manifest.resolved_decision.mesh_record.structural_identity = "mesh-a";
+      manifest.resolved_decision.formulation_record.semantic_id = "reduced_dto";
+      manifest.resolved_decision.formulation_record.kind =
         nmopt::semantic::v1::FormulationKind::reduced_dto;
-      manifest.formulation_record.provenance =
+      manifest.resolved_decision.formulation_record.provenance =
         nmopt::semantic::v1::FormulationProvenance::dto;
 
       CompiledProblem compiled_problem(
@@ -2732,7 +2732,7 @@ namespace
 
     require(envelope.compilation_manifest().resolved_decision.semantic_problem_id ==
               "reference.scalar.reduced.envelope" &&
-              envelope.compilation_manifest().mesh_record.structural_identity ==
+              envelope.compilation_manifest().resolved_decision.mesh_record.structural_identity ==
                 "mesh-a",
             "Experiment envelope did not retain the detached compilation manifest");
     require(envelope.solver_policy().solver_name == "reduced_search" &&
@@ -2748,9 +2748,9 @@ namespace
             "Experiment envelope did not retain its environment record");
 
     auto changed_manifest = envelope.compilation_manifest();
-    changed_manifest.mesh_record.structural_identity = "mesh-b";
-    require(changed_manifest.mesh_record.structural_identity !=
-              envelope.compilation_manifest().mesh_record.structural_identity,
+    changed_manifest.resolved_decision.mesh_record.structural_identity = "mesh-b";
+    require(changed_manifest.resolved_decision.mesh_record.structural_identity !=
+              envelope.compilation_manifest().resolved_decision.mesh_record.structural_identity,
             "Experiment envelope manifest identity did not distinguish products");
 
     auto changed_policy = envelope.solver_policy();

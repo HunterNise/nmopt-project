@@ -1787,19 +1787,19 @@ namespace nmopt::compiler::v1
             policy,
             static_cast<bool>(supplied_otd_system));
         }
-      CompilationManifest manifest = make_manifest(finalized_decision);
       if (box_data)
         {
-          manifest.constraint_record.box_data_token = box_data->token_id();
-          manifest.constraint_record.bounds_digest = box_data->bounds_digest();
-          manifest.constraint_record.control_layout =
+          finalized_decision.constraint_record.box_data_token =
+            box_data->token_id();
+          finalized_decision.constraint_record.bounds_digest =
+            box_data->bounds_digest();
+          finalized_decision.constraint_record.control_layout =
             box_data->layout_signature();
-          manifest.constraint_record.metric_identity = metric->id();
-          manifest.constraint_record.data_provenance =
+          finalized_decision.constraint_record.metric_identity = metric->id();
+          finalized_decision.constraint_record.data_provenance =
             box_data->data_provenance();
-          manifest.resolved_decision.constraint_record =
-            manifest.constraint_record;
         }
+      CompilationManifest manifest = make_manifest(finalized_decision);
       if (pdas_complementarity)
         result.pdas_problem = std::make_shared<const
           CompiledPDASProblemT<Backend>>(
@@ -6224,31 +6224,26 @@ namespace nmopt::compiler::v1
         supplied_otd_system,
       const semantic::v1::SuppliedOTDDeclaration * supplied_otd_declaration)
     {
-      CompilationManifest manifest;
-      manifest.resolved_decision = decision;
-      auto &compatibility = manifest.resolved_decision.compatibility;
-      manifest.realized_maps = finalize_realized_maps<dim>(decision, executable);
-      manifest.realized_spaces = make_realized_spaces(manifest.realized_maps);
-      manifest.resolved_decision.realized_maps = manifest.realized_maps;
-      manifest.boundary_realisation = decision.boundary_realisation;
-      manifest.transposition_realisation = decision.transposition_realisation;
-      manifest.partial_boundary_selection = decision.partial_boundary_selection;
-      manifest.fractional_metric_selection = decision.fractional_metric_selection;
-      manifest.boundary_h1_metric_selection =
+      ResolvedCompilationDecision resolved = decision;
+      auto &compatibility = resolved.compatibility;
+      resolved.realized_maps = finalize_realized_maps<dim>(decision, executable);
+      resolved.realized_spaces = make_realized_spaces(resolved.realized_maps);
+      resolved.boundary_realisation = decision.boundary_realisation;
+      resolved.transposition_realisation = decision.transposition_realisation;
+      resolved.partial_boundary_selection = decision.partial_boundary_selection;
+      resolved.fractional_metric_selection = decision.fractional_metric_selection;
+      resolved.boundary_h1_metric_selection =
         decision.boundary_h1_metric_selection;
-      manifest.h1_target_data_membership_selection =
+      resolved.h1_target_data_membership_selection =
         decision.h1_target_data_membership_selection;
-      manifest.resolved_decision.realized_spaces = manifest.realized_spaces;
       if (supplied_otd_system != nullptr)
         {
           contract::require(supplied_otd_declaration != nullptr,
                             "A supplied OTD system needs its formulation declaration");
-          manifest.supplied_otd_record = make_supplied_otd_record(
+          resolved.supplied_otd_record = make_supplied_otd_record(
             *supplied_otd_system,
             *supplied_otd_declaration,
             policy.state_degree);
-          manifest.resolved_decision.supplied_otd_record =
-            manifest.supplied_otd_record;
         }
       const ResolvedTargetFamily target = request.target_family;
       const auto registration = request.dirichlet_registration ==
@@ -6321,16 +6316,14 @@ namespace nmopt::compiler::v1
           ? request.continuous_control_boundary_region_id
           : request.control_boundary_region_id);
 
-      manifest.formulation_record = decision.formulation_record;
-      manifest.mesh_record = decision.mesh_record;
-      manifest.spaces = decision.spaces;
-      for (auto &space : manifest.spaces)
+      resolved.formulation_record = decision.formulation_record;
+      resolved.mesh_record = decision.mesh_record;
+      resolved.spaces = decision.spaces;
+      for (auto &space : resolved.spaces)
         space.dimension = compiled_space_dimension(space,
                                                    executable,
-                                                   manifest.realized_spaces);
-      manifest.resolved_decision.spaces = manifest.spaces;
-      manifest.bindings = decision.bindings;
-      manifest.resolved_decision.bindings = manifest.bindings;
+                                                   resolved.realized_spaces);
+      resolved.bindings = decision.bindings;
 
       const std::size_t state_dimension =
         executable.test_layout()->dimension(0);
@@ -6345,32 +6338,32 @@ namespace nmopt::compiler::v1
             uses_mean_zero_gauge ? "one mean-zero Lagrange multiplier"
                                  : "fixed Dirichlet",
             {}};
-          manifest.state_solve_record = direct_record;
-          manifest.adjoint_solve_record = direct_record;
-          manifest.state_solve_record.operator_realisation =
+          resolved.state_solve_record = direct_record;
+          resolved.adjoint_solve_record = direct_record;
+          resolved.state_solve_record.operator_realisation =
             uses_mean_zero_gauge
               ? "augmented symmetric state and adjoint saddle systems"
             : uses_general_scalar
               ? "nonsymmetric state operator and its exact transpose"
             : "nonsymmetric conservative-transport state operator and its exact transpose";
-          manifest.adjoint_solve_record.operator_realisation =
-            manifest.state_solve_record.operator_realisation;
+          resolved.adjoint_solve_record.operator_realisation =
+            resolved.state_solve_record.operator_realisation;
         }
       else
         {
-          manifest.state_solve_record = spd_solve_record(
+          resolved.state_solve_record = spd_solve_record(
             policy.state_solve,
             state_dimension,
             uses_dirichlet_control_lifting
               ? "homogeneous conforming Galerkin state subspace"
               : "fixed Dirichlet");
-          manifest.adjoint_solve_record = spd_solve_record(
+          resolved.adjoint_solve_record = spd_solve_record(
             policy.adjoint_solve,
             state_dimension,
             uses_dirichlet_control_lifting
               ? "homogeneous conforming Galerkin adjoint subspace"
               : "fixed Dirichlet");
-          manifest.state_solve_record.operator_realisation =
+          resolved.state_solve_record.operator_realisation =
             uses_coefficient_identification
               ? "parameter-dependent SPD state matrix is reassembled for each state and adjoint solve"
             : uses_normalized_dirichlet_control
@@ -6378,10 +6371,10 @@ namespace nmopt::compiler::v1
                    ? "conforming variational state and adjoint systems selected by transposition equivalence"
                    : "normalized-Laplacian conforming state and adjoint systems")
               : "symmetric positive-definite operator";
-          manifest.adjoint_solve_record.operator_realisation =
-            manifest.state_solve_record.operator_realisation;
+          resolved.adjoint_solve_record.operator_realisation =
+            resolved.state_solve_record.operator_realisation;
         }
-      manifest.metric_record = {
+      resolved.metric_record = {
         decision.metric_record.semantic_id,
         metric.id(),
         uses_hminus1_control_metric
@@ -6421,7 +6414,7 @@ namespace nmopt::compiler::v1
          policy.control_metric_solve.absolute_tolerance,
          "not applicable",
          {}}};
-      manifest.constraint_record = {
+      resolved.constraint_record = {
         constraint_realisation != ConstraintRealisation::none,
         decision.constraint_record.semantic_id,
         constraint_realisation_id(constraint_realisation),
@@ -6432,24 +6425,18 @@ namespace nmopt::compiler::v1
         {},
         {},
         {}};
-      manifest.resolved_decision.state_solve_record =
-        manifest.state_solve_record;
-      manifest.resolved_decision.adjoint_solve_record =
-        manifest.adjoint_solve_record;
-      manifest.resolved_decision.metric_record = manifest.metric_record;
-      manifest.resolved_decision.constraint_record = manifest.constraint_record;
-      compatibility.execution = manifest.resolved_decision.execution_id;
+      compatibility.execution = resolved.execution_id;
       compatibility.dual_representation =
-        manifest.resolved_decision.formulation_record.dual_representation;
+        resolved.formulation_record.dual_representation;
       compatibility.metric_solve_policy =
-        metric_solve_policy_description(manifest.metric_record);
-      compatibility.constraint_realisation = describe(manifest.constraint_record);
+        metric_solve_policy_description(resolved.metric_record);
+      compatibility.constraint_realisation = describe(resolved.constraint_record);
       compatibility.nullspace_policy =
-        manifest.resolved_decision.state_solve_record.nullspace_policy;
+        resolved.state_solve_record.nullspace_policy;
       if (scalar_plan != nullptr)
         {
           compatibility.lowering_handler_records = scalar_plan->provenance;
-          manifest.boundary_realisation = scalar_plan->boundary_selection;
+          resolved.boundary_realisation = scalar_plan->boundary_selection;
         }
       if (uses_weighted_boundary_trace)
         compatibility.lowering_handler_records.push_back(
@@ -6582,7 +6569,7 @@ namespace nmopt::compiler::v1
             std::to_string(policy.state_degree + 2) +
             ") boundary face quadrature; scalar coefficients and forcing Function at volume quadrature")
         : uses_general_scalar
-        ? general_scalar_data_rule(manifest.bindings, policy.state_degree + 2)
+        ? general_scalar_data_rule(resolved.bindings, policy.state_degree + 2)
         : "analytic desired-state Function at selected " + volume_quadrature +
             " volume quadrature" +
             (uses_coefficient_identification
@@ -6613,9 +6600,9 @@ namespace nmopt::compiler::v1
              : boundary_observation_realisation(*tracking_region))
         : observation_realisation(*tracking_region);
       compatibility.metric_solve_policy =
-        metric_solve_policy_description(manifest.metric_record);
+        metric_solve_policy_description(resolved.metric_record);
       compatibility.constraint_realisation =
-        describe(manifest.constraint_record);
+        describe(resolved.constraint_record);
       compatibility.lifting_realisation = uses_mean_zero_gauge
                                        ? "none; pure-Neumann state uses an explicit mean-zero gauge"
                                        : uses_fixed_reconstruction
@@ -6632,12 +6619,12 @@ namespace nmopt::compiler::v1
                                            ? "y_phys = P_h y_hat; independent FE_Q coordinates and AffineConstraints reconstruction"
                                            : "homogeneous full-vector Dirichlet rows; no inhomogeneous lifting";
       compatibility.nullspace_policy =
-        manifest.state_solve_record.nullspace_policy;
+        resolved.state_solve_record.nullspace_policy;
       compatibility.state_adjoint_solve_policy =
-        state_adjoint_solve_policy_description(manifest.state_solve_record,
-                                               manifest.adjoint_solve_record);
+        state_adjoint_solve_policy_description(resolved.state_solve_record,
+                                               resolved.adjoint_solve_record);
       compatibility.provenance =
-        manifest.formulation_record.provenance ==
+        resolved.formulation_record.provenance ==
             semantic::v1::FormulationProvenance::supplied_otd
           ? "supplied OTD"
           : "DTO";
@@ -6651,11 +6638,11 @@ namespace nmopt::compiler::v1
       if (uses_neumann_convection)
         {
           contract::require(
-            manifest.boundary_realisation.has_value(),
+            resolved.boundary_realisation.has_value(),
             "Neumann-convection manifest needs its typed boundary realization");
           compatibility.declared_assumptions.push_back(
             "neumann_convection_subdomain: conservative transport is assembled in the scalar residual; " +
-            boundary_realisation_description(*manifest.boundary_realisation) +
+            boundary_realisation_description(*resolved.boundary_realisation) +
             "; state tracking is restricted to declared material ids");
         }
       if (uses_natural_boundary_source)
@@ -6666,18 +6653,18 @@ namespace nmopt::compiler::v1
             source_region != nullptr,
             "Natural-boundary source manifest needs its declared region");
           const auto source_binding = std::find_if(
-            manifest.bindings.begin(),
-            manifest.bindings.end(),
+            resolved.bindings.begin(),
+            resolved.bindings.end(),
             [](const CompiledBindingRecord &binding) {
               return binding.role ==
                      semantic::v1::DataRole::natural_boundary_source;
             });
           contract::require(
-            source_binding != manifest.bindings.end(),
+            source_binding != resolved.bindings.end(),
             "Natural-boundary source manifest needs its binding record");
           const bool ordinary_transport_form =
-            manifest.boundary_realisation.has_value() &&
-            manifest.boundary_realisation->transport_boundary_form ==
+            resolved.boundary_realisation.has_value() &&
+            resolved.boundary_realisation->transport_boundary_form ==
               semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport;
           compatibility.declared_assumptions.push_back(
             "natural_boundary_source: immutable scalar Function paired by "
@@ -6734,19 +6721,19 @@ namespace nmopt::compiler::v1
           "coefficient_identification: positive cellwise physical diffusion parameter; A(m) is reassembled for every state and adjoint solve");
       if (uses_general_scalar)
         {
-          contract::require(manifest.boundary_realisation.has_value(),
+          contract::require(resolved.boundary_realisation.has_value(),
                             "General scalar manifest needs its typed boundary realization");
           compatibility.declared_assumptions.push_back(
             "general_scalar_robin: " +
-            boundary_realisation_description(*manifest.boundary_realisation));
+            boundary_realisation_description(*resolved.boundary_realisation));
         }
       if (uses_h1_state_observation)
         {
           contract::require(
-            manifest.h1_target_data_membership_selection.has_value(),
+            resolved.h1_target_data_membership_selection.has_value(),
             "H1-state manifest needs its typed target-data membership assumption");
           const auto &selection =
-            *manifest.h1_target_data_membership_selection;
+            *resolved.h1_target_data_membership_selection;
           compatibility.declared_assumptions.push_back(
             "h1_target_data_membership: status=user_assumed; data=" +
             selection.data_id + "; observation_space=" +
@@ -6797,7 +6784,7 @@ namespace nmopt::compiler::v1
           "; region=" + assumption.region_id);
       std::sort(compatibility.lowering_handler_records.begin(),
                 compatibility.lowering_handler_records.end());
-      return manifest.resolved_decision;
+      return resolved;
     }
 
     static CompiledKKTRecord
@@ -6942,27 +6929,6 @@ namespace nmopt::compiler::v1
     {
       CompilationManifest manifest;
       manifest.resolved_decision = decision;
-      manifest.formulation_record = decision.formulation_record;
-      manifest.supplied_otd_record = decision.supplied_otd_record;
-      manifest.kkt_record = decision.kkt_record;
-      manifest.pdas_record = decision.pdas_record;
-      manifest.mesh_record = decision.mesh_record;
-      manifest.spaces = decision.spaces;
-      manifest.bindings = decision.bindings;
-      manifest.state_solve_record = decision.state_solve_record;
-      manifest.adjoint_solve_record = decision.adjoint_solve_record;
-      manifest.metric_record = decision.metric_record;
-      manifest.constraint_record = decision.constraint_record;
-      manifest.realized_spaces = decision.realized_spaces;
-      manifest.realized_maps = decision.realized_maps;
-      manifest.boundary_realisation = decision.boundary_realisation;
-      manifest.transposition_realisation = decision.transposition_realisation;
-      manifest.partial_boundary_selection = decision.partial_boundary_selection;
-      manifest.fractional_metric_selection = decision.fractional_metric_selection;
-      manifest.boundary_h1_metric_selection =
-        decision.boundary_h1_metric_selection;
-      manifest.h1_target_data_membership_selection =
-        decision.h1_target_data_membership_selection;
       return manifest;
     }
 

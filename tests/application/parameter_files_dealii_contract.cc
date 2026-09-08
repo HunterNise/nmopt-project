@@ -108,8 +108,8 @@ namespace
     const char                                    *message)
   {
     require(
-      std::any_of(manifest.bindings.begin(),
-                  manifest.bindings.end(),
+      std::any_of(manifest.resolved_decision.bindings.begin(),
+                  manifest.resolved_decision.bindings.end(),
                   [&](const auto &binding) {
                     return binding.semantic_id == semantic_id &&
                            binding.provenance == provenance;

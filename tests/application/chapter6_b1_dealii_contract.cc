@@ -87,17 +87,17 @@ namespace
               result.artifact.envelope().report().adjoint_solve_count > 0,
             "B1 dealii adapter did not retain solve counts");
     const auto &manifest = result.artifact.envelope().compilation_manifest();
-    require(manifest.state_solve_record.maximum_iterations == 123 &&
-              manifest.state_solve_record.relative_tolerance == 2.0e-12 &&
-              manifest.state_solve_record.absolute_tolerance == 3.0e-14 &&
-              manifest.adjoint_solve_record.maximum_iterations == 124 &&
-              manifest.adjoint_solve_record.relative_tolerance == 4.0e-12 &&
-              manifest.adjoint_solve_record.absolute_tolerance == 5.0e-14,
+    require(manifest.resolved_decision.state_solve_record.maximum_iterations == 123 &&
+              manifest.resolved_decision.state_solve_record.relative_tolerance == 2.0e-12 &&
+              manifest.resolved_decision.state_solve_record.absolute_tolerance == 3.0e-14 &&
+              manifest.resolved_decision.adjoint_solve_record.maximum_iterations == 124 &&
+              manifest.resolved_decision.adjoint_solve_record.relative_tolerance == 4.0e-12 &&
+              manifest.resolved_decision.adjoint_solve_record.absolute_tolerance == 5.0e-14,
             "B1 dealii adapter did not map the state/adjoint solve policies");
-    require(manifest.metric_record.solve_policy.maximum_iterations == 321 &&
-              manifest.metric_record.solve_policy.relative_tolerance ==
+    require(manifest.resolved_decision.metric_record.solve_policy.maximum_iterations == 321 &&
+              manifest.resolved_decision.metric_record.solve_policy.relative_tolerance ==
                 6.0e-12 &&
-              manifest.metric_record.solve_policy.absolute_tolerance ==
+              manifest.resolved_decision.metric_record.solve_policy.absolute_tolerance ==
                 7.0e-14,
             "B1 dealii adapter did not map the control-metric solve policy");
     if (discretisation ==

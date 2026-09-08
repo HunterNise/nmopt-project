@@ -411,33 +411,8 @@ namespace nmopt::compiler::v1
   // mistaken for the same computation.
   struct CompilationManifest
   {
-    unsigned int                         schema_version = 4;
-    ResolvedCompilationDecision           resolved_decision;
-    CompiledFormulationRecord            formulation_record;
-    CompiledSuppliedOTDRecord            supplied_otd_record;
-    CompiledKKTRecord                    kkt_record;
-    CompiledPDASRecord                   pdas_record;
-    CompiledMeshRecord                   mesh_record;
-    std::vector<CompiledSpaceRecord>      spaces;
-    std::vector<CompiledBindingRecord>    bindings;
-    CompiledSolvePolicyRecord             state_solve_record;
-    CompiledSolvePolicyRecord             adjoint_solve_record;
-    CompiledMetricRecord                  metric_record;
-    CompiledConstraintRecord              constraint_record;
-    std::vector<CompiledRealizedSpaceRecord> realized_spaces;
-    std::vector<CompiledRealizedMapRecord>   realized_maps;
-    std::optional<semantic::v1::BoundaryRealisationSelection>
-                                          boundary_realisation;
-    std::optional<semantic::v1::TranspositionRealisationSelection>
-                                          transposition_realisation;
-    std::optional<semantic::v1::PartialDirichletBoundarySelection>
-                                          partial_boundary_selection;
-    std::optional<semantic::v1::FractionalTraceMetricRealisationSelection>
-                                          fractional_metric_selection;
-    std::optional<semantic::v1::BoundaryH1MetricRealisationSelection>
-                                          boundary_h1_metric_selection;
-    std::optional<semantic::v1::H1TargetDataMembershipSelection>
-                                          h1_target_data_membership_selection;
+    unsigned int               schema_version = 4;
+    ResolvedCompilationDecision resolved_decision;
   };
 
   // One immutable compiled source of truth for coefficientwise cellwise box
@@ -758,8 +733,6 @@ namespace nmopt::compiler::v1
     {
       contract::require(static_cast<bool>(product_),
                         "A compiled KKT problem needs a product");
-      contract::require(manifest_.kkt_record.present,
-                        "A compiled KKT problem needs a KKT manifest record");
       contract::require(
         manifest_.resolved_decision.kkt_record.present,
         "A compiled KKT problem needs a resolved KKT manifest record");
@@ -826,8 +799,6 @@ namespace nmopt::compiler::v1
                         "A compiled PDAS problem needs shared box data");
       contract::require(static_cast<bool>(projection_constraint_),
                         "A compiled PDAS problem needs its projection constraint");
-      contract::require(manifest_.pdas_record.present,
-                        "A compiled PDAS problem needs a PDAS manifest record");
       contract::require(
         manifest_.resolved_decision.pdas_record.present,
         "A compiled PDAS problem needs a resolved PDAS manifest record");
@@ -1097,15 +1068,15 @@ namespace nmopt::compiler::v1
       contract::require(static_cast<bool>(system_),
                         "A supplied-OTD problem needs an executable system");
       contract::require(
-        manifest_.formulation_record.kind ==
+        manifest_.resolved_decision.formulation_record.kind ==
             semantic::v1::FormulationKind::all_at_once &&
-          manifest_.formulation_record.provenance ==
+          manifest_.resolved_decision.formulation_record.provenance ==
             semantic::v1::FormulationProvenance::supplied_otd,
         "A supplied-OTD problem needs an all-at-once supplied-OTD manifest");
-      contract::require(manifest_.supplied_otd_record.present,
+      contract::require(manifest_.resolved_decision.supplied_otd_record.present,
                         "A supplied-OTD problem needs typed block provenance");
       contract::require(
-        manifest_.supplied_otd_record.declaration.has_value(),
+        manifest_.resolved_decision.supplied_otd_record.declaration.has_value(),
         "A supplied-OTD problem needs its typed formulation declaration");
     }
 

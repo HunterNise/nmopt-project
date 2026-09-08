@@ -9,8 +9,8 @@
 
 namespace nmopt::dealii_backend
 {
-  // Serial deal.II vector policy for the v0 lowerer. Distributed vectors and
-  // their ownership/ghost policy are a separate backend extension.
+  // Serial deal.II vector policy for the current backend paths. Distributed
+  // vectors and their ownership/ghost policy are a separate backend extension.
   struct SerialBackend
   {
     using Vector = dealii::Vector<double>;

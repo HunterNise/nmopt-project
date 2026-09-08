@@ -13,6 +13,12 @@ the required choice for the first executable implementation. A later
 implementation may select another listed choice only by declaring it in its
 discretisation or formulation policy and by providing the required tests.
 
+The baseline terminology in this review records the original implementation
+generation. The direct scalar deal.II realization was retired by the
+PDE–solver refactor; current compiler capability is recorded in the
+[v1 semantic compiler record](v1/semantic-compiler.md), while existing
+applications use the [external deal.II integration reference](../reference/external-dealii-solver-integration.md).
+
 The result is deliberately conservative:
 
 - the semantic model remains broad;
@@ -263,8 +269,9 @@ $$
 $$
 
 Every executable model records provenance = DTO, the exact quadrature and
-constraint policy, and its data/lifting realization. The direct v0 baseline
-selects DTO only. If OTD is registered, it is a separate formulation builder
+constraint policy, and its data/lifting realization. The original first
+implementation baseline selected DTO only. If OTD is registered, it is a
+separate formulation builder
 whose output records provenance = OTD; it may never be labelled the exact
 discrete adjoint without an explicit equivalence test.
 
@@ -366,7 +373,7 @@ $`L_{D,h}`$ must state its boundary-control discretisation, interior
 extension, corner/interface compatibility, and behavior on fixed Dirichlet
 portions. The discrete problem records the lifting choice because different
 liftings can produce different discrete intermediate systems. Dirichlet
-control is excluded from the direct v0 baseline rather than simulated by a
+control was excluded from the original baseline rather than simulated by a
 Neumann-like coupling. The [v1 capability table](v1/semantic-compiler.md#registered-capabilities)
 owns the status and bounds of any registered realization.
 
@@ -589,7 +596,7 @@ optimizer.
 
 ## 11. Baseline slice and extension policies
 
-The selected direct v0 baseline is intentionally narrower than the complete
+The selected original baseline is intentionally narrower than the complete
 semantic language:
 
 ~~~text

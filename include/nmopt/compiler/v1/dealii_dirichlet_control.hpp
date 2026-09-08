@@ -70,7 +70,7 @@ namespace nmopt::compiler::v1::detail
   //
   // The first policy gives one shared nodal coefficient to every state DoF on
   // the complete exterior boundary. It is intentionally not a boundary-load
-  // residual and does not alter the direct v0 lowerer.
+  // residual and remains a distinct registered realization.
   template <int dim>
   class DirichletControlLiftingModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>

@@ -63,8 +63,8 @@ namespace nmopt::semantic::v1
     }
   } // namespace reference_detail
 
-  // This is the current reference graph used to compare direct v0 assembly
-  // with semantic compilation. It is a factory, not a PDE problem class.
+  // This is the current reference graph used to exercise canonical scalar
+  // component assembly. It is a factory, not a PDE problem class.
   inline ProblemSpec
   make_scalar_diffusion_reaction_problem(const bool with_cellwise_box = false)
   {

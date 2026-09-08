@@ -3,14 +3,16 @@
 ## Purpose
 
 This guide is the shortest path to a working mental model of `nmopt`. It
-connects the mathematical model, the semantic specification, the current v0
-contracts, the serial deal.II reference lowerer, and the tests.
+connects the mathematical model, the semantic specification, the surviving
+solver-facing contracts, the v1 deal.II compiler, the external application
+boundary, and the tests.
 
 It is not a second source of authority: the [interface specification](interface-specification.md)
 is normative for the intended semantic API; the
-[v0 executable contract](../implementation/v0/executable-contract.md) and
-[deal.II lowerer record](../implementation/v0/dealii-lowerer.md) define the
-direct reference slice; and the
+[executable contract record](../implementation/v0/executable-contract.md)
+defines the backend-neutral solver-facing slice; the historical
+[deal.II lowerer record](../implementation/v0/dealii-lowerer.md) records the
+retired direct scalar path; and the
 [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
 owns exact compiler support and exclusions.
 
@@ -47,11 +49,17 @@ PRESENT V1 SEMANTIC/COMPILER PATH
 
 ProblemSpec ──> semantic validation + kind whitelist
                               │
-                              └──> whole-graph predicate dispatch
+                              └──> closed lowering decision
                                            │
-                                           └──> one target implementation
+                                           └──> typed numerical realization
                                                        │
-                                                       └──> executable ports
+                                                       └──> executable ports + native view
+
+PRESENT EXTERNAL APPLICATION PATH
+
+existing deal.II application ──> callback executable + solve services + metric
+                                               │
+                                               └──> same formulation/optimizer ports
 
 TARGET COMPONENT-LOWERING ARCHITECTURE (NOT YET IMPLEMENTED)
 
@@ -60,29 +68,34 @@ ProblemSpec ──> validated component graph ──> independently owned lowere
                                                      └──> composed executable model
 
 
-IMPLEMENTED V0 VERTICAL SLICE
+IMPLEMENTED REFERENCE AND V1 VERTICAL SLICES
 
 LinearQuadraticModel ──────────────────────────────────> ExecutableModelT
                                                        ↗
-ScalarDiffusionReactionModel (preserved hand-written deal.II reference)
+CallbackExecutableModelT + external application
       │
       └──> ReducedDTOT + supplied state/adjoint solves ──> reduced covector
+
+v1 semantic/compiler path ──> registered deal.II realizations
+      │
+      └──> compiled ports + typed native view ──> formulation/optimizer
 ```
 
-The `ScalarDiffusionReactionModel` is a reference lowerer for one selected
-finite-element problem. It is **not** the public `ProblemSpec` and must not
-grow into a hierarchy of complete PDE/control combinations. The present v1
-kind registry improves diagnostics, but it does not independently lower an
-arbitrary combination of whitelisted components.
+The external application path and the v1 compiler path are independent
+producers of the same solver-facing operations. Neither requires a public
+hierarchy of complete PDE/control combinations. The v1 kind registry improves
+diagnostics and the registered lowering strategies realize only supported
+combinations; it does not independently lower an arbitrary combination of
+whitelisted components.
 
 | Layer | Question answered | Authority | Representative code |
 | --- | --- | --- | --- |
 | Theory | What mathematical object is solved? | [Formalism](theoretical-formalism.md) | `LinearQuadraticModel` oracle |
 | Semantic specification | Which components and ports should exist? | [Interface specification](interface-specification.md) | `semantic::v1::ProblemSpec` |
 | Compilation policy | How do spaces, pairings, liftings, and execution become discrete? | [V1 semantic compiler](../implementation/v1/semantic-compiler.md) | `compiler::v1::DealiiCompiler` |
-| Executable contract | What may algorithms call after lowering? | [V0 contract](../implementation/v0/executable-contract.md) | `include/nmopt/contract/` |
+| Executable contract | What may algorithms call after lowering? | [Executable contract](../implementation/v0/executable-contract.md) | `include/nmopt/contract/` |
 | Formulation | How do residual and objective become first-order operations? | [Interface specification](interface-specification.md) | `ReducedDTOT` |
-| Backend/lowerer | How is one model assembled in deal.II? | [deal.II lowerer](../implementation/v0/dealii-lowerer.md) | `ScalarDiffusionReactionModel` |
+| Backend/lowerer | How are registered numerical realizations assembled in deal.II? | [V1 semantic compiler](../implementation/v1/semantic-compiler.md) | `DealiiCompiler` and registered targets |
 | Verification | How do values and derivatives agree? | [Roadmap](../planning/implementation-roadmap.md) | `tests/*_contract.cc` |
 
 ## The vocabulary: component cards
@@ -132,7 +145,10 @@ The default representation stores tested covector coefficients. If $`r_{j}=\lang
 \langle r,p\rangle_{Z_{h}^{\ast},Z_{h}}=r^{\mathsf T}p.
 ```
 
-This is why a usual assembled matrix with test rows and trial columns can use the coordinate transpose in v0. It is **not** a general permission to add or remove mass matrices: a different dual representation needs a different pairing and transpose action.
+This is why a usual assembled matrix with test rows and trial columns can use
+the coordinate transpose in the reference dual-coefficient representation. It
+is **not** a general permission to add or remove mass matrices: a different
+dual representation needs a different pairing and transpose action.
 
 ```text
 BlockLayout                          named spaces + dimensions
@@ -211,7 +227,8 @@ The interface is [`executable_model.hpp`](../../include/nmopt/contract/executabl
 
 ## DTO: how a control becomes a reduced covector
 
-V0 uses **discretize then optimize**. It fixes $`E_{h}`$ and $`J_{h}`$ first, then derives discrete actions. Its global convention is
+The executable contract uses **discretize then optimize**. It fixes $`E_{h}`$
+and $`J_{h}`$ first, then derives discrete actions. Its global convention is
 
 ```math
 \mathcal L_{h}(x_{h},p_{h})=J_{h}(x_{h})-
@@ -246,9 +263,10 @@ Regularisation and metric must stay separate. Adding $`\frac{\alpha}{2}\lVert u\
 
 [`reduced_dto.hpp`](../../include/nmopt/contract/reduced_dto.hpp) implements this narrow workflow: one eliminated state block, one control block, one residual test block, and externally supplied state/adjoint solves.
 
-## Direct v0 deal.II model: theory to assembled objects
+## Scalar volume realization: theory to assembled objects
 
-`ScalarDiffusionReactionModel<dim>` realizes the scalar, stationary, homogeneous-Dirichlet case. Its discrete model is
+The canonical v1 scalar component realization covers the scalar, stationary,
+homogeneous-Dirichlet volume-control case. Its discrete model is
 
 ```math
 r_{h}(y_{h},u_{h})=A_{h}y_{h}-f_{h}-B_{h}u_{h},
@@ -261,18 +279,24 @@ J_{h}(y_{h},u_{h})=
 +\frac{\alpha}{2}u_{h}^{\mathsf T}M_{u}u_{h}.
 ```
 
-| Theory | Discrete object | `ScalarDiffusionReactionModel` member/action |
+| Theory | Discrete object | Current realization |
 | --- | --- | --- |
-| Diffusion-reaction residual | $`A_{h}`$ | `system_matrix_` |
-| Fixed source | $`f_{h}`$ | `forcing_load_` |
-| Volume control coupling | $`B_{h}`$ | `control_coupling_` |
-| State tracking | $`M_{y}`$, $`q_{y}`$, target constant | `state_mass_`, `desired_state_load_`, `desired_state_norm_` |
-| Control $L^{2}$ regularisation | $`\alpha M_{u}`$ | `regularisation_weight_`, `control_mass_` |
-| Fixed zero Dirichlet condition | constrained coordinate policy | `state_constraints_`, `constrained_state_dofs_` |
-| Residual/JVP/VJP | $r$, $A\delta y-B\delta u$, $(A^{\mathsf T}p,-B^{\mathsf T}p)$ | `residual`, `residual_jvp`, `residual_vjp` |
-| State/adjoint solve | $`A_{h}y=f+B u`$, $`A_{h}^{\mathsf T}p=J_{y}'`$ | `solve_state`, `solve_adjoint` |
+| Diffusion-reaction residual | $`A_{h}`$ | assembled scalar component target |
+| Fixed source | $`f_{h}`$ | typed scalar data placement |
+| Volume control coupling | $`B_{h}`$ | selected scalar residual contribution |
+| State tracking | $`M_{y}`$, $`q_{y}`$, target constant | objective/loss realization |
+| Control $L^{2}$ regularisation | $`\alpha M_{u}`$ | objective realization and `MassMetric` capability |
+| Fixed zero Dirichlet condition | constrained coordinate policy | registered state-coordinate realization |
+| Residual/JVP/VJP | $r$, $A\delta y-B\delta u$, $(A^{\mathsf T}p,-B^{\mathsf T}p)$ | `ExecutableModelT` actions |
+| State/adjoint solve | $`A_{h}y=f+B u`$, $`A_{h}^{\mathsf T}p=J_{y}'`$ | `StateAdjointSolversT` services |
 
-The selected policy is scalar `FE_Q` state/test, `FE_DGQ(0)` control on the same active cells, constant $k>0$ and $c\geq0$, data sampled from deal.II `Function` objects at cell quadrature, serial assembled matrices, homogeneous Dirichlet ids, and SPD CG solves. `assemble()` populates cached matrices/vectors cell by cell; `residual*()` and `objective*()` compose those objects without rederiving the weak form.
+The selected policy is scalar `FE_Q` state/test, `FE_DGQ(0)` control on the
+same active cells, constant $k>0$ and $c\geq0$, data sampled from deal.II
+`Function` objects at cell quadrature, serial assembled matrices, homogeneous
+Dirichlet ids, and SPD CG solves. The v1 compiler resolves the graph and
+realizes these contributions into typed executable, metric, and solve
+services; callers consume those services rather than a PDE-specific model
+type.
 
 ### A sign check you can do by hand
 
@@ -306,12 +330,12 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`mass_metric.hpp`](../../include/nmopt/dealii/mass_metric.hpp) | Sparse SPD decision Riesz map | deal.II $L^{2}$ and $H^{1}$ control or parameter search directions |
 | [`cellwise_box_constraint.hpp`](../../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control or parameter updates |
 | [`facewise_box_constraint.hpp`](../../include/nmopt/dealii/facewise_box_constraint.hpp) | Facewise-constant coefficientwise box projection | Feasible Neumann boundary-control updates |
-| [`scalar_diffusion_reaction.hpp`](../../include/nmopt/dealii/scalar_diffusion_reaction.hpp) | Concrete deal.II lowerer | FE assembly, constraints, solves |
+| [`callback_executable_model.hpp`](../../include/nmopt/contract/callback_executable_model.hpp) | Callback-backed external executable boundary | Existing application residual/objective callbacks |
 | [`types.hpp`](../../include/nmopt/semantic/v1/types.hpp) | Narrow deal.II-free v1 graph types | Semantic component ports |
 | [`validation.hpp`](../../include/nmopt/semantic/v1/validation.hpp) | Structural and policy diagnostics | Semantic validation |
 | [`compiled_problem.hpp`](../../include/nmopt/compiler/v1/compiled_problem.hpp) | Backend-generic compiled package and manifest | Solver-facing compiled ports and provenance |
 | [`reduced_envelope.hpp`](../../include/nmopt/experiment/reduced_envelope.hpp) | In-memory manifest, policy, report, and environment association | Detached Chapter 6 experiment provenance |
-| [`dealii_compiler.hpp`](../../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks plus private v0 comparison or v1 assembled targets |
+| [`dealii_compiler.hpp`](../../include/nmopt/compiler/v1/dealii_compiler.hpp) | V1 registered deal.II compiler path | Capability checks plus typed registered realizations |
 | [`dealii_fixed_dirichlet.hpp`](../../include/nmopt/compiler/v1/dealii_fixed_dirichlet.hpp) | V1 physical-state assembly target | Independent coordinates, fixed lifting, material tracking, and pullbacks |
 | [`dealii_dirichlet_control.hpp`](../../include/nmopt/compiler/v1/dealii_dirichlet_control.hpp) | V1 controlled physical-state target | Complete-boundary nodal lifting, trace metric, and state/control pullbacks |
 | [`dealii_neumann_boundary.hpp`](../../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, pullbacks, and pure-Neumann mean-zero saddle solves |
@@ -320,6 +344,7 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`reduced_dto_contract.cc`](../../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
 | [`semantic_v1_contract.cc`](../../tests/semantic_v1_contract.cc) | Deal.II-free graph validation | Structural and analytical-policy diagnostics |
 | [`dealii_diffusion_contract.cc`](../../tests/dealii_diffusion_contract.cc) | Compiler and lowerer checks through real deal.II assembly | Exact scenarios are listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities) |
+| [`external_application_dealii_contract.cc`](../../tests/application/external_application_dealii_contract.cc) | Existing deal.II application integration checks | Callback executable, solve services, metric, optimizer, derivatives, and native output ownership |
 
 The dense model has no mesh or FE code. It makes an incorrect formula, type pairing, or DTO sign fail independently of deal.II. The deal.II test then establishes that the same contract survives real `DoFHandler`, quadrature, sparse assembly, `AffineConstraints`, and CG solve operations.
 
@@ -355,9 +380,9 @@ for working functionality. The exact current registrations and unsupported
 combinations are maintained in the
 [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
 and [v1 exclusions](../implementation/v1/semantic-compiler.md#exclusions).
-The direct reference slice has its own
-[v0 exclusions](../implementation/v0/dealii-lowerer.md#explicit-exclusions),
-and the [roadmap](../planning/implementation-roadmap.md) alone records task
+The retired direct scalar slice is retained only as a
+[historical lowerer record](../implementation/v0/dealii-lowerer.md#explicit-exclusions);
+the [roadmap](../planning/implementation-roadmap.md) alone records task
 completion and handoff.
 
 ## Blueprint for adding one feature yourself

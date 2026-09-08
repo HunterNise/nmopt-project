@@ -402,6 +402,7 @@ The `CTest` scenarios verify:
     reports, including sanitizer coverage in the backend-neutral profile.
 
 This establishes the small executable algebra that a deal.II compiler must
-produce. The first serial scalar diffusion-reaction compiler now exists; its
-exact finite-element scope and exclusions are recorded in the
-[deal.II v0 lowerer](dealii-lowerer.md).
+produce. The current v1 serial compiler produces this algebra for its
+registered scalar and extended targets; the retired direct lowerer's exact
+finite-element scope is retained in the historical
+[deal.II v0 lowerer record](dealii-lowerer.md).

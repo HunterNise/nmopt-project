@@ -75,15 +75,17 @@ type for existing applications.
 
 ## The missing middle layer
 
-The current implementation often jumps from a validated semantic graph to one
-complete concrete `*Model`, then erases that concrete type to
-`ExecutableModelT`. Native application code later needs dimensions,
-reconstruction, diagnostics, or field output and therefore recovers the
-concrete model with `dynamic_cast`.
+The pre-refactor implementation often jumped from a validated semantic graph
+to one complete concrete `*Model`, then erased that concrete type to
+`ExecutableModelT`. Native application code later needed dimensions,
+reconstruction, diagnostics, or field output and therefore recovered the
+concrete model with `dynamic_cast`. The surviving boundary keeps typed native
+ownership beside the erased solver-facing operations.
 
 That sequence erases too much information too early:
 
 ```text
+pre-refactor sequence:
 semantic graph
     -> complete concrete model
     -> ExecutableModelT

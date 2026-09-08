@@ -8,6 +8,12 @@ serial deal.II lowerer. It is intentionally dependency-ordered: finish
 the useful vertical slice before broadening the semantic language, and broaden
 the semantic language before adding advanced PDE variants.
 
+The opening P0–P3 entries retain the original implementation history. Their
+direct scalar deal.II baseline was retired by the later PDE–solver refactor;
+the current v1 capability record is authoritative for compiler behavior and
+the current external-application boundary is documented in the
+[external deal.II integration reference](../reference/external-dealii-solver-integration.md).
+
 The application layer has a separate [application roadmap](application-roadmap.md).
 That roadmap owns runner configuration, generated run organization, native
 deal.II output, post-processing, and B0–B2 execution acceptance. This document
@@ -178,7 +184,7 @@ The following pieces exist and are tested:
 | Formulation solves and lifetime | `include/nmopt/contract/linear_solve.hpp`, `include/nmopt/dealii/serial_spd_solver.hpp`, and `include/nmopt/compiler/v1/dealii_types.hpp` | Typed state/adjoint solve reports, one shared serial SPD policy/service for symmetric targets, recorded direct and exact-transpose solves for the P5.1 nonsymmetric target, an owned static-mesh compilation session, and detached reduced services that retain executable/session lifetime. |
 | Reference oracle | `include/nmopt/reference/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend with a checked conversion from contract dimensions to the native deal.II size type. |
-| Direct deal.II v0 lowerer | `include/nmopt/dealii/scalar_diffusion_reaction.hpp` | Preserved assembled scalar `FE_Q` diffusion-reaction reference with `FE_DGQ(0)` volume control, full-domain tracking, homogeneous Dirichlet data, and DTO solves. |
+| Canonical v1 scalar realization | `include/nmopt/compiler/v1/{dealii_compiler,dealii_fixed_dirichlet}.hpp` | Assembled scalar `FE_Q`/`FE_DGQ(0)` realization with typed data placement, independent state coordinates, full-domain tracking, homogeneous/fixed Dirichlet data, and DTO services. |
 | deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric,trace_hhalf_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, fractional-trace, and negative-norm layouts. The selected $H^{-1}$ realization applies $M_hK_h^{-1}M_h$; the $H^{1/2}$ realization applies the minimum-volume-$H^{1}$ Schur complement without forming a dense fractional matrix. All inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric reduced search loop over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`, with typed direction policies, explicit Hessian/Newton support, configurable Armijo/exact/Wolfe line searches, and uniform action reporting. |
@@ -191,9 +197,9 @@ The following pieces exist and are tested:
 The public v1 semantic path is deliberately not a general component compiler
 yet. It resolves valid graphs by stable ID and has one bounded scalar
 component-planning path; specialized graphs still select one of a bounded set
-of target-specific implementations. The direct
-deal.II v0 class remains a concrete reference lowerer rather than a public
-problem hierarchy.
+of target-specific implementations. The former direct deal.II v0 class is no
+longer shipped; the registered v1 realizations remain concrete numerical
+implementations rather than a public problem hierarchy.
 
 ## Accepted Chapter 5/6 scope
 
@@ -256,7 +262,7 @@ that it is needed; it is not a prerequisite for the reduced-space examples.
 
 ### P0.1 — Add a real deal.II $L^{2}$ metric — completed
 
-**Why first:** The lowerer already assembles the control mass matrix
+**Why first:** The canonical scalar realization already assembles the control mass matrix
 $`M_{u}`$, and the reduced DTO builder already produces $`j_{h}'(u)`$. The
 missing operation is
 
@@ -273,10 +279,11 @@ direction for a deal.II optimizer.
 - Apply with a sparse mass-matrix multiplication and inverse-apply with a
   declared linear solver/tolerance.
 - Expose the control mass matrix through a narrow compiled-metric factory, not
-  through optimizer knowledge of `ScalarDiffusionReactionModel`.
+  through optimizer knowledge of a PDE-specific model.
 
 **Primary files:** add `include/nmopt/dealii/mass_metric.hpp`; minimally extend
-the current lowerer with a metric factory or compiled-object registry.
+the canonical scalar compiler realization with a metric factory or
+compiled-object registry.
 
 **Done when:**
 
@@ -288,7 +295,7 @@ the current lowerer with a metric factory or compiled-object registry.
 **Implemented:** `dealii_backend::MassMetric` provides the generic one-block
 sparse-mass realization of `MetricT<SerialBackend>`. Its inverse action uses
 serial CG with declared iteration and relative/absolute tolerances, and
-`ScalarDiffusionReactionModel::control_l2_metric()` is the control-space
+`ScalarComponentModel::control_l2_metric()` is the control-space
 compiled-metric factory.
 
 ### P0.2 — Add a generic reduced Armijo gradient solver — completed
@@ -387,10 +394,9 @@ reference setup.
 `SemanticValidator` describe and validate the selected graph without backend
 objects. `compiler::v1::DealiiCompiler` appends lowerability and formulation
 diagnostics through a small explicit lowerer registry, then produces a
-separately owned compiled executable. The v0 direct
-`ScalarDiffusionReactionModel` remains unchanged as the reference path; v1
-constructs its own instance from the semantic declaration, so both paths can
-be compared without overwriting v0.
+separately owned compiled executable. The original direct scalar comparison
+path described by this entry was later retired; the v1 compiler now owns the
+canonical scalar realization and its typed service composition.
 
 ### P1.2 — Generalize fixed essential conditions through reconstruction — completed
 
@@ -418,7 +424,8 @@ explicit fixed-Dirichlet `Function` data. Its private v1-only compiler target
 compiles independent `FE_Q` coordinates with
 $`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}`$, evaluates residual and
 tracking on the physical field, and applies $`P_{h}^{\ast}`$ for every
-state-side covector. The direct v0 homogeneous model is untouched. The
+state-side covector. The former direct baseline is retained only in the
+historical lowerer record. The
 manifest records the transformation, nodal boundary interpolation data rule,
 and lifting realization; recompilation is the immutable data-cache boundary.
 The deal.II contract test covers a nonzero manufactured state, reconstruction
@@ -485,7 +492,8 @@ metric and `FacewiseBoxConstraint`, with separate facewise bound bindings.
 Focused semantic tests reject an absent trace policy or a mismatched control
 region; the deal.II contract test verifies the coupling pairing, trace-loss
 derivative, facewise projection, manifest, and a reduced Taylor remainder.
-The v0 volume-control model remains unchanged.
+The canonical scalar volume realization is now maintained in the v1 compiler
+path.
 
 ### P2.2 — Support pure Neumann with the selected mean-constraint policy — completed
 
@@ -507,7 +515,8 @@ solves state and adjoint systems through an explicit one-multiplier saddle
 matrix. Compilation rejects nonzero reaction and incompatible forcing; state
 solves reject incompatible boundary controls. The manifest records the gauge
 and `SparseDirectUMFPACK` solve, and focused contracts check zero means and no
-hidden DoF pin. The v0 model remains unchanged.
+hidden DoF pin. The canonical volume and boundary realizations are maintained
+in the v1 compiler path.
 
 ### P2.3 — Add $H^{1}$ regularisation and $H^{1}$ search geometry separately — completed
 
@@ -601,7 +610,8 @@ value implicitly. Residual and full-volume tracking assemble on the physical
 state, while state and control covectors use $`P_{h}^{\ast}`$ and
 $`L_{D,h}^{\ast}`$. The deal.II contract test verifies a nonzero manufactured
 state, composed lifting VJP, reduced Taylor remainder, trace metric, manifest,
-and incomplete-boundary diagnostic. The v0 lowerer remains unchanged.
+and incomplete-boundary diagnostic. The retired direct baseline is not a
+current production path.
 
 ### P4.1 — Add the fixed-step temporal compiler — ignored
 

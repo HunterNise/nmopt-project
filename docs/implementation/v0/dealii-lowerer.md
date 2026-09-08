@@ -3,7 +3,10 @@
 > Historical record. The direct v0 lowerer described here was retired in the
 > E1 scalar refactor after its numerical oracles and supplied-OTD behavior
 > moved to the v1 component/compiler path. The implementation is no longer
-> shipped; current users should follow the [v1 semantic compiler](../v1/semantic-compiler.md).
+> shipped; the sections below describe the pre-E1 implementation for
+> historical comparison only. Current users should follow the
+> [v1 semantic compiler](../v1/semantic-compiler.md) or the
+> [external deal.II integration reference](../../reference/external-dealii-solver-integration.md).
 
 ## Implemented slice
 

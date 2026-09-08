@@ -953,8 +953,8 @@ exact-transpose adjoint solves.
 and formulation services. The Hessian accessor is optional: it is present for
 the exact linear-quadratic direct, assembled scalar, and continuous-control
 targets and absent for target families without the declared capability. The
-homogeneous private v0 target, v1 assembled target, mass metric, and box
-constraint stay inside
+canonical scalar component target, the other registered v1 targets, the mass
+metric, and the box constraint stay inside
 `DealiiCompiler`. Each registered box is
 constructed with the actual positive-diagonal `MassMetric` selected by the
 same lowerer and retains that metric's opaque realization witness. Metric
@@ -1079,7 +1079,8 @@ than being duplicated as a second inventory here.
 
 ## Exclusions
 
-This v1 registration does not broaden the v0 executable mathematics. Beyond
+This v1 registration does not broaden the backend-neutral executable
+mathematics. Beyond
 the selected fixed-data reconstruction, complete-boundary nodal
 Dirichlet-control lifting, the selected partial fixed/controlled nodal lifting,
 material-id $L^{2}$ state tracking, full-domain $H^{1}_{0}$ state tracking,

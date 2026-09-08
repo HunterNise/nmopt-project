@@ -2960,7 +2960,10 @@ namespace
             coordinate_count(dealii::Point<dim>(1.0, 0.0)) == 1,
           "Continuous Neumann trace did not include selected-boundary endpoints");
 
-        const auto metric = realisation.l2_metric();
+        const dealii_backend::MassMetric metric(
+          "l2_neumann_trace",
+          realisation.layout(),
+          realisation.control_mass_matrix());
         contract::require(
           metric.id() == "l2_neumann_trace" &&
             metric.layout()->dimension(0) == realisation.dimension(),

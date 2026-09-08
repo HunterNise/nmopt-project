@@ -4,6 +4,8 @@
 #include "nmopt/compiler/v1/dealii_reference_cell.hpp"
 #include "nmopt/compiler/v1/dealii_volume_observation.hpp"
 #include "nmopt/contract/executable_model.hpp"
+#include "nmopt/dealii/facewise_box_constraint.hpp"
+#include "nmopt/dealii/mass_metric.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 
@@ -128,6 +130,7 @@ namespace nmopt::compiler::v1::detail
       , transport_boundary_realisation_(transport_boundary_realisation)
       , weighted_trace_realisation_(weighted_trace_realisation)
       , has_fixed_dirichlet_data_(fixed_dirichlet_data.has_value())
+      , control_realisation_kind_(control_realisation_kind)
       , natural_boundary_source_(natural_boundary_source)
       , natural_boundary_source_ids_(std::move(natural_boundary_source_ids))
     {
@@ -345,7 +348,16 @@ namespace nmopt::compiler::v1::detail
     control_l2_metric(
       dealii_backend::MassMetricSolveParameters solve_parameters = {}) const
     {
-      return control_realisation_->l2_metric(solve_parameters);
+      const auto metric_id =
+        control_realisation_kind_ ==
+            NeumannControlRealisationKind::facewise_constant
+          ? "l2_facewise"
+          : "l2_neumann_trace";
+      return dealii_backend::MassMetric(
+        metric_id,
+        control_layout_,
+        control_realisation_->control_mass_matrix(),
+        solve_parameters);
     }
 
     dealii_backend::FacewiseBoxConstraint
@@ -354,13 +366,14 @@ namespace nmopt::compiler::v1::detail
       Vector                              upper,
       const dealii_backend::MassMetric & projection_metric) const
     {
-      const auto *facewise = dynamic_cast<const
-        FacewiseNeumannControlRealisation<dim> *>(control_realisation_.get());
-      contract::require(facewise != nullptr,
-                        "Continuous Neumann control has no coefficientwise box realization");
-      return facewise->l2_box_constraint(std::move(lower),
-                                         std::move(upper),
-                                         projection_metric);
+      contract::require(
+        control_realisation_kind_ ==
+          NeumannControlRealisationKind::facewise_constant,
+        "The selected Neumann realization has no coefficientwise box realization");
+      return dealii_backend::FacewiseBoxConstraint(control_layout_,
+                                                    std::move(lower),
+                                                    std::move(upper),
+                                                    projection_metric);
     }
 
     dealii_backend::FacewiseBoxConstraint
@@ -369,11 +382,14 @@ namespace nmopt::compiler::v1::detail
       const double                        upper,
       const dealii_backend::MassMetric & projection_metric) const
     {
-      const auto *facewise = dynamic_cast<const
-        FacewiseNeumannControlRealisation<dim> *>(control_realisation_.get());
-      contract::require(facewise != nullptr,
-                        "Continuous Neumann control has no coefficientwise box realization");
-      return facewise->l2_box_constraint(lower, upper, projection_metric);
+      contract::require(
+        control_realisation_kind_ ==
+          NeumannControlRealisationKind::facewise_constant,
+        "The selected Neumann realization has no coefficientwise box realization");
+      return dealii_backend::FacewiseBoxConstraint(control_layout_,
+                                                    lower,
+                                                    upper,
+                                                    projection_metric);
     }
 
     bool
@@ -574,10 +590,13 @@ namespace nmopt::compiler::v1::detail
         (desired_state_load() * variables.block(0)) +
         0.5 * desired_state_norm();
 
+      Vector mass_times_control(control_realisation_->dimension());
+      control_realisation_->control_mass_matrix()->vmult(
+        mass_times_control,
+        variables.block(1));
       const double control_value =
-        control_realisation_->regularisation_objective(
-          variables.block(1),
-          regularisation_weight_);
+        0.5 * regularisation_weight_ *
+        (variables.block(1) * mass_times_control);
       return {state_value, control_value};
     }
 
@@ -589,9 +608,11 @@ namespace nmopt::compiler::v1::detail
       state_tracking_matrix().vmult(state, variables.block(0));
       state.add(-1.0, desired_state_load());
 
-      Vector control = control_realisation_->regularisation_derivative(
-        variables.block(1),
-        regularisation_weight_);
+      Vector control(control_realisation_->dimension());
+      control_realisation_->control_mass_matrix()->vmult(
+        control,
+        variables.block(1));
+      control *= regularisation_weight_;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
     }
 
@@ -1158,6 +1179,7 @@ namespace nmopt::compiler::v1::detail
     const TransportBoundaryRealisation transport_boundary_realisation_;
     const std::optional<WeightedTraceRealisation> weighted_trace_realisation_;
     const bool has_fixed_dirichlet_data_;
+    const NeumannControlRealisationKind control_realisation_kind_;
     const dealii::Function<dim> *natural_boundary_source_;
     const std::set<dealii::types::boundary_id> natural_boundary_source_ids_;
     std::unique_ptr<NeumannControlRealisation<dim>> control_realisation_;

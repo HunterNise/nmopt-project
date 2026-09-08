@@ -2,8 +2,6 @@
 
 #include "nmopt/compiler/v1/dealii_reference_cell.hpp"
 #include "nmopt/contract/executable_model.hpp"
-#include "nmopt/dealii/facewise_box_constraint.hpp"
-#include "nmopt/dealii/mass_metric.hpp"
 
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
@@ -47,6 +45,9 @@ namespace nmopt::compiler::v1::detail
     virtual const contract::LayoutPtr &
     layout() const = 0;
 
+    virtual std::shared_ptr<const dealii::SparseMatrix<double>>
+    control_mass_matrix() const = 0;
+
     virtual const std::vector<dealii::Point<dim>> &
     coordinates() const = 0;
 
@@ -60,18 +61,6 @@ namespace nmopt::compiler::v1::detail
 
     virtual Vector
     coupling_transpose_action(const Vector &state_covector) const = 0;
-
-    virtual double
-    regularisation_objective(const Vector &control,
-                             double regularisation_weight) const = 0;
-
-    virtual Vector
-    regularisation_derivative(const Vector &control,
-                              double regularisation_weight) const = 0;
-
-    virtual dealii_backend::MassMetric
-    l2_metric(
-      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const = 0;
 
     virtual void
     write_native_output(const std::filesystem::path &path,
@@ -130,6 +119,12 @@ namespace nmopt::compiler::v1::detail
       return layout_;
     }
 
+    std::shared_ptr<const dealii::SparseMatrix<double>>
+    control_mass_matrix() const override
+    {
+      return control_mass_;
+    }
+
     const std::vector<dealii::Point<dim>> &
     coordinates() const override
     {
@@ -162,61 +157,6 @@ namespace nmopt::compiler::v1::detail
       Vector value(control_coupling_.n());
       control_coupling_.Tvmult(value, state_covector);
       return value;
-    }
-
-    double
-    regularisation_objective(const Vector &control,
-                             const double  regularisation_weight) const override
-    {
-      require_control(control);
-      Vector mass_times_control(dimension());
-      control_mass_->vmult(mass_times_control, control);
-      return 0.5 * regularisation_weight * (control * mass_times_control);
-    }
-
-    Vector
-    regularisation_derivative(const Vector &control,
-                              const double  regularisation_weight) const override
-    {
-      require_control(control);
-      Vector value(dimension());
-      control_mass_->vmult(value, control);
-      value *= regularisation_weight;
-      return value;
-    }
-
-    dealii_backend::MassMetric
-    l2_metric(
-      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const override
-    {
-      return dealii_backend::MassMetric("l2_facewise",
-                                        layout_,
-                                        control_mass_,
-                                        solve_parameters);
-    }
-
-    dealii_backend::FacewiseBoxConstraint
-    l2_box_constraint(
-      Vector                              lower,
-      Vector                              upper,
-      const dealii_backend::MassMetric & projection_metric) const
-    {
-      return dealii_backend::FacewiseBoxConstraint(layout_,
-                                                    std::move(lower),
-                                                    std::move(upper),
-                                                    projection_metric);
-    }
-
-    dealii_backend::FacewiseBoxConstraint
-    l2_box_constraint(
-      const double                        lower,
-      const double                        upper,
-      const dealii_backend::MassMetric & projection_metric) const
-    {
-      return dealii_backend::FacewiseBoxConstraint(layout_,
-                                                    lower,
-                                                    upper,
-                                                    projection_metric);
     }
 
     void
@@ -489,6 +429,12 @@ namespace nmopt::compiler::v1::detail
       return layout_;
     }
 
+    std::shared_ptr<const dealii::SparseMatrix<double>>
+    control_mass_matrix() const override
+    {
+      return control_mass_;
+    }
+
     const std::vector<dealii::Point<dim>> &
     coordinates() const override
     {
@@ -524,37 +470,6 @@ namespace nmopt::compiler::v1::detail
       Vector value(control_coupling_.n());
       control_coupling_.Tvmult(value, state_covector);
       return value;
-    }
-
-    double
-    regularisation_objective(const Vector &control,
-                             const double regularisation_weight) const override
-    {
-      require_control(control);
-      Vector mass_times_control(dimension());
-      control_mass_->vmult(mass_times_control, control);
-      return 0.5 * regularisation_weight * (control * mass_times_control);
-    }
-
-    Vector
-    regularisation_derivative(const Vector &control,
-                              const double regularisation_weight) const override
-    {
-      require_control(control);
-      Vector value(dimension());
-      control_mass_->vmult(value, control);
-      value *= regularisation_weight;
-      return value;
-    }
-
-    dealii_backend::MassMetric
-    l2_metric(
-      dealii_backend::MassMetricSolveParameters solve_parameters = {}) const override
-    {
-      return dealii_backend::MassMetric("l2_neumann_trace",
-                                        layout_,
-                                        control_mass_,
-                                        solve_parameters);
     }
 
     void

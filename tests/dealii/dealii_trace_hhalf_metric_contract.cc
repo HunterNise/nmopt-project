@@ -614,8 +614,8 @@ namespace
       nmopt::contract::require(
         !has_h1_state_observation ||
           (manifest.resolved_decision.h1_target_data_membership_selection.has_value() &&
-           std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
-                       manifest.resolved_decision.compatibility.declared_assumptions.end(),
+           std::any_of(manifest.compatibility.declared_assumptions.begin(),
+                       manifest.compatibility.declared_assumptions.end(),
                        [](const std::string &assumption) {
                          return assumption.find(
                                   "h1_target_data_membership: status=user_assumed") ==
@@ -641,17 +641,17 @@ namespace
                manifest.resolved_decision.fractional_metric_selection->apply_realisation ==
                  nmopt::semantic::v1::FractionalTraceApplyRealisation::
                    minimum_h1_extension) &&
-        manifest.resolved_decision.compatibility.compiler_id == expected_compiler_id &&
+        manifest.compatibility.compiler_id == expected_compiler_id &&
           manifest.resolved_decision.metric_record.realisation_id == expected_metric_id &&
           manifest.resolved_decision.metric_record.operator_description.find(
             expected_metric_operator) != std::string::npos &&
-          manifest.resolved_decision.compatibility.data_rule.find("normalized unit-diffusion zero-reaction") !=
+          manifest.compatibility.data_rule.find("normalized unit-diffusion zero-reaction") !=
             std::string::npos &&
-          manifest.resolved_decision.compatibility.lifting_realisation.find("complete-boundary conforming") !=
+          manifest.compatibility.lifting_realisation.find("complete-boundary conforming") !=
             std::string::npos &&
-          contains(manifest.resolved_decision.compatibility.lowering_handler_records,
+          contains(manifest.compatibility.lowering_handler_records,
                    "normalized_dirichlet_laplace") &&
-          contains(manifest.resolved_decision.compatibility.declared_assumptions, expected_assumption),
+          contains(manifest.compatibility.declared_assumptions, expected_assumption),
         specification.id + " compilation manifest is incomplete");
     };
 

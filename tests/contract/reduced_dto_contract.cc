@@ -2687,10 +2687,10 @@ namespace
 
       Manifest manifest;
       manifest.resolved_decision.semantic_problem_id = "reference.scalar.reduced.envelope";
-      manifest.resolved_decision.compatibility.compiler_id = "reference";
-      manifest.resolved_decision.compatibility.backend = "dense";
-      manifest.resolved_decision.compatibility.execution = "assembled";
-      manifest.resolved_decision.compatibility.provenance = "DTO";
+      manifest.compatibility.compiler_id = "reference";
+      manifest.compatibility.backend = "dense";
+      manifest.compatibility.execution = "assembled";
+      manifest.compatibility.provenance = "DTO";
       manifest.resolved_decision.mesh_record.provenance = "manufactured scalar mesh";
       manifest.resolved_decision.mesh_record.structural_identity = "mesh-a";
       manifest.resolved_decision.formulation_record.semantic_id = "reduced_dto";

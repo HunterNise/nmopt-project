@@ -356,7 +356,7 @@ namespace
   {
     const auto &manifest = evidence.envelope.compilation_manifest();
     const auto &decision = manifest.resolved_decision;
-    const auto &compatibility = decision.compatibility;
+    const auto &compatibility = manifest.compatibility;
     const auto &environment = evidence.envelope.environment();
     const auto algorithm_name = [](const auto algorithm) {
       switch (algorithm)
@@ -578,7 +578,7 @@ namespace
       scenario.problem.observation_region, scenario.problem.target_profile);
     const auto &manifest = evidence.envelope.compilation_manifest();
     const auto &decision = manifest.resolved_decision;
-    const auto &compatibility = decision.compatibility;
+    const auto &compatibility = manifest.compatibility;
     const auto &volume_observation = *scenario.compile.volume_observation;
     const std::string volume_observation_target =
       nmopt::application::chapter6::

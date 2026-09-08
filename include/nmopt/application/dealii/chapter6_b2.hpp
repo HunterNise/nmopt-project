@@ -807,7 +807,7 @@ namespace nmopt::application::chapter6::dealii
       const auto &observation_definition = selected_scalar_function_definition(
         scenario.problem.observation_region_catalog, "B2 observation catalog");
       const auto &manifest = compilation.problem->manifest();
-      const auto &compatibility = manifest.resolved_decision.compatibility;
+      const auto &compatibility = manifest.compatibility;
       contract::require(
         compatibility.observation_realisation.find(
           "target=" + volume_observation_target) != std::string::npos &&

@@ -1723,8 +1723,9 @@ namespace nmopt::compiler::v1
                 *specification.supplied_otd_declaration,
                 lifetime_owner));
         }
-      auto finalized_decision = finalize_resolved_decision<dim>(
+      auto manifest = finalize_resolved_decision<dim>(
         policy,
+        specification,
         constraint_realisation,
         resolved_decision,
         request,
@@ -1736,6 +1737,7 @@ namespace nmopt::compiler::v1
         specification.supplied_otd_declaration
           ? &*specification.supplied_otd_declaration
           : nullptr);
+      auto &finalized_decision = manifest.resolved_decision;
       std::shared_ptr<const contract::EqualityConstrainedQuadraticKKTProductT<Backend>>
         kkt_product;
       std::shared_ptr<const contract::BoxComplementarityT<Backend>>
@@ -1799,7 +1801,6 @@ namespace nmopt::compiler::v1
           finalized_decision.constraint_record.data_provenance =
             box_data->data_provenance();
         }
-      CompilationManifest manifest = make_manifest(finalized_decision);
       if (pdas_complementarity)
         result.pdas_problem = std::make_shared<const
           CompiledPDASProblemT<Backend>>(
@@ -5881,19 +5882,6 @@ namespace nmopt::compiler::v1
       decision.constraint_record.semantic_id =
         specification.formulation.constraint_id;
 
-      auto &inventory = decision.compatibility;
-      inventory.region_ids = identifiers(specification.regions);
-      inventory.space_ids = identifiers(specification.spaces);
-      inventory.pairing_ids = identifiers(specification.pairings);
-      inventory.variable_ids = identifiers(specification.variables);
-      inventory.data_ids = identifiers(specification.data);
-      inventory.transformation_ids = identifiers(specification.transformations);
-      inventory.residual_term_ids = identifiers(specification.residual_terms);
-      inventory.observation_ids = identifiers(specification.observations);
-      inventory.loss_ids = identifiers(specification.losses);
-      inventory.metric_ids = identifiers(specification.metrics);
-      inventory.constraint_ids = identifiers(specification.constraints);
-
       const auto by_semantic_id = [](const auto &left, const auto &right) {
         return left.semantic_id < right.semantic_id;
       };
@@ -6210,9 +6198,10 @@ namespace nmopt::compiler::v1
     }
 
     template <int dim>
-    static ResolvedCompilationDecision
+    static CompilationManifest
     finalize_resolved_decision(
       const DealiiDiscretisationPolicy &policy,
+      const semantic::v1::ProblemSpec & specification,
       const ConstraintRealisation       constraint_realisation,
       const ResolvedCompilationDecision &decision,
       const ResolvedCompilationRequest  &request,
@@ -6224,8 +6213,21 @@ namespace nmopt::compiler::v1
         supplied_otd_system,
       const semantic::v1::SuppliedOTDDeclaration * supplied_otd_declaration)
     {
-      ResolvedCompilationDecision resolved = decision;
-      auto &compatibility = resolved.compatibility;
+      CompilationManifest manifest;
+      manifest.resolved_decision = decision;
+      auto &resolved = manifest.resolved_decision;
+      auto &compatibility = manifest.compatibility;
+      compatibility.region_ids = identifiers(specification.regions);
+      compatibility.space_ids = identifiers(specification.spaces);
+      compatibility.pairing_ids = identifiers(specification.pairings);
+      compatibility.variable_ids = identifiers(specification.variables);
+      compatibility.data_ids = identifiers(specification.data);
+      compatibility.transformation_ids = identifiers(specification.transformations);
+      compatibility.residual_term_ids = identifiers(specification.residual_terms);
+      compatibility.observation_ids = identifiers(specification.observations);
+      compatibility.loss_ids = identifiers(specification.losses);
+      compatibility.metric_ids = identifiers(specification.metrics);
+      compatibility.constraint_ids = identifiers(specification.constraints);
       resolved.realized_maps = finalize_realized_maps<dim>(decision, executable);
       resolved.realized_spaces = make_realized_spaces(resolved.realized_maps);
       resolved.boundary_realisation = decision.boundary_realisation;
@@ -6784,7 +6786,7 @@ namespace nmopt::compiler::v1
           "; region=" + assumption.region_id);
       std::sort(compatibility.lowering_handler_records.begin(),
                 compatibility.lowering_handler_records.end());
-      return resolved;
+      return manifest;
     }
 
     static CompiledKKTRecord
@@ -6922,14 +6924,6 @@ namespace nmopt::compiler::v1
         "mixed or state constraints",
         "non-positive-diagonal or non-L2 multiplier metrics"};
       return record;
-    }
-
-    static CompilationManifest
-    make_manifest(const ResolvedCompilationDecision &decision)
-    {
-      CompilationManifest manifest;
-      manifest.resolved_decision = decision;
-      return manifest;
     }
 
     static std::string

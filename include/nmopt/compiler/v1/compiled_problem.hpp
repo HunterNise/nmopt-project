@@ -294,9 +294,9 @@ namespace nmopt::compiler::v1
     std::string model_author_declaration;
   };
 
-  // Compatibility text is a rendered view of the typed decision.  It is kept
-  // in the decision so manifest construction cannot reconstruct it from the
-  // semantic graph or a target enum.
+  // Compatibility text is a rendered artifact-facing view of the typed
+  // decision. It is not an executable configuration or a second owner of
+  // realized compiler facts.
   struct CompiledCompatibilityView
   {
     std::string              compiler_id;
@@ -362,8 +362,8 @@ namespace nmopt::compiler::v1
   };
 
   // The single typed decision selected by semantic resolution and compiler
-  // lowerability checks.  Manifest display strings are rendered from this
-  // record and retained only as a compatibility view.
+  // lowerability checks. Artifact-facing display strings are rendered from
+  // this record into CompilationManifest::compatibility.
   struct ResolvedCompilationDecision
   {
     std::string                         semantic_problem_id;
@@ -389,7 +389,6 @@ namespace nmopt::compiler::v1
     CompiledSolvePolicyRecord             adjoint_solve_record;
     CompiledMetricRecord                  metric_record;
     CompiledConstraintRecord              constraint_record;
-    CompiledCompatibilityView             compatibility;
     std::optional<semantic::v1::BoundaryRealisationSelection>
       boundary_realisation;
     std::optional<semantic::v1::TranspositionRealisationSelection>
@@ -411,8 +410,9 @@ namespace nmopt::compiler::v1
   // mistaken for the same computation.
   struct CompilationManifest
   {
-    unsigned int               schema_version = 4;
+    unsigned int                schema_version = 4;
     ResolvedCompilationDecision resolved_decision;
+    CompiledCompatibilityView   compatibility;
   };
 
   // One immutable compiled source of truth for coefficientwise cellwise box

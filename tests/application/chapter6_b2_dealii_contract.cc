@@ -338,8 +338,8 @@ namespace
               manifest.resolved_decision.boundary_realisation->transport_boundary_form ==
                 nmopt::semantic::v1::TransportBoundaryForm::ordinary_normal_minus_transport,
             "B2 manifest did not retain the ordinary-normal boundary form");
-    require(std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
-                        manifest.resolved_decision.compatibility.declared_assumptions.end(),
+    require(std::any_of(manifest.compatibility.declared_assumptions.begin(),
+                        manifest.compatibility.declared_assumptions.end(),
                         [](const std::string &assumption) {
                           return assumption.find(
                                    "boundary_form=ordinary partial_n(y) - (b dot n)y") !=
@@ -367,10 +367,10 @@ namespace
                 chapter6::b2_outflow_boundary_region_id,
                 chapter6::b2_outflow_boundary_id),
             "B2 compiled manifest did not retain the fixed/control/outflow partition");
-    require(manifest.resolved_decision.compatibility.compiler_id ==
+    require(manifest.compatibility.compiler_id ==
               "nmopt.compiler.v1.dealii.neumann_convection_subdomain",
             "B2 deal.II adapter selected the wrong compiler target");
-    require(manifest.resolved_decision.compatibility.lifting_realisation.find("ell_0") != std::string::npos,
+    require(manifest.compatibility.lifting_realisation.find("ell_0") != std::string::npos,
             "B2 deal.II adapter did not retain fixed lifting evidence");
     require(std::any_of(manifest.resolved_decision.bindings.begin(),
                         manifest.resolved_decision.bindings.end(),
@@ -1140,9 +1140,9 @@ namespace
       const auto &manifest =
         result.artifact.envelope().compilation_manifest();
       require(
-        manifest.resolved_decision.compatibility.observation_realisation.find("target=" + target_name) !=
+        manifest.compatibility.observation_realisation.find("target=" + target_name) !=
             std::string::npos &&
-          manifest.resolved_decision.compatibility.observation_realisation.find("(" + order + ")") !=
+          manifest.compatibility.observation_realisation.find("(" + order + ")") !=
             std::string::npos &&
           result.document.find(
             "b2.volume_observation_quadrature_order=" + order + "\n") !=

@@ -14,8 +14,8 @@ namespace nmopt::test_support
     const compiler::v1::CompilationManifest &right,
     const std::string &                        description)
   {
-    const auto &lhs = left.resolved_decision.compatibility;
-    const auto &rhs = right.resolved_decision.compatibility;
+    const auto &lhs = left.compatibility;
+    const auto &rhs = right.compatibility;
     contract::require(
       lhs.compiler_id == rhs.compiler_id && lhs.backend == rhs.backend &&
         lhs.execution == rhs.execution && lhs.state_space == rhs.state_space &&

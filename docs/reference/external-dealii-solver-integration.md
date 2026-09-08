@@ -10,6 +10,13 @@ The tested reference for the construction below is the
 The test uses a small Poisson-control application, but the boundary is about
 operations and ownership rather than that PDE family.
 
+The next planned validation is the
+[external deal.II tutorial integration sequence](../planning/external-dealii-tutorial-roadmap.md):
+pin an upstream fixed-mesh tutorial step, retain its standalone forward
+behavior, and add a separate application-owned binding for the nmopt reduced
+optimization path. That sequence is follow-on integration work; it does not
+reopen the completed PDE–solver boundary refactor.
+
 ## Integration boundary
 
 An external application owns the numerical realization:
@@ -370,3 +377,4 @@ mathematical model's own validation.
 - [Application assembly API](../reference/application-api.md)
 - [External application contract test](../../tests/application/external_application_dealii_contract.cc)
 - [Standalone external forward application](../../tests/dealii/external_poisson_forward.cc)
+- [External deal.II tutorial roadmap](../planning/external-dealii-tutorial-roadmap.md)

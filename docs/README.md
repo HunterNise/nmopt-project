@@ -97,6 +97,9 @@ stress the interfaces.
 
 - [Implementation roadmap](planning/implementation-roadmap.md) owns mutable
   compiler, solver, lowering, backend, and implementation status.
+- [External deal.II tutorial roadmap](planning/external-dealii-tutorial-roadmap.md)
+  owns the follow-on sequence for pinning an upstream tutorial step and wiring
+  it to the public external-application boundary.
 - [Application roadmap](planning/application-roadmap.md) owns mutable
   application-layer status, runner/artifact work, visualization, and B0–B2
   execution handoffs.
@@ -152,6 +155,7 @@ before inspecting or changing repository content.
 | Generate or inspect application runs | [Application execution reference](reference/application-execution.md) | The relevant [benchmark contract](benchmarks/chapter-6.md) and [application roadmap](planning/application-roadmap.md) |
 | Design or review parameter files and plotting profiles | [Parameter-file reference](reference/parameter-files.md) | [Repository organization](decisions/repository-organization.md), the relevant [benchmark contract](benchmarks/chapter-6.md), and the [application execution reference](reference/application-execution.md) |
 | Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Chapter 6 scenarios](applications/chapter-6.md), [Chapter 6 benchmark specifications](benchmarks/chapter-6.md), [Application assembly API](reference/application-api.md), and [Application execution reference](reference/application-execution.md) |
+| Wire an upstream deal.II tutorial to nmopt | [External deal.II tutorial roadmap](planning/external-dealii-tutorial-roadmap.md) | [External deal.II integration reference](reference/external-dealii-solver-integration.md), [PDE–solver boundary](design/pde-solver-boundary.md), and the pinned upstream tutorial source |
 | Repair the reviewed C1/C2 preparation | [Chapter 5 reviews](planning/review/chapter-5/README.md) | [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), [pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.1 implementation | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.2 implementation | [P5.2 remediation review](planning/review/chapter-5/p5.2-remediation-review.md) | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [selected policies](implementation/implementation-readiness-review.md) |

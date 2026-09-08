@@ -191,6 +191,12 @@ if(NMOPT_ENABLE_DEAL_II)
     apps/external-dealii/step-4/upstream/step-4.cc)
   deal_ii_setup_target(nmopt_external_tutorial_step_4)
 
+  add_executable(
+    nmopt_external_tutorial_binding_smoke
+    apps/external-dealii/step-4/tutorial_application.cc
+    apps/external-dealii/step-4/tutorial_binding_smoke.cc)
+  deal_ii_setup_target(nmopt_external_tutorial_binding_smoke)
+
   if(BUILD_TESTING)
     set(nmopt_external_tutorial_step_4_run_dir
         "${CMAKE_SOURCE_DIR}/runs/external-dealii/step-4")
@@ -204,6 +210,16 @@ if(NMOPT_ENABLE_DEAL_II)
         LABELS "dealii;application;external;tutorial"
         TIMEOUT 30
         WORKING_DIRECTORY "${nmopt_external_tutorial_step_4_run_dir}")
+
+    add_test(
+      NAME nmopt.external_tutorial_step_4.binding
+      COMMAND nmopt_external_tutorial_binding_smoke)
+    set_tests_properties(
+      nmopt.external_tutorial_step_4.binding
+      PROPERTIES
+        LABELS "dealii;application;external;tutorial"
+        TIMEOUT 30
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
     add_test(
       NAME nmopt.external_application.standalone_forward

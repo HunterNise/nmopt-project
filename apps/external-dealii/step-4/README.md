@@ -18,7 +18,9 @@ The installed project dependency is deal.II `9.5.1`, recorded by the local
 
 The imported source is verbatim: it contains no nmopt include, namespace, or
 link dependency. Local binding code will be added beside `upstream/` in later
-roadmap units. There are currently no local patches.
+roadmap units. The stripped adapted copy in [`step-4.cc`](step-4.cc) is kept
+separate from that reference source and is the only source included by the
+application binding.
 
 ## Standalone target
 
@@ -80,3 +82,29 @@ The standalone boundary can be rerun with:
 ctest --test-dir build/debug-dealii --output-on-failure \\
   -R '^nmopt\\.external_tutorial_step_4\\.forward$'
 ```
+
+## T2 application binding
+
+The adapted [`step-4.cc`](step-4.cc) removes tutorial exposition, selects the
+2D path, and adds only a preparation entry point plus read-only views of the
+tutorial-owned deal.II state. It contains no control or objective code.
+
+[`tutorial_application.cc`](tutorial_application.cc) adds a compact
+application-owned binding around that seam. The binding uses a full-coordinate
+affine control, the tutorial operator as the residual operator, and one
+finite-element mass assembly reused for the state objective and control
+metric. It does not build a separate control-coupling matrix or duplicate the
+tutorial PDE assembly.
+
+Build and run the binding smoke target with:
+
+```bash
+./build.sh build debug-dealii \
+  --target nmopt_external_tutorial_binding_smoke
+ctest --test-dir build/debug-dealii --output-on-failure \
+  -R '^nmopt\\.external_tutorial_step_4\\.binding$'
+```
+
+The smoke path verifies the zero-control state residual, objective derivative
+layout, metric dimensions, and native VTU output. Both state and control have
+dimension `289` for this fixed 2D realization.

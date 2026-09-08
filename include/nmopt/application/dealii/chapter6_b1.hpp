@@ -550,7 +550,7 @@ namespace nmopt::application::chapter6::dealii
          chapter5::distributed_control_discretisation_name(
            scenario.problem.recipe.discretisation)},
         {"benchmark.state_dimension",
-         std::to_string(report_value.final_evaluation.state.block(0).size())},
+         std::to_string(dimensions->state_physical)},
         {"benchmark.state_physical_dimension",
          std::to_string(dimensions->state_physical)},
         {"benchmark.state_independent_dimension",
@@ -562,7 +562,7 @@ namespace nmopt::application::chapter6::dealii
         {"benchmark.control_independent_dimension",
          std::to_string(dimensions->control_independent)},
         {"benchmark.adjoint_dimension",
-         std::to_string(report_value.final_evaluation.adjoint.block(0).size())},
+         std::to_string(dimensions->state_physical)},
         {"benchmark.adjoint_physical_dimension",
          std::to_string(dimensions->state_physical)},
         {"benchmark.adjoint_independent_dimension",

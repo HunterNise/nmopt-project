@@ -933,8 +933,12 @@ namespace nmopt::compiler::v1
                         request.continuous_control_boundary_region_id);
       const bool uses_assembled_v1_target =
         request.uses_assembled_v1_target();
+      const bool uses_scalar_component_target =
+        uses_assembled_v1_target ||
+        (request.target_family == ResolvedTargetFamily::direct_volume &&
+         !uses_supplied_otd);
       std::optional<ScalarLoweringPlan> scalar_plan;
-      if (uses_assembled_v1_target)
+      if (uses_scalar_component_target)
         {
           auto planned = scalar_planner_.plan(*resolution.problem);
           for (const auto &diagnostic : planned.diagnostics.diagnostics())
@@ -1634,7 +1638,7 @@ namespace nmopt::compiler::v1
                                                policy.adjoint_solve);
           executable = coefficient;
         }
-      else if (uses_assembled_v1_target)
+      else if (uses_scalar_component_target)
         {
           using AssembledModel = detail::ScalarComponentModel<dim>;
           std::shared_ptr<AssembledModel> assembled;
@@ -1679,6 +1683,9 @@ namespace nmopt::compiler::v1
           solvers = make_state_adjoint_solvers(assembled,
                                                policy.state_solve,
                                                policy.adjoint_solve);
+          if (request.target_family == ResolvedTargetFamily::direct_volume)
+            native_application_view =
+              make_volume_native_application_view<dim>(assembled, data);
           executable = assembled;
         }
       else
@@ -6271,7 +6278,11 @@ namespace nmopt::compiler::v1
         request.uses_normalized_laplacian();
       const bool uses_partial_dirichlet_control =
         request.uses_partial_dirichlet_control;
-      const bool uses_assembled_v1_target = request.uses_assembled_v1_target();
+      const bool uses_assembled_v1_target =
+        request.uses_assembled_v1_target() ||
+        (request.target_family == ResolvedTargetFamily::direct_volume &&
+         resolved.formulation_record.provenance !=
+           semantic::v1::FormulationProvenance::supplied_otd);
       const bool uses_general_scalar = request.uses_general_scalar;
       const bool uses_h1_state_observation = request.uses_h1_state_observation;
       const bool uses_weighted_boundary_trace =

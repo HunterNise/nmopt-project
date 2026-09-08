@@ -19,6 +19,7 @@
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/fe/mapping_q1.h>
@@ -31,16 +32,21 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparsity_pattern.h>
+#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
 #include <functional>
+#include <fstream>
+#include <locale>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -51,8 +57,8 @@ namespace nmopt::compiler::v1::detail
   //
   //   y_phys = P_h y_hat + ell_0,h,
   //
-  // and pulls covectors back with P_h^*. The direct v0 lowerer is not used or
-  // modified here: it remains the homogeneous comparison implementation.
+  // and pulls covectors back with P_h^*. This is the surviving scalar
+  // realization for canonical and composed volume targets.
   template <int dim>
   class ScalarComponentModel final
     : public contract::ExecutableModelT<dealii_backend::SerialBackend>
@@ -278,6 +284,24 @@ namespace nmopt::compiler::v1::detail
     }
 
     std::size_t
+    independent_state_dimension() const
+    {
+      return state_coordinates_.independent_dimension();
+    }
+
+    std::size_t
+    physical_control_dimension() const
+    {
+      return control_dof_handler_.n_dofs();
+    }
+
+    std::size_t
+    independent_control_dimension() const
+    {
+      return physical_control_dimension();
+    }
+
+    std::size_t
     realized_observation_dimension() const
     {
       if (uses_point_sensor_)
@@ -322,6 +346,85 @@ namespace nmopt::compiler::v1::detail
                                                     lower,
                                                     upper,
                                                     projection_metric);
+    }
+
+    void
+    write_native_output(const std::filesystem::path &directory,
+                        const Primal &                 state,
+                        const Primal &                 control,
+                        const Primal &                 adjoint,
+                        const dealii::Function<dim> *  forcing = nullptr,
+                        const dealii::Function<dim> *  desired_state = nullptr) const
+    {
+      contract::require(state.layout()->compatible_with(*state_layout_),
+                        "Native output state has an incompatible layout");
+      contract::require(control.layout()->compatible_with(*control_layout_),
+                        "Native output control has an incompatible layout");
+      contract::require(adjoint.layout()->compatible_with(*test_layout_),
+                        "Native output adjoint has an incompatible layout");
+      contract::require((forcing == nullptr) == (desired_state == nullptr),
+                        "Native output needs both forcing and target functions");
+
+      std::filesystem::create_directories(directory);
+
+      dealii::DataOut<dim> mesh_out;
+      mesh_out.attach_triangulation(state_dof_handler_.get_triangulation());
+      mesh_out.build_patches();
+      std::ofstream mesh_output(directory / "mesh-volume.vtu");
+      if (!mesh_output)
+        throw std::runtime_error("could not open scalar volume mesh output");
+      mesh_output.imbue(std::locale::classic());
+      mesh_out.write_vtu(mesh_output);
+      if (!mesh_output)
+        throw std::runtime_error("could not write scalar volume mesh output");
+
+      if constexpr (dim == 2)
+        {
+          dealii::GridOut grid_out;
+          std::ofstream  svg_output(directory / "mesh-volume.svg");
+          if (!svg_output)
+            throw std::runtime_error(
+              "could not open scalar volume mesh SVG output");
+          svg_output.imbue(std::locale::classic());
+          grid_out.write_svg(state_dof_handler_.get_triangulation(),
+                             svg_output);
+          if (!svg_output)
+            throw std::runtime_error(
+              "could not write scalar volume mesh SVG output");
+        }
+
+      const Vector physical_state = reconstruct(state.block(0));
+      const Vector physical_adjoint = embed_tangent(adjoint.block(0));
+      dealii::DataOut<dim> data_out;
+      data_out.attach_dof_handler(state_dof_handler_);
+      data_out.add_data_vector(physical_state, "state");
+      data_out.add_data_vector(physical_adjoint, "adjoint");
+      Vector negative_adjoint = physical_adjoint;
+      negative_adjoint *= -1.0;
+      data_out.add_data_vector(negative_adjoint, "negative_adjoint");
+      data_out.add_data_vector(control_dof_handler_, control.block(0), "control");
+      if (forcing != nullptr)
+        {
+          Vector forcing_values(state_dof_handler_.n_dofs());
+          Vector desired_state_values(state_dof_handler_.n_dofs());
+          dealii::VectorTools::interpolate(state_dof_handler_,
+                                            *forcing,
+                                            forcing_values);
+          dealii::VectorTools::interpolate(state_dof_handler_,
+                                            *desired_state,
+                                            desired_state_values);
+          data_out.add_data_vector(forcing_values, "forcing");
+          data_out.add_data_vector(desired_state_values, "target");
+        }
+      data_out.build_patches();
+
+      std::ofstream output(directory / "fields-volume.vtu");
+      if (!output)
+        throw std::runtime_error("could not open scalar volume field output");
+      output.imbue(std::locale::classic());
+      data_out.write_vtu(output);
+      if (!output)
+        throw std::runtime_error("could not write scalar volume field output");
     }
 
     Vector

@@ -935,8 +935,7 @@ namespace nmopt::compiler::v1
         request.uses_assembled_v1_target();
       const bool uses_scalar_component_target =
         uses_assembled_v1_target ||
-        (request.target_family == ResolvedTargetFamily::direct_volume &&
-         !uses_supplied_otd);
+        request.target_family == ResolvedTargetFamily::direct_volume;
       std::optional<ScalarLoweringPlan> scalar_plan;
       if (uses_scalar_component_target)
         {
@@ -1686,6 +1685,13 @@ namespace nmopt::compiler::v1
           if (request.target_family == ResolvedTargetFamily::direct_volume)
             native_application_view =
               make_volume_native_application_view<dim>(assembled, data);
+          if (uses_supplied_otd)
+            supplied_otd_system = std::make_shared<
+              const contract::SuppliedOTDSystemT<Backend>>(
+              AssembledModel::make_supplied_otd_system(
+                assembled,
+                *specification.supplied_otd_declaration,
+                lifetime_owner));
           executable = assembled;
         }
       else
@@ -6280,9 +6286,7 @@ namespace nmopt::compiler::v1
         request.uses_partial_dirichlet_control;
       const bool uses_assembled_v1_target =
         request.uses_assembled_v1_target() ||
-        (request.target_family == ResolvedTargetFamily::direct_volume &&
-         resolved.formulation_record.provenance !=
-           semantic::v1::FormulationProvenance::supplied_otd);
+        request.target_family == ResolvedTargetFamily::direct_volume;
       const bool uses_general_scalar = request.uses_general_scalar;
       const bool uses_h1_state_observation = request.uses_h1_state_observation;
       const bool uses_weighted_boundary_trace =

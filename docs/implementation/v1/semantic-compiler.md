@@ -3,7 +3,7 @@
 ## Status and boundary
 
 This is the first public semantic-to-compiler path. It is deliberately named
-**v1** and exists alongside the direct v0 model:
+**v1** and is completing the retirement of the direct v0 model:
 
 ```text
 v0 direct reference
@@ -17,10 +17,10 @@ semantic::v1::ProblemSpec
   -> generic executable/metric/constraint/DTO services
 ```
 
-The v0 lowerer is not modified or replaced by this path. The homogeneous v1
-reference graph privately constructs a separate v0 executable instance and
-packages it behind generic executable ports, so v0 and v1 can be compared at
-the same coefficients. A graph that declares fixed-Dirichlet reconstruction,
+The canonical scalar volume graph now lowers through `ScalarComponentModel`
+with independent state coordinates, including its supplied-OTD product. The
+direct v0 lowerer remains only as a temporary deletion-gate reference for the
+legacy scalar KKT/test path. A graph that declares fixed-Dirichlet reconstruction,
 controlled-Dirichlet lifting, material-subdomain state tracking, Neumann
 boundary control, the C5.6 Neumann/transport/subdomain composition, or the
 registered general scalar elliptic/Robin composition selects a separate
@@ -47,7 +47,7 @@ or
 
 | Registered semantic graph | Selected implementation | Bounded capability | Focused CTest scenario |
 | --- | --- | --- | --- |
-| `make_scalar_diffusion_reaction_problem()` | `ScalarDiffusionReactionModel<dim>` direct v0 reference, packaged through v1 ports | Homogeneous fixed Dirichlet, full-volume tracking, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `nmopt.dealii.canonical_volume_control` |
+| `make_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Homogeneous fixed Dirichlet, full-volume tracking, independent state coordinates, `FE_DGQ(0)` volume control, $L^{2}$ metric, and optional cellwise box | `nmopt.dealii.canonical_volume_control` |
 | `make_l2_state_tracking_continuous_control_problem()` | `ContinuousControlModel<dim>` | Full-volume $L^{2}$ tracking and regularisation with independent homogeneous-Dirichlet conforming Lagrange volume control (`FE_Q` on hypercubes or `FE_SimplexP` on simplices), an $L^{2}$ metric, and no box | `nmopt.dealii.l2_tracking_continuous_control` |
 | `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | Fixed-data reconstruction with independent coordinates and optional cellwise box | `nmopt.dealii.fixed_dirichlet` |
 | `make_subdomain_tracking_scalar_diffusion_reaction_problem()` | `ScalarComponentModel<dim>` built from `ScalarLoweringPlan` | State tracking on one material-id set while retaining the full-domain state equation | `nmopt.dealii.subdomain_observation` |
@@ -1047,11 +1047,10 @@ distinct clipping realizations.
 The `nmopt.dealii.canonical_volume_control` scenario contains two deliberately
 different checks. A hand-integrated Q1/DGQ0 calculation on a $2\times2$ mesh
 checks one residual coefficient and the objective independently of production
-assembly. The compiled/direct comparison then constructs the direct model and
-the homogeneous compiled product with identical mesh, data, coefficients, and
-bounds and compares residual, objective, objective derivative, and reduced
-derivative. That second check is a compiler wiring and packaging regression,
-not an independent assembly oracle.
+assembly. The canonical compiled component then runs the residual, objective,
+derivative, metric, constraint, Hessian, and solver checks with independent
+state coordinates; those checks establish the surviving lowerer's numerical
+and packaging contract rather than comparing two production implementations.
 
 The same scenario also exercises the separate supplied-OTD product at a
 nonzero manufactured point. It checks every residual block, centered finite

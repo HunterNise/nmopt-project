@@ -6,7 +6,6 @@
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
 #include "nmopt/dealii/quadratic_form.hpp"
-#include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/dealii/serial_kkt_solver.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
@@ -6882,26 +6881,34 @@ namespace
 
     const dealii::Functions::ConstantFunction<dim> forcing(1.0);
     const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
-    const dealii_backend::ScalarDiffusionReactionModel<dim> model(
-      triangulation,
+    const auto specification =
+      semantic::v1::make_scalar_diffusion_reaction_problem(true);
+    compiler::v1::DealiiDiscretisationPolicy policy;
+    policy.state_degree = 1;
+    const compiler::v1::DealiiDataBindings<dim> data_bindings{
       forcing,
       desired_state,
       1.0,
       0.5,
       0.1,
-      1);
+      test_binding_provenance("weak_form_oracle")};
+    const compiler::v1::CellwiseBoxDataBindings bounds{
+      compiler::v1::CellwiseBoundValue{-1.0},
+      compiler::v1::CellwiseBoundValue{2.0}};
+    const compiler::v1::DealiiCompiler compiler;
+    const auto compilation = compiler.compile(specification,
+                                              triangulation,
+                                              data_bindings,
+                                              policy,
+                                              bounds);
+    contract::require(compilation.succeeded() && compilation.problem,
+                      "the scalar component oracle compilation failed");
+    const auto &model = compilation.problem->executable_model();
 
     const std::size_t state_size = model.variable_layout()->dimension(0);
-    std::size_t       interior_state_dof = state_size;
-    std::size_t       unconstrained_dofs = 0;
-    for (std::size_t index = 0; index < state_size; ++index)
-      if (!model.state_constraints().is_constrained(index))
-        {
-          interior_state_dof = index;
-          ++unconstrained_dofs;
-        }
-    contract::require(unconstrained_dofs == 1,
-                      "the 2x2 Q1 oracle mesh must have one interior state DoF");
+    contract::require(state_size == 1,
+                      "the scalar component oracle needs one independent state DoF");
+    constexpr std::size_t interior_state_dof = 0;
 
     dealii::Vector<double> state(state_size);
     state[interior_state_dof] = 1.0;
@@ -6940,22 +6947,33 @@ namespace
 
     const dealii::Functions::ConstantFunction<dim> forcing(1.0);
     const dealii::Functions::ConstantFunction<dim> desired_state(0.25);
-    const dealii_backend::ScalarDiffusionReactionModel<dim> model(
-      triangulation,
+    const auto specification =
+      semantic::v1::make_scalar_diffusion_reaction_problem(true);
+    compiler::v1::DealiiDiscretisationPolicy compilation_policy;
+    compilation_policy.state_degree = 1;
+    compilation_policy.control_metric_solve = {1000, 1e-12, 1e-14};
+    const compiler::v1::DealiiCompiler v1_compiler;
+    const compiler::v1::DealiiDataBindings<dim> data_bindings{
       forcing,
       desired_state,
       1.0,
       0.5,
       0.1,
-      1);
+      test_binding_provenance("canonical_volume")};
+    const compiler::v1::CellwiseBoxDataBindings bound_bindings{
+      compiler::v1::CellwiseBoundValue{-1.0},
+      compiler::v1::CellwiseBoundValue{0.05}};
+    const auto compilation = v1_compiler.compile(specification,
+                                                  triangulation,
+                                                  data_bindings,
+                                                  compilation_policy,
+                                                  bound_bindings);
+    contract::require(compilation.succeeded() && compilation.problem,
+                      "v1 compiler failed to produce the canonical component");
+    const auto &model = compilation.problem->executable_model();
 
     contract::StateControlPartitionT<Backend> partition(model, 0, 1);
-    const contract::StateAdjointSolversT<Backend> solvers{
-      [&model](const Primal &control) { return model.solve_state(control); },
-      [&model](const Primal &full_point, const Covector &state_rhs) {
-        return model.solve_adjoint(full_point, state_rhs);
-      }};
-    const contract::ReducedDTOT<Backend> reduced(model, partition, solvers);
+    const auto reduced = compilation.problem->make_reduced_dto();
 
     dealii::Vector<double> control_values(
       partition.control_layout()->dimension(0));
@@ -6970,11 +6988,7 @@ namespace
                   1e-11,
                   "deal.II state residual");
 
-    dealii_backend::MassMetricSolveParameters metric_parameters;
-    metric_parameters.maximum_iterations = 1000;
-    metric_parameters.relative_tolerance = 1e-12;
-    metric_parameters.absolute_tolerance = 1e-14;
-    const auto metric = model.control_l2_metric(metric_parameters);
+    const auto &metric = compilation.problem->metric();
     dealii::Vector<double> random_covector_values(
       partition.control_layout()->dimension(0));
     for (dealii::types::global_dof_index i = 0;
@@ -7068,7 +7082,7 @@ namespace
                   2e-7,
                   "deal.II reduced DTO derivative");
 
-    const contract::ReducedHessianT<Backend> &hessian = model;
+    const auto &hessian = *compilation.problem->reduced_hessian();
     const Covector hessian_action =
       hessian.apply(control, control_direction);
     const Primal second_control_direction = [&partition]() {
@@ -7189,20 +7203,22 @@ namespace
                           lbfgs_result.objective_history[index - 1],
                         "deal.II L-BFGS objective history is not monotonic");
 
-    const auto bounds = model.control_l2_box_constraint(-1.0, 0.05, metric);
+    const auto *const bounds = compilation.problem->constraint();
+    contract::require(bounds != nullptr,
+                      "the canonical component lost its box constraint");
     dealii::Vector<double> bounded_control_values(
       partition.control_layout()->dimension(0));
     const Primal bounded_control(partition.control_layout(),
                                  {std::move(bounded_control_values)});
     const nmopt::solvers::ReducedGradientSolverT<Backend> projected_solver(
-      reduced, metric, bounds, solver_parameters);
+      reduced, metric, *bounds, solver_parameters);
     const auto projected_result = projected_solver.solve(bounded_control);
 
     contract::require(
       projected_result.stopping_reason ==
         nmopt::solvers::ReducedGradientStoppingReason::gradient_tolerance,
       "deal.II projected reduced gradient solver did not reach stationarity");
-    contract::require(bounds.is_feasible(projected_result.control),
+    contract::require(bounds->is_feasible(projected_result.control),
                       "deal.II projected reduced gradient returned an infeasible control");
     contract::require(projected_result.gradient_norm_history.back() <=
                         solver_parameters.gradient_tolerance,
@@ -7234,11 +7250,6 @@ namespace
                           projected_result.objective_history[index - 1],
                         "deal.II projected reduced objective is not monotonic");
 
-    const auto specification =
-      semantic::v1::make_scalar_diffusion_reaction_problem(true);
-    compiler::v1::DealiiDiscretisationPolicy compilation_policy;
-    compilation_policy.state_degree = 1;
-    const compiler::v1::DealiiCompiler v1_compiler;
     const auto validation = v1_compiler.validate(specification,
                                                  compilation_policy);
     contract::require(validation.valid(),
@@ -7298,24 +7309,6 @@ namespace
       "adjoint_block",
       "supplied_otd_adjoint_space",
       "v1 compiler reported a mismatched supplied OTD adjoint space as valid");
-
-    const compiler::v1::DealiiDataBindings<dim> data_bindings{
-      forcing,
-      desired_state,
-      1.0,
-      0.5,
-      0.1,
-      test_binding_provenance("canonical_volume")};
-    const compiler::v1::CellwiseBoxDataBindings bound_bindings{
-      compiler::v1::CellwiseBoundValue{-1.0},
-      compiler::v1::CellwiseBoundValue{0.05}};
-    const auto compilation = v1_compiler.compile(specification,
-                                                  triangulation,
-                                                  data_bindings,
-                                                  compilation_policy,
-                                                  bound_bindings);
-    contract::require(compilation.succeeded(),
-                      "v1 compiler failed to produce an executable problem");
 
     const auto supplied_otd_compilation = v1_compiler.compile(
       supplied_otd_specification,
@@ -7515,30 +7508,26 @@ namespace
           semantic::v1::SuppliedOTDMultiplierConversion::identity &&
         supplied_manifest.resolved_decision.supplied_otd_record.variable_space_ids ==
           std::vector<std::string>{"state", "state_test", "control"} &&
+        supplied_manifest.resolved_decision.supplied_otd_record.variable_dimensions ==
+          std::vector<std::size_t>{model.variable_layout()->dimension(0),
+                                   model.test_layout()->dimension(0),
+                                   model.variable_layout()->dimension(1)} &&
         supplied_manifest.resolved_decision.supplied_otd_record.residual_space_ids ==
           std::vector<std::string>{"state_equation",
                                    "adjoint_equation",
                                    "control_stationarity"} &&
+        supplied_manifest.resolved_decision.supplied_otd_record.residual_dimensions ==
+          std::vector<std::size_t>{model.test_layout()->dimension(0),
+                                   model.test_layout()->dimension(0),
+                                   model.variable_layout()->dimension(1)} &&
         supplied_manifest.resolved_decision.supplied_otd_record.comparison_status ==
           expected_comparison_status,
       "serial supplied OTD manifest omitted formulation and comparison provenance");
-    const auto &compiled_model = compilation.problem->executable_model();
-    const auto compiled_reduced = compilation.problem->make_reduced_dto();
-    const auto compiled_evaluation = compiled_reduced.evaluate(control);
-    const Covector compiled_residual =
-      compiled_model.residual(compiled_evaluation.full_point);
+    const Covector compiled_residual = model.residual(evaluation.full_point);
     require_close(compiled_residual.block(0).l2_norm(),
                   0.0,
                   1e-11,
-                  "compiled scalar state residual");
-    require_close(compiled_evaluation.objective_value,
-                  evaluation.objective_value,
-                  1e-12,
-                  "compiled/direct reduced objective differs");
-    require_covector_close(compiled_evaluation.reduced_derivative,
-                           evaluation.reduced_derivative,
-                           1e-12,
-                           "compiled/direct wiring reduced derivative differs");
+                  "canonical scalar state residual");
     const auto *compiled_constraint = compilation.problem->constraint();
     contract::require(compiled_constraint != nullptr &&
                         compiled_constraint->is_feasible(bounded_control),

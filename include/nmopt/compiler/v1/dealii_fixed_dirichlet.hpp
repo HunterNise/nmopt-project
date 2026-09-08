@@ -70,6 +70,7 @@ namespace nmopt::compiler::v1::detail
     using Primal = contract::PrimalBlockT<Backend>;
     using Covector = contract::CovectorBlockT<Backend>;
     using SolveResult = contract::FormulationSolveResultT<Backend>;
+    using SuppliedSystem = contract::SuppliedOTDSystemT<Backend>;
 
     ScalarComponentModel(
       dealii::Triangulation<dim> &triangulation,
@@ -299,6 +300,348 @@ namespace nmopt::compiler::v1::detail
     independent_control_dimension() const
     {
       return physical_control_dimension();
+    }
+
+    static SuppliedSystem
+    make_supplied_otd_system(
+      std::shared_ptr<const ScalarComponentModel> model,
+      std::shared_ptr<const void>                  lifetime_owner = {})
+    {
+      semantic::v1::SuppliedOTDDeclaration legacy_declaration;
+      legacy_declaration.state_block.variable_space_id = "state";
+      legacy_declaration.state_block.residual_space_id = "state_equation";
+      legacy_declaration.state_block.runtime_variable_space_id = "state";
+      legacy_declaration.state_block.runtime_residual_space_id =
+        "state_equation";
+      legacy_declaration.adjoint_block.variable_space_id = "state_test";
+      legacy_declaration.adjoint_block.residual_space_id = "adjoint_equation";
+      legacy_declaration.adjoint_block.runtime_variable_space_id = "state_test";
+      legacy_declaration.adjoint_block.runtime_residual_space_id =
+        "adjoint_equation";
+      legacy_declaration.control_stationarity_block.variable_space_id =
+        "control";
+      legacy_declaration.control_stationarity_block.residual_space_id =
+        "control_stationarity";
+      legacy_declaration.control_stationarity_block.runtime_variable_space_id =
+        "control";
+      legacy_declaration.control_stationarity_block.runtime_residual_space_id =
+        "control_stationarity";
+      return make_supplied_otd_system(model,
+                                      legacy_declaration,
+                                      std::move(lifetime_owner));
+    }
+
+    static SuppliedSystem
+    make_supplied_otd_system(
+      std::shared_ptr<const ScalarComponentModel>          model,
+      const semantic::v1::SuppliedOTDDeclaration &         declaration,
+      std::shared_ptr<const void>                          lifetime_owner = {})
+    {
+      contract::require(static_cast<bool>(model),
+                        "Supplied OTD scalar component needs a model");
+      const std::size_t state_dimension =
+        model->state_coordinates_.independent_dimension();
+      const std::size_t physical_state_dimension =
+        model->state_dof_handler_.n_dofs();
+      const std::size_t control_dimension =
+        static_cast<std::size_t>(model->control_mass_->m());
+      const auto variable_layout = std::make_shared<const contract::BlockLayout>(
+        "supplied_otd_independent_variables",
+        std::vector<contract::SpaceId>{{declaration.state_block
+                                          .runtime_variable_space_id},
+                                       {declaration.adjoint_block
+                                          .runtime_variable_space_id},
+                                       {declaration.control_stationarity_block
+                                          .runtime_variable_space_id}},
+        std::vector<std::size_t>{state_dimension,
+                                 state_dimension,
+                                 control_dimension});
+      const auto residual_layout = std::make_shared<const contract::BlockLayout>(
+        "supplied_otd_independent_residuals",
+        std::vector<contract::SpaceId>{{declaration.state_block
+                                          .runtime_residual_space_id},
+                                       {declaration.adjoint_block
+                                          .runtime_residual_space_id},
+                                       {declaration.control_stationarity_block
+                                          .runtime_residual_space_id}},
+        std::vector<std::size_t>{state_dimension,
+                                 state_dimension,
+                                 control_dimension});
+      const contract::SuppliedOTDLayout layout(variable_layout,
+                                                residual_layout);
+      const auto quadratic_kkt_validity =
+        contract::make_canonical_supplied_otd_quadratic_kkt_validity();
+
+      const auto reduced_tracking =
+        std::make_shared<dealii::SparseMatrix<double>>();
+      const auto reduced_tracking_sparsity =
+        std::make_shared<dealii::SparsityPattern>();
+      dealii::DynamicSparsityPattern tracking_dsp(state_dimension,
+                                                  state_dimension);
+      for (std::size_t column = 0; column < state_dimension; ++column)
+        {
+          Vector basis(state_dimension);
+          basis[column] = 1.0;
+          const Vector physical_column = model->embed_tangent(basis);
+          Vector physical_result(physical_state_dimension);
+          model->physical_state_tracking_operator_.vmult(physical_result,
+                                                          physical_column);
+          const Vector reduced_result = model->pullback(physical_result);
+          for (std::size_t row = 0; row < state_dimension; ++row)
+            if (reduced_result[row] != 0.0)
+              tracking_dsp.add(row, column);
+        }
+      reduced_tracking_sparsity->copy_from(tracking_dsp);
+      reduced_tracking->reinit(*reduced_tracking_sparsity);
+      for (std::size_t column = 0; column < state_dimension; ++column)
+        {
+          Vector basis(state_dimension);
+          basis[column] = 1.0;
+          const Vector physical_column = model->embed_tangent(basis);
+          Vector physical_result(physical_state_dimension);
+          model->physical_state_tracking_operator_.vmult(physical_result,
+                                                          physical_column);
+          const Vector reduced_result = model->pullback(physical_result);
+          for (std::size_t row = 0; row < state_dimension; ++row)
+            if (reduced_result[row] != 0.0)
+              reduced_tracking->set(row, column, reduced_result[row]);
+        }
+
+      Vector physical_desired_load = model->desired_state_load_;
+      Vector physical_lifting_action(physical_state_dimension);
+      model->physical_state_tracking_operator_.vmult(
+        physical_lifting_action,
+        model->state_coordinates_.fixed_lifting());
+      physical_desired_load.add(-1.0, physical_lifting_action);
+      const auto reduced_desired_load = std::make_shared<const Vector>(
+        model->pullback(physical_desired_load));
+
+      const auto residual = [model,
+                             reduced_tracking,
+                             reduced_tracking_sparsity,
+                             reduced_desired_load,
+                             residual_layout](const Primal &point) {
+        Vector state(model->reduced_system_matrix_.m());
+        model->reduced_system_matrix_.vmult(state, point.block(0));
+        state.add(-1.0, model->reduced_forcing_load_);
+        Vector control_contribution(model->reduced_system_matrix_.m());
+        model->reduced_control_coupling_.vmult(control_contribution,
+                                                point.block(2));
+        state.add(-1.0, control_contribution);
+
+        Vector adjoint(model->reduced_system_matrix_.m());
+        model->reduced_system_matrix_.Tvmult(adjoint, point.block(1));
+        Vector state_objective(model->reduced_system_matrix_.m());
+        reduced_tracking->vmult(state_objective, point.block(0));
+        adjoint.add(-1.0, state_objective);
+        adjoint.add(1.0, *reduced_desired_load);
+
+        Vector stationarity(model->control_mass_->m());
+        model->reduced_control_coupling_.Tvmult(stationarity,
+                                                 point.block(1));
+        Vector regularisation(model->control_mass_->m());
+        model->control_mass_->vmult(regularisation, point.block(2));
+        stationarity.add(model->regularisation_weight_, regularisation);
+
+        return Covector(residual_layout,
+                        {std::move(state),
+                         std::move(adjoint),
+                         std::move(stationarity)});
+      };
+
+      const auto residual_jvp = [model,
+                                 reduced_tracking,
+                                 reduced_tracking_sparsity,
+                                 residual_layout](const Primal &,
+                                                  const Primal &tangent) {
+        Vector state(model->reduced_system_matrix_.m());
+        model->reduced_system_matrix_.vmult(state, tangent.block(0));
+        Vector control_contribution(model->reduced_system_matrix_.m());
+        model->reduced_control_coupling_.vmult(control_contribution,
+                                                tangent.block(2));
+        state.add(-1.0, control_contribution);
+
+        Vector adjoint(model->reduced_system_matrix_.m());
+        model->reduced_system_matrix_.Tvmult(adjoint, tangent.block(1));
+        Vector state_objective(model->reduced_system_matrix_.m());
+        reduced_tracking->vmult(state_objective, tangent.block(0));
+        adjoint.add(-1.0, state_objective);
+
+        Vector stationarity(model->control_mass_->m());
+        model->reduced_control_coupling_.Tvmult(stationarity,
+                                                 tangent.block(1));
+        Vector regularisation(model->control_mass_->m());
+        model->control_mass_->vmult(regularisation, tangent.block(2));
+        stationarity.add(model->regularisation_weight_, regularisation);
+
+        return Covector(residual_layout,
+                        {std::move(state),
+                         std::move(adjoint),
+                         std::move(stationarity)});
+      };
+
+      const auto residual_vjp = [model,
+                                 reduced_tracking,
+                                 reduced_tracking_sparsity,
+                                 variable_layout](const Primal &,
+                                                 const Primal &seed) {
+        Vector state(model->reduced_system_matrix_.m());
+        model->reduced_system_matrix_.Tvmult(state, seed.block(0));
+        Vector state_objective(model->reduced_system_matrix_.m());
+        reduced_tracking->Tvmult(state_objective, seed.block(1));
+        state.add(-1.0, state_objective);
+
+        Vector adjoint(model->reduced_system_matrix_.m());
+        model->reduced_system_matrix_.vmult(adjoint, seed.block(1));
+        Vector stationarity_adjoint(model->reduced_system_matrix_.m());
+        model->reduced_control_coupling_.vmult(stationarity_adjoint,
+                                               seed.block(2));
+        adjoint.add(1.0, stationarity_adjoint);
+
+        Vector control(model->control_mass_->m());
+        model->reduced_control_coupling_.Tvmult(control, seed.block(0));
+        control *= -1.0;
+        Vector regularisation(model->control_mass_->m());
+        model->control_mass_->vmult(regularisation, seed.block(2));
+        control.add(model->regularisation_weight_, regularisation);
+
+        return Covector(variable_layout,
+                        {std::move(state),
+                         std::move(adjoint),
+                         std::move(control)});
+      };
+
+      const auto solve = [model,
+                          reduced_tracking,
+                          reduced_tracking_sparsity,
+                          reduced_desired_load,
+                          variable_layout](const Primal &) {
+        const auto state_dimension = model->reduced_system_matrix_.m();
+        const auto control_dimension = model->control_mass_->m();
+        const auto total_dimension = 2 * state_dimension + control_dimension;
+        dealii::DynamicSparsityPattern dynamic_sparsity(total_dimension,
+                                                         total_dimension);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->reduced_system_matrix_,
+                             0,
+                             0,
+                             false);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->reduced_control_coupling_,
+                             0,
+                             2 * state_dimension,
+                             false);
+        add_sparsity_entries(dynamic_sparsity,
+                             *reduced_tracking,
+                             state_dimension,
+                             0,
+                             false);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->reduced_system_matrix_,
+                             state_dimension,
+                             state_dimension,
+                             true);
+        add_sparsity_entries(dynamic_sparsity,
+                             model->reduced_control_coupling_,
+                             2 * state_dimension,
+                             state_dimension,
+                             true);
+        add_sparsity_entries(dynamic_sparsity,
+                             *model->control_mass_,
+                             2 * state_dimension,
+                             2 * state_dimension,
+                             false);
+
+        dealii::SparsityPattern sparsity;
+        sparsity.copy_from(dynamic_sparsity);
+        dealii::SparseMatrix<double> optimality_matrix(sparsity);
+        add_matrix_entries(optimality_matrix,
+                           model->reduced_system_matrix_,
+                           0,
+                           0,
+                           1.0,
+                           false);
+        add_matrix_entries(optimality_matrix,
+                           model->reduced_control_coupling_,
+                           0,
+                           2 * state_dimension,
+                           -1.0,
+                           false);
+        add_matrix_entries(optimality_matrix,
+                           *reduced_tracking,
+                           state_dimension,
+                           0,
+                           -1.0,
+                           false);
+        add_matrix_entries(optimality_matrix,
+                           model->reduced_system_matrix_,
+                           state_dimension,
+                           state_dimension,
+                           1.0,
+                           true);
+        add_matrix_entries(optimality_matrix,
+                           model->reduced_control_coupling_,
+                           2 * state_dimension,
+                           state_dimension,
+                           1.0,
+                           true);
+        add_matrix_entries(optimality_matrix,
+                           *model->control_mass_,
+                           2 * state_dimension,
+                           2 * state_dimension,
+                           model->regularisation_weight_,
+                           false);
+
+        Vector right_hand_side(total_dimension);
+        for (dealii::types::global_dof_index index = 0;
+             index < state_dimension;
+             ++index)
+          {
+            right_hand_side[index] = model->reduced_forcing_load_[index];
+            right_hand_side[state_dimension + index] =
+              -(*reduced_desired_load)[index];
+          }
+        Vector solution(total_dimension);
+        dealii::SparseDirectUMFPACK solver;
+        solver.initialize(optimality_matrix);
+        solver.vmult(solution, right_hand_side);
+
+        Vector state(state_dimension);
+        Vector adjoint(state_dimension);
+        Vector control(control_dimension);
+        for (dealii::types::global_dof_index index = 0;
+             index < state_dimension;
+             ++index)
+          {
+            state[index] = solution[index];
+            adjoint[index] = solution[state_dimension + index];
+          }
+        for (dealii::types::global_dof_index index = 0;
+             index < control_dimension;
+             ++index)
+          control[index] = solution[2 * state_dimension + index];
+
+        return SolveResult(
+          Primal(variable_layout,
+                 {std::move(state), std::move(adjoint), std::move(control)}),
+          contract::LinearSolveReport{"serial_sparse_direct_umfpack",
+                                       "not applicable",
+                                       1,
+                                       1,
+                                       0.0,
+                                       0.0,
+                                       0.0,
+                                       0.0,
+                                       contract::LinearSolveTermination::converged});
+      };
+
+      return SuppliedSystem(layout,
+                            residual,
+                            residual_jvp,
+                            residual_vjp,
+                            solve,
+                            quadratic_kkt_validity,
+                            std::move(lifetime_owner));
     }
 
     std::size_t
@@ -765,6 +1108,36 @@ namespace nmopt::compiler::v1::detail
     }
 
   private:
+    static void
+    add_sparsity_entries(
+      dealii::DynamicSparsityPattern &       target,
+      const dealii::SparseMatrix<double> &   source,
+      const dealii::types::global_dof_index row_offset,
+      const dealii::types::global_dof_index column_offset,
+      const bool                             transpose)
+    {
+      for (dealii::types::global_dof_index row = 0; row < source.m(); ++row)
+        for (auto entry = source.begin(row); entry != source.end(row); ++entry)
+          target.add(row_offset + (transpose ? entry->column() : row),
+                     column_offset + (transpose ? row : entry->column()));
+    }
+
+    static void
+    add_matrix_entries(
+      dealii::SparseMatrix<double> &         target,
+      const dealii::SparseMatrix<double> &   source,
+      const dealii::types::global_dof_index row_offset,
+      const dealii::types::global_dof_index column_offset,
+      const double                           factor,
+      const bool                             transpose)
+    {
+      for (dealii::types::global_dof_index row = 0; row < source.m(); ++row)
+        for (auto entry = source.begin(row); entry != source.end(row); ++entry)
+          target.add(row_offset + (transpose ? entry->column() : row),
+                     column_offset + (transpose ? row : entry->column()),
+                     factor * entry->value());
+    }
+
     static bool
     residual_registration_matches(
       const ScalarLoweringPlan &plan,

@@ -31,6 +31,9 @@ architectural boundaries.
 - [Application assembly API](reference/application-api.md) is the agent-facing
   entry point for exact recipe, `ProblemSpec`, compiler, solver, and experiment
   configuration contracts.
+- [External deal.II solver integration](reference/external-dealii-solver-integration.md)
+  documents the callback, formulation, metric, optimizer, lifetime, and
+  derivative-verification API for existing deal.II applications.
 - [Application execution reference](reference/application-execution.md) owns
   schemas, run-set layout, native outputs, reports, post-processing, and agent
   verification commands.

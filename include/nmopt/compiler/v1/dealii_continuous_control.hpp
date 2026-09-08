@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/compiler/v1/dealii_reference_cell.hpp"
+#include "nmopt/compiler/v1/dealii_volume_observation.hpp"
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
@@ -333,11 +334,12 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective");
       Vector state_tracking_times_state(state_dof_handler_.n_dofs());
-      state_tracking_matrix_.vmult(state_tracking_times_state,
-                                   variables.block(0));
+      state_tracking_matrix().vmult(state_tracking_times_state,
+                                    variables.block(0));
       const double state_value =
         0.5 * (variables.block(0) * state_tracking_times_state) -
-        (desired_state_load_ * variables.block(0)) + 0.5 * desired_state_norm_;
+        (desired_state_load() * variables.block(0)) +
+        0.5 * desired_state_norm();
 
       Vector control_regularisation_times_control(control_layout_->dimension(0));
       control_regularisation_matrix().vmult(
@@ -353,8 +355,8 @@ namespace nmopt::compiler::v1::detail
     {
       require_variables(variables, "Objective derivative");
       Vector state(state_dof_handler_.n_dofs());
-      state_tracking_matrix_.vmult(state, variables.block(0));
-      state.add(-1.0, desired_state_load_);
+      state_tracking_matrix().vmult(state, variables.block(0));
+      state.add(-1.0, desired_state_load());
 
       Vector control(control_layout_->dimension(0));
       control_regularisation_matrix().vmult(control, variables.block(1));
@@ -380,7 +382,7 @@ namespace nmopt::compiler::v1::detail
       state_constraints_.distribute(tangent_state);
 
       Vector incremental_adjoint_rhs(state_dof_handler_.n_dofs());
-      state_tracking_matrix_.vmult(incremental_adjoint_rhs, tangent_state);
+      state_tracking_matrix().vmult(incremental_adjoint_rhs, tangent_state);
       Vector incremental_adjoint(state_dof_handler_.n_dofs());
       const auto incremental_adjoint_report = solve_symmetric_system(
         incremental_adjoint, incremental_adjoint_rhs, {});
@@ -461,6 +463,27 @@ namespace nmopt::compiler::v1::detail
       contract::require(
         variables.layout()->compatible_with(*variable_layout_),
         std::string(operation) + " received an incompatible variable layout");
+    }
+
+    const dealii::SparseMatrix<double> &
+    state_tracking_matrix() const
+    {
+      return volume_observation_ == nullptr ? state_tracking_matrix_ :
+                                               volume_observation_->state_tracking_matrix();
+    }
+
+    const Vector &
+    desired_state_load() const
+    {
+      return volume_observation_ == nullptr ? desired_state_load_ :
+                                               volume_observation_->desired_state_load();
+    }
+
+    double
+    desired_state_norm() const
+    {
+      return volume_observation_ == nullptr ? desired_state_norm_ :
+                                               volume_observation_->desired_state_norm();
     }
 
     const dealii::SparseMatrix<double> &
@@ -564,7 +587,8 @@ namespace nmopt::compiler::v1::detail
       dealii::DoFTools::make_sparsity_pattern(state_dof_handler_, state_dsp);
       state_sparsity_.copy_from(state_dsp);
       system_matrix_.reinit(state_sparsity_);
-      state_tracking_matrix_.reinit(state_sparsity_);
+      if (use_h1_state_observation_)
+        state_tracking_matrix_.reinit(state_sparsity_);
 
       dealii::DynamicSparsityPattern control_dsp(state_size, control_size);
       std::vector<dealii::types::global_dof_index> state_indices(
@@ -621,6 +645,23 @@ namespace nmopt::compiler::v1::detail
     {
       const unsigned int quadrature_order =
         std::max(state_fe_->degree, control_fe_->degree) + 2;
+      if (!use_h1_state_observation_)
+        {
+          std::set<dealii::types::material_id> observation_material_ids;
+          for (const auto &cell : state_dof_handler_.active_cell_iterators())
+            observation_material_ids.insert(cell->material_id());
+
+          Vector fixed_state_values(state_dof_handler_.n_dofs());
+          volume_observation_ =
+            std::make_unique<VolumeObservationAssembly<dim>>(
+              state_dof_handler_,
+              *state_fe_,
+              constrained_state_dofs_,
+              fixed_state_values,
+              std::move(observation_material_ids),
+              desired_state,
+              quadrature_order);
+        }
       const auto quadrature = make_gauss_volume_quadrature(
         state_dof_handler_.get_triangulation(),
         quadrature_order,
@@ -679,21 +720,20 @@ namespace nmopt::compiler::v1::detail
                 use_h1_state_observation_
                   ? desired_state.gradient(state_values.quadrature_point(q))
                   : dealii::Tensor<1, dim>();
-              desired_state_norm_ +=
-                (desired_value * desired_value +
-                 (use_h1_state_observation_ ? desired_gradient * desired_gradient
-                                            : 0.0)) *
-                weight;
+              if (use_h1_state_observation_)
+                desired_state_norm_ +=
+                  (desired_value * desired_value +
+                   desired_gradient * desired_gradient) *
+                  weight;
               for (unsigned int i = 0; i < state_fe_->dofs_per_cell; ++i)
                 {
                   const double phi_i = state_values.shape_value(i, q);
                   local_forcing(i) += forcing_value * phi_i * weight;
-                  local_desired_state(i) +=
-                    (desired_value * phi_i +
-                     (use_h1_state_observation_
-                        ? desired_gradient * state_values.shape_grad(i, q)
-                        : 0.0)) *
-                    weight;
+                  if (use_h1_state_observation_)
+                    local_desired_state(i) +=
+                      (desired_value * phi_i +
+                       desired_gradient * state_values.shape_grad(i, q)) *
+                      weight;
                   for (unsigned int j = 0; j < state_fe_->dofs_per_cell; ++j)
                     {
                       local_system(i, j) +=
@@ -701,13 +741,12 @@ namespace nmopt::compiler::v1::detail
                                        state_values.shape_grad(j, q)) +
                          reaction_ * phi_i * state_values.shape_value(j, q)) *
                         weight;
-                      local_state_tracking(i, j) +=
-                        (phi_i * state_values.shape_value(j, q) +
-                         (use_h1_state_observation_
-                            ? state_values.shape_grad(i, q) *
-                                state_values.shape_grad(j, q)
-                            : 0.0)) *
-                        weight;
+                      if (use_h1_state_observation_)
+                        local_state_tracking(i, j) +=
+                          (phi_i * state_values.shape_value(j, q) +
+                           state_values.shape_grad(i, q) *
+                             state_values.shape_grad(j, q)) *
+                          weight;
                     }
                   for (unsigned int j = 0; j < control_fe_->dofs_per_cell; ++j)
                     local_control_coupling(i, j) +=
@@ -733,16 +772,18 @@ namespace nmopt::compiler::v1::detail
               if (constrained_state_dofs_.at(global_i))
                 continue;
               forcing_load_[global_i] += local_forcing(i);
-              desired_state_load_[global_i] += local_desired_state(i);
+              if (use_h1_state_observation_)
+                desired_state_load_[global_i] += local_desired_state(i);
               for (unsigned int j = 0; j < state_fe_->dofs_per_cell; ++j)
                 {
                   const auto global_j = state_indices[j];
                   if (!constrained_state_dofs_.at(global_j))
                     {
                       system_matrix_.add(global_i, global_j, local_system(i, j));
-                      state_tracking_matrix_.add(global_i,
-                                                 global_j,
-                                                 local_state_tracking(i, j));
+                      if (use_h1_state_observation_)
+                        state_tracking_matrix_.add(global_i,
+                                                   global_j,
+                                                   local_state_tracking(i, j));
                     }
                 }
               for (unsigned int j = 0; j < control_fe_->dofs_per_cell; ++j)
@@ -817,6 +858,7 @@ namespace nmopt::compiler::v1::detail
     dealii::SparsityPattern control_sparsity_square_;
     dealii::SparseMatrix<double> system_matrix_;
     dealii::SparseMatrix<double> state_tracking_matrix_;
+    std::unique_ptr<VolumeObservationAssembly<dim>> volume_observation_;
     dealii::SparseMatrix<double> control_coupling_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_mass_;
     std::shared_ptr<dealii::SparseMatrix<double>> control_stiffness_;

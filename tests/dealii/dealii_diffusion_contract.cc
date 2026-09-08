@@ -1,7 +1,7 @@
 #include "nmopt/contract/reduced_dto.hpp"
 #include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "nmopt/compiler/v1/dealii_neumann_control_realisation.hpp"
-#include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
+#include "nmopt/compiler/v1/dealii_compiler.hpp"
 #include "nmopt/compiler/v1/dealii_volume_observation.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"

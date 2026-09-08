@@ -883,11 +883,11 @@ binding/session errors, while direct low-level constructor misuse retains the
 
 ## Registered deal.II realization
 
-The compatibility aggregate
-`include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp` exposes the
-focused compiler headers: `compiled_problem.hpp`, `dealii_types.hpp`,
-`dealii_capabilities.hpp`, `dealii_scalar_plan.hpp`, and
-`dealii_compiler.hpp`. The compiler first resolves the semantic graph once.
+The focused headers under `include/nmopt/compiler/v1/` expose the compiler
+boundary directly: `compiled_problem.hpp`, `dealii_types.hpp`,
+`dealii_capabilities.hpp`, `dealii_scalar_plan.hpp`, and `dealii_compiler.hpp`.
+There is no compatibility aggregate; consumers include the narrow header that
+owns the capability they use. The compiler first resolves the semantic graph once.
 For the bounded assembled scalar path it then builds a typed contribution plan;
 otherwise it selects one of the registered private target strategies.
 `dealii_fixed_dirichlet.hpp` owns `ScalarComponentModel`, the v1 physical-state

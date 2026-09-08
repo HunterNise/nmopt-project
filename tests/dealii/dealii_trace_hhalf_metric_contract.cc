@@ -1,6 +1,6 @@
 #include "nmopt/dealii/trace_hhalf_metric.hpp"
 #include "nmopt/compiler/v1/dealii_dirichlet_control.hpp"
-#include "nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp"
+#include "nmopt/compiler/v1/dealii_compiler.hpp"
 #include "nmopt/semantic/v1/reference_specs.hpp"
 
 #include "../support/contract_errors.hpp"

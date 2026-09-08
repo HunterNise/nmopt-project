@@ -11,7 +11,6 @@
 #include "nmopt/compiler/v1/dealii_types.hpp"
 #include "nmopt/contract/supplied_otd_kkt.hpp"
 #include "nmopt/dealii/facewise_box_constraint.hpp"
-#include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/semantic/v1/validation.hpp"
 
 #include <deal.II/grid/tria.h>
@@ -1695,47 +1694,8 @@ namespace nmopt::compiler::v1
           executable = assembled;
         }
       else
-        {
-          using DirectModel = dealii_backend::ScalarDiffusionReactionModel<dim>;
-          const auto direct = std::make_shared<DirectModel>(
-            triangulation,
-            data.forcing,
-            data.desired_state,
-            *data.diffusion,
-            data.reaction,
-            data.regularisation_weight,
-            policy.state_degree,
-            dirichlet_boundary_ids);
-          reduced_hessian = direct;
-          metric = std::make_shared<dealii_backend::MassMetric>(
-            direct->control_l2_metric(policy.control_metric_solve));
-          if (has_constraint)
-            {
-              box_data = make_cellwise_box_data(
-                metric->layout(),
-                *bounds,
-                metric,
-                specification.formulation.constraint_id,
-                "compiler.v1.cellwise_box");
-              constraint =
-                std::make_shared<dealii_backend::CellwiseBoxConstraint>(
-                  make_constraint(*box_data, as_mass_metric(*metric)));
-              constraint_realisation = ConstraintRealisation::cellwise_l2;
-            }
-          solvers = make_state_adjoint_solvers(direct,
-                                               policy.state_solve,
-                                               policy.adjoint_solve);
-          native_application_view =
-            make_volume_native_application_view<dim>(direct, data);
-          executable = direct;
-          if (uses_supplied_otd)
-            supplied_otd_system = std::make_shared<
-              const contract::SuppliedOTDSystemT<Backend>>(
-              DirectModel::make_supplied_otd_system(
-                direct,
-                *specification.supplied_otd_declaration,
-                lifetime_owner));
-        }
+        contract::require(false,
+                          "Validated v1 request did not select a supported deal.II lowerer");
       auto manifest = finalize_resolved_decision<dim>(
         policy,
         specification,

@@ -1,5 +1,10 @@
 # deal.II v0 scalar diffusion-reaction lowerer
 
+> Historical record. The direct v0 lowerer described here was retired in the
+> E1 scalar refactor after its numerical oracles and supplied-OTD behavior
+> moved to the v1 component/compiler path. The implementation is no longer
+> shipped; current users should follow the [v1 semantic compiler](../v1/semantic-compiler.md).
+
 ## Implemented slice
 
 The header `include/nmopt/dealii/scalar_diffusion_reaction.hpp` is the first

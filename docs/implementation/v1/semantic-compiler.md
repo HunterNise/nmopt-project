@@ -3,12 +3,10 @@
 ## Status and boundary
 
 This is the first public semantic-to-compiler path. It is deliberately named
-**v1** and is completing the retirement of the direct v0 model:
+**v1** and is now the surviving scalar deal.II implementation after retirement
+of the direct v0 model:
 
 ```text
-v0 direct reference
-ScalarDiffusionReactionModel<dim>
-
 v1 semantic/compiler path
 semantic::v1::ProblemSpec
   -> SemanticValidator + SemanticResolver + compiler diagnostics
@@ -19,8 +17,8 @@ semantic::v1::ProblemSpec
 
 The canonical scalar volume graph now lowers through `ScalarComponentModel`
 with independent state coordinates, including its supplied-OTD product. The
-direct v0 lowerer remains only as a temporary deletion-gate reference for the
-legacy scalar KKT/test path. A graph that declares fixed-Dirichlet reconstruction,
+direct v0 lowerer and its scalar-specific KKT/test path have been retired; the
+generic compiler products now own the KKT and PDAS contract coverage. A graph that declares fixed-Dirichlet reconstruction,
 controlled-Dirichlet lifting, material-subdomain state tracking, Neumann
 boundary control, the C5.6 Neumann/transport/subdomain composition, or the
 registered general scalar elliptic/Robin composition selects a separate

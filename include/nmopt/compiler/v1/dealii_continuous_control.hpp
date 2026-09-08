@@ -373,7 +373,8 @@ namespace nmopt::compiler::v1::detail
       control_coupling_.vmult(tangent_rhs, direction.block(0));
       Vector tangent_state(state_dof_handler_.n_dofs());
       const auto tangent_report =
-        solve_symmetric_system(tangent_state, tangent_rhs, {});
+        dealii_backend::solve_serial_spd(
+          system_matrix_, tangent_state, tangent_rhs, {});
       contract::require(tangent_report.converged(),
                         "Continuous-control Hessian tangent solve did not converge");
       state_constraints_.distribute(tangent_state);
@@ -382,8 +383,8 @@ namespace nmopt::compiler::v1::detail
         dealii_backend::QuadraticForm(state_tracking_matrix())
           .hessian_action(tangent_state);
       Vector incremental_adjoint(state_dof_handler_.n_dofs());
-      const auto incremental_adjoint_report = solve_symmetric_system(
-        incremental_adjoint, incremental_adjoint_rhs, {});
+      const auto incremental_adjoint_report = dealii_backend::solve_serial_spd(
+        system_matrix_, incremental_adjoint, incremental_adjoint_rhs, {});
       contract::require(
         incremental_adjoint_report.converged(),
         "Continuous-control Hessian incremental-adjoint solve did not converge");
@@ -419,7 +420,8 @@ namespace nmopt::compiler::v1::detail
       control_coupling_.vmult(control_contribution, control.block(0));
       right_hand_side.add(1.0, control_contribution);
       Vector state(state_dof_handler_.n_dofs());
-      auto report = solve_symmetric_system(state, right_hand_side, policy);
+      auto report = dealii_backend::solve_serial_spd(
+        system_matrix_, state, right_hand_side, policy);
       state_constraints_.distribute(state);
       return {Primal(state_layout_, {std::move(state)}), std::move(report)};
     }
@@ -447,9 +449,8 @@ namespace nmopt::compiler::v1::detail
         state_objective_derivative.layout()->compatible_with(*state_layout_),
         "Adjoint solve right-hand side has an incompatible state layout");
       Vector adjoint(test_layout_->dimension(0));
-      auto report = solve_symmetric_system(adjoint,
-                                           state_objective_derivative.block(0),
-                                           policy);
+      auto report = dealii_backend::solve_serial_spd(
+        system_matrix_, adjoint, state_objective_derivative.block(0), policy);
       state_constraints_.distribute(adjoint);
       return {Primal(test_layout_, {std::move(adjoint)}), std::move(report)};
     }
@@ -817,18 +818,6 @@ namespace nmopt::compiler::v1::detail
            ++index)
         if (constrained_state_dofs_.at(index))
           system_matrix_.set(index, index, 1.0);
-    }
-
-    contract::LinearSolveReport
-    solve_symmetric_system(
-      Vector &                                      solution,
-      const Vector &                                right_hand_side,
-      const dealii_backend::SPDLinearSolvePolicy &policy) const
-    {
-      return dealii_backend::solve_serial_spd(system_matrix_,
-                                              solution,
-                                              right_hand_side,
-                                              policy);
     }
 
     std::unique_ptr<dealii::FiniteElement<dim>> state_fe_;

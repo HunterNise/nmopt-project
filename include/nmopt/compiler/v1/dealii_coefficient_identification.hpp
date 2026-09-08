@@ -231,10 +231,8 @@ namespace nmopt::compiler::v1::detail
       Matrix state_matrix;
       assemble_state_matrix(parameter.block(0), state_matrix);
       Vector state(state_dof_handler_.n_dofs());
-      auto report = solve_symmetric_system(state_matrix,
-                                           state,
-                                           forcing_load_,
-                                           policy);
+      auto report = dealii_backend::solve_serial_spd(
+        state_matrix, state, forcing_load_, policy);
       state_constraints_.distribute(state);
       return {Primal(state_layout_, {std::move(state)}), std::move(report)};
     }
@@ -264,10 +262,8 @@ namespace nmopt::compiler::v1::detail
       Matrix state_matrix;
       assemble_state_matrix(full_point.block(1), state_matrix);
       Vector adjoint(test_layout_->dimension(0));
-      auto report = solve_symmetric_system(state_matrix,
-                                           adjoint,
-                                           state_objective_derivative.block(0),
-                                           policy);
+      auto report = dealii_backend::solve_serial_spd(
+        state_matrix, adjoint, state_objective_derivative.block(0), policy);
       state_constraints_.distribute(adjoint);
       return {Primal(test_layout_, {std::move(adjoint)}), std::move(report)};
     }
@@ -593,18 +589,6 @@ namespace nmopt::compiler::v1::detail
       contract::require(parameter_cell == parameter_dof_handler_.end(),
                         "State and parameter DoF handlers have different cells");
       return value;
-    }
-
-    static contract::LinearSolveReport
-    solve_symmetric_system(const Matrix &matrix,
-                           Vector &      solution,
-                           const Vector &right_hand_side,
-                           const dealii_backend::SPDLinearSolvePolicy &policy)
-    {
-      return dealii_backend::solve_serial_spd(matrix,
-                                              solution,
-                                              right_hand_side,
-                                              policy);
     }
 
     dealii::FE_Q<dim> state_fe_;

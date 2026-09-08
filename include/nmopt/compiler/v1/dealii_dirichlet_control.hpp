@@ -318,10 +318,8 @@ namespace nmopt::compiler::v1::detail
       right_hand_side.add(-1.0, lifting_contribution);
 
       Vector state(state_coordinates_.independent_dimension());
-      auto report = solve_symmetric_system(reduced_system_matrix_,
-                                           state,
-                                           right_hand_side,
-                                           policy);
+      auto report = dealii_backend::solve_serial_spd(
+        reduced_system_matrix_, state, right_hand_side, policy);
       return {Primal(state_layout_, {std::move(state)}), std::move(report)};
     }
 
@@ -349,10 +347,8 @@ namespace nmopt::compiler::v1::detail
         "Adjoint solve right-hand side has an incompatible state layout");
 
       Vector adjoint(state_coordinates_.independent_dimension());
-      auto report = solve_symmetric_system(reduced_system_matrix_,
-                                           adjoint,
-                                           state_objective_derivative.block(0),
-                                           policy);
+      auto report = dealii_backend::solve_serial_spd(
+        reduced_system_matrix_, adjoint, state_objective_derivative.block(0), policy);
       return {Primal(test_layout_, {std::move(adjoint)}), std::move(report)};
     }
 
@@ -852,18 +848,6 @@ namespace nmopt::compiler::v1::detail
       for (std::size_t index = 0; index < controlled_state_dofs_.size(); ++index)
         control[index] = physical_covector[controlled_state_dofs_[index]];
       return control;
-    }
-
-    static contract::LinearSolveReport
-    solve_symmetric_system(const dealii::SparseMatrix<double> &matrix,
-                           Vector &                             solution,
-                           const Vector &                       right_hand_side,
-                           const dealii_backend::SPDLinearSolvePolicy &policy)
-    {
-      return dealii_backend::solve_serial_spd(matrix,
-                                              solution,
-                                              right_hand_side,
-                                              policy);
     }
 
     dealii::FE_Q<dim> state_fe_;

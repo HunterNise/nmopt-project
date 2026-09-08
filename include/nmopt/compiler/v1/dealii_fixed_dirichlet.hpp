@@ -450,10 +450,8 @@ namespace nmopt::compiler::v1::detail
         nonsymmetric_solver_->vmult(tangent_state, tangent_rhs);
       else
         {
-          const auto report = solve_symmetric_system(reduced_system_matrix_,
-                                                      tangent_state,
-                                                      tangent_rhs,
-                                                      {});
+          const auto report = dealii_backend::solve_serial_spd(
+            reduced_system_matrix_, tangent_state, tangent_rhs, {});
           contract::require(report.converged(),
                             "Reduced Hessian tangent solve did not converge");
         }
@@ -468,10 +466,8 @@ namespace nmopt::compiler::v1::detail
                                      reduced_adjoint_rhs);
       else
         {
-          const auto report = solve_symmetric_system(reduced_system_matrix_,
-                                                      incremental_adjoint,
-                                                      reduced_adjoint_rhs,
-                                                      {});
+          const auto report = dealii_backend::solve_serial_spd(
+            reduced_system_matrix_, incremental_adjoint, reduced_adjoint_rhs, {});
           contract::require(report.converged(),
                             "Reduced Hessian incremental-adjoint solve did not converge");
         }
@@ -622,10 +618,8 @@ namespace nmopt::compiler::v1::detail
                   dealii_backend::direct_solve_report(
                     "serial_sparse_direct_umfpack")};
         }
-      auto report = solve_symmetric_system(reduced_system_matrix_,
-                                           state,
-                                           right_hand_side,
-                                           policy);
+      auto report = dealii_backend::solve_serial_spd(
+        reduced_system_matrix_, state, right_hand_side, policy);
       return {Primal(state_layout_, {std::move(state)}), std::move(report)};
     }
 
@@ -662,10 +656,8 @@ namespace nmopt::compiler::v1::detail
                   dealii_backend::direct_solve_report(
                     "serial_sparse_direct_umfpack_transpose")};
         }
-      auto report = solve_symmetric_system(reduced_system_matrix_,
-                                           adjoint,
-                                           state_objective_derivative.block(0),
-                                           policy);
+      auto report = dealii_backend::solve_serial_spd(
+        reduced_system_matrix_, adjoint, state_objective_derivative.block(0), policy);
       return {Primal(test_layout_, {std::move(adjoint)}), std::move(report)};
     }
 
@@ -1573,18 +1565,6 @@ namespace nmopt::compiler::v1::detail
     pullback(const Vector &physical_covector) const
     {
       return state_coordinates_.pullback(physical_covector);
-    }
-
-    static contract::LinearSolveReport
-    solve_symmetric_system(const dealii::SparseMatrix<double> &matrix,
-                           Vector &                              solution,
-                           const Vector &                        right_hand_side,
-                           const dealii_backend::SPDLinearSolvePolicy &policy)
-    {
-      return dealii_backend::solve_serial_spd(matrix,
-                                              solution,
-                                              right_hand_side,
-                                              policy);
     }
 
     dealii::FE_Q<dim> state_fe_;

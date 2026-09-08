@@ -652,7 +652,8 @@ namespace nmopt::compiler::v1::detail
           report = dealii_backend::direct_solve_report("serial_sparse_direct_umfpack");
         }
       else
-        report = solve_symmetric_system(state, right_hand_side, policy);
+        report = dealii_backend::solve_serial_spd(
+          system_matrix_, state, right_hand_side, policy);
       state_constraints_.distribute(state);
       return {Primal(state_layout_, {std::move(state)}), std::move(report)};
     }
@@ -696,9 +697,8 @@ namespace nmopt::compiler::v1::detail
             "serial_sparse_direct_umfpack_transpose");
         }
       else
-        report = solve_symmetric_system(adjoint,
-                                        state_objective_derivative.block(0),
-                                        policy);
+        report = dealii_backend::solve_serial_spd(
+          system_matrix_, adjoint, state_objective_derivative.block(0), policy);
       if (has_fixed_dirichlet_data_)
         zero_constrained_entries(adjoint);
       else
@@ -1085,18 +1085,6 @@ namespace nmopt::compiler::v1::detail
                 }
             }
         }
-    }
-
-    contract::LinearSolveReport
-    solve_symmetric_system(
-      Vector &                                      solution,
-      const Vector &                                right_hand_side,
-      const dealii_backend::SPDLinearSolvePolicy &policy) const
-    {
-      return dealii_backend::solve_serial_spd(system_matrix_,
-                                              solution,
-                                              right_hand_side,
-                                              policy);
     }
 
     bool

@@ -21,6 +21,17 @@ current work branch is `codex/refactor/pde-solver-boundary`. Update this
 document's current handoff as units are accepted; do not copy mutable status
 into design or assessment documents.
 
+Current accepted status:
+
+- R0 is complete and committed as `d9bc50f`.
+- Phase A is complete and committed as `b7c2844`, `091b540`, and `9979169`.
+- Phase B is complete and committed as `1af8908`, `bdb68e7`, and `18f5eda`.
+- Phase C is complete and committed as `e201c3a`, `a7f090b`, `ba2bb67`,
+  `38dc399`, `d306303`, and `a065029`.
+- The roadmap is paused at the review boundary before D1. Optional C2c and
+  C4b extractions remain deferred because they did not show another
+  deletion-paying abstraction.
+
 ## Target outcome
 
 The completed system has one small solver-facing boundary and two independent
@@ -234,7 +245,7 @@ while native applications still depend on concrete executable recovery.
 
 ## R0 — Record the architecture audit
 
-**Status:** documentation preparation/review.
+**Status:** complete and committed as `d9bc50f`.
 
 **Outcome:** The refactor has one accepted long-lived boundary, one detailed architecture
 atlas, one evidence archive, one deletion ledger, and one executable roadmap.
@@ -1016,8 +1027,8 @@ unit unless an independently meaningful cleanup remains.
 ## Current handoff
 
 ```text
-Completed: architecture exploration and draft audit package
-Current:   R0 documentation review before repository commit
-Next:      accept/revise R0, then A1 callback executable
-Blocked:   no implementation blocker; R0 requires user review
+Completed: R0 and Phases A, B, and C
+Current:   implementation paused after C4 at the requested review boundary
+Next:      D1 — replace parallel target identities with one closed lowering decision
+Blocked:   no implementation blocker; D1 has not started
 ```

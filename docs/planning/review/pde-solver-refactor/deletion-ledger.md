@@ -476,21 +476,49 @@ current unit touches them directly:
 
 ## Final deletion accounting
 
-At the end of the program, record separately:
+Measured from the parent of the R0 audit commit `d9bc50f` through F2 commit
+`f155b33` (the final accounting record itself is excluded from the line
+counts):
 
 ```text
-production C++ added / deleted
-production Python added / deleted
-tests added / deleted
-documentation added / deleted
-complete production types deleted
-runtime dispatch branches deleted
-duplicate stored representations deleted
-remaining concrete-model downcasts
-remaining model-owned filesystem operations
-remaining v0/version-specific production paths and their reasons
+production C++ added / deleted: 1744 / 2674 lines
+production Python added / deleted: 0 / 0 lines
+tests added / deleted: 2015 / 1464 lines
+documentation added / deleted: 4100 / 84 lines
+build metadata (CMake) added / deleted: 22 / 7 lines
+complete production files deleted:
+  include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp
+  include/nmopt/dealii/scalar_diffusion_reaction.hpp
+  include/nmopt/dealii/scalar_diffusion_reaction_kkt.hpp
+complete production types deleted:
+  ScalarDiffusionReactionModel, ScalarDiffusionReactionKKT
+runtime dispatch branches deleted:
+  direct scalar-v0 lowerer/CMake registration, direct scalar-v0 KKT/PDAS
+  registration, parallel target-kind conversion, and structured manifest-copy
+  reconstruction
+duplicate stored representations deleted:
+  private compiled target identity, resolved-decision compatibility copy, and
+  structured manifest target copies
+remaining concrete-model downcasts:
+  8 compiler-internal checks in dealii_compiler.hpp only: MassMetric
+  capability checks and typed native-dimension realization; none in
+  applications or solver/formulation contracts
+remaining model-owned filesystem operations:
+  deal.II typed model writers in dealii_fixed_dirichlet.hpp,
+  dealii_continuous_control.hpp, dealii_neumann_boundary.hpp, and
+  dealii_neumann_control_realisation.hpp, reached only through
+  NativeApplicationViewT; retained to preserve the existing compiler-native
+  VTU/SVG output contract and kept outside ExecutableModelT/ReducedDTOT
+remaining v0/version-specific production paths and their reasons:
+  no v0 path remains; v1 is the sole current semantic/compiler namespace and
+  implementation surface
+remaining deferred cleanup candidates:
+  typed native output-contract migration, semantic policy sum types,
+  nullable CompilationResultT, and reference-builder simplification
 ```
 
-Net-negative production code is a design-pressure target for the completed
-cleanup, not permission to sacrifice clarity or mathematical verification in
-one intermediate unit.
+The production C++ result is net negative by 930 lines. The external callback
+contract, native-view contract, and surviving v1 numerical oracles provide the
+focused evidence for the retained boundary. Debug and sanitizer verification
+passed; the optimized `release-dealii` gate is intentionally left for the user
+to run after the accounting commit.

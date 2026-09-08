@@ -28,9 +28,17 @@ Current accepted status:
 - Phase B is complete and committed as `1af8908`, `bdb68e7`, and `18f5eda`.
 - Phase C is complete and committed as `e201c3a`, `a7f090b`, `ba2bb67`,
   `38dc399`, `d306303`, and `a065029`.
-- The roadmap is paused at the review boundary before D1. Optional C2c and
-  C4b extractions remain deferred because they did not show another
-  deletion-paying abstraction.
+- D1 is complete and committed as `2bbb42e`.
+- D2 is complete and committed as `89c9abf`, `f6223a7`, `a045deb`, and
+  `018d9c1`.
+- E1 is complete and committed as `68d8219`, `eb093eb`, and `c0f568f`.
+- E2a is complete and committed as `a4e847f`.
+- F1 is complete and committed as `63eaed6`.
+- F2 is complete and committed as `f155b33`.
+- F3 accounting is recorded below; the optimized `release-dealii` verification
+  remains a user-run post-commit gate under `.agents/build.md`.
+- Optional C2c, C4b, and the deferred cleanup candidates listed below remain
+  deferred because they did not show another deletion-paying abstraction.
 
 ## Target outcome
 
@@ -1024,11 +1032,138 @@ program complete.
 **Prospective commit:** normally combined with the final documentation/accounting
 unit unless an independently meaningful cleanup remains.
 
+## Implemented unit outcomes
+
+The ignored implementation plans contain the detailed records. This condensed
+ledger makes the concrete result of every accepted unit and every deliberately
+deferred subunit visible from the roadmap itself.
+
+| Unit | Implemented outcome |
+| --- | --- |
+| R0 | Established the accepted PDE–solver boundary, architecture map, deletion ledger, and execution roadmap. |
+| A1 | Added backend-neutral `CallbackExecutableModelT`: five executable callbacks, layout validation, unchanged `ExecutableModelT` surface, and independently replaceable objective callbacks. |
+| A2a | Added a standalone deal.II Poisson-control fixture and forward executable. The fixture owns mesh, assembly, solves, diagnostics, and VTU output and contains no nmopt dependency. |
+| A2b | Adapted that unchanged fixture through `CallbackExecutableModelT`, `StateAdjointSolversT`, `MassMetric`, `ReducedDTOT`, and the reduced-gradient optimizer; derivative, Taylor, convergence, objective-replacement, and output scenarios pass. |
+| B1a | Added `NativeApplicationViewT` beside the erased executable, retaining typed dimensions, objective components, output callbacks, and lifetime ownership without widening solver contracts. |
+| B1b | Migrated B1/B2 to the native view and removed application concrete-model recovery. Native writers remain behind typed compiler-created callbacks, with application-controlled invocation and directory ownership. |
+| B2a | Centralized the repeated typed-model-to-state/adjoint-service packaging in one private compiler helper across six lowering branches; target-specific metric, constraint, Hessian, native-view, and supplied-OTD decisions remain local. B2b was not justified. |
+| C1a | Added `IndependentStateCoordinates` for shared independent DoFs, fixed lifting, reconstruction, embedding, and pullback; migrated `ScalarComponentModel`. |
+| C1b | Migrated `DirichletControlLiftingModel` to the same state-coordinate value while retaining its local controlled trace map and trace metrics. |
+| C2a | Prototyped affine decision coupling, measured its code-positive result, and removed it without a commit; the two FE assembly paths remain target-specific. |
+| C2b | Narrowed `NeumannControlRealisation` to topology, coordinates, coupling, and mass capabilities; moved regularization, metric, and facewise-box construction into `NeumannBoundaryControlModel`. C2c remains deferred. |
+| C3a | Reused `VolumeObservationAssembly` for continuous-control $L^2$ tracking while preserving the distinct local $H^1$ tracking path and fused FE traversal. |
+| C3b | Added dimension-checked `QuadraticForm` value/gradient/Hessian actions and migrated repeated tracking and matrix-backed regularization algebra across four targets. |
+| C4a | Reused the serial SPD solve service directly in five compiler targets, deleting target-local forwarding helpers while preserving direct, transpose, mean-zero, and coefficient-dependent solve paths. C4b remains deferred. |
+| D1a | Selected the existing `ResolvedCompilationRequest` and its `ResolvedTargetFamily` as the closed owner of the complete lowering choice. |
+| D1b | Migrated validation, scalar planning, construction, descriptions, bindings, and provenance to that decision; deleted `CompiledTargetKind`, conversion helpers, a registration enum, and six redundant whole-target predicates. |
+| D1c | Preserved existing semantic/construction/diagnostic/manifest oracles without adding test-only abstractions; supported target behavior and rejection diagnostics remained unchanged. |
+| D2a | Moved application and runner consumers to the resolved decision while preserving evidence keys, runtime checks, and artifact storage. |
+| D2b1 | Removed flat compatibility fields and vectors from the manifest and stopped synchronizing them through a second owner. |
+| D2b2 | Removed nineteen duplicated structured manifest member declarations; the manifest retained only its schema envelope and resolved decision. |
+| D2c | Moved `CompiledCompatibilityView` to the detached artifact-facing manifest envelope; typed realized facts remain owned by `ResolvedCompilationDecision`, while persisted keys stay stable. |
+| E1a | Routed canonical `direct_volume` lowering through `ScalarComponentModel` and exposed the independent/physical dimensions and native output required by applications. |
+| E1b | Added supplied-OTD construction to the surviving scalar path and transferred weak-form, derivative, metric, constraint, Hessian, solver, and supplied-OTD oracle coverage. |
+| E1c | Deleted the direct scalar-v0 model, scalar-specific KKT realization, compiler fallback, and standalone legacy KKT/PDAS test registrations; generic compiler products remain. |
+| E2a | Deleted the unused v1 compiler compatibility aggregate and moved its test consumers to focused headers; retained only active generic KKT/PDAS products and edge-facing compatibility labels. |
+| F1 | Added the external deal.II integration reference under `docs/reference/`, documenting standalone application ownership, callback construction, solve services, metrics, output, lifetime, and verification. |
+| F2 | Updated current design, implementation, planning, reference, and code comments to the post-refactor boundary while explicitly preserving historical review evidence. |
+| F3 | Audited the final boundary, recorded retained exceptions and measured deletions, and documented the final architecture proof. The optimized release gate is user-run. |
+
+## Implemented refactor summary
+
+The completed work replaces the former PDE-specific solver/application
+coupling with a small composition boundary:
+
+- `ExecutableModelT`, `StateAdjointSolversT`, `ReducedDTOT`, metrics,
+  constraints, and optional reduced Hessians remain solver-facing contracts;
+  external applications can supply residual, derivative, objective, and solve
+  callbacks independently.
+- The deal.II compiler now owns typed native realizations and exposes native
+  dimensions, objective components, and field output through
+  `NativeApplicationViewT`, rather than asking applications to recover a
+  concrete model from the erased executable.
+- Semantic validation and lowering use one closed compilation decision, while
+  `ResolvedCompilationDecision` owns realized provenance and the manifest
+  retains only its artifact-facing compatibility rendering.
+- Unique state reconstruction, objective ingredients, solve services, supplied
+  OTD behavior, scalar derivative oracles, and metric/constraint capabilities
+  were transferred to the surviving compiler and contract paths.
+- The direct scalar-v0 model, its dedicated KKT/PDAS path, and the unused v1
+  compiler compatibility aggregate were removed. Existing external output,
+  artifact keys, formulation contracts, optimizer behavior, and supported
+  numerical scenarios were preserved.
+- An external deal.II reference and contract test demonstrate that an
+  application can use the formulation/optimizer layer without adopting the
+  semantic compiler, and without providing second-order capability for a
+  first-order optimizer.
+
 ## Current handoff
 
 ```text
-Completed: R0 and Phases A, B, and C
-Current:   implementation paused after C4 at the requested review boundary
-Next:      D1 — replace parallel target identities with one closed lowering decision
-Blocked:   no implementation blocker; D1 has not started
+Completed: R0 and Phases A–F2; F3 source proof and final accounting recorded
+Current:   code/documentation work complete; release-dealii remains user-run
+Next:      optional optimized release verification, then no further unit in
+           this refactor
+Blocked:   no implementation blocker; release verification is not run by the
+           agent without explicit approval
 ```
+
+## F3 final accounting
+
+The measured implementation range is the parent of the R0 audit commit
+`d9bc50f` through F2 commit `f155b33`; the final accounting record itself is
+administrative documentation and is excluded from these line counts.
+
+```text
+production C++ added/deleted: 1744 / 2674 lines
+production Python added/deleted: 0 / 0 lines
+tests added/deleted: 2015 / 1464 lines
+documentation added/deleted: 4100 / 84 lines
+build metadata (CMake) added/deleted: 22 / 7 lines
+
+complete production files deleted:
+- include/nmopt/compiler/v1/dealii_scalar_diffusion_reaction.hpp
+- include/nmopt/dealii/scalar_diffusion_reaction.hpp
+- include/nmopt/dealii/scalar_diffusion_reaction_kkt.hpp
+
+complete production types deleted:
+- ScalarDiffusionReactionModel
+- ScalarDiffusionReactionKKT
+
+runtime dispatch branches deleted:
+- direct scalar-v0 lowerer and CMake registration;
+- direct scalar-v0 KKT/PDAS test registration;
+- parallel target-kind conversion/dispatch and structured manifest-copy
+  reconstruction paths.
+
+duplicate stored representations deleted:
+- private compiled target identity;
+- structured compatibility copy inside the resolved decision;
+- structured manifest target copies and their reconstruction path.
+
+remaining dynamic_casts and reason:
+- 8 compiler-internal checks in dealii_compiler.hpp, covering concrete
+  MassMetric capability validation and typed native-dimension realization;
+  no application or formulation code recovers a concrete model from
+  ExecutableModelT.
+
+remaining version-specific production code and reason:
+- the v1 semantic/compiler namespaces and headers are the sole current
+  implementation surface; no v0 lowerer or v0 production include remains.
+
+remaining deferred cleanup candidates:
+- typed deal.II model VTU/SVG writers remain behind NativeApplicationViewT as
+  the explicit compiler-native output seam; moving their established file
+  contract is a separate output-contract change;
+- semantic policy optionals, nullable CompilationResultT, and clone-and-mutate
+  reference-builder simplification remain outside this refactor.
+```
+
+The source audit found that the external callback application and native
+compiler both construct the same `ReducedDTOT`/optimizer-facing contracts;
+the external first-order path supplies no `ReducedHessianT`. The external
+application owns its own output, while compiler-native output is retained only
+through the typed native view. The neutral Debug, deal.II Debug, and neutral
+sanitizer pipelines all pass (67/67, 156/156, and 67/67 respectively).
+The optimized deal.II pipeline is intentionally not run by the agent and is
+left for the user to execute after this accounting commit.

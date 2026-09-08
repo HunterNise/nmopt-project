@@ -3,6 +3,7 @@
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/dealii/independent_state_coordinates.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
+#include "nmopt/dealii/quadratic_form.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 #include "nmopt/dealii/trace_hhalf_metric.hpp"
@@ -205,11 +206,12 @@ namespace nmopt::compiler::v1::detail
       Vector physical_adjoint_action(state_dof_handler_.n_dofs());
       physical_system_matrix_.Tvmult(physical_adjoint_action,
                                      embed_state(adjoint.block(0)));
-      Vector tracking_covector(state_dof_handler_.n_dofs());
-      physical_state_observation_.vmult(
-        tracking_covector,
-        reconstruct(variables.block(0), variables.block(1)));
-      tracking_covector.add(-1.0, desired_state_load_);
+      Vector tracking_covector = dealii_backend::QuadraticForm(
+                                   physical_state_observation_,
+                                   desired_state_load_,
+                                   desired_state_norm_)
+                                   .gradient(reconstruct(variables.block(0),
+                                                         variables.block(1)));
       physical_adjoint_action.add(-1.0, tracking_covector);
 
       return Covector(control_layout_,
@@ -262,12 +264,11 @@ namespace nmopt::compiler::v1::detail
       require_variables(variables, "Objective");
       const Vector physical_state =
         reconstruct(variables.block(0), variables.block(1));
-      Vector state_observation_action(state_dof_handler_.n_dofs());
-      physical_state_observation_.vmult(state_observation_action,
-                                        physical_state);
-      const double state_value =
-        0.5 * (physical_state * state_observation_action) -
-        (desired_state_load_ * physical_state) + 0.5 * desired_state_norm_;
+      const double state_value = dealii_backend::QuadraticForm(
+                                   physical_state_observation_,
+                                   desired_state_load_,
+                                   desired_state_norm_)
+                                   .value(physical_state);
 
       const Vector control_mass_times_control =
         apply_control_norm(variables.block(1));
@@ -281,11 +282,12 @@ namespace nmopt::compiler::v1::detail
     objective_derivative(const Primal &variables) const override
     {
       require_variables(variables, "Objective derivative");
-      Vector physical_covector(state_dof_handler_.n_dofs());
-      physical_state_observation_.vmult(
-        physical_covector,
-        reconstruct(variables.block(0), variables.block(1)));
-      physical_covector.add(-1.0, desired_state_load_);
+      Vector physical_covector = dealii_backend::QuadraticForm(
+                                  physical_state_observation_,
+                                  desired_state_load_,
+                                  desired_state_norm_)
+                                  .gradient(reconstruct(variables.block(0),
+                                                        variables.block(1)));
 
       Vector control = pullback_control(physical_covector);
       const Vector regularisation = apply_control_norm(variables.block(1));

@@ -6,6 +6,7 @@
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/dealii/facewise_box_constraint.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
+#include "nmopt/dealii/quadratic_form.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 
@@ -583,20 +584,16 @@ namespace nmopt::compiler::v1::detail
     objective_components(const Primal &variables) const
     {
       require_variables(variables, "Objective");
-      Vector tracked_state(state_dof_handler_.n_dofs());
-      state_tracking_matrix().vmult(tracked_state, variables.block(0));
-      const double state_value =
-        0.5 * (variables.block(0) * tracked_state) -
-        (desired_state_load() * variables.block(0)) +
-        0.5 * desired_state_norm();
-
-      Vector mass_times_control(control_realisation_->dimension());
-      control_realisation_->control_mass_matrix()->vmult(
-        mass_times_control,
-        variables.block(1));
+      const double state_value = dealii_backend::QuadraticForm(
+                                   state_tracking_matrix(),
+                                   desired_state_load(),
+                                   desired_state_norm())
+                                   .value(variables.block(0));
       const double control_value =
-        0.5 * regularisation_weight_ *
-        (variables.block(1) * mass_times_control);
+        regularisation_weight_ *
+        dealii_backend::QuadraticForm(
+          *control_realisation_->control_mass_matrix())
+          .value(variables.block(1));
       return {state_value, control_value};
     }
 
@@ -604,14 +601,13 @@ namespace nmopt::compiler::v1::detail
     objective_derivative(const Primal &variables) const override
     {
       require_variables(variables, "Objective derivative");
-      Vector state(state_dof_handler_.n_dofs());
-      state_tracking_matrix().vmult(state, variables.block(0));
-      state.add(-1.0, desired_state_load());
-
-      Vector control(control_realisation_->dimension());
-      control_realisation_->control_mass_matrix()->vmult(
-        control,
-        variables.block(1));
+      Vector state = dealii_backend::QuadraticForm(state_tracking_matrix(),
+                                                   desired_state_load(),
+                                                   desired_state_norm())
+                       .gradient(variables.block(0));
+      Vector control = dealii_backend::QuadraticForm(
+                         *control_realisation_->control_mass_matrix())
+                         .gradient(variables.block(1));
       control *= regularisation_weight_;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
     }

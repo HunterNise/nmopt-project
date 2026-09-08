@@ -6,6 +6,7 @@
 #include "nmopt/contract/reduced_hessian.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
+#include "nmopt/dealii/quadratic_form.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 
@@ -333,20 +334,15 @@ namespace nmopt::compiler::v1::detail
     objective(const Primal &variables) const override
     {
       require_variables(variables, "Objective");
-      Vector state_tracking_times_state(state_dof_handler_.n_dofs());
-      state_tracking_matrix().vmult(state_tracking_times_state,
-                                    variables.block(0));
-      const double state_value =
-        0.5 * (variables.block(0) * state_tracking_times_state) -
-        (desired_state_load() * variables.block(0)) +
-        0.5 * desired_state_norm();
-
-      Vector control_regularisation_times_control(control_layout_->dimension(0));
-      control_regularisation_matrix().vmult(
-        control_regularisation_times_control, variables.block(1));
-      const double control_value = 0.5 * regularisation_weight_ *
-                                   (variables.block(1) *
-                                    control_regularisation_times_control);
+      const double state_value = dealii_backend::QuadraticForm(
+                                   state_tracking_matrix(),
+                                   desired_state_load(),
+                                   desired_state_norm())
+                                   .value(variables.block(0));
+      const double control_value =
+        regularisation_weight_ *
+        dealii_backend::QuadraticForm(control_regularisation_matrix()).value(
+          variables.block(1));
       return state_value + control_value;
     }
 
@@ -354,12 +350,13 @@ namespace nmopt::compiler::v1::detail
     objective_derivative(const Primal &variables) const override
     {
       require_variables(variables, "Objective derivative");
-      Vector state(state_dof_handler_.n_dofs());
-      state_tracking_matrix().vmult(state, variables.block(0));
-      state.add(-1.0, desired_state_load());
-
-      Vector control(control_layout_->dimension(0));
-      control_regularisation_matrix().vmult(control, variables.block(1));
+      Vector state = dealii_backend::QuadraticForm(state_tracking_matrix(),
+                                                   desired_state_load(),
+                                                   desired_state_norm())
+                       .gradient(variables.block(0));
+      Vector control = dealii_backend::QuadraticForm(
+                         control_regularisation_matrix())
+                         .gradient(variables.block(1));
       control *= regularisation_weight_;
       return Covector(variable_layout_, {std::move(state), std::move(control)});
     }
@@ -381,8 +378,9 @@ namespace nmopt::compiler::v1::detail
                         "Continuous-control Hessian tangent solve did not converge");
       state_constraints_.distribute(tangent_state);
 
-      Vector incremental_adjoint_rhs(state_dof_handler_.n_dofs());
-      state_tracking_matrix().vmult(incremental_adjoint_rhs, tangent_state);
+      Vector incremental_adjoint_rhs =
+        dealii_backend::QuadraticForm(state_tracking_matrix())
+          .hessian_action(tangent_state);
       Vector incremental_adjoint(state_dof_handler_.n_dofs());
       const auto incremental_adjoint_report = solve_symmetric_system(
         incremental_adjoint, incremental_adjoint_rhs, {});
@@ -393,9 +391,9 @@ namespace nmopt::compiler::v1::detail
 
       Vector action(control_layout_->dimension(0));
       control_coupling_.Tvmult(action, incremental_adjoint);
-      Vector regularisation_action(control_layout_->dimension(0));
-      control_regularisation_matrix().vmult(regularisation_action,
-                                             direction.block(0));
+      Vector regularisation_action =
+        dealii_backend::QuadraticForm(control_regularisation_matrix())
+          .hessian_action(direction.block(0));
       action.add(regularisation_weight_, regularisation_action);
       return Covector(control_layout_, {std::move(action)});
     }

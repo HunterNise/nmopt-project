@@ -5,6 +5,7 @@
 #include "nmopt/compiler/v1/dealii_volume_observation.hpp"
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/hminus1_metric.hpp"
+#include "nmopt/dealii/quadratic_form.hpp"
 #include "nmopt/dealii/scalar_diffusion_reaction.hpp"
 #include "nmopt/dealii/serial_kkt_solver.hpp"
 #include "nmopt/semantic/v1/problem_spec.hpp"
@@ -118,6 +119,63 @@ namespace
     contract::require(metric.id() == "hminus1_continuous" &&
                         metric.solve_parameters().maximum_iterations == 100,
                       "H-1 metric omitted its identity or solve policy");
+  }
+
+  void
+  run_quadratic_form_contract_test()
+  {
+    dealii::DynamicSparsityPattern dsp(2, 2);
+    dsp.add(0, 0);
+    dsp.add(0, 1);
+    dsp.add(1, 0);
+    dsp.add(1, 1);
+    dealii::SparsityPattern sparsity;
+    sparsity.copy_from(dsp);
+
+    dealii::SparseMatrix<double> matrix(sparsity);
+    matrix.set(0, 0, 2.0);
+    matrix.set(0, 1, 1.0);
+    matrix.set(1, 0, 1.0);
+    matrix.set(1, 1, 3.0);
+
+    dealii::Vector<double> linear(2);
+    linear[0] = 1.0;
+    linear[1] = -2.0;
+    dealii::Vector<double> coordinates(2);
+    coordinates[0] = 2.0;
+    coordinates[1] = -1.0;
+
+    const dealii_backend::QuadraticForm form(matrix, linear, 3.0);
+    require_close(form.value(coordinates), 1.0, 1e-14,
+                  "Quadratic-form value");
+    const auto gradient = form.gradient(coordinates);
+    require_close(gradient[0], 2.0, 1e-14,
+                  "Quadratic-form gradient first component");
+    require_close(gradient[1], 1.0, 1e-14,
+                  "Quadratic-form gradient second component");
+    const auto action = form.hessian_action(coordinates);
+    require_close(action[0], 3.0, 1e-14,
+                  "Quadratic-form Hessian action first component");
+    require_close(action[1], -1.0, 1e-14,
+                  "Quadratic-form Hessian action second component");
+
+    const dealii_backend::QuadraticForm homogeneous(matrix);
+    require_close(homogeneous.value(coordinates), 3.5, 1e-14,
+                  "Homogeneous quadratic-form value");
+
+    dealii::Vector<double> bad_linear(1);
+    test_support::require_contract_error(
+      [&]() {
+        const dealii_backend::QuadraticForm invalid(matrix, bad_linear, 0.0);
+        (void)invalid;
+      },
+      "Quadratic-form affine load has an incompatible dimension",
+      "Quadratic-form affine-load validation");
+    dealii::Vector<double> bad_coordinates(1);
+    test_support::require_contract_error(
+      [&]() { (void)form.value(bad_coordinates); },
+      "Quadratic-form action received an incompatible dimension",
+      "Quadratic-form coordinate validation");
   }
 
   template <typename Component>
@@ -7922,6 +7980,11 @@ main(const int argc, char **argv)
          {"dealii", "contract", "metric"},
          30,
          run_hminus1_metric_contract_test},
+        {"quadratic_form",
+         "nmopt.dealii.quadratic_form",
+         {"dealii", "contract", "objective"},
+         30,
+         run_quadratic_form_contract_test},
         {"continuous_control_components",
          "nmopt.dealii.continuous_control_components",
          {"dealii", "compiler", "metric"},

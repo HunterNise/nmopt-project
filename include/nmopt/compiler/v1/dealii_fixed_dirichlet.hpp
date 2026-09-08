@@ -7,6 +7,7 @@
 #include "nmopt/dealii/cellwise_box_constraint.hpp"
 #include "nmopt/dealii/independent_state_coordinates.hpp"
 #include "nmopt/dealii/mass_metric.hpp"
+#include "nmopt/dealii/quadratic_form.hpp"
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/dealii/serial_spd_solver.hpp"
 
@@ -390,21 +391,20 @@ namespace nmopt::compiler::v1::detail
       double state_value = 0.0;
       if (has_tracking_loss())
         {
-          Vector state_tracking_times_state(state_dof_handler_.n_dofs());
-          physical_state_tracking_operator_.vmult(state_tracking_times_state,
-                                                  physical_state);
-          state_value =
-            0.5 * (physical_state * state_tracking_times_state) -
-            (desired_state_load_ * physical_state) + 0.5 * desired_state_norm_;
+          const dealii_backend::QuadraticForm tracking(
+            physical_state_tracking_operator_,
+            desired_state_load_,
+            desired_state_norm_);
+          state_value = tracking.value(physical_state);
         }
 
       double control_value = 0.0;
       if (has_control_regularisation_loss())
         {
-          Vector control_mass_times_control(control_dof_handler_.n_dofs());
-          control_mass_->vmult(control_mass_times_control, variables.block(1));
-          control_value = 0.5 * regularisation_weight_ *
-                         (variables.block(1) * control_mass_times_control);
+          control_value =
+            regularisation_weight_ *
+            dealii_backend::QuadraticForm(*control_mass_).value(
+              variables.block(1));
         }
       return state_value + control_value;
     }
@@ -415,16 +415,17 @@ namespace nmopt::compiler::v1::detail
       require_variables(variables, "Objective derivative");
       Vector physical_state(state_dof_handler_.n_dofs());
       if (has_tracking_loss())
-        {
-          physical_state_tracking_operator_.vmult(
-            physical_state, reconstruct(variables.block(0)));
-          physical_state.add(-1.0, desired_state_load_);
-        }
+        physical_state = dealii_backend::QuadraticForm(
+                           physical_state_tracking_operator_,
+                           desired_state_load_,
+                           desired_state_norm_)
+                           .gradient(reconstruct(variables.block(0)));
 
       Vector control(control_dof_handler_.n_dofs());
       if (has_control_regularisation_loss())
         {
-          control_mass_->vmult(control, variables.block(1));
+          control = dealii_backend::QuadraticForm(*control_mass_).gradient(
+            variables.block(1));
           control *= regularisation_weight_;
         }
       return Covector(variable_layout_,
@@ -457,9 +458,9 @@ namespace nmopt::compiler::v1::detail
                             "Reduced Hessian tangent solve did not converge");
         }
 
-      Vector physical_tracking_rhs(state_dof_handler_.n_dofs());
-      physical_state_tracking_operator_.vmult(
-        physical_tracking_rhs, embed_tangent(tangent_state));
+      Vector physical_tracking_rhs = dealii_backend::QuadraticForm(
+        physical_state_tracking_operator_)
+        .hessian_action(embed_tangent(tangent_state));
       Vector reduced_adjoint_rhs = pullback(physical_tracking_rhs);
       Vector incremental_adjoint(state_coordinates_.independent_dimension());
       if (has_nonsymmetric_residual())
@@ -477,8 +478,8 @@ namespace nmopt::compiler::v1::detail
 
       Vector action(control_dof_handler_.n_dofs());
       reduced_control_coupling_.Tvmult(action, incremental_adjoint);
-      Vector regularisation_action(control_dof_handler_.n_dofs());
-      control_mass_->vmult(regularisation_action, direction.block(0));
+      Vector regularisation_action = dealii_backend::QuadraticForm(*control_mass_)
+                                       .hessian_action(direction.block(0));
       action.add(regularisation_weight_, regularisation_action);
       return Covector(control_layout_, {std::move(action)});
     }

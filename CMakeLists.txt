@@ -192,6 +192,19 @@ if(NMOPT_ENABLE_DEAL_II)
   deal_ii_setup_target(nmopt_external_tutorial_step_4)
 
   if(BUILD_TESTING)
+    set(nmopt_external_tutorial_step_4_run_dir
+        "${CMAKE_SOURCE_DIR}/runs/external-dealii/step-4")
+    file(MAKE_DIRECTORY "${nmopt_external_tutorial_step_4_run_dir}")
+    add_test(
+      NAME nmopt.external_tutorial_step_4.forward
+      COMMAND nmopt_external_tutorial_step_4)
+    set_tests_properties(
+      nmopt.external_tutorial_step_4.forward
+      PROPERTIES
+        LABELS "dealii;application;external;tutorial"
+        TIMEOUT 30
+        WORKING_DIRECTORY "${nmopt_external_tutorial_step_4_run_dir}")
+
     add_test(
       NAME nmopt.external_application.standalone_forward
       COMMAND nmopt_external_poisson_forward)

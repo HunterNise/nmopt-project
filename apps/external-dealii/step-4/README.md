@@ -25,6 +25,10 @@ roadmap units. There are currently no local patches.
 The project target is `nmopt_external_tutorial_step_4`. It is configured only
 with deal.II's target setup and does not link `nmopt_contract`.
 
+CTest registers the same standalone executable as
+`nmopt.external_tutorial_step_4.forward`; its working directory is the
+ignored `runs/external-dealii/step-4/` directory.
+
 Configure and build it with:
 
 ```bash
@@ -69,3 +73,10 @@ The run produced `runs/external-dealii/step-4/solution-2d.vtk` and
 `runs/external-dealii/step-4/solution-3d.vtk` without modifying the imported
 source. These generated files are ignored runtime output, not committed
 application source or benchmark evidence.
+
+The standalone boundary can be rerun with:
+
+```bash
+ctest --test-dir build/debug-dealii --output-on-failure \\
+  -R '^nmopt\\.external_tutorial_step_4\\.forward$'
+```

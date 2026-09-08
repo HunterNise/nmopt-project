@@ -438,37 +438,6 @@ namespace nmopt::compiler::v1
                                           boundary_h1_metric_selection;
     std::optional<semantic::v1::H1TargetDataMembershipSelection>
                                           h1_target_data_membership_selection;
-    std::vector<std::string>              lowering_handler_records;
-    // Human-readable rendering retained for logs and source compatibility.
-    // Tests and experiment tooling use the structured records above.
-    std::string              semantic_problem_id;
-    std::string              compiler_id;
-    std::string              backend;
-    std::string              execution;
-    std::string              state_space;
-    std::string              control_space;
-    std::string              quadrature;
-    std::string              dual_representation;
-    std::string              data_rule;
-    std::string              observation_realisation;
-    std::string              metric_solve_policy;
-    std::string              constraint_realisation;
-    std::string              lifting_realisation;
-    std::string              nullspace_policy;
-    std::string              state_adjoint_solve_policy;
-    std::string              provenance;
-    std::vector<std::string> region_ids;
-    std::vector<std::string> space_ids;
-    std::vector<std::string> pairing_ids;
-    std::vector<std::string> variable_ids;
-    std::vector<std::string> data_ids;
-    std::vector<std::string> transformation_ids;
-    std::vector<std::string> residual_term_ids;
-    std::vector<std::string> observation_ids;
-    std::vector<std::string> loss_ids;
-    std::vector<std::string> metric_ids;
-    std::vector<std::string> constraint_ids;
-    std::vector<std::string> declared_assumptions;
   };
 
   // One immutable compiled source of truth for coefficientwise cellwise box
@@ -1005,7 +974,7 @@ namespace nmopt::compiler::v1
                         "A compiled problem needs a state solve service");
       contract::require(static_cast<bool>(solvers_.solve_adjoint),
                         "A compiled problem needs an adjoint solve service");
-      contract::require(!manifest_.semantic_problem_id.empty(),
+      contract::require(!manifest_.resolved_decision.semantic_problem_id.empty(),
                         "A compiled problem manifest needs a semantic identifier");
       const contract::StateControlPartitionT<Backend> partition(*executable_, 0, 1);
       contract::require(metric_->layout()->compatible_with(

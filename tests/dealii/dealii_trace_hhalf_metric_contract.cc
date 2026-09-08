@@ -614,8 +614,8 @@ namespace
       nmopt::contract::require(
         !has_h1_state_observation ||
           (manifest.h1_target_data_membership_selection.has_value() &&
-           std::any_of(manifest.declared_assumptions.begin(),
-                       manifest.declared_assumptions.end(),
+           std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+                       manifest.resolved_decision.compatibility.declared_assumptions.end(),
                        [](const std::string &assumption) {
                          return assumption.find(
                                   "h1_target_data_membership: status=user_assumed") ==
@@ -641,17 +641,17 @@ namespace
                manifest.fractional_metric_selection->apply_realisation ==
                  nmopt::semantic::v1::FractionalTraceApplyRealisation::
                    minimum_h1_extension) &&
-        manifest.compiler_id == expected_compiler_id &&
+        manifest.resolved_decision.compatibility.compiler_id == expected_compiler_id &&
           manifest.metric_record.realisation_id == expected_metric_id &&
           manifest.metric_record.operator_description.find(
             expected_metric_operator) != std::string::npos &&
-          manifest.data_rule.find("normalized unit-diffusion zero-reaction") !=
+          manifest.resolved_decision.compatibility.data_rule.find("normalized unit-diffusion zero-reaction") !=
             std::string::npos &&
-          manifest.lifting_realisation.find("complete-boundary conforming") !=
+          manifest.resolved_decision.compatibility.lifting_realisation.find("complete-boundary conforming") !=
             std::string::npos &&
-          contains(manifest.lowering_handler_records,
+          contains(manifest.resolved_decision.compatibility.lowering_handler_records,
                    "normalized_dirichlet_laplace") &&
-          contains(manifest.declared_assumptions, expected_assumption),
+          contains(manifest.resolved_decision.compatibility.declared_assumptions, expected_assumption),
         specification.id + " compilation manifest is incomplete");
     };
 

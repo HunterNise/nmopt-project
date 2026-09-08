@@ -79,7 +79,8 @@ namespace nmopt::experiment
       , report_(std::move(report))
       , environment_(std::move(environment))
     {
-      contract::require(!compilation_manifest_.semantic_problem_id.empty(),
+      contract::require(
+        !compilation_manifest_.resolved_decision.semantic_problem_id.empty(),
                         "An experiment envelope needs a compilation manifest identifier");
     }
 

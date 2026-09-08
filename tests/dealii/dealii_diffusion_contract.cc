@@ -751,7 +751,7 @@ namespace
                       "L2-tracking continuous-control compilation failed");
     contract::require(
       compilation.problem->metric().id() == "l2_continuous" &&
-        compilation.problem->manifest().control_space.find(
+        compilation.problem->manifest().resolved_decision.compatibility.control_space.find(
           "homogeneous-Dirichlet scalar FE_Q(1)") != std::string::npos,
       "L2-tracking continuous-control compilation selected the wrong control realization");
     require_compiled_hessian_evidence(
@@ -826,10 +826,10 @@ namespace
       compilation.problem->executable_model().variable_layout()->dimension(0) ==
           9 &&
         compilation.problem->metric().layout()->dimension(0) == 1 &&
-        manifest.state_space == "scalar FE_SimplexP(1)" &&
-        manifest.control_space.find("FE_SimplexP(1)") != std::string::npos &&
-        manifest.quadrature == "QGaussSimplex(3)" &&
-        manifest.data_rule.find("QGaussSimplex(3) volume quadrature") !=
+        manifest.resolved_decision.compatibility.state_space == "scalar FE_SimplexP(1)" &&
+        manifest.resolved_decision.compatibility.control_space.find("FE_SimplexP(1)") != std::string::npos &&
+        manifest.resolved_decision.compatibility.quadrature == "QGaussSimplex(3)" &&
+        manifest.resolved_decision.compatibility.data_rule.find("QGaussSimplex(3) volume quadrature") !=
           std::string::npos &&
         state_observation != manifest.realized_maps.end() &&
         state_observation->realization_id ==
@@ -863,38 +863,38 @@ namespace
   {
     const auto &compatibility = manifest.resolved_decision.compatibility;
     contract::require(
-      manifest.compiler_id == compatibility.compiler_id &&
-        manifest.backend == compatibility.backend &&
-        manifest.execution == compatibility.execution &&
-        manifest.state_space == compatibility.state_space &&
-        manifest.control_space == compatibility.control_space &&
-        manifest.quadrature == compatibility.quadrature &&
-        manifest.dual_representation == compatibility.dual_representation &&
-        manifest.data_rule == compatibility.data_rule &&
-        manifest.observation_realisation ==
+      manifest.resolved_decision.compatibility.compiler_id == compatibility.compiler_id &&
+        manifest.resolved_decision.compatibility.backend == compatibility.backend &&
+        manifest.resolved_decision.compatibility.execution == compatibility.execution &&
+        manifest.resolved_decision.compatibility.state_space == compatibility.state_space &&
+        manifest.resolved_decision.compatibility.control_space == compatibility.control_space &&
+        manifest.resolved_decision.compatibility.quadrature == compatibility.quadrature &&
+        manifest.resolved_decision.compatibility.dual_representation == compatibility.dual_representation &&
+        manifest.resolved_decision.compatibility.data_rule == compatibility.data_rule &&
+        manifest.resolved_decision.compatibility.observation_realisation ==
           compatibility.observation_realisation &&
-        manifest.metric_solve_policy == compatibility.metric_solve_policy &&
-        manifest.constraint_realisation ==
+        manifest.resolved_decision.compatibility.metric_solve_policy == compatibility.metric_solve_policy &&
+        manifest.resolved_decision.compatibility.constraint_realisation ==
           compatibility.constraint_realisation &&
-        manifest.lifting_realisation == compatibility.lifting_realisation &&
-        manifest.nullspace_policy == compatibility.nullspace_policy &&
-        manifest.state_adjoint_solve_policy ==
+        manifest.resolved_decision.compatibility.lifting_realisation == compatibility.lifting_realisation &&
+        manifest.resolved_decision.compatibility.nullspace_policy == compatibility.nullspace_policy &&
+        manifest.resolved_decision.compatibility.state_adjoint_solve_policy ==
           compatibility.state_adjoint_solve_policy &&
-        manifest.provenance == compatibility.provenance &&
-        manifest.lowering_handler_records ==
+        manifest.resolved_decision.compatibility.provenance == compatibility.provenance &&
+        manifest.resolved_decision.compatibility.lowering_handler_records ==
           compatibility.lowering_handler_records &&
-        manifest.region_ids == compatibility.region_ids &&
-        manifest.space_ids == compatibility.space_ids &&
-        manifest.pairing_ids == compatibility.pairing_ids &&
-        manifest.variable_ids == compatibility.variable_ids &&
-        manifest.data_ids == compatibility.data_ids &&
-        manifest.transformation_ids == compatibility.transformation_ids &&
-        manifest.residual_term_ids == compatibility.residual_term_ids &&
-        manifest.observation_ids == compatibility.observation_ids &&
-        manifest.loss_ids == compatibility.loss_ids &&
-        manifest.metric_ids == compatibility.metric_ids &&
-        manifest.constraint_ids == compatibility.constraint_ids &&
-        manifest.declared_assumptions == compatibility.declared_assumptions,
+        manifest.resolved_decision.compatibility.region_ids == compatibility.region_ids &&
+        manifest.resolved_decision.compatibility.space_ids == compatibility.space_ids &&
+        manifest.resolved_decision.compatibility.pairing_ids == compatibility.pairing_ids &&
+        manifest.resolved_decision.compatibility.variable_ids == compatibility.variable_ids &&
+        manifest.resolved_decision.compatibility.data_ids == compatibility.data_ids &&
+        manifest.resolved_decision.compatibility.transformation_ids == compatibility.transformation_ids &&
+        manifest.resolved_decision.compatibility.residual_term_ids == compatibility.residual_term_ids &&
+        manifest.resolved_decision.compatibility.observation_ids == compatibility.observation_ids &&
+        manifest.resolved_decision.compatibility.loss_ids == compatibility.loss_ids &&
+        manifest.resolved_decision.compatibility.metric_ids == compatibility.metric_ids &&
+        manifest.resolved_decision.compatibility.constraint_ids == compatibility.constraint_ids &&
+        manifest.resolved_decision.compatibility.declared_assumptions == compatibility.declared_assumptions,
       target + " manifest compatibility view was not projected from the decision");
     std::string structured_expected = "none";
     if (expected.find("l2_cellwise_parameter") != std::string::npos)
@@ -904,13 +904,13 @@ namespace
     else if (expected.find("l2_facewise") != std::string::npos)
       structured_expected = "l2_facewise";
     contract::require(
-      manifest.constraint_realisation == expected &&
+      manifest.resolved_decision.compatibility.constraint_realisation == expected &&
         manifest.constraint_record.realisation_id == structured_expected &&
         manifest.constraint_record.present == (structured_expected != "none") &&
         (structured_expected == "none" ||
          manifest.constraint_record.projection_metric_id == structured_expected),
       target + " manifest constraint realization: expected " + expected +
-        ", got " + manifest.constraint_realisation);
+        ", got " + manifest.resolved_decision.compatibility.constraint_realisation);
     const auto has_runtime_role = [&manifest](const std::string &role) {
       return std::any_of(
         manifest.spaces.begin(),
@@ -945,9 +945,9 @@ namespace
         manifest.realized_maps.begin(),
         manifest.realized_maps.end(),
         [&manifest](const compiler::v1::CompiledRealizedMapRecord &map) {
-          if (std::find(manifest.observation_ids.begin(),
-                        manifest.observation_ids.end(),
-                        map.semantic_id) == manifest.observation_ids.end())
+          if (std::find(manifest.resolved_decision.compatibility.observation_ids.begin(),
+                        manifest.resolved_decision.compatibility.observation_ids.end(),
+                        map.semantic_id) == manifest.resolved_decision.compatibility.observation_ids.end())
             return true;
           const auto space = std::find_if(
             manifest.spaces.begin(),
@@ -959,11 +959,11 @@ namespace
                  space->dimension == map.output_dimension;
         });
     contract::require(
-      std::all_of(manifest.observation_ids.begin(),
-                  manifest.observation_ids.end(),
+      std::all_of(manifest.resolved_decision.compatibility.observation_ids.begin(),
+                  manifest.resolved_decision.compatibility.observation_ids.end(),
                   has_realized_map) &&
-        std::all_of(manifest.transformation_ids.begin(),
-                    manifest.transformation_ids.end(),
+        std::all_of(manifest.resolved_decision.compatibility.transformation_ids.begin(),
+                    manifest.resolved_decision.compatibility.transformation_ids.end(),
                     has_realized_map) &&
         control_restrictions_are_coefficient_maps &&
         observation_map_dimensions_match_spaces,
@@ -991,7 +991,7 @@ namespace
         !manifest.metric_record.realisation_id.empty() &&
         !manifest.mesh_record.structural_identity.empty() &&
         manifest.resolved_decision.semantic_problem_id ==
-          manifest.semantic_problem_id &&
+          manifest.resolved_decision.semantic_problem_id &&
         manifest.resolved_decision.formulation_id ==
           manifest.formulation_record.semantic_id &&
         manifest.resolved_decision.spaces.size() == manifest.spaces.size() &&
@@ -1087,12 +1087,12 @@ namespace
           manifest.adjoint_solve_record.nullspace_policy &&
         decision.adjoint_solve_record.operator_realisation ==
           manifest.adjoint_solve_record.operator_realisation &&
-        manifest.dual_representation ==
+        manifest.resolved_decision.compatibility.dual_representation ==
           decision.formulation_record.dual_representation &&
-        manifest.execution == decision.execution_id &&
-        manifest.metric_solve_policy.find(
+        manifest.resolved_decision.compatibility.execution == decision.execution_id &&
+        manifest.resolved_decision.compatibility.metric_solve_policy.find(
           manifest.metric_record.realisation_id) != std::string::npos &&
-        manifest.state_adjoint_solve_policy.find(
+        manifest.resolved_decision.compatibility.state_adjoint_solve_policy.find(
           manifest.state_solve_record.operator_realisation) !=
           std::string::npos,
       description + " was not rendered from its resolved typed records");
@@ -1419,16 +1419,16 @@ namespace
         fixed_map->input_dimensions.front() != fixed_map->output_dimension,
       "fixed-Dirichlet realized transformation dimensions are not distinct");
     contract::require(
-        manifest.lifting_realisation.find("y_phys = P_h y_hat + ell_0,h") !=
+        manifest.resolved_decision.compatibility.lifting_realisation.find("y_phys = P_h y_hat + ell_0,h") !=
         std::string::npos &&
-        manifest.data_rule.find("boundary DoFs") != std::string::npos &&
-        manifest.transformation_ids.size() == 1 &&
-        manifest.lowering_handler_records.size() == 9 &&
-        std::find(manifest.lowering_handler_records.begin(),
-                  manifest.lowering_handler_records.end(),
+        manifest.resolved_decision.compatibility.data_rule.find("boundary DoFs") != std::string::npos &&
+        manifest.resolved_decision.compatibility.transformation_ids.size() == 1 &&
+        manifest.resolved_decision.compatibility.lowering_handler_records.size() == 9 &&
+        std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "fixed_dirichlet_reconstruction <- "
                   "dealii.scalar.transformation.fixed_dirichlet") !=
-          manifest.lowering_handler_records.end(),
+          manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "v1 fixed-Dirichlet compilation manifest is incomplete");
   }
 
@@ -1576,14 +1576,14 @@ namespace
       });
     require_constraint_realisation(manifest, "none", "Dirichlet-control");
     contract::require(
-      manifest.control_space.find("nodal trace") != std::string::npos &&
-        manifest.lifting_realisation.find("L_D,h") != std::string::npos &&
+      manifest.resolved_decision.compatibility.control_space.find("nodal trace") != std::string::npos &&
+        manifest.resolved_decision.compatibility.lifting_realisation.find("L_D,h") != std::string::npos &&
         dirichlet_map != manifest.realized_maps.end() &&
         dirichlet_map->input_space_ids.size() == 2 &&
         dirichlet_map->output_dimension > 0 &&
-        manifest.metric_solve_policy.find("l2_dirichlet_trace") !=
+        manifest.resolved_decision.compatibility.metric_solve_policy.find("l2_dirichlet_trace") !=
           std::string::npos &&
-        manifest.declared_assumptions.front().find("dirichlet_control_lifting") !=
+        manifest.resolved_decision.compatibility.declared_assumptions.front().find("dirichlet_control_lifting") !=
           std::string::npos,
       "Dirichlet-control compilation manifest is incomplete");
   }
@@ -1713,8 +1713,8 @@ namespace
       "L2 Dirichlet transposition");
     const auto has_assumption = [&manifest](const std::string &prefix) {
       return std::any_of(
-        manifest.declared_assumptions.begin(),
-        manifest.declared_assumptions.end(),
+        manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+        manifest.resolved_decision.compatibility.declared_assumptions.end(),
         [&prefix](const std::string &assumption) {
           return assumption.find(prefix) == 0;
         });
@@ -1728,7 +1728,7 @@ namespace
         });
     };
     contract::require(
-      manifest.compiler_id ==
+      manifest.resolved_decision.compatibility.compiler_id ==
           "nmopt.compiler.v1.dealii.l2_dirichlet_transposition" &&
         manifest.transposition_realisation.has_value() &&
         manifest.transposition_realisation->id ==
@@ -1740,17 +1740,17 @@ namespace
         manifest.transposition_realisation->discrete_realisation ==
           semantic::v1::TranspositionDiscreteRealisation::
             conforming_nodal_lifting_equivalence &&
-        manifest.state_space.find("continuous L2(Omega) parent") !=
+        manifest.resolved_decision.compatibility.state_space.find("continuous L2(Omega) parent") !=
           std::string::npos &&
-        manifest.control_space.find("U_h=trace(V_h)") != std::string::npos &&
-        manifest.lifting_realisation.find("E_tr(y,u;f)") !=
+        manifest.resolved_decision.compatibility.control_space.find("U_h=trace(V_h)") != std::string::npos &&
+        manifest.resolved_decision.compatibility.lifting_realisation.find("E_tr(y,u;f)") !=
           std::string::npos &&
-        manifest.transformation_ids.empty() &&
-        std::find(manifest.lowering_handler_records.begin(),
-                  manifest.lowering_handler_records.end(),
+        manifest.resolved_decision.compatibility.transformation_ids.empty() &&
+        std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "l2_dirichlet_transposition <- "
                   "dealii.dirichlet_control.conforming_trace_equivalence") !=
-          manifest.lowering_handler_records.end() &&
+          manifest.resolved_decision.compatibility.lowering_handler_records.end() &&
         has_assumption("transposition_formulation:") &&
         has_assumption("transposition_domain_regularity:") &&
         has_assumption("conforming_trace_subspace:") &&
@@ -2024,10 +2024,10 @@ namespace
         manifest.partial_boundary_selection->trace_realisation ==
           semantic::v1::PartialDirichletTraceRealisation::
             relative_interior_nodal_zero_endpoint &&
-      manifest.lifting_realisation.find("ell_0,h + L_D,h") != std::string::npos &&
-        manifest.data_rule.find("fixed Dirichlet Function") != std::string::npos &&
-        std::any_of(manifest.declared_assumptions.begin(),
-                    manifest.declared_assumptions.end(),
+      manifest.resolved_decision.compatibility.lifting_realisation.find("ell_0,h + L_D,h") != std::string::npos &&
+        manifest.resolved_decision.compatibility.data_rule.find("fixed Dirichlet Function") != std::string::npos &&
+        std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+                    manifest.resolved_decision.compatibility.declared_assumptions.end(),
                     [](const std::string &assumption) {
                       return assumption.find("fixed-data precedence") !=
                              std::string::npos;
@@ -2147,16 +2147,16 @@ namespace
                                    "none",
                                    "subdomain-tracking alternate region");
     contract::require(
-      one_manifest.observation_realisation ==
+      one_manifest.resolved_decision.compatibility.observation_realisation ==
         "material-id volume restriction: 1" &&
-        one_manifest.data_rule.find("analytic desired-state Function") !=
+        one_manifest.resolved_decision.compatibility.data_rule.find("analytic desired-state Function") !=
           std::string::npos &&
-        one_manifest.lowering_handler_records.size() == 8 &&
-        std::find(one_manifest.lowering_handler_records.begin(),
-                  one_manifest.lowering_handler_records.end(),
+        one_manifest.resolved_decision.compatibility.lowering_handler_records.size() == 8 &&
+        std::find(one_manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  one_manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "diffusion_reaction <- "
                   "dealii.scalar.residual.diffusion_reaction") !=
-          one_manifest.lowering_handler_records.end(),
+          one_manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "v1 subdomain observation manifest omitted its restriction or data rule");
 
     // The same residual and metric are recombined with a fixed-data
@@ -2235,11 +2235,11 @@ namespace
         fixed_full_evaluation.objective_value - 1e-6,
       "fixed subdomain observation did not change only the tracking objective");
     contract::require(
-      fixed_full.problem->manifest().lowering_handler_records ==
-        fixed_subdomain.problem->manifest().lowering_handler_records &&
+      fixed_full.problem->manifest().resolved_decision.compatibility.lowering_handler_records ==
+        fixed_subdomain.problem->manifest().resolved_decision.compatibility.lowering_handler_records &&
         fixed_full.problem->manifest().metric_record.realisation_id ==
           fixed_subdomain.problem->manifest().metric_record.realisation_id &&
-        fixed_subdomain.problem->manifest().observation_realisation.find(
+        fixed_subdomain.problem->manifest().resolved_decision.compatibility.observation_realisation.find(
           "material-id volume restriction: 1") != std::string::npos,
       "fixed observation recombination did not preserve unchanged service records");
   }
@@ -2370,24 +2370,24 @@ namespace
           "state_observation_space" &&
         manifest.h1_target_data_membership_selection
             ->fixed_boundary_region_id == "dirichlet_boundary" &&
-        std::any_of(manifest.declared_assumptions.begin(),
-                    manifest.declared_assumptions.end(),
+        std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+                    manifest.resolved_decision.compatibility.declared_assumptions.end(),
                     [](const std::string &assumption) {
                       return assumption.find(
                                "h1_target_data_membership: status=user_assumed") ==
                              0;
                     }) &&
-      manifest.compiler_id == "nmopt.compiler.v1.dealii.h1_state_tracking" &&
-        manifest.observation_realisation.find("H1_0") != std::string::npos &&
-        manifest.observation_realisation.find("mass-plus-stiffness") !=
+      manifest.resolved_decision.compatibility.compiler_id == "nmopt.compiler.v1.dealii.h1_state_tracking" &&
+        manifest.resolved_decision.compatibility.observation_realisation.find("H1_0") != std::string::npos &&
+        manifest.resolved_decision.compatibility.observation_realisation.find("mass-plus-stiffness") !=
           std::string::npos &&
-        manifest.data_rule.find("value and gradient") != std::string::npos &&
+        manifest.resolved_decision.compatibility.data_rule.find("value and gradient") != std::string::npos &&
         manifest.metric_record.realisation_id == "l2_cellwise" &&
-        std::find(manifest.lowering_handler_records.begin(),
-                  manifest.lowering_handler_records.end(),
+        std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "state_observation <- "
                   "dealii.scalar.observation.h1_state_restriction") !=
-          manifest.lowering_handler_records.end(),
+          manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "H1-state observation manifest omitted its observation, data, or metric provenance");
   }
 
@@ -2615,27 +2615,27 @@ namespace
         point_space->dimension == sensor_jvp.block(0).size(),
       "point-sensor manifest recorded a dimension different from its realized output");
     contract::require(
-      manifest.compiler_id == "nmopt.compiler.v1.dealii.point_sensor" &&
+      manifest.resolved_decision.compatibility.compiler_id == "nmopt.compiler.v1.dealii.point_sensor" &&
         point_map != manifest.realized_maps.end() &&
         point_map->output_dimension == values.size() &&
         point_map->output_layout.find("sensor values") != std::string::npos &&
-        manifest.observation_realisation.find("immutable physical coordinates") !=
+        manifest.resolved_decision.compatibility.observation_realisation.find("immutable physical coordinates") !=
           std::string::npos &&
         manifest.transposition_realisation.has_value() &&
         manifest.transposition_realisation->diffusion_data_id == "diffusion" &&
         manifest.transposition_realisation->reaction_data_id == "reaction" &&
-        manifest.data_rule.find("assembled C_h^T point-load transpose") !=
+        manifest.resolved_decision.compatibility.data_rule.find("assembled C_h^T point-load transpose") !=
           std::string::npos &&
-        std::any_of(manifest.declared_assumptions.begin(),
-                    manifest.declared_assumptions.end(),
+        std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+                    manifest.resolved_decision.compatibility.declared_assumptions.end(),
                     [](const std::string &assumption) {
                       return assumption.find("very-weak adjoint source") !=
                              std::string::npos;
                     }) &&
-        std::find(manifest.lowering_handler_records.begin(),
-                  manifest.lowering_handler_records.end(),
+        std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "state_observation <- dealii.scalar.observation.point_sensor") !=
-          manifest.lowering_handler_records.end(),
+          manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "point-sensor compilation manifest omitted its finite transpose policy");
   }
 
@@ -2694,7 +2694,7 @@ namespace
             ->diffusion_data_id == "diffusion" &&
         nonunit_compilation.problem->manifest().transposition_realisation
             ->reaction_data_id == "reaction" &&
-        nonunit_compilation.problem->manifest().data_rule.find(
+        nonunit_compilation.problem->manifest().resolved_decision.compatibility.data_rule.find(
           "T=-kappa Delta+rI with kappa <- diffusion and r <- reaction") !=
           std::string::npos,
       "normal-flux compiler did not preserve coefficient provenance for non-unit diffusion");
@@ -2938,31 +2938,31 @@ namespace
         normal_flux_space->dimension == normal_flux_jvp.block(0).size(),
       "normal-flux manifest recorded the state dimension instead of its realized face output");
     contract::require(
-      manifest.compiler_id == "nmopt.compiler.v1.dealii.normal_flux" &&
+      manifest.resolved_decision.compatibility.compiler_id == "nmopt.compiler.v1.dealii.normal_flux" &&
         normal_flux_map != manifest.realized_maps.end() &&
         normal_flux_map->output_dimension == normal_flux_values.size() &&
         normal_flux_map->pairing_realization.find("declared pairing") !=
           std::string::npos &&
-        manifest.observation_realisation.find("outward normal-flux") !=
+        manifest.resolved_decision.compatibility.observation_realisation.find("outward normal-flux") !=
           std::string::npos &&
         manifest.transposition_realisation.has_value() &&
         manifest.transposition_realisation->diffusion_data_id == "diffusion" &&
         manifest.transposition_realisation->reaction_data_id == "reaction" &&
-        manifest.data_rule.find(
+        manifest.resolved_decision.compatibility.data_rule.find(
           "T=-kappa Delta+rI with kappa <- diffusion and r <- reaction") !=
           std::string::npos &&
-        manifest.data_rule.find("boundary face quadrature") !=
+        manifest.resolved_decision.compatibility.data_rule.find("boundary face quadrature") !=
           std::string::npos &&
-        std::any_of(manifest.declared_assumptions.begin(),
-                    manifest.declared_assumptions.end(),
+        std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+                    manifest.resolved_decision.compatibility.declared_assumptions.end(),
                     [](const std::string &assumption) {
                       return assumption.find("very-weak adjoint boundary source") !=
                              std::string::npos;
                     }) &&
-        std::find(manifest.lowering_handler_records.begin(),
-                  manifest.lowering_handler_records.end(),
+        std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "state_observation <- dealii.scalar.observation.normal_flux") !=
-          manifest.lowering_handler_records.end(),
+          manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "normal-flux compilation manifest omitted its face transpose policy");
   }
 
@@ -3423,13 +3423,13 @@ namespace
         contract::require(
           has_control_space &&
             manifest.metric_record.realisation_id == "l2_neumann_trace" &&
-            std::find(manifest.lowering_handler_records.begin(),
-                      manifest.lowering_handler_records.end(),
+            std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                      manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                       "neumann_control <- dealii.neumann.control.continuous_p1_trace") !=
-              manifest.lowering_handler_records.end() &&
+              manifest.resolved_decision.compatibility.lowering_handler_records.end() &&
             std::any_of(
-              manifest.declared_assumptions.begin(),
-              manifest.declared_assumptions.end(),
+              manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+              manifest.resolved_decision.compatibility.declared_assumptions.end(),
               [](const std::string &assumption) {
                 return assumption.find("closure endpoints") !=
                        std::string::npos;
@@ -3752,11 +3752,11 @@ namespace
       "facewise-constant coefficientwise l2_facewise clipping",
       "Neumann-boundary control");
     contract::require(
-      manifest.control_space.find("facewise-constant") != std::string::npos &&
-        manifest.observation_realisation.find("boundary trace") !=
+      manifest.resolved_decision.compatibility.control_space.find("facewise-constant") != std::string::npos &&
+        manifest.resolved_decision.compatibility.observation_realisation.find("boundary trace") !=
           std::string::npos &&
-        manifest.data_rule.find("boundary face quadrature") != std::string::npos &&
-        manifest.constraint_realisation.find("l2_facewise") != std::string::npos &&
+        manifest.resolved_decision.compatibility.data_rule.find("boundary face quadrature") != std::string::npos &&
+        manifest.resolved_decision.compatibility.constraint_realisation.find("l2_facewise") != std::string::npos &&
         std::any_of(
           manifest.realized_maps.begin(),
           manifest.realized_maps.end(),
@@ -4028,15 +4028,15 @@ namespace
                            record.provenance ==
                              "test.neumann_convection.natural_boundary_source";
                   }) &&
-        std::find(natural_manifest.lowering_handler_records.begin(),
-                  natural_manifest.lowering_handler_records.end(),
+        std::find(natural_manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  natural_manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "natural_boundary_source <- dealii.neumann.residual.natural_boundary_source") !=
-          natural_manifest.lowering_handler_records.end() &&
-        natural_manifest.data_rule.find(
+          natural_manifest.resolved_decision.compatibility.lowering_handler_records.end() &&
+        natural_manifest.resolved_decision.compatibility.data_rule.find(
           "natural-boundary source Function at selected boundary face quadrature") !=
           std::string::npos &&
-        std::any_of(natural_manifest.declared_assumptions.begin(),
-                    natural_manifest.declared_assumptions.end(),
+        std::any_of(natural_manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+                    natural_manifest.resolved_decision.compatibility.declared_assumptions.end(),
                     [](const std::string &assumption) {
                       return assumption.find(
                                "natural_boundary_source: immutable scalar Function") !=
@@ -4208,20 +4208,20 @@ namespace
 
     const auto &manifest = compilation.problem->manifest();
     contract::require(
-      manifest.compiler_id ==
+      manifest.resolved_decision.compatibility.compiler_id ==
           "nmopt.compiler.v1.dealii.neumann_convection_subdomain" &&
-        manifest.observation_realisation ==
+        manifest.resolved_decision.compatibility.observation_realisation ==
           "material-id volume restriction: 1; target=analytic-quadrature; "
           "quadrature=QGauss(3)" &&
-        manifest.data_rule.find(
+        manifest.resolved_decision.compatibility.data_rule.find(
           "analytic desired-state Function evaluated at selected QGauss(3) "
           "volume-observation quadrature") !=
           std::string::npos &&
         std::find(
-          manifest.lowering_handler_records.begin(),
-          manifest.lowering_handler_records.end(),
+          manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+          manifest.resolved_decision.compatibility.lowering_handler_records.end(),
           "state_observation <- dealii.volume_observation.analytic-quadrature") !=
-          manifest.lowering_handler_records.end() &&
+          manifest.resolved_decision.compatibility.lowering_handler_records.end() &&
         manifest.boundary_realisation.has_value() &&
         manifest.boundary_realisation->id == "neumann_convection_partition" &&
         manifest.boundary_realisation->fixed_dirichlet_region_id ==
@@ -4246,18 +4246,18 @@ namespace
     const auto &interpolated_manifest =
       interpolated_compilation.problem->manifest();
     contract::require(
-      interpolated_manifest.observation_realisation ==
+      interpolated_manifest.resolved_decision.compatibility.observation_realisation ==
           "material-id volume restriction: 1; target=state-fe-interpolation; "
           "quadrature=QGauss(2)" &&
-        interpolated_manifest.data_rule.find(
+        interpolated_manifest.resolved_decision.compatibility.data_rule.find(
           "desired-state Function interpolated into scalar FE_Q(1) and "
           "evaluated at selected QGauss(2) volume-observation quadrature") !=
           std::string::npos &&
         std::find(
-          interpolated_manifest.lowering_handler_records.begin(),
-          interpolated_manifest.lowering_handler_records.end(),
+          interpolated_manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+          interpolated_manifest.resolved_decision.compatibility.lowering_handler_records.end(),
           "state_observation <- dealii.volume_observation.state-fe-interpolation") !=
-          interpolated_manifest.lowering_handler_records.end(),
+          interpolated_manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "C5.6 manifest omitted the interpolated observation policy");
   }
 
@@ -4594,20 +4594,20 @@ namespace
         weight_record->provenance == "test.weighted_boundary.weight" &&
         weight_record->representation.find("boundary face quadrature") !=
           std::string::npos &&
-        manifest.compiler_id ==
+        manifest.resolved_decision.compatibility.compiler_id ==
           "nmopt.compiler.v1.dealii.weighted_boundary_trace" &&
-        manifest.observation_realisation.find("weighted boundary trace") !=
+        manifest.resolved_decision.compatibility.observation_realisation.find("weighted boundary trace") !=
           std::string::npos &&
-        manifest.data_rule.find("desired-state and fixed boundary-weight") !=
+        manifest.resolved_decision.compatibility.data_rule.find("desired-state and fixed boundary-weight") !=
           std::string::npos &&
-        manifest.data_rule.find("boundary face quadrature") !=
+        manifest.resolved_decision.compatibility.data_rule.find("boundary face quadrature") !=
           std::string::npos &&
         manifest.metric_record.realisation_id == "l2_facewise" &&
-        std::find(manifest.lowering_handler_records.begin(),
-                  manifest.lowering_handler_records.end(),
+        std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "weighted_state_boundary_trace <- "
                   "dealii.neumann.observation.weighted_boundary_trace") !=
-          manifest.lowering_handler_records.end(),
+          manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "weighted trace manifest omitted weight, target, quadrature, or metric provenance");
     contract::require(
       weighted_map != manifest.realized_maps.end() &&
@@ -4859,12 +4859,12 @@ namespace
                                    "none",
                                    "H1-control H1 metric");
     contract::require(
-      manifest.control_space.find("continuous scalar FE_Q") != std::string::npos &&
-        manifest.declared_assumptions.front().find("h1_control_regularisation") !=
+      manifest.resolved_decision.compatibility.control_space.find("continuous scalar FE_Q") != std::string::npos &&
+        manifest.resolved_decision.compatibility.declared_assumptions.front().find("h1_control_regularisation") !=
           std::string::npos,
       "H1-control compilation manifest omitted the loss or control realization");
     contract::require(
-      h1_metric_compilation.problem->manifest().metric_solve_policy.find(
+      h1_metric_compilation.problem->manifest().resolved_decision.compatibility.metric_solve_policy.find(
         "h1_continuous") != std::string::npos,
       "H1 metric compilation manifest omitted the selected Riesz map");
   }
@@ -5036,8 +5036,8 @@ namespace
           l2_manifest.h1_target_data_membership_selection->data_id &&
         manifest.h1_target_data_membership_selection
             ->fixed_boundary_region_id == "dirichlet_boundary" &&
-        std::any_of(manifest.declared_assumptions.begin(),
-                    manifest.declared_assumptions.end(),
+        std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+                    manifest.resolved_decision.compatibility.declared_assumptions.end(),
                     [](const std::string &assumption) {
                       return assumption.find(
                                "h1_target_data_membership: status=user_assumed") ==
@@ -5056,9 +5056,9 @@ namespace
           "control_metric_solve.laplacian_inverse" &&
         manifest.metric_record.mass_solve_policy_id ==
           "control_metric_solve.mass_inverse" &&
-        manifest.metric_solve_policy.find("hminus1_continuous") !=
+        manifest.resolved_decision.compatibility.metric_solve_policy.find("hminus1_continuous") !=
           std::string::npos &&
-        manifest.control_space.find("independent homogeneous-Dirichlet") !=
+        manifest.resolved_decision.compatibility.control_space.find("independent homogeneous-Dirichlet") !=
           std::string::npos,
       "H-1 compilation manifest omitted its operator, solve, or control-space policy");
   }
@@ -5287,7 +5287,7 @@ namespace
     contract::require(metric.id() == "l2_cellwise_parameter",
                       "coefficient-identification compilation selected the wrong metric");
     contract::require(
-      compilation.problem->manifest().state_adjoint_solve_policy.find(
+        compilation.problem->manifest().resolved_decision.compatibility.state_adjoint_solve_policy.find(
         "reassembled") != std::string::npos,
       "coefficient-identification manifest omitted state-matrix reassembly");
     require_constraint_realisation(
@@ -5416,11 +5416,11 @@ namespace
     const auto &manifest = compilation.problem->manifest();
     require_constraint_realisation(manifest, "none", "pure-Neumann");
     contract::require(
-      manifest.nullspace_policy.find("mean-zero Lagrange multiplier") !=
+      manifest.resolved_decision.compatibility.nullspace_policy.find("mean-zero Lagrange multiplier") !=
         std::string::npos &&
-        manifest.state_adjoint_solve_policy.find("SparseDirectUMFPACK") !=
+        manifest.resolved_decision.compatibility.state_adjoint_solve_policy.find("SparseDirectUMFPACK") !=
           std::string::npos &&
-        manifest.lifting_realisation.find("pure-Neumann") != std::string::npos,
+        manifest.resolved_decision.compatibility.lifting_realisation.find("pure-Neumann") != std::string::npos,
       "pure-Neumann compilation manifest omitted the selected gauge");
   }
 
@@ -5749,7 +5749,7 @@ namespace
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
         manifest.adjoint_solve_record.algorithm ==
           compiler::v1::LinearSolveAlgorithm::serial_sparse_direct_umfpack &&
-        manifest.lowering_handler_records.size() == 13 &&
+        manifest.resolved_decision.compatibility.lowering_handler_records.size() == 13 &&
         boundary_selection.has_value() &&
         boundary_selection->id == "scalar_boundary_partition" &&
         boundary_selection->fixed_dirichlet_region_id == "dirichlet_boundary" &&
@@ -5765,7 +5765,7 @@ namespace
           semantic::v1::TraceEvaluationRealisation::fe_q_state_trace &&
         boundary_selection->face_quadrature_realisation ==
           semantic::v1::FaceQuadratureRealisation::qgauss_face &&
-        manifest.data_rule.find("Robin coefficient and source") !=
+        manifest.resolved_decision.compatibility.data_rule.find("Robin coefficient and source") !=
           std::string::npos &&
         has_binding("diffusion_tensor",
                     semantic::v1::DataRole::diffusion,
@@ -5803,18 +5803,18 @@ namespace
                     "robin_source_data_space",
                     "robin_boundary",
                     "boundary_face_quadrature") &&
-        std::any_of(manifest.declared_assumptions.begin(),
-                    manifest.declared_assumptions.end(),
+        std::any_of(manifest.resolved_decision.compatibility.declared_assumptions.begin(),
+                    manifest.resolved_decision.compatibility.declared_assumptions.end(),
                     [](const std::string &assumption) {
                       return assumption.find(
                                "general_scalar_robin: boundary selection scalar_boundary_partition") ==
                              0;
                     }) &&
-        std::find(manifest.lowering_handler_records.begin(),
-                  manifest.lowering_handler_records.end(),
+        std::find(manifest.resolved_decision.compatibility.lowering_handler_records.begin(),
+                  manifest.resolved_decision.compatibility.lowering_handler_records.end(),
                   "conservative_transport <- "
                   "dealii.scalar.residual.conservative_transport") !=
-          manifest.lowering_handler_records.end(),
+          manifest.resolved_decision.compatibility.lowering_handler_records.end(),
       "P5.1 manifest omitted coefficient, handler, or solve provenance");
 
     const auto overlapping =
@@ -6897,7 +6897,7 @@ namespace
           detached.manifest.metric_record.realisation_id &&
         !detached.manifest.mesh_record.structural_identity.empty() &&
         detached.manifest.resolved_decision.semantic_problem_id ==
-          detached.manifest.semantic_problem_id &&
+          detached.manifest.resolved_decision.semantic_problem_id &&
         !detached.manifest.spaces.empty() &&
         !detached.manifest.bindings.empty(),
       "structured compilation manifest omitted resolved session decisions");
@@ -7573,7 +7573,7 @@ namespace
           semantic::v1::FormulationKind::all_at_once &&
         supplied_manifest.formulation_record.provenance ==
           semantic::v1::FormulationProvenance::supplied_otd &&
-        supplied_manifest.provenance == "supplied OTD" &&
+        supplied_manifest.resolved_decision.compatibility.provenance == "supplied OTD" &&
         supplied_manifest.supplied_otd_record.present &&
         supplied_manifest.supplied_otd_record.declaration.has_value() &&
         supplied_manifest.supplied_otd_record.declaration->id ==
@@ -7803,9 +7803,9 @@ namespace
         *upper_binding->scalar_value == 0.05 &&
         manifest.resolved_decision.target_id.find("compiled_target:") == 0,
       "v1 compiler did not retain lossless scalar binding provenance");
-    contract::require(manifest.semantic_problem_id == specification.id &&
-                        manifest.provenance == "DTO" &&
-                        manifest.execution == "assembled",
+    contract::require(manifest.resolved_decision.semantic_problem_id == specification.id &&
+                        manifest.resolved_decision.compatibility.provenance == "DTO" &&
+                        manifest.resolved_decision.compatibility.execution == "assembled",
                       "v1 compiler did not record its compilation manifest");
   }
 

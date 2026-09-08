@@ -2686,11 +2686,11 @@ namespace
         }};
 
       Manifest manifest;
-      manifest.semantic_problem_id = "reference.scalar.reduced.envelope";
-      manifest.compiler_id = "reference";
-      manifest.backend = "dense";
-      manifest.execution = "assembled";
-      manifest.provenance = "DTO";
+      manifest.resolved_decision.semantic_problem_id = "reference.scalar.reduced.envelope";
+      manifest.resolved_decision.compatibility.compiler_id = "reference";
+      manifest.resolved_decision.compatibility.backend = "dense";
+      manifest.resolved_decision.compatibility.execution = "assembled";
+      manifest.resolved_decision.compatibility.provenance = "DTO";
       manifest.mesh_record.provenance = "manufactured scalar mesh";
       manifest.mesh_record.structural_identity = "mesh-a";
       manifest.formulation_record.semantic_id = "reduced_dto";
@@ -2730,7 +2730,7 @@ namespace
                       std::move(environment));
     }();
 
-    require(envelope.compilation_manifest().semantic_problem_id ==
+    require(envelope.compilation_manifest().resolved_decision.semantic_problem_id ==
               "reference.scalar.reduced.envelope" &&
               envelope.compilation_manifest().mesh_record.structural_identity ==
                 "mesh-a",
@@ -2767,7 +2767,7 @@ namespace
     nmopt::test_support::require_contract_error(
       [&envelope]() {
         Manifest missing_identifier = envelope.compilation_manifest();
-        missing_identifier.semantic_problem_id.clear();
+        missing_identifier.resolved_decision.semantic_problem_id.clear();
         (void)Envelope(missing_identifier,
                        envelope.solver_policy(),
                        envelope.report(),

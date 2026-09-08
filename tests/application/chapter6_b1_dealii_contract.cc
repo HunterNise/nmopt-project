@@ -103,13 +103,13 @@ namespace
     if (discretisation ==
         chapter5::DistributedControlDiscretisation::
           homogeneous_dirichlet_continuous)
-      require(manifest.control_space.find(
+      require(manifest.resolved_decision.compatibility.control_space.find(
                 "homogeneous-Dirichlet scalar FE_Q(1)") != std::string::npos &&
-                manifest.metric_solve_policy.find("l2_continuous") !=
+                manifest.resolved_decision.compatibility.metric_solve_policy.find("l2_continuous") !=
                   std::string::npos,
               "B1 continuous candidate selected the wrong compiled control");
     else
-      require(manifest.control_space.find("FE_DGQ(0)") != std::string::npos,
+      require(manifest.resolved_decision.compatibility.control_space.find("FE_DGQ(0)") != std::string::npos,
               "B1 cellwise candidate selected the wrong compiled control");
     require(result.document.find("b1.regularisation_weight=0.01\n") !=
               std::string::npos,

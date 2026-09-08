@@ -184,6 +184,13 @@ if(NMOPT_ENABLE_DEAL_II)
     nmopt_external_poisson_forward
     tests/dealii/external_poisson_forward.cc)
 
+  # This target intentionally compiles the pinned upstream tutorial source
+  # without linking the nmopt contract or adding nmopt includes.
+  add_executable(
+    nmopt_external_tutorial_step_4
+    apps/external-dealii/step-4/upstream/step-4.cc)
+  deal_ii_setup_target(nmopt_external_tutorial_step_4)
+
   if(BUILD_TESTING)
     add_test(
       NAME nmopt.external_application.standalone_forward

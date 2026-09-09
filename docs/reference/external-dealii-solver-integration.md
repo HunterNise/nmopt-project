@@ -10,12 +10,13 @@ The tested reference for the construction below is the
 The test uses a small Poisson-control application, but the boundary is about
 operations and ownership rather than that PDE family.
 
-The next planned validation is the
-[external deal.II tutorial integration sequence](../planning/external-dealii-tutorial-roadmap.md):
-pin an upstream fixed-mesh tutorial step, retain its standalone forward
-behavior, and add a separate application-owned binding for the nmopt reduced
-optimization path. That sequence is follow-on integration work; it does not
-reopen the completed PDE–solver boundary refactor.
+This reference describes the currently implemented API exercised by that
+fixture. Authentic external-application adaptation cost and ergonomic
+sufficiency are under evaluation in the
+[external Step-4 boundary evaluation](../planning/external-dealii-boundary-evaluation.md).
+That controlled native-versus-current-nmopt comparison retains the completed
+PDE–solver boundary refactor as a baseline. It has not yet established whether
+helpers, a boundary change, or deeper architectural work are warranted.
 
 ## Integration boundary
 
@@ -68,9 +69,17 @@ void write_native_output(const std::filesystem::path &directory,
 
 These methods are illustrative of the tested boundary: the application may
 use different names, several assembled operators, iterative solves, or richer
-native output. The important distinction is that PDE assembly and output stay
-in the application while nmopt receives only the operations needed by the
-selected formulation and optimizer.
+native output. PDE assembly and output stay in the application.
+
+Construction and runtime requirements differ in the current API.
+[`CallbackExecutableModelT`](../../include/nmopt/contract/callback_executable_model.hpp)
+requires all five executable operations: residual, residual JVP, residual VJP,
+objective, and objective derivative. The selected first-order
+[`ReducedDTOT` evaluation path](../../include/nmopt/contract/reduced_dto.hpp)
+does not call residual or JVP at runtime. It requests the full residual VJP,
+then consumes only its control component when forming the reduced derivative.
+These are current contract facts; their integration cost is part of the
+evaluation.
 
 The snippets below assume `Application` names the application-owned class and
 that `application` is a live instance of it.
@@ -112,9 +121,11 @@ LayoutPtr test_layout =
     std::vector<std::size_t>{application.state_dimension()});
 ```
 
-Use one layout object consistently for the corresponding blocks. A callback
-that returns a covector with a different layout is rejected by the callback
-model, even when its raw vector dimension happens to match.
+[`BlockLayout::compatible_with()`](../../include/nmopt/contract/layout.hpp)
+compares ordered space IDs and dimensions. Distinct layout objects, including
+objects with different display labels, can be compatible; pointer identity is
+not required. Equal raw vector dimensions alone are insufficient. The callback
+model rejects incompatible input or output layouts.
 
 ## 3. Expose the executable operations with callbacks
 
@@ -185,9 +196,12 @@ linear reference problem ignores the point because its derivative is constant.
 The reduced DTO asks the application for a state at a control and for an
 adjoint at a full state/control point and state-objective covector. Wrap the
 native vectors in the appropriate one-block layouts and return a
-`FormulationSolveResultT`. The one-argument constructor is suitable for an
-exact or otherwise caller-supplied solve and records a converged report; an
-iterative application should return its actual `LinearSolveReport`.
+`FormulationSolveResultT`. Its
+[one-argument constructor](../../include/nmopt/contract/linear_solve.hpp)
+creates a converged "caller-supplied exact solve" report. It does not inspect
+or validate a native solve. The snippets below use that convenience form as
+the direct-solve reference fixture does; successful iterative solves should
+use the two-argument form with an actual `LinearSolveReport`.
 
 ```cpp
 using Partition = nmopt::contract::StateControlPartitionT<Backend>;
@@ -243,9 +257,13 @@ Solvers make_solvers(Application &application,
 
 The full point is supplied to `solve_adjoint` because a nonlinear or
 point-dependent application may need it. The reference linear application
-does not use it. A solve callback must not silently return a state or adjoint
-with an incompatible layout, and a failed iterative solve must be represented
-by a non-converged report so the reduced DTO can reject it.
+does not use it. A solve callback must not return a state or adjoint with an
+incompatible layout or label a failed solve converged. A non-converged report
+is rejected by `ReducedDTOT`; a native exception also propagates out of the
+evaluation. Under the frozen protocol, the Step-4 evaluation will preserve
+native solve exception propagation and supply actual convergence evidence
+for successful CG solves. It will not label them exact using the convenience
+constructor.
 
 ## 5. Add the metric and optional capabilities
 
@@ -377,4 +395,5 @@ mathematical model's own validation.
 - [Application assembly API](../reference/application-api.md)
 - [External application contract test](../../tests/application/external_application_dealii_contract.cc)
 - [Standalone external forward application](../../tests/dealii/external_poisson_forward.cc)
-- [External deal.II tutorial roadmap](../planning/external-dealii-tutorial-roadmap.md)
+- [Current external Step-4 boundary evaluation](../planning/external-dealii-boundary-evaluation.md)
+- [Superseded external tutorial roadmap](../planning/external-dealii-tutorial-roadmap.md)

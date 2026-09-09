@@ -2,16 +2,18 @@
 
 ## Status and authority
 
-This is a proposed follow-on sequence after the completed PDE–solver boundary
-refactor. It owns one authentic, tutorial-sized external deal.II consumer of
-the public nmopt formulation and optimization boundary.
+**Superseded for current implementation work.** Follow the
+[external deal.II boundary evaluation roadmap](external-dealii-boundary-evaluation.md)
+for the current protocol, work units, gates, and phase status.
 
-It does not reopen the [PDE–solver boundary refactor](review/pde-solver-refactor/roadmap.md),
-move mesh or assembly ownership into nmopt, or add a second universal PDE
-interface. The refactor roadmap remains complete; this roadmap tests its
-external-application result against upstream tutorial code.
+This document preserves the historical T0–T5 proposal following the completed
+[PDE–solver boundary refactor](review/pde-solver-refactor/roadmap.md).
+The intent, selection rules, distributed-control/mass-metric path, work
+sequence, and acceptance matrix below are historical planning, not current
+implementation instructions. Their preservation does not assert that their
+acceptance criteria were completed. The refactor roadmap remains complete.
 
-The authoritative inputs are:
+The proposal's authoritative inputs were:
 
 - [PDE–solver and application boundary](../design/pde-solver-boundary.md);
 - [external deal.II integration reference](../reference/external-dealii-solver-integration.md);
@@ -239,12 +241,20 @@ docs(dealii): document external tutorial integration
 | Lifetime correctness | Captured application state outlives DTO and optimizer operations |
 | Documentation | Exact source provenance, commands, seam, and verification are published |
 
-## Current handoff
+## Historical handoff and supersession
 
-```text
-Status: proposed; T0 source selection has not started
-Next:  select and pin a fixed-mesh upstream deal.II tutorial step
-Refactor status: complete and unchanged
-External API status: already proven by the existing Poisson contract fixture
-New evidence sought: authentic upstream tutorial fidelity and tutorial-level wiring
-```
+As checked on 2026-09-09, the previous tutorial branch
+`codex/external-dealii-tutorial` at
+`b4dce25ab03d893df48ab1d9eee2e4dc7cf9183d` already contains the
+[pinned upstream Step-4 source](../../apps/external-dealii/step-4/upstream/step-4.cc),
+an [adapted copy](../../apps/external-dealii/step-4/step-4.cc), and the native
+wrapper/smoke attempt (`tutorial_application.hpp`, `tutorial_application.cc`,
+and `tutorial_binding_smoke.cc` under `apps/external-dealii/step-4/`).
+The earlier statement that T0 source selection had not started is stale.
+
+That snapshot does not contain the controlled native-versus-current-nmopt
+evaluation now planned. The existing Poisson contract fixture exercises API
+functionality; it does not settle authentic adaptation cost or ergonomic
+sufficiency. Current work and status are owned by the
+[evaluation roadmap](external-dealii-boundary-evaluation.md), which preserves
+both the completed refactor and the previous tutorial attempt as baselines.

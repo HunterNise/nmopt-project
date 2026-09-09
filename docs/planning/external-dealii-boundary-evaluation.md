@@ -1,15 +1,15 @@
 # External deal.II boundary evaluation roadmap
 
-This roadmap is the execution contract for evaluating the current external Step-4 boundary. It promotes the reviewed local handoff at `.codex/plans/external/nmopt-external-dealii-boundary-evaluation-handoff.md`. Once E0 is committed, this tracked roadmap is the current authority; the local handoff is supporting source material. Subsequent implementation does not require that handoff or the review conversation.
+This roadmap is the execution contract for evaluating the current external Step-4 boundary. E0 is adopted; its protocol was committed as `e9ae1ac`, promoting the reviewed local handoff at `.codex/plans/external/nmopt-external-dealii-boundary-evaluation-handoff.md`. This tracked roadmap is the current authority; the local handoff is supporting source material. Subsequent implementation does not require that handoff or the review conversation.
 
 ## Phase status
 
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E0 ready for review |
-| Last completed/adopted gate | No evaluation gate adopted yet; completed PDE–solver refactor retained as baseline |
-| Next unit | E1 — Comments-stripped baseline, after E0 adoption |
+| Current unit | E0 adopted; E1 not started |
+| Last completed/adopted gate | E0 — Protocol and documentation, verified and committed as `e9ae1ac` |
+| Next unit | E1 — Comments-stripped baseline |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -97,7 +97,7 @@ Unit-specific reading uses contract-header names relative to `include/nmopt/cont
 | E3 | Frozen Problem A and policy sections here; E2 seams; boundary mathematical sign/metric conventions; installed deal.II dense factorization API used by the verification oracle. |
 | E4 | External integration reference; v0 executable contract; `callback_executable_model.hpp`, `layout.hpp`, `linear_solve.hpp`, `metric_constraint.hpp`, `reduced_dto.hpp`, `dealii/serial_backend.hpp`; existing `tests/application/external_application_dealii_contract.cc` as API evidence. |
 | E5 | `reduced_search.hpp`, `reduced_line_search.hpp`, `reduced_gradient.hpp`; staged-evaluation and work-count tests in `tests/contract/reduced_dto_contract.cc`; frozen optimization policy below. |
-| G1 | Completed E0–E5 evidence, ledger, final diff, and accepted boundary. Read other subsystems only to investigate a named finding. |
+| G1 | Completed E0–E5 evidence, ledger, final diff, and accepted boundary; [design investigation](review/external-dealii-boundary-evaluation/design-investigation.md) as non-authoritative review context. Read other subsystems only to investigate a named finding. |
 
 ## 3. Source organization and ownership
 

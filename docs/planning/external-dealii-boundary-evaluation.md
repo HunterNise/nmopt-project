@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E0 adopted; E1 not started |
-| Last completed/adopted gate | E0 — Protocol and documentation, verified and committed as `e9ae1ac` |
-| Next unit | E1 — Comments-stripped baseline |
+| Current unit | E1 — Comments-stripped baseline verified; E2 not started |
+| Last completed/adopted gate | E1 — Comments-stripped baseline, verified in the current worktree; commit pending review |
+| Next unit | E2 — Minimal reusable Step-4, after the E1 commit |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.

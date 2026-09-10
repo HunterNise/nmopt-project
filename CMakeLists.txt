@@ -191,6 +191,13 @@ if(NMOPT_ENABLE_DEAL_II)
     apps/external-dealii/step-4/upstream/step-4.cc)
   deal_ii_setup_target(nmopt_external_tutorial_step_4)
 
+  # This target compiles the mechanically stripped baseline without linking
+  # the nmopt contract or adding nmopt includes.
+  add_executable(
+    nmopt_external_tutorial_step_4_stripped
+    apps/external-dealii/step-4/baseline/step-4-stripped.cc)
+  deal_ii_setup_target(nmopt_external_tutorial_step_4_stripped)
+
   add_executable(
     nmopt_external_tutorial_binding_smoke
     apps/external-dealii/step-4/tutorial_application.cc
@@ -198,9 +205,17 @@ if(NMOPT_ENABLE_DEAL_II)
   deal_ii_setup_target(nmopt_external_tutorial_binding_smoke)
 
   if(BUILD_TESTING)
-    set(nmopt_external_tutorial_step_4_run_dir
-        "${CMAKE_SOURCE_DIR}/runs/external-dealii/step-4")
-    file(MAKE_DIRECTORY "${nmopt_external_tutorial_step_4_run_dir}")
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+    set(nmopt_external_tutorial_forward_root
+        "${CMAKE_SOURCE_DIR}/runs/external-dealii/step-4/forward-comparison")
+    set(nmopt_external_tutorial_upstream_run_dir
+        "${nmopt_external_tutorial_forward_root}/ctest/upstream")
+    set(nmopt_external_tutorial_stripped_run_dir
+        "${nmopt_external_tutorial_forward_root}/ctest/stripped")
+    file(MAKE_DIRECTORY
+      "${nmopt_external_tutorial_upstream_run_dir}"
+      "${nmopt_external_tutorial_stripped_run_dir}")
     add_test(
       NAME nmopt.external_tutorial_step_4.forward
       COMMAND nmopt_external_tutorial_step_4)
@@ -209,7 +224,33 @@ if(NMOPT_ENABLE_DEAL_II)
       PROPERTIES
         LABELS "dealii;application;external;tutorial"
         TIMEOUT 30
-        WORKING_DIRECTORY "${nmopt_external_tutorial_step_4_run_dir}")
+        WORKING_DIRECTORY "${nmopt_external_tutorial_upstream_run_dir}")
+
+    add_test(
+      NAME nmopt.external_tutorial_step_4.stripped_forward
+      COMMAND nmopt_external_tutorial_step_4_stripped)
+    set_tests_properties(
+      nmopt.external_tutorial_step_4.stripped_forward
+      PROPERTIES
+        LABELS "dealii;application;external;tutorial;baseline"
+        TIMEOUT 30
+        WORKING_DIRECTORY "${nmopt_external_tutorial_stripped_run_dir}")
+
+    add_test(
+      NAME nmopt.external_tutorial_step_4.forward_comparison
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tools/external_dealii/check_forward.py"
+        --upstream-executable $<TARGET_FILE:nmopt_external_tutorial_step_4>
+        --stripped-executable $<TARGET_FILE:nmopt_external_tutorial_step_4_stripped>
+        --output-root "${nmopt_external_tutorial_forward_root}"
+        --file solution-2d.vtk
+        --file solution-3d.vtk)
+    set_tests_properties(
+      nmopt.external_tutorial_step_4.forward_comparison
+      PROPERTIES
+        LABELS "dealii;application;external;tutorial;baseline"
+        TIMEOUT 60
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
     add_test(
       NAME nmopt.external_tutorial_step_4.binding

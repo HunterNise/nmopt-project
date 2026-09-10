@@ -1,6 +1,5 @@
-#define STEP4_NO_MAIN
-#include "../../apps/external-dealii/step-4/step-4.cc"
-#undef STEP4_NO_MAIN
+#include "../../apps/external-dealii/step-4/evaluation/native_reduced.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/scenario.hpp"
 
 #include "../support/scenario_dispatch.hpp"
 
@@ -18,8 +17,11 @@
 
 namespace
 {
-  using Matrix = dealii::SparseMatrix<double>;
-  using Vector = dealii::Vector<double>;
+  using Matrix          = external_dealii_step4::ProblemA::Matrix;
+  using ProblemA        = external_dealii_step4::ProblemA;
+  using NativeReduced   = external_dealii_step4::NativeReduced;
+  using Instrumentation = external_dealii_step4::Instrumentation;
+  using Vector          = ProblemA::Vector;
 
   void
   require(const bool condition, const std::string &message)
@@ -198,6 +200,124 @@ namespace
 
     std::filesystem::remove_all(output_directory);
   }
+
+  void
+  run_problem_a_operations_contract()
+  {
+    Instrumentation instrumentation;
+    ProblemA        problem(instrumentation);
+    require(problem.state_dimension() ==
+              external_dealii_step4::scenario::dimension,
+            "Problem A state dimension does not match the frozen scenario");
+    require(problem.control_dimension() ==
+              external_dealii_step4::scenario::dimension,
+            "Problem A control dimension does not match the frozen scenario");
+    require(instrumentation.assembly_calls == 1,
+            "Problem A did not assemble exactly once during construction");
+
+    const auto controls = external_dealii_step4::scenario::reduced_controls();
+    require(controls.size() == 4, "Problem A scenario controls are incomplete");
+    for (const auto &control : controls)
+      require(control.size() == problem.control_dimension(),
+              "Problem A scenario control has the wrong dimension");
+
+    const auto state_result = problem.solve_state(controls.front());
+    require(state_result.evidence.converged,
+            "Problem A zero-control state solve did not converge");
+    require(state_result.evidence.final_residual <= 1e-10,
+            "Problem A zero-control state solve has a large residual");
+
+    const auto objective =
+      problem.objective(state_result.solution, controls.front());
+    require(objective >= 0.0, "Problem A objective is negative");
+    const auto objective_derivative =
+      problem.objective_derivative(state_result.solution, controls.front());
+    require(vector_difference(objective_derivative.state, state_result.solution) ==
+              0.0,
+            "Problem A state objective derivative has the wrong value");
+    require(vector_difference(objective_derivative.control, controls.front()) ==
+              0.0,
+            "Problem A control objective derivative has the wrong value");
+
+    const auto adjoint_result =
+      problem.solve_adjoint(objective_derivative.state);
+    require(adjoint_result.evidence.converged,
+            "Problem A adjoint solve did not converge");
+    require(adjoint_result.evidence.final_residual <= 1e-10,
+            "Problem A adjoint solve has a large residual");
+
+    Vector seed(problem.state_dimension());
+    seed = 0.25;
+    const auto control_pullback = problem.control_vjp(seed);
+    seed *= -1.0;
+    require(vector_difference(control_pullback, seed) == 0.0,
+            "Problem A control pullback has the wrong sign");
+  }
+
+  void
+  run_native_reduced_contract()
+  {
+    Instrumentation instrumentation;
+    ProblemA        problem(instrumentation);
+    NativeReduced  reduced(problem, instrumentation);
+    const auto     controls = external_dealii_step4::scenario::reduced_controls();
+
+    const auto value = reduced.evaluate_value(controls.front());
+    require(instrumentation.value_evaluations == 1,
+            "native reduced value stage was not counted");
+    require(instrumentation.derivative_augmentations == 0,
+            "native reduced derivative ran during value evaluation");
+    require(instrumentation.state_solve_calls == 1,
+            "native reduced value stage did not perform one state solve");
+    require(instrumentation.adjoint_solve_calls == 0,
+            "native reduced value stage performed an adjoint solve");
+    require(instrumentation.objective_calls == 1,
+            "native reduced value stage did not evaluate the objective once");
+
+    const auto derivative = reduced.augment_derivative(value);
+    require(instrumentation.derivative_augmentations == 1,
+            "native reduced derivative stage was not counted");
+    require(instrumentation.state_solve_calls == 1,
+            "native reduced derivative stage repeated the state solve");
+    require(instrumentation.adjoint_solve_calls == 1,
+            "native reduced derivative stage did not perform one adjoint solve");
+    require(instrumentation.objective_derivative_calls == 1,
+            "native reduced derivative stage did not evaluate objective partials once");
+    require(instrumentation.control_vjp_calls == 1,
+            "native reduced derivative stage did not perform one control pullback");
+
+    Vector expected_gradient = derivative.control_derivative;
+    expected_gradient += derivative.adjoint;
+    require(vector_difference(derivative.reduced_derivative, expected_gradient) ==
+              0.0,
+            "native reduced derivative has the wrong control sign");
+    require(vector_difference(value.state, derivative.state_derivative) == 0.0,
+            "native reduced derivative changed the retained state");
+
+    const auto repeated_before = reduced.evaluate_value(controls[2]);
+    const auto intervening      = reduced.evaluate_value(controls[3]);
+    const auto repeated_after   = reduced.evaluate_value(controls[2]);
+    (void)intervening;
+    require(vector_difference(repeated_before.state, repeated_after.state) == 0.0,
+            "native reduced repeated control changed the state");
+    require_close(repeated_before.objective,
+                  repeated_after.objective,
+                  0.0,
+                  "native reduced repeated control changed the objective");
+
+    const auto output_directory =
+      std::filesystem::temp_directory_path() /
+      "nmopt-external-step4-native-reduced-output";
+    std::filesystem::remove_all(output_directory);
+    std::filesystem::create_directories(output_directory);
+    const auto output_file = output_directory / "retained-state.vtk";
+    problem.output_results(repeated_after.state, output_file);
+    require(std::filesystem::exists(output_file),
+            "native reduced retained-state output is missing");
+    require(instrumentation.output_calls == 1,
+            "native reduced output was not counted");
+    std::filesystem::remove_all(output_directory);
+  }
 } // namespace
 
 int
@@ -215,7 +335,17 @@ main(const int argc, char **argv)
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},
          30,
-         run_supplied_state_output_contract}};
+         run_supplied_state_output_contract},
+        {"problem_a_operations",
+         "nmopt.external_tutorial_step_4.native_problem_a_operations",
+         {"dealii", "application", "external", "tutorial", "native", "control"},
+         60,
+         run_problem_a_operations_contract},
+        {"native_reduced",
+         "nmopt.external_tutorial_step_4.native_reduced",
+         {"dealii", "application", "external", "tutorial", "native", "control"},
+         60,
+         run_native_reduced_contract}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E2.b — Obsolete Step-4 wrapper retirement and final E2 evidence; implementation complete, review pending |
-| Last completed/adopted gate | E2.a — Minimal reusable Step-4 seams and native reuse contract, verified and committed as `f7e44e7` |
-| Next unit | E3 — Native Problem A, after the E2.b cleanup commit |
+| Current unit | E3.a — Native Problem A and staged reduced evaluation; implementation complete, review pending; E3.b not started |
+| Last completed/adopted gate | E2 — Minimal reusable Step-4, verified and committed through cleanup `9a339e7` |
+| Next unit | E3.b — Independent oracle and derivative verification, after the E3.a commit |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -441,13 +441,13 @@ Checks: upstream/stripped/adapted standalone equivalence in both dimensions, inc
 Artifacts: stripped-to-adapted diff, seam ledger, native solve evidence, standalone and reusable-path output comparisons. Record any iteration-count difference caused by the explicitly different controlled initialization.
 
 Commits: E2.a was adopted as `f7e44e7` (`refactor(dealii): expose reusable
-Step-4 operations`); E2.b is pending review with the prospective message
-`refactor(dealii): retire obsolete Step-4 wrapper`.
+Step-4 operations`); E2.b was adopted as `9a339e7`
+(`refactor(dealii): retire obsolete Step-4 wrapper`).
 
 Gate: all reuse/fidelity checks pass; otherwise fix adaptation before adding control mathematics.
 
-E2.b evidence (2026-09-10): with `HEAD` `f7e44e7` plus the uncommitted
-retirement changes, the superseded `tutorial_application.hpp`,
+E2.b evidence (2026-09-10): in cleanup commit `9a339e7` after E2.a commit
+`f7e44e7`, the superseded `tutorial_application.hpp`,
 `tutorial_application.cc`, and `tutorial_binding_smoke.cc` files were deleted.
 Their prior implementation remains recoverable in Git from the historical
 tutorial attempt. The old target and CTest registration had already been
@@ -461,8 +461,7 @@ passed all `163/163` tests:
 100% tests passed, 0 tests failed out of 163
 ```
 
-E2 is ready to close after review and the prospective cleanup commit. E3 may
-start only after that commit is adopted.
+E2 is complete. E3 may start from the adopted cleanup commit.
 
 ### E3 — Native Problem A
 
@@ -474,9 +473,21 @@ Checks: frozen equations at arbitrary/off-solution inputs, state and adjoint res
 
 Artifacts: native operation inventory, required capability flags including future frozen-nmopt obligations, sample evaluation/solve tables, derivative/Taylor table, oracle errors, updated ledger.
 
-Prospective commit: `test(dealii): add native algebraic control reference`.
+Prospective commits: E3.a uses `test(dealii): add native Problem A evaluator`;
+E3.b uses `test(dealii): add native Problem A verification oracle`. Together
+they implement the E3 outcome described by the umbrella message
+`test(dealii): add native algebraic control reference`.
 
 Gate: native mathematical proof passes before E4. Do not implement a second native formula to make nmopt agree. This unit is cohesive; split oracle-only verification into a follow-up commit only if size warrants it, and keep the E3 gate closed until both are complete.
+
+E3.a evidence (2026-09-10): with `HEAD` `9a339e7` plus the uncommitted
+native implementation, the native contract target compiled and linked. Scenario
+discovery listed the two existing E2 scenarios and the two new E3.a scenarios.
+The focused native CTest selection passed all four scenarios. The new native
+evaluation sources contain no nmopt include or library dependency; the test
+driver uses only the permitted standard scenario-discovery helper. E3.b oracle
+and derivative/Taylor verification have not started, so the E3 gate remains
+closed.
 
 ### E4 — Current nmopt Problem A
 

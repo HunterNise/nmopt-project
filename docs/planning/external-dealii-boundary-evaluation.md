@@ -101,7 +101,10 @@ Unit-specific reading uses contract-header names relative to `include/nmopt/cont
 
 ## 3. Source organization and ownership
 
-Retain the current directory root `apps/external-dealii/step-4/`. Use these bounded files; do not create an additional library hierarchy to realize the table.
+Retain the current directory root `apps/external-dealii/step-4/` for the
+tutorial source fixtures. Reusable external-deal.II tooling lives under
+`tools/external_dealii/`; do not create an additional application or numerical
+library hierarchy to realize the table.
 
 | Path under that directory | Responsibility |
 | --- | --- |
@@ -115,8 +118,8 @@ Retain the current directory root `apps/external-dealii/step-4/`. Use these boun
 | `evaluation/nmopt_binding.hpp` | Public-API construction, explicit callbacks, report translation, identity `MetricT<SerialBackend>`, and binding lifetime. All nmopt-specific experiment code belongs here or in its test driver. |
 | `evaluation/instrumentation.hpp` | Plain counters and evidence records. No framework, allocator replacement, or numerical policy decisions. |
 | `evaluation/verification.hpp` | Native oracle, independent residual/derivative checks, result comparison, and evidence serialization. No nmopt numerical dependency. |
-| `evaluation/strip_comments.py` | Bounded reproducible source transformation and token-preservation check. Preserves literal contents, token separation, and legal notice. Never rewrites upstream or unrelated files. |
-| `evaluation/check_forward.py` | Focused harness running supplied forward executables in separate directories and comparing stdout/numerical VTK content. No experiment configuration system. |
+| `tools/external_dealii/strip_comments.py` | Bounded reusable source transformation and token-preservation check. Preserves literal contents, token separation, and legal notice. Never rewrites upstream or unrelated files. |
+| `tools/external_dealii/check_forward.py` | Focused reusable harness running supplied forward executables in separate directories and comparing stdout/numerical VTK content. No experiment configuration system. |
 | `README.md` | Source lineage, exact runnable commands, mathematical name, output locations, and interpretation limits. |
 
 New test drivers:
@@ -311,7 +314,7 @@ Instrumentation limits are part of the result:
 
 ### Minimal working ledger
 
-Maintain one CSV, one row per logical operation/seam/conversion, not per source line. Initial location: `runs/external-dealii/step-4/evaluation/working/attribution.csv`. Never delete that working directory as part of a test cleanup.
+Maintain one CSV, one row per logical operation/seam/conversion, not per source line. Initial location: `runs/external-dealii/step-4/working/attribution.csv`. Never delete that working directory as part of a test cleanup.
 
 ```text
 id,source_site,operation,first_requiring_consumer,other_consumers,native_runtime_required,nmopt_construction_required,verification_required,cost_category,phase,frequency,explicit_copy_volume,operator_or_solve_work,ownership_or_lifetime_obligation,evidence_kind,evidence_ref,notes
@@ -507,19 +510,23 @@ Use the existing helper for configuring/building/testing. If a manual deal.II bu
 
 Choose explicit finite CTest timeouts appropriate to forward/native checks and the bounded optimization; an infrastructure timeout is a failed run, not architectural evidence. New scenarios use existing discovery. Add only direct target-specific construction necessary to keep native executables independent.
 
-Ignored evidence root:
+Ignored run-artifact root:
 
 ```text
-runs/external-dealii/step-4/evaluation/
+runs/external-dealii/step-4/
   working/attribution.csv
-  e1/<run-id>/{upstream,stripped}/
-  e2/<run-id>/{upstream,stripped,adapted,reuse}/
-  e3/<run-id>/native/
-  e4/<run-id>/{native,nmopt,comparison}/
-  e5/<run-id>/{native,nmopt,comparison}/
+  forward-comparison/<run-id>/{upstream,stripped,adapted,comparison}/
+  reduced-evaluation/<run-id>/{native,nmopt,comparison}/
+  optimization/<run-id>/{native,nmopt,comparison}/
 ```
 
-Use isolated directories and unique run IDs so retries do not destroy failing traces or overwrite native with nmopt output. This is a simple directory convention, not a new runner schema. Record commands, revisions, constants, compiler/deal.II/build information, test outcomes, source hashes, and numerical errors in plain text/CSV. Evidence files are outputs, not mutable configuration.
+Use isolated directories and unique run IDs so retries do not destroy failing
+traces or overwrite native with nmopt output. Directory names describe the
+comparison or scenario, not the roadmap unit that produced them. This is a
+simple artifact convention, not a new runner schema. Record commands,
+revisions, constants, compiler/deal.II/build information, test outcomes,
+source hashes, and numerical errors in plain text/CSV. Evidence files are
+outputs, not mutable configuration.
 
 At each unit handoff state: completed artifacts and checks, actual failures, protocol deviations, updated attribution, exact next unit, and prospective commit boundary. Do not mark a unit complete because it compiles or emits files. Final scope check must show no shared nmopt implementation changes and no edits to upstream/frozen stripped source.
 

@@ -12,11 +12,16 @@ consume public interfaces and persisted artifacts.
 | `postprocess.py` | Profile-driven field rendering and run-root comparison entry point. |
 | `chapter6_postprocess.py` | Compatibility wrapper for older Chapter 6 post-processing invocations. |
 | `chapter6_report.py` | Deterministic CSV/Markdown benchmark report from a persisted run manifest. |
+| `external_dealii/` | Reusable source and forward-output checks for external deal.II tutorials. |
 
 The reusable Python implementation is under
 `nmopt_postprocess/`. Its Chapter 6 profile, mesh/field and solver-history
 readers, renderers, comparison builders, and output manifests are
 implementation details of the public post-processing entry point.
+
+The `external_dealii/` directory contains small command-line tools that
+operate on tutorial source files and standalone executable outputs. They do
+not own PDE assembly, numerical methods, or experiment configuration.
 
 For commands, output paths, native-file names, supported formats, and agent
 verification, read the [application execution and artifact

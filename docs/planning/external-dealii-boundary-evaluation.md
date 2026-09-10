@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E3.a — Native Problem A and staged reduced evaluation; implementation complete, review pending; E3.b not started |
-| Last completed/adopted gate | E2 — Minimal reusable Step-4, verified and committed through cleanup `9a339e7` |
-| Next unit | E3.b — Independent oracle and derivative verification, after the E3.a commit |
+| Current unit | E3.b — Independent oracle and derivative verification; implementation complete, review pending |
+| Last completed/adopted gate | E3.a — Native Problem A and staged reduced evaluation, committed as `d164d64` |
+| Next unit | E4 — Current nmopt Problem A, after the adopted E3 gate |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -480,14 +480,30 @@ they implement the E3 outcome described by the umbrella message
 
 Gate: native mathematical proof passes before E4. Do not implement a second native formula to make nmopt agree. This unit is cohesive; split oracle-only verification into a follow-up commit only if size warrants it, and keep the E3 gate closed until both are complete.
 
-E3.a evidence (2026-09-10): with `HEAD` `9a339e7` plus the uncommitted
-native implementation, the native contract target compiled and linked. Scenario
-discovery listed the two existing E2 scenarios and the two new E3.a scenarios.
-The focused native CTest selection passed all four scenarios. The new native
-evaluation sources contain no nmopt include or library dependency; the test
-driver uses only the permitted standard scenario-discovery helper. E3.b oracle
-and derivative/Taylor verification have not started, so the E3 gate remains
-closed.
+E3.a evidence (2026-09-10): the native Problem A and staged reduced
+implementation was reviewed and adopted in `d164d64`. Its native contract
+target compiled and linked, scenario discovery listed the two existing E2
+scenarios and the two E3.a scenarios, and the focused native CTest selection
+passed all four scenarios. The native evaluation sources contain no nmopt
+include or library dependency; the test driver uses only the permitted
+standard scenario-discovery helper.
+
+E3.b evidence (2026-09-10): with `HEAD` `d164d64` plus the uncommitted
+verification implementation, the independent dense oracle solved
+`(I+A^T A)y=A^T b` using deal.II dense/LAPACK facilities and derived
+`u=Ay-b`. The focused native CTest selection passed all six scenarios, and
+`./build.sh pipeline debug-dealii` passed `167/167` tests. Off-solution
+residual JVP/VJP pairings, objective directional derivatives, reduced centered
+differences, and Taylor checks passed; Taylor halving ratios were within
+`3.9999999994`–`4.0000000004`. The oracle reported symmetry error `0`, system
+residual `3.2811052213435387e-16`, stationarity residual
+`1.4056590879085018e-15`, and native gradient norm
+`4.1632750284529916e-14`. Ignored evidence is under
+`runs/external-dealii/step-4/working/native-reference/`, including the
+derivative/Taylor tables, oracle summary, and run metadata; the shared
+attribution ledger is at `runs/external-dealii/step-4/working/attribution.csv`.
+E3.b is ready for review and explicit commit; the E3 gate remains pending
+adoption.
 
 ### E4 — Current nmopt Problem A
 

@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E2.a — Minimal reusable Step-4 seams and native reuse contract; E2.b not started |
-| Last completed/adopted gate | E1 — Comments-stripped baseline, verified and committed as `b8c6da9` |
-| Next unit | E2.b — Obsolete Step-4 wrapper retirement and final E2 evidence |
+| Current unit | E2.b — Obsolete Step-4 wrapper retirement and final E2 evidence; implementation complete, review pending |
+| Last completed/adopted gate | E2.a — Minimal reusable Step-4 seams and native reuse contract, verified and committed as `f7e44e7` |
+| Next unit | E3 — Native Problem A, after the E2.b cleanup commit |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -440,9 +440,29 @@ Checks: upstream/stripped/adapted standalone equivalence in both dimensions, inc
 
 Artifacts: stripped-to-adapted diff, seam ledger, native solve evidence, standalone and reusable-path output comparisons. Record any iteration-count difference caused by the explicitly different controlled initialization.
 
-Prospective commit: `refactor(dealii): expose reusable Step-4 numerical operations`.
+Commits: E2.a was adopted as `f7e44e7` (`refactor(dealii): expose reusable
+Step-4 operations`); E2.b is pending review with the prospective message
+`refactor(dealii): retire obsolete Step-4 wrapper`.
 
 Gate: all reuse/fidelity checks pass; otherwise fix adaptation before adding control mathematics.
+
+E2.b evidence (2026-09-10): with `HEAD` `f7e44e7` plus the uncommitted
+retirement changes, the superseded `tutorial_application.hpp`,
+`tutorial_application.cc`, and `tutorial_binding_smoke.cc` files were deleted.
+Their prior implementation remains recoverable in Git from the historical
+tutorial attempt. The old target and CTest registration had already been
+removed in E2.a; repository search now finds no active source or build
+reference to the wrapper or smoke target, while historical planning documents
+continue to mention them intentionally. The complete Debug deal.II pipeline
+passed all `163/163` tests:
+
+```text
+./build.sh pipeline debug-dealii
+100% tests passed, 0 tests failed out of 163
+```
+
+E2 is ready to close after review and the prospective cleanup commit. E3 may
+start only after that commit is adopted.
 
 ### E3 — Native Problem A
 

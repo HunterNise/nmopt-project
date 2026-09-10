@@ -17,6 +17,8 @@
  * Author: Wolfgang Bangerth, University of Heidelberg, 1999
  */
 
+
+
 #include <deal.II/grid/tria.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/grid/grid_generator.h>
@@ -35,35 +37,31 @@
 #include <deal.II/lac/precondition.h>
 
 #include <deal.II/numerics/data_out.h>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 
 #include <deal.II/base/logstream.h>
 
 using namespace dealii;
 
+
 template <int dim>
 class Step4
 {
 public:
+  struct SolveEvidence
+  {
+    bool         converged;
+    unsigned int iterations;
+    double       initial_residual;
+    double       final_residual;
+  };
+
   Step4();
   void run();
   void prepare_for_external_use();
-
-  const Triangulation<dim> &triangulation_view() const
-  {
-    return triangulation;
-  }
-
-  const FE_Q<dim> &finite_element_view() const
-  {
-    return fe;
-  }
-
-  const DoFHandler<dim> &dof_handler_view() const
-  {
-    return dof_handler;
-  }
 
   const SparseMatrix<double> &system_matrix_view() const
   {
@@ -75,12 +73,16 @@ public:
     return system_rhs;
   }
 
+  SolveEvidence solve(const Vector<double> &rhs,
+                      Vector<double> &      solution) const;
+
+  void output_results(const Vector<double> &          state,
+                      const std::filesystem::path &filename) const;
+
 private:
   void make_grid();
   void setup_system();
   void assemble_system();
-  void solve();
-  void output_results() const;
 
   Triangulation<dim> triangulation;
   FE_Q<dim>          fe;
@@ -93,25 +95,29 @@ private:
   Vector<double> system_rhs;
 };
 
+
+
 template <int dim>
 class RightHandSide : public Function<dim>
 {
 public:
-  virtual double value(const Point<dim> &p,
+  virtual double value(const Point<dim> & p,
                        const unsigned int component = 0) const override;
 };
+
+
 
 template <int dim>
 class BoundaryValues : public Function<dim>
 {
 public:
-  virtual double value(const Point<dim> &p,
+  virtual double value(const Point<dim> & p,
                        const unsigned int component = 0) const override;
 };
 
 template <int dim>
 double RightHandSide<dim>::value(const Point<dim> &p,
-                                 const unsigned int) const
+                                 const unsigned int /*component*/) const
 {
   double return_value = 0.0;
   for (unsigned int i = 0; i < dim; ++i)
@@ -120,18 +126,27 @@ double RightHandSide<dim>::value(const Point<dim> &p,
   return return_value;
 }
 
+
 template <int dim>
 double BoundaryValues<dim>::value(const Point<dim> &p,
-                                  const unsigned int) const
+                                  const unsigned int /*component*/) const
 {
   return p.square();
 }
+
+
+
+
+
+
 
 template <int dim>
 Step4<dim>::Step4()
   : fe(1)
   , dof_handler(triangulation)
 {}
+
+
 
 template <int dim>
 void Step4<dim>::prepare_for_external_use()
@@ -140,6 +155,7 @@ void Step4<dim>::prepare_for_external_use()
   setup_system();
   assemble_system();
 }
+
 
 template <int dim>
 void Step4<dim>::make_grid()
@@ -152,6 +168,7 @@ void Step4<dim>::make_grid()
             << "   Total number of cells: " << triangulation.n_cells()
             << std::endl;
 }
+
 
 template <int dim>
 void Step4<dim>::setup_system()
@@ -170,6 +187,8 @@ void Step4<dim>::setup_system()
   solution.reinit(dof_handler.n_dofs());
   system_rhs.reinit(dof_handler.n_dofs());
 }
+
+
 
 template <int dim>
 void Step4<dim>::assemble_system()
@@ -201,14 +220,14 @@ void Step4<dim>::assemble_system()
           {
             for (const unsigned int j : fe_values.dof_indices())
               cell_matrix(i, j) +=
-                (fe_values.shape_grad(i, q_index) *
-                 fe_values.shape_grad(j, q_index) *
-                 fe_values.JxW(q_index));
+                (fe_values.shape_grad(i, q_index) * // grad phi_i(x_q)
+                 fe_values.shape_grad(j, q_index) * // grad phi_j(x_q)
+                 fe_values.JxW(q_index));           // dx
 
             const auto &x_q = fe_values.quadrature_point(q_index);
-            cell_rhs(i) += (fe_values.shape_value(i, q_index) *
-                            right_hand_side.value(x_q) *
-                            fe_values.JxW(q_index));
+            cell_rhs(i) += (fe_values.shape_value(i, q_index) * // phi_i(x_q)
+                            right_hand_side.value(x_q) *        // f(x_q)
+                            fe_values.JxW(q_index));            // dx
           }
 
       cell->get_dof_indices(local_dof_indices);
@@ -234,30 +253,59 @@ void Step4<dim>::assemble_system()
                                      system_rhs);
 }
 
+
+
 template <int dim>
-void Step4<dim>::solve()
+typename Step4<dim>::SolveEvidence
+Step4<dim>::solve(const Vector<double> &rhs, Vector<double> &solution) const
 {
+  if (rhs.size() != system_matrix.m() || solution.size() != system_matrix.n())
+    throw std::invalid_argument("Step4 solve received an incompatible vector");
+
+  Vector<double> initial_residual(rhs.size());
+  system_matrix.vmult(initial_residual, solution);
+  initial_residual.add(-1.0, rhs);
+
   SolverControl            solver_control(1000, 1e-12);
   SolverCG<Vector<double>> solver(solver_control);
-  solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
+  solver.solve(system_matrix, solution, rhs, PreconditionIdentity());
 
-  std::cout << "   " << solver_control.last_step()
-            << " CG iterations needed to obtain convergence." << std::endl;
+  Vector<double> final_residual(rhs.size());
+  system_matrix.vmult(final_residual, solution);
+  final_residual.add(-1.0, rhs);
+
+  return {solver_control.last_check() == SolverControl::success,
+          solver_control.last_step(),
+          initial_residual.l2_norm(),
+          final_residual.l2_norm()};
 }
 
+
+
 template <int dim>
-void Step4<dim>::output_results() const
+void Step4<dim>::output_results(const Vector<double> &          state,
+                                const std::filesystem::path &filename) const
 {
+  if (state.size() != dof_handler.n_dofs())
+    throw std::invalid_argument("Step4 output received an incompatible vector");
+
   DataOut<dim> data_out;
 
   data_out.attach_dof_handler(dof_handler);
-  data_out.add_data_vector(solution, "solution");
+  data_out.add_data_vector(state, "solution");
 
   data_out.build_patches();
 
-  std::ofstream output(dim == 2 ? "solution-2d.vtk" : "solution-3d.vtk");
+  std::ofstream output(filename);
+  if (!output)
+    throw std::runtime_error("could not open Step4 output");
   data_out.write_vtk(output);
+  if (!output)
+    throw std::runtime_error("could not write Step4 output");
 }
+
+
+
 
 template <int dim>
 void Step4<dim>::run()
@@ -266,15 +314,28 @@ void Step4<dim>::run()
             << std::endl;
 
   prepare_for_external_use();
-  solve();
-  output_results();
+  const auto evidence = solve(system_rhs, solution);
+  std::cout << "   " << evidence.iterations
+            << " CG iterations needed to obtain convergence." << std::endl;
+  output_results(solution,
+                 dim == 2 ? std::filesystem::path("solution-2d.vtk") :
+                             std::filesystem::path("solution-3d.vtk"));
 }
 
-#ifndef NMOPT_EXTERNAL_TUTORIAL_STEP_4_NO_MAIN
+
+#ifndef STEP4_NO_MAIN
 int main()
 {
-  Step4<2> laplace_problem;
-  laplace_problem.run();
+  {
+    Step4<2> laplace_problem_2d;
+    laplace_problem_2d.run();
+  }
+
+  {
+    Step4<3> laplace_problem_3d;
+    laplace_problem_3d.run();
+  }
+
   return 0;
 }
 #endif

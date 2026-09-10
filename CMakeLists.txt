@@ -198,13 +198,24 @@ if(NMOPT_ENABLE_DEAL_II)
     apps/external-dealii/step-4/baseline/step-4-stripped.cc)
   deal_ii_setup_target(nmopt_external_tutorial_step_4_stripped)
 
+  # This target compiles the adapted tutorial seams without linking the nmopt
+  # contract or adding nmopt includes.
   add_executable(
-    nmopt_external_tutorial_binding_smoke
-    apps/external-dealii/step-4/tutorial_application.cc
-    apps/external-dealii/step-4/tutorial_binding_smoke.cc)
-  deal_ii_setup_target(nmopt_external_tutorial_binding_smoke)
+    nmopt_external_tutorial_step_4_adapted
+    apps/external-dealii/step-4/step-4.cc)
+  deal_ii_setup_target(nmopt_external_tutorial_step_4_adapted)
 
   if(BUILD_TESTING)
+    # This test includes only the adapted tutorial source and the standard
+    # scenario-discovery helper. It intentionally has no nmopt library link.
+    add_executable(
+      nmopt_external_step4_native_contract_test
+      tests/dealii/external_step4_native_contract.cc)
+    target_link_libraries(nmopt_external_step4_native_contract_test
+      nmopt_build_flags)
+    deal_ii_setup_target(nmopt_external_step4_native_contract_test)
+    scenario_discovery_register(nmopt_external_step4_native_contract_test)
+
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
     set(nmopt_external_tutorial_forward_root
@@ -213,9 +224,14 @@ if(NMOPT_ENABLE_DEAL_II)
         "${nmopt_external_tutorial_forward_root}/ctest/upstream")
     set(nmopt_external_tutorial_stripped_run_dir
         "${nmopt_external_tutorial_forward_root}/ctest/stripped")
+    set(nmopt_external_tutorial_adapted_run_dir
+        "${nmopt_external_tutorial_forward_root}/ctest/adapted")
+    set(nmopt_external_tutorial_adapted_comparison_root
+        "${nmopt_external_tutorial_forward_root}/adapted")
     file(MAKE_DIRECTORY
       "${nmopt_external_tutorial_upstream_run_dir}"
-      "${nmopt_external_tutorial_stripped_run_dir}")
+      "${nmopt_external_tutorial_stripped_run_dir}"
+      "${nmopt_external_tutorial_adapted_run_dir}")
     add_test(
       NAME nmopt.external_tutorial_step_4.forward
       COMMAND nmopt_external_tutorial_step_4)
@@ -237,6 +253,16 @@ if(NMOPT_ENABLE_DEAL_II)
         WORKING_DIRECTORY "${nmopt_external_tutorial_stripped_run_dir}")
 
     add_test(
+      NAME nmopt.external_tutorial_step_4.adapted_forward
+      COMMAND nmopt_external_tutorial_step_4_adapted)
+    set_tests_properties(
+      nmopt.external_tutorial_step_4.adapted_forward
+      PROPERTIES
+        LABELS "dealii;application;external;tutorial;adapted"
+        TIMEOUT 30
+        WORKING_DIRECTORY "${nmopt_external_tutorial_adapted_run_dir}")
+
+    add_test(
       NAME nmopt.external_tutorial_step_4.forward_comparison
       COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tools/external_dealii/check_forward.py"
@@ -253,13 +279,20 @@ if(NMOPT_ENABLE_DEAL_II)
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
     add_test(
-      NAME nmopt.external_tutorial_step_4.binding
-      COMMAND nmopt_external_tutorial_binding_smoke)
+      NAME nmopt.external_tutorial_step_4.adapted_forward_comparison
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tools/external_dealii/check_forward.py"
+        --upstream-executable $<TARGET_FILE:nmopt_external_tutorial_step_4>
+        --stripped-executable $<TARGET_FILE:nmopt_external_tutorial_step_4_adapted>
+        --stripped-label adapted
+        --output-root "${nmopt_external_tutorial_adapted_comparison_root}"
+        --file solution-2d.vtk
+        --file solution-3d.vtk)
     set_tests_properties(
-      nmopt.external_tutorial_step_4.binding
+      nmopt.external_tutorial_step_4.adapted_forward_comparison
       PROPERTIES
-        LABELS "dealii;application;external;tutorial"
-        TIMEOUT 30
+        LABELS "dealii;application;external;tutorial;adapted"
+        TIMEOUT 60
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
     add_test(

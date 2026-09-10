@@ -178,13 +178,13 @@ def run(executable: Path, directory: Path) -> subprocess.CompletedProcess[str]:
     return result
 
 
-def make_run_directory(root: Path) -> Path:
+def make_run_directory(root: Path, second_label: str) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     directory = root / name
     directory.mkdir()
     (directory / "upstream").mkdir()
-    (directory / "stripped").mkdir()
+    (directory / second_label).mkdir()
     return directory
 
 
@@ -192,6 +192,11 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--upstream-executable", required=True, type=Path)
     parser.add_argument("--stripped-executable", required=True, type=Path)
+    parser.add_argument(
+        "--stripped-label",
+        default="stripped",
+        help="name for the second executable and its artifact directory",
+    )
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--file", action="append", required=True, dest="files")
     parser.add_argument("--absolute-tolerance", type=float, default=1e-14)
@@ -203,22 +208,25 @@ def main() -> int:
     options = parse_arguments()
     upstream_executable = options.upstream_executable.resolve()
     stripped_executable = options.stripped_executable.resolve()
-    run_directory = make_run_directory(options.output_root.resolve())
+    run_directory = make_run_directory(
+        options.output_root.resolve(), options.stripped_label
+    )
+    second_directory = run_directory / options.stripped_label
     report: list[str] = [
         f"upstream executable: {upstream_executable}",
-        f"stripped executable: {stripped_executable}",
+        f"{options.stripped_label} executable: {stripped_executable}",
         f"run directory: {run_directory}",
     ]
 
     try:
         upstream = run(upstream_executable, run_directory / "upstream")
-        stripped = run(stripped_executable, run_directory / "stripped")
+        stripped = run(stripped_executable, second_directory)
         if upstream.stdout != stripped.stdout:
             raise ComparisonError("stdout differs")
         report.append("stdout: identical")
         for filename in options.files:
             upstream_file = run_directory / "upstream" / filename
-            stripped_file = run_directory / "stripped" / filename
+            stripped_file = second_directory / filename
             if not upstream_file.is_file() or not stripped_file.is_file():
                 raise ComparisonError(f"missing expected output {filename}")
             summary = compare_vtk(

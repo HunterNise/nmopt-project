@@ -1,8 +1,8 @@
 # External deal.II boundary evaluation: G1 report
 
-Status: successful Problem A comparison retained after review of `ed450bd` on
-2026-09-11; the remaining EC5 failure-evidence correction is pending. Generated
-run artifacts remain ignored and are recreated by the
+Status: successful Problem A comparison and EC5 failure-evidence correction
+retained after review of `ed450bd` on 2026-09-11. Generated run artifacts
+remain ignored and are recreated by the
 commands recorded below; no run output is copied into tracked documentation.
 The original E0–E5 evidence remains identified by its evaluated revision, and
 the corrected closure evidence is identified separately.
@@ -10,7 +10,8 @@ the corrected closure evidence is identified separately.
 Date: 2026-09-11
 Original evaluated revision: `277fbf4` (`test(dealii): compare native and nmopt optimization paths`)
 Corrected numerical path: `d44dded1400365979d1633c9eda8e561a776c32c`
-Closure verification: `6a9d1a565bdf0b21ad72889e6f3e06bcdf5a3282`
+Pre-EC5 closure verification: `6a9d1a565bdf0b21ad72889e6f3e06bcdf5a3282`
+EC5 implementation: `0357d4f`, `e8050ff`
 Roadmap: [external deal.II boundary evaluation](../../external-dealii-boundary-evaluation.md)
 Review context: [design investigation](design-investigation.md)
 
@@ -39,14 +40,18 @@ reviewed and committed:
 
 - EC1 (`a7f6cf7`) retains explicitly recorded comparison failures and solve
   records, and prevents runtime tests from rewriting the shared attribution
-  ledger. Exception diagnostics and available optimization traces still need
-  the EC5 correction described below.
+  ledger.
 - EC2 (`b235a85`, `21d775e`, `6193519`, `d3bdaa0`, and `d44dded`) removes the
   extra solve action, independently audits residuals and final gradients,
   enforces the absolute oracle-distance gate, rejects nonfinite acceptance
   data, and closes the runtime-count checks.
 - EC3 (`6a9d1a5`) makes the forward comparator reject nonfinite geometry and
   field values while retaining its failure report.
+- EC5 (`0357d4f`, `e8050ff`) records original exception diagnostics at explicit
+  catch boundaries and serializes each completed native/current-nmopt
+  optimization trace before later checks can fail. Direct-throw and
+  post-result-failure retries retain failed status, diagnostics, available
+  traces, counters, and solve records.
 
 The corrected reduced comparison is recreated at
 `runs/external-dealii/step-4/reduced-evaluation/reduced-1789148523091774/comparison.csv`;
@@ -58,7 +63,7 @@ run artifacts, not tracked evidence files. The corrections preserve the
 original G1 decision: the current public boundary is adequate for this tested
 external case, and no shared helper or API change is implied.
 
-### Remaining failure-evidence qualification
+### Failure-evidence qualification after EC5
 
 Review at `ed450bd` found that
 [`EvidenceGuard`](../../../../tests/dealii/external_step4_evidence.hpp)
@@ -69,12 +74,41 @@ probe reproduced this without changing repository sources. The
 also delays trace serialization until both solvers, convergence checks, and
 the oracle return; a later failure can discard a completed earlier result.
 
-The roadmap's [EC5 unit](../../external-dealii-boundary-evaluation.md#ec5--retain-exception-diagnostics-and-available-optimization-traces)
-owns the bounded correction and its regression evidence. Progress held only
-inside a throwing solver is not exposed by its return interface; full partial
-optimization traces are not currently retained. Existing successful results,
-numerical audits, and the G1 boundary conclusion are unaffected. The recorded
-175/175 and 67/67 pipeline passes predate EC5 and do not verify that correction.
+EC5 closes both delayed-evidence cases within the existing Step-4 test
+boundary. Each guarded driver catches while its `EvidenceGuard` and
+instrumentation remain alive, calls `fail_current_exception()`, and rethrows;
+the guard no longer has to infer an exception message during destruction. The
+paired optimization driver writes the native trace immediately after the
+native solver returns and the current-nmopt trace immediately after the nmopt
+solver returns, before later finite, convergence, oracle, output, or
+comparison checks.
+
+The focused failure-evidence selection passes `1/1` and the paired-optimization
+selection passes `2/2`; the full required pipelines pass `176/176` for
+`debug-dealii` and `67/67` for `debug-neutral`. The regression retries both
+direct-throw and post-result failure probes in unique ignored run directories
+and checks their generated status, diagnostic, traces, counters, and solve
+records. No tracked run evidence is required or added.
+
+The correction remains bounded: trials held only inside a solver that throws
+before returning a result are not exposed by the current solver interface.
+Such a failed run is incomplete evidence; EC5 does not claim full partial
+trace retention and does not introduce a progress callback or shared API.
+Existing successful results, numerical audits, and the G1 boundary conclusion
+are unaffected.
+
+The EC5 checks are reproducible with the existing profiles:
+
+```bash
+cmake --build build/debug-dealii --target \
+  nmopt_external_step4_optimization_contract_test --parallel 1
+ctest --test-dir build/debug-dealii --output-on-failure \
+  -R '^nmopt\.external\.tutorial_step_4\.failure_evidence$'
+ctest --test-dir build/debug-dealii --output-on-failure \
+  -R '^(nmopt\.external\.tutorial_step_4\.(matched_optimization|completed_trace_failure))$'
+./build.sh pipeline debug-dealii
+./build.sh pipeline debug-neutral
+```
 
 ## Decision
 
@@ -120,8 +154,8 @@ and 3D output with 32,768 points and 4,096 cells, including zero numeric array
 differences. The paths are ignored run artifacts and are recreated by the
 documented commands.
 
-The closure verification used the existing Debug profiles and the machine's
-configured build limits:
+The pre-EC5 closure verification used the existing Debug profiles and the
+machine's configured build limits:
 
 ~~~bash
 python3 tools/external_dealii/strip_comments.py \
@@ -133,8 +167,10 @@ ctest --test-dir build/debug-dealii --output-on-failure \
 ./build.sh pipeline debug-neutral
 ~~~
 
-The focused forward selection passed `3/3`; the complete Debug deal.II
-pipeline passed `175/175`, and the backend-neutral pipeline passed `67/67`.
+The focused forward selection passed `3/3`; the initial complete Debug
+deal.II pipeline passed `175/175`, and the backend-neutral pipeline passed
+`67/67`. These results predate EC5; the final pipeline counts after EC5 are
+recorded in the failure-evidence section above.
 The machine was Linux x86_64 under WSL2, using GCC 13.3.0, CMake 3.28.3,
 Ninja 1.11.1, and deal.II 9.5.1 from `/usr/share/cmake/deal.II`. No release
 timing, allocation count, or internal uninstrumented operator count is
@@ -255,10 +291,10 @@ the evidence supports the bounded case, not the corresponding universal claim.
 
 ## Recommendation and limits
 
-Retain the successful E0–E5 Problem A evaluation and complete only the remaining
-EC5 evidence correction before closing that follow-up. The corrected run
-outputs remain ignored and reproducible from the documented commands. Do not
-add a generic helper or alter the shared nmopt API as an automatic follow-up.
+Retain the successful E0–E5 Problem A evaluation with the completed EC5
+evidence correction. The corrected run outputs remain ignored and reproducible
+from the documented commands. Do not add a generic helper or alter the shared
+nmopt API as an automatic follow-up.
 
 If future authentic applications reproduce the same block/layout/metric
 construction pattern, a separately scoped mechanical helper may be evaluated.

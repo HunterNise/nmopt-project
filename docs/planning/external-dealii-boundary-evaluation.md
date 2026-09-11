@@ -7,8 +7,8 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary` |
-| Current unit | EC5 – Remaining failure-evidence correction identified at `ed450bd`; implementation pending |
-| Last completed/adopted gate | EC4 — Permanent Step-4 evidence and documentation reconciliation, committed as `ed450bd` |
+| Current unit | PB0 – Prepare the Problem B protocol; adopt mathematics and scope before implementation |
+| Last completed/adopted gate | EC5 — Failure-evidence correction, implemented in `0357d4f` and `e8050ff` |
 | Next unit | PB0 – Prepare the Problem B protocol; adopt mathematics and scope before implementation |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
@@ -732,7 +732,8 @@ performance claims, a generic helper, or a shared API change.
 
 ### EC5 – Retain exception diagnostics and available optimization traces
 
-Status: identified by review of `ed450bd` on 2026-09-11; implementation pending.
+Status: completed on 2026-09-11 in `0357d4f` and `e8050ff`; closure
+documentation is recorded in the G1 report and ownership note below.
 Problem A's successful numerical comparison and bounded G1 conclusion stand.
 The remaining correction concerns failure evidence, not the mathematical or
 public interface contract.
@@ -764,10 +765,14 @@ fixtures frozen. This unit does not introduce a progress-reporting framework.
   Do not claim full partial-trace retention or change shared interfaces to
   obtain it. Such a failed run is incomplete evidence, not a successful gate.
 
-Gate: focused regressions and required checks pass; report wording matches
-actual failure coverage. Preserve successful Problem A results and ignored
-raw evidence. Prospective commit:
-`test(dealii): retain Step-4 exception and completed trace evidence`.
+Gate: the focused failure-evidence selection passes `1/1` and the paired-
+optimization selection passes `2/2`; the complete `debug-dealii` pipeline
+passes `176/176`, and the complete `debug-neutral` pipeline passes `67/67`.
+Report wording matches actual failure coverage. Preserve successful Problem A
+results and ignored raw evidence; no run output is copied into tracked
+documentation. Commits:
+`0357d4f test(dealii): retain Step-4 exception diagnostics` and
+`e8050ff test(dealii): retain Step-4 completed optimization traces`.
 
 ### PB0 – Prepare the Problem B protocol
 

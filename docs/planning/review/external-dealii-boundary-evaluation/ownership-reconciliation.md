@@ -1,7 +1,7 @@
 # Step-4 ownership and evidence reconciliation
 
-Status: ownership and numerical results retained after review on 2026-09-11;
-EC5 failure-evidence correction pending in the evaluation roadmap.
+Status: ownership, numerical results, and EC5 failure evidence retained after
+review on 2026-09-11.
 
 This note makes the implementation boundary explicit after the original G1
 report and records where corrected ignored artifacts are recreated. It does
@@ -75,15 +75,20 @@ this evidence closure.
   path, without adding a shared helper or framework interface.
 - EC1–EC3 retained explicitly recorded failure evidence, repaired the numerical
   acceptance and runtime-count checks, and made forward comparison reject
-  nonfinite data.
-  Their generated comparisons, summaries, counters, and working attribution
-  are recreated below the ignored `runs/external-dealii/step-4/` tree.
+  nonfinite data. Their generated comparisons, summaries, counters, and
+  working attribution are recreated below the ignored
+  `runs/external-dealii/step-4/` tree.
+- EC5 records exception diagnostics while the evidence guard is alive and
+  writes completed native/current-nmopt optimization traces before later
+  checks. Its direct-throw and post-result-failure retries retain diagnostics,
+  available traces, counters, and solve records; trials held only inside a
+  throwing solver remain outside the current return interface.
 
-The [G1 failure-evidence qualification](g1-report.md#remaining-failure-evidence-qualification)
-records the remaining exception-message and delayed-trace issues. EC5 is a
-bounded test/evidence correction; it does not reopen the ownership split or
-invalidate the successful numerical comparison. Complete partial histories
-inside a throwing optimizer are not currently observable.
+The [G1 failure-evidence qualification after EC5](g1-report.md#failure-evidence-qualification-after-ec5)
+records the bounded exception-message and delayed-trace correction. EC5 does
+not reopen the ownership split or invalidate the successful numerical
+comparison. Complete partial histories inside a throwing optimizer are not
+currently observable.
 
 ## Test organization decision
 
@@ -110,8 +115,9 @@ names.
 
 The final implementation was checked with the existing `debug-dealii` and
 `debug-neutral` profiles. The focused forward selection passed 3/3, the
-complete deal.II pipeline passed 175/175, and the neutral pipeline passed
-67/67. The G1 report records the source revisions, current source hashes,
-commands, environment, and generated run locations; raw traces, counters,
-and VTK files remain outside the repository and are recreated by those
-commands.
+focused EC5 failure-evidence selection passed 1/1, and the paired-optimization
+selection passed 2/2. The complete deal.II pipeline passed 176/176, and the
+neutral pipeline passed 67/67. The G1 report records the source revisions,
+current source hashes, commands, environment, and generated run locations;
+raw traces, counters, and VTK files remain outside the repository and are
+recreated by those commands. No tracked run evidence is added.

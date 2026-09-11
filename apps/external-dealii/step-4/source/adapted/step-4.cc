@@ -55,8 +55,8 @@ public:
   {
     bool         converged;
     unsigned int iterations;
-    double       initial_residual;
-    double       final_residual;
+    double       initial_residual; // solver-control monitored initial value
+    double       final_residual;   // solver-control monitored final value
   };
 
   Step4();
@@ -262,17 +262,13 @@ Step4<dim>::solve(const Vector<double> &rhs, Vector<double> &solution) const
   if (rhs.size() != system_matrix.m() || solution.size() != system_matrix.n())
     throw std::invalid_argument("Step4 solve received an incompatible vector");
 
-  Vector<double> initial_residual(rhs.size());
-  system_matrix.vmult(initial_residual, solution);
-  initial_residual.add(-1.0, rhs);
-
   SolverControl            solver_control(1000, 1e-12);
   SolverCG<Vector<double>> solver(solver_control);
   solver.solve(system_matrix, solution, rhs, PreconditionIdentity());
 
   return {solver_control.last_check() == SolverControl::success,
           solver_control.last_step(),
-          initial_residual.l2_norm(),
+          solver_control.initial_value(),
           solver_control.last_value()};
 }
 

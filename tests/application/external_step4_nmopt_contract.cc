@@ -1,11 +1,18 @@
 #include "../../apps/external-dealii/step-4/evaluation/nmopt_binding.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/native_reduced.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/scenario.hpp"
 
 #include "../support/scenario_dispatch.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -23,6 +30,8 @@ namespace
   using LayoutPtr    = external_dealii_step4::LayoutPtr;
   using ProblemA     = external_dealii_step4::ProblemA;
   using Vector       = ProblemA::Vector;
+  using Matrix       = ProblemA::Matrix;
+  using NativeReduced = external_dealii_step4::NativeReduced;
 
   void
   require(const bool condition, const std::string &message)
@@ -309,6 +318,311 @@ namespace
     require(instrumentation.residual_vjp_calls == 3,
             "nmopt binding did not exercise the full VJP callback");
   }
+  double
+  paired_vector_error(const Vector &left, const Vector &right)
+  {
+    return vector_difference(left, right);
+  }
+
+  double
+  paired_vector_bound(const Vector &left, const Vector &right)
+  {
+    return 1.0e-11 +
+           1.0e-10 * std::max(left.l2_norm(), right.l2_norm());
+  }
+
+  double
+  paired_scalar_error(const double left, const double right)
+  {
+    return std::abs(left - right);
+  }
+
+  double
+  paired_scalar_bound(const double left, const double right)
+  {
+    return 1.0e-12 +
+           1.0e-11 * std::max(std::abs(left), std::abs(right));
+  }
+
+  void
+  require_paired_vector(const Vector &      actual,
+                        const Vector &      expected,
+                        const std::string &message)
+  {
+    const double error = paired_vector_error(actual, expected);
+    const double bound = paired_vector_bound(actual, expected);
+    require(error <= bound,
+            message + ": error=" + std::to_string(error) +
+              ", bound=" + std::to_string(bound));
+  }
+
+  void
+  require_paired_scalar(const double        actual,
+                        const double        expected,
+                        const std::string &message)
+  {
+    const double error = paired_scalar_error(actual, expected);
+    const double bound = paired_scalar_bound(actual, expected);
+    require(error <= bound,
+            message + ": error=" + std::to_string(error) +
+              ", bound=" + std::to_string(bound));
+  }
+
+  double
+  matrix_difference(const Matrix &left, const Matrix &right)
+  {
+    require(left.m() == right.m() && left.n() == right.n(),
+            "paired Problem A matrices have incompatible shapes");
+
+    double squared_difference = 0.0;
+    for (unsigned int row = 0; row < left.m(); ++row)
+      for (unsigned int column = 0; column < left.n(); ++column)
+        {
+          const double difference =
+            left.el(row, column) - right.el(row, column);
+          squared_difference += difference * difference;
+        }
+    return std::sqrt(squared_difference);
+  }
+
+  std::filesystem::path
+  find_repository_root()
+  {
+    auto directory = std::filesystem::current_path();
+    while (true)
+      {
+        if (std::filesystem::exists(
+              directory / "apps/external-dealii/step-4/upstream/step-4.cc"))
+          return directory;
+
+        const auto parent = directory.parent_path();
+        if (parent == directory)
+          break;
+        directory = parent;
+      }
+
+    throw std::runtime_error("could not locate the repository root");
+  }
+
+  std::filesystem::path
+  create_comparison_artifact()
+  {
+    const auto now = std::chrono::system_clock::now().time_since_epoch();
+    const auto run_id = std::to_string(
+      std::chrono::duration_cast<std::chrono::microseconds>(now).count());
+    const auto directory = find_repository_root() /
+                           "runs/external-dealii/step-4/reduced-evaluation" /
+                           run_id;
+    std::filesystem::create_directories(directory);
+    return directory;
+  }
+
+  void
+  require_solve_report_match(const ProblemA::SolveEvidence &native,
+                             const nmopt::contract::LinearSolveReport &nmopt,
+                             const std::string                       &name)
+  {
+    require(native.converged, name + " native solve did not converge");
+    require_report(nmopt, name + " nmopt solve");
+    require(native.iterations == nmopt.iterations,
+            name + " changed the CG iteration count");
+    require_paired_scalar(native.final_residual,
+                          nmopt.achieved_residual,
+                          name + " changed the monitored residual");
+  }
+
+  struct PairedEvaluation
+  {
+    Vector native_state;
+    Vector nmopt_state;
+    Vector native_gradient;
+    Vector nmopt_gradient;
+    double native_objective;
+    double nmopt_objective;
+    double state_error;
+    double objective_error;
+    double adjoint_error;
+    double gradient_error;
+  };
+
+  PairedEvaluation
+  compare_reduced_evaluation(const std::string &label,
+                             const Vector       &control,
+                             NativeReduced      &native_reduced,
+                             Binding            &nmopt_binding)
+  {
+    const auto native_value = native_reduced.evaluate_value(control);
+    const auto native_derivative =
+      native_reduced.augment_derivative(native_value);
+
+    const auto nmopt_value = nmopt_binding.reduced().evaluate_value(
+      make_single_block(nmopt_binding.control_layout(), control));
+    const auto nmopt_derivative =
+      nmopt_binding.reduced().augment_derivative(nmopt_value);
+
+    const auto &nmopt_state = nmopt_value.state.block(0);
+    const auto &nmopt_adjoint = nmopt_derivative.adjoint.block(0);
+    const auto &nmopt_gradient = nmopt_derivative.reduced_derivative.block(0);
+
+    require_paired_vector(native_value.state,
+                          nmopt_state,
+                          label + " state");
+    require_paired_scalar(native_value.objective,
+                          nmopt_value.objective_value,
+                          label + " objective");
+    require_paired_vector(native_derivative.adjoint,
+                          nmopt_adjoint,
+                          label + " adjoint");
+    require_paired_vector(native_derivative.reduced_derivative,
+                          nmopt_gradient,
+                          label + " reduced gradient");
+    require_solve_report_match(native_value.state_solve,
+                               nmopt_value.state_solve,
+                               label + " state solve");
+    require_solve_report_match(native_derivative.adjoint_solve,
+                               nmopt_derivative.adjoint_solve,
+                               label + " adjoint solve");
+
+    return {native_value.state,
+            nmopt_state,
+            native_derivative.reduced_derivative,
+            nmopt_gradient,
+            native_value.objective,
+            nmopt_value.objective_value,
+            paired_vector_error(native_value.state, nmopt_state),
+            paired_scalar_error(native_value.objective,
+                                nmopt_value.objective_value),
+            paired_vector_error(native_derivative.adjoint, nmopt_adjoint),
+            paired_vector_error(native_derivative.reduced_derivative,
+                                nmopt_gradient)};
+  }
+
+  void
+  run_nmopt_reduced_comparison()
+  {
+    Instrumentation native_instrumentation;
+    ProblemA        native_problem(native_instrumentation);
+    NativeReduced   native_reduced(native_problem, native_instrumentation);
+
+    Instrumentation nmopt_instrumentation;
+    Binding         nmopt_binding(nmopt_instrumentation);
+
+    require(native_problem.state_dimension() ==
+              nmopt_binding.problem().state_dimension(),
+            "paired Problem A state dimensions differ");
+    require(matrix_difference(native_problem.system_matrix(),
+                              nmopt_binding.problem().system_matrix()) == 0.0,
+            "paired Problem A matrices differ");
+    require(vector_difference(native_problem.system_rhs(),
+                              nmopt_binding.problem().system_rhs()) == 0.0,
+            "paired Problem A RHS vectors differ");
+
+    const auto controls = external_dealii_step4::scenario::reduced_controls();
+    require(controls.size() == 4, "paired Problem A controls are incomplete");
+
+    const std::vector<std::string> labels{
+      "zero", "constant", "ramp", "alternating"};
+    std::vector<PairedEvaluation> evaluations;
+    evaluations.reserve(7);
+    for (std::size_t index = 0; index < controls.size(); ++index)
+      evaluations.push_back(compare_reduced_evaluation(labels[index],
+                                                       controls[index],
+                                                       native_reduced,
+                                                       nmopt_binding));
+
+    const auto repeated_first = compare_reduced_evaluation(
+      "ramp repeat first", controls[2], native_reduced, nmopt_binding);
+    const auto intervening = compare_reduced_evaluation(
+      "alternating intervening", controls[3], native_reduced, nmopt_binding);
+    const auto repeated_last = compare_reduced_evaluation(
+      "ramp repeat last", controls[2], native_reduced, nmopt_binding);
+    evaluations.push_back(repeated_first);
+    evaluations.push_back(intervening);
+    evaluations.push_back(repeated_last);
+
+    require_paired_vector(repeated_first.native_state,
+                          repeated_last.native_state,
+                          "native repeated state");
+    require_paired_vector(repeated_first.nmopt_state,
+                          repeated_last.nmopt_state,
+                          "nmopt repeated state");
+    require_paired_scalar(repeated_first.native_objective,
+                          repeated_last.native_objective,
+                          "native repeated objective");
+    require_paired_scalar(repeated_first.nmopt_objective,
+                          repeated_last.nmopt_objective,
+                          "nmopt repeated objective");
+    require_paired_vector(repeated_first.native_gradient,
+                          repeated_last.native_gradient,
+                          "native repeated gradient");
+    require_paired_vector(repeated_first.nmopt_gradient,
+                          repeated_last.nmopt_gradient,
+                          "nmopt repeated gradient");
+
+    const std::size_t evaluation_count = evaluations.size();
+    require(native_instrumentation.assembly_calls == 1 &&
+              nmopt_instrumentation.assembly_calls == 1,
+            "paired paths did not assemble exactly once each");
+    require(native_instrumentation.state_solve_calls == evaluation_count &&
+              native_instrumentation.adjoint_solve_calls == evaluation_count &&
+              nmopt_instrumentation.state_solve_calls == evaluation_count &&
+              nmopt_instrumentation.adjoint_solve_calls == evaluation_count,
+            "paired solve counts do not match the staged evaluations");
+    require(native_instrumentation.objective_calls == evaluation_count &&
+              native_instrumentation.objective_derivative_calls ==
+                evaluation_count &&
+              nmopt_instrumentation.objective_calls == evaluation_count &&
+              nmopt_instrumentation.objective_derivative_calls ==
+                evaluation_count,
+            "paired objective counts do not match the staged evaluations");
+    require(native_instrumentation.control_vjp_calls == evaluation_count &&
+              native_instrumentation.residual_vjp_calls == 0,
+            "native path did not use only the direct control pullback");
+    require(nmopt_instrumentation.control_vjp_calls == 0 &&
+              nmopt_instrumentation.residual_vjp_calls == evaluation_count,
+            "nmopt path did not use the required full residual VJP");
+    require(native_instrumentation.explicit_matrix_tvmult_calls == 0 &&
+              nmopt_instrumentation.explicit_matrix_tvmult_calls ==
+                evaluation_count,
+            "full-VJP transpose work was not isolated to nmopt");
+
+    const auto artifact = create_comparison_artifact();
+    std::ofstream output(artifact / "comparison.csv");
+    require(static_cast<bool>(output),
+            "could not open reduced comparison artifact");
+    output << "index,label,state_error,objective_error,adjoint_error,"
+              "gradient_error\n"
+           << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (std::size_t index = 0; index < evaluations.size(); ++index)
+      {
+        const std::string label = index < labels.size() ?
+                                    labels[index] :
+                                    (index == 4 ? "ramp repeat first" :
+                                     index == 5 ? "alternating intervening" :
+                                                   "ramp repeat last");
+        const auto &evaluation = evaluations[index];
+        output << index << ',' << label << ',' << evaluation.state_error << ','
+               << evaluation.objective_error << ','
+               << evaluation.adjoint_error << ','
+               << evaluation.gradient_error << '\n';
+      }
+    output << "\ncount,native,nmopt\n"
+           << "state_solves," << native_instrumentation.state_solve_calls
+           << ',' << nmopt_instrumentation.state_solve_calls << '\n'
+           << "adjoint_solves," << native_instrumentation.adjoint_solve_calls
+           << ',' << nmopt_instrumentation.adjoint_solve_calls << '\n'
+           << "control_vjp," << native_instrumentation.control_vjp_calls << ','
+           << nmopt_instrumentation.control_vjp_calls << '\n'
+           << "residual_vjp," << native_instrumentation.residual_vjp_calls << ','
+           << nmopt_instrumentation.residual_vjp_calls << '\n'
+           << "explicit_matrix_tvmult,"
+           << native_instrumentation.explicit_matrix_tvmult_calls << ','
+           << nmopt_instrumentation.explicit_matrix_tvmult_calls << '\n';
+
+    std::cout << "Step-4 native/nmopt reduced comparison passed: "
+              << artifact.lexically_relative(find_repository_root()).generic_string()
+              << '\n';
+  }
 } // namespace
 
 int
@@ -321,7 +635,12 @@ main(const int argc, char **argv)
          "nmopt.external_tutorial_step_4.nmopt_binding_construction",
          {"dealii", "application", "external", "tutorial", "integration"},
          60,
-         run_nmopt_binding_construction}};
+         run_nmopt_binding_construction},
+        {"nmopt_reduced_comparison",
+         "nmopt.external.tutorial_step_4.nmopt_reduced_comparison",
+         {"dealii", "application", "external", "tutorial", "integration"},
+         180,
+         run_nmopt_reduced_comparison}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E4.a — Construct current-public-API Problem A binding; implementation complete, review pending |
+| Current unit | E4.b — Paired native/nmopt reduced-evaluation evidence; implementation complete, review pending |
 | Last completed/adopted gate | E3 — Native Problem A and independent verification, committed through `51dc804` |
-| Next unit | E4.b — Paired native/nmopt reduced-evaluation evidence, after E4.a review and commit |
+| Next unit | E5 — Matched optimization, after E4.b review and commit |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -339,7 +339,14 @@ Suggested initial rows:
 | N03 | Identity metric contract wrapper | no wrapper needed | yes | optional check | nmopt mechanical adaptation |
 | O01 | Value-only rejected trial handling | yes | supplied by solver | checked | Optimizer orchestration service |
 
-Also keep small CSV traces for solves, evaluations, and trials. Fixed headers and scalar values are sufficient; no general serializer is required. Every run records both baseline hashes, experiment source revision and dirty-state description, scenario constants, compiler/deal.II versions, profile, and commands. Keep a final reviewed ledger/report in `docs/planning/review/external-dealii-boundary-evaluation.md` at G1, or attach a small CSV beside it. Do not promote speculative diagnoses or raw field files merely to complete the report.
+Also keep small CSV traces for solves, evaluations, and trials. Fixed headers
+and scalar values are sufficient; no general serializer is required. A unit
+handoff or the final G1 report records the relevant source revisions,
+environment, commands, and evidence locations; runtime tests do not need to
+collect Git metadata or source hashes. Keep a final reviewed ledger/report in
+`docs/planning/review/external-dealii-boundary-evaluation.md` at G1, or attach a
+small CSV beside it. Do not promote speculative diagnoses or raw field files
+merely to complete the report.
 
 Add a small source-size summary to the final report using one stated counting convention, such as nonblank, noncomment physical source lines. Separate original/derived baseline source, actual reuse delta, native mathematical operations, native orchestration, binding, and verification. Use disjoint source spans for additive totals; shared operations are counted once with multiple consumer flags. Do not sum overlapping ledger symbols, count an included template definition once per translation unit, or compare a stripped file's total size with an adapter's incremental size. Source-size measurements supplement the causal ledger; they are not acceptance thresholds.
 
@@ -514,7 +521,15 @@ Use one state block, one control block, one test block, distinct space identitie
 
 Checks: each callback checked against native operations; off-solution full VJP; correct report translation; all frozen sample controls and repeated-control case; staged evaluation counts; metric gradient and negative search direction; valid borrowed lifetimes; no compiler/private-header dependence. Verify that distinct compatible layout objects are not assumed incompatible.
 
-Artifacts: paired result/error table, construction capability inventory, runtime callback/native-operation counts, source-derived copy audit, header/link dependency evidence, updated ledger.
+Artifacts: a compact paired result/error table and the runtime native/nmopt
+operation counts, with attribution reconciled outside the test driver.
+Repository provenance belongs in the handoff or final report; the comparison
+test does not invoke Git, hash source files, or estimate copies and allocations.
+
+Protocol amendment (2026-09-11): for E4.b, provenance and source-derived copy
+audits are handoff/report evidence rather than runtime test output. They do not
+affect the numerical comparison, and collecting them inside the test obscured
+the small integration behavior under evaluation.
 
 Prospective commit: `test(dealii): compare native and nmopt reduced evaluations`.
 
@@ -542,8 +557,24 @@ produce three; the assertion was corrected and the rerun passed 1/1. The full
 `./build.sh pipeline debug-dealii` passed `168/168` tests. The binding uses only
 the current public contracts, leaves the adapted Step-4 source and shared
 nmopt headers unchanged, and records no E4.b paired artifacts yet. E4.a is
-ready for review and explicit commit; E4.b is the next subunit after that
-commit.
+documented as ready for review here and was subsequently committed as
+`e0cba98`; E4.b followed that commit.
+
+E4.b evidence (2026-09-11): with E4.a committed as `e0cba98`, the paired
+scenario assembled separate native and current-nmopt Problem A instances with
+exact matrix and RHS agreement. It compared the four frozen controls followed
+by a ramp–intervening–ramp sequence through separate staged reduced
+evaluators. All seven state and seven adjoint solves matched in CG iteration
+counts and monitored residuals; every paired state, objective, adjoint, and
+reduced-gradient error was zero. The compact artifact is
+`runs/external-dealii/step-4/reduced-evaluation/1789114997387425/comparison.csv`.
+The native path used seven direct control pullbacks and no full residual VJP;
+current nmopt used seven full residual VJPs, each performing the additional
+explicit matrix transpose action. The focused reduced-comparison scenario
+passed 1/1. The full `./build.sh pipeline debug-dealii` passed `169/169`, and
+the required `./build.sh pipeline debug-neutral` passed `67/67`. Provenance and
+source identity remain handoff/report concerns, not runtime behavior. E4.b is
+ready for review and explicit commit; E5 remains pending.
 
 ### E5 — Matched optimization
 
@@ -587,17 +618,17 @@ Ignored run-artifact root:
 runs/external-dealii/step-4/
   working/attribution.csv
   forward-comparison/<run-id>/{upstream,stripped,adapted,comparison}/
-  reduced-evaluation/<run-id>/{native,nmopt,comparison}/
+  reduced-evaluation/<run-id>/comparison.csv
   optimization/<run-id>/{native,nmopt,comparison}/
 ```
 
 Use isolated directories and unique run IDs so retries do not destroy failing
-traces or overwrite native with nmopt output. Directory names describe the
-comparison or scenario, not the roadmap unit that produced them. This is a
-simple artifact convention, not a new runner schema. Record commands,
-revisions, constants, compiler/deal.II/build information, test outcomes,
-source hashes, and numerical errors in plain text/CSV. Evidence files are
-outputs, not mutable configuration.
+traces. Directory names describe the comparison or scenario, not the roadmap
+unit that produced them. This is a simple artifact convention, not a new
+runner schema. Record numerical errors and observed counts in plain text/CSV;
+record commands, revisions, and environment details in the unit handoff or
+final report rather than making the test collect Git metadata or source hashes.
+Evidence files are outputs, not mutable configuration.
 
 At each unit handoff state: completed artifacts and checks, actual failures, protocol deviations, updated attribution, exact next unit, and prospective commit boundary. Do not mark a unit complete because it compiles or emits files. Final scope check must show no shared nmopt implementation changes and no edits to upstream/frozen stripped source.
 

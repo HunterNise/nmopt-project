@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary` |
-| Current unit | Bounded Step-4 ownership and evidence reconciliation complete |
-| Last completed/adopted gate | G1 — Attribution and decision, followed by local ownership cleanup and documentation committed as `2bfae18` |
-| Next unit | None in this bounded evaluation |
+| Current unit | EC4 — Permanent Step-4 evidence and documentation reconciliation (implemented locally; review pending) |
+| Last completed/adopted gate | EC3 — Forward-comparator nonfinite-data correction, committed as `6a9d1a5` |
+| Next unit | None after EC4 review in this bounded evaluation |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -19,7 +19,7 @@ Maintain progress status here. Future units also update their required evidence,
 - **Frozen protocol** — choices adopted by E0, including numerical constants and acceptance thresholds. They remain fixed for the first comparison unless a documented protocol amendment is accepted. They are not experimental observations.
 - **Derived schedule invariant** — an operation/count relationship implied by the prescribed successful execution schedule. It must be tested; deriving it does not make it an observed result.
 - **Observed result** — evidence actually produced by a run. Record the revision, environment, command, and evidence location. Prior recorded results remain historical until reproduced for this comparison.
-- **Open hypothesis** — an architectural interpretation awaiting evidence. Whether the current boundary is too broad, ergonomic helpers would suffice, or deeper coupling exists remains open through G1.
+- **Open hypothesis** — an architectural interpretation awaiting evidence. Whether the current boundary is too broad, ergonomic helpers would suffice, or deeper coupling exists remains open through G1; the bounded dispositions are recorded in the G1 report.
 
 Sections 3–8 define the frozen protocol, except for explicitly identified derived schedule invariants and evidence-recording guidance. Numerical constants and acceptance thresholds are **Frozen protocol; not yet validated experimentally.** No E1–E5 result is asserted by E0.
 
@@ -75,12 +75,12 @@ Authority split:
 - The [PDE–solver boundary](../design/pde-solver-boundary.md) and [v0 executable contract](../implementation/v0/executable-contract.md) remain the architecture and current executable-contract authorities. Evaluate the current contract faithfully; its ergonomic sufficiency is under investigation.
 - The [external integration reference](../reference/external-dealii-solver-integration.md) describes the existing public API and tested reference consumer, with the factual qualifications below.
 - The [tutorial roadmap](external-dealii-tutorial-roadmap.md) is a superseded historical plan for this work. Its original intended sequence remains historical planning; this roadmap owns current evaluation work.
-- Raw traces, working attribution, and speculative explanations remain ignored working evidence. At G1, promote the reviewed factual report and attribution; long-lived design changes require a subsequent accepted decision.
+- Raw traces, working attribution, and speculative explanations remain ignored working evidence. At closure, promote the reviewed factual report and reproducible commands; generated run outputs and the working ledger remain ignored. Long-lived design changes require a subsequent accepted decision.
 
 E0 factual corrections:
 
 1. The old roadmap's stale assertion that source selection had not started is replaced with a dated historical qualification: `b4dce25` contains the upstream source, an adapted copy, and a native wrapper/smoke target; it does not contain the planned authentic Step-4 nmopt comparison. Do not retroactively mark all old acceptance criteria complete.
-2. The integration reference's opening next-step paragraph points to this evaluation roadmap. The existing fixture exercises API functionality, while authentic adaptation cost and ergonomic sufficiency are under evaluation.
+2. The integration reference's opening paragraph points to this evaluation roadmap and its final report. The existing fixture exercises API functionality; the authentic Step-4 evaluation now records bounded adaptation cost and ergonomic limits for the tested case.
 3. Qualify the reference statement that nmopt receives only operations needed by the selected formulation: construction currently requires all five executable operations, although first-order reduced evaluation does not call residual or JVP and consumes only the control component of the full VJP.
 4. Correct the layout paragraph: `BlockLayout::compatible_with()` compares ordered space IDs and dimensions. Separate layout objects, and different display labels, can be compatible. Object pointer identity is not required. Equal raw dimensions alone are insufficient.
 5. Clarify solve reporting: the one-argument `FormulationSolveResultT` constructor fabricates a converged exact-solve report; it does not verify a native solve. Iterative success should carry actual evidence. A failure must never be labeled converged; returning a failed report or propagating the native exception both prevent reduced evaluation from using a successful result. This experiment uses exception propagation.
@@ -680,7 +680,8 @@ Gate: stop implementation after presenting the recommendation. Helper/API change
 G1 report (2026-09-11): [External deal.II boundary evaluation: G1 report](review/external-dealii-boundary-evaluation/g1-report.md)
 promotes the E0–E5 source, mathematical, reduced-evaluation, and matched-
 optimization evidence. It classifies the full-VJP state component as a
-tested frozen-API obligation with measured repeated transpose work, while
+tested frozen-API obligation with measured repeated transpose work whose
+performance materiality remains unresolved, while
 classifying block/layout and identity-metric setup as mechanical adaptation.
 For the tested linear Problem A, the report recommends retaining the current
 public boundary and making no automatic helper, API, or Problem B change. H1,
@@ -705,6 +706,28 @@ The detailed permanent note is
 This reconciliation does not promote a generic helper, change the shared API,
 reorganize ignored run artifacts, or start another tutorial evaluation.
 
+### Closure corrections
+
+The bounded closure corrections preserve the G1 decision while repairing the
+evidence boundary:
+
+- `a7f6cf7` preserves failure evidence and stops runtime tests from rewriting
+  the shared attribution record;
+- `b235a85`, `21d775e`, `6193519`, `d3bdaa0`, and `d44dded` remove the extra
+  solve action, independently audit residuals and final gradients, enforce
+  the absolute oracle-distance gate, reject nonfinite acceptance data, and
+  close the runtime-count checks; and
+- `6a9d1a5` makes the forward comparator reject nonfinite geometry and field
+  values while retaining its failure report.
+
+The permanent record is the G1 report, its ownership note, and the reproducible
+commands below. Corrected comparisons, summaries, counters, and the reviewed
+working ledger are generated under the ignored `runs/external-dealii/step-4/`
+tree; they are not copied into tracked documentation. Earlier E4/E5 run links
+remain historical and are identified by their original revisions. The
+corrections do not change the tested Problem A scope or authorize Problem B,
+performance claims, a generic helper, or a shared API change.
+
 ## 10. Verification execution and artifacts
 
 Follow `.agents/build.md` for required pipelines. In particular, use existing `build.sh` profiles and the machine's existing `build.local.conf`; do not invent configuration or job limits. Documentation-only E0/G1 needs no build unless new code changes require it. C++/CMake units run focused new scenarios and the required Debug pipelines; reuse valid results within a unit and rerun affected checks after fixes.
@@ -722,6 +745,10 @@ runs/external-dealii/step-4/
   reduced-evaluation/<run-id>/comparison.csv
   optimization/<run-id>/{native,nmopt,comparison}/
 ```
+
+The run tree is intentionally ignored: rerunning the commands recreates the
+current comparison and diagnostic artifacts instead of relying on hardcoded
+tracked copies.
 
 Use isolated directories and unique run IDs so retries do not destroy failing
 traces. Directory names describe the comparison or scenario, not the roadmap

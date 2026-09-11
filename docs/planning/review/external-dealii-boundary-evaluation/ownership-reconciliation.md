@@ -1,10 +1,12 @@
 # Step-4 ownership and evidence reconciliation
 
-Status: completed for the bounded post-G1 cleanup on 2026-09-11.
+Status: closure record updated for the bounded post-G1 corrections on
+2026-09-11.
 
 This note makes the implementation boundary explicit after the original G1
-report. It does not change the G1 conclusion, the shared nmopt API, or the
-frozen Problem A comparison. The authoritative execution record remains the
+report and records where corrected ignored artifacts are recreated. It does
+not change the G1 conclusion, the shared nmopt API, or the frozen Problem A
+comparison. The authoritative execution record remains the
 [external deal.II boundary evaluation roadmap](../../external-dealii-boundary-evaluation.md).
 
 ## Minimum functional path
@@ -40,14 +42,21 @@ The following code is intentionally outside the minimum wiring path:
 | `source/baseline/` | Comment-stripped fidelity comparison input. |
 | `evaluation/` | Native reduced and optimization reference paths and frozen policy. |
 | `verification/` | Deterministic scenarios, independent oracle, and comparison checks. |
-| `diagnostics/` | Counters and solve evidence for explaining the evaluation. |
+| `diagnostics/` | Evaluation-only counters and solve evidence for explaining the comparison. |
 | `tools/external_dealii/` | Reusable source and forward-comparison utilities. |
+| `tests/dealii/` and `tests/application/` | Evaluation and contract drivers; not binding code. |
 | `runs/external-dealii/step-4/` | Ignored generated artifacts only. |
 
 The application directory therefore does not contain multiple functional
 versions of Step-4 or a large undifferentiated evaluation folder. The complete
 directory map and runnable commands are in the
 [Step-4 README](../../../../apps/external-dealii/step-4/README.md).
+
+The minimum path does not construct diagnostics. The current integration
+headers still include `diagnostics/instrumentation.hpp` to provide nullable
+instrumentation pointers, so collection is optional at runtime while the
+header remains a source dependency. Removing that dependency is separate from
+this evidence closure.
 
 ## Evidence corrections retained from G1 review
 
@@ -64,6 +73,10 @@ directory map and runnable commands are in the
   without changing the upstream, stripped, or adapted source contents.
 - O2 removed the requirement to construct diagnostics for the functional
   path, without adding a shared helper or framework interface.
+- EC1–EC3 preserved failure evidence, repaired the numerical acceptance and
+  runtime-count checks, and made forward comparison reject nonfinite data.
+  Their generated comparisons, summaries, counters, and working attribution
+  are recreated below the ignored `runs/external-dealii/step-4/` tree.
 
 ## Test organization decision
 
@@ -89,8 +102,9 @@ names.
 ## Verification
 
 The final implementation was checked with the existing `debug-dealii` and
-`debug-neutral` profiles. The Step-4 focused selection passed 11/11, including
-the no-diagnostics construction-and-solve scenario. The neutral pipeline
-passed 67/67. The affected deal.II targets rebuilt successfully, and the
-earlier complete deal.II pipeline remained green at 172/172 after the O1
-reorganization.
+`debug-neutral` profiles. The focused forward selection passed 3/3, the
+complete deal.II pipeline passed 175/175, and the neutral pipeline passed
+67/67. The G1 report records the source revisions, current source hashes,
+commands, environment, and generated run locations; raw traces, counters,
+and VTK files remain outside the repository and are recreated by those
+commands.

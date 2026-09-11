@@ -26,7 +26,13 @@ framework. The evaluation record and roadmap status live in the
 | `integration/nmopt_binding.hpp` | Layouts, callbacks, state/adjoint services, identity metric, and reduced DTO construction using public nmopt contracts. | Yes |
 | `evaluation/` | Native reduced and optimization reference paths plus the frozen experiment policy. | No |
 | `verification/` | Deterministic scenarios, independent oracle, and comparison checks. | No |
-| `diagnostics/` | Counters and solve evidence used to explain the evaluation. | No |
+| `diagnostics/` | Evaluation-only counters and solve evidence used to explain the comparison. | No |
+
+The minimum path does not construct an `Instrumentation` object. However,
+`problem_a.hpp` and `nmopt_binding.hpp` currently include the diagnostics
+header to support their nullable instrumentation pointers. Runtime diagnostic
+collection is therefore optional, while the header remains a source
+dependency; removing that dependency is outside this closure.
 
 The generic source tools remain under
 [`tools/external_dealii/`](../../../tools/external_dealii/). The ignored
@@ -73,6 +79,10 @@ and uses only the standard scenario-discovery helper, so it remains
 independent of nmopt headers and targets. The application contract and paired
 optimization checks consume the `integration/`, `evaluation/`, and
 `verification/` files separately.
+
+The three Step-4 C++ test drivers, the forward-comparator contract, and the
+`tools/external_dealii/` scripts are verification or evaluation support. They
+are not needed to construct or run the minimum binding.
 
 Configure and build the standalone fixtures with:
 

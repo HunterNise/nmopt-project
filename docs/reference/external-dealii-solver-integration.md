@@ -11,12 +11,12 @@ The test uses a small Poisson-control application, but the boundary is about
 operations and ownership rather than that PDE family.
 
 This reference describes the currently implemented API exercised by that
-fixture. Authentic external-application adaptation cost and ergonomic
-sufficiency are under evaluation in the
-[external Step-4 boundary evaluation](../planning/external-dealii-boundary-evaluation.md).
-That controlled native-versus-current-nmopt comparison retains the completed
-PDE–solver boundary refactor as a baseline. It has not yet established whether
-helpers, a boundary change, or deeper architectural work are warranted.
+fixture. The authentic Step-4 boundary evaluation is now closed for its
+bounded linear Problem A case; its [final report](../planning/review/external-dealii-boundary-evaluation/g1-report.md)
+records the measured adaptation obligations and limits. That comparison
+retains the completed PDE–solver boundary refactor as a baseline and does not
+recommend a helper, boundary change, or deeper architectural work from this
+case alone.
 
 ## Integration boundary
 
@@ -260,10 +260,9 @@ point-dependent application may need it. The reference linear application
 does not use it. A solve callback must not return a state or adjoint with an
 incompatible layout or label a failed solve converged. A non-converged report
 is rejected by `ReducedDTOT`; a native exception also propagates out of the
-evaluation. Under the frozen protocol, the Step-4 evaluation will preserve
-native solve exception propagation and supply actual convergence evidence
-for successful CG solves. It will not label them exact using the convenience
-constructor.
+evaluation. The completed Step-4 evaluation preserved native solve exception
+propagation and supplied actual convergence evidence for successful CG solves;
+it did not label them exact using the convenience constructor.
 
 ## 5. Add the metric and optional capabilities
 

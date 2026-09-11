@@ -1,13 +1,16 @@
 # External deal.II boundary evaluation: G1 report
 
-Status: G1 report reconciled with the bounded post-G1 cleanup on 2026-09-11.
-The original E0–E5 evidence remains identified by its evaluated revision;
-the reconciliation below records later evidence corrections without changing
-the public nmopt boundary.
+Status: final report reconciled with the bounded post-G1 corrections on
+2026-09-11. Generated run artifacts remain ignored and are recreated by the
+commands recorded below; no run output is copied into tracked documentation.
+The original E0–E5 evidence remains identified by its evaluated revision, and
+the corrected closure evidence is identified separately.
 
-Date: 2026-09-11  
-Evaluated revision: `277fbf4` (`test(dealii): compare native and nmopt optimization paths`)  
-Roadmap: [external deal.II boundary evaluation](../../external-dealii-boundary-evaluation.md)  
+Date: 2026-09-11
+Original evaluated revision: `277fbf4` (`test(dealii): compare native and nmopt optimization paths`)
+Corrected numerical path: `d44dded1400365979d1633c9eda8e561a776c32c`
+Closure verification: `6a9d1a565bdf0b21ad72889e6f3e06bcdf5a3282`
+Roadmap: [external deal.II boundary evaluation](../../external-dealii-boundary-evaluation.md)
 Review context: [design investigation](design-investigation.md)
 
 ## Post-G1 reconciliation
@@ -33,12 +36,24 @@ reviewed and committed:
   functional binding path and prevents the binding from being copied or
   moved because its callbacks capture owned application state.
 
-The corrected paired artifacts are the
-[reduced-evaluation comparison](../../../../runs/external-dealii/step-4/reduced-evaluation/1789129214466132/comparison.csv)
-and the [matched-optimization summary](../../../../runs/external-dealii/step-4/optimization/1789129275006264/comparison/summary.txt).
-These changes preserve the original G1 decision: the current public boundary
-is adequate for this tested external case, and no shared helper or API change
-is implied.
+- EC1 (`a7f6cf7`) preserves failing comparison/solve evidence and prevents
+  runtime tests from rewriting the shared attribution ledger.
+- EC2 (`b235a85`, `21d775e`, `6193519`, `d3bdaa0`, and `d44dded`) removes the
+  extra solve action, independently audits residuals and final gradients,
+  enforces the absolute oracle-distance gate, rejects nonfinite acceptance
+  data, and closes the runtime-count checks.
+- EC3 (`6a9d1a5`) makes the forward comparator reject nonfinite geometry and
+  field values while retaining its failure report.
+
+The corrected reduced comparison is recreated at
+`runs/external-dealii/step-4/reduced-evaluation/reduced-1789148523091774/comparison.csv`;
+the corrected matched-optimization summary and counters are recreated at
+`runs/external-dealii/step-4/optimization/paired-1789148523884470/comparison/summary.txt`
+and its `counters.csv`. The corrected working ledger is at
+`runs/external-dealii/step-4/working/attribution.csv`. These paths are ignored
+run artifacts, not tracked evidence files. The corrections preserve the
+original G1 decision: the current public boundary is adequate for this tested
+external case, and no shared helper or API change is implied.
 
 ## Decision
 
@@ -67,37 +82,42 @@ The pinned upstream source is deal.II `v9.5.1`, with SHA-256
 `be9e694f5f3c9177b7cd18200ff8173337c2b16e1ee72d45ab1ba7c6e105be5f`. The
 comment-stripped baseline has SHA-256
 `b21212764c50401089612c6ac2bb196395e3ac9c261120e0513be341825399b2`, and the
-adapted reusable source has SHA-256
-`aec5a0e25578ad9b8c762bf74b2f7f333f23dabdd777c77c4e06e3b0be377bc8`.
+current adapted reusable source has SHA-256
+`c85e04027681d007498ee9b5b885e4b30f9b020c659abee26e703c71024be71b`.
 The upstream and stripped token stream was checked by the bounded stripper;
 the adapted source was compared separately and is not used to regenerate the
 baseline. The obsolete wrapper and smoke implementation from the previous
 attempt were removed in `9a339e7` and remain recoverable in Git history.
 
-The latest recorded forward comparison passed for upstream versus stripped in
-[this artifact](../../../../runs/external-dealii/step-4/forward-comparison/20260911T093700Z-ef4e676c/comparison.txt),
-and for upstream versus adapted in
-[this artifact](../../../../runs/external-dealii/step-4/forward-comparison/adapted/20260911T093708Z-f89b903f/comparison.txt).
-Both report identical stdout, 2D output with 1,024 points and 256 cells, and
-3D output with 32,768 points and 4,096 cells, including zero numeric array
-differences.
+The closure verification recreated the forward comparisons for upstream versus
+stripped at
+`runs/external-dealii/step-4/forward-comparison/20260911T174353Z-201717a3/comparison.txt`
+and upstream versus adapted at
+`runs/external-dealii/step-4/forward-comparison/adapted/20260911T174403Z-82ee1d64/comparison.txt`.
+Both reports show identical stdout, 2D output with 1,024 points and 256 cells,
+and 3D output with 32,768 points and 4,096 cells, including zero numeric array
+differences. The paths are ignored run artifacts and are recreated by the
+documented commands.
 
-The measured commands used the existing `debug-dealii` profile and one build
-job where a deal.II build was required:
+The closure verification used the existing Debug profiles and the machine's
+configured build limits:
 
 ~~~bash
 python3 tools/external_dealii/strip_comments.py \
   --input apps/external-dealii/step-4/source/upstream/step-4.cc \
   --check apps/external-dealii/step-4/source/baseline/step-4-stripped.cc
-./build.sh build debug-dealii --target nmopt_external_step4_optimization_contract_test
 ctest --test-dir build/debug-dealii --output-on-failure \
-  -R '^nmopt\.external\.tutorial_step_4\.matched_optimization$'
+  -R '^nmopt\.external_tutorial_step_4\.(forward_comparator_contract|forward_comparison|adapted_forward_comparison)$'
 ./build.sh pipeline debug-dealii
+./build.sh pipeline debug-neutral
 ~~~
 
-The focused matched-optimization selection passed `1/1`; the complete Debug
-deal.II pipeline passed `172/172`. No release timing, allocation count, or
-internal uninstrumented operator count is claimed.
+The focused forward selection passed `3/3`; the complete Debug deal.II
+pipeline passed `175/175`, and the backend-neutral pipeline passed `67/67`.
+The machine was Linux x86_64 under WSL2, using GCC 13.3.0, CMake 3.28.3,
+Ninja 1.11.1, and deal.II 9.5.1 from `/usr/share/cmake/deal.II`. No release
+timing, allocation count, or internal uninstrumented operator count is
+claimed.
 
 ## Mathematical and integration evidence
 
@@ -124,7 +144,7 @@ adjoint, and reduced-gradient error was zero. Both paths recorded seven state
 solves and seven adjoint solves. Native used seven direct control pullbacks;
 current nmopt used seven full residual VJPs and seven explicit transpose
 actions. The result is preserved in
-[the reduced-evaluation artifact](../../../../runs/external-dealii/step-4/reduced-evaluation/1789119304531046/comparison.csv).
+[the recreated reduced-evaluation artifact](../../../../runs/external-dealii/step-4/reduced-evaluation/reduced-1789148523091774/comparison.csv).
 
 The E5 matched optimization run used the same zero initial control and frozen
 steepest-descent/Armijo policy. Both paths stopped by gradient tolerance after
@@ -140,13 +160,16 @@ steepest-descent/Armijo policy. Both paths stopped by gradient tolerance after
 The final gradient norm was `9.5036543162094535e-7`. Native used 829 direct
 control VJPs. Current nmopt used 829 residual VJPs and 829 explicit matrix
 transpose actions, plus 829 reported identity-metric solves and no Hessian
-actions. The paired summary is
-[here](../../../../runs/external-dealii/step-4/optimization/1789119247586875/comparison/summary.txt);
-both complete traces are retained beside it.
+actions. The corrected paired summary is
+[here](../../../../runs/external-dealii/step-4/optimization/paired-1789148523884470/comparison/summary.txt);
+its counters, residual audits, gradient audits, and complete traces are
+retained beside it in the ignored run directory.
 
 ## Causal attribution
 
-The working ledger is [here](../../../../runs/external-dealii/step-4/working/attribution.csv).
+The working ledger is [here](../../../../runs/external-dealii/step-4/working/attribution.csv);
+it is intentionally ignored and is recreated or reviewed alongside the run
+artifacts rather than copied into tracked documentation.
 The categories below are causal classifications, not mutually exclusive
 claims about source files.
 
@@ -201,7 +224,7 @@ the evidence supports the bounded case, not the corresponding universal claim.
 
 | ID | Disposition | Evidence and limit |
 | --- | --- | --- |
-| H1 — Complete executable construction causes material extra obligations | Supported for the tested case | Residual/JVP/full-VJP construction was required, and the full-VJP state block caused 829 repeated explicit transpose actions. No timing or allocation materiality is claimed. |
+| H1 — Complete executable construction causes material extra obligations | Required extra obligations/work established; materiality unresolved | Residual/JVP/full-VJP construction was required, and the full-VJP state block caused 829 repeated explicit transpose actions. The run measures incidence and count, not timing, allocation, or performance materiality. |
 | H2 — Most integration friction is mechanical construction | Unresolved | Block/layout/metric/report wiring is mechanical, but the single binding has no helper comparison and the case also requires real mathematics and repeated full-VJP work. |
 | H3 — Verification and runtime capabilities merit different construction status | Supported for the tested case | Residual/JVP were verified and required for construction but had zero matched E5 runtime calls; full VJP remained both a construction and runtime consumer. |
 | H4 — Current solve contracts preserve native policy and ownership adequately | Supported for the tested case | Supplied-RHS CG, actual solve reports, zero initialization, retained states, and native exception behavior were preserved. The case is linear and symmetric. |
@@ -211,10 +234,10 @@ the evidence supports the bounded case, not the corresponding universal claim.
 
 ## Recommendation and limits
 
-Close the E0–E5 evaluation for the tested Problem A case. Do not perform
-cleanup, add a generic helper, or alter the shared nmopt API as an automatic
-follow-up. Preserve the current attribution ledger and raw artifacts as
-working evidence.
+Close the E0–E5 evaluation and its bounded evidence corrections for the tested
+Problem A case. The corrected run outputs remain ignored and reproducible from
+the documented commands. Do not add a generic helper or alter the shared
+nmopt API as an automatic follow-up.
 
 If future authentic applications reproduce the same block/layout/metric
 construction pattern, a separately scoped mechanical helper may be evaluated.

@@ -28,8 +28,9 @@ namespace external_dealii_step4
     using Primal   = nmopt::contract::PrimalBlockT<Backend>;
     using Covector = nmopt::contract::CovectorBlockT<Backend>;
 
-    explicit IdentityMetric(LayoutPtr layout)
-      : id_("external_step4_identity")
+    IdentityMetric(LayoutPtr layout, Instrumentation &instrumentation)
+      : instrumentation_(instrumentation)
+      , id_("external_step4_identity")
       , layout_(std::move(layout))
     {
       if (!layout_)
@@ -51,6 +52,7 @@ namespace external_dealii_step4
     Covector
     apply(const Primal &primal) const override
     {
+      ++instrumentation_.metric_apply_calls;
       require_compatible(primal.layout(),
                          "Step-4 identity metric primal");
       return Covector(layout_, {primal.block(0)});
@@ -59,6 +61,7 @@ namespace external_dealii_step4
     Primal
     inverse_apply(const Covector &covector) const override
     {
+      ++instrumentation_.metric_inverse_apply_calls;
       require_compatible(covector.layout(),
                          "Step-4 identity metric covector");
       return Primal(layout_, {covector.block(0)});
@@ -73,8 +76,9 @@ namespace external_dealii_step4
                                     " has an incompatible layout");
     }
 
-    std::string id_;
-    LayoutPtr   layout_;
+    Instrumentation &instrumentation_;
+    std::string       id_;
+    LayoutPtr         layout_;
   };
 
   class NmoptBinding final
@@ -104,7 +108,7 @@ namespace external_dealii_step4
       , model_(make_model(problem_, variable_layout_, test_layout_))
       , partition_(model_, 0, 1)
       , solvers_(make_solvers(problem_, partition_.state_layout(), test_layout_))
-      , metric_(partition_.control_layout())
+      , metric_(partition_.control_layout(), instrumentation_)
       , reduced_(model_, partition_, solvers_)
     {}
 

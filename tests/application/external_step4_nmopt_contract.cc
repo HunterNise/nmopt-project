@@ -315,6 +315,20 @@ namespace
     require(instrumentation.state_solve_calls == 1 &&
               instrumentation.adjoint_solve_calls == 1,
             "nmopt binding solve schedule was not staged");
+    require(instrumentation.residual_calls == 2 &&
+              instrumentation.residual_jvp_calls == 2 &&
+              instrumentation.residual_vjp_calls == 3 &&
+              instrumentation.control_vjp_calls == 0,
+            "nmopt binding callback counts are inconsistent");
+    require(instrumentation.objective_calls == 3 &&
+              instrumentation.objective_derivative_calls == 3,
+            "nmopt binding objective callback counts are inconsistent");
+    require(instrumentation.explicit_matrix_vmult_calls == 4 &&
+              instrumentation.explicit_matrix_tvmult_calls == 3,
+            "nmopt binding explicit matrix-action counts are inconsistent");
+    require(instrumentation.metric_apply_calls == 1 &&
+              instrumentation.metric_inverse_apply_calls == 2,
+            "nmopt binding metric callback counts are inconsistent");
     require(instrumentation.residual_vjp_calls == 3,
             "nmopt binding did not exercise the full VJP callback");
   }
@@ -585,6 +599,11 @@ namespace
               nmopt_instrumentation.explicit_matrix_tvmult_calls ==
                 evaluation_count,
             "full-VJP transpose work was not isolated to nmopt");
+    require(native_instrumentation.metric_apply_calls == 0 &&
+              native_instrumentation.metric_inverse_apply_calls == 0 &&
+              nmopt_instrumentation.metric_apply_calls == 0 &&
+              nmopt_instrumentation.metric_inverse_apply_calls == 0,
+            "reduced evaluation unexpectedly applied a metric");
 
     const auto artifact = create_comparison_artifact();
     std::ofstream output(artifact / "comparison.csv");
@@ -617,7 +636,12 @@ namespace
            << nmopt_instrumentation.residual_vjp_calls << '\n'
            << "explicit_matrix_tvmult,"
            << native_instrumentation.explicit_matrix_tvmult_calls << ','
-           << nmopt_instrumentation.explicit_matrix_tvmult_calls << '\n';
+           << nmopt_instrumentation.explicit_matrix_tvmult_calls << '\n'
+           << "metric_apply," << native_instrumentation.metric_apply_calls
+           << ',' << nmopt_instrumentation.metric_apply_calls << '\n'
+           << "metric_inverse_apply,"
+           << native_instrumentation.metric_inverse_apply_calls << ','
+           << nmopt_instrumentation.metric_inverse_apply_calls << '\n';
 
     std::cout << "Step-4 native/nmopt reduced comparison passed: "
               << artifact.lexically_relative(find_repository_root()).generic_string()

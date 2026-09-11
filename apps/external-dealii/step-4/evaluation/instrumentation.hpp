@@ -43,6 +43,8 @@ namespace external_dealii_step4
     std::size_t value_evaluations              = 0;
     std::size_t derivative_augmentations       = 0;
     std::size_t output_calls                   = 0;
+    std::size_t metric_apply_calls             = 0;
+    std::size_t metric_inverse_apply_calls     = 0;
     std::vector<SolveRecord> solve_records;
     std::vector<SolveFailureRecord> solve_failure_records;
 

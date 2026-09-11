@@ -435,8 +435,14 @@ namespace
         nmopt_instrumentation.explicit_matrix_tvmult_calls != 1 + accepted)
       note("pullback schedule is inconsistent");
     if (nmopt_result.metric_solve_count != accepted + 1 ||
-        nmopt_result.hessian_action_count != 0)
-      note("nmopt work report is inconsistent");
+        nmopt_result.hessian_action_count != 0 ||
+        native_instrumentation.metric_apply_calls != 0 ||
+        native_instrumentation.metric_inverse_apply_calls != 0 ||
+        nmopt_instrumentation.metric_inverse_apply_calls !=
+          nmopt_result.metric_solve_count ||
+        nmopt_instrumentation.metric_apply_calls !=
+          nmopt_result.metric_solve_count + accepted)
+      note("nmopt metric callback counts are inconsistent");
     if (native_instrumentation.output_calls != 1 ||
         nmopt_instrumentation.output_calls != 1)
       note("output schedule is inconsistent");
@@ -466,7 +472,15 @@ namespace
             << "nmopt_residual_vjp "
             << nmopt_instrumentation.residual_vjp_calls << '\n'
             << "nmopt_explicit_matrix_tvmult "
-            << nmopt_instrumentation.explicit_matrix_tvmult_calls << '\n';
+            << nmopt_instrumentation.explicit_matrix_tvmult_calls << '\n'
+            << "native_metric_apply "
+            << native_instrumentation.metric_apply_calls << '\n'
+            << "nmopt_metric_apply "
+            << nmopt_instrumentation.metric_apply_calls << '\n'
+            << "nmopt_metric_inverse_apply "
+            << nmopt_instrumentation.metric_inverse_apply_calls << '\n'
+            << "nmopt_reported_metric_solves "
+            << nmopt_result.metric_solve_count << '\n';
     require(first_divergence.empty(), first_divergence);
   }
 } // namespace

@@ -125,9 +125,17 @@ namespace external_dealii_step4
       require_size(test_seed, state_dimension(), "test seed");
 
       Vector state = apply_transpose_state_operator(test_seed);
+      return {std::move(state), control_vjp(test_seed)};
+    }
+
+    Vector
+    control_vjp(const Vector &test_seed) const
+    {
+      require_size(test_seed, state_dimension(), "control test seed");
+
       Vector control = mass_.coupling_transpose_apply(test_seed);
       control *= -1.0;
-      return {std::move(state), std::move(control)};
+      return control;
     }
 
     double

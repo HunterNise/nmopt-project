@@ -1,5 +1,6 @@
 #include "../../apps/external-dealii/step-4/verification/verification.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/native_problem_b_reduced.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b_coordinates.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b_mass.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b.hpp"
@@ -664,6 +665,92 @@ namespace
       "Problem B metric accepted a wrong vector dimension");
 
     (void)zero_state;
+  }
+
+  void
+  run_native_problem_b_reduced_contract()
+  {
+    Instrumentation instrumentation;
+    Step4<2>        tutorial;
+    tutorial.prepare_for_external_use();
+
+    using Problem = external_dealii_step4::ProblemB<2, Step4<2>>;
+    using Reduced = external_dealii_step4::NativeProblemBReduced<2, Step4<2>>;
+    Problem problem(tutorial);
+    Reduced reduced(problem, instrumentation);
+
+    const auto controls = external_dealii_step4::scenario::reduced_controls();
+    const auto value = reduced.evaluate_value(controls.front());
+    require(instrumentation.value_evaluations == 1,
+            "native Problem B value stage was not counted");
+    require(instrumentation.derivative_augmentations == 0,
+            "native Problem B derivative ran during value evaluation");
+    require(instrumentation.state_solve_calls == 1,
+            "native Problem B value stage did not perform one state solve");
+    require(instrumentation.adjoint_solve_calls == 0,
+            "native Problem B value stage performed an adjoint solve");
+    require(instrumentation.objective_calls == 1,
+            "native Problem B value stage did not evaluate the objective once");
+    require(instrumentation.objective_derivative_calls == 0,
+            "native Problem B value stage evaluated objective derivatives");
+    require(instrumentation.control_vjp_calls == 0,
+            "native Problem B value stage performed a control pullback");
+    require(value.state.size() == problem.state_dimension() &&
+              value.full_state.size() == problem.control_dimension(),
+            "native Problem B value stage returned wrong state dimensions");
+    require(std::isfinite(value.objective),
+            "native Problem B value stage returned a nonfinite objective");
+
+    const Vector retained_state      = value.state;
+    const Vector retained_full_state = value.full_state;
+    const auto derivative = reduced.augment_derivative(value);
+    require(instrumentation.derivative_augmentations == 1,
+            "native Problem B derivative stage was not counted");
+    require(instrumentation.state_solve_calls == 1,
+            "native Problem B derivative stage repeated the state solve");
+    require(instrumentation.adjoint_solve_calls == 1,
+            "native Problem B derivative stage did not perform one adjoint solve");
+    require(instrumentation.objective_derivative_calls == 1,
+            "native Problem B derivative stage did not evaluate objective partials once");
+    require(instrumentation.control_vjp_calls == 1,
+            "native Problem B derivative stage did not perform one control pullback");
+    require(derivative.state_derivative.size() == problem.state_dimension() &&
+              derivative.control_derivative.size() == problem.control_dimension() &&
+              derivative.adjoint.size() == problem.state_dimension() &&
+              derivative.full_adjoint.size() == problem.control_dimension() &&
+              derivative.reduced_derivative.size() == problem.control_dimension(),
+            "native Problem B derivative stage returned wrong dimensions");
+    require(vector_difference(value.state, retained_state) == 0.0 &&
+              vector_difference(value.full_state, retained_full_state) == 0.0,
+            "native Problem B derivative stage changed retained state data");
+
+    Vector expected_reduced = derivative.control_derivative;
+    expected_reduced.add(1.0, problem.control_vjp(derivative.adjoint));
+    require(vector_difference(derivative.reduced_derivative, expected_reduced) ==
+              0.0,
+            "native Problem B reduced derivative has the wrong composition");
+
+    const auto repeated_before = reduced.evaluate_value(controls[2]);
+    const auto intervening      = reduced.evaluate_value(controls[3]);
+    const auto repeated_after   = reduced.evaluate_value(controls[2]);
+    (void)intervening;
+    require(vector_difference(repeated_before.state, repeated_after.state) == 0.0,
+            "native Problem B repeated control changed the state");
+    require_close(repeated_before.objective,
+                  repeated_after.objective,
+                  0.0,
+                  "native Problem B repeated control changed the objective");
+    require(instrumentation.state_solve_calls == 4 &&
+              instrumentation.objective_calls == 4 &&
+              instrumentation.adjoint_solve_calls == 1,
+            "native Problem B repeated values used the wrong staged work");
+
+    require_rejected(
+      [&reduced] {
+        Vector wrong(1);
+        reduced.evaluate_value(wrong);
+      },
+      "native Problem B evaluator accepted a wrong control dimension");
   }
 
   void
@@ -1504,6 +1591,12 @@ main(const int argc, char **argv)
           "problem_b"},
          120,
          run_problem_b_operations_contract},
+        {"native_problem_b_reduced",
+         "nmopt.external_tutorial_step_4.native_problem_b_reduced",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b", "verification"},
+         120,
+         run_native_problem_b_reduced_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

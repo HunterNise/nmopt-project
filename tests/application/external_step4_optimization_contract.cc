@@ -1,6 +1,6 @@
 #include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
-#include "../../apps/external-dealii/step-4/evaluation/nmopt_binding.hpp"
-#include "../../apps/external-dealii/step-4/evaluation/verification.hpp"
+#include "../../apps/external-dealii/step-4/integration/nmopt_binding.hpp"
+#include "../../apps/external-dealii/step-4/verification/verification.hpp"
 
 #include "../support/scenario_dispatch.hpp"
 
@@ -178,7 +178,7 @@ namespace
     while (true)
       {
         if (std::filesystem::exists(
-              directory / "apps/external-dealii/step-4/upstream/step-4.cc"))
+              directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
           {
             const auto now = std::chrono::system_clock::now().time_since_epoch();
             const auto run_id = std::to_string(

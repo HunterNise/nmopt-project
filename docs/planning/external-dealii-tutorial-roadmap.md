@@ -246,8 +246,8 @@ docs(dealii): document external tutorial integration
 As checked on 2026-09-09, the previous tutorial branch
 `codex/external-dealii-tutorial` at
 `b4dce25ab03d893df48ab1d9eee2e4dc7cf9183d` already contains the
-[pinned upstream Step-4 source](../../apps/external-dealii/step-4/upstream/step-4.cc),
-an [adapted copy](../../apps/external-dealii/step-4/step-4.cc), and the native
+[pinned upstream Step-4 source](https://github.com/HunterNise/nmopt-project/blob/b4dce25ab03d893df48ab1d9eee2e4dc7cf9183d/apps/external-dealii/step-4/upstream/step-4.cc),
+an [adapted copy](https://github.com/HunterNise/nmopt-project/blob/b4dce25ab03d893df48ab1d9eee2e4dc7cf9183d/apps/external-dealii/step-4/step-4.cc), and the native
 wrapper/smoke attempt (`tutorial_application.hpp`, `tutorial_application.cc`,
 and `tutorial_binding_smoke.cc` under `apps/external-dealii/step-4/`).
 The earlier statement that T0 source selection had not started is stale.

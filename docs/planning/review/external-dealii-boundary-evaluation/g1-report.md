@@ -56,8 +56,8 @@ job where a deal.II build was required:
 
 ~~~bash
 python3 tools/external_dealii/strip_comments.py \
-  --input apps/external-dealii/step-4/upstream/step-4.cc \
-  --check apps/external-dealii/step-4/baseline/step-4-stripped.cc
+  --input apps/external-dealii/step-4/source/upstream/step-4.cc \
+  --check apps/external-dealii/step-4/source/baseline/step-4-stripped.cc
 ./build.sh build debug-dealii --target nmopt_external_step4_optimization_contract_test
 ctest --test-dir build/debug-dealii --output-on-failure \
   -R '^nmopt\.external\.tutorial_step_4\.matched_optimization$'

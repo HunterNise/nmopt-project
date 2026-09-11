@@ -1,6 +1,6 @@
-#include "../../apps/external-dealii/step-4/evaluation/nmopt_binding.hpp"
+#include "../../apps/external-dealii/step-4/integration/nmopt_binding.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_reduced.hpp"
-#include "../../apps/external-dealii/step-4/evaluation/scenario.hpp"
+#include "../../apps/external-dealii/step-4/verification/scenario.hpp"
 
 #include "../support/scenario_dispatch.hpp"
 
@@ -406,7 +406,7 @@ namespace
     while (true)
       {
         if (std::filesystem::exists(
-              directory / "apps/external-dealii/step-4/upstream/step-4.cc"))
+              directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
           return directory;
 
         const auto parent = directory.parent_path();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "instrumentation.hpp"
+#include "../diagnostics/instrumentation.hpp"
 #include "problem_a.hpp"
 
 #include "nmopt/contract/callback_executable_model.hpp"

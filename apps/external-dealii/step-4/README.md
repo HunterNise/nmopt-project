@@ -7,14 +7,14 @@ the [external deal.II boundary roadmap](../../../docs/planning/external-dealii-b
 
 ## Fixtures
 
-- [`upstream/step-4.cc`](upstream/step-4.cc) is the verbatim deal.II `v9.5.1`
+- [`source/upstream/step-4.cc`](source/upstream/step-4.cc) is the verbatim deal.II `v9.5.1`
   source and must not be edited.
-- [`baseline/step-4-stripped.cc`](baseline/step-4-stripped.cc) is generated
+- [`source/baseline/step-4-stripped.cc`](source/baseline/step-4-stripped.cc) is generated
   from the upstream source by
   [`strip_comments.py`](../../../tools/external_dealii/strip_comments.py).
   The tool removes complete comment lines, preserves the leading license
   block and code-bearing lines, and checks non-comment token equivalence.
-- [`step-4.cc`](step-4.cc) is copied from the stripped baseline and contains
+- [`source/adapted/step-4.cc`](source/adapted/step-4.cc) is copied from the stripped baseline and contains
   only the reusable seams needed by the evaluation. It remains an independent
   source file; it is not used to regenerate the baseline.
 
@@ -27,8 +27,8 @@ Regenerate-check the committed stripped fixture with:
 
 ```bash
 python3 tools/external_dealii/strip_comments.py \
-  --input apps/external-dealii/step-4/upstream/step-4.cc \
-  --check apps/external-dealii/step-4/baseline/step-4-stripped.cc
+  --input apps/external-dealii/step-4/source/upstream/step-4.cc \
+  --check apps/external-dealii/step-4/source/baseline/step-4-stripped.cc
 ```
 
 ## Targets and tests

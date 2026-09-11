@@ -108,16 +108,16 @@ library hierarchy to realize the table.
 
 | Path under that directory | Responsibility |
 | --- | --- |
-| `upstream/step-4.cc` | Exact pinned source; never edited. |
-| `baseline/step-4-stripped.cc` | Mechanical comment-stripped baseline, retaining legal notice and all numerical tokens, including both standalone dimensions. Frozen after E1. |
-| `step-4.cc` | Adapted tutorial, directly comparable to the stripped baseline. Original numerical machinery plus reuse seams only. |
-| `evaluation/scenario.hpp` | Plain native constants and deterministic sample-vector construction. No nmopt includes, parser, recipe, registry, or selection framework. |
-| `evaluation/problem_a.hpp` | Native Problem A operations and native vector/solve-result types. Owns control meaning, residual/derivative formulas, objective, adjoint interpretation, and control pullback. |
+| `source/upstream/step-4.cc` | Exact pinned source; never edited. |
+| `source/baseline/step-4-stripped.cc` | Mechanical comment-stripped baseline, retaining legal notice and all numerical tokens, including both standalone dimensions. Frozen after E1. |
+| `source/adapted/step-4.cc` | Adapted tutorial, directly comparable to the stripped baseline. Original numerical machinery plus reuse seams only. |
+| `verification/scenario.hpp` | Plain native constants and deterministic sample-vector construction. No nmopt includes, parser, recipe, registry, or selection framework. |
+| `integration/problem_a.hpp` | Native Problem A operations and native vector/solve-result types. Owns control meaning, residual/derivative formulas, objective, adjoint interpretation, and control pullback. |
 | `evaluation/native_reduced.hpp` | Native value evaluation and derivative augmentation, with explicit state reuse. No nmopt types. |
 | `evaluation/native_optimization.hpp` | E5-only bounded native steepest-descent/Armijo loop and its trace. No policy templates for other algorithms. |
-| `evaluation/nmopt_binding.hpp` | Public-API construction, explicit callbacks, report translation, identity `MetricT<SerialBackend>`, and binding lifetime. All nmopt-specific experiment code belongs here or in its test driver. |
-| `evaluation/instrumentation.hpp` | Plain counters and evidence records. No framework, allocator replacement, or numerical policy decisions. |
-| `evaluation/verification.hpp` | Native oracle, independent residual/derivative checks, result comparison, and evidence serialization. No nmopt numerical dependency. |
+| `integration/nmopt_binding.hpp` | Public-API construction, explicit callbacks, report translation, identity `MetricT<SerialBackend>`, and binding lifetime. All nmopt-specific experiment code belongs here or in its test driver. |
+| `diagnostics/instrumentation.hpp` | Plain counters and evidence records. No framework, allocator replacement, or numerical policy decisions. |
+| `verification/verification.hpp` | Native oracle, independent residual/derivative checks, result comparison, and evidence serialization. No nmopt numerical dependency. |
 | `tools/external_dealii/strip_comments.py` | Bounded reusable source transformation and token-preservation check. Preserves literal contents, token separation, and legal notice. Never rewrites upstream or unrelated files. |
 | `tools/external_dealii/check_forward.py` | Focused reusable harness running supplied forward executables in separate directories and comparing stdout/numerical VTK content. No experiment configuration system. |
 | `README.md` | Source lineage, exact runnable commands, mathematical name, output locations, and interpretation limits. |

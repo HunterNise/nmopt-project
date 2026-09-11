@@ -1,9 +1,9 @@
 #pragma once
 
 #define STEP4_NO_MAIN
-#include "../step-4.cc"
+#include "../source/adapted/step-4.cc"
 #undef STEP4_NO_MAIN
-#include "instrumentation.hpp"
+#include "../diagnostics/instrumentation.hpp"
 
 #include <deal.II/lac/solver_control.h>
 

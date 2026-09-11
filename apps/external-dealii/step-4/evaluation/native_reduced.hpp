@@ -1,7 +1,7 @@
 #pragma once
 
-#include "instrumentation.hpp"
-#include "problem_a.hpp"
+#include "../diagnostics/instrumentation.hpp"
+#include "../integration/problem_a.hpp"
 
 #include <cstddef>
 #include <stdexcept>

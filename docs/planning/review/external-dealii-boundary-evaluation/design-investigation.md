@@ -226,7 +226,7 @@ second API guide. None of these facts alone establishes excessive cost.
 
 ## 4. What the previous Step-4 attempt could not isolate
 
-The [pinned upstream source](../../../../apps/external-dealii/step-4/upstream/step-4.cc)
+The [pinned upstream source](../../../../apps/external-dealii/step-4/source/upstream/step-4.cc)
 has public construction and `run()`, private numerical state, CG with identity
 preconditioning, and VTK output under the field name `solution`. Making its
 assembled system independently callable is application-reuse work, even for a

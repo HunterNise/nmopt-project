@@ -188,21 +188,21 @@ if(NMOPT_ENABLE_DEAL_II)
   # without linking the nmopt contract or adding nmopt includes.
   add_executable(
     nmopt_external_tutorial_step_4
-    apps/external-dealii/step-4/upstream/step-4.cc)
+    apps/external-dealii/step-4/source/upstream/step-4.cc)
   deal_ii_setup_target(nmopt_external_tutorial_step_4)
 
   # This target compiles the mechanically stripped baseline without linking
   # the nmopt contract or adding nmopt includes.
   add_executable(
     nmopt_external_tutorial_step_4_stripped
-    apps/external-dealii/step-4/baseline/step-4-stripped.cc)
+    apps/external-dealii/step-4/source/baseline/step-4-stripped.cc)
   deal_ii_setup_target(nmopt_external_tutorial_step_4_stripped)
 
   # This target compiles the adapted tutorial seams without linking the nmopt
   # contract or adding nmopt includes.
   add_executable(
     nmopt_external_tutorial_step_4_adapted
-    apps/external-dealii/step-4/step-4.cc)
+    apps/external-dealii/step-4/source/adapted/step-4.cc)
   deal_ii_setup_target(nmopt_external_tutorial_step_4_adapted)
 
   if(BUILD_TESTING)

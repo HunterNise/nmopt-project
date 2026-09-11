@@ -1,6 +1,6 @@
 #pragma once
 
-#include "native_reduced.hpp"
+#include "../evaluation/native_reduced.hpp"
 #include "scenario.hpp"
 
 #include <deal.II/lac/full_matrix.h>

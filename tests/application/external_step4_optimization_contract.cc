@@ -76,7 +76,7 @@ namespace
   {
     return std::isfinite(left) && std::isfinite(right) &&
            std::abs(left - right) <=
-             1.0e-11 + 1.0e-10 * std::max(std::abs(left), std::abs(right));
+             1.0e-12 + 1.0e-11 * std::max(std::abs(left), std::abs(right));
   }
 
   bool
@@ -419,10 +419,12 @@ namespace
     if (oracle.system_residual > 1.0e-10 ||
         oracle.stationarity_residual > 1.0e-10)
       note("independent oracle audit failed");
-    if (vector_difference(native_result.value.control, oracle.control) >
-          2.0e-6 * std::max(1.0, oracle.control.l2_norm()) ||
-        vector_difference(nmopt_control, oracle.control) >
-          2.0e-6 * std::max(1.0, oracle.control.l2_norm()))
+    const double native_control_oracle_error =
+      vector_difference(native_result.value.control, oracle.control);
+    const double nmopt_control_oracle_error =
+      vector_difference(nmopt_control, oracle.control);
+    if (native_control_oracle_error > 2.0e-6 ||
+        nmopt_control_oracle_error > 2.0e-6)
       note("final control failed the oracle audit");
     if (read_file(root / "native" / "solution.vtk") !=
         read_file(root / "nmopt" / "solution.vtk"))
@@ -602,6 +604,22 @@ namespace
             << "oracle_system_residual " << oracle.system_residual << '\n'
             << "oracle_stationarity_residual "
             << oracle.stationarity_residual << '\n'
+            << "oracle_control_distance_bound " << 2.0e-6 << '\n'
+            << "native_control_oracle_error " << native_control_oracle_error
+            << '\n'
+            << "nmopt_control_oracle_error " << nmopt_control_oracle_error
+            << '\n'
+            << "oracle_objective "
+            << (0.5 * (oracle.state * oracle.state) +
+                0.5 * (oracle.control * oracle.control)) << '\n'
+            << "native_objective_gap "
+            << (native_result.value.objective -
+                (0.5 * (oracle.state * oracle.state) +
+                 0.5 * (oracle.control * oracle.control))) << '\n'
+            << "nmopt_objective_gap "
+            << (nmopt_result.final_evaluation.objective_value -
+                (0.5 * (oracle.state * oracle.state) +
+                 0.5 * (oracle.control * oracle.control))) << '\n'
             << "native_final_state_monitored_residual "
             << native_result.value.state_solve.final_residual << '\n'
             << "native_final_state_recomputed_normalized_residual "

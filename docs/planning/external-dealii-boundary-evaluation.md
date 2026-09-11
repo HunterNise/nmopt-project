@@ -400,7 +400,7 @@ Checks:
 - Reduced centered finite differences with states recomputed at every perturbation, using $h=10^{-2},10^{-3},10^{-4},10^{-5},10^{-6}$. Require agreement within $10^{-7}\max(1,|\langle j'(u),v\rangle|)$ for at least two adjacent usable steps, where $v$ is the normalized direction. Save the full table, including the small-step noise floor.
 - Reduced first-order Taylor remainder at $h=0.1,0.05,0.025$. Require positive remainders above ten times the observed repeat-evaluation objective variation and consecutive halving ratios between 3.5 and 4.5. If numerical noise defeats this fixed range, report and review it; do not silently filter inconvenient points.
 - Dense oracle system relative residual and independent stationarity residual at most $10^{-10}$ under their recorded normalizations. Compare the native reduced gradient evaluated at oracle control against zero with norm at most $10^{-8}$.
-- For optimization, require both paths to stop by gradient norm and independently audit final gradients at most $1.1\cdot10^{-6}$. Require control distance to oracle at most $2\cdot10^{-6}$, contingent on the oracle checks passing. Retain objective gaps as evidence as well.
+- For optimization, require both paths to stop by gradient norm and independently audit final gradients at most $1.1\cdot10^{-6}$. Require the absolute control distance to the oracle to be at most $2\cdot10^{-6}$, contingent on the oracle checks passing. Retain objective gaps as evidence as well.
 
 Paired evaluation should pass at every chosen control before E5. During E5, initially expect matching trial/accepted-step sequences in the fixed environment, but bitwise equality is not the mathematical acceptance criterion. On a divergence, stop automatic acceptance, preserve the earliest differing controls/values and the signed Armijo margin, and explain whether the cause is arithmetic, solve accuracy, different schedules, or a defect. Continue only after that explanation is accepted or a local experiment bug is repaired. Never call unexplained trajectory differences architectural evidence.
 
@@ -583,7 +583,7 @@ Outcome: the bounded native loop and existing nmopt steepest-descent/Armijo solv
 
 Files: native Armijo loop, native and paired optimization test scenarios, scalar trace/evidence output. Reuse E3 mathematics and E4 binding unchanged except for diagnosed local defects, which require repeating affected evaluation checks.
 
-Checks: exact selected policy and stopping precedence, value-only rejection, accepted-state reuse, observed counts against the derived schedule invariants, both stopping reasons, final independently audited optimality/oracle agreement, recorded CG work, and final output from retained states. Compare source-level copies/operator actions without inflating native work to imitate unnecessary framework work.
+Checks: exact selected policy and stopping precedence, value-only rejection, accepted-state reuse, observed counts against the derived schedule invariants, both stopping reasons, final independently audited optimality/oracle agreement including the absolute control-distance bound, recorded CG work, and final output from retained states. Compare source-level copies/operator actions without inflating native work to imitate unnecessary framework work.
 
 Artifacts: both traces, first-divergence evidence if any, solve/iteration totals, final errors/gaps, output comparison, updated service/attribution ledger. Do not use only objective reduction as a convergence criterion.
 
@@ -610,9 +610,10 @@ checking the post-step gradient, exercising the prescribed stopping
 precedence. The final retained state was written once without a re-solve.
 
 The independent oracle audit passed, with system residual
-`3.2811052213435387e-16`, stationarity residual
-`1.4056590879085018e-15`, and final control within the frozen `2e-6` relative
-audit bound. The compact ignored native evidence is under
+`3.2811052213435387e-16` and stationarity residual
+`1.4056590879085018e-15`. This historical run described its final-control
+check using a relative `2e-6` scaling; the corrected acceptance requirement is
+the absolute `2e-6` bound stated above. The compact ignored native evidence is under
 `runs/external-dealii/step-4/optimization/1789117845065505/native/`, including
 `trace.csv`, `summary.txt`, and the retained-state `solution.vtk`. The focused
 native selection passed `8/8`; the complete `./build.sh pipeline debug-dealii`
@@ -638,6 +639,11 @@ identical, and both final controls passed the independent dense-oracle audit
 evidence is under
 `runs/external-dealii/step-4/optimization/1789119247586875/{native,nmopt,comparison}/`.
 E5.b was reviewed and committed as `277fbf4`; E5.c is the current unit.
+
+The E5.a and E5.b runs above are historical evidence from before the oracle
+bound correction. Their control checks used the then-current scaled form and
+must not be cited as evidence for the corrected absolute gate; the EC2.d
+rerun records the corrected result separately.
 
 E5.c handoff (2026-09-11): the paired traces, comparison summary, and
 retained-state outputs were preserved under the semantic optimization artifact

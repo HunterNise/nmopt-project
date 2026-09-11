@@ -679,8 +679,16 @@ namespace
             << "oracle_system_residual " << oracle.system_residual << '\n'
             << "oracle_stationarity_residual " << oracle.stationarity_residual
             << '\n'
+            << "oracle_control_distance_bound " << 2.0e-6 << '\n'
             << "final_control_oracle_error "
             << vector_difference(result.value.control, oracle.control) << '\n'
+            << "oracle_objective "
+            << (0.5 * (oracle.state * oracle.state) +
+                0.5 * (oracle.control * oracle.control)) << '\n'
+            << "final_objective_gap "
+            << (result.value.objective -
+                (0.5 * (oracle.state * oracle.state) +
+                 0.5 * (oracle.control * oracle.control))) << '\n'
             << "assembly_calls " << instrumentation.assembly_calls << '\n'
             << "state_solve_calls " << instrumentation.state_solve_calls << '\n'
             << "adjoint_solve_calls " << instrumentation.adjoint_solve_calls
@@ -747,8 +755,8 @@ namespace
             "native optimization oracle audit failed");
     verification::require_vector_close(result.value.control,
                                        oracle.control,
-                                       0.0,
                                        2.0e-6,
+                                       0.0,
                                        "native optimization control differs from oracle");
 
     problem.output_results(result.value.state, artifact_root / "solution.vtk");

@@ -5,6 +5,7 @@
 #include "../../apps/external-dealii/step-4/integration/problem_b_mass.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b_metric.hpp"
+#include "../../apps/external-dealii/step-4/verification/problem_b_verification.hpp"
 
 #include "external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
@@ -751,6 +752,129 @@ namespace
         reduced.evaluate_value(wrong);
       },
       "native Problem B evaluator accepted a wrong control dimension");
+  }
+
+  void
+  run_native_problem_b_oracle_contract()
+  {
+    Step4<2> tutorial;
+    tutorial.prepare_for_external_use();
+
+    using Problem = external_dealii_step4::ProblemB<2, Step4<2>>;
+    namespace verification =
+      external_dealii_step4::problem_b_verification;
+    Problem problem(tutorial);
+    const auto operators = verification::make_dense_operators(problem, tutorial);
+
+    require(operators.K.m() == 225 && operators.K.n() == 225,
+            "Problem B dense K has the wrong dimensions");
+    require(operators.B.m() == 225 && operators.B.n() == 289,
+            "Problem B dense B has the wrong dimensions");
+    require(operators.M.m() == 289 && operators.M.n() == 289,
+            "Problem B dense M has the wrong dimensions");
+    require(operators.Q.m() == 225 && operators.Q.n() == 225,
+            "Problem B dense Q has the wrong dimensions");
+
+    for (std::size_t index = 0; index < problem.state_dimension(); ++index)
+      {
+        Vector basis(problem.state_dimension());
+        basis = 0.0;
+        basis[index] = 1.0;
+        const auto round_trip = problem.coordinates().restrict(
+          problem.coordinates().embed_free(basis));
+        require(verification::vector_difference(round_trip, basis) == 0.0,
+                "Problem B dense oracle found a non-identity P-transpose P");
+      }
+
+    require(verification::relative_symmetry_error(
+              tutorial.system_matrix_view()) <= 1.0e-14,
+            "Problem B full system matrix is not symmetric");
+    require(verification::relative_symmetry_error(operators.K) <= 1.0e-14,
+            "Problem B dense K is not symmetric");
+    require(verification::relative_symmetry_error(operators.M) <= 1.0e-14,
+            "Problem B dense M is not symmetric");
+    verification::require_dense_cholesky(operators.K, "Problem B dense K");
+    verification::require_dense_cholesky(operators.M, "Problem B dense M");
+
+    Vector ones(problem.control_dimension());
+    ones = 1.0;
+    Vector mass_ones(problem.control_dimension());
+    operators.M.vmult(mass_ones, ones);
+    require_close(ones * mass_ones,
+                  4.0,
+                  1.0e-12,
+                  "Problem B dense mass does not integrate one");
+
+    const auto oracle = verification::dense_kkt_oracle(operators);
+    require(oracle.residuals.state_stationarity <= 1.0e-10 &&
+              oracle.residuals.control_stationarity <= 1.0e-10 &&
+              oracle.residuals.feasibility <= 1.0e-10,
+            "Problem B dense KKT oracle has a large residual");
+
+    const auto audit_state_and_adjoint =
+      [&problem, &tutorial](const Vector &control, const char *const name) {
+        const auto state = problem.solve_state(control);
+        require(state.evidence.converged,
+                std::string("Problem B ") + name +
+                  " state solve did not converge");
+        const auto state_audit = verification::audit_state_solution(
+          problem, tutorial, state.solution, state.full_solution, control);
+        require(state_audit.full_equation.normalized <= 1.0e-10,
+                std::string("Problem B ") + name +
+                  " full state equation residual is too large");
+        require(state_audit.reduced_equation.normalized <= 1.0e-10,
+                std::string("Problem B ") + name +
+                  " reduced state equation residual is too large");
+        require(state_audit.boundary_error <= 1.0e-11,
+                std::string("Problem B ") + name +
+                  " state boundary error is too large");
+        require(state_audit.reconstruction_error <=
+                  1.0e-11 + 1.0e-10 * state.full_solution.l2_norm(),
+                std::string("Problem B ") + name +
+                  " state reconstruction error is too large");
+
+        const auto state_derivative =
+          problem.objective_derivative(state.solution, control).state;
+        const auto adjoint = problem.solve_adjoint(state_derivative);
+        require(adjoint.evidence.converged,
+                std::string("Problem B ") + name +
+                  " adjoint solve did not converge");
+        const auto adjoint_audit = verification::audit_adjoint_solution(
+          problem,
+          tutorial,
+          adjoint.solution,
+          adjoint.full_solution,
+          state_derivative);
+        require(adjoint_audit.full_equation.normalized <= 1.0e-10,
+                std::string("Problem B ") + name +
+                  " full adjoint equation residual is too large");
+        require(adjoint_audit.boundary_error <= 1.0e-11,
+                std::string("Problem B ") + name +
+                  " adjoint boundary error is too large");
+        require(adjoint_audit.homogeneous_reconstruction_error <=
+                  1.0e-11 + 1.0e-10 * adjoint.full_solution.l2_norm(),
+                std::string("Problem B ") + name +
+                  " adjoint reconstruction error is too large");
+        return std::pair<decltype(state), decltype(adjoint)>(state, adjoint);
+      };
+
+    const auto controls = external_dealii_step4::scenario::reduced_controls();
+    for (std::size_t index = 0; index < controls.size(); ++index)
+      (void)audit_state_and_adjoint(controls[index], "sample");
+
+    const auto oracle_state_and_adjoint =
+      audit_state_and_adjoint(oracle.control, "oracle");
+    verification::require_vector_close(oracle_state_and_adjoint.first.solution,
+                                       oracle.state,
+                                       1.0e-11,
+                                       1.0e-10,
+                                       "native state differs from Problem B dense oracle");
+    verification::require_vector_close(
+      oracle_state_and_adjoint.second.solution,
+      oracle.adjoint,
+      1.0e-11,
+      1.0e-10,
+      "native adjoint differs from Problem B dense oracle");
   }
 
   void
@@ -1597,6 +1721,12 @@ main(const int argc, char **argv)
           "problem_b", "verification"},
          120,
          run_native_problem_b_reduced_contract},
+        {"native_problem_b_oracle",
+         "nmopt.external_tutorial_step_4.native_problem_b_oracle",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b", "verification"},
+         120,
+         run_native_problem_b_oracle_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

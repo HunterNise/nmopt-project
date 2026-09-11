@@ -216,6 +216,10 @@ if(NMOPT_ENABLE_DEAL_II)
     deal_ii_setup_target(nmopt_external_step4_native_contract_test)
     scenario_discovery_register(nmopt_external_step4_native_contract_test)
 
+    nmopt_add_dealii_test(
+      nmopt_external_step4_nmopt_contract_test
+      tests/application/external_step4_nmopt_contract.cc)
+
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
     set(nmopt_external_tutorial_forward_root

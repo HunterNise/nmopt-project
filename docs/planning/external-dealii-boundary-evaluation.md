@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E3.b — Independent oracle and derivative verification; implementation complete, review pending |
-| Last completed/adopted gate | E3.a — Native Problem A and staged reduced evaluation, committed as `d164d64` |
-| Next unit | E4 — Current nmopt Problem A, after the adopted E3 gate |
+| Current unit | E4.a — Construct current-public-API Problem A binding; implementation complete, review pending |
+| Last completed/adopted gate | E3 — Native Problem A and independent verification, committed through `51dc804` |
+| Next unit | E4.b — Paired native/nmopt reduced-evaluation evidence, after E4.a review and commit |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -488,8 +488,7 @@ passed all four scenarios. The native evaluation sources contain no nmopt
 include or library dependency; the test driver uses only the permitted
 standard scenario-discovery helper.
 
-E3.b evidence (2026-09-10): with `HEAD` `d164d64` plus the uncommitted
-verification implementation, the independent dense oracle solved
+E3.b evidence (2026-09-10): with `HEAD` `51dc804`, the independent dense oracle solved
 `(I+A^T A)y=A^T b` using deal.II dense/LAPACK facilities and derived
 `u=Ay-b`. The focused native CTest selection passed all six scenarios, and
 `./build.sh pipeline debug-dealii` passed `167/167` tests. Off-solution
@@ -502,8 +501,8 @@ residual `3.2811052213435387e-16`, stationarity residual
 `runs/external-dealii/step-4/working/native-reference/`, including the
 derivative/Taylor tables, oracle summary, and run metadata; the shared
 attribution ledger is at `runs/external-dealii/step-4/working/attribution.csv`.
-E3.b is ready for review and explicit commit; the E3 gate remains pending
-adoption.
+E3.b was reviewed and adopted in `51dc804`; the E3 native mathematical gate is
+closed successfully and E4 may begin.
 
 ### E4 — Current nmopt Problem A
 
@@ -520,6 +519,31 @@ Artifacts: paired result/error table, construction capability inventory, runtime
 Prospective commit: `test(dealii): compare native and nmopt reduced evaluations`.
 
 Gate: E5 cannot begin with unexplained mismatches. A genuine frozen-API obstruction produces a minimal reproducer and an early G1 diagnostic report; it does not authorize modifying the API.
+
+E4 is split into two reviewable subunits. E4.a constructs the application-owned
+binding and verifies the current public contracts in isolation. E4.b compares
+that binding with a separate native Problem A instance and records paired
+reduced-evaluation evidence. No optimizer, line-search, shared nmopt change, or
+new public API belongs to either subunit.
+
+E4.a prospective commit: `test(dealii): construct Step-4 nmopt binding`.
+E4.b retains the umbrella prospective commit
+`test(dealii): compare native and nmopt reduced evaluations`.
+
+E4.a evidence (2026-09-11): with `HEAD` `51dc804` plus the uncommitted E4.a
+implementation, the explicit binding, local identity metric, actual
+`LinearSolveReport` translation, and construction contract scenario compiled
+and linked through `./build.sh build debug-dealii --target
+nmopt_external_step4_nmopt_contract_test`. Scenario discovery listed
+`nmopt.external_tutorial_step_4.nmopt_binding_construction`. The first focused
+run exposed a test-accounting error that expected two VJP calls although the
+direct native reference, callback, and staged reduced evaluation correctly
+produce three; the assertion was corrected and the rerun passed 1/1. The full
+`./build.sh pipeline debug-dealii` passed `168/168` tests. The binding uses only
+the current public contracts, leaves the adapted Step-4 source and shared
+nmopt headers unchanged, and records no E4.b paired artifacts yet. E4.a is
+ready for review and explicit commit; E4.b is the next subunit after that
+commit.
 
 ### E5 — Matched optimization
 

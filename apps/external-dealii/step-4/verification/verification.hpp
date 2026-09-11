@@ -21,6 +21,31 @@ namespace external_dealii_step4
     using Vector  = ProblemA::Vector;
     using Problem = ProblemA;
 
+    inline bool
+    vector_is_finite(const Vector &vector)
+    {
+      for (unsigned int index = 0; index < vector.size(); ++index)
+        if (!std::isfinite(vector[index]))
+          return false;
+      return true;
+    }
+
+    inline void
+    require_finite(const double        value,
+                   const std::string &message)
+    {
+      if (!std::isfinite(value))
+        throw std::runtime_error(message + " is not finite");
+    }
+
+    inline void
+    require_finite(const Vector &      vector,
+                   const std::string &message)
+    {
+      if (!vector_is_finite(vector))
+        throw std::runtime_error(message + " contains a non-finite value");
+    }
+
     inline double
     vector_difference(const Vector &left, const Vector &right)
     {
@@ -35,6 +60,8 @@ namespace external_dealii_step4
     inline double
     scaled_vector_error(const Vector &left, const Vector &right)
     {
+      require_finite(left, "scaled vector comparison left value");
+      require_finite(right, "scaled vector comparison right value");
       return vector_difference(left, right) /
              std::max(1.0, std::max(left.l2_norm(), right.l2_norm()));
     }
@@ -42,6 +69,8 @@ namespace external_dealii_step4
     inline double
     scaled_scalar_error(const double left, const double right)
     {
+      require_finite(left, "scaled scalar comparison left value");
+      require_finite(right, "scaled scalar comparison right value");
       return std::abs(left - right) /
              std::max(1.0, std::max(std::abs(left), std::abs(right)));
     }
@@ -59,12 +88,19 @@ namespace external_dealii_step4
       if (lhs.size() != rhs.size())
         throw std::invalid_argument(
           "verification equation residual vectors have incompatible dimensions");
+      require_finite(lhs, "verification equation residual left value");
+      require_finite(rhs, "verification equation residual right value");
 
       Vector residual = lhs;
       residual.add(-1.0, rhs);
       const double scale = std::max(1.0, rhs.l2_norm());
       const double absolute_norm = residual.l2_norm();
-      return {absolute_norm, scale, absolute_norm / scale};
+      const double normalized = absolute_norm / scale;
+      require_finite(absolute_norm,
+                     "verification equation residual absolute norm");
+      require_finite(scale, "verification equation residual scale");
+      require_finite(normalized, "verification equation residual normalized value");
+      return {absolute_norm, scale, normalized};
     }
 
     inline EquationResidualAudit
@@ -97,11 +133,15 @@ namespace external_dealii_step4
                          const double        relative_tolerance,
                          const std::string &message)
     {
+      require_finite(actual, message + " actual value");
+      require_finite(expected, message + " expected value");
+      require_finite(absolute_tolerance, message + " absolute tolerance");
+      require_finite(relative_tolerance, message + " relative tolerance");
       const double error = vector_difference(actual, expected);
       const double bound = absolute_tolerance +
                            relative_tolerance *
                              std::max(actual.l2_norm(), expected.l2_norm());
-      if (error > bound)
+      if (!std::isfinite(error) || !std::isfinite(bound) || error > bound)
         throw std::runtime_error(message + ": error=" +
                                  std::to_string(error) +
                                  ", bound=" + std::to_string(bound));
@@ -114,10 +154,15 @@ namespace external_dealii_step4
                          const double        relative_tolerance,
                          const std::string &message)
     {
+      require_finite(actual, message + " actual value");
+      require_finite(expected, message + " expected value");
+      require_finite(absolute_tolerance, message + " absolute tolerance");
+      require_finite(relative_tolerance, message + " relative tolerance");
+      const double error = std::abs(actual - expected);
       const double bound = absolute_tolerance +
                            relative_tolerance *
                              std::max(std::abs(actual), std::abs(expected));
-      if (std::abs(actual - expected) > bound)
+      if (!std::isfinite(error) || !std::isfinite(bound) || error > bound)
         throw std::runtime_error(message + ": actual=" +
                                  std::to_string(actual) +
                                  ", expected=" + std::to_string(expected) +
@@ -274,6 +319,13 @@ namespace external_dealii_step4
       const double stationarity_scale =
         std::max(1.0,
                  std::max(state.l2_norm(), transposed_control.l2_norm()));
+
+      require_finite(state, "dense oracle state");
+      require_finite(control, "dense oracle control");
+      require_finite(system_residual, "dense oracle system residual");
+      require_finite(stationarity, "dense oracle stationarity");
+      require_finite(system_scale, "dense oracle system scale");
+      require_finite(stationarity_scale, "dense oracle stationarity scale");
 
       return {std::move(state),
               std::move(control),

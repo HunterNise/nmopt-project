@@ -361,6 +361,8 @@ namespace
   double
   paired_vector_error(const Vector &left, const Vector &right)
   {
+    verification::require_finite(left, "paired vector left value");
+    verification::require_finite(right, "paired vector right value");
     return vector_difference(left, right);
   }
 
@@ -374,6 +376,8 @@ namespace
   double
   paired_scalar_error(const double left, const double right)
   {
+    verification::require_finite(left, "paired scalar left value");
+    verification::require_finite(right, "paired scalar right value");
     return std::abs(left - right);
   }
 
@@ -391,7 +395,7 @@ namespace
   {
     const double error = paired_vector_error(actual, expected);
     const double bound = paired_vector_bound(actual, expected);
-    require(error <= bound,
+    require(std::isfinite(error) && std::isfinite(bound) && error <= bound,
             message + ": error=" + std::to_string(error) +
               ", bound=" + std::to_string(bound));
   }
@@ -403,7 +407,7 @@ namespace
   {
     const double error = paired_scalar_error(actual, expected);
     const double bound = paired_scalar_bound(actual, expected);
-    require(error <= bound,
+    require(std::isfinite(error) && std::isfinite(bound) && error <= bound,
             message + ": error=" + std::to_string(error) +
               ", bound=" + std::to_string(bound));
   }

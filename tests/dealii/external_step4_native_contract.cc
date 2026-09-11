@@ -50,7 +50,8 @@ namespace
                 const double       tolerance,
                 const std::string &message)
   {
-    if (std::abs(actual - expected) > tolerance)
+    if (!std::isfinite(actual) || !std::isfinite(expected) ||
+        !std::isfinite(tolerance) || std::abs(actual - expected) > tolerance)
       {
         std::ostringstream detail;
         detail << message << ": actual=" << actual
@@ -59,6 +60,22 @@ namespace
         external_dealii_step4_test::note_failure(detail.str());
         throw std::runtime_error(detail.str());
       }
+  }
+
+  template <typename Callable>
+  void
+  require_rejected(Callable &&callable, const std::string &message)
+  {
+    bool rejected = false;
+    try
+      {
+        callable();
+      }
+    catch (const std::exception &)
+      {
+        rejected = true;
+      }
+    require(rejected, message);
   }
 
   double
@@ -719,12 +736,23 @@ namespace
     NativeArmijoSolver solver(reduced, policy);
     const auto result = solver.solve(initial_control);
 
+    verification::require_finite(result.value.control,
+                                  "native optimization final control");
+    verification::require_finite(result.value.state,
+                                  "native optimization final state");
+    verification::require_finite(result.value.objective,
+                                  "native optimization final objective");
+    verification::require_finite(result.derivative.reduced_derivative,
+                                  "native optimization final gradient");
+
     require(result.stopping_reason ==
               NativeOptimizationStoppingReason::gradient_tolerance,
             "native optimization did not stop by gradient tolerance");
     require(result.accepted_iteration_count > 0,
             "native optimization accepted no iterations");
-    require(result.derivative.reduced_derivative.l2_norm() <= 1.1e-6,
+    const double final_gradient_norm =
+      result.derivative.reduced_derivative.l2_norm();
+    require(std::isfinite(final_gradient_norm) && final_gradient_norm <= 1.1e-6,
             "native optimization final gradient exceeds the audit bound");
     require(result.objective_history.size() ==
               result.accepted_iteration_count + 1,
@@ -746,10 +774,73 @@ namespace
     require(instrumentation.derivative_augmentations ==
               1 + result.accepted_iteration_count,
             "native optimization derivative count includes rejected trials");
+    require(instrumentation.objective_calls ==
+              1 + result.line_search_trial_count &&
+              instrumentation.objective_derivative_calls ==
+                1 + result.accepted_iteration_count,
+            "native optimization objective callback counts are inconsistent");
+    require(instrumentation.residual_calls == 0 &&
+              instrumentation.residual_jvp_calls == 0 &&
+              instrumentation.residual_vjp_calls == 0,
+            "native optimization unexpectedly used residual callbacks");
+    require(instrumentation.control_vjp_calls ==
+              1 + result.accepted_iteration_count,
+            "native optimization control pullback count is inconsistent");
+    require(instrumentation.explicit_matrix_vmult_calls == 0 &&
+              instrumentation.explicit_matrix_tvmult_calls == 0,
+            "native optimization unexpectedly used explicit matrix callbacks");
+    require(instrumentation.metric_apply_calls == 0 &&
+              instrumentation.metric_inverse_apply_calls == 0,
+            "native optimization unexpectedly used metric callbacks");
     require(instrumentation.solve_failures == 0,
             "native optimization encountered a solve failure");
 
     const auto oracle = verification::optimum_oracle(problem);
+    Vector nonfinite_control = oracle.control;
+    nonfinite_control[0] = std::numeric_limits<double>::quiet_NaN();
+    require_rejected(
+      [&] {
+        verification::require_vector_close(nonfinite_control,
+                                           oracle.control,
+                                           2.0e-6,
+                                           0.0,
+                                           "non-finite oracle control probe");
+      },
+      "oracle control acceptance did not reject a non-finite value");
+
+    Vector outside_oracle_bound = oracle.control;
+    outside_oracle_bound[0] += 3.0e-6;
+    require_rejected(
+      [&] {
+        verification::require_vector_close(outside_oracle_bound,
+                                           oracle.control,
+                                           2.0e-6,
+                                           0.0,
+                                           "oracle control bound probe");
+      },
+      "oracle control acceptance did not reject an out-of-bound value");
+
+    Vector nonfinite_gradient = result.derivative.reduced_derivative;
+    nonfinite_gradient[0] = std::numeric_limits<double>::quiet_NaN();
+    require_rejected(
+      [&] {
+        verification::require_vector_close(nonfinite_gradient,
+                                           result.derivative.reduced_derivative,
+                                           1.0e-11,
+                                           1.0e-10,
+                                           "non-finite gradient probe");
+      },
+      "gradient acceptance did not reject a non-finite value");
+
+    Vector nonfinite_residual = problem.system_rhs();
+    nonfinite_residual[0] = std::numeric_limits<double>::quiet_NaN();
+    require_rejected(
+      [&] {
+        verification::normalized_equation_residual(nonfinite_residual,
+                                                   problem.system_rhs());
+      },
+      "residual acceptance did not reject a non-finite value");
+
     require(oracle.system_residual <= 1.0e-10 &&
               oracle.stationarity_residual <= 1.0e-10,
             "native optimization oracle audit failed");
@@ -836,6 +927,10 @@ namespace
             "native optimization iteration-limit probe did not accept one step");
     require(result.gradient_norm_history.size() == 2,
             "native optimization did not check the gradient after acceptance");
+    require(std::isfinite(result.derivative.reduced_derivative.l2_norm()) &&
+              result.derivative.reduced_derivative.l2_norm() >
+                policy.gradient_tolerance,
+            "native iteration-limit probe was falsely accepted as converged");
     require(instrumentation.state_solve_calls ==
               1 + result.line_search_trial_count &&
               instrumentation.adjoint_solve_calls ==

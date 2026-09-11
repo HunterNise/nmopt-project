@@ -6,11 +6,11 @@ This roadmap is the execution contract for evaluating the current external Step-
 
 | Field | Status |
 | --- | --- |
-| Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | G1 — Attribution and decision; report complete, review pending |
-| Last completed/adopted gate | E5 — Matched optimization evidence, runtime implementation committed as `277fbf4` |
-| Next unit | No follow-on implementation until G1 review and an accepted decision |
-| Shared-nmopt freeze | Active through G1 |
+| Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary` |
+| Current unit | Step-4 ownership and evidence reconciliation; implementation complete, review pending |
+| Last completed/adopted gate | G1 — Attribution and decision, report committed as `fc31d7b`; local ownership cleanup committed as `8ad5495` and `b1e83a6` |
+| Next unit | No further implementation in this evaluation after the current documentation review |
+| Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
 
@@ -679,8 +679,25 @@ classifying block/layout and identity-metric setup as mechanical adaptation.
 For the tested linear Problem A, the report recommends retaining the current
 public boundary and making no automatic helper, API, or Problem B change. H1,
 H3, H4, H5, and H6 are supported for the tested case; H2 remains unresolved;
-and H7 is weakened for the tested case. The report is ready for review and
-does not authorize follow-up implementation.
+and H7 is weakened for the tested case. The report remains the decision
+authority; the later bounded ownership cleanup did not alter its conclusion.
+
+### Post-G1 bounded local reconciliation
+
+The accepted G1 decision led only to local clarity and evidence corrections:
+
+- `8ad5495` separates Step-4 source, integration, evaluation, verification,
+  and diagnostics ownership;
+- `b1e83a6` makes diagnostics optional on the functional binding path and
+  prevents callback-owning bindings from being copied or moved; and
+- the current documentation change records the ownership map, corrected solve
+  and metric evidence, and the decision to keep the three evidence drivers
+  separate.
+
+The detailed permanent note is
+[Step-4 ownership and evidence reconciliation](review/external-dealii-boundary-evaluation/ownership-reconciliation.md).
+This reconciliation does not promote a generic helper, change the shared API,
+reorganize ignored run artifacts, or start another tutorial evaluation.
 
 ## 10. Verification execution and artifacts
 

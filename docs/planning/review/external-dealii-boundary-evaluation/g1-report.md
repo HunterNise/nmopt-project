@@ -1,13 +1,44 @@
 # External deal.II boundary evaluation: G1 report
 
-Status: G1 report prepared for review. This report promotes the factual E0–E5
-evidence; it does not change the public nmopt boundary or authorize a follow-up
-implementation.
+Status: G1 report reconciled with the bounded post-G1 cleanup on 2026-09-11.
+The original E0–E5 evidence remains identified by its evaluated revision;
+the reconciliation below records later evidence corrections without changing
+the public nmopt boundary.
 
 Date: 2026-09-11  
 Evaluated revision: `277fbf4` (`test(dealii): compare native and nmopt optimization paths`)  
 Roadmap: [external deal.II boundary evaluation](../../external-dealii-boundary-evaluation.md)  
 Review context: [design investigation](design-investigation.md)
+
+## Post-G1 reconciliation
+
+The original report was evaluated at `277fbf4`, before the evidence and
+ownership corrections. The following bounded changes were subsequently
+reviewed and committed:
+
+- C1 (`2ff6eec`) uses deal.II's solver-control monitored residual as the final
+  solve residual, removes the extra post-solve matrix-vector product, and
+  keeps failed-solve records separate from successful records. The
+  `NoConvergence` catch preserves the solver's last step and residual; the
+  finite non-convergence branch was not runtime-triggered because the frozen
+  system converges and non-finite inputs are rejected earlier by deal.II.
+- C2 (`303e00e`) instruments the local identity metric callbacks directly. The
+  latest matched artifact recorded 1,657 metric `apply` calls, 829
+  `inverse_apply` calls, and 829 solver-reported metric solves. The latest
+  reduced-evaluation artifact recorded zero metric callbacks. The direct
+  counts are distinct from the solver-reported summary and are not timing or
+  allocation measurements.
+- O1 (`8ad5495`) separates source, integration, evaluation, verification, and
+  diagnostics ownership. O2 (`b1e83a6`) makes diagnostics optional for the
+  functional binding path and prevents the binding from being copied or
+  moved because its callbacks capture owned application state.
+
+The corrected paired artifacts are the
+[reduced-evaluation comparison](../../../../runs/external-dealii/step-4/reduced-evaluation/1789129214466132/comparison.csv)
+and the [matched-optimization summary](../../../../runs/external-dealii/step-4/optimization/1789129275006264/comparison/summary.txt).
+These changes preserve the original G1 decision: the current public boundary
+is adequate for this tested external case, and no shared helper or API change
+is implied.
 
 ## Decision
 
@@ -139,17 +170,20 @@ Convention: count physical lines containing code after excluding blank lines
 and lines consisting only of C++ comments, while counting code-bearing lines
 that contain inline comments. Python support counts nonblank, non-comment
 physical lines. These are descriptive measurements, not acceptance thresholds.
+The line counts describe the original E5 snapshot at `277fbf4`; the paths
+below use the current ownership names so the historical measurements remain
+locatable after the O1 reorganization.
 
 | Scope | Files or source span | Lines |
 | --- | --- | ---: |
-| Pinned/derived baseline | `upstream/step-4.cc` and `baseline/step-4-stripped.cc` | 191 each |
-| Adapted reusable Step-4 | `step-4.cc`, including baseline-derived code | 240 |
+| Pinned/derived baseline | `source/upstream/step-4.cc` and `source/baseline/step-4-stripped.cc` | 191 each |
+| Adapted reusable Step-4 | `source/adapted/step-4.cc`, including baseline-derived code | 240 |
 | Actual reuse seam delta | baseline-to-adapted physical diff | +74 / −15 |
-| Native mathematical operations | `scenario.hpp`, `problem_a.hpp`, `native_reduced.hpp` | 346 |
-| Native optimization orchestration | `optimization_policy.hpp`, `native_optimization.hpp` | 270 |
-| Experiment instrumentation | `instrumentation.hpp` | 59 |
-| nmopt application binding | `nmopt_binding.hpp` | 221 |
-| Independent verification implementation | `verification.hpp` | 208 |
+| Native mathematical operations | `verification/scenario.hpp`, `integration/problem_a.hpp`, `evaluation/native_reduced.hpp` | 346 |
+| Native optimization orchestration | `evaluation/optimization_policy.hpp`, `evaluation/native_optimization.hpp` | 270 |
+| Experiment instrumentation | `diagnostics/instrumentation.hpp` | 59 |
+| nmopt application binding | `integration/nmopt_binding.hpp` | 221 |
+| Independent verification implementation | `verification/verification.hpp` | 208 |
 | Contract/evidence drivers | three Step-4 test drivers | 1,861 |
 | Reusable support tools | `tools/external_dealii/*.py` | 376 |
 

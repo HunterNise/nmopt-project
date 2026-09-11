@@ -1,22 +1,50 @@
-# External deal.II Step-4 fixtures
+# External deal.II Step-4 boundary fixture
 
-This directory contains the pinned upstream tutorial, a mechanically
-comment-stripped copy, and the application-owned adapted copy used by the
-external deal.II evaluation. The evaluation record and roadmap status live in
-the [external deal.II boundary roadmap](../../../docs/planning/external-dealii-boundary-evaluation.md).
+This directory contains one adapted external application and the local code
+needed to evaluate its connection to nmopt. The minimum functional path is
+kept separate from reference evaluators, verification, and diagnostics:
 
-## Fixtures
+```text
+source/adapted/step-4.cc
+        -> integration/problem_a.hpp
+        -> integration/nmopt_binding.hpp
+        -> existing nmopt public contracts
+```
 
-- [`source/upstream/step-4.cc`](source/upstream/step-4.cc) is the verbatim deal.II `v9.5.1`
-  source and must not be edited.
-- [`source/baseline/step-4-stripped.cc`](source/baseline/step-4-stripped.cc) is generated
-  from the upstream source by
+`NmoptBinding` is an experiment-local adapter, not a new application
+framework. The evaluation record and roadmap status live in the
+[external deal.II boundary roadmap](../../../docs/planning/external-dealii-boundary-evaluation.md).
+
+## Ownership
+
+| Directory or file | Owns | Required by the minimum wiring? |
+| --- | --- | --- |
+| `source/upstream/step-4.cc` | Verbatim deal.II `v9.5.1` provenance input; never edit. | No |
+| `source/baseline/step-4-stripped.cc` | Comment-stripped fidelity baseline. | No |
+| `source/adapted/step-4.cc` | Application-owned Step-4 mesh, assembly, solve, and output seams. | Yes |
+| `integration/problem_a.hpp` | Problem A residual, objective, derivatives, native solves, and output adapter. Diagnostics are optional. | Yes |
+| `integration/nmopt_binding.hpp` | Layouts, callbacks, state/adjoint services, identity metric, and reduced DTO construction using public nmopt contracts. | Yes |
+| `evaluation/` | Native reduced and optimization reference paths plus the frozen experiment policy. | No |
+| `verification/` | Deterministic scenarios, independent oracle, and comparison checks. | No |
+| `diagnostics/` | Counters and solve evidence used to explain the evaluation. | No |
+
+The generic source tools remain under
+[`tools/external_dealii/`](../../../tools/external_dealii/). The ignored
+`runs/external-dealii/step-4/` tree contains generated evidence only; it is
+not an application dependency or a source layout.
+
+## Source fixtures
+
+- [`source/upstream/step-4.cc`](source/upstream/step-4.cc) is the verbatim
+  deal.II `v9.5.1` source and must not be edited.
+- [`source/baseline/step-4-stripped.cc`](source/baseline/step-4-stripped.cc)
+  is generated from the upstream source by
   [`strip_comments.py`](../../../tools/external_dealii/strip_comments.py).
   The tool removes complete comment lines, preserves the leading license
   block and code-bearing lines, and checks non-comment token equivalence.
-- [`source/adapted/step-4.cc`](source/adapted/step-4.cc) is copied from the stripped baseline and contains
-  only the reusable seams needed by the evaluation. It remains an independent
-  source file; it is not used to regenerate the baseline.
+- [`source/adapted/step-4.cc`](source/adapted/step-4.cc) is copied from the
+  stripped baseline and contains only the reusable seams needed by the
+  evaluation. It remains independent and does not regenerate the baseline.
 
 The raw source is published at [deal.II Step-4
 `v9.5.1`](https://github.com/dealii/dealii/blob/v9.5.1/examples/step-4/step-4.cc).
@@ -31,18 +59,20 @@ python3 tools/external_dealii/strip_comments.py \
   --check apps/external-dealii/step-4/source/baseline/step-4-stripped.cc
 ```
 
-## Targets and tests
+## Targets and checks
 
 The standalone targets are:
 
 - `nmopt_external_tutorial_step_4` — upstream source;
-- `nmopt_external_tutorial_step_4_stripped` — stripped baseline;
+- `nmopt_external_tutorial_step_4_stripped` — stripped baseline; and
 - `nmopt_external_tutorial_step_4_adapted` — adapted source.
 
 They use deal.II directly and do not link nmopt. The native reuse contract is
 `nmopt_external_step4_native_contract_test`; it includes the adapted source
-and uses only the standard scenario-discovery helper, so it also remains
-independent of nmopt headers and targets.
+and uses only the standard scenario-discovery helper, so it remains
+independent of nmopt headers and targets. The application contract and paired
+optimization checks consume the `integration/`, `evaluation/`, and
+`verification/` files separately.
 
 Configure and build the standalone fixtures with:
 
@@ -57,7 +87,7 @@ Run the complete external Step-4 checks with:
 
 ```bash
 ctest --test-dir build/debug-dealii --output-on-failure \
-  -R '^nmopt\\.external_tutorial_step_4'
+  -R '^nmopt\.(external_tutorial_step_4|external\.tutorial_step_4)\.'
 ```
 
 The focused forward comparator can also be run directly. It executes the
@@ -79,10 +109,15 @@ CTest uses stable working directories under
 `runs/external-dealii/step-4/forward-comparison/ctest/`; direct comparisons
 use a unique run ID under the selected output root.
 
+The evaluators and their reports are verification code, not required pieces
+of an external application's nmopt wiring.
+
 ## Adapted surface
 
 The adapted source preserves the original 2D/3D forward sequence and exposes
 only preparation, const assembled-matrix/RHS views, a supplied-RHS/in-out
 vector solve, and a supplied-state VTK writer. Its standalone `main()` is
-guarded by `STEP4_NO_MAIN` for native reuse tests. Control, objective, adjoint,
-and nmopt binding code belong to later evaluation units.
+guarded by `STEP4_NO_MAIN` for native reuse tests. Problem A and the nmopt
+binding are application-local integration code; native comparison,
+verification, and instrumentation do not belong to the minimum application
+path.

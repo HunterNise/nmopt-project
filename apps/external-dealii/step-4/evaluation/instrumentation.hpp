@@ -19,6 +19,13 @@ namespace external_dealii_step4
     double       final_residual;
   };
 
+  struct SolveFailureRecord
+  {
+    SolveRole    role;
+    unsigned int iterations;
+    double       final_residual;
+  };
+
   struct Instrumentation
   {
     std::size_t assembly_calls                 = 0;
@@ -37,6 +44,7 @@ namespace external_dealii_step4
     std::size_t derivative_augmentations       = 0;
     std::size_t output_calls                   = 0;
     std::vector<SolveRecord> solve_records;
+    std::vector<SolveFailureRecord> solve_failure_records;
 
     void
     record_solve_start(const SolveRole role)
@@ -61,6 +69,15 @@ namespace external_dealii_step4
     record_solve_failure()
     {
       ++solve_failures;
+    }
+
+    void
+    record_solve_failure(const SolveRole    role,
+                         const unsigned int iterations,
+                         const double       final_residual)
+    {
+      ++solve_failures;
+      solve_failure_records.push_back({role, iterations, final_residual});
     }
   };
 } // namespace external_dealii_step4

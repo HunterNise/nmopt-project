@@ -270,14 +270,10 @@ Step4<dim>::solve(const Vector<double> &rhs, Vector<double> &solution) const
   SolverCG<Vector<double>> solver(solver_control);
   solver.solve(system_matrix, solution, rhs, PreconditionIdentity());
 
-  Vector<double> final_residual(rhs.size());
-  system_matrix.vmult(final_residual, solution);
-  final_residual.add(-1.0, rhs);
-
   return {solver_control.last_check() == SolverControl::success,
           solver_control.last_step(),
           initial_residual.l2_norm(),
-          final_residual.l2_norm()};
+          solver_control.last_value()};
 }
 
 

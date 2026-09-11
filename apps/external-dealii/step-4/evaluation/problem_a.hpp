@@ -5,6 +5,8 @@
 #undef STEP4_NO_MAIN
 #include "instrumentation.hpp"
 
+#include <deal.II/lac/solver_control.h>
+
 #include <cstddef>
 #include <filesystem>
 #include <stdexcept>
@@ -199,12 +201,22 @@ namespace external_dealii_step4
       try
         {
           const auto evidence = application_.solve(rhs, solution);
-          instrumentation_.record_solve_success(
-            role,
-            evidence.iterations,
-            evidence.initial_residual,
-            evidence.final_residual);
+          if (evidence.converged)
+            instrumentation_.record_solve_success(
+              role,
+              evidence.iterations,
+              evidence.initial_residual,
+              evidence.final_residual);
+          else
+            instrumentation_.record_solve_failure(
+              role, evidence.iterations, evidence.final_residual);
           return {std::move(solution), evidence};
+        }
+      catch (const dealii::SolverControl::NoConvergence &exception)
+        {
+          instrumentation_.record_solve_failure(
+            role, exception.last_step, exception.last_residual);
+          throw;
         }
       catch (...)
         {

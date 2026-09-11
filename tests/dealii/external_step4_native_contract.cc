@@ -1,6 +1,7 @@
 #include "../../apps/external-dealii/step-4/verification/verification.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b_coordinates.hpp"
+#include "../../apps/external-dealii/step-4/integration/problem_b_mass.hpp"
 
 #include "external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
@@ -337,6 +338,118 @@ namespace
         coordinates.reconstruct(wrong);
       },
       "Problem B reconstruction accepted a wrong free dimension");
+  }
+
+  void
+  run_problem_b_mass_contract()
+  {
+    Step4<2> tutorial;
+    tutorial.prepare_for_external_use();
+
+    using Coordinates =
+      external_dealii_step4::ProblemBCoordinates<2>;
+    using Mass = external_dealii_step4::ProblemBMass<2>;
+    const Coordinates coordinates(tutorial.dof_handler_view(),
+                                  tutorial.boundary_values_view());
+    const Mass mass(tutorial.dof_handler_view(), coordinates);
+
+    require(mass.full_dimension() == 289,
+            "Problem B mass full dimension is wrong");
+    require(mass.free_dimension() == 225,
+            "Problem B mass free dimension is wrong");
+
+    const auto &mass_matrix = mass.mass_matrix();
+    const auto &coupling    = mass.coupling_matrix();
+    require(mass_matrix.m() == 289 && mass_matrix.n() == 289,
+            "Problem B mass matrix has the wrong dimensions");
+    require(coupling.m() == 225 && coupling.n() == 289,
+            "Problem B coupling matrix has the wrong dimensions");
+    require(matrix_symmetry_error(mass_matrix) <= 1.0e-14,
+            "Problem B mass matrix is not symmetric");
+
+    bool has_positive_diagonal = true;
+    bool has_positive_off_diagonal = false;
+    for (unsigned int index = 0; index < mass_matrix.m(); ++index)
+      {
+        has_positive_diagonal = has_positive_diagonal &&
+                                mass_matrix.el(index, index) > 0.0;
+        for (unsigned int column = 0; column < mass_matrix.n(); ++column)
+          if (index != column && mass_matrix.el(index, column) > 0.0)
+            has_positive_off_diagonal = true;
+      }
+    require(has_positive_diagonal,
+            "Problem B mass matrix has a non-positive diagonal");
+    require(has_positive_off_diagonal,
+            "Problem B mass matrix has no consistent off-diagonal coupling");
+
+    Vector ones(mass.full_dimension());
+    ones = 1.0;
+    const auto row_sums = mass.mass_apply(ones);
+    double total_row_sum = 0.0;
+    for (unsigned int index = 0; index < row_sums.size(); ++index)
+      {
+        require(row_sums[index] > 0.0,
+                "Problem B mass row sum is not positive");
+        total_row_sum += row_sums[index];
+      }
+    require_close(total_row_sum,
+                  4.0,
+                  1.0e-12,
+                  "Problem B mass row sums do not integrate one");
+
+    for (std::size_t row = 0; row < mass.free_dimension(); ++row)
+      for (std::size_t column = 0; column < mass.full_dimension(); ++column)
+        require_close(coupling.el(row, column),
+                      mass_matrix.el(coordinates.free_indices()[row], column),
+                      0.0,
+                      "Problem B coupling is not P-transposed mass");
+
+    std::size_t boundary_columns_with_coupling = 0;
+    for (const auto &[index, value] : tutorial.boundary_values_view())
+      {
+        (void)value;
+        bool has_coupling = false;
+        for (unsigned int row = 0; row < coupling.m(); ++row)
+          has_coupling = has_coupling || coupling.el(row, index) != 0.0;
+        if (has_coupling)
+          ++boundary_columns_with_coupling;
+      }
+    require(boundary_columns_with_coupling ==
+              tutorial.boundary_values_view().size(),
+            "Problem B coupling dropped boundary control columns");
+
+    Vector full_vector(mass.full_dimension());
+    for (unsigned int index = 0; index < full_vector.size(); ++index)
+      full_vector[index] = 0.125 + 0.001 * static_cast<double>(index);
+    const auto expected_coupling =
+      coordinates.restrict(mass.mass_apply(full_vector));
+    require_close(vector_difference(mass.coupling_apply(full_vector),
+                                    expected_coupling),
+                  0.0,
+                  1.0e-14,
+                  "Problem B coupling action disagrees with restricted mass action");
+
+    Vector free_vector(mass.free_dimension());
+    for (unsigned int index = 0; index < free_vector.size(); ++index)
+      free_vector[index] = 0.25 - 0.002 * static_cast<double>(index);
+    const auto expected_transpose =
+      mass.mass_apply(coordinates.embed_free(free_vector));
+    require(vector_difference(mass.coupling_transpose_apply(free_vector),
+                              expected_transpose) <= 1.0e-14,
+            "Problem B transpose coupling disagrees with mass embedding");
+
+    require_rejected(
+      [&mass] {
+        Vector wrong(mass.full_dimension() - 1);
+        mass.mass_apply(wrong);
+      },
+      "Problem B mass action accepted a wrong full dimension");
+    require_rejected(
+      [&mass] {
+        Vector wrong(mass.free_dimension() - 1);
+        mass.coupling_transpose_apply(wrong);
+      },
+      "Problem B transpose coupling accepted a wrong free dimension");
   }
 
   void
@@ -1165,6 +1278,12 @@ main(const int argc, char **argv)
           "problem_b"},
          60,
          run_problem_b_coordinates_contract},
+        {"problem_b_mass",
+         "nmopt.external_tutorial_step_4.native_problem_b_mass",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b"},
+         60,
+         run_problem_b_mass_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

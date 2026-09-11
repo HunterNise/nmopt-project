@@ -1,7 +1,7 @@
 # External deal.II boundary evaluation: G1 report
 
-Status: successful Problem A comparison and EC5 failure-evidence correction
-retained after review of `ed450bd` on 2026-09-11. Generated run artifacts
+Status: successful Problem A comparison and completed EC5 failure-evidence
+corrections retained on 2026-09-11. Generated run artifacts
 remain ignored and are recreated by the
 commands recorded below; no run output is copied into tracked documentation.
 The original E0–E5 evidence remains identified by its evaluated revision, and
@@ -12,6 +12,8 @@ Original evaluated revision: `277fbf4` (`test(dealii): compare native and nmopt 
 Corrected numerical path: `d44dded1400365979d1633c9eda8e561a776c32c`
 Pre-EC5 closure verification: `6a9d1a565bdf0b21ad72889e6f3e06bcdf5a3282`
 EC5 implementation: `0357d4f`, `e8050ff`
+Final native trace follow-up: `0bb1307` plus the tested change to
+`tests/dealii/external_step4_native_contract.cc`, pending commit
 Roadmap: [external deal.II boundary evaluation](../../external-dealii-boundary-evaluation.md)
 Review context: [design investigation](design-investigation.md)
 
@@ -48,8 +50,8 @@ reviewed and committed:
 - EC3 (`6a9d1a5`) makes the forward comparator reject nonfinite geometry and
   field values while retaining its failure report.
 - EC5 (`0357d4f`, `e8050ff`) records original exception diagnostics at explicit
-  catch boundaries and serializes each completed native/current-nmopt
-  optimization trace before later checks can fail. Direct-throw and
+  catch boundaries and serializes each completed native/current-nmopt trace
+  in the paired driver before later checks can fail. Direct-throw and
   post-result-failure retries retain failed status, diagnostics, available
   traces, counters, and solve records.
 
@@ -67,12 +69,12 @@ external case, and no shared helper or API change is implied.
 
 Review at `ed450bd` found that
 [`EvidenceGuard`](../../../../tests/dealii/external_step4_evidence.hpp)
-can replace an uncaught exception's original message with the generic
+could replace an uncaught exception's original message with the generic
 `scenario terminated before completion` during destruction. A temporary C++17
 probe reproduced this without changing repository sources. The
 [paired optimization driver](../../../../tests/application/external_step4_optimization_contract.cc)
-also delays trace serialization until both solvers, convergence checks, and
-the oracle return; a later failure can discard a completed earlier result.
+also delayed trace serialization until both solvers, convergence checks, and
+the oracle returned; a later failure could discard a completed earlier result.
 
 EC5 closes both delayed-evidence cases within the existing Step-4 test
 boundary. Each guarded driver catches while its `EvidenceGuard` and
@@ -83,12 +85,20 @@ native solver returns and the current-nmopt trace immediately after the nmopt
 solver returns, before later finite, convergence, oracle, output, or
 comparison checks.
 
-The focused failure-evidence selection passes `1/1` and the paired-optimization
-selection passes `2/2`; the full required pipelines pass `176/176` for
-`debug-dealii` and `67/67` for `debug-neutral`. The regression retries both
-direct-throw and post-result failure probes in unique ignored run directories
-and checks their generated status, diagnostic, traces, counters, and solve
-records. No tracked run evidence is required or added.
+Review of `0bb1307` found that the standalone native driver still delayed its
+trace until after all acceptance audits. The final follow-up separates that
+trace from the oracle-dependent summary and writes it immediately after the
+solver returns. Its new `native_trace_failure` scenario invokes the actual
+driver and throws immediately after serialization, before acceptance audits.
+Both retries preserve completed trial/accepted records, the original exception,
+counters, and solve records, while later summary/audit files remain absent.
+
+The final focused native optimization/trace-failure selection passed `2/2`.
+The full required pipelines passed `177/177` for `debug-dealii` and `67/67`
+for `debug-neutral`, including the earlier exception and paired trace tests.
+These checks used `0bb1307` plus the native-driver correction named above;
+all other numerical sources were unchanged. Generated evidence stays in
+unique ignored run directories. No tracked run evidence is required or added.
 
 The correction remains bounded: trials held only inside a solver that throws
 before returning a result are not exposed by the current solver interface.
@@ -100,14 +110,14 @@ are unaffected.
 The EC5 checks are reproducible with the existing profiles:
 
 ```bash
-cmake --build build/debug-dealii --target \
-  nmopt_external_step4_optimization_contract_test --parallel 1
+./build.sh build debug-dealii --target nmopt_external_step4_native_contract_test
+./build.sh test debug-dealii \
+  --regex '^nmopt\.external_tutorial_step_4\.(native_optimization|native_trace_failure)$'
 ctest --test-dir build/debug-dealii --output-on-failure \
   -R '^nmopt\.external\.tutorial_step_4\.failure_evidence$'
 ctest --test-dir build/debug-dealii --output-on-failure \
   -R '^(nmopt\.external\.tutorial_step_4\.(matched_optimization|completed_trace_failure))$'
-./build.sh pipeline debug-dealii
-./build.sh pipeline debug-neutral
+./build.sh pipeline debug-dealii debug-neutral
 ```
 
 ## Decision
@@ -302,9 +312,10 @@ If repeated full-VJP work becomes a demonstrated performance concern, formulate
 a separate capability or formulation experiment with direct measurements. Do
 not infer that need from the present Debug run.
 
-Problem B protocol preparation is the recommended next investigation; its
-[candidate and review qualifications](design-investigation.md#8-post-g1-review-and-problem-b-candidate)
-remain non-authoritative. It will compare another OCP on Step-4, not provide
-an independent sample of adaptation to another external application. Problem B
-implementation, nonlinear or nonsymmetric systems, constraints, compiler
-integration, and package/install behavior require their own accepted scope.
+PB0 subsequently froze the
+[Problem B execution protocol](problem-b-protocol.md).
+Its [review reasoning](design-investigation.md#8-post-g1-review-and-problem-b-candidate)
+remains non-authoritative. B compares another OCP on Step-4; it does not provide
+an independent sample of adapting another external application. No B numerical
+result is claimed. Nonlinear or nonsymmetric systems, control constraints,
+compiler integration, and package/install behavior remain outside that scope.

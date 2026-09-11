@@ -2,7 +2,7 @@
 
 Status: review context; non-authoritative. Sections 1–7 preserve the pre-E1
 investigation prepared on 2026-09-09. Section 8 records the 2026-09-11 review
-at `ed450bd` and a proposed Problem B direction.
+at `ed450bd` and the Problem B candidate subsequently selected by PB0.
 
 This document preserves the architectural reasoning, external precedents,
 source-supported facts, and open hypotheses that motivated the controlled
@@ -20,8 +20,10 @@ documentation. An early G1 obstruction report is possible; it does not imply
 completion of the numerical comparison.
 
 Read this note when interpreting G1 or considering later architecture changes.
-It is not required implementation reading for E1–E5. Read section 8 when
-preparing Problem B; it is a candidate, not an adopted protocol.
+It is not required implementation reading for E1–E5. Section 8 preserves the
+reasoning for Problem B; its
+[separate protocol](problem-b-protocol.md) owns the
+adopted execution choices.
 
 ## 1. Why the evaluation exists
 
@@ -446,6 +448,13 @@ architecture transcript and the review of `ed450bd`. The
 failure-evidence qualification. The
 [roadmap](../../external-dealii-boundary-evaluation.md) owns the next unit.
 No new public interface or Problem B implementation is adopted here.
+
+Subsequent PB0 decision (2026-09-11): the candidate below was selected and its
+numerical policies and acceptance gates frozen in the
+[Problem B protocol](problem-b-protocol.md). The
+following discussion retains its proposal-time wording and interpretation
+limits; implementations follow the protocol rather than treating this note
+as a second contract.
 
 ### Interpretation supported by the current code
 

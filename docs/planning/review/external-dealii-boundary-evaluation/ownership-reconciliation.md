@@ -80,7 +80,9 @@ this evidence closure.
   `runs/external-dealii/step-4/` tree.
 - EC5 records exception diagnostics while the evidence guard is alive and
   writes completed native/current-nmopt optimization traces before later
-  checks. Its direct-throw and post-result-failure retries retain diagnostics,
+  checks, including the final standalone native-driver correction after
+  `0bb1307`. The native trace is separate from its oracle-dependent summary.
+  Its direct-throw and post-result-failure retries retain diagnostics,
   available traces, counters, and solve records; trials held only inside a
   throwing solver remain outside the current return interface.
 
@@ -113,11 +115,11 @@ names.
 
 ## Verification
 
-The final implementation was checked with the existing `debug-dealii` and
-`debug-neutral` profiles. The focused forward selection passed 3/3, the
-focused EC5 failure-evidence selection passed 1/1, and the paired-optimization
-selection passed 2/2. The complete deal.II pipeline passed 176/176, and the
-neutral pipeline passed 67/67. The G1 report records the source revisions,
+The final native trace follow-up was checked with the existing `debug-dealii`
+and `debug-neutral` profiles. The focused native optimization/trace-failure
+selection passed 2/2. The complete deal.II pipeline passed 177/177, including
+standalone fidelity and all EC5 regressions; the neutral pipeline passed
+67/67. The G1 report records the source revisions,
 current source hashes, commands, environment, and generated run locations;
 raw traces, counters, and VTK files remain outside the repository and are
 recreated by those commands. No tracked run evidence is added.

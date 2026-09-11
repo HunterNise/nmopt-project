@@ -13,8 +13,8 @@ operations and ownership rather than that PDE family.
 This reference describes the currently implemented API exercised by that
 fixture. The authentic Step-4 boundary evaluation successfully completed its
 bounded linear Problem A comparison; its [report](../planning/review/external-dealii-boundary-evaluation/g1-report.md)
-records the measured adaptation obligations, limits, and remaining local
-failure-evidence correction. That comparison
+records the measured adaptation obligations, limits, and completed local
+failure-evidence corrections. That comparison
 retains the completed PDE–solver boundary refactor as a baseline and does not
 recommend a helper, boundary change, or deeper architectural work from this
 case alone.

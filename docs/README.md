@@ -100,10 +100,13 @@ stress the interfaces.
 - [External deal.II boundary evaluation](planning/external-dealii-boundary-evaluation.md)
   owns the current authentic Step-4 evaluation protocol, shared-nmopt freeze,
   work units, evidence requirements, and phase status.
+- [External deal.II Problem B protocol](planning/review/external-dealii-boundary-evaluation/problem-b-protocol.md)
+  freezes the next Step-4 FE distributed-control experiment, including
+  coordinates, mass geometry, native/nmopt parity, and independent acceptance.
 - [External boundary design investigation](planning/review/external-dealii-boundary-evaluation/design-investigation.md)
   preserves non-authoritative review context, external precedents, G1
-  hypotheses, and the post-G1 Problem B candidate; it adds no implementation
-  requirements or adopted mathematical choices.
+  hypotheses, and the post-G1 reasoning behind Problem B; execution choices
+  are owned by the separate evaluation protocols.
 - [Superseded external tutorial roadmap](planning/external-dealii-tutorial-roadmap.md)
   preserves the historical T0–T5 integration proposal and prior-attempt status;
   current implementation work follows the boundary evaluation roadmap.

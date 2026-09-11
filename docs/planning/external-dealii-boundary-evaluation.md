@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary` |
-| Current unit | PB0 – Prepare the Problem B protocol; adopt mathematics and scope before implementation |
-| Last completed/adopted gate | EC5 — Failure-evidence correction, implemented in `0357d4f` and `e8050ff` |
-| Next unit | PB0 – Prepare the Problem B protocol; adopt mathematics and scope before implementation |
+| Current unit | PB0 complete – Problem B execution protocol frozen |
+| Last completed/adopted gate | EC5 native trace follow-up verified; PB0 protocol adopted on 2026-09-11 |
+| Next unit | PB1 – Native FE problem, as defined in the B protocol; not started |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -732,18 +732,21 @@ performance claims, a generic helper, or a shared API change.
 
 ### EC5 – Retain exception diagnostics and available optimization traces
 
-Status: completed on 2026-09-11 in `0357d4f` and `e8050ff`; closure
+Status: completed on 2026-09-11 through `0357d4f`, `e8050ff`, and the tested
+standalone native trace follow-up based on `0bb1307` (pending commit). Closure
 documentation is recorded in the G1 report and ownership note below.
 Problem A's successful numerical comparison and bounded G1 conclusion stand.
-The remaining correction concerns failure evidence, not the mathematical or
+The correction concerns failure evidence, not the mathematical or
 public interface contract.
 
-The review reproduced an exception whose original message was replaced in
+The earlier review reproduced an exception whose original message was replaced in
 `failure.txt` by `scenario terminated before completion`. `EvidenceGuard`
 cannot recover an uncaught exception through `std::current_exception()` during
-ordinary stack unwinding. The paired driver also writes both optimization
-traces only after both solves, convergence checks, and the oracle complete.
-A later failure can therefore discard an already available native result.
+ordinary stack unwinding. The paired driver previously delayed both trace
+writes until after both solves and later checks. Review of `0bb1307` then
+found the analogous ordering still present in the standalone native driver.
+Both drivers now write available completed traces before later checks;
+the native oracle-dependent summary is separate from its trace.
 
 Outcome: preserve the original exception message and every available completed
 optimization result before subsequent operations or acceptance checks fail.
@@ -765,32 +768,35 @@ fixtures frozen. This unit does not introduce a progress-reporting framework.
   Do not claim full partial-trace retention or change shared interfaces to
   obtain it. Such a failed run is incomplete evidence, not a successful gate.
 
-Gate: the focused failure-evidence selection passes `1/1` and the paired-
-optimization selection passes `2/2`; the complete `debug-dealii` pipeline
-passes `176/176`, and the complete `debug-neutral` pipeline passes `67/67`.
+Gate: the new native optimization/trace-failure selection passed `2/2`;
+the complete `debug-dealii` pipeline passed `177/177`, including the existing
+exception and paired trace regressions, and `debug-neutral` passed `67/67`.
 Report wording matches actual failure coverage. Preserve successful Problem A
 results and ignored raw evidence; no run output is copied into tracked
 documentation. Commits:
 `0357d4f test(dealii): retain Step-4 exception diagnostics` and
 `e8050ff test(dealii): retain Step-4 completed optimization traces`.
+The final native-driver follow-up is pending commit as
+`test(dealii): retain native Step-4 traces before acceptance checks`.
 
 ### PB0 – Prepare the Problem B protocol
 
-Documentation preparation is the next direction; no Problem B implementation
-or mathematical choice is adopted by this status update. Preserve the completed
-refactor and corrected Problem A as baselines, on the existing evaluation
-branch with shared nmopt frozen. The
-[post-G1 investigation](review/external-dealii-boundary-evaluation/design-investigation.md#8-post-g1-review-and-problem-b-candidate)
-records the candidate and its limitations.
+Completed on 2026-09-11. The
+[Problem B execution protocol](review/external-dealii-boundary-evaluation/problem-b-protocol.md)
+now owns B's frozen mathematics, numerical policies, ownership, acceptance,
+and implementation units. It selects same-mesh full continuous control,
+free state coordinates with the original boundary lifting, consistent mass
+coupling, zero target, unit regularization, and an $L^{2}$ control metric.
+Native and current-nmopt paths share declared mass-solve and optimization
+policies. An independent dense KKT oracle supplements derivative, metric,
+coordinate, and paired checks.
 
-Before implementation, adopt a short separate protocol defining control/state
-coordinates, lifting, FE coupling and objective operators, metric realization
-and solve policy, matched native/nmopt optimization policies, independent
-verification, and attribution. Account for additional Step-4 access seams and
-changes to the Euclidean native reference. Problem B is a second OCP on the
-same application; adapter size alone is not a gate or evidence of general
-external-application cost. Keep nonlinear, nonsymmetric, adaptive, MPI,
-control-constraint, helper, and public-interface work outside this preparation.
+The [investigation](review/external-dealii-boundary-evaluation/design-investigation.md#8-post-g1-review-and-problem-b-candidate)
+remains historical reasoning. Problem B is a second OCP on the same Step-4
+application; line counts and repeated construction do not establish average
+external-application cost. The shared-nmopt freeze and preserved Problem A
+baseline remain in force. PB1 is the next implementation unit; no B code or
+numerical result is claimed by this protocol update.
 
 ## 10. Verification execution and artifacts
 

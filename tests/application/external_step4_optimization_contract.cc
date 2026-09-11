@@ -453,6 +453,64 @@ namespace
         nmopt_instrumentation.output_calls != 1)
       note("output schedule is inconsistent");
 
+    const auto native_runtime_counts =
+      external_dealii_step4::runtime_counter_snapshot(
+        native_instrumentation);
+    const auto nmopt_runtime_counts =
+      external_dealii_step4::runtime_counter_snapshot(nmopt_instrumentation);
+
+    const auto &nmopt_adjoint = nmopt_result.final_evaluation.adjoint.block(0);
+    const auto native_state_audit = verification::state_equation_residual(
+      native_problem, native_result.value.state, native_result.value.control);
+    const auto native_adjoint_audit =
+      verification::adjoint_equation_residual(native_problem,
+                                              native_result.derivative.adjoint,
+                                              native_result.value.state);
+    const auto nmopt_state_audit = verification::state_equation_residual(
+      nmopt_binding.problem(), nmopt_state, nmopt_control);
+    const auto nmopt_adjoint_audit = verification::adjoint_equation_residual(
+      nmopt_binding.problem(), nmopt_adjoint, nmopt_state);
+    require(native_state_audit.normalized <= 1.0e-10,
+            "native final state residual audit failed");
+    require(native_adjoint_audit.normalized <= 1.0e-10,
+            "native final adjoint residual audit failed");
+    require(nmopt_state_audit.normalized <= 1.0e-10,
+            "nmopt final state residual audit failed");
+    require(nmopt_adjoint_audit.normalized <= 1.0e-10,
+            "nmopt final adjoint residual audit failed");
+    require(external_dealii_step4::runtime_counter_snapshot(
+              native_instrumentation) == native_runtime_counts,
+            "native final residual audits changed runtime counters");
+    require(external_dealii_step4::runtime_counter_snapshot(
+              nmopt_instrumentation) == nmopt_runtime_counts,
+            "nmopt final residual audits changed runtime counters");
+
+    std::ofstream residual_audits(root / "comparison" /
+                                  "residual-audits.csv");
+    require(static_cast<bool>(residual_audits),
+            "could not open optimization residual audit artifact");
+    residual_audits
+      << "path,state_monitored_residual,state_recomputed_absolute_norm,"
+         "state_recomputed_normalized_residual,state_residual_scale,"
+         "adjoint_monitored_residual,adjoint_recomputed_absolute_norm,"
+         "adjoint_recomputed_normalized_residual,adjoint_residual_scale\n"
+      << std::setprecision(std::numeric_limits<double>::max_digits10)
+      << "native," << native_result.value.state_solve.final_residual << ','
+      << native_state_audit.absolute_norm << ','
+      << native_state_audit.normalized << ',' << native_state_audit.scale
+      << ',' << native_result.derivative.adjoint_solve.final_residual << ','
+      << native_adjoint_audit.absolute_norm << ','
+      << native_adjoint_audit.normalized << ',' << native_adjoint_audit.scale
+      << '\n'
+      << "nmopt," << nmopt_result.final_evaluation.state_solve.achieved_residual
+      << ',' << nmopt_state_audit.absolute_norm << ','
+      << nmopt_state_audit.normalized << ',' << nmopt_state_audit.scale
+      << ',' << nmopt_result.final_evaluation.adjoint_solve.achieved_residual
+      << ',' << nmopt_adjoint_audit.absolute_norm << ','
+      << nmopt_adjoint_audit.normalized << ','
+      << nmopt_adjoint_audit.scale << '\n';
+    residual_audits.flush();
+
     std::ofstream summary(root / "comparison" / "summary.txt");
     require(static_cast<bool>(summary),
             "could not open the optimization comparison summary");
@@ -464,6 +522,24 @@ namespace
             << "oracle_system_residual " << oracle.system_residual << '\n'
             << "oracle_stationarity_residual "
             << oracle.stationarity_residual << '\n'
+            << "native_final_state_monitored_residual "
+            << native_result.value.state_solve.final_residual << '\n'
+            << "native_final_state_recomputed_normalized_residual "
+            << native_state_audit.normalized << '\n'
+            << "native_final_adjoint_monitored_residual "
+            << native_result.derivative.adjoint_solve.final_residual << '\n'
+            << "native_final_adjoint_recomputed_normalized_residual "
+            << native_adjoint_audit.normalized << '\n'
+            << "nmopt_final_state_monitored_residual "
+            << nmopt_result.final_evaluation.state_solve.achieved_residual
+            << '\n'
+            << "nmopt_final_state_recomputed_normalized_residual "
+            << nmopt_state_audit.normalized << '\n'
+            << "nmopt_final_adjoint_monitored_residual "
+            << nmopt_result.final_evaluation.adjoint_solve.achieved_residual
+            << '\n'
+            << "nmopt_final_adjoint_recomputed_normalized_residual "
+            << nmopt_adjoint_audit.normalized << '\n'
             << "native_final_gradient_norm "
             << native_trace_value.final_gradient_norm << '\n'
             << "nmopt_final_gradient_norm "

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -82,4 +83,26 @@ namespace external_dealii_step4
       solve_failure_records.push_back({role, iterations, final_residual});
     }
   };
+
+  inline std::array<std::size_t, 17>
+  runtime_counter_snapshot(const Instrumentation &instrumentation)
+  {
+    return {{instrumentation.assembly_calls,
+             instrumentation.state_solve_calls,
+             instrumentation.adjoint_solve_calls,
+             instrumentation.solve_failures,
+             instrumentation.objective_calls,
+             instrumentation.objective_derivative_calls,
+             instrumentation.residual_calls,
+             instrumentation.residual_jvp_calls,
+             instrumentation.residual_vjp_calls,
+             instrumentation.control_vjp_calls,
+             instrumentation.explicit_matrix_vmult_calls,
+             instrumentation.explicit_matrix_tvmult_calls,
+             instrumentation.value_evaluations,
+             instrumentation.derivative_augmentations,
+             instrumentation.output_calls,
+             instrumentation.metric_apply_calls,
+             instrumentation.metric_inverse_apply_calls}};
+  }
 } // namespace external_dealii_step4

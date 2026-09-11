@@ -46,6 +46,50 @@ namespace external_dealii_step4
              std::max(1.0, std::max(std::abs(left), std::abs(right)));
     }
 
+    struct EquationResidualAudit
+    {
+      double absolute_norm;
+      double scale;
+      double normalized;
+    };
+
+    inline EquationResidualAudit
+    normalized_equation_residual(const Vector &lhs, const Vector &rhs)
+    {
+      if (lhs.size() != rhs.size())
+        throw std::invalid_argument(
+          "verification equation residual vectors have incompatible dimensions");
+
+      Vector residual = lhs;
+      residual.add(-1.0, rhs);
+      const double scale = std::max(1.0, rhs.l2_norm());
+      const double absolute_norm = residual.l2_norm();
+      return {absolute_norm, scale, absolute_norm / scale};
+    }
+
+    inline EquationResidualAudit
+    state_equation_residual(const Problem & problem,
+                            const Vector & state,
+                            const Vector & control)
+    {
+      Vector lhs(problem.state_dimension());
+      problem.system_matrix().vmult(lhs, state);
+
+      Vector rhs = problem.system_rhs();
+      rhs.add(1.0, control);
+      return normalized_equation_residual(lhs, rhs);
+    }
+
+    inline EquationResidualAudit
+    adjoint_equation_residual(const Problem & problem,
+                              const Vector & adjoint,
+                              const Vector & state)
+    {
+      Vector lhs(problem.state_dimension());
+      problem.system_matrix().Tvmult(lhs, adjoint);
+      return normalized_equation_residual(lhs, state);
+    }
+
     inline void
     require_vector_close(const Vector &      actual,
                          const Vector &      expected,

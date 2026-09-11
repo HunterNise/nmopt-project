@@ -1,6 +1,6 @@
 #include "../../apps/external-dealii/step-4/integration/nmopt_binding.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_reduced.hpp"
-#include "../../apps/external-dealii/step-4/verification/scenario.hpp"
+#include "../../apps/external-dealii/step-4/verification/verification.hpp"
 
 #include "../dealii/external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
@@ -39,6 +39,7 @@ namespace
   static_assert(!std::is_move_assignable_v<Binding>);
   using Matrix       = ProblemA::Matrix;
   using NativeReduced = external_dealii_step4::NativeReduced;
+  namespace verification = external_dealii_step4::verification;
 
   void
   require(const bool condition, const std::string &message)
@@ -475,12 +476,20 @@ namespace
 
   struct PairedEvaluation
   {
+    std::string label;
+    Vector control;
     Vector native_state;
     Vector nmopt_state;
+    Vector native_adjoint;
+    Vector nmopt_adjoint;
     Vector native_gradient;
     Vector nmopt_gradient;
     double native_objective;
     double nmopt_objective;
+    double native_state_monitored_residual;
+    double nmopt_state_monitored_residual;
+    double native_adjoint_monitored_residual;
+    double nmopt_adjoint_monitored_residual;
     double state_error;
     double objective_error;
     double adjoint_error;
@@ -555,12 +564,20 @@ namespace
     progress << "completed " << label << '\n';
     progress.flush();
 
-    return {native_value.state,
+    return {label,
+            control,
+            native_value.state,
             nmopt_state,
+            native_derivative.adjoint,
+            nmopt_adjoint,
             native_derivative.reduced_derivative,
             nmopt_gradient,
             native_value.objective,
             nmopt_value.objective_value,
+            native_value.state_solve.final_residual,
+            nmopt_value.state_solve.achieved_residual,
+            native_derivative.adjoint_solve.final_residual,
+            nmopt_derivative.adjoint_solve.achieved_residual,
             state_error,
             objective_error,
             adjoint_error,
@@ -696,6 +713,73 @@ namespace
               nmopt_instrumentation.metric_apply_calls == 0 &&
               nmopt_instrumentation.metric_inverse_apply_calls == 0,
             "reduced evaluation unexpectedly applied a metric");
+
+    const auto native_runtime_counts =
+      external_dealii_step4::runtime_counter_snapshot(
+        native_instrumentation);
+    const auto nmopt_runtime_counts =
+      external_dealii_step4::runtime_counter_snapshot(nmopt_instrumentation);
+
+    std::ofstream residual_audits(artifact / "residual-audits.csv");
+    require(static_cast<bool>(residual_audits),
+            "could not open reduced residual audit artifact");
+    residual_audits
+      << "label,path,state_monitored_residual,state_recomputed_absolute_norm,"
+         "state_recomputed_normalized_residual,state_residual_scale,"
+         "adjoint_monitored_residual,adjoint_recomputed_absolute_norm,"
+         "adjoint_recomputed_normalized_residual,adjoint_residual_scale\n";
+    for (const auto &evaluation : evaluations)
+      {
+        const auto native_state_audit = verification::state_equation_residual(
+          native_problem, evaluation.native_state, evaluation.control);
+        const auto native_adjoint_audit =
+          verification::adjoint_equation_residual(native_problem,
+                                                  evaluation.native_adjoint,
+                                                  evaluation.native_state);
+        const auto nmopt_state_audit = verification::state_equation_residual(
+          nmopt_binding.problem(), evaluation.nmopt_state, evaluation.control);
+        const auto nmopt_adjoint_audit =
+          verification::adjoint_equation_residual(nmopt_binding.problem(),
+                                                  evaluation.nmopt_adjoint,
+                                                  evaluation.nmopt_state);
+
+        require(native_state_audit.normalized <= 1.0e-10,
+                evaluation.label + " native state residual audit failed");
+        require(native_adjoint_audit.normalized <= 1.0e-10,
+                evaluation.label + " native adjoint residual audit failed");
+        require(nmopt_state_audit.normalized <= 1.0e-10,
+                evaluation.label + " nmopt state residual audit failed");
+        require(nmopt_adjoint_audit.normalized <= 1.0e-10,
+                evaluation.label + " nmopt adjoint residual audit failed");
+
+        residual_audits << std::setprecision(
+                             std::numeric_limits<double>::max_digits10)
+                        << evaluation.label << ",native," <<
+          evaluation.native_state_monitored_residual << ','
+                        << native_state_audit.absolute_norm << ','
+                        << native_state_audit.normalized << ','
+                        << native_state_audit.scale << ','
+                        << evaluation.native_adjoint_monitored_residual << ','
+                        << native_adjoint_audit.absolute_norm << ','
+                        << native_adjoint_audit.normalized << ','
+                        << native_adjoint_audit.scale << '\n'
+                        << evaluation.label << ",nmopt," <<
+          evaluation.nmopt_state_monitored_residual << ','
+                        << nmopt_state_audit.absolute_norm << ','
+                        << nmopt_state_audit.normalized << ','
+                        << nmopt_state_audit.scale << ','
+                        << evaluation.nmopt_adjoint_monitored_residual << ','
+                        << nmopt_adjoint_audit.absolute_norm << ','
+                        << nmopt_adjoint_audit.normalized << ','
+                        << nmopt_adjoint_audit.scale << '\n';
+      }
+    residual_audits.flush();
+    require(external_dealii_step4::runtime_counter_snapshot(
+              native_instrumentation) == native_runtime_counts,
+            "native residual audits changed runtime counters");
+    require(external_dealii_step4::runtime_counter_snapshot(
+              nmopt_instrumentation) == nmopt_runtime_counts,
+            "nmopt residual audits changed runtime counters");
 
     output << "\ncount,native,nmopt\n"
            << "state_solves," << native_instrumentation.state_solve_calls

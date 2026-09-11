@@ -1,5 +1,6 @@
 #include "../../apps/external-dealii/step-4/verification/verification.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
+#include "../../apps/external-dealii/step-4/integration/problem_b_coordinates.hpp"
 
 #include "external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
@@ -248,6 +249,94 @@ namespace
         require(std::isfinite(value),
                 "Step4 boundary access view contains a non-finite value");
       }
+  }
+
+  void
+  run_problem_b_coordinates_contract()
+  {
+    Step4<2> tutorial;
+    tutorial.prepare_for_external_use();
+
+    using Coordinates =
+      external_dealii_step4::ProblemBCoordinates<2>;
+    const Coordinates coordinates(tutorial.dof_handler_view(),
+                                  tutorial.boundary_values_view());
+    require(coordinates.full_dimension() == 289,
+            "Problem B full coordinate dimension is wrong");
+    require(coordinates.free_dimension() == 225,
+            "Problem B free coordinate dimension is wrong");
+    require(coordinates.boundary_dimension() == 64,
+            "Problem B boundary coordinate dimension is wrong");
+
+    const auto &free_indices = coordinates.free_indices();
+    require(free_indices.size() == coordinates.free_dimension(),
+            "Problem B free index map has the wrong dimension");
+    for (std::size_t position = 0; position < free_indices.size(); ++position)
+      {
+        require(free_indices[position] < coordinates.full_dimension(),
+                "Problem B free index map contains an invalid index");
+        require(tutorial.boundary_values_view().find(free_indices[position]) ==
+                  tutorial.boundary_values_view().end(),
+                "Problem B free index map contains a boundary index");
+        if (position > 0)
+          require(free_indices[position - 1] < free_indices[position],
+                  "Problem B free index map is not in native order");
+      }
+
+    const auto &lifting = coordinates.lifting();
+    require(lifting.size() == coordinates.full_dimension(),
+            "Problem B lifting has the wrong dimension");
+    for (std::size_t index = 0; index < coordinates.full_dimension(); ++index)
+      {
+        const auto boundary = tutorial.boundary_values_view().find(index);
+        const double expected = boundary == tutorial.boundary_values_view().end() ?
+                                  0.0 : boundary->second;
+        require_close(lifting[index],
+                      expected,
+                      0.0,
+                      "Problem B lifting has the wrong coefficient");
+      }
+
+    Vector free_vector(coordinates.free_dimension());
+    for (std::size_t index = 0; index < coordinates.free_dimension(); ++index)
+      free_vector[index] =
+        0.25 + static_cast<double>(index) /
+                  static_cast<double>(coordinates.free_dimension());
+
+    const auto reconstructed = coordinates.reconstruct(free_vector);
+    const auto restricted    = coordinates.restrict(reconstructed);
+    require(vector_difference(restricted, free_vector) == 0.0,
+            "Problem B reconstruction/restriction changed free coordinates");
+    for (const auto &[index, value] : tutorial.boundary_values_view())
+      require_close(reconstructed[index],
+                    value,
+                    0.0,
+                    "Problem B reconstruction changed a boundary coefficient");
+
+    const auto embedded = coordinates.embed_free(free_vector);
+    require(vector_difference(coordinates.restrict(embedded), free_vector) ==
+              0.0,
+            "Problem B free embedding/restriction changed free coordinates");
+    for (const auto &[index, value] : tutorial.boundary_values_view())
+      {
+        (void)value;
+        require_close(embedded[index],
+                      0.0,
+                      0.0,
+                      "Problem B free embedding changed a boundary coordinate");
+      }
+
+    Vector zero_free(coordinates.free_dimension());
+    zero_free = 0.0;
+    require(vector_difference(coordinates.reconstruct(zero_free), lifting) ==
+              0.0,
+            "Problem B zero reconstruction is not the lifting");
+    require_rejected(
+      [&coordinates] {
+        Vector wrong(coordinates.free_dimension() - 1);
+        coordinates.reconstruct(wrong);
+      },
+      "Problem B reconstruction accepted a wrong free dimension");
   }
 
   void
@@ -1070,6 +1159,12 @@ main(const int argc, char **argv)
           "problem_b"},
          60,
          run_fe_access_contract},
+        {"problem_b_coordinates",
+         "nmopt.external_tutorial_step_4.native_problem_b_coordinates",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b"},
+         60,
+         run_problem_b_coordinates_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E5.a — Native matched-optimization reference loop; implementation complete, review pending |
+| Current unit | E5.b — Paired native/current-nmopt matched optimization; implementation complete, review pending |
 | Last completed/adopted gate | E4 — Current nmopt Problem A and paired reduced evaluation, committed through `2e21a1b` |
-| Next unit | E5.b — Paired nmopt matched optimization, after E5.a review and commit |
+| Next unit | E5.c — Evidence handoff, after E5.b review and commit |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -125,7 +125,8 @@ library hierarchy to realize the table.
 New test drivers:
 
 - `tests/dealii/external_step4_native_contract.cc`: E2 reuse checks, E3 native mathematical checks, and E5 native optimizer scenario.
-- `tests/application/external_step4_nmopt_contract.cc`: E4 paired evaluation and E5 paired optimization.
+- `tests/application/external_step4_nmopt_contract.cc`: E4 paired reduced evaluation.
+- `tests/application/external_step4_optimization_contract.cc`: E5 paired optimization.
 
 The headers may contain small inline/native definitions. Do not introduce PImpl or a new public façade solely to split files. For this tutorial, `problem_a.hpp` may include the adapted template source behind a tutorial-local `STEP4_NO_MAIN` guard, exactly once per translation unit. This is a recorded source-packaging seam, not an nmopt dependency. Keep the standalone `main()` behind the same guard; do not add nmopt names to the adapted tutorial.
 
@@ -590,9 +591,9 @@ Prospective commit: `test(dealii): compare native and nmopt optimization paths`.
 
 Gate: every numerical or schedule discrepancy must be resolved or explicitly accepted as explained numerical variation before a successful comparison is claimed. If the selected fixed constants fail, preserve the failure; propose a symmetric protocol amendment instead of tuning nmopt and native independently.
 
-E5 is split into reviewable native and paired subunits. E5.a establishes the
+E5 is split into reviewable native and paired subunits. E5.a established the
 native reference loop and its schedule evidence before any optimization result
-is compared with current nmopt. E5.b will reuse the unchanged E4 binding and
+was compared with current nmopt. E5.b reuses the unchanged E4 binding and
 existing public steepest-descent/Armijo solver. E5.c is the final evidence and
 roadmap handoff; it does not add runtime comparison machinery.
 
@@ -615,8 +616,27 @@ audit bound. The compact ignored native evidence is under
 `runs/external-dealii/step-4/optimization/1789117845065505/native/`, including
 `trace.csv`, `summary.txt`, and the retained-state `solution.vtk`. The focused
 native selection passed `8/8`; the complete `./build.sh pipeline debug-dealii`
-passed `171/171`. E5.a is ready for review and explicit commit; E5.b remains
-pending.
+passed `171/171`. E5.a was then reviewed and committed as `4d26826`; E5.b is
+the current unit.
+
+E5.b evidence (2026-09-11, `4d26826` plus the uncommitted E5.b diff): the new
+paired optimization scenario reused the E4 binding and mapped the frozen
+policy into the existing `ReducedSearchSolverT` steepest-descent/Armijo
+solver. Native and current nmopt both stopped by gradient tolerance after 828
+accepted iterations and 6,025 line-search trials, with final gradient norm
+`9.5036543162094535e-7` and `first_divergence none`. Both paths recorded one
+assembly, 6,026 state solves, 829 adjoint solves, 6,026 objective evaluations,
+and 829 objective-derivative augmentations. Native recorded 829 direct
+control VJPs; current nmopt recorded 829 residual VJPs and 829 explicit matrix
+transpose actions, plus 829 metric solves and no Hessian actions. The final
+control and state differences were zero, the retained VTK outputs were
+identical, and both final controls passed the independent dense-oracle audit
+(`3.2811052213435387e-16` system residual and
+`1.4056590879085018e-15` stationarity residual). The focused scenario passed
+`1/1`, and `./build.sh pipeline debug-dealii` passed `172/172`. Paired
+evidence is under
+`runs/external-dealii/step-4/optimization/1789119247586875/{native,nmopt,comparison}/`.
+E5.b is ready for review and explicit commit; E5.c remains pending.
 
 ### G1 — Attribution and decision
 

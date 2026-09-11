@@ -220,6 +220,10 @@ if(NMOPT_ENABLE_DEAL_II)
       nmopt_external_step4_nmopt_contract_test
       tests/application/external_step4_nmopt_contract.cc)
 
+    nmopt_add_dealii_test(
+      nmopt_external_step4_optimization_contract_test
+      tests/application/external_step4_optimization_contract.cc)
+
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
     set(nmopt_external_tutorial_forward_root

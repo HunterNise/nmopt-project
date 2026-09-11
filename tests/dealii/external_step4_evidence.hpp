@@ -215,6 +215,12 @@ namespace external_dealii_step4_test
       write_failure(root_, scenario_, failure_message_, views_);
     }
 
+    void
+    fail_current_exception() noexcept
+    {
+      fail(current_exception_message());
+    }
+
   private:
     std::filesystem::path              root_;
     const char *                        scenario_;

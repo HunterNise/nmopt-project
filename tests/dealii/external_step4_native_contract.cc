@@ -382,6 +382,8 @@ namespace
     const auto artifact_root = native_reference_artifact_root("derivatives");
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact_root, "native_derivatives", {{"native", &instrumentation}});
+    try
+      {
     std::ofstream finite_difference_output(
       artifact_root / "reduced-finite-differences.csv");
     require(static_cast<bool>(finite_difference_output),
@@ -566,6 +568,12 @@ namespace
             << '\n';
     summary.flush();
     evidence.complete();
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
   }
 
   void
@@ -575,6 +583,8 @@ namespace
     const auto artifact_root = native_reference_artifact_root("oracle");
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact_root, "native_oracle", {{"native", &instrumentation}});
+    try
+      {
     std::ofstream output(artifact_root / "native-oracle.txt");
     require(static_cast<bool>(output),
             "could not open the native oracle trace");
@@ -623,6 +633,12 @@ namespace
             "native reduced gradient is not zero at the dense oracle");
     output.flush();
     evidence.complete();
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
   }
 
   std::filesystem::path
@@ -726,6 +742,8 @@ namespace
       "native_optimization",
       {{"native", &instrumentation},
        {"verification", &verification_instrumentation}});
+    try
+      {
     ProblemA      problem(instrumentation);
     NativeReduced reduced(problem, instrumentation);
     Vector        initial_control(problem.control_dimension());
@@ -904,6 +922,12 @@ namespace
                                     instrumentation,
                                     oracle);
     evidence.complete();
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
   }
 
   void

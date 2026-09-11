@@ -213,6 +213,8 @@ namespace
     const auto artifact_root = create_binding_artifact();
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact_root, "nmopt_binding_construction", {{"nmopt", &instrumentation}});
+    try
+      {
     Binding minimal_binding;
     Vector  minimal_control(minimal_binding.problem().control_dimension());
     minimal_control = 0.0;
@@ -357,6 +359,12 @@ namespace
     require(instrumentation.residual_vjp_calls == 3,
             "nmopt binding did not exercise the full VJP callback");
     evidence.complete();
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
   }
   double
   paired_vector_error(const Vector &left, const Vector &right)
@@ -599,6 +607,8 @@ namespace
       "nmopt_reduced_comparison",
       {{"native", &native_instrumentation},
        {"nmopt", &nmopt_instrumentation}});
+    try
+      {
     std::ofstream output(artifact / "comparison.csv");
     require(static_cast<bool>(output),
             "could not open reduced comparison artifact");
@@ -810,6 +820,12 @@ namespace
     std::cout << "Step-4 native/nmopt reduced comparison passed: "
               << artifact.lexically_relative(find_repository_root()).generic_string()
               << '\n';
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
   }
 
   std::filesystem::path
@@ -819,6 +835,8 @@ namespace
     const auto artifact = create_comparison_artifact(prefix);
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact, "failure_evidence", {{"native", &instrumentation}});
+    try
+      {
     std::ofstream output(artifact / "comparison.csv");
     require(static_cast<bool>(output),
             "could not open failure comparison artifact");
@@ -846,6 +864,35 @@ namespace
     require(comparison_failed,
             "deliberate comparison did not produce a failure");
     return artifact;
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
+  }
+
+  void
+  run_unhandled_exception_failure(const std::string &       prefix,
+                                  std::filesystem::path &artifact)
+  {
+    Instrumentation instrumentation;
+    artifact = create_comparison_artifact(prefix);
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact, "unhandled_exception", {{"native", &instrumentation}});
+    try
+      {
+        ProblemA problem(instrumentation);
+        const auto control =
+          external_dealii_step4::scenario::reduced_controls().front();
+        (void)problem.solve_state(control);
+        throw std::runtime_error("unhandled Step-4 exception diagnostic");
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
   }
 
   std::string
@@ -878,6 +925,56 @@ namespace
                 "failure evidence did not retain compared values");
         require(solves.find("success,state") != std::string::npos,
                 "failure evidence did not retain solve evidence");
+      }
+
+    std::filesystem::path exception_first;
+    std::filesystem::path exception_retry;
+    bool                  exception_first_thrown = false;
+    try
+      {
+        run_unhandled_exception_failure("exception-first", exception_first);
+      }
+    catch (const std::exception &exception)
+      {
+        exception_first_thrown = true;
+        require(exception.what() ==
+                  std::string("unhandled Step-4 exception diagnostic"),
+                "unhandled exception did not propagate its original message");
+      }
+    require(exception_first_thrown,
+            "unhandled exception probe did not throw");
+
+    bool exception_retry_thrown = false;
+    try
+      {
+        run_unhandled_exception_failure("exception-retry", exception_retry);
+      }
+    catch (const std::exception &exception)
+      {
+        exception_retry_thrown = true;
+        require(exception.what() ==
+                  std::string("unhandled Step-4 exception diagnostic"),
+                "exception retry did not propagate its original message");
+      }
+    require(exception_retry_thrown,
+            "unhandled exception retry did not throw");
+    require(exception_first != exception_retry,
+            "unhandled exception retry reused the run directory");
+    for (const auto &artifact : {exception_first, exception_retry})
+      {
+        const auto status = read_file(artifact / "status.txt");
+        const auto failure = read_file(artifact / "failure.txt");
+        const auto counters = read_file(artifact / "counters.csv");
+        const auto solves = read_file(artifact / "solve-records.csv");
+        require(status.find("status failed") != std::string::npos,
+                "unhandled exception evidence did not retain failed status");
+        require(failure.find("unhandled Step-4 exception diagnostic") !=
+                  std::string::npos,
+                "unhandled exception evidence lost the original diagnostic");
+        require(counters.find("state_solve_calls,1") != std::string::npos,
+                "unhandled exception evidence lost counters");
+        require(solves.find("success,state") != std::string::npos,
+                "unhandled exception evidence lost solve records");
       }
   }
 } // namespace

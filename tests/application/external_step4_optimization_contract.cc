@@ -367,6 +367,8 @@ namespace
       {{"native", &native_instrumentation},
        {"nmopt", &nmopt_instrumentation},
        {"verification", &verification_instrumentation}});
+    try
+      {
     ProblemA      native_problem(native_instrumentation);
     NativeReduced native_reduced(native_problem, native_instrumentation);
     Binding       nmopt_binding(nmopt_instrumentation);
@@ -714,6 +716,12 @@ namespace
     summary.flush();
     require(first_divergence.empty(), first_divergence);
     evidence.complete();
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
   }
 
   void

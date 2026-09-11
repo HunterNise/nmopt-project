@@ -1,10 +1,12 @@
 #include "../../apps/external-dealii/step-4/evaluation/verification.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
 
 #include "../support/scenario_dispatch.hpp"
 
 #include <deal.II/lac/vector.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -22,6 +24,12 @@ namespace
   using Matrix          = external_dealii_step4::ProblemA::Matrix;
   using ProblemA        = external_dealii_step4::ProblemA;
   using NativeReduced   = external_dealii_step4::NativeReduced;
+  using NativeArmijoSolver = external_dealii_step4::NativeArmijoSolver;
+  using NativeOptimizationResult =
+    external_dealii_step4::NativeOptimizationResult;
+  using NativeOptimizationStoppingReason =
+    external_dealii_step4::NativeOptimizationStoppingReason;
+  using OptimizationPolicy = external_dealii_step4::OptimizationPolicy;
   using Instrumentation = external_dealii_step4::Instrumentation;
   using Vector          = ProblemA::Vector;
   namespace verification = external_dealii_step4::verification;
@@ -615,6 +623,184 @@ namespace
            << "native_adjoint_solve_iterations "
            << derivative.adjoint_solve.iterations << '\n';
   }
+
+  std::filesystem::path
+  native_optimization_artifact_root()
+  {
+    auto directory = std::filesystem::current_path();
+    while (true)
+      {
+        if (std::filesystem::exists(
+              directory / "apps/external-dealii/step-4/upstream/step-4.cc"))
+          {
+            const auto now = std::chrono::system_clock::now().time_since_epoch();
+            const auto run_id = std::to_string(
+              std::chrono::duration_cast<std::chrono::microseconds>(now)
+                .count());
+            const auto root = directory /
+                              "runs/external-dealii/step-4/optimization" /
+                              run_id;
+            const auto native_root = root / "native";
+            std::filesystem::create_directories(native_root);
+            return native_root;
+          }
+
+        const auto parent = directory.parent_path();
+        if (parent == directory)
+          break;
+        directory = parent;
+      }
+
+    throw std::runtime_error("could not locate the optimization artifact root");
+  }
+
+  void
+  write_native_optimization_trace(const std::filesystem::path &root,
+                                  const NativeOptimizationResult &result,
+                                  const Instrumentation &instrumentation,
+                                  const verification::OracleResult &oracle)
+  {
+    std::ofstream trace(root / "trace.csv");
+    require(static_cast<bool>(trace), "could not open the native optimization trace");
+    trace << "record,iteration,trial,step_length,objective,actual_slope,"
+             "armijo_bound,objective_finite,slope_negative,accepted,"
+             "objective_before,objective_after,objective_change,"
+             "actual_step_norm,gradient_norm\n";
+    trace << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (const auto &trial : result.trial_records)
+      trace << "trial," << trial.iteration << ',' << trial.trial << ','
+            << trial.step_length << ',' << trial.objective_value << ','
+            << trial.actual_slope << ',' << trial.sufficient_decrease_bound
+            << ',' << trial.objective_finite << ',' << trial.slope_negative
+            << ',' << trial.accepted << ",,,,,\n";
+    for (const auto &iteration : result.accepted_iterations)
+      trace << "accepted," << iteration.iteration << ",,"
+            << iteration.requested_step_length << ','
+            << iteration.objective_after << ',' << iteration.actual_slope
+            << ",,,,1," << iteration.objective_before << ','
+            << iteration.objective_after << ',' << iteration.objective_change
+            << ',' << iteration.actual_step_norm << ','
+            << iteration.gradient_norm << '\n';
+
+    std::ofstream summary(root / "summary.txt");
+    require(static_cast<bool>(summary),
+            "could not open the native optimization summary");
+    summary << std::setprecision(std::numeric_limits<double>::max_digits10)
+            << "stopping_reason "
+            << external_dealii_step4::native_optimization_stopping_reason_name(
+                 result.stopping_reason)
+            << '\n'
+            << "accepted_iterations " << result.accepted_iteration_count << '\n'
+            << "line_search_trials " << result.line_search_trial_count << '\n'
+            << "final_objective " << result.value.objective << '\n'
+            << "final_gradient_norm "
+            << result.derivative.reduced_derivative.l2_norm() << '\n'
+            << "oracle_system_residual " << oracle.system_residual << '\n'
+            << "oracle_stationarity_residual " << oracle.stationarity_residual
+            << '\n'
+            << "final_control_oracle_error "
+            << vector_difference(result.value.control, oracle.control) << '\n'
+            << "assembly_calls " << instrumentation.assembly_calls << '\n'
+            << "state_solve_calls " << instrumentation.state_solve_calls << '\n'
+            << "adjoint_solve_calls " << instrumentation.adjoint_solve_calls
+            << '\n'
+            << "value_evaluations " << instrumentation.value_evaluations << '\n'
+            << "derivative_augmentations "
+            << instrumentation.derivative_augmentations << '\n';
+  }
+
+  void
+  run_native_optimization_contract()
+  {
+    Instrumentation instrumentation;
+    ProblemA        problem(instrumentation);
+    NativeReduced   reduced(problem, instrumentation);
+    Vector          initial_control(problem.control_dimension());
+    initial_control = 0.0;
+
+    const OptimizationPolicy policy =
+      external_dealii_step4::frozen_optimization_policy();
+    NativeArmijoSolver solver(reduced, policy);
+    const auto result = solver.solve(initial_control);
+
+    require(result.stopping_reason ==
+              NativeOptimizationStoppingReason::gradient_tolerance,
+            "native optimization did not stop by gradient tolerance");
+    require(result.accepted_iteration_count > 0,
+            "native optimization accepted no iterations");
+    require(result.derivative.reduced_derivative.l2_norm() <=
+              1.1e-6,
+            "native optimization final gradient exceeds the audit bound");
+    require(result.objective_history.size() ==
+              result.accepted_iteration_count + 1,
+            "native optimization objective history has the wrong size");
+    require(result.accepted_iterations.size() ==
+              result.accepted_iteration_count,
+            "native optimization accepted trace has the wrong size");
+    require(instrumentation.assembly_calls == 1,
+            "native optimization assembled more than once");
+    require(instrumentation.state_solve_calls ==
+              1 + result.line_search_trial_count,
+            "native optimization state count violates the staged schedule");
+    require(instrumentation.adjoint_solve_calls ==
+              1 + result.accepted_iteration_count,
+            "native optimization adjoint count violates state reuse");
+    require(instrumentation.value_evaluations ==
+              1 + result.line_search_trial_count,
+            "native optimization value count violates the trial schedule");
+    require(instrumentation.derivative_augmentations ==
+              1 + result.accepted_iteration_count,
+            "native optimization derivative count includes rejected trials");
+    require(instrumentation.solve_failures == 0,
+            "native optimization encountered a solve failure");
+
+    const auto oracle = verification::optimum_oracle(problem);
+    require(oracle.system_residual <= 1.0e-10 &&
+              oracle.stationarity_residual <= 1.0e-10,
+            "native optimization oracle audit failed");
+    verification::require_vector_close(result.value.control,
+                                       oracle.control,
+                                       0.0,
+                                       2.0e-6,
+                                       "native optimization control differs from oracle");
+
+    const auto artifact_root = native_optimization_artifact_root();
+    problem.output_results(result.value.state, artifact_root / "solution.vtk");
+    require(instrumentation.output_calls == 1,
+            "native optimization output was not written once");
+    write_native_optimization_trace(artifact_root,
+                                    result,
+                                    instrumentation,
+                                    oracle);
+  }
+
+  void
+  run_native_optimization_limit_contract()
+  {
+    Instrumentation instrumentation;
+    ProblemA        problem(instrumentation);
+    NativeReduced   reduced(problem, instrumentation);
+    Vector          initial_control(problem.control_dimension());
+    initial_control = 0.0;
+    OptimizationPolicy policy =
+      external_dealii_step4::frozen_optimization_policy();
+    policy.maximum_iterations = 1;
+
+    NativeArmijoSolver solver(reduced, policy);
+    const auto result = solver.solve(initial_control);
+    require(result.stopping_reason ==
+              NativeOptimizationStoppingReason::maximum_iterations,
+            "native optimization did not honor iteration-limit precedence");
+    require(result.accepted_iteration_count == 1,
+            "native optimization iteration-limit probe did not accept one step");
+    require(result.gradient_norm_history.size() == 2,
+            "native optimization did not check the gradient after acceptance");
+    require(instrumentation.state_solve_calls ==
+              1 + result.line_search_trial_count &&
+              instrumentation.adjoint_solve_calls ==
+                1 + result.accepted_iteration_count,
+            "native iteration-limit probe violated staged counts");
+  }
 } // namespace
 
 int
@@ -652,7 +838,17 @@ main(const int argc, char **argv)
          "nmopt.external_tutorial_step_4.native_oracle",
          {"dealii", "application", "external", "tutorial", "native", "verification"},
          60,
-         run_native_oracle_contract}};
+         run_native_oracle_contract},
+        {"native_optimization",
+         "nmopt.external_tutorial_step_4.native_optimization",
+         {"dealii", "application", "external", "tutorial", "native", "optimization"},
+         300,
+         run_native_optimization_contract},
+        {"native_optimization_limit",
+         "nmopt.external_tutorial_step_4.native_optimization_limit",
+         {"dealii", "application", "external", "tutorial", "native", "optimization"},
+         120,
+         run_native_optimization_limit_contract}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

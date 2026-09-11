@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E4.b — Paired native/nmopt reduced-evaluation evidence; implementation complete, review pending |
-| Last completed/adopted gate | E3 — Native Problem A and independent verification, committed through `51dc804` |
-| Next unit | E5 — Matched optimization, after E4.b review and commit |
+| Current unit | E5.a — Native matched-optimization reference loop; implementation complete, review pending |
+| Last completed/adopted gate | E4 — Current nmopt Problem A and paired reduced evaluation, committed through `2e21a1b` |
+| Next unit | E5.b — Paired nmopt matched optimization, after E5.a review and commit |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -573,8 +573,8 @@ current nmopt used seven full residual VJPs, each performing the additional
 explicit matrix transpose action. The focused reduced-comparison scenario
 passed 1/1. The full `./build.sh pipeline debug-dealii` passed `169/169`, and
 the required `./build.sh pipeline debug-neutral` passed `67/67`. Provenance and
-source identity remain handoff/report concerns, not runtime behavior. E4.b is
-ready for review and explicit commit; E5 remains pending.
+source identity remain handoff/report concerns, not runtime behavior. E4.b was
+reviewed and adopted in `2e21a1b`; E5.a is now the current unit.
 
 ### E5 — Matched optimization
 
@@ -589,6 +589,34 @@ Artifacts: both traces, first-divergence evidence if any, solve/iteration totals
 Prospective commit: `test(dealii): compare native and nmopt optimization paths`.
 
 Gate: every numerical or schedule discrepancy must be resolved or explicitly accepted as explained numerical variation before a successful comparison is claimed. If the selected fixed constants fail, preserve the failure; propose a symmetric protocol amendment instead of tuning nmopt and native independently.
+
+E5 is split into reviewable native and paired subunits. E5.a establishes the
+native reference loop and its schedule evidence before any optimization result
+is compared with current nmopt. E5.b will reuse the unchanged E4 binding and
+existing public steepest-descent/Armijo solver. E5.c is the final evidence and
+roadmap handoff; it does not add runtime comparison machinery.
+
+E5.a evidence (2026-09-11): with E4 adopted through `2e21a1b`, the native
+nmopt-free target added the frozen scalar policy and bounded native
+steepest-descent/Armijo loop. The gradient-stop scenario accepted 828 steps,
+used 6,025 total line-search trials, and stopped at gradient norm
+`9.5036543162094535e-7`. Its staged schedule recorded 6,026 state solves and
+829 adjoint solves, with 6,026 value evaluations and 829 derivative
+augmentations; the extra state evaluations are the value-only rejected/accepted
+trial evaluations, and rejected trials do not augment derivatives. The
+iteration-limit scenario accepted one step and then reported the limit after
+checking the post-step gradient, exercising the prescribed stopping
+precedence. The final retained state was written once without a re-solve.
+
+The independent oracle audit passed, with system residual
+`3.2811052213435387e-16`, stationarity residual
+`1.4056590879085018e-15`, and final control within the frozen `2e-6` relative
+audit bound. The compact ignored native evidence is under
+`runs/external-dealii/step-4/optimization/1789117845065505/native/`, including
+`trace.csv`, `summary.txt`, and the retained-state `solution.vtk`. The focused
+native selection passed `8/8`; the complete `./build.sh pipeline debug-dealii`
+passed `171/171`. E5.a is ready for review and explicit commit; E5.b remains
+pending.
 
 ### G1 — Attribution and decision
 

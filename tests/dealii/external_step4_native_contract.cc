@@ -2,6 +2,8 @@
 #include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b_coordinates.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b_mass.hpp"
+#include "../../apps/external-dealii/step-4/integration/problem_b.hpp"
+#include "../../apps/external-dealii/step-4/integration/problem_b_metric.hpp"
 
 #include "external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
@@ -450,6 +452,218 @@ namespace
         mass.coupling_transpose_apply(wrong);
       },
       "Problem B transpose coupling accepted a wrong free dimension");
+  }
+
+  void
+  run_problem_b_operations_contract()
+  {
+    Step4<2> tutorial;
+    tutorial.prepare_for_external_use();
+
+    using Problem = external_dealii_step4::ProblemB<2, Step4<2>>;
+    using Metric  = external_dealii_step4::ProblemBMetric<2>;
+    Problem problem(tutorial);
+    Metric  metric(problem.mass());
+
+    require(problem.state_dimension() == 225,
+            "Problem B state dimension is wrong");
+    require(problem.control_dimension() == 289,
+            "Problem B control dimension is wrong");
+    require(problem.alpha() == 1.0, "Problem B regularization is not one");
+    require(problem.free_system_rhs().size() == problem.state_dimension(),
+            "Problem B free system RHS has the wrong dimension");
+
+    const auto &coordinates = problem.coordinates();
+    const auto &mass         = problem.mass();
+
+    const auto check_state_solution =
+      [&problem, &tutorial, &coordinates, &mass](const Vector &control,
+                                                  const char *const name) {
+        const auto result = problem.solve_state(control);
+        require(result.evidence.converged,
+                std::string("Problem B ") + name + " solve did not converge");
+
+        Vector rhs = tutorial.system_rhs_view();
+        rhs.add(1.0,
+                coordinates.embed_free(mass.coupling_apply(control)));
+        Vector lhs(rhs.size());
+        tutorial.system_matrix_view().vmult(lhs, result.full_solution);
+        require_close(vector_difference(lhs, rhs) /
+                        std::max(1.0, rhs.l2_norm()),
+                      0.0,
+                      1.0e-10,
+                      std::string("Problem B ") + name +
+                        " full equation residual is too large");
+        require_close(vector_difference(
+                        coordinates.reconstruct(result.solution),
+                        result.full_solution),
+                      0.0,
+                      1.0e-11,
+                      std::string("Problem B ") + name +
+                        " full solution disagrees with reconstruction");
+        for (const auto &[index, value] : tutorial.boundary_values_view())
+          require_close(result.full_solution[index],
+                        value,
+                        1.0e-11,
+                        std::string("Problem B ") + name +
+                          " solve changed a prescribed boundary value");
+        require(problem.residual(result.solution, control).l2_norm() <= 1.0e-10,
+                std::string("Problem B ") + name +
+                  " reduced residual is too large");
+        return result;
+      };
+
+    Vector zero_control(problem.control_dimension());
+    zero_control = 0.0;
+    const auto zero_state =
+      check_state_solution(zero_control, "zero-control state");
+
+    const auto controls = external_dealii_step4::scenario::reduced_controls();
+    const auto nonzero_state =
+      check_state_solution(controls[1], "nonzero-control state");
+
+    const Vector &state = nonzero_state.solution;
+    const Vector &control = controls[1];
+    const double objective = problem.objective(state, control);
+    require(std::isfinite(objective) && objective >= 0.0,
+            "Problem B objective is invalid");
+    const auto objective_derivative = problem.objective_derivative(state,
+                                                                    control);
+
+    Vector state_tangent(problem.state_dimension());
+    for (unsigned int index = 0; index < state_tangent.size(); ++index)
+      state_tangent[index] = 0.05 + 0.001 * static_cast<double>(index);
+    Vector control_tangent(problem.control_dimension());
+    for (unsigned int index = 0; index < control_tangent.size(); ++index)
+      control_tangent[index] = -0.025 + 0.0005 * static_cast<double>(index);
+
+    const double step = 1.0e-6;
+    Vector state_plus = state;
+    Vector state_minus = state;
+    state_plus.add(step, state_tangent);
+    state_minus.add(-step, state_tangent);
+    Vector control_plus = control;
+    Vector control_minus = control;
+    control_plus.add(step, control_tangent);
+    control_minus.add(-step, control_tangent);
+    const double centered_objective =
+      (problem.objective(state_plus, control_plus) -
+       problem.objective(state_minus, control_minus)) /
+      (2.0 * step);
+    const double analytic_objective =
+      objective_derivative.state * state_tangent +
+      objective_derivative.control * control_tangent;
+    require_close(std::abs(centered_objective - analytic_objective) /
+                    std::max(1.0, std::abs(analytic_objective)),
+                  0.0,
+                  1.0e-8,
+                  "Problem B objective derivative disagrees with centered difference");
+
+    Vector test_seed(problem.state_dimension());
+    for (unsigned int index = 0; index < test_seed.size(); ++index)
+      test_seed[index] = 0.1 - 0.00075 * static_cast<double>(index);
+    const auto residual_jvp =
+      problem.residual_jvp(state_tangent, control_tangent);
+    const auto residual_vjp = problem.residual_vjp(test_seed);
+    const double jvp_pairing = residual_jvp * test_seed;
+    const double vjp_pairing = residual_vjp.state * state_tangent +
+                               residual_vjp.control * control_tangent;
+    require_close(std::abs(jvp_pairing - vjp_pairing) /
+                    std::max(1.0,
+                             std::max(std::abs(jvp_pairing),
+                                      std::abs(vjp_pairing))),
+                  0.0,
+                  1.0e-12,
+                  "Problem B residual JVP/VJP pairing failed");
+
+    Vector zero_state_tangent(problem.state_dimension());
+    zero_state_tangent = 0.0;
+    Vector zero_control_tangent(problem.control_dimension());
+    zero_control_tangent = 0.0;
+    const auto state_jvp =
+      problem.residual_jvp(state_tangent, zero_control_tangent);
+    const auto state_vjp = problem.residual_vjp(test_seed);
+    require_close(std::abs(state_jvp * test_seed -
+                            state_vjp.state * state_tangent) /
+                    std::max(1.0, std::abs(state_jvp * test_seed)),
+                  0.0,
+                  1.0e-12,
+                  "Problem B state residual pairing failed");
+    const auto control_jvp =
+      problem.residual_jvp(zero_state_tangent, control_tangent);
+    require_close(std::abs(control_jvp * test_seed -
+                            state_vjp.control * control_tangent) /
+                    std::max(1.0, std::abs(control_jvp * test_seed)),
+                  0.0,
+                  1.0e-12,
+                  "Problem B control residual pairing failed");
+
+    const auto adjoint =
+      problem.solve_adjoint(objective_derivative.state);
+    require(adjoint.evidence.converged,
+            "Problem B adjoint solve did not converge");
+    Vector adjoint_rhs = coordinates.embed_free(objective_derivative.state);
+    Vector adjoint_lhs(adjoint_rhs.size());
+    tutorial.system_matrix_view().Tvmult(adjoint_lhs,
+                                         adjoint.full_solution);
+    require_close(vector_difference(adjoint_lhs, adjoint_rhs) /
+                    std::max(1.0, adjoint_rhs.l2_norm()),
+                  0.0,
+                  1.0e-10,
+                  "Problem B adjoint equation residual is too large");
+    for (const auto &[index, value] : tutorial.boundary_values_view())
+      {
+        (void)value;
+        require_close(adjoint.full_solution[index],
+                      0.0,
+                      1.0e-11,
+                      "Problem B adjoint solve has a boundary value");
+      }
+
+    const auto reduced_pullback = problem.residual_vjp(adjoint.solution);
+    Vector reduced_gradient = objective_derivative.control;
+    reduced_gradient.add(1.0, reduced_pullback.control);
+    require(reduced_gradient.size() == problem.control_dimension(),
+            "Problem B reduced gradient has the wrong dimension");
+
+    const Vector ramp = external_dealii_step4::scenario::ramp_vector();
+    const Vector alternating =
+      external_dealii_step4::scenario::alternating_vector();
+    const Vector mass_ramp = metric.apply(ramp);
+    const Vector mass_alternating = metric.apply(alternating);
+    require(ramp * mass_ramp > 0.0 && alternating * mass_alternating > 0.0,
+            "Problem B mass metric is not positive");
+    require_close(std::abs(ramp * mass_alternating -
+                           alternating * mass_ramp),
+                  0.0,
+                  1.0e-12,
+                  "Problem B mass metric is not symmetric");
+
+    const auto recovered_ramp = metric.inverse_apply(mass_ramp);
+    const auto recovered_alternating = metric.inverse_apply(mass_alternating);
+    require(recovered_ramp.evidence.converged &&
+              recovered_alternating.evidence.converged,
+            "Problem B mass metric solve did not converge");
+    require_close(vector_difference(recovered_ramp.solution, ramp),
+                  0.0,
+                  1.0e-10,
+                  "Problem B mass metric did not recover the ramp");
+    require_close(
+      vector_difference(recovered_alternating.solution, alternating),
+      0.0,
+      1.0e-10,
+      "Problem B mass metric did not recover the alternating vector");
+    require(recovered_ramp.evidence.iterations > 0 &&
+              recovered_alternating.evidence.iterations > 0,
+            "Problem B mass metric solve did no work");
+    require_rejected(
+      [&metric] {
+        Vector wrong(1);
+        metric.apply(wrong);
+      },
+      "Problem B metric accepted a wrong vector dimension");
+
+    (void)zero_state;
   }
 
   void
@@ -1284,6 +1498,12 @@ main(const int argc, char **argv)
           "problem_b"},
          60,
          run_problem_b_mass_contract},
+        {"problem_b_operations",
+         "nmopt.external_tutorial_step_4.native_problem_b_operations",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b"},
+         120,
+         run_problem_b_operations_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

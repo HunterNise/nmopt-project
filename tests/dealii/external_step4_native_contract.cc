@@ -1,12 +1,12 @@
 #include "../../apps/external-dealii/step-4/verification/verification.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
 
+#include "external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
 
 #include <deal.II/lac/vector.h>
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -38,7 +38,10 @@ namespace
   require(const bool condition, const std::string &message)
   {
     if (!condition)
-      throw std::runtime_error(message);
+      {
+        external_dealii_step4_test::note_failure(message);
+        throw std::runtime_error(message);
+      }
   }
 
   void
@@ -53,6 +56,7 @@ namespace
         detail << message << ": actual=" << actual
                << ", expected=" << expected
                << ", tolerance=" << tolerance;
+        external_dealii_step4_test::note_failure(detail.str());
         throw std::runtime_error(detail.str());
       }
   }
@@ -115,7 +119,7 @@ namespace
   }
 
   std::filesystem::path
-  native_reference_artifact_root()
+  native_reference_artifact_root(const char *const scenario)
   {
     auto directory = std::filesystem::current_path();
     while (true)
@@ -123,11 +127,10 @@ namespace
         if (std::filesystem::exists(
               directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
           {
-            const auto root = directory /
-                              "runs/external-dealii/step-4/working/"
-                              "native-reference";
-            std::filesystem::create_directories(root);
-            return root;
+            return external_dealii_step4_test::create_unique_artifact_root(
+              directory / "runs/external-dealii/step-4/working/"
+                        "native-reference",
+              scenario);
           }
 
         const auto parent = directory.parent_path();
@@ -137,41 +140,6 @@ namespace
       }
 
     throw std::runtime_error("could not locate the repository artifact root");
-  }
-
-  void
-  write_attribution_ledger(const std::filesystem::path &root)
-  {
-    std::ofstream output(root / "attribution.csv");
-    require(static_cast<bool>(output),
-            "could not open the native attribution ledger");
-    output << "id,source_site,operation,first_requiring_consumer,"
-              "other_consumers,native_runtime_required,"
-              "nmopt_construction_required,verification_required,"
-              "cost_category,phase,frequency,explicit_copy_volume,"
-              "operator_or_solve_work,ownership_or_lifetime_obligation,"
-              "evidence_kind,evidence_ref,notes\n";
-    output << "S01,ProblemA constructor,separate preparation,E2.a,,yes,"
-              "indirectly,yes,application reuse,setup,once,0,assembly,"
-              "application owns Step4,measured, E3.a,assembly once\n";
-    output << "S02,ProblemA::solve,supplied RHS solve,E2.a,,yes,yes,yes,"
-              "application reuse,runtime,per solve,0,CG,ProblemA owns borrowed"
-              " native application,measured, E3.a,zero initial vector\n";
-    output << "M01,ProblemA::objective,quadratic objective,E3.a,,yes,yes,yes,"
-              "control mathematics,runtime,per evaluation,0,dot products,"
-              "native ProblemA owns definition,measured, E3.b,identity objective\n";
-    output << "M02,ProblemA::control_vjp,control pullback,E3.a,,yes,yes,yes,"
-              "control mathematics,runtime,per derivative,0,negation,"
-              "native ProblemA owns definition,measured, E3.b,minus test seed\n";
-    output << "V01,ProblemA::residual,residual,E3.b,E4,yes,yes,yes,"
-              "verification,verification,finite difference,0,one vmult,"
-              "native ProblemA owns definition,measured, E3.b,arbitrary point\n";
-    output << "V02,ProblemA::residual_jvp,residual JVP,E3.b,E4,yes,yes,yes,"
-              "verification,verification,finite difference,0,one vmult,"
-              "native ProblemA owns definition,measured, E3.b,centered check\n";
-    output << "N01,ProblemA::residual_vjp,state VJP block,E3.b,E4,no,yes,yes,"
-              "frozen API obligation,verification,per seed,0,one Tvmult,"
-              "native ProblemA owns definition,measured, E3.b,full arbitrary-seed VJP\n";
   }
 
   void
@@ -394,16 +362,40 @@ namespace
   run_native_derivative_verification()
   {
     Instrumentation instrumentation;
-    ProblemA        problem(instrumentation);
-    NativeReduced   reduced(problem, instrumentation);
-    const auto      point = verification::make_off_solution_point();
+    const auto artifact_root = native_reference_artifact_root("derivatives");
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root, "native_derivatives", {{"native", &instrumentation}});
+    std::ofstream finite_difference_output(
+      artifact_root / "reduced-finite-differences.csv");
+    require(static_cast<bool>(finite_difference_output),
+            "could not open the reduced finite-difference trace");
+    finite_difference_output
+      << "control,direction,step,analytic,centered,error,bound\n";
+
+    std::ofstream taylor_output(artifact_root / "reduced-taylor.csv");
+    require(static_cast<bool>(taylor_output),
+            "could not open the reduced Taylor trace");
+    taylor_output << "direction,step,remainder,ratio,repeat_variation\n";
+
+    std::ofstream summary(
+      artifact_root / "native-derivative-verification.txt");
+    require(static_cast<bool>(summary),
+            "could not open the native derivative verification summary");
+    summary << "status running\n";
+
+    ProblemA      problem(instrumentation);
+    NativeReduced reduced(problem, instrumentation);
+    const auto    point = verification::make_off_solution_point();
 
     const auto centered_jvp =
       verification::centered_residual_jvp(problem, point, 1.0e-6);
     const auto analytic_jvp =
       problem.residual_jvp(point.state_tangent, point.control_tangent);
-    require(verification::scaled_vector_error(centered_jvp, analytic_jvp) <=
-              1.0e-8,
+    const double residual_jvp_error =
+      verification::scaled_vector_error(centered_jvp, analytic_jvp);
+    summary << std::setprecision(std::numeric_limits<double>::max_digits10)
+            << "residual_jvp_scaled_error " << residual_jvp_error << '\n';
+    require(residual_jvp_error <= 1.0e-8,
             "residual JVP centered difference does not agree");
 
     const auto full_vjp = problem.residual_vjp(point.test_seed);
@@ -424,13 +416,21 @@ namespace
     const double state_right = full_vjp.state * point.state_tangent;
     const double control_left = control_only_jvp * point.test_seed;
     const double control_right = full_vjp.control * point.control_tangent;
-    require(verification::scaled_scalar_error(full_left, full_right) <= 1.0e-12,
+    const double full_pairing_error =
+      verification::scaled_scalar_error(full_left, full_right);
+    const double state_pairing_error =
+      verification::scaled_scalar_error(state_left, state_right);
+    const double control_pairing_error =
+      verification::scaled_scalar_error(control_left, control_right);
+    summary << "full_pairing_scaled_error " << full_pairing_error << '\n'
+            << "state_pairing_scaled_error " << state_pairing_error << '\n'
+            << "control_pairing_scaled_error " << control_pairing_error
+            << '\n';
+    require(full_pairing_error <= 1.0e-12,
             "full residual JVP/VJP pairing failed");
-    require(verification::scaled_scalar_error(state_left, state_right) <=
-              1.0e-12,
+    require(state_pairing_error <= 1.0e-12,
             "state-only residual JVP/VJP pairing failed");
-    require(verification::scaled_scalar_error(control_left, control_right) <=
-              1.0e-12,
+    require(control_pairing_error <= 1.0e-12,
             "control-only residual JVP/VJP pairing failed");
 
     const auto objective_derivative =
@@ -440,9 +440,11 @@ namespace
       objective_derivative.control * point.control_tangent;
     const double centered_objective_derivative =
       verification::centered_objective_derivative(problem, point, 1.0e-6);
-    require(verification::scaled_scalar_error(
-              analytic_objective_derivative, centered_objective_derivative) <=
-              1.0e-8,
+    const double objective_derivative_error = verification::scaled_scalar_error(
+      analytic_objective_derivative, centered_objective_derivative);
+    summary << "objective_derivative_scaled_error "
+            << objective_derivative_error << '\n';
+    require(objective_derivative_error <= 1.0e-8,
             "objective directional derivative does not agree");
 
     const auto controls = external_dealii_step4::scenario::reduced_controls();
@@ -453,15 +455,6 @@ namespace
     const std::vector<double> finite_difference_steps{
       1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5, 1.0e-6};
 
-    const auto artifact_root = native_reference_artifact_root();
-    write_attribution_ledger(artifact_root.parent_path());
-    std::ofstream finite_difference_output(
-      artifact_root / "reduced-finite-differences.csv");
-    require(static_cast<bool>(finite_difference_output),
-            "could not open the reduced finite-difference trace");
-    finite_difference_output
-      << "control,direction,step,analytic,centered,error,bound\n";
-
     for (std::size_t control_index = 0; control_index < controls.size();
          ++control_index)
       {
@@ -470,8 +463,7 @@ namespace
 
         for (const auto &[direction_name, direction] : directions)
           {
-            const double analytic =
-              derivative.reduced_derivative * direction;
+            const double analytic = derivative.reduced_derivative * direction;
             std::vector<bool> passes;
             passes.reserve(finite_difference_steps.size());
 
@@ -486,13 +478,15 @@ namespace
                 const double centered =
                   (plus.objective - minus.objective) / (2.0 * step);
                 const double error = std::abs(centered - analytic);
-                const double bound = 1.0e-7 * std::max(1.0, std::abs(analytic));
+                const double bound =
+                  1.0e-7 * std::max(1.0, std::abs(analytic));
                 passes.push_back(error <= bound);
                 finite_difference_output
                   << control_index << ',' << direction_name << ','
-                  << std::setprecision(std::numeric_limits<double>::max_digits10)
-                  << step << ',' << analytic << ',' << centered << ',' << error
-                  << ',' << bound << '\n';
+                  << std::setprecision(
+                       std::numeric_limits<double>::max_digits10)
+                  << step << ',' << analytic << ',' << centered << ','
+                  << error << ',' << bound << '\n';
               }
 
             bool adjacent_passes = false;
@@ -503,11 +497,6 @@ namespace
                     "reduced centered finite differences lack adjacent usable steps");
           }
       }
-
-    std::ofstream taylor_output(artifact_root / "reduced-taylor.csv");
-    require(static_cast<bool>(taylor_output),
-            "could not open the reduced Taylor trace");
-    taylor_output << "direction,step,remainder,ratio,repeat_variation\n";
 
     const Vector zero_control = controls.front();
     const auto base_value = reduced.evaluate_value(zero_control);
@@ -530,16 +519,18 @@ namespace
             const auto trial = reduced.evaluate_value(control);
             const double remainder =
               trial.objective - base_value.objective - step * slope;
-            require(std::isfinite(remainder) && remainder > 10.0 * repeat_variation,
-                    "reduced Taylor remainder is not positive and resolved");
-            remainders.push_back(remainder);
             const double ratio = index == 0 ?
                                    std::numeric_limits<double>::quiet_NaN() :
                                    remainders[index - 1] / remainder;
-            taylor_output << direction_name << ','
-                          << std::setprecision(std::numeric_limits<double>::max_digits10)
-                          << step << ',' << remainder << ',' << ratio << ','
-                          << repeat_variation << '\n';
+            remainders.push_back(remainder);
+            taylor_output
+              << direction_name << ','
+              << std::setprecision(std::numeric_limits<double>::max_digits10)
+              << step << ',' << remainder << ',' << ratio << ','
+              << repeat_variation << '\n';
+            require(std::isfinite(remainder) &&
+                      remainder > 10.0 * repeat_variation,
+                    "reduced Taylor remainder is not positive and resolved");
           }
 
         for (std::size_t index = 1; index < remainders.size(); ++index)
@@ -550,43 +541,39 @@ namespace
           }
       }
 
-    std::ofstream summary(artifact_root / "native-derivative-verification.txt");
-    require(static_cast<bool>(summary),
-            "could not open the native derivative verification summary");
-    summary << std::setprecision(std::numeric_limits<double>::max_digits10)
-            << "residual_jvp_scaled_error "
-            << verification::scaled_vector_error(centered_jvp, analytic_jvp)
-            << '\n'
-            << "full_pairing_scaled_error "
-            << verification::scaled_scalar_error(full_left, full_right) << '\n'
-            << "state_pairing_scaled_error "
-            << verification::scaled_scalar_error(state_left, state_right) << '\n'
-            << "control_pairing_scaled_error "
-            << verification::scaled_scalar_error(control_left, control_right)
-            << '\n'
-            << "objective_derivative_scaled_error "
-            << verification::scaled_scalar_error(analytic_objective_derivative,
-                                                  centered_objective_derivative)
-            << '\n'
-            << "value_evaluations " << instrumentation.value_evaluations << '\n'
+    summary << "value_evaluations " << instrumentation.value_evaluations << '\n'
             << "derivative_augmentations "
             << instrumentation.derivative_augmentations << '\n'
             << "state_solve_calls " << instrumentation.state_solve_calls << '\n'
             << "adjoint_solve_calls " << instrumentation.adjoint_solve_calls
             << '\n';
+    summary.flush();
+    evidence.complete();
   }
 
   void
   run_native_oracle_contract()
   {
     Instrumentation instrumentation;
-    ProblemA        problem(instrumentation);
+    const auto artifact_root = native_reference_artifact_root("oracle");
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root, "native_oracle", {{"native", &instrumentation}});
+    std::ofstream output(artifact_root / "native-oracle.txt");
+    require(static_cast<bool>(output),
+            "could not open the native oracle trace");
+    output << "status running\n";
+
+    ProblemA problem(instrumentation);
     const double symmetry_error =
       verification::matrix_symmetry_error(problem.system_matrix());
+    output << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << "matrix_symmetry_error " << symmetry_error << '\n';
     require(symmetry_error <= 1.0e-14,
             "Problem A assembled matrix failed the symmetry check");
 
     const auto oracle = verification::optimum_oracle(problem);
+    output << "system_residual " << oracle.system_residual << '\n'
+           << "stationarity_residual " << oracle.stationarity_residual << '\n';
     require(oracle.system_residual <= 1.0e-10,
             "dense optimum oracle has a large system residual");
     require(oracle.stationarity_residual <= 1.0e-10,
@@ -595,33 +582,30 @@ namespace
     NativeReduced reduced(problem, instrumentation);
     const auto value = reduced.evaluate_value(oracle.control);
     const auto derivative = reduced.augment_derivative(value);
+    const double state_error =
+      verification::scaled_vector_error(value.state, oracle.state);
+    const double gradient_norm = derivative.reduced_derivative.l2_norm();
+    output << "native_state_scaled_error " << state_error << '\n'
+           << "native_oracle_gradient_norm " << gradient_norm << '\n'
+           << "native_state_solve_iterations " << value.state_solve.iterations
+           << '\n'
+           << "native_adjoint_solve_iterations "
+           << derivative.adjoint_solve.iterations << '\n';
     verification::require_vector_close(value.state,
                                        oracle.state,
                                        1.0e-11,
                                        1.0e-10,
                                        "native state differs from dense oracle");
-    verification::require_vector_close(value.control,
-                                       oracle.control,
-                                       0.0,
-                                       0.0,
-                                       "oracle control changed during evaluation");
-    require(derivative.reduced_derivative.l2_norm() <= 1.0e-8,
+    verification::require_vector_close(
+      value.control,
+      oracle.control,
+      0.0,
+      0.0,
+      "oracle control changed during evaluation");
+    require(gradient_norm <= 1.0e-8,
             "native reduced gradient is not zero at the dense oracle");
-
-    const auto artifact_root = native_reference_artifact_root();
-    write_attribution_ledger(artifact_root.parent_path());
-    std::ofstream output(artifact_root / "native-oracle.txt");
-    require(static_cast<bool>(output), "could not open the native oracle trace");
-    output << std::setprecision(std::numeric_limits<double>::max_digits10)
-           << "matrix_symmetry_error " << symmetry_error << '\n'
-           << "system_residual " << oracle.system_residual << '\n'
-           << "stationarity_residual " << oracle.stationarity_residual << '\n'
-           << "native_oracle_gradient_norm "
-           << derivative.reduced_derivative.l2_norm() << '\n'
-           << "native_state_solve_iterations " << value.state_solve.iterations
-           << '\n'
-           << "native_adjoint_solve_iterations "
-           << derivative.adjoint_solve.iterations << '\n';
+    output.flush();
+    evidence.complete();
   }
 
   std::filesystem::path
@@ -633,13 +617,10 @@ namespace
         if (std::filesystem::exists(
               directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
           {
-            const auto now = std::chrono::system_clock::now().time_since_epoch();
-            const auto run_id = std::to_string(
-              std::chrono::duration_cast<std::chrono::microseconds>(now)
-                .count());
-            const auto root = directory /
-                              "runs/external-dealii/step-4/optimization" /
-                              run_id;
+            const auto root =
+              external_dealii_step4_test::create_unique_artifact_root(
+                directory / "runs/external-dealii/step-4/optimization",
+                "native");
             const auto native_root = root / "native";
             std::filesystem::create_directories(native_root);
             return native_root;
@@ -713,9 +694,12 @@ namespace
   run_native_optimization_contract()
   {
     Instrumentation instrumentation;
-    ProblemA        problem(instrumentation);
-    NativeReduced   reduced(problem, instrumentation);
-    Vector          initial_control(problem.control_dimension());
+    const auto artifact_root = native_optimization_artifact_root();
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root, "native_optimization", {{"native", &instrumentation}});
+    ProblemA      problem(instrumentation);
+    NativeReduced reduced(problem, instrumentation);
+    Vector        initial_control(problem.control_dimension());
     initial_control = 0.0;
 
     const OptimizationPolicy policy =
@@ -728,8 +712,7 @@ namespace
             "native optimization did not stop by gradient tolerance");
     require(result.accepted_iteration_count > 0,
             "native optimization accepted no iterations");
-    require(result.derivative.reduced_derivative.l2_norm() <=
-              1.1e-6,
+    require(result.derivative.reduced_derivative.l2_norm() <= 1.1e-6,
             "native optimization final gradient exceeds the audit bound");
     require(result.objective_history.size() ==
               result.accepted_iteration_count + 1,
@@ -764,7 +747,6 @@ namespace
                                        2.0e-6,
                                        "native optimization control differs from oracle");
 
-    const auto artifact_root = native_optimization_artifact_root();
     problem.output_results(result.value.state, artifact_root / "solution.vtk");
     require(instrumentation.output_calls == 1,
             "native optimization output was not written once");
@@ -772,6 +754,7 @@ namespace
                                     result,
                                     instrumentation,
                                     oracle);
+    evidence.complete();
   }
 
   void

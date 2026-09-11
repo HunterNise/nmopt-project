@@ -2,12 +2,12 @@
 #include "../../apps/external-dealii/step-4/integration/nmopt_binding.hpp"
 #include "../../apps/external-dealii/step-4/verification/verification.hpp"
 
+#include "../dealii/external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
 
 #include <deal.II/lac/vector.h>
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
@@ -55,7 +55,10 @@ namespace
   require(const bool condition, const std::string &message)
   {
     if (!condition)
-      throw std::runtime_error(message);
+      {
+        external_dealii_step4_test::note_failure(message);
+        throw std::runtime_error(message);
+      }
   }
 
   double
@@ -180,13 +183,10 @@ namespace
         if (std::filesystem::exists(
               directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
           {
-            const auto now = std::chrono::system_clock::now().time_since_epoch();
-            const auto run_id = std::to_string(
-              std::chrono::duration_cast<std::chrono::microseconds>(now)
-                .count());
-            const auto root = directory /
-                              "runs/external-dealii/step-4/optimization" /
-                              run_id;
+            const auto root =
+              external_dealii_step4_test::create_unique_artifact_root(
+                directory / "runs/external-dealii/step-4/optimization",
+                "paired");
             std::filesystem::create_directories(root / "native");
             std::filesystem::create_directories(root / "nmopt");
             std::filesystem::create_directories(root / "comparison");
@@ -341,10 +341,16 @@ namespace
   run_matched_optimization()
   {
     Instrumentation native_instrumentation;
-    ProblemA        native_problem(native_instrumentation);
-    NativeReduced   native_reduced(native_problem, native_instrumentation);
     Instrumentation nmopt_instrumentation;
-    Binding         nmopt_binding(nmopt_instrumentation);
+    const auto root = create_artifact_root();
+    external_dealii_step4_test::EvidenceGuard evidence(
+      root,
+      "matched_optimization",
+      {{"native", &native_instrumentation},
+       {"nmopt", &nmopt_instrumentation}});
+    ProblemA      native_problem(native_instrumentation);
+    NativeReduced native_reduced(native_problem, native_instrumentation);
+    Binding       nmopt_binding(nmopt_instrumentation);
     require(matrix_difference(native_problem.system_matrix(),
                               nmopt_binding.problem().system_matrix()) == 0.0,
             "paired optimization matrices differ");
@@ -368,16 +374,16 @@ namespace
 
     const auto native_trace_value = native_trace(native_result);
     const auto nmopt_trace_value = nmopt_trace(nmopt_result);
-    const auto &nmopt_control = nmopt_result.final_evaluation.full_point.block(1);
+    const auto &nmopt_control =
+      nmopt_result.final_evaluation.full_point.block(1);
     const auto &nmopt_state = nmopt_result.final_evaluation.state.block(0);
     const auto &nmopt_gradient =
       nmopt_result.final_evaluation.reduced_derivative.block(0);
     const auto oracle = verification::optimum_oracle(native_problem);
-    const auto root = create_artifact_root();
     native_problem.output_results(native_result.value.state,
                                   root / "native" / "solution.vtk");
-    nmopt_binding.problem().output_results(
-      nmopt_state, root / "nmopt" / "solution.vtk");
+    nmopt_binding.problem().output_results(nmopt_state,
+                                           root / "nmopt" / "solution.vtk");
     write_trace(root / "native", "native", native_trace_value);
     write_trace(root / "nmopt", "nmopt", nmopt_trace_value);
 
@@ -404,7 +410,7 @@ namespace
         oracle.stationarity_residual > 1.0e-10)
       note("independent oracle audit failed");
     if (vector_difference(native_result.value.control, oracle.control) >
-        2.0e-6 * std::max(1.0, oracle.control.l2_norm()) ||
+          2.0e-6 * std::max(1.0, oracle.control.l2_norm()) ||
         vector_difference(nmopt_control, oracle.control) >
           2.0e-6 * std::max(1.0, oracle.control.l2_norm()))
       note("final control failed the oracle audit");
@@ -481,7 +487,9 @@ namespace
             << nmopt_instrumentation.metric_inverse_apply_calls << '\n'
             << "nmopt_reported_metric_solves "
             << nmopt_result.metric_solve_count << '\n';
+    summary.flush();
     require(first_divergence.empty(), first_divergence);
+    evidence.complete();
   }
 } // namespace
 

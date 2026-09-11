@@ -2,16 +2,17 @@
 #include "../../apps/external-dealii/step-4/evaluation/native_reduced.hpp"
 #include "../../apps/external-dealii/step-4/verification/scenario.hpp"
 
+#include "../dealii/external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -43,7 +44,10 @@ namespace
   require(const bool condition, const std::string &message)
   {
     if (!condition)
-      throw std::runtime_error(message);
+      {
+        external_dealii_step4_test::note_failure(message);
+        throw std::runtime_error(message);
+      }
   }
 
   double
@@ -198,9 +202,16 @@ namespace
       std::vector<std::size_t>{binding.problem().control_dimension()});
   }
 
+  std::filesystem::path
+  create_binding_artifact();
+
   void
   run_nmopt_binding_construction()
   {
+    Instrumentation instrumentation;
+    const auto artifact_root = create_binding_artifact();
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root, "nmopt_binding_construction", {{"nmopt", &instrumentation}});
     Binding minimal_binding;
     Vector  minimal_control(minimal_binding.problem().control_dimension());
     minimal_control = 0.0;
@@ -209,9 +220,9 @@ namespace
     require(minimal_value.state_solve.converged(),
             "nmopt binding without diagnostics did not solve");
 
-    Instrumentation instrumentation;
     Binding         binding(instrumentation);
-    const auto point = make_off_solution_point(binding.problem().state_dimension());
+    const auto point =
+      make_off_solution_point(binding.problem().state_dimension());
 
     require(instrumentation.assembly_calls == 1,
             "nmopt binding did not assemble exactly once");
@@ -295,8 +306,7 @@ namespace
     const auto value = binding.reduced().evaluate_value(
       make_single_block(binding.control_layout(), zero_control));
     require_report(value.state_solve, "nmopt state solve");
-    require(value.state.layout()->compatible_with(
-              *binding.state_layout()),
+    require(value.state.layout()->compatible_with(*binding.state_layout()),
             "nmopt reduced value returned the wrong state layout");
 
     const auto derivative = binding.reduced().augment_derivative(value);
@@ -345,6 +355,7 @@ namespace
             "nmopt binding metric callback counts are inconsistent");
     require(instrumentation.residual_vjp_calls == 3,
             "nmopt binding did not exercise the full VJP callback");
+    evidence.complete();
   }
   double
   paired_vector_error(const Vector &left, const Vector &right)
@@ -433,16 +444,19 @@ namespace
   }
 
   std::filesystem::path
-  create_comparison_artifact()
+  create_comparison_artifact(const std::string &prefix = "reduced")
   {
-    const auto now = std::chrono::system_clock::now().time_since_epoch();
-    const auto run_id = std::to_string(
-      std::chrono::duration_cast<std::chrono::microseconds>(now).count());
-    const auto directory = find_repository_root() /
-                           "runs/external-dealii/step-4/reduced-evaluation" /
-                           run_id;
-    std::filesystem::create_directories(directory);
-    return directory;
+    return external_dealii_step4_test::create_unique_artifact_root(
+      find_repository_root() / "runs/external-dealii/step-4/reduced-evaluation",
+      prefix);
+  }
+
+  std::filesystem::path
+  create_binding_artifact()
+  {
+    return external_dealii_step4_test::create_unique_artifact_root(
+      find_repository_root() / "runs/external-dealii/step-4/working/binding",
+      "construction");
   }
 
   void
@@ -477,8 +491,12 @@ namespace
   compare_reduced_evaluation(const std::string &label,
                              const Vector       &control,
                              NativeReduced      &native_reduced,
-                             Binding            &nmopt_binding)
+                             Binding            &nmopt_binding,
+                             std::ostream       &evidence,
+                             std::ostream       &progress)
   {
+    progress << "evaluation " << label << '\n';
+    progress.flush();
     const auto native_value = native_reduced.evaluate_value(control);
     const auto native_derivative =
       native_reduced.augment_derivative(native_value);
@@ -491,6 +509,30 @@ namespace
     const auto &nmopt_state = nmopt_value.state.block(0);
     const auto &nmopt_adjoint = nmopt_derivative.adjoint.block(0);
     const auto &nmopt_gradient = nmopt_derivative.reduced_derivative.block(0);
+
+    const double state_error =
+      paired_vector_error(native_value.state, nmopt_state);
+    const double objective_error =
+      paired_scalar_error(native_value.objective,
+                          nmopt_value.objective_value);
+    const double adjoint_error =
+      paired_vector_error(native_derivative.adjoint, nmopt_adjoint);
+    const double gradient_error =
+      paired_vector_error(native_derivative.reduced_derivative,
+                          nmopt_gradient);
+    evidence << std::setprecision(std::numeric_limits<double>::max_digits10)
+             << label << ',' << native_value.objective << ','
+             << nmopt_value.objective_value << ',' << state_error << ','
+             << objective_error << ',' << adjoint_error << ','
+             << gradient_error << ',' << native_value.state_solve.iterations
+             << ',' << nmopt_value.state_solve.iterations << ','
+             << native_value.state_solve.final_residual << ','
+             << nmopt_value.state_solve.achieved_residual << ','
+             << native_derivative.adjoint_solve.iterations << ','
+             << nmopt_derivative.adjoint_solve.iterations << ','
+             << native_derivative.adjoint_solve.final_residual << ','
+             << nmopt_derivative.adjoint_solve.achieved_residual << '\n';
+    evidence.flush();
 
     require_paired_vector(native_value.state,
                           nmopt_state,
@@ -510,6 +552,8 @@ namespace
     require_solve_report_match(native_derivative.adjoint_solve,
                                nmopt_derivative.adjoint_solve,
                                label + " adjoint solve");
+    progress << "completed " << label << '\n';
+    progress.flush();
 
     return {native_value.state,
             nmopt_state,
@@ -517,23 +561,40 @@ namespace
             nmopt_gradient,
             native_value.objective,
             nmopt_value.objective_value,
-            paired_vector_error(native_value.state, nmopt_state),
-            paired_scalar_error(native_value.objective,
-                                nmopt_value.objective_value),
-            paired_vector_error(native_derivative.adjoint, nmopt_adjoint),
-            paired_vector_error(native_derivative.reduced_derivative,
-                                nmopt_gradient)};
+            state_error,
+            objective_error,
+            adjoint_error,
+            gradient_error};
   }
 
   void
   run_nmopt_reduced_comparison()
   {
     Instrumentation native_instrumentation;
-    ProblemA        native_problem(native_instrumentation);
-    NativeReduced   native_reduced(native_problem, native_instrumentation);
-
     Instrumentation nmopt_instrumentation;
-    Binding         nmopt_binding(nmopt_instrumentation);
+    const auto artifact = create_comparison_artifact();
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact,
+      "nmopt_reduced_comparison",
+      {{"native", &native_instrumentation},
+       {"nmopt", &nmopt_instrumentation}});
+    std::ofstream output(artifact / "comparison.csv");
+    require(static_cast<bool>(output),
+            "could not open reduced comparison artifact");
+    output << "label,native_objective,nmopt_objective,state_error,"
+              "objective_error,adjoint_error,gradient_error,"
+              "native_state_iterations,nmopt_state_iterations,"
+              "native_state_residual,nmopt_state_residual,"
+              "native_adjoint_iterations,nmopt_adjoint_iterations,"
+              "native_adjoint_residual,nmopt_adjoint_residual\n";
+    std::ofstream progress(artifact / "comparison-progress.txt");
+    require(static_cast<bool>(progress),
+            "could not open reduced comparison progress artifact");
+    progress << "status running\n";
+
+    ProblemA      native_problem(native_instrumentation);
+    NativeReduced native_reduced(native_problem, native_instrumentation);
+    Binding       nmopt_binding(nmopt_instrumentation);
 
     require(native_problem.state_dimension() ==
               nmopt_binding.problem().state_dimension(),
@@ -556,14 +617,31 @@ namespace
       evaluations.push_back(compare_reduced_evaluation(labels[index],
                                                        controls[index],
                                                        native_reduced,
-                                                       nmopt_binding));
+                                                       nmopt_binding,
+                                                       output,
+                                                       progress));
 
     const auto repeated_first = compare_reduced_evaluation(
-      "ramp repeat first", controls[2], native_reduced, nmopt_binding);
+      "ramp repeat first",
+      controls[2],
+      native_reduced,
+      nmopt_binding,
+      output,
+      progress);
     const auto intervening = compare_reduced_evaluation(
-      "alternating intervening", controls[3], native_reduced, nmopt_binding);
+      "alternating intervening",
+      controls[3],
+      native_reduced,
+      nmopt_binding,
+      output,
+      progress);
     const auto repeated_last = compare_reduced_evaluation(
-      "ramp repeat last", controls[2], native_reduced, nmopt_binding);
+      "ramp repeat last",
+      controls[2],
+      native_reduced,
+      nmopt_binding,
+      output,
+      progress);
     evaluations.push_back(repeated_first);
     evaluations.push_back(intervening);
     evaluations.push_back(repeated_last);
@@ -619,26 +697,6 @@ namespace
               nmopt_instrumentation.metric_inverse_apply_calls == 0,
             "reduced evaluation unexpectedly applied a metric");
 
-    const auto artifact = create_comparison_artifact();
-    std::ofstream output(artifact / "comparison.csv");
-    require(static_cast<bool>(output),
-            "could not open reduced comparison artifact");
-    output << "index,label,state_error,objective_error,adjoint_error,"
-              "gradient_error\n"
-           << std::setprecision(std::numeric_limits<double>::max_digits10);
-    for (std::size_t index = 0; index < evaluations.size(); ++index)
-      {
-        const std::string label = index < labels.size() ?
-                                    labels[index] :
-                                    (index == 4 ? "ramp repeat first" :
-                                     index == 5 ? "alternating intervening" :
-                                                   "ramp repeat last");
-        const auto &evaluation = evaluations[index];
-        output << index << ',' << label << ',' << evaluation.state_error << ','
-               << evaluation.objective_error << ','
-               << evaluation.adjoint_error << ','
-               << evaluation.gradient_error << '\n';
-      }
     output << "\ncount,native,nmopt\n"
            << "state_solves," << native_instrumentation.state_solve_calls
            << ',' << nmopt_instrumentation.state_solve_calls << '\n'
@@ -656,10 +714,83 @@ namespace
            << "metric_inverse_apply,"
            << native_instrumentation.metric_inverse_apply_calls << ','
            << nmopt_instrumentation.metric_inverse_apply_calls << '\n';
+    output.flush();
+    progress << "status complete\n";
+    progress.flush();
+    evidence.complete();
 
     std::cout << "Step-4 native/nmopt reduced comparison passed: "
               << artifact.lexically_relative(find_repository_root()).generic_string()
               << '\n';
+  }
+
+  std::filesystem::path
+  run_deliberate_comparison_failure(const std::string &prefix)
+  {
+    Instrumentation instrumentation;
+    const auto artifact = create_comparison_artifact(prefix);
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact, "failure_evidence", {{"native", &instrumentation}});
+    std::ofstream output(artifact / "comparison.csv");
+    require(static_cast<bool>(output),
+            "could not open failure comparison artifact");
+    output << "label,actual,expected\n";
+
+    ProblemA problem(instrumentation);
+    const auto control =
+      external_dealii_step4::scenario::reduced_controls().front();
+    const auto value = problem.solve_state(control);
+    const double actual = problem.objective(value.solution, control);
+    const double expected = actual + 1.0;
+    output << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << "deliberate," << actual << ',' << expected << '\n';
+    output.flush();
+
+    bool comparison_failed = false;
+    try
+      {
+        require_paired_scalar(actual, expected, "deliberate comparison failure");
+      }
+    catch (const std::exception &)
+      {
+        comparison_failed = true;
+      }
+    require(comparison_failed,
+            "deliberate comparison did not produce a failure");
+    return artifact;
+  }
+
+  std::string
+  read_file(const std::filesystem::path &filename)
+  {
+    std::ifstream input(filename, std::ios::binary);
+    require(static_cast<bool>(input), "could not open Step-4 evidence file");
+    return {std::istreambuf_iterator<char>(input),
+            std::istreambuf_iterator<char>()};
+  }
+
+  void
+  run_failure_evidence_contract()
+  {
+    const auto first = run_deliberate_comparison_failure("failure-first");
+    const auto retry = run_deliberate_comparison_failure("failure-retry");
+    require(first != retry, "failure evidence retry reused the run directory");
+    for (const auto &artifact : {first, retry})
+      {
+        const auto status = read_file(artifact / "status.txt");
+        const auto failure = read_file(artifact / "failure.txt");
+        const auto comparison = read_file(artifact / "comparison.csv");
+        const auto solves = read_file(artifact / "solve-records.csv");
+        require(status.find("status failed") != std::string::npos,
+                "failure evidence did not retain failed status");
+        require(failure.find("deliberate comparison failure") !=
+                  std::string::npos,
+                "failure evidence did not retain the original diagnostic");
+        require(comparison.find("deliberate,") != std::string::npos,
+                "failure evidence did not retain compared values");
+        require(solves.find("success,state") != std::string::npos,
+                "failure evidence did not retain solve evidence");
+      }
   }
 } // namespace
 
@@ -678,7 +809,12 @@ main(const int argc, char **argv)
          "nmopt.external.tutorial_step_4.nmopt_reduced_comparison",
          {"dealii", "application", "external", "tutorial", "integration"},
          180,
-         run_nmopt_reduced_comparison}};
+         run_nmopt_reduced_comparison},
+        {"failure_evidence",
+         "nmopt.external.tutorial_step_4.failure_evidence",
+         {"dealii", "application", "external", "tutorial", "integration", "diagnostics"},
+         60,
+         run_failure_evidence_contract}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

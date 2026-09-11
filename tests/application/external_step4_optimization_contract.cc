@@ -354,6 +354,15 @@ namespace
     return contents;
   }
 
+  std::string
+  read_file(const std::filesystem::path &filename)
+  {
+    std::ifstream input(filename, std::ios::binary);
+    require(static_cast<bool>(input), "could not open Step-4 evidence file");
+    return {std::istreambuf_iterator<char>(input),
+            std::istreambuf_iterator<char>()};
+  }
+
   void
   run_matched_optimization()
   {
@@ -385,6 +394,8 @@ namespace
     const auto native_result =
       external_dealii_step4::NativeArmijoSolver(native_reduced, policy)
         .solve(initial_control);
+    const auto native_trace_value = native_trace(native_result);
+    write_trace(root / "native", "native", native_trace_value);
     const auto parameters = nmopt_parameters(policy);
     NmoptSolver nmopt_solver(nmopt_binding.reduced(),
                              nmopt_binding.metric(),
@@ -392,6 +403,8 @@ namespace
     const auto nmopt_result = nmopt_solver.solve(
       nmopt::contract::PrimalBlockT<Backend>(nmopt_binding.control_layout(),
                                              {initial_control}));
+    const auto nmopt_trace_value = nmopt_trace(nmopt_result);
+    write_trace(root / "nmopt", "nmopt", nmopt_trace_value);
 
     verification::require_finite(native_result.value.control,
                                   "native optimization final control");
@@ -411,8 +424,6 @@ namespace
               nmopt::solvers::ReducedStoppingReason::gradient_tolerance,
             "nmopt optimizer did not stop by gradient tolerance");
 
-    const auto native_trace_value = native_trace(native_result);
-    const auto nmopt_trace_value = nmopt_trace(nmopt_result);
     const auto &nmopt_control =
       nmopt_result.final_evaluation.full_point.block(1);
     const auto &nmopt_state = nmopt_result.final_evaluation.state.block(0);
@@ -431,8 +442,6 @@ namespace
                                   root / "native" / "solution.vtk");
     nmopt_binding.problem().output_results(nmopt_state,
                                            root / "nmopt" / "solution.vtk");
-    write_trace(root / "native", "native", native_trace_value);
-    write_trace(root / "nmopt", "nmopt", nmopt_trace_value);
 
     std::string first_divergence;
     const auto note = [&](const std::string &message) {
@@ -725,6 +734,118 @@ namespace
   }
 
   void
+  run_completed_trace_failure_probe(std::filesystem::path &artifact)
+  {
+    Instrumentation native_instrumentation;
+    Instrumentation nmopt_instrumentation;
+    artifact = create_artifact_root();
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact,
+      "completed_trace_failure",
+      {{"native", &native_instrumentation},
+       {"nmopt", &nmopt_instrumentation}});
+    try
+      {
+        ProblemA      native_problem(native_instrumentation);
+        NativeReduced native_reduced(native_problem, native_instrumentation);
+        Binding       nmopt_binding(nmopt_instrumentation);
+        Vector        initial_control(native_problem.control_dimension());
+        initial_control = 0.0;
+        const auto policy = external_dealii_step4::frozen_optimization_policy();
+        const auto native_result =
+          external_dealii_step4::NativeArmijoSolver(native_reduced, policy)
+            .solve(initial_control);
+        write_trace(artifact / "native", "native", native_trace(native_result));
+
+        NmoptSolver nmopt_solver(nmopt_binding.reduced(),
+                                 nmopt_binding.metric(),
+                                 nmopt_parameters(policy));
+        const auto nmopt_result = nmopt_solver.solve(
+          nmopt::contract::PrimalBlockT<Backend>(nmopt_binding.control_layout(),
+                                                 {initial_control}));
+        write_trace(artifact / "nmopt", "nmopt", nmopt_trace(nmopt_result));
+
+        throw std::runtime_error("failure after completed optimization traces");
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
+  }
+
+  void
+  require_completed_trace_failure_artifact(
+    const std::filesystem::path &artifact)
+  {
+    const auto status = read_file(artifact / "status.txt");
+    const auto failure = read_file(artifact / "failure.txt");
+    const auto counters = read_file(artifact / "counters.csv");
+    const auto solves = read_file(artifact / "solve-records.csv");
+    const auto native_trace_contents = read_file(artifact / "native" / "trace.csv");
+    const auto nmopt_trace_contents = read_file(artifact / "nmopt" / "trace.csv");
+    require(status.find("status failed") != std::string::npos,
+            "completed trace failure did not retain failed status");
+    require(failure.find("failure after completed optimization traces") !=
+              std::string::npos,
+            "completed trace failure lost its original diagnostic");
+    require(counters.find("native,state_solve_calls,") != std::string::npos &&
+              counters.find("nmopt,state_solve_calls,") != std::string::npos,
+            "completed trace failure lost optimization counters");
+    require(solves.find("native,success,state") != std::string::npos &&
+              solves.find("nmopt,success,state") != std::string::npos,
+            "completed trace failure lost solve records");
+    require(native_trace_contents.find("accepted_iterations ") !=
+              std::string::npos &&
+              native_trace_contents.find("record,iteration") !=
+                std::string::npos,
+            "completed native optimization trace was not retained");
+    require(nmopt_trace_contents.find("accepted_iterations ") !=
+              std::string::npos &&
+              nmopt_trace_contents.find("record,iteration") !=
+                std::string::npos,
+            "completed nmopt optimization trace was not retained");
+  }
+
+  void
+  run_completed_trace_failure_contract()
+  {
+    std::filesystem::path first;
+    std::filesystem::path retry;
+    bool                  first_thrown = false;
+    try
+      {
+        run_completed_trace_failure_probe(first);
+      }
+    catch (const std::exception &exception)
+      {
+        first_thrown = true;
+        require(exception.what() ==
+                  std::string("failure after completed optimization traces"),
+                "completed trace failure did not propagate its diagnostic");
+      }
+    require(first_thrown, "completed trace failure probe did not throw");
+
+    bool retry_thrown = false;
+    try
+      {
+        run_completed_trace_failure_probe(retry);
+      }
+    catch (const std::exception &exception)
+      {
+        retry_thrown = true;
+        require(exception.what() ==
+                  std::string("failure after completed optimization traces"),
+                "completed trace failure retry did not propagate its diagnostic");
+      }
+    require(retry_thrown, "completed trace failure retry did not throw");
+    require(first != retry,
+            "completed trace failure retry reused the run directory");
+    require_completed_trace_failure_artifact(first);
+    require_completed_trace_failure_artifact(retry);
+  }
+
+  void
   run_matched_optimization_limit()
   {
     Instrumentation native_instrumentation;
@@ -784,6 +905,11 @@ main(const int argc, char **argv)
          {"dealii", "application", "external", "tutorial", "optimization"},
          360,
          run_matched_optimization},
+        {"completed_trace_failure",
+         "nmopt.external.tutorial_step_4.completed_trace_failure",
+         {"dealii", "application", "external", "tutorial", "optimization", "diagnostics"},
+         180,
+         run_completed_trace_failure_contract},
         {"matched_optimization_limit",
          "nmopt.external.tutorial_step_4.matched_optimization_limit",
          {"dealii", "application", "external", "tutorial", "optimization"},

@@ -226,6 +226,31 @@ namespace
   }
 
   void
+  run_fe_access_contract()
+  {
+    Step4<2> tutorial;
+    tutorial.prepare_for_external_use();
+
+    const auto &dof_handler     = tutorial.dof_handler_view();
+    const auto &finite_element  = dof_handler.get_fe();
+    const auto &boundary_values = tutorial.boundary_values_view();
+    require(dof_handler.n_dofs() == 289,
+            "Step4 FE access view has the wrong DoF dimension");
+    require(finite_element.degree == 1 &&
+              finite_element.n_dofs_per_cell() == 4,
+            "Step4 FE access view has the wrong Q1 element");
+    require(boundary_values.size() == 64,
+            "Step4 boundary access view has the wrong boundary count");
+    for (const auto &[index, value] : boundary_values)
+      {
+        require(index < dof_handler.n_dofs(),
+                "Step4 boundary access view contains an invalid DoF index");
+        require(std::isfinite(value),
+                "Step4 boundary access view contains a non-finite value");
+      }
+  }
+
+  void
   run_supplied_state_output_contract()
   {
     Step4<2> tutorial;
@@ -1039,6 +1064,12 @@ main(const int argc, char **argv)
          {"dealii", "application", "external", "tutorial", "reuse"},
          60,
          run_matrix_rhs_solve_contract},
+        {"fe_access",
+         "nmopt.external_tutorial_step_4.native_fe_access",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b"},
+         60,
+         run_fe_access_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

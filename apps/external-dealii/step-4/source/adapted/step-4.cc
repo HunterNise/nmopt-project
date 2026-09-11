@@ -40,6 +40,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 
 #include <deal.II/base/logstream.h>
@@ -73,6 +74,16 @@ public:
     return system_rhs;
   }
 
+  const DoFHandler<dim> &dof_handler_view() const
+  {
+    return dof_handler;
+  }
+
+  const std::map<types::global_dof_index, double> &boundary_values_view() const
+  {
+    return boundary_values;
+  }
+
   SolveEvidence solve(const Vector<double> &rhs,
                       Vector<double> &      solution) const;
 
@@ -93,6 +104,7 @@ private:
 
   Vector<double> solution;
   Vector<double> system_rhs;
+  std::map<types::global_dof_index, double> boundary_values;
 };
 
 
@@ -242,7 +254,7 @@ void Step4<dim>::assemble_system()
         }
     }
 
-  std::map<types::global_dof_index, double> boundary_values;
+  boundary_values.clear();
   VectorTools::interpolate_boundary_values(dof_handler,
                                            0,
                                            BoundaryValues<dim>(),

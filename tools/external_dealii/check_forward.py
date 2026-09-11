@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import subprocess
 import sys
 import uuid
@@ -128,9 +129,29 @@ def max_numeric_difference(left: tuple[tuple[float, ...], ...], right: tuple[tup
     return difference
 
 
+def require_finite_data(label: str, data: VtkData) -> None:
+    for point_index, point in enumerate(data.points):
+        for component, value in enumerate(point):
+            if not math.isfinite(value):
+                raise ComparisonError(
+                    f"{label} point {point_index} component {component} "
+                    f"is nonfinite: {value!r}"
+                )
+    for key, values in data.arrays.items():
+        for value_index, value in enumerate(values):
+            if not math.isfinite(value):
+                location, name = key
+                raise ComparisonError(
+                    f"{label} array {location}/{name} value {value_index} "
+                    f"is nonfinite: {value!r}"
+                )
+
+
 def compare_vtk(upstream: Path, stripped: Path, abs_tol: float, rel_tol: float) -> str:
     left = parse_vtk(upstream)
     right = parse_vtk(stripped)
+    require_finite_data("upstream", left)
+    require_finite_data("stripped", right)
     if left.cells != right.cells:
         raise ComparisonError("cell connectivity differs")
     if left.cell_types != right.cell_types:

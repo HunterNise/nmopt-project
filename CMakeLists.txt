@@ -304,6 +304,17 @@ if(NMOPT_ENABLE_DEAL_II)
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
     add_test(
+      NAME nmopt.external_tutorial_step_4.forward_comparator_contract
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tests/tools/external_dealii_forward_contract.py")
+    set_tests_properties(
+      nmopt.external_tutorial_step_4.forward_comparator_contract
+      PROPERTIES
+        LABELS "dealii;application;external;tutorial;tool"
+        TIMEOUT 30
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+
+    add_test(
       NAME nmopt.external_application.standalone_forward
       COMMAND nmopt_external_poisson_forward)
     set_tests_properties(

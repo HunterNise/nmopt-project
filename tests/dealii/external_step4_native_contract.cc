@@ -694,9 +694,13 @@ namespace
   run_native_optimization_contract()
   {
     Instrumentation instrumentation;
+    Instrumentation verification_instrumentation;
     const auto artifact_root = native_optimization_artifact_root();
     external_dealii_step4_test::EvidenceGuard evidence(
-      artifact_root, "native_optimization", {{"native", &instrumentation}});
+      artifact_root,
+      "native_optimization",
+      {{"native", &instrumentation},
+       {"verification", &verification_instrumentation}});
     ProblemA      problem(instrumentation);
     NativeReduced reduced(problem, instrumentation);
     Vector        initial_control(problem.control_dimension());
@@ -750,6 +754,52 @@ namespace
     problem.output_results(result.value.state, artifact_root / "solution.vtk");
     require(instrumentation.output_calls == 1,
             "native optimization output was not written once");
+
+    const auto runtime_counts =
+      external_dealii_step4::runtime_counter_snapshot(instrumentation);
+    ProblemA      verification_problem(verification_instrumentation);
+    NativeReduced verification_reduced(verification_problem,
+                                       verification_instrumentation);
+    const auto fresh_value =
+      verification_reduced.evaluate_value(result.value.control);
+    const auto fresh_derivative =
+      verification_reduced.augment_derivative(fresh_value);
+    const double fresh_gradient_norm =
+      fresh_derivative.reduced_derivative.l2_norm();
+    const double gradient_difference = vector_difference(
+      fresh_derivative.reduced_derivative,
+      result.derivative.reduced_derivative);
+    require(fresh_gradient_norm <= 1.1e-6,
+            "fresh native final gradient exceeds the audit bound");
+    verification::require_vector_close(
+      fresh_derivative.reduced_derivative,
+      result.derivative.reduced_derivative,
+      1.0e-11,
+      1.0e-10,
+      "fresh native final gradient differs from the returned gradient");
+    require(verification_instrumentation.assembly_calls == 1 &&
+              verification_instrumentation.state_solve_calls == 1 &&
+              verification_instrumentation.adjoint_solve_calls == 1 &&
+              verification_instrumentation.value_evaluations == 1 &&
+              verification_instrumentation.derivative_augmentations == 1,
+            "fresh native gradient verification did not recompute one state and adjoint");
+    require(external_dealii_step4::runtime_counter_snapshot(instrumentation) ==
+              runtime_counts,
+            "fresh native gradient verification changed runtime counters");
+
+    std::ofstream gradient_audit(artifact_root / "gradient-audit.csv");
+    require(static_cast<bool>(gradient_audit),
+            "could not open the native gradient audit artifact");
+    gradient_audit
+      << "path,returned_gradient_norm,fresh_gradient_norm,"
+         "gradient_difference,fresh_state_monitored_residual,"
+         "fresh_adjoint_monitored_residual\n"
+      << std::setprecision(std::numeric_limits<double>::max_digits10)
+      << "native," << result.derivative.reduced_derivative.l2_norm() << ','
+      << fresh_gradient_norm << ',' << gradient_difference << ','
+      << fresh_value.state_solve.final_residual << ','
+      << fresh_derivative.adjoint_solve.final_residual << '\n';
+    gradient_audit.flush();
     write_native_optimization_trace(artifact_root,
                                     result,
                                     instrumentation,

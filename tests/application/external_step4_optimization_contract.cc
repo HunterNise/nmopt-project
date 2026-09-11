@@ -342,12 +342,14 @@ namespace
   {
     Instrumentation native_instrumentation;
     Instrumentation nmopt_instrumentation;
+    Instrumentation verification_instrumentation;
     const auto root = create_artifact_root();
     external_dealii_step4_test::EvidenceGuard evidence(
       root,
       "matched_optimization",
       {{"native", &native_instrumentation},
-       {"nmopt", &nmopt_instrumentation}});
+       {"nmopt", &nmopt_instrumentation},
+       {"verification", &verification_instrumentation}});
     ProblemA      native_problem(native_instrumentation);
     NativeReduced native_reduced(native_problem, native_instrumentation);
     Binding       nmopt_binding(nmopt_instrumentation);
@@ -371,6 +373,14 @@ namespace
     const auto nmopt_result = nmopt_solver.solve(
       nmopt::contract::PrimalBlockT<Backend>(nmopt_binding.control_layout(),
                                              {initial_control}));
+
+    require(native_result.stopping_reason ==
+              external_dealii_step4::NativeOptimizationStoppingReason::
+                gradient_tolerance,
+            "native optimizer did not stop by gradient tolerance");
+    require(nmopt_result.stopping_reason ==
+              nmopt::solvers::ReducedStoppingReason::gradient_tolerance,
+            "nmopt optimizer did not stop by gradient tolerance");
 
     const auto native_trace_value = native_trace(native_result);
     const auto nmopt_trace_value = nmopt_trace(nmopt_result);
@@ -484,6 +494,76 @@ namespace
     require(external_dealii_step4::runtime_counter_snapshot(
               nmopt_instrumentation) == nmopt_runtime_counts,
             "nmopt final residual audits changed runtime counters");
+
+    ProblemA      verification_problem(verification_instrumentation);
+    NativeReduced verification_reduced(verification_problem,
+                                       verification_instrumentation);
+    const auto fresh_native_value =
+      verification_reduced.evaluate_value(native_result.value.control);
+    const auto fresh_native_derivative =
+      verification_reduced.augment_derivative(fresh_native_value);
+    const auto fresh_nmopt_value =
+      verification_reduced.evaluate_value(nmopt_control);
+    const auto fresh_nmopt_derivative =
+      verification_reduced.augment_derivative(fresh_nmopt_value);
+    const double fresh_native_gradient_norm =
+      fresh_native_derivative.reduced_derivative.l2_norm();
+    const double fresh_nmopt_gradient_norm =
+      fresh_nmopt_derivative.reduced_derivative.l2_norm();
+    const double native_gradient_difference = vector_difference(
+      fresh_native_derivative.reduced_derivative,
+      native_result.derivative.reduced_derivative);
+    const double nmopt_gradient_difference = vector_difference(
+      fresh_nmopt_derivative.reduced_derivative, nmopt_gradient);
+    require(fresh_native_gradient_norm <= 1.1e-6,
+            "fresh native final gradient exceeds the audit bound");
+    require(fresh_nmopt_gradient_norm <= 1.1e-6,
+            "fresh nmopt final gradient exceeds the audit bound");
+    verification::require_vector_close(
+      fresh_native_derivative.reduced_derivative,
+      native_result.derivative.reduced_derivative,
+      1.0e-11,
+      1.0e-10,
+      "fresh native final gradient differs from the returned gradient");
+    verification::require_vector_close(
+      fresh_nmopt_derivative.reduced_derivative,
+      nmopt_gradient,
+      1.0e-11,
+      1.0e-10,
+      "fresh nmopt final gradient differs from the returned gradient");
+    require(verification_instrumentation.assembly_calls == 1 &&
+              verification_instrumentation.state_solve_calls == 2 &&
+              verification_instrumentation.adjoint_solve_calls == 2 &&
+              verification_instrumentation.objective_calls == 2 &&
+              verification_instrumentation.objective_derivative_calls == 2 &&
+              verification_instrumentation.control_vjp_calls == 2 &&
+              verification_instrumentation.residual_vjp_calls == 0,
+            "fresh gradient verification did not recompute both native evaluations");
+    require(external_dealii_step4::runtime_counter_snapshot(
+              native_instrumentation) == native_runtime_counts,
+            "fresh gradient verification changed native runtime counters");
+    require(external_dealii_step4::runtime_counter_snapshot(
+              nmopt_instrumentation) == nmopt_runtime_counts,
+            "fresh gradient verification changed nmopt runtime counters");
+
+    std::ofstream gradient_audit(root / "comparison" / "gradient-audit.csv");
+    require(static_cast<bool>(gradient_audit),
+            "could not open the optimization gradient audit artifact");
+    gradient_audit
+      << "path,returned_gradient_norm,fresh_gradient_norm,"
+         "gradient_difference,fresh_state_monitored_residual,"
+         "fresh_adjoint_monitored_residual\n"
+      << std::setprecision(std::numeric_limits<double>::max_digits10)
+      << "native," << native_result.derivative.reduced_derivative.l2_norm()
+      << ',' << fresh_native_gradient_norm << ','
+      << native_gradient_difference << ','
+      << fresh_native_value.state_solve.final_residual << ','
+      << fresh_native_derivative.adjoint_solve.final_residual << '\n'
+      << "nmopt," << nmopt_gradient.l2_norm() << ','
+      << fresh_nmopt_gradient_norm << ',' << nmopt_gradient_difference << ','
+      << fresh_nmopt_value.state_solve.final_residual << ','
+      << fresh_nmopt_derivative.adjoint_solve.final_residual << '\n';
+    gradient_audit.flush();
 
     std::ofstream residual_audits(root / "comparison" /
                                   "residual-audits.csv");

@@ -424,7 +424,7 @@ locations, counter-evidence, and limits. An untested generalization stays
 unresolved. An early obstruction report leaves unperformed checks unperformed.
 
 Experiment-specific facts and attribution belong in the G1 report at
-`docs/planning/review/external-dealii-boundary-evaluation.md`. Keep raw traces
+`docs/planning/review/external-dealii-boundary-evaluation/g1-report.md`. Keep raw traces
 and working estimates in the roadmap's ignored evidence directories. This
 reviewed reasoning record is distinct from those raw artifacts and does not
 make speculative explanations authoritative.

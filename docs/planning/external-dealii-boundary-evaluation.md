@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation on `codex/evaluate/external-dealii-boundary` |
-| Current unit | E5.b — Paired native/current-nmopt matched optimization; implementation complete, review pending |
-| Last completed/adopted gate | E4 — Current nmopt Problem A and paired reduced evaluation, committed through `2e21a1b` |
-| Next unit | E5.c — Evidence handoff, after E5.b review and commit |
+| Current unit | G1 — Attribution and decision; report complete, review pending |
+| Last completed/adopted gate | E5 — Matched optimization evidence, runtime implementation committed as `277fbf4` |
+| Next unit | No follow-on implementation until G1 review and an accepted decision |
 | Shared-nmopt freeze | Active through G1 |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -114,7 +114,7 @@ library hierarchy to realize the table.
 | `evaluation/scenario.hpp` | Plain native constants and deterministic sample-vector construction. No nmopt includes, parser, recipe, registry, or selection framework. |
 | `evaluation/problem_a.hpp` | Native Problem A operations and native vector/solve-result types. Owns control meaning, residual/derivative formulas, objective, adjoint interpretation, and control pullback. |
 | `evaluation/native_reduced.hpp` | Native value evaluation and derivative augmentation, with explicit state reuse. No nmopt types. |
-| `evaluation/native_armijo.hpp` | E5-only bounded native steepest-descent/Armijo loop and its trace. No policy templates for other algorithms. |
+| `evaluation/native_optimization.hpp` | E5-only bounded native steepest-descent/Armijo loop and its trace. No policy templates for other algorithms. |
 | `evaluation/nmopt_binding.hpp` | Public-API construction, explicit callbacks, report translation, identity `MetricT<SerialBackend>`, and binding lifetime. All nmopt-specific experiment code belongs here or in its test driver. |
 | `evaluation/instrumentation.hpp` | Plain counters and evidence records. No framework, allocator replacement, or numerical policy decisions. |
 | `evaluation/verification.hpp` | Native oracle, independent residual/derivative checks, result comparison, and evidence serialization. No nmopt numerical dependency. |
@@ -345,7 +345,7 @@ and scalar values are sufficient; no general serializer is required. A unit
 handoff or the final G1 report records the relevant source revisions,
 environment, commands, and evidence locations; runtime tests do not need to
 collect Git metadata or source hashes. Keep a final reviewed ledger/report in
-`docs/planning/review/external-dealii-boundary-evaluation.md` at G1, or attach a
+`docs/planning/review/external-dealii-boundary-evaluation/g1-report.md` at G1, or attach a
 small CSV beside it. Do not promote speculative diagnoses or raw field files
 merely to complete the report.
 
@@ -619,7 +619,8 @@ native selection passed `8/8`; the complete `./build.sh pipeline debug-dealii`
 passed `171/171`. E5.a was then reviewed and committed as `4d26826`; E5.b is
 the current unit.
 
-E5.b evidence (2026-09-11, `4d26826` plus the uncommitted E5.b diff): the new
+E5.b evidence (2026-09-11, committed as `277fbf4`; the run was executed on the
+identical pre-commit tree): the new
 paired optimization scenario reused the E4 binding and mapped the frozen
 policy into the existing `ReducedSearchSolverT` steepest-descent/Armijo
 solver. Native and current nmopt both stopped by gradient tolerance after 828
@@ -636,13 +637,31 @@ identical, and both final controls passed the independent dense-oracle audit
 `1/1`, and `./build.sh pipeline debug-dealii` passed `172/172`. Paired
 evidence is under
 `runs/external-dealii/step-4/optimization/1789119247586875/{native,nmopt,comparison}/`.
-E5.b is ready for review and explicit commit; E5.c remains pending.
+E5.b was reviewed and committed as `277fbf4`; E5.c is the current unit.
+
+E5.c handoff (2026-09-11): the paired traces, comparison summary, and
+retained-state outputs were preserved under the semantic optimization artifact
+root above. The working attribution ledger at
+`runs/external-dealii/step-4/working/attribution.csv` now records the E4/E5
+full-variable block, identity-metric, full-VJP, and optimizer-orchestration
+consumers alongside the native Problem A operations. No numerical discrepancy,
+protocol amendment, shared-nmopt change, upstream/stripped-source edit, or
+unmeasured allocation claim was introduced. The frozen Problem A comparison
+therefore closes E5 successfully for this tested case. The exact evidence
+commands were the focused matched-optimization CTest selection and
+`./build.sh build debug-dealii --target
+nmopt_external_step4_optimization_contract_test`,
+`ctest --test-dir build/debug-dealii --output-on-failure -R
+'^nmopt\.external\.tutorial_step_4\.matched_optimization$'`, and
+`./build.sh pipeline debug-dealii`; the Debug deal.II profile used one build
+job. G1 is the next unit and owns interpretation, source-size accounting, and
+the bounded attribution/decision report.
 
 ### G1 — Attribution and decision
 
 Outcome: reviewed factual account and a bounded next decision.
 
-Files: final report under `docs/planning/review/external-dealii-boundary-evaluation.md`, compact reviewed attribution if separate, this roadmap's current status, README/reference links where factual outcomes warrant them. No library or design refactor in this unit.
+Files: final report under `docs/planning/review/external-dealii-boundary-evaluation/g1-report.md`, compact reviewed attribution if separate, this roadmap's current status, README/reference links where factual outcomes warrant them. No library or design refactor in this unit.
 
 Report mathematical success or failure, fidelity, extra required capabilities, one-time/repeated costs, library-provided services, source-derived versus measured evidence, and limits. Distinguish incidence in native versus nmopt paths from universal claims about all PDE-control applications. Do not force every row into an exclusive category when it has multiple consumers.
 
@@ -651,6 +670,17 @@ Classify findings as mechanical ergonomics, capability/formulation obligation, s
 Prospective commit: `docs(dealii): report external boundary evaluation findings`.
 
 Gate: stop implementation after presenting the recommendation. Helper/API changes and Problem B require their own accepted scope. When possible, prefer running Problem B against the same frozen baseline before changing the boundary, so its incremental comparison remains interpretable.
+
+G1 report (2026-09-11): [External deal.II boundary evaluation: G1 report](review/external-dealii-boundary-evaluation/g1-report.md)
+promotes the E0–E5 source, mathematical, reduced-evaluation, and matched-
+optimization evidence. It classifies the full-VJP state component as a
+tested frozen-API obligation with measured repeated transpose work, while
+classifying block/layout and identity-metric setup as mechanical adaptation.
+For the tested linear Problem A, the report recommends retaining the current
+public boundary and making no automatic helper, API, or Problem B change. H1,
+H3, H4, H5, and H6 are supported for the tested case; H2 remains unresolved;
+and H7 is weakened for the tested case. The report is ready for review and
+does not authorize follow-up implementation.
 
 ## 10. Verification execution and artifacts
 

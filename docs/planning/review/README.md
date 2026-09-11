@@ -14,3 +14,5 @@ current handoff.
   selected Chapter 5 implementation remediation reviews.
 - [Chapter 6 reviews](chapter-6/README.md) record the incremental P6
   implementation review and remediation handoffs.
+- [External deal.II boundary evaluation](external-dealii-boundary-evaluation/g1-report.md)
+  records the bounded G1 evidence and decision for the authentic Step-4 case.

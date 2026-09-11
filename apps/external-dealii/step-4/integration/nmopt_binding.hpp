@@ -28,7 +28,7 @@ namespace external_dealii_step4
     using Primal   = nmopt::contract::PrimalBlockT<Backend>;
     using Covector = nmopt::contract::CovectorBlockT<Backend>;
 
-    IdentityMetric(LayoutPtr layout, Instrumentation &instrumentation)
+    IdentityMetric(LayoutPtr layout, Instrumentation *const instrumentation)
       : instrumentation_(instrumentation)
       , id_("external_step4_identity")
       , layout_(std::move(layout))
@@ -52,7 +52,8 @@ namespace external_dealii_step4
     Covector
     apply(const Primal &primal) const override
     {
-      ++instrumentation_.metric_apply_calls;
+      if (instrumentation_ != nullptr)
+        ++instrumentation_->metric_apply_calls;
       require_compatible(primal.layout(),
                          "Step-4 identity metric primal");
       return Covector(layout_, {primal.block(0)});
@@ -61,7 +62,8 @@ namespace external_dealii_step4
     Primal
     inverse_apply(const Covector &covector) const override
     {
-      ++instrumentation_.metric_inverse_apply_calls;
+      if (instrumentation_ != nullptr)
+        ++instrumentation_->metric_inverse_apply_calls;
       require_compatible(covector.layout(),
                          "Step-4 identity metric covector");
       return Primal(layout_, {covector.block(0)});
@@ -76,9 +78,9 @@ namespace external_dealii_step4
                                     " has an incompatible layout");
     }
 
-    Instrumentation &instrumentation_;
-    std::string       id_;
-    LayoutPtr         layout_;
+    Instrumentation *instrumentation_;
+    std::string      id_;
+    LayoutPtr        layout_;
   };
 
   class NmoptBinding final
@@ -93,24 +95,18 @@ namespace external_dealii_step4
     using Reduced = nmopt::contract::ReducedDTOT<Backend>;
     using SolveResult = nmopt::contract::FormulationSolveResultT<Backend>;
 
-    explicit NmoptBinding(Instrumentation &instrumentation)
-      : instrumentation_(instrumentation)
-      , problem_(instrumentation)
-      , variable_layout_(std::make_shared<const nmopt::contract::BlockLayout>(
-          "external_step4_problem_a_variables",
-          std::vector<nmopt::contract::SpaceId>{{"state"}, {"control"}},
-          std::vector<std::size_t>{problem_.state_dimension(),
-                                   problem_.control_dimension()}))
-      , test_layout_(std::make_shared<const nmopt::contract::BlockLayout>(
-          "external_step4_problem_a_test",
-          std::vector<nmopt::contract::SpaceId>{{"state_test"}},
-          std::vector<std::size_t>{problem_.state_dimension()}))
-      , model_(make_model(problem_, variable_layout_, test_layout_))
-      , partition_(model_, 0, 1)
-      , solvers_(make_solvers(problem_, partition_.state_layout(), test_layout_))
-      , metric_(partition_.control_layout(), instrumentation_)
-      , reduced_(model_, partition_, solvers_)
+    NmoptBinding()
+      : NmoptBinding(nullptr)
     {}
+
+    explicit NmoptBinding(Instrumentation &instrumentation)
+      : NmoptBinding(&instrumentation)
+    {}
+
+    NmoptBinding(const NmoptBinding &) = delete;
+    NmoptBinding &operator=(const NmoptBinding &) = delete;
+    NmoptBinding(NmoptBinding &&) = delete;
+    NmoptBinding &operator=(NmoptBinding &&) = delete;
 
     const ProblemA &
     problem() const
@@ -161,6 +157,23 @@ namespace external_dealii_step4
     }
 
   private:
+    explicit NmoptBinding(Instrumentation *const instrumentation)
+      : problem_(instrumentation)
+      , variable_layout_(std::make_shared<const nmopt::contract::BlockLayout>(
+          "external_step4_problem_a_variables",
+          std::vector<nmopt::contract::SpaceId>{{"state"}, {"control"}},
+          std::vector<std::size_t>{problem_.state_dimension(),
+                                   problem_.control_dimension()}))
+      , test_layout_(std::make_shared<const nmopt::contract::BlockLayout>(
+          "external_step4_problem_a_test",
+          std::vector<nmopt::contract::SpaceId>{{"state_test"}},
+          std::vector<std::size_t>{problem_.state_dimension()}))
+      , model_(make_model(problem_, variable_layout_, test_layout_))
+      , partition_(model_, 0, 1)
+      , solvers_(make_solvers(problem_, partition_.state_layout(), test_layout_))
+      , metric_(partition_.control_layout(), instrumentation)
+      , reduced_(model_, partition_, solvers_)
+    {}
     static nmopt::contract::LinearSolveReport
     solve_report(const ProblemA::SolveEvidence &evidence)
     {
@@ -239,14 +252,13 @@ namespace external_dealii_step4
       return solvers;
     }
 
-    Instrumentation & instrumentation_;
-    ProblemA          problem_;
-    LayoutPtr         variable_layout_;
-    LayoutPtr         test_layout_;
-    Model             model_;
-    Partition         partition_;
-    Solvers           solvers_;
-    IdentityMetric    metric_;
-    Reduced           reduced_;
+    ProblemA       problem_;
+    LayoutPtr      variable_layout_;
+    LayoutPtr      test_layout_;
+    Model          model_;
+    Partition      partition_;
+    Solvers        solvers_;
+    IdentityMetric metric_;
+    Reduced        reduced_;
   };
 } // namespace external_dealii_step4

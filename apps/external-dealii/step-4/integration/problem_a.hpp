@@ -41,10 +41,18 @@ namespace external_dealii_step4
       SolveEvidence evidence;
     };
 
+    ProblemA()
+      : ProblemA(nullptr)
+    {}
+
     explicit ProblemA(Instrumentation &instrumentation)
+      : ProblemA(&instrumentation)
+    {}
+
+    explicit ProblemA(Instrumentation *const instrumentation)
       : instrumentation_(instrumentation)
     {
-      ++instrumentation_.assembly_calls;
+      increment(&Instrumentation::assembly_calls);
       application_.prepare_for_external_use();
     }
 
@@ -78,10 +86,10 @@ namespace external_dealii_step4
       require_size(state, state_dimension(), "state");
       require_size(control, control_dimension(), "control");
 
-      ++instrumentation_.residual_calls;
+      increment(&Instrumentation::residual_calls);
       Vector value(state_dimension());
       system_matrix().vmult(value, state);
-      ++instrumentation_.explicit_matrix_vmult_calls;
+      increment(&Instrumentation::explicit_matrix_vmult_calls);
       value.add(-1.0, system_rhs());
       value.add(-1.0, control);
       return value;
@@ -94,10 +102,10 @@ namespace external_dealii_step4
       require_size(state_tangent, state_dimension(), "state tangent");
       require_size(control_tangent, control_dimension(), "control tangent");
 
-      ++instrumentation_.residual_jvp_calls;
+      increment(&Instrumentation::residual_jvp_calls);
       Vector value(state_dimension());
       system_matrix().vmult(value, state_tangent);
-      ++instrumentation_.explicit_matrix_vmult_calls;
+      increment(&Instrumentation::explicit_matrix_vmult_calls);
       value.add(-1.0, control_tangent);
       return value;
     }
@@ -107,11 +115,11 @@ namespace external_dealii_step4
     {
       require_size(test_seed, state_dimension(), "test seed");
 
-      ++instrumentation_.residual_vjp_calls;
+      increment(&Instrumentation::residual_vjp_calls);
       ResidualDerivative result{Vector(state_dimension()),
                                 Vector(control_dimension())};
       system_matrix().Tvmult(result.state, test_seed);
-      ++instrumentation_.explicit_matrix_tvmult_calls;
+      increment(&Instrumentation::explicit_matrix_tvmult_calls);
       result.control = test_seed;
       result.control *= -1.0;
       return result;
@@ -122,7 +130,7 @@ namespace external_dealii_step4
     {
       require_size(test_seed, state_dimension(), "control test seed");
 
-      ++instrumentation_.control_vjp_calls;
+      increment(&Instrumentation::control_vjp_calls);
       Vector result = test_seed;
       result *= -1.0;
       return result;
@@ -134,7 +142,7 @@ namespace external_dealii_step4
       require_size(state, state_dimension(), "state");
       require_size(control, control_dimension(), "control");
 
-      ++instrumentation_.objective_calls;
+      increment(&Instrumentation::objective_calls);
       return 0.5 * (state * state) + 0.5 * (control * control);
     }
 
@@ -144,7 +152,7 @@ namespace external_dealii_step4
       require_size(state, state_dimension(), "state");
       require_size(control, control_dimension(), "control");
 
-      ++instrumentation_.objective_derivative_calls;
+      increment(&Instrumentation::objective_derivative_calls);
       return {state, control};
     }
 
@@ -171,17 +179,18 @@ namespace external_dealii_step4
                    const std::filesystem::path &filename) const
     {
       require_size(state, state_dimension(), "output state");
-      ++instrumentation_.output_calls;
+      increment(&Instrumentation::output_calls);
       application_.output_results(state, filename);
     }
 
-    const Instrumentation &
-    instrumentation() const
+  private:
+    void
+    increment(std::size_t Instrumentation::*const counter) const
     {
-      return instrumentation_;
+      if (instrumentation_ != nullptr)
+        ++(instrumentation_->*counter);
     }
 
-  private:
     static void
     require_size(const Vector &vector,
                  const std::size_t expected,
@@ -195,37 +204,46 @@ namespace external_dealii_step4
     SolveResult
     solve(const Vector &rhs, const SolveRole role) const
     {
-      instrumentation_.record_solve_start(role);
+      if (instrumentation_ != nullptr)
+        instrumentation_->record_solve_start(role);
       Vector solution(rhs.size());
       solution = 0.0;
       try
         {
           const auto evidence = application_.solve(rhs, solution);
           if (evidence.converged)
-            instrumentation_.record_solve_success(
-              role,
-              evidence.iterations,
-              evidence.initial_residual,
-              evidence.final_residual);
+            {
+              if (instrumentation_ != nullptr)
+                instrumentation_->record_solve_success(
+                  role,
+                  evidence.iterations,
+                  evidence.initial_residual,
+                  evidence.final_residual);
+            }
           else
-            instrumentation_.record_solve_failure(
-              role, evidence.iterations, evidence.final_residual);
+            {
+              if (instrumentation_ != nullptr)
+                instrumentation_->record_solve_failure(
+                  role, evidence.iterations, evidence.final_residual);
+            }
           return {std::move(solution), evidence};
         }
       catch (const dealii::SolverControl::NoConvergence &exception)
         {
-          instrumentation_.record_solve_failure(
-            role, exception.last_step, exception.last_residual);
+          if (instrumentation_ != nullptr)
+            instrumentation_->record_solve_failure(
+              role, exception.last_step, exception.last_residual);
           throw;
         }
       catch (...)
         {
-          instrumentation_.record_solve_failure();
+          if (instrumentation_ != nullptr)
+            instrumentation_->record_solve_failure();
           throw;
         }
     }
 
     Application       application_;
-    Instrumentation & instrumentation_;
+    Instrumentation *instrumentation_;
   };
 } // namespace external_dealii_step4

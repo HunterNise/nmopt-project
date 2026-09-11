@@ -16,6 +16,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -30,6 +31,11 @@ namespace
   using LayoutPtr    = external_dealii_step4::LayoutPtr;
   using ProblemA     = external_dealii_step4::ProblemA;
   using Vector       = ProblemA::Vector;
+
+  static_assert(!std::is_copy_constructible_v<Binding>);
+  static_assert(!std::is_copy_assignable_v<Binding>);
+  static_assert(!std::is_move_constructible_v<Binding>);
+  static_assert(!std::is_move_assignable_v<Binding>);
   using Matrix       = ProblemA::Matrix;
   using NativeReduced = external_dealii_step4::NativeReduced;
 
@@ -195,6 +201,14 @@ namespace
   void
   run_nmopt_binding_construction()
   {
+    Binding minimal_binding;
+    Vector  minimal_control(minimal_binding.problem().control_dimension());
+    minimal_control = 0.0;
+    const auto minimal_value = minimal_binding.reduced().evaluate_value(
+      make_single_block(minimal_binding.control_layout(), minimal_control));
+    require(minimal_value.state_solve.converged(),
+            "nmopt binding without diagnostics did not solve");
+
     Instrumentation instrumentation;
     Binding         binding(instrumentation);
     const auto point = make_off_solution_point(binding.problem().state_dimension());

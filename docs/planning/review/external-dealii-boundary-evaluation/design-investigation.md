@@ -1,6 +1,8 @@
 # External deal.II boundary evaluation: design investigation
 
-Status: review context; non-authoritative. Prepared on 2026-09-09 before E1.
+Status: review context; non-authoritative. Sections 1–7 preserve the pre-E1
+investigation prepared on 2026-09-09. Section 8 records the 2026-09-11 review
+at `ed450bd` and a proposed Problem B direction.
 
 This document preserves the architectural reasoning, external precedents,
 source-supported facts, and open hypotheses that motivated the controlled
@@ -18,7 +20,8 @@ documentation. An early G1 obstruction report is possible; it does not imply
 completion of the numerical comparison.
 
 Read this note when interpreting G1 or considering later architecture changes.
-It is not required implementation reading for E1–E5.
+It is not required implementation reading for E1–E5. Read section 8 when
+preparing Problem B; it is a candidate, not an adopted protocol.
 
 ## 1. Why the evaluation exists
 
@@ -434,3 +437,122 @@ public-reference change. Helper proposals, boundary changes, deeper refactors,
 and Problem B each need their own accepted scope. Preserve this note as the
 historical question set, recording later resolutions rather than rewriting
 the initial hypotheses as if the outcome had been known before E1.
+
+## 8. Post-G1 review and Problem B candidate
+
+This section synthesizes the later discussion following `> ===` in the local
+architecture transcript and the review of `ed450bd`. The
+[G1 report](g1-report.md) owns the supported Problem A results and remaining
+failure-evidence qualification. The
+[roadmap](../../external-dealii-boundary-evaluation.md) owns the next unit.
+No new public interface or Problem B implementation is adopted here.
+
+### Interpretation supported by the current code
+
+Problem A demonstrated application-owned numerical machinery and control
+mathematics connected to current nmopt through an explicit local binding.
+Its success establishes adequacy for that case; it does not establish the
+smallest possible adapter, average integration costs, or a reusable adapter
+class. Historical line counts in G1 are descriptive. Forecasts such as
+150–250 binding lines, reuse percentages, or a larger adapter triggering a
+boundary redesign have not been measured and are not acceptance thresholds.
+
+[`NmoptBinding`](../../../../apps/external-dealii/step-4/integration/nmopt_binding.hpp)
+owns a concrete `ProblemA`, translates its operations and solve reports, and
+installs its identity metric. Repeating that construction for another OCP can
+reveal mechanical duplication. Problem B on Step-4 is still the same external
+application, however; it cannot establish the cost of opening another
+application's lifecycle or numerical storage.
+
+Separate dimensions and nonidentity geometry already have supporting code:
+[`StateControlPartitionT`](../../../../include/nmopt/contract/reduced_dto.hpp)
+does not require equal state/control dimensions, and the
+[compiled volume-control test](../../../../tests/dealii/dealii_diffusion_contract.cc)
+exercises an FE control coupling and nonidentity mass metric through the common
+contracts. The public
+[`MassMetric`](../../../../include/nmopt/dealii/mass_metric.hpp) is an existing
+realization. B should measure external ownership and adaptation of these
+capabilities, rather than assume they require a new interface.
+
+### Candidate mathematics and ownership
+
+One small candidate retains Step-4's 2D mesh, state $`Q_{1}`$ discretization,
+forcing, and nonzero Dirichlet data. Use full $`Q_{1}`$ control coefficients on
+that mesh and free state coordinates. This yields rectangular control coupling
+without requiring another mesh or FE family. Let $P$ embed free state
+coordinates and $\ell$ carry the original prescribed boundary coefficients,
+with zero entries on free DoFs. With $A,b$ the existing boundary-eliminated
+system and $M$ the full FE mass matrix, define:
+
+```math
+\begin{aligned}
+y_{\mathrm{phys}} &= Pz+\ell, &
+K &= P^{\mathsf T}AP, & b_{F} &= P^{\mathsf T}b,\\
+B &= P^{\mathsf T}M, &
+E(z,u) &= Kz-b_{F}-Bu,\\
+J(z,u) &= \frac{1}{2}(Pz+\ell-y_{d})^{\mathsf T}M(Pz+\ell-y_{d})
+          +\frac{\alpha}{2}u^{\mathsf T}Mu.
+\end{aligned}
+```
+
+The simple candidate $`y_{d}=0`$ and $\alpha=1$ keeps target and regularization
+choices close to A while changing their FE interpretation. These choices,
+quadrature, coordinates, and tolerances remain to be adopted in the B protocol.
+With the same residual sign convention, the adjoint and reduced covector are:
+
+```math
+\begin{aligned}
+K^{\mathsf T}p &= P^{\mathsf T}M(Pz+\ell-y_{d}),\\
+r &= \alpha Mu+B^{\mathsf T}p,\\
+g &= M^{-1}r.
+\end{aligned}
+```
+
+Here $g$ is the $L^{2}$ gradient; the chosen metric is $M$, separately from
+the regularization weight $\alpha$. A symmetric $M$ does not make rectangular
+$B$ symmetric. Control coefficients associated with boundary nodes are volume
+control coefficients, not prescribed state values. Do not clamp them or add
+the full vector $Mu$ to eliminated boundary rows. The physical state and its
+objective include the fixed lifting; state tangents have zero boundary data.
+
+Step-4 retains its mesh, FE/DoF data, forward assembly, supplied-RHS solve, and
+output policies. Additional native read-only access to FE/DoF and boundary
+information may be needed; the current adapted interface exposes only the
+assembled system, solve, and output seams. Attribute those additions as
+application reuse. The added OCP owns mass/coupling assembly, coordinate
+transformations, objective, adjoint interpretation, and metric choice. State
+and adjoint solves can use expanded full RHS vectors through Step-4's existing
+CG service, with restriction/reconstruction owned outside the optimizer.
+
+### Comparison requirements to freeze before implementation
+
+The [native optimizer](../../../../apps/external-dealii/step-4/evaluation/native_optimization.hpp)
+currently uses the reduced covector directly as a Euclidean gradient and
+measures Euclidean norms. B requires a native mass-metric realization and
+matching gradient direction, stopping norm, step norm, and metric-solve policy
+on both paths. Record that work as native numerical/orchestration work. It is
+not automatically nmopt wiring, nor is the existing loop reusable unchanged.
+Keep A's numerical protocol intact rather than replacing its implementation
+with a generic optimizer as preparation for B.
+
+Start with native assembly and mathematical verification, then an explicit
+current-public-API binding, reduced-evaluation comparison, and matched
+optimization. Freeze independent equation/adjoint and derivative checks,
+metric pairing/inverse checks, boundary reconstruction checks, and an
+independent optimality oracle before interpreting integration costs. Separate
+verification actions from measured runtime work, including metric actions and
+solves. Preserve Step-4's original solve/output behavior on its standalone path.
+
+Measure added application seams, OCP mathematics, native metric/orchestration,
+binding construction, and repeated runtime work separately. Repeated
+mechanical construction can motivate a scoped helper experiment. A boundary
+change needs a concrete valid capability or ownership obligation that cannot
+be represented faithfully; a deeper structural diagnosis needs traced coupling
+across otherwise independent responsibilities. Adapter length alone decides
+none of these questions.
+
+Keep the first B comparison linear, symmetric, serial, on the existing fixed
+mesh, without control constraints. Nonlinearity, nonsymmetry, adaptivity, MPI,
+additional algorithms, profiling, and package/install evaluation answer other
+questions. If B fails, preserve the native-versus-nmopt distinction and diagnose
+the first failure before adding variants or changing the shared boundary.

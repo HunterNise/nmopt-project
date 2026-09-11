@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary` |
-| Current unit | EC4 — Permanent Step-4 evidence and documentation reconciliation (implemented locally; review pending) |
-| Last completed/adopted gate | EC3 — Forward-comparator nonfinite-data correction, committed as `6a9d1a5` |
-| Next unit | None after EC4 review in this bounded evaluation |
+| Current unit | EC5 – Remaining failure-evidence correction identified at `ed450bd`; implementation pending |
+| Last completed/adopted gate | EC4 — Permanent Step-4 evidence and documentation reconciliation, committed as `ed450bd` |
+| Next unit | PB0 – Prepare the Problem B protocol; adopt mathematics and scope before implementation |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -21,7 +21,7 @@ Maintain progress status here. Future units also update their required evidence,
 - **Observed result** — evidence actually produced by a run. Record the revision, environment, command, and evidence location. Prior recorded results remain historical until reproduced for this comparison.
 - **Open hypothesis** — an architectural interpretation awaiting evidence. Whether the current boundary is too broad, ergonomic helpers would suffice, or deeper coupling exists remains open through G1; the bounded dispositions are recorded in the G1 report.
 
-Sections 3–8 define the frozen protocol, except for explicitly identified derived schedule invariants and evidence-recording guidance. Numerical constants and acceptance thresholds are **Frozen protocol; not yet validated experimentally.** No E1–E5 result is asserted by E0.
+Sections 3–8 define the frozen protocol, except for explicitly identified derived schedule invariants and evidence-recording guidance. Numerical constants and acceptance thresholds were frozen at E0, before experimental validation. The later validation is recorded in the G1 report; those observations do not change the frozen choices.
 
 All code paths and paths in backticks below are relative to the repository root unless a table gives a narrower base. Markdown links are relative to this document. Repository agent instructions continue to govern execution. This roadmap defines experimental scope and decisions; it does not authorize switching branches, committing, or changing machine configuration independently of the user's implementation instructions.
 
@@ -230,7 +230,7 @@ Translate successful solves into `LinearSolveReport` with algorithm CG, identity
 
 ## 6. Matched optimization policy
 
-**Frozen protocol; not yet validated experimentally.** Use these first-comparison constants unchanged on both paths. They are not measured convergence claims.
+**Frozen at E0.** Use these first-comparison constants unchanged on both paths. The later convergence evidence is recorded separately in the G1 report.
 
 | `ReducedSolverParameters` field | Value |
 | --- | --- |
@@ -353,7 +353,7 @@ Add a small source-size summary to the final report using one stated counting co
 
 ## 8. Verification definitions and tolerances
 
-**Frozen protocol; not yet validated experimentally.** All tolerances below are acceptance thresholds for this fixed 2D problem, not observed successes. Log actual errors. Do not relax a threshold to make an unexplained failure pass.
+**Frozen at E0.** All tolerances below are acceptance thresholds for this fixed 2D problem; observed errors and corrected validation are recorded separately in the G1 report. Do not relax a threshold to make an unexplained failure pass.
 
 For paired vectors and paired scalar objectives, respectively, use:
 
@@ -671,7 +671,7 @@ Files: final report under `docs/planning/review/external-dealii-boundary-evaluat
 
 Report mathematical success or failure, fidelity, extra required capabilities, one-time/repeated costs, library-provided services, source-derived versus measured evidence, and limits. Distinguish incidence in native versus nmopt paths from universal claims about all PDE-control applications. Do not force every row into an exclusive category when it has multiple consumers.
 
-Classify findings as mechanical ergonomics, capability/formulation obligation, structural cross-layer coupling, small justified overhead, or unresolved. A local programming defect or numerical-policy failure is not itself a boundary diagnosis. Recommend a helper only if explicit repeated mechanical construction motivates it; recommend boundary investigation only with a concrete unnecessary obligation or correctness obstruction that a helper cannot remove.
+Classify findings as mechanical ergonomics, capability/formulation obligation, structural cross-layer coupling, measured additional work, or unresolved. A work count alone does not establish performance materiality. A local programming defect or numerical-policy failure is not itself a boundary diagnosis. Recommend a helper only if explicit repeated mechanical construction motivates it; recommend boundary investigation only with a concrete unnecessary obligation or correctness obstruction that a helper cannot remove.
 
 Prospective commit: `docs(dealii): report external boundary evaluation findings`.
 
@@ -684,7 +684,8 @@ tested frozen-API obligation with measured repeated transpose work whose
 performance materiality remains unresolved, while
 classifying block/layout and identity-metric setup as mechanical adaptation.
 For the tested linear Problem A, the report recommends retaining the current
-public boundary and making no automatic helper, API, or Problem B change. H1,
+public boundary and making no automatic helper, API, or Problem B change. H1
+establishes extra obligations/work while materiality remains unresolved;
 H3, H4, H5, and H6 are supported for the tested case; H2 remains unresolved;
 and H7 is weakened for the tested case. The report remains the decision
 authority; the later bounded ownership cleanup did not alter its conclusion.
@@ -711,8 +712,9 @@ reorganize ignored run artifacts, or start another tutorial evaluation.
 The bounded closure corrections preserve the G1 decision while repairing the
 evidence boundary:
 
-- `a7f6cf7` preserves failure evidence and stops runtime tests from rewriting
-  the shared attribution record;
+- `a7f6cf7` creates isolated evidence destinations, retains explicitly recorded
+  comparison failures and solve records, and stops runtime tests from rewriting
+  the shared attribution record; EC5 below qualifies exception/trace coverage;
 - `b235a85`, `21d775e`, `6193519`, `d3bdaa0`, and `d44dded` remove the extra
   solve action, independently audit residuals and final gradients, enforce
   the absolute oracle-distance gate, reject nonfinite acceptance data, and
@@ -727,6 +729,63 @@ tree; they are not copied into tracked documentation. Earlier E4/E5 run links
 remain historical and are identified by their original revisions. The
 corrections do not change the tested Problem A scope or authorize Problem B,
 performance claims, a generic helper, or a shared API change.
+
+### EC5 – Retain exception diagnostics and available optimization traces
+
+Status: identified by review of `ed450bd` on 2026-09-11; implementation pending.
+Problem A's successful numerical comparison and bounded G1 conclusion stand.
+The remaining correction concerns failure evidence, not the mathematical or
+public interface contract.
+
+The review reproduced an exception whose original message was replaced in
+`failure.txt` by `scenario terminated before completion`. `EvidenceGuard`
+cannot recover an uncaught exception through `std::current_exception()` during
+ordinary stack unwinding. The paired driver also writes both optimization
+traces only after both solves, convergence checks, and the oracle complete.
+A later failure can therefore discard an already available native result.
+
+Outcome: preserve the original exception message and every available completed
+optimization result before subsequent operations or acceptance checks fail.
+
+File boundary: `tests/dealii/external_step4_evidence.hpp`, the three Step-4
+test drivers as needed, and their evidence documentation. Keep shared test
+support, shared nmopt, Problem A mathematics, solver policies, and source
+fixtures frozen. This unit does not introduce a progress-reporting framework.
+
+- Catch exceptions while the evidence guard and instrumentation remain alive;
+  record the original diagnostic and rethrow. Retain failed test exit behavior.
+- Write each available optimization result before starting the other path or
+  applying later acceptance/oracle/output checks that may fail.
+- Exercise a thrown exception that bypasses the local `require()` helper, and
+  a deliberate failure after an earlier result is available. Check that the
+  diagnostic, available trace, counters, and solve evidence survive a retry.
+- Explicitly record the remaining observability limit: trials held only inside
+  a throwing solver are not available through its current return interface.
+  Do not claim full partial-trace retention or change shared interfaces to
+  obtain it. Such a failed run is incomplete evidence, not a successful gate.
+
+Gate: focused regressions and required checks pass; report wording matches
+actual failure coverage. Preserve successful Problem A results and ignored
+raw evidence. Prospective commit:
+`test(dealii): retain Step-4 exception and completed trace evidence`.
+
+### PB0 – Prepare the Problem B protocol
+
+Documentation preparation is the next direction; no Problem B implementation
+or mathematical choice is adopted by this status update. Preserve the completed
+refactor and corrected Problem A as baselines, on the existing evaluation
+branch with shared nmopt frozen. The
+[post-G1 investigation](review/external-dealii-boundary-evaluation/design-investigation.md#8-post-g1-review-and-problem-b-candidate)
+records the candidate and its limitations.
+
+Before implementation, adopt a short separate protocol defining control/state
+coordinates, lifting, FE coupling and objective operators, metric realization
+and solve policy, matched native/nmopt optimization policies, independent
+verification, and attribution. Account for additional Step-4 access seams and
+changes to the Euclidean native reference. Problem B is a second OCP on the
+same application; adapter size alone is not a gate or evidence of general
+external-application cost. Keep nonlinear, nonsymmetric, adaptive, MPI,
+control-constraint, helper, and public-interface work outside this preparation.
 
 ## 10. Verification execution and artifacts
 

@@ -1,7 +1,7 @@
 # Step-4 ownership and evidence reconciliation
 
-Status: closure record updated for the bounded post-G1 corrections on
-2026-09-11.
+Status: ownership and numerical results retained after review on 2026-09-11;
+EC5 failure-evidence correction pending in the evaluation roadmap.
 
 This note makes the implementation boundary explicit after the original G1
 report and records where corrected ignored artifacts are recreated. It does
@@ -73,10 +73,17 @@ this evidence closure.
   without changing the upstream, stripped, or adapted source contents.
 - O2 removed the requirement to construct diagnostics for the functional
   path, without adding a shared helper or framework interface.
-- EC1–EC3 preserved failure evidence, repaired the numerical acceptance and
-  runtime-count checks, and made forward comparison reject nonfinite data.
+- EC1–EC3 retained explicitly recorded failure evidence, repaired the numerical
+  acceptance and runtime-count checks, and made forward comparison reject
+  nonfinite data.
   Their generated comparisons, summaries, counters, and working attribution
   are recreated below the ignored `runs/external-dealii/step-4/` tree.
+
+The [G1 failure-evidence qualification](g1-report.md#remaining-failure-evidence-qualification)
+records the remaining exception-message and delayed-trace issues. EC5 is a
+bounded test/evidence correction; it does not reopen the ownership split or
+invalidate the successful numerical comparison. Complete partial histories
+inside a throwing optimizer are not currently observable.
 
 ## Test organization decision
 

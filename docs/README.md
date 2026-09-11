@@ -101,8 +101,9 @@ stress the interfaces.
   owns the current authentic Step-4 evaluation protocol, shared-nmopt freeze,
   work units, evidence requirements, and phase status.
 - [External boundary design investigation](planning/review/external-dealii-boundary-evaluation/design-investigation.md)
-  preserves non-authoritative review context, external precedents, and open
-  hypotheses for G1 and later architectural review; it adds no E1–E5 requirements.
+  preserves non-authoritative review context, external precedents, G1
+  hypotheses, and the post-G1 Problem B candidate; it adds no implementation
+  requirements or adopted mathematical choices.
 - [Superseded external tutorial roadmap](planning/external-dealii-tutorial-roadmap.md)
   preserves the historical T0–T5 integration proposal and prior-attempt status;
   current implementation work follows the boundary evaluation roadmap.

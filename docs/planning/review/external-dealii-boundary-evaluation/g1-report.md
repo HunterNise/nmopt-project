@@ -1,7 +1,8 @@
 # External deal.II boundary evaluation: G1 report
 
-Status: final report reconciled with the bounded post-G1 corrections on
-2026-09-11. Generated run artifacts remain ignored and are recreated by the
+Status: successful Problem A comparison retained after review of `ed450bd` on
+2026-09-11; the remaining EC5 failure-evidence correction is pending. Generated
+run artifacts remain ignored and are recreated by the
 commands recorded below; no run output is copied into tracked documentation.
 The original E0–E5 evidence remains identified by its evaluated revision, and
 the corrected closure evidence is identified separately.
@@ -36,8 +37,10 @@ reviewed and committed:
   functional binding path and prevents the binding from being copied or
   moved because its callbacks capture owned application state.
 
-- EC1 (`a7f6cf7`) preserves failing comparison/solve evidence and prevents
-  runtime tests from rewriting the shared attribution ledger.
+- EC1 (`a7f6cf7`) retains explicitly recorded comparison failures and solve
+  records, and prevents runtime tests from rewriting the shared attribution
+  ledger. Exception diagnostics and available optimization traces still need
+  the EC5 correction described below.
 - EC2 (`b235a85`, `21d775e`, `6193519`, `d3bdaa0`, and `d44dded`) removes the
   extra solve action, independently audits residuals and final gradients,
   enforces the absolute oracle-distance gate, rejects nonfinite acceptance
@@ -54,6 +57,24 @@ and its `counters.csv`. The corrected working ledger is at
 run artifacts, not tracked evidence files. The corrections preserve the
 original G1 decision: the current public boundary is adequate for this tested
 external case, and no shared helper or API change is implied.
+
+### Remaining failure-evidence qualification
+
+Review at `ed450bd` found that
+[`EvidenceGuard`](../../../../tests/dealii/external_step4_evidence.hpp)
+can replace an uncaught exception's original message with the generic
+`scenario terminated before completion` during destruction. A temporary C++17
+probe reproduced this without changing repository sources. The
+[paired optimization driver](../../../../tests/application/external_step4_optimization_contract.cc)
+also delays trace serialization until both solvers, convergence checks, and
+the oracle return; a later failure can discard a completed earlier result.
+
+The roadmap's [EC5 unit](../../external-dealii-boundary-evaluation.md#ec5--retain-exception-diagnostics-and-available-optimization-traces)
+owns the bounded correction and its regression evidence. Progress held only
+inside a throwing solver is not exposed by its return interface; full partial
+optimization traces are not currently retained. Existing successful results,
+numerical audits, and the G1 boundary conclusion are unaffected. The recorded
+175/175 and 67/67 pipeline passes predate EC5 and do not verify that correction.
 
 ## Decision
 
@@ -178,7 +199,7 @@ claims about source files.
 | Step-4 preparation and supplied-RHS CG solve (`S01`, `S02`) | The adapted source exposes preparation, matrix/RHS views, and an in/out solve while retaining original assembly and CG. | Application reuse; reused numerical machinery, not nmopt overhead. |
 | Objective and control pullback (`M01`, `M02`) | Problem A defines and verifies the identity quadratic objective and $u+p$ reduced derivative. | Capability/formulation obligation: added control mathematics owned by the application. |
 | Residual and residual JVP (`V01`, `V02`) | Required and checked for the complete nmopt executable model; neither callback was used by the matched reduced runtime. | Verification capability plus frozen construction obligation; not repeated E5 runtime work. |
-| State component of full residual VJP (`N01`) | Current nmopt performed 829 full VJPs and explicit matrix transposes; native used only 829 direct control pullbacks. | Frozen API capability with small justified repeated overhead in this case. The count is measured; its time and memory impact are unknown. |
+| State component of full residual VJP (`N01`) | Current nmopt performed 829 full VJPs and explicit matrix transposes; native used only 829 direct control pullbacks. | Repeated work required by the frozen API. The count is measured; its time and memory impact and performance materiality are unknown. |
 | Full-variable block composition (`N02`) | One state block, one control block, and one test block were constructed with checked compatible layouts and borrowed lifetimes. | Mechanical nmopt adaptation. |
 | Identity metric realization (`N03`) | A local identity `MetricT` was required; nmopt reported 829 metric solves, with no iterative metric or Hessian work. | Mechanical adaptation and solver service, not a new PDE or metric formulation. |
 | Trial and accepted-step orchestration (`O01`) | Native loop and current nmopt matched 6,025 trials and 828 accepted steps, including value-only rejected trials and accepted-state reuse. | Optimizer orchestration service. The native implementation is reference instrumentation, not an nmopt boundary defect. |
@@ -234,10 +255,10 @@ the evidence supports the bounded case, not the corresponding universal claim.
 
 ## Recommendation and limits
 
-Close the E0–E5 evaluation and its bounded evidence corrections for the tested
-Problem A case. The corrected run outputs remain ignored and reproducible from
-the documented commands. Do not add a generic helper or alter the shared
-nmopt API as an automatic follow-up.
+Retain the successful E0–E5 Problem A evaluation and complete only the remaining
+EC5 evidence correction before closing that follow-up. The corrected run
+outputs remain ignored and reproducible from the documented commands. Do not
+add a generic helper or alter the shared nmopt API as an automatic follow-up.
 
 If future authentic applications reproduce the same block/layout/metric
 construction pattern, a separately scoped mechanical helper may be evaluated.
@@ -245,6 +266,9 @@ If repeated full-VJP work becomes a demonstrated performance concern, formulate
 a separate capability or formulation experiment with direct measurements. Do
 not infer that need from the present Debug run.
 
-Problem B, nonlinear or nonsymmetric systems, constraints, FE-coupled controls,
-alternate metrics, compiler integration, and package/install behavior remain
-outside this decision. Any of them requires an accepted follow-up scope.
+Problem B protocol preparation is the recommended next investigation; its
+[candidate and review qualifications](design-investigation.md#8-post-g1-review-and-problem-b-candidate)
+remain non-authoritative. It will compare another OCP on Step-4, not provide
+an independent sample of adaptation to another external application. Problem B
+implementation, nonlinear or nonsymmetric systems, constraints, compiler
+integration, and package/install behavior require their own accepted scope.

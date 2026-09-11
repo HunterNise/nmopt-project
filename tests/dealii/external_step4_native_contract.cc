@@ -165,6 +165,29 @@ namespace
     throw std::runtime_error("could not locate the repository artifact root");
   }
 
+  std::filesystem::path
+  native_problem_b_artifact_root(const char *const scenario)
+  {
+    auto directory = std::filesystem::current_path();
+    while (true)
+      {
+        if (std::filesystem::exists(
+              directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
+          return external_dealii_step4_test::create_unique_artifact_root(
+            directory / "runs/external-dealii/step-4/problem-b/"
+                      "native-verification",
+            scenario);
+
+        const auto parent = directory.parent_path();
+        if (parent == directory)
+          break;
+        directory = parent;
+      }
+
+    throw std::runtime_error(
+      "could not locate the Problem B verification artifact root");
+  }
+
   void
   require_original_assembly(const std::vector<double> &matrix_before,
                             const Vector &             rhs_before,
@@ -726,7 +749,7 @@ namespace
             "native Problem B derivative stage changed retained state data");
 
     Vector expected_reduced = derivative.control_derivative;
-    expected_reduced.add(1.0, problem.control_vjp(derivative.adjoint));
+    expected_reduced.add(-1.0, problem.control_vjp(derivative.adjoint));
     require(vector_difference(derivative.reduced_derivative, expected_reduced) ==
               0.0,
             "native Problem B reduced derivative has the wrong composition");
@@ -874,7 +897,381 @@ namespace
       oracle.adjoint,
       1.0e-11,
       1.0e-10,
-      "native adjoint differs from Problem B dense oracle");
+                                       "native adjoint differs from Problem B dense oracle");
+  }
+
+  void
+  run_native_problem_b_derivative_metric_contract()
+  {
+    Instrumentation instrumentation;
+    const auto artifact_root = native_problem_b_artifact_root("derivative-metric");
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root,
+      "native_problem_b_derivative_metric",
+      {{"native", &instrumentation}});
+    try
+      {
+        Step4<2> tutorial;
+        tutorial.prepare_for_external_use();
+
+        using Problem = external_dealii_step4::ProblemB<2, Step4<2>>;
+        using Metric  = external_dealii_step4::ProblemBMetric<2>;
+        using Reduced =
+          external_dealii_step4::NativeProblemBReduced<2, Step4<2>>;
+        using ValueEvaluation = typename Reduced::ValueEvaluation;
+        using DerivativeEvaluation = typename Reduced::DerivativeEvaluation;
+        namespace problem_b_verification =
+          external_dealii_step4::problem_b_verification;
+
+        Problem problem(tutorial);
+        Metric  metric(problem.mass());
+        Reduced reduced(problem, instrumentation);
+        std::ofstream output(artifact_root / "derivative-metric.csv");
+        require(static_cast<bool>(output),
+                "could not open the Problem B derivative/metric trace");
+        output << "record,index,direction,step,analytic,value,error,bound\n"
+               << std::setprecision(std::numeric_limits<double>::max_digits10);
+
+        Vector state_tangent(problem.state_dimension());
+        Vector control_tangent(problem.control_dimension());
+        Vector test_seed(problem.state_dimension());
+        for (unsigned int index = 0; index < state_tangent.size(); ++index)
+          {
+            state_tangent[index] = 0.05 + 0.001 * static_cast<double>(index);
+            test_seed[index] = 0.1 - 0.00075 * static_cast<double>(index);
+          }
+        for (unsigned int index = 0; index < control_tangent.size(); ++index)
+          control_tangent[index] = -0.025 + 0.0005 * static_cast<double>(index);
+
+        Vector ramp = external_dealii_step4::scenario::ramp_vector();
+        Vector alternating =
+          external_dealii_step4::scenario::alternating_vector();
+        const Vector ramp_raw = ramp;
+        const Vector alternating_raw = alternating;
+        ramp /= problem_b_verification::mass_norm(metric, ramp);
+        alternating /= problem_b_verification::mass_norm(metric, alternating);
+
+        const double ramp_metric_pairing =
+          ramp_raw * metric.apply(ramp_raw);
+        const double alternating_metric_pairing =
+          alternating_raw * metric.apply(alternating_raw);
+        require(ramp_metric_pairing > 0.0 &&
+                  alternating_metric_pairing > 0.0,
+                "Problem B mass metric is not positive");
+        require_close(std::abs(ramp_raw * metric.apply(alternating_raw) -
+                               alternating_raw * metric.apply(ramp_raw)),
+                      0.0,
+                      1.0e-12,
+                      "Problem B mass metric is not symmetric");
+
+        const auto audit_metric_vector =
+          [&metric, &output](const Vector &vector, const char *const name) {
+            const auto rhs = metric.apply(vector);
+            const auto inverse = metric.inverse_apply(rhs);
+            require(inverse.evidence.converged,
+                    std::string("Problem B ") + name +
+                      " metric inverse did not converge");
+            const auto residual = problem_b_verification::normalized_equation_residual(
+              metric.apply(inverse.solution), rhs);
+            require(residual.normalized <= 1.0e-10,
+                    std::string("Problem B ") + name +
+                      " metric equation residual is too large");
+            problem_b_verification::require_vector_close(
+              inverse.solution,
+              vector,
+              1.0e-11,
+              1.0e-10,
+              std::string("Problem B ") + name +
+                " metric inverse changed the vector");
+            output << "metric_inverse,," << name << ','
+                   << inverse.evidence.iterations << ",,"
+                   << residual.normalized << ",,1e-10\n";
+          };
+        audit_metric_vector(ramp_raw, "ramp");
+        audit_metric_vector(alternating_raw, "alternating");
+
+        const auto controls =
+          external_dealii_step4::scenario::reduced_controls();
+        std::vector<std::pair<ValueEvaluation, DerivativeEvaluation>> samples;
+        samples.reserve(controls.size());
+
+        const auto audit_sample =
+          [&problem,
+           &metric,
+           &reduced,
+           &tutorial,
+           &output,
+           &state_tangent,
+           &control_tangent,
+           &test_seed](const Vector &control, const std::size_t index) {
+            const auto value = reduced.evaluate_value(control);
+            const auto derivative = reduced.augment_derivative(value);
+            const auto objective_derivative =
+              problem.objective_derivative(value.state, control);
+            problem_b_verification::require_vector_close(
+              derivative.state_derivative,
+              objective_derivative.state,
+              0.0,
+              0.0,
+              "Problem B state objective derivative changed");
+            problem_b_verification::require_vector_close(
+              derivative.control_derivative,
+              objective_derivative.control,
+              0.0,
+              0.0,
+              "Problem B control objective derivative changed");
+
+            const auto centered_jvp =
+              problem_b_verification::centered_residual_jvp(
+                problem,
+                value.state,
+                control,
+                state_tangent,
+                control_tangent,
+                1.0e-6);
+            const auto analytic_jvp =
+              problem.residual_jvp(state_tangent, control_tangent);
+            const double residual_jvp_error =
+              problem_b_verification::scaled_vector_error(centered_jvp,
+                                                          analytic_jvp);
+            const double analytic_objective =
+              objective_derivative.state * state_tangent +
+              objective_derivative.control * control_tangent;
+            const double centered_objective =
+              problem_b_verification::centered_objective_directional_derivative(
+                problem,
+                value.state,
+                control,
+                state_tangent,
+                control_tangent,
+                1.0e-6);
+            const double objective_error =
+              problem_b_verification::scaled_scalar_error(
+                centered_objective, analytic_objective);
+            require(residual_jvp_error <= 1.0e-8,
+                    "Problem B residual JVP centered difference failed");
+            require(objective_error <= 1.0e-8,
+                    "Problem B objective derivative centered difference failed");
+
+            const auto jvp =
+              problem.residual_jvp(state_tangent, control_tangent);
+            const auto vjp = problem.residual_vjp(test_seed);
+            const double full_left = jvp * test_seed;
+            const double full_right =
+              vjp.state * state_tangent + vjp.control * control_tangent;
+            Vector zero_control(problem.control_dimension());
+            zero_control = 0.0;
+            const double state_left =
+              problem.residual_jvp(state_tangent, zero_control) * test_seed;
+            const double state_right = vjp.state * state_tangent;
+            Vector zero_state(problem.state_dimension());
+            zero_state = 0.0;
+            const double control_left =
+              problem.residual_jvp(zero_state, control_tangent) * test_seed;
+            const double control_right = vjp.control * control_tangent;
+            const double full_pairing_error =
+              problem_b_verification::scaled_scalar_error(full_left,
+                                                          full_right);
+            const double state_pairing_error =
+              problem_b_verification::scaled_scalar_error(state_left,
+                                                          state_right);
+            const double control_pairing_error =
+              problem_b_verification::scaled_scalar_error(control_left,
+                                                          control_right);
+            require(full_pairing_error <= 1.0e-12 &&
+                      state_pairing_error <= 1.0e-12 &&
+                      control_pairing_error <= 1.0e-12,
+                    "Problem B residual JVP/VJP pairing failed");
+
+            const auto physical_state =
+              problem.coordinates().reconstruct(value.state);
+            const double quadrature_objective =
+              0.5 * problem_b_verification::cell_quadrature_pairing<2>(
+                      tutorial, physical_state, physical_state) +
+              0.5 * problem_b_verification::cell_quadrature_pairing<2>(
+                      tutorial, control, control);
+            require_close(problem.objective(value.state, control),
+                          quadrature_objective,
+                          1.0e-12,
+                          "Problem B objective disagrees with cell quadrature");
+
+            const auto metric_gradient =
+              metric.inverse_apply(derivative.reduced_derivative);
+            require(metric_gradient.evidence.converged,
+                    "Problem B metric gradient solve did not converge");
+            const auto metric_residual =
+              problem_b_verification::normalized_equation_residual(
+                metric.apply(metric_gradient.solution),
+                derivative.reduced_derivative);
+            require(metric_residual.normalized <= 1.0e-10,
+                    "Problem B metric gradient residual is too large");
+
+            const double objective_value =
+              problem.objective(value.state, control);
+            const double objective_quadrature_error =
+              std::abs(objective_value - quadrature_objective);
+            output << "derivative_jvp," << index << ",,1e-6,,"
+                   << residual_jvp_error << ",,1e-8\n";
+            output << "objective_derivative," << index << ",,1e-6,"
+                   << analytic_objective << ',' << centered_objective << ','
+                   << objective_error << ",1e-8\n";
+            output << "pairing_full," << index << ",,1e-6," << full_left
+                   << ',' << full_right << ',' << full_pairing_error
+                   << ",1e-12\n";
+            output << "pairing_state," << index << ",,1e-6," << state_left
+                   << ',' << state_right << ',' << state_pairing_error
+                   << ",1e-12\n";
+            output << "pairing_control," << index << ",,1e-6," << control_left
+                   << ',' << control_right << ',' << control_pairing_error
+                   << ",1e-12\n";
+            output << "objective_quadrature," << index << ",,,"
+                   << objective_value << ',' << quadrature_objective << ','
+                   << objective_quadrature_error << ",1e-12\n";
+            output << "metric_gradient," << index << ",,"
+                   << metric_gradient.evidence.iterations << ",,"
+                   << metric_residual.normalized << ",,1e-10\n";
+            return std::make_pair(value, derivative);
+          };
+
+        for (std::size_t index = 0; index < controls.size(); ++index)
+          samples.push_back(audit_sample(controls[index], index));
+
+        const auto repeated_ramp = reduced.evaluate_value(controls[2]);
+        require(problem_b_verification::vector_difference(
+                  repeated_ramp.state, samples[2].first.state) == 0.0,
+                "Problem B repeated ramp changed the state");
+        require_close(repeated_ramp.objective,
+                      samples[2].first.objective,
+                      0.0,
+                      "Problem B repeated ramp changed the objective");
+
+        Vector mass_left(problem.control_dimension());
+        Vector mass_right(problem.control_dimension());
+        for (unsigned int index = 0; index < mass_left.size(); ++index)
+          {
+            mass_left[index] = 0.125 + 0.001 * static_cast<double>(index);
+            mass_right[index] = -0.05 + 0.0007 * static_cast<double>(index);
+          }
+        const double assembled_pairing =
+          mass_left * problem.mass().mass_apply(mass_right);
+        const double quadrature_pairing =
+          problem_b_verification::cell_quadrature_pairing<2>(
+            tutorial, mass_left, mass_right);
+        require_close(assembled_pairing,
+                      quadrature_pairing,
+                      1.0e-12,
+                      "Problem B mass pairing disagrees with cell quadrature");
+
+        Vector free_test(problem.state_dimension());
+        for (unsigned int index = 0; index < free_test.size(); ++index)
+          free_test[index] = 0.2 - 0.0009 * static_cast<double>(index);
+        const double assembled_weak_action =
+          free_test * problem.mass().coupling_apply(mass_left);
+        const double quadrature_weak_action =
+          problem_b_verification::cell_quadrature_pairing<2>(
+            tutorial,
+            mass_left,
+            problem.coordinates().embed_free(free_test));
+        require_close(assembled_weak_action,
+                      quadrature_weak_action,
+                      1.0e-12,
+                      "Problem B weak coupling disagrees with cell quadrature");
+
+        const std::vector<double> finite_difference_steps{
+          1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5, 1.0e-6};
+        const Vector directions[] = {ramp, alternating};
+        const char *const direction_names[] = {"ramp", "alternating"};
+        for (std::size_t sample_index = 0; sample_index < samples.size();
+             ++sample_index)
+          for (std::size_t direction_index = 0; direction_index < 2;
+               ++direction_index)
+            {
+              const double analytic =
+                samples[sample_index].second.reduced_derivative *
+                directions[direction_index];
+              bool passes[5] = {false, false, false, false, false};
+              for (std::size_t step_index = 0;
+                   step_index < finite_difference_steps.size();
+                   ++step_index)
+                {
+                  const double step = finite_difference_steps[step_index];
+                  Vector plus = samples[sample_index].first.control;
+                  Vector minus = samples[sample_index].first.control;
+                  plus.add(step, directions[direction_index]);
+                  minus.add(-step, directions[direction_index]);
+                  const auto plus_value = reduced.evaluate_value(plus);
+                  const auto minus_value = reduced.evaluate_value(minus);
+                  const double centered =
+                    (plus_value.objective - minus_value.objective) /
+                    (2.0 * step);
+                  const double error = std::abs(centered - analytic);
+                  const double bound =
+                    1.0e-7 * std::max(1.0, std::abs(analytic));
+                  passes[step_index] = std::isfinite(error) && error <= bound;
+                  output << "reduced_fd," << sample_index << ','
+                         << direction_names[direction_index] << ',' << step
+                         << ',' << analytic << ',' << centered << ',' << error
+                         << ',' << bound
+                         << '\n';
+                }
+              bool adjacent_passes = false;
+              for (std::size_t step_index = 1;
+                   step_index < finite_difference_steps.size();
+                   ++step_index)
+                adjacent_passes = adjacent_passes ||
+                                  (passes[step_index - 1] && passes[step_index]);
+              require(adjacent_passes,
+                      "Problem B reduced centered differences lack adjacent usable steps");
+            }
+
+        const auto base_value = reduced.evaluate_value(controls.front());
+        const auto base_derivative = reduced.augment_derivative(base_value);
+        const auto repeated_zero = reduced.evaluate_value(controls.front());
+        const double repeat_variation =
+          std::abs(repeated_zero.objective - base_value.objective);
+        const std::vector<double> taylor_steps{0.1, 0.05, 0.025};
+        for (std::size_t direction_index = 0; direction_index < 2;
+             ++direction_index)
+          {
+            const double slope = base_derivative.reduced_derivative *
+                                 directions[direction_index];
+            std::vector<double> remainders;
+            for (const double step : taylor_steps)
+              {
+                Vector control = controls.front();
+                control.add(step, directions[direction_index]);
+                const auto trial = reduced.evaluate_value(control);
+                const double remainder = trial.objective -
+                                         base_value.objective - step * slope;
+                const double ratio = remainders.empty() ?
+                                       std::numeric_limits<double>::quiet_NaN() :
+                                       remainders.back() / remainder;
+                remainders.push_back(remainder);
+                output << "taylor,0," << direction_names[direction_index]
+                       << ',' << step << ',' << remainder << ',' << ratio
+                       << ',' << repeat_variation << ",\n";
+                require(std::isfinite(remainder) &&
+                          remainder > 10.0 * repeat_variation,
+                        "Problem B Taylor remainder is not positive and resolved");
+              }
+            for (std::size_t step_index = 1; step_index < remainders.size();
+                 ++step_index)
+              {
+                const double ratio =
+                  remainders[step_index - 1] / remainders[step_index];
+                require(ratio >= 3.5 && ratio <= 4.5,
+                        "Problem B Taylor remainder does not have quadratic halving");
+              }
+          }
+
+        output.flush();
+        evidence.complete();
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
   }
 
   void
@@ -1727,6 +2124,12 @@ main(const int argc, char **argv)
           "problem_b", "verification"},
          120,
          run_native_problem_b_oracle_contract},
+        {"native_problem_b_derivative_metric",
+         "nmopt.external_tutorial_step_4.native_problem_b_derivative_metric",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b", "verification"},
+         240,
+         run_native_problem_b_derivative_metric_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

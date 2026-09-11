@@ -91,7 +91,7 @@ namespace external_dealii_step4
       const auto control_pullback = problem_.control_vjp(adjoint.solution);
 
       Vector reduced_derivative = objective_derivative.control;
-      reduced_derivative.add(1.0, control_pullback);
+      reduced_derivative.add(-1.0, control_pullback);
       count(&Instrumentation::derivative_augmentations);
       return {objective_derivative.state,
               objective_derivative.control,

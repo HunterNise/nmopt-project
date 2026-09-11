@@ -1,7 +1,12 @@
 #pragma once
 
+#include "../evaluation/native_problem_b_reduced.hpp"
 #include "../integration/problem_b.hpp"
+#include "../integration/problem_b_metric.hpp"
 
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/fe/fe_values.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/lapack_full_matrix.h>
 #include <deal.II/lac/vector.h>
@@ -13,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace external_dealii_step4
 {
@@ -126,6 +132,22 @@ namespace external_dealii_step4
                                  ", bound=" + std::to_string(bound));
     }
 
+    inline double
+    scaled_scalar_error(const double left, const double right)
+    {
+      require_finite(left, "Problem B scaled scalar left value");
+      require_finite(right, "Problem B scaled scalar right value");
+      return std::abs(left - right) /
+             std::max(1.0, std::max(std::abs(left), std::abs(right)));
+    }
+
+    inline double
+    scaled_vector_error(const Vector &left, const Vector &right)
+    {
+      return vector_difference(left, right) /
+             std::max(1.0, std::max(left.l2_norm(), right.l2_norm()));
+    }
+
     inline EquationResidualAudit
     normalized_equation_residual(const Vector &lhs, const Vector &rhs)
     {
@@ -203,6 +225,127 @@ namespace external_dealii_step4
           }
       return std::sqrt(squared_difference) /
              std::max(1.0, std::sqrt(squared_norm));
+    }
+
+    template <int dim, typename Application>
+    double
+    cell_quadrature_pairing(const Application &application,
+                            const Vector &     left,
+                            const Vector &     right)
+    {
+      const auto &dof_handler = application.dof_handler_view();
+      const auto full_dimension = dof_handler.n_dofs();
+      if (left.size() != full_dimension || right.size() != full_dimension)
+        throw std::invalid_argument(
+          "Problem B quadrature pairing received incompatible dimensions");
+      require_finite(left, "Problem B quadrature left vector");
+      require_finite(right, "Problem B quadrature right vector");
+
+      const auto &finite_element = dof_handler.get_fe();
+      const dealii::QGauss<dim> quadrature_formula(3);
+      dealii::FEValues<dim> fe_values(finite_element,
+                                      quadrature_formula,
+                                      dealii::update_values |
+                                        dealii::update_JxW_values);
+      const unsigned int dofs_per_cell = finite_element.n_dofs_per_cell();
+      std::vector<dealii::types::global_dof_index> local_dof_indices(
+        dofs_per_cell);
+
+      double pairing = 0.0;
+      for (const auto &cell : dof_handler.active_cell_iterators())
+        {
+          fe_values.reinit(cell);
+          cell->get_dof_indices(local_dof_indices);
+          for (const unsigned int q_index :
+               fe_values.quadrature_point_indices())
+            {
+              double left_value  = 0.0;
+              double right_value = 0.0;
+              for (const unsigned int i : fe_values.dof_indices())
+                {
+                  left_value += left[local_dof_indices[i]] *
+                                fe_values.shape_value(i, q_index);
+                  right_value += right[local_dof_indices[i]] *
+                                 fe_values.shape_value(i, q_index);
+                }
+              pairing += left_value * right_value * fe_values.JxW(q_index);
+            }
+        }
+
+      require_finite(pairing, "Problem B quadrature pairing");
+      return pairing;
+    }
+
+    template <int dim, typename Application>
+    Vector
+    centered_residual_jvp(const ProblemB<dim, Application> &problem,
+                          const Vector &                     state,
+                          const Vector &                     control,
+                          const Vector &                     state_tangent,
+                          const Vector &                     control_tangent,
+                          const double                       step)
+    {
+      if (!(std::isfinite(step) && step > 0.0))
+        throw std::invalid_argument(
+          "Problem B centered residual step must be positive and finite");
+
+      Vector state_plus  = state;
+      Vector state_minus = state;
+      state_plus.add(step, state_tangent);
+      state_minus.add(-step, state_tangent);
+      Vector control_plus  = control;
+      Vector control_minus = control;
+      control_plus.add(step, control_tangent);
+      control_minus.add(-step, control_tangent);
+
+      Vector result = problem.residual(state_plus, control_plus);
+      result.add(-1.0, problem.residual(state_minus, control_minus));
+      result *= 1.0 / (2.0 * step);
+      require_finite(result, "Problem B centered residual JVP");
+      return result;
+    }
+
+    template <int dim, typename Application>
+    double
+    centered_objective_directional_derivative(
+      const ProblemB<dim, Application> &problem,
+      const Vector &                     state,
+      const Vector &                     control,
+      const Vector &                     state_tangent,
+      const Vector &                     control_tangent,
+      const double                       step)
+    {
+      if (!(std::isfinite(step) && step > 0.0))
+        throw std::invalid_argument(
+          "Problem B centered objective step must be positive and finite");
+
+      Vector state_plus  = state;
+      Vector state_minus = state;
+      state_plus.add(step, state_tangent);
+      state_minus.add(-step, state_tangent);
+      Vector control_plus  = control;
+      Vector control_minus = control;
+      control_plus.add(step, control_tangent);
+      control_minus.add(-step, control_tangent);
+
+      const double result =
+        (problem.objective(state_plus, control_plus) -
+         problem.objective(state_minus, control_minus)) /
+        (2.0 * step);
+      require_finite(result, "Problem B centered objective derivative");
+      return result;
+    }
+
+    template <int dim>
+    double
+    mass_norm(const ProblemBMetric<dim> &metric, const Vector &vector)
+    {
+      const Vector mass_vector = metric.apply(vector);
+      const double squared_norm = vector * mass_vector;
+      require_finite(squared_norm, "Problem B mass norm square");
+      if (!(squared_norm >= 0.0))
+        throw std::runtime_error("Problem B mass norm square is negative");
+      return std::sqrt(squared_norm);
     }
 
     template <int dim, typename Application>

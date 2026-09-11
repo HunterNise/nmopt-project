@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary` |
-| Current unit | Step-4 ownership and evidence reconciliation; implementation complete, review pending |
-| Last completed/adopted gate | G1 — Attribution and decision, report committed as `fc31d7b`; local ownership cleanup committed as `8ad5495` and `b1e83a6` |
-| Next unit | No further implementation in this evaluation after the current documentation review |
+| Current unit | Bounded Step-4 ownership and evidence reconciliation complete |
+| Last completed/adopted gate | G1 — Attribution and decision, followed by local ownership cleanup and documentation committed as `2bfae18` |
+| Next unit | None in this bounded evaluation |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.

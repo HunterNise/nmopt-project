@@ -670,9 +670,7 @@ namespace
 
   void
   write_native_optimization_trace(const std::filesystem::path &root,
-                                  const NativeOptimizationResult &result,
-                                  const Instrumentation &instrumentation,
-                                  const verification::OracleResult &oracle)
+                                  const NativeOptimizationResult &result)
   {
     std::ofstream trace(root / "trace.csv");
     require(static_cast<bool>(trace), "could not open the native optimization trace");
@@ -696,6 +694,14 @@ namespace
             << ',' << iteration.actual_step_norm << ','
             << iteration.gradient_norm << '\n';
 
+  }
+
+  void
+  write_native_optimization_summary(const std::filesystem::path &root,
+                                    const NativeOptimizationResult &result,
+                                    const Instrumentation &instrumentation,
+                                    const verification::OracleResult &oracle)
+  {
     std::ofstream summary(root / "summary.txt");
     require(static_cast<bool>(summary),
             "could not open the native optimization summary");
@@ -732,11 +738,15 @@ namespace
   }
 
   void
-  run_native_optimization_contract()
+  run_native_optimization_contract(
+    const bool fail_after_trace = false,
+    std::filesystem::path *const failure_artifact = nullptr)
   {
     Instrumentation instrumentation;
     Instrumentation verification_instrumentation;
     const auto artifact_root = native_optimization_artifact_root();
+    if (failure_artifact != nullptr)
+      *failure_artifact = artifact_root;
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact_root,
       "native_optimization",
@@ -753,6 +763,10 @@ namespace
       external_dealii_step4::frozen_optimization_policy();
     NativeArmijoSolver solver(reduced, policy);
     const auto result = solver.solve(initial_control);
+
+    write_native_optimization_trace(artifact_root, result);
+    if (fail_after_trace)
+      throw std::runtime_error("failure after completed native optimization trace");
 
     verification::require_finite(result.value.control,
                                   "native optimization final control");
@@ -917,16 +931,67 @@ namespace
       << fresh_value.state_solve.final_residual << ','
       << fresh_derivative.adjoint_solve.final_residual << '\n';
     gradient_audit.flush();
-    write_native_optimization_trace(artifact_root,
-                                    result,
-                                    instrumentation,
-                                    oracle);
+    write_native_optimization_summary(artifact_root,
+                                      result,
+                                      instrumentation,
+                                      oracle);
     evidence.complete();
       }
     catch (...)
       {
         evidence.fail_current_exception();
         throw;
+      }
+  }
+
+  void
+  run_native_trace_failure_contract()
+  {
+    std::filesystem::path previous_artifact;
+    for (unsigned int attempt = 0; attempt < 2; ++attempt)
+      {
+        std::filesystem::path artifact;
+        bool thrown = false;
+        try
+          {
+            run_native_optimization_contract(true, &artifact);
+          }
+        catch (const std::exception &exception)
+          {
+            thrown = true;
+            require(exception.what() ==
+                      std::string("failure after completed native optimization trace"),
+                    "native trace failure did not propagate its diagnostic");
+          }
+        require(thrown, "native trace failure probe did not throw");
+        require(artifact != previous_artifact,
+                "native trace failure retry reused the run directory");
+        const auto read = [&artifact](const char *const filename) {
+          std::ifstream input(artifact / filename);
+          require(static_cast<bool>(input),
+                  std::string("native trace failure lost ") + filename);
+          return std::string{std::istreambuf_iterator<char>(input),
+                             std::istreambuf_iterator<char>()};
+        };
+        require(read("status.txt").find("status failed") != std::string::npos,
+                "native trace failure did not retain failed status");
+        require(read("failure.txt").find(
+                  "failure after completed native optimization trace") !=
+                  std::string::npos,
+                "native trace failure lost its original diagnostic");
+        const auto trace = read("trace.csv");
+        require(trace.find("\ntrial,") != std::string::npos &&
+                  trace.find("\naccepted,") != std::string::npos,
+                "native trace failure lost completed trial or accepted records");
+        require(read("counters.csv").find("native,state_solve_calls,") !=
+                  std::string::npos &&
+                  read("solve-records.csv").find("native,success,state") !=
+                    std::string::npos,
+                "native trace failure lost counters or solve records");
+        require(!std::filesystem::exists(artifact / "summary.txt") &&
+                  !std::filesystem::exists(artifact / "gradient-audit.csv"),
+                "native trace failure ran the later acceptance audits");
+        previous_artifact = artifact;
       }
   }
 
@@ -1003,7 +1068,12 @@ main(const int argc, char **argv)
          "nmopt.external_tutorial_step_4.native_optimization",
          {"dealii", "application", "external", "tutorial", "native", "optimization"},
          300,
-         run_native_optimization_contract},
+         [] { run_native_optimization_contract(); }},
+        {"native_trace_failure",
+         "nmopt.external_tutorial_step_4.native_trace_failure",
+         {"dealii", "application", "external", "tutorial", "native", "diagnostics"},
+         300,
+         run_native_trace_failure_contract},
         {"native_optimization_limit",
          "nmopt.external_tutorial_step_4.native_optimization_limit",
          {"dealii", "application", "external", "tutorial", "native", "optimization"},

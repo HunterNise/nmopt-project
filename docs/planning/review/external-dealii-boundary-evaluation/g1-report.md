@@ -12,10 +12,14 @@ Original evaluated revision: `277fbf4` (`test(dealii): compare native and nmopt 
 Corrected numerical path: `d44dded1400365979d1633c9eda8e561a776c32c`
 Pre-EC5 closure verification: `6a9d1a565bdf0b21ad72889e6f3e06bcdf5a3282`
 EC5 implementation: `0357d4f`, `e8050ff`
-Final native trace follow-up: `0bb1307` plus the tested change to
-`tests/dealii/external_step4_native_contract.cc`, pending commit
+Final native trace follow-up: `36afb62` (tested on `0bb1307` plus the
+subsequently committed native-driver correction)
 Roadmap: [external deal.II boundary evaluation](../../external-dealii-boundary-evaluation.md)
 Review context: [design investigation](design-investigation.md)
+
+Final phase disposition: [closure report](closure-report.md). This G1 record
+retains its Problem A evidence and historical scope; B and minimal-consumer
+results are assessed separately.
 
 ## Post-G1 reconciliation
 
@@ -147,7 +151,7 @@ The pinned upstream source is deal.II `v9.5.1`, with SHA-256
 `be9e694f5f3c9177b7cd18200ff8173337c2b16e1ee72d45ab1ba7c6e105be5f`. The
 comment-stripped baseline has SHA-256
 `b21212764c50401089612c6ac2bb196395e3ac9c261120e0513be341825399b2`, and the
-current adapted reusable source has SHA-256
+adapted reusable source at this G1 checkpoint has SHA-256
 `c85e04027681d007498ee9b5b885e4b30f9b020c659abee26e703c71024be71b`.
 The upstream and stripped token stream was checked by the bounded stripper;
 the adapted source was compared separately and is not used to regenerate the

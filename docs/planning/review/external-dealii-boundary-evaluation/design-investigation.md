@@ -4,6 +4,11 @@ Status: review context; non-authoritative. Sections 1–7 preserve the pre-E1
 investigation prepared on 2026-09-09. Section 8 records the 2026-09-11 review
 at `ed450bd` and the Problem B candidate subsequently selected by PB0.
 
+The evaluation and minimal-consumer follow-up are now closed. Read the
+[closure report](closure-report.md) for the supported final assessment; the
+prospective language below preserves the investigation at its stated dates
+and is not current implementation authorization.
+
 This document preserves the architectural reasoning, external precedents,
 source-supported facts, and open hypotheses that motivated the controlled
 Step-4 evaluation. It defines no interfaces, implementation requirements, or

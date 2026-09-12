@@ -7,10 +7,21 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary`, followed by the accepted minimal-consumer usability follow-up |
-| Current unit | MC6 complete locally – Correct the assessment and consumer documentation, pending review/commit |
-| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 committed as `99bef20`; MC3 committed as `c545d10`; MC4 committed as `edf16f2`; MC5 committed as `f5f2fe5`; MC6 documentation complete locally, pending review/commit |
-| Next unit | None selected; close the minimal-consumer follow-up after MC6 review/commit |
+| Current unit | Closed on 2026-09-12 by user decision; final reporting records the findings |
+| Last completed/adopted gate | G1/EC5, G2, and MC1–MC6 complete; consumer correction commits `edf16f2`, `f5f2fe5`, and `2ba749b` reviewed |
+| Next unit | None selected; no further implementation follows from this evaluation |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
+
+The [closure report](review/external-dealii-boundary-evaluation/closure-report.md)
+owns the final assessment against the original concerns. The
+[Step-4 overview](../../apps/external-dealii/step-4/external-integration-overview.md)
+explains the complete application path; the
+[implementation report](../../apps/external-dealii/step-4/integration-report.md)
+accounts for the concrete source responsibilities, and the
+[external API reference](../reference/external-dealii-solver-integration.md)
+describes existing contracts. The investigation is complete; low-effort
+authoring is partly achieved and newcomer usability remains untested.
+Historical unit sequences below do not authorize restarting completed work.
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
 
@@ -733,7 +744,7 @@ performance claims, a generic helper, or a shared API change.
 ### EC5 – Retain exception diagnostics and available optimization traces
 
 Status: completed on 2026-09-11 through `0357d4f`, `e8050ff`, and the tested
-standalone native trace follow-up based on `0bb1307` (pending commit). Closure
+standalone native trace follow-up committed as `36afb62`. Closure
 documentation is recorded in the G1 report and ownership note below.
 Problem A's successful numerical comparison and bounded G1 conclusion stand.
 The correction concerns failure evidence, not the mathematical or
@@ -776,8 +787,8 @@ results and ignored raw evidence; no run output is copied into tracked
 documentation. Commits:
 `0357d4f test(dealii): retain Step-4 exception diagnostics` and
 `e8050ff test(dealii): retain Step-4 completed optimization traces`.
-The final native-driver follow-up is pending commit as
-`test(dealii): retain native Step-4 traces before acceptance checks`.
+The final native-driver follow-up was committed as
+`36afb62 test(dealii): retain native Step-4 traces before acceptance checks`.
 
 ### PB0 – Prepare the Problem B protocol
 
@@ -865,7 +876,7 @@ usability. MC3 is the final unit for the factual A/B authoring comparison.
 
 ### MC3 – Compare authoring requirements and stop
 
-MC3 is the final unit of the separately accepted minimal-consumer usability
+MC3 is the initial assessment unit of the separately accepted minimal-consumer usability
 follow-up. The [minimal consumer assessment](review/external-dealii-boundary-evaluation/minimal-consumers-report.md)
 separates reused Step-4/PDE mathematics, required public nmopt wiring,
 executable configuration/output, and accessory evaluation/diagnostics. It
@@ -873,11 +884,11 @@ compares the explicit A and B consumers with the evaluated bindings and records
 the B-specific lifetime, coordinate, and mass-metric obligations.
 
 The assessment counts source shape using one stated convention, labels
-newcomer usability untested, and concludes that the two working examples do
-not justify a generic helper, API change, diagnostic cleanup, or performance
-experiment. The minimal README now links the assessment. MC3 was committed as
+newcomer usability untested, and selects no generic helper, API change,
+diagnostic cleanup, or performance experiment. MC6 clarifies that repeated
+construction can motivate a separately scoped ergonomic experiment. MC3 was committed as
 `c545d10`; MC4 then trimmed bounded consumer structure and was committed as
-`edf16f2`. MC5 follows for the remaining acceptance and executable-output
+`edf16f2`. MC5 subsequently completed the acceptance and executable-output
 evidence corrections.
 
 ### MC4 – Trim optional minimal binding structure
@@ -891,8 +902,8 @@ Problem A's entry point uses its already-owned `ProblemA` for output.
 
 The affected minimal binding and executable checks passed locally on
 2026-09-12. The required full pipelines also passed: `debug-dealii` 195/195
-and `debug-neutral` 67/67. The remaining acceptance and executable-output
-evidence work is MC5.
+and `debug-neutral` 67/67. MC5 subsequently completed the acceptance and
+executable-output evidence corrections.
 
 ### MC5 – Close acceptance and executable-evidence gaps
 
@@ -916,7 +927,7 @@ Problem B root.
 
 The focused A/B binding and executable scenarios passed locally on
 2026-09-12. The required full pipelines also passed: `debug-dealii` 195/195
-and `debug-neutral` 67/67. MC5 was committed as `f5f2fe5`; MC6 follows to
+and `debug-neutral` 67/67. MC5 was committed as `f5f2fe5`; MC6 followed to
 correct the assessment and consumer documentation.
 
 ### MC6 – Correct the assessment and consumer documentation
@@ -938,8 +949,8 @@ application or performance measurements before a future ergonomic question.
 
 MC6 is documentation-only and introduces no helper, API, numerical, or run
 evidence change. The report and README now make the functional/accessory
-boundary explicit. It is complete locally on 2026-09-12, pending review and
-commit; no further implementation unit is selected for this follow-up.
+boundary explicit. It was committed as `2ba749b` and reviewed on 2026-09-12.
+The user closed the phase; no further implementation unit is selected.
 
 ## 10. Verification execution and artifacts
 

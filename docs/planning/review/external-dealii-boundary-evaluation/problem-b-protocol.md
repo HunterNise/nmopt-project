@@ -6,7 +6,7 @@ review are recorded in the [Problem B report](problem-b-report.md). The
 frozen protocol remains the execution authority; no protocol amendment was
 made.
 
-This is the execution contract for the next bounded experiment, not a new
+This is the retained execution contract for the completed bounded experiment, not a new
 nmopt interface or a universal FE-control policy. The
 [Problem A roadmap](../../external-dealii-boundary-evaluation.md) retains A's frozen
 protocol and history. Its [G1 report](g1-report.md)
@@ -26,9 +26,10 @@ of adapting an unrelated external application.
 
 Retain the completed refactor at `67104fd376a9b1d25d7e6cdaca664a7fe1aa98ed`,
 the exact upstream/stripped Step-4 sources, and corrected Problem A. The
-starting committed evaluation revision is `0bb1307`; the subsequent native
-trace-order correction and this protocol must be identified by their actual
-commit or dirty source state in implementation handoffs. Stay on
+starting committed evaluation revision was `0bb1307`; the subsequent native
+trace-order correction was committed as `36afb62` and this protocol as
+`9429ca2`. Historical implementation handoffs identify their evaluated source.
+The [closure report](closure-report.md) records the final disposition. Stay on
 `codex/evaluate/external-dealii-boundary`; do not merge changes backward.
 
 Shared nmopt implementation, contracts, compiler/lowering, backend/storage,

@@ -1,8 +1,9 @@
 # Minimal Step-4 consumer assessment
 
-Status: MC6 documentation correction, reflecting the committed MC1–MC5
-consumer work through `f5f2fe5`. This report compares the two runnable
-consumers and does not reopen the completed G1 or G2 evaluations.
+Status: MC1–MC6 complete through `2ba749b`, reviewed and closed on 2026-09-12.
+This report compares the two runnable consumers; the
+[closure report](closure-report.md) assesses the full phase against its
+original goals. G1 and G2 remain completed evaluations.
 
 ## Result
 
@@ -17,7 +18,8 @@ The examples demonstrate functional wiring for these two linear, symmetric,
 serial Step-4 cases. They are not claims of globally smallest integration,
 production readiness, newcomer usability, or applicability to nonlinear,
 nonsymmetric, constrained, distributed, compiler, or packaged applications.
-No unfamiliar-user exercise was performed.
+No unfamiliar-user exercise was performed. Repeated construction is an
+observed authoring limitation, not merely an absence of user testing.
 
 Problem A and Problem B use the same public composition shape. B additionally
 has genuine application-specific work: it borrows a prepared `Step4<2>`
@@ -118,7 +120,7 @@ stationarity, validate executable reports and VTK payloads, and write ignored
 evidence. None of that is needed for an external application to run the
 reduced solver.
 
-## A/B construction comparison
+## A and B construction comparison
 
 | Construction concern | Problem A | Problem B |
 | --- | --- | --- |
@@ -156,6 +158,11 @@ B's functional consumer is 21 code-bearing lines larger in this snapshot,
 reflecting its coordinate and mass-metric requirements. The larger B contract
 test contains dense/reference and executable checks; those lines do not
 belong to the functional consumer.
+
+The [implementation report](../../../../apps/external-dealii/step-4/integration-report.md#4-source-accounting)
+extends this inventory to native OCP code, shared Step-4 adaptation, and
+comparison support. Its [binding-region breakdown](../../../../apps/external-dealii/step-4/integration-report.md#5-inside-the-minimal-bindings)
+reconciles the 206/222 totals to disjoint construction responsibilities.
 
 ## Validation and usability limits
 

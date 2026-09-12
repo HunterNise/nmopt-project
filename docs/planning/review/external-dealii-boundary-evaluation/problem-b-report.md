@@ -11,6 +11,9 @@ attribution`)
 Protocol: [`problem-b-protocol.md`](problem-b-protocol.md)  
 Earlier decision: [`g1-report.md`](g1-report.md)
 
+Final phase disposition and consumer follow-up: [closure report](closure-report.md).
+The numerical observations below retain their original evaluated revision.
+
 ## Question and bounded result
 
 Problem B tested whether a genuine finite-element distributed control, fixed
@@ -201,11 +204,14 @@ require a shared API change or reveal a correctness obstruction in the current
 public boundary. The required code stayed in the external application's
 integration/evaluation/verification and test layers.
 
-The result does not justify a generic helper, a control-only-pullback API, or
-a boundary redesign. A mechanical helper could be considered only after
-another authentic application reproduces the same construction pattern and
-the repeated full-VJP work should be measured only in a separately scoped
-performance experiment. Neither question is accepted by this evaluation.
+No generic helper, control-only-pullback API, or boundary redesign was selected
+by G2. Closure reconciliation on 2026-09-12 removes the earlier requirement
+to add another authentic application before considering a construction helper:
+the subsequent [minimal-consumer comparison](minimal-consumers-report.md)
+already identifies repeated construction. That can motivate a separately
+scoped ergonomic experiment; broader generality and performance are different
+questions. Timing the repeated full-VJP work would likewise require its own
+scope. Neither implementation is selected by this closure.
 
 The Problem B evaluation is therefore closed. The shared-nmopt freeze remains
 active, and no follow-on implementation unit is accepted without a new,

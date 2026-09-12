@@ -5,6 +5,13 @@ current nmopt public contracts to optimize the existing Step-4 Problems A and
 B. They are usability examples, not replacements for the evaluated
 integration or for the Step-4 application itself.
 
+Read the [explanatory overview](../external-integration-overview.md) for OCP
+mathematics, backend roles, and a guide to adapting another application. The
+[implementation report](../integration-report.md) maps operations to source
+and accounts for the implementation size.
+The [closure report](../../../../docs/planning/review/external-dealii-boundary-evaluation/closure-report.md)
+records the completed phase and its remaining authoring limitations.
+
 ## Problem A consumer
 
 The A consumer's functional path is deliberately explicit:
@@ -110,8 +117,8 @@ consumer requirements.
 
 ## Build and run
 
-Build the application and its focused validation target with the existing
-deal.II profile:
+Run these commands from the repository root. Configure `debug-dealii` first
+if needed, then build the applications and their focused validation targets:
 
 ```bash
 ./build.sh build debug-dealii \
@@ -153,7 +160,7 @@ The executable CTest entries launch the actual consumers with unique ignored
 output paths, then compare their reported counts, stopping reason, objective,
 gradient norm, and VTK payload with an independently audited native result.
 
-The required profile gates for this deal.II/CMake change are:
+The complete implementation validation profiles are:
 
 ```bash
 ./build.sh pipeline debug-dealii

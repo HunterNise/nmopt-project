@@ -32,8 +32,8 @@ architectural boundaries.
   entry point for exact recipe, `ProblemSpec`, compiler, solver, and experiment
   configuration contracts.
 - [External deal.II solver integration](reference/external-dealii-solver-integration.md)
-  documents the callback, formulation, metric, optimizer, lifetime, and
-  derivative-verification API for existing deal.II applications.
+  documents the backend, layout/callback, solve-report, metric, formulation,
+  optimizer, lifetime, and retained-output API, with runnable Step-4 examples.
 - [Application execution reference](reference/application-execution.md) owns
   schemas, run-set layout, native outputs, reports, post-processing, and agent
   verification commands.
@@ -93,15 +93,25 @@ stress the interfaces.
 - [Laplace composition-growth study](case-studies/laplace-growth.md)
 - [Laplace formula and interface deltas](case-studies/laplace-interface-formulas.md)
 
+The application-local [external Step-4 overview](../apps/external-dealii/step-4/external-integration-overview.md)
+explains OCP construction, public contracts, ownership, backend roles, and
+one reduced optimization step using an existing deal.II application.
+
 ### Planning and review evidence
 
+- [External Step-4 integration report](../apps/external-dealii/step-4/integration-report.md)
+  records the native adaptations, mathematical/API mapping, source accounting,
+  binding regions, and reproduction commands.
+- [External boundary closure report](planning/review/external-dealii-boundary-evaluation/closure-report.md)
+  records the completed A/B evaluation and minimal-consumer follow-up,
+  supported architectural findings, and remaining authoring limitations.
 - [Implementation roadmap](planning/implementation-roadmap.md) owns mutable
   compiler, solver, lowering, backend, and implementation status.
 - [External deal.II boundary evaluation](planning/external-dealii-boundary-evaluation.md)
-  owns the current authentic Step-4 evaluation protocol, shared-nmopt freeze,
+  owns the completed authentic Step-4 evaluation protocol, shared-nmopt freeze,
   work units, evidence requirements, and phase status.
 - [External deal.II Problem B protocol](planning/review/external-dealii-boundary-evaluation/problem-b-protocol.md)
-  freezes the next Step-4 FE distributed-control experiment, including
+  preserves the frozen completed Step-4 FE distributed-control experiment, including
   coordinates, mass geometry, native/nmopt parity, and independent acceptance.
 - [External boundary design investigation](planning/review/external-dealii-boundary-evaluation/design-investigation.md)
   preserves non-authoritative review context, external precedents, G1
@@ -165,7 +175,7 @@ before inspecting or changing repository content.
 | Generate or inspect application runs | [Application execution reference](reference/application-execution.md) | The relevant [benchmark contract](benchmarks/chapter-6.md) and [application roadmap](planning/application-roadmap.md) |
 | Design or review parameter files and plotting profiles | [Parameter-file reference](reference/parameter-files.md) | [Repository organization](decisions/repository-organization.md), the relevant [benchmark contract](benchmarks/chapter-6.md), and the [application execution reference](reference/application-execution.md) |
 | Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Chapter 6 scenarios](applications/chapter-6.md), [Chapter 6 benchmark specifications](benchmarks/chapter-6.md), [Application assembly API](reference/application-api.md), and [Application execution reference](reference/application-execution.md) |
-| Evaluate the authentic external Step-4 boundary | [External boundary evaluation](planning/external-dealii-boundary-evaluation.md) | [External deal.II integration reference](reference/external-dealii-solver-integration.md), [PDE–solver boundary](design/pde-solver-boundary.md), and the pinned upstream tutorial source |
+| Understand or reuse the external Step-4 integration | [Step-4 overview](../apps/external-dealii/step-4/external-integration-overview.md) | [External API reference](reference/external-dealii-solver-integration.md), [implementation report](../apps/external-dealii/step-4/integration-report.md), and [closure audit](planning/review/external-dealii-boundary-evaluation/closure-report.md) |
 | Repair the reviewed C1/C2 preparation | [Chapter 5 reviews](planning/review/chapter-5/README.md) | [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), [pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.1 implementation | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
 | Repair the reviewed P5.2 implementation | [P5.2 remediation review](planning/review/chapter-5/p5.2-remediation-review.md) | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [selected policies](implementation/implementation-readiness-review.md) |

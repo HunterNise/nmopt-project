@@ -138,3 +138,5 @@ The public callback, formulation, metric, lifetime, and solver contracts are
 described in the [external deal.II integration reference](../../../../docs/reference/external-dealii-solver-integration.md).
 The evaluated wiring and its limits remain documented in the [Step-4
 README](../README.md) and the [boundary-evaluation roadmap](../../../../docs/planning/external-dealii-boundary-evaluation.md).
+The functional/accessory source split and the A/B comparison are recorded in
+the [minimal consumer assessment](../../../../docs/planning/review/external-dealii-boundary-evaluation/minimal-consumers-report.md).

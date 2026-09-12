@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary`, followed by the accepted minimal-consumer usability follow-up |
-| Current unit | MC2 complete locally – Minimal Problem B consumer, pending review/commit |
-| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 implementation and validation complete locally, pending review/commit |
-| Next unit | MC3 – Compare minimal A/B consumers, after MC2 review/commit |
+| Current unit | MC3 complete locally – Minimal A/B consumer assessment, pending review/commit |
+| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 committed as `99bef20`; MC3 assessment complete locally, pending review/commit |
+| Next unit | None under the accepted minimal-consumer follow-up; a new question is required |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -861,7 +861,23 @@ $4.88456\times10^{-8}$; disposable outputs and contract evidence are below
 the ignored `runs/external-dealii/step-4/minimal/` tree (the contract's
 build-profile evidence is likewise ignored). MC2 demonstrates a working
 explicit B consumer; it does not claim global minimality or newcomer
-usability. MC3 is the next unit for the factual A/B authoring comparison.
+usability. MC3 is the final unit for the factual A/B authoring comparison.
+
+### MC3 – Compare authoring requirements and stop
+
+MC3 is the final unit of the separately accepted minimal-consumer usability
+follow-up. The [minimal consumer assessment](review/external-dealii-boundary-evaluation/minimal-consumers-report.md)
+separates reused Step-4/PDE mathematics, required public nmopt wiring,
+executable configuration/output, and accessory evaluation/diagnostics. It
+compares the explicit A and B consumers with the evaluated bindings and records
+the B-specific lifetime, coordinate, and mass-metric obligations.
+
+The assessment counts source shape using one stated convention, labels
+newcomer usability untested, and concludes that the two working examples do
+not justify a generic helper, API change, diagnostic cleanup, or performance
+experiment. The minimal README now links the assessment. MC3 is complete
+locally on 2026-09-12, pending review and commit; no next implementation unit
+is selected under this follow-up.
 
 ## 10. Verification execution and artifacts
 

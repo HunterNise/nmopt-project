@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary` |
-| Current unit | PB0 complete – Problem B execution protocol frozen |
-| Last completed/adopted gate | EC5 native trace follow-up verified; PB0 protocol adopted on 2026-09-11 |
-| Next unit | PB1 – Native FE problem, as defined in the B protocol; not started |
+| Current unit | G2 complete – Problem B attribution review |
+| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12 |
+| Next unit | None accepted; the tested external-boundary evaluation is closed pending a new question |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -19,7 +19,7 @@ Maintain progress status here. Future units also update their required evidence,
 - **Frozen protocol** — choices adopted by E0, including numerical constants and acceptance thresholds. They remain fixed for the first comparison unless a documented protocol amendment is accepted. They are not experimental observations.
 - **Derived schedule invariant** — an operation/count relationship implied by the prescribed successful execution schedule. It must be tested; deriving it does not make it an observed result.
 - **Observed result** — evidence actually produced by a run. Record the revision, environment, command, and evidence location. Prior recorded results remain historical until reproduced for this comparison.
-- **Open hypothesis** — an architectural interpretation awaiting evidence. Whether the current boundary is too broad, ergonomic helpers would suffice, or deeper coupling exists remains open through G1; the bounded dispositions are recorded in the G1 report.
+- **Open hypothesis** — an architectural interpretation awaiting evidence. The bounded dispositions for the tested Problem A and Problem B cases are recorded in the G1 and G2 reports; a new application or question is required before reopening them.
 
 Sections 3–8 define the frozen protocol, except for explicitly identified derived schedule invariants and evidence-recording guidance. Numerical constants and acceptance thresholds were frozen at E0, before experimental validation. The later validation is recorded in the G1 report; those observations do not change the frozen choices.
 
@@ -795,8 +795,25 @@ The [investigation](review/external-dealii-boundary-evaluation/design-investigat
 remains historical reasoning. Problem B is a second OCP on the same Step-4
 application; line counts and repeated construction do not establish average
 external-application cost. The shared-nmopt freeze and preserved Problem A
-baseline remain in force. PB1 is the next implementation unit; no B code or
-numerical result is claimed by this protocol update.
+baseline remain in force. PB1–PB5 were subsequently completed under the
+frozen protocol; their bounded attribution is recorded by G2 below.
+
+### G2 – Attribution review
+
+Completed on 2026-09-12. The
+[Problem B boundary evaluation report](review/external-dealii-boundary-evaluation/problem-b-report.md)
+records the factual comparison, functional-wiring ownership map, measured
+runtime incidence, verification limits, and next decision. Genuine FE
+distributed control, fixed essential state data, rectangular mass coupling,
+and the nonidentity mass metric remained application-owned for the tested
+case, while the existing public nmopt contracts represented the reduced
+evaluation and optimization successfully.
+
+The report confirms no shared nmopt, compiler, private-header, upstream, or
+stripped-source change was required. It recommends no automatic helper, API
+change, or boundary redesign. The Problem B evaluation is closed; future
+performance measurement or mechanical-helper work requires a separately
+accepted question and scope.
 
 ## 10. Verification execution and artifacts
 

@@ -16,3 +16,6 @@ current handoff.
   implementation review and remediation handoffs.
 - [External deal.II boundary evaluation](external-dealii-boundary-evaluation/g1-report.md)
   records the bounded G1 evidence and decision for the authentic Step-4 case.
+- [External deal.II Problem B boundary evaluation](external-dealii-boundary-evaluation/problem-b-report.md)
+  records the completed distributed-control attribution review and bounded
+  G2 decision.

@@ -196,7 +196,8 @@ namespace
   }
 
   std::filesystem::path
-  native_problem_b_optimization_artifact_root()
+  native_problem_b_optimization_artifact_root(
+    const char *const prefix = "native")
   {
     auto directory = std::filesystem::current_path();
     while (true)
@@ -205,7 +206,7 @@ namespace
               directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
           return external_dealii_step4_test::create_unique_artifact_root(
             directory / "runs/external-dealii/step-4/problem-b/optimization",
-            "native");
+            prefix);
 
         const auto parent = directory.parent_path();
         if (parent == directory)
@@ -331,6 +332,24 @@ namespace
             << '\n'
             << "metric_inverse_apply_calls "
             << instrumentation.metric_inverse_apply_calls << '\n';
+  }
+
+  void
+  write_native_problem_b_failure_summary(
+    const std::filesystem::path &root,
+    const char *const             outcome,
+    const std::string &           detail,
+    const std::size_t             state_solve_calls,
+    const std::size_t             metric_inverse_apply_calls)
+  {
+    std::ofstream summary(root / "failure-summary.txt");
+    require(static_cast<bool>(summary),
+            "could not open the native Problem B failure summary");
+    summary << "outcome " << outcome << '\n'
+            << "detail " << detail << '\n'
+            << "state_solve_calls " << state_solve_calls << '\n'
+            << "metric_inverse_apply_calls " << metric_inverse_apply_calls
+            << '\n';
   }
 
   void
@@ -1783,6 +1802,204 @@ namespace
   }
 
   void
+  run_native_problem_b_line_search_failure_contract()
+  {
+    Instrumentation instrumentation;
+    const auto artifact_root =
+      native_problem_b_optimization_artifact_root("line-search-failure");
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root,
+      "native_problem_b_line_search_failure",
+      {{"native", &instrumentation}});
+    try
+      {
+        Step4<2> tutorial;
+        tutorial.prepare_for_external_use();
+
+        using Problem = external_dealii_step4::ProblemB<2, Step4<2>>;
+        using Metric  = external_dealii_step4::ProblemBMetric<2>;
+        using Reduced =
+          external_dealii_step4::NativeProblemBReduced<2, Step4<2>>;
+
+        Problem problem(tutorial);
+        Metric  metric(problem.mass());
+        Reduced reduced(problem, instrumentation);
+        Vector initial_control(problem.control_dimension());
+        initial_control = 0.0;
+
+        auto policy = external_dealii_step4::frozen_optimization_policy();
+        policy.maximum_line_search_trials = 1;
+        policy.initial_step_length = 1.0e6;
+        NativeProblemBArmijoSolver solver(
+          reduced, metric, instrumentation, policy);
+        const auto result = solver.solve(initial_control);
+
+        write_native_problem_b_optimization_trace(artifact_root, result);
+        write_native_problem_b_metric_trace(artifact_root, result);
+        write_native_problem_b_failure_summary(
+          artifact_root,
+          "line_search_failure",
+          "bounded Armijo trial was rejected",
+          instrumentation.state_solve_calls,
+          instrumentation.metric_inverse_apply_calls);
+
+        require(result.stopping_reason ==
+                  NativeProblemBOptimizationStoppingReason::line_search_failure,
+                "native Problem B line-search failure was not reported");
+        require(result.accepted_iteration_count == 0 &&
+                  result.line_search_trial_count == 1,
+                "native Problem B line-search failure changed the accepted "
+                "iteration or trial count");
+        require(result.trial_records.size() == 1 &&
+                  !result.trial_records.front().accepted,
+                "native Problem B line-search failure lost its rejected trial");
+        require(instrumentation.state_solve_calls == 2 &&
+                  instrumentation.adjoint_solve_calls == 1 &&
+                  instrumentation.value_evaluations == 2 &&
+                  instrumentation.derivative_augmentations == 1 &&
+                  instrumentation.metric_inverse_apply_calls == 1 &&
+                  instrumentation.metric_apply_calls == 1,
+                "native Problem B line-search failure violated the staged "
+                "failure schedule");
+
+        evidence.fail("native Problem B line search returned line_search_failure");
+        const auto read = [&artifact_root](const char *const filename) {
+          std::ifstream input(artifact_root / filename);
+          require(static_cast<bool>(input),
+                  std::string("native Problem B line-search failure lost ") +
+                    filename);
+          return std::string{std::istreambuf_iterator<char>(input),
+                             std::istreambuf_iterator<char>()};
+        };
+        require(read("status.txt").find("status failed") != std::string::npos,
+                "native Problem B line-search failure did not retain failed status");
+        require(read("failure.txt").find("line_search_failure") !=
+                  std::string::npos,
+                "native Problem B line-search failure lost its diagnostic");
+        require(read("trace.csv").find("\ntrial,") != std::string::npos &&
+                  read("metric-solves.csv").find("\n0,1,") !=
+                    std::string::npos &&
+                  read("failure-summary.txt").find("outcome line_search_failure") !=
+                    std::string::npos,
+                "native Problem B line-search failure lost available traces");
+        require(read("counters.csv").find("native,state_solve_calls,2") !=
+                  std::string::npos &&
+                  read("solve-records.csv").find("native,success,state") !=
+                    std::string::npos,
+                "native Problem B line-search failure lost counters or solves");
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
+  }
+
+  void
+  run_native_problem_b_nonfinite_contract()
+  {
+    Instrumentation instrumentation;
+    const auto artifact_root =
+      native_problem_b_optimization_artifact_root("nonfinite-inputs");
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root,
+      "native_problem_b_nonfinite",
+      {{"native", &instrumentation}});
+    try
+      {
+        Step4<2> tutorial;
+        tutorial.prepare_for_external_use();
+
+        using Problem = external_dealii_step4::ProblemB<2, Step4<2>>;
+        using Metric  = external_dealii_step4::ProblemBMetric<2>;
+        using Reduced =
+          external_dealii_step4::NativeProblemBReduced<2, Step4<2>>;
+
+        Problem problem(tutorial);
+        Metric  metric(problem.mass());
+        Reduced reduced(problem, instrumentation);
+
+        Vector nonfinite_metric_rhs(problem.control_dimension());
+        nonfinite_metric_rhs = 0.0;
+        nonfinite_metric_rhs[0] = std::numeric_limits<double>::quiet_NaN();
+        std::string metric_message;
+        try
+          {
+            (void)metric.inverse_apply(nonfinite_metric_rhs);
+          }
+        catch (const std::exception &exception)
+          {
+            metric_message = exception.what();
+          }
+        require(metric_message.find("non-finite") != std::string::npos,
+                "native Problem B metric did not reject a non-finite RHS");
+
+        Vector nonfinite_control(problem.control_dimension());
+        nonfinite_control = 0.0;
+        nonfinite_control[0] = std::numeric_limits<double>::quiet_NaN();
+        auto policy = external_dealii_step4::frozen_optimization_policy();
+        NativeProblemBArmijoSolver solver(
+          reduced, metric, instrumentation, policy);
+
+        std::string solver_message;
+        try
+          {
+            (void)solver.solve(nonfinite_control);
+          }
+        catch (const std::exception &exception)
+          {
+            solver_message = exception.what();
+          }
+        require(!solver_message.empty(),
+                "native Problem B optimization accepted non-finite input");
+        require(solver_message.find("non-finite") != std::string::npos,
+                "native Problem B optimization lost the non-finite diagnostic");
+        require(instrumentation.state_solve_calls == 0 &&
+                  instrumentation.adjoint_solve_calls == 0 &&
+                  instrumentation.value_evaluations == 0 &&
+                  instrumentation.metric_inverse_apply_calls == 0 &&
+                  instrumentation.solve_failures == 0,
+                "native Problem B non-finite input violated failure counters");
+
+        write_native_problem_b_failure_summary(
+          artifact_root,
+          "nonfinite_input",
+          "metric: " + metric_message + "; solver: " + solver_message,
+          instrumentation.state_solve_calls,
+          instrumentation.metric_inverse_apply_calls);
+        evidence.fail(solver_message);
+        const auto read = [&artifact_root](const char *const filename) {
+          std::ifstream input(artifact_root / filename);
+          require(static_cast<bool>(input),
+                  std::string("native Problem B non-finite probe lost ") +
+                    filename);
+          return std::string{std::istreambuf_iterator<char>(input),
+                             std::istreambuf_iterator<char>()};
+        };
+        require(read("status.txt").find("status failed") != std::string::npos,
+                "native Problem B non-finite probe did not retain failed status");
+        require(read("failure.txt").find(solver_message) != std::string::npos,
+                "native Problem B non-finite probe lost its diagnostic");
+        require(read("failure-summary.txt").find("metric: ") !=
+                  std::string::npos &&
+                  read("failure-summary.txt").find("solver: ") !=
+                    std::string::npos,
+                "native Problem B non-finite probe lost metric diagnostics");
+        require(read("counters.csv").find("native,state_solve_calls,0") !=
+                  std::string::npos &&
+                  read("solve-records.csv").find(
+                    "path,status,role,iterations,initial_residual,final_residual") !=
+                    std::string::npos,
+                "native Problem B non-finite probe lost counters or solve evidence");
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
+  }
+
+  void
   run_supplied_state_output_contract()
   {
     Step4<2> tutorial;
@@ -2650,6 +2867,18 @@ main(const int argc, char **argv)
           "problem_b", "optimization", "verification"},
          900,
          run_native_problem_b_optimization_evidence},
+        {"native_problem_b_line_search_failure",
+         "nmopt.external_tutorial_step_4.native_problem_b_line_search_failure",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b", "optimization", "diagnostics"},
+         180,
+         run_native_problem_b_line_search_failure_contract},
+        {"native_problem_b_nonfinite",
+         "nmopt.external_tutorial_step_4.native_problem_b_nonfinite",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b", "optimization", "diagnostics"},
+         180,
+         run_native_problem_b_nonfinite_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

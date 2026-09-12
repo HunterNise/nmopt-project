@@ -109,6 +109,7 @@ namespace external_dealii_step4
     Result
     solve(const Vector &initial_control) const
     {
+      require_finite(initial_control, "initial control");
       auto current_value = reduced_.evaluate_value(initial_control);
       auto current_derivative = reduced_.augment_derivative(current_value);
 

@@ -39,6 +39,9 @@ namespace
   using NativeResult =
     external_dealii_step4::NativeProblemBOptimizationResult<2, Step4<2>>;
   using OptimizationPolicy = external_dealii_step4::OptimizationPolicy;
+  using MatrixAction = external_dealii_step4::ProblemBMatrixAction;
+  using MatrixPurpose = external_dealii_step4::ProblemBMatrixPurpose;
+  using MetricSolvePurpose = external_dealii_step4::MetricSolvePurpose;
   using Vector = NativeProblem::Vector;
   using NmoptSolver = nmopt::solvers::ReducedSearchSolverT<Backend>;
   using NmoptResult = nmopt::solvers::ReducedSolverResultT<Backend>;
@@ -379,6 +382,52 @@ namespace
             "nmopt gradient history has the wrong size");
   }
 
+  std::size_t
+  count_matrix_actions(const Instrumentation &instrumentation,
+                       const MatrixAction    action,
+                       const MatrixPurpose   purpose)
+  {
+    return static_cast<std::size_t>(std::count_if(
+      instrumentation.problem_b_matrix_actions.begin(),
+      instrumentation.problem_b_matrix_actions.end(),
+      [action, purpose](const auto &record) {
+        return record.action == action && record.purpose == purpose;
+      }));
+  }
+
+  void
+  require_matrix_action_count(const Instrumentation &instrumentation,
+                              const MatrixAction    action,
+                              const MatrixPurpose   purpose,
+                              const std::size_t     expected,
+                              const char *const     path)
+  {
+    const auto actual = count_matrix_actions(instrumentation, action, purpose);
+    require(actual == expected,
+            std::string(path) + " Problem B matrix action " +
+              external_dealii_step4::problem_b_matrix_action_name(action) +
+              " for " +
+              external_dealii_step4::problem_b_matrix_purpose_name(purpose) +
+              " has count " + std::to_string(actual) + ", expected " +
+              std::to_string(expected));
+  }
+
+  void
+  require_metric_solve_records(const Instrumentation &instrumentation,
+                               const std::size_t     expected,
+                               const char *const     path)
+  {
+    require(instrumentation.metric_solve_records.size() == expected,
+            std::string(path) +
+              " Problem B metric solve evidence has the wrong size");
+    for (const auto &record : instrumentation.metric_solve_records)
+      require(record.purpose == MetricSolvePurpose::gradient_norm &&
+                record.converged && std::isfinite(record.initial_residual) &&
+                std::isfinite(record.final_residual),
+              std::string(path) +
+                " Problem B metric solve evidence is invalid");
+  }
+
   void
   require_native_schedule(const NativeResult &   result,
                           const Instrumentation &instrumentation)
@@ -399,9 +448,7 @@ namespace
             "native Problem B optimization staged schedule is inconsistent");
     require(instrumentation.residual_calls == 0 &&
               instrumentation.residual_jvp_calls == 0 &&
-              instrumentation.residual_vjp_calls == 0 &&
-              instrumentation.explicit_matrix_vmult_calls == 0 &&
-              instrumentation.explicit_matrix_tvmult_calls == 0,
+              instrumentation.residual_vjp_calls == 0,
             "native Problem B optimization used an unexpected callback");
     require(instrumentation.metric_inverse_apply_calls == 1 + accepted &&
               instrumentation.metric_apply_calls == 1 + 2 * accepted,
@@ -409,6 +456,36 @@ namespace
     require(instrumentation.solve_failures == 0 &&
               instrumentation.solve_records.size() == 2 + trials + accepted,
             "native Problem B optimization solve evidence is inconsistent");
+    require_metric_solve_records(instrumentation, 1 + accepted, "native");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::coupling_apply,
+                                MatrixPurpose::state_solve,
+                                1 + trials,
+                                "native");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::mass_apply,
+                                MatrixPurpose::objective,
+                                2 * (1 + trials),
+                                "native");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::mass_apply,
+                                MatrixPurpose::objective_derivative,
+                                2 * (1 + accepted),
+                                "native");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::coupling_transpose_apply,
+                                MatrixPurpose::control_vjp,
+                                1 + accepted,
+                                "native");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::mass_apply,
+                                MatrixPurpose::metric_apply,
+                                instrumentation.metric_apply_calls,
+                                "native");
+    require(instrumentation.problem_b_matrix_actions.size() ==
+              1 + trials + 2 * (1 + trials) + 2 * (1 + accepted) +
+                1 + accepted + instrumentation.metric_apply_calls,
+            "native Problem B matrix action evidence is incomplete");
   }
 
   void
@@ -435,9 +512,7 @@ namespace
               instrumentation.residual_vjp_calls == 1 + accepted,
             "nmopt Problem B optimization staged schedule is inconsistent");
     require(instrumentation.residual_calls == 0 &&
-              instrumentation.residual_jvp_calls == 0 &&
-              instrumentation.explicit_matrix_vmult_calls == 0 &&
-              instrumentation.explicit_matrix_tvmult_calls == 0,
+              instrumentation.residual_jvp_calls == 0,
             "nmopt Problem B optimization used an unexpected callback");
     require(instrumentation.metric_inverse_apply_calls == 1 + accepted &&
               instrumentation.metric_apply_calls == 1 + 2 * accepted,
@@ -445,6 +520,41 @@ namespace
     require(instrumentation.solve_failures == 0 &&
               instrumentation.solve_records.size() == 2 + trials + accepted,
             "nmopt Problem B optimization solve evidence is inconsistent");
+    require_metric_solve_records(instrumentation, 1 + accepted, "nmopt");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::coupling_apply,
+                                MatrixPurpose::state_solve,
+                                1 + trials,
+                                "nmopt");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::mass_apply,
+                                MatrixPurpose::objective,
+                                2 * (1 + trials),
+                                "nmopt");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::mass_apply,
+                                MatrixPurpose::objective_derivative,
+                                2 * (1 + accepted),
+                                "nmopt");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::stiffness_transpose_apply,
+                                MatrixPurpose::residual_vjp,
+                                1 + accepted,
+                                "nmopt");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::coupling_transpose_apply,
+                                MatrixPurpose::residual_vjp,
+                                1 + accepted,
+                                "nmopt");
+    require_matrix_action_count(instrumentation,
+                                MatrixAction::mass_apply,
+                                MatrixPurpose::metric_apply,
+                                instrumentation.metric_apply_calls,
+                                "nmopt");
+    require(instrumentation.problem_b_matrix_actions.size() ==
+              1 + trials + 2 * (1 + trials) + 2 * (1 + accepted) +
+                2 * (1 + accepted) + instrumentation.metric_apply_calls,
+            "nmopt Problem B matrix action evidence is incomplete");
   }
 
   void
@@ -529,7 +639,7 @@ namespace
       {
         Step4<2> native_tutorial;
         native_tutorial.prepare_for_external_use();
-        NativeProblem native_problem(native_tutorial);
+        NativeProblem native_problem(native_tutorial, &native_instrumentation);
         NativeMetric native_metric(native_problem.mass());
         NativeReduced native_reduced(native_problem, native_instrumentation);
         Binding nmopt_binding(nmopt_instrumentation);

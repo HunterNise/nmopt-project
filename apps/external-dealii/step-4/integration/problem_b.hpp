@@ -40,11 +40,13 @@ namespace external_dealii_step4
       SolveEvidence evidence;
     };
 
-    explicit ProblemB(Application &application)
+    explicit ProblemB(Application &application,
+                      Instrumentation *instrumentation = nullptr)
       : application_(application)
+      , instrumentation_(instrumentation)
       , coordinates_(application.dof_handler_view(),
                      application.boundary_values_view())
-      , mass_(application.dof_handler_view(), coordinates_)
+      , mass_(application.dof_handler_view(), coordinates_, instrumentation_)
       , free_system_rhs_(coordinates_.restrict(application.system_rhs_view()))
     {
       if (application.system_matrix_view().m() != coordinates_.full_dimension() ||
@@ -101,9 +103,11 @@ namespace external_dealii_step4
       require_size(state, state_dimension(), "state");
       require_size(control, control_dimension(), "control");
 
-      Vector value = apply_state_operator(state);
+      Vector value =
+        apply_state_operator(state, ProblemBMatrixPurpose::residual);
       value.add(-1.0, free_system_rhs_);
-      value.add(-1.0, mass_.coupling_apply(control));
+      value.add(-1.0,
+                mass_.coupling_apply(control, ProblemBMatrixPurpose::residual));
       return value;
     }
 
@@ -114,8 +118,11 @@ namespace external_dealii_step4
       require_size(state_tangent, state_dimension(), "state tangent");
       require_size(control_tangent, control_dimension(), "control tangent");
 
-      Vector value = apply_state_operator(state_tangent);
-      value.add(-1.0, mass_.coupling_apply(control_tangent));
+      Vector value = apply_state_operator(
+        state_tangent, ProblemBMatrixPurpose::residual_jvp);
+      value.add(-1.0,
+                mass_.coupling_apply(control_tangent,
+                                     ProblemBMatrixPurpose::residual_jvp));
       return value;
     }
 
@@ -124,18 +131,16 @@ namespace external_dealii_step4
     {
       require_size(test_seed, state_dimension(), "test seed");
 
-      Vector state = apply_transpose_state_operator(test_seed);
-      return {std::move(state), control_vjp(test_seed)};
+      Vector state = apply_transpose_state_operator(
+        test_seed, ProblemBMatrixPurpose::residual_vjp);
+      return {std::move(state),
+              control_vjp(test_seed, ProblemBMatrixPurpose::residual_vjp)};
     }
 
     Vector
     control_vjp(const Vector &test_seed) const
     {
-      require_size(test_seed, state_dimension(), "control test seed");
-
-      Vector control = mass_.coupling_transpose_apply(test_seed);
-      control *= -1.0;
-      return control;
+      return control_vjp(test_seed, ProblemBMatrixPurpose::control_vjp);
     }
 
     double
@@ -145,8 +150,10 @@ namespace external_dealii_step4
       require_size(control, control_dimension(), "control");
 
       const Vector physical_state = coordinates_.reconstruct(state);
-      const Vector state_mass       = mass_.mass_apply(physical_state);
-      const Vector control_mass     = mass_.mass_apply(control);
+      const Vector state_mass =
+        mass_.mass_apply(physical_state, ProblemBMatrixPurpose::objective);
+      const Vector control_mass =
+        mass_.mass_apply(control, ProblemBMatrixPurpose::objective);
       return 0.5 * (physical_state * state_mass) +
              0.5 * (control * control_mass);
     }
@@ -158,8 +165,10 @@ namespace external_dealii_step4
       require_size(control, control_dimension(), "control");
 
       const Vector physical_state = coordinates_.reconstruct(state);
-      const Vector state_mass       = mass_.mass_apply(physical_state);
-      const Vector control_mass     = mass_.mass_apply(control);
+      const Vector state_mass = mass_.mass_apply(
+        physical_state, ProblemBMatrixPurpose::objective_derivative);
+      const Vector control_mass =
+        mass_.mass_apply(control, ProblemBMatrixPurpose::objective_derivative);
       return {coordinates_.restrict(state_mass), control_mass};
     }
 
@@ -170,7 +179,8 @@ namespace external_dealii_step4
 
       Vector rhs = application_.system_rhs_view();
       rhs.add(1.0,
-              coordinates_.embed_free(mass_.coupling_apply(control)));
+              coordinates_.embed_free(
+                mass_.coupling_apply(control, ProblemBMatrixPurpose::state_solve)));
       return solve_full_system(rhs);
     }
 
@@ -186,21 +196,44 @@ namespace external_dealii_step4
 
   private:
     Vector
-    apply_state_operator(const Vector &state) const
+    apply_state_operator(const Vector &                state,
+                         const ProblemBMatrixPurpose purpose) const
     {
       Vector full_state = coordinates_.embed_free(state);
       Vector full_value(coordinates_.full_dimension());
+      record(ProblemBMatrixAction::stiffness_apply, purpose);
       application_.system_matrix_view().vmult(full_value, full_state);
       return coordinates_.restrict(full_value);
     }
 
     Vector
-    apply_transpose_state_operator(const Vector &state) const
+    apply_transpose_state_operator(const Vector &                state,
+                                   const ProblemBMatrixPurpose purpose) const
     {
       Vector full_state = coordinates_.embed_free(state);
       Vector full_value(coordinates_.full_dimension());
+      record(ProblemBMatrixAction::stiffness_transpose_apply, purpose);
       application_.system_matrix_view().Tvmult(full_value, full_state);
       return coordinates_.restrict(full_value);
+    }
+
+    Vector
+    control_vjp(const Vector &                test_seed,
+                const ProblemBMatrixPurpose purpose) const
+    {
+      require_size(test_seed, state_dimension(), "control test seed");
+
+      Vector control = mass_.coupling_transpose_apply(test_seed, purpose);
+      control *= -1.0;
+      return control;
+    }
+
+    void
+    record(const ProblemBMatrixAction  action,
+           const ProblemBMatrixPurpose purpose) const
+    {
+      if (instrumentation_ != nullptr)
+        instrumentation_->record_problem_b_matrix_action(action, purpose);
     }
 
     SolveResult
@@ -229,6 +262,7 @@ namespace external_dealii_step4
     }
 
     Application &application_;
+    Instrumentation *instrumentation_;
     Coordinates  coordinates_;
     Mass         mass_;
     Vector       free_system_rhs_;

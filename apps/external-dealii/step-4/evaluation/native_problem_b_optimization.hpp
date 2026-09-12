@@ -273,6 +273,12 @@ namespace external_dealii_step4
     {
       ++instrumentation_.metric_inverse_apply_calls;
       const auto inverse = metric_.inverse_apply(covector);
+      instrumentation_.record_metric_solve(
+        MetricSolvePurpose::gradient_norm,
+        inverse.evidence.converged,
+        inverse.evidence.iterations,
+        inverse.evidence.initial_residual,
+        inverse.evidence.final_residual);
       evidence.push_back(inverse.evidence);
       if (!inverse.evidence.converged)
         throw std::runtime_error(

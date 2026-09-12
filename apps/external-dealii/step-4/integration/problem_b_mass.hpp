@@ -1,6 +1,7 @@
 #pragma once
 
 #include "problem_b_coordinates.hpp"
+#include "../diagnostics/instrumentation.hpp"
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/dofs/dof_handler.h>
@@ -30,9 +31,11 @@ namespace external_dealii_step4
     using Vector      = dealii::Vector<double>;
 
     ProblemBMass(const dealii::DoFHandler<dim> &dof_handler,
-                 const Coordinates &            coordinates)
+                 const Coordinates &            coordinates,
+                 Instrumentation *              instrumentation = nullptr)
       : full_dimension_(dof_handler.n_dofs())
       , free_dimension_(coordinates.free_dimension())
+      , instrumentation_(instrumentation)
     {
       if (full_dimension_ == 0 ||
           full_dimension_ != coordinates.full_dimension())
@@ -73,30 +76,42 @@ namespace external_dealii_step4
     }
 
     Vector
-    mass_apply(const Vector &full_vector) const
+    mass_apply(
+      const Vector &                         full_vector,
+      const ProblemBMatrixPurpose purpose = ProblemBMatrixPurpose::unspecified)
+      const
     {
       require_size(full_vector, full_dimension_, "full mass input");
 
+      record(ProblemBMatrixAction::mass_apply, purpose);
       Vector result(full_dimension_);
       mass_matrix_.vmult(result, full_vector);
       return result;
     }
 
     Vector
-    coupling_apply(const Vector &full_vector) const
+    coupling_apply(
+      const Vector &                         full_vector,
+      const ProblemBMatrixPurpose purpose = ProblemBMatrixPurpose::unspecified)
+      const
     {
       require_size(full_vector, full_dimension_, "full coupling input");
 
+      record(ProblemBMatrixAction::coupling_apply, purpose);
       Vector result(free_dimension_);
       coupling_matrix_.vmult(result, full_vector);
       return result;
     }
 
     Vector
-    coupling_transpose_apply(const Vector &free_vector) const
+    coupling_transpose_apply(
+      const Vector &                         free_vector,
+      const ProblemBMatrixPurpose purpose = ProblemBMatrixPurpose::unspecified)
+      const
     {
       require_size(free_vector, free_dimension_, "free coupling input");
 
+      record(ProblemBMatrixAction::coupling_transpose_apply, purpose);
       Vector result(full_dimension_);
       coupling_matrix_.Tvmult(result, free_vector);
       return result;
@@ -180,8 +195,17 @@ namespace external_dealii_step4
                                     " has the wrong dimension");
     }
 
+    void
+    record(const ProblemBMatrixAction  action,
+           const ProblemBMatrixPurpose purpose) const
+    {
+      if (instrumentation_ != nullptr)
+        instrumentation_->record_problem_b_matrix_action(action, purpose);
+    }
+
     const std::size_t full_dimension_;
     const std::size_t free_dimension_;
+    Instrumentation * instrumentation_;
     dealii::SparsityPattern mass_sparsity_;
     Matrix             mass_matrix_;
     dealii::SparsityPattern coupling_sparsity_;

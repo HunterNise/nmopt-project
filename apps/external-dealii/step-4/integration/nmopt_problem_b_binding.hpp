@@ -71,6 +71,13 @@ namespace external_dealii_step4
       require_compatible(covector.layout(),
                          "Step-4 Problem B metric covector");
       auto result = native_metric_.inverse_apply(covector.block(0));
+      if (instrumentation_ != nullptr)
+        instrumentation_->record_metric_solve(
+          MetricSolvePurpose::gradient_norm,
+          result.evidence.converged,
+          result.evidence.iterations,
+          result.evidence.initial_residual,
+          result.evidence.final_residual);
       if (!result.evidence.converged)
         throw std::runtime_error(
           "Step-4 Problem B metric inverse did not converge");
@@ -184,7 +191,7 @@ namespace external_dealii_step4
 
     explicit ProblemBNmoptBinding(Instrumentation *const instrumentation)
       : application_(make_application())
-      , problem_(*application_)
+      , problem_(*application_, instrumentation)
       , native_metric_(problem_.mass())
       , variable_layout_(std::make_shared<const nmopt::contract::BlockLayout>(
           "external_step4_problem_b_variables",

@@ -122,11 +122,54 @@ namespace external_dealii_step4_test
   }
 
   inline void
+  write_problem_b_matrix_actions(
+    const std::filesystem::path &                  root,
+    const std::vector<InstrumentationView> &views)
+  {
+    std::ofstream output(root / "matrix-actions.csv");
+    if (!output)
+      throw std::runtime_error(
+        "could not open Step-4 evidence matrix actions");
+    output << "path,action,purpose\n";
+    for (const auto &view : views)
+      for (const auto &record : view.value->problem_b_matrix_actions)
+        output << view.path << ','
+               << external_dealii_step4::problem_b_matrix_action_name(
+                    record.action)
+               << ','
+               << external_dealii_step4::problem_b_matrix_purpose_name(
+                    record.purpose)
+               << '\n';
+  }
+
+  inline void
+  write_metric_solve_records(const std::filesystem::path &                  root,
+                             const std::vector<InstrumentationView> &views)
+  {
+    std::ofstream output(root / "metric-solve-records.csv");
+    if (!output)
+      throw std::runtime_error(
+        "could not open Step-4 evidence metric solve records");
+    output << "path,status,purpose,iterations,initial_residual,final_residual\n"
+           << std::setprecision(17);
+    for (const auto &view : views)
+      for (const auto &record : view.value->metric_solve_records)
+        output << view.path << ',' << (record.converged ? "success" : "failure")
+               << ','
+               << external_dealii_step4::metric_solve_purpose_name(
+                    record.purpose)
+               << ',' << record.iterations << ',' << record.initial_residual
+               << ',' << record.final_residual << '\n';
+  }
+
+  inline void
   write_complete(const std::filesystem::path &root,
                  const std::vector<InstrumentationView> &views)
   {
     write_counters(root, views);
     write_solve_records(root, views);
+    write_problem_b_matrix_actions(root, views);
+    write_metric_solve_records(root, views);
     std::ofstream status(root / "status.txt");
     if (!status)
       throw std::runtime_error("could not update Step-4 evidence status");
@@ -147,6 +190,8 @@ namespace external_dealii_step4_test
                   << "error " << message << '\n';
         write_counters(root, views);
         write_solve_records(root, views);
+        write_problem_b_matrix_actions(root, views);
+        write_metric_solve_records(root, views);
         std::ofstream status(root / "status.txt");
         if (status)
           status << "status failed\nscenario " << scenario << '\n';

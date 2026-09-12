@@ -45,7 +45,7 @@ namespace external_dealii_step4
     {
       require_size(vector);
       require_finite(vector);
-      return mass_.mass_apply(vector);
+      return mass_.mass_apply(vector, ProblemBMatrixPurpose::metric_apply);
     }
 
     InverseResult

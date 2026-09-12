@@ -1532,7 +1532,7 @@ namespace
         using Reduced =
           external_dealii_step4::NativeProblemBReduced<2, Step4<2>>;
 
-        Problem problem(tutorial);
+        Problem problem(tutorial, &instrumentation);
         Metric  metric(problem.mass());
         Reduced reduced(problem, instrumentation);
         Vector initial_control(problem.control_dimension());

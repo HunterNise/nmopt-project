@@ -3,15 +3,20 @@
 #undef STEP4_NO_MAIN
 
 #include "../../apps/external-dealii/step-4/integration/nmopt_problem_b_binding.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/native_problem_b_reduced.hpp"
 #include "../../apps/external-dealii/step-4/verification/scenario.hpp"
 
 #include "../dealii/external_step4_evidence.hpp"
 #include "../support/scenario_dispatch.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -28,6 +33,11 @@ namespace
   using Covector = Binding::Covector;
   using Vector = external_dealii_step4::ProblemB<2, Step4<2>>::Vector;
   using LayoutPtr = external_dealii_step4::ProblemBNmoptLayoutPtr;
+  using NativeProblem = external_dealii_step4::ProblemB<2, Step4<2>>;
+  using NativeReduced =
+    external_dealii_step4::NativeProblemBReduced<2, Step4<2>>;
+  using NativeMetric = external_dealii_step4::ProblemBMetric<2>;
+  using Matrix = NativeProblem::Mass::Matrix;
 
   static_assert(!std::is_copy_constructible_v<Binding>);
   static_assert(!std::is_copy_assignable_v<Binding>);
@@ -171,18 +181,113 @@ namespace
               name + " reported an invalid achieved residual");
   }
 
+  double
+  paired_vector_error(const Vector &left, const Vector &right)
+  {
+    require(std::isfinite(left.l2_norm()) && std::isfinite(right.l2_norm()),
+            "paired vector contains a non-finite norm");
+    return vector_difference(left, right);
+  }
+
+  double
+  paired_vector_bound(const Vector &left, const Vector &right)
+  {
+    return 1.0e-11 +
+           1.0e-10 * std::max(left.l2_norm(), right.l2_norm());
+  }
+
+  double
+  paired_scalar_error(const double left, const double right)
+  {
+    require(std::isfinite(left) && std::isfinite(right),
+            "paired scalar contains a non-finite value");
+    return std::abs(left - right);
+  }
+
+  double
+  paired_scalar_bound(const double left, const double right)
+  {
+    return 1.0e-12 +
+           1.0e-11 * std::max(std::abs(left), std::abs(right));
+  }
+
+  void
+  require_paired_vector(const Vector &      actual,
+                        const Vector &      expected,
+                        const std::string &message)
+  {
+    const double error = paired_vector_error(actual, expected);
+    const double bound = paired_vector_bound(actual, expected);
+    require(error <= bound,
+            message + ": error=" + std::to_string(error) +
+              ", bound=" + std::to_string(bound));
+  }
+
+  void
+  require_paired_scalar(const double        actual,
+                        const double        expected,
+                        const std::string &message)
+  {
+    const double error = paired_scalar_error(actual, expected);
+    const double bound = paired_scalar_bound(actual, expected);
+    require(error <= bound,
+            message + ": error=" + std::to_string(error) +
+              ", bound=" + std::to_string(bound));
+  }
+
+  double
+  matrix_difference(const Matrix &left, const Matrix &right)
+  {
+    require(left.m() == right.m() && left.n() == right.n(),
+            "paired Problem B matrices have incompatible shapes");
+
+    double squared_difference = 0.0;
+    for (unsigned int row = 0; row < left.m(); ++row)
+      for (unsigned int column = 0; column < left.n(); ++column)
+        {
+          const double difference =
+            left.el(row, column) - right.el(row, column);
+          squared_difference += difference * difference;
+        }
+    return std::sqrt(squared_difference);
+  }
+
+  void
+  require_solve_match(const NativeProblem::SolveEvidence &native,
+                       const nmopt::contract::LinearSolveReport &nmopt,
+                       const std::string &name)
+  {
+    require(native.converged, name + " native solve did not converge");
+    require_report(nmopt, name + " nmopt solve");
+    require(native.iterations == nmopt.iterations,
+            name + " changed the CG iteration count");
+    require_paired_scalar(native.final_residual,
+                          nmopt.achieved_residual,
+                          name + " changed the monitored residual");
+  }
+
+  struct PairedEvaluation
+  {
+    std::string label;
+    Vector      native_state;
+    Vector      nmopt_state;
+    Vector      native_adjoint;
+    Vector      nmopt_adjoint;
+    Vector      native_gradient;
+    Vector      nmopt_gradient;
+    double      native_objective;
+    double      nmopt_objective;
+  };
+
   std::filesystem::path
-  create_binding_artifact()
+  find_repository_root()
   {
     auto directory = std::filesystem::current_path();
     while (true)
       {
         if (std::filesystem::exists(
               directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
-          return external_dealii_step4_test::create_unique_artifact_root(
-            directory /
-              "runs/external-dealii/step-4/problem-b/reduced-evaluation",
-            "binding");
+          return directory;
 
         const auto parent = directory.parent_path();
         if (parent == directory)
@@ -190,8 +295,25 @@ namespace
         directory = parent;
       }
 
-    throw std::runtime_error(
-      "could not locate the Problem B binding artifact root");
+    throw std::runtime_error("could not locate the repository root");
+  }
+
+  std::filesystem::path
+  create_binding_artifact()
+  {
+    return external_dealii_step4_test::create_unique_artifact_root(
+      find_repository_root() /
+        "runs/external-dealii/step-4/problem-b/reduced-evaluation",
+      "binding");
+  }
+
+  std::filesystem::path
+  create_comparison_artifact()
+  {
+    return external_dealii_step4_test::create_unique_artifact_root(
+      find_repository_root() /
+        "runs/external-dealii/step-4/problem-b/reduced-evaluation",
+      "comparison");
   }
 
   void
@@ -352,6 +474,257 @@ namespace
         throw;
       }
   }
+
+  PairedEvaluation
+  compare_reduced_evaluation(const std::string &label,
+                             const Vector       &control,
+                             NativeReduced      &native_reduced,
+                             NativeMetric       &native_metric,
+                             Binding            &nmopt_binding,
+                             Instrumentation   &native_instrumentation,
+                             std::ostream       &output)
+  {
+    const auto native_value = native_reduced.evaluate_value(control);
+    const auto native_derivative =
+      native_reduced.augment_derivative(native_value);
+
+    const auto nmopt_value = nmopt_binding.reduced().evaluate_value(
+      make_single_block(nmopt_binding.control_layout(), control));
+    const auto nmopt_derivative =
+      nmopt_binding.reduced().augment_derivative(nmopt_value);
+
+    ++native_instrumentation.metric_inverse_apply_calls;
+    const auto native_gradient_result =
+      native_metric.inverse_apply(native_derivative.reduced_derivative);
+    require(native_gradient_result.evidence.converged,
+            label + " native metric inverse did not converge");
+
+    const auto nmopt_gradient = nmopt_binding.reduced().gradient_direction(
+      nmopt_derivative.reduced_derivative, nmopt_binding.metric());
+
+    const auto &nmopt_state = nmopt_value.state.block(0);
+    const auto &nmopt_adjoint = nmopt_derivative.adjoint.block(0);
+    const auto &nmopt_gradient_block = nmopt_gradient.block(0);
+    const auto nmopt_full_state =
+      nmopt_binding.problem().coordinates().reconstruct(nmopt_state);
+    const auto nmopt_full_adjoint =
+      nmopt_binding.problem().coordinates().embed_free(nmopt_adjoint);
+
+    require_paired_vector(native_value.state,
+                          nmopt_state,
+                          label + " state");
+    require_paired_vector(native_value.full_state,
+                          nmopt_full_state,
+                          label + " full state");
+    require_paired_vector(native_derivative.adjoint,
+                          nmopt_adjoint,
+                          label + " adjoint");
+    require_paired_vector(native_derivative.full_adjoint,
+                          nmopt_full_adjoint,
+                          label + " full adjoint");
+    require_paired_vector(native_derivative.reduced_derivative,
+                          nmopt_derivative.reduced_derivative.block(0),
+                          label + " reduced derivative");
+    require_paired_vector(native_gradient_result.solution,
+                          nmopt_gradient_block,
+                          label + " metric gradient");
+    require_paired_scalar(native_value.objective,
+                          nmopt_value.objective_value,
+                          label + " objective");
+    require_solve_match(native_value.state_solve,
+                        nmopt_value.state_solve,
+                        label + " state solve");
+    require_solve_match(native_derivative.adjoint_solve,
+                        nmopt_derivative.adjoint_solve,
+                        label + " adjoint solve");
+
+    output << std::setprecision(std::numeric_limits<double>::max_digits10)
+           << label << ',' << native_value.objective << ','
+           << nmopt_value.objective_value << ','
+           << paired_vector_error(native_value.state, nmopt_state) << ','
+           << paired_vector_error(native_value.full_state, nmopt_full_state)
+           << ','
+           << paired_vector_error(native_derivative.adjoint, nmopt_adjoint)
+           << ','
+           << paired_vector_error(native_derivative.full_adjoint,
+                                  nmopt_full_adjoint)
+           << ','
+           << paired_vector_error(native_derivative.reduced_derivative,
+                                  nmopt_derivative.reduced_derivative.block(0))
+           << ','
+           << paired_vector_error(native_gradient_result.solution,
+                                  nmopt_gradient_block)
+           << ',' << native_value.state_solve.iterations << ','
+           << nmopt_value.state_solve.iterations << ','
+           << native_value.state_solve.final_residual << ','
+           << nmopt_value.state_solve.achieved_residual << ','
+           << native_derivative.adjoint_solve.iterations << ','
+           << nmopt_derivative.adjoint_solve.iterations << ','
+           << native_derivative.adjoint_solve.final_residual << ','
+           << nmopt_derivative.adjoint_solve.achieved_residual << '\n';
+
+    return {label,
+            native_value.state,
+            nmopt_state,
+            native_derivative.adjoint,
+            nmopt_adjoint,
+            native_derivative.reduced_derivative,
+            nmopt_derivative.reduced_derivative.block(0),
+            native_value.objective,
+            nmopt_value.objective_value};
+  }
+
+  void
+  run_problem_b_nmopt_reduced_comparison()
+  {
+    Instrumentation native_instrumentation;
+    Instrumentation nmopt_instrumentation;
+    const auto artifact_root = create_comparison_artifact();
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root,
+      "problem_b_nmopt_reduced_comparison",
+      { {"native", &native_instrumentation},
+        {"nmopt", &nmopt_instrumentation} });
+    try
+      {
+        std::ofstream output(artifact_root / "comparison.csv");
+        require(static_cast<bool>(output),
+                "could not open Problem B comparison artifact");
+        output
+          << "label,native_objective,nmopt_objective,state_error,"
+             "full_state_error,adjoint_error,full_adjoint_error,"
+             "reduced_gradient_error,metric_gradient_error,"
+             "native_state_iterations,nmopt_state_iterations,"
+             "native_state_residual,nmopt_state_residual,"
+             "native_adjoint_iterations,nmopt_adjoint_iterations,"
+             "native_adjoint_residual,nmopt_adjoint_residual\n";
+
+        Step4<2> native_tutorial;
+        native_tutorial.prepare_for_external_use();
+        NativeProblem native_problem(native_tutorial);
+        NativeReduced native_reduced(native_problem, native_instrumentation);
+        NativeMetric native_metric(native_problem.mass());
+        Binding nmopt_binding(nmopt_instrumentation);
+        const auto &public_problem = nmopt_binding.problem();
+
+        require(native_problem.state_dimension() ==
+                  public_problem.state_dimension(),
+                "paired Problem B state dimensions differ");
+        require(native_problem.control_dimension() ==
+                  public_problem.control_dimension(),
+                "paired Problem B control dimensions differ");
+        require(matrix_difference(native_problem.mass().mass_matrix(),
+                                  public_problem.mass().mass_matrix()) == 0.0,
+                "paired Problem B mass matrices differ");
+        require(matrix_difference(native_problem.mass().coupling_matrix(),
+                                  public_problem.mass().coupling_matrix()) == 0.0,
+                "paired Problem B coupling matrices differ");
+        require_vector_equal(native_problem.free_system_rhs(),
+                             public_problem.free_system_rhs(),
+                             "paired Problem B free RHS vectors differ");
+        require(native_problem.coordinates().free_indices() ==
+                  public_problem.coordinates().free_indices(),
+                "paired Problem B free coordinate maps differ");
+        require_vector_equal(native_problem.coordinates().lifting(),
+                             public_problem.coordinates().lifting(),
+                             "paired Problem B coordinate liftings differ");
+
+        const auto controls = external_dealii_step4::scenario::reduced_controls();
+        require(controls.size() == 4,
+                "Problem B comparison controls are incomplete");
+        const std::vector<std::string> labels{
+          "zero", "constant", "ramp", "alternating", "ramp_repeat"};
+        std::vector<PairedEvaluation> evaluations;
+        evaluations.reserve(labels.size());
+        for (std::size_t index = 0; index < controls.size(); ++index)
+          evaluations.push_back(compare_reduced_evaluation(
+            labels[index],
+            controls[index],
+            native_reduced,
+            native_metric,
+            nmopt_binding,
+            native_instrumentation,
+            output));
+        evaluations.push_back(compare_reduced_evaluation(
+          labels.back(),
+          controls[2],
+          native_reduced,
+          native_metric,
+          nmopt_binding,
+          native_instrumentation,
+          output));
+
+        const auto &first_ramp = evaluations[2];
+        const auto &repeated_ramp = evaluations.back();
+        require_paired_vector(first_ramp.native_state,
+                              repeated_ramp.native_state,
+                              "native repeated ramp state");
+        require_paired_vector(first_ramp.nmopt_state,
+                              repeated_ramp.nmopt_state,
+                              "nmopt repeated ramp state");
+        require_paired_vector(first_ramp.native_adjoint,
+                              repeated_ramp.native_adjoint,
+                              "native repeated ramp adjoint");
+        require_paired_vector(first_ramp.nmopt_adjoint,
+                              repeated_ramp.nmopt_adjoint,
+                              "nmopt repeated ramp adjoint");
+        require_paired_vector(first_ramp.native_gradient,
+                              repeated_ramp.native_gradient,
+                              "native repeated ramp gradient");
+        require_paired_vector(first_ramp.nmopt_gradient,
+                              repeated_ramp.nmopt_gradient,
+                              "nmopt repeated ramp gradient");
+        require_paired_scalar(first_ramp.native_objective,
+                              repeated_ramp.native_objective,
+                              "native repeated ramp objective");
+        require_paired_scalar(first_ramp.nmopt_objective,
+                              repeated_ramp.nmopt_objective,
+                              "nmopt repeated ramp objective");
+
+        constexpr std::size_t evaluation_count = 5;
+        require(native_instrumentation.state_solve_calls == evaluation_count &&
+                  native_instrumentation.adjoint_solve_calls ==
+                    evaluation_count &&
+                  native_instrumentation.objective_calls == evaluation_count &&
+                  native_instrumentation.objective_derivative_calls ==
+                    evaluation_count &&
+                  native_instrumentation.control_vjp_calls == evaluation_count &&
+                  native_instrumentation.residual_calls == 0 &&
+                  native_instrumentation.residual_jvp_calls == 0 &&
+                  native_instrumentation.residual_vjp_calls == 0 &&
+                  native_instrumentation.metric_inverse_apply_calls ==
+                    evaluation_count &&
+                  native_instrumentation.metric_apply_calls == 0 &&
+                  native_instrumentation.solve_failures == 0 &&
+                  native_instrumentation.solve_records.size() ==
+                    2 * evaluation_count,
+                "native Problem B comparison schedule is inconsistent");
+        require(nmopt_instrumentation.state_solve_calls == evaluation_count &&
+                  nmopt_instrumentation.adjoint_solve_calls ==
+                    evaluation_count &&
+                  nmopt_instrumentation.objective_calls == evaluation_count &&
+                  nmopt_instrumentation.objective_derivative_calls ==
+                    evaluation_count &&
+                  nmopt_instrumentation.control_vjp_calls == 0 &&
+                  nmopt_instrumentation.residual_calls == 0 &&
+                  nmopt_instrumentation.residual_jvp_calls == 0 &&
+                  nmopt_instrumentation.residual_vjp_calls ==
+                    evaluation_count &&
+                  nmopt_instrumentation.metric_inverse_apply_calls ==
+                    evaluation_count &&
+                  nmopt_instrumentation.metric_apply_calls == 0 &&
+                  nmopt_instrumentation.solve_failures == 0 &&
+                  nmopt_instrumentation.solve_records.size() ==
+                    2 * evaluation_count,
+                "nmopt Problem B comparison schedule is inconsistent");
+        evidence.complete();
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
+  }
 } // namespace
 
 int
@@ -365,11 +738,17 @@ main(const int argc, char **argv)
          {"dealii", "application", "external", "tutorial", "integration",
           "problem_b"},
          180,
-         run_problem_b_nmopt_binding_contract}};
+         run_problem_b_nmopt_binding_contract},
+        {"problem_b_nmopt_reduced_comparison",
+         "nmopt.external_tutorial_step_4.problem_b_nmopt_reduced_comparison",
+         {"dealii", "application", "external", "tutorial", "integration",
+          "problem_b", "verification"},
+         300,
+         run_problem_b_nmopt_reduced_comparison}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)
-        std::cout << "Step-4 Problem B nmopt binding scenario passed: "
+        std::cout << "Step-4 Problem B nmopt contract scenarios passed: "
                   << result.executed << '\n';
       return 0;
     }

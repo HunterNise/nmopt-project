@@ -74,7 +74,7 @@ main(const int argc, char **argv)
           "Problem A optimization did not stop by gradient tolerance");
 
       const auto &state = result.final_evaluation.state.block(0);
-      binding.problem().output_results(state, output);
+      problem.output_results(state, output);
 
       std::cout << "minimal Problem A consumer completed\n"
                 << "accepted_iterations " << result.accepted_iterations << '\n'

@@ -105,10 +105,11 @@ namespace external_dealii_step4
             std::vector<std::size_t>{problem_.state_dimension()}))
         , model_(make_model(problem_, variable_layout_, test_layout_))
         , partition_(model_, 0, 1)
-        , solvers_(make_solvers(problem_, partition_.state_layout(),
-                                test_layout_))
         , metric_(partition_.control_layout())
-        , reduced_(model_, partition_, solvers_)
+        , reduced_(model_,
+                   partition_,
+                   make_solvers(problem_, partition_.state_layout(),
+                                test_layout_))
       {}
 
       ProblemABinding(const ProblemABinding &) = delete;
@@ -116,22 +117,10 @@ namespace external_dealii_step4
       ProblemABinding(ProblemABinding &&) = delete;
       ProblemABinding &operator=(ProblemABinding &&) = delete;
 
-      const ProblemA &
-      problem() const
-      {
-        return problem_;
-      }
-
       const LayoutPtr &
       control_layout() const
       {
         return partition_.control_layout();
-      }
-
-      const Model &
-      model() const
-      {
-        return model_;
       }
 
       const IdentityMetric &
@@ -233,7 +222,6 @@ namespace external_dealii_step4
       LayoutPtr       test_layout_;
       Model           model_;
       Partition       partition_;
-      Solvers         solvers_;
       IdentityMetric  metric_;
       Reduced         reduced_;
     };

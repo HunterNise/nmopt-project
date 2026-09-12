@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary`, followed by the accepted minimal-consumer usability follow-up |
-| Current unit | MC3 complete locally – Minimal A/B consumer assessment, pending review/commit |
-| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 committed as `99bef20`; MC3 assessment complete locally, pending review/commit |
-| Next unit | None under the accepted minimal-consumer follow-up; a new question is required |
+| Current unit | MC4 complete locally – Trim optional minimal binding structure, pending review/commit |
+| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 committed as `99bef20`; MC3 committed as `c545d10`; MC4 implementation and validation complete locally, pending review/commit |
+| Next unit | MC5 – Close acceptance and executable-evidence gaps, after MC4 review/commit |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -876,8 +876,22 @@ The assessment counts source shape using one stated convention, labels
 newcomer usability untested, and concludes that the two working examples do
 not justify a generic helper, API change, diagnostic cleanup, or performance
 experiment. The minimal README now links the assessment. MC3 is complete
-locally on 2026-09-12, pending review and commit; no next implementation unit
-is selected under this follow-up.
+locally on 2026-09-12, pending review and commit; MC4 follows for the bounded
+consumer-structure cleanup.
+
+### MC4 – Trim optional minimal binding structure
+
+MC4 trims optional packaging in the two explicit minimal bindings without
+changing their public numerical behavior. The bindings no longer expose unused
+`model()` or problem-forwarding accessors, and they no longer retain a
+separate `StateAdjointSolversT` member solely to pass it immediately into the
+`ReducedDTOT`; the solve callbacks are constructed directly at that boundary.
+Problem A's entry point uses its already-owned `ProblemA` for output.
+
+The affected minimal binding and executable checks passed locally on
+2026-09-12. The required full pipelines also passed: `debug-dealii` 195/195
+and `debug-neutral` 67/67. The remaining acceptance and executable-output
+evidence work is MC5.
 
 ## 10. Verification execution and artifacts
 

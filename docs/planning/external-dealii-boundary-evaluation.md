@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary`, followed by the accepted minimal-consumer usability follow-up |
-| Current unit | MC1 complete locally – Minimal Problem A consumer, pending review/commit |
-| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 implementation and validation complete locally, pending review/commit |
-| Next unit | MC2 – Minimal Problem B consumer, after MC1 review/commit |
+| Current unit | MC2 complete locally – Minimal Problem B consumer, pending review/commit |
+| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 implementation and validation complete locally, pending review/commit |
+| Next unit | MC3 – Compare minimal A/B consumers, after MC2 review/commit |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -838,8 +838,30 @@ $9.50365\times10^{-7}$; the manual and CTest VTK outputs are disposable
 artifacts below `runs/external-dealii/step-4/minimal/`. The CTest contract
 artifact from the deal.II working directory is likewise ignored. The result
 demonstrates a working explicit A consumer; it does not claim global
-minimality or newcomer usability. MC2 remains the next unit for the
-corresponding Problem B surface.
+minimality or newcomer usability. MC2 subsequently adds the corresponding
+Problem B surface.
+
+### MC2 – Minimal Problem B consumer
+
+MC2 is the second unit of the separately accepted minimal-consumer usability
+follow-up. It adds the [minimal Problem B consumer](../../apps/external-dealii/step-4/minimal/README.md)
+and its focused validation without reopening G1 or G2. The consumer borrows a
+prepared `Step4<2>` application through `ProblemB`, writes the current public
+layouts, five callbacks, partition, native solve-report translation, mass
+metric, reduced DTO, frozen optimization policy, zero control, and retained
+state reconstruction/output explicitly. Native comparison, independent dense
+mass stationarity and KKT checks, fresh audits, and output comparison remain
+test-only code.
+
+The focused Problem B binding and executable CTest entries passed locally on
+2026-09-12. The required full pipelines also passed: `debug-dealii` 195/195
+and `debug-neutral` 67/67. The consumer completed with 5 accepted iterations,
+5 total line-search trials, and final gradient norm
+$4.88456\times10^{-8}$; disposable outputs and contract evidence are below
+the ignored `runs/external-dealii/step-4/minimal/` tree (the contract's
+build-profile evidence is likewise ignored). MC2 demonstrates a working
+explicit B consumer; it does not claim global minimality or newcomer
+usability. MC3 is the next unit for the factual A/B authoring comparison.
 
 ## 10. Verification execution and artifacts
 

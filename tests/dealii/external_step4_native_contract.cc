@@ -1,5 +1,6 @@
 #include "../../apps/external-dealii/step-4/verification/verification.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/native_problem_b_optimization.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_problem_b_reduced.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b_coordinates.hpp"
 #include "../../apps/external-dealii/step-4/integration/problem_b_mass.hpp"
@@ -35,6 +36,10 @@ namespace
     external_dealii_step4::NativeOptimizationResult;
   using NativeOptimizationStoppingReason =
     external_dealii_step4::NativeOptimizationStoppingReason;
+  using NativeProblemBArmijoSolver =
+    external_dealii_step4::NativeProblemBArmijoSolver<2, Step4<2>>;
+  using NativeProblemBOptimizationStoppingReason =
+    external_dealii_step4::NativeProblemBOptimizationStoppingReason;
   using OptimizationPolicy = external_dealii_step4::OptimizationPolicy;
   using Instrumentation = external_dealii_step4::Instrumentation;
   using Vector          = ProblemA::Vector;
@@ -1275,6 +1280,80 @@ namespace
   }
 
   void
+  run_native_problem_b_optimization_contract()
+  {
+    Instrumentation instrumentation;
+    Step4<2>        tutorial;
+    tutorial.prepare_for_external_use();
+
+    using Problem = external_dealii_step4::ProblemB<2, Step4<2>>;
+    using Metric  = external_dealii_step4::ProblemBMetric<2>;
+    using Reduced = external_dealii_step4::NativeProblemBReduced<2, Step4<2>>;
+
+    Problem problem(tutorial);
+    Metric  metric(problem.mass());
+    Reduced reduced(problem, instrumentation);
+    Vector initial_control(problem.control_dimension());
+    initial_control = 0.0;
+
+    OptimizationPolicy policy =
+      external_dealii_step4::frozen_optimization_policy();
+    policy.maximum_iterations = 1;
+
+    NativeProblemBArmijoSolver solver(reduced, metric, instrumentation, policy);
+    const auto result = solver.solve(initial_control);
+
+    require(result.stopping_reason ==
+              NativeProblemBOptimizationStoppingReason::maximum_iterations,
+            "native Problem B optimization did not honor iteration-limit "
+            "precedence");
+    require(result.accepted_iteration_count == 1,
+            "native Problem B optimization did not accept one step");
+    require(result.gradient_norm_history.size() == 2,
+            "native Problem B optimization did not check the gradient after "
+            "acceptance");
+    require(result.metric_inverse_evidence.size() == 2,
+            "native Problem B optimization did not retain both metric solves");
+    for (const auto &evidence : result.metric_inverse_evidence)
+      require(evidence.converged,
+              "native Problem B optimization metric solve did not converge");
+
+    require(result.trial_records.size() == result.line_search_trial_count &&
+              !result.trial_records.empty() &&
+              result.trial_records.back().accepted,
+            "native Problem B optimization did not retain an accepted trial");
+    require(result.accepted_iterations.size() == 1 &&
+              result.accepted_iterations.front().actual_step_norm > 0.0,
+            "native Problem B optimization did not record its metric step");
+    require(result.gradient_norm_history.back() > policy.gradient_tolerance,
+            "native Problem B iteration-limit probe was falsely converged");
+
+    require(instrumentation.state_solve_calls ==
+              1 + result.line_search_trial_count &&
+              instrumentation.adjoint_solve_calls ==
+                1 + result.accepted_iteration_count,
+            "native Problem B optimization violated the staged solve schedule");
+    require(instrumentation.value_evaluations ==
+              1 + result.line_search_trial_count &&
+              instrumentation.derivative_augmentations ==
+                1 + result.accepted_iteration_count,
+            "native Problem B optimization violated the staged evaluation "
+            "schedule");
+    require(instrumentation.objective_calls ==
+              1 + result.line_search_trial_count &&
+              instrumentation.objective_derivative_calls ==
+                1 + result.accepted_iteration_count &&
+              instrumentation.control_vjp_calls ==
+                1 + result.accepted_iteration_count,
+            "native Problem B optimization objective schedule is inconsistent");
+    require(instrumentation.metric_inverse_apply_calls ==
+              1 + result.accepted_iteration_count &&
+              instrumentation.metric_apply_calls ==
+                1 + 2 * result.accepted_iteration_count,
+            "native Problem B optimization metric schedule is inconsistent");
+  }
+
+  void
   run_supplied_state_output_contract()
   {
     Step4<2> tutorial;
@@ -2130,6 +2209,12 @@ main(const int argc, char **argv)
           "problem_b", "verification"},
          240,
          run_native_problem_b_derivative_metric_contract},
+        {"native_problem_b_optimization",
+         "nmopt.external_tutorial_step_4.native_problem_b_optimization",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b", "optimization"},
+         180,
+         run_native_problem_b_optimization_contract},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

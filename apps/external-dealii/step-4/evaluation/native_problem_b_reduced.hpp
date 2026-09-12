@@ -17,6 +17,7 @@ namespace external_dealii_step4
     using Problem        = ProblemB<dim, Application>;
     using Vector         = typename Problem::Vector;
     using SolveEvidence  = typename Problem::SolveEvidence;
+    using SolveResult    = typename Problem::SolveResult;
 
     struct ValueEvaluation
     {
@@ -55,7 +56,18 @@ namespace external_dealii_step4
     {
       require_size(control, problem_.control_dimension(), "control");
       count(&Instrumentation::state_solve_calls);
-      auto solve = problem_.solve_state(control);
+      SolveResult solve;
+      try
+        {
+          solve = problem_.solve_state(control);
+          record_solve(SolveRole::state, solve.evidence);
+        }
+      catch (...)
+        {
+          if (instrumentation_ != nullptr)
+            instrumentation_->record_solve_failure();
+          throw;
+        }
 
       ValueEvaluation result{control,
                              std::move(solve.solution),
@@ -84,8 +96,18 @@ namespace external_dealii_step4
         problem_.objective_derivative(value.state, value.control);
 
       count(&Instrumentation::adjoint_solve_calls);
-      const auto adjoint =
-        problem_.solve_adjoint(objective_derivative.state);
+      SolveResult adjoint;
+      try
+        {
+          adjoint = problem_.solve_adjoint(objective_derivative.state);
+          record_solve(SolveRole::adjoint, adjoint.evidence);
+        }
+      catch (...)
+        {
+          if (instrumentation_ != nullptr)
+            instrumentation_->record_solve_failure();
+          throw;
+        }
 
       count(&Instrumentation::control_vjp_calls);
       const auto control_pullback = problem_.control_vjp(adjoint.solution);
@@ -109,6 +131,22 @@ namespace external_dealii_step4
     {
       if (instrumentation_ != nullptr)
         ++(instrumentation_->*counter);
+    }
+
+    void
+    record_solve(const SolveRole role, const SolveEvidence &evidence) const
+    {
+      if (instrumentation_ == nullptr)
+        return;
+      if (evidence.converged)
+        instrumentation_->record_solve_success(role,
+                                               evidence.iterations,
+                                               evidence.initial_residual,
+                                               evidence.final_residual);
+      else
+        instrumentation_->record_solve_failure(role,
+                                               evidence.iterations,
+                                               evidence.final_residual);
     }
 
     static void

@@ -38,6 +38,8 @@ namespace
     external_dealii_step4::NativeOptimizationStoppingReason;
   using NativeProblemBArmijoSolver =
     external_dealii_step4::NativeProblemBArmijoSolver<2, Step4<2>>;
+  using NativeProblemBOptimizationResult =
+    external_dealii_step4::NativeProblemBOptimizationResult<2, Step4<2>>;
   using NativeProblemBOptimizationStoppingReason =
     external_dealii_step4::NativeProblemBOptimizationStoppingReason;
   using OptimizationPolicy = external_dealii_step4::OptimizationPolicy;
@@ -191,6 +193,144 @@ namespace
 
     throw std::runtime_error(
       "could not locate the Problem B verification artifact root");
+  }
+
+  std::filesystem::path
+  native_problem_b_optimization_artifact_root()
+  {
+    auto directory = std::filesystem::current_path();
+    while (true)
+      {
+        if (std::filesystem::exists(
+              directory / "apps/external-dealii/step-4/source/upstream/step-4.cc"))
+          return external_dealii_step4_test::create_unique_artifact_root(
+            directory / "runs/external-dealii/step-4/problem-b/optimization",
+            "native");
+
+        const auto parent = directory.parent_path();
+        if (parent == directory)
+          break;
+        directory = parent;
+      }
+
+    throw std::runtime_error(
+      "could not locate the Problem B optimization artifact root");
+  }
+
+  void
+  write_native_problem_b_optimization_trace(
+    const std::filesystem::path &root,
+    const NativeProblemBOptimizationResult &result)
+  {
+    std::ofstream trace(root / "trace.csv");
+    require(static_cast<bool>(trace),
+            "could not open the native Problem B optimization trace");
+    trace << "record,iteration,trial,step_length,objective,actual_slope,"
+             "armijo_bound,objective_finite,slope_negative,accepted,"
+             "objective_before,objective_after,objective_change,"
+             "actual_step_norm,gradient_norm\n";
+    trace << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (const auto &trial : result.trial_records)
+      trace << "trial," << trial.iteration << ',' << trial.trial << ','
+            << trial.step_length << ',' << trial.objective_value << ','
+            << trial.actual_slope << ',' << trial.sufficient_decrease_bound
+            << ',' << trial.objective_finite << ',' << trial.slope_negative
+            << ',' << trial.accepted << ",,,,,\n";
+    for (const auto &iteration : result.accepted_iterations)
+      trace << "accepted," << iteration.iteration << ",,"
+            << iteration.requested_step_length << ','
+            << iteration.objective_after << ',' << iteration.actual_slope
+            << ",,,,1," << iteration.objective_before << ','
+            << iteration.objective_after << ',' << iteration.objective_change
+            << ',' << iteration.actual_step_norm << ','
+            << iteration.gradient_norm << '\n';
+  }
+
+  void
+  write_native_problem_b_metric_trace(
+    const std::filesystem::path &root,
+    const NativeProblemBOptimizationResult &result)
+  {
+    std::ofstream trace(root / "metric-solves.csv");
+    require(static_cast<bool>(trace),
+            "could not open the native Problem B metric trace");
+    trace << "check,converged,iterations,initial_residual,final_residual\n"
+          << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (std::size_t index = 0;
+         index < result.metric_inverse_evidence.size();
+         ++index)
+      {
+        const auto &evidence = result.metric_inverse_evidence[index];
+        trace << index << ',' << evidence.converged << ','
+              << evidence.iterations << ',' << evidence.initial_residual
+              << ',' << evidence.final_residual << '\n';
+      }
+  }
+
+  void
+  write_native_problem_b_optimization_summary(
+    const std::filesystem::path &root,
+    const NativeProblemBOptimizationResult &result,
+    const Instrumentation &             instrumentation,
+    const external_dealii_step4::problem_b_verification::DenseOracle &oracle,
+    const double final_gradient_norm,
+    const double oracle_control_mass_distance,
+    const double oracle_objective,
+    const double oracle_control_gradient_norm)
+  {
+    std::ofstream summary(root / "summary.txt");
+    require(static_cast<bool>(summary),
+            "could not open the native Problem B optimization summary");
+    unsigned int metric_inverse_iterations = 0;
+    for (const auto &evidence : result.metric_inverse_evidence)
+      metric_inverse_iterations += evidence.iterations;
+
+    summary << std::setprecision(std::numeric_limits<double>::max_digits10)
+            << "stopping_reason "
+            << external_dealii_step4::
+                 native_problem_b_optimization_stopping_reason_name(
+                   result.stopping_reason)
+            << '\n'
+            << "accepted_iterations " << result.accepted_iteration_count << '\n'
+            << "line_search_trials " << result.line_search_trial_count << '\n'
+            << "final_objective " << result.value.objective << '\n'
+            << "final_gradient_norm " << final_gradient_norm << '\n'
+            << "oracle_system_residual "
+            << oracle.residuals.state_stationarity << '\n'
+            << "oracle_control_residual "
+            << oracle.residuals.control_stationarity << '\n'
+            << "oracle_feasibility_residual "
+            << oracle.residuals.feasibility << '\n'
+            << "oracle_control_mass_distance "
+            << oracle_control_mass_distance << '\n'
+            << "oracle_control_gradient_norm "
+            << oracle_control_gradient_norm << '\n'
+            << "oracle_objective " << oracle_objective << '\n'
+            << "final_objective_gap "
+            << (result.value.objective - oracle_objective) << '\n'
+            << "final_state_solve_iterations "
+            << result.value.state_solve.iterations << '\n'
+            << "final_state_solve_initial_residual "
+            << result.value.state_solve.initial_residual << '\n'
+            << "final_state_solve_final_residual "
+            << result.value.state_solve.final_residual << '\n'
+            << "final_adjoint_solve_iterations "
+            << result.derivative.adjoint_solve.iterations << '\n'
+            << "final_adjoint_solve_initial_residual "
+            << result.derivative.adjoint_solve.initial_residual << '\n'
+            << "final_adjoint_solve_final_residual "
+            << result.derivative.adjoint_solve.final_residual << '\n'
+            << "metric_inverse_iterations " << metric_inverse_iterations << '\n'
+            << "state_solve_calls " << instrumentation.state_solve_calls << '\n'
+            << "adjoint_solve_calls " << instrumentation.adjoint_solve_calls
+            << '\n'
+            << "value_evaluations " << instrumentation.value_evaluations << '\n'
+            << "derivative_augmentations "
+            << instrumentation.derivative_augmentations << '\n'
+            << "metric_apply_calls " << instrumentation.metric_apply_calls
+            << '\n'
+            << "metric_inverse_apply_calls "
+            << instrumentation.metric_inverse_apply_calls << '\n';
   }
 
   void
@@ -1354,6 +1494,295 @@ namespace
   }
 
   void
+  run_native_problem_b_optimization_evidence()
+  {
+    Instrumentation instrumentation;
+    const auto artifact_root =
+      native_problem_b_optimization_artifact_root();
+    external_dealii_step4_test::EvidenceGuard evidence(
+      artifact_root,
+      "native_problem_b_optimization",
+      {{"native", &instrumentation}});
+    try
+      {
+        Step4<2> tutorial;
+        tutorial.prepare_for_external_use();
+
+        using Problem = external_dealii_step4::ProblemB<2, Step4<2>>;
+        using Metric  = external_dealii_step4::ProblemBMetric<2>;
+        using Reduced =
+          external_dealii_step4::NativeProblemBReduced<2, Step4<2>>;
+
+        Problem problem(tutorial);
+        Metric  metric(problem.mass());
+        Reduced reduced(problem, instrumentation);
+        Vector initial_control(problem.control_dimension());
+        initial_control = 0.0;
+
+        const auto policy =
+          external_dealii_step4::frozen_optimization_policy();
+        NativeProblemBArmijoSolver solver(reduced, metric, instrumentation, policy);
+        const auto result = solver.solve(initial_control);
+
+        write_native_problem_b_optimization_trace(artifact_root, result);
+        write_native_problem_b_metric_trace(artifact_root, result);
+
+        require(result.stopping_reason ==
+                  NativeProblemBOptimizationStoppingReason::gradient_tolerance,
+                "native Problem B optimization did not stop by gradient "
+                "tolerance");
+        require(result.accepted_iteration_count > 0,
+                "native Problem B optimization accepted no iterations");
+        require(result.objective_history.size() ==
+                  result.accepted_iteration_count + 1 &&
+                  result.accepted_iterations.size() ==
+                    result.accepted_iteration_count,
+                "native Problem B optimization histories have inconsistent "
+                "sizes");
+        require(result.trial_records.size() ==
+                  result.line_search_trial_count,
+                "native Problem B optimization trial history has the wrong "
+                "size");
+        require(result.metric_inverse_evidence.size() ==
+                  result.accepted_iteration_count + 1,
+                "native Problem B optimization metric history has the wrong "
+                "size");
+        for (const auto &metric_evidence : result.metric_inverse_evidence)
+          require(metric_evidence.converged &&
+                    std::isfinite(metric_evidence.final_residual),
+                  "native Problem B optimization had an invalid metric solve");
+
+        std::size_t accepted_trials = 0;
+        for (const auto &trial : result.trial_records)
+          {
+            if (trial.accepted)
+              {
+                ++accepted_trials;
+                require(trial.objective_finite && trial.slope_negative,
+                        "native Problem B accepted an invalid trial");
+              }
+          }
+        require(accepted_trials == result.accepted_iteration_count,
+                "native Problem B accepted-trial count is inconsistent");
+        for (std::size_t index = 1; index < result.objective_history.size();
+             ++index)
+          require(result.objective_history[index] <=
+                    result.objective_history[index - 1],
+                  "native Problem B objective increased after acceptance");
+
+        require(instrumentation.state_solve_calls ==
+                  1 + result.line_search_trial_count &&
+                  instrumentation.adjoint_solve_calls ==
+                    1 + result.accepted_iteration_count &&
+                  instrumentation.value_evaluations ==
+                    1 + result.line_search_trial_count &&
+                  instrumentation.derivative_augmentations ==
+                    1 + result.accepted_iteration_count,
+                "native Problem B optimization violated the staged schedule");
+        require(instrumentation.objective_calls ==
+                  1 + result.line_search_trial_count &&
+                  instrumentation.objective_derivative_calls ==
+                    1 + result.accepted_iteration_count &&
+                  instrumentation.control_vjp_calls ==
+                    1 + result.accepted_iteration_count,
+                "native Problem B optimization objective schedule is "
+                "inconsistent");
+        require(instrumentation.metric_inverse_apply_calls ==
+                  1 + result.accepted_iteration_count &&
+                  instrumentation.metric_apply_calls ==
+                    1 + 2 * result.accepted_iteration_count,
+                "native Problem B optimization metric schedule is "
+                "inconsistent");
+        require(instrumentation.residual_calls == 0 &&
+                  instrumentation.residual_jvp_calls == 0 &&
+                  instrumentation.residual_vjp_calls == 0 &&
+                  instrumentation.explicit_matrix_vmult_calls == 0 &&
+                  instrumentation.explicit_matrix_tvmult_calls == 0 &&
+                  instrumentation.solve_failures == 0,
+                "native Problem B optimization used an unexpected operation");
+
+        tutorial.output_results(result.value.full_state,
+                                artifact_root / "solution.vtk");
+        require(std::filesystem::exists(artifact_root / "solution.vtk"),
+                "native Problem B optimization did not retain its state output");
+
+        Step4<2> verification_tutorial;
+        verification_tutorial.prepare_for_external_use();
+        Problem verification_problem(verification_tutorial);
+        Metric  verification_metric(verification_problem.mass());
+        Instrumentation verification_instrumentation;
+        Reduced verification_reduced(verification_problem,
+                                     verification_instrumentation);
+        const auto fresh_value =
+          verification_reduced.evaluate_value(result.value.control);
+        const auto fresh_derivative =
+          verification_reduced.augment_derivative(fresh_value);
+
+        external_dealii_step4::problem_b_verification::require_vector_close(
+          fresh_value.state,
+          result.value.state,
+          1.0e-11,
+          1.0e-10,
+          "fresh native Problem B final state differs");
+        external_dealii_step4::problem_b_verification::require_vector_close(
+          fresh_value.full_state,
+          result.value.full_state,
+          1.0e-11,
+          1.0e-10,
+          "fresh native Problem B full state differs");
+        external_dealii_step4::problem_b_verification::require_vector_close(
+          fresh_derivative.adjoint,
+          result.derivative.adjoint,
+          1.0e-11,
+          1.0e-10,
+          "fresh native Problem B final adjoint differs");
+        external_dealii_step4::problem_b_verification::require_vector_close(
+          fresh_derivative.full_adjoint,
+          result.derivative.full_adjoint,
+          1.0e-11,
+          1.0e-10,
+          "fresh native Problem B full adjoint differs");
+        external_dealii_step4::problem_b_verification::require_vector_close(
+          fresh_derivative.reduced_derivative,
+          result.derivative.reduced_derivative,
+          1.0e-11,
+          1.0e-10,
+          "fresh native Problem B final covector differs");
+        require_close(fresh_value.objective,
+                      result.value.objective,
+                      1.0e-12,
+                      "fresh native Problem B final objective differs");
+        require(fresh_value.state_solve.converged &&
+                  fresh_derivative.adjoint_solve.converged,
+                "fresh native Problem B final solves did not converge");
+
+        const auto state_audit =
+          external_dealii_step4::problem_b_verification::audit_state_solution(
+            verification_problem,
+            verification_tutorial,
+            fresh_value.state,
+            fresh_value.full_state,
+            fresh_value.control);
+        const auto adjoint_audit =
+          external_dealii_step4::problem_b_verification::audit_adjoint_solution(
+            verification_problem,
+            verification_tutorial,
+            fresh_derivative.adjoint,
+            fresh_derivative.full_adjoint,
+            fresh_derivative.state_derivative);
+        require(state_audit.full_equation.normalized <= 1.0e-10 &&
+                  state_audit.reduced_equation.normalized <= 1.0e-10 &&
+                  state_audit.reconstruction_error <= 1.0e-11 &&
+                  state_audit.boundary_error <= 1.0e-11,
+                "native Problem B final state audit failed");
+        require(adjoint_audit.full_equation.normalized <= 1.0e-10 &&
+                  adjoint_audit.homogeneous_reconstruction_error <= 1.0e-11 &&
+                  adjoint_audit.boundary_error <= 1.0e-11,
+                "native Problem B final adjoint audit failed");
+
+        const auto final_metric_gradient =
+          verification_metric.inverse_apply(
+            fresh_derivative.reduced_derivative);
+        require(final_metric_gradient.evidence.converged,
+                "native Problem B final metric gradient solve failed");
+        const double final_gradient_norm =
+          external_dealii_step4::problem_b_verification::mass_norm(
+            verification_metric,
+            final_metric_gradient.solution);
+        require(final_gradient_norm <= 1.1e-6,
+                "native Problem B final metric gradient exceeds the audit "
+                "bound");
+        require_close(result.gradient_norm_history.back(),
+                      final_gradient_norm,
+                      1.0e-12,
+                      "native Problem B returned and fresh gradient norms "
+                      "differ");
+
+        const auto operators =
+          external_dealii_step4::problem_b_verification::make_dense_operators(
+            verification_problem,
+            verification_tutorial);
+        const auto oracle =
+          external_dealii_step4::problem_b_verification::dense_kkt_oracle(
+            operators);
+        require(oracle.residuals.state_stationarity <= 1.0e-10 &&
+                  oracle.residuals.control_stationarity <= 1.0e-10 &&
+                  oracle.residuals.feasibility <= 1.0e-10,
+                "native Problem B optimization dense oracle failed");
+
+        Step4<2> oracle_tutorial;
+        oracle_tutorial.prepare_for_external_use();
+        Problem oracle_problem(oracle_tutorial);
+        Metric  oracle_metric(oracle_problem.mass());
+        Instrumentation oracle_instrumentation;
+        Reduced oracle_reduced(oracle_problem, oracle_instrumentation);
+        const auto oracle_value =
+          oracle_reduced.evaluate_value(oracle.control);
+        const auto oracle_derivative =
+          oracle_reduced.augment_derivative(oracle_value);
+        const auto oracle_metric_gradient =
+          oracle_metric.inverse_apply(
+            oracle_derivative.reduced_derivative);
+        require(oracle_metric_gradient.evidence.converged,
+                "native Problem B oracle metric gradient solve failed");
+        const double oracle_control_gradient_norm =
+          external_dealii_step4::problem_b_verification::mass_norm(
+            oracle_metric,
+            oracle_metric_gradient.solution);
+        require(oracle_control_gradient_norm <= 1.0e-8,
+                "native Problem B oracle control gradient is not zero");
+
+        Vector control_difference = fresh_value.control;
+        control_difference.add(-1.0, oracle.control);
+        const double oracle_control_mass_distance =
+          external_dealii_step4::problem_b_verification::mass_norm(
+            verification_metric,
+            control_difference);
+        require(oracle_control_mass_distance <= 2.0e-6,
+                "native Problem B final control differs from the oracle");
+
+        const double oracle_objective =
+          verification_problem.objective(oracle.state, oracle.control);
+        require(std::isfinite(oracle_objective) &&
+                  std::isfinite(result.value.objective - oracle_objective),
+                "native Problem B objective gap is not finite");
+
+        std::ofstream gradient_audit(artifact_root / "gradient-audit.csv");
+        require(static_cast<bool>(gradient_audit),
+                "could not open the native Problem B gradient audit");
+        gradient_audit
+          << "path,returned_gradient_norm,fresh_gradient_norm,"
+             "gradient_difference,control_mass_distance,"
+             "state_residual,adjoint_residual\n"
+          << std::setprecision(std::numeric_limits<double>::max_digits10)
+          << "native," << result.gradient_norm_history.back() << ','
+          << final_gradient_norm << ','
+          << external_dealii_step4::problem_b_verification::vector_difference(
+               fresh_derivative.reduced_derivative,
+               result.derivative.reduced_derivative)
+          << ',' << oracle_control_mass_distance << ','
+          << state_audit.full_equation.normalized << ','
+          << adjoint_audit.full_equation.normalized << '\n';
+        gradient_audit.flush();
+        write_native_problem_b_optimization_summary(
+          artifact_root,
+          result,
+          instrumentation,
+          oracle,
+          final_gradient_norm,
+          oracle_control_mass_distance,
+          oracle_objective,
+          oracle_control_gradient_norm);
+        evidence.complete();
+      }
+    catch (...)
+      {
+        evidence.fail_current_exception();
+        throw;
+      }
+  }
+
+  void
   run_supplied_state_output_contract()
   {
     Step4<2> tutorial;
@@ -2215,6 +2644,12 @@ main(const int argc, char **argv)
           "problem_b", "optimization"},
          180,
          run_native_problem_b_optimization_contract},
+        {"native_problem_b_optimization_evidence",
+         "nmopt.external_tutorial_step_4.native_problem_b_optimization_evidence",
+         {"dealii", "application", "external", "tutorial", "native",
+          "problem_b", "optimization", "verification"},
+         900,
+         run_native_problem_b_optimization_evidence},
         {"supplied_state_output",
          "nmopt.external_tutorial_step_4.native_supplied_state_output",
          {"dealii", "application", "external", "tutorial", "reuse"},

@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary`, followed by the accepted minimal-consumer usability follow-up |
-| Current unit | MC4 complete locally – Trim optional minimal binding structure, pending review/commit |
-| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 committed as `99bef20`; MC3 committed as `c545d10`; MC4 implementation and validation complete locally, pending review/commit |
-| Next unit | MC5 – Close acceptance and executable-evidence gaps, after MC4 review/commit |
+| Current unit | MC5 complete locally – Close acceptance and executable-evidence gaps, pending review/commit |
+| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 committed as `99bef20`; MC3 committed as `c545d10`; MC4 committed as `edf16f2`; MC5 implementation and validation complete locally, pending review/commit |
+| Next unit | MC6 – Correct the assessment and consumer documentation, after MC5 review/commit |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -876,8 +876,9 @@ The assessment counts source shape using one stated convention, labels
 newcomer usability untested, and concludes that the two working examples do
 not justify a generic helper, API change, diagnostic cleanup, or performance
 experiment. The minimal README now links the assessment. MC3 is complete
-locally on 2026-09-12, pending review and commit; MC4 follows for the bounded
-consumer-structure cleanup.
+locally on 2026-09-12, pending review and commit; MC4 then trimmed bounded
+consumer structure and was committed as `edf16f2`. MC5 follows for the
+remaining acceptance and executable-output evidence corrections.
 
 ### MC4 – Trim optional minimal binding structure
 
@@ -892,6 +893,31 @@ The affected minimal binding and executable checks passed locally on
 2026-09-12. The required full pipelines also passed: `debug-dealii` 195/195
 and `debug-neutral` 67/67. The remaining acceptance and executable-output
 evidence work is MC5.
+
+### MC5 – Close acceptance and executable-evidence gaps
+
+MC5 closes the two acceptance gaps without changing the public boundary. A's
+final-solution audit now recomputes state, adjoint, and reduced covector in a
+fresh native problem before applying the existing residual, gradient, and
+dense-oracle gates. The A and B contract tests also launch the actual minimal
+executables and validate their completion/stopping fields, dimensions where
+applicable, iteration counts, objective, gradient norm, and generated VTK
+payload against independently audited native references. The comparisons use
+high-precision numeric reports; the test-side runner remains outside
+`minimal/` and no manifest or state-export API was added.
+
+The former fixed-path CTest entries are now executable scenarios owned by the
+existing A/B contract-test registries, with unique ignored artifact roots and
+target dependencies. The consumers retain explicit output paths and allocate
+unique ignored manual destinations when no path is supplied. No tracked run
+evidence was added; focused output and logs are disposable below
+`runs/external-dealii/step-4/minimal/problem-a/executable/` and the analogous
+Problem B root.
+
+The focused A/B binding and executable scenarios passed locally on
+2026-09-12. The required full pipelines also passed: `debug-dealii` 195/195
+and `debug-neutral` 67/67. MC5 is complete locally, pending review and commit;
+MC6 remains to correct the assessment and consumer documentation.
 
 ## 10. Verification execution and artifacts
 

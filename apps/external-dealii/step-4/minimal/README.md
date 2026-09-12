@@ -104,8 +104,10 @@ deal.II profile:
   --target nmopt_external_step4_minimal_problem_b_contract_test
 ```
 
-Run the consumer with an optional output path. Parent directories are created
-by the application:
+Run the consumer with an optional output path. With no argument, the
+application allocates a unique ignored run directory below
+`runs/external-dealii/step-4/minimal/manual/`; explicit paths are preserved.
+Parent directories are created by the application:
 
 ```bash
 build/debug-dealii/bin/nmopt_external_step4_minimal_problem_a \
@@ -126,6 +128,10 @@ ctest --test-dir build/debug-dealii --output-on-failure \
 ctest --test-dir build/debug-dealii --output-on-failure \
   -R '^nmopt\.external\.tutorial_step_4\.minimal_problem_b$'
 ```
+
+The executable CTest entries launch the actual consumers with unique ignored
+output paths, then compare their reported counts, stopping reason, objective,
+gradient norm, and VTK payload with an independently audited native result.
 
 The required profile gates for this deal.II/CMake change are:
 

@@ -7,10 +7,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -37,6 +39,25 @@ namespace
   using DenseOperators =
     external_dealii_step4::problem_b_verification::DenseOperators;
   namespace verification = external_dealii_step4::problem_b_verification;
+
+  struct ConsumerSummary
+  {
+    bool        completed = false;
+    bool        has_stopping_reason = false;
+    std::string stopping_reason;
+    bool        has_free_state_dimension = false;
+    std::size_t free_state_dimension = 0;
+    bool        has_control_dimension = false;
+    std::size_t control_dimension = 0;
+    bool        has_accepted_iterations = false;
+    std::size_t accepted_iterations = 0;
+    bool        has_line_search_trials = false;
+    std::size_t line_search_trials = 0;
+    bool        has_objective = false;
+    double      objective = 0.0;
+    bool        has_gradient = false;
+    double      gradient = 0.0;
+  };
 
   void
   require(const bool condition, const std::string &message)
@@ -165,6 +186,92 @@ namespace
             std::string(path) + " Problem B adjoint audit failed");
   }
 
+  std::string
+  shell_quote(const std::filesystem::path &path)
+  {
+    std::string quoted = "'";
+    for (const char character : path.string())
+      if (character == '\'')
+        quoted += "'\\''";
+      else
+        quoted += character;
+    quoted += "'";
+    return quoted;
+  }
+
+  ConsumerSummary
+  read_consumer_summary(const std::filesystem::path &logfile)
+  {
+    std::ifstream input(logfile);
+    require(static_cast<bool>(input),
+            "minimal Problem B executable output could not be opened");
+
+    ConsumerSummary summary;
+    std::string line;
+    while (std::getline(input, line))
+      {
+        if (line == "minimal Problem B consumer completed")
+          summary.completed = true;
+
+        std::istringstream stream(line);
+        std::string key;
+        stream >> key;
+        if (key == "stopping_reason")
+          {
+            require(static_cast<bool>(stream >> summary.stopping_reason),
+                    "minimal Problem B executable stopping reason is malformed");
+            summary.has_stopping_reason = true;
+          }
+        else if (key == "free_state_dimension")
+          {
+            require(static_cast<bool>(stream >> summary.free_state_dimension),
+                    "minimal Problem B executable state dimension is malformed");
+            summary.has_free_state_dimension = true;
+          }
+        else if (key == "control_dimension")
+          {
+            require(static_cast<bool>(stream >> summary.control_dimension),
+                    "minimal Problem B executable control dimension is malformed");
+            summary.has_control_dimension = true;
+          }
+        else if (key == "accepted_iterations")
+          {
+            require(static_cast<bool>(stream >> summary.accepted_iterations),
+                    "minimal Problem B executable iteration count is malformed");
+            summary.has_accepted_iterations = true;
+          }
+        else if (key == "line_search_trials")
+          {
+            require(static_cast<bool>(stream >> summary.line_search_trials),
+                    "minimal Problem B executable trial count is malformed");
+            summary.has_line_search_trials = true;
+          }
+        else if (key == "final_objective")
+          {
+            require(static_cast<bool>(stream >> summary.objective),
+                    "minimal Problem B executable objective is malformed");
+            summary.has_objective = true;
+          }
+        else if (key == "final_gradient_norm")
+          {
+            require(static_cast<bool>(stream >> summary.gradient),
+                    "minimal Problem B executable gradient is malformed");
+            summary.has_gradient = true;
+          }
+      }
+
+    require(summary.completed,
+            "minimal Problem B executable did not report completion");
+    require(summary.has_stopping_reason && summary.has_free_state_dimension &&
+              summary.has_control_dimension && summary.has_accepted_iterations &&
+              summary.has_line_search_trials && summary.has_objective &&
+              summary.has_gradient,
+            "minimal Problem B executable report is incomplete");
+    require(std::isfinite(summary.objective) && std::isfinite(summary.gradient),
+            "minimal Problem B executable report is not finite");
+    return summary;
+  }
+
   void
   compare_dense_operators(const DenseOperators &left,
                           const DenseOperators &right)
@@ -187,6 +294,89 @@ namespace
                                        1.0e-11,
                                        1.0e-10,
                                        "minimal Problem B free RHS differs");
+  }
+
+  void
+  run_minimal_problem_b_executable(
+    const std::filesystem::path &binary_directory)
+  {
+    const auto artifact = external_dealii_step4_test::create_unique_artifact_root(
+      std::filesystem::current_path() /
+        "runs/external-dealii/step-4/minimal/problem-b/executable",
+      "consumer");
+    const auto output = artifact / "solution.vtk";
+    const auto logfile = artifact / "stdout.txt";
+    const auto native_output = artifact / "native-solution.vtk";
+
+    Instrumentation native_instrumentation;
+    Application native_application;
+    native_application.prepare_for_external_use();
+    Problem native_problem(native_application, &native_instrumentation);
+    NativeMetric native_metric(native_problem.mass());
+    NativeReduced native_reduced(native_problem, native_instrumentation);
+    Vector initial_control(native_problem.control_dimension());
+    initial_control = 0.0;
+    const auto policy = external_dealii_step4::frozen_optimization_policy();
+    const auto native_result = NativeSolver(native_reduced,
+                                             native_metric,
+                                             native_instrumentation,
+                                             policy)
+                                 .solve(initial_control);
+
+    Application fresh_application;
+    fresh_application.prepare_for_external_use();
+    Problem fresh_problem(fresh_application);
+    NativeReduced fresh_reduced(fresh_problem);
+    const auto fresh_value =
+      fresh_reduced.evaluate_value(native_result.value.control);
+    const auto fresh_derivative = fresh_reduced.augment_derivative(fresh_value);
+    const auto state_audit = verification::audit_state_solution(
+      fresh_problem,
+      fresh_application,
+      fresh_value.state,
+      fresh_value.full_state,
+      fresh_value.control);
+    const auto adjoint_audit = verification::audit_adjoint_solution(
+      fresh_problem,
+      fresh_application,
+      fresh_derivative.adjoint,
+      fresh_derivative.full_adjoint,
+      fresh_derivative.state_derivative);
+    require_solution_audit(state_audit, adjoint_audit, "executable native");
+    const auto operators = verification::make_dense_operators(
+      fresh_problem, fresh_application);
+    const double stationarity = verification::dense_mass_norm(
+      operators.M, fresh_derivative.reduced_derivative);
+    require(stationarity <= 1.1e-6,
+            "minimal Problem B executable reference failed stationarity audit");
+    fresh_application.output_results(fresh_value.full_state, native_output);
+
+    const auto application = binary_directory /
+                             "nmopt_external_step4_minimal_problem_b";
+    const auto command = shell_quote(application) + " " + shell_quote(output) +
+                         " > " + shell_quote(logfile) + " 2>&1";
+    require(std::system(command.c_str()) == 0,
+            "minimal Problem B executable returned failure");
+
+    const auto summary = read_consumer_summary(logfile);
+    require(summary.stopping_reason == "gradient_tolerance",
+            "minimal Problem B executable stopping reason differs from contract");
+    require(summary.free_state_dimension == native_problem.state_dimension() &&
+              summary.control_dimension == native_problem.control_dimension(),
+            "minimal Problem B executable dimensions differ from reference");
+    require(summary.accepted_iterations ==
+              native_result.accepted_iteration_count,
+            "minimal Problem B executable iteration count differs from reference");
+    require(summary.line_search_trials == native_result.line_search_trial_count,
+            "minimal Problem B executable trial count differs from reference");
+    require(scalar_matches(summary.objective, fresh_value.objective),
+            "minimal Problem B executable objective differs from reference");
+    require(scalar_matches(summary.gradient, stationarity),
+            "minimal Problem B executable gradient differs from dense audit");
+    require(std::filesystem::exists(output),
+            "minimal Problem B executable did not produce its output");
+    require(output_payload(native_output) == output_payload(output),
+            "minimal Problem B executable output differs from reference");
   }
 
   void
@@ -529,12 +719,21 @@ main(const int argc, char **argv)
 {
   try
     {
+      const auto binary_directory =
+        std::filesystem::absolute(argv[0]).parent_path();
       const std::vector<nmopt::test_support::Scenario> scenarios{
         {"minimal_problem_b_binding",
          "nmopt.external.tutorial_step_4.minimal_problem_b_binding_contract",
          {"dealii", "application", "external", "minimal", "problem_b"},
          600,
-         run_minimal_problem_b_contract}};
+         run_minimal_problem_b_contract},
+        {"minimal_problem_b_executable",
+         "nmopt.external.tutorial_step_4.minimal_problem_b",
+         {"dealii", "application", "external", "minimal", "problem_b"},
+         600,
+         [binary_directory] {
+           run_minimal_problem_b_executable(binary_directory);
+         }}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

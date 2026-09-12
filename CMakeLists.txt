@@ -227,34 +227,14 @@ if(NMOPT_ENABLE_DEAL_II)
     nmopt_add_dealii_test(
       nmopt_external_step4_minimal_problem_a_contract_test
       tests/application/external_step4_minimal_problem_a_contract.cc)
+    add_dependencies(nmopt_external_step4_minimal_problem_a_contract_test
+                     nmopt_external_step4_minimal_problem_a)
 
     nmopt_add_dealii_test(
       nmopt_external_step4_minimal_problem_b_contract_test
       tests/application/external_step4_minimal_problem_b_contract.cc)
-
-    set(nmopt_external_step4_minimal_root
-        "${CMAKE_SOURCE_DIR}/runs/external-dealii/step-4/minimal")
-    file(MAKE_DIRECTORY
-      "${nmopt_external_step4_minimal_root}/ctest/problem-a"
-      "${nmopt_external_step4_minimal_root}/ctest/problem-b")
-    add_test(
-      NAME nmopt.external.tutorial_step_4.minimal_problem_a
-      COMMAND nmopt_external_step4_minimal_problem_a
-        "${nmopt_external_step4_minimal_root}/ctest/problem-a/solution.vtk")
-    set_tests_properties(
-      nmopt.external.tutorial_step_4.minimal_problem_a
-      PROPERTIES
-        LABELS "dealii;application;external;minimal;problem_a"
-        TIMEOUT 360)
-    add_test(
-      NAME nmopt.external.tutorial_step_4.minimal_problem_b
-      COMMAND nmopt_external_step4_minimal_problem_b
-        "${nmopt_external_step4_minimal_root}/ctest/problem-b/solution.vtk")
-    set_tests_properties(
-      nmopt.external.tutorial_step_4.minimal_problem_b
-      PROPERTIES
-        LABELS "dealii;application;external;minimal;problem_b"
-        TIMEOUT 360)
+    add_dependencies(nmopt_external_step4_minimal_problem_b_contract_test
+                     nmopt_external_step4_minimal_problem_b)
 
     nmopt_add_dealii_test(
       nmopt_external_step4_nmopt_contract_test

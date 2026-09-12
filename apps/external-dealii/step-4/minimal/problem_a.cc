@@ -2,10 +2,13 @@
 
 #include "nmopt/solvers/reduced_gradient.hpp"
 
+#include <chrono>
 #include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace
@@ -36,6 +39,24 @@ namespace
     parameters.backtracking_factor = 0.5;
     return parameters;
   }
+
+  std::filesystem::path
+  default_output_path()
+  {
+    const auto root = std::filesystem::current_path() /
+                      "runs/external-dealii/step-4/minimal/manual/problem-a";
+    std::filesystem::create_directories(root);
+    const auto timestamp = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count();
+    for (unsigned int attempt = 0;; ++attempt)
+      {
+        const auto directory = root /
+                               (std::to_string(timestamp) + "-" +
+                                std::to_string(attempt));
+        if (std::filesystem::create_directory(directory))
+          return directory / "solution.vtk";
+      }
+  }
 }
 
 int
@@ -51,7 +72,7 @@ main(const int argc, char **argv)
     {
       const std::filesystem::path output =
         argc == 2 ? std::filesystem::path(argv[1]) :
-                    std::filesystem::path("solution.vtk");
+                    default_output_path();
       if (output.has_parent_path())
         std::filesystem::create_directories(output.parent_path());
 
@@ -76,7 +97,9 @@ main(const int argc, char **argv)
       const auto &state = result.final_evaluation.state.block(0);
       problem.output_results(state, output);
 
-      std::cout << "minimal Problem A consumer completed\n"
+      std::cout << std::setprecision(17)
+                << "minimal Problem A consumer completed\n"
+                << "stopping_reason gradient_tolerance\n"
                 << "accepted_iterations " << result.accepted_iterations << '\n'
                 << "line_search_trials " << result.line_search_trial_count << '\n'
                 << "final_objective "

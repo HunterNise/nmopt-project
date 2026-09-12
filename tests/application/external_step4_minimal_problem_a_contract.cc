@@ -10,10 +10,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -37,8 +39,24 @@ namespace
 
   struct FreshAudit
   {
+    Vector state;
     Vector adjoint;
     Vector gradient;
+  };
+
+  struct ConsumerSummary
+  {
+    bool        completed = false;
+    bool        has_stopping_reason = false;
+    std::string stopping_reason;
+    bool        has_accepted_iterations = false;
+    std::size_t accepted_iterations = 0;
+    bool        has_line_search_trials = false;
+    std::size_t line_search_trials = 0;
+    bool        has_objective = false;
+    double      objective = 0.0;
+    bool        has_gradient = false;
+    double      gradient = 0.0;
   };
 
   void
@@ -107,17 +125,96 @@ namespace
   }
 
   FreshAudit
-  fresh_audit(ProblemA &problem, const Vector &state, const Vector &control)
+  fresh_audit(const Vector &control)
   {
+    ProblemA fresh_problem;
+    auto state_result = fresh_problem.solve_state(control);
+    require(state_result.evidence.converged,
+            "minimal Problem A fresh state solve did not converge");
     const auto objective_derivative =
-      problem.objective_derivative(state, control);
-    const auto adjoint = problem.solve_adjoint(objective_derivative.state);
+      fresh_problem.objective_derivative(state_result.solution, control);
+    auto adjoint = fresh_problem.solve_adjoint(objective_derivative.state);
     require(adjoint.evidence.converged,
             "minimal Problem A fresh adjoint solve did not converge");
-    const auto control_pullback = problem.control_vjp(adjoint.solution);
+    const auto control_pullback = fresh_problem.control_vjp(adjoint.solution);
     Vector gradient = objective_derivative.control;
     gradient.add(-1.0, control_pullback);
-    return {adjoint.solution, std::move(gradient)};
+    return {std::move(state_result.solution),
+            std::move(adjoint.solution),
+            std::move(gradient)};
+  }
+
+  std::string
+  shell_quote(const std::filesystem::path &path)
+  {
+    std::string quoted = "'";
+    for (const char character : path.string())
+      if (character == '\'')
+        quoted += "'\\''";
+      else
+        quoted += character;
+    quoted += "'";
+    return quoted;
+  }
+
+  ConsumerSummary
+  read_consumer_summary(const std::filesystem::path &logfile)
+  {
+    std::ifstream input(logfile);
+    require(static_cast<bool>(input),
+            "minimal Problem A executable output could not be opened");
+
+    ConsumerSummary summary;
+    std::string line;
+    while (std::getline(input, line))
+      {
+        if (line == "minimal Problem A consumer completed")
+          summary.completed = true;
+
+        std::istringstream stream(line);
+        std::string key;
+        stream >> key;
+        if (key == "stopping_reason")
+          {
+            require(static_cast<bool>(stream >> summary.stopping_reason),
+                    "minimal Problem A executable stopping reason is malformed");
+            summary.has_stopping_reason = true;
+          }
+        else if (key == "accepted_iterations")
+          {
+            require(static_cast<bool>(stream >> summary.accepted_iterations),
+                    "minimal Problem A executable iteration count is malformed");
+            summary.has_accepted_iterations = true;
+          }
+        else if (key == "line_search_trials")
+          {
+            require(static_cast<bool>(stream >> summary.line_search_trials),
+                    "minimal Problem A executable trial count is malformed");
+            summary.has_line_search_trials = true;
+          }
+        else if (key == "final_objective")
+          {
+            require(static_cast<bool>(stream >> summary.objective),
+                    "minimal Problem A executable objective is malformed");
+            summary.has_objective = true;
+          }
+        else if (key == "final_gradient_norm")
+          {
+            require(static_cast<bool>(stream >> summary.gradient),
+                    "minimal Problem A executable gradient is malformed");
+            summary.has_gradient = true;
+          }
+      }
+
+    require(summary.completed,
+            "minimal Problem A executable did not report completion");
+    require(summary.has_stopping_reason && summary.has_accepted_iterations &&
+              summary.has_line_search_trials && summary.has_objective &&
+              summary.has_gradient,
+            "minimal Problem A executable report is incomplete");
+    require(std::isfinite(summary.objective) && std::isfinite(summary.gradient),
+            "minimal Problem A executable report is not finite");
+    return summary;
   }
 
   std::string
@@ -156,15 +253,17 @@ namespace
     verification::require_finite(returned_adjoint, label + " adjoint");
     verification::require_finite(returned_gradient, label + " gradient");
 
+    const auto fresh = fresh_audit(control);
     const auto state_audit =
-      verification::state_equation_residual(problem, state, control);
-    const auto fresh = fresh_audit(problem, state, control);
+      verification::state_equation_residual(problem, fresh.state, control);
     const auto adjoint_audit =
-      verification::adjoint_equation_residual(problem, fresh.adjoint, state);
+      verification::adjoint_equation_residual(problem, fresh.adjoint, fresh.state);
     require(state_audit.normalized <= 1.0e-10,
             label + " state equation audit failed");
     require(adjoint_audit.normalized <= 1.0e-10,
             label + " adjoint equation audit failed");
+    require(vector_difference(state, fresh.state) <= 1.0e-10,
+            label + " returned state differs from fresh audit");
     require(vector_difference(returned_adjoint, fresh.adjoint) <= 1.0e-10,
             label + " returned adjoint differs from fresh audit");
     require(vector_difference(returned_gradient, fresh.gradient) <= 1.0e-10,
@@ -294,6 +393,65 @@ namespace
         throw;
       }
   }
+
+  void
+  run_minimal_problem_a_executable(
+    const std::filesystem::path &binary_directory)
+  {
+    const auto artifact = external_dealii_step4_test::create_unique_artifact_root(
+      std::filesystem::current_path() /
+        "runs/external-dealii/step-4/minimal/problem-a/executable",
+      "consumer");
+    const auto output = artifact / "solution.vtk";
+    const auto logfile = artifact / "stdout.txt";
+    const auto native_output = artifact / "native-solution.vtk";
+
+    Instrumentation native_instrumentation;
+    ProblemA native_problem(native_instrumentation);
+    NativeReduced native_reduced(native_problem, native_instrumentation);
+    const auto policy = external_dealii_step4::frozen_optimization_policy();
+    Vector initial_control(native_problem.control_dimension());
+    initial_control = 0.0;
+    const auto native_result = NativeSolver(native_reduced, policy).solve(
+      initial_control);
+    const auto oracle = verification::optimum_oracle(native_problem);
+    require(oracle.system_residual <= 1.0e-10 &&
+              oracle.stationarity_residual <= 1.0e-10,
+            "minimal Problem A executable dense oracle audit failed");
+    check_final_solution(native_problem,
+                         native_result.value.state,
+                         native_result.value.control,
+                         native_result.derivative.adjoint,
+                         native_result.derivative.reduced_derivative,
+                         oracle,
+                         "executable native Problem A");
+    native_problem.output_results(native_result.value.state, native_output);
+
+    const auto application = binary_directory /
+                             "nmopt_external_step4_minimal_problem_a";
+    const auto command = shell_quote(application) + " " + shell_quote(output) +
+                         " > " + shell_quote(logfile) + " 2>&1";
+    require(std::system(command.c_str()) == 0,
+            "minimal Problem A executable returned failure");
+
+    const auto summary = read_consumer_summary(logfile);
+    require(summary.stopping_reason == "gradient_tolerance",
+            "minimal Problem A executable stopping reason differs from contract");
+    require(summary.accepted_iterations ==
+              native_result.accepted_iteration_count,
+            "minimal Problem A executable iteration count differs from reference");
+    require(summary.line_search_trials == native_result.line_search_trial_count,
+            "minimal Problem A executable trial count differs from reference");
+    require(scalar_matches(summary.objective, native_result.value.objective),
+            "minimal Problem A executable objective differs from reference");
+    require(scalar_matches(summary.gradient,
+                           native_result.derivative.reduced_derivative.l2_norm()),
+            "minimal Problem A executable gradient differs from reference");
+    require(std::filesystem::exists(output),
+            "minimal Problem A executable did not produce its output");
+    require(output_payload(native_output) == output_payload(output),
+            "minimal Problem A executable output differs from reference");
+  }
 } // namespace
 
 int
@@ -301,12 +459,21 @@ main(const int argc, char **argv)
 {
   try
     {
+      const auto binary_directory =
+        std::filesystem::absolute(argv[0]).parent_path();
       const std::vector<nmopt::test_support::Scenario> scenarios{
         {"minimal_problem_a_binding",
          "nmopt.external.tutorial_step_4.minimal_problem_a_binding_contract",
          {"dealii", "application", "external", "minimal", "problem_a"},
          360,
-         run_minimal_problem_a_contract}};
+         run_minimal_problem_a_contract},
+        {"minimal_problem_a_executable",
+         "nmopt.external.tutorial_step_4.minimal_problem_a",
+         {"dealii", "application", "external", "minimal", "problem_a"},
+         360,
+         [binary_directory] {
+           run_minimal_problem_a_executable(binary_directory);
+         }}};
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)

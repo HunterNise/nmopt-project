@@ -26,7 +26,7 @@ minimal/problem_a_binding.hpp
   └── constructs the ReducedDTO
 
 integration/problem_a.hpp
-  └── owns the existing Step-4 Problem A operations and borrows the adapted app
+  └── owns the existing Step-4 Problem A operations and its prepared app
 
 source/adapted/step-4.cc
   └── owns the Step-4 mesh, FE, assembly, solves, and field output
@@ -40,8 +40,8 @@ this reduced evaluation consumes only the objective, objective derivative,
 full VJP, and solve services during a successful optimization.
 
 The control is the full 289-entry algebraic vector used by Step-4, and the
-consumer uses the identity metric. It therefore does not include Problem B's
-free-coordinate control or mass metric.
+consumer uses the identity metric. Problem A therefore has neither Problem
+B's free state/adjoint coordinates nor its mass metric.
 
 ## Problem B consumer
 
@@ -73,20 +73,40 @@ integration/problem_b_mass.hpp, and integration/problem_b_metric.hpp
 The B binding borrows `ProblemB`; `ProblemB` in turn borrows the prepared
 `Step4<2>` application. The application, problem, binding, metric, and solver
 therefore remain alive in that order. The 289 control entries are full
-algebraic coefficients, while the state and adjoint use 225 free coordinates.
-The mass metric is applied and inverted through the existing native B metric
-service; no A identity metric or boundary-coordinate control is substituted.
+algebraic coefficients, while the state and adjoint use 225 free coordinates;
+there is no free-coordinate control. The mass metric is applied and inverted
+through the existing native B metric service; the binding checks native metric
+convergence and returns the primal block required by `MetricT`, which has no
+public metric-solve report. No A identity metric or boundary-coordinate
+control is substituted.
+
+## Functional boundary and optional structure
+
+The functional wiring is the layout/callback/partition/solve-service/metric
+composition in each binding, followed by the `ReducedDTO` and solver setup in
+the entry point. The `ProblemABinding` and `ProblemBBinding` class wrappers,
+their named accessors, the frozen example policy, the command-line output
+argument, and the ignored default run destinations are local example choices;
+they are not additions to the public framework API. The state and adjoint
+callbacks translate actual native CG evidence into `LinearSolveReport` values,
+because those reports are part of the public solve-result contract. The
+consumers do not collect instrumentation, native comparison traces, dense
+oracles, or run manifests. Diagnostic type headers may still arrive
+transitively through reused application headers; removing that dependency is a
+separate cleanup question.
 
 ## Validation-only code
 
 The two `tests/application/external_step4_minimal_problem_*_contract.cc`
-files are outside the consumer paths. They invoke the new bindings and
-executable behavior while using the existing native references and independent
-dense A/B oracles to check matched optimization, fresh state/adjoint/gradient
-audits, oracle control distance, and output consistency. Their evidence is
-disposable and is written below the ignored `runs/` tree. The evaluated
-`evaluation/`, `verification/`, and `diagnostics/` directories likewise do not
-belong to the minimal consumers.
+files are outside the consumer paths. They invoke the new bindings and the
+actual executables while using native references and independent dense A/B
+oracles to check matched optimization, fresh state/adjoint/gradient audits,
+oracle control distance, reported execution fields, and output consistency.
+Their evidence is disposable and is written below the ignored `runs/` tree.
+The evaluated `evaluation/`, `verification/`, and `diagnostics/` directories
+likewise do not belong to the minimal consumers. In particular, their
+instrumentation and metric-solve records are verification support, not
+consumer requirements.
 
 ## Build and run
 

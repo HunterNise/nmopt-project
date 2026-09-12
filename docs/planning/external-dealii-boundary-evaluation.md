@@ -7,9 +7,9 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Field | Status |
 | --- | --- |
 | Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary`, followed by the accepted minimal-consumer usability follow-up |
-| Current unit | MC5 complete locally – Close acceptance and executable-evidence gaps, pending review/commit |
-| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 committed as `99bef20`; MC3 committed as `c545d10`; MC4 committed as `edf16f2`; MC5 implementation and validation complete locally, pending review/commit |
-| Next unit | MC6 – Correct the assessment and consumer documentation, after MC5 review/commit |
+| Current unit | MC6 complete locally – Correct the assessment and consumer documentation, pending review/commit |
+| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 committed as `1d37bf5`; MC2 committed as `99bef20`; MC3 committed as `c545d10`; MC4 committed as `edf16f2`; MC5 committed as `f5f2fe5`; MC6 documentation complete locally, pending review/commit |
+| Next unit | None selected; close the minimal-consumer follow-up after MC6 review/commit |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -875,10 +875,10 @@ the B-specific lifetime, coordinate, and mass-metric obligations.
 The assessment counts source shape using one stated convention, labels
 newcomer usability untested, and concludes that the two working examples do
 not justify a generic helper, API change, diagnostic cleanup, or performance
-experiment. The minimal README now links the assessment. MC3 is complete
-locally on 2026-09-12, pending review and commit; MC4 then trimmed bounded
-consumer structure and was committed as `edf16f2`. MC5 follows for the
-remaining acceptance and executable-output evidence corrections.
+experiment. The minimal README now links the assessment. MC3 was committed as
+`c545d10`; MC4 then trimmed bounded consumer structure and was committed as
+`edf16f2`. MC5 follows for the remaining acceptance and executable-output
+evidence corrections.
 
 ### MC4 – Trim optional minimal binding structure
 
@@ -916,8 +916,30 @@ Problem B root.
 
 The focused A/B binding and executable scenarios passed locally on
 2026-09-12. The required full pipelines also passed: `debug-dealii` 195/195
-and `debug-neutral` 67/67. MC5 is complete locally, pending review and commit;
-MC6 remains to correct the assessment and consumer documentation.
+and `debug-neutral` 67/67. MC5 was committed as `f5f2fe5`; MC6 follows to
+correct the assessment and consumer documentation.
+
+### MC6 – Correct the assessment and consumer documentation
+
+MC6 reconciles the README and assessment with the final MC4/MC5 source and
+validation structure. The ownership map now states that `ProblemA` owns its
+prepared Step-4 application, while Problem B uses free state/adjoint
+coordinates and full control coordinates. It distinguishes required public
+layout/callback/partition/solve/metric/DTO work from local binding packaging,
+example policy, CLI/output handling, and test-only diagnostics.
+
+The assessment explicitly records that the B metric checks native inversion
+evidence but returns only the primal block required by the public `MetricT`
+interface; metric-solve reports are evaluation instrumentation, not consumer
+requirements. It adds a compact A/B construction comparison, updates the
+post-MC4/MC5 source counts, records the actual executable validation, keeps
+newcomer usability untested, and removes any requirement for another
+application or performance measurements before a future ergonomic question.
+
+MC6 is documentation-only and introduces no helper, API, numerical, or run
+evidence change. The report and README now make the functional/accessory
+boundary explicit. It is complete locally on 2026-09-12, pending review and
+commit; no further implementation unit is selected for this follow-up.
 
 ## 10. Verification execution and artifacts
 

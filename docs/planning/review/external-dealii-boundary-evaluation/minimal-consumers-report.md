@@ -1,186 +1,190 @@
 # Minimal Step-4 consumer assessment
 
-Status: complete MC3 assessment for the separately accepted minimal-consumer
-follow-up. This report compares the two runnable consumers at commit
-`99bef20` and does not reopen the completed G1 or G2 evaluations.
+Status: MC6 documentation correction, reflecting the committed MC1–MC5
+consumer work through `f5f2fe5`. This report compares the two runnable
+consumers and does not reopen the completed G1 or G2 evaluations.
 
 ## Result
 
 The current public boundary is sufficient to wire both existing Step-4
 problems into the reduced optimizer without changing shared nmopt, the
-compiler, or the deal.II backend. The functional code is explicit and
-application-owned. It is not a trivial one-line connection: the application
-author must construct layouts, all five executable callbacks, the state/control
-partition, native solve reports, a metric, a reduced DTO, and the optimizer
-policy.
-
-Problem A and Problem B share almost all of that public-contract construction.
-The B-specific additions are real application choices, not generic framework
-ceremony: B uses a prepared `Step4<2>` borrowed by `ProblemB`, maps between
-free state and full state coordinates, and adapts its nonidentity mass metric.
-The examples therefore answer the usability question without justifying a
-helper or a public API change.
+compiler, or the deal.II backend. The consumers are explicit application
+examples: each author must assemble the public layouts, executable callbacks,
+state/control partition, native solve services, metric, reduced DTO, and
+optimizer configuration.
 
 The examples demonstrate functional wiring for these two linear, symmetric,
-serial Step-4 cases. They do not establish global minimality, newcomer
-usability, performance materiality, or applicability to nonlinear,
+serial Step-4 cases. They are not claims of globally smallest integration,
+production readiness, newcomer usability, or applicability to nonlinear,
 nonsymmetric, constrained, distributed, compiler, or packaged applications.
+No unfamiliar-user exercise was performed.
+
+Problem A and Problem B use the same public composition shape. B additionally
+has genuine application-specific work: it borrows a prepared `Step4<2>`
+application through `ProblemB`, uses free state and adjoint coordinates with
+full control coordinates, reconstructs the physical state for output, and
+adapts a nonidentity mass metric. These differences are not generic framework
+ceremony.
 
 ## Ownership map
 
-The following is the boundary a user needs to understand. Existing numerical
-code is listed to distinguish reused application capability from newly authored
-consumer wiring.
+The following map separates reused numerical capability, functional consumer
+wiring, and accessory evaluation support.
 
-| Area | Problem A | Problem B | Functional or accessory? |
+| Area | Problem A | Problem B | Role |
 | --- | --- | --- | --- |
-| Step-4 discretization and output | `source/adapted/step-4.cc`, reused by `integration/problem_a.hpp` | `source/adapted/step-4.cc`, borrowed by `integration/problem_b.hpp` | Existing application capability |
-| PDE/OCP operations | `integration/problem_a.hpp` owns residual, JVP, VJP, objective, derivative, and native solves | `integration/problem_b.hpp` plus `problem_b_coordinates.hpp`, `problem_b_mass.hpp`, and `problem_b_metric.hpp` own the same operations, lifting, coupling, and mass geometry | Existing application formulation |
-| Public binding | `minimal/problem_a_binding.hpp` | `minimal/problem_b_binding.hpp` | Required functional wiring |
-| Application entry point | `minimal/problem_a.cc` constructs `ProblemA`, zero control, policy, solver, and output | `minimal/problem_b.cc` constructs `Step4<2>`, prepares it, constructs `ProblemB`, zero control, policy, solver, state reconstruction, and output | Required consumer behavior |
-| Evaluation baseline | `integration/nmopt_binding.hpp` and native A evaluation | `integration/nmopt_problem_b_binding.hpp` and native B evaluation | Accessory comparison support |
+| Step-4 discretization and writer | `source/adapted/step-4.cc`; `integration/problem_a.hpp` owns its prepared `Step4<2>` application | `source/adapted/step-4.cc`; `minimal/problem_b.cc` prepares `Step4<2>` and `integration/problem_b.hpp` borrows it | Existing application capability |
+| PDE/OCP operations | `integration/problem_a.hpp` owns residual, derivatives, objective, adjoint, and control pullback | `integration/problem_b.hpp`, `problem_b_coordinates.hpp`, `problem_b_mass.hpp`, and `problem_b_metric.hpp` own residual, derivatives, objective, coordinates, coupling, and mass operations | Existing application formulation |
+| Public binding | `minimal/problem_a_binding.hpp` supplies layouts, five callbacks, solve wrappers, partition, and identity metric | `minimal/problem_b_binding.hpp` supplies the same public pieces plus B's mass metric adapter and coordinate-aware formulation calls | Required functional wiring |
+| Entry point | `minimal/problem_a.cc` constructs `ProblemA`, binding, zero control, policy, solver, and output | `minimal/problem_b.cc` constructs/prepares the application, `ProblemB`, binding, zero control, policy, solver, reconstruction, and output | Required consumer behavior |
+| Evaluated reference | Native A reduced evaluation/optimizer and `integration/nmopt_binding.hpp` | Native B reduced evaluation/optimizer and `integration/nmopt_problem_b_binding.hpp` | Accessory comparison support |
 | Independent checks | `tests/application/external_step4_minimal_problem_a_contract.cc` | `tests/application/external_step4_minimal_problem_b_contract.cc` | Accessory verification |
 | Evidence and diagnostics | `evaluation/`, `verification/`, `diagnostics/`, and ignored `runs/` artifacts | Same directories and artifact role | Accessory; not needed by the consumer |
 
-The minimal bindings deliberately borrow the existing `ProblemA` or
-`ProblemB`; they do not own an evaluation reference, instrumentation, oracle,
-comparison ledger, or run manifest. `ProblemA` internally owns its prepared
-Step-4 application. `ProblemB` borrows the application supplied by its caller,
-so the B entry point makes the application → problem → binding → solver
-lifetime order visible. In both cases the application and problem outlive the
-callbacks and output operation.
+`ProblemABinding` and `ProblemBBinding` are local containers for the borrowed
+objects and callbacks. Their class names and convenience accessors are not
+new public framework abstractions. After MC4, solve services are constructed
+at the `ReducedDTO` boundary rather than retained as a redundant member.
+
+The lifetime obligations are functional: A's `ProblemA` owns its prepared
+Step-4 application and outlives its binding and solver; B's entry point keeps
+the prepared application alive before `ProblemB`, its binding, metric, and
+solver. The binding callbacks borrow the corresponding problem and must not
+outlive it.
 
 ## Minimum functional wiring
 
-The minimum here means the smallest complete path demonstrated by these
-examples, not a claim that every external application will need exactly these
+Here “minimum” means the smallest complete path demonstrated by these
+examples, not a proof that every external application needs exactly these
 lines.
 
-### Shared A/B work
+### Shared public-contract work
 
-Each consumer author writes:
+Each consumer author supplies:
 
-- a variable layout with `state` and `control` blocks and a residual-test
-  layout;
+- a variable layout containing `state` and `control` blocks and a residual
+  test layout;
 - all five `CallbackExecutableModelT` operations: residual, residual JVP,
   residual VJP, objective, and objective derivative;
 - a `StateControlPartitionT` and state/adjoint solve callbacks;
-- translation of native CG evidence into `LinearSolveReport` values;
-- a `ReducedDTOT`, zero initial control, the frozen reduced-solver policy, and
-  the solver invocation; and
-- application-owned final-state output.
+- actual native iterative evidence translated into `LinearSolveReport` values;
+- a `MetricT`, a `ReducedDTOT`, an initial control, and a solver invocation;
+  and
+- application-owned output if a physical field or checkpoint is required.
 
-The reduced first-order path does not call every callback during a successful
-optimization, but the current executable-model contract still requires all
-five. The state and adjoint callbacks must preserve native convergence and
-failure behavior; they cannot report a failed native solve as an exact solve.
+The current executable-model contract requires all five callbacks even though
+the selected first-order reduced optimization does not call residual or JVP
+on its successful path. State and adjoint callbacks must preserve native
+convergence and failure behavior; they cannot label a failed native solve as
+an exact solve.
 
-### Problem A additions
+### A-specific work
 
-The A consumer uses the full 289-entry algebraic control and a local identity
-`MetricT`. `ProblemA` provides the native operations and retains the adapted
-Step-4 application internally. Final output can use the retained state
-directly.
+A uses the full 289-entry algebraic control and a local identity metric.
+`ProblemA` provides the native operations and owns the prepared Step-4
+application, so its retained solver state can be sent directly to the writer.
 
-### Problem B additions
+### B-specific work
 
-The B consumer uses 225 free state/adjoint entries and 289 full control
-entries. Its binding retains the existing B mass/coupling and coordinate
-objects through `ProblemB`, and supplies a local `MetricT` adapter whose
-inverse calls the native mass CG solve and returns actual convergence evidence.
-The entry point reconstructs the full physical state before calling the
-existing Step-4 writer. These are B's mathematical and ownership requirements,
-not generic work that should be removed from the example.
+B uses 225 free state/adjoint entries and 289 full control entries. It does
+not use a free-coordinate control. `ProblemB` owns the free/full coordinate
+maps, lifting, coupling, objective, derivatives, and native mass service. The
+entry point reconstructs the full state before output.
 
-## What belongs only to evaluation
+The local `ProblemBMassMetric` adapts the native mass service to `MetricT`.
+Its inverse checks the native CG result and returns the primal block required
+by the public metric interface. The public metric interface does not return a
+metric-solve report. State and adjoint solve wrappers do return public solve
+reports because those reports are part of `FormulationSolveResultT`.
 
-The focused contract tests intentionally contain much more code than the
-consumers. They create separate native and public instances, run matched
-optimization, compare histories and vectors, recompute fresh state/adjoint and
-gradient values, inspect dense operators, perform the independent dense mass
-stationarity audit and KKT oracle check, compare output payloads, and write
-ignored evidence. None of that is needed for an external application to run
-the reduced solver.
+## Functional versus accessory structure
 
-The older evaluated bindings remain useful as comparison fixtures, but they
-are not the minimal path. They add optional instrumentation and, especially
-for B, hide application construction inside the evaluated binding. Native
-optimization loops, dense verification, operation attribution, exception
-evidence, and run artifacts belong to the evaluation layers. Removing them
-from `minimal/` is the meaningful cleanup; deleting the historical evaluation
-layers would erase a different responsibility.
+The following distinctions prevent the example's implementation choices from
+being mistaken for universal nmopt obligations.
 
-No tracked run evidence is part of this follow-up. The ignored `runs/` tree
-and ignored build-profile artifacts are recreated by the focused tests and
-manual commands documented in the [minimal consumer README](../../../../apps/external-dealii/step-4/minimal/README.md).
+| Concern | Required for this consumer path | Local or evaluation-only choice |
+| --- | --- | --- |
+| Layouts, five callbacks, partition, solve services | Yes; the current public contracts require them | The `ProblemABinding`/`ProblemBBinding` class wrappers and their names are local packaging |
+| State/adjoint solve reports | Yes; translate actual native CG evidence to `LinearSolveReport` | Optional counters, serialized solve records, and native optimization traces |
+| Metric | Yes; A uses identity and B uses its mass metric | The metric class names and retained-object arrangement are local implementation choices |
+| `ReducedDTO` and optimizer policy | The DTO and a complete policy are needed to run the selected example | Zero initialization, frozen tolerances, stopping choice, CLI parsing, and report formatting are example policy |
+| Output | Application-owned if the consumer must write a field | VTK comparison, timestamp stripping, output logs, and ignored run allocation are test support |
+| Diagnostics | No instrumentation is instantiated by either consumer | Diagnostic headers may remain transitive dependencies of reused application headers; purging them is a separate cleanup |
+
+The focused tests contain much more code than the consumers. They create
+separate native and public instances, compare vectors and histories, recompute
+fresh state/adjoint/covector values, use dense A/B oracles, audit final
+stationarity, validate executable reports and VTK payloads, and write ignored
+evidence. None of that is needed for an external application to run the
+reduced solver.
+
+## A/B construction comparison
+
+| Construction concern | Problem A | Problem B |
+| --- | --- | --- |
+| Layouts | Two variable blocks (`state`, `control`) plus one test block; both problem vectors have 289 entries | The same block structure; state/adjoint have 225 free entries and control has 289 full entries |
+| Five callbacks | Block vectors are passed to `ProblemA`'s full-coordinate residual, derivative, objective, and VJP operations | The same block conversions feed `ProblemB`; its formulation applies free/full coordinate and coupling operations |
+| Solve wrappers | State and adjoint callbacks call `ProblemA` and wrap native vectors and actual CG reports | State and adjoint callbacks call `ProblemB` and perform the corresponding free-coordinate wrapping and report translation |
+| Metric adaptation | Local identity `MetricT` copies the control block in both directions | Local `ProblemBMassMetric` forwards mass apply/inverse, checks native convergence, and returns the primal block; it exposes no metric report |
+| Partition and DTO | One state/control partition; solve services are passed directly while constructing `ReducedDTO` | Same partition/DTO shape, with B's metric and coordinate-aware solve services |
+| Lifetime | The binding borrows `ProblemA`, which owns its prepared application | The binding borrows `ProblemB`, which borrows the prepared application; application → problem → binding → metric/DTO/solver must remain alive |
+| Output | Retained state is written directly through `ProblemA` | Free state is reconstructed to a full state before the existing Step-4 writer is called |
+
+This comparison identifies repeated public-contract construction and the
+real B-specific numerical/ownership additions without assigning subjective
+percentages or treating the local class layout as required API surface.
 
 ## Source-size observation
 
-These counts use nonblank, non-comment physical lines, omitting lines whose
+These counts are nonblank, non-comment physical lines, omitting lines whose
 first non-whitespace characters are `//` and retaining code-bearing lines.
-They are descriptive observations, not acceptance thresholds. Existing
-application mathematics and the adapted source are not counted as new
+They are descriptive observations, not acceptance thresholds. The counts
+reflect MC4's consumer cleanup and MC5's test-only executable validation;
+existing application mathematics and adapted source are not counted as new
 consumer wiring.
 
 | Scope | Problem A | Problem B |
 | --- | ---: | ---: |
-| Minimal binding | 216 | 232 |
-| Minimal entry point | 85 | 90 |
-| Minimal functional source total | 301 | 322 |
+| Minimal binding | 206 | 222 |
+| Minimal entry point | 107 | 112 |
+| Minimal functional source total | 313 | 334 |
 | Evaluated nmopt binding | 235 | 336 |
-| Focused minimal contract test | 294 | 517 |
+| Focused minimal contract test | 451 | 705 |
 | Native reduced evaluation and optimizer | 327 | 459 |
 
-The B functional consumer is 21 code-bearing lines larger in this snapshot.
-That small difference should not be read as a general scaling law: B's
-existing formulation is substantially different, and the line count does not
-measure conceptual or runtime cost. The B evaluated binding is 101 lines
-larger than A's evaluated binding, reflecting B-specific coordinate and metric
-adaptation in addition to its application ownership and instrumentation. The
-focused B test is larger because it contains the independent dense and output
-checks, not because the B consumer needs those checks.
+B's functional consumer is 21 code-bearing lines larger in this snapshot,
+reflecting its coordinate and mass-metric requirements. The larger B contract
+test contains dense/reference and executable checks; those lines do not
+belong to the functional consumer.
 
-## Concepts, coupling, and documentation
+## Validation and usability limits
 
-The public concepts that an external author must learn are:
+MC5 extended the existing A/B contract-test registries so their executable
+scenarios launch the actual minimal programs. Each scenario checks completion,
+stopping reason, relevant dimensions, iteration counts, objective, gradient
+norm, and generated VTK data against a freshly audited native reference. A's
+final audit independently recomputes state before adjoint and covector
+checks. The focused scenarios and the required Debug pipelines passed at
+`f5f2fe5`:
 
-1. block layouts identify ordered spaces and dimensions; raw vector sizes are
-   not enough;
-2. callbacks use block primal/covector wrappers and must return compatible
-   layouts;
-3. the reduced DTO separates the full executable model from state/control
-   partition and native state/adjoint solves;
-4. solve reports carry native iterative evidence and failure status;
-5. a metric maps the reduced covector to the optimizer's search direction; and
-6. callback captures impose an application/problem lifetime obligation.
+- `debug-dealii`: 195/195;
+- `debug-neutral`: 67/67.
 
-The repeated mechanical conversions are the vector-to-block wrappers,
-native solve evidence to public solve reports, native derivative structs to
-block covectors, and (for B) free/full coordinate reconstruction. The full
-residual VJP is also a repeated public runtime operation in the B path, but
-its performance materiality was not measured here. These obligations are
-visible in the examples and are not evidence of a correctness defect.
-
-The [public integration reference](../../../reference/external-dealii-solver-integration.md)
-documents the common callback, layout, solve, metric, reduced-DTO, and
-lifetime contracts. The minimal README adds the concrete A/B ownership map and
-commands. A future documentation improvement could add a short example of a
-borrowed problem plus an application-specific iterative metric adapter to the
-public reference; the current examples are already functional and this is not
-an accepted API or implementation task.
-
-No unfamiliar-user exercise was performed. Successful compilation and
-execution are evidence of functionality, not evidence that the authoring
-surface is easy for a newcomer.
+The executable and contract outputs remain ignored run artifacts below
+`runs/external-dealii/step-4/minimal/`; no tracked run evidence is part of
+this follow-up. Successful compilation and execution demonstrate
+functionality, not ease of authoring for an unfamiliar user.
 
 ## Decision
 
-Keep the two explicit consumers and their ownership separation. Close the
-minimal-consumer follow-up with no generic helper, control-only pullback API,
-shared-nmopt change, diagnostic cleanup, or further PDE experiment. Any
-mechanical helper or performance study requires a new, separately scoped
-question supported by another authentic application or direct measurements.
+Keep the two explicit consumers and their ownership separation. The tested
+public boundary is functionally sufficient, and no shared nmopt change,
+generic helper, control-only pullback API, diagnostic cleanup, or further PDE
+experiment is selected by this evidence.
 
-The report, README, and roadmap now make the minimum functional source and
-the accessory evaluation source explicit. The phase has no next implementation
-unit under this plan.
+The repeated construction can motivate a separately scoped ergonomic
+experiment if a future decision asks for it. That experiment need not be
+conditioned on first adding another application or collecting performance
+measurements; broader generality and performance are separate questions. Any
+such work would require its own scope and acceptance. This follow-up ends at
+the current decision gate.

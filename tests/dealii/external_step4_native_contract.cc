@@ -1699,15 +1699,14 @@ namespace
                   adjoint_audit.boundary_error <= 1.0e-11,
                 "native Problem B final adjoint audit failed");
 
-        const auto final_metric_gradient =
-          verification_metric.inverse_apply(
-            fresh_derivative.reduced_derivative);
-        require(final_metric_gradient.evidence.converged,
-                "native Problem B final metric gradient solve failed");
+        const auto operators =
+          external_dealii_step4::problem_b_verification::make_dense_operators(
+            verification_problem,
+            verification_tutorial);
         const double final_gradient_norm =
-          external_dealii_step4::problem_b_verification::mass_norm(
-            verification_metric,
-            final_metric_gradient.solution);
+          external_dealii_step4::problem_b_verification::dense_mass_norm(
+            operators.M,
+            fresh_derivative.reduced_derivative);
         require(final_gradient_norm <= 1.1e-6,
                 "native Problem B final metric gradient exceeds the audit "
                 "bound");
@@ -1717,10 +1716,6 @@ namespace
                       "native Problem B returned and fresh gradient norms "
                       "differ");
 
-        const auto operators =
-          external_dealii_step4::problem_b_verification::make_dense_operators(
-            verification_problem,
-            verification_tutorial);
         const auto oracle =
           external_dealii_step4::problem_b_verification::dense_kkt_oracle(
             operators);
@@ -1732,22 +1727,16 @@ namespace
         Step4<2> oracle_tutorial;
         oracle_tutorial.prepare_for_external_use();
         Problem oracle_problem(oracle_tutorial);
-        Metric  oracle_metric(oracle_problem.mass());
         Instrumentation oracle_instrumentation;
         Reduced oracle_reduced(oracle_problem, oracle_instrumentation);
         const auto oracle_value =
           oracle_reduced.evaluate_value(oracle.control);
         const auto oracle_derivative =
           oracle_reduced.augment_derivative(oracle_value);
-        const auto oracle_metric_gradient =
-          oracle_metric.inverse_apply(
-            oracle_derivative.reduced_derivative);
-        require(oracle_metric_gradient.evidence.converged,
-                "native Problem B oracle metric gradient solve failed");
         const double oracle_control_gradient_norm =
-          external_dealii_step4::problem_b_verification::mass_norm(
-            oracle_metric,
-            oracle_metric_gradient.solution);
+          external_dealii_step4::problem_b_verification::dense_mass_norm(
+            operators.M,
+            oracle_derivative.reduced_derivative);
         require(oracle_control_gradient_norm <= 1.0e-8,
                 "native Problem B oracle control gradient is not zero");
 

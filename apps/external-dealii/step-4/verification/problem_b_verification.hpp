@@ -348,6 +348,29 @@ namespace external_dealii_step4
       return std::sqrt(squared_norm);
     }
 
+    inline double
+    dense_mass_norm(const dealii::FullMatrix<double> &mass,
+                    const Vector &                     covector)
+    {
+      if (mass.m() != mass.n() ||
+          covector.size() != static_cast<unsigned int>(mass.m()))
+        throw std::invalid_argument(
+          "Problem B dense mass norm received incompatible dimensions");
+
+      dealii::LAPACKFullMatrix<double> factor(mass.m(), mass.n());
+      factor = mass;
+      factor.compute_lu_factorization();
+      Vector gradient = covector;
+      factor.solve(gradient);
+
+      require_finite(gradient, "Problem B dense mass gradient");
+      const double squared_norm = covector * gradient;
+      require_finite(squared_norm, "Problem B dense mass norm square");
+      if (!(squared_norm >= 0.0))
+        throw std::runtime_error("Problem B dense mass norm square is negative");
+      return std::sqrt(squared_norm);
+    }
+
     template <int dim, typename Application>
     DenseOperators
     make_dense_operators(const ProblemB<dim, Application> &problem,

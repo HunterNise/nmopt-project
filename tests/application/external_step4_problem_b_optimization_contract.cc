@@ -830,19 +830,16 @@ namespace
         require_audit(native_state_audit, native_adjoint_audit, "native");
         require_audit(nmopt_state_audit, nmopt_adjoint_audit, "nmopt");
 
-        const auto native_metric_gradient = verification_metric.inverse_apply(
-          fresh_native_derivative.reduced_derivative);
+        const auto operators =
+          external_dealii_step4::problem_b_verification::make_dense_operators(
+            verification_problem, verification_tutorial);
         const double native_final_gradient_norm =
-          external_dealii_step4::problem_b_verification::mass_norm(
-            verification_metric, native_metric_gradient.solution);
-        const auto nmopt_metric_gradient =
-          nmopt_verification_binding.metric().inverse_apply(
-            fresh_public_nmopt_derivative.reduced_derivative);
+          external_dealii_step4::problem_b_verification::dense_mass_norm(
+            operators.M, fresh_native_derivative.reduced_derivative);
         const double nmopt_final_gradient_norm =
-          external_dealii_step4::problem_b_verification::mass_norm(
-            verification_metric, nmopt_metric_gradient.block(0));
-        require(native_metric_gradient.evidence.converged,
-                "fresh native final metric gradient solve failed");
+          external_dealii_step4::problem_b_verification::dense_mass_norm(
+            operators.M,
+            fresh_public_nmopt_derivative.reduced_derivative.block(0));
         require(native_final_gradient_norm <= 1.1e-6 &&
                   nmopt_final_gradient_norm <= 1.1e-6,
                 "final metric gradient exceeds the audit bound");
@@ -852,9 +849,6 @@ namespace
                                  nmopt_final_gradient_norm),
                 "returned and fresh final gradient norms differ");
 
-        const auto operators =
-          external_dealii_step4::problem_b_verification::make_dense_operators(
-            verification_problem, verification_tutorial);
         const auto oracle =
           external_dealii_step4::problem_b_verification::dense_kkt_oracle(
             operators);
@@ -866,13 +860,10 @@ namespace
           verification_reduced.evaluate_value(oracle.control);
         const auto oracle_derivative =
           verification_reduced.augment_derivative(oracle_value);
-        const auto oracle_metric_gradient = verification_metric.inverse_apply(
-          oracle_derivative.reduced_derivative);
         const double oracle_gradient_norm =
-          external_dealii_step4::problem_b_verification::mass_norm(
-            verification_metric, oracle_metric_gradient.solution);
-        require(oracle_metric_gradient.evidence.converged &&
-                  oracle_gradient_norm <= 1.0e-8,
+          external_dealii_step4::problem_b_verification::dense_mass_norm(
+            operators.M, oracle_derivative.reduced_derivative);
+        require(oracle_gradient_norm <= 1.0e-8,
                 "Problem B oracle reduced gradient is not zero");
 
         Vector native_control_difference = native_result.value.control;

@@ -800,10 +800,14 @@ frozen protocol; their bounded attribution is recorded by G2 below.
 
 ### G2 – Attribution review
 
-Completed on 2026-09-12. The
+Completed on 2026-09-12, including the bounded audit and attribution
+corrections. The
 [Problem B boundary evaluation report](review/external-dealii-boundary-evaluation/problem-b-report.md)
 records the factual comparison, functional-wiring ownership map, measured
-runtime incidence, verification limits, and next decision. Genuine FE
+runtime incidence, verification limits, and next decision. Its final
+stationarity values use the required independent dense mass audit, and its
+ignored artifacts retain metric-solve and purpose-labeled matrix-action
+records. Genuine FE
 distributed control, fixed essential state data, rectangular mass coupling,
 and the nonidentity mass metric remained application-owned for the tested
 case, while the existing public nmopt contracts represented the reduced

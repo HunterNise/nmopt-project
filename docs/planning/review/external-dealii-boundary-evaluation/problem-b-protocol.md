@@ -1,9 +1,10 @@
 # External deal.II Problem B evaluation protocol
 
 Status: PB0 protocol frozen on 2026-09-11; PB1–PB5 completed on 2026-09-12.
-The resulting distributed-control comparison and G2 attribution review are
-recorded in the [Problem B report](problem-b-report.md). The frozen protocol
-remains the execution authority; no protocol amendment was made.
+The resulting distributed-control comparison and corrected G2 attribution
+review are recorded in the [Problem B report](problem-b-report.md). The
+frozen protocol remains the execution authority; no protocol amendment was
+made.
 
 This is the execution contract for the next bounded experiment, not a new
 nmopt interface or a universal FE-control policy. The
@@ -386,11 +387,12 @@ reviewable change; preserve the gate and native-before-binding order. Follow
 Debug pipelines, existing machine limits, and no release builds for this
 correctness experiment. Add exact runnable commands as executables exist.
 
-Current status: PB1–PB5 complete; G2 attribution review is recorded in the
-[Problem B report](problem-b-report.md). The implementation gate is closed
-for this tested case. At each future handoff update the ignored unit record
-and the tracked current status, naming tested revisions/dirty inputs and
-actual evidence locations.
+Current status: PB1–PB5 complete; G2 attribution review, including the
+independent dense stationarity audit and retained metric/matrix-action
+evidence, is recorded in the [Problem B report](problem-b-report.md). The
+implementation gate is closed for this tested case. At each future handoff
+update the ignored unit record and the tracked current status, naming tested
+revisions/dirty inputs and actual evidence locations.
 
 G2 compares incremental responsibilities and required operations, not an
 adapter line-count budget. Repeated mechanical construction can motivate a

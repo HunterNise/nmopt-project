@@ -1,12 +1,13 @@
 # External deal.II Problem B boundary evaluation: G2 report
 
-Status: successful Problem B comparison and completed G2 attribution review.
+Status: successful Problem B comparison and completed G2 attribution review,
+including independent stationarity and runtime-attribution corrections.
 Generated run artifacts remain ignored and are recreated by the commands below;
 no run evidence is tracked.
 
 Date: 2026-09-12  
-Evaluated source revision: `514c2d9` (`test(dealii): audit Problem B
-optimization acceptance`)  
+Evaluated source revision: `46aaa7b` (`test(dealii): retain Problem B operation
+attribution`)
 Protocol: [`problem-b-protocol.md`](problem-b-protocol.md)  
 Earlier decision: [`g1-report.md`](g1-report.md)
 
@@ -98,15 +99,17 @@ consumers, not a missing native operation.
 ## Evidence and observed results
 
 PB1 through PB5 were completed from the frozen B protocol. The implementation
-revision sequence is recorded in the ignored unit plans; the final acceptance
-source was committed as `514c2d9`. The relevant regenerated artifacts are:
+revision sequence is recorded in the ignored unit plans. The relevant
+regenerated artifacts are:
 
 - Native derivative and metric checks:
   `runs/external-dealii/step-4/problem-b/native-verification/derivative-metric-1789201388478789/`.
 - Native/public reduced-evaluation samples:
   `runs/external-dealii/step-4/problem-b/reduced-evaluation/comparison-1789201522707939/`.
-- Native/public matched optimization and final acceptance:
-  `runs/external-dealii/step-4/problem-b/optimization/paired-1789201523596225/`.
+- Corrected native/public matched optimization and final acceptance:
+  `runs/external-dealii/step-4/problem-b/optimization/paired-1789207421441367/`.
+- Corrected standalone native optimization attribution:
+  `runs/external-dealii/step-4/problem-b/optimization/native-1789207286761907/`.
 
 The five reduced-evaluation controls—zero, constant, ramp, alternating, and
 repeated ramp—matched in objective, state, adjoint, reduced covector, and
@@ -118,13 +121,39 @@ by `gradient_tolerance` after five accepted iterations and five line-search
 trials, with `first_divergence none`. Each path recorded six state solves and
 six adjoint solves. Native recorded six direct control pullbacks; the public
 path recorded six full residual VJPs. Each path recorded six metric inverses
-and eleven metric applications.
+and eleven metric applications. The corrected evidence retains six successful
+`gradient_norm` metric-solve records per path; both paths have iterations
+`29, 27, 25, 21, 16, 12`, with the corresponding initial and final residuals
+in `metric-solve-records.csv`.
 
-The independent final acceptance reported the following common values:
+The corrected runtime matrix-action ledger separates the explicit actions by
+their purpose. The counts below exclude separately labeled verification rows:
+
+| Matrix action and purpose | Native | Public nmopt |
+| --- | ---: | ---: |
+| Coupling apply — state solve | 6 | 6 |
+| Mass apply — objective | 12 | 12 |
+| Mass apply — objective derivative | 12 | 12 |
+| Coupling transpose apply — control VJP | 6 | 0 |
+| Stiffness transpose apply — residual VJP | 0 | 6 |
+| Coupling transpose apply — residual VJP | 0 | 6 |
+| Mass apply — metric apply | 11 | 11 |
+
+The native state and adjoint stiffness work is internal to its existing linear
+solve and is not presented as an explicit action count. Likewise, the metric
+ledger retains CG iterations and residuals but does not infer unobservable
+internal sparse-matrix actions. These are work-attribution limits, not zero
+work claims.
+
+For each optimizer output, final state, adjoint, and covector were recomputed
+with a fresh verification instance. The final stationarity norm below was then
+computed by an independent dense mass factorization, rather than from the
+optimizer's stored CG metric result. The independent final acceptance
+reported the following common values:
 
 | Quantity | Native | Public nmopt |
 | --- | ---: | ---: |
-| Final mass-gradient norm | `4.8845615376102665e-08` | `4.8845615376102665e-08` |
+| Final mass-gradient norm from dense audit | `4.8845615376171785e-08` | `4.8845615376171785e-08` |
 | Mass-norm distance to dense oracle control | `4.6930791164347435e-08` | `4.6930791164347435e-08` |
 | Signed objective gap | `3.5527136788005009e-15` | `3.5527136788005009e-15` |
 | Recomputed state residual | `1.1100296398130756e-14` | `1.1100296398130756e-14` |
@@ -133,7 +162,8 @@ The independent final acceptance reported the following common values:
 The dense KKT oracle independently reported state stationarity
 `5.7964881954658515e-15`, control stationarity
 `6.34455338340255e-18`, feasibility
-`1.2986067586327786e-15`, and oracle gradient norm zero. The two retained VTK
+`1.2986067586327786e-15`, and oracle gradient norm
+`2.2993555877574972e-15`. The two retained VTK
 payloads were each 26450 bytes after removing only the generated timestamp
 header, and their numerical payloads were equal. The output and later audits
 left the optimization runtime counters unchanged.
@@ -146,16 +176,18 @@ The incremental B obligations fall into four bounded categories:
 | --- | --- | --- |
 | Application formulation | Coordinates, lifting, consistent mass, rectangular coupling, B objective/residual, and native solves. | Capability/formulation obligation owned by the application. |
 | Mechanical public adaptation | Two variable blocks, one test block, callback packaging, solve-report translation, and the mass-metric adapter. | Local construction work required to express B through the existing public contracts. |
-| Native/public runtime difference | Six native direct control pullbacks versus six public full residual VJPs; six metric inverses and eleven metric applications per path. | Measured incidence for this run. The state part of the public VJP and the internal work of CG are not performance measurements. |
+| Native/public runtime difference | Six native direct control pullbacks versus six public full residual VJPs; six metric inverses and eleven metric applications per path; explicit matrix actions are retained by purpose in the corrected ledger. | Measured incidence for this run. The state part of the public VJP and the internal work of CG are not performance measurements. |
 | Evaluation support | Native reference loop, independent dense oracle, residual/derivative audits, counters, trace comparison, output comparison, and failure evidence. | Verification and diagnostics, not functional binding code. |
 
-The complete B implementation diff from the recorded pre-B starting revision
+The PB1–PB5 implementation diff from the recorded pre-B starting revision
 `0bb1307` through `514c2d9` contains 5841 insertions and 10 deletions across
 13 files. Most of that expansion is native contract testing, independent
-verification, and comparison/evidence drivers. This source-size observation
-does not define a minimum adapter size and does not establish an external
-application cost; the functional wiring is the smaller ownership slice listed
-above.
+verification, and comparison/evidence drivers. The G2 correction commits
+through `46aaa7b` add only verification and diagnostic plumbing in the
+experiment-local layers; they do not expand the minimum functional wiring or
+change the public boundary. These source-size observations do not define a
+minimum adapter size or establish an external application cost; the functional
+wiring is the smaller ownership slice listed above.
 
 No timing, allocation, cache, or internal sparse-matrix work claim follows
 from these counts. The full residual VJP is a confirmed repeated operation in
@@ -181,12 +213,15 @@ explicitly scoped question.
 
 ## Reproducible verification
 
-The final checks were run from `/root/nmopt-project` on the source tree later
-committed as `514c2d9`:
+The final checks were run from `/root/nmopt-project` on the source tree at
+`46aaa7b`:
 
 ```bash
 ./build.sh build debug-dealii \
+  --target nmopt_external_step4_native_contract_test \
   --target nmopt_external_step4_problem_b_optimization_contract_test
+build/debug-dealii/bin/nmopt_external_step4_native_contract_test \
+  native_problem_b_optimization_evidence
 build/debug-dealii/bin/nmopt_external_step4_problem_b_optimization_contract_test \
   problem_b_nmopt_matched_optimization
 ./build.sh pipeline debug-dealii

@@ -221,6 +221,10 @@ if(NMOPT_ENABLE_DEAL_II)
       tests/application/external_step4_nmopt_contract.cc)
 
     nmopt_add_dealii_test(
+      nmopt_external_step4_problem_b_nmopt_contract_test
+      tests/application/external_step4_problem_b_nmopt_contract.cc)
+
+    nmopt_add_dealii_test(
       nmopt_external_step4_optimization_contract_test
       tests/application/external_step4_optimization_contract.cc)
 

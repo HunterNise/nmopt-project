@@ -205,6 +205,10 @@ if(NMOPT_ENABLE_DEAL_II)
     apps/external-dealii/step-4/source/adapted/step-4.cc)
   deal_ii_setup_target(nmopt_external_tutorial_step_4_adapted)
 
+  nmopt_add_dealii_executable(
+    nmopt_external_step4_minimal_problem_a
+    apps/external-dealii/step-4/minimal/problem_a.cc)
+
   if(BUILD_TESTING)
     # This test includes only the adapted tutorial source and the standard
     # scenario-discovery helper. It intentionally has no nmopt library link.
@@ -215,6 +219,24 @@ if(NMOPT_ENABLE_DEAL_II)
       nmopt_build_flags)
     deal_ii_setup_target(nmopt_external_step4_native_contract_test)
     scenario_discovery_register(nmopt_external_step4_native_contract_test)
+
+    nmopt_add_dealii_test(
+      nmopt_external_step4_minimal_problem_a_contract_test
+      tests/application/external_step4_minimal_problem_a_contract.cc)
+
+    set(nmopt_external_step4_minimal_root
+        "${CMAKE_SOURCE_DIR}/runs/external-dealii/step-4/minimal")
+    file(MAKE_DIRECTORY
+      "${nmopt_external_step4_minimal_root}/ctest/problem-a")
+    add_test(
+      NAME nmopt.external.tutorial_step_4.minimal_problem_a
+      COMMAND nmopt_external_step4_minimal_problem_a
+        "${nmopt_external_step4_minimal_root}/ctest/problem-a/solution.vtk")
+    set_tests_properties(
+      nmopt.external.tutorial_step_4.minimal_problem_a
+      PROPERTIES
+        LABELS "dealii;application;external;minimal;problem_a"
+        TIMEOUT 360)
 
     nmopt_add_dealii_test(
       nmopt_external_step4_nmopt_contract_test

@@ -6,10 +6,10 @@ This roadmap is the execution contract for evaluating the current external Step-
 
 | Field | Status |
 | --- | --- |
-| Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary` |
-| Current unit | G2 complete – Problem B attribution review |
-| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12 |
-| Next unit | None accepted; the tested external-boundary evaluation is closed pending a new question |
+| Phase | External deal.II boundary evaluation and bounded post-G1 cleanup on `codex/evaluate/external-dealii-boundary`, followed by the accepted minimal-consumer usability follow-up |
+| Current unit | MC1 complete locally – Minimal Problem A consumer, pending review/commit |
+| Last completed/adopted gate | G2 Problem B attribution review completed on 2026-09-12; MC1 implementation and validation complete locally, pending review/commit |
+| Next unit | MC2 – Minimal Problem B consumer, after MC1 review/commit |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
 Maintain progress status here. Future units also update their required evidence, attribution records, and runnable documentation. Explicitly accepted protocol amendments must be recorded with their rationale; centralizing status does not prohibit those updates.
@@ -818,6 +818,28 @@ stripped-source change was required. It recommends no automatic helper, API
 change, or boundary redesign. The Problem B evaluation is closed; future
 performance measurement or mechanical-helper work requires a separately
 accepted question and scope.
+
+### MC1 – Minimal Problem A consumer
+
+MC1 is the first unit of the separately accepted minimal-consumer usability
+follow-up. It adds the [minimal Problem A consumer](../../apps/external-dealii/step-4/minimal/README.md)
+and its focused validation without reopening G1 or G2. The consumer reuses
+`integration/problem_a.hpp`, writes the current public layouts, five callbacks,
+partition, native solve-report translation, identity metric, reduced DTO, and
+frozen optimization policy explicitly, then writes the retained final state
+through the existing Step-4 output path. Native comparison, independent dense
+oracle checks, fresh audits, and output comparison remain test-only code.
+
+The focused contract and executable CTest entries passed locally on
+2026-09-12. The required full pipelines also passed: `debug-dealii` 193/193
+and `debug-neutral` 67/67. The consumer completed with 828 accepted
+iterations, 6025 total line-search trials, and final gradient norm
+$9.50365\times10^{-7}$; the manual and CTest VTK outputs are disposable
+artifacts below `runs/external-dealii/step-4/minimal/`. The CTest contract
+artifact from the deal.II working directory is likewise ignored. The result
+demonstrates a working explicit A consumer; it does not claim global
+minimality or newcomer usability. MC2 remains the next unit for the
+corresponding Problem B surface.
 
 ## 10. Verification execution and artifacts
 

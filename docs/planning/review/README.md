@@ -19,3 +19,7 @@ current handoff.
 - [External deal.II Problem B boundary evaluation](external-dealii-boundary-evaluation/problem-b-report.md)
   records the completed distributed-control attribution review and bounded
   G2 decision.
+- [Human-readability and architecture audit](human-readability-audit/00-audit-index.md)
+  records the code-derived architecture, source/documentation audit,
+  information-architecture proposal, and bounded documentation-refactor
+  recommendations.

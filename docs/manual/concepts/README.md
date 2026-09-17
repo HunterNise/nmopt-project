@@ -59,48 +59,69 @@ metric-dependent projection for box constraints before mapping the ideas to
 
 ### 5. Reduced state–adjoint formulation
 
-Planned. This chapter will derive the reduced formulation, compare direct state
-sensitivity with the adjoint elimination, and then explain state/adjoint solve
+[Reduced state–adjoint formulation](reduced-state-adjoint-formulation.md) derives the
+control-to-state reduction, compares direct sensitivities with the adjoint
+elimination, and then follows the same construction through state/adjoint solve
 services, retained value evaluations, and derivative augmentation.
 
 ### 6. Reduced optimization methods
 
-Planned. This chapter will follow the actual optimization loop: metric gradients,
-steepest descent, L-BFGS/BFGS, line search, reduced Hessian actions, trust regions,
-stopping criteria, and work accounting.
+[Reduced optimization methods](reduced-optimization-methods.md) follows the reduced
+optimization loop after $j_h(u)$ and $j_h'(u)$ are available. It develops metric
+steepest descent, nonlinear conjugate gradient, full and limited-memory BFGS,
+Newton–CG, line-search globalization, projected steepest descent, trust regions,
+stopping criteria, and numerical work/evidence records.
 
-### 7. All-at-once, KKT, and active-set formulations
+### 7. Optimality systems and KKT
 
-Planned. This chapter will develop supplied OTD, quadratic KKT systems,
-complementarity, and PDAS as related but distinct formulation products.
+[Optimality systems and KKT](optimality-systems-and-kkt.md) returns to the Lagrangian
+without eliminating the state, derives the coupled state/adjoint/stationarity system,
+distinguishes supplied OTD from DTO-derived formulations, and then develops the
+equality-constrained quadratic KKT product, its pairings, assumptions, transpose
+structure, and solver compatibility.
 
-## Part III – Constructing executable problems
+### 8. Complementarity and PDAS
 
-### 8. Semantic problem model
+[Complementarity and PDAS](complementarity-and-pdas.md) starts from the
+box-constrained variational inequality, introduces the signed box multiplier and its
+primal representation, derives lower/inactive/upper classification, and then follows
+PDAS through active-coordinate restriction, shifted KKT subproblems, multiplier
+recovery, residual checks, and active-set convergence.
+
+## Part III – From problem descriptions to executable models
+
+### 9. Semantic problem model
 
 Planned. A concrete problem will be rebuilt progressively as regions, spaces,
 variables, data, residual terms, observations, losses, transformations, metrics,
 constraints, requirements, and a formulation declaration.
 
-### 9. Compilation and lowering
+### 10. Validation, resolution, and capabilities
 
-Planned. One semantic problem will be followed through validation, resolution,
-planning, registered lowering, deal.II realization, and compiled-product packaging.
+Planned. This chapter will distinguish semantic validity, resolution, lowerability,
+compiler capability, and formulation/product capability before numerical realization.
 
-### 10. Finite-element realization
+### 11. Compilation and lowering
+
+Planned. One resolved problem will be followed through component planning,
+`ScalarLoweringPlan`, runtime data bindings, registered realization strategies, and
+compiled-product packaging.
+
+### 12. Finite-element realization
 
 Planned. This chapter will examine the concrete deal.II constructions behind
-coordinates, liftings, observations, metrics, constraints, and PDE solve services.
+coordinates, liftings, residuals, observations, metrics, constraints, and PDE solve
+services.
 
 ## Part IV – Integration and evidence
 
-### 11. Native integration and ownership
+### 13. Native integration and ownership
 
 Planned. This chapter will explain how an independently owned PDE application can
 provide operations to nmopt without surrendering its native mesh, matrices, solves,
 or output model.
 
-### 12. Verification and evidence
+### 14. Verification and evidence
 
 Planned. This chapter will connect derivative identities, algebraic contract tests,
 compiler integration tests, solve reports, benchmark evidence, and reproduction

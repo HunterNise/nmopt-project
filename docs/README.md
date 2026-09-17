@@ -4,6 +4,17 @@ The documentation is organized by role and authority. Start with the smallest
 document that answers the task, then follow its links to deeper material. Do
 not read every document by default.
 
+## Start here
+
+For a first-time reading of the project, start with the
+[manual overview](manual/overview/README.md), then follow the
+[concept chapters](manual/concepts/README.md) in order. The overview explains the
+whole architecture and its two producer paths; the concept manual develops the
+numerical language, formulations, compiler path, and direct application integration.
+
+Use the sections below when you need an exact design decision, API contract,
+benchmark record, or historical review rather than the explanatory manual.
+
 ## Organization and authority
 
 ### Design

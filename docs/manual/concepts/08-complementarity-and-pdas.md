@@ -6,10 +6,10 @@ The previous chapter ended with an equality-constrained quadratic problem
 
 ```math
 \begin{aligned}
-\min_x\quad&
+\min_{x}\quad&
 \frac12\langle Qx,x\rangle
 -
-\langle c_x,x\rangle,
+\langle c_{x},x\rangle,
 \\
 \text{subject to}\quad&
 Dx=d,
@@ -29,7 +29,7 @@ x\\
 \end{bmatrix}
 =
 \begin{bmatrix}
-c_x\\
+c_{x}\\
 d
 \end{bmatrix}.
 ```
@@ -38,11 +38,11 @@ Now suppose one block of the primal variable is a control $u$ subject to compone
 bounds
 
 $$
-\ell_i
+\ell_{i}
 \leq
-u_i
+u_{i}
 \leq
-r_i.
+r_{i}.
 $$
 
 The equality equations remain. What changes is the control stationarity condition. For a
@@ -112,12 +112,12 @@ u_2
 Then two unknowns would disappear immediately:
 
 $$
-u_0=\ell_0,
+u_{0}=\ell_{0},
 \qquad
-u_2=r_2.
+u_{2}=r_{2}.
 $$
 
-Only $u_1$ would remain as a free control unknown. The state variables and equality
+Only $`u_{1}`$ would remain as a free control unknown. The state variables and equality
 multipliers would still be unknown, but the resulting problem would be an ordinary
 **linear equality-constrained KKT system** on that reduced set of variables.
 
@@ -178,22 +178,22 @@ $$
 C
 :=
 \left\{
-u\in U_h:
-\ell_i\leq u_i\leq r_i
+u\in U_{h}:
+\ell_{i}\leq u_{i}\leq r_{i}
 \right\}.
 $$
 
-At a local minimum $u^\ast$ of a differentiable objective over the convex set $C$,
+At a local minimum $u^{\ast}$ of a differentiable objective over the convex set $C$,
 
 $$
-j'(u^\ast)[v-u^\ast]
+j'(u^{\ast})[v-u^{\ast}]
 \geq0
 \qquad
 \text{for every }v\in C.
 $$
 
 This is the variational inequality already encountered in [Metrics, gradients, and
-constraints](metrics-gradients-and-constraints.md). It says that no feasible first-order
+constraints](04-metrics-gradients-and-constraints.md). It says that no feasible first-order
 perturbation decreases the objective.
 
 ### 1.1 What this means for one coefficient
@@ -252,26 +252,26 @@ carefully.
 Let
 
 $$
-r_u\in U_h^{\ast}
+r_{u}\in U_{h}^{\ast}
 $$
 
 denote the control stationarity covector before adding the box constraint. For the
 quadratic KKT product, this is the control block of
 
 $$
-Qx+D^{\mathsf T}\lambda-c_x.
+Qx+D^{\mathsf T}\lambda-c_{x}.
 $$
 
 The constrained stationarity equation is written
 
 $$
-r_u+\mu=0,
+r_{u}+\mu=0,
 $$
 
 where
 
 $$
-\mu\in U_h^{\ast}
+\mu\in U_{h}^{\ast}
 $$
 
 is the box multiplier. The sign convention is:
@@ -290,7 +290,7 @@ upper bound
 Why these signs? Because
 
 $$
-\mu=-r_u.
+\mu=-r_{u}.
 $$
 
 At the lower bound the unconstrained derivative can satisfy
@@ -302,7 +302,7 @@ $$
 so
 
 $$
-\mu_i\leq0.
+\mu_{i}\leq0.
 $$
 
 At the upper bound,
@@ -314,7 +314,7 @@ $$
 so
 
 $$
-\mu_i\geq0.
+\mu_{i}\geq0.
 $$
 
 This is the convention used by the current complementarity and PDAS code.
@@ -324,10 +324,10 @@ This is the convention used by the current complementarity and PDAS code.
 Define the normal cone with the sign convention
 
 $$
-N_C(u)
+N_{C}(u)
 :=
 \left\{
-\mu\in U_h^{\ast}:
+\mu\in U_{h}^{\ast}:
 \langle\mu,v-u\rangle\leq0
 \quad
 \text{for every }v\in C
@@ -337,19 +337,19 @@ $$
 Then the first-order condition is
 
 $$
-0\in r_u+N_C(u).
+0\in r_{u}+N_{C}(u).
 $$
 
 Equivalently, there exists
 
 $$
-\mu\in N_C(u)
+\mu\in N_{C}(u)
 $$
 
 such that
 
 $$
-r_u+\mu=0.
+r_{u}+\mu=0.
 $$
 
 For a scalar interval $[\ell,r]$, this normal cone is
@@ -372,44 +372,44 @@ The normal-cone condition can be written with lower and upper nonnegative multip
 Define
 
 $$
-\mu_i^{+}
+\mu_{i}^{+}
 :=
-\max(\mu_i,0),
+\max(\mu_{i},0),
 $$
 
 and
 
 $$
-\mu_i^{-}
+\mu_{i}^{-}
 :=
-\max(-\mu_i,0).
+\max(-\mu_{i},0).
 $$
 
 Then
 
 $$
-\mu_i
+\mu_{i}
 =
-\mu_i^{+}-\mu_i^{-},
+\mu_{i}^{+}-\mu_{i}^{-},
 $$
 
 with
 
 $$
-\mu_i^{+}\geq0,
+\mu_{i}^{+}\geq0,
 \qquad
-\mu_i^{-}\geq0.
+\mu_{i}^{-}\geq0.
 $$
 
 The box conditions become
 
 ```math
 \begin{aligned}
-\ell_i\leq u_i\leq r_i,
+\ell_{i}\leq u_{i}\leq r_{i},
 \\
-\mu_i^{-}(u_i-\ell_i)=0,
+\mu_{i}^{-}(u_{i}-\ell_{i})=0,
 \\
-\mu_i^{+}(r_i-u_i)=0.
+\mu_{i}^{+}(r_{i}-u_{i})=0.
 \end{aligned}
 ```
 
@@ -434,7 +434,7 @@ The current PDAS path does not store separate lower and upper multiplier vectors
 stores one signed dual multiplier
 
 $$
-\mu\in U_h^{\ast}.
+\mu\in U_{h}^{\ast}.
 $$
 
 For classification and complementarity diagnostics, that covector is converted to the
@@ -447,13 +447,13 @@ $$
 The implementation then measures the two scalar products
 
 ```math
-\max(m_i,0)(r_i-u_i)
+\max(m_{i},0)(r_{i}-u_{i})
 ```
 
 and
 
 ```math
-\min(m_i,0)(u_i-\ell_i).
+\min(m_{i},0)(u_{i}-\ell_{i}).
 ```
 
 At an exact complementary point both vanish. The maximum absolute violation over all
@@ -479,15 +479,15 @@ representative $m$ is the quantity compared coefficientwise with bounds.
 The box distances
 
 $$
-u_i-\ell_i
+u_{i}-\ell_{i}
 \qquad\text{and}\qquad
-u_i-r_i
+u_{i}-r_{i}
 $$
 
 are primal quantities. The multiplier
 
 $$
-\mu\in U_h^{\ast}
+\mu\in U_{h}^{\ast}
 $$
 
 is a covector. It would be mathematically sloppy to add these objects directly. The
@@ -498,9 +498,9 @@ For the metric-based representation used by the current implementation,
 
 $$
 G:
-U_h
+U_{h}
 \longrightarrow
-U_h^{\ast}
+U_{h}^{\ast}
 $$
 
 is the chosen metric/Riesz map, and the primal representative is
@@ -509,7 +509,7 @@ $$
 m
 :=
 G^{-1}\mu
-\in U_h.
+\in U_{h}.
 $$
 
 Conversely,
@@ -564,13 +564,13 @@ $$
 the current `BoxComplementarityT::classify()` evaluates
 
 ```math
-m_i+c(u_i-r_i)
+m_{i}+c(u_{i}-r_{i})
 ```
 
 and
 
 ```math
-m_i+c(u_i-\ell_i).
+m_{i}+c(u_{i}-\ell_{i}).
 ```
 
 The coefficient is classified as:
@@ -588,19 +588,19 @@ inactive/free
 
 This is a standard primal-dual active-set classification.
 
-### 5.1 Why the upper test uses $u_i-r_i$, not $r_i-u_i$
+### 5.1 Why the upper test uses $`u_{i}-r_{i}`$, not $`r_{i}-u_{i}`$
 
 Earlier, complementarity used the **upper slack**
 
 $$
-r_i-u_i.
+r_{i}-u_{i}.
 $$
 
 For a feasible control this quantity is nonnegative. It is exactly the right quantity
 for complementary slackness:
 
 $$
-\mu_i^{+}(r_i-u_i)=0.
+\mu_{i}^{+}(r_{i}-u_{i})=0.
 $$
 
 The classification test has a different job. It needs one signed expression whose sign
@@ -609,21 +609,21 @@ decides whether the upper bound should be treated as active.
 Write the upper classification expression as
 
 $$
-m_i+c(u_i-r_i)
+m_{i}+c(u_{i}-r_{i})
 =
-m_i-c(r_i-u_i).
+m_{i}-c(r_{i}-u_{i}).
 $$
 
 Now the roles are visible. The first term,
 
 $$
-m_i,
+m_{i},
 $$
 
 is the multiplier signal. A positive value supports upper activity. The second term,
 
 $$
--c(r_i-u_i),
+-c(r_{i}-u_{i}),
 $$
 
 penalizes that hypothesis when the coefficient lies well inside the feasible box. Thus:
@@ -655,13 +655,13 @@ u_i - r_i
 The lower test works analogously. Its feasible slack is
 
 $$
-u_i-\ell_i\geq0,
+u_{i}-\ell_{i}\geq0,
 $$
 
 while the classifier asks whether the negative multiplier signal is strong enough that
 
 $$
-m_i+c(u_i-\ell_i)<0.
+m_{i}+c(u_{i}-\ell_{i})<0.
 $$
 
 ### 5.2 Why this identifies an exact upper-active coefficient
@@ -669,17 +669,17 @@ $$
 At an exact upper-active coefficient,
 
 $$
-u_i=r_i,
+u_{i}=r_{i},
 \qquad
-m_i>0.
+m_{i}>0.
 $$
 
 Then
 
 $$
-m_i+c(u_i-r_i)
+m_{i}+c(u_{i}-r_{i})
 =
-m_i
+m_{i}
 >
 0.
 $$
@@ -691,17 +691,17 @@ So the coefficient is classified upper active for every $c>0$.
 At an exact lower-active coefficient,
 
 $$
-u_i=\ell_i,
+u_{i}=\ell_{i},
 \qquad
-m_i<0.
+m_{i}<0.
 $$
 
 Then
 
 $$
-m_i+c(u_i-\ell_i)
+m_{i}+c(u_{i}-\ell_{i})
 =
-m_i
+m_{i}
 <
 0.
 $$
@@ -713,17 +713,17 @@ So it is classified lower active.
 At an exact interior coefficient,
 
 $$
-\ell_i<u_i<r_i,
+\ell_{i}<u_{i}<r_{i},
 \qquad
-m_i=0.
+m_{i}=0.
 $$
 
 Therefore
 
 $$
-m_i+c(u_i-r_i)
+m_{i}+c(u_{i}-r_{i})
 =
-c(u_i-r_i)
+c(u_{i}-r_{i})
 <
 0,
 $$
@@ -731,9 +731,9 @@ $$
 while
 
 $$
-m_i+c(u_i-\ell_i)
+m_{i}+c(u_{i}-\ell_{i})
 =
-c(u_i-\ell_i)
+c(u_{i}-\ell_{i})
 >
 0.
 $$
@@ -745,7 +745,7 @@ Neither active inequality is satisfied. The coefficient is therefore inactive/fr
 At an exact complementary solution, any positive $c$ produces the same classification.
 Away from the solution, $c$ changes the balance between:
 
-- the multiplier signal $m_i$;
+- the multiplier signal $`m_{i}`$;
 - the geometric distance to a bound.
 
 So $c$ affects transient active-set guesses. It does not change the box itself. The
@@ -759,7 +759,7 @@ Part I characterized constrained stationarity through
 $$
 u
 =
-P_C^G(u-g),
+P_{C}^{G}(u-g),
 $$
 
 where
@@ -767,13 +767,13 @@ where
 $$
 g
 =
-G^{-1}r_u
+G^{-1}r_{u}
 $$
 
 is the metric gradient of the unconstrained stationarity covector. Since
 
 $$
-r_u+\mu=0,
+r_{u}+\mu=0,
 $$
 
 we have
@@ -781,7 +781,7 @@ we have
 $$
 G^{-1}\mu
 =
--G^{-1}r_u,
+-G^{-1}r_{u},
 $$
 
 or
@@ -814,9 +814,9 @@ For a simple diagonal metric, the projection and active-set pictures are especia
 transparent because
 
 $$
-m_i
+m_{i}
 =
-(G^{-1}\mu)_i
+(G^{-1}\mu)_{i}
 $$
 
 depends only on the corresponding multiplier coordinate. For a more general multiplier
@@ -849,7 +849,7 @@ $$
 as primal values on one control layout and checks
 
 $$
-\ell_i\leq r_i
+\ell_{i}\leq r_{i}
 $$
 
 componentwise. It also provides a direct feasibility test.
@@ -983,15 +983,15 @@ $$
 x
 =
 \begin{bmatrix}
-x_I\\
-x_A
+x_{I}\\
+x_{A}
 \end{bmatrix},
 $$
 
 and the active values are fixed to
 
 $$
-x_A=\bar x_A.
+x_{A}=\bar x_{A}.
 $$
 
 Consider a linear equality
@@ -1006,22 +1006,22 @@ $$
 D
 =
 \begin{bmatrix}
-D_I & D_A
+D_{I} & D_{A}
 \end{bmatrix}.
 $$
 
 Then
 
 ```math
-D_Ix_I+D_A\bar x_A=d.
+D_{I}x_{I}+D_{A}\bar x_{A}=d.
 ```
 
 Therefore the inactive-coordinate problem must satisfy
 
 $$
-D_Ix_I
+D_{I}x_{I}
 =
-d-D_A\bar x_A.
+d-D_{A}\bar x_{A}.
 $$
 
 The active values do not simply disappear. Their contribution becomes an affine shift of
@@ -1041,16 +1041,16 @@ q_{AI} & q_{AA}
 \end{bmatrix},
 $$
 
-and fix $x_A=\bar x_A$. The inactive-coordinate stationarity component contains
+and fix $`x_{A}=\bar x_{A}`$. The inactive-coordinate stationarity component contains
 
 $$
-q_{II}x_I
+q_{II}x_{I}
 +
-q_{IA}\bar x_A
+q_{IA}\bar x_{A}
 +
-D_I^{\mathsf T}\lambda
+D_{I}^{\mathsf T}\lambda
 -
-c_I
+c_{I}
 =
 0.
 $$
@@ -1058,11 +1058,11 @@ $$
 Move the known active contribution to the right:
 
 $$
-q_{II}x_I
+q_{II}x_{I}
 +
-D_I^{\mathsf T}\lambda
+D_{I}^{\mathsf T}\lambda
 =
-c_I-q_{IA}\bar x_A.
+c_{I}-q_{IA}\bar x_{A}.
 $$
 
 So the active-set KKT problem is not obtained by merely deleting rows and columns. The
@@ -1093,7 +1093,7 @@ upper active
 Those values form the active vector
 
 $$
-u_A.
+u_{A}.
 $$
 
 ### 10.1 The inactive control block becomes smaller
@@ -1133,13 +1133,13 @@ stationarity and equality right-hand sides. This is the implementation form of t
 algebra
 
 $$
-d-D_A\bar x_A
+d-D_{A}\bar x_{A}
 $$
 
 and
 
 $$
-c_I-Q_{IA}\bar x_A.
+c_{I}-Q_{IA}\bar x_{A}.
 $$
 
 ### 10.3 Actions are restricted without rebuilding the original operator
@@ -1163,7 +1163,7 @@ adapter around the original quadratic KKT product.
 This distinction is central. The current active value may be, for example,
 
 $$
-u_i=r_i.
+u_{i}=r_{i}.
 $$
 
 That nonzero value contributes to the affine right-hand side as described above. But
@@ -1171,7 +1171,7 @@ during the restricted solve, the active coefficient is **fixed**. Therefore its
 variation is
 
 $$
-\delta u_i=0.
+\delta u_{i}=0.
 $$
 
 That is why restricted operator actions expand a free direction using zeros on active
@@ -1221,7 +1221,7 @@ The restricted KKT solve does not solve explicitly for one box multiplier per ac
 control coefficient. Instead, after reconstructing the full base point, PDAS evaluates
 the base KKT residual.
 
-Let $r_u$ be the control-stationarity block of that residual. On an inactive coordinate, the
+Let $`r_{u}`$ be the control-stationarity block of that residual. On an inactive coordinate, the
 restricted KKT problem has imposed
 
 $$
@@ -1231,7 +1231,7 @@ $$
 up to the KKT solve tolerance. The box multiplier should therefore be
 
 $$
-\mu_i=0
+\mu_{i}=0
 \qquad
 i\in\mathcal I.
 $$
@@ -1240,13 +1240,13 @@ On an active coordinate, ordinary control stationarity was removed from the rest
 problem. The multiplier is chosen to restore constrained stationarity:
 
 $$
-r_{u,i}+\mu_i=0.
+r_{u,i}+\mu_{i}=0.
 $$
 
 Hence
 
 $$
-\mu_i=-r_{u,i}
+\mu_{i}=-r_{u,i}
 \qquad
 i\in\mathcal A.
 $$
@@ -1347,8 +1347,8 @@ For each coefficient, the violation is measured against the interval:
 $$
 \max
 \left(
-\ell_i-u_i,
-u_i-r_i
+\ell_{i}-u_{i},
+u_{i}-r_{i}
 \right).
 $$
 
@@ -1358,7 +1358,7 @@ zero.
 
 ### Dual feasibility
 
-Using the primal multiplier representative $m_i$, the required signs are:
+Using the primal multiplier representative $`m_{i}`$, the required signs are:
 
 ```text
 at lower bound
@@ -1375,9 +1375,9 @@ The implementation measures the corresponding positive violation:
 
 ```math
 \begin{cases}
-\max(m_i,0), & u_i\leq\ell_i,\\
-\max(-m_i,0), & u_i\geq r_i,\\
-|m_i|, & \ell_i<u_i<r_i.
+\max(m_{i},0), & u_{i}\leq\ell_{i},\\
+\max(-m_{i},0), & u_{i}\geq r_{i},\\
+|m_{i}|, & \ell_{i}<u_{i}<r_{i}.
 \end{cases}
 ```
 
@@ -1388,13 +1388,13 @@ and keeps the maximum over coefficients.
 The signed multiplier form uses
 
 $$
-\max(m_i,0)(r_i-u_i)
+\max(m_{i},0)(r_{i}-u_{i})
 $$
 
 for the upper side and
 
 $$
-\min(m_i,0)(u_i-\ell_i)
+\min(m_{i},0)(u_{i}-\ell_{i})
 $$
 
 for the lower side. The maximum absolute value over both sides and all coefficients is
@@ -1403,12 +1403,12 @@ active bound.
 
 ### Constrained stationarity residual
 
-The base KKT stationarity residual contains the unconstrained control block $r_u$.
+The base KKT stationarity residual contains the unconstrained control block $`r_{u}`$.
 
 PDAS adds the box multiplier,
 
 $$
-r_u+\mu,
+r_{u}+\mu,
 $$
 
 and measures the norm of the **whole stationarity residual**, including unchanged
@@ -1867,7 +1867,7 @@ reduced problem, projected steepest descent uses
 $$
 \widehat u
 =
-P_C^G(u-\alpha g).
+P_{C}^{G}(u-\alpha g).
 $$
 
 The projection enforces feasibility after each trial update. PDAS instead carries a box
@@ -1929,16 +1929,16 @@ reduced solver chapter and PDAS in the all-at-once/KKT part.
 | Bound-constrained idea | Mathematical form | Current object |
 | --- | --- | --- |
 | finite bounds | $\ell\leq u\leq r$ | `BoxBoundsT` |
-| box multiplier | $\mu\in U_h^{\ast}$ | multiplier covector |
+| box multiplier | $`\mu\in U_{h}^{\ast}`$ | multiplier covector |
 | primal multiplier representative | $m=G^{-1}\mu$ | `BoxMultiplierRepresentationT` |
-| constrained stationarity | $r_u+\mu=0$ | PDAS stationarity check |
-| lower activity | $m_i+c(u_i-\ell_i)<0$ | `BoxActivity::lower` |
-| upper activity | $m_i+c(u_i-r_i)>0$ | `BoxActivity::upper` |
+| constrained stationarity | $`r_{u}+\mu=0`$ | PDAS stationarity check |
+| lower activity | $`m_{i}+c(u_{i}-\ell_{i})<0`$ | `BoxActivity::lower` |
+| upper activity | $`m_{i}+c(u_{i}-r_{i})>0`$ | `BoxActivity::upper` |
 | free activity | neither active inequality | `BoxActivity::inactive` |
 | inactive/active index sets | $\mathcal I,\mathcal A$ | `ActiveSetSelectionT` |
-| fixed active values | $u_i=\ell_i$ or $r_i$ | `active_values()` |
+| fixed active values | $`u_{i}=\ell_{i}`$ or $`r_{i}`$ | `active_values()` |
 | restricted KKT system | solve only inactive primal coordinates | `ActiveSetKKTSubproblemT` |
-| active multiplier recovery | $\mu_i=-r_{u,i}$ | `make_box_multiplier` |
+| active multiplier recovery | $`\mu_{i}=-r_{u,i}`$ | `make_box_multiplier` |
 | active-set iteration | classify → restrict → solve → reclassify | `PDASSolverT` |
 
 ## 31. Following the complementarity/PDAS path through the source
@@ -2057,12 +2057,12 @@ Part III asks:
 
 > How does a problem description become those executable numerical objects?
 
-The first chapter in that part, **Semantic problem model**, will begin again from a
+Chapter 9, **Semantic problem model**, begins again from a
 concrete PDE-constrained problem and construct its backend-neutral `ProblemSpec`
 progressively.
 
-After that, **Validation, resolution, and capabilities** will explain what can be
-checked before numerical realization, and **Compilation and lowering** will follow one
+Chapter 10, **Validation, resolution, and capabilities**, explains what can be
+checked before numerical realization, and Chapter 11, **Compilation and lowering**, follows one
 resolved problem into the registered deal.II realization path.
 
 ## Read later
@@ -2071,9 +2071,9 @@ Useful existing documents are:
 
 - [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
   variational-inequality, multiplier, and first-order conventions.
-- [Optimality systems and KKT](optimality-systems-and-kkt.md), for the equality KKT
+- [Optimality systems and KKT](07-optimality-systems-and-kkt.md), for the equality KKT
   product on which the current PDAS subproblems are built.
-- [Metrics, gradients, and constraints](metrics-gradients-and-constraints.md), for
+- [Metrics, gradients, and constraints](04-metrics-gradients-and-constraints.md), for
   metric projection and the primal–dual identification reused by multiplier
   representations.
 - [v1 semantic/compiler capability](../../implementation/v1/semantic-compiler.md),

@@ -52,7 +52,7 @@ numerical realization
 ```
 
 The boundary considered here stops before the accepted request is lowered into
-finite-element objects; that construction begins in Chapter 11.
+finite-element objects; that construction is the subject of Chapter 11.
 
 ## 1. Four diagnostic categories separate four kinds of failure
 
@@ -187,9 +187,9 @@ For a point observation
 \mathcal O_{\mathrm s}(y)
 =
 \begin{bmatrix}
-y(x_1)\\
+y(x_{1})\\
 \vdots\\
-y(x_m)
+y(x_{m})
 \end{bmatrix},
 ```
 
@@ -271,7 +271,7 @@ Writing
 $$
 \mathcal O_{\mathrm s}(y)
 =
-[y(x_1),\ldots,y(x_m)]^{\mathsf T}
+[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}
 $$
 
 does not, by itself, explain the analytical/discrete assumptions under which point
@@ -328,7 +328,7 @@ For example,
 ```math
 a(v,v)
 \geq
-c\lVert v\rVert^2
+c\lVert v\rVert^{2}
 ```
 
 may be declared as a coercivity assumption.
@@ -871,7 +871,7 @@ The $H^{1/2}$ metric is a good example.
 At the mathematical level, the semantic graph asks for
 
 $$
-G_{1/2}:U_h\longrightarrow U_h^\ast.
+G_{1/2}:U_{h}\longrightarrow U_{h}^{\ast}.
 $$
 
 Chapter 4 showed one realization through a minimum-energy extension and Schur
@@ -916,7 +916,7 @@ For a point observation
 $$
 \mathcal O_{\mathrm s}(y)
 =
-[y(x_1),\ldots,y(x_m)]^{\mathsf T},
+[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T},
 $$
 
 semantic validation checks the graph and required policies.
@@ -1081,7 +1081,7 @@ current executable DTO product
 A constraint may be lowerable by itself but unsupported in a particular formulation.
 
 For the current projected-gradient surface, the registered box types are the
-coefficientwise cellwise or facewise $L^2$ boxes.
+coefficientwise cellwise or facewise $L^{2}$ boxes.
 
 So the distinction is:
 
@@ -1229,12 +1229,12 @@ were simply called "unsupported".
 Chapter 9 showed the supplied first-order residual
 
 ```math
-F_h(y,p,u)
+F_{h}(y,p,u)
 =
 \begin{bmatrix}
 Ay-f-Bu\\
-A^{\mathsf T}p-M_y y+q\\
-B^{\mathsf T}p+\beta N_u u
+A^{\mathsf T}p-M_{y} y+q\\
+B^{\mathsf T}p+\beta N_{u} u
 \end{bmatrix}.
 ```
 
@@ -1615,7 +1615,7 @@ Mathematics:
 ```math
 \mathcal O_{\mathrm s}(y)
 =
-[y(x_1),\ldots,y(x_m)]^{\mathsf T}.
+[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}.
 ```
 
 Semantic structure:
@@ -1645,11 +1645,11 @@ The observation does not become executable merely because the enum
 Mathematics:
 
 ```math
-\ell_i
+\ell_{i}
 \leq
-u_i
+u_{i}
 \leq
-r_i.
+r_{i}.
 ```
 
 Semantic structure:
@@ -1699,7 +1699,7 @@ For the bounded scalar planning path, read:
 - [`include/nmopt/compiler/v1/dealii_scalar_plan.hpp`](../../../include/nmopt/compiler/v1/dealii_scalar_plan.hpp)
 
 The distinction between `ScalarLoweringPlan`,
-`ScalarResidualAssemblyPlan`, and `ScalarServicePlan` becomes the starting point for
+`ScalarResidualAssemblyPlan`, and `ScalarServicePlan` is the starting point for
 Chapter 11.
 
 For executable examples of semantic failures, see:
@@ -1710,7 +1710,7 @@ The point-sensor tests are particularly useful because they distinguish structur
 errors, missing analytical policies, and typed transposition requirements in one
 problem family.
 
-## 29. What Chapter 11 adds
+## 29. Continue with Chapter 11
 
 At the end of this chapter, the request has crossed the main acceptance boundaries:
 
@@ -1748,13 +1748,13 @@ runtime bindings, and `CompiledProblemT`.
 
 Useful existing documents are:
 
-- [Describing and compiling a problem](../../overview/semantic-compiler.md), for the
+- [Describing and compiling a problem](../overview/semantic-compiler.md), for the
   short architecture-level description of the path.
 - [v1 semantic graph and deal.II compiler](../../implementation/v1/semantic-compiler.md),
   for the authoritative detailed capability ledger.
-- [Semantic problem model](semantic-problem-model.md), for the `ProblemSpec` vocabulary
+- [Semantic problem model](09-semantic-problem-model.md), for the `ProblemSpec` vocabulary
   assumed by this chapter.
-- [Project architecture](../../overview/project-architecture.md), for the relationship
+- [Project architecture](../overview/project-architecture.md), for the relationship
   between compiler-produced and externally supplied numerical services.
 
 The capability ledger remains authoritative for the exact set of registered v1

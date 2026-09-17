@@ -7,17 +7,24 @@ and solvers rather than a separate problem class for every combination.
 
 ## Current scope
 
-The current implementation establishes the first scalar finite-element slice:
+The current implementation is centered on serial deal.II finite-element
+realizations behind backend-neutral numerical contracts. It includes:
 
-- a backend-neutral executable DTO and formulation contract;
-- semantic validation and v1 graph/compiler interfaces;
-- a dense reference path and focused contract tests;
-- a serial deal.II lowerer and headless application runner;
-- the initial Chapter 5/6 application and benchmark layer.
+- a backend-neutral executable model and formulation vocabulary;
+- a semantic `ProblemSpec` layer with validation, resolution, and a bounded v1
+  deal.II compiler;
+- reduced state–adjoint, supplied-OTD, quadratic KKT, complementarity, and PDAS
+  formulation surfaces with their required numerical services;
+- reduced optimization algorithms, metrics, constraints, and solve-report contracts;
+- both compiler-owned and independently owned application paths to the common
+  formulation boundary; and
+- recipes, scenarios, a runner, and reproduction infrastructure for the current
+  Chapter 5/6 application work.
 
-The application and benchmark layer is still being extended. Its current
-status and acceptance work are tracked in the [application roadmap](docs/planning/application-roadmap.md)
-and [implementation roadmap](docs/planning/implementation-roadmap.md).
+Semantic validity is broader than the combinations implemented by the current
+compiler, and benchmark coverage is narrower than framework capability. The
+[project manual](docs/manual/overview/README.md) explains those boundaries before
+the exact design and reference documents.
 
 ## Installation
 
@@ -116,6 +123,10 @@ details.
 The [documentation map](docs/README.md) is the task-oriented index. The most
 useful entry points are:
 
+- [Project manual](docs/manual/overview/README.md) — the recommended first-time
+  reading path from the project architecture into the concept chapters.
+- [Concept chapters](docs/manual/concepts/README.md) — the progressive mathematical,
+  formulation, compiler, and integration manual.
 - [System blueprint](docs/design/system-blueprint.md) — the shortest
   implementer-oriented overview of the theory, specification, implementation,
   and test correspondence.
@@ -146,7 +157,7 @@ application and benchmark planning documents.
 | `tests/` | Contract, semantic, backend, application, and benchmark tests. |
 | `tools/` | Run generation, post-processing, reporting, and related utilities. |
 | `cmake/` | CMake helpers for scenario discovery and generated test registration. |
-| `docs/` | Design, reference, guides, applications, benchmarks, decisions, and planning records. |
+| `docs/` | Manual, design, reference, guides, applications, benchmarks, decisions, and planning records. |
 | `.agents/` | Detailed instructions and prompt references for coding-agent work. |
 | `build/` | Ignored, profile-specific CMake and build output. |
 | `runs/` | Ignored generated application-run artifacts and reports. |

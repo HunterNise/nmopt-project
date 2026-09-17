@@ -10,7 +10,7 @@ $$
 
 That object answers a precise question:
 
-> If the control changes by $\delta u\in U_{h}$, what is the first-order change in
+> If the control changes by $`\delta u\in U_{h}`$, what is the first-order change in
 > the reduced objective?
 
 The answer is
@@ -69,7 +69,7 @@ It is the operator that identifies primal control directions with dual derivativ
 
 ## 1. The same derivative has different gradients in different geometries
 
-Let $U_{h}$ be a finite-dimensional control space.
+Let $`U_{h}`$ be a finite-dimensional control space.
 
 Suppose the reduced derivative at $u$ is the covector
 
@@ -87,10 +87,10 @@ $$
 (\cdot,\cdot)_{G}
 $$
 
-on $U_{h}$.
+on $`U_{h}`$.
 
 The **gradient with respect to that inner product** is the unique
-$g\in U_{h}$ satisfying
+$`g\in U_{h}`$ satisfying
 
 $$
 r[\delta u]
@@ -106,7 +106,7 @@ The important word is **chosen**.
 
 The derivative $r$ is fixed by the objective and PDE model.
 
-The gradient depends on the geometry used to identify $U_{h}$ with its dual.
+The gradient depends on the geometry used to identify $`U_{h}`$ with its dual.
 
 ### 1.1 Coordinate form
 
@@ -342,8 +342,8 @@ M\mathbf g
 $$
 
 This is not merely a preconditioning trick added for numerical convenience. It is the
-coordinate form of the mathematical identification between $U_{h}$ and
-$U_{h}^{\ast}$ induced by the $L^{2}$ inner product.
+coordinate form of the mathematical identification between $`U_{h}`$ and
+$`U_{h}^{\ast}`$ induced by the $L^{2}$ inner product.
 
 ### 3.1 The norm comes from the same map
 
@@ -500,7 +500,7 @@ This is one reason Sobolev or mass-matrix metrics are useful in PDE optimization
 they express geometry in terms of the represented field rather than the arbitrary
 raw coefficient scaling.
 
-The later finite-element chapter will discuss discretization-dependent norm
+The [Numerical realization](../overview/numerical-realization.md) overview discusses discretization-dependent norm
 equivalences more carefully. Here the practical message is that a metric is part of
 the numerical meaning of a gradient.
 
@@ -655,7 +655,7 @@ stopping criteria, and higher-level optimization behavior.
 The cellwise-constant control realization introduced in the first chapter has an
 important simplification.
 
-Suppose the control basis contains one indicator-like basis function $\psi_{K}$ for
+Suppose the control basis contains one indicator-like basis function $`\psi_{K}`$ for
 each mesh cell $K$.
 
 Different basis functions have disjoint support, so
@@ -708,7 +708,7 @@ The last point becomes important later in the chapter.
 
 ### 8.1 Continuous finite elements do not have the same simplification
 
-For a continuous nodal space such as $\mathbb P_{1}$ or $\mathbb Q_{1}$, neighboring
+For a continuous nodal space such as $`\mathbb P_{1}`$ or $`\mathbb Q_{1}`$, neighboring
 basis functions overlap.
 
 The mass matrix therefore has off-diagonal entries.
@@ -761,7 +761,7 @@ V_{h}
 $$
 
 For coefficient vectors $\mathbf v$ and $\mathbf w$, write the corresponding fields
-as $v_{h}$ and $w_{h}$.
+as $`v_{h}`$ and $`w_{h}`$.
 
 The **mass matrix** is
 
@@ -798,7 +798,7 @@ $$
 $$
 
 So $M$ measures the size of the fields themselves, whereas $K$ measures their
-spatial variation. On $H_{0}^{1}(\Omega)$, the zero boundary condition removes the
+spatial variation. On $`H_{0}^{1}(\Omega)`$, the zero boundary condition removes the
 constant nullspace, and the Laplace stiffness matrix is positive definite under the
 usual assumptions.
 
@@ -807,8 +807,8 @@ bilinear forms.
 
 ### 10.2 Why a potential appears in an $H^{-1}$ norm
 
-The notation $H^{-1}$ means the dual of $H_{0}^{1}$, so its norm is naturally defined
-through how a source acts on $H_{0}^{1}$ test functions.
+The notation $H^{-1}$ means the dual of $`H_{0}^{1}`$, so its norm is naturally defined
+through how a source acts on $`H_{0}^{1}`$ test functions.
 
 Using the Dirichlet-energy norm for the test space, one may think of
 
@@ -829,7 +829,7 @@ $$
 $$
 
 Instead of evaluating the supremum directly, introduce the Riesz representative
-$w\in H_{0}^{1}(\Omega)$ defined by
+$`w\in H_{0}^{1}(\Omega)`$ defined by
 
 $$
 \int_{\Omega}\nabla w\cdot\nabla v
@@ -1323,7 +1323,7 @@ coefficients.
 It is also the trace Riesz map.
 
 To see the energy interpretation explicitly, substitute
-$\mathbf i_{\ast}$ into the quadratic form. The minimum extension energy becomes
+$`\mathbf i_{\ast}`$ into the quadratic form. The minimum extension energy becomes
 
 $$
 \mathcal E(\mathbf b,\mathbf i_{\ast})
@@ -1357,7 +1357,7 @@ Given trace coefficients $\mathbf b$:
    =
    -A_{IB}\mathbf b;
    $$
-3. fill the interior positions with $\mathbf i_{\ast}$;
+3. fill the interior positions with $`\mathbf i_{\ast}`$;
 4. apply the full volume matrix $A$;
 5. retain only the trace rows.
 
@@ -1424,7 +1424,7 @@ $$
 One possibility would be:
 
 1. assemble the Schur complement $G$;
-2. solve $G\mathbf x_{B}=\mathbf r_{B}$.
+2. solve $`G\mathbf x_{B}=\mathbf r_{B}`$.
 
 The implementation uses a more direct strategy. Embed the trace covector into the
 full volume dual space by setting the interior right-hand side to zero, and solve
@@ -1747,7 +1747,7 @@ G
 g_{i}(z_{i}-x_{i})^{2}.
 ```
 
-There are no cross-terms involving $z_{i}z_{j}$ for $i\neq j$. The minimization
+There are no cross-terms involving $`z_{i}z_{j}`$ for $i\neq j$. The minimization
 therefore splits into $n$ independent one-dimensional problems:
 
 $$
@@ -1755,7 +1755,7 @@ $$
 \frac{g_{i}}{2}(z_{i}-x_{i})^{2}.
 $$
 
-Because $g_{i}>0$, multiplying the one-dimensional objective by $g_{i}$ does not
+Because $`g_{i}>0`$, multiplying the one-dimensional objective by $`g_{i}`$ does not
 change its minimizer.
 
 Three cases remain:
@@ -1834,10 +1834,10 @@ $$
 \end{bmatrix}.
 $$
 
-But the off-diagonal entries in $G$ couple the two coordinates. Changing $z_{2}$ can
-reduce the metric distance caused by the error in $z_{1}$.
+But the off-diagonal entries in $G$ couple the two coordinates. Changing $`z_{2}`$ can
+reduce the metric distance caused by the error in $`z_{1}`$.
 
-Consider the upper boundary $z_{1}=1$ and write
+Consider the upper boundary $`z_{1}=1`$ and write
 
 $$
 \mathbf z(t)
@@ -1963,9 +1963,9 @@ G(\mathbf z_{\ast}-\mathbf x),
 \end{aligned}
 ```
 
-because $v_{1}\leq1$.
+because $`v_{1}\leq1`$.
 
-Thus $\mathbf z_{\ast}$ satisfies the projection condition and, by strict convexity,
+Thus $`\mathbf z_{\ast}`$ satisfies the projection condition and, by strict convexity,
 is the unique metric projection.
 
 The result is
@@ -2221,7 +2221,7 @@ This is a **first-order stationarity condition**. For a general nonlinear object
 it is necessary but not sufficient for local optimality. If $j$ is convex, the same
 condition is also sufficient for global optimality over $C$.
 
-### 19.2 The projection condition for $u=P_{C}^{G}(u-g)$
+### 19.2 The projection condition for $`u=P_{C}^{G}(u-g)`$
 
 Now form the point
 
@@ -2456,7 +2456,7 @@ $$
 
 as the relevant descent measure.
 
-That is substantially more meaningful than testing $\lVert g\rVert_{G}$ alone:
+That is substantially more meaningful than testing $`\lVert g\rVert_{G}`$ alone:
 at an active constrained optimum the unconstrained gradient need not vanish, while
 the projected-gradient mapping does.
 
@@ -2481,7 +2481,7 @@ The projection therefore serves two roles:
 - it keeps line-search trial controls feasible;
 - its unit-step fixed-point residual provides the constrained stationarity measure.
 
-The later reduced-optimization chapter will explain how this interacts with Armijo
+Chapter 6 explains how this interacts with Armijo
 and other line searches.
 
 ## 21. How the reduced search code uses the metric
@@ -2626,7 +2626,7 @@ The concrete realizations discussed in this chapter can be compared compactly.
 | `DiagonalMetric` | positive diagonal $D$ | diagonal multiplication | diagonal division |
 | `MassMetric` | supplied SPD matrix $M$ | sparse matrix action | CG solve with $M$ |
 | `Hminus1Metric` | $M K^{-1}M$ | mass action + Laplace solve + mass action | mass solve + Laplace action + mass solve |
-| `TraceHhalfMetric` | $A_{BB}-A_{BI}A_{II}^{-1}A_{IB}$ | minimum-extension solve + volume action + trace restriction | full volume solve + trace restriction |
+| `TraceHhalfMetric` | $`A_{BB}-A_{BI}A_{II}^{-1}A_{IB}`$ | minimum-extension solve + volume action + trace restriction | full volume solve + trace restriction |
 
 The first is a backend-neutral dense/reference realization.
 
@@ -2715,9 +2715,8 @@ metric.
 
 The optional `box_data_token()` visible in the current contract serves a different
 purpose: it lets later complementarity/PDAS machinery retain access to the box data
-associated with a constraint realization. We will return to that in
-**All-at-once, KKT, and active-set formulations** rather than mix active-set
-semantics into the present projection discussion.
+associated with a constraint realization. Chapters 7 and 8 return to that through KKT and complementarity/PDAS rather than
+mixing active-set semantics into the present projection discussion.
 
 ## 26. What happens if the metric and constraint disagree?
 
@@ -2770,7 +2769,7 @@ This is useful context when navigating the solver code. The presence of a generi
 `ConstraintT` does not imply that every reduced algorithm has a mathematically
 implemented constrained counterpart.
 
-The later **Reduced optimization methods** chapter will explain the unconstrained and
+Chapter 6, **Reduced optimization methods**, explains the unconstrained and
 projected algorithm families in more detail.
 
 ## 28. Following the metric path through the source
@@ -2901,13 +2900,13 @@ The main objects can now be placed side by side.
 
 | Mathematical object | Coordinate realization | Contract/runtime role |
 | --- | --- | --- |
-| derivative $r\in U_{h}^{\ast}$ | covector coefficients $\mathbf r$ | `CovectorBlockT` |
-| Riesz map $G:U_{h}\to U_{h}^{\ast}$ | SPD operator/matrix | `MetricT::apply` |
+| derivative $`r\in U_{h}^{\ast}`$ | covector coefficients $\mathbf r$ | `CovectorBlockT` |
+| Riesz map $`G:U_{h}\to U_{h}^{\ast}`$ | SPD operator/matrix | `MetricT::apply` |
 | metric gradient $g=G^{-1}r$ | solve/apply inverse operator | `MetricT::inverse_apply` |
-| norm $\lVert v\rVert_{G}^{2}$ | $\mathbf v^{\mathsf T}G\mathbf v$ | `pair(metric.apply(v), v)` |
+| norm $`\lVert v\rVert_{G}^{2}`$ | $\mathbf v^{\mathsf T}G\mathbf v$ | `pair(metric.apply(v), v)` |
 | admissible set $C$ | bounds or other constraint data | `ConstraintT` |
-| metric projection $P_{C}^{G}$ | constrained quadratic minimization | `project_in(primal, metric)` |
-| projected stationarity | $P_{C}^{G}(u-g)-u$ | projected-gradient update/norm |
+| metric projection $`P_{C}^{G}`$ | constrained quadratic minimization | `project_in(primal, metric)` |
+| projected stationarity | $`P_{C}^{G}(u-g)-u`$ | projected-gradient update/norm |
 
 The important movement is
 
@@ -2942,7 +2941,7 @@ Part I of the concept manual has now established the common numerical language:
 We can therefore discuss formulations without repeatedly interrupting the derivation
 to explain these foundations.
 
-The next chapter, **Reduced state–adjoint formulation**, can focus on one coherent
+Chapter 5, **Reduced state–adjoint formulation**, focuses on one coherent
 question:
 
 > How do the state equation, objective derivative, adjoint solve, residual VJP, and
@@ -2957,16 +2956,15 @@ Useful existing documents for the ideas in this chapter are:
 
 - [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
   formal primal/dual, metric, constraint, and projection conventions.
-- [Numerical realization](../../overview/numerical-realization.md), for the architectural
+- [Numerical realization](../overview/numerical-realization.md), for the architectural
   location of finite-element metric services.
-- [Reduced optimization](../../overview/reduced-optimization.md), for the high-level
+- [Reduced optimization](../overview/reduced-optimization.md), for the high-level
   use of metrics in the current reduced solver path.
 - [Chapter 5 elliptic control](../../guides/chapter-5-elliptic-control.md), for
   application families that motivate $L^{2}$, negative-order, and boundary control
   geometries.
 
-The later **Finite-element realization** chapter will return to the assembly and
-deal.II details behind the mass, Laplace, and trace operators. The later
-**All-at-once, KKT, and active-set formulations** chapter will develop box constraints
-again from the complementarity/KKT viewpoint rather than the projection viewpoint
-used here.
+The [Numerical realization](../overview/numerical-realization.md) overview returns to the assembly and
+deal.II details behind the mass, Laplace, and trace operators. Chapters 7 and 8
+develop box constraints again from the KKT/complementarity viewpoint rather than the
+projection viewpoint used here.

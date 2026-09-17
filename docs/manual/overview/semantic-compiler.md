@@ -55,7 +55,7 @@ y &= 0
 
 Here $y$ is the state, $u$ the distributed control, $\kappa$ the diffusion
 coefficient, $c$ a reaction coefficient, and $f$ the forcing. The desired state
-$y_{\mathrm{d}}$ and regularization weight $\beta$ enter an objective of the form
+$`y_{\mathrm{d}}`$ and regularization weight $\beta$ enter an objective of the form
 
 ```math
 J(y,u)
@@ -282,10 +282,10 @@ The supplied optimize-then-discretize (OTD), quadratic Karush–Kuhn–Tucker (K
 and primal-dual active-set (PDAS) surfaces have their own contract and deal.II
 verification. They represent genuine framework capability.
 
-The repository's executable benchmark programme is less complete than that product
-surface. B1/B2 exercise reduced formulations extensively; the planned B3–B6
-application work was intended to give the PDAS and all-at-once/KKT paths the same
-kind of end-to-end benchmark treatment but was not completed to the same level.
+The repository's executable benchmark programme is narrower than that product surface.
+B1/B2 exercise reduced formulations extensively; PDAS, supplied-OTD, and KKT support
+is instead evidenced mainly by focused compiler, contract, and numerical tests rather
+than equivalent named end-to-end benchmark campaigns.
 
 That distinction is useful when reading the project:
 
@@ -355,7 +355,7 @@ The main implementation areas are:
   semantic problems for the Chapter 5/6 application layer.
 
 The detailed current capability ledger lives in
-[`docs/implementation/v1/semantic-compiler.md`](../implementation/v1/semantic-compiler.md).
+[`docs/implementation/v1/semantic-compiler.md`](../../implementation/v1/semantic-compiler.md).
 That document is intentionally much more exhaustive than this overview.
 
 ## 13. When to use this path
@@ -385,17 +385,17 @@ the other.
 
 For deeper detail, use the document whose authority matches the question:
 
-- [v1 semantic compiler](../implementation/v1/semantic-compiler.md) is the current
+- [v1 semantic compiler](../../implementation/v1/semantic-compiler.md) is the current
   capability ledger and implementation record for registered compiler targets.
-- [Application assembly API](../reference/application-api.md) records the exact
+- [Application assembly API](../../reference/application-api.md) records the exact
   application-side construction interfaces around semantic problems and compilation.
-- [Composition boundaries](../design/composition-boundaries.md) records the
+- [Composition boundaries](../../design/composition-boundaries.md) records the
   long-lived rules governing what belongs in semantics, runtime bindings, compiler
   policy, and solver code.
-- [Chapter 5 elliptic optimal-control guide](../guides/chapter-5-elliptic-control.md)
+- [Chapter 5 elliptic optimal-control guide](../../guides/chapter-5-elliptic-control.md)
   records the source problem catalogue drawn from the book.
-- [Chapter 6 numerical-methods guide](../guides/chapter-6-numerical-methods.md) and
-  [numerical-examples reference](../guides/chapter-6-numerical-examples.md) record
+- [Chapter 6 numerical-methods guide](../../guides/chapter-6-numerical-methods.md) and
+  [numerical-examples reference](../../guides/chapter-6-numerical-examples.md) record
   the source methods and experiments behind the B-series application scenarios.
 
 The overview explains the compiler's role; those documents own the exhaustive

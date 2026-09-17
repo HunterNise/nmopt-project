@@ -162,7 +162,7 @@ without either layer.
 
 For prose, read [Describing and compiling a problem](semantic-compiler.md). The
 detailed current capability ledger is
-[`docs/implementation/v1/semantic-compiler.md`](../implementation/v1/semantic-compiler.md).
+[`docs/implementation/v1/semantic-compiler.md`](../../implementation/v1/semantic-compiler.md).
 
 ## 3. Existing-application integration path
 
@@ -214,7 +214,7 @@ maps, and writers.
 For prose, read
 [Integrating an existing PDE application](external-applications.md). The worked
 deal.II example remains beside its source at
-[`apps/external-dealii/step-4/external-integration-overview.md`](../../apps/external-dealii/step-4/external-integration-overview.md).
+[`apps/external-dealii/step-4/external-integration-overview.md`](../../../apps/external-dealii/step-4/external-integration-overview.md).
 
 ## 4. Shared foundations and formulation-specific products
 
@@ -300,7 +300,7 @@ single universal formulation interface.
 For the reduced path, continue with
 [Reduced state–adjoint optimization](reduced-optimization.md). For exact
 mathematical conventions, use
-[Theoretical formalism](../design/theoretical-formalism.md).
+[Theoretical formalism](../../design/theoretical-formalism.md).
 
 ## 5. Reduced evaluation lifecycle
 

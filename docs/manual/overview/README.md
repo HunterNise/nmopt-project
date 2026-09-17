@@ -88,20 +88,20 @@ from first principles.
 
 The prerequisite theory is intentionally kept separate from the architectural
 story. These overviews should remain technically accurate rather than replacing
-project terminology with simpler but less precise analogies; dedicated background
-recaps can provide the slower mathematical and C++/deal.II refreshers.
+project terminology with simpler but less precise analogies. The concept chapters
+develop the project-specific mathematical and software distinctions in more detail.
 
 ## Read later: authoritative documentation
 
 Once the mental model is clear, route by the kind of authority you need:
 
-- [`docs/design/theoretical-formalism.md`](../design/theoretical-formalism.md) is the
+- [`docs/design/theoretical-formalism.md`](../../design/theoretical-formalism.md) is the
   long-lived mathematical convention for residuals, adjoints, covectors, metrics,
   and formulations.
-- [`docs/design/pde-solver-boundary.md`](../design/pde-solver-boundary.md) records
+- [`docs/design/pde-solver-boundary.md`](../../design/pde-solver-boundary.md) records
   the accepted ownership boundary between PDE realization, formulation, compiler,
   and optimization.
-- [`docs/implementation/v1/semantic-compiler.md`](../implementation/v1/semantic-compiler.md)
+- [`docs/implementation/v1/semantic-compiler.md`](../../implementation/v1/semantic-compiler.md)
   is the detailed current capability ledger for the v1 semantic/compiler path.
 - `docs/reference/` contains the exact public operational contracts that already have
   dedicated references, including external deal.II integration, application

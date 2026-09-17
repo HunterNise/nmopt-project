@@ -55,7 +55,7 @@ conceptually:
 ```math
 \begin{aligned}
 E(x) &\quad &&\text{residual evaluation},\\
-E'(x)\,\delta x &&&\text{Jacobian action},\\
+E'(x) \delta x &&&\text{Jacobian action},\\
 E'(x)^{\ast}p &&&\text{transpose / pullback action},\\
 J(x) &&&\text{objective value},\\
 J'(x) &&&\text{objective derivative}.
@@ -326,16 +326,16 @@ a prerequisite for the first integration.
 ## Read later: authoritative sources
 
 For the concrete worked case, read
-[How nmopt connects to an existing deal.II application](../../apps/external-dealii/step-4/external-integration-overview.md).
+[How nmopt connects to an existing deal.II application](../../../apps/external-dealii/step-4/external-integration-overview.md).
 
 For exact public calling conventions, read
-[External deal.II solver integration](../reference/external-dealii-solver-integration.md).
+[External deal.II solver integration](../../reference/external-dealii-solver-integration.md).
 
 For the accepted ownership rules, read
-[PDE, formulation, and solver boundary](../design/pde-solver-boundary.md).
+[PDE, formulation, and solver boundary](../../design/pde-solver-boundary.md).
 
 For the mathematical role of layouts, covectors, metrics, and adjoints, read
-[Theoretical formalism](../design/theoretical-formalism.md).
+[Theoretical formalism](../../design/theoretical-formalism.md).
 
 For the peer framework-managed route, continue with
 [Describing and compiling a problem](semantic-compiler.md).

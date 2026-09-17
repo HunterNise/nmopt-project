@@ -6,15 +6,15 @@ The reduced formulation treated the control as the optimization variable and hid
 state equation inside the control-to-state map
 
 $$
-y=S_h(u).
+y=S_{h}(u).
 $$
 
 That led to a reduced objective
 
 $$
-j_h(u)
+j_{h}(u)
 :=
-J_h(S_h(u),u)
+J_{h}(S_{h}(u),u)
 $$
 
 and an adjoint construction for its derivative. There is another way to use exactly the
@@ -29,7 +29,7 @@ For a state/control problem, the unknown becomes
 $$
 (y,p,u)
 \in
-Y_h\times Z_h\times U_h.
+Y_{h}\times Z_{h}\times U_{h}.
 $$
 
 The equations are no longer just the PDE residual. They contain three roles:
@@ -72,7 +72,7 @@ Q / D / D^T actions, pairings, assumptions, solver policy
 Only after that derivation will we map the objects to `SuppliedOTDSystemT` and
 `EqualityConstrainedQuadraticKKTProductT`. Bounds and complementarity are deliberately
 deferred. They add another layer of first-order conditions and lead naturally to PDAS in
-the next chapter.
+Chapter 8.
 
 ## 1. Return to the Lagrangian
 
@@ -80,30 +80,30 @@ Consider the discrete equality-constrained problem
 
 ```math
 \begin{aligned}
-\min_{y,u}\quad & J_h(y,u),\\
-\text{subject to}\quad & E_h(y,u)=0
-\quad\text{in }Z_h^{\ast}.
+\min_{y,u}\quad & J_{h}(y,u),\\
+\text{subject to}\quad & E_{h}(y,u)=0
+\quad\text{in }Z_{h}^{\ast}.
 \end{aligned}
 ```
 
 The project uses the Lagrangian convention
 
 $$
-\mathcal L_h(y,u,p)
+\mathcal L_{h}(y,u,p)
 :=
-J_h(y,u)
+J_{h}(y,u)
 -
-\langle E_h(y,u),p\rangle_{Z_h^{\ast},Z_h}.
+\langle E_{h}(y,u),p\rangle_{Z_{h}^{\ast},Z_{h}}.
 $$
 
 The adjoint variable is
 
 $$
-p\in Z_h.
+p\in Z_{h}.
 $$
 
 The minus sign is the same convention used in the reduced state–adjoint chapter. The
-first-order conditions come from requiring the derivative of $\mathcal L_h$ to vanish
+first-order conditions come from requiring the derivative of $`\mathcal L_{h}`$ to vanish
 with respect to each unknown role.
 
 ### 1.1 Variation with respect to the adjoint gives the state equation
@@ -111,23 +111,23 @@ with respect to each unknown role.
 Perturb $p$ by
 
 $$
-\delta p\in Z_h.
+\delta p\in Z_{h}.
 $$
 
 Then
 
 ```math
-D_p\mathcal L_h(y,u,p)[\delta p]
+D_{p}\mathcal L_{h}(y,u,p)[\delta p]
 =
 -
-\langle E_h(y,u),\delta p\rangle.
+\langle E_{h}(y,u),\delta p\rangle.
 ```
 
 For this to vanish for every $\delta p$,
 
 $$
-E_h(y,u)=0
-\quad\text{in }Z_h^{\ast}.
+E_{h}(y,u)=0
+\quad\text{in }Z_{h}^{\ast}.
 $$
 
 So the multiplier/adjoint variation simply recovers primal feasibility.
@@ -137,18 +137,18 @@ So the multiplier/adjoint variation simply recovers primal feasibility.
 Now perturb the state by
 
 $$
-\delta y\in Y_h.
+\delta y\in Y_{h}.
 $$
 
 Then
 
 ```math
-D_y\mathcal L_h(y,u,p)[\delta y]
+D_{y}\mathcal L_{h}(y,u,p)[\delta y]
 =
-D_yJ_h(y,u)[\delta y]
+D_{y}J_{h}(y,u)[\delta y]
 -
 \left\langle
-D_yE_h(y,u)[\delta y],
+D_{y}E_{h}(y,u)[\delta y],
 p
 \right\rangle.
 ```
@@ -157,12 +157,12 @@ Use the transpose identity
 
 $$
 \left\langle
-D_yE_h(y,u)[\delta y],
+D_{y}E_{h}(y,u)[\delta y],
 p
 \right\rangle
 =
 \left\langle
-D_yE_h(y,u)^{\ast}p,
+D_{y}E_{h}(y,u)^{\ast}p,
 \delta y
 \right\rangle.
 $$
@@ -170,12 +170,12 @@ $$
 Therefore
 
 ```math
-D_y\mathcal L_h(y,u,p)[\delta y]
+D_{y}\mathcal L_{h}(y,u,p)[\delta y]
 =
 \left\langle
-D_yJ_h(y,u)
+D_{y}J_{h}(y,u)
 -
-D_yE_h(y,u)^{\ast}p,
+D_{y}E_{h}(y,u)^{\ast}p,
 \delta y
 \right\rangle.
 ```
@@ -183,20 +183,20 @@ D_yE_h(y,u)^{\ast}p,
 Stationarity for every $\delta y$ gives
 
 $$
-D_yJ_h(y,u)
+D_{y}J_{h}(y,u)
 -
-D_yE_h(y,u)^{\ast}p
+D_{y}E_{h}(y,u)^{\ast}p
 =
 0
-\quad\text{in }Y_h^{\ast}.
+\quad\text{in }Y_{h}^{\ast}.
 $$
 
 Equivalently,
 
 $$
-D_yE_h(y,u)^{\ast}p
+D_{y}E_{h}(y,u)^{\ast}p
 =
-D_yJ_h(y,u).
+D_{y}J_{h}(y,u).
 $$
 
 This is exactly the adjoint equation that appeared in the reduced formulation.
@@ -214,12 +214,12 @@ $$
 The control variation is
 
 ```math
-D_u\mathcal L_h(y,u,p)[\delta u]
+D_{u}\mathcal L_{h}(y,u,p)[\delta u]
 =
 \left\langle
-D_uJ_h(y,u)
+D_{u}J_{h}(y,u)
 -
-D_uE_h(y,u)^{\ast}p,
+D_{u}E_{h}(y,u)^{\ast}p,
 \delta u
 \right\rangle.
 ```
@@ -227,22 +227,22 @@ D_uE_h(y,u)^{\ast}p,
 For an unconstrained control, first-order stationarity requires
 
 $$
-D_uJ_h(y,u)
+D_{u}J_{h}(y,u)
 -
-D_uE_h(y,u)^{\ast}p
+D_{u}E_{h}(y,u)^{\ast}p
 =
 0
-\quad\text{in }U_h^{\ast}.
+\quad\text{in }U_{h}^{\ast}.
 $$
 
 The same covector was the reduced derivative:
 
 $$
-j_h'(u)
+j_{h}'(u)
 =
-D_uJ_h
+D_{u}J_{h}
 -
-D_uE_h^{\ast}p.
+D_{u}E_{h}^{\ast}p.
 $$
 
 The difference is not in the equation. The difference is in **how it is used**.
@@ -283,12 +283,12 @@ solve all blocks together
 Define the optimality residual
 
 $$
-F_h(y,p,u)
+F_{h}(y,p,u)
 :=
 \begin{bmatrix}
-E_h(y,u)\\
-D_yJ_h(y,u)-D_yE_h(y,u)^{\ast}p\\
-D_uJ_h(y,u)-D_uE_h(y,u)^{\ast}p
+E_{h}(y,u)\\
+D_{y}J_{h}(y,u)-D_{y}E_{h}(y,u)^{\ast}p\\
+D_{u}J_{h}(y,u)-D_{u}E_{h}(y,u)^{\ast}p
 \end{bmatrix}.
 $$
 
@@ -296,7 +296,7 @@ Its codomain is the product of the three equation-dual spaces. An all-at-once so
 satisfies
 
 $$
-F_h(y,p,u)=0.
+F_{h}(y,p,u)=0.
 $$
 
 ### 2.1 The state need not be feasible at every intermediate iterate
@@ -305,14 +305,14 @@ This is one of the most important algorithmic differences. In a reduced method, 
 accepted control is paired with a state satisfying
 
 $$
-E_h(y,u)=0
+E_{h}(y,u)=0
 $$
 
 to the accuracy of the supplied state solve. An all-at-once nonlinear iteration may
 instead visit intermediate points for which
 
 $$
-E_h(y,u)\neq0.
+E_{h}(y,u)\neq0.
 $$
 
 The state equation is one residual block being driven to zero together with the adjoint
@@ -347,13 +347,13 @@ rather than two names for the same runtime object.
 Once
 
 $$
-F_h:
-Y_h\times Z_h\times U_h
+F_{h}:
+Y_{h}\times Z_{h}\times U_{h}
 \longrightarrow
-R_h^{\ast}
+R_{h}^{\ast}
 $$
 
-has been defined, where $R_h$ denotes the product test space for the optimality
+has been defined, where $`R_{h}`$ denotes the product test space for the optimality
 equations, the same first-order vocabulary from Part I applies again.
 
 At a point
@@ -367,13 +367,13 @@ $$
 the linearization is
 
 $$
-F_h'(w)[\delta w].
+F_{h}'(w)[\delta w].
 $$
 
 Its transpose action is
 
 $$
-F_h'(w)^{\ast}q.
+F_{h}'(w)^{\ast}q.
 $$
 
 A Newton-type all-at-once method asks for a correction
@@ -385,41 +385,41 @@ $$
 satisfying
 
 $$
-F_h'(w)[\delta w]
+F_{h}'(w)[\delta w]
 =
--F_h(w).
+-F_{h}(w).
 $$
 
 So the JVP of the optimality system is the operator used by a matrix-free Newton–Krylov
 solve.
 
-There is an important derivative-order consequence. The residual $F_h$ already contains
-first derivatives of $J_h$ and $E_h$, so differentiating $F_h$ generally introduces
+There is an important derivative-order consequence. The residual $`F_{h}`$ already contains
+first derivatives of $`J_{h}`$ and $`E_{h}`$, so differentiating $`F_{h}`$ generally introduces
 second derivatives of the original optimization problem. For example, linearizing
 
 $$
-D_yE_h(y,u)^{\ast}p
+D_{y}E_{h}(y,u)^{\ast}p
 $$
 
 with respect to $y$ or $u$ differentiates a first derivative of the original PDE
 residual.
 
 A supplied OTD system can provide this optimality JVP directly; it need not be
-reconstructed from a first-order DTO model whose interface stops at $J_h'$ and $E_h'$.
+reconstructed from a first-order DTO model whose interface stops at $`J_{h}'`$ and $`E_{h}'`$.
 
 The VJP supplies the transpose action needed for transpose consistency tests,
 diagnostics, or algorithms that require the transposed operator. The key point is that
-this JVP/VJP pair belongs to the **optimality residual** $F_h$, not to the original PDE
-residual $E_h$.
+this JVP/VJP pair belongs to the **optimality residual** $`F_{h}`$, not to the original PDE
+residual $`E_{h}`$.
 
 ## 4. DTO and OTD differ in where discretization occurs
 
 The reduced chapters worked with an already-discrete objective and residual:
 
 $$
-J_h,
+J_{h},
 \qquad
-E_h.
+E_{h}.
 $$
 
 The adjoint and reduced derivative were then obtained by differentiating those discrete
@@ -510,7 +510,7 @@ solve(initial_point)
 ```
 
 The first three are the same value/linearization/transpose pattern developed in
-[Operators, derivatives, and adjoints](operators-derivatives-and-adjoints.md), now
+[Operators, derivatives, and adjoints](03-operators-derivatives-and-adjoints.md), now
 applied to the whole first-order system.
 
 The fourth operation is formulation-specific: it solves for the complete
@@ -544,11 +544,11 @@ $$
 The objective is
 
 ```math
-J_h(y,u)
+J_{h}(y,u)
 :=
 \frac12
 \left(
-y^{\mathsf T}M_y y
+y^{\mathsf T}M_{y} y
 -
 2q^{\mathsf T}y
 +
@@ -556,15 +556,15 @@ c
 \right)
 +
 \frac{\beta}{2}
-u^{\mathsf T}N_u u.
+u^{\mathsf T}N_{u} u.
 ```
 
 The project Lagrangian is
 
 $$
-\mathcal L_h(y,u,p)
+\mathcal L_{h}(y,u,p)
 :=
-J_h(y,u)
+J_{h}(y,u)
 -
 p^{\mathsf T}(Ay-Bu-f).
 $$
@@ -584,15 +584,15 @@ $$
 The state derivative of the objective is
 
 $$
-D_yJ_h
+D_{y}J_{h}
 =
-M_y y-q.
+M_{y} y-q.
 $$
 
 The state derivative of the residual is $A$. Therefore
 
 $$
-M_y y-q-A^{\mathsf T}p=0.
+M_{y} y-q-A^{\mathsf T}p=0.
 $$
 
 Equivalently,
@@ -600,7 +600,7 @@ Equivalently,
 $$
 A^{\mathsf T}p
 =
-M_y y-q.
+M_{y} y-q.
 $$
 
 ### 6.3 Control stationarity
@@ -608,21 +608,21 @@ $$
 The direct control derivative is
 
 $$
-D_uJ_h
+D_{u}J_{h}
 =
-\beta N_u u.
+\beta N_{u} u.
 $$
 
 Because
 
 $$
-D_uE_h=-B,
+D_{u}E_{h}=-B,
 $$
 
 the transpose contribution is
 
 $$
-D_uE_h^{\ast}p
+D_{u}E_{h}^{\ast}p
 =
 -B^{\mathsf T}p.
 $$
@@ -630,7 +630,7 @@ $$
 Hence control stationarity is
 
 $$
-\beta N_u u+B^{\mathsf T}p=0.
+\beta N_{u} u+B^{\mathsf T}p=0.
 $$
 
 ### 6.4 The three equations can be solved together
@@ -646,8 +646,8 @@ the optimality system is
 ```math
 \begin{bmatrix}
 A & 0 & -B\\
-M_y & -A^{\mathsf T} & 0\\
-0 & B^{\mathsf T} & \beta N_u
+M_{y} & -A^{\mathsf T} & 0\\
+0 & B^{\mathsf T} & \beta N_{u}
 \end{bmatrix}
 \begin{bmatrix}
 y\\
@@ -692,9 +692,9 @@ $$
 \frac12
 x^{\mathsf T}Qx
 -
-c_x^{\mathsf T}x
+c_{x}^{\mathsf T}x
 +
-c_0,
+c_{0},
 $$
 
 with
@@ -703,11 +703,11 @@ with
 Q
 :=
 \begin{bmatrix}
-M_y & 0\\
-0 & \beta N_u
+M_{y} & 0\\
+0 & \beta N_{u}
 \end{bmatrix},
 \qquad
-c_x
+c_{x}
 :=
 \begin{bmatrix}
 q\\
@@ -737,8 +737,8 @@ The optimization problem is therefore
 
 ```math
 \begin{aligned}
-\min_x\quad&
-\frac12 x^{\mathsf T}Qx-c_x^{\mathsf T}x+c_0,
+\min_{x}\quad&
+\frac12 x^{\mathsf T}Qx-c_{x}^{\mathsf T}x+c_{0},
 \\
 \text{subject to}\quad&
 Dx=d.
@@ -762,15 +762,15 @@ $$
 The project PDE convention instead used
 
 $$
-\mathcal L_h
+\mathcal L_{h}
 =
-J_h-p^{\mathsf T}E_h.
+J_{h}-p^{\mathsf T}E_{h}.
 $$
 
 Since the equality residual is
 
 $$
-E_h=Dx-d,
+E_{h}=Dx-d,
 $$
 
 the two conventions agree when
@@ -795,18 +795,18 @@ $$
 =
 \frac12x^{\mathsf T}Qx
 -
-c_x^{\mathsf T}x
+c_{x}^{\mathsf T}x
 +
 \lambda^{\mathsf T}(Dx-d)
 +
-c_0.
+c_{0}.
 $$
 
 Assume $Q$ is symmetric under the declared primal/stationarity pairing. Variation with
 respect to $x$ gives
 
 $$
-Qx-c_x+D^{\mathsf T}\lambda=0.
+Qx-c_{x}+D^{\mathsf T}\lambda=0.
 $$
 
 Variation with respect to $\lambda$ gives
@@ -828,7 +828,7 @@ x\\
 \end{bmatrix}
 =
 \begin{bmatrix}
-c_x\\
+c_{x}\\
 d
 \end{bmatrix}.
 ```
@@ -853,8 +853,8 @@ The stationarity equation becomes
 
 ```math
 \begin{bmatrix}
-M_y & 0\\
-0 & \beta N_u
+M_{y} & 0\\
+0 & \beta N_{u}
 \end{bmatrix}
 \begin{bmatrix}
 y\\
@@ -878,13 +878,13 @@ A^{\mathsf T}\\
 So its state component is
 
 $$
-M_y y-q-A^{\mathsf T}p=0,
+M_{y} y-q-A^{\mathsf T}p=0,
 $$
 
 and its control component is
 
 $$
-\beta N_u u+B^{\mathsf T}p=0.
+\beta N_{u} u+B^{\mathsf T}p=0.
 $$
 
 The equality equation is
@@ -954,18 +954,18 @@ The equality operator is
 
 $$
 D:
-X_h
+X_{h}
 \longrightarrow
-Y_h^{\ast},
+Y_{h}^{\ast},
 $$
 
-where $X_h$ is the KKT primal space and $Y_h^{\ast}$ is the equality-residual space. A
+where $`X_{h}`$ is the KKT primal space and $`Y_{h}^{\ast}`$ is the equality-residual space. A
 full-row-rank condition means, in finite-dimensional matrix language,
 
 $$
 \mathrm{rank}(D)
 =
-\dim Y_h^{\ast}.
+\dim Y_{h}^{\ast}.
 $$
 
 Equivalently,
@@ -1117,33 +1117,33 @@ The key maps are
 
 ```math
 Q:
-X_h
+X_{h}
 \longrightarrow
-\Sigma_h^{\ast},
+\Sigma_{h}^{\ast},
 ```
 
 ```math
 D:
-X_h
+X_{h}
 \longrightarrow
-Y_h^{\ast},
+Y_{h}^{\ast},
 ```
 
 and
 
 ```math
 D^{\mathsf T}:
-\Lambda_h
+\Lambda_{h}
 \longrightarrow
-\Sigma_h^{\ast}.
+\Sigma_{h}^{\ast}.
 ```
 
 Here:
 
-- $X_h$ is the primal space;
-- $\Sigma_h^{\ast}$ is the stationarity-covector space;
-- $Y_h^{\ast}$ is the equality-residual space;
-- $\Lambda_h$ is the multiplier space paired with the equality space.
+- $`X_{h}`$ is the primal space;
+- $`\Sigma_{h}^{\ast}`$ is the stationarity-covector space;
+- $`Y_{h}^{\ast}`$ is the equality-residual space;
+- $`\Lambda_{h}`$ is the multiplier space paired with the equality space.
 
 In the simplest matrix example, stationarity coordinates have the same dimension as the
 primal coordinates and multiplier coordinates have the same dimension as the equality
@@ -1268,7 +1268,7 @@ Subtract the stored right-hand sides:
 
 ```math
 \begin{bmatrix}
-Qx+D^{\mathsf T}\lambda-c_x\\
+Qx+D^{\mathsf T}\lambda-c_{x}\\
 Dx-d
 \end{bmatrix}.
 ```
@@ -1886,7 +1886,7 @@ The KKT system derived here contains only equality constraints. A box-constraine
 control introduces additional first-order structure. The simple stationarity equation
 
 $$
-D_uJ_h-D_uE_h^{\ast}p=0
+D_{u}J_{h}-D_{u}E_{h}^{\ast}p=0
 $$
 
 is replaced by a constrained stationarity condition involving, depending on the
@@ -1987,15 +1987,15 @@ quadratic saddle-point boundary.
 | --- | --- | --- |
 | all-at-once unknown | $(y,p,u)$ | supplied variable layout |
 | all-at-once residual | state + adjoint + stationarity equations | `SuppliedOTDSystemT::residual` |
-| optimality JVP | $F_h'(w)[\delta w]$ | `residual_jvp` |
-| optimality VJP | $F_h'(w)^{\ast}q$ | `residual_vjp` |
-| coupled optimality solve | $F_h(w)=0$ | `SuppliedOTDSystemT::solve` |
+| optimality JVP | $`F_{h}'(w)[\delta w]`$ | `residual_jvp` |
+| optimality VJP | $`F_{h}'(w)^{\ast}q`$ | `residual_vjp` |
+| coupled optimality solve | $`F_{h}(w)=0`$ | `SuppliedOTDSystemT::solve` |
 | quadratic primal | $x$ | KKT primal layout |
 | equality multiplier | $\lambda$ | KKT multiplier layout |
 | objective curvature | $Qx$ | `apply_q` |
 | equality action | $Dx$ | `apply_d` |
 | equality transpose | $D^{\mathsf T}\lambda$ | `apply_d_transpose` |
-| KKT residual | $(Qx+D^{\mathsf T}\lambda-c_x,\ Dx-d)$ | `residual` |
+| KKT residual | $`(Qx+D^{\mathsf T}\lambda-c_{x},\ Dx-d)`$ | `residual` |
 | PDE/KKT sign conversion | $\lambda=-p$ | multiplier conversion |
 | KKT transpose | $K^{\mathsf T}$ action | `apply_kkt_transpose` |
 | saddle-point assumptions | rank + positivity on $\ker(D)$ | `QuadraticKKTAssumptions` |
@@ -2017,12 +2017,12 @@ x\\
 \end{bmatrix}
 =
 \begin{bmatrix}
-c_x\\
+c_{x}\\
 d
 \end{bmatrix}.
 ```
 
-The next chapter will add bounds. That changes the problem in two linked ways. First,
+Chapter 8 adds bounds. That changes the problem in two linked ways. First,
 control stationarity is no longer simply zero in every coefficient.
 
 Second, each bound-constrained coefficient can switch between:
@@ -2044,9 +2044,9 @@ Useful existing documents are:
 
 - [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
   Lagrangian sign, dual-pairing, DTO/OTD, and first-order conventions.
-- [Project architecture](../../overview/project-architecture.md), for the relationship
+- [Project architecture](../overview/project-architecture.md), for the relationship
   among reduced, supplied OTD, KKT, and PDAS formulation products.
-- [Semantic compiler](../../overview/semantic-compiler.md), for the high-level
+- [Semantic compiler](../overview/semantic-compiler.md), for the high-level
   compiler path that can construct selected formulation products.
 - [v1 semantic/compiler capability](../../implementation/v1/semantic-compiler.md),
   for the exact currently registered formulation/capability ledger.

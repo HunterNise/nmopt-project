@@ -50,9 +50,9 @@ with objective
 ```math
 J(y,u)
 =
-\frac12\lVert y-y_{\mathrm d}\rVert_{L^2(\Omega)}^2
+\frac12\lVert y-y_{\mathrm d}\rVert_{L^{2}(\Omega)}^{2}
 +
-\frac{\beta}{2}\lVert u\rVert_{L^2(\Omega)}^2.
+\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
 ```
 
 For this baseline problem, the semantic graph already says that:
@@ -134,7 +134,7 @@ selected numerical realization
 and not the reverse.
 
 A lowerer does not inspect an arbitrary matrix and guess that it "looks like" an
-$L^2$ metric. The semantic graph has already declared the metric; the compiler
+$L^{2}$ metric. The semantic graph has already declared the metric; the compiler
 constructs the registered realization of that declaration.
 
 ## 2. The public compiler call joins four kinds of input
@@ -464,7 +464,7 @@ For full-domain state tracking,
 
 ```math
 \underbrace{
-\mathcal O_y(y)=y
+\mathcal O_{y}(y)=y
 }_{\texttt{volume\_restriction}}
 ```
 
@@ -481,8 +481,8 @@ The tracking loss
 ```math
 \frac12
 \lVert
-\mathcal O_y(y)-y_{\mathrm d}
-\rVert^2
+\mathcal O_{y}(y)-y_{\mathrm d}
+\rVert^{2}
 ```
 
 becomes a separate `ScalarLossContribution`.
@@ -493,7 +493,7 @@ mathematical form of the loss.
 For example,
 
 ```math
-\mathcal O_y(y)=y
+\mathcal O_{y}(y)=y
 ```
 
 can be replaced by
@@ -501,7 +501,7 @@ can be replaced by
 ```math
 \mathcal O_{\mathrm s}(y)
 =
-[y(x_1),\ldots,y(x_m)]^{\mathsf T}
+[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}
 ```
 
 while the outer objective remains a quadratic tracking loss.
@@ -800,7 +800,7 @@ That separation has a concrete mathematical consequence.
 Changing
 
 $$
-\mathcal O_y(y)=y
+\mathcal O_{y}(y)=y
 $$
 
 to a point or subdomain observation should change the objective/adjoint-source
@@ -809,7 +809,7 @@ services without automatically changing the state PDE residual.
 Likewise, changing the search metric from
 
 $$
-G_{L^2}
+G_{L^{2}}
 $$
 
 to another registered metric should not rewrite the scalar objective.
@@ -1011,17 +1011,17 @@ need to know how the residual was assembled.
 For the running problem it needs operations corresponding to
 
 ```math
-E_h(y,u)
+E_{h}(y,u)
 ```
 
 and its derivatives:
 
 ```math
-D E_h(y,u)[\delta y,\delta u],
+D E_{h}(y,u)[\delta y,\delta u],
 ```
 
 ```math
-D E_h(y,u)^\ast r.
+D E_{h}(y,u)^{\ast} r.
 ```
 
 It also needs objective value/derivative services.
@@ -1043,7 +1043,7 @@ runtime solver sees the operational interface.
 
 ## 21. State and adjoint solves are packaged beside the executable model
 
-Chapter 5 distinguished operator actions from solve services.
+Chapter 5, [Reduced state–adjoint formulation](05-reduced-state-adjoint-formulation.md), distinguished operator actions from solve services.
 
 Compilation preserves that distinction.
 
@@ -1058,13 +1058,13 @@ VJP
 while state/adjoint solver services perform inverse operations such as
 
 ```math
-D_yE_h(y,u)\delta y=b
+D_{y}E_{h}(y,u)\delta y=b
 ```
 
 or
 
 ```math
-D_yE_h(y,u)^\ast p = r_y.
+D_{y}E_{h}(y,u)^{\ast} p = r_{y}.
 ```
 
 `CompiledProblemT` therefore retains a `StateAdjointSolversT` alongside the executable
@@ -1092,10 +1092,10 @@ The same separation holds for the optimization metric.
 For the baseline control,
 
 $$
-G:U_h\longrightarrow U_h^\ast
+G:U_{h}\longrightarrow U_{h}^{\ast}
 $$
 
-is realized as the registered $L^2$ metric service.
+is realized as the registered $L^{2}$ metric service.
 
 `CompiledProblemT` stores the metric separately from the executable PDE model.
 
@@ -1126,7 +1126,7 @@ bound data are supplied, compilation additionally creates the corresponding
 For a cellwise box,
 
 ```math
-\ell_i\leq u_i\leq r_i,
+\ell_{i}\leq u_{i}\leq r_{i},
 ```
 
 the compiled problem may also retain the concrete bound data as one shared source of
@@ -1194,7 +1194,7 @@ ReducedDTOT
 ```
 
 The resulting formulation then implements the state/adjoint sequence developed in
-Chapter 5.
+Chapter 5, [Reduced state–adjoint formulation](05-reduced-state-adjoint-formulation.md).
 
 This is where the compiler path joins the generic formulation layer:
 
@@ -1411,7 +1411,7 @@ These imply different mesh lifetime policies.
 The compiled manifest records the distinction, while the compiled product retains a
 lifetime owner when one is needed.
 
-The deeper ownership model belongs to Chapter 12, but one consequence matters here:
+The deeper ownership model appears in Chapter 13, but one consequence matters here:
 
 > compilation may produce generic type-erased solver services without erasing the
 > lifetime obligations of the concrete numerical objects behind them.
@@ -1634,7 +1634,7 @@ Consider a Dirichlet-control problem.
 Its physical state may satisfy schematically
 
 ```math
-y\rvert_{\Gamma_C}=u.
+y\rvert_{\Gamma_{C}}=u.
 ```
 
 The semantic graph declares a controlled-Dirichlet lifting and the required boundary
@@ -1727,7 +1727,7 @@ native application path
 The convergence point is the numerical/formulation contract layer, not
 `CompiledProblemT` itself.
 
-Chapter 12 develops that second path in detail.
+Chapter 13 develops that second path in detail.
 
 ## 36. What the compiled realization actually contains
 
@@ -1824,10 +1824,10 @@ physical operators rather than assuming that constrained DoFs can simply be drop
 A discrete observation has the form
 
 $$
-O_h:
+O_{h}:
 \mathbb R^{n_{\mathrm{phys}}}
 \longrightarrow
-\mathbb R^m.
+\mathbb R^{m}.
 $$
 
 For a quadratic loss,
@@ -1837,17 +1837,17 @@ J_{\mathrm{obs}}
 =
 \frac12
 \lVert
-O_h\mathbf y_{\mathrm{phys}}-\mathbf d
-\rVert_W^2,
+O_{h}\mathbf y_{\mathrm{phys}}-\mathbf d
+\rVert_{W}^{2},
 ```
 
 the independent-state covector is
 
 ```math
 P^{\mathsf T}
-O_h^{\mathsf T}
+O_{h}^{\mathsf T}
 W
-(O_h(P\mathbf z+\boldsymbol\ell)-\mathbf d).
+(O_{h}(P\mathbf z+\boldsymbol\ell)-\mathbf d).
 ```
 
 That formula explains why an observation realization needs both forward and
@@ -1858,7 +1858,7 @@ For point sensors,
 ```math
 \mathcal O_{\mathrm s}(y)
 =
-[y(x_1),\ldots,y(x_m)]^{\mathsf T},
+[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T},
 ```
 
 the compiler stores one evaluation vector per sensor. Forward evaluation takes dot
@@ -1872,7 +1872,7 @@ different evaluation operators.
 
 The metric surface is not restricted to one stored matrix.
 
-For an $L^2$ control metric,
+For an $L^{2}$ control metric,
 
 $$
 G=M,
@@ -1937,7 +1937,7 @@ The adjoint solve uses
 ```math
 \widehat A^{\mathsf T}\mathbf p
 =
-\mathbf r_y.
+\mathbf r_{y}.
 ```
 
 For symmetric diffusion–reaction problems, state and adjoint solves may reuse the same
@@ -2078,25 +2078,25 @@ Chapter 11
 At this point the compiler path has reached the same common numerical/formulation
 contracts used by a native application.
 
-Part IV changes perspective.
-
-**Native integration and ownership** asks how an existing PDE application can supply
-those same operations while retaining ownership of its mesh, matrices, solvers, and
-output model.
+Part IV turns both producer paths into user-facing execution stories. Chapter 12,
+**Authoring and using compiled problems**, shows how to drive the compiler path from
+recipes and scenarios through solving. Chapter 13, **Integrating an existing PDE
+application**, shows how an application can supply the same numerical contracts while
+retaining ownership of its mesh, matrices, solvers, and output model.
 
 ## Read later
 
 Useful existing documents are:
 
-- [Describing and compiling a problem](../../overview/semantic-compiler.md), for the
+- [Describing and compiling a problem](../overview/semantic-compiler.md), for the
   shorter architecture view.
-- [Numerical realization](../../overview/numerical-realization.md), for the
+- [Numerical realization](../overview/numerical-realization.md), for the
   shorter project-wide view of the numerical layer.
 - [v1 semantic graph and deal.II compiler](../../implementation/v1/semantic-compiler.md),
   for the exact registered capability and target ledger.
-- [Validation, resolution, and capabilities](validation-resolution-and-capabilities.md),
+- [Validation, resolution, and capabilities](10-validation-resolution-and-capabilities.md),
   for the acceptance boundaries that precede this chapter.
-- [Semantic problem model](semantic-problem-model.md), for the semantic vocabulary
+- [Semantic problem model](09-semantic-problem-model.md), for the semantic vocabulary
   lowered here.
 
 Compilation is the translation layer between an accepted semantic request and the

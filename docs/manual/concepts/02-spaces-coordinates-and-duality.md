@@ -3,7 +3,7 @@
 ## Why a vector is not yet a numerical object
 
 At the end of
-[Anatomy of a discrete PDE-constrained problem](discrete-problem-anatomy.md), our
+[Anatomy of a discrete PDE-constrained problem](01-discrete-problem-anatomy.md), our
 continuous control problem had become a collection of finite-dimensional vectors and
 operators:
 
@@ -75,7 +75,7 @@ V_{h}\subset V.
 $$
 
 After choosing a basis
-$\{\varphi_{1},\ldots,\varphi_{n}\}$, every $v_{h}\in V_{h}$ could be represented by
+$`\{\varphi_{1},\ldots,\varphi_{n}\}`$, every $`v_{h}\in V_{h}`$ could be represented by
 coordinates
 
 $$
@@ -94,8 +94,8 @@ These are related, but they are not the same object:
 
 | Level | Example | What it tells us |
 | --- | --- | --- |
-| Continuous space | $H_{0}^{1}(\Omega)$ | regularity, boundary meaning, topology |
-| Discrete FE space | $V_{h}$ on a chosen mesh and element family | basis functions and admissible discrete fields |
+| Continuous space | $`H_{0}^{1}(\Omega)`$ | regularity, boundary meaning, topology |
+| Discrete FE space | $`V_{h}`$ on a chosen mesh and element family | basis functions and admissible discrete fields |
 | Coordinate space | $\mathbb R^{n}$ with a chosen basis interpretation | finite coefficients used by algebra |
 | Native storage | `dealii::Vector<double>` | how those coefficients are stored and manipulated |
 
@@ -117,7 +117,7 @@ $$
 Then both state and control coordinates are elements of $\mathbb R^{289}$ as plain
 arrays.
 
-That does not identify $Y_{h}$ with $U_{h}$.
+That does not identify $`Y_{h}`$ with $`U_{h}`$.
 
 The state basis might consist of nodal basis functions satisfying one set of
 constraints, while the control basis could describe a different field, different
@@ -387,7 +387,7 @@ $$
 
 This distinction matters because a perturbation
 $\delta\mathbf z\in\mathbb R^{n}$ is **not** an admissible argument of
-$D\Phi_{\mathrm{phys}}$ by itself. The derivative of $\Phi_{\mathrm{phys}}$ acts on
+$`D\Phi_{\mathrm{phys}}`$ by itself. The derivative of $`\Phi_{\mathrm{phys}}`$ acts on
 physical perturbations in $\mathbb R^{N}$.
 
 Assume that, at
@@ -399,7 +399,7 @@ R(\mathbf z),
 $$
 
 the physical-coordinate derivative is represented by a covector
-$\mathbf r_{\mathrm{phys}}$:
+$`\mathbf r_{\mathrm{phys}}`$:
 
 $$
 D\Phi_{\mathrm{phys}}(\mathbf y_{\mathrm{phys}})
@@ -420,7 +420,7 @@ $$
 
 There is no contribution from $\boldsymbol\ell$ because the lifting is fixed.
 
-Applying the chain rule to the composed function $\widehat\Phi=\Phi_{\mathrm{phys}}\circ R$
+Applying the chain rule to the composed function $`\widehat\Phi=\Phi_{\mathrm{phys}}\circ R`$
 gives
 
 ```math
@@ -785,7 +785,7 @@ The mathematical question is not whether a variable is called state, control, or
 adjoint. It is which space it belongs to and whether it is currently being used as an
 element of that space or as a linear functional on it.
 
-The next chapter will develop this point through JVP and VJP actions.
+Chapter 3, [Operators, derivatives, and adjoints](03-operators-derivatives-and-adjoints.md), develops this point through JVP and VJP actions.
 
 ## 7. Trial and test spaces may coincide without being the same role
 
@@ -930,7 +930,7 @@ variables
 ```
 
 This becomes even more useful for all-at-once formulations, where state, control,
-adjoint, multipliers, or other fields may coexist in one product. Later chapters will
+adjoint, multipliers, or other fields may coexist in one product. Chapters 7 and 8
 return to richer block structures.
 
 For the reduced formulation, the two-block state/control example is enough to see the
@@ -1078,8 +1078,8 @@ It does **not** independently verify that:
 Those deeper facts must already be guaranteed by the producer that created the
 layout and associated operations.
 
-Later chapters on compilation and ownership will encounter additional evidence used
-for stronger notions of identity when they are needed.
+Chapters 11 and 13 use additional evidence for stronger notions of identity when it
+is needed.
 
 ### 10.3 A layout label is for humans
 
@@ -1179,27 +1179,27 @@ Examples include:
 - a test vector;
 - an adjoint represented in the test space.
 
-So an adjoint $p\in Z_{h}$ can be a `PrimalBlockT` with the test layout.
+So an adjoint $`p\in Z_{h}`$ can be a `PrimalBlockT` with the test layout.
 
 A covector represents an element of the corresponding dual space.
 
 Examples include:
 
-- a residual in $Z_{h}^{\ast}$;
-- an objective derivative in $X_{h}^{\ast}$;
-- a reduced derivative in $U_{h}^{\ast}$.
+- a residual in $`Z_{h}^{\ast}`$;
+- an objective derivative in $`X_{h}^{\ast}`$;
+- a reduced derivative in $`U_{h}^{\ast}`$.
 
 This terminology becomes much less confusing if one asks "element or functional?"
 rather than "primal variable or dual variable?"
 
 ### 11.2 One layout can describe both a space and its dual coordinate shape
 
-The primal space $X_{h}$ and its dual $X_{h}^{\ast}$ have the same finite dimension.
+The primal space $`X_{h}`$ and its dual $`X_{h}^{\ast}`$ have the same finite dimension.
 
 nmopt therefore uses the same `BlockLayout` to describe the block identities and
 dimensions of both a `PrimalBlockT` and a `CovectorBlockT`.
 
-The distinction between $X_{h}$ and $X_{h}^{\ast}$ is carried by the wrapper type,
+The distinction between $`X_{h}`$ and $`X_{h}^{\ast}`$ is carried by the wrapper type,
 not by a second "dual layout".
 
 That matches the coordinate mathematics:
@@ -1432,7 +1432,7 @@ test primal
 variable covector
 ```
 
-The next chapter will derive that operation in detail.
+Chapter 3 derives that operation in detail.
 
 ### 13.3 Objective derivatives use the same variable layout as the point
 
@@ -1623,8 +1623,7 @@ physical FE coefficients
     best suited to field evaluation/output
 ```
 
-The manual's later finite-element chapter will revisit this distinction in the
-compiler-created path.
+Chapter 11, [Compilation and lowering](11-compilation-and-lowering.md), revisits this distinction on the compiler-created path.
 
 ## 15. The reusable coordinate class generalizes the Step-4 example
 
@@ -1731,8 +1730,8 @@ dimension 289
 
 the layout does not tell us whether the coefficients represent:
 
-- a volume $\mathbb P_{1}$ field;
-- a $\mathbb Q_{1}$ field on quadrilaterals;
+- a volume $`\mathbb P_{1}`$ field;
+- a $`\mathbb Q_{1}`$ field on quadrilaterals;
 - a boundary trace;
 - a cellwise-constant field;
 - a parameter vector unrelated to finite elements.
@@ -1773,11 +1772,11 @@ The main distinctions in this chapter can be summarized as follows:
 
 | Question | Mathematical answer | Concrete numerical object | nmopt-facing representation |
 | --- | --- | --- | --- |
-| What field is this? | $x_{h}\in X_{h}$ | coefficients in a chosen basis | `PrimalBlockT` |
-| What functional is this? | $\lambda\in X_{h}^{\ast}$ | basis evaluations of the functional | `CovectorBlockT` |
+| What field is this? | $`x_{h}\in X_{h}`$ | coefficients in a chosen basis | `PrimalBlockT` |
+| What functional is this? | $`\lambda\in X_{h}^{\ast}`$ | basis evaluations of the functional | `CovectorBlockT` |
 | How do they interact? | $\langle\lambda,x\rangle$ | $\boldsymbol\lambda^{\mathsf T}\mathbf x$ | `pair(covector, primal)` |
-| Which product factor is this? | $X_{h}=Y_{h}\times U_{h}$ | block ordering and sizes | `BlockLayout` |
-| How is a constrained state represented? | $y_{\mathrm{phys}}=Pz+\ell$ | reconstruction matrix + lifting | `IndependentStateCoordinates` or application-owned equivalent |
+| Which product factor is this? | $`X_{h}=Y_{h}\times U_{h}`$ | block ordering and sizes | `BlockLayout` |
+| How is a constrained state represented? | $`y_{\mathrm{phys}}=Pz+\ell`$ | reconstruction matrix + lifting | `IndependentStateCoordinates` or application-owned equivalent |
 | How does a physical covector move to independent coordinates? | pullback through $P$ | $P^{\mathsf T}r$ | `pullback()` / equivalent native operation |
 
 The table compresses the chapter, but the direction is important: the rightmost
@@ -1909,15 +1908,16 @@ Several existing documents cover related material from different viewpoints:
 
 - [Theoretical formalism](../../design/theoretical-formalism.md) states the project's
   abstract space, duality, derivative, transformation, and adjoint conventions.
-- [Integrating an existing PDE application](../../overview/external-applications.md)
+- [Integrating an existing PDE application](../overview/external-applications.md)
   places the Step-4 coordinate example in the broader external-application path.
-- [Numerical realization](../../overview/numerical-realization.md) gives the high-level
+- [Numerical realization](../overview/numerical-realization.md) gives the high-level
   role of coordinate maps and deal.II services.
 - [Step-4 external integration overview](../../../apps/external-dealii/step-4/external-integration-overview.md)
   follows Problem B through its native application and optimizer connection.
 - [External deal.II solver integration](../../reference/external-dealii-solver-integration.md)
   gives the exact public contract signatures and lifetime rules.
 
-The later **Finite-element realization** concept chapter will return to
-`IndependentStateCoordinates` with more deal.II context, while **Metrics, gradients,
-and constraints** will develop the Riesz-map side of the primal/covector distinction.
+[Numerical realization](../overview/numerical-realization.md) returns to
+`IndependentStateCoordinates` from the deal.II side, while Chapter 4,
+[Metrics, gradients, and constraints](04-metrics-gradients-and-constraints.md),
+develops the Riesz-map side of the primal/covector distinction.

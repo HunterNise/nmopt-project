@@ -21,10 +21,10 @@ For the running example, the mathematical problem is familiar:
 \min_{y,u}\quad
 &
 \frac12
-\lVert y-y_{\mathrm d}\rVert_{L^2(\Omega)}^2
+\lVert y-y_{\mathrm d}\rVert_{L^{2}(\Omega)}^{2}
 +
 \frac{\beta}{2}
-\lVert u\rVert_{L^2(\Omega)}^2,
+\lVert u\rVert_{L^{2}(\Omega)}^{2},
 \\
 \text{subject to}\quad
 &
@@ -47,12 +47,12 @@ this problem from another one.
 Before constructing them, we can already say that:
 
 - there is a volume domain and a fixed Dirichlet boundary;
-- the state and test functions have $H^1$ semantics;
-- the control has $L^2$ semantics;
+- the state and test functions have $H^{1}$ semantics;
+- the control has $L^{2}$ semantics;
 - the PDE residual contains diffusion–reaction, forcing, and volume-control terms;
 - the objective observes the state and control through specified observation maps;
 - one loss tracks a desired state and another regularizes the control;
-- the control uses an $L^2$ optimization metric;
+- the control uses an $L^{2}$ optimization metric;
 - the requested formulation is reduced DTO;
 - selected analytical or discrete-realization assumptions must hold.
 
@@ -64,7 +64,7 @@ realization is selected.
 
 This chapter builds the running problem one layer at a time. Validation, resolution,
 and the question of whether the current compiler can lower the resulting graph are
-deliberately deferred to the next chapter.
+covered in Chapter 10.
 
 ## 1. Semantic description separates problem meaning from numerical ownership
 
@@ -205,12 +205,12 @@ A region answers the geometric question
 > defined?
 
 For the running problem we need the full volume $\Omega$ and the fixed Dirichlet
-boundary $\Gamma_D$:
+boundary $`\Gamma_{D}`$:
 
 ```math
 \Omega
 \qquad\text{and}\qquad
-\Gamma_D\subset\partial\Omega.
+\Gamma_{D}\subset\partial\Omega.
 ```
 
 The exact schema is:
@@ -232,7 +232,7 @@ Current region kinds are:
 | --- | --- |
 | `volume` | a volume subset $\omega\subseteq\Omega$; `is_full_domain = true` represents $\omega=\Omega$ |
 | `boundary` | a boundary subset $\Gamma\subseteq\partial\Omega$, selected by boundary IDs |
-| `point_set` | a finite set $X_{\mathrm s}=\{x_1,\ldots,x_m\}\subset\overline\Omega$ |
+| `point_set` | a finite set $`X_{\mathrm s}=\{x_{1},\ldots,x_{m}\}\subset\overline\Omega`$ |
 
 A `volume` or `boundary` region is selected through material or boundary IDs.
 A `point_set` region stores physical point coordinates.
@@ -252,15 +252,15 @@ For the baseline problem,
 ```math
 \underbrace{Y}_{\text{state}}
 =
-H_0^1(\Omega),
+H_{0}^{1}(\Omega),
 \qquad
 \underbrace{Z}_{\text{test}}
 =
-H_0^1(\Omega),
+H_{0}^{1}(\Omega),
 \qquad
 \underbrace{U}_{\text{control}}
 =
-L^2(\Omega).
+L^{2}(\Omega).
 ```
 
 State and test may have the same topology without having the same semantic role.
@@ -282,11 +282,11 @@ Current topologies are:
 
 | `SpaceTopology` | Mathematical picture |
 | --- | --- |
-| `h1` | $H^1$-type functions; e.g. conforming state/test roles |
-| `h2` | $H^2$-type regularity; used by strong/transposition auxiliary spaces |
+| `h1` | $H^{1}$-type functions; e.g. conforming state/test roles |
+| `h2` | $H^{2}$-type regularity; used by strong/transposition auxiliary spaces |
 | `hhalf` | $H^{1/2}$-type trace topology |
-| `l2` | $L^2$-type fields or observations |
-| `bounded_function` | bounded coefficient/data fields; deliberately distinct from an $L^2$ data assumption |
+| `l2` | $L^{2}$-type fields or observations |
+| `bounded_function` | bounded coefficient/data fields; deliberately distinct from an $L^{2}$ data assumption |
 
 Current semantic roles are:
 
@@ -316,7 +316,7 @@ The exception is a genuinely finite semantic output such as an $m$-sensor
 observation space, for which
 
 $$
-\mathcal O(y)\in\mathbb R^m
+\mathcal O(y)\in\mathbb R^{m}
 $$
 
 and `dimension = m` is already part of the semantic meaning.
@@ -341,7 +341,7 @@ Mathematically, it gives meaning to expressions of the form
 $$
 \langle r,v\rangle,
 \qquad
-r\in V^\ast,
+r\in V^{\ast},
 \quad
 v\in V.
 $$
@@ -351,7 +351,7 @@ This is not yet an optimization metric.
 A metric additionally provides a Riesz map
 
 $$
-G:V\longrightarrow V^\ast.
+G:V\longrightarrow V^{\ast}.
 $$
 
 That distinction is why the baseline graph has pairings for the state, test,
@@ -431,7 +431,7 @@ Current data roles are:
 | `DataRole` | Typical mathematical meaning |
 | --- | --- |
 | `forcing` | source $f$ in the state equation |
-| `desired_state` | target $y_{\mathrm d}$ or target observation data |
+| `desired_state` | target $`y_{\mathrm d}`$ or target observation data |
 | `fixed_dirichlet_lifting` | prescribed boundary/lifting data $g$ used in physical-state reconstruction |
 | `diffusion` | scalar or tensor diffusion coefficient such as $\kappa$ or $K$ |
 | `conservative_transport` | conservative transport field entering a divergence/flux term |
@@ -492,8 +492,8 @@ Current transformation kinds are:
 
 | `TransformationKind` | Mathematical picture |
 | --- | --- |
-| `fixed_dirichlet_reconstruction` | $y_{\mathrm{phys}}=\mathcal T(z;g)$: independent state coordinates plus prescribed boundary/lifting data |
-| `dirichlet_control_lifting` | $y_{\mathrm{phys}}=\mathcal T(z;u)$: independent state coordinates plus a boundary-control input |
+| `fixed_dirichlet_reconstruction` | $`y_{\mathrm{phys}}=\mathcal T(z;g)`$: independent state coordinates plus prescribed boundary/lifting data |
+| `dirichlet_control_lifting` | $`y_{\mathrm{phys}}=\mathcal T(z;u)`$: independent state coordinates plus a boundary-control input |
 
 The two kinds correspond schematically to
 
@@ -588,21 +588,21 @@ lowerer.
 
 | `ResidualTermKind` | Schematic weak-form / operator picture |
 | --- | --- |
-| `diffusion_reaction` | $\int_{\Omega}\kappa\nabla y\cdot\nabla v\mathrm{d}x+\int_{\Omega}cyv\mathrm{d}x$ |
-| `tensor_diffusion` | $\int_{\Omega}(K\nabla y)\cdot\nabla v\mathrm{d}x$ |
+| `diffusion_reaction` | $`\int_{\Omega}\kappa\nabla y\cdot\nabla v\mathrm{d}x+\int_{\Omega}cyv\mathrm{d}x`$ |
+| `tensor_diffusion` | $`\int_{\Omega}(K\nabla y)\cdot\nabla v\mathrm{d}x`$ |
 | `conservative_transport` | conservative/divergence transport involving the flux $\mathbf b y$ |
-| `advective_transport` | $\int_{\Omega}(\mathbf b\cdot\nabla y)v\mathrm{d}x$ |
-| `reaction` | $\int_{\Omega}cyv\mathrm{d}x$ |
+| `advective_transport` | $`\int_{\Omega}(\mathbf b\cdot\nabla y)v\mathrm{d}x`$ |
+| `reaction` | $`\int_{\Omega}cyv\mathrm{d}x`$ |
 | `parameter_diffusion_reaction` | diffusion/reaction contribution whose coefficient depends on a declared parameter variable |
-| `laplacian` | Laplace contribution, typically represented through $\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x$ |
+| `laplacian` | Laplace contribution, typically represented through $`\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x`$ |
 | `transposition_laplacian` | very-weak/transposed Laplace action in which derivatives are transferred to the test side |
 | `dirichlet_transposition_control` | Dirichlet boundary-control contribution in a transposition/very-weak formulation |
-| `volume_source` | source functional $\int_{\Omega}fv\mathrm{d}x$ |
-| `volume_control` | distributed-control functional $\int_{\Omega}uv\mathrm{d}x$ |
-| `neumann_control` | boundary-control functional $\int_{\Gamma}uv\mathrm{d}s$ |
-| `robin_bilinear` | Robin bilinear term such as $\int_{\Gamma}\rho yv\mathrm{d}s$ |
-| `robin_source` | Robin boundary source $\int_{\Gamma}gv\mathrm{d}s$ |
-| `natural_boundary_source` | generic natural-boundary functional $\int_{\Gamma}gv\mathrm{d}s$ |
+| `volume_source` | source functional $`\int_{\Omega}fv\mathrm{d}x`$ |
+| `volume_control` | distributed-control functional $`\int_{\Omega}uv\mathrm{d}x`$ |
+| `neumann_control` | boundary-control functional $`\int_{\Gamma}uv\mathrm{d}s`$ |
+| `robin_bilinear` | Robin bilinear term such as $`\int_{\Gamma}\rho yv\mathrm{d}s`$ |
+| `robin_source` | Robin boundary source $`\int_{\Gamma}gv\mathrm{d}s`$ |
+| `natural_boundary_source` | generic natural-boundary functional $`\int_{\Gamma}gv\mathrm{d}s`$ |
 
 These names are not intended to form a universal symbolic PDE language. They name the
 typed weak-form components currently represented by the semantic model.
@@ -651,13 +651,13 @@ Current observation kinds are:
 
 | `ObservationKind` | Mathematical picture |
 | --- | --- |
-| `volume_restriction` | $\mathcal O(y)=y\rvert_{\omega}$ in an $L^2$-type output space |
-| `h1_state_restriction` | $\mathcal O(y)=y\rvert_{\omega}$, measured in an $H^1$-type output topology |
-| `boundary_trace` | $\mathcal O(y)=\gamma_{\Gamma}y$ |
-| `boundary_restriction` | $\mathcal O(q)=q\rvert_{\Gamma}$ for an already boundary-valued quantity $q$ |
-| `weighted_boundary_trace` | $\mathcal O(y)=w\gamma_{\Gamma}y$ |
-| `point_sensor` | $\mathcal O(y)=[y(x_1),\ldots,y(x_m)]^{\mathsf T}$ |
-| `normal_flux` | schematically $\mathcal O(y)=\partial_n y$ or the declared conormal variant |
+| `volume_restriction` | $`\mathcal O(y)=y\rvert_{\omega}`$ in an $L^{2}$-type output space |
+| `h1_state_restriction` | $`\mathcal O(y)=y\rvert_{\omega}`$, measured in an $H^{1}$-type output topology |
+| `boundary_trace` | $`\mathcal O(y)=\gamma_{\Gamma}y`$ |
+| `boundary_restriction` | $`\mathcal O(q)=q\rvert_{\Gamma}`$ for an already boundary-valued quantity $q$ |
+| `weighted_boundary_trace` | $`\mathcal O(y)=w\gamma_{\Gamma}y`$ |
+| `point_sensor` | $`\mathcal O(y)=[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}`$ |
+| `normal_flux` | schematically $`\mathcal O(y)=\partial_{n} y`$ or the declared conormal variant |
 
 The last row is intentionally schematic: the exact normal/conormal convention is
 represented by requirement policies rather than being hidden inside the observation
@@ -668,7 +668,7 @@ name.
 Full-domain state tracking uses
 
 $$
-\underbrace{\mathcal O_y(y)}_{\texttt{volume\_restriction}}
+\underbrace{\mathcal O_{y}(y)}_{\texttt{volume\_restriction}}
 =
 y
 \quad\text{on }\Omega.
@@ -692,7 +692,7 @@ For sensor locations
 $$
 X_{\mathrm s}
 =
-\{x_1,\ldots,x_m\},
+\{x_{1},\ldots,x_{m}\},
 $$
 
 the observation is simply
@@ -701,11 +701,11 @@ the observation is simply
 \underbrace{\mathcal O_{\mathrm s}(y)}_{\texttt{point\_sensor}}
 =
 \begin{bmatrix}
-y(x_1)\\
+y(x_{1})\\
 \vdots\\
-y(x_m)
+y(x_{m})
 \end{bmatrix}
-\in\mathbb R^m.
+\in\mathbb R^{m}.
 ```
 
 The semantic graph therefore needs:
@@ -754,17 +754,17 @@ J(y,u)
 \underbrace{
 \frac12
 \left\lVert
-\underbrace{\mathcal O_y(y)}_{\texttt{ObservationSpec}}
+\underbrace{\mathcal O_{y}(y)}_{\texttt{ObservationSpec}}
 -
 \underbrace{y_{\mathrm d}}_{\texttt{DataSpec}}
-\right\rVert^2
+\right\rVert^{2}
 }_{\texttt{quadratic\_tracking}}
 +
 \underbrace{
 \frac{\beta}{2}
 \left\lVert
-\underbrace{\mathcal O_u(u)}_{\texttt{ObservationSpec}}
-\right\rVert^2
+\underbrace{\mathcal O_{u}(u)}_{\texttt{ObservationSpec}}
+\right\rVert^{2}
 }_{\texttt{quadratic\_control\_regularisation}}.
 ```
 
@@ -782,11 +782,11 @@ Current loss kinds have the following mathematical interpretations:
 
 | `LossKind` | Mathematical picture |
 | --- | --- |
-| `quadratic_tracking` | $\frac12\lVert \mathcal O(q)-d\rVert_P^2$ |
-| `quadratic_control_regularisation` | $\frac{\beta}{2}\lVert \mathcal O(u)\rVert_P^2$ |
-| `quadratic_hhalf_control_regularisation` | $\frac{\beta}{2}\lVert u\rVert_{H^{1/2}}^2$ |
-| `quadratic_h1_control_regularisation` | $\frac{\beta}{2}\lVert u\rVert_{H^1}^2$ |
-| `quadratic_parameter_regularisation` | schematically $\frac{\beta}{2}\lVert \mathcal O(m)-m_{\mathrm{ref}}\rVert_P^2$ for a declared parameter observation/reference |
+| `quadratic_tracking` | $`\frac12\lVert \mathcal O(q)-d\rVert_{P}^{2}`$ |
+| `quadratic_control_regularisation` | $`\frac{\beta}{2}\lVert \mathcal O(u)\rVert_{P}^{2}`$ |
+| `quadratic_hhalf_control_regularisation` | $`\frac{\beta}{2}\lVert u\rVert_{H^{1/2}}^{2}`$ |
+| `quadratic_h1_control_regularisation` | $`\frac{\beta}{2}\lVert u\rVert_{H^{1}}^{2}`$ |
+| `quadratic_parameter_regularisation` | schematically $`\frac{\beta}{2}\lVert \mathcal O(m)-m_{\mathrm{ref}}\rVert_{P}^{2}`$ for a declared parameter observation/reference |
 
 Here $P$ denotes the pairing/topology selected by the surrounding semantic graph.
 The last row is intentionally generic because the exact parameter observation and
@@ -816,9 +816,9 @@ Current metric kinds are:
 
 | `MetricKind` | Mathematical picture |
 | --- | --- |
-| `l2` | $(u,v)_{L^2}$ and the corresponding $L^2$ Riesz map |
+| `l2` | $`(u,v)_{L^{2}}`$ and the corresponding $L^{2}$ Riesz map |
 | `hhalf` | $H^{1/2}$ trace geometry; realization may require an extension/Schur construction |
-| `h1` | $(u,v)_{H^1}$-type geometry, typically mass plus gradient terms |
+| `h1` | $`(u,v)_{H^{1}}`$-type geometry, typically mass plus gradient terms |
 | `hminus1` | $H^{-1}$ geometry; the current registered realization is based on a mass–Laplacian-inverse–mass construction |
 
 Mathematically they select a Riesz map
@@ -826,21 +826,21 @@ Mathematically they select a Riesz map
 $$
 \underbrace{G}_{\texttt{MetricSpec}}
 :
-U_h
+U_{h}
 \longrightarrow
-U_h^\ast.
+U_{h}^{\ast}.
 $$
 
-The running problem happens to use both an $L^2$ regularization loss and an $L^2$
+The running problem happens to use both an $L^{2}$ regularization loss and an $L^{2}$
 optimization metric, but these are different semantic nodes:
 
 ```math
 \underbrace{
-\frac{\beta}{2}\lVert u\rVert_{L^2}^2
+\frac{\beta}{2}\lVert u\rVert_{L^{2}}^{2}
 }_{\texttt{LossSpec}}
 \qquad\neq\qquad
 \underbrace{
-G_{L^2}:U_h\to U_h^\ast
+G_{L^{2}}:U_{h}\to U_{h}^{\ast}
 }_{\texttt{MetricSpec}}.
 ```
 
@@ -852,7 +852,7 @@ A box constraint has the mathematical form
 
 $$
 \underbrace{
-\ell_i\leq u_i\leq r_i
+\ell_{i}\leq u_{i}\leq r_{i}
 }_{\texttt{ConstraintSpec}}.
 $$
 
@@ -872,8 +872,8 @@ Current constraint kinds are:
 
 | `ConstraintKind` | Mathematical / discrete picture |
 | --- | --- |
-| `cellwise_box` | coefficientwise bounds $\ell_K\leq u_K\leq r_K$ on a cellwise control representation |
-| `facewise_box` | coefficientwise bounds $\ell_F\leq u_F\leq r_F$ on a facewise/boundary control representation |
+| `cellwise_box` | coefficientwise bounds $`\ell_{K}\leq u_{K}\leq r_{K}`$ on a cellwise control representation |
+| `facewise_box` | coefficientwise bounds $`\ell_{F}\leq u_{F}\leq r_{F}`$ on a facewise/boundary control representation |
 
 The lower and upper values are separate `DataSpec` nodes, with data kinds
 `cellwise_bound` or `facewise_bound`.
@@ -949,25 +949,25 @@ Current requirement kinds are:
 
 | `RequirementKind` | Mathematical / numerical picture |
 | --- | --- |
-| `fixed_dirichlet` | fixed data such as $y=g$ on $\Gamma_D$ |
-| `controlled_dirichlet` | controlled boundary value such as $y=u$ on $\Gamma_C$ |
-| `mean_zero_multiplier` | normalization such as $\int_{\Omega}\lambda\mathrm{d}x=0$ |
-| `boundary_trace` | existence/selection of a trace $\gamma_{\Gamma}y$ |
-| `analytic_quadrature_evaluation` | prescribed data evaluated as $f(x_q)$ at selected quadrature points |
-| `discrete_cellwise_bounds` | coefficientwise bounds $\ell_K\leq u_K\leq r_K$ |
-| `discrete_facewise_bounds` | coefficientwise boundary bounds $\ell_F\leq u_F\leq r_F$ |
-| `uniform_ellipticity` | assumption such as $\xi^{\mathsf T}K(x)\xi\geq\kappa_0\lVert\xi\rVert^2$ |
+| `fixed_dirichlet` | fixed data such as $y=g$ on $`\Gamma_{D}`$ |
+| `controlled_dirichlet` | controlled boundary value such as $y=u$ on $`\Gamma_{C}`$ |
+| `mean_zero_multiplier` | normalization such as $`\int_{\Omega}\lambda\mathrm{d}x=0`$ |
+| `boundary_trace` | existence/selection of a trace $`\gamma_{\Gamma}y`$ |
+| `analytic_quadrature_evaluation` | prescribed data evaluated as $`f(x_{q})`$ at selected quadrature points |
+| `discrete_cellwise_bounds` | coefficientwise bounds $`\ell_{K}\leq u_{K}\leq r_{K}`$ |
+| `discrete_facewise_bounds` | coefficientwise boundary bounds $`\ell_{F}\leq u_{F}\leq r_{F}`$ |
+| `uniform_ellipticity` | assumption such as $`\xi^{\mathsf T}K(x)\xi\geq\kappa_{0}\lVert\xi\rVert^{2}`$ |
 | `coefficient_regularity` | declared regularity class for $K$, $c$, $\mathbf b$, or another coefficient |
-| `coercivity` | assumption such as $a(v,v)\geq c\lVert v\rVert^2$ |
-| `conormal_flux` | selected definition/sign of a normal or conormal flux $q_n$ |
-| `boundary_partition` | decomposition such as $\partial\Omega=\Gamma_D\cup\Gamma_R\cup\Gamma_N$ |
+| `coercivity` | assumption such as $a(v,v)\geq c\lVert v\rVert^{2}$ |
+| `conormal_flux` | selected definition/sign of a normal or conormal flux $`q_{n}`$ |
+| `boundary_partition` | decomposition such as $`\partial\Omega=\Gamma_{D}\cup\Gamma_{R}\cup\Gamma_{N}`$ |
 | `transport_boundary_trace` | selected inflow/outflow trace convention for transport terms |
 | `transposition_formulation` | very-weak form obtained by transferring derivatives to test functions |
 | `domain_regularity` | regularity assumption on $\Omega$ needed by the selected formulation |
 | `conforming_trace_subspace` | declaration that the chosen discrete trace lies in the required conforming subspace |
 | `fractional_trace_realisation` | selected realization of an $H^{1/2}$ trace operator/metric |
-| `tangential_gradient_realisation` | selected boundary gradient $\nabla_{\tau}$ used by an $H^1$ boundary metric |
-| `target_data_membership` | membership such as $y_{\mathrm d}\in H^1$ together with any required trace condition |
+| `tangential_gradient_realisation` | selected boundary gradient $`\nabla_{\tau}`$ used by an $H^{1}$ boundary metric |
+| `target_data_membership` | membership such as $`y_{\mathrm d}\in H^{1}`$ together with any required trace condition |
 | `metric_realisation` | selected discrete apply/inverse realization for the declared metric $G$ |
 
 The table mixes analytical assumptions and discrete realization commitments on
@@ -1025,7 +1025,7 @@ Current formulation kinds are:
 
 | `FormulationKind` | Mathematical organization |
 | --- | --- |
-| `reduced_dto` | eliminate the state through $y=S_h(u)$ and optimize the reduced objective $j_h(u)$ |
+| `reduced_dto` | eliminate the state through $`y=S_{h}(u)`$ and optimize the reduced objective $`j_{h}(u)`$ |
 | `all_at_once` | retain coupled first-order variables/blocks in one optimality system |
 
 Provenance records how those equations arose:
@@ -1041,9 +1041,9 @@ For the baseline reduced problem,
 \underbrace{
 u
 \mapsto
-y=S_h(u)
+y=S_{h}(u)
 \mapsto
-j_h(u)
+j_{h}(u)
 }_{\texttt{FormulationKind::reduced\_dto}}
 ```
 
@@ -1069,12 +1069,12 @@ For the linear running problem, the application may supply the complete first-or
 residual
 
 ```math
-F_h(y,p,u)
+F_{h}(y,p,u)
 =
 \begin{bmatrix}
 \underbrace{Ay-f-Bu}_{\text{state block}}\\
-\underbrace{A^{\mathsf T}p-M_y y+q}_{\text{adjoint block}}\\
-\underbrace{B^{\mathsf T}p+\beta N_u u}_{\text{control-stationarity block}}
+\underbrace{A^{\mathsf T}p-M_{y} y+q}_{\text{adjoint block}}\\
+\underbrace{B^{\mathsf T}p+\beta N_{u} u}_{\text{control-stationarity block}}
 \end{bmatrix}.
 ```
 
@@ -1266,7 +1266,7 @@ ProblemRecipeT
 ProblemSpec
 ```
 
-For the Chapter 5 distributed-control family, one parameter selects whether the
+For the source Chapter 5 distributed-control family, one parameter selects whether the
 semantic control graph represents the cellwise or continuous distributed-control
 variant.
 
@@ -1350,7 +1350,7 @@ It does not require a different state equation merely because the objective now 
 $$
 \mathcal O_{\mathrm s}(y)
 =
-[y(x_1),\ldots,y(x_m)]^{\mathsf T}.
+[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}.
 $$
 
 This locality is the practical benefit of the graph: a mathematical change should
@@ -1421,7 +1421,7 @@ are useful. It is not a compulsory wrapper around every external application.
 | Mathematical idea | Semantic declaration | Baseline example |
 | --- | --- | --- |
 | domain or boundary subset | `RegionSpec` | `domain`, `dirichlet_boundary` |
-| function-space role | `SpaceSpec` | state $H^1$, control $L^2$ |
+| function-space role | `SpaceSpec` | state $H^{1}$, control $L^{2}$ |
 | dual relationship | `PairingSpec` | `state_test_pairing`, `control_pairing` |
 | optimization unknown | `VariableSpec` | `state`, `control` |
 | prescribed input | `DataSpec` | forcing, target, $\kappa$, $c$, $\beta$ |
@@ -1430,7 +1430,7 @@ are useful. It is not a compulsory wrapper around every external application.
 | weak equation | `EquationBlockSpec` | `state_equation` |
 | quantity seen by objective | `ObservationSpec` | full-domain state/control restriction |
 | objective contribution | `LossSpec` | tracking, control regularization |
-| optimization geometry | `MetricSpec` | control $L^2$ metric |
+| optimization geometry | `MetricSpec` | control $L^{2}$ metric |
 | admissible set | `ConstraintSpec` | optional cellwise box |
 | analytical/discrete commitment | `RequirementPolicySpec` | fixed boundary, target quadrature |
 | requested product | `FormulationSpec` | reduced DTO |
@@ -1529,10 +1529,10 @@ It exercises the baseline graph and many structured variations, including contin
 controls, fixed-Dirichlet reconstruction, Dirichlet control, point sensors, normal
 fluxes, and typed realization policies.
 
-The next chapter will use those tests differently: not as a catalogue of graph
+Chapter 10 uses those tests differently: not as a catalogue of graph
 shapes, but as evidence for what validation and resolution are responsible for.
 
-## 22. What the next chapter adds
+## 22. Continue with validation, resolution, and capabilities
 
 At this point we have a graph.
 
@@ -1541,7 +1541,7 @@ current compiler.
 
 Those are three different questions.
 
-The next chapter, **Validation, resolution, and capabilities**, will distinguish:
+Chapter 10, **Validation, resolution, and capabilities**, distinguishes:
 
 ```text
 structural validity
@@ -1567,9 +1567,9 @@ hard-coded mirror of the current deal.II compiler.
 
 Useful existing documents are:
 
-- [Describing and compiling a problem](../../overview/semantic-compiler.md), for the
+- [Describing and compiling a problem](../overview/semantic-compiler.md), for the
   shorter project-wide view of the semantic/compiler path.
-- [Project architecture](../../overview/project-architecture.md), for the relationship
+- [Project architecture](../overview/project-architecture.md), for the relationship
   between semantic authoring and direct native integration.
 - [Theoretical formalism](../../design/theoretical-formalism.md), for the mathematical
   spaces, residuals, observations, metrics, and formulation conventions represented

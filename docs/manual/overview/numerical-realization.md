@@ -19,7 +19,7 @@ the compiler's implementation details.
 
 Suppose the continuous optimization problem uses a state space $Y$ and control space
 $U$. A finite-element implementation replaces them with discrete spaces
-$Y_{h}$ and $U_{h}$ and then represents fields by coefficient vectors.
+$`Y_{h}`$ and $`U_{h}`$ and then represents fields by coefficient vectors.
 
 That sounds straightforward, but the coefficient vector stored in memory is not
 always the physical field seen by the PDE.
@@ -40,7 +40,7 @@ where
 A perturbation uses only the homogeneous part,
 
 $$
-\delta y_{\mathrm{phys}}=P\,\delta z.
+\delta y_{\mathrm{phys}}=P \delta z.
 $$
 
 This distinction appears in adjoints and derivatives, not just in output.
@@ -72,7 +72,7 @@ $$
 Kz=b_{F}+Bu,
 $$
 
-with $K$ the free-state operator and $b_{F}$ the boundary-treated load.
+with $K$ the free-state operator and $`b_{F}`$ the boundary-treated load.
 
 The objective used in this integration is
 
@@ -137,7 +137,7 @@ For a point $x\in X$, the relevant operations are conceptually:
 ```math
 \begin{aligned}
 E(x) &\in Z^{\ast}, \\
-E'(x)\,\delta x &\in Z^{\ast}, \\
+E'(x) \delta x &\in Z^{\ast}, \\
 E'(x)^{\ast}p &\in X^{\ast}, \\
 J(x) &\in \mathbb{R}, \\
 J'(x) &\in X^{\ast}.
@@ -251,7 +251,7 @@ a derived quantity.
 A volume observation over a subregion $\omega\subset\Omega$ may contribute
 
 $$
-\frac{1}{2}\int_{\omega}(y-y_{\mathrm{d}})^{2}\,\mathrm{d}x.
+\frac{1}{2}\int_{\omega}(y-y_{\mathrm{d}})^{2} \mathrm{d}x.
 $$
 
 Its discrete realization needs to know:
@@ -404,19 +404,19 @@ control. The outer application then reconstructs and writes the physical result.
 ## 15. Read later: authoritative sources
 
 For the detailed numerical boundary, use
-[PDE, formulation, and solver boundary](../design/pde-solver-boundary.md).
+[PDE, formulation, and solver boundary](../../design/pde-solver-boundary.md).
 
 For the direct-application path, first read
 [Integrating an existing PDE application](external-applications.md). For the concrete
 Step-4 realization, use:
 
-- [Step-4 integration overview](../../apps/external-dealii/step-4/external-integration-overview.md)
+- [Step-4 integration overview](../../../apps/external-dealii/step-4/external-integration-overview.md)
   for the worked case-study narrative;
-- [External deal.II solver integration](../reference/external-dealii-solver-integration.md)
+- [External deal.II solver integration](../../reference/external-dealii-solver-integration.md)
   for exact public contracts.
 
 For compiler-owned realizations, the
-[v1 semantic compiler record](../implementation/v1/semantic-compiler.md) owns the
+[v1 semantic compiler record](../../implementation/v1/semantic-compiler.md) owns the
 current capability ledger.
 
 For implementation source, the main areas are:

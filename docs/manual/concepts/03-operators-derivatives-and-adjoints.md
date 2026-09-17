@@ -7,9 +7,9 @@ boundary.
 
 We now have:
 
-- a discrete variable space $X_{h}$, possibly a product such as
-  $Y_{h}\times U_{h}$;
-- a test space $Z_{h}$;
+- a discrete variable space $`X_{h}`$, possibly a product such as
+  $`Y_{h}\times U_{h}`$;
+- a test space $`Z_{h}`$;
 - primal coordinate representations for elements of those spaces;
 - covector coordinate representations for elements of their duals; and
 - a residual
@@ -25,7 +25,7 @@ That question is the source of the two operations that later appear in the code 
 
 This chapter develops those operations before introducing the acronyms. We will begin
 with the distributed-control problem from
-[Anatomy of a discrete PDE-constrained problem](discrete-problem-anatomy.md), then
+[Anatomy of a discrete PDE-constrained problem](01-discrete-problem-anatomy.md), then
 move to a nonlinear example where the distinction between an operator action and an
 assembled matrix becomes more important.
 
@@ -77,7 +77,7 @@ Ay-Bu-f
 Z_{h}^{\ast}.
 $$
 
-For the simple Galerkin Laplace example, $Y_{h}$ and $Z_{h}$ may use the same finite
+For the simple Galerkin Laplace example, $`Y_{h}`$ and $`Z_{h}`$ may use the same finite
 element space, but we keep their roles distinct.
 
 Now perturb the point by
@@ -288,8 +288,8 @@ D_{y}E_{h} \delta y+D_{u}E_{h} \delta u.
 This block form becomes important in reduced optimization because the state
 linearization and control linearization play different roles:
 
-- $D_{y}E_{h}$ defines the state sensitivity and adjoint systems;
-- $D_{u}E_{h}$ carries the effect of the control into the residual.
+- $`D_{y}E_{h}`$ defines the state sensitivity and adjoint systems;
+- $`D_{u}E_{h}`$ carries the effect of the control into the residual.
 
 The generic executable model does not hard-code this state/control split. It exposes
 the full derivative action on the variable product. The reduced formulation later
@@ -415,9 +415,9 @@ $$
 So halving $\varepsilon$ should reduce the remainder by roughly a factor of four
 until floating-point or solver errors dominate.
 
-The later verification chapter will discuss such tests systematically. Here they
-serve a conceptual purpose: the JVP is the **first-order change predicted by the
-residual model**.
+Here the test serves a conceptual purpose: the JVP is the **first-order change
+predicted by the residual model**. Later formulation and integration chapters use
+the same check when numerical evidence is needed.
 
 ## 6. The transpose action is defined by a pairing identity
 
@@ -471,7 +471,7 @@ E_{h}'(x)^{\ast}p,
 \right\rangle_{X_{h}^{\ast},X_{h}}
 ```
 
-for every $\delta x\in X_{h}$.
+for every $`\delta x\in X_{h}`$.
 
 This identity is the central definition.
 
@@ -507,8 +507,8 @@ $$
 E_{h}'(x)^{\ast}:Z_{h}\to X_{h}^{\ast}.
 $$
 
-A metric enters only if we later want to identify a covector in $X_{h}^{\ast}$ with
-a primal vector in $X_{h}$.
+A metric enters only if we later want to identify a covector in $`X_{h}^{\ast}`$ with
+a primal vector in $`X_{h}`$.
 
 That is why the executable model can expose a VJP without knowing the optimization
 metric.
@@ -524,7 +524,7 @@ $$
 Let $\mathbf p$ contain the primal coordinates of the test seed.
 
 Using the coefficient pairings from
-[Spaces, coordinates, and duality](spaces-coordinates-and-duality.md),
+[Spaces, coordinates, and duality](02-spaces-coordinates-and-duality.md),
 
 ```math
 \begin{aligned}
@@ -581,7 +581,7 @@ A & -B
 \end{bmatrix}.
 $$
 
-Let $p\in Z_{h}$.
+Let $`p\in Z_{h}`$.
 
 Then
 
@@ -958,17 +958,17 @@ The type flow can be summarized as:
 
 | Operation | Input | Output | Mathematical meaning |
 | --- | --- | --- | --- |
-| `residual` | primal in $X_{h}$ | covector in $Z_{h}^{\ast}$ | $E_{h}(x)$ |
-| `residual_jvp` | point and tangent in $X_{h}$ | covector in $Z_{h}^{\ast}$ | $E_{h}'(x)[\delta x]$ |
-| `residual_vjp` | point in $X_{h}$, seed in $Z_{h}$ | covector in $X_{h}^{\ast}$ | $E_{h}'(x)^{\ast}p$ |
-| `objective` | primal in $X_{h}$ | scalar | $J_{h}(x)$ |
-| `objective_derivative` | primal in $X_{h}$ | covector in $X_{h}^{\ast}$ | $J_{h}'(x)$ |
+| `residual` | primal in $`X_{h}`$ | covector in $`Z_{h}^{\ast}`$ | $`E_{h}(x)`$ |
+| `residual_jvp` | point and tangent in $`X_{h}`$ | covector in $`Z_{h}^{\ast}`$ | $`E_{h}'(x)[\delta x]`$ |
+| `residual_vjp` | point in $`X_{h}`$, seed in $`Z_{h}`$ | covector in $`X_{h}^{\ast}`$ | $`E_{h}'(x)^{\ast}p`$ |
+| `objective` | primal in $`X_{h}`$ | scalar | $`J_{h}(x)`$ |
+| `objective_derivative` | primal in $`X_{h}`$ | covector in $`X_{h}^{\ast}`$ | $`J_{h}'(x)`$ |
 
 The table also explains one detail that can look odd on first inspection:
 `residual_vjp()` takes a **primal** test seed.
 
-The seed $p$ is an element of the test space $Z_{h}$. The result is the dual object
-in $X_{h}^{\ast}$.
+The seed $p$ is an element of the test space $`Z_{h}`$. The result is the dual object
+in $`X_{h}^{\ast}`$.
 
 ### 13.1 Why the interface exposes actions rather than a Jacobian object
 
@@ -1098,7 +1098,7 @@ where:
 - $z$ contains independent state coordinates;
 - $K$ is the state operator in those coordinates;
 - $B$ couples the full control field into the independent state equations;
-- $b_{F}$ is the fixed right-hand side after boundary treatment.
+- $`b_{F}`$ is the fixed right-hand side after boundary treatment.
 
 The actual code does not spell this as one matrix expression. It composes native
 operations:
@@ -1364,8 +1364,8 @@ If only the first test is present, the VJP could be wrong while the JVP is corre
 
 A serious derivative implementation therefore benefits from both kinds of evidence.
 
-The later verification chapter will discuss tolerances, Taylor rates, randomized
-directions, and solver-induced error in more detail.
+In practice, tolerances and observed Taylor rates must also account for floating-point
+and solver-induced error.
 
 ## 19. Three uses of the word "adjoint"
 
@@ -1557,7 +1557,7 @@ D_{u}E_{h}(x)^{\ast}p
 \right).
 $$
 
-The first component is, by construction, $D_{y}J$.
+The first component is, by construction, $`D_{y}J`$.
 
 The second component gives the control contribution from the state equation.
 
@@ -1699,20 +1699,20 @@ At this point the relationships among the objects can be summarized as:
 
 | Object/action | Map | Coordinate picture | nmopt operation |
 | --- | --- | --- | --- |
-| Residual | $E:X_{h}\to Z_{h}^{\ast}$ | $\mathbf E(\mathbf x)$ | `residual(x)` |
-| Residual derivative | $E'(x):X_{h}\to Z_{h}^{\ast}$ | $J_{E}(\mathbf x)\delta\mathbf x$ | `residual_jvp(x, dx)` |
-| Residual transpose | $E'(x)^{\ast}:Z_{h}\to X_{h}^{\ast}$ | $J_{E}(\mathbf x)^{\mathsf T}\mathbf p$ | `residual_vjp(x, p)` |
-| Objective | $J:X_{h}\to\mathbb R$ | $J(\mathbf x)$ | `objective(x)` |
-| Objective derivative | $J'(x)\in X_{h}^{\ast}$ | $\mathbf r_{J}$ | `objective_derivative(x)` |
+| Residual | $`E:X_{h}\to Z_{h}^{\ast}`$ | $\mathbf E(\mathbf x)$ | `residual(x)` |
+| Residual derivative | $`E'(x):X_{h}\to Z_{h}^{\ast}`$ | $`J_{E}(\mathbf x)\delta\mathbf x`$ | `residual_jvp(x, dx)` |
+| Residual transpose | $`E'(x)^{\ast}:Z_{h}\to X_{h}^{\ast}`$ | $`J_{E}(\mathbf x)^{\mathsf T}\mathbf p`$ | `residual_vjp(x, p)` |
+| Objective | $`J:X_{h}\to\mathbb R`$ | $J(\mathbf x)$ | `objective(x)` |
+| Objective derivative | $`J'(x)\in X_{h}^{\ast}`$ | $`\mathbf r_{J}`$ | `objective_derivative(x)` |
 | State solve | solve $E(y,u)=0$ for $y$ | inverse/nonlinear solve | separate solve service |
-| Adjoint solve | solve $D_{y}E_{h}(x)^{\ast}p=D_{y}J_{h}$ | transpose-system solve | separate solve service |
+| Adjoint solve | solve $`D_{y}E_{h}(x)^{\ast}p=D_{y}J_{h}`$ | transpose-system solve | separate solve service |
 
 The table also marks the boundary of this chapter.
 
 We have explained how first-order information is represented and applied.
 
 We have not yet selected a Riesz map to turn an objective/reduced derivative into a
-gradient direction. That belongs to the next chapter.
+gradient direction. Chapter 4 develops that metric-dependent step.
 
 ## 25. Following one action through the source
 
@@ -1816,8 +1816,9 @@ The compiler's job is not merely to construct a sparse matrix named "Jacobian". 
 must realize the set of actions required by the selected formulation and package
 them with compatible spaces, data, and solve services.
 
-The later **Semantic problem model**, **Compilation and lowering**, and
-**Finite-element realization** chapters will trace that construction in detail.
+Chapters 9 and 11 trace that construction from semantic declaration through
+compilation, while [Numerical realization](../overview/numerical-realization.md)
+summarizes the finite-element side.
 
 For now, the important commonality is:
 
@@ -1840,7 +1841,7 @@ semantic/compiler path
 The producer paths differ. The first-order mathematical vocabulary at the generic
 model boundary is the same.
 
-## 28. What to carry into the next chapter
+## 28. What to carry forward
 
 We can now distinguish four operations that are often collapsed in informal
 numerical code:
@@ -1891,15 +1892,11 @@ Useful existing documents for this chapter are:
 
 - [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
   formal derivative, transpose, and Lagrangian conventions.
-- [Reduced optimization](../../overview/reduced-optimization.md), for the high-level
+- [Reduced optimization](../overview/reduced-optimization.md), for the high-level
   state–adjoint execution path.
-- [External applications](../../overview/external-applications.md), for the role of
+- [External applications](../overview/external-applications.md), for the role of
   callback model actions in an independently owned PDE application.
 - [Step-4 external integration overview](../../../apps/external-dealii/step-4/external-integration-overview.md),
   for the complete Problem B case study.
 - [External deal.II solver integration](../../reference/external-dealii-solver-integration.md),
   for exact public integration signatures.
-
-The forthcoming **Verification and evidence** chapter will return to finite
-differences, Taylor tests, transpose-pairing tests, and solve evidence as a coherent
-testing strategy rather than treating them only as derivative definitions.

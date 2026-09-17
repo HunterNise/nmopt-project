@@ -33,7 +33,7 @@ E(x)=0.
 $$
 
 Here $J$ is the objective, $E$ represents the governing equation or residual, and
-$X_{\mathrm{ad}}$ is the admissible set for the optimization variables.
+$`X_{\mathrm{ad}}`$ is the admissible set for the optimization variables.
 
 For a PDE optimal-control problem, the variable usually splits into a state and a
 decision variable,
@@ -412,11 +412,11 @@ The implemented formulation surface also includes:
 These are compiler and contract capabilities with focused tests and numerical
 services. They are not placeholders for hypothetical future architecture.
 
-What differs is **benchmark coverage**. The application work completed executable
-B1/B2 campaigns first, while later B3/B4 active-set benchmarks and B5/B6
-all-at-once/KKT benchmarks remained planned rather than receiving the same kind of
-end-to-end execution and reproduction work. That history should not make the reduced
-formulation appear to be the framework's only intended endpoint.
+What differs is **benchmark coverage**. B1/B2 received complete end-to-end
+application campaigns, while the PDAS, supplied-OTD, and KKT families are represented
+primarily by focused compiler, contract, and numerical tests rather than equivalent
+named reproduction campaigns. That difference should not make the reduced formulation
+appear to be the framework's only endpoint.
 
 A better reading is:
 
@@ -431,7 +431,7 @@ current project demonstrations
 ├─ external Step-4 integration → reduced path
 ├─ B1 benchmark               → reduced path
 ├─ B2 benchmark               → reduced path
-└─ planned later benchmarks   → PDAS / KKT / all-at-once paths
+└─ focused capability/tests   → PDAS / KKT / supplied-OTD paths
 ```
 
 The benchmark cases exist to exercise and evaluate framework capabilities. They are
@@ -578,18 +578,18 @@ The other overview pages deepen one part of this mental model:
 
 For authority beyond the overview layer:
 
-- [Theoretical formalism](../design/theoretical-formalism.md) defines the project's
+- [Theoretical formalism](../../design/theoretical-formalism.md) defines the project's
   mathematical conventions.
-- [PDE, formulation, and solver boundary](../design/pde-solver-boundary.md) records
+- [PDE, formulation, and solver boundary](../../design/pde-solver-boundary.md) records
   the accepted ownership and integration rules.
-- [Composition boundaries](../design/composition-boundaries.md) gives the more
+- [Composition boundaries](../../design/composition-boundaries.md) gives the more
   prescriptive subsystem composition rules.
-- [v1 semantic compiler](../implementation/v1/semantic-compiler.md) is the detailed
+- [v1 semantic compiler](../../implementation/v1/semantic-compiler.md) is the detailed
   current compiler capability ledger.
-- [External deal.II solver integration](../reference/external-dealii-solver-integration.md)
+- [External deal.II solver integration](../../reference/external-dealii-solver-integration.md)
   gives exact contracts for the direct-application path.
-- [Application execution](../reference/application-execution.md) and
-  [Parameter files](../reference/parameter-files.md) describe the repository's
+- [Application execution](../../reference/application-execution.md) and
+  [Parameter files](../../reference/parameter-files.md) describe the repository's
   reproducible execution layer.
 
 For exact current C++ signatures not yet covered by a dedicated reference page, the

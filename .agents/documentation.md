@@ -47,6 +47,9 @@ uses a different Markdown/LaTeX pipeline.
   plain-text substitutes.
 - Use inline `$...$` math inside tables. Move longer or display-sized
   equations outside tables rather than putting `$$...$$` in a table cell.
+- In Markdown tables, do not use a literal `|` as a mathematical restriction or
+  evaluation bar; it is also the table-cell delimiter. Use `\rvert` instead,
+  for example `$u\rvert_{\Gamma}$`.
 
 ## Markdown
 

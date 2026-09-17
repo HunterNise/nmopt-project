@@ -82,26 +82,26 @@ The number of control coefficients does not imply one PDE solve per coefficient.
 
 ## 3. What one value evaluation does
 
-Suppose the optimizer asks for the value at a control $u_{k}$.
+Suppose the optimizer asks for the value at a control $`u_{k}`$.
 
 The reduced formulation:
 
-1. calls the state solver to obtain $y_{k}$;
+1. calls the state solver to obtain $`y_{k}`$;
 2. records the state-solve convergence evidence;
-3. evaluates $J(y_{k},u_{k})$;
+3. evaluates $`J(y_{k},u_{k})`$;
 4. retains the state together with the control and objective value.
 
 Conceptually:
 
 ```text
-uₖ
+u_k
  │
- ├─► solve E(yₖ,uₖ)=0
+ ├─► solve E(y_k,u_k)=0
  │
  ▼
-(yₖ,uₖ)
+(y_k,u_k)
  │
- └─► J(yₖ,uₖ)
+ └─► J(y_k,u_k)
        │
        ▼
  retained value object
@@ -112,12 +112,12 @@ control, the formulation should not solve the state equation again.
 
 ## 4. Derivative augmentation reuses the retained state
 
-Given a retained value at $(y_{k},u_{k})$, derivative augmentation proceeds as
+Given a retained value at $`(y_{k},u_{k})`$, derivative augmentation proceeds as
 
-1. evaluate the state and control parts of $J'(y_{k},u_{k})$;
-2. solve the adjoint equation for $p_{k}$;
+1. evaluate the state and control parts of $`J'(y_{k},u_{k})`$;
+2. solve the adjoint equation for $`p_{k}`$;
 3. evaluate the residual transpose action;
-4. combine the control covectors into $j'(u_{k})$.
+4. combine the control covectors into $`j'(u_{k})`$.
 
 In symbols,
 
@@ -226,7 +226,7 @@ history differently. The formulation does not choose the algorithm.
 
 ## 7. Why value and derivative evaluation are separate
 
-Consider an Armijo line search from $u_{k}$ along a direction $d_{k}$.
+Consider an Armijo line search from $`u_{k}`$ along a direction $`d_{k}`$.
 
 A trial control is
 
@@ -272,7 +272,7 @@ j(u_{k}+\alpha d_{k})
 \leq
 j(u_{k})
 +
-c\,\alpha\langle j'(u_{k}),d_{k}\rangle.
+c \alpha\langle j'(u_{k}),d_{k}\rangle.
 $$
 
 Equivalently, using the actual trial displacement
@@ -364,7 +364,7 @@ mathematical services, but it should not alter the meaning of the existing ones.
 
 ## 12. Constraints and projection
 
-For an admissible control set $U_{\mathrm{ad}}$, a reduced method may need to project
+For an admissible control set $`U_{\mathrm{ad}}`$, a reduced method may need to project
 a trial point:
 
 $$
@@ -461,20 +461,20 @@ already supported by this particular runtime.
 
 For the mathematical convention behind the adjoint sign, reduced derivative, and
 metric distinction, use
-[Theoretical formalism](../design/theoretical-formalism.md).
+[Theoretical formalism](../../design/theoretical-formalism.md).
 
 For the ownership boundary between state/adjoint solves and optimization, use
-[PDE, formulation, and solver boundary](../design/pde-solver-boundary.md).
+[PDE, formulation, and solver boundary](../../design/pde-solver-boundary.md).
 
 For a concrete reduced integration with an existing deal.II code, use the
-[Step-4 integration overview](../../apps/external-dealii/step-4/external-integration-overview.md)
+[Step-4 integration overview](../../../apps/external-dealii/step-4/external-integration-overview.md)
 and the
-[external integration reference](../reference/external-dealii-solver-integration.md).
+[external integration reference](../../reference/external-dealii-solver-integration.md).
 
 For exact current C++ contract signatures, inspect the public headers under
 `include/nmopt/contract/` and `include/nmopt/solvers/` together with their focused
 tests. The existing
-[interface specification](../design/interface-specification.md) provides the
+[interface specification](../../design/interface-specification.md) provides the
 normative design vocabulary but should not be read as a substitute for implemented
 signatures.
 

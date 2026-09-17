@@ -44,7 +44,7 @@ runtime/compiler/solver integration
 Both paths use the same layers. The difference is how much of the setup has already
 been packaged for the user.
 
-This chapter uses the Chapter 5 scalar distributed-control recipe and the Chapter 6
+This chapter uses the source Chapter 5 scalar distributed-control recipe and the Chapter 6
 B1 scenario as concrete examples.
 
 ## 1. Start by deciding which layer you intend to change
@@ -102,7 +102,7 @@ experiment output
 That narrow responsibility is useful because the same semantic problem family can be
 compiled on different meshes, with different data, or solved by different algorithms.
 
-The Chapter 5 scalar distributed-control recipe has the parameter type
+The source Chapter 5 scalar distributed-control recipe has the parameter type
 
 ```text
 ScalarDistributedControlParameters
@@ -200,7 +200,7 @@ scenario
         + experiment options
 ```
 
-The Chapter 6 B1 scenario uses exactly this pattern.
+The source Chapter 6 B1 scenario uses exactly this pattern.
 
 ## 5. The B1 scenario separates semantic choice from runtime data
 
@@ -226,7 +226,7 @@ regularisation_sweep
     values used by the benchmark/application case
 ```
 
-Only `recipe` is sent to the Chapter 5 `ProblemRecipeT` to determine the semantic
+Only `recipe` is sent to the source Chapter 5 `ProblemRecipeT` to determine the semantic
 graph.
 
 The forcing, desired state, and coefficient values are bound later as runtime data.
@@ -315,7 +315,7 @@ ProblemSpec specification =
   chapter6::make_b1_problem_spec(scenario);
 ```
 
-Internally, this validates the scenario and calls the Chapter 5 recipe with
+Internally, this validates the scenario and calls the source Chapter 5 recipe with
 
 ```text
 scenario.problem.recipe
@@ -418,7 +418,7 @@ The choice is about ownership, not PDE mathematics.
 
 ## 12. Backend-neutral compile options are translated to compiler policy
 
-Chapter 6 `CompileOptions` does not expose the full compiler implementation type.
+Source Chapter 6 `CompileOptions` does not expose the full compiler implementation type.
 
 The backend adapter translates it to
 
@@ -1232,11 +1232,11 @@ The generic application types are:
 - [`include/nmopt/application/recipe.hpp`](../../../include/nmopt/application/recipe.hpp)
 - [`include/nmopt/application/scenario.hpp`](../../../include/nmopt/application/scenario.hpp)
 
-The Chapter 5 recipe family is:
+The source Chapter 5 recipe family is:
 
 - [`include/nmopt/application/chapter5.hpp`](../../../include/nmopt/application/chapter5.hpp)
 
-The Chapter 6 problem/scenario records and B1/B2 builders are:
+The source Chapter 6 problem/scenario records and B1/B2 builders are:
 
 - [`include/nmopt/application/chapter6.hpp`](../../../include/nmopt/application/chapter6.hpp)
 
@@ -1274,7 +1274,7 @@ For exact public signatures and the currently supported products, use:
 The compiled path assumes that `nmopt` constructs the supported numerical
 realization.
 
-[Integrating an existing PDE application](integrating-an-existing-pde-application.md)
+[Integrating an existing PDE application](13-integrating-an-existing-pde-application.md)
 starts from the opposite situation: the mesh, matrices, solves, and output already
 exist, and the task is to expose only the operations required by the same formulation
 and solver layer.

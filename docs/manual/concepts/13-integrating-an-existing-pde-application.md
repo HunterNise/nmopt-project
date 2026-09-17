@@ -120,7 +120,7 @@ For Step-4 Problem B, the added optimal-control model is
 ```math
 K\mathbf z
 =
-\mathbf b_F
+\mathbf b_{F}
 +
 B\mathbf u,
 ```
@@ -303,7 +303,7 @@ E(\mathbf z,\mathbf u)
 =
 K\mathbf z
 -
-\mathbf b_F
+\mathbf b_{F}
 -
 B\mathbf u.
 ```
@@ -1201,8 +1201,8 @@ For exact generic contract signatures, use:
 
 The common reduced formulation and solver concepts were developed earlier in:
 
-- [Reduced state–adjoint formulation](reduced-state-adjoint-formulation.md)
-- [Reduced optimization methods](reduced-optimization-methods.md)
+- [Reduced state–adjoint formulation](05-reduced-state-adjoint-formulation.md)
+- [Reduced optimization methods](06-reduced-optimization-methods.md)
 
 ## 39. The two execution paths close the concept manual
 
@@ -1222,6 +1222,8 @@ compiled path                          native path
                                  ↓
                                solver
 ```
+
+The current Step-4 case demonstrates this convergence for the reduced formulation; it does not establish a native external path for every compiler product.
 
 Below the convergence point, the optimizer should not care who constructed the
 numerical realization.

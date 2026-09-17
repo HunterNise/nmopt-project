@@ -36,7 +36,7 @@ concrete enough that later chapters can discuss the framework without requiring 
 reader to accept its abstractions on faith.
 
 For the project-wide picture, read
-[Project overview and architecture](../../overview/project-architecture.md) first or in
+[Project overview and architecture](../overview/project-architecture.md) first or in
 parallel. For the project's formal mathematical convention, the authoritative
 design note is
 [Theoretical formalism](../../design/theoretical-formalism.md).
@@ -44,7 +44,7 @@ design note is
 ## 1. A problem we can carry through the whole chapter
 
 A useful running example is the distributed elliptic control problem used by the
-Chapter 6 numerical examples:
+source Chapter 6 numerical examples:
 
 ```math
 \begin{aligned}
@@ -80,7 +80,7 @@ At first glance the problem contains only two unknown fields:
 - the **state** $y$, whose value is constrained by the PDE;
 - the **control** $u$, which the optimization algorithm is free to vary.
 
-The forcing $f$, desired state $z_{d}$, and regularization parameter $\beta$ are fixed
+The forcing $f$, desired state $`z_{d}`$, and regularization parameter $\beta$ are fixed
 data.
 
 That distinction already matters. If $f$ were instead an unknown coefficient to be
@@ -109,7 +109,7 @@ $$
 $$
 
 penalizes control effort. Increasing $\beta$ makes large controls more expensive;
-decreasing it permits the optimizer to track $z_{d}$ more closely at the price of a
+decreasing it permits the optimizer to track $`z_{d}`$ more closely at the price of a
 larger control.
 
 Nothing about this statement yet tells us how many coefficients will represent
@@ -124,14 +124,14 @@ of the most important ideas to keep in mind when reading the repository.
 Before comparing the source example with the project, it helps to attach a little
 meaning to the finite-element vocabulary that will recur throughout the manual.
 
-A **mesh** $\mathcal T_{h}$ partitions the physical domain into simpler cells – for
+A **mesh** $`\mathcal T_{h}`$ partitions the physical domain into simpler cells – for
 example triangles or quadrilaterals in two dimensions. The subscript $h$ conventionally
 refers to a characteristic mesh scale: smaller $h$ means a finer spatial
 discretization. A finite-element space then
 specifies what kind of function is allowed on each cell and how neighboring cells are
 coupled.
 
-On a triangular mesh, the standard $\mathbb P_{1}$ space consists of functions that
+On a triangular mesh, the standard $`\mathbb P_{1}`$ space consists of functions that
 are affine on each triangle. When the space is continuous, neighboring triangles
 share nodal values, so the global field is continuous across their common edge.
 The familiar degrees of freedom are therefore values associated with mesh vertices.
@@ -142,16 +142,16 @@ cell values rather than shared nodal values. In finite-element notation this is 
 piecewise degree-zero space; in the project it appears as one of the available
 volume-control realizations.
 
-These few sentences are only enough to read the present example. The later
-**Finite-element realization** chapter will explain meshes, basis functions, degrees
-of freedom, essential constraints, quadrature, and the concrete deal.II element
-families in a more systematic way.
+These few sentences are only enough to read the present example. The
+[Numerical realization](../overview/numerical-realization.md) overview places these
+choices in the project architecture; this manual focuses on the distinctions that
+matter to optimization rather than teaching general finite-element mechanics.
 
-The book's E6.5.1 example reports continuous $\mathbb P_{1}$ state, adjoint, and
+The book's E6.5.1 example reports continuous $`\mathbb P_{1}`$ state, adjoint, and
 control spaces on a triangular mesh. The current project supports more than one
 realization of the same distributed-control problem family.
 
-The Chapter 5 recipe behind B1 can request either:
+The source Chapter 5 recipe behind B1 can request either:
 
 - a cellwise-constant volume control; or
 - a continuous homogeneous-Dirichlet control.
@@ -182,12 +182,12 @@ nodal field, or some other finite-dimensional space. Even the phrase “continuo
 control” is incomplete until a mesh, local polynomial family, boundary treatment,
 and coordinate basis have been selected.
 
-Later chapters will explain how the semantic/compiler path records and realizes those
+Part III explains how the semantic/compiler path records and realizes those
 choices. For now, the important point is simpler: **the finite-dimensional problem is
 not determined until the spaces and coordinate representations have been chosen.**
 
 When the manual refers to a mathematical finite-element family, it will use notation
-such as $\mathbb P_{1}$ or $\mathbb Q_{1}$. Backticks are reserved for literal
+such as $`\mathbb P_{1}`$ or $`\mathbb Q_{1}`$. Backticks are reserved for literal
 implementation names such as `FE_Q`, `cellwise_constant`, or
 `homogeneous_dirichlet_continuous`.
 
@@ -319,11 +319,11 @@ u_{h}
 (u_{1},\ldots,u_{n_{u}})^{\mathsf T}.
 $$
 
-Nothing requires $U_{h}$ to equal $V_{h}$.
+Nothing requires $`U_{h}`$ to equal $`V_{h}`$.
 
-If the control is continuous $\mathbb P_{1}$ on the same triangular mesh, the two spaces may be closely
+If the control is continuous $`\mathbb P_{1}`$ on the same triangular mesh, the two spaces may be closely
 related and may even have the same dimension after boundary treatment. If the control
-is cellwise constant, however, $U_{h}$ has one basis function per control cell and
+is cellwise constant, however, $`U_{h}`$ has one basis function per control cell and
 its dimension and topology are different.
 
 This distinction will later motivate the framework's explicit treatment of spaces
@@ -339,7 +339,7 @@ numbers.
 
 ## 4. The weak residual becomes a matrix equation
 
-Test the weak equation with each state basis function $\varphi_{i}$.
+Test the weak equation with each state basis function $`\varphi_{i}`$.
 
 The diffusion matrix is
 
@@ -407,7 +407,7 @@ A\in\mathbb R^{n_{y}\times n_{y}},
 B\in\mathbb R^{n_{y}\times n_{u}}.
 $$
 
-If $U_{h}$ is cellwise constant, $B$ is generally rectangular. If the control uses
+If $`U_{h}`$ is cellwise constant, $B$ is generally rectangular. If the control uses
 the same continuous nodal basis as the state, $B$ becomes a mass-like square
 coupling, but its *role* is still control-to-test coupling.
 
@@ -422,7 +422,7 @@ $$
 \frac{1}{2}\int_{\Omega}(y_{h}-z_{d})^{2}.
 $$
 
-Expanding $y_{h}$ gives
+Expanding $`y_{h}`$ gives
 
 ```math
 \frac{1}{2}
@@ -454,13 +454,13 @@ c
 ```
 
 This form is worth pausing over because it exposes a detail that is easy to hide in
-notation such as $\lVert \mathbf y-\mathbf z_{d}\rVert_{M}^{2}$.
+notation such as $`\lVert \mathbf y-\mathbf z_{d}\rVert_{M}^{2}`$.
 
-The target $z_{d}$ need not be represented by a state-space coefficient vector at
+The target $`z_{d}`$ need not be represented by a state-space coefficient vector at
 all. It may remain an analytic function evaluated at quadrature points. In that case
 the implementation naturally assembles the linear term $\mathbf q$ and scalar
-constant $c$ from the function, rather than first interpolating $z_{d}$ into
-$V_{h}$.
+constant $c$ from the function, rather than first interpolating $`z_{d}`$ into
+$`V_{h}`$.
 
 The current B1 path does exactly this kind of thing: the desired state is retained as
 a runtime `dealii::Function`, with the B1 polynomial expression supplied by the
@@ -518,11 +518,11 @@ c
 \mathbf u^{\mathsf T}N_{u}\mathbf u.
 $$
 
-The use of a separate symbol $N_{u}$ is intentional. If the state and control use
+The use of a separate symbol $`N_{u}`$ is intentional. If the state and control use
 different finite-element spaces, there is no reason for the two mass matrices to be
 the same.
 
-For a cellwise-constant control, $N_{u}$ is particularly simple: on a standard
+For a cellwise-constant control, $`N_{u}`$ is particularly simple: on a standard
 elementwise basis it is diagonal, with entries related to cell measures. For a
 continuous nodal control, it is the usual sparse finite-element mass matrix.
 
@@ -631,8 +631,8 @@ M_{y}\mathbf y-\mathbf q,\\
 \end{aligned}
 ```
 
-These vectors represent the partial derivatives of $J_{h}$ with respect to the state
-and control coordinates. The next chapters will make the primal/dual interpretation
+These vectors represent the partial derivatives of $`J_{h}`$ with respect to the state
+and control coordinates. Chapters 2 and 3 make the primal/dual interpretation
 of such coefficient vectors more precise.
 
 For a **single chosen direction** $\delta\mathbf u$, there is nothing inherently
@@ -647,7 +647,7 @@ and substitute the resulting $\delta\mathbf y$ into the directional derivative.
 The difficulty appears when an optimization method needs the *whole reduced
 derivative*, meaning a representation that can act on arbitrary control directions.
 A direct basis-by-basis construction would use the control basis vectors
-$\mathbf e_{1},\ldots,\mathbf e_{n_{u}}$ and solve
+$`\mathbf e_{1},\ldots,\mathbf e_{n_{u}}`$ and solve
 
 $$
 A\delta\mathbf y_{k}
@@ -666,7 +666,7 @@ $$
 is compact algebra, but numerically it hides exactly this collection of solves (or an
 equivalent multiple-right-hand-side computation). Even if a factorization of $A$ can
 be reused, constructing or applying the full sensitivity map becomes unattractive
-when $n_{u}$ is large.
+when $`n_{u}`$ is large.
 
 The adjoint avoids building that control-to-state sensitivity map. It rearranges the
 same chain-rule term so that the expensive inverse of the state operator is applied
@@ -768,9 +768,9 @@ one transpose control coupling
 rather than a family of state-sensitivity solves indexed by the control degrees of
 freedom.
 
-The dedicated chapter on **Operators, derivatives, and adjoints** will return to this
-derivation without assuming a linear PDE. The later **Reduced state–adjoint
-formulation** chapter will then show how the same structure appears in `ReducedDTOT`.
+Chapter 3, **Operators, derivatives, and adjoints**, returns to this derivation
+without assuming a linear PDE. Chapter 5, **Reduced state–adjoint formulation**,
+then shows how the same structure appears in `ReducedDTOT`.
 
 For this chapter, the key point is that the executable problem is already more than a
 function from a control vector to a scalar objective. It contains a state equation,
@@ -843,25 +843,25 @@ $$
 N_{u}^{-1}\mathbf r_{u}.
 $$
 
-So the appearance of $N_{u}^{-1}$ is not an ad hoc rescaling of the derivative. The
+So the appearance of $`N_{u}^{-1}`$ is not an ad hoc rescaling of the derivative. The
 mass matrix is the coordinate representation of the $L^{2}$ Riesz map
 
 $$
 R_{U}:U_{h}\longrightarrow U_{h}^{\ast},
 $$
 
-and solving the mass-matrix system applies $R_{U}^{-1}$ to the derivative covector.
+and solving the mass-matrix system applies $`R_{U}^{-1}`$ to the derivative covector.
 
 If we instead chose the Euclidean coefficient inner product, the Riesz map would be
-the identity matrix and the coefficient vector $\mathbf r_{u}$ would itself be the
+the identity matrix and the coefficient vector $`\mathbf r_{u}`$ would itself be the
 gradient. If we chose an $H^{1}$-type or negative-order metric, a different operator
 would appear.
 
 This is also why it is useful to keep two ideas separate even when the same mass
 matrix occurs in both:
 
-- $N_{u}$ inside the objective contributes to the **regularization derivative**;
-- $N_{u}$ used as a Riesz map defines the **optimization geometry**.
+- $`N_{u}`$ inside the objective contributes to the **regularization derivative**;
+- $`N_{u}`$ used as a Riesz map defines the **optimization geometry**.
 
 They happen to coincide for this common $L^{2}$ choice, but they answer different
 questions.
@@ -961,12 +961,12 @@ The correspondence can be summarized compactly:
 
 | Concept | Continuous/model view | Variational/FE view | Discrete coefficient view |
 | --- | --- | --- | --- |
-| State | $y$ | $y\in V:=H_{0}^{1}(\Omega)$, later $y_{h}\in V_{h}$ | $\mathbf y\in\mathbb R^{n_{y}}$ |
-| Control | $u$ | $u$ belongs to a chosen control space; later $u_{h}\in U_{h}$ | $\mathbf u\in\mathbb R^{n_{u}}$ |
-| PDE constraint | $-\Delta y=f+u$ | $\langle E(y,u),v\rangle:=\int_{\Omega}\nabla y\cdot\nabla v-\int_{\Omega}fv-\int_{\Omega}uv$ | $\mathbf E(\mathbf y,\mathbf u):=A\mathbf y-B\mathbf u-\mathbf f$ |
-| State tracking | $\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}}^{2}$ | $\frac{1}{2}\int_{\Omega}(y_{h}-z_{d})^{2}$ | $\frac{1}{2}(\mathbf y^{\mathsf T}M_{y}\mathbf y-2\mathbf q^{\mathsf T}\mathbf y+c)$ |
-| Control penalty | $\frac{\beta}{2}\lVert u\rVert_{L^{2}}^{2}$ | $\frac{\beta}{2}\int_{\Omega}u_{h}^{2}$ | $\frac{\beta}{2}\mathbf u^{\mathsf T}N_{u}\mathbf u$ |
-| Reduced derivative | $j'(u)\in U^{\ast}$ | $j'(u)[\delta u]$ acts on a control direction | $\mathbf r_{u}^{\mathsf T}\delta\mathbf u$ |
+| State | $y$ | $`y\in V:=H_{0}^{1}(\Omega)`$, later $`y_{h}\in V_{h}`$ | $`\mathbf y\in\mathbb R^{n_{y}}`$ |
+| Control | $u$ | $u$ belongs to a chosen control space; later $`u_{h}\in U_{h}`$ | $`\mathbf u\in\mathbb R^{n_{u}}`$ |
+| PDE constraint | $-\Delta y=f+u$ | $`\langle E(y,u),v\rangle:=\int_{\Omega}\nabla y\cdot\nabla v-\int_{\Omega}fv-\int_{\Omega}uv`$ | $\mathbf E(\mathbf y,\mathbf u):=A\mathbf y-B\mathbf u-\mathbf f$ |
+| State tracking | $`\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}}^{2}`$ | $`\frac{1}{2}\int_{\Omega}(y_{h}-z_{d})^{2}`$ | $`\frac{1}{2}(\mathbf y^{\mathsf T}M_{y}\mathbf y-2\mathbf q^{\mathsf T}\mathbf y+c)`$ |
+| Control penalty | $`\frac{\beta}{2}\lVert u\rVert_{L^{2}}^{2}`$ | $`\frac{\beta}{2}\int_{\Omega}u_{h}^{2}`$ | $`\frac{\beta}{2}\mathbf u^{\mathsf T}N_{u}\mathbf u`$ |
+| Reduced derivative | $j'(u)\in U^{\ast}$ | $j'(u)[\delta u]$ acts on a control direction | $`\mathbf r_{u}^{\mathsf T}\delta\mathbf u`$ |
 
 The table is deliberately not an identification of the columns. Each column exposes a
 different aspect of the same problem. In particular, a coefficient vector is a
@@ -981,7 +981,7 @@ changes perspective.
 The remaining sections use the current B1 path as an **orientation tour**: given the
 objects we have just derived, where do the corresponding choices and constructions
 appear in the repository? The purpose is not to explain the semantic model, compiler,
-or deal.II realization completely. Each of those receives a later concept chapter.
+or deal.II realization completely. The rest of the manual develops those layers in turn.
 Here we only want the transition from equations on the page to source code to stop
 feeling arbitrary.
 
@@ -1005,7 +1005,7 @@ is simple enough that the layers remain recognizable.
 
 ### 10.1 The application recipe names the problem family
 
-The Chapter 6 B1 scenario reuses the Chapter 5 scalar distributed-control recipe.
+The source Chapter 6 B1 scenario reuses the source Chapter 5 scalar distributed-control recipe.
 
 At the application level, the recipe is selected by the ID
 
@@ -1087,7 +1087,7 @@ The semantic graph is therefore not a second mathematical theory layered on top 
 the PDE. It is a software decomposition of the information needed to realize the
 selected formulation.
 
-The later **Semantic problem model** chapter will examine why the graph is decomposed
+Chapter 9, [Semantic problem model](09-semantic-problem-model.md), examines why the graph is decomposed
 in exactly this way and how other problems force additional nodes.
 
 ## 11. The B1 scenario adds concrete choices that are not part of the PDE
@@ -1263,7 +1263,7 @@ metric application / inverse application
 ```
 
 For an assembled deal.II realization, these operations may internally use sparse
-matrices $A$, $B$, $M_{y}$, and $N_{u}$.
+matrices $A$, $B$, $`M_{y}`$, and $`N_{u}`$.
 
 For an external PDE application, they may call methods on an existing application
 object.
@@ -1274,11 +1274,11 @@ materializing every matrix in the same form.
 This is the bridge from the algebra in this chapter to the numerical contract layer
 described in the architecture overview.
 
-The next two concept chapters will slow down at this boundary:
+Chapters 2 and 3 slow down at this boundary:
 
-- **Spaces, coordinates, and duality** will explain what information must accompany
+- **Spaces, coordinates, and duality** explains what information must accompany
   the coefficient vectors.
-- **Operators, derivatives, and adjoints** will explain how the matrix formulas
+- **Operators, derivatives, and adjoints** explains how the matrix formulas
   generalize into residual/JVP/VJP actions.
 
 ## 15. A first source tour, following the problem rather than the directory tree
@@ -1363,7 +1363,7 @@ Changing the problem reveals why later parts of the framework exist.
 
 ### Boundary control
 
-If the control acts on a boundary $\Gamma_{c}$ rather than in the volume, then
+If the control acts on a boundary $`\Gamma_{c}`$ rather than in the volume, then
 
 $$
 U=L^{2}(\Gamma_{c})
@@ -1426,10 +1426,10 @@ An all-at-once method instead treats state, adjoint/multiplier, and control vari
 as one coupled system. The KKT and supplied-OTD paths therefore expose a different
 numerical product even though they originate from related optimality conditions.
 
-The later formulation chapters will develop those alternatives from the equations
+Chapters 7 and 8 develop those alternatives from the equations
 rather than presenting them as a collection of C++ types.
 
-## 17. What to carry into the next chapter
+## 17. What to carry forward
 
 The important result of this chapter is not a list of framework classes.
 
@@ -1469,7 +1469,7 @@ state coefficients y          control coefficients u
 Several of those objects may be stored as vectors of doubles, but they do not
 represent the same space or the same mathematical role.
 
-That observation creates the question for the next chapter:
+That observation creates the question taken up in Chapter 2:
 
 > Once a PDE has been discretized, what information about spaces, coordinates, and
 > duality must survive at runtime so that these numerical objects can be composed
@@ -1491,7 +1491,7 @@ narrative:
   the source numerical-method context.
 - [Chapter 6 numerical examples](../../guides/chapter-6-numerical-examples.md)
   distinguishes source facts from project choices for B1/B2 and the other examples.
-- [Numerical realization](../../overview/numerical-realization.md) returns to the same
+- [Numerical realization](../overview/numerical-realization.md) returns to the same
   subject from the project-wide architectural viewpoint.
-- [Reduced optimization](../../overview/reduced-optimization.md) gives the high-level
-  runtime path that later formulation/solver chapters will derive in detail.
+- [Reduced optimization](../overview/reduced-optimization.md) gives the high-level
+  runtime path developed in detail by the formulation and solver chapters.

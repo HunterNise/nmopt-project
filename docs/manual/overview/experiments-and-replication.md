@@ -206,20 +206,14 @@ source truth.
 The current executable benchmark programme is intentionally narrower than the
 framework's implemented formulation surface.
 
-B1 and B2 received the most complete end-to-end application work because they were
-the first selected Chapter 6 reduced-space demonstrations. The application roadmap
-also planned later benchmark families:
+B1 and B2 received the most complete end-to-end application work as the selected
+Chapter 6 reduced-space demonstrations. Other formulation families do not have
+equivalent named reproduction campaigns. That does **not** mean their support is
+absent: selected KKT, supplied-OTD, complementarity, and PDAS products exist in the
+compiler/contract layers with focused tests.
 
-- B3/B4 for box-constrained active-set/PDAS work;
-- B5/B6 for all-at-once quadratic KKT-style problems.
-
-Those later benchmark campaigns were not completed to the same executable and
-reproduction status. That does **not** mean the corresponding formulation support is
-absent: selected KKT, supplied-OTD, complementarity, and PDAS products already exist
-in the compiler/contract layers.
-
-The experiment layer should therefore be read as a growing set of demonstrations
-and scientific evaluations over the framework, not as the framework's capability
+The experiment layer should therefore be read as a set of demonstrations and
+scientific evaluations over the framework, not as the framework's capability
 registry.
 
 ## 7. Parameter files are scenario inputs, not the architecture
@@ -420,18 +414,18 @@ not the framework's architectural center.
 
 Use the following documents after this overview according to the task:
 
-- [Application execution](../reference/application-execution.md) owns the exact run,
+- [Application execution](../../reference/application-execution.md) owns the exact run,
   artifact, manifest, and output contracts.
-- [Parameter files](../reference/parameter-files.md) owns the supported parameter
+- [Parameter files](../../reference/parameter-files.md) owns the supported parameter
   schema and checked file conventions.
-- [Application assembly API](../reference/application-api.md) owns the construction
+- [Application assembly API](../../reference/application-api.md) owns the construction
   interfaces between scenarios, semantic problems, runtime data, and compilation.
-- [Chapter 5 application recipes](../applications/chapter-5.md) and
-  [Chapter 6 application scenarios](../applications/chapter-6.md) own the concrete
+- [Chapter 5 application recipes](../../applications/chapter-5.md) and
+  [Chapter 6 application scenarios](../../applications/chapter-6.md) own the concrete
   application-level records.
-- [Chapter 6 benchmark specification](../benchmarks/chapter-6.md) owns benchmark
+- [Chapter 6 benchmark specification](../../benchmarks/chapter-6.md) owns benchmark
   acceptance and evidence requirements.
-- [Chapter 6 numerical-examples reference](../guides/chapter-6-numerical-examples.md)
+- [Chapter 6 numerical-examples reference](../../guides/chapter-6-numerical-examples.md)
   owns what the source book actually states and what it omits.
 
 Planning and review files may explain how those contracts were reached, but they

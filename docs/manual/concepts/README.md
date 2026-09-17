@@ -118,19 +118,24 @@ reconstruction and pullback, observation transposes, metric and state/adjoint so
 services, common executable contracts, `CompiledProblemT`, formulation-product
 packaging, and the typed compilation manifest.
 
-## Part IV – Integration and evidence
+## Part IV – Using and integrating nmopt
 
-### 12. Native integration and ownership
+### 12. Authoring and using compiled problems
 
-Planned. This chapter will explain how an independently owned PDE application can
-provide operations to nmopt without surrendering its native mesh, matrices, solves,
-or output model.
+[Authoring and using compiled problems](authoring-and-using-compiled-problems.md)
+follows both the ready-made and authoring paths through recipes, scenarios, runtime
+data, compilation sessions, compiler policies, compiled products, reduced solvers,
+native output, and manifests. It also separates changes to semantic structure from
+runtime data, numerical realization, solver policy, and experiment configuration.
 
-### 13. Verification and evidence
+### 13. Integrating an existing PDE application
 
-Planned. This chapter will connect derivative identities, algebraic contract tests,
-compiler integration tests, solve reports, benchmark evidence, and reproduction
-artifacts.
+[Integrating an existing PDE application](integrating-an-existing-pde-application.md)
+starts from a numerical application that already owns its mesh, finite-element
+operators, solves, and output. The Step-4 Problem B integration shows how layouts,
+callback model actions, state/adjoint solve adapters, a native metric, ownership, and
+lifetimes connect that application directly to the same reduced formulation and
+optimizer contracts used by the compiler path.
 
 ## How the chapters should read
 

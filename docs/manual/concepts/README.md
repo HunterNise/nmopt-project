@@ -92,36 +92,41 @@ recovery, residual checks, and active-set convergence.
 
 ### 9. Semantic problem model
 
-Planned. A concrete problem will be rebuilt progressively as regions, spaces,
-variables, data, residual terms, observations, losses, transformations, metrics,
-constraints, requirements, and a formulation declaration.
+[Semantic problem model](semantic-problem-model.md) shows how a mathematical
+PDE-constrained problem is translated into the semantic vocabulary accepted by
+`nmopt`. Each major node is introduced through its mathematical role, an annotated
+schema, a table of current semantic options, and—where useful—a small commented C++
+fragment. The chapter also develops observation/loss formulas, supplied-OTD block
+declarations, recipes, scenarios, and the boundary to later validation and numerical
+realization.
 
 ### 10. Validation, resolution, and capabilities
 
-Planned. This chapter will distinguish semantic validity, resolution, lowerability,
-compiler capability, and formulation/product capability before numerical realization.
+[Validation, resolution, and capabilities](validation-resolution-and-capabilities.md)
+separates structural and analytical-policy validation from semantic resolution,
+compiler request closure, lowerability, and formulation/product capability. It
+explains `ValidationReport`, `SemanticResolver`, `ResolvedProblemView`,
+`ResolvedCompilationRequest`, bounded capability registration, and why a valid
+semantic graph need not be executable by the current deal.II compiler.
 
 ### 11. Compilation and lowering
 
-Planned. One resolved problem will be followed through component planning,
-`ScalarLoweringPlan`, runtime data bindings, registered realization strategies, and
-compiled-product packaging.
-
-### 12. Finite-element realization
-
-Planned. This chapter will examine the concrete deal.II constructions behind
-coordinates, liftings, residuals, observations, metrics, constraints, and PDE solve
-services.
+[Compilation and lowering](compilation-and-lowering.md) follows an accepted scalar
+distributed-control problem through runtime data ports, `ScalarLoweringPlan`,
+residual/service projections, finite-element model construction, coordinate
+reconstruction and pullback, observation transposes, metric and state/adjoint solve
+services, common executable contracts, `CompiledProblemT`, formulation-product
+packaging, and the typed compilation manifest.
 
 ## Part IV – Integration and evidence
 
-### 13. Native integration and ownership
+### 12. Native integration and ownership
 
 Planned. This chapter will explain how an independently owned PDE application can
 provide operations to nmopt without surrendering its native mesh, matrices, solves,
 or output model.
 
-### 14. Verification and evidence
+### 13. Verification and evidence
 
 Planned. This chapter will connect derivative identities, algebraic contract tests,
 compiler integration tests, solve reports, benchmark evidence, and reproduction

@@ -744,7 +744,7 @@ namespace nmopt::semantic::v1
       typed_h1_target_data_membership_selection;
   };
 
-  struct ReducedFormulationSpec
+  struct FormulationSpec
   {
     std::string           id;
     FormulationKind       kind = FormulationKind::unspecified;
@@ -827,7 +827,7 @@ namespace nmopt::semantic::v1
     std::vector<MetricSpec>            metrics;
     std::vector<ConstraintSpec>        constraints;
     std::vector<RequirementPolicySpec> requirement_policies;
-    ReducedFormulationSpec              formulation;
+    FormulationSpec                    formulation;
     std::optional<SuppliedOTDDeclaration> supplied_otd_declaration;
   };
 

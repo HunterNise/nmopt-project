@@ -1679,9 +1679,9 @@ namespace
               RequirementPolicySpec{}.status == RequirementStatus::unspecified &&
               RequirementPolicySpec{}.scope == RequirementScope::unspecified,
             "default requirement-policy enums are not safe");
-    require(ReducedFormulationSpec{}.kind == FormulationKind::unspecified,
+    require(FormulationSpec{}.kind == FormulationKind::unspecified,
             "default formulation kind is not safe");
-    require(ReducedFormulationSpec{}.provenance ==
+    require(FormulationSpec{}.provenance ==
               FormulationProvenance::unspecified,
             "default formulation provenance is not safe");
     require(SuppliedOTDBlockSpec{}.role == SuppliedOTDBlockRole::unspecified &&

@@ -1807,7 +1807,7 @@ namespace nmopt::semantic::v1
     }
 
     static void
-    validate_formulation(const ReducedFormulationSpec & formulation,
+    validate_formulation(const FormulationSpec &        formulation,
                          const Index<VariableSpec> &    variables,
                          const Index<EquationBlockSpec> & equations,
                          const Index<MetricSpec> &       metrics,

@@ -54,10 +54,14 @@ language level. The checked-in CMake presets additionally use Ninja.
 | Matplotlib | Verified `3.6.3` | Rendering PNG and SVG field plots |
 | meshio | Verified `5.3.5` | Reading and writing native mesh/field files |
 
-The backend-neutral profile does not discover deal.II and does not require the
-Python packages. The deal.II profile is needed for the runner and Chapter 6
-application tests. Python is needed when generating post-processing plots or
-reports; the C++ build itself does not import Python.
+The backend-neutral profile does not discover deal.II and does not require
+Python for C++ compilation. When Python is available, its standard-library-only
+Chapter 6 report contract is registered with CTest. The post-processing
+contracts are registered only when NumPy, Matplotlib, and meshio are importable;
+their absence does not invalidate the neutral C++ test profile. The deal.II
+profile is needed for the runner and Chapter 6 application tests. Python is
+needed when generating post-processing plots or reports; the C++ build itself
+does not import Python.
 
 The project does not directly request MPI, BLAS, or other numerical libraries
 from CMake. Any transitive libraries required by deal.II belong to the

@@ -103,6 +103,18 @@ function(nmopt_add_neutral_test target source_file)
   scenario_discovery_register("${target}")
 endfunction()
 
+function(nmopt_add_python_test test_name script labels timeout)
+  add_test(
+    NAME "${test_name}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/${script}")
+  set_tests_properties(
+    "${test_name}"
+    PROPERTIES
+      LABELS "${labels}"
+      TIMEOUT "${timeout}"
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+endfunction()
+
 function(nmopt_add_dealii_executable target source_file)
   add_executable("${target}" "${source_file}")
   target_link_libraries("${target}"
@@ -160,6 +172,55 @@ if(BUILD_TESTING)
   nmopt_add_neutral_test(
     nmopt_runner_contract_test
     tests/application/runner_contract.cc)
+
+  find_package(Python3 COMPONENTS Interpreter QUIET)
+  if(Python3_Interpreter_FOUND)
+    nmopt_add_python_test(
+      nmopt.tools.chapter6_report
+      tests/tools/chapter6_report_contract.py
+      "python;tool;report"
+      30)
+
+    execute_process(
+      COMMAND "${Python3_EXECUTABLE}" -c "import numpy, matplotlib, meshio"
+      RESULT_VARIABLE nmopt_plotting_import_result
+      OUTPUT_QUIET
+      ERROR_QUIET)
+    if(nmopt_plotting_import_result EQUAL 0)
+      nmopt_add_python_test(
+        nmopt.tools.postprocess_configuration
+        tests/tools/postprocess_configuration_contract.py
+        "python;tool;postprocess"
+        60)
+      nmopt_add_python_test(
+        nmopt.tools.postprocess_comparison_plan
+        tests/tools/postprocess_comparison_plan_contract.py
+        "python;tool;postprocess"
+        60)
+      nmopt_add_python_test(
+        nmopt.tools.postprocess_history
+        tests/tools/postprocess_history_contract.py
+        "python;tool;postprocess"
+        60)
+      nmopt_add_python_test(
+        nmopt.tools.postprocess_boundary_field
+        tests/tools/postprocess_boundary_field_contract.py
+        "python;tool;postprocess"
+        60)
+      nmopt_add_python_test(
+        nmopt.tools.postprocess_render_policy
+        tests/tools/postprocess_render_policy_contract.py
+        "python;tool;postprocess"
+        60)
+      set(nmopt_python_tool_test_status "report + postprocessing")
+    else()
+      set(nmopt_python_tool_test_status
+          "report only (plotting dependencies unavailable)")
+    endif()
+  else()
+    set(nmopt_python_tool_test_status
+        "disabled (Python interpreter not found)")
+  endif()
 endif()
 
 if(NMOPT_ENABLE_DEAL_II)
@@ -393,6 +454,7 @@ message(STATUS "  strict warnings: ${NMOPT_ENABLE_STRICT_WARNINGS}")
 message(STATUS "  warnings as errors: ${NMOPT_WARNINGS_AS_ERRORS}")
 message(STATUS "  sanitizers: ${NMOPT_ENABLE_SANITIZERS}")
 if(BUILD_TESTING)
+  message(STATUS "  Python tool tests: ${nmopt_python_tool_test_status}")
   message(STATUS "  backend-neutral tests: enabled")
   if(NMOPT_ENABLE_DEAL_II)
     message(STATUS "  deal.II tests: enabled")

@@ -287,7 +287,8 @@ namespace
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact,
       "minimal_problem_a_binding",
-      {{"native", &native_instrumentation}});
+      {{"native", &native_instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
         ProblemA native_problem(native_instrumentation);
@@ -464,12 +465,12 @@ main(const int argc, char **argv)
       const std::vector<nmopt::test_support::Scenario> scenarios{
         {"minimal_problem_a_binding",
          "nmopt.external.tutorial_step_4.minimal_problem_a_binding_contract",
-         {"dealii", "application", "external", "minimal", "problem_a"},
+         {"dealii", "application", "external", "minimal", "problem_a", "extended"},
          360,
          run_minimal_problem_a_contract},
         {"minimal_problem_a_executable",
          "nmopt.external.tutorial_step_4.minimal_problem_a",
-         {"dealii", "application", "external", "minimal", "problem_a"},
+         {"dealii", "application", "external", "minimal", "problem_a", "reproduction"},
          360,
          [binary_directory] {
            run_minimal_problem_a_executable(binary_directory);

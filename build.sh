@@ -387,6 +387,7 @@ run_test() {
   local profile="$1"
   local progress="${2:-false}"
   local no_label_summary="${3:-false}"
+  local pipeline_mode="${4:-false}"
   local argument
   local -a command=(ctest --preset "$profile")
 
@@ -401,6 +402,9 @@ run_test() {
   fi
   if [[ -n "$test_label" ]]; then
     command+=(-L "$test_label")
+  fi
+  if [[ "$pipeline_mode" == true && "$profile" == debug-dealii ]]; then
+    command+=(-LE 'extended|reproduction')
   fi
   for argument in "${ctest_args[@]}"; do
     command+=("$argument")
@@ -486,7 +490,7 @@ run_pipeline_profile() {
   fi
 
   print_pipeline_phase "$profile" test
-  if ! run_test "$profile" true true; then
+  if ! run_test "$profile" true true true; then
     return 1
   fi
 

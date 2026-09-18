@@ -375,7 +375,8 @@ namespace
       "matched_optimization",
       {{"native", &native_instrumentation},
        {"nmopt", &nmopt_instrumentation},
-       {"verification", &verification_instrumentation}});
+       {"verification", &verification_instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
     ProblemA      native_problem(native_instrumentation);
@@ -743,7 +744,8 @@ namespace
       artifact,
       "completed_trace_failure",
       {{"native", &native_instrumentation},
-       {"nmopt", &nmopt_instrumentation}});
+       {"nmopt", &nmopt_instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
         ProblemA      native_problem(native_instrumentation);
@@ -751,7 +753,8 @@ namespace
         Binding       nmopt_binding(nmopt_instrumentation);
         Vector        initial_control(native_problem.control_dimension());
         initial_control = 0.0;
-        const auto policy = external_dealii_step4::frozen_optimization_policy();
+        auto policy = external_dealii_step4::frozen_optimization_policy();
+        policy.maximum_iterations = 1;
         const auto native_result =
           external_dealii_step4::NativeArmijoSolver(native_reduced, policy)
             .solve(initial_control);
@@ -902,12 +905,12 @@ main(const int argc, char **argv)
       const std::vector<nmopt::test_support::Scenario> scenarios{
         {"matched_optimization",
          "nmopt.external.tutorial_step_4.matched_optimization",
-         {"dealii", "application", "external", "tutorial", "optimization"},
+         {"dealii", "application", "external", "tutorial", "optimization", "reproduction"},
          360,
          run_matched_optimization},
         {"completed_trace_failure",
          "nmopt.external.tutorial_step_4.completed_trace_failure",
-         {"dealii", "application", "external", "tutorial", "optimization", "diagnostics"},
+         {"dealii", "application", "external", "tutorial", "optimization", "diagnostics", "reproduction"},
          180,
          run_completed_trace_failure_contract},
         {"matched_optimization_limit",

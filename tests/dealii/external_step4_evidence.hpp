@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -21,6 +22,12 @@ namespace external_dealii_step4_test
   {
     const char *             path;
     const Instrumentation *  value;
+  };
+
+  enum class EvidenceRetention
+  {
+    discard_on_success,
+    retain_on_success
   };
 
   class EvidenceGuard;
@@ -224,10 +231,13 @@ namespace external_dealii_step4_test
   public:
     EvidenceGuard(const std::filesystem::path &root,
                   const char *const              scenario,
-                  const std::vector<InstrumentationView> &views)
+                  const std::vector<InstrumentationView> &views,
+                  const EvidenceRetention retention =
+                    EvidenceRetention::discard_on_success)
       : root_(root)
       , scenario_(scenario)
       , views_(views)
+      , retention_(retention)
       , previous_(active_guard)
     {
       begin_artifact(root_, scenario_);
@@ -242,6 +252,11 @@ namespace external_dealii_step4_test
                       failure_message_.empty() ? current_exception_message() :
                                                  failure_message_,
                       views_);
+      if (completed_ && retention_ == EvidenceRetention::discard_on_success)
+        {
+          std::error_code cleanup_error;
+          std::filesystem::remove_all(root_, cleanup_error);
+        }
       active_guard = previous_;
     }
 
@@ -270,6 +285,7 @@ namespace external_dealii_step4_test
     std::filesystem::path              root_;
     const char *                        scenario_;
     std::vector<InstrumentationView>   views_;
+    EvidenceRetention                  retention_;
     EvidenceGuard *                    previous_;
     std::string                        failure_message_;
     bool                               completed_ = false;

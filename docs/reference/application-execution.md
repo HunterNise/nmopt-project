@@ -355,6 +355,24 @@ For deal.II application changes:
 ./build.sh pipeline debug-dealii
 ```
 
+The `debug-dealii` pipeline is the routine regression gate. It runs serially
+and excludes tests labelled `extended` or `reproduction`, which are available
+through the atomic test action:
+
+```bash
+./build.sh test debug-dealii --label extended
+./build.sh test debug-dealii --label reproduction
+```
+
+Use the explicit test action without a label to run all registered tests:
+
+```bash
+./build.sh test debug-dealii
+```
+
+Deal.II builds remain limited to one job on constrained local configurations.
+The pipeline does not enable global CTest parallelism.
+
 When only the runner target needs rebuilding, use the atomic actions instead:
 
 ```bash

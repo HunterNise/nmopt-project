@@ -584,7 +584,8 @@ namespace
       artifact_root,
       "problem_b_nmopt_reduced_comparison",
       { {"native", &native_instrumentation},
-        {"nmopt", &nmopt_instrumentation} });
+        {"nmopt", &nmopt_instrumentation} },
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
         std::ofstream output(artifact_root / "comparison.csv");
@@ -742,7 +743,7 @@ main(const int argc, char **argv)
         {"problem_b_nmopt_reduced_comparison",
          "nmopt.external_tutorial_step_4.problem_b_nmopt_reduced_comparison",
          {"dealii", "application", "external", "tutorial", "integration",
-          "problem_b", "verification"},
+          "problem_b", "verification", "extended"},
          300,
          run_problem_b_nmopt_reduced_comparison}};
       const auto result = nmopt::test_support::run_requested_scenarios(

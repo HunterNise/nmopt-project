@@ -1072,7 +1072,8 @@ namespace
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact_root,
       "native_problem_b_derivative_metric",
-      {{"native", &instrumentation}});
+      {{"native", &instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
         Step4<2> tutorial;
@@ -1521,7 +1522,8 @@ namespace
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact_root,
       "native_problem_b_optimization",
-      {{"native", &instrumentation}});
+      {{"native", &instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
         Step4<2> tutorial;
@@ -1799,7 +1801,8 @@ namespace
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact_root,
       "native_problem_b_line_search_failure",
-      {{"native", &instrumentation}});
+      {{"native", &instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
         Step4<2> tutorial;
@@ -1893,7 +1896,8 @@ namespace
     external_dealii_step4_test::EvidenceGuard evidence(
       artifact_root,
       "native_problem_b_nonfinite",
-      {{"native", &instrumentation}});
+      {{"native", &instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
         Step4<2> tutorial;
@@ -1998,9 +2002,9 @@ namespace
     state = 7.0;
 
     const auto output_directory =
-      std::filesystem::temp_directory_path() / "nmopt-external-step4-output";
-    std::filesystem::remove_all(output_directory);
-    std::filesystem::create_directories(output_directory);
+      external_dealii_step4_test::create_unique_artifact_root(
+        std::filesystem::temp_directory_path(),
+        "nmopt-external-step4-output");
     const auto output_file = output_directory / "supplied-state.vtk";
     tutorial.output_results(state, output_file);
 
@@ -2125,10 +2129,9 @@ namespace
                   "native reduced repeated control changed the objective");
 
     const auto output_directory =
-      std::filesystem::temp_directory_path() /
-      "nmopt-external-step4-native-reduced-output";
-    std::filesystem::remove_all(output_directory);
-    std::filesystem::create_directories(output_directory);
+      external_dealii_step4_test::create_unique_artifact_root(
+        std::filesystem::temp_directory_path(),
+        "nmopt-external-step4-native-reduced-output");
     const auto output_file = output_directory / "retained-state.vtk";
     problem.output_results(repeated_after.state, output_file);
     require(std::filesystem::exists(output_file),
@@ -2144,7 +2147,10 @@ namespace
     Instrumentation instrumentation;
     const auto artifact_root = native_reference_artifact_root("derivatives");
     external_dealii_step4_test::EvidenceGuard evidence(
-      artifact_root, "native_derivatives", {{"native", &instrumentation}});
+      artifact_root,
+      "native_derivatives",
+      {{"native", &instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
     std::ofstream finite_difference_output(
@@ -2345,7 +2351,10 @@ namespace
     Instrumentation instrumentation;
     const auto artifact_root = native_reference_artifact_root("oracle");
     external_dealii_step4_test::EvidenceGuard evidence(
-      artifact_root, "native_oracle", {{"native", &instrumentation}});
+      artifact_root,
+      "native_oracle",
+      {{"native", &instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
     std::ofstream output(artifact_root / "native-oracle.txt");
@@ -2514,7 +2523,8 @@ namespace
       artifact_root,
       "native_optimization",
       {{"native", &instrumentation},
-       {"verification", &verification_instrumentation}});
+       {"verification", &verification_instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
     ProblemA      problem(instrumentation);
@@ -2522,8 +2532,10 @@ namespace
     Vector        initial_control(problem.control_dimension());
     initial_control = 0.0;
 
-    const OptimizationPolicy policy =
+    auto policy =
       external_dealii_step4::frozen_optimization_policy();
+    if (fail_after_trace)
+      policy.maximum_iterations = 1;
     NativeArmijoSolver solver(reduced, policy);
     const auto result = solver.solve(initial_control);
 
@@ -2835,13 +2847,13 @@ main(const int argc, char **argv)
         {"native_problem_b_oracle",
          "nmopt.external_tutorial_step_4.native_problem_b_oracle",
          {"dealii", "application", "external", "tutorial", "native",
-          "problem_b", "verification"},
+          "problem_b", "verification", "extended"},
          120,
          run_native_problem_b_oracle_contract},
         {"native_problem_b_derivative_metric",
          "nmopt.external_tutorial_step_4.native_problem_b_derivative_metric",
          {"dealii", "application", "external", "tutorial", "native",
-          "problem_b", "verification"},
+          "problem_b", "verification", "extended"},
          240,
          run_native_problem_b_derivative_metric_contract},
         {"native_problem_b_optimization",
@@ -2853,19 +2865,19 @@ main(const int argc, char **argv)
         {"native_problem_b_optimization_evidence",
          "nmopt.external_tutorial_step_4.native_problem_b_optimization_evidence",
          {"dealii", "application", "external", "tutorial", "native",
-          "problem_b", "optimization", "verification"},
+          "problem_b", "optimization", "verification", "extended"},
          900,
          run_native_problem_b_optimization_evidence},
         {"native_problem_b_line_search_failure",
          "nmopt.external_tutorial_step_4.native_problem_b_line_search_failure",
          {"dealii", "application", "external", "tutorial", "native",
-          "problem_b", "optimization", "diagnostics"},
+          "problem_b", "optimization", "diagnostics", "reproduction"},
          180,
          run_native_problem_b_line_search_failure_contract},
         {"native_problem_b_nonfinite",
          "nmopt.external_tutorial_step_4.native_problem_b_nonfinite",
          {"dealii", "application", "external", "tutorial", "native",
-          "problem_b", "optimization", "diagnostics"},
+          "problem_b", "optimization", "diagnostics", "reproduction"},
          180,
          run_native_problem_b_nonfinite_contract},
         {"supplied_state_output",
@@ -2885,22 +2897,22 @@ main(const int argc, char **argv)
          run_native_reduced_contract},
         {"native_derivatives",
          "nmopt.external_tutorial_step_4.native_derivatives",
-         {"dealii", "application", "external", "tutorial", "native", "verification"},
+         {"dealii", "application", "external", "tutorial", "native", "verification", "extended"},
          180,
          run_native_derivative_verification},
         {"native_oracle",
          "nmopt.external_tutorial_step_4.native_oracle",
-         {"dealii", "application", "external", "tutorial", "native", "verification"},
+         {"dealii", "application", "external", "tutorial", "native", "verification", "extended"},
          60,
          run_native_oracle_contract},
         {"native_optimization",
          "nmopt.external_tutorial_step_4.native_optimization",
-         {"dealii", "application", "external", "tutorial", "native", "optimization"},
+         {"dealii", "application", "external", "tutorial", "native", "optimization", "extended"},
          300,
          [] { run_native_optimization_contract(); }},
         {"native_trace_failure",
          "nmopt.external_tutorial_step_4.native_trace_failure",
-         {"dealii", "application", "external", "tutorial", "native", "diagnostics"},
+         {"dealii", "application", "external", "tutorial", "native", "diagnostics", "reproduction"},
          300,
          run_native_trace_failure_contract},
         {"native_optimization_limit",

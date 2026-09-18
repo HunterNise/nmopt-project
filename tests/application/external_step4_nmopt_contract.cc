@@ -606,7 +606,8 @@ namespace
       artifact,
       "nmopt_reduced_comparison",
       {{"native", &native_instrumentation},
-       {"nmopt", &nmopt_instrumentation}});
+       {"nmopt", &nmopt_instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
     std::ofstream output(artifact / "comparison.csv");
@@ -834,7 +835,10 @@ namespace
     Instrumentation instrumentation;
     const auto artifact = create_comparison_artifact(prefix);
     external_dealii_step4_test::EvidenceGuard evidence(
-      artifact, "failure_evidence", {{"native", &instrumentation}});
+      artifact,
+      "failure_evidence",
+      {{"native", &instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
     std::ofstream output(artifact / "comparison.csv");
@@ -992,12 +996,12 @@ main(const int argc, char **argv)
          run_nmopt_binding_construction},
         {"nmopt_reduced_comparison",
          "nmopt.external.tutorial_step_4.nmopt_reduced_comparison",
-         {"dealii", "application", "external", "tutorial", "integration"},
+         {"dealii", "application", "external", "tutorial", "integration", "extended"},
          180,
          run_nmopt_reduced_comparison},
         {"failure_evidence",
          "nmopt.external.tutorial_step_4.failure_evidence",
-         {"dealii", "application", "external", "tutorial", "integration", "diagnostics"},
+         {"dealii", "application", "external", "tutorial", "integration", "diagnostics", "reproduction"},
          60,
          run_failure_evidence_contract}};
       const auto result = nmopt::test_support::run_requested_scenarios(

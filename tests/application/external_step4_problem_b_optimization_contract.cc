@@ -634,7 +634,8 @@ namespace
       {{"native", &native_instrumentation},
        {"nmopt", &nmopt_instrumentation},
        {"native-verification", &native_verification_instrumentation},
-       {"nmopt-verification", &nmopt_verification_instrumentation}});
+       {"nmopt-verification", &nmopt_verification_instrumentation}},
+      external_dealii_step4_test::EvidenceRetention::retain_on_success);
     try
       {
         Step4<2> native_tutorial;
@@ -1057,7 +1058,7 @@ main(const int argc, char **argv)
         {"problem_b_nmopt_matched_optimization",
          "nmopt.external_tutorial_step_4.problem_b_nmopt_matched_optimization",
          {"dealii", "application", "external", "tutorial", "optimization",
-          "problem_b", "verification"},
+          "problem_b", "verification", "reproduction"},
          360,
          run_problem_b_nmopt_matched_optimization}};
       const auto result = nmopt::test_support::run_requested_scenarios(

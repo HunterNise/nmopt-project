@@ -340,7 +340,7 @@ if(NMOPT_ENABLE_DEAL_II)
     set_tests_properties(
       nmopt.external_tutorial_step_4.forward
       PROPERTIES
-        LABELS "dealii;application;external;tutorial"
+        LABELS "dealii;application;external;tutorial;reproduction"
         TIMEOUT 30
         WORKING_DIRECTORY "${nmopt_external_tutorial_upstream_run_dir}")
 
@@ -350,7 +350,7 @@ if(NMOPT_ENABLE_DEAL_II)
     set_tests_properties(
       nmopt.external_tutorial_step_4.stripped_forward
       PROPERTIES
-        LABELS "dealii;application;external;tutorial;baseline"
+        LABELS "dealii;application;external;tutorial;baseline;reproduction"
         TIMEOUT 30
         WORKING_DIRECTORY "${nmopt_external_tutorial_stripped_run_dir}")
 
@@ -360,7 +360,7 @@ if(NMOPT_ENABLE_DEAL_II)
     set_tests_properties(
       nmopt.external_tutorial_step_4.adapted_forward
       PROPERTIES
-        LABELS "dealii;application;external;tutorial;adapted"
+        LABELS "dealii;application;external;tutorial;adapted;reproduction"
         TIMEOUT 30
         WORKING_DIRECTORY "${nmopt_external_tutorial_adapted_run_dir}")
 
@@ -376,7 +376,7 @@ if(NMOPT_ENABLE_DEAL_II)
     set_tests_properties(
       nmopt.external_tutorial_step_4.forward_comparison
       PROPERTIES
-        LABELS "dealii;application;external;tutorial;baseline"
+        LABELS "dealii;application;external;tutorial;baseline;reproduction"
         TIMEOUT 60
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
@@ -393,7 +393,7 @@ if(NMOPT_ENABLE_DEAL_II)
     set_tests_properties(
       nmopt.external_tutorial_step_4.adapted_forward_comparison
       PROPERTIES
-        LABELS "dealii;application;external;tutorial;adapted"
+        LABELS "dealii;application;external;tutorial;adapted;reproduction"
         TIMEOUT 60
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 

@@ -46,7 +46,7 @@
 
 namespace nmopt::compiler::v1::detail
 {
-  // The continuous-control target used by P2.3 and P5.2. It owns one
+  // The registered continuous-control target owns one
   // conforming scalar Lagrange control realization while keeping state
   // observation, control loss, and search metric as independent compiler
   // selections. Hypercube meshes use FE_Q and simplex meshes use

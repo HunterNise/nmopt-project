@@ -12,7 +12,7 @@
 
 namespace nmopt::contract
 {
-  // The selected P6.2 product has one state, one supplied adjoint, and one
+  // The selected supplied-OTD product has one state, one supplied adjoint, and one
   // decision block.  The residual layout contains the corresponding state,
   // adjoint, and stationarity equation blocks.  Space identifiers remain
   // caller-owned; this descriptor only records their block roles.

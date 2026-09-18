@@ -391,7 +391,7 @@ namespace nmopt::compiler::v1::detail
            iterator != controlled_boundary_dofs.end(); ++iterator)
         {
           const auto state_dof = *iterator;
-          // The selected P5.4 interface policy gives fixed data precedence
+          // The selected Dirichlet interface policy gives fixed data precedence
           // at every fixed/controlled corner or interface DoF. The control
           // is therefore the relative-interior nodal trace and its endpoint
           // values are supplied by ell_0,h rather than implicit averaging.

@@ -1953,7 +1953,7 @@ namespace nmopt::semantic::v1
               DiagnosticCategory::structural,
               fixed_region->id,
               "p53_fixed_dirichlet_boundary_ids",
-              "Declare every P5.3 fixed-Dirichlet boundary id exactly once.");
+              "Declare every fixed-Dirichlet boundary id exactly once.");
 
           for (const auto *observation : p53_observations)
             if (observation->kind == ObservationKind::normal_flux)
@@ -1967,7 +1967,7 @@ namespace nmopt::semantic::v1
                         DiagnosticCategory::structural,
                         observed_region->id,
                         "p53_normal_flux_boundary_ids",
-                        "Declare every P5.3 normal-flux boundary id exactly once.");
+                        "Declare every normal-flux boundary id exactly once.");
                     if (fixed_region != specification.regions.end() &&
                         std::any_of(
                           observed_region->boundary_ids.begin(),

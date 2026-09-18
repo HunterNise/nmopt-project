@@ -251,9 +251,10 @@ namespace nmopt::compiler::v1
     }
   };
 
-  // C5.6 consumes only the conservative transport coefficient in addition
-  // to the registered constant diffusion-reaction data.  Keeping this
-  // narrow binding separate from the full P5.1 coefficient bundle prevents
+  // The Neumann-control convection composition consumes only the conservative
+  // transport coefficient in addition to the registered constant
+  // diffusion-reaction data. Keeping this narrow binding separate from the
+  // full general-scalar coefficient bundle prevents
   // unused Robin and advective ports from becoming accidental requirements.
   template <int dim>
   struct DealiiConservativeTransportDataBindings
@@ -364,15 +365,15 @@ namespace nmopt::compiler::v1
     // Function objects cannot describe their own data source. These labels
     // are required compiler provenance, not executable configuration.
     DealiiBindingProvenance provenance;
-    // Present only for P5.1's bounded general scalar component target. The
+    // Present only for the bounded general-scalar component target. The
     // rank-specific TensorFunction types make coefficient shape explicit at
     // the compiler boundary rather than interpreting scalar components.
     std::optional<DealiiGeneralScalarDataBindings<dim>> general_scalar;
     // Present only when an observation explicitly consumes a fixed boundary
     // weight. It remains separate from target data and loss configuration.
     std::optional<DealiiWeightedTraceDataBindings<dim>> weighted_trace;
-    // Present only for the C5.6 Neumann-control composition. Its narrow
-    // surface avoids requiring the unused P5.1 coefficient ports.
+    // Present only for the Neumann-control convection composition. Its narrow
+    // surface avoids requiring the unused general-scalar coefficient ports.
     std::optional<DealiiConservativeTransportDataBindings<dim>>
       conservative_transport;
     // Present only when the semantic graph declares an additive immutable

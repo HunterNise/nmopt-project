@@ -171,7 +171,7 @@ namespace nmopt::compiler::v1::detail
       contract::require(
         state_observation_ == StateObservation::boundary_trace ||
           observation_weight == nullptr,
-        "The C5.6 volume observation does not consume boundary-weight data");
+        "The volume observation does not consume boundary-weight data");
       contract::require(
         transport_boundary_realisation_ ==
             TransportBoundaryRealisation::total_conormal ||

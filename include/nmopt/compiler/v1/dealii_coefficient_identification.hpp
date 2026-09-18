@@ -36,7 +36,7 @@
 
 namespace nmopt::compiler::v1::detail
 {
-  // P3.1's v1-only coefficient-identification target. The physical parameter
+  // The coefficient-identification target. The physical parameter
   // m is cellwise constant and positive through the separately compiled box:
   //
   //   r(y,m) = A(m) y - f_h,
@@ -44,7 +44,7 @@ namespace nmopt::compiler::v1::detail
   //   J(y,m) = J_tracking(y) + alpha/2 m^T M_m m.
   //
   // The state matrix is deliberately reassembled for every parameter point.
-  // This realizes the nonlinear first-order actions without changing the v0
+  // This realizes the nonlinear first-order actions without changing the
   // constant-diffusion reference model or the generic reduced DTO contract.
   template <int dim>
   class CoefficientIdentificationModel final

@@ -362,8 +362,8 @@ namespace nmopt::semantic::v1
     conforming_lifting_variational_equivalence
   };
 
-  // Shared strong/very-weak policy for P5.3 observations and the P5.4
-  // transposition-control slice. The string ports identify semantic spaces
+  // Shared strong/very-weak policy for point/normal-flux observations and the
+  // conforming transposition-control slice. The string ports identify semantic spaces
   // and policies; the enums close the currently registered realizations.
   struct TranspositionRealisationSelection
   {

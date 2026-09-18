@@ -26,9 +26,9 @@ namespace nmopt::contract
       , control_block_(control_block)
     {
       require(variable_layout_->n_blocks() == 2,
-              "The v0 reduced DTO contract requires exactly two variable blocks");
+              "The reduced DTO contract requires exactly two variable blocks");
       require(model.test_layout()->n_blocks() == 1,
-              "The v0 reduced DTO contract requires exactly one test block");
+              "The reduced DTO contract requires exactly one test block");
       require(state_block_ != control_block_,
               "State and control blocks must be distinct");
       require(state_block_ < variable_layout_->n_blocks() &&

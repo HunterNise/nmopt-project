@@ -809,7 +809,7 @@ namespace nmopt::compiler::v1
                   semantic::v1::DiagnosticCategory::lowerability,
                   specification.formulation.equation_id,
                   "transposition_observation_source",
-                  "Bind the P5.3 transposition to the selected state observation.");
+                  "Bind transposition to the selected state observation.");
               if (request.transposition_selection->discrete_realisation !=
                   expected_realisation)
                 result.diagnostics.add(
@@ -1031,7 +1031,7 @@ namespace nmopt::compiler::v1
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
           "selected_general_scalar_target",
-          "Remove general scalar coefficient bindings unless the graph selects the P5.1 target.");
+          "Remove general scalar coefficient bindings unless the graph selects the general-scalar target.");
       if (request.uses_natural_boundary_source &&
           !data.natural_boundary_source)
         result.diagnostics.add(
@@ -1060,14 +1060,14 @@ namespace nmopt::compiler::v1
           semantic::v1::DiagnosticCategory::lowerability,
           "conservative_transport",
           "conservative_transport_data_binding",
-          "Bind the conservative transport Function selected by the C5.6 Neumann-control composition.");
+          "Bind the conservative transport Function selected by the Neumann-control convection composition.");
       if (!request.requires_conservative_transport_data &&
           data.conservative_transport)
         result.diagnostics.add(
           semantic::v1::DiagnosticCategory::lowerability,
           specification.id,
           "selected_neumann_convection_target",
-          "Remove conservative transport data unless the graph declares the registered C5.6 composition.");
+          "Remove conservative transport data unless the graph declares the registered Neumann-control convection composition.");
       if (request.requires_conservative_transport_data &&
           data.conservative_transport &&
           data.conservative_transport->provenance.conservative_transport.empty())
@@ -1228,7 +1228,7 @@ namespace nmopt::compiler::v1
           semantic::v1::DiagnosticCategory::lowerability,
           specification.formulation.state_variable_id,
           "p53_complete_fixed_dirichlet_boundary",
-          "Select a fixed-Dirichlet boundary region covering every exterior face for the registered P5.3 target.");
+          "Select a fixed-Dirichlet boundary region covering every exterior face for the registered observation target.");
       const auto dirichlet_boundary_ids = uses_mean_zero_gauge
                                             ? std::set<dealii::types::boundary_id>{}
                                             : uses_dirichlet_control
@@ -1355,7 +1355,7 @@ namespace nmopt::compiler::v1
           semantic::v1::DiagnosticCategory::lowerability,
           tracking_region->id,
           "subdomain_observation_material_presence",
-          "Select material ids present on the compiled mesh for C5.6 subdomain tracking.");
+          "Select material ids present on the compiled mesh for subdomain tracking.");
       if (uses_homogeneous_dirichlet_continuous_control &&
           (continuous_control_boundary_region == nullptr ||
            !controls_complete_exterior_boundary(
@@ -3561,13 +3561,13 @@ namespace nmopt::compiler::v1
               DiagnosticCategory::lowerability,
               specification.id,
               "hminus1_metric_l2_control_loss",
-              "Keep the registered L2 control loss when selecting the P5.2 H-1 metric target.");
+              "Keep the registered L2 control loss when selecting the H-1 metric target.");
           if (!h1_state_observation)
             report.add(
               DiagnosticCategory::lowerability,
               specification.id,
               "hminus1_metric_energy_observation",
-              "Select the full-domain H1 state observation for the P5.2 H-1 metric target.");
+              "Select the full-domain H1 state observation for the H-1 metric target.");
           if (!specification.formulation.constraint_id.empty())
             report.add(
               DiagnosticCategory::lowerability,
@@ -3777,7 +3777,7 @@ namespace nmopt::compiler::v1
                    neumann_convection ? "neumann_convection_subdomain_region"
                                       : "boundary_tracking_region",
                    neumann_convection
-                     ? "Select one or more material ids for the C5.6 state observation."
+                     ? "Select one or more material ids for the subdomain state observation."
                      : "Select a marked boundary region for the state trace observation.");
       if (control_region != nullptr && boundary != nullptr)
         for (const auto control_id : control_region->boundary_ids)
@@ -3793,7 +3793,7 @@ namespace nmopt::compiler::v1
         report.add(DiagnosticCategory::lowerability,
                    specification.id,
                    "neumann_convection_boundary_partition",
-                   "Declare disjoint fixed-Dirichlet and Neumann-control boundary regions for the C5.6 composition.");
+                   "Declare disjoint fixed-Dirichlet and Neumann-control boundary regions for the transport composition.");
     }
 
     static void
@@ -4145,7 +4145,7 @@ namespace nmopt::compiler::v1
                              ? "neumann_convection_observation_region"
                              : "boundary_trace_observation_region",
                            neumann_convection
-                             ? "Select material ids for the C5.6 state observation."
+                             ? "Select material ids for the subdomain state observation."
                              : "Select marked boundary ids for the state trace observation.");
             }
           if (control_restriction != specification.observations.end())
@@ -4249,7 +4249,7 @@ namespace nmopt::compiler::v1
               DiagnosticCategory::lowerability,
               specification.id,
               "complete_normal_flux_observation_set",
-              "Declare exactly one normal-flux state observation and one full-volume control observation for the first C5.8 target.");
+              "Declare exactly one normal-flux state observation and one full-volume control observation for the registered normal-flux target.");
           if (state_observation != specification.observations.end())
             {
               const auto region = find_region(specification,
@@ -4261,7 +4261,7 @@ namespace nmopt::compiler::v1
                   DiagnosticCategory::lowerability,
                   state_observation->id,
                   "normal_flux_observation_region",
-                  "Select a non-empty declared boundary subset for the C5.8 normal-flux state observation.");
+                  "Select a non-empty declared boundary subset for the normal-flux state observation.");
             }
           if (!request.has_normal_flux_orientation_policy)
             report.add(
@@ -4327,7 +4327,7 @@ namespace nmopt::compiler::v1
               DiagnosticCategory::lowerability,
               specification.id,
               "complete_point_sensor_observation_set",
-              "Declare exactly one point-sensor state observation and one full-volume control observation for the first C5.10 target.");
+              "Declare exactly one point-sensor state observation and one full-volume control observation for the registered point-sensor target.");
           if (state_observation != specification.observations.end())
             {
               const auto region = find_region(specification,
@@ -4339,7 +4339,7 @@ namespace nmopt::compiler::v1
                   DiagnosticCategory::lowerability,
                   state_observation->id,
                   "point_sensor_observation_region",
-                  "Select a non-empty immutable point-set region for the C5.10 state observation.");
+                  "Select a non-empty immutable point-set region for the point-sensor state observation.");
             }
           if (!request.has_point_sensor_evaluation_policy)
             report.add(

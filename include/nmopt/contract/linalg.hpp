@@ -236,7 +236,7 @@ namespace nmopt::contract
     std::vector<double> entries_;
   };
 
-  // The v0 reference backend. Production backends supply the same small
+  // The reference backend. Production backends supply the same small
   // vector capability surface without exposing their implementation here.
   struct DenseBackend
   {

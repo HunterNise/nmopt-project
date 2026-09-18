@@ -2,7 +2,7 @@
 
 **Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1) (`codex/main` at the start of the audit)  
 **Baseline commit message:** `docs(dealii): close the external boundary evaluation`  
-**Status:** closed for the documentation-refactor decision. Refactor outcomes will be recorded in a later `closure-report.md`.
+**Status:** closed for the documentation-refactor decision. A later dedicated non-documentation structure assessment is recorded in [`09-repository-structure-follow-up.md`](09-repository-structure-follow-up.md).
 
 ## Purpose
 
@@ -17,8 +17,9 @@ truth.
 
 ## Audit package
 
-The audit contains ten documents: this index, eight focused audit reports, and
-the original audit plan.
+The original audit contains ten documents: this index, eight focused audit
+reports, and the original audit plan. A later repository-structure follow-up
+extends the evidence package without rewriting the original conclusions.
 
 | File | Purpose | Final state |
 | --- | --- | --- |
@@ -32,6 +33,7 @@ the original audit plan.
 | [`06-documentation-audit.md`](06-documentation-audit.md) | Reconcile current, stale, historical, reference, and planning documentation | complete for the refactor scope |
 | [`07-human-information-architecture.md`](07-human-information-architecture.md) | Propose the human-facing documentation/navigation structure | recommended structure |
 | [`08-recommendations.md`](08-recommendations.md) | Define the documentation-refactor sequence and explicit deferrals | final handoff |
+| [`09-repository-structure-follow-up.md`](09-repository-structure-follow-up.md) | Record the later dedicated audit of `include/`, tests, applications, tools, parameters, agent instructions, CMake, and the root build surface | follow-up assessment |
 
 ## Final architectural synthesis
 
@@ -103,6 +105,14 @@ compile-cost, edit-frequency, and reviewer-workflow evidence.
 
 Even the small comment-only cleanup candidates found during this audit are
 deferred so that `codex/docs-refactor` remains strictly documentation-only.
+
+This conclusion is intentionally preserved as the boundary of the original
+documentation-only phase. After the documentation information architecture
+was reorganized at `997367f`, a dedicated repository-wide follow-up inspected
+the previously deferred source/test/application/tooling structure in depth and
+found targeted readability refactors worth pursuing on a separate branch.
+Those later findings and their behavior-preservation constraints are recorded
+in [`09-repository-structure-follow-up.md`](09-repository-structure-follow-up.md).
 
 ## Refactor handoff
 

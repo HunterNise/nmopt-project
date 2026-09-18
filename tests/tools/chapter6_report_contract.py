@@ -139,22 +139,19 @@ def main() -> int:
 
         artifact_path = root / artifacts[0]["path"]
         artifact_path.parent.mkdir(parents=True)
-        artifact_path.write_text(
-            "\n".join(
-                (
-                    "identity.scenario_id=chapter-6.b1.distributed-laplace",
-                    r"identity.output_id=actual\=output",
-                    "benchmark.method=actual-method",
-                    "benchmark.regularisation=actual-beta",
-                    "solver.objective_history=1.0,0.5,0.25",
-                    "solver.gradient_norm_history=0.4,0.2,0.1",
-                    "solver.accepted_iterations=3",
-                    "solver.stopping_reason=gradient tolerance",
-                )
+        valid_artifact = "\n".join(
+            (
+                "identity.scenario_id=chapter-6.b1.distributed-laplace",
+                r"identity.output_id=actual\=output",
+                "benchmark.method=actual-method",
+                "benchmark.regularisation=actual-beta",
+                "solver.objective_history=1.0,0.5,0.25",
+                "solver.gradient_norm_history=0.4,0.2,0.1",
+                "solver.accepted_iterations=3",
+                "solver.stopping_reason=gradient tolerance",
             )
-            + "\n",
-            encoding="utf-8",
         )
+        artifact_path.write_text(valid_artifact + "\n", encoding="utf-8")
         run = run_from_manifest(manifest, manifest.artifacts[0])
         require(run.artifact_status == "ok", "valid artifact was not accepted")
         require(
@@ -173,6 +170,39 @@ def main() -> int:
             and run.values["solver.stopping_reason"] == "gradient tolerance",
             "persisted solver metadata was not retained",
         )
+
+        artifact_path.write_text(
+            "solver.objective_history=1,,0.5\n"
+            "solver.gradient_norm_history=0.4,0.2,0.1\n",
+            encoding="utf-8",
+        )
+        try:
+            run_from_manifest(manifest, manifest.artifacts[0])
+        except ValueError as error:
+            message = str(error)
+            require(
+                "solver.objective_history" in message and "index 1" in message,
+                "malformed objective history diagnostic was incomplete",
+            )
+        else:
+            raise RuntimeError("malformed objective history was silently accepted")
+
+        artifact_path.write_text(
+            "solver.objective_history=1.0,0.5,0.25\n"
+            "solver.gradient_norm_history=1,nan,0.1\n",
+            encoding="utf-8",
+        )
+        try:
+            run_from_manifest(manifest, manifest.artifacts[0])
+        except ValueError as error:
+            message = str(error)
+            require(
+                "solver.gradient_norm_history" in message and "index 1" in message,
+                "non-finite gradient history diagnostic was incomplete",
+            )
+        else:
+            raise RuntimeError("non-finite gradient history was silently accepted")
+        artifact_path.write_text(valid_artifact + "\n", encoding="utf-8")
 
         missing_document = manifest_document(
             [{"path": "artifacts/missing/artifact.kv", "status": "ok"}]

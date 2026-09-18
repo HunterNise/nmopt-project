@@ -12,10 +12,12 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
+
+from nmopt_artifacts.records import read_artifact_file, read_numeric_history
 
 
 SUMMARY_FIELDS = (
@@ -131,45 +133,12 @@ class Run:
         return ",".join(names) if names else "none"
 
 
-def unescape(value: str) -> str:
-    """Decode the escaping used by the C++ deterministic artifact writer."""
-
-    decoded: list[str] = []
-    index = 0
-    escaped = {"\\": "\\", "n": "\n", "r": "\r", "t": "\t", "=": "="}
-    while index < len(value):
-        if value[index] == "\\" and index + 1 < len(value):
-            decoded.append(escaped.get(value[index + 1], value[index + 1]))
-            index += 2
-        else:
-            decoded.append(value[index])
-            index += 1
-    return "".join(decoded)
-
-
 def read_artifact(path: Path) -> dict[str, str]:
-    values: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key] = unescape(value)
-    return values
+    return read_artifact_file(path)
 
 
-def read_history(values: dict[str, str], key: str) -> tuple[float, ...]:
-    raw = values.get(key, "")
-    numbers: list[float] = []
-    for item in raw.split(","):
-        if not item:
-            continue
-        try:
-            number = float(item)
-        except ValueError:
-            continue
-        if math.isfinite(number):
-            numbers.append(number)
-    return tuple(numbers)
+def read_history(values: Mapping[str, str], key: str) -> tuple[float, ...]:
+    return read_numeric_history(values, key)
 
 
 def read_trace(path: Path) -> tuple[dict[str, str], ...]:
@@ -470,7 +439,7 @@ def comparison_table_lines(runs: Sequence[Run]) -> list[str]:
             try:
                 beta_values[beta] = float(beta)
             except ValueError:
-                beta_values[beta] = math.inf
+                beta_values[beta] = float("inf")
             by_beta.setdefault(beta, {})[run.method_or_case] = run
 
         betas = sorted(

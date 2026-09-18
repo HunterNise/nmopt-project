@@ -41,6 +41,13 @@ def write_artifact(path: Path, method: str, beta: str) -> None:
 
 
 def main() -> int:
+    try:
+        read_numeric_history({"history": "1,,2"}, "history")
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("post-processing history wrapper accepted an empty token")
+
     profile = load_json_profile(
         REPOSITORY_ROOT / "parameters/plotting/chapter-6-b1.json"
     )

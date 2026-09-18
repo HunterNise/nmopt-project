@@ -180,6 +180,11 @@ if(BUILD_TESTING)
       tests/tools/chapter6_report_contract.py
       "python;tool;report"
       30)
+    nmopt_add_python_test(
+      nmopt.tools.artifact_records
+      tests/tools/artifact_records_contract.py
+      "python;tool;artifact"
+      30)
 
     execute_process(
       COMMAND "${Python3_EXECUTABLE}" -c "import numpy, matplotlib, meshio"
@@ -212,10 +217,10 @@ if(BUILD_TESTING)
         tests/tools/postprocess_render_policy_contract.py
         "python;tool;postprocess"
         60)
-      set(nmopt_python_tool_test_status "report + postprocessing")
+      set(nmopt_python_tool_test_status "stdlib tooling + postprocessing")
     else()
       set(nmopt_python_tool_test_status
-          "report only (plotting dependencies unavailable)")
+          "stdlib tooling only (plotting dependencies unavailable)")
     endif()
   else()
     set(nmopt_python_tool_test_status

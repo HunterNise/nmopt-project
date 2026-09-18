@@ -32,11 +32,6 @@ from .geometry import boundary_field_block, triangulate, volume_block
 OutputFormat = Literal["png", "svg"]
 OutputFormats = tuple[OutputFormat, ...]
 DEFAULT_OUTPUT_FORMATS: OutputFormats = ("png",)
-# The comparison policy requested for the Chapter 6 reproduction is the
-# perceptually smoother ``turbo`` map, applied consistently to individual and
-# comparison panels.
-BOOK_COLORMAP = "turbo"
-COLORBAR_TICK_COUNT = 5
 
 
 @dataclass(frozen=True)
@@ -47,6 +42,24 @@ class RenderItem:
     mesh: meshio.Mesh
     field: ScalarField
     metadata: dict[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class RenderPolicy:
+    """Presentation choices resolved from one plotting profile."""
+
+    colormap: str = "turbo"
+    normalization: str = "finite-extrema"
+    comparison_normalization: str = "shared-finite-extrema"
+    volume_interpolation: str = "gouraud"
+    volume_mesh_overlay: bool = False
+    colorbar_ticks: str = "endpoint-inclusive"
+    colorbar_tick_count: int = 5
+    dpi: int = 180
+    coordinate_axis_labels: tuple[str, str] = ("x", "y")
+
+
+DEFAULT_RENDER_POLICY = RenderPolicy()
 
 
 @dataclass(frozen=True)
@@ -75,9 +88,15 @@ class HistoryPanel:
     y_limits: tuple[float, float] | None = None
 
 
-def field_norm(values: np.ndarray) -> Normalize:
+def field_norm(
+    values: np.ndarray, policy: RenderPolicy = DEFAULT_RENDER_POLICY
+) -> Normalize:
     """Create a finite-value scale whose limits are the field extrema."""
 
+    if policy.normalization != "finite-extrema":
+        raise ValueError(
+            f"unsupported normalization policy '{policy.normalization}'"
+        )
     finite_values = values[np.isfinite(values)]
     if len(finite_values) == 0:
         raise PostprocessError("field contains no finite values")
@@ -90,23 +109,30 @@ def field_norm(values: np.ndarray) -> Normalize:
     return Normalize(vmin=lower, vmax=upper)
 
 
-def colorbar_ticks(norm: Normalize) -> np.ndarray:
+def colorbar_ticks(
+    norm: Normalize, policy: RenderPolicy = DEFAULT_RENDER_POLICY
+) -> np.ndarray:
     """Include both extrema while retaining a compact interior scale."""
 
-    return np.linspace(norm.vmin, norm.vmax, COLORBAR_TICK_COUNT)
+    if policy.colorbar_ticks != "endpoint-inclusive":
+        raise ValueError(
+            f"unsupported colorbar tick policy '{policy.colorbar_ticks}'"
+        )
+    return np.linspace(norm.vmin, norm.vmax, policy.colorbar_tick_count)
 
 
 def save_figure(
     figure: plt.Figure,
     output: Path,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    policy: RenderPolicy = DEFAULT_RENDER_POLICY,
 ) -> list[str]:
     """Write the selected figure formats, then close Matplotlib resources."""
 
     generated: list[str] = []
     for output_format in output_formats:
         path = output.parent / f"{output.name}.{output_format}"
-        figure.savefig(path, dpi=180, bbox_inches="tight")
+        figure.savefig(path, dpi=policy.dpi, bbox_inches="tight")
         generated.append(path.name)
     plt.close(figure)
     return generated
@@ -117,6 +143,7 @@ def draw_volume_field(
     mesh: meshio.Mesh,
     field: ScalarField,
     norm: Normalize | None = None,
+    policy: RenderPolicy = DEFAULT_RENDER_POLICY,
 ) -> object:
     """Draw a scalar point or cell field on a two-dimensional mesh."""
 
@@ -143,11 +170,15 @@ def draw_volume_field(
 
     triangulation = Triangulation(points[:, 0], points[:, 1], triangles)
     if field.location == "point":
+        if policy.volume_interpolation != "gouraud":
+            raise ValueError(
+                f"unsupported volume interpolation '{policy.volume_interpolation}'"
+            )
         image = axis.tripcolor(
             triangulation,
             field.values,
-            shading="gouraud",
-            cmap=BOOK_COLORMAP,
+            shading=policy.volume_interpolation,
+            cmap=policy.colormap,
             norm=norm,
         )
     else:
@@ -155,15 +186,23 @@ def draw_volume_field(
             triangulation,
             facecolors=field.values[owners],
             shading="flat",
-            cmap=BOOK_COLORMAP,
+            cmap=policy.colormap,
             norm=norm,
         )
-    # Keep scalar-field renders free of a mesh overlay so the field can be
-    # compared with the source raster figures. The native VTU remains the
-    # authoritative place to inspect the realized topology.
+    if policy.volume_mesh_overlay:
+        segments = []
+        points = np.asarray(mesh.points)[:, :2]
+        for cell in block.data:
+            cell_points = points[np.asarray(cell, dtype=int)]
+            closed = np.vstack((cell_points, cell_points[0]))
+            segments.extend(np.stack((closed[:-1], closed[1:]), axis=1))
+        if segments:
+            axis.add_collection(
+                LineCollection(segments, colors="#666666", linewidths=0.5)
+            )
     axis.set_aspect("equal")
-    axis.set_xlabel("x")
-    axis.set_ylabel("y")
+    axis.set_xlabel(policy.coordinate_axis_labels[0])
+    axis.set_ylabel(policy.coordinate_axis_labels[1])
     return image
 
 
@@ -174,20 +213,21 @@ def plot_volume_field(
     output: Path,
     colorbar_label: str | None = None,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    policy: RenderPolicy = DEFAULT_RENDER_POLICY,
 ) -> list[str]:
     """Render one scalar volume field in the selected formats."""
 
     figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
-    norm = field_norm(field.values)
-    image = draw_volume_field(axis, mesh, field, norm)
+    norm = field_norm(field.values, policy)
+    image = draw_volume_field(axis, mesh, field, norm, policy)
     axis.set_title(title)
     figure.colorbar(
         image,
         ax=axis,
-        ticks=colorbar_ticks(norm),
+        ticks=colorbar_ticks(norm, policy),
         label=colorbar_label or field.name,
     )
-    return save_figure(figure, output, output_formats)
+    return save_figure(figure, output, output_formats, policy)
 
 
 def draw_boundary_field(
@@ -195,6 +235,7 @@ def draw_boundary_field(
     mesh: meshio.Mesh,
     field: ScalarField,
     norm: Normalize | None = None,
+    policy: RenderPolicy = DEFAULT_RENDER_POLICY,
 ) -> object:
     """Draw a scalar field stored on boundary line cells or their points."""
 
@@ -218,15 +259,15 @@ def draw_boundary_field(
     collection = LineCollection(
         segments,
         array=segment_values,
-        cmap=BOOK_COLORMAP,
+        cmap=policy.colormap,
         linewidths=3.0,
         norm=norm,
     )
     axis.add_collection(collection)
     axis.autoscale()
     axis.set_aspect("equal")
-    axis.set_xlabel("x")
-    axis.set_ylabel("y")
+    axis.set_xlabel(policy.coordinate_axis_labels[0])
+    axis.set_ylabel(policy.coordinate_axis_labels[1])
     return collection
 
 
@@ -237,30 +278,38 @@ def plot_boundary_field(
     output: Path,
     colorbar_label: str | None = None,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    policy: RenderPolicy = DEFAULT_RENDER_POLICY,
 ) -> list[str]:
     """Render one scalar boundary field in the selected formats."""
 
     figure, axis = plt.subplots(figsize=(7, 5.5), constrained_layout=True)
-    norm = field_norm(field.values)
-    collection = draw_boundary_field(axis, mesh, field, norm)
+    norm = field_norm(field.values, policy)
+    collection = draw_boundary_field(axis, mesh, field, norm, policy)
     axis.set_title(title)
     figure.colorbar(
         collection,
         ax=axis,
-        ticks=colorbar_ticks(norm),
+        ticks=colorbar_ticks(norm, policy),
         label=colorbar_label or field.name,
     )
-    return save_figure(figure, output, output_formats)
+    return save_figure(figure, output, output_formats, policy)
 
 
-def comparison_norm(items: list[RenderItem]) -> Normalize:
+def comparison_norm(
+    items: list[RenderItem], policy: RenderPolicy = DEFAULT_RENDER_POLICY
+) -> Normalize:
     """Create one finite-value color scale shared by comparison panels."""
 
+    if policy.comparison_normalization != "shared-finite-extrema":
+        raise ValueError(
+            "unsupported comparison normalization policy "
+            f"'{policy.comparison_normalization}'"
+        )
     finite_values = [item.field.values[np.isfinite(item.field.values)] for item in items]
     values = np.concatenate([array for array in finite_values if len(array)])
     if len(values) == 0:
         raise PostprocessError("comparison field contains no finite values")
-    return field_norm(values)
+    return field_norm(values, policy)
 
 
 def comparison_layout(count: int) -> tuple[int, int]:
@@ -296,10 +345,11 @@ def plot_volume_comparison(
     columns: int | None = None,
     positions: list[int] | None = None,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    policy: RenderPolicy = DEFAULT_RENDER_POLICY,
 ) -> list[str]:
     """Render volume fields with one color scale across all panels."""
 
-    norm = comparison_norm(items)
+    norm = comparison_norm(items, policy)
     if rows is None or columns is None:
         rows, columns = comparison_layout(len(items))
     layout_positions = _comparison_positions(
@@ -315,7 +365,7 @@ def plot_volume_comparison(
     image = None
     for position, item in zip(layout_positions, items):
         axis = axes.flat[position]
-        image = draw_volume_field(axis, item.mesh, item.field, norm)
+        image = draw_volume_field(axis, item.mesh, item.field, norm, policy)
         axis.set_title(item.label, fontsize=8)
     occupied = set(layout_positions)
     for index, axis in enumerate(axes.flat):
@@ -327,10 +377,10 @@ def plot_volume_comparison(
     figure.colorbar(
         image,
         ax=axes.ravel().tolist(),
-        ticks=colorbar_ticks(norm),
+        ticks=colorbar_ticks(norm, policy),
         label=colorbar_label or field_name,
     )
-    return save_figure(figure, output, output_formats)
+    return save_figure(figure, output, output_formats, policy)
 
 
 def plot_boundary_comparison(
@@ -342,10 +392,11 @@ def plot_boundary_comparison(
     columns: int | None = None,
     positions: list[int] | None = None,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    policy: RenderPolicy = DEFAULT_RENDER_POLICY,
 ) -> list[str]:
     """Render boundary fields with one color scale across all panels."""
 
-    norm = comparison_norm(items)
+    norm = comparison_norm(items, policy)
     if rows is None or columns is None:
         rows, columns = comparison_layout(len(items))
     layout_positions = _comparison_positions(
@@ -361,7 +412,7 @@ def plot_boundary_comparison(
     collection = None
     for position, item in zip(layout_positions, items):
         axis = axes.flat[position]
-        collection = draw_boundary_field(axis, item.mesh, item.field, norm)
+        collection = draw_boundary_field(axis, item.mesh, item.field, norm, policy)
         axis.set_title(item.label, fontsize=8)
     occupied = set(layout_positions)
     for index, axis in enumerate(axes.flat):
@@ -373,16 +424,17 @@ def plot_boundary_comparison(
     figure.colorbar(
         collection,
         ax=axes.ravel().tolist(),
-        ticks=colorbar_ticks(norm),
+        ticks=colorbar_ticks(norm, policy),
         label=colorbar_label or items[0].field.name,
     )
-    return save_figure(figure, output, output_formats)
+    return save_figure(figure, output, output_formats, policy)
 
 
 def plot_history_figure(
     panels: Sequence[HistoryPanel],
     output: Path,
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    policy: RenderPolicy = DEFAULT_RENDER_POLICY,
 ) -> list[str]:
     """Render a deterministic row of optimization-history panels."""
 
@@ -449,4 +501,4 @@ def plot_history_figure(
         axis.set_ylabel(panel.y_label)
         axis.grid(True, which="both", color="#d9d9d9", linewidth=0.5)
         axis.legend(fontsize=8, loc="best")
-    return save_figure(figure, output, output_formats)
+    return save_figure(figure, output, output_formats, policy)

@@ -16,6 +16,7 @@ from .pipeline import (
     PostprocessProfile,
 )
 from .parameters import PostprocessConfiguration
+from .render import DEFAULT_OUTPUT_FORMATS, DEFAULT_RENDER_POLICY, RenderPolicy
 
 
 def is_b2_case(metadata: dict[str, str]) -> bool:
@@ -83,6 +84,13 @@ def comparison_sort_key(metadata: dict[str, str]) -> tuple[object, ...]:
     return (0, 0.0, metadata.get("identity.output_id", ""))
 
 
+def _axis_value(metadata: dict[str, str], axis: str) -> str:
+    for key in (f"parameters.{axis}", f"benchmark.{axis}", f"b2.{axis}", axis):
+        if key in metadata:
+            return metadata[key]
+    return ""
+
+
 CHAPTER6_PROFILE = PostprocessProfile(
     volume_source_names=("fields-volume.vtu", "fields.vtu"),
     boundary_source_names=("control-boundary.vtu", "control.vtu"),
@@ -106,17 +114,11 @@ CHAPTER6_PROFILE = PostprocessProfile(
     comparison_group=comparison_group,
     comparison_title=comparison_title,
     comparison_sort_key=comparison_sort_key,
+    axis_value=_axis_value,
     missing_fields_message=(
         "no configured state, target, forcing, adjoint, or control fields found"
     ),
 )
-
-
-def _axis_value(metadata: dict[str, str], axis: str) -> str:
-    for key in (f"parameters.{axis}", f"benchmark.{axis}", f"b2.{axis}", axis):
-        if key in metadata:
-            return metadata[key]
-    return ""
 
 
 def _format_template(template: str, metadata: dict[str, str]) -> str:
@@ -150,12 +152,131 @@ def _numeric_limits(
     return limits
 
 
+def _render_policy_from_defaults(
+    document: dict[str, Any], path: Path
+) -> tuple[RenderPolicy, tuple[str, ...]]:
+    defaults = document.get("defaults", {})
+    if not isinstance(defaults, dict):
+        raise ValueError(f"plotting profile defaults in '{path}' need an object")
+
+    def value(key: str, fallback: object) -> object:
+        return defaults[key] if key in defaults else fallback
+
+    colormap = value("colormap", DEFAULT_RENDER_POLICY.colormap)
+    if not isinstance(colormap, str) or not colormap:
+        raise ValueError("plotting default 'colormap' needs a nonempty string")
+
+    normalization = value(
+        "normalization", DEFAULT_RENDER_POLICY.normalization
+    )
+    if normalization != "finite-extrema":
+        raise ValueError(f"unsupported normalization policy '{normalization}'")
+
+    comparison_normalization = value(
+        "comparison_normalization",
+        DEFAULT_RENDER_POLICY.comparison_normalization,
+    )
+    if comparison_normalization != "shared-finite-extrema":
+        raise ValueError(
+            "unsupported comparison normalization policy "
+            f"'{comparison_normalization}'"
+        )
+
+    volume_interpolation = value(
+        "volume_interpolation", DEFAULT_RENDER_POLICY.volume_interpolation
+    )
+    if volume_interpolation != "gouraud":
+        raise ValueError(
+            f"unsupported volume interpolation '{volume_interpolation}'"
+        )
+
+    volume_mesh_overlay = value(
+        "volume_mesh_overlay", DEFAULT_RENDER_POLICY.volume_mesh_overlay
+    )
+    if not isinstance(volume_mesh_overlay, bool):
+        raise ValueError("plotting default 'volume_mesh_overlay' needs a bool")
+
+    colorbar_ticks = value("colorbar_ticks", DEFAULT_RENDER_POLICY.colorbar_ticks)
+    if colorbar_ticks != "endpoint-inclusive":
+        raise ValueError(f"unsupported colorbar tick policy '{colorbar_ticks}'")
+
+    colorbar_tick_count = value(
+        "colorbar_tick_count", DEFAULT_RENDER_POLICY.colorbar_tick_count
+    )
+    if (
+        not isinstance(colorbar_tick_count, int)
+        or isinstance(colorbar_tick_count, bool)
+        or colorbar_tick_count < 2
+    ):
+        raise ValueError("plotting default 'colorbar_tick_count' needs an int >= 2")
+
+    dpi = value("dpi", DEFAULT_RENDER_POLICY.dpi)
+    if not isinstance(dpi, int) or isinstance(dpi, bool) or dpi <= 0:
+        raise ValueError("plotting default 'dpi' needs a positive int")
+
+    axis_labels = value(
+        "axis_labels", list(DEFAULT_RENDER_POLICY.coordinate_axis_labels)
+    )
+    if (
+        not isinstance(axis_labels, list)
+        or len(axis_labels) != 2
+        or any(not isinstance(label, str) or not label for label in axis_labels)
+    ):
+        raise ValueError(
+            "plotting default 'axis_labels' needs two nonempty strings"
+        )
+
+    output_formats = value("output_formats", list(DEFAULT_OUTPUT_FORMATS))
+    if (
+        not isinstance(output_formats, list)
+        or not output_formats
+        or any(
+            not isinstance(output_format, str)
+            or output_format not in {"png", "svg"}
+            for output_format in output_formats
+        )
+        or len(set(output_formats)) != len(output_formats)
+    ):
+        raise ValueError(
+            "plotting default 'output_formats' needs a nonempty unique list of png/svg"
+        )
+
+    return (
+        RenderPolicy(
+            colormap=colormap,
+            normalization=normalization,
+            comparison_normalization=comparison_normalization,
+            volume_interpolation=volume_interpolation,
+            volume_mesh_overlay=volume_mesh_overlay,
+            colorbar_ticks=colorbar_ticks,
+            colorbar_tick_count=colorbar_tick_count,
+            dpi=dpi,
+            coordinate_axis_labels=(axis_labels[0], axis_labels[1]),
+        ),
+        tuple(output_formats),
+    )
+
+
+def _validate_axis_label_sources(axes: object) -> None:
+    if not isinstance(axes, dict):
+        return
+    for axis, specification in axes.items():
+        if not isinstance(specification, dict):
+            continue
+        if "labels_from" in specification and specification["labels_from"] != "matrix":
+            raise ValueError(
+                f"unsupported labels_from for axis '{axis}': "
+                f"{specification['labels_from']!r}"
+            )
+
+
 def load_json_profile(path: Path) -> PostprocessProfile:
     """Load fields, labels, axes, and comparison policy from ``nmopt-plot-v1``."""
 
     document: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     if document.get("schema") != "nmopt-plot-v1":
         raise ValueError(f"unsupported plotting profile schema in '{path}'")
+    render_policy, output_formats = _render_policy_from_defaults(document, path)
     fields = document.get("fields", {})
     volume_fields: list[FieldSpec] = []
     boundary_fields: list[FieldSpec] = []
@@ -175,6 +296,7 @@ def load_json_profile(path: Path) -> PostprocessProfile:
             volume_fields.append(field)
 
     axes = document.get("axes", {})
+    _validate_axis_label_sources(axes)
     axis_orders = {
         axis: tuple(str(value) for value in specification.get("order", []))
         for axis, specification in axes.items()
@@ -304,11 +426,14 @@ def load_json_profile(path: Path) -> PostprocessProfile:
         comparison_group=comparison_group,
         comparison_title=comparison_title,
         comparison_sort_key=comparison_sort_key,
+        axis_value=_axis_value,
         missing_fields_message=CHAPTER6_PROFILE.missing_fields_message,
         comparison_plan=plan,
         axis_orders=axis_orders,
         axis_labels=axis_labels,
         history_figures=tuple(history_figures),
+        render_policy=render_policy,
+        output_formats=output_formats,
     )
 
 

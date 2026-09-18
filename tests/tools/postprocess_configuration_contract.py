@@ -178,6 +178,21 @@ def main() -> int:
             == {"rows": ["method"], "columns": ["regularisation"], "group_by": []},
             "effective comparison plan was not recorded",
         )
+        require(
+            effective["presentation"]
+            == {
+                "colormap": "turbo",
+                "normalization": "finite-extrema",
+                "comparison_normalization": "shared-finite-extrema",
+                "volume_interpolation": "gouraud",
+                "volume_mesh_overlay": False,
+                "colorbar_ticks": "endpoint-inclusive",
+                "colorbar_tick_count": 5,
+                "dpi": 180,
+                "axis_labels": ["x", "y"],
+            },
+            "effective presentation policy was not recorded",
+        )
 
         for method in ("steepest-descent", "l-bfgs"):
             for beta in ("1e-1", "1e-2", "1e-3"):

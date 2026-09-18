@@ -14,11 +14,13 @@ from .errors import PostprocessError
 from .fields import ScalarField, find_field
 from .records import read_metadata, read_numeric_history
 from .render import (
+    DEFAULT_RENDER_POLICY,
     DEFAULT_OUTPUT_FORMATS,
     OutputFormats,
     HistoryLine,
     HistoryPanel,
     RenderItem,
+    RenderPolicy,
     plot_boundary_comparison,
     plot_boundary_field,
     plot_history_figure,
@@ -101,6 +103,8 @@ class PostprocessProfile:
     history_figures: tuple[HistoryFigureSpec, ...] = ()
     matrix_axis_values: dict[str, tuple[str, ...]] | None = None
     matrix_combinations: tuple[dict[str, str], ...] = ()
+    axis_value: Callable[[dict[str, str], str], str] | None = None
+    render_policy: RenderPolicy = DEFAULT_RENDER_POLICY
     output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS
 
 
@@ -136,6 +140,17 @@ def effective_profile_record(
             "rows": list(plan.rows),
             "columns": list(plan.columns),
             "group_by": list(plan.group_by),
+        },
+        "presentation": {
+            "colormap": profile.render_policy.colormap,
+            "normalization": profile.render_policy.normalization,
+            "comparison_normalization": profile.render_policy.comparison_normalization,
+            "volume_interpolation": profile.render_policy.volume_interpolation,
+            "volume_mesh_overlay": profile.render_policy.volume_mesh_overlay,
+            "colorbar_ticks": profile.render_policy.colorbar_ticks,
+            "colorbar_tick_count": profile.render_policy.colorbar_tick_count,
+            "dpi": profile.render_policy.dpi,
+            "axis_labels": list(profile.render_policy.coordinate_axis_labels),
         },
         "formats": list(output_formats),
     }
@@ -192,15 +207,16 @@ def _boundary_items(
 
 
 def _matches_history_series(
-    metadata: dict[str, str], series: HistorySeriesSpec
+    metadata: dict[str, str], series: HistorySeriesSpec, profile: PostprocessProfile
 ) -> bool:
     return all(
-        _axis_value(metadata, axis) == value for axis, value in series.selector
+        _axis_value(metadata, axis, profile) == value
+        for axis, value in series.selector
     )
 
 
 def _history_panels(
-    artifacts: list[Path], figure: HistoryFigureSpec
+    artifacts: list[Path], figure: HistoryFigureSpec, profile: PostprocessProfile
 ) -> tuple[HistoryPanel, ...]:
     metadata_by_artifact = [
         (artifact, read_metadata(artifact)) for artifact in artifacts
@@ -212,7 +228,7 @@ def _history_panels(
             matches = [
                 metadata
                 for _, metadata in metadata_by_artifact
-                if _matches_history_series(metadata, series)
+                if _matches_history_series(metadata, series, profile)
             ]
             if len(matches) > 1:
                 selector = ", ".join(
@@ -269,17 +285,20 @@ def build_comparisons(
     artifacts: list[Path],
     output_root: Path,
     profile: PostprocessProfile,
-    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    output_formats: OutputFormats | None = None,
 ) -> tuple[dict[str, dict[str, list[str]]], dict[str, dict[str, str]]]:
     """Render all configured comparisons grouped by the application profile."""
 
+    effective_output_formats = (
+        profile.output_formats if output_formats is None else output_formats
+    )
     grouped: dict[tuple[str, str], list[Path]] = {}
     for artifact in artifacts:
         metadata = read_metadata(artifact)
         base_group = profile.comparison_group(metadata)
         group_by = profile.comparison_plan.group_by
         suffix = "__".join(
-            f"{axis}={_axis_value(metadata, axis)}" for axis in group_by
+            f"{axis}={_axis_value(metadata, axis, profile)}" for axis in group_by
         )
         grouped.setdefault((base_group, suffix), []).append(artifact)
 
@@ -318,7 +337,8 @@ def build_comparisons(
                         rows=rows,
                         columns=columns,
                         positions=item_positions,
-                        output_formats=output_formats,
+                        output_formats=effective_output_formats,
+                        policy=profile.render_policy,
                     )
             except (OSError, ValueError, PostprocessError) as error:
                 group_errors[field_spec.output_name] = str(error)
@@ -337,7 +357,8 @@ def build_comparisons(
                         rows=rows,
                         columns=columns,
                         positions=item_positions,
-                        output_formats=output_formats,
+                        output_formats=effective_output_formats,
+                        policy=profile.render_policy,
                     )
             except (OSError, ValueError, PostprocessError) as error:
                 group_errors[field_spec.output_name] = str(error)
@@ -345,9 +366,10 @@ def build_comparisons(
         for figure in profile.history_figures:
             try:
                 group_generated[figure.output_name] = plot_history_figure(
-                    _history_panels(group_artifacts, figure),
+                    _history_panels(group_artifacts, figure, profile),
                     comparison_dir / figure.output_name,
-                    output_formats=output_formats,
+                    output_formats=effective_output_formats,
+                    policy=profile.render_policy,
                 )
             except (OSError, ValueError, PostprocessError) as error:
                 group_errors[figure.output_name] = str(error)
@@ -360,11 +382,18 @@ def build_comparisons(
     return generated, errors
 
 
-def _axis_value(metadata: dict[str, str], axis: str) -> str:
-    for key in (f"parameters.{axis}", f"benchmark.{axis}", f"b2.{axis}", axis):
+def _generic_axis_value(metadata: dict[str, str], axis: str) -> str:
+    for key in (f"parameters.{axis}", f"benchmark.{axis}", axis):
         if key in metadata:
             return metadata[key]
     return ""
+
+
+def _axis_value(
+    metadata: dict[str, str], axis: str, profile: PostprocessProfile
+) -> str:
+    resolver = profile.axis_value or _generic_axis_value
+    return resolver(metadata, axis)
 
 
 def _axis_values(
@@ -379,7 +408,7 @@ def _axis_values(
     observed = {
         value
         for artifact in artifacts
-        if (value := _axis_value(read_metadata(artifact), axis))
+        if (value := _axis_value(read_metadata(artifact), axis, profile))
     }
     declared = (profile.matrix_axis_values or {}).get(
         axis, (profile.axis_orders or {}).get(axis, ())
@@ -465,13 +494,13 @@ def comparison_grid(
         )
     _validate_plan_axes(profile)
     group_values = {
-        axis: _axis_value(read_metadata(artifacts[0]), axis)
+        axis: _axis_value(read_metadata(artifacts[0]), axis, profile)
         for axis in plan.group_by
     }
     for artifact in artifacts[1:]:
         metadata = read_metadata(artifact)
         if any(
-            _axis_value(metadata, axis) != value
+            _axis_value(metadata, axis, profile) != value
             for axis, value in group_values.items()
         ):
             raise PostprocessError("comparison group contains mixed group_by values")
@@ -501,8 +530,8 @@ def comparison_grid(
     for artifact in artifacts:
         metadata = read_metadata(artifact)
         key = (
-            tuple(_axis_value(metadata, axis) for axis in plan.rows),
-            tuple(_axis_value(metadata, axis) for axis in plan.columns),
+            tuple(_axis_value(metadata, axis, profile) for axis in plan.rows),
+            tuple(_axis_value(metadata, axis, profile) for axis in plan.columns),
         )
         if key in coordinates:
             raise PostprocessError(
@@ -540,11 +569,14 @@ def process_artifact(
     artifact: Path,
     output: Path,
     profile: PostprocessProfile,
-    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    output_formats: OutputFormats | None = None,
     provenance: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Render one artifact according to a profile and write its manifest."""
 
+    effective_output_formats = (
+        profile.output_formats if output_formats is None else output_formats
+    )
     metadata = read_metadata(artifact)
     fields_path = first_existing(artifact, profile.volume_source_names)
     if fields_path is None:
@@ -564,7 +596,8 @@ def process_artifact(
                 profile.field_title(metadata, field_spec),
                 output / field_spec.output_name,
                 colorbar_label=field_spec.colorbar_label,
-                output_formats=output_formats,
+                output_formats=effective_output_formats,
+                policy=profile.render_policy,
             )
 
     boundary_path = first_existing(artifact, profile.boundary_source_names)
@@ -579,7 +612,8 @@ def process_artifact(
                     profile.field_title(metadata, field_spec),
                     output / field_spec.output_name,
                     colorbar_label=field_spec.colorbar_label,
-                    output_formats=output_formats,
+                    output_formats=effective_output_formats,
+                    policy=profile.render_policy,
                 )
 
     if not generated:
@@ -587,7 +621,7 @@ def process_artifact(
 
     manifest = {
         "artifact_directory": str(artifact.resolve()),
-        "formats": list(output_formats),
+        "formats": list(effective_output_formats),
         "volume_source": str(fields_path.relative_to(artifact)),
         "boundary_source": (
             str(boundary_path.relative_to(artifact))
@@ -609,11 +643,14 @@ def process_input_root(
     input_root: Path,
     output_root: Path,
     profile: PostprocessProfile,
-    output_formats: OutputFormats = DEFAULT_OUTPUT_FORMATS,
+    output_formats: OutputFormats | None = None,
     provenance: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Process every artifact below a run root and write the aggregate index."""
 
+    effective_output_formats = (
+        profile.output_formats if output_formats is None else output_formats
+    )
     artifacts = sorted(path.parent for path in input_root.rglob("artifact.kv"))
     if not artifacts:
         raise PostprocessError(f"no artifact.kv files found below '{input_root}'")
@@ -628,7 +665,7 @@ def process_input_root(
                 artifact,
                 output,
                 profile,
-                output_formats=output_formats,
+                output_formats=effective_output_formats,
                 provenance=provenance,
             )
             records.append(
@@ -642,7 +679,7 @@ def process_input_root(
             output.mkdir(parents=True, exist_ok=True)
             manifest = {
                 "artifact_directory": str(artifact.resolve()),
-                "formats": list(output_formats),
+                "formats": list(effective_output_formats),
                 "status": "error",
                 "error": str(error),
             }
@@ -666,12 +703,12 @@ def process_input_root(
             )
 
     comparisons, comparison_errors = build_comparisons(
-        artifacts, output_root, profile, output_formats=output_formats
+        artifacts, output_root, profile, output_formats=effective_output_formats
     )
     index = {
         "input_root": str(input_root.resolve()),
         "output_root": str(output_root.resolve()),
-        "formats": list(output_formats),
+        "formats": list(effective_output_formats),
         "artifact_count": len(records),
         "success_count": sum(record["status"] == "ok" for record in records),
         "failure_count": sum(record["status"] == "error" for record in records),

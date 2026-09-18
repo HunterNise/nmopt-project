@@ -355,7 +355,11 @@ if(NMOPT_ENABLE_DEAL_II)
 
     nmopt_add_dealii_test(
       nmopt_dealii_diffusion_contract_test
-      tests/dealii/dealii_diffusion_contract.cc)
+      tests/compiler/dealii/dealii_compiler_contract.cc)
+
+    nmopt_add_dealii_test(
+      nmopt_dealii_backend_contract_test
+      tests/dealii/dealii_backend_contract.cc)
 
     nmopt_add_dealii_test(
       nmopt_dealii_trace_hhalf_metric_contract_test

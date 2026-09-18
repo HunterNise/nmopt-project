@@ -1,11 +1,14 @@
+#include "../../apps/nmopt-runner/benchmark_binders.hpp"
+#include "../../apps/nmopt-runner/chapter6_execution.hpp"
 #include "../../apps/nmopt-runner/parameter_files.hpp"
+#include "../../apps/nmopt-runner/parameter_binding.hpp"
+#include "../../apps/nmopt-runner/runner.hpp"
+#include "nmopt/application/dealii/chapter6_b1.hpp"
+#include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "../support/scenario_dispatch.hpp"
 
-// These tests characterize the current production resolution path through the
-// runner entry point while preserving the behavior being migrated.
-#define main nmopt_runner_characterization_entrypoint
-#include "../../apps/nmopt-runner/main.cc"
-#undef main
+// These tests characterize the production parameter and execution-resolution
+// contracts while preserving the behavior being migrated.
 
 #include <algorithm>
 #include <cmath>
@@ -21,6 +24,22 @@
 
 namespace
 {
+  using nmopt::application::runner::binding::bind_b1_scenario;
+  using nmopt::application::runner::binding::bind_b2_scenario;
+  using nmopt::application::runner::binding::combination_value;
+  using nmopt::application::runner::binding::parse_method;
+  using nmopt::application::runner::parse_number_text;
+  using nmopt::application::runner::chapter6_execution::
+    add_b2_artifact_fields;
+  using nmopt::application::runner::chapter6_execution::
+    add_parameter_artifact_fields;
+  using nmopt::application::runner::chapter6_execution::
+    b1_artifact_coordinate_components;
+  using nmopt::application::runner::chapter6_execution::b1_beta_coordinate;
+  using nmopt::application::runner::chapter6_execution::
+    b2_artifact_coordinate_components;
+  using nmopt::application::runner::chapter6_execution::
+    find_benchmark_execution_registration;
   using nmopt::application::runner::find_file_from_current_or_parent;
   using nmopt::application::runner::parameter_finite_list;
   using nmopt::application::runner::parameter_positive_unsigned_list;

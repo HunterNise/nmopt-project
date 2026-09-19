@@ -79,6 +79,9 @@ main(const int argc, char **argv)
       Binding::Application application;
       application.prepare_for_external_use();
       Problem problem(application);
+      // nmopt integration: bind the native problem, wrap the initial control,
+      // and solve the reduced problem; physical-state reconstruction remains
+      // application-owned below.
       Binding binding(problem);
 
       ProblemVector initial_control(problem.control_dimension());

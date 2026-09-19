@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../diagnostics/instrumentation.hpp"
-#include "problem_a.hpp"
+#include "../integration/problem_a.hpp"
 
 #include "nmopt/contract/callback_executable_model.hpp"
 #include "nmopt/contract/linear_solve.hpp"

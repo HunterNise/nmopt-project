@@ -2,14 +2,14 @@
 
 This directory contains small, complete external applications that use the
 current nmopt public contracts to optimize the existing Step-4 Problems A and
-B. They are usability examples, not replacements for the evaluated
-integration or for the Step-4 application itself.
+B. They are the canonical external-consumer examples, not replacements for
+the evaluated comparison support or for the Step-4 application itself.
 
 Read the [explanatory overview](../external-integration-overview.md) for OCP
 mathematics, backend roles, and a guide to adapting another application. The
 [implementation report](../integration-report.md) maps operations to source
 and accounts for the implementation size.
-The [closure report](../../../../docs/planning/review/external-dealii-boundary-evaluation/closure-report.md)
+The [closure report](../../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
 records the completed phase and its remaining authoring limitations.
 
 ## Problem A consumer
@@ -170,6 +170,6 @@ The complete implementation validation profiles are:
 The public callback, formulation, metric, lifetime, and solver contracts are
 described in the [external deal.II integration reference](../../../../docs/reference/external-dealii-solver-integration.md).
 The evaluated wiring and its limits remain documented in the [Step-4
-README](../README.md) and the [boundary-evaluation roadmap](../../../../docs/planning/external-dealii-boundary-evaluation.md).
+README](../README.md) and the [boundary-evaluation roadmap](../../../../docs/history/reviews/external-dealii-boundary-evaluation/roadmap.md).
 The functional/accessory source split and the A/B comparison are recorded in
-the [minimal consumer assessment](../../../../docs/planning/review/external-dealii-boundary-evaluation/minimal-consumers-report.md).
+the [minimal consumer assessment](../../../../docs/history/reviews/external-dealii-boundary-evaluation/minimal-consumers-report.md).

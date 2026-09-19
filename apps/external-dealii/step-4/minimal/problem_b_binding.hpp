@@ -26,6 +26,8 @@ namespace external_dealii_step4
   {
     using LayoutPtr = nmopt::contract::LayoutPtr;
 
+    // Adapt the application-owned mass metric to nmopt. This forwards the
+    // native metric and does not implement the FE mass mathematics.
     class ProblemBMassMetric final
       : public nmopt::contract::MetricT<nmopt::dealii_backend::SerialBackend>
     {
@@ -109,6 +111,7 @@ namespace external_dealii_step4
       explicit ProblemBBinding(Problem &problem)
         : problem_(problem)
         , native_metric_(problem_.mass())
+        // Declare state/control and residual-test layouts.
         , variable_layout_(std::make_shared<const nmopt::contract::BlockLayout>(
             "external_step4_minimal_problem_b_variables",
             std::vector<nmopt::contract::SpaceId>{{"state"}, {"control"}},
@@ -118,7 +121,9 @@ namespace external_dealii_step4
             "external_step4_minimal_problem_b_test",
             std::vector<nmopt::contract::SpaceId>{{"state_test"}},
             std::vector<std::size_t>{problem_.state_dimension()}))
+        // Expose the native OCP actions through CallbackExecutableModelT.
         , model_(make_model(problem_, variable_layout_, test_layout_))
+        // Select the state/control partition and compose the ReducedDTO.
         , partition_(model_, 0, 1)
         , metric_(partition_.control_layout(), native_metric_)
         , reduced_(model_,
@@ -151,6 +156,7 @@ namespace external_dealii_step4
       }
 
     private:
+      // Translate native state/adjoint solve evidence into LinearSolveReport.
       static nmopt::contract::LinearSolveReport
       solve_report(const Problem::SolveEvidence &evidence)
       {
@@ -167,6 +173,7 @@ namespace external_dealii_step4
                   nmopt::contract::LinearSolveTermination::failed};
       }
 
+      // Expose the native OCP actions through the five callback slots.
       static Model
       make_model(Problem &problem,
                  const LayoutPtr &variable_layout,
@@ -177,17 +184,20 @@ namespace external_dealii_step4
         return Model(
           variable_layout,
           test_layout,
+          // residual
           [problem_ptr, test_layout](const Primal &variables) {
             auto value =
               problem_ptr->residual(variables.block(0), variables.block(1));
             return Covector(test_layout, {std::move(value)});
           },
+          // residual JVP
           [problem_ptr, test_layout](const Primal &,
                                      const Primal &variable_tangent) {
             auto value = problem_ptr->residual_jvp(
               variable_tangent.block(0), variable_tangent.block(1));
             return Covector(test_layout, {std::move(value)});
           },
+          // residual VJP
           [problem_ptr, variable_layout](const Primal &,
                                          const Primal &test_seed) {
             auto value = problem_ptr->residual_vjp(test_seed.block(0));
@@ -195,10 +205,12 @@ namespace external_dealii_step4
                             {std::move(value.state),
                              std::move(value.control)});
           },
+          // objective
           [problem_ptr](const Primal &variables) {
             return problem_ptr->objective(variables.block(0),
                                           variables.block(1));
           },
+          // objective derivative
           [problem_ptr, variable_layout](const Primal &variables) {
             auto value = problem_ptr->objective_derivative(
               variables.block(0), variables.block(1));
@@ -208,6 +220,7 @@ namespace external_dealii_step4
           });
       }
 
+      // Expose native state and adjoint solve services.
       static Solvers
       make_solvers(Problem &problem,
                    const LayoutPtr &state_layout,

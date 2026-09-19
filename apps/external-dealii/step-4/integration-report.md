@@ -18,7 +18,7 @@ consumers from the comparison machinery.
 Source snapshot: `2ba749b`. The evaluation is closed. Start with the
 [explanatory overview](external-integration-overview.md) for the architecture;
 use the [API reference](../../../docs/reference/external-dealii-solver-integration.md)
-for exact contracts and the [closure audit](../../../docs/planning/review/external-dealii-boundary-evaluation/closure-report.md)
+for exact contracts and the [closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
 for objective dispositions and remaining hypotheses.
 
 ## 1. Step-4 before and after adaptation
@@ -139,7 +139,7 @@ by the verified symmetry. Each OCP solve starts from zero and retains
 Step-4's CG policy and exception behavior. The native mass inverse uses a
 fresh CG solve with identity preconditioning, at most 1000 iterations, and
 threshold $`\max(10^{-14},10^{-12}\lVert r\rVert_{2})`$. Both paths use that
-same metric service. The [B protocol](../../../docs/planning/review/external-dealii-boundary-evaluation/problem-b-protocol.md)
+same metric service. The [B protocol](../../../docs/history/reviews/external-dealii-boundary-evaluation/problem-b-protocol.md)
 contains the complete frozen discretization and policy.
 
 ## 3. Mathematical operations and the public connection
@@ -240,13 +240,13 @@ OCP headers, although the minimal consumers instantiate none.
 
 ### Comparison and verification support
 
-These scopes are outside the minimal consumers' execution path. Alternative
-evaluated bindings are listed separately because they are functional bindings
-used for comparison, not pure diagnostic code.
+These scopes are outside the minimal consumers' execution path. The evaluated
+bindings now live under `evaluation/` and are listed separately because they
+are functional bindings used for comparison, not pure diagnostic code.
 
 | Responsibility | Lines | Exact source scope |
 | --- | ---: | --- |
-| Alternative evaluated bindings | 571 | `integration/nmopt_binding.hpp` (235), `integration/nmopt_problem_b_binding.hpp` (336) |
+| Alternative evaluated bindings | 571 | `evaluation/nmopt_problem_a_binding.hpp` (235), `evaluation/nmopt_problem_b_binding.hpp` (336) |
 | Native reduced references and optimizers | 786 | `evaluation/native_reduced.hpp` (81), `native_optimization.hpp` (246), `native_problem_b_reduced.hpp` (145), `native_problem_b_optimization.hpp` (314) |
 | Shared frozen comparison policy | 24 | `evaluation/optimization_policy.hpp` |
 | Native verification and scenarios | 959 | `verification/verification.hpp` (294), `problem_b_verification.hpp` (589), `scenario.hpp` (76) |
@@ -369,9 +369,9 @@ show how these responsibilities fit together.
 | Consumer fidelity | Actual minimal executables reproduce audited native reports and VTK fields. |
 | Regression evidence | Implementation handoff passed 195/195 deal.II and 67/67 neutral tests. |
 
-The [A report](../../../docs/planning/review/external-dealii-boundary-evaluation/g1-report.md),
-[B report](../../../docs/planning/review/external-dealii-boundary-evaluation/problem-b-report.md),
-and [minimal-consumer assessment](../../../docs/planning/review/external-dealii-boundary-evaluation/minimal-consumers-report.md)
+The [A report](../../../docs/history/reviews/external-dealii-boundary-evaluation/g1-report.md),
+[B report](../../../docs/history/reviews/external-dealii-boundary-evaluation/problem-b-report.md),
+and [minimal-consumer assessment](../../../docs/history/reviews/external-dealii-boundary-evaluation/minimal-consumers-report.md)
 retain exact revisions, tolerances, counts, and artifact locations. These are
 existing implementation results; this documentation reorganization does not
 claim a new numerical experiment. A and B use different objectives and
@@ -403,7 +403,7 @@ For adapted fidelity, replace the stripped executable with the adapted target
 and add `--stripped-label adapted`. The comparator checks stdout, geometry,
 connectivity, cell types, and numeric VTK arrays in separate run directories.
 The upstream tag, retrieval details, hashes, and legal attribution remain in
-the [evaluation roadmap](../../../docs/planning/external-dealii-boundary-evaluation.md).
+the [evaluation roadmap](../../../docs/history/reviews/external-dealii-boundary-evaluation/roadmap.md).
 
 Once all external test targets are built, select the complete Step-4 checks:
 
@@ -422,4 +422,4 @@ The evaluated cases are linear, symmetric, serial, fixed-mesh, and
 unconstrained in the control. Mandatory residual/JVP construction and unused
 state-VJP work remain known limitations. Generality, newcomer effort,
 performance materiality, and any future helper are separate questions; their
-full disposition is in the [closure audit](../../../docs/planning/review/external-dealii-boundary-evaluation/closure-report.md).
+full disposition is in the [closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md).

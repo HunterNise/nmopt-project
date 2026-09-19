@@ -1,8 +1,8 @@
 #pragma once
 
 #include "../diagnostics/instrumentation.hpp"
-#include "problem_b.hpp"
-#include "problem_b_metric.hpp"
+#include "../integration/problem_b.hpp"
+#include "../integration/problem_b_metric.hpp"
 
 #include "nmopt/contract/callback_executable_model.hpp"
 #include "nmopt/contract/linear_solve.hpp"

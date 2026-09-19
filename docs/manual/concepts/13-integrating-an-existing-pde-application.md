@@ -1186,9 +1186,14 @@ The native optimal-control problem is:
 
 - [`apps/external-dealii/step-4/integration/problem_b.hpp`](../../../apps/external-dealii/step-4/integration/problem_b.hpp)
 
-The public binding is:
+The canonical external-consumer binding is:
 
-- [`apps/external-dealii/step-4/integration/nmopt_problem_b_binding.hpp`](../../../apps/external-dealii/step-4/integration/nmopt_problem_b_binding.hpp)
+- [`apps/external-dealii/step-4/minimal/problem_b_binding.hpp`](../../../apps/external-dealii/step-4/minimal/problem_b_binding.hpp)
+
+Instrumented comparison bindings are kept separately under `evaluation/` and
+are not required by the minimal consumer path:
+
+- [`apps/external-dealii/step-4/evaluation/nmopt_problem_b_binding.hpp`](../../../apps/external-dealii/step-4/evaluation/nmopt_problem_b_binding.hpp)
 
 Supporting coordinate, mass/coupling, and metric implementations live beside those
 files under:

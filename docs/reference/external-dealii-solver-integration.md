@@ -14,7 +14,7 @@ separate [A](../../apps/external-dealii/step-4/minimal/problem_a_binding.hpp)
 and [B](../../apps/external-dealii/step-4/minimal/problem_b_binding.hpp)
 bindings. Their classes are application-local examples, not public nmopt
 factory APIs. Read the [explanatory overview](../../apps/external-dealii/step-4/external-integration-overview.md)
-for the mathematical construction and the [closure audit](../planning/review/external-dealii-boundary-evaluation/closure-report.md)
+for the mathematical construction and the [closure audit](../history/reviews/external-dealii-boundary-evaluation/closure-report.md)
 for evidence and limits. This reference records existing contracts, not a new
 interface or an acceptance claim for arbitrary external applications.
 
@@ -388,6 +388,6 @@ an external consumer.
 - [Earlier external Poisson fixture](../../tests/application/external_application_dealii_contract.cc)
   additionally demonstrates objective replacement and direct-solve wrapping.
 - [PDE/formulation/solver design](../design/pde-solver-boundary.md) owns the
-  architecture; [system blueprint](../design/system-blueprint.md) gives the
+  architecture; [system blueprint](../internals/system-blueprint.md) gives the
   wider project map, and [application assembly API](application-api.md)
   describes the separate semantic/compiler route.

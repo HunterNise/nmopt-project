@@ -77,6 +77,8 @@ main(const int argc, char **argv)
         std::filesystem::create_directories(output.parent_path());
 
       ProblemA problem;
+      // nmopt integration: bind the native problem, wrap the initial control,
+      // and solve the reduced problem; output remains application-owned.
       Binding binding(problem);
       ProblemVector initial_control(problem.control_dimension());
       initial_control = 0.0;

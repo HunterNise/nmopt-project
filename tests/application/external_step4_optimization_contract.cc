@@ -1,5 +1,5 @@
 #include "../../apps/external-dealii/step-4/evaluation/native_optimization.hpp"
-#include "../../apps/external-dealii/step-4/integration/nmopt_binding.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/nmopt_problem_a_binding.hpp"
 #include "../../apps/external-dealii/step-4/verification/verification.hpp"
 
 #include "../dealii/external_step4_evidence.hpp"

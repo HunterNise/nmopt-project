@@ -1,4 +1,4 @@
-#include "../../apps/external-dealii/step-4/integration/nmopt_binding.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/nmopt_problem_a_binding.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_reduced.hpp"
 #include "../../apps/external-dealii/step-4/verification/verification.hpp"
 

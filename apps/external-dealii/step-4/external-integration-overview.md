@@ -50,7 +50,7 @@ There are two levels of orchestration. The **formulation** knows how state
 elimination and an adjoint produce a reduced derivative. The **optimizer**
 knows how to choose directions, evaluate trial controls, accept steps, and
 stop. The application implements the mathematical operations requested by
-both levels. The [project blueprint](../../../docs/design/system-blueprint.md)
+both levels. The [project blueprint](../../../docs/internals/system-blueprint.md)
 places these services in the wider semantic/compiler architecture.
 
 ## 2. Starting with a forward PDE solver
@@ -309,7 +309,7 @@ The wider deal.II implementation offers reusable metrics, coordinate maps,
 and serial linear, KKT, and PDAS services, while generic solvers provide
 multiple direction and line-search policies. These optional services fit the
 same division of responsibilities; Step-4 retains its native PDE solves and
-B's mass inverse. The [project blueprint](../../../docs/design/system-blueprint.md)
+B's mass inverse. The [project blueprint](../../../docs/internals/system-blueprint.md)
 and [API reference](../../../docs/reference/external-dealii-solver-integration.md)
 provide the broader framework map and current integration contracts.
 
@@ -350,6 +350,9 @@ experiment's history. Another application needs validation suited to its own
 mathematics; it need not reproduce this evaluation's native optimizer or
 attribution harness.
 
+The instrumented comparison bindings are separate from this canonical path and
+live under `evaluation/`; the native OCP services remain under `integration/`.
+
 ## 10. Evidence and current limits
 
 The Step-4 case demonstrates the intended external path: an existing PDE
@@ -363,7 +366,7 @@ changes.
 Native and nmopt versions of A/B passed matched evaluations and optimization,
 independent equation/derivative/optimum audits, and native output comparisons.
 The actual minimal executables are checked against audited native references.
-The [closure audit](../../../docs/planning/review/external-dealii-boundary-evaluation/closure-report.md)
+The [closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
 records the completed decision and the [implementation report](integration-report.md#7-evidence-and-reproduction)
 locates the evidence and reproduction commands.
 

@@ -2,7 +2,7 @@
 #include "../../apps/external-dealii/step-4/source/adapted/step-4.cc"
 #undef STEP4_NO_MAIN
 
-#include "../../apps/external-dealii/step-4/integration/nmopt_problem_b_binding.hpp"
+#include "../../apps/external-dealii/step-4/evaluation/nmopt_problem_b_binding.hpp"
 #include "../../apps/external-dealii/step-4/evaluation/native_problem_b_reduced.hpp"
 #include "../../apps/external-dealii/step-4/verification/scenario.hpp"
 

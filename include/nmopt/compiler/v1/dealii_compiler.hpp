@@ -1414,7 +1414,7 @@ namespace nmopt::compiler::v1
       std::shared_ptr<const CompiledCellwiseBoxDataT<Backend>> box_data;
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
-      std::shared_ptr<const NativeApplicationViewT<Backend>>
+      std::shared_ptr<const CompiledApplicationViewT<Backend>>
         native_application_view;
       std::shared_ptr<const contract::ReducedHessianT<Backend>> reduced_hessian;
       std::shared_ptr<const contract::SuppliedOTDSystemT<Backend>>
@@ -4950,18 +4950,18 @@ namespace nmopt::compiler::v1
     }
 
     template <int dim, typename Model>
-    static std::shared_ptr<const NativeApplicationViewT<
+    static std::shared_ptr<const CompiledApplicationViewT<
       dealii_backend::SerialBackend>>
     make_volume_native_application_view(
       const std::shared_ptr<Model> &model,
       const DealiiDataBindings<dim> &data)
     {
       using Backend = dealii_backend::SerialBackend;
-      using View = NativeApplicationViewT<Backend>;
+      using View = CompiledApplicationViewT<Backend>;
       using Primal = contract::PrimalBlockT<Backend>;
 
       contract::require(static_cast<bool>(model),
-                        "Volume native application view needs a model");
+                        "Volume compiled application view needs a model");
       const auto *const forcing = &data.forcing;
       const auto *const desired_state = &data.desired_state;
       typename View::OutputAction output =
@@ -4988,18 +4988,18 @@ namespace nmopt::compiler::v1
     }
 
     template <int dim>
-    static std::shared_ptr<const NativeApplicationViewT<
+    static std::shared_ptr<const CompiledApplicationViewT<
       dealii_backend::SerialBackend>>
     make_neumann_native_application_view(
       const std::shared_ptr<detail::NeumannBoundaryControlModel<dim>> &model,
       const DealiiDataBindings<dim> &                                     data)
     {
       using Backend = dealii_backend::SerialBackend;
-      using View = NativeApplicationViewT<Backend>;
+      using View = CompiledApplicationViewT<Backend>;
       using Primal = contract::PrimalBlockT<Backend>;
 
       contract::require(static_cast<bool>(model),
-                        "Neumann native application view needs a model");
+                        "Neumann compiled application view needs a model");
       const auto *const forcing = &data.forcing;
       const auto *const desired_state = &data.desired_state;
       typename View::OutputAction output =

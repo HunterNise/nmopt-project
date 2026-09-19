@@ -10,7 +10,7 @@
 
 namespace nmopt::semantic::v1
 {
-  namespace reference_detail
+  namespace problem_library_detail
   {
     inline void
     add_transposition_spaces(ProblemSpec &specification)
@@ -42,7 +42,7 @@ namespace nmopt::semantic::v1
           return candidate.id == id;
         });
       if (matches != 1)
-        throw std::logic_error("Reference specification requires exactly one " +
+        throw std::logic_error("Problem library requires exactly one " +
                                std::string(component_name) + " with id '" + id +
                                "'");
       return *component;
@@ -61,9 +61,9 @@ namespace nmopt::semantic::v1
         });
       components.erase(component);
     }
-  } // namespace reference_detail
+  } // namespace problem_library_detail
 
-  // This is the current reference graph used to exercise canonical scalar
+  // This is the current problem library used to exercise canonical scalar
   // component assembly. It is a factory, not a PDE problem class.
   inline ProblemSpec
   make_scalar_diffusion_reaction_problem(const bool with_cellwise_box = false)
@@ -278,7 +278,7 @@ namespace nmopt::semantic::v1
     specification.id = "general_scalar_elliptic_robin_volume_control";
     specification.label =
       "General scalar elliptic volume control with Robin boundary";
-    reference_detail::component_by_id(specification.regions,
+    problem_library_detail::component_by_id(specification.regions,
                                       "dirichlet_boundary",
                                       "region")
       .boundary_ids = std::move(fixed_dirichlet_boundary_ids);
@@ -310,13 +310,13 @@ namespace nmopt::semantic::v1
        {"robin_source_data_space", "Robin boundary source data",
         "robin_boundary", SpaceTopology::l2, SpaceRole::data, true}});
 
-    reference_detail::component_by_id(specification.data,
+    problem_library_detail::component_by_id(specification.data,
                                       "diffusion",
                                       "data") =
       {"diffusion_tensor", "Tensor diffusion coefficient",
        DataKind::tensor_function, DataRole::diffusion,
        "diffusion_data_space"};
-    reference_detail::component_by_id(specification.data,
+    problem_library_detail::component_by_id(specification.data,
                                       "reaction",
                                       "data") =
       {"reaction", "Reaction coefficient Function", DataKind::function,
@@ -336,7 +336,7 @@ namespace nmopt::semantic::v1
       {"robin_source", "Robin boundary source", DataKind::function,
        DataRole::robin_source, "robin_source_data_space"});
 
-    reference_detail::component_by_id(specification.residual_terms,
+    problem_library_detail::component_by_id(specification.residual_terms,
                                       "diffusion_reaction",
                                       "residual term") =
       {"tensor_diffusion", "Tensor diffusion", ResidualTermKind::tensor_diffusion,
@@ -360,7 +360,7 @@ namespace nmopt::semantic::v1
       {"robin_source", "Robin boundary source",
        ResidualTermKind::robin_source, "state_equation", {}, {"robin_source"},
        "robin_boundary"});
-    reference_detail::component_by_id(specification.equations,
+    problem_library_detail::component_by_id(specification.equations,
                                       "state_equation",
                                       "equation")
       .residual_term_ids = {"tensor_diffusion",
@@ -415,7 +415,7 @@ namespace nmopt::semantic::v1
        RequirementScope::both,
        "Robin region is the selected natural transport outflow; remaining exterior faces are fixed Dirichlet",
        "robin_boundary"});
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "scalar_boundary_partition",
                                       "requirement policy")
       .typed_selection = BoundaryRealisationSelection{
@@ -433,7 +433,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  namespace reference_detail
+  namespace problem_library_detail
   {
     inline void
     apply_subdomain_tracking_delta(ProblemSpec &       specification,
@@ -457,7 +457,7 @@ namespace nmopt::semantic::v1
                       "requirement policy")
         .region_id = "observation_subdomain";
     }
-  } // namespace reference_detail
+  } // namespace problem_library_detail
 
   inline ProblemSpec
   make_subdomain_tracking_scalar_diffusion_reaction_problem(
@@ -466,7 +466,7 @@ namespace nmopt::semantic::v1
   {
     ProblemSpec specification =
       make_scalar_diffusion_reaction_problem(with_cellwise_box);
-    reference_detail::apply_subdomain_tracking_delta(specification,
+    problem_library_detail::apply_subdomain_tracking_delta(specification,
                                                      observed_material_id);
     return specification;
   }
@@ -482,7 +482,7 @@ namespace nmopt::semantic::v1
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
     specification.id = "scalar_diffusion_reaction_point_sensor";
     specification.label = "Scalar diffusion-reaction with point sensors";
-    reference_detail::component_by_id(specification.regions,
+    problem_library_detail::component_by_id(specification.regions,
                                       "dirichlet_boundary",
                                       "region")
       .boundary_ids = std::move(fixed_dirichlet_boundary_ids);
@@ -490,26 +490,26 @@ namespace nmopt::semantic::v1
       {"point_sensor_region", "Immutable point-sensor region",
        RegionKind::point_set, false, {}, {}, std::move(sensor_coordinates)});
 
-    auto &sensor_region = reference_detail::component_by_id(
+    auto &sensor_region = problem_library_detail::component_by_id(
       specification.regions, "point_sensor_region", "region");
-    reference_detail::add_transposition_spaces(specification);
-    auto &sensor_space = reference_detail::component_by_id(
+    problem_library_detail::add_transposition_spaces(specification);
+    auto &sensor_space = problem_library_detail::component_by_id(
       specification.spaces, "state_observation_space", "space");
     sensor_space = {"state_observation_space", "Finite point-sensor output",
                     "point_sensor_region", SpaceTopology::l2,
                     SpaceRole::observation, true,
                     sensor_region.point_coordinates.size()};
-    reference_detail::component_by_id(specification.data,
+    problem_library_detail::component_by_id(specification.data,
                                       "desired_state",
                                       "data")
       .space_id = "state_observation_space";
-    reference_detail::component_by_id(specification.observations,
+    problem_library_detail::component_by_id(specification.observations,
                                       "state_observation",
                                       "observation") =
       {"state_observation", "Finite point-sensor state observation",
        ObservationKind::point_sensor, "state", "point_sensor_region",
        "state_observation_space", "state_observation_pairing", {}};
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "desired_state_quadrature_policy",
                                       "requirement policy") =
       {"desired_state_point_evaluation_policy", "desired_state",
@@ -524,7 +524,7 @@ namespace nmopt::semantic::v1
        RequirementStatus::provided, RequirementScope::continuous_semantics,
        "Y=H2(Omega) cap H1_0(Omega); T=-kappa Delta+rI:Y->L2(Omega) is an isomorphism with kappa and r bound by the diffusion and reaction data ports; the point residual is represented in Y* and its adjoint is very weak",
        "domain"});
-    reference_detail::component_by_id(
+    problem_library_detail::component_by_id(
       specification.requirement_policies,
       "point_sensor_transposition_policy",
       "requirement policy")
@@ -576,31 +576,31 @@ namespace nmopt::semantic::v1
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
     specification.id = "scalar_diffusion_reaction_normal_flux";
     specification.label = "Scalar diffusion-reaction with normal-flux tracking";
-    reference_detail::component_by_id(specification.regions,
+    problem_library_detail::component_by_id(specification.regions,
                                       "dirichlet_boundary",
                                       "region")
       .boundary_ids = std::move(fixed_dirichlet_boundary_ids);
     specification.regions.push_back(
       {"normal_flux_boundary", "Normal-flux observation boundary",
        RegionKind::boundary, false, std::move(normal_flux_boundary_ids), {}, {}});
-    reference_detail::add_transposition_spaces(specification);
+    problem_library_detail::add_transposition_spaces(specification);
 
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "state_observation_space",
                                       "space") =
       {"state_observation_space", "Normal-flux observation",
        "normal_flux_boundary", SpaceTopology::l2, SpaceRole::observation};
-    reference_detail::component_by_id(specification.data,
+    problem_library_detail::component_by_id(specification.data,
                                       "desired_state",
                                       "data")
       .space_id = "state_observation_space";
-    reference_detail::component_by_id(specification.observations,
+    problem_library_detail::component_by_id(specification.observations,
                                       "state_observation",
                                       "observation") =
       {"state_observation", "Normal-flux state observation",
        ObservationKind::normal_flux, "state", "normal_flux_boundary",
        "state_observation_space", "state_observation_pairing", {}};
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "desired_state_quadrature_policy",
                                       "requirement policy") =
       {"desired_state_normal_flux_evaluation", "desired_state",
@@ -622,7 +622,7 @@ namespace nmopt::semantic::v1
        RequirementStatus::provided, RequirementScope::continuous_semantics,
        "Y=H2(Omega) cap H1_0(Omega); T=-kappa Delta+rI:Y->L2(Omega) uses the bound diffusion and reaction data ports; the normal-flux residual is represented in the boundary dual and its adjoint is a very weak L2(Omega) solution",
        "domain"});
-    reference_detail::component_by_id(
+    problem_library_detail::component_by_id(
       specification.requirement_policies,
       "normal_flux_transposition_policy",
       "requirement policy")
@@ -674,23 +674,23 @@ namespace nmopt::semantic::v1
     specification.id = "scalar_diffusion_reaction_h1_state_tracking";
     specification.label =
       "Scalar diffusion-reaction with H1 state tracking";
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "state_observation_space",
                                       "space") =
       {"state_observation_space", "H1 state observation", "domain",
        SpaceTopology::h1, SpaceRole::observation};
-    reference_detail::component_by_id(specification.pairings,
+    problem_library_detail::component_by_id(specification.pairings,
                                       "state_observation_pairing",
                                       "pairing") =
       {"state_observation_pairing", "H1_0 state-observation pairing",
        "state_observation_space", "state_observation_space"};
-    reference_detail::component_by_id(specification.observations,
+    problem_library_detail::component_by_id(specification.observations,
                                       "state_observation",
                                       "observation") =
       {"state_observation", "Full-domain H1 state restriction",
        ObservationKind::h1_state_restriction, "state", "domain",
        "state_observation_space", "state_observation_pairing", {}};
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "desired_state_quadrature_policy",
                                       "requirement policy")
       .selected_policy =
@@ -702,7 +702,7 @@ namespace nmopt::semantic::v1
        RequirementScope::continuous_semantics,
        "desired_state belongs to H1_0(Omega) and has zero trace on the selected fixed Dirichlet boundary",
        "dirichlet_boundary"});
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "h1_target_data_membership",
                                       "requirement policy")
       .typed_h1_target_data_membership_selection =
@@ -716,7 +716,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  namespace reference_detail
+  namespace problem_library_detail
   {
     inline void
     apply_homogeneous_dirichlet_continuous_control_delta(
@@ -736,7 +736,7 @@ namespace nmopt::semantic::v1
          "P_h is continuous conforming Lagrange with independent homogeneous-Dirichlet DoFs",
          "dirichlet_boundary"});
     }
-  } // namespace reference_detail
+  } // namespace problem_library_detail
 
   // Continuous-control companion for the baseline full-domain L2 tracking
   // graph. It changes only the discrete control search space; the residual,
@@ -750,9 +750,9 @@ namespace nmopt::semantic::v1
       "scalar_diffusion_reaction_l2_state_tracking_continuous_control";
     specification.label =
       "Scalar diffusion-reaction with L2 state tracking and continuous control";
-    reference_detail::apply_homogeneous_dirichlet_continuous_control_delta(
+    problem_library_detail::apply_homogeneous_dirichlet_continuous_control_delta(
       specification);
-    reference_detail::component_by_id(specification.metrics,
+    problem_library_detail::component_by_id(specification.metrics,
                                       "control_l2_metric",
                                       "metric")
       .label = "Continuous-control L2 metric";
@@ -770,9 +770,9 @@ namespace nmopt::semantic::v1
       "scalar_diffusion_reaction_h1_state_tracking_continuous_control_l2_metric";
     specification.label =
       "Scalar diffusion-reaction with H1 state tracking and continuous-control L2 metric";
-    reference_detail::apply_homogeneous_dirichlet_continuous_control_delta(
+    problem_library_detail::apply_homogeneous_dirichlet_continuous_control_delta(
       specification);
-    reference_detail::component_by_id(specification.metrics,
+    problem_library_detail::component_by_id(specification.metrics,
                                       "control_l2_metric",
                                       "metric")
       .label = "Continuous-control L2 metric";
@@ -791,7 +791,7 @@ namespace nmopt::semantic::v1
       "scalar_diffusion_reaction_h1_state_tracking_hminus1_metric";
     specification.label =
       "Scalar diffusion-reaction with H1 state tracking and H-1 control metric";
-    reference_detail::component_by_id(specification.metrics,
+    problem_library_detail::component_by_id(specification.metrics,
                                       "control_l2_metric",
                                       "metric") =
       {"control_hminus1_metric", "Discrete H-1 control metric",
@@ -804,7 +804,7 @@ namespace nmopt::semantic::v1
        RequirementScope::discrete_compilation,
        "M_h K_h^{-1} M_h with inverse M_h^{-1} K_h M_h^{-1}, fixed Dirichlet control boundary, and identity-preconditioned serial-CG inverse actions",
        "dirichlet_boundary"});
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "hminus1_metric_realisation",
                                       "requirement policy")
       .typed_metric_selection = Hminus1MetricRealisationSelection{
@@ -826,7 +826,7 @@ namespace nmopt::semantic::v1
   // P2.3's first half changes the objective, not the search geometry.  The
   // control has continuous FE_Q coordinates and the declared loss is the
   // H1 norm, while the selected algorithmic metric remains L2.
-  namespace reference_detail
+  namespace problem_library_detail
   {
     inline void
     apply_h1_control_regularisation_delta(ProblemSpec &specification)
@@ -880,13 +880,13 @@ namespace nmopt::semantic::v1
          "control", "control_pairing"};
       specification.formulation.metric_id = "control_h1_metric";
     }
-  } // namespace reference_detail
+  } // namespace problem_library_detail
 
   inline ProblemSpec
   make_h1_regularised_scalar_diffusion_reaction_problem()
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
-    reference_detail::apply_h1_control_regularisation_delta(specification);
+    problem_library_detail::apply_h1_control_regularisation_delta(specification);
     return specification;
   }
 
@@ -897,7 +897,7 @@ namespace nmopt::semantic::v1
   {
     ProblemSpec specification =
       make_h1_regularised_scalar_diffusion_reaction_problem();
-    reference_detail::apply_h1_metric_delta(specification);
+    problem_library_detail::apply_h1_metric_delta(specification);
     return specification;
   }
 
@@ -905,7 +905,7 @@ namespace nmopt::semantic::v1
   // coefficient rather than a source control. Positivity is explicit through
   // the required cellwise box; a logarithmic parameterisation is deliberately
   // left to a later transformation realization.
-  namespace reference_detail
+  namespace problem_library_detail
   {
     inline void
     apply_coefficient_identification_delta(ProblemSpec &specification)
@@ -984,13 +984,13 @@ namespace nmopt::semantic::v1
       specification.formulation.metric_id = "parameter_l2_metric";
       specification.formulation.constraint_id = "parameter_box";
     }
-  } // namespace reference_detail
+  } // namespace problem_library_detail
 
   inline ProblemSpec
   make_coefficient_identification_problem()
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
-    reference_detail::apply_coefficient_identification_delta(specification);
+    problem_library_detail::apply_coefficient_identification_delta(specification);
     return specification;
   }
 
@@ -1100,7 +1100,7 @@ namespace nmopt::semantic::v1
        RequirementScope::discrete_compilation,
        "analytic Function evaluated at selected boundary face quadrature",
        "observation_boundary"}};
-    auto &control_policy = reference_detail::component_by_id(
+    auto &control_policy = problem_library_detail::component_by_id(
       specification.requirement_policies,
       "neumann_control_trace_policy",
       "requirement policy");
@@ -1115,15 +1115,15 @@ namespace nmopt::semantic::v1
     if (control_discretisation ==
         NeumannControlDiscretisation::continuous_nodal_trace)
       {
-        reference_detail::component_by_id(specification.spaces,
+        problem_library_detail::component_by_id(specification.spaces,
                                           "control_space",
                                           "space")
           .label = "Continuous nodal-trace Neumann control";
-        reference_detail::component_by_id(specification.pairings,
+        problem_library_detail::component_by_id(specification.pairings,
                                           "control_pairing",
                                           "pairing")
           .label = "Continuous trace control coefficient pairing";
-        reference_detail::component_by_id(specification.metrics,
+        problem_library_detail::component_by_id(specification.metrics,
                                           "control_l2_metric",
                                           "metric")
           .label = "Continuous trace L2 metric";
@@ -1191,26 +1191,26 @@ namespace nmopt::semantic::v1
       {"observation_subdomain", "Material subdomain observation region",
        RegionKind::volume, false, {}, {observed_material_id}, {}});
 
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "state_observation_space",
                                       "space") =
       {"state_observation_space", "Subdomain state observation",
        "observation_subdomain", SpaceTopology::l2, SpaceRole::observation};
-    reference_detail::component_by_id(specification.observations,
+    problem_library_detail::component_by_id(specification.observations,
                                       "state_boundary_trace",
                                       "observation") =
       {"state_subdomain_restriction", "Subdomain state restriction",
        ObservationKind::volume_restriction, "state", "observation_subdomain",
        "state_observation_space", "state_observation_pairing", {}};
-    reference_detail::component_by_id(specification.losses,
+    problem_library_detail::component_by_id(specification.losses,
                                       "state_tracking",
                                       "loss")
       .source_observation_id = "state_subdomain_restriction";
-    reference_detail::component_by_id(specification.data,
+    problem_library_detail::component_by_id(specification.data,
                                       "desired_state",
                                       "data")
       .label = "Desired subdomain state";
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "state_boundary_trace_policy",
                                       "requirement policy") =
       {"state_subdomain_restriction_policy", "state_subdomain_restriction",
@@ -1219,7 +1219,7 @@ namespace nmopt::semantic::v1
        RequirementScope::discrete_compilation,
        "FE_Q state restriction assembled on the selected material cells",
        "observation_subdomain"};
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "desired_state_quadrature_policy",
                                       "requirement policy") =
       {"desired_state_quadrature_policy", "desired_state",
@@ -1237,7 +1237,7 @@ namespace nmopt::semantic::v1
       {"conservative_transport", "Conservative transport",
        ResidualTermKind::conservative_transport, "state_equation", {"state"},
        {"conservative_transport"}, ""});
-    reference_detail::component_by_id(specification.equations,
+    problem_library_detail::component_by_id(specification.equations,
                                       "state_equation",
                                       "equation")
       .residual_term_ids =
@@ -1286,7 +1286,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  namespace reference_detail
+  namespace problem_library_detail
   {
     inline void
     apply_weighted_boundary_trace_delta(ProblemSpec &specification)
@@ -1344,7 +1344,7 @@ namespace nmopt::semantic::v1
         TracePairingRealisation::face_quadrature_weights,
         TraceTransposeRealisation::same_face_quadrature_pullback};
     }
-  } // namespace reference_detail
+  } // namespace problem_library_detail
 
   inline ProblemSpec
   make_weighted_boundary_trace_neumann_control_problem(
@@ -1352,7 +1352,7 @@ namespace nmopt::semantic::v1
   {
     ProblemSpec specification =
       make_neumann_boundary_control_problem(with_facewise_box);
-    reference_detail::apply_weighted_boundary_trace_delta(specification);
+    problem_library_detail::apply_weighted_boundary_trace_delta(specification);
     return specification;
   }
 
@@ -1360,7 +1360,7 @@ namespace nmopt::semantic::v1
   // preceding graph but replaces the fixed-boundary uniqueness policy by the
   // selected discrete mean constraint.  The auxiliary multiplier belongs to
   // the compiled solve, not to the user-facing state/control graph.
-  namespace reference_detail
+  namespace problem_library_detail
   {
     inline void
     apply_pure_neumann_delta(ProblemSpec &specification)
@@ -1386,20 +1386,20 @@ namespace nmopt::semantic::v1
          "one mean-zero Lagrange multiplier in the state and adjoint solves",
          "domain"});
     }
-  } // namespace reference_detail
+  } // namespace problem_library_detail
 
   inline ProblemSpec
   make_pure_neumann_boundary_control_problem()
   {
     ProblemSpec specification = make_neumann_boundary_control_problem();
-    reference_detail::apply_pure_neumann_delta(specification);
+    problem_library_detail::apply_pure_neumann_delta(specification);
     return specification;
   }
 
-  // This deliberately differs from the homogeneous reference graph above:
+  // This deliberately differs from the homogeneous problem library graph above:
   // the state variable denotes independent coordinates and the declared map
   // reconstructs the physical field consumed by residuals and observations.
-  namespace reference_detail
+  namespace problem_library_detail
   {
     inline void
     apply_fixed_dirichlet_reconstruction_delta(ProblemSpec &specification)
@@ -1572,7 +1572,7 @@ namespace nmopt::semantic::v1
          RequirementScope::discrete_compilation,
          "Schur complement of the volume H1 mass-plus-stiffness matrix under minimum-energy trace extension",
          "control_boundary"});
-      reference_detail::component_by_id(
+      problem_library_detail::component_by_id(
         specification.requirement_policies,
         "control_hhalf_metric_realisation",
         "requirement policy")
@@ -1599,7 +1599,7 @@ namespace nmopt::semantic::v1
          "outward discrete conormal is the lifting pullback of the adjoint residual",
          "control_boundary"});
     }
-  } // namespace reference_detail
+  } // namespace problem_library_detail
 
   inline ProblemSpec
   make_fixed_dirichlet_scalar_diffusion_reaction_problem(
@@ -1607,7 +1607,7 @@ namespace nmopt::semantic::v1
   {
     ProblemSpec specification =
       make_scalar_diffusion_reaction_problem(with_cellwise_box);
-    reference_detail::apply_fixed_dirichlet_reconstruction_delta(specification);
+    problem_library_detail::apply_fixed_dirichlet_reconstruction_delta(specification);
     return specification;
   }
 
@@ -1619,7 +1619,7 @@ namespace nmopt::semantic::v1
   make_dirichlet_control_scalar_diffusion_reaction_problem()
   {
     ProblemSpec specification = make_scalar_diffusion_reaction_problem();
-    reference_detail::apply_dirichlet_control_delta(specification);
+    problem_library_detail::apply_dirichlet_control_delta(specification);
     return specification;
   }
 
@@ -1634,8 +1634,8 @@ namespace nmopt::semantic::v1
     specification.id = "hhalf_dirichlet_laplace_control";
     specification.label =
       "H1/2 Dirichlet Laplace control with fractional regularisation";
-    reference_detail::apply_normalized_dirichlet_laplace_delta(specification);
-    reference_detail::apply_hhalf_dirichlet_control_delta(specification);
+    problem_library_detail::apply_normalized_dirichlet_laplace_delta(specification);
+    problem_library_detail::apply_hhalf_dirichlet_control_delta(specification);
     return specification;
   }
 
@@ -1649,40 +1649,40 @@ namespace nmopt::semantic::v1
     specification.id = "h1_tracking_hhalf_dirichlet_laplace_control";
     specification.label =
       "H1-tracking H1/2 Dirichlet Laplace control with L2 regularisation";
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "state_observation_space",
                                       "space") =
       {"state_observation_space", "H1 state observation", "domain",
        SpaceTopology::h1, SpaceRole::observation};
-    reference_detail::component_by_id(specification.pairings,
+    problem_library_detail::component_by_id(specification.pairings,
                                       "state_observation_pairing",
                                       "pairing") =
       {"state_observation_pairing", "H1 state-observation pairing",
        "state_observation_space", "state_observation_space"};
-    reference_detail::component_by_id(specification.observations,
+    problem_library_detail::component_by_id(specification.observations,
                                       "state_observation",
                                       "observation") =
       {"state_observation", "Full-domain H1 state restriction",
        ObservationKind::h1_state_restriction, "state", "domain",
        "state_observation_space", "state_observation_pairing", {}};
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "control_observation_space",
                                       "space") =
       {"control_observation_space", "L2 boundary-control observation",
        "control_boundary", SpaceTopology::l2, SpaceRole::observation};
-    reference_detail::component_by_id(specification.pairings,
+    problem_library_detail::component_by_id(specification.pairings,
                                       "control_observation_pairing",
                                       "pairing") =
       {"control_observation_pairing", "L2 boundary-control pairing",
        "control_observation_space", "control_observation_space"};
-    reference_detail::component_by_id(specification.losses,
+    problem_library_detail::component_by_id(specification.losses,
                                       "control_regularisation",
                                       "loss") =
       {"control_regularisation", "Quadratic L2 control regularisation",
        LossKind::quadratic_control_regularisation,
        "control_boundary_restriction", "regularisation_weight",
        "control_observation_pairing"};
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "desired_state_quadrature_policy",
                                       "requirement policy")
       .selected_policy =
@@ -1694,7 +1694,7 @@ namespace nmopt::semantic::v1
        RequirementScope::continuous_semantics,
        "desired_state belongs to H1_0(Omega) and has zero trace on the selected fixed Dirichlet boundary",
        "control_boundary"});
-    reference_detail::component_by_id(specification.requirement_policies,
+    problem_library_detail::component_by_id(specification.requirement_policies,
                                       "h1_target_data_membership",
                                       "requirement policy")
       .typed_h1_target_data_membership_selection =
@@ -1717,40 +1717,40 @@ namespace nmopt::semantic::v1
     specification.id = "h1_dirichlet_laplace_control";
     specification.label =
       "Tangential H1 Dirichlet Laplace control";
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "control_space",
                                       "space") =
       {"control_space", "H1 Dirichlet boundary control", "control_boundary",
        SpaceTopology::h1, SpaceRole::control};
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "control_observation_space",
                                       "space") =
       {"control_observation_space", "H1 boundary-control observation",
        "control_boundary", SpaceTopology::h1, SpaceRole::observation};
-    reference_detail::component_by_id(specification.pairings,
+    problem_library_detail::component_by_id(specification.pairings,
                                       "control_pairing",
                                       "pairing") =
       {"control_pairing", "Tangential H1 trace control pairing",
        "control_space", "control_space"};
-    reference_detail::component_by_id(specification.pairings,
+    problem_library_detail::component_by_id(specification.pairings,
                                       "control_observation_pairing",
                                       "pairing") =
       {"control_observation_pairing", "Tangential H1 observation pairing",
        "control_observation_space", "control_observation_space"};
-    reference_detail::component_by_id(specification.losses,
+    problem_library_detail::component_by_id(specification.losses,
                                       "control_regularisation",
                                       "loss") =
       {"control_regularisation", "Quadratic tangential H1 regularisation",
        LossKind::quadratic_h1_control_regularisation,
        "control_boundary_restriction", "regularisation_weight",
        "control_observation_pairing"};
-    reference_detail::component_by_id(specification.metrics,
+    problem_library_detail::component_by_id(specification.metrics,
                                       "control_hhalf_metric",
                                       "metric") =
       {"control_h1_metric", "Tangential H1 trace metric", MetricKind::h1,
        "control", "control_pairing"};
     specification.formulation.metric_id = "control_h1_metric";
-    reference_detail::remove_component_by_id(
+    problem_library_detail::remove_component_by_id(
       specification.requirement_policies,
       "control_hhalf_metric_realisation",
       "requirement policy");
@@ -1761,7 +1761,7 @@ namespace nmopt::semantic::v1
        RequirementScope::discrete_compilation,
        "boundary mass plus tangential stiffness assembled on the complete controlled trace",
        "control_boundary"});
-    reference_detail::component_by_id(
+    problem_library_detail::component_by_id(
       specification.requirement_policies,
       "control_h1_metric_realisation",
       "requirement policy")
@@ -1792,22 +1792,22 @@ namespace nmopt::semantic::v1
     specification.id = "l2_dirichlet_laplace_control";
     specification.label = "L2 Dirichlet Laplace control by transposition";
 
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "state_space",
                                       "space") =
       {"state_space", "L2 very-weak state", "domain", SpaceTopology::l2,
        SpaceRole::state};
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "state_test_space",
                                       "space") =
       {"state_test_space", "H2 cap H1_0 transposition test", "domain",
        SpaceTopology::h2, SpaceRole::test};
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "control_space",
                                       "space") =
       {"control_space", "L2 Dirichlet boundary control",
        "control_boundary", SpaceTopology::l2, SpaceRole::control};
-    reference_detail::component_by_id(specification.spaces,
+    problem_library_detail::component_by_id(specification.spaces,
                                       "control_observation_space",
                                       "space") =
       {"control_observation_space", "L2 boundary-control observation",
@@ -1815,21 +1815,21 @@ namespace nmopt::semantic::v1
     specification.spaces.push_back(
       {"forcing_space", "L2 volume forcing", "domain", SpaceTopology::l2,
        SpaceRole::data});
-    reference_detail::add_transposition_spaces(specification);
+    problem_library_detail::add_transposition_spaces(specification);
     specification.spaces.push_back(
       {"transposition_trace_space", "Conforming boundary trace subspace",
        "control_boundary", SpaceTopology::hhalf, SpaceRole::auxiliary});
 
-    reference_detail::component_by_id(specification.data, "forcing", "data")
+    problem_library_detail::component_by_id(specification.data, "forcing", "data")
       .space_id = "forcing_space";
-    reference_detail::remove_component_by_id(specification.data,
+    problem_library_detail::remove_component_by_id(specification.data,
                                               "diffusion",
                                               "data");
-    reference_detail::remove_component_by_id(specification.data,
+    problem_library_detail::remove_component_by_id(specification.data,
                                               "reaction",
                                               "data");
 
-    reference_detail::component_by_id(specification.variables,
+    problem_library_detail::component_by_id(specification.variables,
                                       "state",
                                       "variable")
       .physical_field_transform_id.clear();
@@ -1844,7 +1844,7 @@ namespace nmopt::semantic::v1
        "Dirichlet datum paired with outward normal test derivative",
        ResidualTermKind::dirichlet_transposition_control, "state_equation",
        {"control"}, {}, "control_boundary"}};
-    reference_detail::component_by_id(specification.equations,
+    problem_library_detail::component_by_id(specification.equations,
                                       "state_equation",
                                       "equation")
       .residual_term_ids = {"transposition_state_action",
@@ -1884,7 +1884,7 @@ namespace nmopt::semantic::v1
        RequirementStatus::selected_discrete_realisation,
        RequirementScope::discrete_compilation,
        "analytic Function evaluated at selected volume quadrature", "domain"}};
-    reference_detail::component_by_id(
+    problem_library_detail::component_by_id(
       specification.requirement_policies,
       "transposition_formulation",
       "requirement policy")
@@ -1925,7 +1925,7 @@ namespace nmopt::semantic::v1
     specification.id = "scalar_diffusion_reaction_partial_dirichlet_control";
     specification.label =
       "Scalar diffusion-reaction with partial Dirichlet control and fixed lifting";
-    reference_detail::component_by_id(specification.regions,
+    problem_library_detail::component_by_id(specification.regions,
                                       "control_boundary",
                                       "region")
       .boundary_ids = {1};
@@ -1935,7 +1935,7 @@ namespace nmopt::semantic::v1
     specification.data.push_back(
       {"fixed_dirichlet_data", "Fixed Dirichlet data", DataKind::function,
        DataRole::fixed_dirichlet_lifting, "state_space"});
-    reference_detail::component_by_id(specification.transformations,
+    problem_library_detail::component_by_id(specification.transformations,
                                       "dirichlet_control_lifting",
                                       "transformation")
       .fixed_data_id = "fixed_dirichlet_data";
@@ -1952,7 +1952,7 @@ namespace nmopt::semantic::v1
        RequirementScope::both,
        "complete disjoint fixed and controlled Dirichlet boundary partition",
        ""});
-    reference_detail::component_by_id(
+    problem_library_detail::component_by_id(
       specification.requirement_policies,
       "partial_dirichlet_boundary_partition",
       "requirement policy")

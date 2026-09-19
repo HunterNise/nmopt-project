@@ -1884,7 +1884,7 @@ namespace
     std::reverse(reordered.requirement_policies.begin(),
                  reordered.requirement_policies.end());
 
-    reference_detail::apply_coefficient_identification_delta(reordered);
+    problem_library_detail::apply_coefficient_identification_delta(reordered);
     const SemanticValidator validator;
     require(validator.validate(reordered).valid(),
             "an ID-based feature delta depends on declaration order");
@@ -1935,7 +1935,7 @@ namespace
                  reordered_boundary.losses.end());
     std::reverse(reordered_boundary.requirement_policies.begin(),
                  reordered_boundary.requirement_policies.end());
-    reference_detail::apply_weighted_boundary_trace_delta(reordered_boundary);
+    problem_library_detail::apply_weighted_boundary_trace_delta(reordered_boundary);
     const ProblemSpec expected_weighted =
       make_weighted_boundary_trace_neumann_control_problem();
     require(validator.validate(reordered_boundary).valid() &&

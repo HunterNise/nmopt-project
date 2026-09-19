@@ -1,7 +1,7 @@
 #include "nmopt/contract/reduced_dto.hpp"
-#include "nmopt/reference/linear_quadratic_model.hpp"
-#include "nmopt/reference/quadratic_kkt.hpp"
-#include "nmopt/reference/supplied_linear_quadratic_system.hpp"
+#include "../support/reference_models/linear_quadratic_model.hpp"
+#include "../support/reference_models/quadratic_kkt.hpp"
+#include "../support/reference_models/supplied_linear_quadratic_system.hpp"
 #include "../support/contract_errors.hpp"
 #include "../support/scenario_dispatch.hpp"
 
@@ -12,7 +12,7 @@
 namespace
 {
   using namespace nmopt::contract;
-  using namespace nmopt::reference;
+  using namespace nmopt::test_models;
   using Product = EqualityConstrainedQuadraticKKTProduct;
 
   void
@@ -61,7 +61,7 @@ namespace
       DenseVector{1.5, 0.75},
       DenseVector{2.0, 3.0},
       0.4,
-      nmopt::reference::make_reference_supplied_otd_declaration());
+      nmopt::test_models::make_reference_supplied_otd_declaration());
   }
 
   SuppliedOTDSystem

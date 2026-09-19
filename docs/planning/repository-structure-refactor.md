@@ -871,7 +871,7 @@ Then inspect:
 
 ```text
 apps/nmopt-runner/main.cc
-apps/nmopt-runner/runner.hpp
+apps/nmopt-runner/run_lifecycle.hpp
 apps/nmopt-runner/parameter_files.hpp
 apps/nmopt-runner/run_set_plan.hpp
 apps/nmopt-runner/benchmark_registry.hpp
@@ -1432,7 +1432,7 @@ docs/internals/compiler/semantic-compiler.md
 Current file:
 
 ```text
-include/nmopt/semantic/v1/reference_specs.hpp
+include/nmopt/semantic/v1/problem_library.hpp
 ```
 
 Evidence:
@@ -1466,17 +1466,11 @@ Alternatives:
 Current:
 
 ```text
-include/nmopt/reference/
+tests/support/reference_models/
 ```
 
-Alternative:
-
-```text
-include/nmopt/reference_models/
-```
-
-The existing name is broad but not incorrect. Rename only if the clarification
-is worth public include churn.
+The models are test-only support and now live under the test support tree, so
+they do not contribute a public include namespace.
 
 ### D4 — reduced solver headers
 
@@ -1506,21 +1500,19 @@ Keep old headers forwarding if adopted.
 Current:
 
 ```text
-NativeApplicationViewT
+CompiledApplicationViewT
 ```
 
-Potential ambiguity: “native application” now denotes the independent
-application-owned producer path.
+The compiler-produced view name should make its ownership and role explicit.
 
 Alternatives:
 
 ```text
 CompiledApplicationViewT
 CompilerApplicationViewT
-keep NativeApplicationViewT
 ```
 
-A compatibility alias is likely if renamed.
+A compatibility alias is not required for this internal repository-wide rename.
 
 ### D6 — `experiment/reduced_envelope.hpp`
 

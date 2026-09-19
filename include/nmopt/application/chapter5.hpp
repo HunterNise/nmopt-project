@@ -2,7 +2,7 @@
 
 #include "nmopt/application/catalog.hpp"
 #include "nmopt/application/recipe.hpp"
-#include "nmopt/semantic/v1/reference_specs.hpp"
+#include "nmopt/semantic/v1/problem_library.hpp"
 
 #include <stdexcept>
 #include <string>

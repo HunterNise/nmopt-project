@@ -60,7 +60,7 @@ namespace
     require(compilation.problem != nullptr,
             "direct volume native application view has no compiled problem");
 
-    const auto *const view = compilation.problem->native_application_view();
+    const auto *const view = compilation.problem->compiled_application_view();
     require(view != nullptr,
             "direct volume compilation did not retain a native application view");
     require(!view->has_objective_components(),
@@ -138,7 +138,7 @@ namespace
     require(compilation.succeeded() && compilation.problem,
             "Neumann native application view compilation failed");
 
-    const auto *const view = compilation.problem->native_application_view();
+    const auto *const view = compilation.problem->compiled_application_view();
     require(view != nullptr,
             "Neumann compilation did not retain a native application view");
     require(view->has_objective_components(),

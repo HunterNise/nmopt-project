@@ -325,7 +325,7 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`metric_constraint.hpp`](../../include/nmopt/contract/metric_constraint.hpp) | Metric and projection boundaries | Search direction versus feasibility |
 | [`reduced_dto.hpp`](../../include/nmopt/contract/reduced_dto.hpp) | State/adjoint/reduced-covector orchestration | First-order workflow and signs |
 | [`reduced_gradient.hpp`](../../include/nmopt/solvers/reduced_gradient.hpp) | Unconstrained and projected reduced Armijo method | First optimizer and its diagnostics |
-| [`linear_quadratic_model.hpp`](../../include/nmopt/reference/linear_quadratic_model.hpp) | Transparent matrix oracle | Check algebra before FE assembly |
+| [`linear_quadratic_model.hpp`](../../tests/support/reference_models/linear_quadratic_model.hpp) | Transparent matrix oracle | Check algebra before FE assembly |
 | [`serial_backend.hpp`](../../include/nmopt/dealii/serial_backend.hpp) | Adapter from five vector operations to deal.II | Backend parameterisation |
 | [`mass_metric.hpp`](../../include/nmopt/dealii/mass_metric.hpp) | Sparse SPD decision Riesz map | deal.II $L^{2}$ and $H^{1}$ control or parameter search directions |
 | [`cellwise_box_constraint.hpp`](../../include/nmopt/dealii/cellwise_box_constraint.hpp) | `FE_DGQ(0)` coefficientwise box projection | Feasible deal.II control or parameter updates |

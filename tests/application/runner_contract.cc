@@ -1,4 +1,4 @@
-#include "../../apps/nmopt-runner/runner.hpp"
+#include "../../apps/nmopt-runner/run_lifecycle.hpp"
 #include "../../apps/nmopt-runner/benchmark_registry.hpp"
 #include "../../apps/nmopt-runner/capability_registry.hpp"
 #include "nmopt/application/chapter6.hpp"

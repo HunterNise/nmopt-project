@@ -154,7 +154,7 @@ runner default.
 
 The compatibility aggregate `include/nmopt/semantic/v1/problem_spec.hpp`
 includes the focused deal.II-free headers `types.hpp`, `validation.hpp`,
-`resolved_problem.hpp`, and `reference_specs.hpp`. The last contains
+`resolved_problem.hpp`, and `problem_library.hpp`. The last contains
 `make_scalar_diffusion_reaction_problem()`, the homogeneous comparison graph.
 `make_fixed_dirichlet_scalar_diffusion_reaction_problem()` adds the first
 declared physical-field transformation, while

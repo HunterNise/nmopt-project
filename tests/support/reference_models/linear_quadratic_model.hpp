@@ -2,11 +2,11 @@
 
 #include "nmopt/contract/executable_model.hpp"
 #include "nmopt/contract/reduced_hessian.hpp"
-#include "nmopt/reference/quadratic_kkt.hpp"
+#include "quadratic_kkt.hpp"
 
 #include <utility>
 
-namespace nmopt::reference
+namespace nmopt::test_models
 {
   using namespace nmopt::contract;
 
@@ -251,4 +251,4 @@ namespace nmopt::reference
     LayoutPtr   state_layout_;
     LayoutPtr   control_layout_;
   };
-} // namespace nmopt::reference
+} // namespace nmopt::test_models

@@ -1305,7 +1305,7 @@ Then read:
 
 - [`include/nmopt/application/chapter5.hpp`](../../../include/nmopt/application/chapter5.hpp)
   for the distributed-control recipe;
-- [`include/nmopt/semantic/v1/reference_specs.hpp`](../../../include/nmopt/semantic/v1/reference_specs.hpp)
+- [`include/nmopt/semantic/v1/problem_library.hpp`](../../../include/nmopt/semantic/v1/problem_library.hpp)
   for the actual semantic graph produced by that recipe.
 
 This tells you how the mathematical problem family is represented before numerical

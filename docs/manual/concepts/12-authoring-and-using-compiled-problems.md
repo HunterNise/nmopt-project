@@ -679,7 +679,7 @@ state_adjoint_solvers()
 reduced_hessian()
     optional compiled second-order action
 
-native_application_view()
+compiled_application_view()
     compiler-path FE/application seam when available
 
 manifest()
@@ -1100,10 +1100,10 @@ formulation.
 That means application output should normally reuse the retained result rather than
 triggering a fresh PDE solve merely to reconstruct fields.
 
-The compiler-path `NativeApplicationViewT` exists for exactly this kind of
+The compiler-path `CompiledApplicationViewT` exists for exactly this kind of
 application-facing work.
 
-## 34. `NativeApplicationViewT` is the compiler path back to finite-element output
+## 34. `CompiledApplicationViewT` is the compiler path back to finite-element output
 
 When present, the native view exposes information such as
 

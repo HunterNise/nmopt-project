@@ -817,10 +817,10 @@ namespace nmopt::application::chapter6::dealii
         "B2 compilation manifest does not match the selected volume observation");
 
       const auto *const native_view =
-        compilation.problem->native_application_view();
+        compilation.problem->compiled_application_view();
       if (native_view == nullptr)
         throw std::runtime_error(
-          "B2 execution needs the retained native application view");
+          "B2 execution needs the retained compiled application view");
 
       const auto reduced = compilation.problem->make_reduced_dto();
       const contract::StateControlPartitionT<Backend> partition(

@@ -1016,7 +1016,7 @@ namespace
               "B2 control realization comparison did not compile");
 
       const auto *const native_view =
-        compilation.problem->native_application_view();
+        compilation.problem->compiled_application_view();
       require(native_view != nullptr &&
                 native_view->dimensions().physical_control == expected_dimension &&
                 native_view->dimensions().independent_control == expected_dimension,

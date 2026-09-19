@@ -10,7 +10,7 @@
 namespace nmopt::compiler::v1
 {
   template <typename Backend>
-  struct NativeApplicationDimensionsT
+  struct CompiledApplicationDimensionsT
   {
     std::size_t physical_state = 0;
     std::size_t independent_state = 0;
@@ -20,25 +20,25 @@ namespace nmopt::compiler::v1
   };
 
   template <typename Backend>
-  struct NativeObjectiveComponentsT
+  struct CompiledObjectiveComponentsT
   {
     double state_tracking = 0.0;
     double control_regularisation = 0.0;
   };
 
-  // Compiler-path application access retained beside the erased solver view.
-  // This is deliberately a small callback/value seam, not a public numerical
-  // realization hierarchy or an output contract on ExecutableModelT. The
-  // callback may borrow the compile-time data bindings, so callers must keep
+  // Compiler-produced application access retained beside the erased solver
+  // view. This is deliberately a small callback/value seam, not a public
+  // numerical realization hierarchy or an output contract on ExecutableModelT.
+  // The callback may borrow compile-time data bindings, so callers must keep
   // those bindings alive while invoking the view; the retained model itself
   // is owned by the view.
   template <typename Backend>
-  class NativeApplicationViewT final
+  class CompiledApplicationViewT final
   {
   public:
     using Primal = contract::PrimalBlockT<Backend>;
-    using Dimensions = NativeApplicationDimensionsT<Backend>;
-    using ObjectiveComponents = NativeObjectiveComponentsT<Backend>;
+    using Dimensions = CompiledApplicationDimensionsT<Backend>;
+    using ObjectiveComponents = CompiledObjectiveComponentsT<Backend>;
     using OutputAction = std::function<void(const std::filesystem::path &,
                                             const Primal &,
                                             const Primal &,
@@ -47,7 +47,7 @@ namespace nmopt::compiler::v1
     using ObjectiveComponentsAction =
       std::function<ObjectiveComponents(const Primal &)>;
 
-    NativeApplicationViewT(
+    CompiledApplicationViewT(
       Dimensions               dimensions,
       OutputAction              output,
       ObjectiveComponentsAction objective_components = {})
@@ -56,15 +56,15 @@ namespace nmopt::compiler::v1
       , objective_components_(std::move(objective_components))
     {
       contract::require(dimensions_.physical_state > 0,
-                        "Native application view needs a physical state dimension");
+                        "Compiled application view needs a physical state dimension");
       contract::require(dimensions_.independent_state > 0,
-                        "Native application view needs an independent state dimension");
+                        "Compiled application view needs an independent state dimension");
       contract::require(dimensions_.physical_control > 0,
-                        "Native application view needs a physical control dimension");
+                        "Compiled application view needs a physical control dimension");
       contract::require(dimensions_.independent_control > 0,
-                        "Native application view needs an independent control dimension");
+                        "Compiled application view needs an independent control dimension");
       contract::require(static_cast<bool>(output_),
-                        "Native application view needs an output action");
+                        "Compiled application view needs an output action");
     }
 
     const Dimensions &
@@ -83,7 +83,7 @@ namespace nmopt::compiler::v1
     objective_components(const Primal &full_point) const
     {
       contract::require(static_cast<bool>(objective_components_),
-                        "Native application view has no objective components");
+                        "Compiled application view has no objective components");
       return objective_components_(full_point);
     }
 
@@ -104,5 +104,5 @@ namespace nmopt::compiler::v1
   };
 
   template <typename Backend>
-  using NativeApplicationView = NativeApplicationViewT<Backend>;
+  using CompiledApplicationView = CompiledApplicationViewT<Backend>;
 } // namespace nmopt::compiler::v1

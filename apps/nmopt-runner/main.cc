@@ -2,7 +2,7 @@
 #include "chapter6_execution.hpp"
 #include "benchmark_registry.hpp"
 #include "parameter_files.hpp"
-#include "runner.hpp"
+#include "run_lifecycle.hpp"
 
 #include <filesystem>
 #include <fstream>

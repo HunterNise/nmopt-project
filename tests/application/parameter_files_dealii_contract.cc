@@ -2,7 +2,7 @@
 #include "../../apps/nmopt-runner/chapter6_execution.hpp"
 #include "../../apps/nmopt-runner/parameter_files.hpp"
 #include "../../apps/nmopt-runner/parameter_binding.hpp"
-#include "../../apps/nmopt-runner/runner.hpp"
+#include "../../apps/nmopt-runner/run_lifecycle.hpp"
 #include "nmopt/application/dealii/chapter6_b1.hpp"
 #include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "../support/scenario_dispatch.hpp"

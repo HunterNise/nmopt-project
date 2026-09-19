@@ -1159,7 +1159,7 @@ CompiledProblemT
 ├── StateAdjointSolversT
 ├── optional ReducedHessianT
 ├── optional compiled box data
-├── optional NativeApplicationViewT
+├── optional CompiledApplicationViewT
 ├── CompilationManifest
 └── retained lifetime owner
 ```
@@ -1416,7 +1416,7 @@ The deeper ownership model appears in Chapter 13, but one consequence matters he
 > compilation may produce generic type-erased solver services without erasing the
 > lifetime obligations of the concrete numerical objects behind them.
 
-## 31. `NativeApplicationViewT` preserves a narrow typed application seam
+## 31. `CompiledApplicationViewT` preserves a narrow typed application seam
 
 The generic solver-facing interfaces intentionally hide deal.II-specific details.
 
@@ -1428,7 +1428,7 @@ split objective components
 write native FE output
 ```
 
-`NativeApplicationViewT` provides this optional seam beside the erased solver view.
+`CompiledApplicationViewT` provides this optional seam beside the erased solver view.
 
 It is deliberately small:
 
@@ -1454,7 +1454,7 @@ solver-facing generic view
     ExecutableModelT / MetricT / formulation products
 
 application-facing typed seam
-    NativeApplicationViewT
+    CompiledApplicationViewT
 ```
 
 both refer to the same compiled numerical realization.
@@ -2041,7 +2041,7 @@ which records evidence about those services.
 
 The optional application-facing seam is:
 
-- [`include/nmopt/compiler/v1/native_application_view.hpp`](../../../include/nmopt/compiler/v1/native_application_view.hpp)
+- [`include/nmopt/compiler/v1/compiled_application_view.hpp`](../../../include/nmopt/compiler/v1/compiled_application_view.hpp)
 
 For the exact registered target families and their bounded capabilities, use:
 

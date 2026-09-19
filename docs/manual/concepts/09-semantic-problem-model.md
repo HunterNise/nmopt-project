@@ -171,7 +171,7 @@ ProblemSpec
 The exact field definitions live in
 [`include/nmopt/semantic/v1/types.hpp`](../../../include/nmopt/semantic/v1/types.hpp).
 The current reference graphs are built in
-[`include/nmopt/semantic/v1/reference_specs.hpp`](../../../include/nmopt/semantic/v1/reference_specs.hpp).
+[`include/nmopt/semantic/v1/problem_library.hpp`](../../../include/nmopt/semantic/v1/problem_library.hpp).
 
 The useful mental model is not "one C++ struct per equation". It is a translation
 through layers:
@@ -1186,7 +1186,7 @@ runtime object provides **executable actions** for that system.
 
 For an exact source example, see
 `make_scalar_diffusion_reaction_supplied_otd_problem()` in
-[`reference_specs.hpp`](../../../include/nmopt/semantic/v1/reference_specs.hpp).
+[`problem_library.hpp`](../../../include/nmopt/semantic/v1/problem_library.hpp).
 The API/reference material should remain the authority for the complete field-by-field
 construction.
 
@@ -1471,11 +1471,11 @@ ProblemSpec
 `FormulationSpec` selects either the reduced or all-at-once formulation kind; a
 genuine supplied OTD request additionally carries `SuppliedOTDDeclaration`.
 
-### 21.1 Read the reference graph after the node types
+### 21.1 Read the problem library after the node types
 
 Then read:
 
-- [`include/nmopt/semantic/v1/reference_specs.hpp`](../../../include/nmopt/semantic/v1/reference_specs.hpp)
+- [`include/nmopt/semantic/v1/problem_library.hpp`](../../../include/nmopt/semantic/v1/problem_library.hpp)
 
 Start with
 

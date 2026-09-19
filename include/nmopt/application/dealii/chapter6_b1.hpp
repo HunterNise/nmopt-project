@@ -500,10 +500,10 @@ namespace nmopt::application::chapter6::dealii
       };
       std::optional<DiscreteDimensions> dimensions;
       const auto *const native_view =
-        compilation.problem->native_application_view();
+        compilation.problem->compiled_application_view();
       if (native_view == nullptr)
         throw std::runtime_error(
-          "B1 execution needs the retained native application view");
+          "B1 execution needs the retained compiled application view");
       const auto &native_dimensions = native_view->dimensions();
       dimensions = DiscreteDimensions{native_dimensions.physical_state,
                                      native_dimensions.independent_state,

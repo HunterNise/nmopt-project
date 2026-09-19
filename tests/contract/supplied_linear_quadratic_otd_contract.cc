@@ -1,6 +1,6 @@
 #include "nmopt/contract/reduced_dto.hpp"
-#include "nmopt/reference/linear_quadratic_model.hpp"
-#include "nmopt/reference/supplied_linear_quadratic_system.hpp"
+#include "../support/reference_models/linear_quadratic_model.hpp"
+#include "../support/reference_models/supplied_linear_quadratic_system.hpp"
 #include "../support/scenario_dispatch.hpp"
 
 #include <array>
@@ -11,8 +11,8 @@
 namespace
 {
   using namespace nmopt::contract;
-  using nmopt::reference::LinearQuadraticModel;
-  using nmopt::reference::SuppliedLinearQuadraticSystem;
+  using nmopt::test_models::LinearQuadraticModel;
+  using nmopt::test_models::SuppliedLinearQuadraticSystem;
 
   void
   require_close(const double value,
@@ -57,7 +57,7 @@ namespace
       DenseVector{1.5, 0.75},
       DenseVector{2.0, 3.0},
       0.4,
-      nmopt::reference::make_reference_supplied_otd_declaration());
+      nmopt::test_models::make_reference_supplied_otd_declaration());
   }
 
   LinearQuadraticModel

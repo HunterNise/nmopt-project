@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/compiler/v1/compilation_manifest.hpp"
+#include "nmopt/contract/linalg.hpp"
 
 #include <algorithm>
 #include <cstddef>

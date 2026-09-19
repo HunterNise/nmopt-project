@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace nmopt::reference
+namespace nmopt::test_models
 {
   using namespace nmopt::contract;
 
@@ -249,4 +249,4 @@ namespace nmopt::reference
   {
     return nmopt::contract::make_canonical_supplied_otd_kkt_product(system);
   }
-} // namespace nmopt::reference
+} // namespace nmopt::test_models

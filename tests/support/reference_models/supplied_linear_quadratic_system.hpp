@@ -1,14 +1,14 @@
 #pragma once
 
 #include "nmopt/contract/supplied_otd.hpp"
-#include "nmopt/reference/quadratic_kkt.hpp"
+#include "quadratic_kkt.hpp"
 #include "nmopt/semantic/v1/types.hpp"
 
 #include <memory>
 #include <utility>
 #include <vector>
 
-namespace nmopt::reference
+namespace nmopt::test_models
 {
   using namespace nmopt::contract;
 
@@ -489,4 +489,4 @@ namespace nmopt::reference
     semantic::v1::SuppliedOTDDeclaration declaration_;
     SuppliedOTDSystem           system_;
   };
-} // namespace nmopt::reference
+} // namespace nmopt::test_models

@@ -1,0 +1,3398 @@
+#pragma once
+
+// Private inline implementation header included by validation.hpp.
+// Do not include this file directly.
+
+#include <cmath>
+#include <unordered_set>
+
+namespace nmopt::semantic::v1
+{
+  inline ValidationReport
+  SemanticValidator::validate(const ProblemSpec &specification) const
+  {
+      ValidationReport report;
+      if (specification.id.empty())
+        report.add(DiagnosticCategory::structural,
+                   "problem",
+                   "stable_problem_identity",
+                   "Give ProblemSpec a non-empty stable identifier.");
+      if (specification.label.empty())
+        report.add(DiagnosticCategory::structural,
+                   specification.id.empty() ? "problem" : specification.id,
+                   "human_readable_label",
+                   "Give ProblemSpec a non-empty human-readable label.");
+
+      const auto regions = index(specification.regions, report, "region");
+      const auto spaces = index(specification.spaces, report, "space");
+      const auto pairings = index(specification.pairings, report, "pairing");
+      const auto variables = index(specification.variables, report, "variable");
+      const auto data = index(specification.data, report, "data");
+      const auto transformations = index(specification.transformations,
+                                         report,
+                                         "transformation");
+      const auto terms = index(specification.residual_terms, report,
+                               "residual term");
+      const auto equations = index(specification.equations, report,
+                                   "equation");
+      const auto observations = index(specification.observations, report,
+                                      "observation");
+      index(specification.losses, report, "loss");
+      const auto metrics = index(specification.metrics, report, "metric");
+      const auto constraints = index(specification.constraints, report,
+                                     "constraint");
+      index(specification.requirement_policies, report, "requirement policy");
+
+      validate_labels(specification.regions, report, "region");
+      validate_labels(specification.spaces, report, "space");
+      validate_labels(specification.pairings, report, "pairing");
+      validate_labels(specification.variables, report, "variable");
+      validate_labels(specification.data, report, "data");
+      validate_labels(specification.transformations, report, "transformation");
+      validate_labels(specification.residual_terms, report, "residual term");
+      validate_labels(specification.equations, report, "equation");
+      validate_labels(specification.observations, report, "observation");
+      validate_labels(specification.losses, report, "loss");
+      validate_labels(specification.metrics, report, "metric");
+      validate_labels(specification.constraints, report, "constraint");
+      validate_required_enum_fields(specification, report);
+
+      validate_regions(specification, report);
+      validate_spaces(specification, regions, report);
+      validate_pairings(specification, spaces, report);
+      validate_variables(specification, spaces, transformations, report);
+      validate_data(specification, spaces, report);
+      validate_general_scalar_data_spaces(specification,
+                                          spaces,
+                                          regions,
+                                          data,
+                                          report);
+      validate_transformations(specification,
+                               variables,
+                               data,
+                               spaces,
+                               report);
+      validate_equations(specification, spaces, pairings, terms, report);
+      validate_terms(specification,
+                     variables,
+                     data,
+                     equations,
+                     spaces,
+                     regions,
+                     report);
+      validate_natural_boundary_sources(specification,
+                                        data,
+                                        spaces,
+                                        regions,
+                                        report);
+      validate_observations(specification,
+                            variables,
+                            data,
+                            regions,
+                            spaces,
+                            pairings,
+                            report);
+      validate_losses(specification, observations, spaces, pairings, data, report);
+      validate_metrics(specification, variables, pairings, report);
+      validate_constraints(specification, variables, data, spaces, regions, report);
+      validate_policy_regions(specification, regions, report);
+      validate_formulation(specification.formulation,
+                           variables,
+                           equations,
+                           metrics,
+                           constraints,
+                           report);
+      validate_supplied_otd_declaration(specification,
+                                        variables,
+                                        spaces,
+                                        pairings,
+                                        equations,
+                                        report);
+      validate_policies(specification, report);
+      return report;
+    }
+
+  template <typename Component>
+  SemanticValidator::Index<Component>
+  SemanticValidator::index(const std::vector<Component> &components,
+                            ValidationReport &           report,
+                            const char *                  component_name)
+  {
+      Index<Component> result;
+      for (const auto &component : components)
+        {
+          if (component.id.empty())
+            {
+              report.add(DiagnosticCategory::structural,
+                         component_name,
+                         "stable_component_identity",
+                         "Give every semantic component a non-empty identifier.");
+              continue;
+            }
+          if (!result.emplace(component.id, &component).second)
+            report.add(DiagnosticCategory::structural,
+                       component.id,
+                       "unique_component_identity",
+                       "Use a unique identifier for this component kind.");
+        }
+      return result;
+    }
+
+  template <typename Component>
+  bool
+  SemanticValidator::contains(const Index<Component> &index, const std::string &id)
+  {
+      return index.find(id) != index.end();
+    }
+
+  template <typename Component>
+  void
+  SemanticValidator::validate_labels(const std::vector<Component> &components,
+                                     ValidationReport &           report,
+                                     const char *                 component_name)
+  {
+      for (const auto &component : components)
+        if (component.label.empty())
+          report.add(DiagnosticCategory::structural,
+                     component.id.empty() ? component_name : component.id,
+                     "human_readable_label",
+                     "Give every semantic component a non-empty human-readable label.");
+    }
+
+  inline void
+  SemanticValidator::require_specified(const bool         specified,
+                                       const std::string &component_id,
+                                       const char *       fallback_id,
+                                       const char *       capability,
+                                       ValidationReport & report)
+  {
+      if (!specified)
+        report.add(DiagnosticCategory::structural,
+                   component_id.empty() ? fallback_id : component_id,
+                   capability,
+                   "Select an explicit semantic kind, role, status, or scope.");
+    }
+
+  inline void
+  SemanticValidator::validate_required_enum_fields(const ProblemSpec &specification,
+                                                   ValidationReport & report)
+  {
+      for (const auto &region : specification.regions)
+        require_specified(region.kind != RegionKind::unspecified,
+                          region.id,
+                          "region",
+                          "region_kind",
+                          report);
+      for (const auto &space : specification.spaces)
+        {
+          require_specified(space.topology != SpaceTopology::unspecified,
+                            space.id,
+                            "space",
+                            "space_topology",
+                            report);
+          require_specified(space.role != SpaceRole::unspecified,
+                            space.id,
+                            "space",
+                            "space_role",
+                            report);
+        }
+      for (const auto &variable : specification.variables)
+        require_specified(variable.role != VariableRole::unspecified,
+                          variable.id,
+                          "variable",
+                          "variable_role",
+                          report);
+      for (const auto &datum : specification.data)
+        {
+          require_specified(datum.kind != DataKind::unspecified,
+                            datum.id,
+                            "data",
+                            "data_kind",
+                            report);
+          require_specified(datum.role != DataRole::unspecified,
+                            datum.id,
+                            "data",
+                            "data_role",
+                            report);
+        }
+      for (const auto &transformation : specification.transformations)
+        require_specified(
+          transformation.kind != TransformationKind::unspecified,
+          transformation.id,
+          "transformation",
+          "transformation_kind",
+          report);
+      for (const auto &term : specification.residual_terms)
+        require_specified(term.kind != ResidualTermKind::unspecified,
+                          term.id,
+                          "residual term",
+                          "residual_term_kind",
+                          report);
+      for (const auto &observation : specification.observations)
+        require_specified(observation.kind != ObservationKind::unspecified,
+                          observation.id,
+                          "observation",
+                          "observation_kind",
+                          report);
+      for (const auto &loss : specification.losses)
+        require_specified(loss.kind != LossKind::unspecified,
+                          loss.id,
+                          "loss",
+                          "loss_kind",
+                          report);
+      for (const auto &metric : specification.metrics)
+        require_specified(metric.kind != MetricKind::unspecified,
+                          metric.id,
+                          "metric",
+                          "metric_kind",
+                          report);
+      for (const auto &constraint : specification.constraints)
+        require_specified(constraint.kind != ConstraintKind::unspecified,
+                          constraint.id,
+                          "constraint",
+                          "constraint_kind",
+                          report);
+      for (const auto &policy : specification.requirement_policies)
+        {
+          require_specified(policy.kind != RequirementKind::unspecified,
+                            policy.id,
+                            "requirement policy",
+                            "requirement_kind",
+                            report);
+          require_specified(policy.status != RequirementStatus::unspecified,
+                            policy.id,
+                            "requirement policy",
+                            "requirement_status",
+                            report);
+          require_specified(policy.scope != RequirementScope::unspecified,
+                            policy.id,
+                            "requirement policy",
+                            "requirement_scope",
+                            report);
+        }
+      require_specified(
+        specification.formulation.kind != FormulationKind::unspecified,
+        specification.formulation.id,
+        "formulation",
+        "formulation_kind",
+        report);
+      require_specified(
+        specification.formulation.provenance !=
+          FormulationProvenance::unspecified,
+        specification.formulation.id,
+        "formulation",
+        "formulation_provenance",
+        report);
+    }
+
+  inline bool
+  SemanticValidator::pairing_matches_space(const PairingSpec &pairing,
+                          const std::string &space_id)
+    {
+      return pairing.primal_space_id == space_id &&
+             pairing.covector_space_id == space_id;
+    }
+
+  inline void
+  SemanticValidator::validate_regions(const ProblemSpec &specification, ValidationReport &report)
+    {
+      for (const auto &region : specification.regions)
+        {
+          if (region.kind != RegionKind::point_set &&
+              !region.point_coordinates.empty())
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "non_point_region_has_no_coordinates",
+                       "Declare physical coordinates only on a point-set region.");
+          if (region.kind == RegionKind::volume && !region.boundary_ids.empty())
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "volume_region_has_no_boundary_ids",
+                       "Declare boundary ids only on a boundary region.");
+          if (region.kind == RegionKind::volume && region.is_full_domain &&
+              !region.material_ids.empty())
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "full_volume_region_has_no_material_ids",
+                       "Use a non-full volume region for a material-id restriction.");
+          if (region.kind == RegionKind::boundary && region.is_full_domain)
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "boundary_region_is_not_full_domain",
+                       "Use a volume region for a full-domain declaration.");
+          if (region.kind == RegionKind::boundary && region.boundary_ids.empty())
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "boundary_region_ids",
+                       "Declare at least one boundary id for a boundary region.");
+          if (region.kind == RegionKind::boundary && !region.material_ids.empty())
+            report.add(DiagnosticCategory::structural,
+                       region.id,
+                       "boundary_region_has_no_material_ids",
+                       "Declare material ids only on a volume region.");
+          if (region.kind == RegionKind::point_set)
+            {
+              if (region.is_full_domain || !region.boundary_ids.empty() ||
+                  !region.material_ids.empty())
+                report.add(DiagnosticCategory::structural,
+                           region.id,
+                           "point_set_region_geometry",
+                           "A point-set region has coordinates only; it is neither a volume nor a boundary region.");
+              if (region.point_coordinates.empty())
+                report.add(DiagnosticCategory::structural,
+                           region.id,
+                           "point_set_coordinates",
+                           "Declare at least one immutable sensor coordinate.");
+              std::size_t coordinate_dimension = 0;
+              for (const auto &coordinate : region.point_coordinates)
+                {
+                  if (coordinate.empty())
+                    report.add(DiagnosticCategory::structural,
+                               region.id,
+                               "point_coordinate_dimension",
+                               "Give every sensor coordinate the same positive dimension.");
+                  else if (coordinate_dimension == 0)
+                    coordinate_dimension = coordinate.size();
+                  else if (coordinate.size() != coordinate_dimension)
+                    report.add(DiagnosticCategory::structural,
+                               region.id,
+                               "point_coordinate_dimension",
+                               "Give every sensor coordinate the same positive dimension.");
+                  if (!std::all_of(coordinate.begin(),
+                                   coordinate.end(),
+                                   [](const double value) {
+                                     return std::isfinite(value);
+                                   }))
+                    report.add(DiagnosticCategory::structural,
+                               region.id,
+                               "finite_point_coordinates",
+                               "Bind finite physical sensor coordinates.");
+                }
+              for (std::size_t first = 0;
+                   first < region.point_coordinates.size();
+                   ++first)
+                for (std::size_t second = first + 1;
+                     second < region.point_coordinates.size();
+                     ++second)
+                  if (region.point_coordinates[first] ==
+                      region.point_coordinates[second])
+                    report.add(DiagnosticCategory::structural,
+                               region.id,
+                               "unique_point_coordinates",
+                               "Declare each sensor coordinate once in the point set.");
+            }
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_spaces(const ProblemSpec &      specification,
+                    const Index<RegionSpec> &regions,
+                    ValidationReport &       report)
+    {
+      for (const auto &space : specification.spaces)
+        {
+          if (!contains(regions, space.region_id))
+            report.add(DiagnosticCategory::structural,
+                       space.id,
+                       "space_region_port",
+                       "Reference a declared base region.");
+          if (!space.is_scalar && space.role != SpaceRole::data)
+            report.add(DiagnosticCategory::structural,
+                       space.id,
+                       "scalar_field_shape",
+                       "Non-scalar semantic fields are currently reserved for declared data spaces.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_pairings(const ProblemSpec &     specification,
+                      const Index<SpaceSpec> &spaces,
+                      ValidationReport &      report)
+    {
+      for (const auto &pairing : specification.pairings)
+        {
+          if (!contains(spaces, pairing.primal_space_id) ||
+              !contains(spaces, pairing.covector_space_id))
+            report.add(DiagnosticCategory::structural,
+                       pairing.id,
+                       "pairing_space_ports",
+                       "Reference declared primal and covector spaces.");
+          else if (pairing.primal_space_id != pairing.covector_space_id)
+            report.add(
+              DiagnosticCategory::structural,
+              pairing.id,
+              "pairing_primal_covector_space",
+              "In the v1 dual-coefficient slice, name the same semantic space on both pairing ports.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_variables(const ProblemSpec &                  specification,
+                       const Index<SpaceSpec> &             spaces,
+                       const Index<TransformationSpec> &    transformations,
+                       ValidationReport &                   report)
+    {
+      for (const auto &variable : specification.variables)
+        {
+          const auto space = spaces.find(variable.space_id);
+          if (space == spaces.end())
+            report.add(DiagnosticCategory::structural,
+                       variable.id,
+                       "variable_space_port",
+                       "Reference a declared semantic space.");
+          else if ((variable.role == VariableRole::state &&
+                    space->second->role != SpaceRole::state) ||
+                   (variable.role == VariableRole::control &&
+                    space->second->role != SpaceRole::control) ||
+                   (variable.role == VariableRole::parameter &&
+                    space->second->role != SpaceRole::parameter))
+            report.add(DiagnosticCategory::structural,
+                       variable.id,
+                       "variable_space_role",
+                       "Connect each variable to a matching state, control, or parameter space.");
+          if (!variable.physical_field_transform_id.empty())
+            {
+              const auto transformation =
+                transformations.find(variable.physical_field_transform_id);
+              if (transformation == transformations.end())
+                report.add(DiagnosticCategory::structural,
+                           variable.id,
+                           "physical_field_transformation",
+                           "Reference a declared physical-field transformation.");
+              else if (transformation->second->input_variable_id != variable.id ||
+                       transformation->second->output_space_id != variable.space_id)
+                report.add(DiagnosticCategory::structural,
+                           variable.id,
+                           "physical_field_transformation_ports",
+                           "Use a transformation from this variable to its declared space.");
+            }
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_data(const ProblemSpec &     specification,
+                  const Index<SpaceSpec> &spaces,
+                  ValidationReport &      report)
+    {
+      for (const auto &datum : specification.data)
+        {
+          if (!datum.space_id.empty() && !contains(spaces, datum.space_id))
+            report.add(DiagnosticCategory::structural,
+                       datum.id,
+                       "data_space_port",
+                       "Reference a declared data space or leave scalar constants unspaced.");
+          const bool selected_shape =
+            (datum.role == DataRole::diffusion &&
+             (datum.kind == DataKind::scalar_constant ||
+              datum.kind == DataKind::tensor_function)) ||
+            (datum.role == DataRole::conservative_transport &&
+             datum.kind == DataKind::vector_function) ||
+            (datum.role == DataRole::advective_transport &&
+             datum.kind == DataKind::vector_function) ||
+            (datum.role == DataRole::reaction &&
+             (datum.kind == DataKind::scalar_constant ||
+              datum.kind == DataKind::function)) ||
+            (datum.role == DataRole::robin_coefficient &&
+             datum.kind == DataKind::function) ||
+            (datum.role == DataRole::robin_source &&
+             datum.kind == DataKind::function) ||
+            (datum.role == DataRole::natural_boundary_source &&
+             datum.kind == DataKind::function);
+          const bool coefficient_role =
+            datum.role == DataRole::diffusion ||
+            datum.role == DataRole::conservative_transport ||
+            datum.role == DataRole::advective_transport ||
+            datum.role == DataRole::reaction ||
+            datum.role == DataRole::robin_coefficient ||
+            datum.role == DataRole::robin_source ||
+            datum.role == DataRole::natural_boundary_source;
+          if (coefficient_role && !selected_shape)
+            report.add(
+              DiagnosticCategory::structural,
+              datum.id,
+              "coefficient_data_shape",
+              "Use scalar, vector, or tensor Function data matching the declared coefficient role.");
+          if (datum.role == DataRole::observation_weight &&
+              datum.kind != DataKind::function)
+            report.add(
+              DiagnosticCategory::structural,
+              datum.id,
+              "observation_weight_data_shape",
+              "Represent the fixed scalar observation weight as Function data.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_general_scalar_data_spaces(
+      const ProblemSpec &          specification,
+      const Index<SpaceSpec> &     spaces,
+      const Index<RegionSpec> &    regions,
+      const Index<DataSpec> &      data,
+      ValidationReport &           report)
+    {
+      const bool general_scalar = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const ResidualTermSpec &term) {
+          return term.kind == ResidualTermKind::tensor_diffusion;
+        });
+      if (!general_scalar)
+        return;
+
+      const auto full_volume = std::find_if(
+        regions.begin(), regions.end(), [](const auto &entry) {
+          return entry.second->kind == RegionKind::volume &&
+                 entry.second->is_full_domain;
+        });
+
+      const auto term_for_role = [&specification, &data](const DataRole role) {
+        return std::find_if(
+          specification.residual_terms.begin(),
+          specification.residual_terms.end(),
+          [&data, role](const ResidualTermSpec &term) {
+            return std::any_of(
+              term.data_ids.begin(),
+              term.data_ids.end(),
+              [&data, role](const std::string &data_id) {
+                const auto datum = data.find(data_id);
+                return datum != data.end() && datum->second->role == role;
+              });
+          });
+      };
+
+      for (const auto &datum_entry : data)
+        {
+          const auto &datum = *datum_entry.second;
+          const bool coefficient_role =
+            datum.role == DataRole::diffusion ||
+            datum.role == DataRole::conservative_transport ||
+            datum.role == DataRole::advective_transport ||
+            datum.role == DataRole::reaction ||
+            datum.role == DataRole::robin_coefficient ||
+            datum.role == DataRole::robin_source ||
+            datum.role == DataRole::natural_boundary_source;
+          if (!coefficient_role)
+            continue;
+
+          if (datum.space_id.empty())
+            {
+              report.add(DiagnosticCategory::structural,
+                         datum.id,
+                         "coefficient_data_space",
+                         "Declare the semantic space and region where this coefficient or Robin datum is evaluated.");
+              continue;
+            }
+          const auto space = spaces.find(datum.space_id);
+          if (space == spaces.end())
+            continue;
+
+          const bool expected_scalar =
+            datum.role == DataRole::reaction ||
+            datum.role == DataRole::robin_coefficient ||
+            datum.role == DataRole::robin_source ||
+            datum.role == DataRole::natural_boundary_source;
+          if (space->second->role != SpaceRole::data ||
+              space->second->is_scalar != expected_scalar)
+            {
+              report.add(DiagnosticCategory::structural,
+                         datum.id,
+                         "coefficient_data_space_shape",
+                         "Use a data space whose role and scalar/tensor field shape match the coefficient datum.");
+              continue;
+            }
+
+          if (datum.role == DataRole::robin_coefficient ||
+              datum.role == DataRole::robin_source ||
+              datum.role == DataRole::natural_boundary_source)
+            {
+              const auto expected_term = term_for_role(datum.role);
+              const auto expected_region = expected_term ==
+                                                   specification.residual_terms.end()
+                                                 ? regions.end()
+                                                 : regions.find(expected_term->region_id);
+              if (expected_region == regions.end() ||
+                  space->second->region_id != expected_region->first)
+                {
+                  report.add(
+                    DiagnosticCategory::structural,
+                    datum.id,
+                    datum.role == DataRole::robin_coefficient
+                      ? "robin_coefficient_region"
+                      : datum.role == DataRole::robin_source
+                          ? "robin_source_region"
+                          : "natural_boundary_source_region",
+                    "Place boundary coefficient and source data on the boundary region owned by their residual term.");
+                }
+              else if (datum.role == DataRole::robin_source &&
+                       space->second->topology != SpaceTopology::l2)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "robin_source_trace_pairing",
+                  "Declare Robin source data in the boundary L2 space used by the selected trace pairing.");
+              else if (datum.role == DataRole::natural_boundary_source &&
+                       space->second->topology != SpaceTopology::l2)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "natural_boundary_source_trace_pairing",
+                  "Declare natural-boundary source data in the boundary L2 space used by the selected trace pairing.");
+              else if (datum.role == DataRole::robin_coefficient &&
+                       space->second->topology != SpaceTopology::bounded_function)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "coefficient_data_space",
+                  "Declare the Robin coefficient in a bounded boundary data space.");
+            }
+          else
+            {
+              if (full_volume == regions.end() ||
+                  space->second->region_id != full_volume->first)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "volume_coefficient_region",
+                  "Place tensor, transport, and reaction coefficient data on the full volume domain.");
+              else if (space->second->topology != SpaceTopology::bounded_function)
+                report.add(
+                  DiagnosticCategory::structural,
+                  datum.id,
+                  "coefficient_data_space",
+                  "Declare volume coefficient data in a bounded-function space.");
+            }
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_transformations(const ProblemSpec &                 specification,
+                             const Index<VariableSpec> &         variables,
+                             const Index<DataSpec> &             data,
+                             const Index<SpaceSpec> &            spaces,
+                             ValidationReport &                  report)
+    {
+      for (const auto &transformation : specification.transformations)
+        {
+          const auto input = variables.find(transformation.input_variable_id);
+          const auto output = spaces.find(transformation.output_space_id);
+          const auto fixed_data = data.find(transformation.fixed_data_id);
+          const auto control = variables.find(transformation.control_variable_id);
+          const bool has_state_ports =
+            input != variables.end() &&
+            input->second->role == VariableRole::state &&
+            output != spaces.end() && output->second->role == SpaceRole::state;
+          if (transformation.kind ==
+              TransformationKind::fixed_dirichlet_reconstruction)
+            {
+              if (!has_state_ports || fixed_data == data.end() ||
+                  fixed_data->second->kind != DataKind::function ||
+                  fixed_data->second->role != DataRole::fixed_dirichlet_lifting ||
+                  !transformation.control_variable_id.empty())
+                report.add(
+                  DiagnosticCategory::structural,
+                  transformation.id,
+                  "fixed_dirichlet_reconstruction_ports",
+                  "Connect the fixed reconstruction to one state variable, its state space, and fixed Function data only.");
+              if (fixed_data != data.end() &&
+                  fixed_data->second->space_id != transformation.output_space_id)
+                report.add(DiagnosticCategory::structural,
+                           transformation.id,
+                           "fixed_dirichlet_lifting_space",
+                           "Declare fixed lifting data in the reconstructed state space.");
+            }
+          else if (transformation.kind ==
+                   TransformationKind::dirichlet_control_lifting)
+            {
+              if (!has_state_ports || control == variables.end() ||
+                  control->second->role != VariableRole::control ||
+                  (!transformation.fixed_data_id.empty() &&
+                   (fixed_data == data.end() ||
+                    fixed_data->second->kind != DataKind::function ||
+                    fixed_data->second->role !=
+                      DataRole::fixed_dirichlet_lifting ||
+                    fixed_data->second->space_id !=
+                      transformation.output_space_id)))
+                report.add(
+                  DiagnosticCategory::structural,
+                  transformation.id,
+                  "dirichlet_control_lifting_ports",
+                  "Connect the Dirichlet lifting to one state variable, one control variable, the reconstructed state space, and optional fixed Function data in that state space.");
+            }
+          if (input != variables.end() && output != spaces.end() &&
+              input->second->space_id != transformation.output_space_id)
+            report.add(DiagnosticCategory::structural,
+                       transformation.id,
+                       "physical_field_reconstruction_space",
+                       "Reconstruct the physical field in the state variable's declared space.");
+          const auto output_uses = std::count_if(
+            specification.variables.begin(),
+            specification.variables.end(),
+            [&transformation](const VariableSpec &variable) {
+              return variable.physical_field_transform_id == transformation.id;
+            });
+          if (output_uses != 1)
+            report.add(DiagnosticCategory::structural,
+                       transformation.id,
+                       "physical_field_transformation_output",
+                       "Connect this transformation to exactly one physical state field.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_equations(const ProblemSpec &             specification,
+                       const Index<SpaceSpec> &        spaces,
+                       const Index<PairingSpec> &      pairings,
+                       const Index<ResidualTermSpec> & terms,
+                       ValidationReport &              report)
+    {
+      for (const auto &equation : specification.equations)
+        {
+          const auto test_space = spaces.find(equation.test_space_id);
+          if (test_space == spaces.end())
+            report.add(DiagnosticCategory::structural,
+                       equation.id,
+                       "equation_test_space",
+                       "Reference a declared scalar test space.");
+          else if (test_space->second->role != SpaceRole::test)
+            report.add(DiagnosticCategory::structural,
+                       equation.id,
+                       "equation_test_space_role",
+                       "Reference a space declared with the test role.");
+          const auto pairing = pairings.find(equation.test_pairing_id);
+          if (pairing == pairings.end() ||
+              !pairing_matches_space(*pairing->second,
+                                     equation.test_space_id))
+            report.add(DiagnosticCategory::structural,
+                       equation.id,
+                       "equation_test_pairing",
+                       "Reference the two-sided pairing for the equation test space.");
+          std::unordered_set<std::string> unique_term_ids;
+          std::unordered_set<std::string> reported_duplicate_term_ids;
+          for (const auto &term_id : equation.residual_term_ids)
+            {
+              if (!unique_term_ids.insert(term_id).second &&
+                  reported_duplicate_term_ids.insert(term_id).second)
+                report.add(DiagnosticCategory::structural,
+                           equation.id,
+                           "unique_equation_residual_term_edges",
+                           "List every residual term exactly once in its owning equation.");
+              const auto term = terms.find(term_id);
+              if (term == terms.end())
+                report.add(DiagnosticCategory::structural,
+                           equation.id,
+                           "equation_residual_term_port",
+                           "Reference a declared residual term.");
+              else if (term->second->equation_id != equation.id)
+                report.add(DiagnosticCategory::structural,
+                           term_id,
+                           "residual_term_target_equation",
+                           "Connect the term to the equation that owns it.");
+            }
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_terms(const ProblemSpec &             specification,
+                   const Index<VariableSpec> &     variables,
+                   const Index<DataSpec> &         data,
+                   const Index<EquationBlockSpec> &equations,
+                   const Index<SpaceSpec> &        spaces,
+                   const Index<RegionSpec> &       regions,
+                   ValidationReport &               report)
+    {
+      for (const auto &term : specification.residual_terms)
+        {
+          const auto equation = equations.find(term.equation_id);
+          if (equation == equations.end())
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       "residual_term_target_equation",
+                       "Reference a declared target equation block.");
+          else if (std::count(equation->second->residual_term_ids.begin(),
+                              equation->second->residual_term_ids.end(),
+                              term.id) == 0)
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       "residual_term_equation_membership",
+                       "List this residual term exactly once in its target equation.");
+          for (const auto &variable_id : term.variable_ids)
+            if (!contains(variables, variable_id))
+              report.add(DiagnosticCategory::structural,
+                         term.id,
+                         "residual_term_variable_port",
+                         "Reference a declared variable input.");
+          for (const auto &data_id : term.data_ids)
+            if (!contains(data, data_id))
+              report.add(DiagnosticCategory::structural,
+                         term.id,
+                         "residual_term_data_port",
+                         "Reference declared immutable data.");
+          validate_term_signature(term, variables, data, report);
+          const bool boundary_term =
+            term.kind == ResidualTermKind::neumann_control ||
+            term.kind == ResidualTermKind::dirichlet_transposition_control ||
+            term.kind == ResidualTermKind::robin_bilinear ||
+            term.kind == ResidualTermKind::robin_source ||
+            term.kind == ResidualTermKind::natural_boundary_source;
+          if (!boundary_term && !term.region_id.empty())
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       "volume_term_has_no_boundary_region",
+                       "Leave the region port empty for the registered volume term.");
+          if (!boundary_term)
+            continue;
+
+          const auto region = regions.find(term.region_id);
+          if (region == regions.end() ||
+              region->second->kind != RegionKind::boundary)
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       term.kind == ResidualTermKind::neumann_control
+                         ? "neumann_control_boundary_region"
+                       : term.kind ==
+                           ResidualTermKind::dirichlet_transposition_control
+                         ? "dirichlet_transposition_boundary_region"
+                       : term.kind == ResidualTermKind::natural_boundary_source
+                         ? "natural_boundary_source_region"
+                         : "robin_boundary_region",
+                       "Declare this natural residual contribution on a boundary region.");
+          if (term.kind != ResidualTermKind::neumann_control &&
+              term.kind !=
+                ResidualTermKind::dirichlet_transposition_control)
+            continue;
+          const auto control = term.variable_ids.size() == 1
+                                 ? variables.find(term.variable_ids.front())
+                                 : variables.end();
+          const auto control_space = control == variables.end()
+                                       ? spaces.end()
+                                       : spaces.find(control->second->space_id);
+          if (control_space == spaces.end() ||
+              control_space->second->region_id != term.region_id)
+            report.add(DiagnosticCategory::structural,
+                       term.id,
+                       term.kind == ResidualTermKind::neumann_control
+                         ? "neumann_control_space_region"
+                         : "dirichlet_transposition_control_space_region",
+                       "Place the boundary control space on the residual term's declared boundary region.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_natural_boundary_sources(
+      const ProblemSpec &      specification,
+      const Index<DataSpec> &  data,
+      const Index<SpaceSpec> & spaces,
+      const Index<RegionSpec> &regions,
+      ValidationReport &       report)
+    {
+      std::string fixed_region_id;
+      const auto fixed_policy = std::find_if(
+        specification.requirement_policies.begin(),
+        specification.requirement_policies.end(),
+        [&specification](const RequirementPolicySpec &policy) {
+          return policy.subject_id == specification.formulation.state_variable_id &&
+                 policy.kind == RequirementKind::fixed_dirichlet;
+        });
+      if (fixed_policy != specification.requirement_policies.end())
+        fixed_region_id = fixed_policy->region_id;
+      else
+        {
+          const auto boundary_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&specification](const RequirementPolicySpec &policy) {
+              return policy.subject_id == specification.formulation.state_variable_id &&
+                     policy.kind == RequirementKind::boundary_partition &&
+                     policy.typed_selection.has_value();
+            });
+          if (boundary_policy != specification.requirement_policies.end())
+            fixed_region_id =
+              boundary_policy->typed_selection->fixed_dirichlet_region_id;
+        }
+      const auto fixed_region = regions.find(fixed_region_id);
+      for (const auto &term : specification.residual_terms)
+        if (term.kind == ResidualTermKind::natural_boundary_source)
+          {
+            if (term.data_ids.size() != 1)
+              continue;
+            const auto datum = data.find(term.data_ids.front());
+            if (datum == data.end())
+              continue;
+            if (datum->second->space_id.empty())
+              {
+                report.add(DiagnosticCategory::structural,
+                           datum->second->id,
+                           "natural_boundary_source_data_space",
+                           "Declare the source space and boundary region for the natural-boundary source datum.");
+                continue;
+              }
+            const auto space = spaces.find(datum->second->space_id);
+            if (space == spaces.end())
+              continue;
+            if (space->second->role != SpaceRole::data ||
+                !space->second->is_scalar)
+              {
+                report.add(DiagnosticCategory::structural,
+                           datum->second->id,
+                           "natural_boundary_source_data_space",
+                           "Use a scalar data space for the natural-boundary source datum.");
+                continue;
+              }
+            if (space->second->topology != SpaceTopology::l2)
+              report.add(DiagnosticCategory::structural,
+                         datum->second->id,
+                         "natural_boundary_source_trace_pairing",
+                         "Declare the natural-boundary source in the boundary L2 trace-pairing space.");
+            if (space->second->region_id != term.region_id)
+              report.add(DiagnosticCategory::structural,
+                         datum->second->id,
+                         "natural_boundary_source_region",
+                         "Match the source data space region to the source residual region.");
+
+            const auto source_region = regions.find(term.region_id);
+            if (fixed_region == regions.end() || source_region == regions.end())
+              continue;
+            const bool overlaps_fixed_region =
+              source_region->first == fixed_region->first ||
+              std::any_of(source_region->second->boundary_ids.begin(),
+                          source_region->second->boundary_ids.end(),
+                          [&fixed_region](const unsigned int boundary_id) {
+                            return std::find(fixed_region->second->boundary_ids.begin(),
+                                             fixed_region->second->boundary_ids.end(),
+                                             boundary_id) !=
+                                   fixed_region->second->boundary_ids.end();
+                          });
+            if (overlaps_fixed_region)
+              report.add(DiagnosticCategory::structural,
+                         term.id,
+                         "natural_boundary_source_fixed_overlap",
+                         "Place the natural-boundary source on a boundary disjoint from fixed Dirichlet data.");
+          }
+    }
+
+  inline void
+  SemanticValidator::validate_observations(const ProblemSpec &          specification,
+                          const Index<VariableSpec> &  variables,
+                          const Index<DataSpec> &      data,
+                          const Index<RegionSpec> &    regions,
+                          const Index<SpaceSpec> &     spaces,
+                          const Index<PairingSpec> &   pairings,
+                          ValidationReport &            report)
+    {
+      for (const auto &observation : specification.observations)
+        {
+          if (!contains(variables, observation.input_variable_id))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "observation_input_port",
+                       "Reference a declared variable input.");
+          const bool boundary_observation =
+            observation.kind == ObservationKind::boundary_trace ||
+            observation.kind == ObservationKind::weighted_boundary_trace ||
+            observation.kind == ObservationKind::boundary_restriction ||
+            observation.kind == ObservationKind::normal_flux;
+          const bool point_observation =
+            observation.kind == ObservationKind::point_sensor;
+          const RegionKind expected_region =
+            boundary_observation ? RegionKind::boundary
+            : point_observation ? RegionKind::point_set
+                                : RegionKind::volume;
+          if (!contains(regions, observation.region_id))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "observation_region_port",
+                       "Reference the declared observation region.");
+          else if (regions.at(observation.region_id)->kind != expected_region)
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       boundary_observation ? "observation_boundary_region" :
+                       point_observation ? "observation_point_set_region" :
+                                              "observation_volume_region",
+                       boundary_observation
+                         ? "The registered boundary observation needs a boundary region."
+                       : point_observation
+                         ? "The point-sensor observation needs a point-set region."
+                         : "The registered volume restriction needs a volume region.");
+          const auto input = variables.find(observation.input_variable_id);
+          if (observation.kind == ObservationKind::h1_state_restriction)
+            {
+              const auto input_space =
+                input == variables.end() ? spaces.end() :
+                                           spaces.find(input->second->space_id);
+              if (input == variables.end() ||
+                  input->second->role != VariableRole::state)
+                report.add(DiagnosticCategory::structural,
+                           observation.id,
+                           "h1_state_restriction_state_input",
+                           "Use an H1 state variable as the source of the energy observation.");
+              else if (input_space == spaces.end() ||
+                       input_space->second->topology != SpaceTopology::h1)
+                report.add(DiagnosticCategory::structural,
+                           observation.id,
+                           "h1_state_restriction_input_topology",
+                           "Declare the observed state in an H1 space.");
+            }
+          if ((observation.kind == ObservationKind::boundary_trace ||
+               observation.kind == ObservationKind::weighted_boundary_trace ||
+               observation.kind == ObservationKind::normal_flux) &&
+              (input == variables.end() ||
+               input->second->role != VariableRole::state))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "boundary_trace_state_input",
+                       "Use a state variable as the source of a boundary trace.");
+          if (observation.kind == ObservationKind::boundary_restriction &&
+              (input == variables.end() ||
+               input->second->role != VariableRole::control))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "boundary_restriction_control_input",
+                       "Use the boundary control as the source of its restriction.");
+          if (point_observation &&
+              (input == variables.end() ||
+               input->second->role != VariableRole::state))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "point_sensor_state_input",
+                       "Use a state variable as the source of a point-sensor observation.");
+          const auto output_space = spaces.find(observation.output_space_id);
+          if (output_space == spaces.end())
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "observation_output_space",
+                       "Reference a declared observation space.");
+          else if (output_space->second->role != SpaceRole::observation)
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "observation_output_space_role",
+                       "Reference a space declared with the observation role.");
+          else if (output_space->second->region_id != observation.region_id)
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "observation_output_region",
+                       "Declare the observation output space on the observation region.");
+          else if (observation.kind == ObservationKind::h1_state_restriction &&
+                   output_space->second->topology != SpaceTopology::h1)
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "h1_state_restriction_output_topology",
+                       "Declare the energy-observation output with H1 topology.");
+          if (point_observation && output_space != spaces.end())
+            {
+              const auto region = regions.find(observation.region_id);
+              const std::size_t point_count =
+                region == regions.end() ? 0 : region->second->point_coordinates.size();
+              if (output_space->second->topology != SpaceTopology::l2 ||
+                  output_space->second->dimension != point_count)
+                report.add(DiagnosticCategory::structural,
+                           observation.id,
+                           "point_sensor_output_dimension",
+                           "Declare an L2 observation space whose finite dimension equals the point-set cardinality.");
+            }
+          if (observation.kind == ObservationKind::weighted_boundary_trace)
+            {
+              if (observation.data_ids.size() != 1)
+                report.add(
+                  DiagnosticCategory::structural,
+                  observation.id,
+                  "weighted_boundary_trace_data_port",
+                  "Connect the weighted boundary trace to exactly one fixed observation-weight datum.");
+              else
+                {
+                  const auto weight = data.find(observation.data_ids.front());
+                  if (weight == data.end())
+                    report.add(DiagnosticCategory::structural,
+                               observation.id,
+                               "observation_data_port",
+                               "Reference declared immutable observation data.");
+                  else if (weight->second->role !=
+                             DataRole::observation_weight ||
+                           weight->second->kind != DataKind::function)
+                    report.add(
+                      DiagnosticCategory::structural,
+                      observation.id,
+                      "weighted_boundary_trace_data_signature",
+                      "Use one scalar Function datum with the observation-weight role.");
+                  else if (weight->second->space_id !=
+                           observation.output_space_id)
+                    report.add(
+                      DiagnosticCategory::structural,
+                      observation.id,
+                      "weighted_boundary_trace_weight_space",
+                      "Place the observation weight in the declared boundary observation space.");
+                }
+            }
+          else if (!observation.data_ids.empty())
+            report.add(
+              DiagnosticCategory::structural,
+              observation.id,
+              "observation_data_signature",
+              "Leave immutable data ports empty for this observation kind.");
+          const auto pairing = pairings.find(observation.output_pairing_id);
+          if (pairing == pairings.end() ||
+              !pairing_matches_space(*pairing->second,
+                                     observation.output_space_id))
+            report.add(DiagnosticCategory::structural,
+                       observation.id,
+                       "observation_output_pairing",
+                       "Reference the two-sided pairing for the observation output.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_losses(const ProblemSpec &             specification,
+                    const Index<ObservationSpec> &  observations,
+                    const Index<SpaceSpec> &        spaces,
+                    const Index<PairingSpec> &      pairings,
+                    const Index<DataSpec> &         data,
+                    ValidationReport &               report)
+    {
+      for (const auto &loss : specification.losses)
+        {
+          if (!contains(observations, loss.source_observation_id))
+            report.add(DiagnosticCategory::structural,
+                       loss.id,
+                       "loss_observation_port",
+                       "Connect the loss to a declared observation.");
+          if (!contains(data, loss.data_id))
+            report.add(DiagnosticCategory::structural,
+                       loss.id,
+                       "loss_data_port",
+                       "Reference declared target or regularisation data.");
+          const auto observation = observations.find(loss.source_observation_id);
+          const auto pairing = pairings.find(loss.pairing_id);
+          if (observation == observations.end() || pairing == pairings.end() ||
+              !pairing_matches_space(
+                *pairing->second, observation->second->output_space_id))
+            report.add(DiagnosticCategory::structural,
+                       loss.id,
+                       "loss_pairing",
+                       "Reference the pairing for the loss observation output.");
+          validate_loss_signature(loss, data, report);
+          if (loss.kind == LossKind::quadratic_hhalf_control_regularisation &&
+              observation != observations.end())
+            {
+              const auto output_space =
+                spaces.find(observation->second->output_space_id);
+              if (output_space == spaces.end() ||
+                  output_space->second->topology != SpaceTopology::hhalf)
+                report.add(
+                  DiagnosticCategory::structural,
+                  loss.id,
+                  "hhalf_control_regularisation_topology",
+                  "Declare the fractional control loss on an H1/2 boundary observation space.");
+            }
+          if (loss.kind == LossKind::quadratic_tracking &&
+              observation != observations.end())
+            {
+              const auto datum = data.find(loss.data_id);
+              if (datum != data.end() &&
+                  datum->second->space_id !=
+                    observation->second->output_space_id)
+                report.add(DiagnosticCategory::structural,
+                           loss.id,
+                           "tracking_target_observation_space",
+                           "Bind the tracking target in the selected observation space.");
+            }
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_metrics(const ProblemSpec &            specification,
+                     const Index<VariableSpec> &    variables,
+                     const Index<PairingSpec> &     pairings,
+                     ValidationReport &              report)
+    {
+      for (const auto &metric : specification.metrics)
+        {
+          const auto variable = variables.find(metric.variable_id);
+          if (variable == variables.end())
+            report.add(DiagnosticCategory::structural,
+                       metric.id,
+                       "metric_variable_port",
+                       "Reference the primal variable identified by this metric.");
+          const auto pairing = pairings.find(metric.pairing_id);
+          if (variable == variables.end() || pairing == pairings.end() ||
+              !pairing_matches_space(*pairing->second,
+                                     variable->second->space_id))
+            report.add(DiagnosticCategory::structural,
+                       metric.id,
+                       "metric_pairing",
+                       "Reference the declared primal-dual pairing for the metric variable.");
+          else if (variable->second->role != VariableRole::control &&
+                   variable->second->role != VariableRole::parameter)
+            report.add(DiagnosticCategory::structural,
+                       metric.id,
+                       "metric_decision_variable",
+                       "The v1 metric identifies a control or parameter derivative only.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_constraints(const ProblemSpec &          specification,
+                         const Index<VariableSpec> &  variables,
+                         const Index<DataSpec> &      data,
+                         const Index<SpaceSpec> &     spaces,
+                         const Index<RegionSpec> &    regions,
+                         ValidationReport &            report)
+    {
+      for (const auto &constraint : specification.constraints)
+        {
+          const auto variable = variables.find(constraint.variable_id);
+          if (variable == variables.end())
+            report.add(DiagnosticCategory::structural,
+                       constraint.id,
+                       "constraint_variable_port",
+                       "Reference the constrained control variable.");
+          else if (variable->second->role != VariableRole::control &&
+                   variable->second->role != VariableRole::parameter)
+            report.add(DiagnosticCategory::structural,
+                       constraint.id,
+                       "constraint_decision_variable",
+                       "The registered v1 boxes can constrain a control or parameter variable only.");
+          else
+            {
+              const auto space = spaces.find(variable->second->space_id);
+              const auto region = space == spaces.end()
+                                    ? regions.end()
+                                    : regions.find(space->second->region_id);
+              const RegionKind expected_region =
+                constraint.kind == ConstraintKind::facewise_box
+                  ? RegionKind::boundary
+                  : RegionKind::volume;
+              if (region == regions.end() || region->second->kind != expected_region)
+                report.add(DiagnosticCategory::structural,
+                           constraint.id,
+                           "constraint_control_region",
+                           "Use a cellwise box for a volume control and a facewise box for a boundary control.");
+            }
+          const auto lower = data.find(constraint.lower_bound_data_id);
+          const auto upper = data.find(constraint.upper_bound_data_id);
+          if (lower == data.end() || upper == data.end())
+            report.add(DiagnosticCategory::structural,
+                       constraint.id,
+                       "constraint_bound_data_ports",
+                       "Reference declared lower and upper bound data.");
+          else if (lower->second->role != DataRole::lower_bound ||
+                   upper->second->role != DataRole::upper_bound ||
+                   lower->second->kind !=
+                     (constraint.kind == ConstraintKind::facewise_box
+                        ? DataKind::facewise_bound
+                        : DataKind::cellwise_bound) ||
+                   upper->second->kind !=
+                     (constraint.kind == ConstraintKind::facewise_box
+                        ? DataKind::facewise_bound
+                        : DataKind::cellwise_bound))
+            report.add(DiagnosticCategory::structural,
+                       constraint.id,
+                       constraint.kind == ConstraintKind::facewise_box
+                         ? "constraint_facewise_bound_data"
+                         : "constraint_cellwise_bound_data",
+                       "Use the declared lower and upper bound data for this control layout.");
+          if (variable != variables.end() && lower != data.end() &&
+              upper != data.end() &&
+              (lower->second->space_id != variable->second->space_id ||
+               upper->second->space_id != variable->second->space_id))
+            report.add(DiagnosticCategory::structural,
+                       constraint.id,
+                       "constraint_bound_data_space",
+                       "Declare both bounds in the constrained variable's semantic space.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_policy_regions(const ProblemSpec &      specification,
+                            const Index<RegionSpec> &regions,
+                            ValidationReport &       report)
+    {
+      for (const auto &policy : specification.requirement_policies)
+        if (!policy.region_id.empty() && !contains(regions, policy.region_id))
+          report.add(DiagnosticCategory::structural,
+                     policy.id,
+                     "requirement_policy_region",
+                     "Reference a declared region when a policy is region-specific.");
+    }
+
+  inline bool
+  SemanticValidator::has_role(const std::vector<std::string> &ids,
+             const Index<DataSpec> &         data,
+             const DataRole                  role)
+    {
+      return std::any_of(ids.begin(), ids.end(), [&data, role](const auto &id) {
+        const auto entry = data.find(id);
+        return entry != data.end() && entry->second->role == role;
+      });
+    }
+
+  inline bool
+  SemanticValidator::has_variable_role(const std::vector<std::string> &ids,
+                      const Index<VariableSpec> &     variables,
+                      const VariableRole               role)
+    {
+      return std::any_of(ids.begin(), ids.end(), [&variables, role](const auto &id) {
+        const auto entry = variables.find(id);
+        return entry != variables.end() && entry->second->role == role;
+      });
+    }
+
+  inline void
+  SemanticValidator::validate_term_signature(const ResidualTermSpec &    term,
+                            const Index<VariableSpec> & variables,
+                            const Index<DataSpec> &     data,
+                            ValidationReport &          report)
+    {
+      bool valid = false;
+      switch (term.kind)
+        {
+          case ResidualTermKind::unspecified:
+            break;
+          case ResidualTermKind::diffusion_reaction:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 2 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids, data, DataRole::diffusion) &&
+                    has_role(term.data_ids, data, DataRole::reaction);
+            break;
+          case ResidualTermKind::tensor_diffusion:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids, data, DataRole::diffusion) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::conservative_transport:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids,
+                             data,
+                             DataRole::conservative_transport) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::advective_transport:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids,
+                             data,
+                             DataRole::advective_transport) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::reaction:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids, data, DataRole::reaction) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::parameter_diffusion_reaction:
+            valid = term.variable_ids.size() == 2 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::parameter) &&
+                    has_role(term.data_ids, data, DataRole::reaction);
+            break;
+          case ResidualTermKind::laplacian:
+            valid = term.variable_ids.size() == 1 && term.data_ids.empty() &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::transposition_laplacian:
+            valid = term.variable_ids.size() == 1 && term.data_ids.empty() &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    term.region_id.empty();
+            break;
+          case ResidualTermKind::dirichlet_transposition_control:
+            valid = term.variable_ids.size() == 1 && term.data_ids.empty() &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::control) &&
+                    !term.region_id.empty();
+            break;
+          case ResidualTermKind::volume_source:
+            valid = term.variable_ids.empty() && term.data_ids.size() == 1 &&
+                    has_role(term.data_ids, data, DataRole::forcing);
+            break;
+          case ResidualTermKind::volume_control:
+            valid = term.variable_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::control) &&
+                    term.data_ids.empty() && term.region_id.empty();
+            break;
+          case ResidualTermKind::neumann_control:
+            valid = term.variable_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::control) &&
+                    term.data_ids.empty() && !term.region_id.empty();
+            break;
+          case ResidualTermKind::robin_bilinear:
+            valid = term.variable_ids.size() == 1 && term.data_ids.size() == 1 &&
+                    has_variable_role(term.variable_ids, variables,
+                                      VariableRole::state) &&
+                    has_role(term.data_ids,
+                             data,
+                             DataRole::robin_coefficient) &&
+                    !term.region_id.empty();
+            break;
+          case ResidualTermKind::robin_source:
+            valid = term.variable_ids.empty() && term.data_ids.size() == 1 &&
+                    has_role(term.data_ids, data, DataRole::robin_source) &&
+                    !term.region_id.empty();
+            break;
+          case ResidualTermKind::natural_boundary_source:
+            valid = term.variable_ids.empty() && term.data_ids.size() == 1 &&
+                    has_role(term.data_ids,
+                             data,
+                             DataRole::natural_boundary_source) &&
+                    !term.region_id.empty();
+            break;
+        }
+      if (!valid)
+        report.add(DiagnosticCategory::structural,
+                   term.id,
+                   "residual_term_signature",
+                   "Supply the declared v1 term inputs and no undeclared ports.");
+    }
+
+  inline void
+  SemanticValidator::validate_loss_signature(const LossSpec &        loss,
+                            const Index<DataSpec> & data,
+                            ValidationReport &      report)
+    {
+      const auto datum = data.find(loss.data_id);
+      if (datum == data.end())
+        return;
+
+      const bool valid =
+        (loss.kind == LossKind::quadratic_tracking &&
+         datum->second->role == DataRole::desired_state) ||
+        (loss.kind == LossKind::quadratic_control_regularisation &&
+         datum->second->role == DataRole::regularisation_weight) ||
+        (loss.kind == LossKind::quadratic_hhalf_control_regularisation &&
+         datum->second->role == DataRole::regularisation_weight) ||
+        (loss.kind == LossKind::quadratic_h1_control_regularisation &&
+         datum->second->role == DataRole::regularisation_weight) ||
+        (loss.kind == LossKind::quadratic_parameter_regularisation &&
+         datum->second->role == DataRole::regularisation_weight);
+      if (!valid)
+        report.add(DiagnosticCategory::structural,
+                   loss.id,
+                   "loss_data_role",
+                   "Use desired-state data for tracking and a scalar regularisation weight for a decision-variable loss.");
+    }
+
+  inline void
+  SemanticValidator::validate_supplied_otd_block(const SuppliedOTDBlockSpec & block,
+                                const SuppliedOTDBlockRole    expected_role,
+                                const Index<SpaceSpec> &      spaces,
+                                const Index<PairingSpec> &    pairings,
+                                ValidationReport &            report)
+    {
+      const std::string component_id = block.id.empty() ? "supplied_otd" : block.id;
+      if (block.id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_block_identity",
+                   "Give every supplied OTD block a non-empty identifier.");
+      if (block.label.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_block_label",
+                   "Give every supplied OTD block a non-empty label.");
+      require_specified(block.role != SuppliedOTDBlockRole::unspecified,
+                        component_id,
+                        "supplied OTD block",
+                        "supplied_otd_block_role",
+                        report);
+      if (block.role != SuppliedOTDBlockRole::unspecified &&
+          block.role != expected_role)
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_block_role",
+                   "Declare the state, adjoint, and control-stationarity blocks in their matching roles.");
+      if (block.variable_id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_variable_block",
+                   "Name the variable block supplied by the application.");
+      if (block.residual_id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_residual_block",
+                   "Name the residual block supplied by the application.");
+
+      const auto require_space = [&](const std::string &space_id,
+                                     const char *       capability) {
+        if (space_id.empty() || !contains(spaces, space_id))
+          report.add(DiagnosticCategory::structural,
+                     component_id,
+                     capability,
+                     "Reference a declared semantic space for every supplied OTD block.");
+      };
+      require_space(block.variable_space_id, "supplied_otd_variable_space");
+      require_space(block.residual_space_id, "supplied_otd_residual_space");
+      if (block.runtime_variable_space_id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_runtime_variable_space",
+                   "Declare a non-empty runtime identifier for every supplied OTD variable block.");
+      if (block.runtime_residual_space_id.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_runtime_residual_space",
+                   "Declare a non-empty runtime identifier for every supplied OTD residual block.");
+
+      const auto require_pairing = [&](const std::string &pairing_id,
+                                       const std::string &space_id,
+                                       const char *       capability) {
+        const auto pairing = pairings.find(pairing_id);
+        if (pairing == pairings.end())
+          {
+            report.add(DiagnosticCategory::structural,
+                       component_id,
+                       capability,
+                       "Reference a declared trial/test pairing for every supplied OTD block.");
+            return;
+          }
+        if (!pairing_matches_space(*pairing->second, space_id))
+          report.add(DiagnosticCategory::structural,
+                     component_id,
+                     capability,
+                     "The supplied OTD pairing must act on the block's declared space.");
+      };
+      require_pairing(block.trial_pairing_id,
+                      block.variable_space_id,
+                      "supplied_otd_trial_pairing");
+      require_pairing(block.test_pairing_id,
+                      block.residual_space_id,
+                      "supplied_otd_test_pairing");
+      if (block.discretisation_provenance.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_discretisation_provenance",
+                   "Declare the discretisation and quadrature provenance for every supplied OTD block.");
+      if (block.action_provenance.empty())
+        report.add(DiagnosticCategory::structural,
+                   component_id,
+                   "supplied_otd_block_action_provenance",
+                   "Declare how every supplied OTD block action is realised.");
+    }
+
+  inline void
+  SemanticValidator::validate_supplied_otd_declaration(
+      const ProblemSpec &                  specification,
+      const Index<VariableSpec> &           variables,
+      const Index<SpaceSpec> &              spaces,
+      const Index<PairingSpec> &            pairings,
+      const Index<EquationBlockSpec> &      equations,
+      ValidationReport &                    report)
+    {
+      const bool supplied_otd =
+        specification.formulation.provenance == FormulationProvenance::supplied_otd;
+      if (!supplied_otd)
+        {
+          if (specification.supplied_otd_declaration)
+            report.add(
+              DiagnosticCategory::structural,
+              specification.formulation.id,
+              "unselected_supplied_otd_declaration",
+              "Attach a supplied OTD declaration only to a supplied-OTD formulation.");
+          return;
+        }
+
+      if (!specification.supplied_otd_declaration)
+        {
+          report.add(
+            DiagnosticCategory::structural,
+            specification.formulation.id,
+            "supplied_otd_declaration",
+            "Supply a complete typed state, adjoint, and stationarity declaration for the OTD product.");
+          return;
+        }
+
+      const auto &declaration = *specification.supplied_otd_declaration;
+      if (declaration.id.empty())
+        report.add(DiagnosticCategory::structural,
+                   "supplied_otd",
+                   "supplied_otd_declaration_identity",
+                   "Give the supplied OTD declaration a non-empty identifier.");
+      if (declaration.state_variable_id !=
+          specification.formulation.state_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_state_variable",
+                   "Bind the supplied OTD state block to the formulation state variable.");
+      if (declaration.control_variable_id !=
+          specification.formulation.control_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_control_variable",
+                   "Bind the supplied OTD stationarity block to the formulation decision variable.");
+      if (declaration.adjoint_variable_id.empty() ||
+          declaration.adjoint_variable_id == declaration.state_variable_id ||
+          declaration.adjoint_variable_id == declaration.control_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_adjoint_variable",
+                   "Give the supplied OTD adjoint block a distinct non-empty variable identifier.");
+
+      validate_supplied_otd_block(declaration.state_block,
+                                  SuppliedOTDBlockRole::state,
+                                  spaces,
+                                  pairings,
+                                  report);
+      validate_supplied_otd_block(declaration.adjoint_block,
+                                  SuppliedOTDBlockRole::adjoint,
+                                  spaces,
+                                  pairings,
+                                  report);
+      validate_supplied_otd_block(declaration.control_stationarity_block,
+                                  SuppliedOTDBlockRole::control_stationarity,
+                                  spaces,
+                                  pairings,
+                                  report);
+
+      if (declaration.state_block.variable_id != declaration.state_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.state_block.id,
+                   "supplied_otd_state_block_variable",
+                   "Bind the declared state block to the supplied OTD state variable.");
+      if (declaration.state_block.residual_id !=
+          specification.formulation.equation_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.state_block.id,
+                   "supplied_otd_state_block_residual",
+                   "Bind the supplied OTD state block to the formulation state equation.");
+      if (declaration.adjoint_block.variable_id !=
+          declaration.adjoint_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.adjoint_block.id,
+                   "supplied_otd_adjoint_block_variable",
+                   "Bind the declared adjoint block to the supplied OTD adjoint variable.");
+      if (declaration.control_stationarity_block.variable_id !=
+          declaration.control_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.control_stationarity_block.id,
+                   "supplied_otd_stationarity_variable",
+                   "Bind the declared stationarity block to the formulation decision variable.");
+
+      const auto state = variables.find(declaration.state_variable_id);
+      if (state != variables.end() &&
+          declaration.state_block.variable_space_id != state->second->space_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.state_block.id,
+                   "supplied_otd_state_space",
+                   "The supplied OTD state block must use the declared state variable space.");
+      const auto control = variables.find(declaration.control_variable_id);
+      if (control != variables.end() &&
+          declaration.control_stationarity_block.variable_space_id !=
+            control->second->space_id)
+        report.add(DiagnosticCategory::structural,
+                   declaration.control_stationarity_block.id,
+                   "supplied_otd_control_space",
+                   "The supplied OTD stationarity block must use the declared decision-variable space.");
+      if (declaration.state_block.residual_id.empty() ||
+          !contains(equations, declaration.state_block.residual_id))
+        report.add(DiagnosticCategory::structural,
+                   declaration.state_block.id,
+                   "supplied_otd_state_equation",
+                   "Reference the declared state equation from the supplied OTD state block.");
+
+      const std::unordered_set<std::string> runtime_variable_spaces{
+        declaration.state_block.runtime_variable_space_id,
+        declaration.adjoint_block.runtime_variable_space_id,
+        declaration.control_stationarity_block.runtime_variable_space_id};
+      const std::unordered_set<std::string> runtime_residual_spaces{
+        declaration.state_block.runtime_residual_space_id,
+        declaration.adjoint_block.runtime_residual_space_id,
+        declaration.control_stationarity_block.runtime_residual_space_id};
+      if (runtime_variable_spaces.size() != 3 ||
+          runtime_residual_spaces.size() != 3)
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_runtime_layout_identifiers",
+                   "Use distinct runtime identifiers for the three supplied OTD variable and residual blocks.");
+
+      require_specified(
+        declaration.multiplier_convention !=
+          SuppliedOTDMultiplierConvention::unspecified,
+        declaration.id,
+        "supplied OTD declaration",
+        "supplied_otd_multiplier_convention",
+        report);
+      require_specified(
+        declaration.multiplier_conversion !=
+          SuppliedOTDMultiplierConversion::unspecified,
+        declaration.id,
+        "supplied OTD declaration",
+        "supplied_otd_multiplier_conversion",
+        report);
+      if (declaration.value_action_provenance.empty() ||
+          declaration.jvp_action_provenance.empty() ||
+          declaration.vjp_action_provenance.empty() ||
+          declaration.solve_provenance.empty())
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_action_provenance",
+                   "Declare value, JVP, VJP, and solve provenance for the supplied OTD product.");
+      require_specified(
+        declaration.comparison_status != SuppliedOTDComparisonStatus::unspecified,
+        declaration.id,
+        "supplied OTD declaration",
+        "supplied_otd_comparison_status",
+        report);
+      if (declaration.comparison_evidence.empty())
+        report.add(DiagnosticCategory::structural,
+                   declaration.id,
+                   "supplied_otd_comparison_evidence",
+                   "Record the evidence supporting the typed DTO comparison status.");
+    }
+
+  inline void
+  SemanticValidator::validate_formulation(const FormulationSpec &        formulation,
+                         const Index<VariableSpec> &    variables,
+                         const Index<EquationBlockSpec> & equations,
+                         const Index<MetricSpec> &       metrics,
+                         const Index<ConstraintSpec> &   constraints,
+                         ValidationReport &              report)
+    {
+      const auto state = variables.find(formulation.state_variable_id);
+      const auto control = variables.find(formulation.control_variable_id);
+      if (formulation.id.empty())
+        report.add(DiagnosticCategory::structural,
+                   "formulation",
+                   "stable_component_identity",
+                   "Give the reduced formulation a non-empty identifier.");
+      if (formulation.provenance == FormulationProvenance::supplied_otd &&
+          formulation.kind != FormulationKind::all_at_once)
+        report.add(DiagnosticCategory::structural,
+                   formulation.id,
+                   "supplied_otd_execution_shape",
+                   "Use the all-at-once execution shape for a supplied OTD product.");
+      if (state == variables.end() || state->second->role != VariableRole::state)
+        report.add(DiagnosticCategory::structural,
+                   formulation.id,
+                   "formulation_state_variable",
+                   "Select one declared state variable for elimination.");
+      if (control == variables.end() ||
+          (control->second->role != VariableRole::control &&
+           control->second->role != VariableRole::parameter))
+        report.add(DiagnosticCategory::structural,
+                   formulation.id,
+                   "formulation_decision_variable",
+                   "Select one declared control or parameter variable for optimisation.");
+      if (!contains(equations, formulation.equation_id))
+        report.add(DiagnosticCategory::structural,
+                   formulation.id,
+                   "formulation_equation",
+                   "Reference the equation that defines the state.");
+      const auto metric = metrics.find(formulation.metric_id);
+      if (metric == metrics.end())
+        report.add(DiagnosticCategory::structural,
+                   formulation.id,
+                   "formulation_metric",
+                   "Reference a declared search metric.");
+      else if (control != variables.end() &&
+               metric->second->variable_id != formulation.control_variable_id)
+        report.add(DiagnosticCategory::structural,
+                   formulation.id,
+                   "formulation_metric_variable",
+                   "Select a metric acting on the formulation decision variable.");
+      if (!formulation.constraint_id.empty())
+        {
+          const auto constraint = constraints.find(formulation.constraint_id);
+          if (constraint == constraints.end())
+            report.add(DiagnosticCategory::structural,
+                       formulation.id,
+                       "formulation_constraint",
+                       "Reference a declared constraint or leave this port empty.");
+          else if (control != variables.end() &&
+                   constraint->second->variable_id !=
+                     formulation.control_variable_id)
+            report.add(
+              DiagnosticCategory::structural,
+              formulation.id,
+              "formulation_constraint_variable",
+              "Select a constraint acting on the formulation decision variable.");
+        }
+    }
+
+  inline void
+  SemanticValidator::validate_policies(const ProblemSpec &specification,
+                      ValidationReport & report)
+    {
+      const auto selected_policy = [&specification](
+                                     const std::string &subject,
+                                     const RequirementKind kind) {
+        return std::find_if(
+          specification.requirement_policies.begin(),
+          specification.requirement_policies.end(),
+            [&subject, kind](const RequirementPolicySpec &policy) {
+              return policy.subject_id == subject && policy.kind == kind &&
+                   policy.status ==
+                     RequirementStatus::selected_discrete_realisation;
+          });
+      };
+      const auto has_policy = [&specification, &selected_policy](
+                                const std::string &  subject,
+                                const RequirementKind kind) {
+        return selected_policy(subject, kind) !=
+               specification.requirement_policies.end();
+      };
+      const auto find_space = [&specification](const std::string &id) {
+        return std::find_if(
+          specification.spaces.begin(),
+          specification.spaces.end(),
+          [&id](const SpaceSpec &space) { return space.id == id; });
+      };
+      const auto residual_data_id = [&specification](const DataRole role) {
+        for (const auto &term : specification.residual_terms)
+          if (term.kind == ResidualTermKind::diffusion_reaction)
+            for (const auto &data_id : term.data_ids)
+              {
+                const auto data = std::find_if(
+                  specification.data.begin(), specification.data.end(),
+                  [&data_id](const DataSpec &candidate) {
+                    return candidate.id == data_id;
+                  });
+                if (data != specification.data.end() && data->role == role)
+                  return data->id;
+              }
+        return std::string{};
+      };
+      const auto find_region = [&specification](const std::string &id) {
+        return std::find_if(
+          specification.regions.begin(),
+          specification.regions.end(),
+          [&id](const RegionSpec &region) { return region.id == id; });
+      };
+      const auto has_duplicate_boundary_ids = [](const RegionSpec &region) {
+        for (std::size_t first = 0; first < region.boundary_ids.size(); ++first)
+          if (std::find(region.boundary_ids.begin() + first + 1,
+                        region.boundary_ids.end(),
+                        region.boundary_ids[first]) != region.boundary_ids.end())
+            return true;
+        return false;
+      };
+      const auto state_fixed_policy = selected_policy(
+        specification.formulation.state_variable_id,
+        RequirementKind::fixed_dirichlet);
+      const auto p53_observations = [&specification]() {
+        std::vector<const ObservationSpec *> observations;
+        for (const auto &observation : specification.observations)
+          if (observation.kind == ObservationKind::point_sensor ||
+              observation.kind == ObservationKind::normal_flux)
+            observations.push_back(&observation);
+        return observations;
+      }();
+      if (!p53_observations.empty() &&
+          state_fixed_policy != specification.requirement_policies.end())
+        {
+          const auto fixed_region = find_region(state_fixed_policy->region_id);
+          if (fixed_region != specification.regions.end() &&
+              has_duplicate_boundary_ids(*fixed_region))
+            report.add(
+              DiagnosticCategory::structural,
+              fixed_region->id,
+              "p53_fixed_dirichlet_boundary_ids",
+              "Declare every fixed-Dirichlet boundary id exactly once.");
+
+          for (const auto *observation : p53_observations)
+            if (observation->kind == ObservationKind::normal_flux)
+              {
+                const auto observed_region =
+                  find_region(observation->region_id);
+                if (observed_region != specification.regions.end())
+                  {
+                    if (has_duplicate_boundary_ids(*observed_region))
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observed_region->id,
+                        "p53_normal_flux_boundary_ids",
+                        "Declare every normal-flux boundary id exactly once.");
+                    if (fixed_region != specification.regions.end() &&
+                        std::any_of(
+                          observed_region->boundary_ids.begin(),
+                          observed_region->boundary_ids.end(),
+                          [&fixed_region](const unsigned int boundary_id) {
+                            return std::find(fixed_region->boundary_ids.begin(),
+                                              fixed_region->boundary_ids.end(),
+                                              boundary_id) ==
+                                   fixed_region->boundary_ids.end();
+                          }))
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation->id,
+                        "normal_flux_fixed_boundary_subset",
+                        "Declare every normal-flux boundary id inside the selected fixed-Dirichlet boundary region.");
+                  }
+              }
+        }
+      const auto validate_transposition_selection =
+        [&specification, &find_space, &residual_data_id, &report](
+          const RequirementPolicySpec &policy,
+          const std::string &           expected_observation_id,
+          const bool                    require_equivalence) {
+          if (!policy.typed_transposition_selection)
+            {
+              report.add(DiagnosticCategory::analytical_policy,
+                         policy.subject_id,
+                         "transposition_strong_space",
+                         "Declare the typed strong/very-weak transposition selection.");
+              return;
+            }
+          const auto &selection = *policy.typed_transposition_selection;
+          const auto strong_space = find_space(selection.strong_space_id);
+          if (selection.id != policy.id ||
+              selection.subject_equation_id != policy.subject_id ||
+              strong_space == specification.spaces.end() ||
+              strong_space->topology != SpaceTopology::h2)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_strong_space",
+                         "Reference the registered H2 cap H1_0 strong transposition space.");
+              return;
+            }
+          if (selection.isomorphism_id != "dirichlet_laplacian_isomorphism" ||
+              selection.operator_realisation !=
+                TranspositionOperatorRealisation::
+                  scalar_diffusion_reaction_dirichlet_laplacian)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_isomorphism",
+                         "Select the registered diffusion-reaction Dirichlet-Laplacian isomorphism.");
+              return;
+            }
+          const auto expected_diffusion_data_id =
+            residual_data_id(DataRole::diffusion);
+          const auto expected_reaction_data_id =
+            residual_data_id(DataRole::reaction);
+          if (selection.diffusion_data_id != expected_diffusion_data_id)
+            report.add(
+              DiagnosticCategory::structural,
+              policy.subject_id,
+              "transposition_diffusion_data",
+              "Bind the transposition operator to the diffusion data port selected by the residual, or leave it empty for the normalized Laplacian.");
+          if (selection.reaction_data_id != expected_reaction_data_id)
+            report.add(
+              DiagnosticCategory::structural,
+              policy.subject_id,
+              "transposition_reaction_data",
+              "Bind the transposition operator to the reaction data port selected by the residual, or leave it empty for the normalized Laplacian.");
+          const auto range_space = find_space(selection.operator_range_space_id);
+          const auto residual_space =
+            find_space(selection.residual_codomain_space_id);
+          const auto multiplier_space = find_space(selection.multiplier_space_id);
+          if (range_space == specification.spaces.end() ||
+              range_space->topology != SpaceTopology::l2 ||
+              residual_space == specification.spaces.end() ||
+              residual_space->topology != SpaceTopology::l2)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_residual_codomain",
+                         "Reference the declared L2 operator range and residual codomain spaces.");
+              return;
+            }
+          if (multiplier_space == specification.spaces.end() ||
+              multiplier_space->topology != SpaceTopology::l2)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_multiplier_space",
+                         "Reference the declared L2 multiplier space.");
+              return;
+            }
+          const auto observation = std::find_if(
+            specification.observations.begin(),
+            specification.observations.end(),
+            [&expected_observation_id](const ObservationSpec &candidate) {
+              return candidate.id == expected_observation_id;
+            });
+          const auto source_space = find_space(selection.transpose_source_space_id);
+          if (selection.observation_id != expected_observation_id ||
+              observation == specification.observations.end() ||
+              source_space == specification.spaces.end() ||
+              selection.transpose_source_space_id != observation->output_space_id)
+            {
+              report.add(DiagnosticCategory::structural,
+                         policy.subject_id,
+                         "transposition_observation_source",
+                         "Bind the transposition source to the selected observation output space.");
+              return;
+            }
+          const auto regularity = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&selection](const RequirementPolicySpec &candidate) {
+              return candidate.id == selection.domain_regularity_policy_id &&
+                     candidate.kind == RequirementKind::domain_regularity &&
+                     candidate.status == RequirementStatus::user_assumed &&
+                     !candidate.selected_policy.empty();
+            });
+          if (regularity == specification.requirement_policies.end())
+            {
+              report.add(DiagnosticCategory::analytical_policy,
+                         policy.subject_id,
+                         "transposition_domain_regularity",
+                         "Reference the model-author domain-regularity assumption for the transposition.");
+              return;
+            }
+          if (selection.discrete_realisation ==
+              TranspositionDiscreteRealisation::unspecified)
+            {
+              report.add(DiagnosticCategory::analytical_policy,
+                         policy.subject_id,
+                         "transposition_discrete_realisation",
+                         "Select the registered discrete transposition realization.");
+              return;
+            }
+          if (require_equivalence &&
+              (selection.continuous_parent_space_id.empty() ||
+               selection.conforming_trace_space_id.empty() ||
+               selection.equivalence_policy_id.empty() ||
+               selection.conormal_policy_id.empty() ||
+               find_space(selection.continuous_parent_space_id) ==
+                 specification.spaces.end() ||
+               find_space(selection.continuous_parent_space_id)->topology !=
+                 SpaceTopology::l2 ||
+               find_space(selection.conforming_trace_space_id) ==
+                 specification.spaces.end() ||
+               find_space(selection.conforming_trace_space_id)->topology !=
+                 SpaceTopology::hhalf ||
+               std::find_if(
+                 specification.requirement_policies.begin(),
+                 specification.requirement_policies.end(),
+                 [&selection](const RequirementPolicySpec &candidate) {
+                   return candidate.id == selection.equivalence_policy_id &&
+                          candidate.kind ==
+                            RequirementKind::conforming_trace_subspace &&
+                          candidate.status ==
+                            RequirementStatus::selected_discrete_realisation &&
+                          candidate.scope == RequirementScope::discrete_compilation;
+                 }) == specification.requirement_policies.end() ||
+               std::find_if(
+                 specification.requirement_policies.begin(),
+                 specification.requirement_policies.end(),
+                 [&selection](const RequirementPolicySpec &candidate) {
+                   return candidate.id == selection.conormal_policy_id &&
+                          candidate.kind == RequirementKind::conormal_flux &&
+                          candidate.status ==
+                            RequirementStatus::selected_discrete_realisation &&
+                          candidate.scope == RequirementScope::discrete_compilation;
+                 }) == specification.requirement_policies.end() ||
+               selection.equivalence_realisation !=
+                 TranspositionEquivalenceRealisation::
+                   conforming_lifting_variational_equivalence))
+            report.add(DiagnosticCategory::structural,
+                       policy.subject_id,
+                       "transposition_equivalence",
+                       "Declare the conforming trace parent, variational equivalence, and lifting-pullback conormal.");
+        };
+
+      for (const auto &variable : specification.variables)
+        if (variable.role == VariableRole::state)
+          {
+            const bool has_fixed_dirichlet =
+              has_policy(variable.id, RequirementKind::fixed_dirichlet);
+            const bool has_controlled_dirichlet =
+              has_policy(variable.id, RequirementKind::controlled_dirichlet);
+            const bool has_mean_zero_multiplier =
+              has_policy(variable.id, RequirementKind::mean_zero_multiplier);
+            const unsigned int uniqueness_policies =
+              static_cast<unsigned int>(has_fixed_dirichlet) +
+              static_cast<unsigned int>(has_controlled_dirichlet) +
+              static_cast<unsigned int>(has_mean_zero_multiplier);
+            if (uniqueness_policies == 0)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                variable.id,
+                "state_uniqueness_realisation",
+                "Declare one selected fixed-Dirichlet, controlled-Dirichlet, or mean-zero multiplier policy.");
+            if (uniqueness_policies > 1)
+              report.add(
+                DiagnosticCategory::structural,
+                variable.id,
+                "state_uniqueness_policy_conflict",
+                "Select exactly one state uniqueness policy for the declared residual.");
+          }
+
+      const bool has_transposition_state_action = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const ResidualTermSpec &term) {
+          return term.kind == ResidualTermKind::transposition_laplacian;
+        });
+      const bool has_transposition_boundary_action = std::any_of(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const ResidualTermSpec &term) {
+          return term.kind ==
+                 ResidualTermKind::dirichlet_transposition_control;
+        });
+      if (has_transposition_state_action || has_transposition_boundary_action)
+        {
+          const auto state = std::find_if(
+            specification.variables.begin(),
+            specification.variables.end(),
+            [&specification](const VariableSpec &candidate) {
+              return candidate.id == specification.formulation.state_variable_id;
+            });
+          const auto control = std::find_if(
+            specification.variables.begin(),
+            specification.variables.end(),
+            [&specification](const VariableSpec &candidate) {
+              return candidate.id == specification.formulation.control_variable_id;
+            });
+          const auto equation = std::find_if(
+            specification.equations.begin(),
+            specification.equations.end(),
+            [&specification](const EquationBlockSpec &candidate) {
+              return candidate.id == specification.formulation.equation_id;
+            });
+          const auto state_space = state == specification.variables.end()
+                                     ? specification.spaces.end()
+                                     : std::find_if(
+                                         specification.spaces.begin(),
+                                         specification.spaces.end(),
+                                         [&state](const SpaceSpec &candidate) {
+                                           return candidate.id == state->space_id;
+                                         });
+          const auto control_space = control == specification.variables.end()
+                                       ? specification.spaces.end()
+                                       : std::find_if(
+                                           specification.spaces.begin(),
+                                           specification.spaces.end(),
+                                           [&control](const SpaceSpec &candidate) {
+                                             return candidate.id == control->space_id;
+                                           });
+          const auto test_space = equation == specification.equations.end()
+                                    ? specification.spaces.end()
+                                    : std::find_if(
+                                        specification.spaces.begin(),
+                                        specification.spaces.end(),
+                                        [&equation](const SpaceSpec &candidate) {
+                                          return candidate.id ==
+                                                 equation->test_space_id;
+                                        });
+          if (!has_transposition_state_action ||
+              !has_transposition_boundary_action ||
+              state_space == specification.spaces.end() ||
+              state_space->topology != SpaceTopology::l2 ||
+              control_space == specification.spaces.end() ||
+              control_space->topology != SpaceTopology::l2 ||
+              test_space == specification.spaces.end() ||
+              test_space->topology != SpaceTopology::h2)
+            report.add(
+              DiagnosticCategory::structural,
+              specification.formulation.equation_id,
+              "transposition_space_topologies",
+              "Declare one L2 state action and one L2 Dirichlet-control action tested in H2 cap H1_0.");
+          if (state != specification.variables.end() &&
+              !state->physical_field_transform_id.empty())
+            report.add(
+              DiagnosticCategory::structural,
+              state->id,
+              "transposition_physical_state",
+              "Declare the L2 very-weak state directly; the conforming lifting is a selected discrete lowerer, not the continuous residual.");
+
+          const auto has_exact_policy = [&specification](
+                                          const std::string &subject,
+                                          const RequirementKind kind,
+                                          const RequirementStatus status,
+                                          const RequirementScope scope) {
+            return std::any_of(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&subject, kind, status, scope](
+                const RequirementPolicySpec &policy) {
+                return policy.subject_id == subject && policy.kind == kind &&
+                       policy.status == status && policy.scope == scope;
+              });
+          };
+          if (!has_exact_policy(specification.formulation.equation_id,
+                                RequirementKind::transposition_formulation,
+                                RequirementStatus::provided,
+                                RequirementScope::continuous_semantics))
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.equation_id,
+              "transposition_formulation_policy",
+              "Declare the provided L2-state/H2-test transposition residual and its boundary pairing.");
+          if (!has_exact_policy(specification.formulation.equation_id,
+                                RequirementKind::domain_regularity,
+                                RequirementStatus::user_assumed,
+                                RequirementScope::continuous_semantics))
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.equation_id,
+              "transposition_domain_regularity",
+              "Declare the model author's domain regularity assumption for the Dirichlet Laplacian isomorphism.");
+          if (control == specification.variables.end() ||
+              !has_exact_policy(control->id,
+                                RequirementKind::conforming_trace_subspace,
+                                RequirementStatus::selected_discrete_realisation,
+                                RequirementScope::discrete_compilation))
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.control_variable_id,
+              "transposition_conforming_trace_subspace",
+              "Select the conforming trace-control subspace before using the variational lifting lowerer.");
+          if (!has_exact_policy(specification.formulation.equation_id,
+                                RequirementKind::conormal_flux,
+                                RequirementStatus::selected_discrete_realisation,
+                                RequirementScope::discrete_compilation))
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.equation_id,
+              "transposition_conormal_policy",
+              "Select the outward discrete conormal as the lifting pullback of the adjoint residual.");
+          const auto transposition_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&specification](const RequirementPolicySpec &policy) {
+              return policy.id == "transposition_formulation" &&
+                     policy.subject_id == specification.formulation.equation_id;
+            });
+          if (transposition_policy != specification.requirement_policies.end() &&
+              transposition_policy->status == RequirementStatus::provided &&
+              transposition_policy->scope ==
+                RequirementScope::continuous_semantics &&
+              has_exact_policy(specification.formulation.equation_id,
+                               RequirementKind::domain_regularity,
+                               RequirementStatus::user_assumed,
+                               RequirementScope::continuous_semantics) &&
+              has_exact_policy(
+                specification.formulation.control_variable_id,
+                RequirementKind::conforming_trace_subspace,
+                RequirementStatus::selected_discrete_realisation,
+                RequirementScope::discrete_compilation) &&
+              has_exact_policy(specification.formulation.equation_id,
+                               RequirementKind::conormal_flux,
+                               RequirementStatus::selected_discrete_realisation,
+                               RequirementScope::discrete_compilation))
+            validate_transposition_selection(
+              *transposition_policy,
+              "control_boundary_restriction",
+              true);
+        }
+
+      for (const auto &metric : specification.metrics)
+        if (metric.kind == MetricKind::hhalf)
+          {
+            const auto variable = std::find_if(
+              specification.variables.begin(),
+              specification.variables.end(),
+              [&metric](const VariableSpec &candidate) {
+                return candidate.id == metric.variable_id;
+              });
+            const auto space = std::find_if(
+              specification.spaces.begin(),
+              specification.spaces.end(),
+              [&variable, &specification](const SpaceSpec &candidate) {
+                return variable != specification.variables.end() &&
+                       candidate.id == variable->space_id;
+              });
+            if (space == specification.spaces.end() ||
+                space->topology != SpaceTopology::hhalf)
+              report.add(
+                DiagnosticCategory::structural,
+                metric.id,
+                "hhalf_metric_search_space",
+                "Declare the selected fractional metric on an H1/2 boundary control space.");
+            const auto fractional_policy = selected_policy(
+              metric.id, RequirementKind::fractional_trace_realisation);
+            if (fractional_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "hhalf_metric_realisation_policy",
+                "Select a discrete spectral, extension, or auxiliary realization for the H1/2 Riesz map.");
+            else if (!fractional_policy->typed_fractional_metric_selection)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "hhalf_metric_realisation_selection",
+                "Declare the typed minimum-extension H1/2 metric selection.");
+            else
+              {
+                const auto &selection =
+                  *fractional_policy->typed_fractional_metric_selection;
+                const auto volume_space = find_space(selection.volume_space_id);
+                if (selection.id != fractional_policy->id ||
+                    selection.metric_id != metric.id ||
+                    variable == specification.variables.end() ||
+                    selection.control_space_id != variable->space_id ||
+                    volume_space == specification.spaces.end() ||
+                    volume_space->topology != SpaceTopology::h1 ||
+                    selection.trace_inclusion_id != "control_trace_inclusion" ||
+                    selection.volume_operator_id !=
+                      "volume_mass_plus_stiffness" ||
+                    selection.apply_policy_id != "minimum_h1_extension" ||
+                    selection.inverse_policy_id !=
+                      "full_volume_operator_inverse" ||
+                    selection.solve_policy_id != "control_metric_solve")
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hhalf_metric_realisation_selection",
+                    "Reference the registered H1/2 trace inclusion, volume operator, inverse, and solve policy.");
+                else if (
+                  selection.operator_realisation !=
+                    FractionalTraceOperatorRealisation::
+                      volume_mass_plus_stiffness_schur ||
+                  selection.apply_realisation !=
+                    FractionalTraceApplyRealisation::minimum_h1_extension ||
+                  selection.inverse_realisation !=
+                    FractionalTraceInverseRealisation::
+                      full_volume_operator_inverse)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hhalf_metric_realisation_selection",
+                    "Select the registered minimum-extension Schur-complement H1/2 metric realization.");
+              }
+          }
+
+      for (const auto &metric : specification.metrics)
+        if (metric.kind == MetricKind::h1)
+          {
+            const auto variable = std::find_if(
+              specification.variables.begin(),
+              specification.variables.end(),
+              [&metric](const VariableSpec &candidate) {
+                return candidate.id == metric.variable_id;
+              });
+            const auto space = std::find_if(
+              specification.spaces.begin(),
+              specification.spaces.end(),
+              [&variable, &specification](const SpaceSpec &candidate) {
+                return variable != specification.variables.end() &&
+                       candidate.id == variable->space_id;
+              });
+            const auto region =
+              space == specification.spaces.end()
+                ? specification.regions.end()
+                : std::find_if(specification.regions.begin(),
+                               specification.regions.end(),
+                               [&space](const RegionSpec &candidate) {
+                                 return candidate.id == space->region_id;
+                               });
+            if (region != specification.regions.end() &&
+                region->kind == RegionKind::boundary)
+              {
+                const auto tangential_policy = selected_policy(
+                  metric.id, RequirementKind::tangential_gradient_realisation);
+                if (tangential_policy == specification.requirement_policies.end())
+                  report.add(
+                    DiagnosticCategory::analytical_policy,
+                    metric.id,
+                    "boundary_h1_metric_tangential_policy",
+                    "Select the boundary mass-plus-tangential-stiffness realization for the H1 trace Riesz map.");
+                else if (!tangential_policy->typed_boundary_h1_metric_selection)
+                  report.add(
+                    DiagnosticCategory::analytical_policy,
+                    metric.id,
+                    "boundary_h1_metric_realisation_selection",
+                    "Declare the typed boundary H1 metric selection.");
+                else
+                  {
+                    const auto &selection =
+                      *tangential_policy->typed_boundary_h1_metric_selection;
+                    if (selection.id != tangential_policy->id ||
+                        selection.metric_id != metric.id ||
+                        variable == specification.variables.end() ||
+                        selection.control_space_id != variable->space_id ||
+                        selection.boundary_region_id != region->id ||
+                        selection.operator_realisation !=
+                          BoundaryH1MetricOperatorRealisation::
+                            boundary_mass_plus_tangential_stiffness ||
+                        selection.tangential_gradient_realisation !=
+                          BoundaryH1TangentialGradientRealisation::
+                            projected_ambient_gradient ||
+                        selection.nullspace_realisation !=
+                          BoundaryH1MetricNullspaceRealisation::
+                            positive_mass_no_nullspace)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        metric.id,
+                        "boundary_h1_metric_realisation_selection",
+                        "Select the registered projected-gradient boundary H1 metric with positive-mass nullspace policy.");
+                  }
+              }
+          }
+
+      for (const auto &metric : specification.metrics)
+        if (metric.kind == MetricKind::hminus1)
+          {
+            const auto variable = std::find_if(
+              specification.variables.begin(),
+              specification.variables.end(),
+              [&metric](const VariableSpec &candidate) {
+                return candidate.id == metric.variable_id;
+              });
+            const auto space = std::find_if(
+              specification.spaces.begin(),
+              specification.spaces.end(),
+              [&specification, variable](const SpaceSpec &candidate) {
+                return variable != specification.variables.end() &&
+                       candidate.id == variable->space_id;
+              });
+            if (space == specification.spaces.end() ||
+                space->topology != SpaceTopology::h1)
+              report.add(
+                DiagnosticCategory::structural,
+                metric.id,
+                "hminus1_metric_search_space",
+                "Declare the selected H-1 metric on its continuous control search space.");
+
+            const auto boundary_policy = selected_policy(
+              metric.variable_id, RequirementKind::fixed_dirichlet);
+            if (boundary_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "hminus1_metric_boundary_policy",
+                "Declare the selected Dirichlet or mean policy for the H-1 Riesz operator.");
+            else
+              {
+                const auto region = std::find_if(
+                  specification.regions.begin(),
+                  specification.regions.end(),
+                  [&boundary_policy](const RegionSpec &candidate) {
+                    return candidate.id == boundary_policy->region_id;
+                  });
+                if (region == specification.regions.end() ||
+                    region->kind != RegionKind::boundary ||
+                    region->boundary_ids.empty())
+                    report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_dirichlet_region",
+                    "Select a non-empty boundary region for the Dirichlet H-1 Riesz operator.");
+              }
+
+            const auto metric_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&metric](const RequirementPolicySpec &policy) {
+                return policy.subject_id == metric.id &&
+                       policy.kind == RequirementKind::metric_realisation;
+              });
+            if (metric_policy == specification.requirement_policies.end() ||
+                metric_policy->status !=
+                  RequirementStatus::selected_discrete_realisation ||
+                metric_policy->scope != RequirementScope::discrete_compilation ||
+                !metric_policy->typed_metric_selection)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                metric.id,
+                "hminus1_metric_realisation",
+                "Select the typed discrete H-1 operator, inverse, boundary, and solve realization.");
+            else
+              {
+                const auto &selection = *metric_policy->typed_metric_selection;
+                const auto pairing = std::find_if(
+                  specification.pairings.begin(), specification.pairings.end(),
+                  [&metric](const PairingSpec &candidate) {
+                    return candidate.id == metric.pairing_id;
+                  });
+                const auto control = std::find_if(
+                  specification.variables.begin(), specification.variables.end(),
+                  [&metric](const VariableSpec &candidate) {
+                    return candidate.id == metric.variable_id;
+                  });
+                if (selection.id !=
+                      "hminus1_metric_mass_laplacian_inverse_mass" ||
+                    selection.metric_id != metric.id ||
+                    control == specification.variables.end() ||
+                    selection.primal_space_id != control->space_id ||
+                    selection.dual_space_id != control->space_id ||
+                    pairing == specification.pairings.end() ||
+                    selection.mass_pairing_id != pairing->id ||
+                    selection.laplacian_pairing_id != pairing->id)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_operator",
+                    "Select the registered M K^{-1} M operator with the control pairing on both actions.");
+                if (selection.operator_realisation !=
+                    Hminus1MetricOperatorRealisation::mass_laplacian_inverse_mass)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_operator",
+                    "Select the registered mass-laplacian-inverse-mass realization.");
+                if (selection.inverse_realisation !=
+                    Hminus1MetricInverseRealisation::mass_inverse_laplacian_mass_inverse)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_inverse",
+                    "Select the registered mass-inverse-laplacian-mass-inverse action sequence.");
+                if (selection.nullspace_realisation !=
+                    Hminus1MetricNullspaceRealisation::fixed_dirichlet_no_nullspace)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_nullspace",
+                    "Select the fixed-Dirichlet no-nullspace H-1 realization.");
+                if (selection.laplacian_solve_policy_id !=
+                      "control_metric_solve.laplacian_inverse" ||
+                    selection.mass_solve_policy_id !=
+                      "control_metric_solve.mass_inverse")
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_metric_solve_policy",
+                    "Reference the selected control metric solve policy for every H-1 inverse action.");
+                if (boundary_policy != specification.requirement_policies.end() &&
+                    selection.fixed_boundary_region_id != boundary_policy->region_id)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    metric.id,
+                    "hminus1_control_boundary",
+                    "Use the same fixed control boundary region selected by the H-1 search-space policy.");
+              }
+          }
+
+      const auto control_variable = std::find_if(
+        specification.variables.begin(), specification.variables.end(),
+        [&specification](const VariableSpec &candidate) {
+          return candidate.id == specification.formulation.control_variable_id;
+        });
+      const auto control_space = std::find_if(
+        specification.spaces.begin(), specification.spaces.end(),
+        [&specification, &control_variable](const SpaceSpec &candidate) {
+          return control_variable != specification.variables.end() &&
+                 candidate.id == control_variable->space_id;
+        });
+      const bool p52_continuous_control =
+        has_policy(specification.formulation.metric_id,
+                   RequirementKind::metric_realisation) ||
+        (control_space != specification.spaces.end() &&
+         control_space->topology == SpaceTopology::h1 &&
+         std::any_of(specification.observations.begin(),
+                     specification.observations.end(),
+                     [](const ObservationSpec &observation) {
+                       return observation.kind ==
+                              ObservationKind::h1_state_restriction;
+                     }));
+      if (p52_continuous_control && control_variable != specification.variables.end())
+        {
+          const auto control_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [&control_variable](const RequirementPolicySpec &policy) {
+              return policy.subject_id == control_variable->id &&
+                     policy.kind == RequirementKind::fixed_dirichlet;
+            });
+          const auto state_policy = selected_policy(
+            specification.formulation.state_variable_id,
+            RequirementKind::fixed_dirichlet);
+          if (control_policy == specification.requirement_policies.end() ||
+              control_policy->status !=
+                RequirementStatus::selected_discrete_realisation ||
+              control_policy->scope != RequirementScope::both)
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              control_variable->id,
+              "continuous_control_boundary_policy",
+              "Select the homogeneous continuous-control boundary in both semantic and discrete scopes.");
+          else
+            {
+              const auto region = std::find_if(
+                specification.regions.begin(), specification.regions.end(),
+                [&control_policy](const RegionSpec &candidate) {
+                  return candidate.id == control_policy->region_id;
+                });
+              if (region == specification.regions.end() ||
+                  region->kind != RegionKind::boundary ||
+                  region->boundary_ids.empty())
+                report.add(
+                  DiagnosticCategory::structural,
+                  control_variable->id,
+                  "continuous_control_boundary_region",
+                  "Select a non-empty boundary region for homogeneous continuous control.");
+              if (state_policy != specification.requirement_policies.end() &&
+                  control_policy->region_id != state_policy->region_id)
+                report.add(
+                  DiagnosticCategory::structural,
+                  control_variable->id,
+                  "continuous_control_boundary_match",
+                  "Use the same fixed boundary region for the state and continuous control.");
+            }
+        }
+
+      const bool partial_dirichlet_context =
+        std::any_of(specification.requirement_policies.begin(),
+                    specification.requirement_policies.end(),
+                    [](const RequirementPolicySpec &policy) {
+                      return policy.id == "partial_dirichlet_boundary_partition";
+                    }) ||
+        std::any_of(specification.regions.begin(),
+                    specification.regions.end(),
+                    [](const RegionSpec &region) {
+                      return region.id == "fixed_dirichlet_boundary";
+                    });
+      if (partial_dirichlet_context)
+        {
+          const auto partition_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [](const RequirementPolicySpec &policy) {
+              return policy.id == "partial_dirichlet_boundary_partition" &&
+                     policy.kind == RequirementKind::boundary_partition;
+            });
+          if (partition_policy == specification.requirement_policies.end() ||
+              partition_policy->status !=
+                RequirementStatus::selected_discrete_realisation ||
+              partition_policy->scope != RequirementScope::both)
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.state_variable_id,
+              "partial_dirichlet_partition_policy",
+              "Select the typed fixed/controlled boundary partition in both semantic and discrete scopes.");
+          else if (!partition_policy->typed_partial_boundary_selection)
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              specification.formulation.state_variable_id,
+              "partial_dirichlet_partition_policy",
+              "Declare the typed fixed/controlled boundary partition selection.");
+          else
+            {
+              const auto &selection =
+                *partition_policy->typed_partial_boundary_selection;
+              const auto fixed_region =
+                find_region(selection.fixed_boundary_region_id);
+              const auto controlled_region =
+                find_region(selection.controlled_boundary_region_id);
+              if (selection.id != partition_policy->id ||
+                  selection.subject_id != specification.formulation.state_variable_id ||
+                  selection.transformation_id != "dirichlet_control_lifting" ||
+                  fixed_region == specification.regions.end() ||
+                  controlled_region == specification.regions.end() ||
+                  fixed_region->kind != RegionKind::boundary ||
+                  controlled_region->kind != RegionKind::boundary ||
+                  fixed_region->boundary_ids.empty() ||
+                  controlled_region->boundary_ids.empty() ||
+                  selection.fixed_boundary_region_id ==
+                    selection.controlled_boundary_region_id ||
+                  !selection.requires_complete_exterior ||
+                  !selection.requires_disjoint_regions)
+                report.add(
+                  DiagnosticCategory::structural,
+                  specification.formulation.state_variable_id,
+                  "partial_dirichlet_partition_policy",
+                  "Reference non-empty, disjoint fixed and controlled boundary regions with complete-exterior intent.");
+              else if (
+                selection.interface_realisation !=
+                  PartialDirichletInterfaceRealisation::fixed_data_precedence ||
+                selection.trace_realisation !=
+                  PartialDirichletTraceRealisation::
+                    relative_interior_nodal_zero_endpoint ||
+                selection.hanging_realisation !=
+                  PartialDirichletHangingRealisation::unsupported)
+                report.add(
+                  DiagnosticCategory::structural,
+                  specification.formulation.state_variable_id,
+                  "partial_dirichlet_interface_selection",
+                  "Select fixed-data precedence, relative-interior zero-endpoint trace, and rejected hanging relations.");
+            }
+          const auto interface_policy = std::find_if(
+            specification.requirement_policies.begin(),
+            specification.requirement_policies.end(),
+            [](const RequirementPolicySpec &policy) {
+              return policy.id == "partial_dirichlet_interface_policy" &&
+                     policy.subject_id == "dirichlet_control_lifting";
+            });
+          if (interface_policy == specification.requirement_policies.end() ||
+              interface_policy->status !=
+                RequirementStatus::selected_discrete_realisation ||
+              interface_policy->scope != RequirementScope::discrete_compilation ||
+              interface_policy->region_id != "control_boundary")
+            report.add(
+              DiagnosticCategory::analytical_policy,
+              "dirichlet_control_lifting",
+              "partial_dirichlet_interface_selection",
+              "Select the fixed-data interface ownership and zero-endpoint controlled trace policy.");
+        }
+
+      for (const auto &observation : specification.observations)
+        if (observation.kind == ObservationKind::h1_state_restriction)
+          {
+            const auto target_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [](const RequirementPolicySpec &policy) {
+                return policy.subject_id == "desired_state" &&
+                       policy.kind == RequirementKind::target_data_membership;
+              });
+            if (target_policy == specification.requirement_policies.end() ||
+                target_policy->status != RequirementStatus::user_assumed ||
+                target_policy->scope != RequirementScope::continuous_semantics ||
+                !target_policy->typed_h1_target_data_membership_selection)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                "desired_state",
+                "h1_target_space_membership",
+                "Declare the model-author H1 target-space membership assumption with user-assumed continuous semantics.");
+            else
+              {
+                const auto &selection =
+                  *target_policy->typed_h1_target_data_membership_selection;
+                const auto observation_space =
+                  find_space(observation.output_space_id);
+                if (selection.id != target_policy->id ||
+                    selection.data_id != "desired_state" ||
+                    selection.observation_space_id !=
+                      observation.output_space_id ||
+                    observation_space == specification.spaces.end() ||
+                    observation_space->topology != SpaceTopology::h1 ||
+                    selection.regularity_realisation !=
+                      H1TargetDataRegularityRealisation::
+                        h1_value_and_weak_gradient)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    "desired_state",
+                    "h1_target_space_membership",
+                    "Bind the H1 target assumption to desired_state, the H1 observation space, and value/weak-gradient data.");
+                else
+                  {
+                    const auto fixed_policy = std::find_if(
+                      specification.requirement_policies.begin(),
+                      specification.requirement_policies.end(),
+                      [&specification](const RequirementPolicySpec &policy) {
+                        return policy.subject_id ==
+                                 specification.formulation.state_variable_id &&
+                               (policy.kind == RequirementKind::fixed_dirichlet ||
+                                policy.kind ==
+                                  RequirementKind::controlled_dirichlet);
+                      });
+                    const auto boundary =
+                      find_region(selection.fixed_boundary_region_id);
+                    if (fixed_policy == specification.requirement_policies.end() ||
+                        selection.fixed_boundary_region_id != fixed_policy->region_id ||
+                        boundary == specification.regions.end() ||
+                        boundary->kind != RegionKind::boundary ||
+                        boundary->boundary_ids.empty() ||
+                        selection.trace_realisation !=
+                          H1TargetDataTraceRealisation::
+                            zero_trace_on_fixed_boundary)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        "desired_state",
+                        "h1_target_zero_trace",
+                        "Bind the H1 target assumption to the selected fixed boundary and declare zero trace there.");
+                  }
+              }
+          }
+
+      for (const auto &datum : specification.data)
+        if ((datum.role == DataRole::desired_state ||
+             datum.role == DataRole::observation_weight) &&
+            !has_policy(datum.id,
+                        RequirementKind::analytic_quadrature_evaluation))
+          report.add(DiagnosticCategory::analytical_policy,
+                     datum.id,
+                     datum.role == DataRole::desired_state
+                       ? "desired_state_data_rule"
+                       : "observation_weight_data_rule",
+                     datum.role == DataRole::desired_state
+                       ? "Declare the analytic quadrature target-data realization."
+                       : "Declare the analytic quadrature observation-weight realization.");
+
+      for (const auto &datum : specification.data)
+        if (datum.role == DataRole::observation_weight)
+          {
+            const auto boundedness = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&datum](const RequirementPolicySpec &policy) {
+                return policy.subject_id == datum.id &&
+                       policy.kind ==
+                         RequirementKind::coefficient_regularity &&
+                       (policy.status == RequirementStatus::provided ||
+                        policy.status == RequirementStatus::user_assumed) &&
+                       !policy.selected_policy.empty();
+              });
+            if (boundedness == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                datum.id,
+                "observation_weight_boundedness",
+                "Declare the model author's L-infinity assumption for the boundary observation weight.");
+          }
+
+      for (const auto &loss : specification.losses)
+        if (loss.kind == LossKind::quadratic_tracking)
+          {
+            const auto observation = std::find_if(
+              specification.observations.begin(),
+              specification.observations.end(),
+              [&loss](const ObservationSpec &candidate) {
+                return candidate.id == loss.source_observation_id;
+              });
+            const auto datum = std::find_if(
+              specification.data.begin(), specification.data.end(),
+              [&loss](const DataSpec &candidate) {
+                return candidate.id == loss.data_id;
+              });
+            if (observation == specification.observations.end() ||
+                datum == specification.data.end() ||
+                datum->role != DataRole::desired_state)
+              continue;
+            const auto policy = selected_policy(
+              datum->id, RequirementKind::analytic_quadrature_evaluation);
+            if (policy != specification.requirement_policies.end() &&
+                policy->region_id != observation->region_id)
+              report.add(DiagnosticCategory::structural,
+                         loss.id,
+                         "tracking_target_data_region",
+                         "Declare the selected target-data realization on the tracking observation region.");
+          }
+
+      for (const auto &observation : specification.observations)
+        if (observation.kind == ObservationKind::point_sensor)
+          {
+            if (!has_policy(observation.id,
+                            RequirementKind::analytic_quadrature_evaluation))
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                observation.id,
+                "point_sensor_evaluation_policy",
+                "Declare the physical point-evaluation and finite-dimensional transpose rule for the sensor map.");
+            const auto point_transposition_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&specification](const RequirementPolicySpec &policy) {
+                return policy.subject_id == specification.formulation.equation_id &&
+                       policy.kind == RequirementKind::transposition_formulation;
+              });
+            if (point_transposition_policy ==
+                  specification.requirement_policies.end() ||
+                point_transposition_policy->status != RequirementStatus::provided ||
+                point_transposition_policy->scope !=
+                  RequirementScope::continuous_semantics)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                specification.formulation.equation_id,
+                "point_sensor_transposition_policy",
+                "Declare the strong state space, transposition map, residual codomain, and very-weak adjoint policy for point sensors.");
+            else
+              validate_transposition_selection(
+                *point_transposition_policy, observation.id, false);
+            if (std::find_if(
+                  specification.requirement_policies.begin(),
+                  specification.requirement_policies.end(),
+                  [&specification](const RequirementPolicySpec &policy) {
+                    return policy.subject_id == specification.formulation.equation_id &&
+                           policy.kind == RequirementKind::domain_regularity &&
+                           policy.status == RequirementStatus::user_assumed &&
+                           !policy.selected_policy.empty();
+                  }) == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                specification.formulation.equation_id,
+                "point_sensor_domain_regularity",
+                "Declare the model author's domain regularity assumption for point evaluation and the very-weak adjoint.");
+          }
+
+      for (const auto &observation : specification.observations)
+        if (observation.kind == ObservationKind::weighted_boundary_trace &&
+            observation.data_ids.size() == 1)
+          {
+            const auto policy = selected_policy(
+              observation.data_ids.front(),
+              RequirementKind::analytic_quadrature_evaluation);
+            if (policy != specification.requirement_policies.end() &&
+                policy->region_id != observation.region_id)
+              report.add(
+                DiagnosticCategory::structural,
+                observation.id,
+                "weighted_boundary_trace_data_region",
+                "Evaluate the fixed observation weight on the weighted trace region.");
+          }
+
+      for (const auto &constraint : specification.constraints)
+        if (!has_policy(constraint.id,
+                        constraint.kind == ConstraintKind::facewise_box
+                          ? RequirementKind::discrete_facewise_bounds
+                          : RequirementKind::discrete_cellwise_bounds))
+          report.add(DiagnosticCategory::analytical_policy,
+                     constraint.id,
+                     constraint.kind == ConstraintKind::facewise_box
+                       ? "facewise_bound_realisation"
+                       : "cellwise_bound_realisation",
+                     constraint.kind == ConstraintKind::facewise_box
+                       ? "Declare the facewise-constant coefficientwise bound policy."
+                       : "Declare the FE_DGQ(0) coefficientwise bound policy.");
+
+      const auto tensor_diffusion = std::find_if(
+        specification.residual_terms.begin(),
+        specification.residual_terms.end(),
+        [](const ResidualTermSpec &term) {
+          return term.kind == ResidualTermKind::tensor_diffusion;
+        });
+      if (tensor_diffusion != specification.residual_terms.end())
+        {
+          const auto declared_assumption = [&specification](
+                                             const std::string &subject,
+                                             const RequirementKind kind) {
+            return std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&subject, kind](const RequirementPolicySpec &policy) {
+                return policy.subject_id == subject && policy.kind == kind &&
+                       (policy.status == RequirementStatus::provided ||
+                        policy.status == RequirementStatus::user_assumed) &&
+                       !policy.selected_policy.empty();
+              });
+          };
+          const std::string diffusion_data_id =
+            tensor_diffusion->data_ids.empty() ? std::string{} :
+                                                 tensor_diffusion->data_ids.front();
+          if (declared_assumption(diffusion_data_id,
+                                  RequirementKind::uniform_ellipticity) ==
+              specification.requirement_policies.end())
+            report.add(DiagnosticCategory::analytical_policy,
+                       diffusion_data_id,
+                       "uniform_ellipticity_assumption",
+                       "Declare the model author's uniform-ellipticity assumption for the tensor diffusion data.");
+          if (declared_assumption(tensor_diffusion->equation_id,
+                                  RequirementKind::coefficient_regularity) ==
+              specification.requirement_policies.end())
+            report.add(DiagnosticCategory::analytical_policy,
+                       tensor_diffusion->equation_id,
+                       "scalar_coefficient_regularity_assumption",
+                       "Declare the regularity assumptions for all scalar operator coefficients.");
+          if (declared_assumption(tensor_diffusion->equation_id,
+                                  RequirementKind::coercivity) ==
+              specification.requirement_policies.end())
+            report.add(DiagnosticCategory::analytical_policy,
+                       tensor_diffusion->equation_id,
+                       "scalar_coercivity_assumption",
+                       "Declare the model author's coercivity assumption for the composed scalar form.");
+          const auto state = std::find_if(
+            specification.variables.begin(),
+            specification.variables.end(),
+            [](const VariableSpec &variable) {
+              return variable.role == VariableRole::state;
+            });
+          if (state != specification.variables.end())
+            {
+              const auto boundary_partition = std::find_if(
+                specification.requirement_policies.begin(),
+                specification.requirement_policies.end(),
+                [&state](const RequirementPolicySpec &policy) {
+                  return policy.subject_id == state->id &&
+                         policy.kind == RequirementKind::boundary_partition;
+                });
+              if (boundary_partition == specification.requirement_policies.end())
+                report.add(DiagnosticCategory::analytical_policy,
+                           state->id,
+                           "scalar_boundary_partition_policy",
+                           "Declare the selected fixed, natural, and transport boundary partition.");
+              else
+                {
+                  if (boundary_partition->status !=
+                      RequirementStatus::selected_discrete_realisation)
+                    report.add(DiagnosticCategory::analytical_policy,
+                               boundary_partition->id,
+                               "boundary_partition_policy_status",
+                               "Select the registered discrete boundary partition realization.");
+                  if (boundary_partition->scope != RequirementScope::both)
+                    report.add(DiagnosticCategory::analytical_policy,
+                               boundary_partition->id,
+                               "boundary_partition_policy_scope",
+                               "Declare the boundary partition for both continuous semantics and discrete compilation.");
+                  if (!boundary_partition->typed_selection)
+                    report.add(DiagnosticCategory::structural,
+                               boundary_partition->id,
+                               "boundary_partition_selection",
+                               "Attach the typed boundary partition and conormal selection used by the registered target.");
+                  else
+                    {
+                      const auto &selection = *boundary_partition->typed_selection;
+                      const auto region_for = [&specification](
+                                                const std::string &id) {
+                        return std::find_if(
+                          specification.regions.begin(),
+                          specification.regions.end(),
+                          [&id](const RegionSpec &region) {
+                            return region.id == id;
+                          });
+                      };
+                      const auto is_boundary_region =
+                        [&specification](const auto region) {
+                          return region != specification.regions.end() &&
+                                 region->kind == RegionKind::boundary &&
+                                 !region->boundary_ids.empty();
+                        };
+                      const auto fixed_region =
+                        region_for(selection.fixed_dirichlet_region_id);
+                      const auto robin_region =
+                        region_for(selection.robin_region_id);
+                      const auto outflow_region =
+                        region_for(selection.transport_outflow_region_id);
+                      const auto fixed_policy = std::find_if(
+                        specification.requirement_policies.begin(),
+                        specification.requirement_policies.end(),
+                        [&state](const RequirementPolicySpec &policy) {
+                          return policy.subject_id == state->id &&
+                                 policy.kind == RequirementKind::fixed_dirichlet;
+                        });
+                      const auto robin_term = std::find_if(
+                        specification.residual_terms.begin(),
+                        specification.residual_terms.end(),
+                        [](const ResidualTermSpec &term) {
+                          return term.kind == ResidualTermKind::robin_bilinear;
+                        });
+                      if (selection.id.empty() || selection.subject_id != state->id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_selection",
+                                   "Identify the typed boundary selection for the state variable.");
+                      if (selection.id != boundary_partition->id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_selection",
+                                   "Use the boundary policy ID as the typed selection ID.");
+                      if (!is_boundary_region(fixed_region) ||
+                          !is_boundary_region(robin_region))
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_region",
+                                   "Reference non-empty boundary regions for fixed Dirichlet and Robin roles.");
+                      if (fixed_policy == specification.requirement_policies.end() ||
+                          selection.fixed_dirichlet_region_id != fixed_policy->region_id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_fixed_region",
+                                   "Match the typed fixed-Dirichlet region to the selected state policy.");
+                      if (robin_term == specification.residual_terms.end() ||
+                          selection.robin_region_id != robin_term->region_id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_robin_region",
+                                   "Match the typed Robin region to the Robin residual term.");
+                      if (!selection.neumann_region_ids.empty())
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "boundary_partition_neumann_role",
+                                   "Keep the first general scalar registration's Neumann region selection empty.");
+                      if (!selection.transport_inflow_region_ids.empty())
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "transport_inflow_region",
+                                   "Keep the first general scalar registration's transport-inflow selection empty.");
+                      if (!is_boundary_region(outflow_region) ||
+                          selection.transport_outflow_region_id !=
+                            selection.robin_region_id)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "transport_outflow_region",
+                                   "Use the Robin region as the selected natural transport outflow.");
+                      if (selection.conormal_form !=
+                          ConormalForm::diffusion_minus_transport)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "conormal_flux_form",
+                                   "Select the outward (A grad(y) - b y) conormal form.");
+                      if (selection.normal_orientation != NormalOrientation::outward)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "conormal_flux_orientation",
+                                   "Select the outward normal orientation.");
+                      if (selection.trace_realisation !=
+                          TraceEvaluationRealisation::fe_q_state_trace)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "robin_trace_realisation",
+                                   "Select the registered FE_Q state trace realization.");
+                      if (selection.face_quadrature_realisation !=
+                          FaceQuadratureRealisation::qgauss_face)
+                        report.add(DiagnosticCategory::structural,
+                                   boundary_partition->id,
+                                   "robin_face_quadrature",
+                                   "Select the registered face QGauss realization.");
+                    }
+                }
+            }
+
+        }
+
+      for (const auto &term : specification.residual_terms)
+        if (term.kind == ResidualTermKind::neumann_control)
+          {
+            const auto policy = selected_policy(term.id,
+                                                RequirementKind::boundary_trace);
+            if (policy == specification.requirement_policies.end())
+              report.add(DiagnosticCategory::analytical_policy,
+                         term.id,
+                         "neumann_control_trace_realisation",
+                         "Declare the selected Neumann-control trace pairing realization.");
+            else
+              {
+                if (policy->region_id != term.region_id)
+                  report.add(
+                    DiagnosticCategory::structural,
+                    term.id,
+                    "neumann_control_trace_region",
+                    "Declare the Neumann trace policy on its residual boundary region.");
+                if (!policy->typed_neumann_control_selection)
+                  report.add(
+                    DiagnosticCategory::analytical_policy,
+                    term.id,
+                    "neumann_control_discrete_realisation",
+                    "Declare the typed Neumann-control discrete realization.");
+                else
+                  {
+                    const auto &selection =
+                      *policy->typed_neumann_control_selection;
+                    const auto control = std::find_if(
+                      specification.variables.begin(),
+                      specification.variables.end(),
+                      [&specification](const VariableSpec &candidate) {
+                        return candidate.id ==
+                               specification.formulation.control_variable_id;
+                      });
+                    const auto neumann_control_space =
+                      find_space(selection.control_space_id);
+                    const auto metric = std::find_if(
+                      specification.metrics.begin(),
+                      specification.metrics.end(),
+                      [&selection](const MetricSpec &candidate) {
+                        return candidate.id == selection.metric_id;
+                      });
+                    if (selection.id != policy->id ||
+                        control == specification.variables.end() ||
+                        selection.control_variable_id != control->id ||
+                        neumann_control_space == specification.spaces.end() ||
+                        neumann_control_space->id != control->space_id ||
+                        neumann_control_space->role != SpaceRole::control ||
+                        neumann_control_space->topology != SpaceTopology::l2)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        term.id,
+                        "neumann_control_realisation_ports",
+                        "Bind the Neumann realization to the selected L2 control variable and space.");
+                    if (selection.boundary_region_id != term.region_id ||
+                        selection.boundary_region_id != policy->region_id ||
+                        (neumann_control_space != specification.spaces.end() &&
+                         neumann_control_space->region_id !=
+                           selection.boundary_region_id))
+                      report.add(
+                        DiagnosticCategory::structural,
+                        term.id,
+                        "neumann_control_realisation_boundary",
+                        "Bind the Neumann realization to its residual and control-space boundary region.");
+                    if (metric == specification.metrics.end() ||
+                        selection.metric_id !=
+                          specification.formulation.metric_id ||
+                        metric->kind != MetricKind::l2 ||
+                        metric->variable_id != selection.control_variable_id)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        term.id,
+                        "neumann_control_realisation_metric",
+                        "Bind the Neumann realization to the selected control L2 metric.");
+                    if (selection.discretisation ==
+                        NeumannControlDiscretisation::unspecified)
+                      report.add(
+                        DiagnosticCategory::analytical_policy,
+                        term.id,
+                        "neumann_control_discrete_realisation",
+                        "Select facewise constants or a continuous nodal trace.");
+                    if (selection.discretisation ==
+                          NeumannControlDiscretisation::continuous_nodal_trace &&
+                        !specification.formulation.constraint_id.empty())
+                      {
+                        const auto constraint = std::find_if(
+                          specification.constraints.begin(),
+                          specification.constraints.end(),
+                          [&specification](const ConstraintSpec &candidate) {
+                            return candidate.id ==
+                                   specification.formulation.constraint_id;
+                          });
+                        if (constraint != specification.constraints.end() &&
+                            constraint->kind == ConstraintKind::facewise_box)
+                          report.add(
+                            DiagnosticCategory::structural,
+                            constraint->id,
+                            "continuous_neumann_control_facewise_box",
+                            "Do not combine continuous nodal-trace Neumann control with facewise bounds.");
+                      }
+                  }
+              }
+          }
+
+      for (const auto &observation : specification.observations)
+        if (observation.kind == ObservationKind::boundary_trace ||
+            observation.kind == ObservationKind::weighted_boundary_trace)
+          {
+            const auto policy = selected_policy(observation.id,
+                                                RequirementKind::boundary_trace);
+            if (policy == specification.requirement_policies.end())
+              report.add(DiagnosticCategory::analytical_policy,
+                         observation.id,
+                         observation.kind == ObservationKind::weighted_boundary_trace
+                           ? "weighted_trace_realisation"
+                           : "boundary_trace_realisation",
+                         observation.kind == ObservationKind::weighted_boundary_trace
+                           ? "Declare the typed weighted boundary-trace observation realization."
+                           : "Declare the selected boundary-trace observation realization.");
+            else if (policy->region_id != observation.region_id)
+              report.add(DiagnosticCategory::structural,
+                         observation.id,
+                         "boundary_trace_region",
+                         "Declare the trace policy on the observation boundary region.");
+            else if (observation.kind == ObservationKind::weighted_boundary_trace)
+              {
+                if (policy->scope != RequirementScope::discrete_compilation ||
+                    !policy->typed_trace_selection)
+                  report.add(
+                    DiagnosticCategory::analytical_policy,
+                    observation.id,
+                    "weighted_trace_realisation",
+                    "Declare the typed weighted trace selection in the discrete compilation scope.");
+                else
+                  {
+                    const auto &selection = *policy->typed_trace_selection;
+                    const auto input = std::find_if(
+                      specification.variables.begin(), specification.variables.end(),
+                      [&observation](const VariableSpec &candidate) {
+                        return candidate.id == observation.input_variable_id;
+                      });
+                    if (selection.id !=
+                          "weighted_state_boundary_trace_fe_qgauss" ||
+                        input == specification.variables.end() ||
+                        selection.source_space_id != input->space_id ||
+                        selection.output_space_id != observation.output_space_id ||
+                        selection.region_id != observation.region_id ||
+                        observation.data_ids.size() != 1 ||
+                        selection.weight_data_id != observation.data_ids.front() ||
+                        selection.pairing_id != observation.output_pairing_id)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_realisation",
+                        "Bind the weighted trace to its state space, output pairing, boundary, and immutable weight datum.");
+                    if (selection.trace_realisation !=
+                        TraceEvaluationRealisation::fe_q_state_trace)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_trace_rule",
+                        "Select the FE_Q state-trace realization for the weighted observation.");
+                    if (selection.face_quadrature_realisation !=
+                        FaceQuadratureRealisation::qgauss_face)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_quadrature",
+                        "Select the face QGauss realization for the weighted observation.");
+                    if (selection.weight_realisation !=
+                        TraceWeightRealisation::scalar_pointwise_multiplication)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_weight_rule",
+                        "Select scalar pointwise multiplication by the immutable observation weight.");
+                    if (selection.pairing_realisation !=
+                        TracePairingRealisation::face_quadrature_weights)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_pairing_rule",
+                        "Select the matching face-quadrature observation pairing.");
+                    if (selection.transpose_realisation !=
+                        TraceTransposeRealisation::same_face_quadrature_pullback)
+                      report.add(
+                        DiagnosticCategory::structural,
+                        observation.id,
+                        "weighted_trace_transpose_realisation",
+                        "Select the same face-quadrature trace and weight pullback for the transpose.");
+                  }
+              }
+          }
+        else if (observation.kind == ObservationKind::normal_flux)
+          {
+            const auto flux_policy = selected_policy(
+              observation.id, RequirementKind::conormal_flux);
+            if (flux_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                observation.id,
+                "normal_flux_orientation_policy",
+                "Declare the outward-normal normal-flux convention on the observation boundary.");
+            else if (flux_policy->region_id != observation.region_id)
+              report.add(
+                DiagnosticCategory::structural,
+                observation.id,
+                "normal_flux_orientation_region",
+                "Declare the normal-flux orientation policy on the observation boundary region.");
+
+            const auto evaluation_policy = selected_policy(
+              observation.id, RequirementKind::analytic_quadrature_evaluation);
+            if (evaluation_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                observation.id,
+                "normal_flux_evaluation_policy",
+                "Declare the selected face-quadrature normal-flux evaluation rule.");
+            else if (evaluation_policy->region_id != observation.region_id)
+              report.add(
+                DiagnosticCategory::structural,
+                observation.id,
+                "normal_flux_evaluation_region",
+                "Declare the normal-flux evaluation policy on the observation boundary region.");
+
+            const auto transposition_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&specification](const RequirementPolicySpec &candidate_policy) {
+                return candidate_policy.subject_id ==
+                         specification.formulation.equation_id &&
+                       candidate_policy.kind ==
+                         RequirementKind::transposition_formulation &&
+                       candidate_policy.status == RequirementStatus::provided &&
+                       candidate_policy.scope ==
+                         RequirementScope::continuous_semantics;
+              });
+            if (transposition_policy == specification.requirement_policies.end() ||
+                transposition_policy->status != RequirementStatus::provided ||
+                transposition_policy->scope !=
+                  RequirementScope::continuous_semantics)
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                specification.formulation.equation_id,
+                "normal_flux_transposition_policy",
+                "Declare the strong-state normal-flux adjoint transposition and very-weak formulation.");
+            else
+              validate_transposition_selection(
+                *transposition_policy, observation.id, false);
+
+            const auto regularity_policy = std::find_if(
+              specification.requirement_policies.begin(),
+              specification.requirement_policies.end(),
+              [&specification](const RequirementPolicySpec &candidate_policy) {
+                return candidate_policy.subject_id ==
+                         specification.formulation.equation_id &&
+                       candidate_policy.kind == RequirementKind::domain_regularity &&
+                       candidate_policy.status == RequirementStatus::user_assumed &&
+                       !candidate_policy.selected_policy.empty();
+              });
+            if (regularity_policy == specification.requirement_policies.end())
+              report.add(
+                DiagnosticCategory::analytical_policy,
+                specification.formulation.equation_id,
+                "normal_flux_domain_regularity",
+                "Declare the domain regularity assumption required by the strong normal-flux state and very-weak adjoint.");
+          }
+    }
+} // namespace nmopt::semantic::v1

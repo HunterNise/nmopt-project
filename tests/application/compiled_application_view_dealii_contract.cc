@@ -56,13 +56,13 @@ namespace
                                               std::nullopt,
                                               product);
     require(compilation.succeeded(),
-            "direct volume native application view compilation failed");
+            "direct volume compiled application view compilation failed");
     require(compilation.problem != nullptr,
-            "direct volume native application view has no compiled problem");
+            "direct volume compiled application view has no compiled problem");
 
     const auto *const view = compilation.problem->compiled_application_view();
     require(view != nullptr,
-            "direct volume compilation did not retain a native application view");
+            "direct volume compilation did not retain a compiled application view");
     require(!view->has_objective_components(),
             "direct volume view unexpectedly exposed objective components");
     const auto &dimensions = view->dimensions();
@@ -71,7 +71,7 @@ namespace
               dimensions.physical_control == 4 &&
               dimensions.independent_control == 4 &&
               dimensions.realized_observation == 9,
-            "direct volume native application view retained wrong dimensions");
+            "direct volume compiled application view retained wrong dimensions");
 
     const auto reduced = compilation.problem->make_reduced_dto();
     const nmopt::contract::StateControlPartitionT<Backend> partition(
@@ -90,10 +90,10 @@ namespace
     const auto fields_path = output_directory / "fields-volume.vtu";
     require(std::filesystem::exists(fields_path) &&
               std::filesystem::file_size(fields_path) > 0,
-            "native application view did not write field output");
+            "compiled application view did not write field output");
     require(std::filesystem::exists(output_directory / "mesh-volume.vtu") &&
               std::filesystem::exists(output_directory / "mesh-volume.svg"),
-            "native application view did not write mesh output");
+            "compiled application view did not write mesh output");
     std::ifstream fields(fields_path);
     const std::string document((std::istreambuf_iterator<char>(fields)),
                                std::istreambuf_iterator<char>());
@@ -102,7 +102,7 @@ namespace
               document.find("Name=\"adjoint\"") != std::string::npos &&
               document.find("Name=\"forcing\"") != std::string::npos &&
               document.find("Name=\"target\"") != std::string::npos,
-            "native application view omitted retained field identity");
+            "compiled application view omitted retained field identity");
     std::filesystem::remove_all(output_directory);
   }
 
@@ -136,11 +136,11 @@ namespace
       std::nullopt,
       chapter6::dealii::make_b2_compilation_product(scenario.compile));
     require(compilation.succeeded() && compilation.problem,
-            "Neumann native application view compilation failed");
+            "Neumann compiled application view compilation failed");
 
     const auto *const view = compilation.problem->compiled_application_view();
     require(view != nullptr,
-            "Neumann compilation did not retain a native application view");
+            "Neumann compilation did not retain a compiled application view");
     require(view->has_objective_components(),
             "Neumann view omitted objective components");
     const nmopt::contract::StateControlPartitionT<Backend> partition(
@@ -150,7 +150,7 @@ namespace
               dimensions.physical_control == partition.control_layout()->dimension(0) &&
               dimensions.independent_control == partition.control_layout()->dimension(0) &&
               dimensions.realized_observation > 0,
-            "Neumann native application view retained wrong dimensions");
+            "Neumann compiled application view retained wrong dimensions");
 
     const auto reduced = compilation.problem->make_reduced_dto();
     const auto control = chapter6::dealii::detail::make_b2_uniform_control<Backend>(
@@ -172,7 +172,7 @@ namespace
     require(std::filesystem::exists(output_directory / "fields-volume.vtu") &&
               std::filesystem::exists(output_directory / "control-boundary.vtu") &&
               std::filesystem::exists(output_directory / "mesh-volume.vtu"),
-            "Neumann native application view did not write native output");
+            "Neumann compiled application view did not write native output");
     std::filesystem::remove_all(output_directory);
   }
 } // namespace
@@ -183,6 +183,8 @@ main(const int argc, char **argv)
   try
     {
       const std::vector<nmopt::test_support::Scenario> scenarios{
+        // Keep the historical scenario IDs and native-view label for inventory
+        // compatibility while the physical test seam uses compiled terminology.
         {"direct_volume_view",
          "nmopt.compiler.native_application_view.direct_volume",
          {"dealii", "compiler", "application", "native-view"},
@@ -196,13 +198,13 @@ main(const int argc, char **argv)
       const auto result = nmopt::test_support::run_requested_scenarios(
         argc, argv, scenarios, std::cout);
       if (!result.listed)
-        std::cout << "native application view deal.II scenarios passed: "
+        std::cout << "compiled application view deal.II scenarios passed: "
                   << result.executed << '\n';
       return 0;
     }
   catch (const std::exception &exception)
     {
-      std::cerr << "native application view deal.II test failed: "
+      std::cerr << "compiled application view deal.II test failed: "
                 << exception.what() << '\n';
       return 1;
     }

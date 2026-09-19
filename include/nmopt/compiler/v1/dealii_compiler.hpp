@@ -1415,7 +1415,7 @@ namespace nmopt::compiler::v1
       std::shared_ptr<const contract::ConstraintT<Backend>> constraint;
       std::shared_ptr<const contract::ExecutableModelT<Backend>> executable;
       std::shared_ptr<const CompiledApplicationViewT<Backend>>
-        native_application_view;
+        compiled_application_view;
       std::shared_ptr<const contract::ReducedHessianT<Backend>> reduced_hessian;
       std::shared_ptr<const contract::SuppliedOTDSystemT<Backend>>
         supplied_otd_system;
@@ -1508,8 +1508,8 @@ namespace nmopt::compiler::v1
           solvers = make_state_adjoint_solvers(boundary,
                                                policy.state_solve,
                                                policy.adjoint_solve);
-          native_application_view =
-            make_neumann_native_application_view<dim>(boundary, data);
+          compiled_application_view =
+            make_neumann_compiled_application_view<dim>(boundary, data);
           executable = boundary;
         }
       else if (uses_dirichlet_control)
@@ -1601,8 +1601,8 @@ namespace nmopt::compiler::v1
           solvers = make_state_adjoint_solvers(h1_control,
                                                policy.state_solve,
                                                policy.adjoint_solve);
-          native_application_view =
-            make_volume_native_application_view<dim>(h1_control, data);
+          compiled_application_view =
+            make_volume_compiled_application_view<dim>(h1_control, data);
           executable = h1_control;
         }
       else if (uses_coefficient_identification)
@@ -1683,8 +1683,8 @@ namespace nmopt::compiler::v1
                                                policy.state_solve,
                                                policy.adjoint_solve);
           if (request.target_family == ResolvedTargetFamily::direct_volume)
-            native_application_view =
-              make_volume_native_application_view<dim>(assembled, data);
+            compiled_application_view =
+              make_volume_compiled_application_view<dim>(assembled, data);
           if (uses_supplied_otd)
             supplied_otd_system = std::make_shared<
               const contract::SuppliedOTDSystemT<Backend>>(
@@ -1810,7 +1810,7 @@ namespace nmopt::compiler::v1
           std::move(lifetime_owner),
           std::move(reduced_hessian),
           std::move(box_data),
-          std::move(native_application_view));
+          std::move(compiled_application_view));
       return result;
     }
 
@@ -4952,7 +4952,7 @@ namespace nmopt::compiler::v1
     template <int dim, typename Model>
     static std::shared_ptr<const CompiledApplicationViewT<
       dealii_backend::SerialBackend>>
-    make_volume_native_application_view(
+    make_volume_compiled_application_view(
       const std::shared_ptr<Model> &model,
       const DealiiDataBindings<dim> &data)
     {
@@ -4990,7 +4990,7 @@ namespace nmopt::compiler::v1
     template <int dim>
     static std::shared_ptr<const CompiledApplicationViewT<
       dealii_backend::SerialBackend>>
-    make_neumann_native_application_view(
+    make_neumann_compiled_application_view(
       const std::shared_ptr<detail::NeumannBoundaryControlModel<dim>> &model,
       const DealiiDataBindings<dim> &                                     data)
     {

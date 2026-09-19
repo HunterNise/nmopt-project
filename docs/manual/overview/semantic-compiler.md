@@ -241,9 +241,9 @@ compiled problem
 │   ├── metric
 │   └── selected formulation product
 │
-├── typed native application view
+├── typed compiled application view
 │   ├── dimensions and coordinates
-│   ├── native numerical objects
+│   ├── application-native numerical objects
 │   └── output/reconstruction support
 │
 └── compilation evidence

@@ -436,8 +436,8 @@ if(NMOPT_ENABLE_DEAL_II)
       tests/application/chapter6_b1_dealii_contract.cc)
 
     nmopt_add_dealii_test(
-      nmopt_native_application_view_dealii_contract_test
-      tests/application/native_application_view_dealii_contract.cc)
+      nmopt_compiled_application_view_dealii_contract_test
+      tests/application/compiled_application_view_dealii_contract.cc)
 
     nmopt_add_dealii_test(
     nmopt_application_chapter6_b2_dealii_contract_test

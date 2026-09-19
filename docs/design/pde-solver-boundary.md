@@ -106,7 +106,7 @@ closed lowering decision
 typed numerical realization
         |\
         | \
-        |  +--> typed/native application view
+        |  +--> compiled application view
         |        reconstruction, dimensions, diagnostics, output
         |
         +-----> solver-facing ports
@@ -158,7 +158,7 @@ create one class for every row.
 | Constraint realization | Feasibility/projection capability supported by the selected decision realization | Residual physics |
 | Solve realization | Concrete state/adjoint inversion and convergence report | Optimization iteration/globalization policy |
 | Reduced Hessian capability | Optional second-order reduced action | Universal PDE contract |
-| Native application view | Reconstruction, dimensions, diagnostics, field output | Generic formulation or optimizer logic |
+| Compiled application view | Reconstruction, dimensions, diagnostics, field output | Generic formulation or optimizer logic |
 
 The same numerical operator may serve several roles. Sharing a matrix does not
 merge the semantic ownership of those roles.

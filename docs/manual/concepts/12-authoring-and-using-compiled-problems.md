@@ -1216,7 +1216,7 @@ solver
         ↓
 report + retained final evaluation
         ↓
-native application view / output / experiment shell
+compiled application view / output / experiment shell
 ```
 
 The semantic/compiler path is therefore usable at several levels.

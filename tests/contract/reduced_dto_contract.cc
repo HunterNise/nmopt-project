@@ -1,5 +1,6 @@
 #include "nmopt/contract/metric_constraint.hpp"
 #include "nmopt/contract/reduced_dto.hpp"
+#include "nmopt/compiler/v1/compiled_products.hpp"
 #include "nmopt/experiment/reduced_envelope.hpp"
 #include "nmopt/reference/linear_quadratic_model.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"

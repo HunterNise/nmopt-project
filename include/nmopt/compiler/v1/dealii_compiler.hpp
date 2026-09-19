@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nmopt/compiler/v1/compiled_problem.hpp"
+#include "nmopt/compiler/v1/detail/compiled_kkt_product.hpp"
 #include "nmopt/compiler/v1/dealii_capabilities.hpp"
 #include "nmopt/compiler/v1/dealii_coefficient_identification.hpp"
 #include "nmopt/compiler/v1/dealii_dirichlet_control.hpp"

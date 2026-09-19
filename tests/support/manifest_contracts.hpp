@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nmopt/compiler/v1/compiled_problem.hpp"
+#include "nmopt/compiler/v1/compilation_manifest.hpp"
 
 #include <algorithm>
 #include <cstddef>

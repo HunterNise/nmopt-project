@@ -31,7 +31,7 @@ endif()
 add_library(nmopt_build_flags INTERFACE)
 target_compile_definitions(nmopt_build_flags
   INTERFACE
-    NMOPT_COMPILED_BUILD_PROFILE=\"${NMOPT_BUILD_PROFILE_NAME}\")
+    "NMOPT_COMPILED_BUILD_PROFILE=\"${NMOPT_BUILD_PROFILE_NAME}\"")
 if(NMOPT_ENABLE_WARNINGS)
   if(MSVC)
     target_compile_options(nmopt_build_flags INTERFACE /W4)

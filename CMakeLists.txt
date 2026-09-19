@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Build configuration and project-wide compiler policy
 project(nmopt LANGUAGES CXX)
 
 option(NMOPT_ENABLE_DEAL_II "Build the serial deal.II reference lowerer" ON)
@@ -75,6 +76,7 @@ if(NMOPT_ENABLE_SANITIZERS)
       -fno-omit-frame-pointer)
 endif()
 
+# Output layout and public interface target
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
@@ -90,6 +92,7 @@ target_compile_features(nmopt_contract INTERFACE cxx_std_17)
 include(CTest)
 include(cmake/ScenarioDiscovery.cmake)
 
+# Target and test registration helpers
 function(nmopt_add_neutral_executable target source_file)
   add_executable("${target}" "${source_file}")
   target_link_libraries("${target}"
@@ -117,6 +120,9 @@ endfunction()
 
 function(nmopt_add_dealii_executable target source_file)
   add_executable("${target}" "${source_file}")
+  # Keep the plain target_link_libraries signature here: deal_ii_setup_target()
+  # also links this target with the plain signature, and CMake forbids mixing
+  # plain and keyword signatures for the same target.
   target_link_libraries("${target}"
     nmopt_dealii_contract
     nmopt_build_flags)
@@ -128,6 +134,7 @@ function(nmopt_add_dealii_test target source_file)
   scenario_discovery_register("${target}")
 endfunction()
 
+# Backend-neutral C++ contracts
 if(BUILD_TESTING)
   nmopt_add_neutral_test(
     nmopt_reduced_dto_contract_test
@@ -173,6 +180,7 @@ if(BUILD_TESTING)
     nmopt_runner_contract_test
     tests/application/runner_contract.cc)
 
+  # Optional Python tooling contracts
   find_package(Python3 COMPONENTS Interpreter QUIET)
   if(Python3_Interpreter_FOUND)
     nmopt_add_python_test(
@@ -228,6 +236,7 @@ if(BUILD_TESTING)
   endif()
 endif()
 
+# deal.II backend and application targets
 if(NMOPT_ENABLE_DEAL_II)
   find_package(deal.II CONFIG QUIET)
 
@@ -252,6 +261,7 @@ if(NMOPT_ENABLE_DEAL_II)
 
   include(cmake/ExternalStep4.cmake)
 
+  # Ordinary deal.II application/compiler contracts
   if(BUILD_TESTING)
     add_test(
       NAME nmopt.external_application.standalone_forward
@@ -294,6 +304,7 @@ if(NMOPT_ENABLE_DEAL_II)
   endif()
 endif()
 
+# Configuration summary
 message(STATUS "nmopt configuration summary")
 message(STATUS "  generator: ${CMAKE_GENERATOR}")
 message(STATUS "  build type: ${CMAKE_BUILD_TYPE}")

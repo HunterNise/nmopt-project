@@ -1,3 +1,8 @@
+# External deal.II Step-4 integration fixture. This module is included only
+# after the root establishes deal.II setup, nmopt_dealii_contract, the nmopt
+# target/test helpers, and scenario discovery.
+
+# Pinned upstream, stripped baseline, and adapted tutorial targets
 # This target intentionally compiles the pinned upstream tutorial source
 # without linking the nmopt contract or adding nmopt includes.
 add_executable(
@@ -19,6 +24,7 @@ add_executable(
   apps/external-dealii/step-4/source/adapted/step-4.cc)
 deal_ii_setup_target(nmopt_external_tutorial_step_4_adapted)
 
+# Minimal nmopt consumers
 nmopt_add_dealii_executable(
   nmopt_external_step4_minimal_problem_a
   apps/external-dealii/step-4/minimal/problem_a.cc)
@@ -28,11 +34,13 @@ nmopt_add_dealii_executable(
   apps/external-dealii/step-4/minimal/problem_b.cc)
 
 if(BUILD_TESTING)
+  # Step-4 integration contract targets
   # This test includes only the adapted tutorial source and the standard
   # scenario-discovery helper. It intentionally has no nmopt library link.
   add_executable(
     nmopt_external_step4_native_contract_test
     tests/dealii/external_step4_native_contract.cc)
+  # Keep the plain signature for compatibility with deal_ii_setup_target().
   target_link_libraries(nmopt_external_step4_native_contract_test
     nmopt_build_flags)
   deal_ii_setup_target(nmopt_external_step4_native_contract_test)
@@ -66,6 +74,9 @@ if(BUILD_TESTING)
     nmopt_external_step4_optimization_contract_test
     tests/application/external_step4_optimization_contract.cc)
 
+  # Reproduction / forward-comparison registrations
+  # Ordinary Python tooling contracts in the root remain optional. The Step-4
+  # comparison tests require Python when deal.II testing is enabled.
   find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
   set(nmopt_external_tutorial_forward_root

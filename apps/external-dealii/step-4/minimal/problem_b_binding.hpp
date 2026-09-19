@@ -1,9 +1,6 @@
 #pragma once
 
-#define STEP4_NO_MAIN
-#include "../source/adapted/step-4.cc"
-#undef STEP4_NO_MAIN
-
+#include "../integration/adapted_step4.hpp"
 #include "../integration/problem_b.hpp"
 #include "../integration/problem_b_metric.hpp"
 

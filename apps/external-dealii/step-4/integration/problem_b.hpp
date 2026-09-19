@@ -1,6 +1,7 @@
 #pragma once
 
 #include "problem_b_mass.hpp"
+#include "../diagnostics/instrumentation.hpp"
 
 #include <deal.II/lac/vector.h>
 

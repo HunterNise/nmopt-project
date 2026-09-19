@@ -3,6 +3,7 @@
 #include "native_problem_b_reduced.hpp"
 #include "optimization_policy.hpp"
 #include "../integration/problem_b_metric.hpp"
+#include "../diagnostics/instrumentation.hpp"
 
 #include <algorithm>
 #include <cmath>

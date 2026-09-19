@@ -1,8 +1,6 @@
 #pragma once
 
-#define STEP4_NO_MAIN
-#include "../source/adapted/step-4.cc"
-#undef STEP4_NO_MAIN
+#include "adapted_step4.hpp"
 #include "../diagnostics/instrumentation.hpp"
 
 #include <deal.II/lac/solver_control.h>

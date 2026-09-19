@@ -15,6 +15,7 @@
 #include "../../support/diagnostics.hpp"
 #include "../../support/manifest_contracts.hpp"
 #include "../../support/scenario_dispatch.hpp"
+#include "../../support/scoped_temporary_directory.hpp"
 
 #include <deal.II/base/function_lib.h>
 #include <deal.II/base/quadrature_lib.h>

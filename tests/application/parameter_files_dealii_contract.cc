@@ -6,6 +6,7 @@
 #include "nmopt/application/dealii/chapter6_b1.hpp"
 #include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "../support/scenario_dispatch.hpp"
+#include "../support/scoped_temporary_directory.hpp"
 
 // These tests characterize the production parameter and execution-resolution
 // contracts while preserving the behavior being migrated.
@@ -139,8 +140,9 @@ namespace
   nmopt::application::runner::ParameterFile
   read_exclusion_parameter_file(const std::string &exclusions)
   {
-    const auto path = std::filesystem::temp_directory_path() /
-                      "nmopt-parameter-exclusion-contract.prm";
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-parameter-exclusion-contract");
+    const auto path = temporary_directory.path() / "input.prm";
     std::ofstream output(path);
     output << "subsection Benchmark\n"
            << "  set id = b1\n"
@@ -156,17 +158,7 @@ namespace
     output.close();
     if (!output)
       throw std::runtime_error("could not write exclusion parameter fixture");
-    try
-      {
-        auto result = read_parameter_file(path);
-        std::filesystem::remove(path);
-        return result;
-      }
-    catch (...)
-      {
-        std::filesystem::remove(path);
-        throw;
-      }
+    return read_parameter_file(path);
   }
 
   nmopt::application::runner::ParameterFile
@@ -178,8 +170,9 @@ namespace
     const unsigned int outflow_boundary_id = 2,
     const bool         with_natural_boundary_source = false)
   {
-    const auto path = std::filesystem::temp_directory_path() /
-                      "nmopt-b2-scalar-discovery-contract.prm";
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-b2-scalar-discovery-contract");
+    const auto path = temporary_directory.path() / "input.prm";
     std::ofstream output(path);
     output << R"prm(
 subsection Benchmark
@@ -338,17 +331,7 @@ end
     output.close();
     if (!output)
       throw std::runtime_error("could not write scalar discovery fixture");
-    try
-      {
-        auto result = read_parameter_file(path);
-        std::filesystem::remove(path);
-        return result;
-      }
-    catch (...)
-      {
-        std::filesystem::remove(path);
-        throw;
-      }
+    return read_parameter_file(path);
   }
 
   void
@@ -1416,9 +1399,9 @@ end
     b1_scenario.solver.parameters.gradient_tolerance = 1.0e-3;
     b1_scenario.experiment.harness.measure_timings = false;
 
-    const auto b1_native_output = std::filesystem::temp_directory_path() /
-                                  "nmopt-parameter-resolution-b1";
-    std::filesystem::remove_all(b1_native_output);
+    const nmopt::test_support::ScopedTemporaryDirectory b1_temporary_directory(
+      "nmopt-parameter-resolution-b1");
+    const auto &b1_native_output = b1_temporary_directory.path();
     nmopt::application::chapter6::dealii::B1SelectedDataT<2> b1_data(
       b1_scenario.problem.forcing);
     const auto b1_runtime =
@@ -1513,9 +1496,9 @@ end
     b2_scenario.solver.parameters.gradient_tolerance = 1.0e-3;
     b2_scenario.experiment.harness.measure_timings = false;
 
-    const auto b2_native_output = std::filesystem::temp_directory_path() /
-                                  "nmopt-parameter-resolution-b2";
-    std::filesystem::remove_all(b2_native_output);
+    const nmopt::test_support::ScopedTemporaryDirectory b2_temporary_directory(
+      "nmopt-parameter-resolution-b2");
+    const auto &b2_native_output = b2_temporary_directory.path();
     nmopt::application::chapter6::dealii::B2ManufacturedDataT<2> b2_data{
       nmopt::application::selected_scalar_function_definition(
         b2_scenario.problem.observation_region_catalog),
@@ -1607,8 +1590,6 @@ end
       "fixed_dirichlet_data",
       "chapter-6.e6.5.2.fixed-temperature",
       "B2 manifest lost fixed-temperature provenance");
-    std::filesystem::remove_all(b1_native_output);
-    std::filesystem::remove_all(b2_native_output);
   }
 
   void

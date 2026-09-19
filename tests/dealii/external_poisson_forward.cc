@@ -1,4 +1,5 @@
 #include "external_poisson_fixture.hpp"
+#include "../support/scoped_temporary_directory.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -18,16 +19,13 @@ main()
         throw std::runtime_error(
           "standalone external Poisson state residual is too large");
 
-      const auto output_directory =
-        std::filesystem::temp_directory_path() /
-        "external-poisson-standalone";
-      std::filesystem::remove_all(output_directory);
+      const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+        "external-poisson-standalone");
+      const auto &output_directory = temporary_directory.path();
       application.write_native_output(output_directory, state);
       if (!std::filesystem::exists(output_directory / "fields-volume.vtu"))
         throw std::runtime_error(
           "standalone external Poisson output is missing");
-      std::filesystem::remove_all(output_directory);
-
       std::cout << "standalone external Poisson application passed\n";
       return 0;
     }

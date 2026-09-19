@@ -1,6 +1,7 @@
 #include "nmopt/application/dealii/chapter6_b1.hpp"
 #include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "../support/scenario_dispatch.hpp"
+#include "../support/scoped_temporary_directory.hpp"
 
 #include <deal.II/base/point.h>
 
@@ -79,9 +80,9 @@ namespace
     const auto control = chapter6::dealii::detail::make_b1_uniform_control<Backend>(
       partition.control_layout(), 0.0);
     const auto evaluation = reduced.evaluate(control);
-    const auto output_directory = std::filesystem::temp_directory_path() /
-                                  "nmopt-native-application-view-contract";
-    std::filesystem::remove_all(output_directory);
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-native-application-view-contract");
+    const auto &output_directory = temporary_directory.path();
     view->write_native_output(output_directory,
                               evaluation.state,
                               control,
@@ -103,7 +104,6 @@ namespace
               document.find("Name=\"forcing\"") != std::string::npos &&
               document.find("Name=\"target\"") != std::string::npos,
             "compiled application view omitted retained field identity");
-    std::filesystem::remove_all(output_directory);
   }
 
   void
@@ -162,9 +162,9 @@ namespace
                        evaluation.objective_value) <= 1.0e-12,
             "Neumann view objective components do not reproduce the objective");
 
-    const auto output_directory = std::filesystem::temp_directory_path() /
-                                  "nmopt-neumann-application-view-contract";
-    std::filesystem::remove_all(output_directory);
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-neumann-application-view-contract");
+    const auto &output_directory = temporary_directory.path();
     view->write_native_output(output_directory,
                               evaluation.state,
                               control,
@@ -173,7 +173,6 @@ namespace
               std::filesystem::exists(output_directory / "control-boundary.vtu") &&
               std::filesystem::exists(output_directory / "mesh-volume.vtu"),
             "Neumann compiled application view did not write native output");
-    std::filesystem::remove_all(output_directory);
   }
 } // namespace
 

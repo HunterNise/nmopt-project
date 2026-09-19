@@ -9,6 +9,7 @@
 #include "nmopt/dealii/serial_spd_solver.hpp"
 #include "../support/contract_errors.hpp"
 #include "../support/scenario_dispatch.hpp"
+#include "../support/scoped_temporary_directory.hpp"
 
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>

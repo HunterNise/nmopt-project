@@ -108,10 +108,9 @@
       compiler::v1::detail::ContinuousControlModel<dim> *>(&model);
     contract::require(continuous_model != nullptr,
                       "L2-tracking compilation did not retain its continuous model");
-    const auto output_directory =
-      std::filesystem::temp_directory_path() /
-      "nmopt-l2-tracking-continuous-control-contract";
-    std::filesystem::remove_all(output_directory);
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-l2-tracking-continuous-control-contract");
+    const auto &output_directory = temporary_directory.path();
     continuous_model->write_native_output(output_directory,
                                           evaluation.state,
                                           control,
@@ -125,7 +124,6 @@
                         document.find("Name=\"state\"") != std::string::npos &&
                         document.find("Name=\"adjoint\"") != std::string::npos,
                       "Continuous-control native output omitted a primary field");
-    std::filesystem::remove_all(output_directory);
   }
 
   template <int dim>
@@ -285,11 +283,10 @@
                       2e-11,
                       "Continuous Neumann boundary-control state residual");
 
-        const auto output_directory =
-          std::filesystem::temp_directory_path() /
-          (simplex ? "nmopt-continuous-neumann-simplex-output" :
-                     "nmopt-continuous-neumann-hypercube-output");
-        std::filesystem::remove_all(output_directory);
+        const nmopt::test_support::ScopedTemporaryDirectory
+          temporary_directory(simplex ? "nmopt-continuous-neumann-simplex-output" :
+                                         "nmopt-continuous-neumann-hypercube-output");
+        const auto &output_directory = temporary_directory.path();
         neumann_model->write_native_output(output_directory,
                                            evaluation.state,
                                            control,
@@ -304,8 +301,6 @@
             std::filesystem::exists(output_directory /
                                     "control-boundary.vtu"),
           "Continuous Neumann model output omitted a native file");
-        std::filesystem::remove_all(output_directory);
-
         const Covector measured_control = metric.apply(control);
         require_close(
           neumann_model->objective_components(evaluation.full_point)
@@ -1093,4 +1088,3 @@
       "FE_DGQ(0) coefficientwise l2_cellwise_parameter clipping",
       "coefficient-identification");
   }
-

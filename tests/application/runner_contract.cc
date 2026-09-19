@@ -3,6 +3,7 @@
 #include "../../apps/nmopt-runner/capability_registry.hpp"
 #include "nmopt/application/chapter6.hpp"
 #include "../support/scenario_dispatch.hpp"
+#include "../support/scoped_temporary_directory.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -140,10 +141,9 @@ namespace
             "the development run kind was not parsed");
     nmopt::application::runner::validate_run_policy(development,
                                                     "debug-dealii");
-    const auto temporary_root =
-      std::filesystem::temp_directory_path() /
-      "nmopt-runner-contract-layout";
-    std::filesystem::remove_all(temporary_root);
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-runner-contract-layout");
+    const auto temporary_root = temporary_directory.path() / "run-set";
     std::filesystem::create_directories(
       temporary_root / "chapter-6" / "b2" / "development" / "001");
     development.output_directory = temporary_root;
@@ -154,8 +154,6 @@ namespace
       development_configuration.run_directory ==
         temporary_root / "chapter-6" / "b2" / "development" / "002",
       "development runs should use the organized run-set layout");
-    std::filesystem::remove_all(temporary_root);
-
     auto versioned = parse({"nmopt_runner",
                             "--benchmark",
                             "b2",
@@ -311,9 +309,9 @@ namespace
     using nmopt::application::runner::RunKind;
     using nmopt::application::runner::RunSetManifest;
 
-    const auto temporary_root =
-      std::filesystem::temp_directory_path() / "nmopt-run-manifest-contract";
-    std::filesystem::remove_all(temporary_root);
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-run-manifest-contract");
+    const auto temporary_root = temporary_directory.path() / "run-set";
     auto configuration = ResolvedRunConfiguration{
       temporary_root,
       temporary_root / "chapter-6" / "b1" / "development" / "001",
@@ -379,7 +377,6 @@ namespace
     require(finished.find("\"error\": \"solver failed\"") !=
               std::string::npos,
             "run manifests should retain artifact failure diagnostics");
-    std::filesystem::remove_all(temporary_root);
   }
 } // namespace
 

@@ -1,5 +1,6 @@
 #include "nmopt/application/dealii/chapter6_b2.hpp"
 #include "../support/scenario_dispatch.hpp"
+#include "../support/scoped_temporary_directory.hpp"
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/dofs/dof_handler.h>
@@ -226,11 +227,9 @@ namespace
       chapter6::dealii::make_b2_compilation_session<2>(scenario);
     require(session->triangulation().all_reference_cells_are_hyper_cube(),
             "B2 default mesh is no longer the native quadrilateral rectangle");
-    const auto native_output_directory =
-      std::filesystem::temp_directory_path() /
-      ("nmopt-b2-native-contract-" +
-       chapter6::b2_case_name(observation_region, target_profile));
-    std::filesystem::remove_all(native_output_directory);
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-b2-native-contract");
+    const auto &native_output_directory = temporary_directory.path();
 
     const auto specification = chapter6::make_b2_problem_spec(scenario);
     const auto fixed_objective = [&] {
@@ -600,7 +599,6 @@ namespace
           "<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n"
           "3 3 3 3 ") != std::string::npos,
       "B2 facewise control output changed its cell topology or data association");
-    std::filesystem::remove_all(native_output_directory);
   }
 
   void

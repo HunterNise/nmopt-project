@@ -5,6 +5,7 @@
 #include "nmopt/dealii/serial_backend.hpp"
 #include "nmopt/solvers/reduced_gradient.hpp"
 #include "../support/scenario_dispatch.hpp"
+#include "../support/scoped_temporary_directory.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -355,17 +356,15 @@ namespace
                          1e-12,
                          "objective replacement changed PDE residual callbacks");
 
-    const std::filesystem::path output_directory =
-      std::filesystem::temp_directory_path() /
-      "external-poisson-adapter-output";
-    std::filesystem::remove_all(output_directory);
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "external-poisson-adapter-output");
+    const auto &output_directory = temporary_directory.path();
     adapter.application.write_native_output(output_directory,
                                             default_value.state.block(0));
     const auto output_file = output_directory / "fields-volume.vtu";
     require(std::filesystem::exists(output_file) &&
               std::filesystem::file_size(output_file) > 0,
             "external application native output was not produced");
-    std::filesystem::remove_all(output_directory);
   }
 } // namespace
 

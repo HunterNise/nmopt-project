@@ -1,5 +1,6 @@
 #include "nmopt/application/dealii/chapter6_b1.hpp"
 #include "../support/scenario_dispatch.hpp"
+#include "../support/scoped_temporary_directory.hpp"
 
 #include <cmath>
 #include <filesystem>
@@ -48,13 +49,9 @@ namespace
             "B1 runtime data realized the wrong forcing value");
     const auto session =
       chapter6::dealii::make_b1_compilation_session<2>(scenario);
-    const auto native_output_directory =
-      std::filesystem::temp_directory_path() /
-      ("nmopt-b1-native-contract-" +
-       std::to_string(static_cast<int>(method)) + "-" +
-       chapter5::distributed_control_discretisation_name(discretisation) + "-" +
-       forcing.id);
-    std::filesystem::remove_all(native_output_directory);
+    const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+      "nmopt-b1-native-contract");
+    const auto &native_output_directory = temporary_directory.path();
     chapter6::dealii::B1ReducedExecutionAdapterT<2> execute{
       1.0e-2,
       runtime,
@@ -225,7 +222,6 @@ namespace
               field_document.find("Name=\"target\"") != std::string::npos &&
               field_document.find("Name=\"forcing\"") != std::string::npos,
             "B1 field output omitted a retained field");
-    std::filesystem::remove_all(native_output_directory);
   }
 
   void

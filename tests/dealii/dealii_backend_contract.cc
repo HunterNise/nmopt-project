@@ -359,11 +359,10 @@ namespace
           output_values[index] =
             (index % 2 == 0 ? 0.125 : -0.25) *
             static_cast<double>(index + 1);
-        const auto output_path =
-          std::filesystem::temp_directory_path() /
-          (simplex ? "nmopt-continuous-neumann-simplex.vtu" :
-                     "nmopt-continuous-neumann-hypercube.vtu");
-        std::filesystem::remove(output_path);
+        const nmopt::test_support::ScopedTemporaryDirectory temporary_directory(
+          simplex ? "nmopt-continuous-neumann-simplex" :
+                    "nmopt-continuous-neumann-hypercube");
+        const auto output_path = temporary_directory.path() / "output.vtu";
         realisation.write_native_output(output_path, output_values);
         std::ifstream output(output_path);
         contract::require(
@@ -438,7 +437,6 @@ namespace
             written_offsets[cell] == 2.0 * static_cast<double>(cell + 1) &&
               written_types[cell] == 3.0,
             "Continuous Neumann trace output does not contain VTK line cells");
-        std::filesystem::remove(output_path);
       }
   }
 

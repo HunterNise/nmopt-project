@@ -1,379 +1,369 @@
-# How nmopt connects to an existing deal.II application
+# Using nmopt as a library from an existing deal.II application
 
-nmopt supplies the formulation and optimization machinery around a PDE
-application's numerical operations. The application defines the equations,
-objective, derivatives, and geometry; nmopt composes those operations into a
-reduced objective and runs an optimization algorithm. Step-4 provides a
-concrete example of that division of work.
+## Question and result
 
-In this case study, the deal.II tutorial keeps its finite-element
-implementation, CG solver, and VTK output. Two optimal-control problems are
-built around it, then connected through nmopt's public contracts. The second
-problem adds FE distributed-control geometry while retaining the same pattern
-of connection. This overview follows that problem from application setup to
-one optimization step.
+This experiment asks a narrow question that matters for a growing scientific-code
+repository: does using `nmopt` as a library require rebuilding an existing deal.II
+application around framework-specific abstractions, or can the application keep its
+numerical implementation and connect through a bounded adapter?
 
-For the exact source changes and implementation sizes, use the
-[implementation report](integration-report.md). For signatures and calling
-conventions, use the [external API reference](../../../docs/reference/external-dealii-solver-integration.md).
+For the two tested Step-4 optimal-control problems, the answer is the latter.
 
-## 1. Two ways to reach the same optimizer
+The authentic deal.II tutorial remains responsible for its mesh, finite-element
+space, assembled operators, conjugate-gradient solve, boundary treatment, and VTK
+output. Optimal-control mathematics is added outside the tutorial. The canonical
+`nmopt` consumers then adapt those operations through existing public contracts;
+they do not use the semantic compiler, project runner, native comparison optimizer,
+dense oracle, or instrumentation machinery.
 
-The broader project aims to make combinations of PDEs, controls, observations,
-objectives, metrics, constraints, and algorithms reusable. Its semantic path
-starts with a problem description. A compiler realizes supported combinations
-as numerical objects and provides the operations needed by a formulation.
-An existing application can supply those operations directly.
+Problem A establishes the simple case. Problem B is the stronger test: it introduces
+free-state/full-control coordinates, fixed boundary lifting, a rectangular
+finite-element control coupling, and a mass-matrix control metric. Those additions
+substantially increase the application/OCP implementation while leaving the `nmopt`
+binding shape almost unchanged: **206 code-bearing lines for A and 220 for B**.
+
+This is a bounded result, not a claim that every deal.II application can be
+integrated with the same amount of work. The tested cases are linear, symmetric,
+serial, fixed-mesh, and unconstrained in the control.
+
+For the wider project architecture, see the
+[project overviews](../../../docs/manual/overview/README.md), especially
+[Project architecture](../../../docs/manual/overview/project-architecture.md) and
+[Integrating an existing PDE application](../../../docs/manual/overview/external-applications.md).
+For exact source accounting and reproduction commands, use the
+[implementation report](integration-report.md).
+
+## 1. Where the experiment fits in nmopt
+
+`nmopt` separates the producer of numerical PDE operations from the formulations and
+algorithms that consume them. A supported problem can be described through the
+semantic/compiler route, or an independently owned application can supply the same
+kind of numerical services directly.
 
 ```mermaid
-flowchart LR
-  S["Semantic problem"] --> C["Compiler and numerical realization"]
-  A["Existing PDE and OCP application"] --> B["Public callback binding"]
-  subgraph Runtime["Common numerical contracts and runtime"]
-    F["Reduced formulation"] --> O["Optimizer"]
+flowchart TB
+  subgraph Producers["Problem producers"]
+    direction LR
+    S["Structured problem authoring<br/><small>ProblemSpec · recipes · parameters</small>"]
+    A["Existing PDE/OCP application<br/><small>mesh · FE spaces · assembly · native solves · output</small>"]
   end
-  C --> F
-  B --> F
-  K["Backend policy"] -.->|vector storage and algebra| Runtime
+
+  S --> C["Compiler-owned numerical realization"]
+  A --> B["Application-owned binding"]
+
+  C --> N[["Common numerical services<br/><small>layouts · actions · solves · metrics · constraints</small>"]]
+  B --> N
+
+  N --> F["Formulation products<br/><small>reduced · supplied OTD · KKT · PDAS</small>"]
+  F --> O["Algorithms and numerical solve services"]
+  O --> R[["Results and numerical evidence"]]
 ```
 
-This convergence is the architectural point of the external path. The
-optimizer can use a reduced objective without knowing whether its equations
-came from an nmopt compiler or an independently written application.
-Step-4 enters through the callback binding. Its mesh and matrices remain in
-the application, accessible to callbacks through captured references.
-The dashed connection denotes the backend policy supporting numerical values
-and algorithm operations. PDE operators and solve policies belong to the
-numerical realization supplied by the compiler or application.
+Step-4 exercises the right-hand producer path. The point is not that every
+application must look like Step-4; it is that the downstream reduced formulation and
+optimizer do not need to own or reconstruct the application's finite-element
+implementation.
 
-There are two levels of orchestration. The **formulation** knows how state
-elimination and an adjoint produce a reduced derivative. The **optimizer**
-knows how to choose directions, evaluate trial controls, accept steps, and
-stop. The application implements the mathematical operations requested by
-both levels. The [project blueprint](../../../docs/internals/system-blueprint.md)
-places these services in the wider semantic/compiler architecture.
+The experiment keeps the functional path and the confidence-building machinery
+physically separate:
 
-## 2. Starting with a forward PDE solver
+```mermaid
+flowchart TB
+  subgraph Application["Application-owned functional path"]
+    S4["Adapted Step-4<br/><small>mesh · assembly · native CG · VTK output</small>"]
+    OCP["Problem A / Problem B<br/><small>control model · objective · derivatives · adjoint · metric</small>"]
+    S4 --> OCP
+  end
 
-Step-4 solves a Poisson equation on a square in its 2D configuration. It
-creates a mesh, distributes continuous bilinear finite-element degrees of
-freedom, assembles the stiffness matrix and load vector, applies prescribed
-Dirichlet data, solves with conjugate gradients, and writes the resulting
-field. With four global refinements, the example has 256 cells and 289 DoFs.
+  subgraph Adapter["Canonical external-consumer path"]
+    Bind["minimal/ binding<br/><small>layouts · 5 callbacks · 2 solves · metric adapter</small>"]
+  end
 
-Originally, the application exposes a public `run()` method that performs
-this whole sequence. Its numerical methods and data are private. To reuse
-its numerical work in optimization, the adapted version exposes preparation,
-read-only numerical views, a solve accepting another RHS, and output
-accepting another state. B also uses DoF-handler and boundary-value views.
-The [source comparison](integration-report.md#1-step-4-before-and-after-adaptation)
-shows the original class and the added interface.
+  subgraph Nmopt["Existing nmopt runtime"]
+    DTO["ReducedDTOT"]
+    Opt["ReducedSearchSolverT"]
+    DTO --> Opt
+  end
 
-These seams let a caller prepare the PDE once and solve it repeatedly. Step-4
-still owns assembly, the sparse system, CG with identity preconditioning,
-and the writer. The control problem decides what RHS to supply and what the
-returned coefficients mean. A code that already offers callable assembly,
-solve, and output operations may already have the corresponding reuse seams.
+  OCP --> Bind --> DTO
+  Opt --> Out["retained result"]
+  Out --> NativeOut["application reconstruction / native VTK output"]
 
-## 3. Adding the optimal-control problem
+  subgraph Evidence["Experiment-only confidence machinery"]
+    Eval["evaluation/<br/><small>independent native paths + instrumented bindings</small>"]
+    Verify["verification/<br/><small>equation · derivative · dense-oracle checks</small>"]
+    Tests["contract / acceptance tests + evidence"]
+    Eval --> Tests
+    Verify --> Tests
+  end
 
-A forward solve determines a state for prescribed data. An optimal-control
-problem introduces a variable control and asks which control produces the
-best state according to an objective. That requires decisions about the
-control space, its action on the PDE, the objective, derivatives, and gradient
-geometry. These decisions belong to the application mathematics.
-
-Problem A makes those additions deliberately simple. Using Step-4's already
-boundary-treated matrix and RHS, it sets:
-
-```math
-Ay=b+u,\qquad
-J(y,u)=\frac{1}{2}y^{\mathsf T}y+\frac{1}{2}u^{\mathsf T}u.
+  OCP -.-> Eval
+  Bind -.-> Tests
 ```
 
-Both vectors have 289 entries and the control metric is the identity. This is
-an algebraic RHS-control problem: control also changes the eliminated
-boundary equations. A establishes a simple connection before introducing
-physical FE control geometry.
+The dashed connections matter: comparison and verification code tests the boundary,
+but it is not part of the minimal runtime an external application adopts.
 
-Problem B represents a volume forcing control in the same continuous FE
-basis and preserves the prescribed state boundary values. It has 289 control
-coefficients but only 225 independent state coefficients. To distinguish the
-independent state from the physical field, write:
+## 2. Keep the costs separate
 
-```math
-y_{\mathrm{phys}}=Pz+\ell.
-```
+The experiment distinguishes four kinds of code:
 
-Here $z$ holds the free coefficients, $P$ inserts them into a full vector,
-and $\ell$ supplies the fixed boundary values. A state perturbation or adjoint
-uses the homogeneous embedding $P$ without adding the boundary lifting.
-These choices let the optimizer vary the control while the application
-preserves the physical state boundary condition.
+| Layer | What it is | Count as `nmopt` integration burden? |
+| --- | --- | --- |
+| Existing PDE application | Step-4 mesh, FE assembly, CG solve, output | No |
+| OCP mathematics | control coordinates/coupling, objective, derivatives, adjoint, metric | No – required by the chosen OCP regardless of optimizer library |
+| Minimal `nmopt` binding | layouts, callbacks, solve adapters, metric adapter, reduced formulation | Yes |
+| Evaluation support | independent native optimizer, instrumentation, dense audits, comparison tests | No – evidence for the experiment |
 
-The FE mass matrix $M$ supplies two different pieces of mathematics. First,
-it converts coefficients of the control field into a weak-form load. After
-restricting to free equations, that coupling is $`B=P^{\mathsf T}M`$. Second,
-it represents the selected integral squared norms in the objective:
+This distinction is important because the complete experiment is intentionally large.
+At the final implementation state, the minimal bindings contain **426 code-bearing
+lines in total**, while comparison, verification, diagnostics, and test/evidence
+support contain **10,256**. The latter exist to challenge and validate the claim; an
+external consumer does not adopt them.
+
+## 3. Reusing the Step-4 application
+
+The preserved Step-4 baseline is a forward Poisson solver whose public `run()`
+performs setup, assembly, solve, and output as one sequence. Optimization needs to
+reuse those numerical stages repeatedly.
+
+The adapted source therefore exposes small native seams for:
+
+- preparing and assembling the application once;
+- viewing the assembled matrix and right-hand side;
+- solving the existing system for a caller-supplied right-hand side while retaining
+  native convergence evidence;
+- writing a caller-supplied state through the original VTK path; and
+- for Problem B, viewing the DoF handler and boundary data needed by the OCP layer.
+
+The adapted source remains 244 code-bearing lines versus 191 in the stripped
+baseline: a **net reuse adaptation of 53 lines**. No `nmopt` include or type appears
+in that source. The standalone adapted program still runs the tutorial's original
+forward sequence.
+
+`integration/adapted_step4.hpp` is a four-line private seam that centralizes the
+`STEP4_NO_MAIN` include protocol. Consumer code sees a named reuse boundary rather
+than repeating the preprocessor sequence.
+
+## 4. The OCP mathematics remains application-owned
+
+A forward PDE solver is not yet an optimal-control problem. The control, objective,
+derivatives, adjoint, coordinates, and gradient geometry must be defined somewhere
+regardless of the optimization framework.
+
+### Problem A – algebraic probe
+
+Problem A uses the already boundary-treated Step-4 system:
 
 ```math
 \begin{aligned}
-Kz&=b_{F}+Bu,\\
-J(z,u)&=\frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)
-       +\frac{1}{2}u^{\mathsf T}Mu.
+Ay &= b + u, \\
+J(y,u) &= \frac{1}{2} y^{\mathsf T}y + \frac{1}{2} u^{\mathsf T}u.
 \end{aligned}
 ```
 
-The first term tracks the physical state toward zero; the second penalizes
-the control. Boundary-node control coefficients still contribute to volume
-forcing. The rectangular $B$ maps 289 control coefficients to 225 free state
-equations. The load $`b_{F}`$ already contains Step-4's original lifting
-correction.
+State and control both have 289 entries and the control metric is the identity. The
+case is intentionally simple: it verifies the library boundary before adding more
+realistic FE control geometry.
 
-[ProblemB](integration/problem_b.hpp) combines its
-[coordinate map](integration/problem_b_coordinates.hpp),
-[mass/coupling implementation](integration/problem_b_mass.hpp), and
-[native metric](integration/problem_b_metric.hpp) around the prepared Step-4
-application. The generic optimizer sees their operations through a binding.
+### Problem B – finite-element distributed control
 
-## 4. What the public contracts mean
+Problem B preserves fixed physical state boundary values while using a distributed
+control in the full continuous FE basis. It has 289 control coefficients but only
+225 free state coefficients. With $P$ the free-to-full injection and $\ell$ the fixed
+boundary lifting,
 
-A useful way to understand the binding is to follow the mathematical objects
-it describes. Begin with a point $x=(z,u)$ and an equation residual $E(x)$.
-The full variable space contains a state block and a control block. The
-residual acts on a test space. `BlockLayout` records those space identities
-and dimensions, so a 225-entry state vector and a 289-entry control vector
-cannot be interchanged accidentally at the contract boundary.
+$$
+y_{\mathrm{phys}} = Pz + \ell.
+$$
 
-The vectors also have different mathematical roles. A **primal** represents
-a state, control, perturbation, or adjoint test vector. A **covector** represents
-a derivative or residual functional. `PrimalBlockT` and `CovectorBlockT`
-carry native vectors with those roles and their layouts. The coefficient
-pairing between a derivative and a perturbation gives a directional change;
-it does not insert a mass matrix automatically.
-
-`CallbackExecutableModelT` describes five operations: the residual, its
-Jacobian-vector product (JVP), its transpose action (VJP), the objective, and
-the objective derivative. B's residual callback returns a test covector.
-Its VJP takes a test primal and returns the state and control covector
-components. The binding unwraps native vectors, calls `ProblemB`, and wraps
-the result with the appropriate layout. This is where the application's
-operations acquire their public-contract representation.
-
-Solving an equation is supplied separately from evaluating it.
-`StateAdjointSolversT` contains two callbacks: a state solve at a control,
-and an adjoint solve using the full point and state-objective derivative.
-Each returns the native numerical result together with a convergence report.
-B embeds its RHS into Step-4's full system, calls the native solver, and
-restricts the answer. Its adapter translates the actual CG evidence; the
-formulation checks that the declared solve converged.
-
-The **metric** then turns a reduced derivative into a gradient. If $r$ is the
-control covector, a metric $G$ defines $`g=G^{-1}r`$. For B, $G=M$, so $g$
-represents the gradient in the selected FE mass geometry. The objective and
-metric have separate roles: one says what is minimized; the other defines
-the geometry used to turn derivatives into directions and measure norms.
-B happens to use the mass matrix in both roles.
-
-Finally, `ReducedDTOT` composes the model and solve callbacks into a reduced
-objective and derivative, and `ReducedSearchSolverT` runs the chosen search
-algorithm with a metric. The [B binding](minimal/problem_b_binding.hpp)
-constructs these objects explicitly. Its local class keeps the references and
-member order together; it is not a framework problem base class. The
-[API reference](../../../docs/reference/external-dealii-solver-integration.md)
-gives the exact signatures behind this explanation.
-
-## 5. Following one evaluation and one step
-
-Suppose the optimizer has a control $u$. It asks
-`ReducedDTOT::evaluate_value(u)` for the reduced objective value. B first
-builds the controlled RHS and solves for the free state $z$. It reconstructs
-$Pz+\ell$ when evaluating the physical-state term of the objective. The
-returned value retains the state, control, objective, and state-solve report.
-
-To obtain a derivative, `augment_derivative(value)` reuses this state.
-B computes the two objective covectors, then solves the adjoint equation:
+The consistent FE mass matrix $M$ supplies the weak control coupling
+$B=P^{\mathsf T}M$ and the selected $L^{2}$ geometry:
 
 ```math
-J_{z}=P^{\mathsf T}M(Pz+\ell),\qquad
-J_{u}=Mu,\qquad K^{\mathsf T}p=J_{z}.
+\begin{aligned}
+Kz &= b_{F} + Bu, \\
+J(z,u)
+  &= \frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)
+   + \frac{1}{2}u^{\mathsf T}Mu.
+\end{aligned}
 ```
 
-The adjoint combines the effect of state dependence without solving a
-separate state-sensitivity problem for every control coefficient. The model's
-residual pullback has control component $`-B^{\mathsf T}p`$. The reduced
-formulation subtracts it from the objective's control derivative:
+The application/OCP layer owns the coordinate map, lifting, mass and coupling
+operators, residual and objective derivatives, state/adjoint solves, and native mass
+metric. That work lives under `integration/`, not in the `nmopt` binding.
 
-```math
-r=J_{u}-E_{u}^{\ast}p=Mu+B^{\mathsf T}p.
-```
+The progression from A to B is the main stress test:
 
-```mermaid
-flowchart TD
-  U["Control u"] --> S["Native state solve"]
-  S --> J["Objective value"]
-  S --> D["Objective derivatives: state and control"]
-  D --> A["Native adjoint solve using state derivative"]
-  A --> V["Residual transpose action"]
-  D --> R["Reduced control covector"]
-  V --> R
-  R --> M["Native metric inverse"]
-  M --> G["Primal gradient"]
-```
-
-B's native metric solves $Mg=r$. The selected steepest-descent policy takes
-$d=-g$. Armijo tries a control displaced along that direction and compares
-its objective with a sufficient-decrease bound. The bound uses the covector
-pairing with the actual coefficient update:
-
-```math
-\delta u=u_{\mathrm{trial}}-u,\qquad
-J(u_{\mathrm{trial}})\leq J(u)+c r^{\mathsf T}\delta u.
-```
-
-Here $J(u)$ denotes the reduced objective after solving the PDE. The optimizer
-chooses trial steps and decides whether the inequality passes; the application
-supplies the state and objective evaluations. A rejected trial does not need
-an adjoint. Once a trial is accepted, its retained state is used to augment
-the derivative. This split is a concrete service nmopt provides beyond
-calling application functions in a fixed loop.
-
-The optimizer also measures the gradient and accepted update in the selected
-metric and applies its stopping policy. When it returns, the result contains
-the final evaluation. The main program reconstructs that retained state and
-passes it to Step-4's writer. Output therefore uses the state already computed
-by the algorithm.
-
-## 6. Ownership remains visible
-
-The B main constructs the application, problem, binding, and optimizer in
-that order. Their responsibilities are distinct:
-
-```mermaid
-flowchart TD
-  Main["Main program scope"] --> App["Step4: owns mesh, FE, matrices, native solver and writer"]
-  Main --> Problem["ProblemB: owns OCP operators and coordinate maps"]
-  Main --> Binding["Binding: owns public model, metric adapter and reduced service"]
-  Main --> Solver["Optimizer: owns search policy and orchestration"]
-  Problem -.->|borrows| App
-  Binding -.->|borrows| Problem
-  Solver -.->|borrows reduced service and metric| Binding
-```
-
-The callback functions retain references to the existing problem. The
-reduced service borrows the executable model; the optimizer borrows that
-service and the metric. Keeping these objects in one scope makes their
-lifetimes easy to follow. Native matrices and sparsity also retain the
-lifetimes required by deal.II. There is no ownership transfer merely because
-an operation becomes callable through nmopt.
-
-A uses a slightly different local arrangement: `ProblemA` owns its prepared
-Step-4 instance. Both arrangements meet the same downstream requirements.
-The [reference lifetime section](../../../docs/reference/external-dealii-solver-integration.md#8-lifetime-rules)
-details which values are copied and which objects are borrowed.
-
-## 7. What changed from A to B
-
-| Concern | A | B | Public connection |
+| Concern | Problem A | Problem B | Effect on the public connection |
 | --- | --- | --- | --- |
-| State/control sizes | 289 / 289 | 225 / 289 | Same layout and partition construction |
-| Control action | Identity RHS addition | Rectangular FE mass coupling | Same residual/JVP/VJP callback slots |
-| State boundary meaning | Algebraic probe | Fixed physical lifting | Coordinate operations remain in the application |
-| Objective | Coefficient squared norms | Physical-state and control mass norms | Same objective and derivative slots |
-| Gradient geometry | Identity | Consistent FE mass | Same metric interface, different native implementation |
-| Numerical inversion | Native state/adjoint solves | Native state/adjoint and metric solves | Existing solve and metric contracts |
+| State/control coordinates | 289 / 289 | 225 free state / 289 full control | Same layout/partition pattern |
+| Control action | algebraic RHS addition | rectangular FE mass coupling | Same residual/JVP/VJP slots |
+| State boundary meaning | algebraic probe | fixed physical lifting | Reconstruction stays application-owned |
+| Objective geometry | coefficient squared norms | consistent-mass FE norms | Same objective/derivative slots |
+| Gradient geometry | identity | consistent mass metric | Same `MetricT` boundary |
+| Minimal binding size | 206 lines | 220 lines | Essentially stable despite richer OCP work |
 
-The mathematical realization becomes richer while the construction pattern
-remains stable. B does not require a change to the shared optimizer or
-compiler. Its minimal binding has 222 code-bearing lines compared with A's
-206. The [implementation accounting](integration-report.md#4-source-accounting)
-shows what those lines contain and separates them from OCP implementation
-and the much larger evaluation machinery.
+## 5. What the `nmopt` binding actually adds
 
-## 8. Why there is a backend
+Each canonical binding performs the same explicit responsibilities:
 
-The optimizer needs vector operations such as copying a control, adding a
-direction, scaling it, and pairing coefficients. It should not need to know
-how a mesh was assembled to perform those operations. `SerialBackend`
-provides primitive algebra using `dealii::Vector<double>`, while the generic
-contracts and search algorithms are templated on the backend policy.
+1. describe state, control, and residual-test spaces with `BlockLayout`;
+2. expose five native mathematical actions through `CallbackExecutableModelT`:
+   residual, residual JVP, residual VJP, objective, and objective derivative;
+3. expose native state and adjoint solves and translate their convergence evidence
+   to `LinearSolveReport`;
+4. select the state/control partition;
+5. adapt the application's control metric to `MetricT`; and
+6. construct `ReducedDTOT`.
 
-That is the distinction between **representation** and **PDE meaning**.
-The backend supplies vector storage and algebra. B supplies mass and
-stiffness actions, coordinate reconstruction, and solve policies. The
-formulation combines derivatives and solves; the optimizer selects steps.
-Sharing the same native vector type makes the connection direct, although
-block construction and retained values can still copy vectors.
+The bindings do not reproduce the PDE or OCP algebra. Their callbacks unwrap native
+vectors, call `ProblemA` or `ProblemB`, and wrap the returned values with the
+appropriate primal/covector role and layout.
 
-The wider deal.II implementation offers reusable metrics, coordinate maps,
-and serial linear, KKT, and PDAS services, while generic solvers provide
-multiple direction and line-search policies. These optional services fit the
-same division of responsibilities; Step-4 retains its native PDE solves and
-B's mass inverse. The [project blueprint](../../../docs/internals/system-blueprint.md)
-and [API reference](../../../docs/reference/external-dealii-solver-integration.md)
-provide the broader framework map and current integration contracts.
+A and B remain separate on purpose. A uses an identity metric; B forwards its
+application-owned mass metric and keeps the free/full coordinate distinction visible.
+Hiding both behind a Step-4-specific generic helper would reduce the example LOC
+without reducing the actual public-contract obligations.
 
-One capability distinction matters here: Newton requires an explicitly
-supplied reduced Hessian, while Step-4's steepest-descent/Armijo path does
-not. Algorithm choice can therefore request additional operations, even
-though construction of all five model callbacks remains mandatory. The
-[reference](../../../docs/reference/external-dealii-solver-integration.md#5-metrics-and-optional-capabilities)
-describes these requirements.
+The complete example executables contain 107 code-bearing lines for A and 112 for B,
+but much of that is ordinary policy and program work: solver parameters, CLI/output
+handling, reporting, and error handling. The actual use site is short: construct the
+native problem, construct the binding, wrap the initial control, construct
+`ReducedSearchSolverT`, call `solve`, and return the retained state to the
+application's writer.
 
-This modular separation was the useful inspiration from SUNDIALS: application
-callbacks and data, vector operations, solve services, and numerical
-orchestration have distinct roles. The official [CVODE introduction](https://sundials.readthedocs.io/en/latest/cvode/Introduction_link.html)
-describes separate vector and linear-solver modules; the
-[KINSOL usage guide](https://sundials.readthedocs.io/en/latest/kinsol/Usage/index.html)
-describes user functions and context. The mapping to nmopt is an architectural
-analogy, not a claim of matching API or capability coverage.
+## 6. What `nmopt` provides after the connection
 
-## 9. Connecting another application
+Once the binding exists, the application can use the same reduced formulation and
+optimization machinery as other `nmopt` producers without teaching those layers
+Step-4-specific PDE details.
 
-| Step | Work to supply | Responsibility |
-| --- | --- | --- |
-| 1 | Make native assembly, solves, and output callable where needed | Existing application reuse |
-| 2 | Choose control/state coordinates, coupling, objective, derivatives, adjoint, and metric | OCP mathematics |
-| 3 | Check native equations and derivative actions | Application validation |
-| 4 | Describe state, control, and test spaces with compatible layouts | Mathematical mapping into nmopt |
-| 5 | Wrap the five model operations and two native solve services, with truthful reports | nmopt binding |
-| 6 | Adapt the control metric and construct the reduced service | nmopt binding |
-| 7 | Select the optimizer, policy, and initial control | Application algorithm choice |
-| 8 | Inspect stopping evidence and reconstruct/write the retained state | Application output |
+```mermaid
+flowchart TB
+  U["control u"] --> V["ReducedDTOT::evaluate_value"]
+  V --> S["native state solve"]
+  S --> RV[["retained value<br/><small>state · control · objective · solve report</small>"]]
 
-Use [minimal/problem_b.cc](minimal/problem_b.cc) to see the complete caller,
-then its [binding](minimal/problem_b_binding.hpp) to inspect construction.
-The [minimal README](minimal/README.md) provides runnable commands. The
-[API reference](../../../docs/reference/external-dealii-solver-integration.md)
-should answer exact type and lifetime questions without requiring the
-experiment's history. Another application needs validation suited to its own
-mathematics; it need not reproduce this evaluation's native optimizer or
-attribution harness.
+  RV --> Trial{"Need first-order information?"}
+  Trial -->|no – rejected / value-only trial| Next["next trial control"]
+  Next --> V
 
-The instrumented comparison bindings are separate from this canonical path and
-live under `evaluation/`; the native OCP services remain under `integration/`.
+  Trial -->|yes| D["augment_derivative"]
+  D --> JD["native objective derivative"]
+  D --> A["native adjoint solve"]
+  A --> VJP["native residual VJP"]
+  JD --> R["reduced control covector"]
+  VJP --> R
+  R --> M["application metric inverse"]
+  M --> G["primal gradient / search direction"]
+  G --> L["line search · stopping · accepted update"]
+  L --> U
+```
 
-## 10. Evidence and current limits
+The retained-value split is useful during globalization: rejected line-search trials
+need a state solve and objective value but no adjoint; derivative augmentation is
+performed when first-order information is actually requested. Metric application and
+inverse application preserve the application's chosen control geometry. Final field
+reconstruction and output remain native.
 
-The Step-4 case demonstrates the intended external path: an existing PDE
-application retains its discretization and numerical services, defines its
-OCP separately, and connects through the same reduced-formulation contracts
-used by compiler-produced realizations. Moving from algebraic A to FE
-distributed-control B substantially changes the application mathematics
-while preserving the framework connection and requiring no shared nmopt
-changes.
+For the broader reduced-optimization lifecycle, see
+[Reduced optimization](../../../docs/manual/overview/reduced-optimization.md).
 
-Native and nmopt versions of A/B passed matched evaluations and optimization,
-independent equation/derivative/optimum audits, and native output comparisons.
-The actual minimal executables are checked against audited native references.
-The [closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
-records the completed decision and the [implementation report](integration-report.md#7-evidence-and-reproduction)
-locates the evidence and reproduction commands.
+## 7. SUNDIALS as an architectural inspiration
 
-The tested cases are linear, symmetric, serial, fixed-mesh, and unconstrained
-in the control. The present reduced contract supports one state, one control,
-and one residual-test block. All five model callbacks are required even
-though this first-order runtime does not use residual or JVP, and it computes
-a full VJP whose state part is discarded. The binding is still verbose and
-newcomer usability is unmeasured. These are the remaining limits of the
-established external path; the architectural evaluation is closed.
+SUNDIALS provides a useful architectural reference point for this boundary because
+it also separates application-owned numerical functions and data from reusable
+solver orchestration. The comparison here is intentionally approximate: it is an
+inspiration for responsibility boundaries, not a target for API shape, feature
+coverage, or implementation maturity.
+
+The correspondence is approximate:
+
+| SUNDIALS-style concern | `nmopt` external-application analogue |
+| --- | --- |
+| application callbacks and user data | native residual/objective/derivative callbacks borrowing the existing OCP |
+| vector implementation | `SerialBackend` operating on `dealii::Vector<double>` |
+| linear/nonlinear solve services | application-owned state, adjoint, and metric solves |
+| solver orchestration | `ReducedDTOT` plus `ReducedSearchSolverT` |
+| application output and reconstruction | retained by Step-4 and the OCP layer |
+
+The useful common principle is that adopting a solver library should not require the
+application to surrender ownership of its discretization or numerical data merely to
+make its operations callable. In this experiment, Step-4 continues to own its mesh,
+matrices, native CG policy, and VTK writer; `nmopt` receives only the mathematical
+operations and solve services needed by the formulation.
+
+There are also important differences. `nmopt` exposes explicit primal/covector,
+layout, metric, and reduced-formulation concepts because the project targets
+PDE-constrained optimization rather than time integration or nonlinear-system solves.
+The Step-4 experiment therefore should not be read as claiming API compatibility,
+feature parity, or similar maturity with SUNDIALS. The useful comparison is the
+ownership boundary: application callbacks and data stay application-owned, while the
+library contributes reusable numerical orchestration.
+
+For the SUNDIALS concepts referenced here, see the
+[CVODE introduction](https://sundials.readthedocs.io/en/latest/cvode/Introduction_link.html)
+and [KINSOL usage guide](https://sundials.readthedocs.io/en/latest/kinsol/Usage/index.html).
+For the broader `nmopt` architecture, see the
+[project overviews](../../../docs/manual/overview/README.md).
+
+## 8. Evidence and current limits
+
+The experiment does more than show that the minimal programs compile:
+
+| Property | Evidence used |
+| --- | --- |
+| Forward fidelity | upstream, stripped, and adapted Step-4 outputs compared in both original dimensions |
+| Native mathematics | off-solution residual/JVP/VJP checks and equation/derivative audits |
+| Independent optimum | dense oracles and fresh final stationarity checks |
+| Native/`nmopt` equivalence | matched reduced evaluations and matched optimization for A and B |
+| FE metric | Problem B final stationarity checked with an independent dense mass solve |
+| Consumer fidelity | actual minimal executables launched and their reports/VTK payloads checked against audited native results |
+| Post-refactor reproduction | fresh A and B reproductions at `170c9f1` matched the historical numerical evidence; forward 2D/3D payloads also matched |
+| Current routine gate | `debug-dealii` pipeline 178/178 at `170c9f1` with deal.II build jobs = 1 |
+
+A post-closure reproduction on 2026-09-19 re-ran the historical comparison content
+against the final refactored tree. Problem A passed 11/11 selected
+native/public/minimal scenarios and Problem B passed 14/14. Reproduced objectives,
+iteration and solve counts, residuals, gradients, oracle quantities, operation
+ledgers, and metric records were identical to the historical values. Fresh VTK
+payloads were also identical after ignoring generated timestamp headers.
+
+The historical artifacts were not overwritten. The new evidence lives in separate
+unique run directories and differs only in expected provenance such as paths,
+timestamps, current commit/build metadata, and the current routine test inventory.
+The
+[closure report](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
+records the historical and post-closure evidence separately.
+
+The experiment also exposes concrete limitations rather than hiding them:
+
+- the cases are linear, symmetric, serial, fixed-mesh, and unconstrained;
+- nonlinear/nonsymmetric PDEs, MPI, adaptivity, constrained or boundary controls,
+  unrelated external applications, and package/install ergonomics are not tested;
+- all five model callbacks are currently mandatory even though residual and JVP are
+  not used by this successful first-order reduced runtime;
+- the full residual VJP computes a state component that the reduced path later
+  discards when extracting the control contribution;
+- `MetricT::inverse_apply` returns the primal result but does not expose a public
+  metric-solve report;
+- newcomer authoring effort and the performance materiality of extra VJP/copy work
+  were not measured; and
+- the 206/220-line bindings are observations for these cases, not universal lower
+  bounds.
+
+## 9. Bottom line
+
+The experiment supports a useful but deliberately limited conclusion: a real
+application can remain the owner of its numerical PDE implementation while using
+`nmopt` as a library. The application must still define its OCP mathematics, and the
+current public boundary requires an explicit adapter, but the adapter is localized
+and remains essentially stable when the example moves from the simple A probe to the
+substantially richer FE Problem B.
+
+The very large surrounding experiment should not be confused with that integration
+cost. Most of its source exists to independently challenge, audit, attribute, and
+reproduce the result. The detailed ownership and LOC breakdown is in the
+[implementation report](integration-report.md); runnable consumer commands are in
+[minimal/README.md](minimal/README.md).

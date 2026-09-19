@@ -5,12 +5,13 @@ current nmopt public contracts to optimize the existing Step-4 Problems A and
 B. They are the canonical external-consumer examples, not replacements for
 the evaluated comparison support or for the Step-4 application itself.
 
-Read the [explanatory overview](../external-integration-overview.md) for OCP
-mathematics, backend roles, and a guide to adapting another application. The
+Read the [external integration overview](../external-integration-overview.md)
+for the experiment question, result, evidence, and limits. The
 [implementation report](../integration-report.md) maps operations to source
-and accounts for the implementation size.
-The [closure report](../../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
-records the completed phase and its remaining authoring limitations.
+and separates the functional consumer path from the much larger validation
+harness. The historical
+[closure report](../../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
+retains the original evaluation decision and numerical evidence.
 
 ## Problem A consumer
 
@@ -35,16 +36,17 @@ minimal/problem_a_binding.hpp
 integration/problem_a.hpp
   └── owns the existing Step-4 Problem A operations and its prepared app
 
-source/adapted/step-4.cc
-  └── owns the Step-4 mesh, FE, assembly, solves, and field output
+integration/adapted_step4.hpp
+  └── privately reuses source/adapted/step-4.cc without its standalone main()
 ```
 
-The A binding borrows `ProblemA`; the application keeps both objects alive
-until the solver and output have finished. It has no instrumentation, native
-reference optimizer, oracle, comparison logic, or run manifest. The current
-callback contract still requires all five executable operations even though
-this reduced evaluation consumes only the objective, objective derivative,
-full VJP, and solve services during a successful optimization.
+The A binding borrows `ProblemA`; `ProblemA` owns its prepared Step-4 instance and
+must outlive the binding and solver. It has no instantiated
+instrumentation, native reference optimizer, oracle, comparison logic, or run
+manifest. The current callback contract still requires all five executable
+operations even though this reduced evaluation consumes only the objective,
+objective derivative, full VJP, and solve services during a successful
+optimization.
 
 The control is the full 289-entry algebraic vector used by Step-4, and the
 consumer uses the identity metric. Problem A therefore has neither Problem
@@ -78,42 +80,42 @@ integration/problem_b_mass.hpp, and integration/problem_b_metric.hpp
 ```
 
 The B binding borrows `ProblemB`; `ProblemB` in turn borrows the prepared
-`Step4<2>` application. The application, problem, binding, metric, and solver
-therefore remain alive in that order. The 289 control entries are full
+`Step4<2>` application. The application must outlive the problem; the problem must
+outlive the binding; and the binding, including its metric and reduced service, must
+outlive the solver. The 289 control entries are full
 algebraic coefficients, while the state and adjoint use 225 free coordinates;
 there is no free-coordinate control. The mass metric is applied and inverted
 through the existing native B metric service; the binding checks native metric
 convergence and returns the primal block required by `MetricT`, which has no
-public metric-solve report. No A identity metric or boundary-coordinate
-control is substituted.
+public metric-solve report.
 
-## Functional boundary and optional structure
+## Functional boundary and optional evaluation hooks
 
 The functional wiring is the layout/callback/partition/solve-service/metric
 composition in each binding, followed by the `ReducedDTO` and solver setup in
-the entry point. The `ProblemABinding` and `ProblemBBinding` class wrappers,
-their named accessors, the frozen example policy, the command-line output
-argument, and the ignored default run destinations are local example choices;
-they are not additions to the public framework API. The state and adjoint
-callbacks translate actual native CG evidence into `LinearSolveReport` values,
-because those reports are part of the public solve-result contract. The
-consumers do not collect instrumentation, native comparison traces, dense
-oracles, or run manifests. Diagnostic type headers may still arrive
-transitively through reused application headers; removing that dependency is a
-separate cleanup question.
+the entry point. The `ProblemABinding` and `ProblemBBinding` wrappers, their
+named accessors, the frozen example policy, command-line output argument, and
+ignored default run destinations are local example choices rather than new
+framework abstractions.
+
+The state and adjoint callbacks translate actual native CG evidence into
+`LinearSolveReport` values because those reports are part of the public
+solve-result contract. Reused OCP headers retain optional source-level
+diagnostic hooks used by the evaluation harness, but the minimal consumers
+instantiate none of that machinery.
 
 ## Validation-only code
 
 The two `tests/application/external_step4_minimal_problem_*_contract.cc`
-files are outside the consumer paths. They invoke the new bindings and the
-actual executables while using native references and independent dense A/B
-oracles to check matched optimization, fresh state/adjoint/gradient audits,
-oracle control distance, reported execution fields, and output consistency.
-Their evidence is disposable and is written below the ignored `runs/` tree.
+files are outside the consumer paths. They invoke the bindings and actual
+executables while using native references and independent dense A/B oracles
+to check matched optimization, fresh state/adjoint/gradient audits, oracle
+control distance, reported execution fields, and output consistency.
+
 The evaluated `evaluation/`, `verification/`, and `diagnostics/` directories
-likewise do not belong to the minimal consumers. In particular, their
-instrumentation and metric-solve records are verification support, not
-consumer requirements.
+likewise do not belong to the minimal runtime. Their instrumentation,
+comparison optimizers, dense audits, and metric-solve records are evidence for
+the experiment rather than consumer requirements.
 
 ## Build and run
 
@@ -160,16 +162,11 @@ The executable CTest entries launch the actual consumers with unique ignored
 output paths, then compare their reported counts, stopping reason, objective,
 gradient norm, and VTK payload with an independently audited native result.
 
-The complete implementation validation profiles are:
+The complete routine implementation profile is:
 
 ```bash
 ./build.sh pipeline debug-dealii
-./build.sh pipeline debug-neutral
 ```
 
 The public callback, formulation, metric, lifetime, and solver contracts are
 described in the [external deal.II integration reference](../../../../docs/reference/external-dealii-solver-integration.md).
-The evaluated wiring and its limits remain documented in the [Step-4
-README](../README.md) and the [boundary-evaluation roadmap](../../../../docs/history/reviews/external-dealii-boundary-evaluation/roadmap.md).
-The functional/accessory source split and the A/B comparison are recorded in
-the [minimal consumer assessment](../../../../docs/history/reviews/external-dealii-boundary-evaluation/minimal-consumers-report.md).

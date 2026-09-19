@@ -2,310 +2,444 @@
 
 ## Findings
 
-The implementation preserves Step-4's native assembly, CG solve, and VTK
-output while adding two application-owned optimal-control problems. Both
-problems run through the existing public nmopt contracts and agree with
-independently audited native references. Shared nmopt, compiler, and backend
-code did not change during the evaluation.
+This report records the final implementation state of the external deal.II Step-4
+experiment at `170c9f1` (`refactor(step4): isolate adapted application reuse`). It is
+an implementation/accounting report, not a claim that the measured source sizes are
+universal lower bounds.
 
-The final minimal bindings contain 206 code-bearing lines for A and 222 for
-B. The native OCP implementations contain 216 and 614 lines respectively.
-These counts describe implemented responsibilities, including checks and
-packaging; they are not lower bounds on mathematical or framework work.
-The tables below identify every counted scope and separate the functional
-consumers from the comparison machinery.
+The experiment was motivated by a repository-level concern: a predominantly
+Codex-authored codebase had grown large, so it was important to determine whether
+that size reflected an intrinsically heavyweight external-application boundary or a
+large amount of evaluation machinery around a smaller functional path.
 
-Source snapshot: `2ba749b`. The evaluation is closed. Start with the
-[explanatory overview](external-integration-overview.md) for the architecture;
-use the [API reference](../../../docs/reference/external-dealii-solver-integration.md)
-for exact contracts and the [closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
-for objective dispositions and remaining hypotheses.
+The final source attribution separates those two things clearly:
 
-## 1. Step-4 before and after adaptation
+| Scope | Code-bearing lines | Needed by the canonical minimal consumers? |
+| --- | ---: | --- |
+| Functional Step-4/OCP/nmopt path, using the adapted source once | **1,722** | Yes, by role |
+| Of that: minimal nmopt binding headers | **426** | Yes |
+| Of that: minimal executable entry points | **219** | Yes, but largely ordinary program/policy code |
+| Evaluation, comparison, verification, diagnostics, and test/evidence support | **10,256** | **No** |
 
-The pinned [upstream source](source/upstream/step-4.cc) is deal.II `v9.5.1`.
-In the evaluated 2D configuration, the forward problem is:
+The large experiment footprint therefore should not be read as the amount of code an
+external application must adopt. The evaluation layers exist to test fidelity,
+mathematical correctness, native/nmopt equivalence, attribution, and output.
 
-```math
-\begin{aligned}
--\Delta y&=4(x_{1}^{4}+x_{2}^{4}) &&\text{in }\Omega=[-1,1]^{2},\\
-y&=x_{1}^{2}+x_{2}^{2} &&\text{on }\partial\Omega.
-\end{aligned}
-```
+The tested boundary is nevertheless not effortless. The minimal bindings still
+require several public concepts: layouts, five executable-model callbacks, two solve
+services with truthful reports, a metric adapter, a state/control partition, and a
+`ReducedDTOT`. The experiment establishes that these obligations are localized and
+stable across the tested A/B cases; it does not establish globally minimal authoring
+cost.
 
-Step-4 uses continuous $`Q_{1}`$ elements, four global refinements, 256 cells,
-and 289 DoFs. It assembles stiffness and load using its original two-point
-Gauss rule in each coordinate direction. Dirichlet elimination produces the
-matrix $A$ and RHS $b$. The resulting symmetric positive-definite system is
-solved by CG with identity preconditioning and
-`SolverControl(1000, 1e-12)`, then written as VTK. The standalone program runs
-both 2D and 3D; optimization uses 2D only.
+## 1. Source roles and ownership
 
-The original class has this structure (shortened declaration):
-
-```cpp
-template <int dim>
-class Step4
-{
-public:
-  Step4();
-  void run();
-
-private:
-  void make_grid();
-  void setup_system();
-  void assemble_system();
-  void solve();
-  void output_results() const;
-
-  Triangulation<dim> triangulation;
-  FE_Q<dim> fe;
-  DoFHandler<dim> dof_handler;
-  SparsityPattern sparsity_pattern;
-  SparseMatrix<double> system_matrix;
-  Vector<double> solution;
-  Vector<double> system_rhs;
-};
-```
-
-The [stripped baseline](source/baseline/step-4-stripped.cc) preserves the
-license and non-comment token stream. The [adapted source](source/adapted/step-4.cc)
-opens these native operations:
-
-| Adapted member | Purpose | Consumer |
-| --- | --- | --- |
-| `prepare_for_external_use()` | Perform grid/setup/assembly without immediately solving and writing | A and B |
-| `system_matrix_view()`, `system_rhs_view()` | Inspect the existing assembled system | A and B |
-| `solve(rhs, solution)` | Reuse CG with supplied RHS and in/out solution; return native monitored evidence | A and B |
-| `output_results(state, path)` | Write a supplied state through the original VTK machinery | A and B |
-| `dof_handler_view()`, `boundary_values_view()` | Supply native discretization and boundary data for mass assembly and coordinates | B |
-
-The adapted `run()` still performs the original forward computation.
-`STEP4_NO_MAIN` permits reuse of the tutorial translation unit. No nmopt
-include or type enters Step-4. The adapted source has 244 code-bearing lines
-against 191 in the stripped baseline: a shared net increase of 53 lines.
-This is net source growth, not a count of every edited line or a claim that
-all 53 lines would be needed by an already reusable application.
-
-## 2. Application-owned OCP mathematics
-
-### A: algebraic RHS control
-
-[ProblemA](integration/problem_a.hpp) owns its prepared Step-4 instance.
-State and control are full 289-entry coefficient vectors, with identity
-control coupling and metric:
-
-```math
-\begin{aligned}
-E(y,u)&=Ay-b-u,\\
-J(y,u)&=\frac{1}{2}y^{\mathsf T}y+\frac{1}{2}u^{\mathsf T}u,\\
-Ay&=b+u,\qquad A^{\mathsf T}p=y,\qquad r=j'(u)=u+p.
-\end{aligned}
-```
-
-Control acts on the already boundary-treated algebraic equations, including
-the boundary rows. A deliberately avoids FE coupling and mass assembly; it
-is not distributed forcing with the original fixed physical boundary data.
-
-### B: FE distributed control
-
-[ProblemB](integration/problem_b.hpp) borrows a prepared Step-4 application.
-The full continuous $`Q_{1}`$ control has 289 coefficients; the state and test
-spaces use 225 free coordinates. Let $P$ inject free coordinates, $\ell$
-contain fixed boundary values and zeros on free entries, and $M$ be the full
-consistent mass matrix assembled on the original mesh:
-
-```math
-\begin{aligned}
-y_{\mathrm{phys}}&=Pz+\ell,\qquad
-K=P^{\mathsf T}AP,\quad b_{F}=P^{\mathsf T}b,\quad B=P^{\mathsf T}M,\\
-E(z,u)&=Kz-b_{F}-Bu,\\
-J(z,u)&=\frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)
-       +\frac{1}{2}u^{\mathsf T}Mu,\\
-K^{\mathsf T}p&=P^{\mathsf T}M(Pz+\ell),\qquad
-r=j'(u)=Mu+B^{\mathsf T}p,\quad g=M^{-1}r.
-\end{aligned}
-```
-
-B is FE volume forcing, $-\Delta y=f+u$, with zero desired state and unit
-regularization. The original $b$ already contains the lifting correction.
-Boundary-node control coefficients contribute to volume forcing; they do
-not change the prescribed state boundary values. The mass matrix is neither
-lumped nor boundary-eliminated.
-
-B supplies state RHS $b+PBu$ and adjoint RHS $`PJ_{z}`$ to the original full
-solver, then restricts its output. Reusing CG for the transpose is justified
-by the verified symmetry. Each OCP solve starts from zero and retains
-Step-4's CG policy and exception behavior. The native mass inverse uses a
-fresh CG solve with identity preconditioning, at most 1000 iterations, and
-threshold $`\max(10^{-14},10^{-12}\lVert r\rVert_{2})`$. Both paths use that
-same metric service. The [B protocol](../../../docs/history/reviews/external-dealii-boundary-evaluation/problem-b-protocol.md)
-contains the complete frozen discretization and policy.
-
-## 3. Mathematical operations and the public connection
-
-The minimal [A](minimal/problem_a_binding.hpp) and
-[B](minimal/problem_b_binding.hpp) bindings expose the same contract shape.
-The B mapping is:
-
-| Operation | Native implementation | Public representation |
-| --- | --- | --- |
-| $E(z,u)$ | `ProblemB::residual` | Test-layout covector from residual callback |
-| $E'(z,u)(v,w)=Kv-Bw$ | `ProblemB::residual_jvp` | Test-layout covector from JVP callback |
-| $`E'(z,u)^{\ast}q=(K^{\mathsf T}q,-B^{\mathsf T}q)`$ | `ProblemB::residual_vjp` | Full state/control covector from VJP callback |
-| $J(z,u)$ | `ProblemB::objective` | Scalar objective callback |
-| $`(J_{z},J_{u})`$ | `ProblemB::objective_derivative` | Full state/control covector from derivative callback |
-| $`Kz=b_{F}+Bu`$ | `ProblemB::solve_state` | `StateAdjointSolversT::solve_state` |
-| $`K^{\mathsf T}p=J_{z}`$ | `ProblemB::solve_adjoint` | `StateAdjointSolversT::solve_adjoint` |
-| $Mu$ and $`M^{-1}r`$ | `ProblemBMetric::apply`, `inverse_apply` | Local `MetricT` adapter |
-| $`r=J_{u}-E_{u}^{\ast}p`$ | Composed from the preceding operations | `ReducedDTOT::augment_derivative` |
-
-State/adjoint callbacks wrap native vectors in one-block layouts and return
-actual `LinearSolveReport` evidence. The metric inverse checks its native CG
-result but returns only a primal block; public `MetricT` has no solve-report
-return. Application objects and matrices remain outside the generic solver.
-
-A successful value/derivative evaluation follows these function calls:
+The final experiment layout is:
 
 ```text
-ReducedSearchSolverT::solve(initial_control)
-  ReducedDTOT::evaluate_value(control)
-    state-solve callback -> ProblemB::solve_state -> Step4::solve
-    objective callback -> ProblemB::objective
-  ReducedDTOT::augment_derivative(value)
-    objective-derivative callback -> ProblemB::objective_derivative
-    adjoint-solve callback -> ProblemB::solve_adjoint -> Step4::solve
-    VJP callback -> ProblemB::residual_vjp
-    form the reduced control covector
-  direction policy -> metric adapter -> ProblemBMetric::inverse_apply
-  line-search policy -> further value evaluations
-  accepted trial -> derivative augmentation using the retained state
+source/
+  upstream/       authentic deal.II provenance source
+  baseline/       comment-stripped numerical baseline
+  adapted/        reusable Step-4 source; still a standalone program
+
+integration/
+  adapted_step4.hpp       one private include seam for the adapted source
+  problem_a.hpp           Problem A OCP operations and native solves
+  problem_b.hpp           Problem B OCP operations and native solves
+  problem_b_coordinates.hpp
+  problem_b_mass.hpp
+  problem_b_metric.hpp    Problem B coordinates, mass/coupling, and metric
+
+minimal/
+  problem_a_binding.hpp
+  problem_b_binding.hpp   canonical nmopt-facing adapters
+  problem_a.cc
+  problem_b.cc            complete minimal consumers
+
+evaluation/
+  nmopt_problem_*_binding.hpp
+  native_*                instrumented nmopt bindings and independent native paths
+
+verification/             equation/derivative/oracle checks
+diagnostics/              optional counters and evidence records
 ```
 
-A changes the dimensions, mathematical operations, and metric implementation;
-it does not change this construction pattern. B's
-[main](minimal/problem_b.cc) reconstructs
-`result.final_evaluation.state.block(0)` and calls Step-4's writer. A's
-[main](minimal/problem_a.cc) writes its full retained state through `ProblemA`.
-The [overview](external-integration-overview.md#7-what-changed-from-a-to-b)
-compares the mathematical changes and unchanged framework roles.
+The important ownership rule is that the application remains the numerical owner.
+`source/adapted/step-4.cc` owns its mesh, FE space, matrix, RHS, native CG solve, and
+writer. The OCP layer owns the control model, objective, derivatives, coordinate
+maps, and metric. The nmopt binding owns only contract adaptation and reduced-service
+composition.
 
-## 4. Source accounting
+The optional diagnostics used by the experiment are source-level dependencies of
+some OCP/evaluation headers, but the minimal consumers instantiate no
+`Instrumentation`, native reference optimizer, dense oracle, or comparison runner.
 
-Counts below are physical lines containing C++ code after removing blank and
-comment-only lines, including block-comment licenses. Includes, declarations,
-and brace-only lines count. Inline comments do not remove a code-bearing
-line. The existing comment-strip utility supplies the transformation; a
-reproduction command appears below. Source ranges in the next section refer
-to the original files at `2ba749b`, before comment removal.
+## 2. The starting Step-4 application
 
-This is a snapshot inventory of the implemented paths, not development time,
-a cumulative diff, or a universal lower bound. Files may combine mathematics,
-checks, result structures, and optional instrumentation. Their role identifies
-ownership, not a claim that every contained line is mathematically necessary.
+The experiment starts from the authentic deal.II `step-4` tutorial rather than from
+a framework-shaped mock application. In its original form, Step-4 is a small
+finite-element Poisson solver. It builds a hypercube mesh, globally refines it, uses
+continuous first-order `FE_Q` elements, assembles the stiffness matrix and load
+vector, applies prescribed Dirichlet data, solves the resulting linear system with
+conjugate gradients and identity preconditioning, and writes the finite-element
+field to VTK.
 
-### Native application and functional consumers
+At the continuous level, the tutorial has the familiar form
 
-All paths in this table are relative to this directory. Shared source is
-counted once; A and B columns contain separate files.
+```math
+\begin{aligned}
+-\Delta y &= f && \text{in } \Omega, \\
+y &= g && \text{on } \partial\Omega.
+\end{aligned}
+```
 
-| Responsibility | A | B | Shared | Owning source |
-| --- | ---: | ---: | ---: | --- |
-| Forward application baseline | – | – | 191 | `source/baseline/step-4-stripped.cc` establishes the baseline |
-| Net native reuse adaptation | – | – | 53 | `source/adapted/step-4.cc` is 244 total |
-| OCP operations and native solve wrapping | 216 | 232 | – | `integration/problem_a.hpp`, `integration/problem_b.hpp` |
-| Free/full state coordinates and lifting | – | 118 | – | `integration/problem_b_coordinates.hpp` |
-| FE mass assembly and control coupling | – | 183 | – | `integration/problem_b_mass.hpp` |
-| Native mass metric service | – | 81 | – | `integration/problem_b_metric.hpp` |
-| Public nmopt binding, including metric adaptation | 206 | 222 | – | `minimal/problem_a_binding.hpp`, `minimal/problem_b_binding.hpp` |
-| Consumer, solver policy, reporting, and output paths | 107 | 112 | – | `minimal/problem_a.cc`, `minimal/problem_b.cc` |
-| **Functional source inventory** | **529** | **948** | **244** | **1,721 combined, counting shared Step-4 once** |
+The tutorial itself chooses the forcing and boundary values. For this integration
+study, the important fact is not their particular formula but the ownership model:
+Step-4 already has a complete mesh/assembly/solve/output lifecycle before `nmopt` is
+introduced.
 
-The role totals are:
+With the continuous first-order `FE_Q` space $V_{h}$ and its homogeneous-test
+subspace $V_{h,0}$, the finite-element problem is: \
+find $y_{h}\in V_{h}$ with the prescribed discrete boundary values such that
 
-- **Native OCP implementation:** 830 lines (216 A and 614 B). Including the
-  shared 53-line net reuse increase gives 883 lines of application-side source
-  growth over the forward baseline.
-- **Minimal nmopt-specific bindings:** 428 lines (206 A and 222 B).
-- **Mixed consumer entry points:** 219 lines. These contain both nmopt setup
-  and ordinary program policy, error handling, reporting, and filesystem work.
-  They are not counted again as binding or OCP lines.
+```math
+\int_{\Omega} \nabla y_{h} \cdot \nabla v_{h} \mathrm{d}x
+=
+\int_{\Omega} f v_{h} \mathrm{d}x
+\qquad
+\text{for all } v_{h}\in V_{h,0}.
+```
 
-A alone uses 773 lines including the adapted application; B alone uses 1,192.
-Their sum would count Step-4 twice. The combined source increase over the
-191-line forward baseline is 1,530, split into the three roles above. These
-are source-footprint statements, not an estimate of how little code a new
-application could require. Optional instrumentation remains in the reused
-OCP headers, although the minimal consumers instantiate none.
+After assembly and Step-4's existing Dirichlet treatment, this becomes the algebraic
+system
 
-### Comparison and verification support
+```math
+A y = b.
+```
 
-These scopes are outside the minimal consumers' execution path. The evaluated
-bindings now live under `evaluation/` and are listed separately because they
-are functional bindings used for comparison, not pure diagnostic code.
+The symbols $A$ and $b$ used below refer to these already assembled and
+boundary-treated Step-4 objects. The OCP experiment does not replace this
+discretization: Problem A modifies its algebraic right-hand side, while Problem B
+builds a free-state coordinate system and finite-element control coupling around the
+same native realization.
 
-| Responsibility | Lines | Exact source scope |
+Its original public interface is essentially one monolithic `run()` operation:
+
+```text
+make grid
+  -> distribute DoFs / allocate system
+  -> assemble PDE
+  -> solve native linear system
+  -> write VTK output
+```
+
+The standalone `main()` executes that forward problem in both 2D and 3D. In the 2D
+configuration used by Problems A and B, four global refinements produce 256 active
+cells and 289 degrees of freedom. Problem B later distinguishes the 225 free state
+coefficients from the full 289-entry physical/control representation, but that
+coordinate split belongs to the OCP layer rather than to the original tutorial.
+
+This starting point matters for interpreting the experiment. Step-4 is a forward PDE
+application, not an optimal-control application and not an `nmopt` client. Turning it
+into an OCP necessarily requires application mathematics such as a control,
+objective, derivatives, adjoint, and metric. Those additions should not be counted
+as framework binding overhead. The first question is therefore only whether the
+existing numerical application can be made reusable without being rewritten around
+`nmopt`.
+
+## 3. Step-4 before and after adaptation
+
+The upstream and stripped baseline both contain **191 code-bearing lines**. The
+adapted tutorial contains **244**, a net increase of **53**.
+
+The adaptation makes an originally monolithic forward example reusable without
+turning it into an nmopt application. It exposes:
+
+| Reuse seam | Purpose |
+| --- | --- |
+| preparation/assembly entry | build the mesh/system once before repeated solves |
+| matrix and RHS views | allow application-owned OCP operators to reuse the assembled system |
+| `solve(rhs, solution)` | reuse Step-4's native CG policy for caller-supplied right-hand sides and return monitored evidence |
+| `output_results(state, path)` | reuse the original VTK writer for a caller-supplied state |
+| DoF-handler and boundary-data views | let Problem B construct its coordinate map and FE mass/coupling |
+| `STEP4_NO_MAIN` guard | permit the preserved translation unit to be reused without its standalone `main()` |
+
+The preprocessor protocol is centralized in
+[`integration/adapted_step4.hpp`](integration/adapted_step4.hpp), a four-line private
+reuse header. Consumer code includes that named seam rather than repeating a
+`#define`/include/`#undef` sequence.
+
+No nmopt header, type, callback, metric, or solver enters
+`source/adapted/step-4.cc`. Its original forward `run()` remains available, and the
+standalone adapted target remains a direct source build.
+
+## 4. Application-owned OCP mathematics
+
+The OCP implementation is deliberately separated from nmopt-specific binding code.
+These mathematical choices would still have to exist if a different optimization
+library were used.
+
+### 4.1 Problem A – algebraic RHS control
+
+[`integration/problem_a.hpp`](integration/problem_a.hpp) contains **214 code-bearing
+lines** and owns the prepared Step-4 application plus the A-specific residual,
+objective, derivatives, state/adjoint solves, and output forwarding.
+
+Problem A keeps the same assembled matrix $A$ and turns the existing algebraic
+right-hand side into the control channel. Its primal equation, adjoint, objective,
+and reduced derivative are
+
+```math
+\left\{
+\begin{aligned}
+Ay &= b+u,\\
+A^{\mathsf T}p &= y
+\end{aligned}
+\right.
+\qquad
+\begin{aligned}
+J(y,u) &= \frac{1}{2}y^{\mathsf T}y
+        + \frac{1}{2}u^{\mathsf T}u,\\
+j'(u) &= u+p
+\end{aligned}
+```
+
+For the public model callback, the same state equation is
+represented by the residual $E(y,u)=Ay-b-u$.
+
+State and control are both 289-entry algebraic vectors. A is intentionally simple
+and does not represent physical FE volume forcing with preserved state boundary
+values.
+
+### 4.2 Problem B – finite-element distributed control
+
+Problem B's native OCP implementation contains **615 code-bearing lines**:
+
+| Source | Lines | Responsibility |
 | --- | ---: | --- |
-| Alternative evaluated bindings | 571 | `evaluation/nmopt_problem_a_binding.hpp` (235), `evaluation/nmopt_problem_b_binding.hpp` (336) |
-| Native reduced references and optimizers | 786 | `evaluation/native_reduced.hpp` (81), `native_optimization.hpp` (246), `native_problem_b_reduced.hpp` (145), `native_problem_b_optimization.hpp` (314) |
-| Shared frozen comparison policy | 24 | `evaluation/optimization_policy.hpp` |
-| Native verification and scenarios | 959 | `verification/verification.hpp` (294), `problem_b_verification.hpp` (589), `scenario.hpp` (76) |
-| Optional diagnostic records | 207 | `diagnostics/instrumentation.hpp` |
-| Native contract driver and failure-evidence support | 2,976 | `tests/dealii/external_step4_native_contract.cc` (2,713), `external_step4_evidence.hpp` (263), relative to repository root |
-| A application contract drivers | 2,275 | `tests/application/external_step4_nmopt_contract.cc` (939), `external_step4_optimization_contract.cc` (885), `external_step4_minimal_problem_a_contract.cc` (451) |
-| B application contract drivers | 2,423 | `tests/application/external_step4_problem_b_nmopt_contract.cc` (701), `external_step4_problem_b_optimization_contract.cc` (1,017), `external_step4_minimal_problem_b_contract.cc` (705) |
-| **Support subtotal, excluding alternative bindings** | **9,650** | The preceding support scopes are disjoint |
-| **Support plus alternative bindings** | **10,221** | Separate from the 1,721-line functional inventory |
+| `integration/problem_b.hpp` | 233 | residual, objective, derivatives, state/adjoint solve wrapping |
+| `integration/problem_b_coordinates.hpp` | 118 | free/full state map, boundary lifting, restriction/reconstruction |
+| `integration/problem_b_mass.hpp` | 183 | consistent FE mass and rectangular control coupling |
+| `integration/problem_b_metric.hpp` | 81 | native mass metric apply/inverse service |
+| **Total** | **615** | application-owned B OCP implementation |
 
-This explains the large experiment footprint: it includes an independently
-implemented native optimization schedule, equation and derivative audits,
-dense oracles, comparisons, work attribution, and failure-evidence tests.
-An application integration does not need to reproduce that harness. Native
-validation appropriate to its mathematics is still necessary.
+The full control has 289 continuous FE coefficients while the state/test spaces use
+225 free coordinates. With $P$ the free-to-full injection, $\ell$ the fixed boundary
+lifting, and $M$ the full consistent mass matrix, define
 
-The inventory counts C++ sources only. Documentation, generated run data,
-Python source/fidelity tools and their tests, and CMake target registration
-are outside these totals. The two additional unchanged provenance copies
-(upstream and stripped) are also excluded from the functional total.
-All counts describe the present files, including earlier corrections; they
-are not a measure of lines authored during only the minimal-consumer follow-up.
+```math
+\begin{aligned}
+y_{\mathrm{phys}} &= Pz+\ell, \\
+K &= P^{\mathsf T}AP, \quad
+b_{F} = P^{\mathsf T}b, \quad
+B = P^{\mathsf T}M.
+\end{aligned}
+```
 
-## 5. Inside the minimal bindings
+The resulting primal equation, adjoint, objective,
+and reduced derivative are
 
-The following disjoint regions reconcile exactly to each binding's total.
-Ranges are inclusive physical line numbers in the linked
-[A](minimal/problem_a_binding.hpp) and [B](minimal/problem_b_binding.hpp)
-files at `2ba749b`; counts exclude blank/comment-only lines within each range.
+```math
+\left\{
+\begin{aligned}
+Kz &= b_F+Bu, \\
+K^{\mathsf T}p &= P^{\mathsf T}M y_{\mathrm{phys}}
+\end{aligned}
+\right.
+\qquad
+\begin{aligned}
+J(z,u) &= \frac{1}{2}y_{\mathrm{phys}}^{\mathsf T}
+          M y_{\mathrm{phys}}
+          + \frac{1}{2}u^{\mathsf T}Mu,\\
+j'(u) &= Mu+B^{\mathsf T}p
+\end{aligned}
+```
 
-| Region | A lines / range | B lines / range | Responsibility |
-| --- | --- | --- | --- |
-| Metric class | 51 / 24–81 | 58 / 29–93 | Identity or native mass forwarding, layout checks, ID, and local storage |
-| Layout construction | 9 / 97–105 | 9 / 112–120 | Variable and test layouts |
-| Contract member initialization | 7 / 106–112 | 7 / 121–127 | Model, partition, metric adapter, and reduced DTO construction |
-| Model callback factory | 39 / 155–194 | 39 / 170–209 | Five wrappers and factory scaffolding |
-| Solve-report translation | 15 / 139–153 | 15 / 154–168 | Actual native policy and convergence evidence |
-| Solve-service factory | 23 / 196–218 | 24 / 211–234 | Two wrappers and factory scaffolding |
-| Remaining packaging | 62 / complement | 70 / complement | Includes, namespace/class declarations, aliases, constructor setup, accessors, deleted copy/move operations, and members |
-| **Total** | **206** | **222** | Every code-bearing line appears once |
+For the public model callback, the primal equation is equivalently represented by
+$E(z,u)=Kz-b_{F}-Bu$. The application owns both the OCP operators and the mass
+metric $G=M$. State and adjoint solves reuse the native Step-4 linear solver;
+physical output reconstructs $y_{\mathrm{phys}}$ before calling Step-4's writer.
 
-The metric class count includes its own aliases, checks, and members; those
-lines are not counted again as packaging. B's remaining constructor setup
-also constructs its native metric. These regions expose the implementation
-shape without classifying every brace or declaration as a separate API
-obligation.
+The growth from A to B is therefore mainly OCP/numerical work: coordinate semantics,
+FE coupling, a physical objective, and a nonidentity metric. It is not growth in the
+nmopt optimizer or compiler.
 
-Layouts, correctly typed callbacks, native solve results, metric operations,
-and reduced construction are required by the current path. The class names,
-member organization, and accessors are local choices. The repeated wrappers
-are visible in both bindings; the metric and mathematical operations they
-wrap differ. A future convenience could package repeated construction, but
-removing residual/JVP requirements or requesting only a control VJP would
-change the underlying capability boundary and requires a separate decision.
+## 5. Mathematical operations and the public connection
 
-### Reproduce the counts
+The canonical minimal A and B bindings expose the same public shape.
 
-Run from the repository root. This reads source only, reuses the existing
-comment utilities, and prints the inventory and region reconciliation:
+| Mathematical operation | Native owner | nmopt representation |
+| --- | --- | --- |
+| residual $E$ | `ProblemA` / `ProblemB` | test-layout covector callback |
+| residual JVP $E'\delta x$ | native problem | test-layout covector callback |
+| residual VJP $E'^{\ast}p$ | native problem | full state/control covector callback |
+| objective $J$ | native problem | scalar callback |
+| objective derivative $J'$ | native problem | full state/control covector callback |
+| state solve | native problem/Step-4 | `StateAdjointSolversT::solve_state` |
+| adjoint solve | native problem/Step-4 | `StateAdjointSolversT::solve_adjoint` |
+| control metric | identity for A; native mass metric for B | local `MetricT` adapter |
+| reduced derivative | composed from the operations above | `ReducedDTOT` |
+
+The binding wraps/unwraps native `dealii::Vector<double>` values while preserving
+state/control/test layouts and primal/covector roles. It does not reimplement the
+PDE algebra.
+
+A successful first-order reduced evaluation uses:
+
+```text
+ReducedSearchSolverT::solve(control)
+  ReducedDTOT::evaluate_value(control)
+    native state solve
+    native objective
+  ReducedDTOT::augment_derivative(retained value)
+    native objective derivative
+    native adjoint solve
+    residual VJP
+    reduced control covector
+  MetricT::inverse_apply
+  line search / stopping / retained result
+```
+
+This separation is also where current API limitations are visible: all five model
+callbacks are mandatory at construction even though this successful first-order
+runtime does not call residual or JVP; the full VJP computes a state component that
+the reduced path later discards when extracting the control contribution; and
+`MetricT::inverse_apply` does not expose a public metric-solve report.
+
+## 6. Source accounting
+
+### 6.1 Counting method
+
+The experiment's authoritative accounting counts physical C++ lines that remain
+after blank and comment-only lines (including leading block-comment licenses) are
+removed. Includes, declarations, and brace-only lines count. These numbers describe
+source ownership; they are not development-time estimates or universal minima.
+
+The conventional gross size of the repository is less informative here because the
+same experiment intentionally contains both the consumer path and a much larger,
+independent validation harness.
+
+### 6.2 Functional source
+
+All paths below are relative to `apps/external-dealii/step-4/` unless noted.
+
+| Responsibility | A | B | Shared | Minimal runtime? |
+| --- | ---: | ---: | ---: | --- |
+| Preserved stripped forward baseline | – | – | 191 | Existing application |
+| Net native reuse adaptation | – | – | 53 | Yes, for this originally monolithic tutorial |
+| Adapted-source reuse helper | – | – | 4 | Yes, experiment-local include seam |
+| OCP operations/native solve wrapping | 214 | 233 | – | Yes, application/OCP work |
+| Free/full state coordinates and lifting | – | 118 | – | Yes, B OCP work |
+| FE mass assembly and control coupling | – | 183 | – | Yes, B OCP work |
+| Native mass metric | – | 81 | – | Yes, B OCP work |
+| Minimal nmopt binding | 206 | 220 | – | **Yes, framework-specific** |
+| Consumer entry point | 107 | 112 | – | Yes, mixed nmopt use + ordinary program policy |
+
+Counting the complete adapted source once rather than the baseline plus delta gives a
+**functional gross of 1,722 code-bearing lines**:
+
+```text
+adapted Step-4 source             244
+adapted-source reuse helper         4
+application-owned OCP             829
+minimal nmopt bindings            426
+minimal consumer entry points     219
+                                -----
+functional gross                1,722
+```
+
+Relative to the 191-line stripped forward baseline, the experiment adds **1,531
+functional code-bearing lines**. They divide more usefully by responsibility:
+
+```text
+native reuse delta + helper        57
+application-owned OCP             829
+minimal nmopt binding             426
+mixed consumer entry points       219
+                                -----
+net functional addition         1,531
+```
+
+The 829 OCP lines are not nmopt boilerplate: they define the optimal-control problem
+that the original forward solver did not contain. The 219 executable lines are also
+not pure framework burden; they include frozen example policy, output allocation,
+CLI handling, reporting, and error handling.
+
+### 6.3 Minimal nmopt binding breakdown
+
+The two canonical bindings total **426 code-bearing lines**. Their explicit A/B
+separation is intentional: it shows that the richer B mathematics does not require a
+different integration pattern.
+
+| Binding responsibility | Problem A | Problem B | What it is for |
+| --- | ---: | ---: | --- |
+| Metric adapter | 51 | 58 | implement `MetricT`; A copies through identity, B forwards native mass apply/inverse |
+| Layout construction | 9 | 9 | identify state, control, and residual-test spaces |
+| Model callback factory | 39 | 39 | expose residual, JVP, VJP, objective, and objective derivative |
+| Native solve-report translation | 15 | 15 | preserve the actual CG convergence/work evidence |
+| State/adjoint solve factory | 23 | 24 | adapt native solves to `StateAdjointSolversT` |
+| Partition / reduced composition | 7 | 7 | build state/control partition, metric connection, and `ReducedDTOT` |
+| Packaging, aliases, accessors, storage | 62 | 68 | local C++ ownership/lifetime and readable example packaging |
+| **Total** | **206** | **220** | |
+
+The first six rows are the current contract construction. The final row is not a
+claim of unavoidable framework API: it includes local class organization, aliases,
+accessors, identifiers, member storage, and deleted copy/move operations.
+
+The example does not hide repeated A/B construction behind a custom helper merely to
+produce a smaller LOC number. Such a helper could shorten the files while leaving
+the same public obligations in place.
+
+### 6.4 Evaluation and evidence support
+
+The confidence-building machinery is much larger than the consumer path and is
+intentionally separate:
+
+| Responsibility | Lines | Minimal runtime? |
+| --- | ---: | --- |
+| Evaluated/instrumented `nmopt` bindings | 571 | No |
+| Independent native reduced/optimizer paths and frozen policy | 811 | No |
+| Verification/oracles | 959 | No |
+| Diagnostics | 207 | No |
+| Contract/acceptance test drivers | 7,430 | No |
+| Failure/evidence support | 278 | No |
+| **Total evaluation/evidence overhead** | **10,256** | **No** |
+
+The current file-level attribution is:
+
+| Source | Lines | Why it exists |
+| --- | ---: | --- |
+| `evaluation/nmopt_problem_a_binding.hpp` | 235 | instrumented A binding used by the comparison harness |
+| `evaluation/nmopt_problem_b_binding.hpp` | 336 | instrumented B binding with comparison/metric evidence |
+| `evaluation/native_reduced.hpp` | 81 | independent native reduced evaluation for A |
+| `evaluation/native_optimization.hpp` | 246 | independent native A Armijo optimization path |
+| `evaluation/native_problem_b_reduced.hpp` | 145 | independent native reduced evaluation for B |
+| `evaluation/native_problem_b_optimization.hpp` | 315 | independent native B optimization path |
+| `evaluation/optimization_policy.hpp` | 24 | frozen policy shared by matched native/public comparisons |
+| `verification/verification.hpp` | 294 | A derivative/equation checks and dense reference logic |
+| `verification/problem_b_verification.hpp` | 589 | B equation, derivative, mass, boundary, and dense KKT audits |
+| `verification/scenario.hpp` | 76 | deterministic verification inputs |
+| `diagnostics/instrumentation.hpp` | 207 | optional counters and solve/matrix/metric records |
+| `tests/dealii/external_step4_native_contract.cc` | 2,725 | native application/OCP contracts, failure probes, and operation attribution |
+| `tests/application/external_step4_minimal_problem_a_contract.cc` | 452 | minimal A binding/executable fidelity against audited native behavior |
+| `tests/application/external_step4_minimal_problem_b_contract.cc` | 706 | minimal B binding/executable fidelity, reconstruction, and metric checks |
+| `tests/application/external_step4_nmopt_contract.cc` | 943 | evaluated A public-binding and reduced-evaluation contracts |
+| `tests/application/external_step4_optimization_contract.cc` | 888 | evaluated A matched optimization and failure behavior |
+| `tests/application/external_step4_problem_b_nmopt_contract.cc` | 700 | evaluated B public-binding and reduced-evaluation contracts |
+| `tests/application/external_step4_problem_b_optimization_contract.cc` | 1,016 | evaluated B matched optimization, metric, and trace checks |
+| `tests/dealii/external_step4_evidence.hpp` | 278 | experiment evidence writing/retention support |
+
+This is the main answer to the repository-size concern. The experiment is expensive
+to **verify**, because it maintains independent native paths, dense audits, detailed
+operation attribution, failure evidence, and executable/output comparisons. That
+verification cost is evidence for the library boundary; it is not a dependency of
+an external application.
+
+### 6.5 Reproduce the source counts
+
+The role-based accounting above is more informative than a single gross C++ total.
+The underlying per-file counts can be reproduced from the repository root with the
+same comment-stripping utility used by the experiment:
 
 ```bash
 python3 - <<'PY'
@@ -314,112 +448,199 @@ import runpy
 
 strip = runpy.run_path('tools/external_dealii/strip_comments.py')
 
+
 def count(text):
     clean, _ = strip['strip_comment_lines'](text)
     start, license_block = strip['leading_block'](clean.splitlines(keepends=True))
     lines = clean.splitlines()[start if license_block else 0:]
     return sum(bool(line.strip()) for line in lines)
 
+
 base = Path('apps/external-dealii/step-4')
-files = {p for p in base.rglob('*') if p.suffix in ('.cc', '.hpp')}
+files = {path for path in base.rglob('*') if path.suffix in ('.cc', '.hpp')}
 files.update(Path('tests/dealii').glob('external_step4*.cc'))
 files.update(Path('tests/dealii').glob('external_step4*.hpp'))
 files.update(Path('tests/application').glob('external_step4*.cc'))
-for path in sorted(files):
-    print(count(path.read_text()), path)
 
-regions = {
-    'a': [(24, 81), (97, 105), (106, 112), (155, 194), (139, 153), (196, 218)],
-    'b': [(29, 93), (112, 120), (121, 127), (170, 209), (154, 168), (211, 234)],
-}
-for problem, spans in regions.items():
-    text = (base / 'minimal' / f'problem_{problem}_binding.hpp').read_text()
-    lines = text.splitlines(keepends=True)
-    parts = [count(''.join(lines[first - 1:last])) for first, last in spans]
-    packaging = count(text) - sum(parts)
-    print(problem, 'regions', parts, 'packaging', packaging, 'total', count(text))
+for path in sorted(files):
+    print(f'{count(path.read_text()):5d} {path}')
 PY
 ```
 
-## 6. What another application would need
+These are physical code-bearing lines after the documented transformation, not an
+estimate of development effort and not a claim that every line is an unavoidable
+framework obligation.
 
-The source roles identify where analogous work would belong, not its expected
-size. An application with callable assembly/solve/output can reuse those
-interfaces directly. If it already implements the chosen OCP and adjoint,
-those operations can also be reused. Otherwise their mathematical definition
-and validation are application work, regardless of the optimizer selected.
+## 7. What another application would need
 
-Connecting those operations to the present nmopt path requires compatible
-state/control/test layouts, five model callbacks, two solve services, a
-metric, and reduced/optimizer construction. The current DTO supports one
-state block, one control block, and one residual-test block. Output uses the
-application's physical reconstruction. The
-[overview's adoption sequence](external-integration-overview.md#9-connecting-another-application)
-and [API reference](../../../docs/reference/external-dealii-solver-integration.md)
-show how these responsibilities fit together.
+For an application that already has callable assembly/solve/output and already owns
+the chosen OCP mathematics, the current reduced path requires the following nmopt
+adaptation:
 
-## 7. Evidence and reproduction
+1. compatible state/control/test layouts;
+2. five model callbacks;
+3. state and adjoint solve services with truthful reports;
+4. a control metric adapter;
+5. a state/control partition and `ReducedDTOT`;
+6. an initial control and selected optimization policy.
+
+An application that does **not** already contain an OCP must additionally define its
+control coordinates/coupling, objective, derivatives, adjoint, and metric. Those are
+mathematical/application obligations, not evidence that nmopt rewrites the PDE.
+
+The current reduced DTO supports one state block, one control block, and one
+residual-test block. Application-specific state reconstruction and output remain
+outside the generic solver.
+
+## 8. Evidence and validation
+
+The numerical evaluation is preserved in the historical reports, where revisions,
+tolerances, operation counts, and artifact locations are frozen. The current
+implementation still retains the same separation of native and public paths.
 
 | Property | Evidence |
 | --- | --- |
-| Forward fidelity | Upstream, stripped, and adapted programs agree in original 2D/3D output comparisons. |
-| Mathematical correctness | Off-solution residual/JVP/VJP checks, reduced derivatives, fresh equation audits, and independent dense optimum oracles pass. |
-| Native/nmopt equivalence | The same problem and policies produce matched reduced evaluations and optimization traces. |
-| FE metric verification | B's independent dense mass audit checks final stationarity separately from runtime CG inversion. |
-| Consumer fidelity | Actual minimal executables reproduce audited native reports and VTK fields. |
-| Regression evidence | Implementation handoff passed 195/195 deal.II and 67/67 neutral tests. |
+| Forward fidelity | upstream, stripped, and adapted programs compare original 2D/3D output |
+| Mathematical correctness | off-solution residual/JVP/VJP checks, reduced derivative checks, fresh equation audits, independent dense optimum oracles |
+| Native/nmopt equivalence | matched reduced evaluations and matched optimization traces for A and B |
+| FE metric verification | B final stationarity checked independently with dense mass algebra |
+| Consumer fidelity | actual minimal executables checked against audited native reports and VTK payloads |
+| Post-refactor reproduction | fresh Problem A and B reproduction at `170c9f1` matched the historical numerical evidence |
+| Current routine gate | `debug-dealii` pipeline 178/178 at `170c9f1` with deal.II build jobs = 1 |
 
-The [A report](../../../docs/history/reviews/external-dealii-boundary-evaluation/g1-report.md),
+A dedicated post-closure reproduction on 2026-09-19 preserved the old artifacts and
+wrote fresh evidence to unique directories. The selected reproduction covered 11
+Problem A scenarios and 14 Problem B scenarios, including native/public comparisons,
+minimal executable checks, independent audits, and the recorded metric/operation
+evidence.
+
+The central numerical comparison was exact:
+
+| Quantity | Historical | Fresh at `170c9f1` |
+| --- | ---: | ---: |
+| A accepted iterations | 828 | 828 |
+| A line-search trials | 6,025 | 6,025 |
+| A final objective | 54.376840518174902 | 54.376840518174902 |
+| A final optimizer gradient norm | $9.5036543162094535\times10^{-7}$ | $9.5036543162094535\times10^{-7}$ |
+| B accepted iterations | 5 | 5 |
+| B line-search trials | 5 | 5 |
+| B final objective | 3.4971143909160936 | 3.4971143909160936 |
+| B final optimizer gradient norm | $4.8845615376102665\times10^{-8}$ | $4.8845615376102665\times10^{-8}$ |
+| B independently audited mass-gradient norm | $4.8845615376171785\times10^{-8}$ | $4.8845615376171785\times10^{-8}$ |
+
+The remaining reproduced quantities also matched: state/control dimensions, solve
+counts, recomputed state and adjoint residuals, dense-oracle quantities, first
+divergence, Problem B metric iteration history, operation ledgers, traces, summaries,
+audits, counters, and solve records. Problem A structured evidence and the analogous
+Problem B evidence were byte-identical to their historical counterparts. Forward
+upstream-versus-stripped and upstream-versus-adapted comparisons matched in both 2D
+and 3D; fresh VTK payloads matched historical payloads after ignoring generated
+timestamp headers.
+
+The routine 178-test gate remains separate from the reproduction result and is not
+directly comparable with the historical 195/195 count because the repository's later
+test policy excludes extended and reproduction labels from the routine pipeline.
+The
+[closure report](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
+records the original evidence and this post-closure revalidation separately.
+
+The final code-hygiene unit also verified that:
+
+- deal.II compilation used one build job;
+- `git diff --check` passed;
+- `STEP4_NO_MAIN` appears in code only in the preserved adapted guard and the private
+  reuse helper; and
+- the only direct source-level include of `source/adapted/step-4.cc` is from
+  `integration/adapted_step4.hpp`.
+
+The first validation build encountered one transient 30-second CMake
+scenario-discovery timeout for the Problem B optimization executable. Running its
+`--list-scenarios` operation directly succeeded, and the subsequent build and full
+routine pipeline passed. No source/compiler failure was observed.
+
+For historical numerical details, see the
+[A report](../../../docs/history/reviews/external-dealii-boundary-evaluation/g1-report.md),
 [B report](../../../docs/history/reviews/external-dealii-boundary-evaluation/problem-b-report.md),
-and [minimal-consumer assessment](../../../docs/history/reviews/external-dealii-boundary-evaluation/minimal-consumers-report.md)
-retain exact revisions, tolerances, counts, and artifact locations. These are
-existing implementation results; this documentation reorganization does not
-claim a new numerical experiment. A and B use different objectives and
-metrics, so their different iteration counts are not a performance comparison.
+and [minimal-consumer assessment](../../../docs/history/reviews/external-dealii-boundary-evaluation/minimal-consumers-report.md).
 
-For the runnable consumers, follow the [minimal README](minimal/README.md).
-For source fidelity, the three standalone targets are
-`nmopt_external_tutorial_step_4`, `nmopt_external_tutorial_step_4_stripped`,
-and `nmopt_external_tutorial_step_4_adapted`. They use deal.II directly without
-linking nmopt. From the repository root:
+## 9. Reproduction
+
+The canonical runnable consumers and focused commands are documented in
+[minimal/README.md](minimal/README.md).
+
+For source fidelity, the three standalone targets remain:
+
+```text
+nmopt_external_tutorial_step_4
+nmopt_external_tutorial_step_4_stripped
+nmopt_external_tutorial_step_4_adapted
+```
+
+They use deal.II directly and do not link nmopt. From the repository root:
 
 ```bash
 python3 tools/external_dealii/strip_comments.py \
   --input apps/external-dealii/step-4/source/upstream/step-4.cc \
   --check apps/external-dealii/step-4/source/baseline/step-4-stripped.cc
+
 ./build.sh configure debug-dealii
 ./build.sh build debug-dealii --target nmopt_external_tutorial_step_4
 ./build.sh build debug-dealii --target nmopt_external_tutorial_step_4_stripped
 ./build.sh build debug-dealii --target nmopt_external_tutorial_step_4_adapted
+```
+
+Compare the upstream and stripped programs, then the upstream and adapted program:
+
+```bash
 python3 tools/external_dealii/check_forward.py \
   --upstream-executable build/debug-dealii/bin/nmopt_external_tutorial_step_4 \
   --stripped-executable build/debug-dealii/bin/nmopt_external_tutorial_step_4_stripped \
   --output-root runs/external-dealii/step-4/forward-comparison \
   --file solution-2d.vtk \
   --file solution-3d.vtk
+
+python3 tools/external_dealii/check_forward.py \
+  --upstream-executable build/debug-dealii/bin/nmopt_external_tutorial_step_4 \
+  --stripped-executable build/debug-dealii/bin/nmopt_external_tutorial_step_4_adapted \
+  --stripped-label adapted \
+  --output-root runs/external-dealii/step-4/forward-comparison \
+  --file solution-2d.vtk \
+  --file solution-3d.vtk
 ```
 
-For adapted fidelity, replace the stripped executable with the adapted target
-and add `--stripped-label adapted`. The comparator checks stdout, geometry,
-connectivity, cell types, and numeric VTK arrays in separate run directories.
-The upstream tag, retrieval details, hashes, and legal attribution remain in
-the [evaluation roadmap](../../../docs/history/reviews/external-dealii-boundary-evaluation/roadmap.md).
+The comparator checks stdout plus VTK geometry, connectivity, cell types, and numeric
+arrays in separate run directories.
 
-Once all external test targets are built, select the complete Step-4 checks:
+The complete Step-4 CTest selection remains:
 
 ```bash
 ctest --test-dir build/debug-dealii --output-on-failure \
   -R '^nmopt\.(external_tutorial_step_4|external\.tutorial_step_4)\.'
 ```
 
-Generated evidence stays ignored under `runs/external-dealii/step-4/`,
-relative to the command's working directory, with build-profile artifacts
-under the corresponding build tree. The minimal consumers instantiate no
-instrumentation, reference optimizer, oracle, or comparison runner. Reused
-application headers retain optional diagnostic types as source dependencies.
+Generated output/evidence belongs below ignored `runs/external-dealii/step-4/`
+directories. Exact historical reproduction protocols and accepted numerical values
+remain in `docs/history/reviews/external-dealii-boundary-evaluation/`.
 
-The evaluated cases are linear, symmetric, serial, fixed-mesh, and
-unconstrained in the control. Mandatory residual/JVP construction and unused
-state-VJP work remain known limitations. Generality, newcomer effort,
-performance materiality, and any future helper are separate questions; their
-full disposition is in the [closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md).
+## 10. Limits and conclusion
+
+The experiment demonstrates that the tested Step-4 application can act as an
+independently owned numerical producer for nmopt's reduced formulation and optimizer.
+No semantic compiler, recipe, manifest, project runner, shared optimizer change, or
+framework-specific PDE base class is required by the minimal path.
+
+It does **not** establish equivalent integration cost for nonlinear/nonsymmetric
+PDEs, MPI, adaptivity, constrained or boundary controls, unrelated applications,
+package installation, newcomer authoring time, or performance-sensitive production
+use. It also does not prove that 206/220 lines are universal lower bounds.
+
+The observed remaining API ergonomics are concrete and bounded: mandatory model
+callbacks exceed what this first-order run consumes, full VJP work includes a state
+component the reduced path later discards, and metric inversion exposes no public
+solve report. None blocked correctness for A or B.
+
+The practical result is therefore narrower but useful: the very large experiment is
+large mainly because it was designed to challenge and verify the boundary. The code
+an external consumer actually needs is localized, inspectable, and remains nearly
+the same size when moving from the simple A probe to the substantially richer FE
+Problem B.

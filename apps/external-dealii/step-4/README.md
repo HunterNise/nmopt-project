@@ -1,38 +1,54 @@
 # External deal.II Step-4 integration
 
-This case study connects the authentic deal.II `v9.5.1` Step-4 tutorial to
-nmopt's existing reduced optimizer. Problem A adds algebraic RHS control;
-Problem B adds FE distributed control with fixed state boundary data and a
-mass metric. Both retain the application's native numerical and output
-policies. The boundary evaluation and minimal-consumer follow-up are closed.
+This self-contained case study asks a narrow question: can an existing deal.II
+application remain the owner of its mesh, finite-element discretization, linear
+solves, boundary treatment, and output while using nmopt as an optimization
+library?
+
+For the two tested Step-4 optimal-control problems, the answer is yes. The
+adapted tutorial retains its numerical implementation, the OCP mathematics stays
+application-owned, and the canonical nmopt consumers are confined to explicit
+bindings under `minimal/`. The much larger comparison, verification, and evidence
+machinery is kept outside that consumer path.
+
+Problem A is a deliberately simple algebraic RHS-control case. Problem B is the
+stronger test: it adds free/full state coordinates, fixed boundary lifting, a
+rectangular finite-element control coupling, and a nonidentity mass metric without
+requiring a shared nmopt API, compiler, formulation, or optimizer change.
 
 ## Reading paths
 
 | Purpose | Start here |
 | --- | --- |
-| Understand how the application, formulation, backend, and optimizer work together | [Explanatory overview](external-integration-overview.md) |
-| Inspect the Step-4 adaptations, mathematics/API mapping, and source counts | [Implementation report](integration-report.md) |
-| Build and run the complete minimal consumers | [Minimal consumer commands](minimal/README.md) |
-| Look up exact public types, callbacks, solve reports, and lifetimes | [External API reference](../../../docs/reference/external-dealii-solver-integration.md) |
-| Review objectives, evidence, conclusions, and limits | [Closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md) |
-| Inspect the frozen experimental design | [Evaluation roadmap](../../../docs/history/reviews/external-dealii-boundary-evaluation/roadmap.md) and [Problem B protocol](../../../docs/history/reviews/external-dealii-boundary-evaluation/problem-b-protocol.md) |
+| Review the experiment, its result, evidence, and limits | [External integration overview](external-integration-overview.md) |
+| Understand the wider nmopt architecture and producer paths | [Project overviews](../../../docs/manual/overview/README.md) |
+| Inspect exact source responsibilities, LOC accounting, and reproduction details | [Implementation report](integration-report.md) |
+| Build and run the canonical external-consumer examples | [Minimal consumer commands](minimal/README.md) |
+| Look up exact public callbacks, solve reports, metrics, and lifetime rules | [External API reference](../../../docs/reference/external-dealii-solver-integration.md) |
+| Inspect the historical evaluation decisions and numerical evidence | [Closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md) |
 
-## Source and reproduction
+## Experiment layout
 
-The exact [upstream source](source/upstream/step-4.cc), numerically unchanged
-[stripped baseline](source/baseline/step-4-stripped.cc), and reusable
-[adapted source](source/adapted/step-4.cc) are retained separately. The adapted
-standalone program still runs Step-4's original 2D/3D forward sequence.
+The directory roles are intentionally separated:
 
-The directory roles are deliberately separate: `integration/` owns native OCP
-functionality, `minimal/` is the canonical external-consumer nmopt path,
-`evaluation/` contains instrumented comparison bindings and native references,
-`verification/` contains audits and oracles, and `diagnostics/` contains
-evidence and counters.
+```text
+source/        preserved upstream, stripped baseline, and adapted Step-4
+integration/   application-owned OCP mathematics and native numerical services
+minimal/       canonical external-consumer nmopt bindings and executables
+evaluation/    instrumented nmopt bindings and independent native references
+verification/  derivative/equation/oracle checks
+diagnostics/   optional counters and evidence records
+```
 
-Use the [implementation report's reproduction commands](integration-report.md#7-evidence-and-reproduction)
-for token/forward fidelity and evaluation checks. The minimal consumers have
-their own [build and run commands](minimal/README.md#build-and-run). Generated
-VTK output and evaluation evidence belong under ignored `runs/` directories.
-The comparison machinery is separate from the minimal consumers' runtime;
-the report identifies the shared native code and its optional diagnostics.
+`integration/adapted_step4.hpp` is the single private reuse seam that consumes the
+preserved adapted tutorial without its standalone `main()`. No nmopt include or
+type is introduced into `source/adapted/step-4.cc`.
+
+Generated VTK output and evaluation evidence remain ignored below `runs/`. The
+comparison and verification layers exist to establish confidence in the experiment;
+they are not dependencies of the minimal consumers.
+
+A fresh reproduction at `170c9f1` re-established the historical A/B numerical
+results and forward VTK behavior without overwriting the earlier evidence. The
+[closure audit](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
+records the comparison.

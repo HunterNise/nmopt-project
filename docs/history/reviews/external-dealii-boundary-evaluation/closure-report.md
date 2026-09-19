@@ -8,8 +8,8 @@ Reviewed implementation: `2ba749b`, including the MC4–MC6 corrections
 `edf16f2`, `f5f2fe5`, and `2ba749b`.
 Baseline refactor: `67104fd376a9b1d25d7e6cdaca664a7fe1aa98ed`.
 Phase branch: `codex/evaluate/external-dealii-boundary`.
-Authority: [evaluation roadmap](../../external-dealii-boundary-evaluation.md)
-and [Problem B protocol](problem-b-protocol.md).
+Authority: [evaluation roadmap](roadmap.md) and
+[Problem B protocol](problem-b-protocol.md).
 
 ## Question and bounded result
 
@@ -140,3 +140,79 @@ documents the implemented public API. Source-supported behavior belongs in
 that reference; broader design hypotheses remain in this review record and
 the historical [design investigation](design-investigation.md). This closure
 introduces no new authoritative architectural contract.
+
+## Post-closure revalidation at `170c9f1`
+
+Later repository-structure work kept the evaluation closed while clarifying the
+canonical consumer path. The evaluated nmopt bindings moved under `evaluation/`, the
+minimal bindings remained the canonical external-consumer examples, and `170c9f1`
+(`refactor(step4): isolate adapted application reuse`) centralized the
+`STEP4_NO_MAIN` include protocol behind the private
+`integration/adapted_step4.hpp` seam. These changes did not intentionally alter the
+Step-4 source snapshot, the A/B mathematics, solver policies, tolerances, or evidence
+semantics.
+
+A fresh reproduction was therefore run on 2026-09-19 at
+`170c9f185bad8651fe6deb0ac4cd7ae7a1b994e7` to test whether the refactored tree
+preserved the numerical and behavioral content recorded by the original evaluation.
+The old evidence was left untouched; all new artifacts were written to fresh unique
+directories.
+
+The revalidation covered:
+
+- upstream-versus-stripped and upstream-versus-adapted forward comparisons in both
+  2D and 3D;
+- 11 selected Problem A native/public/minimal reproduction scenarios;
+- 14 selected Problem B native/public/minimal reproduction scenarios;
+- the actual minimal A/B executables and their audited VTK outputs; and
+- the current routine `debug-dealii` gate, which passed 178/178 with deal.II
+  compilation restricted to one build job.
+
+The reproduced numerical content matched the historical evidence exactly for the
+quantities compared.
+
+| Quantity | Historical | Revalidation |
+| --- | ---: | ---: |
+| A state/control dimensions | 289 / 289 | 289 / 289 |
+| A accepted iterations | 828 | 828 |
+| A line-search trials | 6,025 | 6,025 |
+| A state / adjoint solves | 6,026 / 829 | 6,026 / 829 |
+| A final objective | 54.376840518174902 | 54.376840518174902 |
+| A final optimizer gradient norm | $9.5036543162094535\times10^{-7}$ | $9.5036543162094535\times10^{-7}$ |
+| B state/control dimensions | 225 / 289 | 225 / 289 |
+| B accepted iterations | 5 | 5 |
+| B line-search trials | 5 | 5 |
+| B state / adjoint solves | 6 / 6 | 6 / 6 |
+| B final objective | 3.4971143909160936 | 3.4971143909160936 |
+| B optimizer gradient norm | $4.8845615376102665\times10^{-8}$ | $4.8845615376102665\times10^{-8}$ |
+| B independently audited mass-gradient norm | $4.8845615376171785\times10^{-8}$ | $4.8845615376171785\times10^{-8}$ |
+| B mass-norm distance to dense oracle | $4.6930791164347435\times10^{-8}$ | $4.6930791164347435\times10^{-8}$ |
+
+Problem A's structured evidence files, traces, counters, audits, and solve records
+were byte-identical to the historical counterparts. The same held for Problem B's
+derivative/metric records, reduced comparisons, paired optimization records,
+operation ledgers, metric-solve records, traces, summaries, audits, and counters.
+Problem B's metric iteration history remained `29, 27, 25, 21, 16, 12`.
+
+Forward stdout and numerical VTK content also matched. The 2D and 3D
+upstream-versus-stripped comparisons had zero point/array differences, and
+upstream-versus-adapted produced the same result. Fresh VTK payloads matched the
+historical payloads after ignoring only generated timestamp headers.
+
+The only observed differences were structural or provenance-related: fresh unique
+artifact paths, run timestamps, current commit/build provenance, the present
+178-test routine inventory rather than the historical 195-test inventory, and some
+additional scenario-local metric-solve files. No material numerical or behavioral
+difference was found.
+
+The fresh forward comparisons were written below
+`runs/external-dealii/step-4/revalidation/170c9f1/`; the A/B reproduction and
+minimal-consumer evidence used fresh unique directories in their existing experiment
+trees. Historical artifact directories were neither overwritten nor deleted.
+
+The 178/178 routine result should not be compared numerically with the historical
+195/195 gate: the repository's current routine policy excludes extended and
+reproduction tests. The stronger continuity evidence is the explicit fresh
+reproduction above, which re-established the historical numerical content at the
+final refactored revision while preserving the original evidence as a separate
+historical record.

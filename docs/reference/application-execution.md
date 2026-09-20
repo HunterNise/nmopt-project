@@ -144,7 +144,7 @@ auto build_problem =
   };
 ```
 
-This callback should do one thing:
+For the Chapter 6 semantic/compiler path, this callback does one thing:
 
 ```text
 typed problem parameters
@@ -152,7 +152,17 @@ typed problem parameters
 ProblemSpec
 ```
 
-It should not create a mesh, compile, solve, or write output.
+More generally, the runner contract is:
+
+```text
+typed problem parameters
+        ↓
+application-defined build context
+```
+
+The runner only forwards that result to the execution adapter. Keep expensive
+backend realization, solving, and output in the adapter rather than hiding
+them in the builder.
 
 ### Step 4 – supply the execution adapter
 

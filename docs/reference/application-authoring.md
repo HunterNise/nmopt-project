@@ -889,3 +889,10 @@ After step 10, the family is usable from C++. After step 11, a downstream user
 can operate it through the higher-level workflow documented in
 [Application execution](application-execution.md) and
 [Parameter files](parameter-files.md) without touching semantic/compiler code.
+
+The current CMake build exposes the in-tree `INTERFACE` targets
+`nmopt_contract` and, when deal.II is enabled, `nmopt_dealii_contract`.
+The repository does not yet install/export an `nmopt` package for
+`find_package(nmopt)`-style downstream consumption. The workflow above
+documents the reusable C++ interfaces; distributable CMake packaging is a
+separate capability that is not currently provided.

@@ -545,6 +545,48 @@ The stock serial deal.II
 [`MassMetric`](../../include/nmopt/dealii/mass_metric.hpp) can be used when the
 application already has a compatible mass realization.
 
+### Reuse stock deal.II services when they match
+
+The direct integration path does not require every metric, constraint, or
+coordinate map to be application-local. `include/nmopt/dealii/` provides
+reusable serial implementations that can be composed with an external code
+when their mathematics matches the application's realization.
+
+- [`MassMetric`](../../include/nmopt/dealii/mass_metric.hpp) realizes a
+  one-block mass-matrix metric and its inverse solve.
+- [`Hminus1Metric`](../../include/nmopt/dealii/hminus1_metric.hpp) realizes
+
+  $$
+  G = M K^{-1} M,
+  \qquad
+  G^{-1} = M^{-1} K M^{-1}.
+  $$
+
+- [`TraceHhalfMetric`](../../include/nmopt/dealii/trace_hhalf_metric.hpp)
+  realizes the minimum-extension trace metric
+
+  $$
+  G = A_{BB} - A_{BI}A_{II}^{-1}A_{IB}.
+  $$
+
+- [`CellwiseBoxConstraint`](../../include/nmopt/dealii/cellwise_box_constraint.hpp)
+  and
+  [`FacewiseBoxConstraint`](../../include/nmopt/dealii/facewise_box_constraint.hpp)
+  provide coefficientwise projection for their matching positive-diagonal
+  `MassMetric` realizations.
+- [`IndependentStateCoordinates`](../../include/nmopt/dealii/independent_state_coordinates.hpp)
+  packages the constrained-state reconstruction
+
+  $$
+  y_{\mathrm{physical}} = Pz + \ell
+  $$
+
+  together with homogeneous embedding and covector pullback.
+
+These are numerical building blocks, not additional integration layers. Use
+them only when their coordinate, metric, and constraint semantics match the
+existing application.
+
 For the conceptual role of the metric, see
 [Metrics, gradients, and constraints](../manual/concepts/04-metrics-gradients-and-constraints.md).
 

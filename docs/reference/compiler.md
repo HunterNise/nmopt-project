@@ -1296,16 +1296,23 @@ product instead.
 
 ## Compiled application view
 
-Some compiled reduced targets expose a `CompiledApplicationViewT<Backend>`
-beside the erased numerical model.
+`CompiledApplicationViewT<Backend>` is an optional compiler-produced
+application sidecar retained beside some reduced products. It is not part of
+`ExecutableModelT`, is not required by `make_reduced_dto()`, and is not a
+condition for successful lowering.
 
-Check it explicitly:
+Check the capability explicitly:
 
 ```cpp
 if (const auto *view = compiled.compiled_application_view()) {
-  const auto dimensions = view->dimensions();
+  const auto &dimensions = view->dimensions();
 
-  // After solving:
+  if (view->has_objective_components()) {
+    const auto pieces =
+      view->objective_components(
+        evaluation.full_point);
+  }
+
   view->write_native_output(
     output_directory,
     state,
@@ -1315,11 +1322,22 @@ if (const auto *view = compiled.compiled_application_view()) {
 }
 ```
 
-The view may also expose objective-component evaluation.
+`dimensions()` records physical/independent state and control dimensions plus
+the realized observation dimension. Objective-component decomposition is a
+second optional capability even when the application view itself exists.
 
-This is intentionally **not** part of `ExecutableModelT`. The numerical
-formulation does not gain filesystem or native finite-element ownership merely
-because the compiler can retain an application-facing output callback.
+A caller that only needs the executable model, metric, state/adjoint services,
+or reduced DTO should not require this sidecar. The Chapter 6 B1/B2 execution
+adapters deliberately do require it because they persist compiler-owned native
+output and discrete-dimension evidence; B2 additionally records objective
+components. That is an application requirement layered on top of successful
+lowering.
+
+The view owns its retained numerical model, but its callbacks may borrow
+compile-time data bindings such as deal.II `Function` objects. Keep those
+bindings alive while invoking the view. The compiler session's mesh ownership
+does not implicitly extend the lifetime of arbitrary caller-supplied data
+bindings.
 
 ## Inspect the compiled service before solving
 

@@ -133,17 +133,22 @@ under `include/nmopt/application/`.
 
 ## Public reference layout
 
-The `reference/` directory intentionally contains the four agent-facing
-application references:
+The `reference/` directory intentionally contains seven task-oriented public
+references:
 
-- `application-api.md` — assembly, recipe, scenario, compiler, solver, and
-  provenance boundaries;
-- `application-execution.md` — schemas, run organization, native output,
-  reports, post-processing, and verification commands.
-- `external-dealii-solver-integration.md` — external deal.II backend,
-  callback, solve-report, metric, formulation, optimizer, lifetime, and
-  retained-output contracts;
-- `parameter-files.md` — parameter-file and plotting-profile schemas.
+- `problem-authoring.md` — semantic graph construction, validation, recipes,
+  and stable-ID composition;
+- `compiler.md` — runtime bindings, deal.II lowering, compiled products,
+  manifests, and compiler diagnostics;
+- `application-authoring.md` — typed application/scenario construction,
+  backend execution adapters, and optional runner registration;
+- `external-dealii-solver-integration.md` — application-owned deal.II
+  callbacks, solve services, metrics, formulation binding, and native output;
+- `optimization.md` — reduced search, trust region, KKT, PDAS, and supplied-OTD
+  consumption;
+- `application-execution.md` — run organization, artifacts, manifests, native
+  output, reports, and post-processing;
+- `parameter-files.md` — parameter-file and plotting-profile configuration.
 
 There is no additional directory README because `docs/README.md` is the
 repository-wide documentation map and these files are self-describing.

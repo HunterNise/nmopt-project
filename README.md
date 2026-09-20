@@ -134,10 +134,18 @@ useful entry points are:
   rationale and component boundaries.
 - [Interface specification](docs/design/interface-specification.md) —
   normative component contracts and compilation protocols.
-- [Application assembly API](docs/reference/application-api.md) — how recipes,
-  scenarios, compilers, solvers, and experiments are assembled.
-- [Application execution reference](docs/reference/application-execution.md) —
-  run schemas, generated artifacts, reports, and post-processing.
+- [Problem authoring](docs/reference/problem-authoring.md) and
+  [compiler reference](docs/reference/compiler.md) — build supported problems
+  through the semantic/compiler path.
+- [Application authoring](docs/reference/application-authoring.md) — package a
+  reusable nmopt-native application family.
+- [External deal.II solver integration](docs/reference/external-dealii-solver-integration.md)
+  — connect an existing PDE code while preserving its numerical ownership.
+- [Optimization](docs/reference/optimization.md) — consume reduced, KKT, PDAS,
+  and supplied-OTD products through the current solver interfaces.
+- [Application execution](docs/reference/application-execution.md) and
+  [parameter files](docs/reference/parameter-files.md) — run and configure
+  already-authored applications.
 
 For application and benchmark work, use the [Chapter 5 application
 recipes](docs/studies/chapter-5/recipes.md), [Chapter 6 application

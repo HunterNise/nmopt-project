@@ -11,8 +11,11 @@ owns recipe implementation order and status.
 
 A recipe is a typed builder of `semantic::v1::ProblemSpec`. It is not a PDE
 class and it does not own deal.II functions, a mesh, a compiler, a solver, or
-run output. Those are supplied through the separate public boundaries in the
-[application assembly API reference](../../reference/application-api.md).
+run output. See [Problem authoring](../../reference/problem-authoring.md) for
+the semantic/recipe programming interface and
+[Application authoring](../../reference/application-authoring.md) for the
+application layer that adds runtime data, scenarios, backend execution, and
+optional runner registration.
 
 The family IDs in this document are stable application-level names for the
 recipe records being added. The named `make_*` functions are current semantic

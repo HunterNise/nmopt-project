@@ -1264,10 +1264,15 @@ The benchmark orchestration shell is:
 
 - [`include/nmopt/application/runner.hpp`](../../../include/nmopt/application/runner.hpp)
 
-For exact public signatures and the currently supported products, use:
+For exact current programming interfaces, use:
 
-- [Application assembly API reference](../../reference/application-api.md)
-- [v1 semantic graph and deal.II compiler](../../internals/compiler/semantic-compiler.md)
+- [Problem authoring](../../reference/problem-authoring.md);
+- [Compiler](../../reference/compiler.md);
+- [Application authoring](../../reference/application-authoring.md);
+- [Optimization](../../reference/optimization.md).
+
+For implementation mechanics and the registered capability ledger, use the
+[v1 semantic graph and deal.II compiler](../../internals/compiler/semantic-compiler.md).
 
 ## Read next
 

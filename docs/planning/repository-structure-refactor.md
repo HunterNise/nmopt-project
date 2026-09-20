@@ -1675,7 +1675,7 @@ Only revisit this if navigation remains confusing after runner/core cleanup.
 ```text
 apps/nmopt-runner/
 apps/external-dealii/step-4/README.md
-docs/reference/application-api.md
+docs/reference/application-authoring.md
 docs/reference/external-dealii-solver-integration.md
 ```
 

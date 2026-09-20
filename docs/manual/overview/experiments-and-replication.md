@@ -417,8 +417,9 @@ Use the following documents after this overview according to the task:
   artifact, manifest, and output contracts.
 - [Parameter files](../../reference/parameter-files.md) owns the supported parameter
   schema and checked file conventions.
-- [Application assembly API](../../reference/application-api.md) owns the construction
-  interfaces between scenarios, semantic problems, runtime data, and compilation.
+- [Application authoring](../../reference/application-authoring.md) owns the
+  construction boundary between reusable scenarios, semantic problems, runtime
+  data, backend execution adapters, and optional runner registration.
 - [Chapter 5 application recipes](../../studies/chapter-5/recipes.md) and
   [Chapter 6 application scenarios](../../studies/chapter-6/scenarios.md) own the concrete
   application-level records.

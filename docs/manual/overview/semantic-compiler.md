@@ -387,8 +387,11 @@ For deeper detail, use the document whose authority matches the question:
 
 - [v1 semantic compiler](../../internals/compiler/semantic-compiler.md) is the current
   capability ledger and implementation record for registered compiler targets.
-- [Application assembly API](../../reference/application-api.md) records the exact
-  application-side construction interfaces around semantic problems and compilation.
+- [Problem authoring](../../reference/problem-authoring.md),
+  [Compiler](../../reference/compiler.md), and
+  [Application authoring](../../reference/application-authoring.md) record the
+  current programming interfaces around semantic problems, compilation, and
+  reusable application composition.
 - [Composition boundaries](../../design/composition-boundaries.md) records the
   long-lived rules governing what belongs in semantics, runtime bindings, compiler
   policy, and solver code.

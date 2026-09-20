@@ -34,8 +34,8 @@ It must not implement B3–B6 in this batch.
 The review applies the ownership rules in the
 [parameter-file reference](../../../reference/parameter-files.md), the
 [application execution reference](../../../reference/application-execution.md),
-the [application assembly API](../../../reference/application-api.md), and the
-[composition boundaries](../../../design/composition-boundaries.md). B1–B6
+the [application assembly API at the reviewed revision](https://github.com/HunterNise/nmopt-project/blob/790ffd8a89e8db0d791f8cc4b735d9bea1602ae1/docs/reference/application-api.md),
+and the [composition boundaries](../../../design/composition-boundaries.md). B1–B6
 requirements come from the
 [Chapter 6 benchmark roadmap](../../chapter-6-benchmark-suite-roadmap.md), the
 [Chapter 6 application contract](../../../applications/chapter-6.md), and the

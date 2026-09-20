@@ -1,227 +1,410 @@
-# Application execution and artifact reference
+# Application execution reference
 
-This is the agent-facing reference for generating, inspecting, and verifying
-application runs. It records the current repository policies for benchmark
-artifacts, run sets, native output, reports, and post-processing. It does not
-describe recipe assembly or compiler internals; start with the
-[application API reference](application-api.md) for that work.
+This reference explains how to **run an already-authored nmopt application**,
+retain deterministic evidence, organize a run set, and post-process persisted
+outputs.
 
-The current benchmark choices and required evidence remain in the relevant
-[benchmark specification](../studies/chapter-6/benchmarks.md). The
-[application roadmap](../planning/application-roadmap.md) owns mutable
-implementation status and execution handoffs. This document records the
-current interfaces and repository policies that agents need to consume.
+If you are adding a new recipe/scenario/backend adapter, start with
+[Application authoring](application-authoring.md). If you are configuring an
+existing application through `.prm`, use
+[Parameter files](parameter-files.md).
 
-## Current repository policies
-
-| Concern | Current policy |
-| --- | --- |
-| Artifact schema | `nmopt-benchmark-v1`, rendered as deterministic escaped `key=value` lines. |
-| Run-set root | `<output>/chapter-6/<benchmark>/<run-slot>/`. |
-| Reproduction slot | `authoritative`, using the benchmark's declared mesh policy and `release-dealii`. |
-| Development slots | `development/001`, `development/002`, and so on; versioned reruns may use an unused named slot such as `development/004-v2`. |
-| Run manifest | `run-manifest.json` at the run-set root, retained through success or failure. |
-| Per-artifact record | `artifact.kv` below the artifact directory. |
-| Derived output | `report/` and aggregate `postprocess/` below the run-set root; artifact-local derived files remain below that artifact. |
-| Native output | Deal.II writes authoritative mesh and field files; Python tools only derive views. |
-
-These policies are repository contracts, not mathematical source claims. When
-the schema, layout, or tool boundary changes, update this document together
-with the implementation and its focused contract tests. The roadmap records
-the rollout and status of that change.
-
-## Artifact and manifest contract
-
-The public execution boundary is:
+The reusable execution boundary is:
 
 ```text
-typed scenario
-  -> compiled problem and solver report
-  -> detached experiment envelope
-  -> benchmark artifact
-  -> deterministic artifact.kv projection
+typed ScenarioT
+      │
+      ▼
+HeadlessBenchmarkRunnerT
+      │
+      ├── ProblemSpec builder
+      └── execution adapter
+              │
+              ▼
+BenchmarkExecutionEvidenceT
+      │
+      ▼
+BenchmarkArtifactT
+      │
+      ▼
+BenchmarkArtifactWriter
+      │
+      ▼
+artifact.kv
 ```
 
-For a Chapter 6 run, `BenchmarkHarnessT<Scenario>` projects scenario metadata
-into a deterministic identity and `finalize(...)` creates a
-`BenchmarkArtifactT<Envelope>`. The harness does not compile a PDE, execute a
-solver, choose a path, or create a directory. The public types and ownership
-rules are defined in the [application API reference](application-api.md).
+The repository application `nmopt_runner` then adds matrix expansion,
+filesystem run sets, manifests, configuration snapshots, and registered
+benchmark dispatch.
 
-The detached record must retain the following logical groups:
+## What an authored application should already provide
 
-| Group | Required contents |
-| --- | --- |
-| `artifact.*` | Schema identifier and format version. |
-| `identity.*` | Scenario, recipe, output, source reference/revision, build profile, artifact directory, deterministic flag, and requirements. |
-| `provenance.*` | Framework revision, recipe revision, mesh provenance and identity, runtime-data provenance, and environment fields. |
-| `manifest.*` | Semantic problem, backend, execution, spaces, bindings, formulation, metric, solve policies, regions, and realized maps/spaces. |
-| `diagnostics.*` | Validation status and every diagnostic category, component, capability, and remedy. |
-| `solver.*` | Solver policy, stopping reason, objective/gradient/step histories, accepted iterations, line-search trials, solve counts, Hessian actions, and direction resets. |
-| `benchmark.*` | Frozen benchmark parameters and explicit replacement choices. |
-| `measurements.*` | Timing and memory values only when collection was enabled. |
-| `selected_field.*` | Caller-selected output inventory in stable order. |
+Before the execution layer starts, the application family should expose:
 
-`BenchmarkArtifactWriter` owns stable ordering, escaping, and locale-independent
-rendering. The `nmopt_runner` application owns command-line selection, run-set
-creation, artifact-directory creation, and file writing. Failed or unfinished
-matrix entries remain listed in the run manifest with their diagnostic.
+- a typed scenario factory;
+- scenario validation;
+- a `ProblemSpec` builder from scenario problem parameters;
+- a backend execution adapter returning `BenchmarkExecutionEvidenceT`;
+- optional catalog metadata;
+- optional runner/parameter registration.
 
-The structured `manifest.state_solve.*`, `manifest.adjoint_solve.*`, and
-`manifest.control_metric_solve.*` fields retain each compiled algorithm,
-preconditioner, resolved iteration limit, and relative/absolute tolerance.
-These are realized compiler records: a direct solve is not mislabeled with an
-iterative tolerance merely because the parameter file declared a fallback.
-For B1, `benchmark.control_discretisation` records the stable effective
-cellwise or continuous-control choice in addition to the compiled
-`manifest.control_space` description. `b1.forcing_selection` records the stable
-definition ID, `b1.forcing_kind` records `zero`, `constant`, or `expression`,
-and the applicable `b1.forcing_value` or `b1.forcing_expression` records the
-resolved payload. `provenance.forcing` retains the source/replacement
-provenance.
-`benchmark.state_dimension`,
-`benchmark.control_dimension`, and `benchmark.adjoint_dimension` expose the
-three executable-vector sizes. The corresponding
-`benchmark.*_physical_dimension` fields count coefficients in the complete
-finite-element fields, including homogeneous boundary values, while
-`benchmark.*_independent_dimension` excludes constrained coefficients. This
-distinction lets B1 comparisons test either interpretation of the source's
-equal-dimension clue without changing the solver's coordinate convention.
-The same dimension triplets are emitted for B2 state, control, and adjoint
-fields. B2 additionally records the mesh generator, subdivision counts,
-centroid-split count, and selection seed, along with mesh vertices and active
-cells, total and per-region exterior-face counts, and the realized observation
-measure.
-
-Every compiled semantic space is projected as
-`manifest.space.<semantic-id>.*`, including its realized dimension, runtime
-role, finite element, and region. These deterministic fields expose the
-structured manifest values directly; the human-readable
-`manifest.state_space` and `manifest.control_space` descriptions remain
-compatibility renderings.
-
-B2 records the selected control as `benchmark.control_discretisation` and
-`b2.control_discretisation`, while `manifest.control_metric_realisation`
-records the compiled metric. The declared volume-observation order and target
-realization are recorded under both `benchmark.volume_observation_*` and
-`b2.volume_observation_*`; the corresponding `manifest.volume_observation_*`
-fields retain the checked compiler realization. Its objective evidence
-separates tracking and control-regularisation values at the initial and
-terminal controls. The two
-components must sum to the retained total objective. Its optimized and
-uncontrolled state, control, and adjoint coefficient extrema are retained
-beside the field files. The existing
-`solver.gradient_norm_history` is the declared-metric gradient norm; the
-explicit `solver.metric_gradient_norm_history` alias and the separate
-`solver.coefficient_derivative_norm_history` make that convention auditable
-without treating dual coefficient norms as Hilbert gradients.
-The `solver.globalization` field records the scenario selection as `armijo` or
-`fixed-step`, while `solver.policy` records the effective reusable policy as
-`armijo` or `fixed_step`. Effective trial limits, reductions, and line-search
-parameters come from the retained policy snapshot, so fixed-step artifacts
-report one trial, zero backtracking reductions, and no Armijo fraction.
-
-## Runner API
-
-The backend-neutral public runner types are:
-
-- `BenchmarkExecutionEvidenceT<Envelope>`: the execution callback's result,
-  containing the detached envelope, validation diagnostics, optional
-  measurements, selected fields, and additional artifact fields.
-- `BenchmarkRunResultT<Envelope>`: the finalized
-  `BenchmarkArtifactT<Envelope>` together with its rendered document.
-- `HeadlessBenchmarkRunnerT<Scenario>`: the orchestration adapter that exposes
-  `run(build_problem, execute)` and an `identity()` accessor.
-
-The runner's `run(...)` sequence is fixed:
-
-1. invoke `build_problem` with `scenario.problem` to obtain a
-   `semantic::v1::ProblemSpec`;
-2. invoke `execute` with that specification and the complete scenario to
-   obtain `BenchmarkExecutionEvidenceT<Envelope>`;
-3. record runner wall time when timing collection is enabled;
-4. finalize the harness and render the artifact writer, returning
-   `BenchmarkRunResultT<Envelope>`.
-
-The problem builder and execution adapter own backend compilation, solver
-invocation, envelope construction, and execution evidence. The runner owns
-orchestration and artifact finalization; it does not lower PDEs, solve the
-optimization problem, or select output paths.
-
-### Registry dispatch and run-set planning
-
-The executable boundary is registry-driven. `BenchmarkRegistration` maps a
-public benchmark ID to its parameter-file benchmark ID and default parameter
-file. The current registry contains only `b1` and `b2`. A corresponding
-`BenchmarkExecutionRegistration` binds that metadata to an artifact-coordinate
-planner and a typed execution callback.
-
-For a parameter-file run, `nmopt_runner` follows this sequence:
+For example, the current Chapter 6 path has:
 
 ```text
-CLI benchmark or parameter-file selection
-  -> benchmark registration and schema adapter
-  -> parsed ParameterFile and typed resolution
-  -> generic RunSetPlan
-  -> registered artifact planner and RunSetManifest
-  -> registered benchmark execution callback
-  -> centralized manifest finalization
+make_b1_scenario(...)
+make_b1_problem_spec(...)
+B1ReducedExecutionAdapterT<2>
 ```
 
-`RunSetPlan` is backend-neutral. It retains the benchmark ID, declared matrix
-axes, selection filters, exclusions, resolved combinations, comparison
-coordinates, parameter-file path, and content hash. The generic planner
-expands and validates combinations; a benchmark registration supplies only the
-coordinate policy needed to turn each combination into an artifact path.
-Callbacks receive the complete plan, so benchmark execution loops do not need
-to reconstruct matrix state or duplicate run-set validation.
+and the equivalent B2 pieces.
 
-## Run-set organization
+Execution code should compose those objects rather than duplicate their
+problem/compiler/solver logic.
 
-The runner places every Chapter 6 run below the selected benchmark and run kind:
+## Public execution types
+
+The reusable application headers are:
+
+```cpp
+#include "nmopt/application/harness.hpp"
+#include "nmopt/application/artifact_writer.hpp"
+#include "nmopt/application/runner.hpp"
+```
+
+The main public types are:
+
+```cpp
+BenchmarkIdentity
+BenchmarkMeasurements
+BenchmarkArtifactT<Envelope>
+BenchmarkExecutionEvidenceT<Envelope>
+BenchmarkRunResultT<Envelope>
+BenchmarkHarnessT<Scenario>
+HeadlessBenchmarkRunnerT<Scenario>
+```
+
+They live under:
+
+```cpp
+nmopt::application::benchmark
+```
+
+None of these types knows deal.II or a particular optimizer.
+
+## Working path: execute one scenario from C++
+
+Assume the application author already supplied:
+
+```cpp
+MyScenario make_my_scenario();
+
+nmopt::semantic::v1::ProblemSpec
+make_my_problem_spec(
+  const MyScenario::problem_parameters_type &);
+
+MyExecutionAdapter execute;
+```
+
+### Step 1 – obtain and adjust the typed scenario
+
+```cpp
+MyScenario scenario = make_my_scenario();
+
+scenario.solver.parameters.gradient_tolerance = 1.0e-8;
+scenario.experiment.source_revision = source_revision;
+scenario.experiment.build_profile = build_profile;
+
+validate_my_scenario(scenario);
+```
+
+Application users should adjust declared typed fields. They should not need to
+reconstruct the `ProblemSpec`, deal.II data bindings, or optimizer template
+composition.
+
+### Step 2 – construct the headless runner
+
+```cpp
+using Runner =
+  nmopt::application::benchmark::
+    HeadlessBenchmarkRunnerT<MyScenario>;
+
+Runner runner(scenario);
+```
+
+`runner.identity()` is available before execution and is derived from the
+scenario's metadata/experiment record.
+
+### Step 3 – supply the problem builder
+
+```cpp
+auto build_problem =
+  [](const auto &problem_parameters) {
+    return make_my_problem_spec(
+      problem_parameters);
+  };
+```
+
+This callback should do one thing:
 
 ```text
-<output>/chapter-6/<benchmark>/<run-slot>/
-  run-manifest.json
-  artifacts/
-  report/
-  postprocess/
+typed problem parameters
+        ↓
+ProblemSpec
 ```
 
-The current B1 and B2 matrix layouts are:
+It should not create a mesh, compile, solve, or write output.
+
+### Step 4 – supply the execution adapter
+
+If the backend adapter is already callable as
+
+```cpp
+Evidence operator()(
+  const ProblemSpec &,
+  const MyScenario &) const;
+```
+
+the execution callback can simply forward:
+
+```cpp
+auto run = runner.run(
+  build_problem,
+  [&](const auto &specification,
+      const auto &run_scenario) {
+    return execute(
+      specification,
+      run_scenario);
+  });
+```
+
+The runner measures wall time around problem construction + execution when
+
+```cpp
+scenario.experiment.harness.measure_timings
+```
+
+is true.
+
+### Step 5 – consume the detached result
+
+The return type is:
+
+```cpp
+BenchmarkRunResultT<Envelope>
+```
+
+with:
+
+```cpp
+run.artifact;
+run.document;
+```
+
+`run.artifact` owns the typed detached envelope and generic evidence.
+`run.document` is the deterministic flat rendering produced by
+`BenchmarkArtifactWriter`.
+
+At this point the caller can write the document wherever its application
+policy requires:
+
+```cpp
+std::ofstream output(path);
+output << run.document;
+```
+
+Filesystem placement is intentionally outside `HeadlessBenchmarkRunnerT`.
+
+## What execution evidence should retain
+
+The execution adapter returns:
+
+```cpp
+template <typename Envelope>
+struct BenchmarkExecutionEvidenceT
+{
+  Envelope                        envelope;
+  semantic::v1::ValidationReport  diagnostics;
+  BenchmarkMeasurements           measurements;
+  std::vector<std::string>        selected_fields;
+  std::vector<ArtifactField>      fields;
+};
+```
+
+The fields have different purposes.
+
+### `envelope`
+
+This is the detached typed numerical record. For a reduced compiler-backed
+application it typically owns copies of:
 
 ```text
-runs/chapter-6/b1/authoritative/
-  artifacts/<method>/beta-<value>/
-runs/chapter-6/b2/development/001/
-  artifacts/<case>/
+compilation manifest
+solver policy snapshot
+solver result/report
+run environment
 ```
 
-The run manifest is written before execution and updated after each artifact.
-It records the benchmark, run kind, command, build profile, framework revision,
-refinement override, expected artifact inventory, and `running`, `complete`, or
-`failed` status. The selected build profile, framework revision, and realized
-mesh remain metadata rather than path components.
+It should remain usable after mesh/session/solver objects have been destroyed.
 
-The runner exposes `--list`, the compatibility `--benchmark` selector, and
-the parameter-driven `--parameter-file` selector. Parameter files own the run
-kind and matrix; repeatable `--select AXIS=VALUE` filters a declared matrix,
-while `--output` and the optional `--refinement` remain destination/smoke
-overrides. `--framework-revision` records executable provenance. Use
-`nmopt_runner --help` for the complete current option surface.
+### `diagnostics`
 
-Only B1 and B2 have both a benchmark registration and an execution
-registration. The B3–B6 extension fixtures exercise typed contracts in tests,
-but they are not listed or accepted as runnable benchmark IDs and have no
-execution adapter.
+Retain semantic/compiler diagnostics rather than reducing failure to a boolean.
+The artifact writer serializes the diagnostic category, component, capability,
+and remedy.
 
-Sparse experiment families use `Selection/exclude combinations` to remove
-validated full coordinates from the declared Cartesian product. Exclusions
-remain active under `Selection` and `--select` narrowing. The run manifest
-records the declared matrix, exclusion coordinates, and final resolved
-combinations separately.
+### `measurements`
 
-For a versioned experiment family:
+The reusable runner can fill wall time. Memory evidence, when collected, must
+be supplied by application-specific execution code.
+
+### `selected_fields`
+
+This is the stable logical inventory of fields the application chose to
+retain, for example:
+
+```cpp
+evidence.selected_fields = {
+  "state",
+  "control",
+  "adjoint"
+};
+```
+
+It is metadata; the numerical field arrays live in backend-native files.
+
+### `fields`
+
+These are additional deterministic flat artifact fields:
+
+```cpp
+evidence.fields.push_back({
+  "benchmark.method",
+  "l-bfgs"
+});
+```
+
+Use them for application evidence that belongs in `artifact.kv` but is not
+part of the generic benchmark identity/diagnostic schema.
+
+## `artifact.kv`
+
+`BenchmarkArtifactWriter` always emits the generic groups:
+
+```text
+artifact.schema
+identity.*
+diagnostics.*
+measurements.*
+selected_field[*]
+```
+
+and then adds the application-specific `ArtifactField` values in sorted key
+order.
+
+Values are escaped deterministically and numeric formatting uses the classic
+locale with precision 17.
+
+This file is deliberately flat. It is useful for stable contract tests,
+command-line inspection, and lightweight Python loading.
+
+It is **not** the same object as `run-manifest.json`:
+
+```text
+artifact.kv
+    one executed artifact / one resolved scenario coordinate
+
+run-manifest.json
+    lifecycle and inventory of the whole run set
+```
+
+## Native numerical output
+
+The application/backend execution adapter remains responsible for authoritative
+field output.
+
+The current Chapter 6 artifact shape is:
+
+```text
+artifact-directory/
+├── artifact.kv
+├── solver-trace.csv
+└── native/
+    ├── mesh-volume.vtu
+    ├── mesh-volume.svg
+    ├── fields-volume.vtu
+    └── control-boundary.vtu   # when boundary topology is separate
+```
+
+Not every application needs every file.
+
+The rule is that post-processing consumes persisted numerical outputs. It
+should not re-run the PDE or reconstruct an authoritative FE field that was
+never written by the execution adapter.
+
+## The repository `nmopt_runner`
+
+`apps/nmopt-runner` builds a concrete run-set application on top of the
+reusable execution API.
+
+Its high-level flow is:
+
+```text
+CLI
+ │
+ ▼
+benchmark registration
+ │
+ ▼
+ParameterFile
+ │
+ ▼
+RunSetPlan
+ │
+ ▼
+resolved ScenarioT for each coordinate
+ │
+ ▼
+HeadlessBenchmarkRunnerT
+ │
+ ▼
+artifact.kv + native files
+ │
+ ▼
+RunSetManifest
+```
+
+The current runnable benchmark registrations are:
+
+```text
+b1
+b2
+```
+
+Listing application metadata is separate from runnable benchmark registration:
+
+```bash
+build/debug-dealii/bin/nmopt_runner --list
+```
+
+A catalog entry can exist without an execution registration.
+
+## Run through the default registered benchmark
+
+The compatibility CLI path is:
+
+```bash
+build/release-dealii/bin/nmopt_runner \
+  --benchmark b1 \
+  --framework-revision REV
+```
+
+A benchmark registration maps the short ID to its default authoritative
+parameter file.
+
+The parameter file is still the experiment-family definition; `--benchmark`
+only selects that registered default.
+
+For explicit configuration:
 
 ```bash
 build/release-dealii/bin/nmopt_runner \
@@ -229,213 +412,358 @@ build/release-dealii/bin/nmopt_runner \
   --framework-revision REV
 ```
 
-The runner copies the parameter and plotting profile into the run directory,
-records their content hashes and resolved combinations in the run manifest,
-and retains the comparison-axis override for post-processing.
+Do not supply `--benchmark` and `--parameter-file` together.
 
-Development parameter-file runs may pass `--run-slot SLOT` to use an explicit
-unused slot, for example `--run-slot 004-v2`. The slot is a single directory
-name and is rejected if it already exists; this makes a rerun visibly related
-to an earlier slot without modifying the earlier run set.
+Every run requires `--framework-revision`; the runner persists it in the run
+manifest and artifact fields.
 
-A B1 family may declare a matched objective target. In that case the runner
-orders each regularisation's reference method before dependent methods,
-requires the reference to satisfy the selected stopping criterion, and records
-the supplying artifact in every dependent result. `automatic` stopping accepts
-any enabled tolerance stop; numerical stationarity also qualifies for the
-objective-change and step-only criteria. Iteration-limit and line-search
-failures never supply a target. A selection containing only the dependent
-method is therefore invalid.
+## Run-set planning before execution
 
-## Native and derived outputs
-
-Deal.II writes native outputs directly from the realized mesh and finite-element
-fields. Current Chapter 6 artifacts use:
+A parsed parameter file is expanded into a `RunSetPlan` containing:
 
 ```text
-artifacts/<method-or-case>/
-  artifact.kv
-  solver-trace.csv
-  native/
-    mesh-volume.vtu
-    mesh-volume.svg
-    fields-volume.vtu
-    control-boundary.vtu       # B2 boundary control
-  postprocess/                 # when an artifact is processed separately
+benchmark ID
+matrix axes
+in-file selection
+CLI selection
+excluded combinations
+resolved combinations
+comparison coordinates
+parameter-file provenance
 ```
 
-`fields-volume.vtu` contains the final state, the native framework adjoint,
-the comparison-only negative adjoint, and the B1 volume control. B1 also
-exports its target and forcing functions sampled on the state DoFs. B2 stores
-the optimized state, the zero-control state, both adjoint conventions, its
-target and forcing functions, and a cellwise observation-domain mask. Its
-control is stored in `control-boundary.vtu` because the boundary topology
-differs from the volume topology. Facewise constants are cell data on separate
-line cells; a continuous nodal trace is point data on connected line cells
-whose unique points match the control coordinates. These are final-state and
-input-function exports, not per-iteration output. The mesh SVG is a lightweight
-2D preview; the VTU files retain the authoritative numerical topology and field
-data.
+For each resolved combination, the plan also retains ordered artifact
+coordinate components.
 
-`solver-trace.csv` records line-search trials for diagnostics. It is not a
-field export. Reports and post-processing read persisted artifacts and native
-files; they must not reconstruct missing authoritative values.
+This plan is validated before the runner starts creating artifact output.
 
-## Reports and post-processing
+For example, a family with:
 
-The deterministic report consumes one selected run manifest:
+```text
+method = steepest-descent, l-bfgs
+regularisation = 1e-1, 1e-2
+```
+
+resolves to four coordinates before selection/exclusion:
+
+```text
+[method=steepest-descent, regularisation=1e-1]
+[method=steepest-descent, regularisation=1e-2]
+[method=l-bfgs,           regularisation=1e-1]
+[method=l-bfgs,           regularisation=1e-2]
+```
+
+The benchmark's artifact planner maps those logical coordinates to path
+components.
+
+The details of matrix syntax and precedence are in
+[Parameter files](parameter-files.md).
+
+## Run kinds and output directories
+
+The current runner distinguishes:
+
+```text
+reproduction
+development
+```
+
+### Reproduction
+
+A reproduction run uses:
+
+```text
+<output>/chapter-6/<benchmark>/authoritative/
+```
+
+and current policy requires a runner compiled as:
+
+```text
+release-dealii
+```
+
+For parameter-file runs, the declared build profile must match the compiled
+runner profile.
+
+A debug or refinement-smoke result should therefore be recorded as development
+rather than represented as source-sized reproduction evidence.
+
+### Development
+
+Development run directories are allocated monotonically:
+
+```text
+<output>/chapter-6/<benchmark>/development/001/
+<output>/chapter-6/<benchmark>/development/002/
+...
+```
+
+A parameter-file development run can request a new named slot:
 
 ```bash
-python3 tools/chapter6_report.py \
-  --run-manifest runs/chapter-6/b1/authoritative/run-manifest.json \
-  --output runs/chapter-6/b1/authoritative/report
+nmopt_runner \
+  --parameter-file parameters/chapter-6/b1/development/my-family.prm \
+  --framework-revision REV \
+  --run-slot 004-v2
 ```
 
-The report retains pending, failed, and missing artifacts in its summary. The
-current report outputs are `summary.csv` and `summary.md`. Field plots are
-generated separately by the post-processing command; only the native mesh
-preview remains SVG.
+The slot must be a single unused directory name. It does not overwrite an
+existing run.
 
-To render one artifact's native fields:
+## CLI overrides
+
+The runner's generic options are:
+
+```text
+--list
+--benchmark ID
+--parameter-file FILE
+--select AXIS=VALUE
+--output DIRECTORY
+--run-kind reproduction|development
+--run-slot SLOT
+--framework-revision REV
+--refinement N
+```
+
+The ownership rules are more useful than memorizing the options:
+
+```text
+parameter file
+    owns numerical/application family and, for --parameter-file, run kind
+
+--select
+    narrows declared matrix axes
+
+--output
+    changes destination only
+
+--run-slot
+    changes development placement only
+
+--refinement
+    explicit supported mesh override for smoke/development workflows
+```
+
+A parameter-file invocation cannot override its `Run/kind` through
+`--run-kind`.
+
+For the exact current CLI surface, use:
+
+```bash
+nmopt_runner --help
+```
+
+## Run-manifest lifecycle
+
+`RunSetManifest` writes `run-manifest.json` when the run set is created, before
+individual artifacts finish.
+
+The initial structure is:
+
+```text
+run status      = running
+artifact status = pending
+```
+
+Each artifact is then recorded once as:
+
+```text
+ok
+```
+
+or:
+
+```text
+error
+```
+
+with an error message.
+
+When `finalize()` runs, any still-pending artifact becomes an error with:
+
+```text
+artifact was not executed
+```
+
+The final run status is:
+
+```text
+complete   when every artifact is ok
+failed     when one or more artifacts failed
+```
+
+This design preserves the expected artifact inventory and partial-failure
+evidence instead of only writing a manifest after a completely successful
+run.
+
+The manifest retains:
+
+```text
+benchmark and run kind
+build profile and framework revision
+run directory
+refinement override
+parameter file/hash
+selection and declared/resolved matrix
+excluded combinations
+plotting profile/hash
+comparison rows/columns/group_by
+original command
+artifact inventory/status/error
+```
+
+## Configuration snapshots
+
+Before benchmark execution, the current runner copies:
+
+```text
+parameters.prm
+plotting-profile.json
+resolved-combinations.txt
+```
+
+into the run root.
+
+The run manifest also keeps hashes/provenance for the parameter and plotting
+sources.
+
+Those snapshots describe one historical execution. They are not the editable
+source for a future run; tracked configuration remains under `parameters/`.
+
+## Cross-coordinate execution dependencies
+
+Most resolved matrix coordinates can execute independently.
+
+The current B1 runner also supports a matched-objective-target policy in which
+one method supplies a target value for another method at the same compatible
+coordinate.
+
+The runner explicitly orders the reference method first and only accepts its
+objective when its stopping reason satisfies the configured criterion.
+
+This dependency is application/run-set policy. It does not live in
+`ReducedSearchSolverT` and should not be reproduced by relying on filesystem
+iteration order.
+
+## Post-process one persisted artifact
 
 ```bash
 python3 tools/postprocess.py \
-  --artifact runs/chapter-6/b1/authoritative/artifacts/steepest-descent/beta-1e-1 \
-  --output runs/chapter-6/b1/authoritative/artifacts/steepest-descent/beta-1e-1/postprocess
+  --artifact RUN/artifacts/... \
+  --output RUN/artifacts/.../postprocess
 ```
 
-The tool writes derived plots and `postprocess.json`. Run-root processing with
-`--input` writes a root `postprocess-index.json` and comparison outputs. When a
-run snapshot is present, the copied JSON profile and manifest comparison plan
-are loaded automatically. `--profile-file FILE` explicitly selects another
-profile; the compatibility `chapter6_postprocess.py` wrapper remains
-available for legacy Chapter 6 inputs.
-
-Both post-processing manifests retain a `provenance` object describing the
-parameter and plotting-profile sources, their content hashes, explicit CLI
-overrides, and the effective selections actually applied. The nested
-`effective` record contains selected volume and boundary fields, resolved
-matrix axes and combinations, the comparison plan, and output formats. This
-keeps a derived plot set auditable without changing the runner's authoritative
-artifact or run-manifest records.
-
-The B1 plotting profile writes `comparisons/figure-6.3` for a run root with one
-scenario. If an input root contains multiple scenarios, the scenario name is
-retained as an intermediate folder; `group_by` values are retained as folders
-in either case. Both panels use a logarithmic iteration axis with history
-sample zero displayed at coordinate one; the objective axis is linear and the
-gradient-norm axis is logarithmic. The profile selects only the three
-regularisation values shown in the source figure, so additional development
-artifacts do not silently alter the plot.
-
-## Agent verification loop
-
-After changing application, recipe, scenario, runner, or artifact code, use the
-smallest relevant loop. The preferred entry point is the root-level
-`build.sh` helper. Its `pipeline` action configures, builds, and tests a
-profile, while the `configure`, `build`, and `test` actions expose those
-phases separately. The helper requires an existing `build.local.conf` for
-`build`, `pipeline`, and `all`; if it is missing, stop and ask the user to run
-`./build.sh init-config`.
-
-The helper applies the configured maximum number of jobs independently to each
-profile. Use `./build.sh show-config` when the effective machine settings need
-to be inspected. The full agent build policy is in the
-[build instructions](../../.agents/build.md).
-
-For backend-neutral changes:
+For an entire run root:
 
 ```bash
-./build.sh pipeline debug-neutral
+python3 tools/postprocess.py \
+  --input RUN \
+  --output RUN/postprocess
 ```
 
-For deal.II application changes:
+The postprocessor searches the run root/parents for:
+
+```text
+parameters.prm
+plotting-profile.json
+run-manifest.json
+```
+
+and reconstructs the effective matrix/comparison/style policy from the
+persisted snapshot.
+
+An explicit:
 
 ```bash
-./build.sh pipeline debug-dealii
+--profile-file FILE
 ```
 
-The `debug-dealii` pipeline is the routine regression gate. It runs serially
-and excludes tests labelled `extended` or `reproduction`, which are available
-through the atomic test action:
+overrides the snapshot style for that invocation, while:
 
 ```bash
-./build.sh test debug-dealii --label extended
-./build.sh test debug-dealii --label reproduction
+--format png svg
 ```
 
-Use the explicit test action without a label to run all registered tests:
+overrides output formats.
+
+The derived-output provenance records both the snapshot sources and explicit
+overrides. It does not modify the original artifact or run manifest.
+
+## Reports and plots consume the same persisted run differently
+
+The Chapter 6 report consumes the run manifest:
 
 ```bash
-./build.sh test debug-dealii
+python3 tools/chapter6_report.py \
+  --run-manifest RUN/run-manifest.json \
+  --output RUN/report
 ```
 
-Deal.II builds remain limited to one job on constrained local configurations.
-The pipeline does not enable global CTest parallelism.
+and writes summary tables such as:
 
-When only the runner target needs rebuilding, use the atomic actions instead:
-
-```bash
-./build.sh configure debug-dealii
-./build.sh build debug-dealii --target nmopt_runner
-./build.sh test debug-dealii --ctest-arg=--output-on-failure
-build/debug-dealii/bin/nmopt_runner --list
+```text
+summary.csv
+summary.md
 ```
 
-The corresponding manual commands are useful when CMake or CTest needs direct
-control. They invoke the same checked-in presets, but do not load
-`build.local.conf` or apply its profile-specific job limits automatically:
+It includes failed/pending/missing artifact status rather than silently
+dropping unsuccessful coordinates.
 
-```bash
-cmake --preset debug-dealii
-cmake --build --preset debug-dealii --target nmopt_runner --parallel 1
-ctest --preset debug-dealii --output-on-failure
+`tools/postprocess.py` consumes persisted artifact metadata plus native field
+and history files to render figures.
+
+So the data flow is:
+
+```text
+C++ execution
+   │
+   ├── run-manifest.json
+   │       └── report summaries
+   │
+   └── artifact.kv + native fields + solver trace
+           └── field/history post-processing
 ```
 
-The helper's `pipeline` action additionally times the build, uses compact
-configure output, and adds `ctest --progress --no-label-summary`. The direct
-runner command remains necessary for inspecting or executing an already-built
-application.
+## End-to-end view
 
-For source-sized reproduction, use an existing release runner and omit the
-refinement override so that the benchmark's declared mesh policy is used:
+Once an application family is authored, a normal configured run is:
 
-```bash
-build/release-dealii/bin/nmopt_runner \
-  --benchmark b1 \
-  --framework-revision REV \
-  --run-kind reproduction \
-  --output runs
+```text
+tracked .prm + plotting JSON
+          │
+          ▼
+nmopt_runner
+          │
+          ├── parse / resolve RunSetPlan
+          └── create run root + manifest
+          │
+          │  for each resolved coordinate
+          ▼
+typed ScenarioT
+          │
+          ▼
+HeadlessBenchmarkRunnerT
+          │
+          ├── ProblemSpec builder
+          └── backend execution adapter
+                  │
+                  ▼
+          detached artifact evidence
+                  │
+                  ├── artifact.kv
+                  ├── solver trace
+                  └── native fields
+          │
+          ▼
+finalized run-manifest.json
+          │
+          ├── report
+          └── postprocess
 ```
 
-The direct runner command does not build the executable. Before rendering
-derived output, check the Python environment used by the post-processing
-tools:
-
-```bash
-python3 --version
-python3 -c "import matplotlib, meshio; print('post-processing dependencies available')"
-```
-
-For a development smoke run after the runner is built:
-
-```bash
-tools/run_chapter6.sh \
-  --benchmark b1 \
-  --refinement 1
-```
-
-Do not present Debug or refinement-1 output as source-sized reproduction
-evidence. Do not build `release-dealii` merely to inspect or document an
-application; source-scale reproduction requires the explicit release policy
-and permission described by the application roadmap.
-
-## Routing by task
-
-| Task | Read next |
-| --- | --- |
-| Assemble or change a recipe | [Application API](application-api.md), [Chapter 5 recipes](../studies/chapter-5/recipes.md) |
-| Assemble or change a Chapter 6 scenario | [Chapter 6 scenarios](../studies/chapter-6/scenarios.md), then the relevant benchmark contract |
-| Generate or inspect a run | This document, then the relevant [benchmark contract](../studies/chapter-6/benchmarks.md) |
-| Check current execution status | [Application roadmap](../planning/application-roadmap.md) |
-| Inspect compiler capability | [V1 semantic compiler](../internals/compiler/semantic-compiler.md) |
+That separation is the intended user-facing boundary: application authors
+implement the typed scenario and execution adapter once; application users can
+then operate the family through `.prm`, CLI filtering, persisted run evidence,
+and post-processing without touching the semantic compiler or optimizer
+assembly code.

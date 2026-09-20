@@ -1,441 +1,776 @@
 # Parameter files and plotting profiles
 
-**Status:** implemented for the registered B1/B2 Chapter 6 runner slice.
+This reference explains how to configure an already-authored application
+family through the current `nmopt_runner` and post-processing inputs.
 
-This document defines the schema and resolution boundary for versioned
-Chapter 6 experiment inputs. It separates the values that select and execute a
-registered benchmark from the reusable visual policy that renders its persisted
-fields.
+There are two separate tracked configuration formats:
 
-The source catalogue and frozen benchmark contracts remain authoritative for
-the mathematical meaning of B1 and B2. A parameter file is an executable
-instance of those contracts or an explicitly marked development variation; it
-does not silently replace the benchmark documentation.
+```text
+Deal.II-style .prm
+    numerical/application/run-family choices
 
-## File roles and locations
+JSON plotting profile
+    derived presentation policy
+```
 
-Versioned inputs belong below `parameters/`:
+They are intentionally separate. Changing a colormap should not change a PDE
+or optimization run, and changing a solver tolerance should not require
+editing plotting code.
+
+For the C++ layer that defines which fields/choices a family exposes, see
+[Application authoring](application-authoring.md). For run-set lifecycle and
+artifact output, see [Application execution](application-execution.md).
+
+## Source configuration versus run snapshots
+
+The tracked input tree is:
 
 ```text
 parameters/
-  chapter-6/
-    b1/
-      authoritative.prm
-      development/
-        figure-6.3-book-policy.prm
-        continuous-control.prm
-        continuous-control-constant-one.prm
-        continuous-control-structured-simplex.prm
-        continuous-control-count-matched-simplex.prm
-        figure-6.2-early-stop-constant-half.prm
-        figure-6.2-early-stop-objective-matched.prm
-        figure-6.3-constant-half.prm
-        figure-6.3-objective-matched.prm
-    b2/
-      authoritative.prm
-      development/
-        figure-6.5-state-fit.prm
-        figure-6.5-volume-load-diagnostic.prm
-        figure-6.5-table-6.2-parabolic-fit.prm
-        forcing-sweep.prm
-        table-6.2-order-fit.prm
-        target-transcription-gate.prm
-    plotting/
-      chapter-6-b1.json
-      chapter-6-b2.json
+├── chapter-6/
+│   ├── b1/
+│   │   ├── authoritative.prm
+│   │   └── development/
+│   └── b2/
+│       ├── authoritative.prm
+│       └── development/
+└── plotting/
 ```
 
-The `.prm` file describes a run set. Its matrix can expand to several
-concrete artifacts. The JSON file describes reusable field and rendering
-policy. The run manifest must retain the selected file paths, content hashes,
-matrix axes, and resolved values so that generated evidence does not depend on
-future edits to the source files.
-
-Every tracked or experiment `.prm` file must be self-contained. `include` and
-`INCLUDE` directives are prohibited. Repeat inherited settings explicitly in
-each file, and use comments and provenance fields to describe the relationship
-between related experiment families. Self-contained inputs keep runner,
-post-processing, and archived run snapshots on the same portable configuration
-contract.
-
-Generated output remains below `runs/`; it must not become a second source of
-configuration.
-
-## Experiment parameter schema
-
-The supported `.prm` sections are:
-
-| Section | Owns |
-| --- | --- |
-| `Benchmark` | Scenario identity, recipe, source reference, and source revision. |
-| `Matrix` | Explicit axes whose Cartesian product becomes the run-set. |
-| `Problem` | Recipe-level control representations and box-constraint choices. |
-| `Functions` | Direct or catalogued forcing, target, fixed-data, and transport definitions. |
-| `Boundary` | External boundary IDs, the upstream transition coordinate, and the selected transport boundary form. |
-| `Mesh` | Dimension, typed lower/upper bounds, generator parameters, refinement, and mesh provenance. |
-| `Compile` | State degree, observation discretization, execution, product, and state/adjoint/control-metric solve policies. |
-| `Solver` | Method, initial control, stopping rules, line search, iteration limits, and method-specific policies. |
-| `Run` | Authoritative/development policy, build profile, output root, and timing collection. |
-| `Output` | The all-or-none retained native-field toggle. |
-| `Postprocessing` | Plot-style reference and matrix-axis binding for comparisons. |
-
-### Schema registry
-
-`ParameterHandler` declaration and value extraction are driven by one ordered
-schema registry. The registry combines common run, mesh, compiler, solver,
-output, and post-processing entries with the selected benchmark's adapter
-entries. Each entry records its path, default, `ParameterHandler` pattern, and
-presence policy.
-
-The current adapters register B1's `method` and `regularisation` axes and B2's
-`regularisation`, `forcing`, `observation-region`, and `target-profile` axes.
-Matrix expansion, filtering, exclusions, artifact coordinates, and manifest
-construction are generic over those registered axes. Adding a future axis is a
-benchmark-adapter change; it does not require a CLI, run-controller, or
-manifest-schema branch. Only B1 and B2 currently have parameter schema and
-execution registrations.
-
-Typed resolution occurs after parsing and matrix expansion. Product and
-execution IDs resolve to `ProductSelection` and `ExecutionSelection`; reduced
-method IDs resolve to `ReducedMethod`. The B1 validator accepts only its
-registered reduced methods, assembled execution, and reduced-DTO product. B2
-accepts BFGS with the same assembled reduced-DTO profile. Unknown IDs fail
-lookup, while known but unsupported selections fail the benchmark capability
-validation before an output directory is populated.
-
-`Solver/maximum line search trials` counts all attempted steps, including the
-initial one. `Solver/maximum backtracking reductions` is the source-facing
-alternative and maps to one additional possible trial; a file must not set
-both. `minimum step length` is operative. The benchmark source declares no
-separate minimum-step value, so its absence is intentional.
-
-`Solver/globalization` accepts `armijo` or `fixed-step` and defaults to
-`armijo` for compatibility. It is global rather than method-specific. Armijo
-uses the declared trial limit, fraction, backtracking factor, and optional
-minimum step. Fixed-step instead uses `initial step length` as its exact
-positive finite step and performs one unconditional finite-objective trial;
-the Armijo-only entries do not become hidden acceptance conditions. Both
-policies retain the existing iteration and stopping configuration unchanged.
-
-Every shared reduced-solver field may be overridden in a method-policy
-subsection (`Solver/method policy <method>`): `maximum iterations`, either
-line-search trial/reduction count,
-`gradient tolerance`, `stopping criterion`, the relative-gradient,
-objective-change, and step tolerances, `initial step length`, `Armijo
-fraction`, `backtracking factor`, and `minimum step length`. An empty method
-entry inherits the corresponding `Solver` value. For the mutually exclusive
-trial/reduction pair, specifying either method entry replaces the global pair.
-The globalization, objective-target policy, and initial control remain global
-because they define the common policy, relation, and start across the method
-comparison.
-
-An `objective target policy` of `explicit` consumes the numeric
-`objective target`. The B1-only `match-reference-method` policy instead runs
-the named `objective target reference method` first for every regularisation
-value and passes its terminal cost to the dependent method after it satisfies
-the selected stopping criterion. In `automatic` mode, any enabled tolerance
-stop qualifies; numerical stationarity also qualifies for objective-change and
-step-only stopping. Iteration-limit and line-search failures do not. Filtering
-out the required reference artifact is an error rather than an implicit extra
-run. L-BFGS method-policy subsections may also set `memory`, `curvature
-tolerance`, and `initial inverse Hessian scaling` to `metric-inverse` or
-`scalar-secant`.
-
-B1 accepts `Problem/control representation` values `cellwise-volume` and
-`continuous-volume-homogeneous-dirichlet`. The former is the authoritative
-`FE_DGQ(0)` choice. The latter uses continuous `FE_Q` or `FE_SimplexP` at the
-declared state degree according to the mesh family, shares the state's
-homogeneous boundary region, and rejects a cellwise box. The effective
-representation is recorded independently of the parameter-file provenance.
-
-For B2, `Problem/control representation` accepts `facewise-constant` and
-`continuous-nodal-trace`. The former is the frozen default with
-`l2_facewise`; the latter uses a continuous degree-one trace with
-`l2_neumann_trace` and rejects a facewise box. The
-`Boundary/transport boundary form` independently selects the boundary
-operator. The fixed outward normal, state trace realization, and face
-quadrature are properties of the supported compiled boundary operator; they
-are not parameter choices. Other transport-form values are rejected before
-execution. `Boundary/upstream transition` is resolved against the mesh
-coordinates and must satisfy
-$\mathrm{lower}_{x_{1}} \leq \mathrm{transition} < \mathrm{upper}_{x_{1}}$.
-The lower endpoint is supported for the diagnostic inlet-only partition: the
-left edge remains fixed Dirichlet and all horizontal exterior faces are
-controlled. The upper endpoint remains invalid because it removes the
-controlled wall. This endpoint policy does not change the frozen B2 source
-partition at transition `1.0`.
-
-B2 also requires `Compile/volume observation quadrature order` to be a
-positive integer and accepts `analytic-quadrature` or
-`state-fe-interpolation` for
-`Compile/volume observation target realisation`. The frozen tracked files use
-order `3` and analytic evaluation. Interpolation first realizes the target in
-the scalar state finite-element space; it does not change the stated
-$L^{2}$ observation functional or introduce an objective multiplier.
-
-The B2 `Functions/target definitions` subsection declares each target profile
-listed in the `Matrix/target-profile` axis. The nested subsection name is the
-stable definition ID; it does not need a duplicate `id` entry. Each member is
-a scalar-function definition with `kind`, `provenance`, and either `value` or
-`expression`:
+The repository distinguishes three roles:
 
 ```text
-subsection target definitions
-  subsection constant
-    set kind = constant
-    set value = 2.0
-    set provenance = chapter-6.e6.5.2.target
-  end
-  subsection parabolic
-    set kind = expression
-    set expression = 4.0*x1*(1.0-x1)
-    set provenance = chapter-6.e6.5.2.target
-  end
+authoritative.prm
+    accepted repository reproduction input for one family
+
+development/*.prm
+    explicit investigation / hypothesis family
+
+runs/.../parameters.prm
+    snapshot of the exact input used by one execution
+```
+
+`authoritative.prm` does not claim that every value was explicitly stated by
+the source publication. It records the repository's accepted executable
+realization, including explicit choices for omitted details.
+
+Scientific/source interpretation belongs in the matching study documents, for
+example [Chapter 6 scenarios](../studies/chapter-6/scenarios.md) and
+[Chapter 6 benchmarks](../studies/chapter-6/benchmarks.md).
+
+## How the runner selects a schema
+
+The parser first discovers:
+
+```text
+Benchmark/id
+Benchmark/recipe
+```
+
+and uses them to choose a `ParameterSchemaAdapter`.
+
+The adapter contributes application-specific matrix axes and scalar-definition
+catalogues to the common schema before the full file is parsed by deal.II
+`ParameterHandler`.
+
+That means `.prm` support is part of the application layer, not a free-form
+map from strings to arbitrary C++ fields.
+
+The current adapters expose:
+
+```text
+b1
+    recipe:
+      chapter-5.scalar-diffusion-reaction-volume
+
+    possible matrix axes:
+      method
+      regularisation
+
+b2
+    recipe:
+      chapter-5.scalar-neumann-convection-subdomain
+
+    possible matrix axes:
+      regularisation
+      forcing
+      observation-region
+      target-profile
+```
+
+A concrete file can populate only the axes it needs, but at least one
+`Matrix/*` axis must be nonempty.
+
+If you are adding a **new** application family or parameter key, do not start
+by editing a `.prm` file. First add the typed scenario field and application
+binding described in [Application authoring](application-authoring.md), then
+expose it through the schema adapter.
+
+## Working path: define a run family
+
+Start with stable application identity:
+
+```text
+subsection Benchmark
+  set id = chapter-6.b1.my-development-family
+  set recipe = chapter-5.scalar-diffusion-reaction-volume
+  set source reference = local development experiment
+  set source revision = working-copy
 end
 ```
 
-The selected matrix profile chooses which declared definition is evaluated;
-all declared definitions are parsed and retained for a complete run-set
-description.
-The source defaults are `constant-2` with value `2` and
-`parabolic-4*x1*(1-x1)` with expression `4.0*x1*(1.0-x1)`. Changing a value or
-expression is an explicit development hypothesis, not a change to the frozen
-B2 benchmark. The effective selected definition, kind, value, and expression
-are written to B2 artifact evidence.
+`Benchmark/id` and `Benchmark/recipe` are required and participate in schema
+selection.
 
-B1 and B2 read `Functions/forcing` as a stable definition ID. The selected
-For one direct definition, the selector owns the ID and the definition uses the
-standard port subsection name:
+### Declare the experiment matrix
 
-```text
-subsection Functions
-  set forcing = source-oriented-constant-half
-
-  subsection forcing
-    set kind = constant
-    set value = 0.5
-    set provenance = chapter-6-b1
-  end
-end
-```
-
-For a matrix-selected family, `Matrix/forcing` owns the IDs and the plural
-`Functions/forcing definitions` subsection contains one nested definition per
-axis value. The same direct-versus-catalog convention applies to target and
-observation-region definitions. The selector is never `from-matrix`; the
-matrix axis itself is the selection. Both forms use the same declarative
-scalar records:
-
-| `kind` | Required data | Realization |
-| --- | --- | --- |
-| `zero` | No value or expression | Scalar zero function. |
-| `constant` | Any finite `value` | Scalar constant function. |
-| `expression` | Nonempty scalar `expression` | deal.II `FunctionParser` using coordinates `x0`, `x1`, … and constants `pi` and `e`. |
-
-Expressions use the deterministic scalar arithmetic and function syntax
-supported by deal.II `FunctionParser`; semicolon-separated components and the
-`rand`/`rand_seed` functions are rejected. Parser errors, unknown coordinates,
-and coordinates beyond `Mesh/dimension` are rejected before assembly. For
-example, a direct scalar expression is:
-
-```text
-subsection Functions
-  set forcing = spatial-candidate
-
-  subsection forcing
-    set kind = expression
-    set expression = 0.4 + sin(pi*x0)*sin(pi*x1)
-    set provenance = development.b1.spatial-candidate
-  end
-end
-```
-
-B2 conservative transport is the one rank-one vector definition. Its
-`expression` uses deal.II `TensorFunctionParser` syntax: one scalar component
-per vector component, separated by semicolons. The definition has only the
-selected ID, expression, and provenance; the vector kind is not a second
-choice:
-
-```text
-subsection Functions
-  set conservative transport = graetz
-
-  subsection conservative transport
-    set expression = 1.5*x1*(1-x1); 0.0
-    set provenance = chapter-6.e6.5.2.graetz-transport
-  end
-end
-```
-
-The checked `source-oriented-constant-half` ID is the authoritative replacement
-selected after the B1 investigation. `manufactured-zero` and
-`figure-inferred-constant-one` remain explicit development choices. None is a
-special case in the runner: every selected ID resolves to its named subsection
-and is lowered through the shared `ScalarFunctionDefinition` contract. B1's
-`Functions/desired state` selector remains a direct scalar definition because
-it is not a matrix axis; its `kind`, `expression`, and `provenance` entries are
-parsed from the adjacent `desired state` subsection.
-
-For B2, each `Observation/region definitions/<id>` member is a scalar
-indicator evaluated at cell centers during material tagging. A positive
-nonzero value marks the observed material; changing the expression or its
-cutoff therefore changes the realized material measure and the downstream
-objective. The matrix axis selects the definition ID, while
-`Observation/material id` supplies the externally meaningful material label.
-
-`Mesh/lower` and `Mesh/upper` are finite, dimension-sized point lists owned by
-the parameter file. They use native deal.II comma-separated list syntax; for
-example, `set lower = 0.0, 0.0` and `set upper = 4.0, 1.0` define the B2
-rectangle. Every selected mesh
-generator consumes these typed bounds; `Mesh/geometry` is not a separate
-selector. Tracked profiles state `Mesh/generator` explicitly. The
-`framework-native` generator consumes `Mesh/refinement` and leaves the simplex
-entries unset. A simplex configuration
-selects exactly one subdivision representation: positive `Mesh/subdivisions`
-for one isotropic count, or `Mesh/axis subdivisions` for a comma-separated
-positive count along each mesh axis. The per-axis list must have
-`Mesh/dimension` entries. The runner parses both representations into the typed
-mesh record. The B1 mesh constructor accepts only the isotropic form. B2
-accepts `structured-simplex` and `centroid-split-simplex` on its rectangle
-with per-axis subdivisions; its framework-native rectangle remains the frozen
-default. The centroid-split choice additionally needs a positive
-`Mesh/centroid splits` value and a deterministic `Mesh/selection seed`. For
-per-axis counts $n_1,n_2$, the split count cannot exceed the $2n_1n_2$ base
-triangles. It is a repeatable topology-sensitivity candidate, not a
-reconstruction of omitted source connectivity.
-
-B1 accepts `structured-simplex` with a positive isotropic subdivision count,
-and `centroid-split-simplex` with positive subdivision and
-`Mesh/centroid splits` counts plus a deterministic `Mesh/selection seed`. Both
-simplex generators are two-dimensional, require zero global refinement, and
-require B1's continuous homogeneous-Dirichlet control. A centroid split
-replaces one base triangle by three, adding one vertex and two cells; the split
-count cannot exceed the $2 n^{2}$ base triangles for isotropic count $n$.
-
-The `Compile` section exposes separate maximum iterations, relative tolerance,
-and absolute tolerance entries for the state, adjoint, and control-metric
-solves. A zero state or adjoint iteration limit selects the compiler's
-dimension-dependent rule; the control-metric limit must be positive. The
-compiled manifest, rather than the requested values alone, is authoritative:
-the current B2 target, for example, records direct UMFPACK state and adjoint
-solves even though the shared scenario carries fallback iterative values.
-
-`Solver/initial independent control value` is one finite scalar assigned to
-every independent control coefficient before the first solve. This is the
-supported initial-control capability; a spatial expression would require a
-separate projection capability and is not accepted here.
-
-Tracked B2 profiles also state the operative zero minimum step length and the
-disabled objective-target policy explicitly. These values may be changed in a
-development parameter file without adding a solver branch or rebuilding the
-runner.
-
-Deterministic artifact identity and serialization are runner invariants, not
-run-time switches. `Run/measure timings` is the only harness measurement
-choice, and `Output/retain fields` controls whether the fixed optional native
-field set is emitted; complete artifact evidence remains stable either way.
-
-The schema assigns typed patterns where a value has a common shape. Strings
-such as function IDs and method names are registry selections, not arbitrary
-code. Function expressions in the examples are declarative records consumed
-by registered function constructors; they are not an embedded programming
-language.
-
-### Matrix expansion
-
-Only entries under `Matrix` are expanded. The selected benchmark schema
-adapter declares which matrix entries exist. If there is no `Selection`
-section, all combinations of the declared axes are executed. A selection is
-an optional filter for focused development or smoke work.
+A parameter file describes a family of resolved scenarios:
 
 ```text
 subsection Matrix
   set method = steepest-descent, l-bfgs
-  set regularisation = 1e-1, 1e-2, 1e-3, 1e-6
+  set regularisation = 1e-2, 1e-3
 end
 ```
 
-This declares eight B1 artifacts. A B2 file with two observation-region
-values and two target-profile values declares four artifacts. A partial
-selection can reduce the set:
+The declared Cartesian product is:
+
+```text
+[method=steepest-descent, regularisation=1e-2]
+[method=steepest-descent, regularisation=1e-3]
+[method=l-bfgs,           regularisation=1e-2]
+[method=l-bfgs,           regularisation=1e-3]
+```
+
+Matrix values are strings in `ParameterFile`; typed conversion occurs when the
+resolved combination is bound to the application's scenario record.
+
+Within one axis, values must be nonempty and unique.
+
+### Narrow the family in the file
 
 ```text
 subsection Selection
   set method = l-bfgs
-  # Omitting regularisation keeps all four beta values.
 end
 ```
 
-`exclude combinations` removes exact coordinates when a family is not a full
-Cartesian product. Each bracketed coordinate must name every declared axis
-exactly once and select declared values; semicolons separate coordinates:
+Selection values must be a subset of the corresponding declared axis.
+
+Multiple selected values are allowed:
+
+```text
+set regularisation = 1e-2, 1e-3
+```
+
+The declared matrix is still retained in run provenance; selection describes
+the active subset.
+
+### Exclude sparse coordinates
+
+Use complete coordinate exclusions when the family is not a full Cartesian
+product:
 
 ```text
 subsection Selection
-  set exclude combinations = [method=steepest-descent,regularisation=1e-6]
+  set exclude combinations = [method=steepest-descent,regularisation=1e-3]
 end
 ```
 
-Axis selections and CLI filters may narrow the remaining matrix, but they do
-not disable exclusions. A selection that retains only excluded coordinates is
-invalid because it resolves to an empty product. Duplicate, incomplete, or
-unknown exclusion coordinates are rejected while reading the parameter file.
+Each exclusion must name every declared matrix axis exactly once and use only
+declared values.
 
-The resolver must validate every expanded combination before execution. Typed
-registry lookups reject unknown product, execution, and method IDs; benchmark
-capability validation rejects unsupported combinations. It must also reject
-empty products, duplicate IDs, and malformed coordinates before an output
-directory is populated.
-
-The matrix uses stable IDs for categorical values. Numeric values are stored
-in canonical form in the resolved configuration so that plotting and artifact
-paths do not depend on local formatting. Independent axes should be declared
-independently: B2 declares `observation-region` and `target-profile`, whose
-Cartesian product is the four public cases.
-
-### CLI precedence
-
-The effective precedence is:
+This is intentionally different from selection:
 
 ```text
-parameter-file defaults
-  → Selection axis filters and exact exclusions
-  → explicit CLI selection filter
-  → explicit CLI refinement override
+selection
+    narrows one or more axes
+
+exclusion
+    removes a complete coordinate from the remaining product
 ```
 
-With `--parameter-file`, the file supplies the benchmark, run kind, build
-profile, output root, and matrix. An explicit `--output` changes only the
-destination, while `--select` overrides the same matrix axis before exclusions
-are applied. The `--refinement` option is a runner mesh override for supported
-framework-native runs.
+After selections and exclusions, the resolved family must contain at least one
+combination.
 
-The CLI refinement override is intentionally retained for framework-native
-smoke runs. It changes only the realized mesh refinement, updates mesh
-provenance, and is recorded as an override in the manifest. It is rejected for
-the subdivision-based B1 simplex generators, whose topology must instead be
-changed explicitly in a parameter file. The override must not modify the
-checked-in parameter file.
+## Map `.prm` sections to the typed scenario
 
-The output directory may remain a destination override, and the framework
-revision should normally be recorded from the compiled executable or an
-explicit provenance argument. Neither is a mathematical experiment choice.
-All choices that affect the numerical run or retained evidence belong in the
-parameter file.
+The current Chapter 6 binder resolves a file/combination into the same typed
+scenario used by C++ callers:
 
-Only registered B1 and B2 benchmark IDs are executable and appear in `--list`;
-generic CLI and run-set mechanisms do not advertise synthetic benchmark IDs.
+```text
+Problem         -> scenario.problem recipe choices
+Functions       -> scenario.problem runtime definitions
+Runtime         -> scenario.problem scalar runtime values
+Boundary        -> scenario.problem boundary selections
+Observation     -> scenario.problem observation selections
+Mesh            -> scenario.compile.mesh
+Compile         -> scenario.compile
+Solver          -> scenario.solver
+Run / Output    -> scenario.experiment
+```
 
-## Plotting profile schema
+The parameter layer therefore does not bypass scenario validation. It is a
+textual input path into the typed application API.
 
-Plot profiles are declarative JSON documents with schema ID
-`nmopt-plot-v1`. They own reusable presentation policy:
+## Semantic problem choices
+
+For a B1-style distributed control:
+
+```text
+subsection Problem
+  set control representation = continuous-volume-homogeneous-dirichlet
+  set cellwise box constraint = false
+end
+```
+
+For a B2-style Neumann control:
+
+```text
+subsection Problem
+  set control representation = facewise-constant
+  set facewise box constraint = false
+end
+```
+
+These strings are mapped to typed recipe enums before the `ProblemSpec` is
+built. Unsupported combinations are rejected by the application validator.
+
+For the underlying semantic choices, see
+[Problem authoring](problem-authoring.md).
+
+## Scalar and function-valued runtime data
+
+Common scalar values use:
+
+```text
+subsection Runtime
+  set diffusion = 1.0
+  set reaction = 0.0
+  set regularisation = 1e-2
+end
+```
+
+Function-valued inputs use named definitions so numerical payload and
+provenance stay together.
+
+### Directly selected function
+
+```text
+subsection Functions
+  set forcing = my-forcing
+
+  subsection forcing
+    set kind = expression
+    set expression = sin(pi*x0)*sin(pi*x1)
+    set provenance = development.my-forcing
+  end
+end
+```
+
+A constant definition is:
+
+```text
+subsection forcing
+  set kind = constant
+  set value = 0.5
+  set provenance = development.constant-half
+end
+```
+
+The current scalar-definition layer supports the zero/constant/expression
+forms registered by the application schema.
+
+`provenance` should identify where the chosen datum came from. Two functions
+with the same coefficient values can still have different scientific roles or
+source status.
+
+### Catalogue selected by a matrix axis
+
+A matrix axis can select one definition from a catalogue. B2 target profiles
+use:
+
+```text
+subsection Matrix
+  set target-profile = constant, parabolic
+end
+
+subsection Functions
+  subsection target definitions
+
+    subsection constant
+      set kind = constant
+      set value = 2.0
+      set provenance = my.constant-target
+    end
+
+    subsection parabolic
+      set kind = expression
+      set expression = 4.0*x1*(1.0-x1)
+      set provenance = my.parabolic-target
+    end
+
+  end
+end
+```
+
+For each resolved `target-profile` coordinate, the binder selects the matching
+definition.
+
+The schema rejects an ambiguous scalar slot that is simultaneously driven by a
+direct selector and a matrix catalogue.
+
+## Boundary and observation selections
+
+Application-specific semantic/runtime settings use their own typed sections.
+For example:
+
+```text
+subsection Boundary
+  set fixed id = 0
+  set control id = 1
+  set outflow id = 2
+  set upstream transition = 1.0
+  set transport boundary form = ordinary-normal-minus-transport
+end
+```
+
+and:
+
+```text
+subsection Observation
+  set material id = 1
+end
+```
+
+These values are not global framework defaults. The selected application
+binder decides what they mean and validates their compatibility with the
+scenario/mesh.
+
+## Mesh configuration
+
+The common current mesh fields include:
+
+```text
+subsection Mesh
+  set dimension = 2
+  set lower = 0.0, 0.0
+  set upper = 1.0, 1.0
+
+  set generator = framework-native
+  set refinement = 2
+
+  set subdivisions = 0
+  set axis subdivisions =
+  set centroid splits = 0
+  set selection seed = 0
+
+  set provenance = development.unit-square-r2
+end
+```
+
+Current generator names are:
+
+```text
+framework-native
+structured-simplex
+centroid-split-simplex
+```
+
+The typed scenario validator determines which fields are meaningful for the
+selected generator/application.
+
+`lower` and `upper` must have `dimension` entries and satisfy
+
+$$
+\text{lower}_{i} < \text{upper}_{i}
+$$
+
+for every coordinate.
+
+The application-side backend adapter turns these typed options into the actual
+deal.II triangulation. `.prm` parsing itself does not construct a mesh.
+
+## Compiler configuration
+
+A current Chapter 6 reduced compilation block looks like:
+
+```text
+subsection Compile
+  set state degree = 1
+  set execution = assembled
+  set product = reduced-dto
+
+  set state solve maximum iterations = 0
+  set state solve relative tolerance = 1e-12
+  set state solve absolute tolerance = 1e-14
+
+  set adjoint solve maximum iterations = 0
+  set adjoint solve relative tolerance = 1e-12
+  set adjoint solve absolute tolerance = 1e-14
+
+  set control metric solve maximum iterations = 1000
+  set control metric solve relative tolerance = 1e-12
+  set control metric solve absolute tolerance = 1e-14
+end
+```
+
+These fields are first mapped to `chapter6::CompileOptions`; the backend
+execution adapter then maps that record to `DealiiDiscretisationPolicy`.
+
+The runner currently exposes the application-supported assembled/reduced-DTO
+surface. The fact that lower compiler headers contain another enum value does
+not automatically make it a valid `.prm` selection.
+
+For the lower API, see [Compiler](compiler.md).
+
+### Automatic inner iteration limits
+
+The current state/adjoint scenario options allow a maximum-iteration value of
+zero to request the application's automatic limit. It does **not** mean
+"perform zero iterations."
+
+The realized compiler manifest records the concrete policy actually used.
+
+This interpretation is field-specific: the outer optimization maximum
+iteration count must be positive.
+
+## Solver configuration
+
+A typical section is:
+
+```text
+subsection Solver
+  set method = l-bfgs
+  set globalization = armijo
+
+  set initial independent control value = 0.0
+
+  set maximum iterations = 200
+  set maximum line search trials = 25
+
+  set gradient tolerance = 1e-8
+  set stopping criterion = gradient-norm
+
+  set relative gradient tolerance = 0.0
+  set objective change tolerance = 0.0
+  set step tolerance = 0.0
+
+  set objective target = none
+  set objective target policy = none
+
+  set initial step length = 1.0
+  set Armijo fraction = 1e-4
+  set backtracking factor = 0.5
+  set minimum step length = 0.0
+end
+```
+
+The current Chapter 6 application enums expose:
+
+```text
+method
+    steepest-descent
+    bfgs
+    l-bfgs
+
+globalization
+    armijo
+    fixed-step
+```
+
+This is narrower than the full solver API in
+[Optimization](optimization.md). Adding a low-level solver policy to the
+framework does not automatically make it configurable in every application.
+
+### Method-specific overrides
+
+When `method` is a matrix axis, per-method policy can override common fields:
+
+```text
+subsection Solver
+
+  set maximum iterations = 5000
+  set initial step length = 1.0
+
+  subsection method policy l-bfgs
+    set stopping criterion = relative-gradient-norm
+    set gradient tolerance = 1e-30
+    set relative gradient tolerance = 1e-3
+
+    set memory = 5
+    set curvature tolerance = 1e-14
+    set initial inverse Hessian scaling = metric-inverse
+  end
+
+end
+```
+
+The binder resolves the effective field for the current method before
+constructing the solver options.
+
+For L-BFGS, the fields map directly to the lower-level semantics documented in
+[Optimization](optimization.md): `memory` is the retained secant-history cap,
+`curvature tolerance` guards $\langle y,s\rangle$, and the initial scaling
+selects the metric inverse or its scalar-secant scaling.
+
+### Backtracking reductions and trial counts
+
+The schema accepts either:
+
+```text
+maximum line search trials
+```
+
+or:
+
+```text
+maximum backtracking reductions
+```
+
+for the effective method policy, but not both simultaneously.
+
+If a source says "five backtracking reductions", the binder resolves that to
+six total line-search trials: the initial trial plus up to five reduced trials.
+
+This conversion is performed once at the configuration boundary so the lower
+solver receives its native `maximum_line_search_trials` convention.
+
+## Objective-target policies
+
+The application solver record can select:
+
+```text
+objective target
+objective target policy
+objective target reference method
+```
+
+Current policy strings include:
+
+```text
+none
+explicit
+match-reference-method
+```
+
+An explicit policy parses a numeric `objective target` directly into the
+solver options.
+
+A matched-reference policy is different: it defines a dependency between
+matrix coordinates. The run-set execution layer runs the reference method
+first and supplies its converged objective to the dependent method.
+
+That behavior is documented under
+[Application execution](application-execution.md); it is not a hidden feature
+of `ReducedSolverParameters`.
+
+## Run and output configuration
+
+```text
+subsection Run
+  set kind = development
+  set build profile = debug-dealii
+  set output root = runs
+  set measure timings = true
+end
+
+subsection Output
+  set retain fields = true
+end
+```
+
+`Run/kind` is:
+
+```text
+reproduction
+development
+```
+
+For `--parameter-file` execution, the file owns this value; the CLI cannot
+replace it with `--run-kind`.
+
+Current reproduction policy checks the declared build profile against the
+compiled runner and requires the release deal.II profile.
+
+`retain fields` controls whether the execution adapter writes authoritative
+native fields. It does not choose which fields a plotting profile later
+renders.
+
+## Post-processing choices in `.prm`
+
+The `.prm` file connects the run family to a tracked plotting profile and says
+how matrix coordinates should form comparison grids:
+
+```text
+subsection Postprocessing
+  set style profile = parameters/plotting/chapter-6-b1.json
+
+  set comparison rows = method
+  set comparison columns = regularisation
+  set comparison group by = none
+
+  set output formats = png
+end
+```
+
+These axes refer to the declared experiment matrix/application metadata. They
+are not arbitrary figure labels.
+
+The numerical family remains in `.prm`; rendering details such as colormap,
+field title, axis label, and history-figure style remain in JSON.
+
+## CLI selection is an additional narrowing layer
+
+Given:
+
+```text
+subsection Matrix
+  set method = steepest-descent, l-bfgs
+  set regularisation = 1e-1, 1e-2, 1e-3
+end
+
+subsection Selection
+  set regularisation = 1e-1, 1e-2
+end
+```
+
+a caller can further select:
+
+```bash
+nmopt_runner \
+  --parameter-file family.prm \
+  --framework-revision REV \
+  --select method=l-bfgs \
+  --select regularisation=1e-2
+```
+
+CLI selection is merged over the in-file selection.
+
+It can only narrow declared axes to declared values. It cannot create a new
+axis or add a value absent from the tracked family.
+
+The effective selection and final resolved combinations are persisted in the
+run manifest and snapshot.
+
+## `ParameterFile` in C++
+
+Runner code loads:
+
+```cpp
+using nmopt::application::runner::ParameterFile;
+
+ParameterFile file =
+  nmopt::application::runner::read_parameter_file(
+    path);
+```
+
+The parsed record contains:
+
+```cpp
+file.path;
+file.content_hash;
+file.values;
+file.matrix;
+file.selection;
+file.excluded_combinations;
+```
+
+Use:
+
+```cpp
+const std::string &id =
+  file.value("Benchmark/id");
+```
+
+for a declared schema entry.
+
+`optional_value()` is appropriate only when the application contract really
+has a fallback:
+
+```cpp
+const auto group_by =
+  file.optional_value(
+    "Postprocessing/comparison group by",
+    "none");
+```
+
+Application binders should still explicitly require values their typed scenario
+needs rather than using `optional_value()` as an escape from validation.
+
+### Resolve combinations
+
+```cpp
+const auto combinations =
+  file.combinations();
+```
+
+or with additional CLI-style filters:
+
+```cpp
+const auto combinations =
+  file.combinations({
+    {"method", "l-bfgs"}
+  });
+```
+
+Resolution proceeds in declared matrix-axis order, applies selection, removes
+excluded coordinates, and rejects an empty result.
+
+## Prefer `RunSetPlan` after parsing
+
+The runner turns a parsed file into:
+
+```cpp
+const auto plan =
+  nmopt::application::runner::make_run_set_plan(
+    file,
+    cli_filters);
+```
+
+The plan retains both requested and resolved structure:
+
+```text
+matrix_axes
+selection
+excluded_combinations
+resolved_combinations
+comparison rows/columns/group_by
+parameter provenance
+```
+
+Each resolved combination also carries artifact-coordinate components.
+
+Benchmark execution code should consume this plan instead of re-parsing matrix
+strings independently.
+
+## Plotting profile JSON
+
+The checked-in plotting schema is:
+
+```text
+nmopt-plot-v1
+```
+
+A profile can specify:
+
+```text
+compatible scenarios
+render defaults
+field sources
+axis order and labels
+default comparison
+history figures
+title templates
+```
+
+A small profile is:
 
 ```json
 {
   "schema": "nmopt-plot-v1",
-  "profile_id": "chapter-6.b2",
-  "compatible_scenario_prefixes": ["chapter-6.b2.graetz-flow"],
+  "profile_id": "my-profile",
+
   "defaults": {
     "colormap": "turbo",
     "normalization": "finite-extrema",
@@ -443,80 +778,260 @@ Plot profiles are declarative JSON documents with schema ID
     "volume_interpolation": "gouraud",
     "volume_mesh_overlay": false,
     "colorbar_ticks": "endpoint-inclusive",
+    "colorbar_tick_count": 5,
     "output_formats": ["png"],
-    "dpi": 180
+    "dpi": 180,
+    "axis_labels": ["x", "y"]
   },
-  "fields": {},
-  "axes": {},
+
+  "fields": {
+    "state": {
+      "source": "state",
+      "title": "State",
+      "colorbar_label": "state"
+    }
+  },
+
   "default_comparison": {
     "rows": [],
     "columns": [],
     "group_by": []
-  },
-  "title_templates": {}
+  }
 }
 ```
 
-The profile must not assume that a particular number of artifacts implies a
-layout. A comparison plan names matrix axes explicitly:
+The current loader intentionally accepts a narrow set of rendering policies,
+including:
+
+```text
+normalization              finite-extrema
+comparison_normalization   shared-finite-extrema
+volume_interpolation       gouraud
+colorbar_ticks              endpoint-inclusive
+output_formats              png / svg
+```
+
+Unsupported policy strings fail during profile loading rather than being
+silently passed to matplotlib.
+
+## Map logical plotting fields to persisted sources
+
+A volume field is:
 
 ```json
-{
-  "rows": ["target_profile"],
-  "columns": ["observation_region"],
+"state": {
+  "source": "state",
+  "title": "State",
+  "colorbar_label": "state"
+}
+```
+
+A field on separate boundary topology declares:
+
+```json
+"control-boundary": {
+  "source": "control",
+  "mesh": "boundary",
+  "title": "Boundary control",
+  "colorbar_label": "control"
+}
+```
+
+The JSON profile does not cause C++ execution to retain these fields. The
+execution adapter must have written the corresponding native source first.
+
+## Control comparison order and labels
+
+```json
+"axes": {
+  "method": {
+    "order": [
+      "steepest-descent",
+      "l-bfgs"
+    ],
+    "labels": {
+      "steepest-descent": "Steepest descent",
+      "l-bfgs": "L-BFGS"
+    }
+  }
+}
+```
+
+An axis can also request labels from the matrix definition:
+
+```json
+"forcing": {
+  "labels_from": "matrix"
+}
+```
+
+The profile's default comparison layout can be:
+
+```json
+"default_comparison": {
+  "rows": ["method"],
+  "columns": ["regularisation"],
   "group_by": []
 }
 ```
 
-The `.prm` file can override the default comparison axes. This allows the B2
-style to be reused for a development forcing sweep with `columns = forcing`
-and a one-row, three-column comparison.
+During normal run-root processing, this style metadata is combined with the
+persisted `.prm` matrix/selection and run-manifest comparison plan.
 
-If more than two axes vary and the plan leaves one unbound, post-processing
-must either group by that axis or fail with a diagnostic. It must not silently
-flatten it into an arbitrary panel order.
+## History figures
 
-## Provenance requirements
+A profile can render persisted solver histories:
 
-The run manifest should retain at least:
-
-```text
-parameters.file
-parameters.content_hash
-parameters.selection
-parameters.declared_matrix
-parameters.excluded_combinations
-parameters.resolved_combinations
-plotting.profile_file
-plotting.profile_content_hash
-plotting.resolved_comparison
-cli.refinement_override
+```json
+"history_figures": {
+  "convergence": {
+    "plots": [
+      {
+        "source": "solver.objective_history",
+        "title": "Objective",
+        "x_label": "iteration",
+        "y_label": "J",
+        "x_scale": "linear",
+        "y_scale": "linear",
+        "iteration_origin": 0
+      }
+    ],
+    "series": [
+      {
+        "where": {
+          "method": "l-bfgs"
+        },
+        "label": "L-BFGS",
+        "linestyle": "-"
+      }
+    ]
+  }
+}
 ```
 
-The self-contained parameter and plotting documents should also be copied below
-the run directory. Post-processing uses those snapshots by default; applying a
-different profile is an explicit derived-output override.
+Every history figure needs at least one plot and one nonempty series selector.
+Optional `x_limits`/`y_limits` are increasing numeric pairs.
 
-## Examples
+The `source` names persisted artifact histories. Post-processing does not have
+an in-memory optimizer object.
 
-- [B1 authoritative parameter family](../../parameters/chapter-6/b1/authoritative.prm)
-- [B1 Figure 6.3 solver-policy family](../../parameters/chapter-6/b1/development/figure-6.3-book-policy.prm)
-- [B1 continuous-control constant-one-forcing candidate](../../parameters/chapter-6/b1/development/continuous-control-constant-one.prm)
-- [B1 Figure 6.2 constant-half early-stop candidate](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-constant-half.prm)
-- [B1 Figure 6.2 objective-matched early-stop candidate](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-objective-matched.prm)
-- [B1 Figure 6.3 constant-half candidate](../../parameters/chapter-6/b1/development/figure-6.3-constant-half.prm)
-- [B1 Figure 6.3 objective-matched candidate](../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm)
-- [B2 authoritative parameter family](../../parameters/chapter-6/b2/authoritative.prm)
-- [B2 development forcing sweep](../../parameters/chapter-6/b2/development/forcing-sweep.prm)
-- [B2 Figure 6.5 state-magnitude diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-state-fit.prm)
-- [B2 Figure 6.5 volume-load image-fit diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-volume-load-diagnostic.prm)
-- [B2 Figure 6.5 and Table 6.2 parabolic diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-table-6.2-parabolic-fit.prm)
-- [B2 Table 6.2 order-of-magnitude diagnostic](../../parameters/chapter-6/b2/development/table-6.2-order-fit.prm)
-- [B2 zero-forcing target-transcription gate](../../parameters/chapter-6/b2/development/target-transcription-gate.prm)
-- [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json)
-- [B2 plotting profile](../../parameters/plotting/chapter-6-b2.json)
+## Profile and override precedence during post-processing
 
-The runner accepts these files with `--parameter-file`; the copied snapshots
-and resolved combinations below the run directory are the post-processing
-default. Content hashes currently use a labelled deterministic FNV-1a-64
-digest for drift detection; they are provenance values, not authentication.
+For a persisted run, `tools/postprocess.py` searches upward for:
+
+```text
+parameters.prm
+plotting-profile.json
+run-manifest.json
+```
+
+With no explicit override:
+
+```text
+plotting-profile.json
+    supplies style
+
+parameters.prm
+    supplies matrix/comparison choices
+
+run-manifest.json
+    supplies persisted resolved provenance
+```
+
+An explicit:
+
+```bash
+--profile-file new-profile.json
+```
+
+replaces the snapshot style for that invocation.
+
+An explicit:
+
+```bash
+--format svg
+```
+
+replaces output formats.
+
+The post-processing manifest records the parameter source/hash, plotting
+source/hash, snapshot provenance, explicit overrides, and the final effective
+render/matrix/comparison selections.
+
+## Hashes and historical snapshots
+
+The runner records content hashes for the selected parameter file and plotting
+profile in `run-manifest.json` and copies both files into the run root.
+
+Post-processing recomputes snapshot hashes. If a snapshot was edited after the
+run, its provenance record can retain the mismatch against the original
+manifest hash.
+
+For that reason, treat the run-root copies as historical evidence. To change an
+experiment family:
+
+```text
+edit tracked parameters/... source
+        ↓
+commit/review the new input
+        ↓
+create a new run directory
+```
+
+rather than mutating an old run snapshot.
+
+## From a tracked family to one resolved execution
+
+The complete configuration flow is:
+
+```text
+tracked family.prm
+      │
+      ├── Benchmark identity selects schema adapter
+      ├── Matrix declares candidate coordinates
+      ├── Selection narrows axes
+      ├── exclusions remove complete coordinates
+      └── typed problem / compile / solver / run values are parsed
+      │
+      ▼
+ParameterFile
+      │
+      ▼
+RunSetPlan
+      │
+      ├── CLI --select narrows the declared family
+      └── resolved combinations are validated
+      │
+      │  for each resolved combination
+      ▼
+application parameter binder
+      │
+      ▼
+validated ScenarioT
+      │
+      ▼
+application execution
+      │
+      ├── artifact.kv
+      ├── native output
+      └── run-manifest.json
+      │
+      ▼
+run snapshot + plotting profile
+      │
+      ▼
+report / post-processing
+```
+
+That is the intended high-level user experience: once an application family
+has been authored in C++, a user can change supported problem data, numerical
+policies, matrix coordinates, and presentation choices through versioned
+configuration without learning the compiler's binding constructors or solver
+template composition.
+
+For the accepted Chapter 6 source/reproduction choices, continue with:
+
+- [Chapter 6 scenarios](../studies/chapter-6/scenarios.md);
+- [Chapter 6 benchmarks](../studies/chapter-6/benchmarks.md);
+- [B1 replication](../studies/chapter-6/b1-replication.md);
+- [B2 replication](../studies/chapter-6/b2-replication.md).

@@ -88,6 +88,36 @@ diagnostics and the registered lowering strategies realize only supported
 combinations; it does not independently lower an arbitrary combination of
 whitelisted components.
 
+### Application orchestration is not fully producer-neutral
+
+The numerical boundary is symmetric, but the current experiment shell is not
+yet equally demonstrated for both producers.
+
+`HeadlessBenchmarkRunnerT<Scenario>` is type-generic in the value returned by
+its problem builder: the runner itself does not require that value to be a
+`ProblemSpec`. The surrounding application metadata is more specific,
+however. `ScenarioMetadata` requires a `recipe_id`, `BenchmarkIdentity`
+persists that recipe identity, and the registered `nmopt_runner` applications
+are the semantic/compiler-backed B1 and B2 families.
+
+Consequently the present code establishes:
+
+```text
+semantic/compiler application
+        │
+        ├── ScenarioT / recipe identity
+        ├── HeadlessBenchmarkRunnerT
+        └── RunSetPlan / .prm / run manifest
+```
+
+as a canonical experiment path, while the external-application route is
+canonical only through numerical binding, optimization, and native output.
+An external binding can be wrapped by the generic runner template, but the
+repository does not yet provide a producer-neutral scenario identity or a
+focused external-application run-set example. Future generalization should
+make that metadata boundary explicit rather than inventing a semantic recipe
+for an application-owned numerical realization.
+
 | Layer | Question answered | Authority | Representative code |
 | --- | --- | --- | --- |
 | Theory | What mathematical object is solved? | [Formalism](../design/mathematical-model.md) | `LinearQuadraticModel` oracle |

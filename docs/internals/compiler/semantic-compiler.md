@@ -961,6 +961,25 @@ same lowerer and retains that metric's opaque realization witness. Metric
 display IDs remain descriptive provenance and cannot grant clipping support to
 another operator. Solvers have no v1 branches.
 
+`CompiledApplicationViewT<Backend>` is a separate optional application-facing
+sidecar. It is not required to construct the executable model, metric,
+state/adjoint services, or reduced DTO. The current compiler attaches it to
+the reduced `CompiledProblemT` for direct-volume scalar, continuous-control,
+and Neumann-boundary-control targets; other valid lowerers may omit it.
+Chapter 6 B1/B2 deliberately depend on the sidecar for native output and
+discrete-dimension evidence, and B2 additionally uses its optional objective
+component action. That application dependency must not be confused with a
+lowerability requirement.
+
+The sidecar owns the retained numerical model used by its callbacks, but the
+current native-output callbacks may borrow compile-time `DealiiDataBindings`
+objects such as forcing and desired-state `Function`s. An owned
+`DealiiCompilationSession` extends mesh/model lifetime; it does not
+automatically own those caller-supplied data objects. Callers invoking the
+application view must therefore keep the corresponding bindings alive.
+KKT/PDAS/supplied-OTD product wrappers do not expose this reduced-product
+sidecar.
+
 The direct, assembled scalar, and continuous-control targets expose the exact
 reduced-Hessian action only because their residual operators, state-tracking
 operators, and control regularisation are assembled and linear-quadratic. The

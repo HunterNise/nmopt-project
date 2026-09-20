@@ -491,17 +491,17 @@ include/nmopt/
 ├── compiler/v1/   semantic-to-deal.II lowering and compiled products
 ├── dealii/        vector backend plus reusable deal.II numerical services
 ├── application/   scenarios, recipes, execution adapters, runner support
-├── experiment/    detached provenance/evidence records
-└── reference/     dense/reference systems used for verification
+└── experiment/    detached provenance/evidence records
 ```
 
 The surrounding repository provides concrete applications and evidence:
 
 ```text
-apps/              executable applications and external-integration examples
-parameters/        checked parameter-file families
-tests/             contract, semantic, deal.II, and application verification
-docs/              design, reference, application, benchmark, and review records
+apps/                           executable applications and external integration
+parameters/                     checked parameter-file families
+tests/                          contract, semantic, deal.II, and application verification
+tests/support/reference_models/ algebraic verification/reference models
+docs/                           design, reference, application, benchmark, and review records
 ```
 
 The important hierarchy is conceptual, not simply directory-based. For example,

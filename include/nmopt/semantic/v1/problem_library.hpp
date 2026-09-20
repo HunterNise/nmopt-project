@@ -262,7 +262,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P5.1's first registered target is a recombination of scalar residual
+  // The general scalar elliptic/Robin target recombines scalar residual
   // components. It deliberately keeps the existing volume-control,
   // observation, loss, metric, and optional cellwise-box declarations while
   // replacing the combined constant diffusion-reaction term by independently
@@ -471,9 +471,9 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P5.3's first registered target is the C5.10 finite point-sensor slice.
-  // Coordinates are semantic data: the deal.II lowerer checks their mesh
-  // dimension and owns the resulting immutable point-evaluation operator.
+  // The finite point-sensor target treats coordinates as semantic data: the
+  // deal.II lowerer checks their mesh dimension and owns the resulting
+  // immutable point-evaluation operator.
   inline ProblemSpec
   make_point_sensor_scalar_diffusion_reaction_problem(
     std::vector<std::vector<double>> sensor_coordinates,
@@ -565,7 +565,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P5.3's C5.8 target uses the strong-state normal derivative on a declared
+  // The normal-flux target uses the strong-state normal derivative on a declared
   // boundary subset. The outward normal and the very-weak adjoint policy stay
   // explicit requirements rather than being inferred from a boundary trace.
   inline ProblemSpec
@@ -663,7 +663,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P5.2's first observation target changes the state observation and its
+  // The H1-state tracking target changes the state observation and its
   // pairing, not the residual or the control search metric. The selected
   // realization is the full H1_0 inner product assembled from mass and
   // stiffness contributions.
@@ -759,7 +759,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // Companion graph for P5.2's metric comparison. It changes the discrete
+  // The companion graph for metric comparison changes the discrete
   // control search space but retains the L2 Riesz map.
   inline ProblemSpec
   make_l2_metric_h1_state_tracking_continuous_control_problem()
@@ -779,7 +779,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P5.2's negative metric is a separate search-geometry delta on the
+  // The negative-norm metric is a separate search-geometry delta on the
   // companion energy-tracking graph. Its compiler realizes
   // G_h = M_h K_h^{-1} M_h and records the metric solve policy.
   inline ProblemSpec
@@ -823,9 +823,9 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P2.3's first half changes the objective, not the search geometry.  The
-  // control has continuous FE_Q coordinates and the declared loss is the
-  // H1 norm, while the selected algorithmic metric remains L2.
+  // The H1 control-regularisation variant changes the objective, not the search
+  // geometry. The control has continuous FE_Q coordinates, and the declared
+  // loss is the H1 norm while the selected algorithmic metric remains L2.
   namespace problem_library_detail
   {
     inline void
@@ -901,10 +901,11 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P3.1 uses the binary reduced DTO decision port for a physical diffusion
-  // coefficient rather than a source control. Positivity is explicit through
-  // the required cellwise box; a logarithmic parameterisation is deliberately
-  // left to a later transformation realization.
+  // The coefficient-identification variant uses the binary reduced DTO decision
+  // port for a physical diffusion coefficient rather than a source control.
+  // Positivity is explicit through the required cellwise box; a logarithmic
+  // parameterisation is deliberately left to a later transformation
+  // realization.
   namespace problem_library_detail
   {
     inline void
@@ -1164,10 +1165,10 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // C5.6 composes the natural boundary control with a volume restriction and
-  // conservative transport. It deliberately reuses the Neumann residual and
-  // selected control realization: the observation and the scalar state
-  // operator are the only changed components.
+  // The Neumann convection/subdomain-tracking variant composes natural boundary
+  // control with a volume restriction and conservative transport. It deliberately
+  // reuses the Neumann residual and selected control realization: the observation
+  // and the scalar state operator are the only changed components.
   inline ProblemSpec
   make_neumann_convection_subdomain_tracking_problem(
     const unsigned int observed_material_id,
@@ -1611,10 +1612,10 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P3.2 deliberately represents controlled essential data as a physical
-  // state transformation, never as a boundary residual load. The first
-  // registered lifting uses one continuous nodal trace coefficient for every
-  // state DoF on the complete selected exterior boundary.
+  // The Dirichlet-control variant deliberately represents controlled essential
+  // data as a physical state transformation, never as a boundary residual load.
+  // The first registered lifting uses one continuous nodal trace coefficient
+  // for every state DoF on the complete selected exterior boundary.
   inline ProblemSpec
   make_dirichlet_control_scalar_diffusion_reaction_problem()
   {
@@ -1913,7 +1914,7 @@ namespace nmopt::semantic::v1
     return specification;
   }
 
-  // P5.4's first target keeps the nodal L2 trace metric but makes the
+  // The partial-Dirichlet target keeps the nodal L2 trace metric but makes the
   // fixed/controlled boundary partition and its interface ownership
   // explicit. At shared corner DoFs, fixed data owns the value, so the
   // control is the relative-interior trace with zero endpoint extension.

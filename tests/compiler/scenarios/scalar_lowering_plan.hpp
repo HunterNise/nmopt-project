@@ -131,7 +131,7 @@
     require(general_plan.succeeded() &&
               general_plan.plan->residual_terms.size() == 8 &&
               // The forcing Function is also a residual data port; the six
-              // P5.1 coefficient/Robin ports are checked individually below.
+              // The general-scalar coefficient/Robin ports are checked individually below.
               general_plan.plan->data_placements.size() == 7 &&
               boundary_selection.has_value() &&
               boundary_selection->id == "scalar_boundary_partition" &&

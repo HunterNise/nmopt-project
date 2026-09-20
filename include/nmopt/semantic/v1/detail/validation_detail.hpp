@@ -8,6 +8,8 @@
 
 namespace nmopt::semantic::v1
 {
+  // Orchestrate validation by indexing the graph and checking each semantic
+  // responsibility in dependency order.
   inline ValidationReport
   SemanticValidator::validate(const ProblemSpec &specification) const
   {
@@ -112,6 +114,7 @@ namespace nmopt::semantic::v1
       return report;
     }
 
+  // Shared indexing and component-level structural validation.
   template <typename Component>
   SemanticValidator::Index<Component>
   SemanticValidator::index(const std::vector<Component> &components,
@@ -1335,6 +1338,7 @@ namespace nmopt::semantic::v1
       });
     }
 
+  // Residual/loss signatures and formulation-product declarations.
   inline void
   SemanticValidator::validate_term_signature(const ResidualTermSpec &    term,
                             const Index<VariableSpec> & variables,
@@ -1819,6 +1823,7 @@ namespace nmopt::semantic::v1
         }
     }
 
+  // Cross-cutting analytical and discrete requirement-policy validation.
   inline void
   SemanticValidator::validate_policies(const ProblemSpec &specification,
                       ValidationReport & report)

@@ -11,10 +11,14 @@ For the two tested Step-4 optimal-control problems, the answer is the latter.
 
 The authentic deal.II tutorial remains responsible for its mesh, finite-element
 space, assembled operators, conjugate-gradient solve, boundary treatment, and VTK
-output. Optimal-control mathematics is added outside the tutorial. The canonical
-`nmopt` consumers then adapt those operations through existing public contracts;
-they do not use the semantic compiler, project runner, native comparison optimizer,
-dense oracle, or instrumentation machinery.
+output. Optimal-control mathematics is added outside the tutorial.
+The canonical `nmopt` consumers then adapt those operations through existing
+public contracts; they do not use the semantic compiler, project runner, native
+comparison optimizer, or dense oracle, and they do not instantiate or exercise
+the optional instrumentation machinery at runtime. The integration headers
+still transitively expose the optional instrumentation type, but the canonical
+minimal consumers pass no instrumentation object, execute no instrumentation
+recording branches, and produce no instrumentation records.
 
 Problem A establishes the simple case. Problem B is the stronger test: it introduces
 free-state/full-control coordinates, fixed boundary lifting, a rectangular
@@ -113,13 +117,15 @@ The experiment distinguishes four kinds of code:
 | Existing PDE application | Step-4 mesh, FE assembly, CG solve, output | No |
 | OCP mathematics | control coordinates/coupling, objective, derivatives, adjoint, metric | No – required by the chosen OCP regardless of optimizer library |
 | Minimal `nmopt` binding | layouts, callbacks, solve adapters, metric adapter, reduced formulation | Yes |
-| Evaluation support | independent native optimizer, instrumentation, dense audits, comparison tests | No – evidence for the experiment |
+| Evaluation support | independent native optimizer, instrumentation, dense audits, comparison tests | No active runtime/evaluation use; the optional instrumentation type remains a transitive source dependency |
 
 This distinction is important because the complete experiment is intentionally large.
 At the final implementation state, the minimal bindings contain **426 code-bearing
 lines in total**, while comparison, verification, diagnostics, and test/evidence
 support contain **10,256**. The latter exist to challenge and validate the claim; an
-external consumer does not adopt them.
+external consumer does not adopt their active runtime/evaluation machinery. The
+optional diagnostics type remains a transitive source dependency through the
+integration headers, but canonical minimal consumers instantiate no instrumentation.
 
 ## 3. Reusing the Step-4 application
 

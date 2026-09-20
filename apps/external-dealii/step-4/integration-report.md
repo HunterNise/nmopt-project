@@ -19,7 +19,7 @@ The final source attribution separates those two things clearly:
 | Functional Step-4/OCP/nmopt path, using the adapted source once | **1,722** | Yes, by role |
 | Of that: minimal nmopt binding headers | **426** | Yes |
 | Of that: minimal executable entry points | **219** | Yes, but largely ordinary program/policy code |
-| Evaluation, comparison, verification, diagnostics, and test/evidence support | **10,256** | **No** |
+| Evaluation, comparison, verification, diagnostics, and test/evidence support | **10,256** | **No at runtime; the optional diagnostics type is a transitive source dependency** |
 
 The large experiment footprint therefore should not be read as the amount of code an
 external application must adopt. The evaluation layers exist to test fidelity,
@@ -73,6 +73,8 @@ composition.
 The optional diagnostics used by the experiment are source-level dependencies of
 some OCP/evaluation headers, but the minimal consumers instantiate no
 `Instrumentation`, native reference optimizer, dense oracle, or comparison runner.
+They execute no instrumentation recording branches and produce no instrumentation
+records.
 
 ## 2. The starting Step-4 application
 
@@ -432,8 +434,10 @@ The current file-level attribution is:
 This is the main answer to the repository-size concern. The experiment is expensive
 to **verify**, because it maintains independent native paths, dense audits, detailed
 operation attribution, failure evidence, and executable/output comparisons. That
-verification cost is evidence for the library boundary; it is not a dependency of
-an external application.
+verification cost is evidence for the library boundary. That verification machinery
+is not part of an external application's active runtime path. Some integration
+headers still transitively expose optional diagnostics types at source level, but
+canonical minimal consumers instantiate no diagnostics object.
 
 ### 6.5 Reproduce the source counts
 

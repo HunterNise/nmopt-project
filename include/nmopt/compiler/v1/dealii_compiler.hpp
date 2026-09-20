@@ -131,6 +131,7 @@ namespace nmopt::compiler::v1
     }
 
   private:
+    // Compilation-request construction and data-binding resolution.
     static void
     append_data_binding_request(
       ResolvedCompilationRequest &             request,
@@ -618,6 +619,8 @@ namespace nmopt::compiler::v1
             "conservative_transport_binding_provenance");
     }
 
+    // Main compiler orchestration: validate the closed request, realize the
+    // selected target, and package the requested compilation product.
     template <int dim>
     CompilationResultT<dealii_backend::SerialBackend>
     compile_impl(
@@ -634,6 +637,7 @@ namespace nmopt::compiler::v1
     {
       using Backend = dealii_backend::SerialBackend;
       CompilationResultT<Backend> result;
+      // Resolve and validate the semantic request before backend realization.
       auto resolution = semantic::v1::SemanticResolver().resolve(specification);
       result.diagnostics = std::move(resolution.diagnostics);
       if (!result.diagnostics.valid())
@@ -714,6 +718,7 @@ namespace nmopt::compiler::v1
         uses_h1_control_regularisation ||
         uses_homogeneous_dirichlet_continuous_control ||
         uses_neumann_boundary_control;
+      // Derive target-specific requirements and validate bound realization data.
       if (uses_h1_state_observation)
         {
           if (!request.h1_target_data_membership_selection)
@@ -947,6 +952,7 @@ namespace nmopt::compiler::v1
                                    diagnostic.remedy);
           scalar_plan = std::move(planned.plan);
         }
+      // Validate bound realization data before mesh and boundary checks.
       validate_resolved_function_bindings(request, data, result.diagnostics);
       if (!has_active_cells)
         result.diagnostics.add(
@@ -968,6 +974,7 @@ namespace nmopt::compiler::v1
           specification.id,
           "simplex_registered_target",
           "Select a registered continuous-volume-control or Neumann-boundary-control target for simplex meshes; the other deal.II targets currently require hypercube cells.");
+      // Validate mesh and boundary realizability against the resolved request.
       if (uses_point_sensor && tracking_region != nullptr)
         validate_point_sensor_mesh(triangulation, *tracking_region,
                                    result.diagnostics);
@@ -1408,6 +1415,7 @@ namespace nmopt::compiler::v1
               : "Select every exterior boundary id for the registered nodal Dirichlet lifting; partial boundaries, interfaces, and undeclared corner policies are not supported.");
           return result;
         }
+      // Construct the concrete numerical services selected by the resolved request.
       contract::require(tracking_region != nullptr,
                         "Validated v1 problem has no tracking observation region");
       std::shared_ptr<const contract::MetricT<Backend>> metric;
@@ -1697,6 +1705,7 @@ namespace nmopt::compiler::v1
       else
         contract::require(false,
                           "Validated v1 request did not select a supported deal.II lowerer");
+      // Project the realized runtime into the compilation manifest.
       auto manifest = finalize_resolved_decision<dim>(
         policy,
         specification,
@@ -1712,6 +1721,7 @@ namespace nmopt::compiler::v1
           ? &*specification.supplied_otd_declaration
           : nullptr);
       auto &finalized_decision = manifest.resolved_decision;
+      // Assemble optional secondary formulation products.
       std::shared_ptr<const contract::EqualityConstrainedQuadraticKKTProductT<Backend>>
         kkt_product;
       std::shared_ptr<const contract::BoxComplementarityT<Backend>>
@@ -1775,6 +1785,7 @@ namespace nmopt::compiler::v1
           finalized_decision.constraint_record.data_provenance =
             box_data->data_provenance();
         }
+      // Package the owning compiled result and its lifetime state.
       if (pdas_complementarity)
         result.pdas_problem = std::make_shared<const
           CompiledPDASProblemT<Backend>>(
@@ -1823,6 +1834,7 @@ namespace nmopt::compiler::v1
       facewise_l2
     };
 
+    // Semantic lookup and target-feature queries.
     static const semantic::v1::RegionSpec *
     find_region(const semantic::v1::ProblemSpec &specification,
                 const std::string &              id)
@@ -2458,6 +2470,7 @@ namespace nmopt::compiler::v1
                semantic::v1::RegionKind::boundary;
     }
 
+    // Dirichlet-control registration and compilation-request closure.
     static std::optional<ResolvedDirichletRegistration>
     resolve_dirichlet_control_registration(
       const semantic::v1::ResolvedProblemView &resolved,
@@ -2923,6 +2936,7 @@ namespace nmopt::compiler::v1
         request.target_family = ResolvedTargetFamily::direct_volume;
     }
 
+    // Registration, mesh, boundary, and bound-data validation.
     static void
     validate_dirichlet_control_registration(
       const semantic::v1::ResolvedProblemView &resolved,
@@ -3238,6 +3252,7 @@ namespace nmopt::compiler::v1
         projection_metric);
     }
 
+    // Lowerability and registered-target validation.
     void
     validate_lowerability(const semantic::v1::ProblemSpec & specification,
                           const ResolvedCompilationRequest &request,
@@ -4665,6 +4680,7 @@ namespace nmopt::compiler::v1
           "The canonical supplied-OTD lowerer requires a framework-adjoint multiplier with identity conversion.");
     }
 
+    // Metadata, provenance, and runtime-description helpers.
     template <typename Component>
     static std::vector<std::string>
     identifiers(const std::vector<Component> &components)
@@ -5707,6 +5723,7 @@ namespace nmopt::compiler::v1
       return "registered-target";
     }
 
+    // Resolved decisions, realized maps, and manifest projection.
     template <int dim>
     static ResolvedCompilationDecision
     make_resolved_decision(const semantic::v1::ProblemSpec &specification,
@@ -6765,6 +6782,7 @@ namespace nmopt::compiler::v1
       return manifest;
     }
 
+    // KKT, PDAS, and final compiled-product records.
     static CompiledKKTRecord
     make_kkt_record(
       const contract::EqualityConstrainedQuadraticKKTProductT<

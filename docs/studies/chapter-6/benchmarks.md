@@ -7,15 +7,15 @@ post-processing APIs.
 
 The authorities are deliberately separate:
 
-- the [numerical-examples reference](../guides/chapter-6-numerical-examples.md)
+- the [numerical-examples reference](numerical-examples.md)
   records what the book states and leaves unresolved;
-- the [Chapter 6 application scenarios](../applications/chapter-6.md) define
+- the [Chapter 6 application scenarios](scenarios.md) define
   recipe selection, scenario construction, and runtime ports;
-- the [benchmark-suite roadmap](../planning/chapter-6-benchmark-suite-roadmap.md)
+- the [benchmark-suite roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md)
   owns selection, order, dependencies, and suite-level gates;
-- the [application roadmap](../planning/application-roadmap.md) owns runner,
+- the [application roadmap](../../planning/application-roadmap.md) owns runner,
   artifact, post-processing, and current execution status; and
-- the [application execution and artifact reference](../reference/application-execution.md)
+- the [application execution and artifact reference](../../reference/application-execution.md)
   defines the public artifact and execution interfaces.
 
 A benchmark choice that cannot be inferred from the source record is recorded
@@ -31,12 +31,12 @@ evidence are frozen.
 | ID | Source/application | Contract state |
 | --- | --- | --- |
 | B0 | Common benchmark record boundary | Frozen below |
-| B1 | [E6.5.1 distributed Laplace](../guides/chapter-6-numerical-examples.md#e651--distributed-laplace-control) / [scenario](../applications/chapter-6.md#b1--distributed-laplace-control) | Frozen below |
-| B2 | [E6.5.2 Graetz flow](../guides/chapter-6-numerical-examples.md#e652--graetz-flow-boundary-control) / [scenario](../applications/chapter-6.md#b2--graetz-flow-boundary-control) | Frozen below |
-| B3 | [E6.9.1 symmetric box control](../guides/chapter-6-numerical-examples.md#e691--symmetric-box-constrained-laplace-control) | Reserved; see [roadmap](../planning/chapter-6-benchmark-suite-roadmap.md#b3--e691-symmetric-box-constrained-laplace-control) |
-| B4 | [E6.9.2 asymmetric box control](../guides/chapter-6-numerical-examples.md#e692--asymmetric-box-constrained-laplace-control) | Reserved; see [roadmap](../planning/chapter-6-benchmark-suite-roadmap.md#b4--e692-asymmetric-box-constrained-laplace-control) |
-| B5 | [E6.7.1 all-at-once Laplace](../guides/chapter-6-numerical-examples.md#e671--all-at-once-laplace-control) | Reserved; see [roadmap](../planning/chapter-6-benchmark-suite-roadmap.md#b5--e671-all-at-once-laplace-control) |
-| B6 | [E6.7.2 all-at-once diffusion-reaction](../guides/chapter-6-numerical-examples.md#e672--all-at-once-diffusion-reaction-control) | Reserved; see [roadmap](../planning/chapter-6-benchmark-suite-roadmap.md#b6--e672-diffusion-reaction-follow-up) |
+| B1 | [E6.5.1 distributed Laplace](numerical-examples.md#e651--distributed-laplace-control) / [scenario](scenarios.md#b1--distributed-laplace-control) | Frozen below |
+| B2 | [E6.5.2 Graetz flow](numerical-examples.md#e652--graetz-flow-boundary-control) / [scenario](scenarios.md#b2--graetz-flow-boundary-control) | Frozen below |
+| B3 | [E6.9.1 symmetric box control](numerical-examples.md#e691--symmetric-box-constrained-laplace-control) | Reserved; see [roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md#b3--e691-symmetric-box-constrained-laplace-control) |
+| B4 | [E6.9.2 asymmetric box control](numerical-examples.md#e692--asymmetric-box-constrained-laplace-control) | Reserved; see [roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md#b4--e692-asymmetric-box-constrained-laplace-control) |
+| B5 | [E6.7.1 all-at-once Laplace](numerical-examples.md#e671--all-at-once-laplace-control) | Reserved; see [roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md#b5--e671-all-at-once-laplace-control) |
+| B6 | [E6.7.2 all-at-once diffusion-reaction](numerical-examples.md#e672--all-at-once-diffusion-reaction-control) | Reserved; see [roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md#b6--e672-diffusion-reaction-follow-up) |
 
 ## Common benchmark contract
 
@@ -56,8 +56,8 @@ The benchmark artifact must preserve the detached compilation manifest,
 solver report and policy snapshot, environment, benchmark choices, diagnostics,
 and selected native fields. The artifact schema, deterministic serialization,
 path layout, report generation, and post-processing behavior are defined by the
-[application execution reference](../reference/application-execution.md)
-and [application roadmap](../planning/application-roadmap.md#application-boundaries),
+[application execution reference](../../reference/application-execution.md)
+and [application roadmap](../../planning/application-roadmap.md#application-boundaries),
 not repeated here.
 
 Development runs may use a smaller explicitly named mesh or build profile.
@@ -82,12 +82,12 @@ B0 is contract-complete when repeated writes are byte-identical, invalid
 identity/diagnostic/measurement/field data is rejected, failed matrix entries
 remain visible with diagnostics, and path selection remains outside the
 artifact writer. Execution status and the concrete run layout belong to the
-[application roadmap](../planning/application-roadmap.md#current-handoff-state).
+[application roadmap](../../planning/application-roadmap.md#current-handoff-state).
 
 ## B1 — E6.5.1 distributed Laplace control
 
 The source problem, target, figures, and source omissions are recorded in the
-[E6.5.1 source entry](../guides/chapter-6-numerical-examples.md#e651--distributed-laplace-control).
+[E6.5.1 source entry](numerical-examples.md#e651--distributed-laplace-control).
 The development evidence and current source-parity assessment are recorded in
 the [B1 replication findings](b1-replication.md).
 The application scenario owns the recipe, graph, control representation,
@@ -171,13 +171,13 @@ regularisation decreases and substantially less optimization work for L-BFGS.
 This trend is evidence, not a portable numerical tolerance; a failure is
 reported as a benchmark limitation.
 
-Execution and acceptance status are maintained in the [application roadmap](../planning/application-roadmap.md#b1),
+Execution and acceptance status are maintained in the [application roadmap](../../planning/application-roadmap.md#b1),
 not duplicated in this freeze.
 
 ## B2 — E6.5.2 Graetz-flow boundary control
 
 The source equation, four observation/target combinations, boundary geometry,
-and source omissions are recorded in the [E6.5.2 source entry](../guides/chapter-6-numerical-examples.md#e652--graetz-flow-boundary-control).
+and source omissions are recorded in the [E6.5.2 source entry](numerical-examples.md#e652--graetz-flow-boundary-control).
 The development evidence, count-based deductions, candidate experiment order,
 and current source-parity assessment are recorded in the
 [B2 replication findings](b2-replication.md).
@@ -282,14 +282,14 @@ Each of the four artifacts must retain:
 If the unstabilized Galerkin realization is inadequate, the limitation is
 reported without changing the frozen scenario.
 
-Execution and acceptance status are maintained in the [application roadmap](../planning/application-roadmap.md#b2),
+Execution and acceptance status are maintained in the [application roadmap](../../planning/application-roadmap.md#b2),
 not duplicated in this freeze.
 
 ## Future benchmark contracts
 
 B3–B6 are part of the catalogue but are not executable freezes yet. Their
 selection, dependencies, and intended evidence are defined by the
-[benchmark-suite roadmap](../planning/chapter-6-benchmark-suite-roadmap.md#benchmark-sequence).
+[benchmark-suite roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md#benchmark-sequence).
 Before activating any one of them, add its source reference, application
 scenario, explicit project choices, run matrix, and acceptance evidence here.
 

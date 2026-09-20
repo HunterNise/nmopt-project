@@ -4,8 +4,8 @@
 
 This report records the development investigation of E6.5.1, the distributed
 Laplace-control example shown in Figures 6.2–6.3 of the source. It supplements
-the [frozen B1 benchmark contract](chapter-6.md#b1--e651-distributed-laplace-control)
-and the [source catalogue](../guides/chapter-6-numerical-examples.md#e651--distributed-laplace-control).
+the [frozen B1 benchmark contract](benchmarks.md#b1--e651-distributed-laplace-control)
+and the [source catalogue](numerical-examples.md#e651--distributed-laplace-control).
 It records the evidence behind the benchmark's explicit replacement choices;
 those choices remain project policy rather than recovered source facts.
 
@@ -308,10 +308,10 @@ remaining discrepancies.
 Four stable development profiles record the two useful forcing hypotheses and
 the two figure-specific solver policies:
 
-- [Figure 6.2, constant half](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-constant-half.prm)
-- [Figure 6.2, objective matched](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-objective-matched.prm)
-- [Figure 6.3, constant half](../../parameters/chapter-6/b1/development/figure-6.3-constant-half.prm)
-- [Figure 6.3, objective matched](../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm)
+- [Figure 6.2, constant half](../../../parameters/chapter-6/b1/development/figure-6.2-early-stop-constant-half.prm)
+- [Figure 6.2, objective matched](../../../parameters/chapter-6/b1/development/figure-6.2-early-stop-objective-matched.prm)
+- [Figure 6.3, constant half](../../../parameters/chapter-6/b1/development/figure-6.3-constant-half.prm)
+- [Figure 6.3, objective matched](../../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm)
 
 These profiles write stable outputs below `runs/chapter-6/b1/development/`.
 The $f=0.5$ profiles are the simple balanced development candidates; the
@@ -327,15 +327,15 @@ experiments without relying on directory order.
 
 | Current named run | Tracked parameter file | Numbered predecessor | Comparison note |
 | --- | --- | --- | --- |
-| `continuous-control` | [continuous-control.prm](../../parameters/chapter-6/b1/development/continuous-control.prm) | `009` | Same named profile; the historical manifest forced refinement 4, while the regenerated run uses refinement 7. |
-| `continuous-control-constant-one` | [continuous-control-constant-one.prm](../../parameters/chapter-6/b1/development/continuous-control-constant-one.prm) | `010` | Same named profile; the historical manifest forced refinement 4, while the regenerated run uses refinement 7. |
-| `continuous-control-count-matched-simplex` | [continuous-control-count-matched-simplex.prm](../../parameters/chapter-6/b1/development/continuous-control-count-matched-simplex.prm) | none | No numbered run contains a matching parameter snapshot. |
-| `continuous-control-structured-simplex` | [continuous-control-structured-simplex.prm](../../parameters/chapter-6/b1/development/continuous-control-structured-simplex.prm) | none | No numbered run contains a matching parameter snapshot. |
-| `figure-6.2-early-stop-constant-half` | [figure-6.2-early-stop-constant-half.prm](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-constant-half.prm) | rough relation to `006` | `006` used a different standalone PRM, zero forcing, cellwise control, and a different mesh. |
-| `figure-6.2-early-stop-objective-matched` | [figure-6.2-early-stop-objective-matched.prm](../../parameters/chapter-6/b1/development/figure-6.2-early-stop-objective-matched.prm) | rough relation to `006` | `006` used a different standalone PRM, zero forcing, cellwise control, and a different mesh. |
-| `figure-6.3-book-policy` | [figure-6.3-book-policy.prm](../../parameters/chapter-6/b1/development/figure-6.3-book-policy.prm) | `007`, `008` | `008` is the latest numbered snapshot for this parameter-file path; its manifest forced refinement 4, while the regenerated run uses refinement 7. |
-| `figure-6.3-constant-half` | [figure-6.3-constant-half.prm](../../parameters/chapter-6/b1/development/figure-6.3-constant-half.prm) | none | No numbered run contains a matching parameter snapshot. |
-| `figure-6.3-objective-matched` | [figure-6.3-objective-matched.prm](../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm) | none | No numbered run contains a matching parameter snapshot. |
+| `continuous-control` | [continuous-control.prm](../../../parameters/chapter-6/b1/development/continuous-control.prm) | `009` | Same named profile; the historical manifest forced refinement 4, while the regenerated run uses refinement 7. |
+| `continuous-control-constant-one` | [continuous-control-constant-one.prm](../../../parameters/chapter-6/b1/development/continuous-control-constant-one.prm) | `010` | Same named profile; the historical manifest forced refinement 4, while the regenerated run uses refinement 7. |
+| `continuous-control-count-matched-simplex` | [continuous-control-count-matched-simplex.prm](../../../parameters/chapter-6/b1/development/continuous-control-count-matched-simplex.prm) | none | No numbered run contains a matching parameter snapshot. |
+| `continuous-control-structured-simplex` | [continuous-control-structured-simplex.prm](../../../parameters/chapter-6/b1/development/continuous-control-structured-simplex.prm) | none | No numbered run contains a matching parameter snapshot. |
+| `figure-6.2-early-stop-constant-half` | [figure-6.2-early-stop-constant-half.prm](../../../parameters/chapter-6/b1/development/figure-6.2-early-stop-constant-half.prm) | rough relation to `006` | `006` used a different standalone PRM, zero forcing, cellwise control, and a different mesh. |
+| `figure-6.2-early-stop-objective-matched` | [figure-6.2-early-stop-objective-matched.prm](../../../parameters/chapter-6/b1/development/figure-6.2-early-stop-objective-matched.prm) | rough relation to `006` | `006` used a different standalone PRM, zero forcing, cellwise control, and a different mesh. |
+| `figure-6.3-book-policy` | [figure-6.3-book-policy.prm](../../../parameters/chapter-6/b1/development/figure-6.3-book-policy.prm) | `007`, `008` | `008` is the latest numbered snapshot for this parameter-file path; its manifest forced refinement 4, while the regenerated run uses refinement 7. |
+| `figure-6.3-constant-half` | [figure-6.3-constant-half.prm](../../../parameters/chapter-6/b1/development/figure-6.3-constant-half.prm) | none | No numbered run contains a matching parameter snapshot. |
+| `figure-6.3-objective-matched` | [figure-6.3-objective-matched.prm](../../../parameters/chapter-6/b1/development/figure-6.3-objective-matched.prm) | none | No numbered run contains a matching parameter snapshot. |
 
 The old `005` run used the then-authoritative parameter content, and `006`
 used `runs/parameters/b1-lbfgs-four-iterations.prm`; neither is an exact
@@ -367,7 +367,7 @@ merely to make the matrix rectangular.
 ### Authoritative release reproduction
 
 The checked-in
-[authoritative parameter profile](../../parameters/chapter-6/b1/authoritative.prm)
+[authoritative parameter profile](../../../parameters/chapter-6/b1/authoritative.prm)
 freezes the selected $f=0.5$ candidate, regular 131-subdivision triangular
 mesh, continuous homogeneous-Dirichlet `P1` control, common $10^{-3}$ relative
 gradient threshold, and metric-inverse memory-5 L-BFGS policy. The resulting

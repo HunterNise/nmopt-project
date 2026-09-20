@@ -20,16 +20,13 @@ build.sh                          # preferred local build/test orchestration
 build.local.conf.example         # tracked machine-configuration template
 build.local.conf                  # ignored machine-local build configuration
 docs/
+  manual/                         # current project manual and concept chapters
   design/                         # long-lived architecture and mathematics
   reference/                      # exact public API and execution references
-  guides/                         # implementation and source-example guides
-  applications/                   # Chapter 5/6 application contracts
-  benchmarks/                     # frozen benchmark contracts
-  implementation/                 # realized capabilities and selected policies
-  planning/                       # mutable roadmaps, reviews, and handoffs
-  case-studies/                   # worked mathematical/interface studies
-  decisions/                      # accepted repository and architecture decisions
-  drafts/                         # explicitly non-authoritative material
+  internals/                      # current implementation mechanics and capability internals
+  studies/                        # Chapter 5/6 source, application, benchmark, and case-study corpus
+  planning/                       # genuinely active and mutable roadmaps
+  history/                        # superseded implementations, reviews, audits, and evidence
 include/nmopt/
   application/                    # public recipe, scenario, and catalog API
   contract/                       # backend-neutral executable/formulation ports
@@ -43,7 +40,8 @@ tests/
   support/                        # shared test utilities
   contract/                       # backend-neutral contract tests
   semantic/                       # semantic graph and validation tests
-  dealii/                         # deal.II compiler and lowering tests
+  compiler/dealii/                # deal.II compiler and lowering capability tests
+  dealii/                         # low-level deal.II backend/service/session/reporting tests
   application/                    # recipe and scenario contract tests
   benchmark/                      # harness and benchmark tests
 apps/
@@ -64,26 +62,19 @@ unit lands. Empty placeholder directories are not tracked.
   contracts.
 - `docs/reference/` owns exact public types, options, schemas, and execution
   interfaces.
-- `docs/guides/` explains how to perform implementation or source-example
-  tasks; the Chapter 6 numerical-examples guide is authoritative for what the
-  book states.
-- `docs/applications/` explains how concrete Chapter 5/6 applications are
-  assembled from the public API.
-- `docs/benchmarks/` owns frozen numerical scenario definitions and required
-  evidence.
-- `docs/implementation/` records realized capabilities, exclusions, and
-  selected implementation policies.
-- `docs/planning/` owns mutable status, work order, review evidence, and
-  handoffs.
-- `docs/case-studies/` contains worked derivations and interface studies. It
-  is explanatory material, not a second normative contract.
-- `docs/decisions/` contains accepted architectural and repository decisions.
-- `docs/drafts/` contains discussion material that is explicitly not
-  authoritative.
+- `docs/manual/` teaches the current project through overviews and concept
+  chapters.
+- `docs/internals/` records current implementation mechanics and capability
+  internals; exact public contracts remain in `docs/reference/`.
+- `docs/studies/` contains the Chapter 5/6 source, application, benchmark, and
+  case-study corpus.
+- `docs/planning/` owns genuinely active and mutable roadmaps.
+- `docs/history/` contains superseded implementations, reviews, audits, and
+  historical evidence.
 
-The mathematical Chapter 5 and Chapter 6 guides remain the source catalogue.
-Application and benchmark documents add executable choices and evidence
-requirements without silently rewriting the source catalogue. The
+The Chapter 5 and Chapter 6 study documents remain the source and application
+catalogue. Scenario, benchmark, and replication records add executable choices
+and evidence requirements without silently rewriting the source catalogue. The
 implementation and application roadmaps remain the mutable status ledgers for
 their respective layers.
 
@@ -102,12 +93,12 @@ The non-documentation directories have these stable roles:
 | Directory | Role | Boundary |
 | --- | --- | --- |
 | `include/nmopt/` | Public and internal C++ headers under the `nmopt` include and namespace prefix. | Reusable library interfaces belong here; executable-specific CLI and run-set code does not. |
-| `apps/` | Source files for executable products. | `apps/nmopt-runner/main.cc` is the headless entry point; its adjacent `runner.hpp` is private CLI/run-set support. The public backend-neutral runner API is `include/nmopt/application/runner.hpp`. |
+| `apps/` | Source files for executable products. | `apps/nmopt-runner/main.cc` is the headless entry point; its adjacent `run_lifecycle.hpp` is private CLI/run-set support. The public backend-neutral runner API is `include/nmopt/application/runner.hpp`. |
 | `tests/` | Contract-layer test translation units and shared test support. | CTest inventories are discovered from test executables; generated registrations belong in `build/`, not in source. |
 | `tools/` | Repository-local user and analysis tools, including Python post-processing and shell wrappers. | Tools consume public artifacts and interfaces; they must not become a second PDE lowerer or solver implementation. |
 | `cmake/` | Source-controlled CMake modules used by the root build. | Build configuration remains expressed through root `CMakeLists.txt` and `CMakePresets.json`; generated CMake state does not belong here. |
 | `build/` | Ignored generated build trees, one named directory per configured preset. | Never configure directly in the `build/` container; use `build/debug-neutral/`, `build/debug-dealii/`, `build/sanitize-neutral/`, or `build/release-dealii/`. |
-| `runs/` | Ignored generated experiment evidence. | Run manifests, artifacts, native output, reports, and post-processing follow the [execution reference](../reference/application-execution.md). |
+| `runs/` | Ignored generated experiment evidence. | Run manifests, artifacts, native output, reports, and post-processing follow the [execution reference](../../reference/application-execution.md). |
 
 The standard generated shapes are:
 
@@ -125,10 +116,10 @@ runs/chapter-6/<benchmark>/<run-slot>/
   postprocess/
 ```
 
-The [build instructions](../../.agents/build.md) own profile selection,
+The [build instructions](../../../.agents/build.md) own profile selection,
 cache recovery, generated-file rules, manual-command safety rules, and build
 commands. The [application
-execution reference](../reference/application-execution.md) owns artifact
+execution reference](../../reference/application-execution.md) owns artifact
 schemas, run paths, native output, reports, and post-processing commands. This
 decision records the directory ownership without duplicating those procedures.
 
@@ -142,30 +133,39 @@ under `include/nmopt/application/`.
 
 ## Public reference layout
 
-The `reference/` directory intentionally contains the two agent-facing
+The `reference/` directory intentionally contains the four agent-facing
 application references:
 
 - `application-api.md` — assembly, recipe, scenario, compiler, solver, and
   provenance boundaries;
 - `application-execution.md` — schemas, run organization, native output,
   reports, post-processing, and verification commands.
+- `external-dealii-solver-integration.md` — external deal.II backend,
+  callback, solve-report, metric, formulation, optimizer, lifetime, and
+  retained-output contracts;
+- `parameter-files.md` — parameter-file and plotting-profile schemas.
 
 There is no additional directory README because `docs/README.md` is the
-repository-wide documentation map and these two files are self-describing.
+repository-wide documentation map and these files are self-describing.
 
 ## Include and test layers
 
-The current `include/nmopt/{contract,semantic,compiler,dealii,solvers,experiment,reference}`
+The current `include/nmopt/{contract,semantic,compiler,dealii,solvers,experiment}`
 layout follows the framework's layer boundaries and is not renamed by this
-decision. New public recipe and scenario records belong under
+decision. There is no public `include/nmopt/reference/` reference-model
+surface; test-only reference models live under
+`tests/support/reference_models/`. New public recipe and scenario records belong under
 `include/nmopt/application/`; they may refer to semantic and compiler ports,
 but must not move backend details into `ProblemSpec` or add PDE-specific
 branches to generic solvers.
 
 Existing test executables retain their names and scenario inventories while
-source files are grouped by the contract layer they verify. New application
-and benchmark tests must consume the same public recipe and runner boundaries
-as users; they must not construct private lowerers to make a test pass.
+source files are grouped by the contract layer they verify. Compiler and
+lowering capability scenarios belong under `tests/compiler/dealii/`; low-level
+deal.II backend, service, session, reporting, and lifetime scenarios belong
+under `tests/dealii/`. New application and benchmark tests must consume the
+same public recipe and runner boundaries as users; they must not construct
+private lowerers to make a test pass.
 
 ## Reserved future locations
 
@@ -173,7 +173,7 @@ The `parameters/` tree is reserved for versioned experiment inputs. Numerical
 experiment families use Deal.II-style `.prm` files; reusable post-processing
 styles use versioned JSON profiles beside them. Their schema and precedence
 rules are defined by the application roadmap's parameter-file unit and its
-[parameter-file reference](../reference/parameter-files.md). A parameter file
+[parameter-file reference](../../reference/parameter-files.md). A parameter file
 may describe a matrix of concrete artifacts; generated runs still record the
 resolved combination and the hashes of both input documents.
 

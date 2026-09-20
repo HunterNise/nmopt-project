@@ -177,8 +177,8 @@ The following pieces exist and are tested:
 | Layer | Existing artifact | Meaning |
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. Their block storage is read-only after construction; checked algebraic updates preserve the declared dimensions. |
-| V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp` | Deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
-| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package, typed manifest container, and stored scalar handler plan. The bounded scalar path consumes the resolved request and typed residual/service records; specialized registrations retain the explicit strategies listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities). |
+| V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,problem_library}.hpp` | Deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
+| V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package, typed manifest container, and stored scalar handler plan. The bounded scalar path consumes the resolved request and typed residual/service records; specialized registrations retain the explicit strategies listed in the [v1 capability table](../internals/compiler/semantic-compiler.md#registered-capabilities). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
 | Formulation solves and lifetime | `include/nmopt/contract/linear_solve.hpp`, `include/nmopt/dealii/serial_spd_solver.hpp`, and `include/nmopt/compiler/v1/dealii_types.hpp` | Typed state/adjoint solve reports, one shared serial SPD policy/service for symmetric targets, recorded direct and exact-transpose solves for the P5.1 nonsymmetric target, an owned static-mesh compilation session, and detached reduced services that retain executable/session lifetime. |
@@ -381,9 +381,9 @@ formulation-capability diagnostics. Add a lowerer registry that recognizes
 only the listed v0 term kinds and creates the existing deal.II executable
 objects.
 
-**Primary files:** `include/nmopt/semantic/v1/{types,validation,reference_specs}.hpp`,
+**Primary files:** `include/nmopt/semantic/v1/{types,validation,problem_library}.hpp`,
 `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler}.hpp`,
-`docs/implementation/v1/semantic-compiler.md`, and focused semantic/deal.II
+`docs/internals/compiler/semantic-compiler.md`, and focused semantic/deal.II
 contract tests.
 
 **Done when:** constructing the current problem through a `ProblemSpec` produces
@@ -699,7 +699,7 @@ transport transpose, reduced Taylor remainder, manifest, coefficient-shape
 diagnostic, and boundary overlap/completeness diagnostics.
 
 **Review status:** the
-[P5.1 remediation review](review/chapter-5/p5.1-remediation-review.md) findings
+[P5.1 remediation review](../history/reviews/chapter-5/p5.1-remediation-review.md) findings
 are repaired: coefficient and Robin data have truthful semantic placement,
 and the selected boundary/conormal/transport/trace realization is typed and
 consumed by lowering. The required neutral and deal.II Debug verification
@@ -1327,10 +1327,10 @@ vocabulary.
 
 ### Completed remediation and acceptance
 
-- **C1/C2 work unit 1:** [one resolved compilation request and binding boundary](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-1--one-resolved-compilation-request-and-binding-boundary), including exact public binding/session diagnostics.
-- **P5.1 work unit 1:** [truthful P5.1 data spaces and regions](review/chapter-5/p5.1-remediation-review.md#work-unit-1--truthful-p51-data-spaces-and-regions), carried into the resolved request.
-- **P5.1 work unit 2:** [typed boundary and conormal selection](review/chapter-5/p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection), with shared boundary, orientation, and trace-realization vocabulary and no target-specific policy enums.
-- **C1/C2 work units 2–3:** [plan-owned scalar residual/data assembly](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly) and [objective/service recombination](review/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination), including an independently varied recombination.
+- **C1/C2 work unit 1:** [one resolved compilation request and binding boundary](../history/reviews/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-1--one-resolved-compilation-request-and-binding-boundary), including exact public binding/session diagnostics.
+- **P5.1 work unit 1:** [truthful P5.1 data spaces and regions](../history/reviews/chapter-5/p5.1-remediation-review.md#work-unit-1--truthful-p51-data-spaces-and-regions), carried into the resolved request.
+- **P5.1 work unit 2:** [typed boundary and conormal selection](../history/reviews/chapter-5/p5.1-remediation-review.md#work-unit-2--typed-p51-boundary-and-conormal-selection), with shared boundary, orientation, and trace-realization vocabulary and no target-specific policy enums.
+- **C1/C2 work units 2–3:** [plan-owned scalar residual/data assembly](../history/reviews/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-2--plan-owned-scalar-residual-and-data-assembly) and [objective/service recombination](../history/reviews/chapter-5/c1-c2-preparation-remediation-review.md#work-unit-3--plan-owned-objective-and-service-recombination), including an independently varied recombination.
 - **P5.2–P5.4 acceptance closure:** typed trace and negative-metric selections, target-data assumptions, control-boundary realization, typed transposition, fixed-boundary coverage, point/flux checks, closed registration matching, and realized transformed-observation dimensions. The `debug-neutral`, `debug-dealii`, and `sanitize-neutral` gates pass.
 - **P6.1 remediation closure:** R1-R8 are closed for the selected scalar
   reduced DTO slice. Projection is restricted to the selected steepest-descent
@@ -1349,8 +1349,8 @@ selected P6.1 scalar reduced DTO slice are likewise acceptance-complete; their
 historical reviews remain static evidence.
 The historical findings and cross-batch benchmark dependency order are
 recorded in the
-[Chapter 6 review index](review/chapter-6/README.md) and the
-[integration and benchmark readiness review](review/chapter-6/integration-benchmark-review.md).
+[Chapter 6 review index](../history/reviews/chapter-6/README.md) and the
+[integration and benchmark readiness review](../history/reviews/chapter-6/integration-benchmark-review.md).
 
 - **S1 preparation closure:** the selected reduced DTO path now separates
   value/state work from derivative/adjoint augmentation, performs rejected
@@ -1435,7 +1435,7 @@ P6.1, and the selected P6.2 supplied-OTD slice are closed. The P6.5
 remediation sequence is closed; the remaining sequence is benchmark work
 under the separate Chapter 6 benchmark contract.
 The sequence below retains the benchmark activation order from the
-[integration and benchmark readiness review](review/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order):
+[integration and benchmark readiness review](../history/reviews/chapter-6/integration-benchmark-review.md#remediation-and-benchmark-activation-order):
 
 The pre-remediation baseline at `732ebcd` passes `debug-neutral` 32/32,
 `sanitize-neutral` 32/32, and `debug-dealii` 66/66. These are
@@ -1455,7 +1455,7 @@ conditional. A bounded P6.4 preconditioner may be activated only if a
 separately selected B5 run demonstrates that direct or basic serial solves are
 inadequate.
 
-Follow the [Stage B routing protocol](review/pre-ch5-ch6/README.md) for each
+Follow the [Stage B routing protocol](../history/reviews/pre-ch5-ch6/README.md) for each
 remaining remediation gate. Do not silently activate any Stokes,
 measure-constraint, stabilization, automatic-OtD, continuous-control box, or
 other excluded work.

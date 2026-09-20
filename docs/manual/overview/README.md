@@ -95,20 +95,20 @@ develop the project-specific mathematical and software distinctions in more deta
 
 Once the mental model is clear, route by the kind of authority you need:
 
-- [`docs/design/theoretical-formalism.md`](../../design/theoretical-formalism.md) is the
+- [`docs/design/mathematical-model.md`](../../design/mathematical-model.md) is the
   long-lived mathematical convention for residuals, adjoints, covectors, metrics,
   and formulations.
 - [`docs/design/pde-solver-boundary.md`](../../design/pde-solver-boundary.md) records
   the accepted ownership boundary between PDE realization, formulation, compiler,
   and optimization.
-- [`docs/implementation/v1/semantic-compiler.md`](../../implementation/v1/semantic-compiler.md)
+- [`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md)
   is the detailed current capability ledger for the v1 semantic/compiler path.
 - `docs/reference/` contains the exact public operational contracts that already have
   dedicated references, including external deal.II integration, application
   execution, and parameter files.
-- `docs/applications/`, `docs/guides/`, and `docs/benchmarks/` own the concrete
+- `docs/studies/` owns the concrete
   Chapter 5/6 problem families, source transcriptions, and reproduction evidence.
-- `docs/planning/review/` preserves audits and historical review evidence; it is not
+- `docs/history/reviews/` preserves audits and historical review evidence; it is not
   the default source for current architecture.
 
 The overview layer should tell you where to look next, but it should already provide

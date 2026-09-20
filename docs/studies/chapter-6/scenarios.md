@@ -3,9 +3,9 @@
 This document catalogues Chapter 6 application scenarios, each of which
 describes how a Chapter 5 recipe is configured. It is not a second problem
 library and does not contain PDE assembly or solver implementations. The
-[benchmark roadmap](../planning/chapter-6-benchmark-suite-roadmap.md)
-owns selection and status, the [numerical-examples reference](../guides/chapter-6-numerical-examples.md)
-owns source equations and data, and the [numerical-methods guide](../guides/chapter-6-numerical-methods.md)
+[benchmark roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md)
+owns selection and status, the [numerical-examples reference](numerical-examples.md)
+owns source equations and data, and the [numerical-methods guide](numerical-methods.md)
 owns reusable solver contracts.
 
 The public execution path is:
@@ -38,7 +38,7 @@ If the source does not specify a value, the scenario must name a recovered
 value or a manufactured replacement and explain why. It must not silently use
 a library default when that changes the mathematical or numerical comparison.
 Benchmark-specific evidence, artifact formats, and acceptance criteria belong
-to the [Chapter 6 benchmark specification](../benchmarks/chapter-6.md).
+to the [Chapter 6 benchmark specification](benchmarks.md).
 
 ## Activation matrix
 
@@ -64,7 +64,7 @@ this application catalogue.
 
 The B0 harness, benchmark artifact schema, run path, output inventory, and
 acceptance evidence are defined in the [Chapter 6 benchmark
-specification](../benchmarks/chapter-6.md#common-b0-contract). Application
+specification](benchmarks.md#common-b0-contract). Application
 scenarios provide the typed scenario, recipe, runtime bindings, and selected
 compiled product consumed by that boundary; they do not redefine the harness
 or artifact contract.
@@ -80,8 +80,8 @@ Development scenarios may instead select independent homogeneous-Dirichlet
 continuous `FE_Q` control with its assembled $L^{2}$ metric. The scenario
 records this discrete control representation and exposes the runtime target
 and forcing selections; the
-[source definition](../guides/chapter-6-numerical-examples.md) and the
-[current benchmark freeze](../benchmarks/chapter-6.md) are maintained in their
+[source definition](numerical-examples.md) and the
+[current benchmark freeze](benchmarks.md) are maintained in their
 respective documents.
 
 The semantic graph is assembled through the Chapter 5 recipe rather than by
@@ -169,7 +169,7 @@ to the Figure 6.2 constant-one hypothesis while retaining the same continuous
 control and recovered Figure 6.3 solver policies.
 
 The benchmark-specific B1 freeze and acceptance evidence are defined in the
-[Chapter 6 benchmark specification](../benchmarks/chapter-6.md).
+[Chapter 6 benchmark specification](benchmarks.md).
 
 ## B2 — Graetz-flow boundary control
 
@@ -225,8 +225,8 @@ $\mu\partial_{n} y-(b\mathbin\cdot n)y$ on the same boundary partition; it does
 not change the frozen benchmark and must not be used as source-replication
 evidence. The compiler derives its deal.II realization from the typed boundary
 selection and records the selected form in the manifest. The [source
-definition](../guides/chapter-6-numerical-examples.md)
-and [frozen benchmark policy](../benchmarks/chapter-6.md) are maintained in
+definition](numerical-examples.md)
+and [frozen benchmark policy](benchmarks.md) are maintained in
 their respective documents.
 
 The public catalog exposes the four B2 records through the Cartesian product
@@ -321,7 +321,7 @@ scalar bundle with a different semantic role.
 
 The benchmark-specific frozen B2 inputs, stabilization boundary, and required
 evidence are defined in the [Chapter 6 benchmark
-specification](../benchmarks/chapter-6.md).
+specification](benchmarks.md).
 
 ## Later scenario contracts
 
@@ -332,7 +332,7 @@ refer to the same control layout. A continuous `Q1` box reproduction is a
 separate feature and is not implied by B3.
 
 B5 and B6 are all-at-once products. Their source scaling and KKT details are
-recorded in the [numerical-examples reference](../guides/chapter-6-numerical-examples.md);
+recorded in the [numerical-examples reference](numerical-examples.md);
 their scenario construction belongs here, and their frozen run/evidence
 contracts belong in the benchmark specification. Do not activate a
 preconditioner merely because the source used one; measure whether the

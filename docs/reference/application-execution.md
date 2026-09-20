@@ -7,7 +7,7 @@ describe recipe assembly or compiler internals; start with the
 [application API reference](application-api.md) for that work.
 
 The current benchmark choices and required evidence remain in the relevant
-[benchmark specification](../benchmarks/chapter-6.md). The
+[benchmark specification](../studies/chapter-6/benchmarks.md). The
 [application roadmap](../planning/application-roadmap.md) owns mutable
 implementation status and execution handoffs. This document records the
 current interfaces and repository policies that agents need to consume.
@@ -434,8 +434,8 @@ and permission described by the application roadmap.
 
 | Task | Read next |
 | --- | --- |
-| Assemble or change a recipe | [Application API](application-api.md), [Chapter 5 recipes](../applications/chapter-5.md) |
-| Assemble or change a Chapter 6 scenario | [Chapter 6 scenarios](../applications/chapter-6.md), then the relevant benchmark contract |
-| Generate or inspect a run | This document, then the relevant [benchmark contract](../benchmarks/chapter-6.md) |
+| Assemble or change a recipe | [Application API](application-api.md), [Chapter 5 recipes](../studies/chapter-5/recipes.md) |
+| Assemble or change a Chapter 6 scenario | [Chapter 6 scenarios](../studies/chapter-6/scenarios.md), then the relevant benchmark contract |
+| Generate or inspect a run | This document, then the relevant [benchmark contract](../studies/chapter-6/benchmarks.md) |
 | Check current execution status | [Application roadmap](../planning/application-roadmap.md) |
-| Inspect compiler capability | [V1 semantic compiler](../implementation/v1/semantic-compiler.md) |
+| Inspect compiler capability | [V1 semantic compiler](../internals/compiler/semantic-compiler.md) |

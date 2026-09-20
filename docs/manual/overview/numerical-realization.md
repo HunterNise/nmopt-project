@@ -416,7 +416,7 @@ Step-4 realization, use:
   for exact public contracts.
 
 For compiler-owned realizations, the
-[v1 semantic compiler record](../../implementation/v1/semantic-compiler.md) owns the
+[v1 semantic compiler record](../../internals/compiler/semantic-compiler.md) owns the
 current capability ledger.
 
 For implementation source, the main areas are:

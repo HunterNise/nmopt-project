@@ -8,158 +8,102 @@ not read every document by default.
 
 For a first-time reading of the project, start with the
 [manual overview](manual/overview/README.md), then follow the
-[concept chapters](manual/concepts/README.md) in order. The overview explains the
-whole architecture and its two producer paths; the concept manual develops the
-numerical language, formulations, compiler path, and direct application integration.
-
-Use the sections below when you need an exact design decision, API contract,
-benchmark record, or historical review rather than the explanatory manual.
+[concept chapters](manual/concepts/README.md). Use the sections below when you
+need an exact design decision, public contract, study record, active plan, or
+historical review.
 
 ## Organization and authority
 
+```text
+docs/
+  manual/       teach the current project
+  design/       long-lived architecture, mathematics, and accepted decisions
+  reference/    exact current public interfaces, configuration, and execution
+  internals/    current implementation mechanics and capability internals
+  studies/      Chapter 5/6 source, application, benchmark, and case-study corpus
+  planning/     genuinely active and mutable roadmaps
+  history/      superseded implementations, reviews, audits, and evidence
+```
+
+### Manual
+
+- [Manual overview](manual/overview/README.md) is the recommended first-time
+  reading path.
+- [Concept chapters](manual/concepts/README.md) develop the project’s
+  mathematical, formulation, compiler, and integration language.
+
 ### Design
 
-The documents under `design/` describe long-lived mathematical, semantic, and
-architectural boundaries.
+- [Architecture](design/architecture.md)
+- [Composition boundaries](design/composition-boundaries.md)
+- [Interface specification](design/interface-specification.md)
+- [Mathematical model](design/mathematical-model.md)
+- [PDE–solver boundary](design/pde-solver-boundary.md)
+- [Repository organization decision](design/decisions/repository-organization.md)
+- [Parameter and plotting profiles decision](design/decisions/parameter-and-plotting-profiles.md)
 
-- [Interface specification](design/interface-specification.md) is the
-  normative, implementation-neutral component and protocol contract.
-- [Architecture record](design/architecture.md) explains the long-term design
-  rationale.
-- [Composition boundaries](design/composition-boundaries.md) summarizes
-  component ownership and cross-cutting seams.
-- [PDE, formulation, and solver boundary](design/pde-solver-boundary.md)
-  defines how semantic/compiler and external-application paths produce the
-  common executable/formulation contracts while typed numerical ownership and
-  application output remain outside the solver boundary.
-- [System blueprint](design/system-blueprint.md) is the shortest end-to-end
-  mental model and code correspondence.
-- [Theoretical formalism](design/theoretical-formalism.md) records the
-  mathematical model and strong-to-variational bridge.
+These documents own long-lived architecture, mathematical conventions,
+component contracts, and accepted design decisions.
 
-### Public reference
+### Reference
 
-- [Application assembly API](reference/application-api.md) is the agent-facing
-  entry point for exact recipe, `ProblemSpec`, compiler, solver, and experiment
-  configuration contracts.
+- [Application assembly API](reference/application-api.md)
+- [Application execution](reference/application-execution.md)
 - [External deal.II solver integration](reference/external-dealii-solver-integration.md)
-  documents the backend, layout/callback, solve-report, metric, formulation,
-  optimizer, lifetime, and retained-output API, with runnable Step-4 examples.
-- [Application execution reference](reference/application-execution.md) owns
-  schemas, run-set layout, native outputs, reports, post-processing, and agent
-  verification commands.
-- [Parameter-file reference](reference/parameter-files.md) defines the
-  proposed `.prm` experiment-family and JSON plotting-profile schemas.
+- [Parameter files](reference/parameter-files.md)
 
-### Applications and benchmarks
+These documents describe exact current public interfaces, schemas,
+configuration, execution, and integration contracts.
 
-- [Chapter 5 application recipes](applications/chapter-5.md) route mathematical
-  variants to registered semantic graphs and their required bindings.
-- [Chapter 6 application scenarios](applications/chapter-6.md) catalogue the
-  Chapter 6 benchmark/application scenarios; B0–B2 are the current activation
-  targets.
-- [Chapter 6 benchmark specifications](benchmarks/chapter-6.md) catalogue the
-  Chapter 6 benchmark contracts; B0–B2 are the current frozen executable set.
-- [B1 replication findings](benchmarks/b1-replication.md) report the
-  source-comparison experiments, supported inferences, and unresolved
-  omissions for E6.5.1.
-- [B2 replication findings](benchmarks/b2-replication.md) report the initial
-  Table 6.2 and Figure 6.5 discrepancies, count-based deductions, and ordered
-  candidate experiments for E6.5.2.
+### Internals
 
-### Decisions
+- [System blueprint](internals/system-blueprint.md)
+- [Semantic compiler internals](internals/compiler/semantic-compiler.md)
 
-- [Repository organization](decisions/repository-organization.md) records the
-  directory and authority boundaries for the application work.
-- [Parameter and plotting profiles](decisions/parameter-and-plotting-profiles.md)
-  records the `.prm` experiment-family and JSON plotting-profile decision.
+These documents describe current implementation mechanics and capability
+internals without replacing the public references or design contracts.
 
-### Implemented generations and selected policies
+### Studies
 
-The documents under `implementation/` describe concrete implemented contracts,
-realizations, and the policies selected for the first executable generations.
+- [Chapter 5 source catalogue](studies/chapter-5/source-catalogue.md)
+- [Chapter 5 application recipes](studies/chapter-5/recipes.md)
+- [Chapter 6 numerical methods](studies/chapter-6/numerical-methods.md)
+- [Chapter 6 numerical examples](studies/chapter-6/numerical-examples.md)
+- [Chapter 6 scenarios](studies/chapter-6/scenarios.md)
+- [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md)
+- [B1 replication](studies/chapter-6/b1-replication.md)
+- [B2 replication](studies/chapter-6/b2-replication.md)
+- [Laplace growth case study](studies/case-studies/laplace-growth.md)
+- [Laplace interface formulas](studies/case-studies/laplace-interface-formulas.md)
 
-- [Implementation-readiness review](implementation/implementation-readiness-review.md)
-  selects required defaults where the normative specification permits several
-  policies. It is not a second capability ledger.
-- [V0 executable contract](implementation/v0/executable-contract.md) and
-  [deal.II v0 lowerer](implementation/v0/dealii-lowerer.md) define the direct
-  reference slice and its explicit exclusions.
-- [V1 semantic graph and compiler](implementation/v1/semantic-compiler.md)
-  owns the exact implemented v1 capability and exclusion record.
+This is the current Chapter 5/6 source, application, benchmark, and case-study
+corpus. It records study content and evidence rather than general framework
+architecture.
 
-### Guides and case studies
+### Planning
 
-The documents under `guides/` explain how to implement or reproduce the
-bounded Chapter 5/6 work. Their location does not imply that every catalogue
-entry will be implemented.
+- [Implementation roadmap](planning/implementation-roadmap.md)
+- [Application roadmap](planning/application-roadmap.md)
+- [Chapter 5 problem-library roadmap](planning/chapter-5-problem-library-roadmap.md)
+- [Chapter 6 benchmark-suite roadmap](planning/chapter-6-benchmark-suite-roadmap.md)
 
-- [Chapter 5 elliptic-control guide](guides/chapter-5-elliptic-control.md)
-- [Chapter 6 numerical-methods guide](guides/chapter-6-numerical-methods.md)
-- [Chapter 6 numerical-examples reference](guides/chapter-6-numerical-examples.md)
+Planning contains genuinely active, mutable work order and status. Completed
+reviews and audits belong under history, even when they remain useful context.
 
-The documents under `case-studies/` are worked examples used to derive and
-stress the interfaces.
+### History
 
-- [Laplace composition-growth study](case-studies/laplace-growth.md)
-- [Laplace formula and interface deltas](case-studies/laplace-interface-formulas.md)
+- [`history/implementation/`](history/implementation/) contains superseded
+  implementation records.
+- [`history/reviews/`](history/reviews/) contains reviews, audits, closure
+  reports, and historical evidence.
+- [Review history index](history/reviews/README.md) routes the available review,
+  audit, and closure series.
+- [Human-readability audit](history/reviews/human-readability-audit/00-audit-index.md)
+  is the index for that specific audit series.
 
 The application-local [external Step-4 overview](../apps/external-dealii/step-4/external-integration-overview.md)
-explains OCP construction, public contracts, ownership, backend roles, and
-one reduced optimization step using an existing deal.II application.
-
-### Planning and review evidence
-
-- [External Step-4 integration report](../apps/external-dealii/step-4/integration-report.md)
-  records the native adaptations, mathematical/API mapping, source accounting,
-  binding regions, and reproduction commands.
-- [External boundary closure report](planning/review/external-dealii-boundary-evaluation/closure-report.md)
-  records the completed A/B evaluation and minimal-consumer follow-up,
-  supported architectural findings, and remaining authoring limitations.
-- [Implementation roadmap](planning/implementation-roadmap.md) owns mutable
-  compiler, solver, lowering, backend, and implementation status.
-- [External deal.II boundary evaluation](planning/external-dealii-boundary-evaluation.md)
-  owns the completed authentic Step-4 evaluation protocol, shared-nmopt freeze,
-  work units, evidence requirements, and phase status.
-- [External deal.II Problem B protocol](planning/review/external-dealii-boundary-evaluation/problem-b-protocol.md)
-  preserves the frozen completed Step-4 FE distributed-control experiment, including
-  coordinates, mass geometry, native/nmopt parity, and independent acceptance.
-- [External boundary design investigation](planning/review/external-dealii-boundary-evaluation/design-investigation.md)
-  preserves non-authoritative review context, external precedents, G1
-  hypotheses, and the post-G1 reasoning behind Problem B; execution choices
-  are owned by the separate evaluation protocols.
-- [Superseded external tutorial roadmap](planning/external-dealii-tutorial-roadmap.md)
-  preserves the historical T0–T5 integration proposal and prior-attempt status;
-  current implementation work follows the boundary evaluation roadmap.
-- [Application roadmap](planning/application-roadmap.md) owns mutable
-  application-layer status, runner/artifact work, visualization, and B0–B2
-  execution handoffs.
-- [Chapter 5 problem library roadmap](planning/chapter-5-problem-library-roadmap.md)
-  owns reusable, parameterized standard-problem recipes; feature status
-  remains in the implementation roadmap.
-- [Chapter 6 benchmark suite roadmap](planning/chapter-6-benchmark-suite-roadmap.md)
-  owns frozen numerical examples, reproduction order, benchmark dependencies,
-  and system-level acceptance gates.
-- [Chapter 5 reviews](planning/review/chapter-5/README.md) index the C1/C2
-  preparation and selected Chapter 5 implementation remediation reviews. They
-  give the bounded repair sequences; the implementation roadmap owns
-  remediation status.
-- [Chapter 6 reviews](planning/review/chapter-6/README.md) index the incremental
-  P6 implementation review and remediation handoffs; the implementation
-  roadmap remains the mutable status ledger.
-- [Pre-Chapter 5/6 review routing](planning/review/pre-ch5-ch6/README.md) tells
-  an agent what to read for one bounded review batch.
-- [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md) defines the accepted
-  batch boundaries and gates without duplicating current project status.
-- [Pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md) is
-  the exhaustive evidence archive. Read only the assigned findings unless a
-  tradeoff or scope decision requires wider context.
-- [Assessment plan](planning/review/pre-ch5-ch6/assessment-plan.md) records the
-  completed Stage A audit method and is not normal Stage B reading.
-- [PDE–solver boundary refactor review](planning/review/pde-solver-refactor/README.md)
-  routes the accepted boundary, detailed architecture map, audit findings,
-  deletion ledger, and bounded implementation roadmap for the current
-  PDE/formulation/compiler cleanup.
+and [integration report](../apps/external-dealii/step-4/integration-report.md)
+describe the external application study and its evidence.
 
 Agent working instructions live in the
 [agent instructions](../.agents/README.md). Read the applicable instruction
@@ -169,34 +113,16 @@ before inspecting or changing repository content.
 
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
-| New contributor or agent | [System blueprint](design/system-blueprint.md) | Root `AGENTS.md`, the [implementation roadmap](planning/implementation-roadmap.md), and the [interface specification](design/interface-specification.md) |
-| Author a Chapter 5/6 application | [Chapter 5 recipes](applications/chapter-5.md), [Chapter 6 scenarios](applications/chapter-6.md) | [Application assembly API](reference/application-api.md), the relevant Chapter guide, and the [v1 compiler](implementation/v1/semantic-compiler.md) |
-| Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmark specifications](benchmarks/chapter-6.md) | [Chapter 6 benchmark roadmap](planning/chapter-6-benchmark-suite-roadmap.md), [numerical examples](guides/chapter-6-numerical-examples.md), and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
-| Understand the whole system and its code correspondence | [System blueprint](design/system-blueprint.md) | [Interface specification](design/interface-specification.md) and [v0 executable contract](implementation/v0/executable-contract.md) |
-| Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Architecture](design/architecture.md) and [selected policies](implementation/implementation-readiness-review.md) |
-| Change the backend-neutral executable API | [V0 executable contract](implementation/v0/executable-contract.md) | [Selected policies](implementation/implementation-readiness-review.md) and [roadmap](planning/implementation-roadmap.md) |
-| Change deal.II code or compiler/lowering | [deal.II v0 lowerer](implementation/v0/dealii-lowerer.md) | [V0 executable contract](implementation/v0/executable-contract.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [roadmap](planning/implementation-roadmap.md) |
-| Change the v1 semantic graph/compiler | [V1 compiler](implementation/v1/semantic-compiler.md) | [Interface specification](design/interface-specification.md) and [selected policies](implementation/implementation-readiness-review.md) |
-| Decide component ownership | [Composition boundaries](design/composition-boundaries.md) | [Architecture](design/architecture.md) and [interface specification](design/interface-specification.md) |
-| Check mathematical signs or formulas | [Theoretical formalism](design/theoretical-formalism.md) | [Laplace formulas](case-studies/laplace-interface-formulas.md) and [growth study](case-studies/laplace-growth.md) |
-| Implement a selected Chapter 5 application | [Chapter 5 guide](guides/chapter-5-elliptic-control.md) | [V1 compiler](implementation/v1/semantic-compiler.md) and [roadmap](planning/implementation-roadmap.md) |
-| Implement selected Chapter 6 methods | [Chapter 6 methods](guides/chapter-6-numerical-methods.md) | [V0 contract](implementation/v0/executable-contract.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [roadmap](planning/implementation-roadmap.md) |
-| Explore standard Chapter 5 problems | [Chapter 5 problem library](planning/chapter-5-problem-library-roadmap.md) | [Chapter 5 guide](guides/chapter-5-elliptic-control.md), [v1 compiler](implementation/v1/semantic-compiler.md), and [implementation roadmap](planning/implementation-roadmap.md) |
-| Reproduce Chapter 6 examples | [Chapter 6 benchmark suite](planning/chapter-6-benchmark-suite-roadmap.md) | [Numerical examples](guides/chapter-6-numerical-examples.md) and [Chapter 6 methods](guides/chapter-6-numerical-methods.md) |
-| Generate or inspect application runs | [Application execution reference](reference/application-execution.md) | The relevant [benchmark contract](benchmarks/chapter-6.md) and [application roadmap](planning/application-roadmap.md) |
-| Design or review parameter files and plotting profiles | [Parameter-file reference](reference/parameter-files.md) | [Repository organization](decisions/repository-organization.md), the relevant [benchmark contract](benchmarks/chapter-6.md), and the [application execution reference](reference/application-execution.md) |
-| Plan application-layer work | [Application roadmap](planning/application-roadmap.md) | [Chapter 6 scenarios](applications/chapter-6.md), [Chapter 6 benchmark specifications](benchmarks/chapter-6.md), [Application assembly API](reference/application-api.md), and [Application execution reference](reference/application-execution.md) |
-| Understand or reuse the external Step-4 integration | [Step-4 overview](../apps/external-dealii/step-4/external-integration-overview.md) | [External API reference](reference/external-dealii-solver-integration.md), [implementation report](../apps/external-dealii/step-4/integration-report.md), and [closure audit](planning/review/external-dealii-boundary-evaluation/closure-report.md) |
-| Repair the reviewed C1/C2 preparation | [Chapter 5 reviews](planning/review/chapter-5/README.md) | [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), [pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
-| Repair the reviewed P5.1 implementation | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
-| Repair the reviewed P5.2 implementation | [P5.2 remediation review](planning/review/chapter-5/p5.2-remediation-review.md) | [P5.1 remediation review](planning/review/chapter-5/p5.1-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [selected policies](implementation/implementation-readiness-review.md) |
-| Repair the reviewed P5.3 implementation | [P5.3 remediation review](planning/review/chapter-5/p5.3-remediation-review.md) | [Implementation roadmap](planning/implementation-roadmap.md), [interface specification](design/interface-specification.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
-| Repair the reviewed P5.4 implementation | [P5.4 remediation review](planning/review/chapter-5/p5.4-remediation-review.md) | [P5.3 remediation review](planning/review/chapter-5/p5.3-remediation-review.md), [implementation roadmap](planning/implementation-roadmap.md), and [v1 compiler](implementation/v1/semantic-compiler.md) |
-| Review the Chapter 6 implementation | [Chapter 6 reviews](planning/review/chapter-6/README.md) | [Chapter 6 methods](guides/chapter-6-numerical-methods.md), [implementation roadmap](planning/implementation-roadmap.md), and the relevant executable/compiler contract |
-| Execute one Stage B review batch | [Pre-Chapter 5/6 review routing](planning/review/pre-ch5-ch6/README.md) | The current batch in the [Stage B roadmap](planning/review/pre-ch5-ch6/stage-b-roadmap.md), assigned findings, and task-specific authorities above |
-| Review the complete pre-Chapter 5/6 evidence | [Pre-Chapter 5/6 assessment](planning/review/pre-ch5-ch6/assessment.md) | [Assessment plan](planning/review/pre-ch5-ch6/assessment-plan.md) only when the audit method matters |
-| Choose the next implementation task | [Implementation roadmap](planning/implementation-roadmap.md) | The task-specific compiler, solver, backend, or semantic contract listed above |
+| New contributor or agent | [System blueprint](internals/system-blueprint.md) | [Manual overview](manual/overview/README.md), [architecture](design/architecture.md), and [interface specification](design/interface-specification.md) |
+| Author a Chapter 5/6 application | [Chapter 5 recipes](studies/chapter-5/recipes.md), [Chapter 6 scenarios](studies/chapter-6/scenarios.md) | [Application API](reference/application-api.md) and the relevant study/reference |
+| Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) | [Benchmark roadmap](planning/chapter-6-benchmark-suite-roadmap.md), [numerical examples](studies/chapter-6/numerical-examples.md), and [application execution](reference/application-execution.md) |
+| Understand the whole system and code correspondence | [System blueprint](internals/system-blueprint.md) | [Interface specification](design/interface-specification.md) and [semantic compiler internals](internals/compiler/semantic-compiler.md) |
+| Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Architecture](design/architecture.md) and [composition boundaries](design/composition-boundaries.md) |
+| Change deal.II code or compiler/lowering | [Semantic compiler internals](internals/compiler/semantic-compiler.md) | [Interface specification](design/interface-specification.md), [application API](reference/application-api.md), and [implementation roadmap](planning/implementation-roadmap.md) |
+| Check mathematical signs or formulas | [Mathematical model](design/mathematical-model.md) | [Laplace formulas](studies/case-studies/laplace-interface-formulas.md) and [growth study](studies/case-studies/laplace-growth.md) |
+| Implement or reproduce a Chapter 5 application | [Chapter 5 recipes](studies/chapter-5/recipes.md) | [Source catalogue](studies/chapter-5/source-catalogue.md), [semantic compiler internals](internals/compiler/semantic-compiler.md), and [problem-library roadmap](planning/chapter-5-problem-library-roadmap.md) |
+| Generate or inspect application runs | [Application execution](reference/application-execution.md) | [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) and [application roadmap](planning/application-roadmap.md) |
+| Design parameter files or plotting profiles | [Parameter files](reference/parameter-files.md) | [Parameter and plotting profiles](design/decisions/parameter-and-plotting-profiles.md) and [application execution](reference/application-execution.md) |
+| Understand or reuse the external Step-4 integration | [Step-4 overview](../apps/external-dealii/step-4/external-integration-overview.md) | [External API reference](reference/external-dealii-solver-integration.md) and [integration report](../apps/external-dealii/step-4/integration-report.md) |
+| Review historical decisions or evidence | [Review history](history/reviews/README.md) | The relevant closure report, audit, or implementation record under `history/` |
 | Edit Markdown or LaTeX | [Documentation instructions](../.agents/documentation.md) | The document being changed |
-| Understand the current PDE/compiler/application architecture in detail | [PDE–solver architecture map](planning/review/pde-solver-refactor/architecture-map.md) | [PDE–solver boundary](design/pde-solver-boundary.md) and only the relevant [assessment](planning/review/pde-solver-refactor/assessment.md) findings |
-| Understand or change the PDE/formulation/application ownership boundary | [PDE–solver boundary](design/pde-solver-boundary.md) | [Architecture map](planning/review/pde-solver-refactor/architecture-map.md) and [composition boundaries](design/composition-boundaries.md) |
-| Implement one PDE–solver refactor unit | [PDE–solver refactor roadmap](planning/review/pde-solver-refactor/roadmap.md) | Only the boundary sections, architecture-map sections, assessment findings, deletion-ledger entries, and current code/tests named by that unit |

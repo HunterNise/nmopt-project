@@ -9,8 +9,8 @@ next handoff is.
 
 It does not own compiler, lowerer, solver, or backend capability status. Those
 remain in the [implementation roadmap](implementation-roadmap.md). Frozen
-benchmark definitions remain in the [Chapter 6 benchmark contracts](../benchmarks/chapter-6.md),
-scenario assembly remains in the [Chapter 6 application contract](../applications/chapter-6.md),
+benchmark definitions remain in the [Chapter 6 benchmark contracts](../studies/chapter-6/benchmarks.md),
+scenario assembly remains in the [Chapter 6 application contract](../studies/chapter-6/scenarios.md),
 and the operational schemas and commands remain in the
 [application execution and artifact reference](../reference/application-execution.md).
 
@@ -72,7 +72,7 @@ L-BFGS takes `2/4/4` iterations for
 $\beta=10^{-1},10^{-2},10^{-3}$, while the additional L-BFGS
 $\beta=10^{-6}$ field case takes four iterations. The source-sized report,
 native fields, and PNG comparisons satisfy the frozen B1 contract; the
-[replication findings](../benchmarks/b1-replication.md) retain the unresolved
+[replication findings](../studies/chapter-6/b1-replication.md) retain the unresolved
 source omissions and replacement rationale.
 
 The refreshed B2 authoritative evidence records a complete four-case release
@@ -387,7 +387,7 @@ rendering evidence are complete, but no tested source-compatible forward
 interpretation passes the range and shape gate.
 
 The current diagnostic basis is the
-[B2 replication report](../benchmarks/b2-replication.md). Continue from its
+[B2 replication report](../studies/chapter-6/b2-replication.md). Continue from its
 forward-state candidate table and preserve the distinction between source
 facts, historically grounded hypotheses, and fitted controls.
 

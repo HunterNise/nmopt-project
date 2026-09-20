@@ -4,8 +4,8 @@
 
 This report records the development investigation of E6.5.2, the Graetz-flow
 boundary-control example shown in Table 6.2 and Figures 6.4--6.5 of the source.
-It supplements the [frozen B2 benchmark contract](chapter-6.md#b2--e652-graetz-flow-boundary-control)
-and the [source catalogue](../guides/chapter-6-numerical-examples.md#e652--graetz-flow-boundary-control).
+It supplements the [frozen B2 benchmark contract](benchmarks.md#b2--e652-graetz-flow-boundary-control)
+and the [source catalogue](numerical-examples.md#e652--graetz-flow-boundary-control).
 It separates source facts, deductions from the published counts, framework
 replacement choices, completed negative evidence, and hypotheses that still
 need experiments.
@@ -455,10 +455,10 @@ numbered runs is:
 
 | Current named run | Tracked parameter file | Numbered predecessor | Numeric comparison |
 | --- | --- | --- | --- |
-| `figure-6.5-state-fit` | [figure-6.5-state-fit.prm](../../parameters/chapter-6/b2/development/figure-6.5-state-fit.prm) | `004`, `004-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
-| `figure-6.5-table-6.2-parabolic-fit` | [figure-6.5-table-6.2-parabolic-fit.prm](../../parameters/chapter-6/b2/development/figure-6.5-table-6.2-parabolic-fit.prm) | `006`, `006-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
-| `forcing-sweep` | [forcing-sweep.prm](../../parameters/chapter-6/b2/development/forcing-sweep.prm) | none | No numbered run contains a matching forcing-sweep parameter snapshot. |
-| `table-6.2-order-fit` | [table-6.2-order-fit.prm](../../parameters/chapter-6/b2/development/table-6.2-order-fit.prm) | `005`, `005-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
+| `figure-6.5-state-fit` | [figure-6.5-state-fit.prm](../../../parameters/chapter-6/b2/development/figure-6.5-state-fit.prm) | `004`, `004-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
+| `figure-6.5-table-6.2-parabolic-fit` | [figure-6.5-table-6.2-parabolic-fit.prm](../../../parameters/chapter-6/b2/development/figure-6.5-table-6.2-parabolic-fit.prm) | `006`, `006-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
+| `forcing-sweep` | [forcing-sweep.prm](../../../parameters/chapter-6/b2/development/forcing-sweep.prm) | none | No numbered run contains a matching forcing-sweep parameter snapshot. |
+| `table-6.2-order-fit` | [table-6.2-order-fit.prm](../../../parameters/chapter-6/b2/development/table-6.2-order-fit.prm) | `005`, `005-v2` | Identical numeric `artifact.kv` records for all four artifacts. |
 
 The new authoritative output is `runs/chapter-6/b2/authoritative/`; its
 preserved pre-refactor counterpart is
@@ -514,7 +514,7 @@ reproduction.
 
 ### Zero-forcing target-transcription gate
 
-The promoted [target-transcription gate](../../parameters/chapter-6/b2/development/target-transcription-gate.prm)
+The promoted [target-transcription gate](../../../parameters/chapter-6/b2/development/target-transcription-gate.prm)
 uses the source-oriented $160\mathbin\times40$ simplex mesh, continuous
 $P_{1}$ trace control, zero forcing, source coefficients, and zero initial
 control. It compares constant targets $2$ and $20$ with the source parabolic
@@ -593,7 +593,7 @@ constant field $y=1$ satisfies the Test 3 PDE, inlet value, and homogeneous
 diffusion-Neumann conditions. In the cross-section-averaged model
 $\bar y=C_{1}+C_{2}e^{2.5x_{1}}$, the outlet condition
 $\bar y'(4)=0$ forces $C_{2}=0$. The state shown on the retained
-[reference page](../guides/assets/chapter-6/reference-205-page-A2336.png) is
+[reference page](assets/reference-205-page-A2336.png) is
 an optimized controlled state, not an uncontrolled-state record. The
 ancestral natural-Neumann form is therefore analytically rejected as a
 global explanation of the displayed range; adding a third production
@@ -889,7 +889,7 @@ diagnostic. It reaches native range $[1,7.2195725]$, raster correlation
 $0.998648$, normalized MAE $0.041690$, and passing streamwise and centreline
 profile gates. It is nevertheless not a B2 reconstruction because the source
 specifies zero volume forcing. It is promoted as the explicitly labelled
-[Figure 6.5 volume-load image-fit diagnostic](../../parameters/chapter-6/b2/development/figure-6.5-volume-load-diagnostic.prm).
+[Figure 6.5 volume-load image-fit diagnostic](../../../parameters/chapter-6/b2/development/figure-6.5-volume-load-diagnostic.prm).
 
 The outlet-only source reaches the displayed range at $g=13.0$ but fails the
 spatial-shape and profile gates. The coupled-scaling ray reaches the range near

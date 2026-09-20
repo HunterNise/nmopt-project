@@ -2042,13 +2042,13 @@ It becomes the linear algebraic core of the active-set subproblem.
 
 Useful existing documents are:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
+- [Theoretical formalism](../../design/mathematical-model.md), for the project's
   Lagrangian sign, dual-pairing, DTO/OTD, and first-order conventions.
 - [Project architecture](../overview/project-architecture.md), for the relationship
   among reduced, supplied OTD, KKT, and PDAS formulation products.
 - [Semantic compiler](../overview/semantic-compiler.md), for the high-level
   compiler path that can construct selected formulation products.
-- [v1 semantic/compiler capability](../../implementation/v1/semantic-compiler.md),
+- [v1 semantic/compiler capability](../../internals/compiler/semantic-compiler.md),
   for the exact currently registered formulation/capability ledger.
 
 The next concept chapter will connect the equality-constrained KKT system to bound

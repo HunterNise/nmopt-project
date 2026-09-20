@@ -9,7 +9,7 @@ and integration of an existing deal.II application.
 
 The [interface specification](interface-specification.md) remains authoritative
 for the mathematical and semantic model. The
-[v0 executable contract](../implementation/v0/executable-contract.md) remains
+[v0 executable contract](../history/implementation/executable-contract.md) remains
 the exact record of the currently implemented solver-facing API until that
 implementation record is retired or superseded. This document decides how
 implementations reach those contracts and which responsibilities must not cross
@@ -389,7 +389,7 @@ duplication than it adds.
 The rules in this document are implementation-independent.
 
 The R0 refactor review contains a descriptive
-[architecture map](../planning/review/pde-solver-refactor/architecture-map.md)
+[architecture map](../history/reviews/pde-solver-refactor/architecture-map.md)
 showing how the code at the start of the refactor corresponds to these
 boundaries. It records the native and external producer paths, compiler and
 lowering flow, typed-numerics axes, formulation runtime, ownership and

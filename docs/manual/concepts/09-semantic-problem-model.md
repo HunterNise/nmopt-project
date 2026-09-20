@@ -1571,12 +1571,12 @@ Useful existing documents are:
   shorter project-wide view of the semantic/compiler path.
 - [Project architecture](../overview/project-architecture.md), for the relationship
   between semantic authoring and direct native integration.
-- [Theoretical formalism](../../design/theoretical-formalism.md), for the mathematical
+- [Theoretical formalism](../../design/mathematical-model.md), for the mathematical
   spaces, residuals, observations, metrics, and formulation conventions represented
   by the graph.
-- [Chapter 5 elliptic optimal-control guide](../../guides/chapter-5-elliptic-control.md),
+- [Chapter 5 elliptic optimal-control guide](../../studies/chapter-5/source-catalogue.md),
   for the source problem families that motivated many of the semantic components.
-- [v1 semantic/compiler capability](../../implementation/v1/semantic-compiler.md),
+- [v1 semantic/compiler capability](../../internals/compiler/semantic-compiler.md),
   for the exhaustive current capability ledger.
 
 This chapter explains what a semantic problem **is**. The capability ledger remains

@@ -3,9 +3,9 @@
 ## Purpose
 
 This roadmap owns the frozen numerical experiments from Chapter 6. It is
-separate from the [Chapter 6 numerical-methods guide](../guides/chapter-6-numerical-methods.md),
+separate from the [Chapter 6 numerical-methods guide](../studies/chapter-6/numerical-methods.md),
 which records reusable numerical-method contracts, and the
-[Chapter 6 numerical-examples reference](../guides/chapter-6-numerical-examples.md),
+[Chapter 6 numerical-examples reference](../studies/chapter-6/numerical-examples.md),
 which records source equations and data.
 
 The benchmark suite is not a second problem library. Each benchmark selects a

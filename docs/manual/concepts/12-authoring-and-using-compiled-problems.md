@@ -1267,7 +1267,7 @@ The benchmark orchestration shell is:
 For exact public signatures and the currently supported products, use:
 
 - [Application assembly API reference](../../reference/application-api.md)
-- [v1 semantic graph and deal.II compiler](../../implementation/v1/semantic-compiler.md)
+- [v1 semantic graph and deal.II compiler](../../internals/compiler/semantic-compiler.md)
 
 ## Read next
 

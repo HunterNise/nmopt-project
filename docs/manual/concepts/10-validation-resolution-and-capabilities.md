@@ -1392,7 +1392,7 @@ is there any registered observation lowerer for this ObservationKind?
 
 The implementation capability ledger in
 
-- [`docs/implementation/v1/semantic-compiler.md`](../../implementation/v1/semantic-compiler.md)
+- [`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md)
 
 records the **complete registered problem signatures** and their selected
 implementations.
@@ -1750,7 +1750,7 @@ Useful existing documents are:
 
 - [Describing and compiling a problem](../overview/semantic-compiler.md), for the
   short architecture-level description of the path.
-- [v1 semantic graph and deal.II compiler](../../implementation/v1/semantic-compiler.md),
+- [v1 semantic graph and deal.II compiler](../../internals/compiler/semantic-compiler.md),
   for the authoritative detailed capability ledger.
 - [Semantic problem model](09-semantic-problem-model.md), for the `ProblemSpec` vocabulary
   assumed by this chapter.

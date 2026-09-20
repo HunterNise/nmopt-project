@@ -2356,11 +2356,11 @@ derivation, but it will stop eliminating the state.
 
 Useful existing documents are:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md), for the formal
+- [Theoretical formalism](../../design/mathematical-model.md), for the formal
   reduced derivative, Hessian, metric, and optimization conventions.
 - [Reduced optimization](../overview/reduced-optimization.md), for the shorter
   project-wide runtime view.
-- [Chapter 6 numerical methods](../../guides/chapter-6-numerical-methods.md), for the
+- [Chapter 6 numerical methods](../../studies/chapter-6/numerical-methods.md), for the
   source-text numerical-method context.
-- [Chapter 6 numerical examples](../../guides/chapter-6-numerical-examples.md), for
+- [Chapter 6 numerical examples](../../studies/chapter-6/numerical-examples.md), for
   the benchmark/problem families on which selected reduced paths are exercised.

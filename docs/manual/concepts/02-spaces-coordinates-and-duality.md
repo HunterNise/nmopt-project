@@ -1906,7 +1906,7 @@ Those are the subjects of
 
 Several existing documents cover related material from different viewpoints:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md) states the project's
+- [Theoretical formalism](../../design/mathematical-model.md) states the project's
   abstract space, duality, derivative, transformation, and adjoint conventions.
 - [Integrating an existing PDE application](../overview/external-applications.md)
   places the Step-4 coordinate example in the broader external-application path.

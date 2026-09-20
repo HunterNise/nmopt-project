@@ -11,7 +11,7 @@ services. It does not introduce a class per textbook method or PDE.
 The numerical experiments in Sections 6.5, 6.7, and 6.9 are deliberately
 kept out of this guide. Their PDE data, algorithms, parameters, and reported
 quantities are in the separate
-[Chapter 6 numerical-examples reference](chapter-6-numerical-examples.md).
+[Chapter 6 numerical-examples reference](numerical-examples.md).
 They are future reproduction targets, not current acceptance tests.
 
 Sections 6.10 and 6.11, respectively a-priori and a-posteriori error
@@ -19,12 +19,12 @@ estimates, are excluded at the user's request. Section 6.12 exercises is also
 not an implementation method. References to SQP and nonlinear OCPs belong to
 later chapters; this guide records only the capabilities Chapter 6 needs.
 
-Consult the [roadmap handoff](../planning/implementation-roadmap.md#current-handoff-state)
+Consult the [roadmap handoff](../../planning/implementation-roadmap.md#current-handoff-state)
 for implemented solver and formulation services and the
-[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
+[v1 capability table](../../internals/compiler/semantic-compiler.md#registered-capabilities)
 for exact compiler targets. The required reusable Chapter 6 extensions are
 P6.1–P6.5 in the
-[implementation roadmap](../planning/implementation-roadmap.md#chapter-6-feature-requests).
+[implementation roadmap](../../planning/implementation-roadmap.md#chapter-6-feature-requests).
 
 ## Framework convention and discrete notation
 

@@ -37,11 +37,11 @@ owns completion and handoff status; design and policy documents link here
 instead of reproducing this table.
 
 Every factory below is validated in
-[`semantic_v1_contract.cc`](../../../tests/semantic_v1_contract.cc). The last
+[`semantic_v1_contract.cc`](../../../tests/semantic/semantic_v1_contract.cc). The last
 column names its focused CTest scenario backed by either
-[`dealii_diffusion_contract.cc`](../../../tests/dealii_diffusion_contract.cc)
+[`dealii_compiler_contract.cc`](../../../tests/compiler/dealii/dealii_compiler_contract.cc)
 or
-[`dealii_trace_hhalf_metric_contract.cc`](../../../tests/dealii_trace_hhalf_metric_contract.cc).
+[`dealii_trace_hhalf_metric_contract.cc`](../../../tests/dealii/dealii_trace_hhalf_metric_contract.cc).
 
 | Registered semantic graph | Selected implementation | Bounded capability | Focused CTest scenario |
 | --- | --- | --- | --- |

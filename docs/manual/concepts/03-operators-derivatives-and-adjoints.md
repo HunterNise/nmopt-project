@@ -1890,7 +1890,7 @@ Those are the subjects of **Metrics, gradients, and constraints**.
 
 Useful existing documents for this chapter are:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
+- [Theoretical formalism](../../design/mathematical-model.md), for the project's
   formal derivative, transpose, and Lagrangian conventions.
 - [Reduced optimization](../overview/reduced-optimization.md), for the high-level
   state–adjoint execution path.

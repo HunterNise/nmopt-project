@@ -2,7 +2,7 @@
 
 These documents record static review evidence and remediation handoffs for the
 Chapter 6 implementation commits. The
-[implementation roadmap](../../implementation-roadmap.md) remains the sole
+[implementation roadmap](../../../planning/implementation-roadmap.md) remains the sole
 owner of mutable feature status, acceptance state, and the current agent
 handoff.
 

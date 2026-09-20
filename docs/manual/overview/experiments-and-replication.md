@@ -362,10 +362,9 @@ apps/nmopt-runner/
 parameters/
     checked B1/B2 parameter families
 
-docs/applications/
-docs/benchmarks/
-docs/guides/
-    concrete Chapter 5/6 problem and reproduction documentation
+docs/studies/
+    chapter-5/   source catalogue and application recipes
+    chapter-6/   numerical methods, examples, scenarios, benchmarks, and replication
 ```
 
 This mixed structure reflects the project's history: reusable orchestration support
@@ -420,12 +419,12 @@ Use the following documents after this overview according to the task:
   schema and checked file conventions.
 - [Application assembly API](../../reference/application-api.md) owns the construction
   interfaces between scenarios, semantic problems, runtime data, and compilation.
-- [Chapter 5 application recipes](../../applications/chapter-5.md) and
-  [Chapter 6 application scenarios](../../applications/chapter-6.md) own the concrete
+- [Chapter 5 application recipes](../../studies/chapter-5/recipes.md) and
+  [Chapter 6 application scenarios](../../studies/chapter-6/scenarios.md) own the concrete
   application-level records.
-- [Chapter 6 benchmark specification](../../benchmarks/chapter-6.md) owns benchmark
+- [Chapter 6 benchmark specification](../../studies/chapter-6/benchmarks.md) owns benchmark
   acceptance and evidence requirements.
-- [Chapter 6 numerical-examples reference](../../guides/chapter-6-numerical-examples.md)
+- [Chapter 6 numerical-examples reference](../../studies/chapter-6/numerical-examples.md)
   owns what the source book actually states and what it omits.
 
 Planning and review files may explain how those contracts were reached, but they

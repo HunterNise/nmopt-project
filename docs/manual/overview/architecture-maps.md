@@ -162,7 +162,7 @@ without either layer.
 
 For prose, read [Describing and compiling a problem](semantic-compiler.md). The
 detailed current capability ledger is
-[`docs/implementation/v1/semantic-compiler.md`](../../implementation/v1/semantic-compiler.md).
+[`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md).
 
 ## 3. Existing-application integration path
 
@@ -300,7 +300,7 @@ single universal formulation interface.
 For the reduced path, continue with
 [Reduced state–adjoint optimization](reduced-optimization.md). For exact
 mathematical conventions, use
-[Theoretical formalism](../../design/theoretical-formalism.md).
+[Theoretical formalism](../../design/mathematical-model.md).
 
 ## 5. Reduced evaluation lifecycle
 

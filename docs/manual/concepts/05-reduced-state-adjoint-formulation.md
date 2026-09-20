@@ -1565,7 +1565,7 @@ it changes.
 
 Useful existing documents for this chapter are:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
+- [Theoretical formalism](../../design/mathematical-model.md), for the project's
   Lagrangian, DTO, derivative, and adjoint conventions.
 - [Reduced optimization](../overview/reduced-optimization.md), for the high-level
   runtime view.

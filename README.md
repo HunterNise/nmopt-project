@@ -127,7 +127,7 @@ useful entry points are:
   reading path from the project architecture into the concept chapters.
 - [Concept chapters](docs/manual/concepts/README.md) — the progressive mathematical,
   formulation, compiler, and integration manual.
-- [System blueprint](docs/design/system-blueprint.md) — the shortest
+- [System blueprint](docs/internals/system-blueprint.md) — the shortest
   implementer-oriented overview of the theory, specification, implementation,
   and test correspondence.
 - [Architecture overview](docs/design/architecture.md) — long-lived design
@@ -140,11 +140,11 @@ useful entry points are:
   run schemas, generated artifacts, reports, and post-processing.
 
 For application and benchmark work, use the [Chapter 5 application
-recipes](docs/applications/chapter-5.md), [Chapter 6 application
-scenarios](docs/applications/chapter-6.md), [Chapter 6 benchmark
-specifications](docs/benchmarks/chapter-6.md), and the [application
+recipes](docs/studies/chapter-5/recipes.md), [Chapter 6 application
+scenarios](docs/studies/chapter-6/scenarios.md), [Chapter 6 benchmark
+specifications](docs/studies/chapter-6/benchmarks.md), and the [application
 roadmap](docs/planning/application-roadmap.md). The [Chapter 6 numerical
-examples](docs/guides/chapter-6-numerical-examples.md) guide records what the
+examples](docs/studies/chapter-6/numerical-examples.md) guide records what the
 book says; implementation choices and reproduction status belong in the
 application and benchmark planning documents.
 
@@ -157,12 +157,12 @@ application and benchmark planning documents.
 | `tests/` | Contract, semantic, backend, application, and benchmark tests. |
 | `tools/` | Run generation, post-processing, reporting, and related utilities. |
 | `cmake/` | CMake helpers for scenario discovery and generated test registration. |
-| `docs/` | Manual, design, reference, guides, applications, benchmarks, decisions, and planning records. |
+| `docs/` | Manual, design, reference, internals, studies, planning, and historical records. |
 | `.agents/` | Detailed instructions and prompt references for coding-agent work. |
 | `build/` | Ignored, profile-specific CMake and build output. |
 | `runs/` | Ignored generated application-run artifacts and reports. |
 
-The [repository organization decision](docs/decisions/repository-organization.md)
+The [repository organization decision](docs/design/decisions/repository-organization.md)
 records the ownership boundaries in more detail.
 
 ## Working with coding agents

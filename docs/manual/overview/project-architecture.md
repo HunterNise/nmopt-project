@@ -578,13 +578,13 @@ The other overview pages deepen one part of this mental model:
 
 For authority beyond the overview layer:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md) defines the project's
+- [Theoretical formalism](../../design/mathematical-model.md) defines the project's
   mathematical conventions.
 - [PDE, formulation, and solver boundary](../../design/pde-solver-boundary.md) records
   the accepted ownership and integration rules.
 - [Composition boundaries](../../design/composition-boundaries.md) gives the more
   prescriptive subsystem composition rules.
-- [v1 semantic compiler](../../implementation/v1/semantic-compiler.md) is the detailed
+- [v1 semantic compiler](../../internals/compiler/semantic-compiler.md) is the detailed
   current compiler capability ledger.
 - [External deal.II solver integration](../../reference/external-dealii-solver-integration.md)
   gives exact contracts for the direct-application path.

@@ -39,7 +39,7 @@ For the project-wide picture, read
 [Project overview and architecture](../overview/project-architecture.md) first or in
 parallel. For the project's formal mathematical convention, the authoritative
 design note is
-[Theoretical formalism](../../design/theoretical-formalism.md).
+[Theoretical formalism](../../design/mathematical-model.md).
 
 ## 1. A problem we can carry through the whole chapter
 
@@ -72,7 +72,7 @@ $$
 The project records this source problem as E6.5.1 and uses the B1 scenario family to
 exercise a corresponding reduced optimization path. The exact reproduction status
 and source omissions are documented separately in
-[Chapter 6 numerical examples](../../guides/chapter-6-numerical-examples.md); here we
+[Chapter 6 numerical examples](../../studies/chapter-6/numerical-examples.md); here we
 care about the mathematical structure, not reproduction fidelity.
 
 At first glance the problem contains only two unknown fields:
@@ -1290,7 +1290,7 @@ navigate.
 
 Start with:
 
-- [`docs/guides/chapter-6-numerical-examples.md`](../../guides/chapter-6-numerical-examples.md)
+- [`docs/studies/chapter-6/numerical-examples.md`](../../studies/chapter-6/numerical-examples.md)
   for the E6.5.1 source record;
 - [`include/nmopt/application/chapter6.hpp`](../../../include/nmopt/application/chapter6.hpp)
   for B1 problem/scenario options and source-specific choices;
@@ -1483,13 +1483,13 @@ pairings will finally enter.
 The following documents deepen particular parts of this chapter without replacing its
 narrative:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md) gives the project's
+- [Theoretical formalism](../../design/mathematical-model.md) gives the project's
   normative abstract formulation, derivative, adjoint, and metric conventions.
-- [Chapter 5 elliptic control](../../guides/chapter-5-elliptic-control.md) develops the
+- [Chapter 5 elliptic control](../../studies/chapter-5/source-catalogue.md) develops the
   mathematical application families from the source text.
-- [Chapter 6 numerical methods](../../guides/chapter-6-numerical-methods.md) records
+- [Chapter 6 numerical methods](../../studies/chapter-6/numerical-methods.md) records
   the source numerical-method context.
-- [Chapter 6 numerical examples](../../guides/chapter-6-numerical-examples.md)
+- [Chapter 6 numerical examples](../../studies/chapter-6/numerical-examples.md)
   distinguishes source facts from project choices for B1/B2 and the other examples.
 - [Numerical realization](../overview/numerical-realization.md) returns to the same
   subject from the project-wide architectural viewpoint.

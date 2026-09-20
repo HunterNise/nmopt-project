@@ -355,7 +355,7 @@ The main implementation areas are:
   semantic problems for the Chapter 5/6 application layer.
 
 The detailed current capability ledger lives in
-[`docs/implementation/v1/semantic-compiler.md`](../../implementation/v1/semantic-compiler.md).
+[`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md).
 That document is intentionally much more exhaustive than this overview.
 
 ## 13. When to use this path
@@ -385,17 +385,17 @@ the other.
 
 For deeper detail, use the document whose authority matches the question:
 
-- [v1 semantic compiler](../../implementation/v1/semantic-compiler.md) is the current
+- [v1 semantic compiler](../../internals/compiler/semantic-compiler.md) is the current
   capability ledger and implementation record for registered compiler targets.
 - [Application assembly API](../../reference/application-api.md) records the exact
   application-side construction interfaces around semantic problems and compilation.
 - [Composition boundaries](../../design/composition-boundaries.md) records the
   long-lived rules governing what belongs in semantics, runtime bindings, compiler
   policy, and solver code.
-- [Chapter 5 elliptic optimal-control guide](../../guides/chapter-5-elliptic-control.md)
+- [Chapter 5 elliptic optimal-control guide](../../studies/chapter-5/source-catalogue.md)
   records the source problem catalogue drawn from the book.
-- [Chapter 6 numerical-methods guide](../../guides/chapter-6-numerical-methods.md) and
-  [numerical-examples reference](../../guides/chapter-6-numerical-examples.md) record
+- [Chapter 6 numerical-methods guide](../../studies/chapter-6/numerical-methods.md) and
+  [numerical-examples reference](../../studies/chapter-6/numerical-examples.md) record
   the source methods and experiments behind the B-series application scenarios.
 
 The overview explains the compiler's role; those documents own the exhaustive

@@ -2045,7 +2045,7 @@ The optional application-facing seam is:
 
 For the exact registered target families and their bounded capabilities, use:
 
-- [`docs/implementation/v1/semantic-compiler.md`](../../implementation/v1/semantic-compiler.md)
+- [`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md)
 
 That ledger remains authoritative for which complete semantic signatures the current
 compiler accepts.
@@ -2092,7 +2092,7 @@ Useful existing documents are:
   shorter architecture view.
 - [Numerical realization](../overview/numerical-realization.md), for the
   shorter project-wide view of the numerical layer.
-- [v1 semantic graph and deal.II compiler](../../implementation/v1/semantic-compiler.md),
+- [v1 semantic graph and deal.II compiler](../../internals/compiler/semantic-compiler.md),
   for the exact registered capability and target ledger.
 - [Validation, resolution, and capabilities](10-validation-resolution-and-capabilities.md),
   for the acceptance boundaries that precede this chapter.

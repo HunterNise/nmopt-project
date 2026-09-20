@@ -50,9 +50,9 @@ feasibility/projection or apply/inverse-apply test.
 
 ## Capability routing and stable feature deltas
 
-Consult the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
+Consult the [v1 capability table](../../internals/compiler/semantic-compiler.md#registered-capabilities)
 for exact compiler support and the
-[implementation roadmap](../planning/implementation-roadmap.md#chapter-5-feature-requests)
+[implementation roadmap](../../planning/implementation-roadmap.md#chapter-5-feature-requests)
 for completion state. The table below records stable mathematical and
 architectural deltas required by the source families; it is not a second
 release-status table.
@@ -71,7 +71,7 @@ release-status table.
 | 5.13 Stokes control | Mixed vector state/test blocks, pressure gauge, and saddle-system policies. |
 
 The required reusable extensions are recorded as P5.1–P5.6 in the
-[implementation roadmap](../planning/implementation-roadmap.md#chapter-5-feature-requests).
+[implementation roadmap](../../planning/implementation-roadmap.md#chapter-5-feature-requests).
 
 ## Shared mathematical declarations
 
@@ -527,7 +527,7 @@ $H^{1}(\Gamma)$ control loss and search metric while preserving their
 separate semantic identities.
 
 The exact registered Dirichlet-control boundary is recorded in the
-[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities).
+[v1 capability table](../../internals/compiler/semantic-compiler.md#registered-capabilities).
 The complete-boundary factories
 `make_hhalf_dirichlet_laplace_control_problem()`,
 `make_h1_tracking_hhalf_dirichlet_laplace_control_problem()`, and

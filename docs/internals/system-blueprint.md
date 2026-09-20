@@ -7,13 +7,13 @@ connects the mathematical model, the semantic specification, the surviving
 solver-facing contracts, the v1 deal.II compiler, the external application
 boundary, and the tests.
 
-It is not a second source of authority: the [interface specification](interface-specification.md)
+It is not a second source of authority: the [interface specification](../design/interface-specification.md)
 is normative for the intended semantic API; the
-[executable contract record](../implementation/v0/executable-contract.md)
+[executable contract record](../history/implementation/executable-contract.md)
 defines the backend-neutral solver-facing slice; the historical
-[deal.II lowerer record](../implementation/v0/dealii-lowerer.md) records the
+[deal.II lowerer record](../history/implementation/dealii-lowerer.md) records the
 retired direct scalar path; and the
-[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
+[v1 capability table](compiler/semantic-compiler.md#registered-capabilities)
 owns exact compiler support and exclusions.
 
 ## The one-sentence model
@@ -53,7 +53,7 @@ ProblemSpec ──> semantic validation + kind whitelist
                                            │
                                            └──> typed numerical realization
                                                        │
-                                                       └──> executable ports + native view
+                                                       └──> executable ports + compiled application view
 
 PRESENT EXTERNAL APPLICATION PATH
 
@@ -78,7 +78,7 @@ CallbackExecutableModelT + external application
 
 v1 semantic/compiler path ──> registered deal.II realizations
       │
-      └──> compiled ports + typed native view ──> formulation/optimizer
+      └──> compiled ports + typed compiled application view ──> formulation/optimizer
 ```
 
 The external application path and the v1 compiler path are independent
@@ -90,12 +90,12 @@ whitelisted components.
 
 | Layer | Question answered | Authority | Representative code |
 | --- | --- | --- | --- |
-| Theory | What mathematical object is solved? | [Formalism](theoretical-formalism.md) | `LinearQuadraticModel` oracle |
-| Semantic specification | Which components and ports should exist? | [Interface specification](interface-specification.md) | `semantic::v1::ProblemSpec` |
-| Compilation policy | How do spaces, pairings, liftings, and execution become discrete? | [V1 semantic compiler](../implementation/v1/semantic-compiler.md) | `compiler::v1::DealiiCompiler` |
-| Executable contract | What may algorithms call after lowering? | [Executable contract](../implementation/v0/executable-contract.md) | `include/nmopt/contract/` |
-| Formulation | How do residual and objective become first-order operations? | [Interface specification](interface-specification.md) | `ReducedDTOT` |
-| Backend/lowerer | How are registered numerical realizations assembled in deal.II? | [V1 semantic compiler](../implementation/v1/semantic-compiler.md) | `DealiiCompiler` and registered targets |
+| Theory | What mathematical object is solved? | [Formalism](../design/mathematical-model.md) | `LinearQuadraticModel` oracle |
+| Semantic specification | Which components and ports should exist? | [Interface specification](../design/interface-specification.md) | `semantic::v1::ProblemSpec` |
+| Compilation policy | How do spaces, pairings, liftings, and execution become discrete? | [V1 semantic compiler](compiler/semantic-compiler.md) | `compiler::v1::DealiiCompiler` |
+| Executable contract | What may algorithms call after lowering? | [Executable contract](../history/implementation/executable-contract.md) | `include/nmopt/contract/` |
+| Formulation | How do residual and objective become first-order operations? | [Interface specification](../design/interface-specification.md) | `ReducedDTOT` |
+| Backend/lowerer | How are registered numerical realizations assembled in deal.II? | [V1 semantic compiler](compiler/semantic-compiler.md) | `DealiiCompiler` and registered targets |
 | Verification | How do values and derivatives agree? | [Roadmap](../planning/implementation-roadmap.md) | `tests/*_contract.cc` |
 
 ## The vocabulary: component cards
@@ -103,7 +103,7 @@ whitelisted components.
 The semantic layer is deliberately broader than the implemented v1 slice.
 Each card says what the component owns and which kind of port it exposes. For
 current implementations of these cards, consult the
-[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities).
+[v1 capability table](compiler/semantic-compiler.md#registered-capabilities).
 
 | Component | Owns | Communicates through |
 | --- | --- | --- |
@@ -200,7 +200,7 @@ Dirichlet control:       y_phys = P y_hat + ell_0 + L_D u
 Neumann data/control:    add a boundary residual term -<u, trace(v)>
 ```
 
-Treating controlled Dirichlet data as a boundary load loses the chain rule through $`L_{D}`$; treating a Neumann control as a lifting changes a different problem. See the [boundary protocol](interface-specification.md#41-boundary-protocol).
+Treating controlled Dirichlet data as a boundary load loses the chain rule through $`L_{D}`$; treating a Neumann control as a lifting changes a different problem. See the [boundary protocol](../design/interface-specification.md#41-boundary-protocol).
 
 ## The executable boundary
 
@@ -341,9 +341,9 @@ The plus sign is correct. When debugging a new term, write its residual sign, it
 | [`dealii_neumann_boundary.hpp`](../../include/nmopt/compiler/v1/dealii_neumann_boundary.hpp) | V1 natural-boundary assembly target | Facewise Neumann coupling, boundary tracking, pullbacks, and pure-Neumann mean-zero saddle solves |
 | [`dealii_continuous_control.hpp`](../../include/nmopt/compiler/v1/dealii_continuous_control.hpp) | V1 continuous-control target | Continuous control loss and explicitly selectable search-metric realizations |
 | [`dealii_coefficient_identification.hpp`](../../include/nmopt/compiler/v1/dealii_coefficient_identification.hpp) | V1 positive cellwise coefficient target | Parameter-dependent state/adjoint actions and exact first-order pullbacks |
-| [`reduced_dto_contract.cc`](../../tests/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
-| [`semantic_v1_contract.cc`](../../tests/semantic_v1_contract.cc) | Deal.II-free graph validation | Structural and analytical-policy diagnostics |
-| [`dealii_diffusion_contract.cc`](../../tests/dealii_diffusion_contract.cc) | Compiler and lowerer checks through real deal.II assembly | Exact scenarios are listed in the [v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities) |
+| [`reduced_dto_contract.cc`](../../tests/contract/reduced_dto_contract.cc) | Contract tests against dense oracle | Minimal executable example |
+| [`semantic_v1_contract.cc`](../../tests/semantic/semantic_v1_contract.cc) | Deal.II-free graph validation | Structural and analytical-policy diagnostics |
+| [`dealii_compiler_contract.cc`](../../tests/compiler/dealii/dealii_compiler_contract.cc) | Compiler and lowerer checks through real deal.II assembly | Exact scenarios are listed in the [v1 capability table](compiler/semantic-compiler.md#registered-capabilities) |
 | [`external_application_dealii_contract.cc`](../../tests/application/external_application_dealii_contract.cc) | Existing deal.II application integration checks | Callback executable, solve services, metric, optimizer, derivatives, and native output ownership |
 
 The dense model has no mesh or FE code. It makes an incorrect formula, type pairing, or DTO sign fail independently of deal.II. The deal.II test then establishes that the same contract survives real `DoFHandler`, quadrature, sparse assembly, `AffineConstraints`, and CG solve operations.
@@ -371,17 +371,17 @@ The dense contract test exercises pairing, residual finite difference,
 objective directional derivative, state residual, reduced derivative, metric,
 box projection, and unconstrained/projected Armijo convergence. The semantic
 test exercises graph and policy validation. The exact v1 deal.II scenarios are
-listed only in the [capability table](../implementation/v1/semantic-compiler.md#registered-capabilities).
+listed only in the [capability table](compiler/semantic-compiler.md#registered-capabilities).
 
 ## Capability boundary
 
 Do not mistake a documented architectural slot or a whitelisted semantic kind
 for working functionality. The exact current registrations and unsupported
 combinations are maintained in the
-[v1 capability table](../implementation/v1/semantic-compiler.md#registered-capabilities)
-and [v1 exclusions](../implementation/v1/semantic-compiler.md#exclusions).
+[v1 capability table](compiler/semantic-compiler.md#registered-capabilities)
+and [v1 exclusions](compiler/semantic-compiler.md#exclusions).
 The retired direct scalar slice is retained only as a
-[historical lowerer record](../implementation/v0/dealii-lowerer.md#explicit-exclusions);
+[historical lowerer record](../history/implementation/dealii-lowerer.md#explicit-exclusions);
 the [roadmap](../planning/implementation-roadmap.md) alone records task
 completion and handoff.
 
@@ -395,4 +395,4 @@ completion and handoff.
 6. Add value, JVP, and VJP pairing tests. If it affects an optimised variable, add a state-recomputed reduced Taylor test. Test the metric relation separately when a solver needs a direction.
 7. Reject unsupported combinations with a capability diagnostic; never use a nearby but mathematically different fallback.
 
-For worked deltas from the baseline, use the [Laplace growth case study](../case-studies/laplace-growth.md) and [formula-delta guide](../case-studies/laplace-interface-formulas.md). They show exactly which component changes for Neumann or Dirichlet control, observation changes, metrics, box constraints, coefficient identification, and time dependence.
+For worked deltas from the baseline, use the [Laplace growth case study](../studies/case-studies/laplace-growth.md) and [formula-delta guide](../studies/case-studies/laplace-interface-formulas.md). They show exactly which component changes for Neumann or Dirichlet control, observation changes, metrics, box constraints, coefficient identification, and time dependence.

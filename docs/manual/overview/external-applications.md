@@ -335,7 +335,7 @@ For the accepted ownership rules, read
 [PDE, formulation, and solver boundary](../../design/pde-solver-boundary.md).
 
 For the mathematical role of layouts, covectors, metrics, and adjoints, read
-[Theoretical formalism](../../design/theoretical-formalism.md).
+[Theoretical formalism](../../design/mathematical-model.md).
 
 For the peer framework-managed route, continue with
 [Describing and compiling a problem](semantic-compiler.md).

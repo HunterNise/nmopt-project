@@ -41,7 +41,7 @@ parameters/
       chapter-6-b2.json
 ```
 
-The `docs/benchmarks/` documents remain the human-readable frozen scientific
+The `docs/studies/chapter-6/benchmarks.md` document remains the human-readable frozen scientific
 contracts. The files below `parameters/` are executable instantiations of
 those contracts or explicitly marked development variations. Generated
 evidence remains below `runs/` and is never a source of configuration.
@@ -163,12 +163,12 @@ not reconstruct authoritative numerical values.
 
 The initial schema fixtures are:
 
-- [parameter-file reference](../reference/parameter-files.md);
-- [B1 authoritative family](../../parameters/chapter-6/b1/authoritative.prm);
-- [B2 authoritative family](../../parameters/chapter-6/b2/authoritative.prm);
-- [B2 forcing development family](../../parameters/chapter-6/b2/development/forcing-sweep.prm);
-- [B1 plotting profile](../../parameters/plotting/chapter-6-b1.json); and
-- [B2 plotting profile](../../parameters/plotting/chapter-6-b2.json).
+- [parameter-file reference](../../reference/parameter-files.md);
+- [B1 authoritative family](../../../parameters/chapter-6/b1/authoritative.prm);
+- [B2 authoritative family](../../../parameters/chapter-6/b2/authoritative.prm);
+- [B2 forcing development family](../../../parameters/chapter-6/b2/development/forcing-sweep.prm);
+- [B1 plotting profile](../../../parameters/plotting/chapter-6-b1.json); and
+- [B2 plotting profile](../../../parameters/plotting/chapter-6-b2.json).
 
 The current content hash is a labelled deterministic FNV-1a-64 digest used to
 detect configuration drift; it is not an authentication checksum.

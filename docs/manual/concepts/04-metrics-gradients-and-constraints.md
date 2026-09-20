@@ -2954,13 +2954,13 @@ globalization, stopping, Hessian actions, and work accounting.
 
 Useful existing documents for the ideas in this chapter are:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
+- [Theoretical formalism](../../design/mathematical-model.md), for the project's
   formal primal/dual, metric, constraint, and projection conventions.
 - [Numerical realization](../overview/numerical-realization.md), for the architectural
   location of finite-element metric services.
 - [Reduced optimization](../overview/reduced-optimization.md), for the high-level
   use of metrics in the current reduced solver path.
-- [Chapter 5 elliptic control](../../guides/chapter-5-elliptic-control.md), for
+- [Chapter 5 elliptic control](../../studies/chapter-5/source-catalogue.md), for
   application families that motivate $L^{2}$, negative-order, and boundary control
   geometries.
 

@@ -2069,14 +2069,14 @@ resolved problem into the registered deal.II realization path.
 
 Useful existing documents are:
 
-- [Theoretical formalism](../../design/theoretical-formalism.md), for the project's
+- [Theoretical formalism](../../design/mathematical-model.md), for the project's
   variational-inequality, multiplier, and first-order conventions.
 - [Optimality systems and KKT](07-optimality-systems-and-kkt.md), for the equality KKT
   product on which the current PDAS subproblems are built.
 - [Metrics, gradients, and constraints](04-metrics-gradients-and-constraints.md), for
   metric projection and the primal–dual identification reused by multiplier
   representations.
-- [v1 semantic/compiler capability](../../implementation/v1/semantic-compiler.md),
+- [v1 semantic/compiler capability](../../internals/compiler/semantic-compiler.md),
   for the exact currently registered complementarity/PDAS capability ledger.
 
 A future optimization background chapter can go deeper into normal cones,

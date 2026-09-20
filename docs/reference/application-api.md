@@ -10,10 +10,10 @@ This document is an exact reference for the current public surface. The
 mathematical and semantic contracts remain authoritative in the
 [interface specification](../design/interface-specification.md), while the
 implemented v1 capability and exclusion record is in the
-[v1 semantic compiler record](../implementation/v1/semantic-compiler.md).
+[v1 semantic compiler record](../internals/compiler/semantic-compiler.md).
 Concrete Chapter 5 and Chapter 6 recipes are documented in the [Chapter 5
-application recipes](../applications/chapter-5.md) and [Chapter 6 application
-scenarios](../applications/chapter-6.md).
+application recipes](../studies/chapter-5/recipes.md) and [Chapter 6 application
+scenarios](../studies/chapter-6/scenarios.md).
 
 For run generation, artifact schemas, output layout, reports, post-processing,
 and agent verification commands, use the [application execution and artifact

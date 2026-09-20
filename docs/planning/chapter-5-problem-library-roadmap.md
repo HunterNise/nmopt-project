@@ -3,7 +3,7 @@
 ## Purpose
 
 This roadmap owns the reusable problem recipes derived from Chapter 5. It is
-separate from the [Chapter 5 elliptic-control guide](../guides/chapter-5-elliptic-control.md),
+separate from the [Chapter 5 elliptic-control guide](../studies/chapter-5/source-catalogue.md),
 which records the mathematical catalogue, and from the
 [Chapter 6 benchmark suite roadmap](chapter-6-benchmark-suite-roadmap.md),
 which records frozen numerical experiments.

@@ -68,8 +68,8 @@ the original source material or declare a manufactured replacement.
   steepest descent is much slower than L-BFGS.
 
 Source references:
-- [page 187, equations (6.64) and test-case data](assets/chapter-6/source-page-187.png);
-- [page 188, Figures 6.2–6.3](assets/chapter-6/source-page-188.png).
+- [page 187, equations (6.64) and test-case data](assets/source-page-187.png);
+- [page 188, Figures 6.2–6.3](assets/source-page-188.png).
 
 **Source completeness.** The source does not provide the forcing $f$, the
 coordinates or connectivity of its triangular mesh, the quadrature and
@@ -141,23 +141,23 @@ y&=1 && \text{on }\Gamma_{D}, \\
 | d | $\Omega_{0}^{2}$ | $z_{d}^{2}$ | 87 | 45.9996 | 0.8464 | 98.16% | 0.0387 |
 
 Source references:
-- [page 189, equations (6.65), Figure 6.4 and Table 6.2](assets/chapter-6/source-page-189.png);
-- [page 190, Figure 6.5](assets/chapter-6/source-page-190.png).
+- [page 189, equations (6.65), Figure 6.4 and Table 6.2](assets/source-page-189.png);
+- [page 190, Figure 6.5](assets/source-page-190.png).
 
 The book cites the following related Graetz references in this discussion:
 
 - **[187]** uses a different parametrised Graetz problem. Its equation (37),
   on printed pages 138–139, also has zero volume right-hand side; its
   parameters instead change geometry, Péclet number, advection direction, and
-  inlet Dirichlet data. See the [page 138 excerpt](assets/chapter-6/reference-187-page-138.png)
-  and [page 139 formulation](assets/chapter-6/reference-187-page-139.png).
+  inlet Dirichlet data. See the [page 138 excerpt](assets/reference-187-page-138.png)
+  and [page 139 formulation](assets/reference-187-page-139.png).
 - **[205]** contains two distinct Graetz examples. Test 2, on printed page
   A2334, is a distributed-control problem where the control is a heat source
   in the volume; it is not the book's E6.5.2 boundary-control problem. See the
-  [Test 2 excerpt](assets/chapter-6/reference-205-page-A2334.png). Test 3, on
+  [Test 2 excerpt](assets/reference-205-page-A2334.png). Test 3, on
   printed page A2336, is the closer boundary-control example and also has zero
   volume right-hand side, but uses a different parametrisation and boundary
-  scaling. See the [Test 3 formulation](assets/chapter-6/reference-205-page-A2336.png).
+  scaling. See the [Test 3 formulation](assets/reference-205-page-A2336.png).
 
 **Source completeness.** The book does not provide the mesh connectivity,
 boundary-node subdivision, or the exact basis and quadrature used for the
@@ -219,9 +219,9 @@ The source gives $J_{h}(u_{0})=0.076222$ and reports that smaller
 regularisation strengthens control action and lowers cost.
 
 Source references:
-- [page 190, equations (6.66) and boundary conditions](assets/chapter-6/source-page-190.png);
-- [page 191, Figure 6.6](assets/chapter-6/source-page-191.png);
-- [page 192, Table 6.3](assets/chapter-6/source-page-192.png).
+- [page 190, equations (6.66) and boundary conditions](assets/source-page-190.png);
+- [page 191, Figure 6.6](assets/source-page-191.png);
+- [page 192, Table 6.3](assets/source-page-192.png).
 
 **Source completeness.** The source does not state the viscosity $\nu$, a
 pressure gauge, the mesh connectivity, the linear-solver tolerances, or the
@@ -312,10 +312,10 @@ The source reports mesh-independent outer iterations at moderate $\beta$ and
 larger counts as $\beta$ decreases. Its runtime table is not portable.
 
 Source references:
-- [page 202, problem data and equations (6.84)](assets/chapter-6/source-page-202.png);
-- [page 203, discrete KKT system and preconditioners](assets/chapter-6/source-page-203.png);
-- [page 204, Figure 6.7 and iteration trends](assets/chapter-6/source-page-204.png);
-- [page 205, complete Table 6.4](assets/chapter-6/source-page-205.png).
+- [page 202, problem data and equations (6.84)](assets/source-page-202.png);
+- [page 203, discrete KKT system and preconditioners](assets/source-page-203.png);
+- [page 204, Figure 6.7 and iteration trends](assets/source-page-204.png);
+- [page 205, complete Table 6.4](assets/source-page-205.png).
 
 **Source completeness.** The narrative describes mesh levels through
 $h=2^{-8}$, while Table 6.4 includes $h=2^{-9}$. The table’s timing values
@@ -361,9 +361,9 @@ does not repeat the timing table: it states that the computational-time
 dependence on $h$ and $\beta$ is the same as in Table 6.4.
 
 Source references:
-- [page 204, start of the diffusion-reaction case and equation (6.89)](assets/chapter-6/source-page-204.png);
-- [page 205, equation (6.91) and comparison with case 1](assets/chapter-6/source-page-205.png);
-- [page 206, Figure 6.8](assets/chapter-6/source-page-206.png).
+- [page 204, start of the diffusion-reaction case and equation (6.89)](assets/source-page-204.png);
+- [page 205, equation (6.91) and comparison with case 1](assets/source-page-205.png);
+- [page 206, Figure 6.8](assets/source-page-206.png).
 
 **Source completeness.** The source does not provide the numerical arrays
 underlying Figure 6.8, its plot-generation settings, or a separate timing
@@ -415,10 +415,10 @@ iteration count versus mesh size for $\beta=10^{-6},10^{-8}$ and
 $a=30,50,70$.
 
 Source references:
-- [page 211, equations (6.105) and test-case data](assets/chapter-6/source-page-211.png);
-- [page 212, Figures 6.9–6.10](assets/chapter-6/source-page-212.png);
-- [page 213, Figures 6.11–6.12](assets/chapter-6/source-page-213.png);
-- [page 214, Figure 6.13](assets/chapter-6/source-page-214.png).
+- [page 211, equations (6.105) and test-case data](assets/source-page-211.png);
+- [page 212, Figures 6.9–6.10](assets/source-page-212.png);
+- [page 213, Figures 6.11–6.12](assets/source-page-213.png);
+- [page 214, Figure 6.13](assets/source-page-214.png).
 
 **Source completeness.** The source does not state the mesh size or
 connectivity, quadrature and target-evaluation rules, the PDAS switching
@@ -474,9 +474,9 @@ state for dimensions $d=2$ and $d=3$, respectively, with
 $\beta=10^{-2},10^{-4},10^{-6}$ from top to bottom.
 
 Source references:
-- [page 214, equations (6.106), target, and bounds](assets/chapter-6/source-page-214.png);
-- [page 215, Figure 6.14](assets/chapter-6/source-page-215.png);
-- [page 216, Figure 6.15](assets/chapter-6/source-page-216.png).
+- [page 214, equations (6.106), target, and bounds](assets/source-page-214.png);
+- [page 215, Figure 6.14](assets/source-page-215.png);
+- [page 216, Figure 6.15](assets/source-page-216.png).
 
 **Source completeness.** The source does not state the mesh sizes or
 connectivity, quadrature and target-evaluation rules, the PDAS switching
@@ -544,10 +544,10 @@ to bottom and left to right. The source notes that pressure peaks are
 localized near the boundary and are not clearly visible.
 
 Source references:
-- [page 215, equation (6.107), domain, and boundary data](assets/chapter-6/source-page-215.png);
-- [page 216, target, state space, and box constraint](assets/chapter-6/source-page-216.png);
-- [page 217, discretisation, trends, and Figure 6.16](assets/chapter-6/source-page-217.png);
-- [page 218, complete Table 6.5](assets/chapter-6/source-page-218.png).
+- [page 215, equation (6.107), domain, and boundary data](assets/source-page-215.png);
+- [page 216, target, state space, and box constraint](assets/source-page-216.png);
+- [page 217, discretisation, trends, and Figure 6.16](assets/source-page-217.png);
+- [page 218, complete Table 6.5](assets/source-page-218.png).
 
 **Source completeness.** The source does not state the forcing $f$, viscosity
 $\nu$, pressure gauge, mesh size or connectivity, quadrature and target-data

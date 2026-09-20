@@ -461,7 +461,7 @@ already supported by this particular runtime.
 
 For the mathematical convention behind the adjoint sign, reduced derivative, and
 metric distinction, use
-[Theoretical formalism](../../design/theoretical-formalism.md).
+[Theoretical formalism](../../design/mathematical-model.md).
 
 For the ownership boundary between state/adjoint solves and optimization, use
 [PDE, formulation, and solver boundary](../../design/pde-solver-boundary.md).

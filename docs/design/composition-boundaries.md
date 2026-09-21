@@ -1,5 +1,15 @@
 # Composition boundaries: an actionable architecture summary
 
+## Project-completion status
+
+> This document is a foundational design summary. It records the component and
+> ownership principles used to guide implementation, not an exhaustive catalogue
+> of combinations realized by the finished compiler. Some proposed component
+> breadth and future-facing language therefore remain intentionally broader than
+> the implemented slice. Current supported semantic/compiler workflows are
+> documented in [Problem authoring](../reference/problem-authoring.md) and the
+> [compiler reference](../reference/compiler.md).
+
 ## Decision in one sentence
 
 Do not model a “maximally general PDE-control problem.”  Model a typed graph

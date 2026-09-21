@@ -4,19 +4,28 @@
 
 This document defines the long-lived boundary between semantic problem
 description, numerical realization, formulations, optimization algorithms, and
-applications. It governs both cleanup of the current deal.II implementation
-and integration of an existing deal.II application.
+applications. It governed cleanup of the deal.II implementation and integration
+of an existing deal.II application.
 
-The [interface specification](interface-specification.md) remains authoritative
-for the mathematical and semantic model. The
-[v0 executable contract](../history/implementation/executable-contract.md) remains
-the exact record of the currently implemented solver-facing API until that
-implementation record is retired or superseded. This document decides how
-implementations reach those contracts and which responsibilities must not cross
-the boundary.
+> **Project-completion note.** This is a foundational boundary record written
+> during the PDE–solver and external-application work. The producer-path and
+> ownership decisions remain important, while some `target architecture` wording
+> and implementation-status language below reflect that development stage. If
+> substantial development resumes, reconcile those proposed details with the
+> implemented source before treating them as a current implementation plan.
 
-This is a design document, not a mutable implementation-status ledger. Current
-refactor status belongs in the corresponding planning roadmap.
+The [interface specification](interface-specification.md) remains the
+foundational specification for the mathematical and semantic model. The
+[v0 executable contract](../history/implementation/executable-contract.md) is
+an earlier implementation-generation record; it is not the exact current
+solver-facing API. Current C++ solver/formulation contracts live under
+`include/nmopt/contract/`, with operational use documented in the
+[optimization reference](../reference/optimization.md) and
+[external deal.II integration reference](../reference/external-dealii-solver-integration.md).
+This document records how implementations reach those contracts and which
+responsibilities must not cross the boundary.
+
+This is a design document, not a mutable implementation-status ledger. The PDE–solver refactor governed by this boundary is complete; its review, implementation history, and closure evidence are preserved under [`docs/history/reviews/pde-solver-refactor/`](../history/reviews/pde-solver-refactor/).
 
 ## Decision
 

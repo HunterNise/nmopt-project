@@ -6,6 +6,16 @@ This is an implementation-neutral specification.  It defines interfaces,
 ports, and communication protocols; it does not prescribe C++ classes,
 storage layouts, or deal.II calls.
 
+> **Project-completion note.** This specification records the intended semantic
+> and composition rules that guided implementation. Its normative words are
+> normative within that design model; they do not imply that every described
+> component, combination, or protocol is implemented by the finished compiler,
+> nor that the prose is an exact transcription of the current C++ API. Use the
+> task-oriented [public references](../README.md#reference) for implemented
+> workflows and public interfaces. If substantial development resumes, reconcile
+> this specification with the implemented architecture before using it as a
+> current implementation acceptance specification.
+
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative.
 
 The framework describes declared formulations.  It MUST NOT claim that a

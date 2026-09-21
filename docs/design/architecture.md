@@ -7,6 +7,17 @@ It is intentionally architectural rather than an implementation specification.
 It should guide future design discussions and prevent the project from growing
 into a collection of tightly coupled, problem-specific classes.
 
+> **Project-completion note.** This is a foundational design record written to
+> guide implementation, and its principles materially shaped the repository.
+> Some future-oriented language, proposed decomposition, and implementation
+> assumptions below reflect the stage at which it was written rather than the
+> final source tree. Preserve it as design rationale. For the implemented-project
+> picture, start with the [manual overview](../manual/overview/README.md); use the
+> [documentation map](../README.md) to reach exact current references. If
+> substantial development resumes, reconcile this record with the implemented
+> architecture before treating its future-tense statements as current
+> implementation commitments.
+
 The target implementation library is deal.II. The framework is not limited to
 one PDE or one optimal-control formulation, but the first working version must
 be deliberately small and well tested.

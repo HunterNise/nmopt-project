@@ -1,5 +1,12 @@
 # Chapter 6 benchmark suite roadmap
 
+> **Project-completion status.** This roadmap is retained as a record of the
+> intended Chapter 6 benchmark programme, including selected, deferred, and
+> excluded experiments. It is not an active work queue. Unimplemented benchmark
+> entries describe the project’s intended extension path rather than current
+> commitments. If development resumes, reassess them against the final
+> application, compiler, and reproduction evidence before execution.
+
 ## Purpose
 
 This roadmap owns the frozen numerical experiments from Chapter 6. It is

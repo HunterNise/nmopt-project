@@ -1,5 +1,12 @@
 # Chapter 5 problem library roadmap
 
+> **Project-completion status.** This roadmap is retained as a record of the
+> intended Chapter 5 problem-library scope and sequencing. It is not an active
+> work queue. Implemented entries record work reached during the project;
+> remaining planned families are preserved as intended extensions rather than
+> commitments. If development resumes, reassess them against the current
+> compiler capability and study corpus before implementation.
+
 ## Purpose
 
 This roadmap owns the reusable problem recipes derived from Chapter 5. It is

@@ -1,5 +1,13 @@
 # Application roadmap and handoff
 
+> **Project-completion status.** This roadmap is retained as a record of the
+> intended application-layer development sequence and the implementation state
+> reached during the project. It is not an active work queue. Items that remain
+> planned or incomplete describe possible continuation work, not current
+> commitments or automatically preferred next steps. If development resumes,
+> reassess them against the current code, references, and study evidence before
+> using this roadmap as a handoff.
+
 ## Purpose and authority
 
 This roadmap owns the mutable application-layer work after a semantic problem

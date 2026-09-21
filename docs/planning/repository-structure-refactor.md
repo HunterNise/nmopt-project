@@ -2,8 +2,15 @@
 
 **Working branch:** `codex/repo-structure-refactor`  
 **Starting point:** documentation structure commit `997367f37b14da0010e0e474cf1e75690c4d79fb`  
-**Status:** active planning and implementation guide  
+**Status:** completed; retained as the implementation roadmap used for the refactor
 **Assessment:** `docs/history/reviews/human-readability-audit/09-repository-structure-follow-up.md`
+**Closure:** `docs/history/reviews/human-readability-audit/10-repository-structure-refactor-closure.md`
+
+> **Project-completion status.** This roadmap is preserved in `planning/`
+> because it records the intended decomposition and decision gates used during
+> the repository-structure refactor. It is no longer an implementation guide or
+> active queue. The closure report records what actually landed, what was
+> deliberately skipped or deferred, and the final verification state.
 
 ## 1. Purpose and how to use this roadmap
 

@@ -1,5 +1,13 @@
 # Implementation roadmap and agent handoff
 
+> **Project-completion status.** This roadmap is retained as a record of the
+> implementation sequence, handoffs, and extensions considered during
+> development. It is not an active work queue. Historical stages and remaining
+> planned items should be read in the context of the implementation state at
+> which they were written. If substantial development resumes, reconstruct the
+> current capability and source state before using any remaining item as a new
+> implementation task.
+
 ## Purpose
 
 This is the ranked continuation plan for compiler, solver, lowering, semantic,

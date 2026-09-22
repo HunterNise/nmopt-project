@@ -150,11 +150,14 @@ useful entry points are:
 For application and benchmark work, use the [Chapter 5 application
 recipes](docs/studies/chapter-5/recipes.md), [Chapter 6 application
 scenarios](docs/studies/chapter-6/scenarios.md), [Chapter 6 benchmark
-specifications](docs/studies/chapter-6/benchmarks.md), and the [application
-roadmap](docs/planning/application-roadmap.md). The [Chapter 6 numerical
-examples](docs/studies/chapter-6/numerical-examples.md) guide records what the
-book says; implementation choices and reproduction status belong in the
-application and benchmark planning documents.
+specifications](docs/studies/chapter-6/benchmarks.md), and the
+[B1](docs/studies/chapter-6/b1-replication.md) and
+[B2](docs/studies/chapter-6/b2-replication.md) replication records. The
+[Chapter 6 numerical examples](docs/studies/chapter-6/numerical-examples.md)
+guide records what the book says; current execution and configuration mechanics
+belong in the reference layer, while replication outcomes belong in the study
+records. Retained roadmaps document development history rather than current
+interface authority.
 
 ## Repository layout
 

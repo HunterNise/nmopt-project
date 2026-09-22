@@ -23,9 +23,9 @@ docs/
   manual/                         # current project manual and concept chapters
   design/                         # long-lived architecture and mathematics
   reference/                      # exact public API and execution references
-  internals/                      # current implementation mechanics and capability internals
+  internals/                      # current implementation mechanics and maintainer maps
   studies/                        # Chapter 5/6 source, application, benchmark, and case-study corpus
-  planning/                       # genuinely active and mutable roadmaps
+  planning/                       # retained development roadmaps and planning records
   history/                        # superseded implementations, reviews, audits, and evidence
 include/nmopt/
   application/                    # public recipe, scenario, and catalog API
@@ -35,17 +35,18 @@ include/nmopt/
   dealii/                         # deal.II backend services
   solvers/                        # optimization and Krylov policies
   experiment/                     # provenance and report envelopes
-  reference/                      # dense/reference models
 tests/
   support/                        # shared test utilities
   contract/                       # backend-neutral contract tests
   semantic/                       # semantic graph and validation tests
   compiler/dealii/                # deal.II compiler and lowering capability tests
   dealii/                         # low-level deal.II backend/service/session/reporting tests
-  application/                    # recipe and scenario contract tests
-  benchmark/                      # harness and benchmark tests
+  solvers/                        # reduced/KKT/PDAS solver contracts
+  application/                    # application, runner, benchmark, and integration tests
+  tools/                          # persisted-evidence and post-processing tests
 apps/
   nmopt-runner/                   # headless application orchestration
+  external-dealii/                # external-application integration study
 parameters/                        # versioned experiment and plotting inputs
 runs/                              # ignored generated output
 ```
@@ -64,19 +65,23 @@ unit lands. Empty placeholder directories are not tracked.
   interfaces.
 - `docs/manual/` teaches the current project through overviews and concept
   chapters.
-- `docs/internals/` records current implementation mechanics and capability
-  internals; exact public contracts remain in `docs/reference/`.
+- `docs/internals/` records current implementation mechanics, source ownership,
+  lifetime boundaries, extension points, and focused verification maps; exact
+  public contracts remain in `docs/reference/`.
 - `docs/studies/` contains the Chapter 5/6 source, application, benchmark, and
   case-study corpus.
-- `docs/planning/` owns genuinely active and mutable roadmaps.
+- `docs/planning/` contains retained development roadmaps and planning records;
+  each document's status banner determines whether it describes active or
+  historical/intended work.
 - `docs/history/` contains superseded implementations, reviews, audits, and
   historical evidence.
 
 The Chapter 5 and Chapter 6 study documents remain the source and application
 catalogue. Scenario, benchmark, and replication records add executable choices
-and evidence requirements without silently rewriting the source catalogue. The
-implementation and application roadmaps remain the mutable status ledgers for
-their respective layers.
+and evidence requirements without silently rewriting the source catalogue.
+Retained roadmaps record development intent, sequencing, and completion
+history; current capability or work status must not be inferred solely from
+their location under `planning/`.
 
 The root-level `build.sh` owns the convenient configure/build/test workflow and
 delegates the actual profile definitions to `CMakePresets.json`. The tracked
@@ -93,7 +98,7 @@ The non-documentation directories have these stable roles:
 | Directory | Role | Boundary |
 | --- | --- | --- |
 | `include/nmopt/` | Public and internal C++ headers under the `nmopt` include and namespace prefix. | Reusable library interfaces belong here; executable-specific CLI and run-set code does not. |
-| `apps/` | Source files for executable products. | `apps/nmopt-runner/main.cc` is the headless entry point; its adjacent `run_lifecycle.hpp` is private CLI/run-set support. The public backend-neutral runner API is `include/nmopt/application/runner.hpp`. |
+| `apps/` | Source files for executable products and application-local integration studies. | `apps/nmopt-runner/main.cc` is the headless entry point; its adjacent `run_lifecycle.hpp` is private CLI/run-set support. `apps/external-dealii/` contains the application-owned integration study. Reusable interfaces remain under `include/nmopt/`. |
 | `tests/` | Contract-layer test translation units and shared test support. | CTest inventories are discovered from test executables; generated registrations belong in `build/`, not in source. |
 | `tools/` | Repository-local user and analysis tools, including Python post-processing and shell wrappers. | Tools consume public artifacts and interfaces; they must not become a second PDE lowerer or solver implementation. |
 | `cmake/` | Source-controlled CMake modules used by the root build. | Build configuration remains expressed through root `CMakeLists.txt` and `CMakePresets.json`; generated CMake state does not belong here. |
@@ -153,6 +158,22 @@ references:
 There is no additional directory README because `docs/README.md` is the
 repository-wide documentation map and these files are self-describing.
 
+## Implementation internals layout
+
+The `internals/` directory intentionally contains three maintainer-oriented
+maps:
+
+- `implementation-map.md` — repository-wide implementation ownership,
+  dependency flow, lifetime landmarks, tests, and change routing;
+- `compiler.md` — semantic resolution, request closure, bounded planning,
+  target realization, compiled products, provenance, and compiler verification;
+- `runner.md` — parameter resolution, run-set planning, runner lifecycle,
+  Chapter-6 execution, artifacts, and run-manifest mechanics.
+
+They explain how the current implementation works and where to modify it.
+They do not replace the task-oriented public references, and the current
+source plus focused tests remain authoritative for implementation behavior.
+
 ## Include and test layers
 
 The current `include/nmopt/{contract,semantic,compiler,dealii,solvers,experiment}`
@@ -176,9 +197,10 @@ private lowerers to make a test pass.
 
 The `parameters/` tree is reserved for versioned experiment inputs. Numerical
 experiment families use Deal.II-style `.prm` files; reusable post-processing
-styles use versioned JSON profiles beside them. Their schema and precedence
-rules are defined by the application roadmap's parameter-file unit and its
-[parameter-file reference](../../reference/parameter-files.md). A parameter file
+styles use versioned JSON profiles beside them. Their current schema and precedence rules are defined by the
+[parameter-file reference](../../reference/parameter-files.md) and the
+[parameter/plotting-profile decision](parameter-and-plotting-profiles.md);
+roadmaps retain the development history behind those interfaces. A parameter file
 may describe a matrix of concrete artifacts; generated runs still record the
 resolved combination and the hashes of both input documents.
 

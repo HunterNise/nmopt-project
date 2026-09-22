@@ -9,8 +9,8 @@ not read every document by default.
 For a first-time reading of the project, start with the
 [manual overview](manual/overview/README.md), then follow the
 [concept chapters](manual/concepts/README.md). Use the sections below when you
-need an exact design decision, public contract, study record, active plan, or
-historical review.
+need an exact design decision, public contract, implementation map, study
+record, planning record, or historical review.
 
 ## Organization and authority
 
@@ -19,9 +19,9 @@ docs/
   manual/       teach the current project
   design/       long-lived architecture, mathematics, and accepted decisions
   reference/    exact current public interfaces, configuration, and execution
-  internals/    current implementation mechanics and capability internals
+  internals/    current implementation mechanics and maintainer maps
   studies/      Chapter 5/6 source, application, benchmark, and case-study corpus
-  planning/     genuinely active and mutable roadmaps
+  planning/     retained development roadmaps and planning records
   history/      superseded implementations, reviews, audits, and evidence
 ```
 
@@ -94,8 +94,10 @@ architecture.
 - [Chapter 5 problem-library roadmap](planning/chapter-5-problem-library-roadmap.md)
 - [Chapter 6 benchmark-suite roadmap](planning/chapter-6-benchmark-suite-roadmap.md)
 
-Planning contains genuinely active, mutable work order and status. Completed
-reviews and audits belong under history, even when they remain useful context.
+Planning contains retained development roadmaps and planning records. Their
+status banners determine whether a document describes active work or a
+historical/intended plan; folder location alone is not a current work queue.
+Completed reviews and audits belong under history.
 
 ### History
 
@@ -126,13 +128,13 @@ before inspecting or changing repository content.
 | Author a reusable nmopt-native application | [Application authoring](reference/application-authoring.md) | [Problem authoring](reference/problem-authoring.md), [compiler](reference/compiler.md), and [application execution](reference/application-execution.md) |
 | Connect an existing PDE application | [External deal.II solver integration](reference/external-dealii-solver-integration.md) | [Optimization](reference/optimization.md) and the relevant public contract/deal.II headers |
 | Add or use an optimization method | [Optimization](reference/optimization.md) | [Reduced optimization methods](manual/concepts/06-reduced-optimization-methods.md) and the public solver/contract headers |
-| Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) | [Application execution](reference/application-execution.md), [parameter files](reference/parameter-files.md), and the [benchmark roadmap](planning/chapter-6-benchmark-suite-roadmap.md) |
+| Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) | [Application execution](reference/application-execution.md), [parameter files](reference/parameter-files.md), and the [B1](studies/chapter-6/b1-replication.md) / [B2](studies/chapter-6/b2-replication.md) replication records |
 | Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Problem authoring](reference/problem-authoring.md), [architecture](design/architecture.md), and [composition boundaries](design/composition-boundaries.md) |
 | Change deal.II compiler/lowering implementation | [Compiler implementation](internals/compiler.md) | [Compiler reference](reference/compiler.md), [interface specification](design/interface-specification.md), and focused compiler tests |
 | Change repository runner/configuration implementation | [Runner implementation](internals/runner.md) | [Application execution](reference/application-execution.md), [parameter files](reference/parameter-files.md), and focused application tests |
 | Check mathematical signs or formulas | [Mathematical model](design/mathematical-model.md) | [Laplace formulas](studies/case-studies/laplace-interface-formulas.md) and [growth study](studies/case-studies/laplace-growth.md) |
-| Implement or reproduce a Chapter 5 application | [Chapter 5 recipes](studies/chapter-5/recipes.md) | [Application authoring](reference/application-authoring.md), [source catalogue](studies/chapter-5/source-catalogue.md), and [problem-library roadmap](planning/chapter-5-problem-library-roadmap.md) |
-| Generate or inspect application runs | [Application execution](reference/application-execution.md) | [Parameter files](reference/parameter-files.md), [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md), and [application roadmap](planning/application-roadmap.md) |
+| Implement or reproduce a Chapter 5 application | [Chapter 5 recipes](studies/chapter-5/recipes.md) | [Application authoring](reference/application-authoring.md), [problem authoring](reference/problem-authoring.md), and the [source catalogue](studies/chapter-5/source-catalogue.md) |
+| Generate or inspect application runs | [Application execution](reference/application-execution.md) | [Parameter files](reference/parameter-files.md) and [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) |
 | Design parameter files or plotting profiles | [Parameter files](reference/parameter-files.md) | [Parameter and plotting profiles](design/decisions/parameter-and-plotting-profiles.md) and [application execution](reference/application-execution.md) |
 | Review historical decisions or evidence | [Review history](history/reviews/README.md) | The relevant closure report, audit, or implementation record under `history/` |
 | Edit Markdown or LaTeX | [Documentation instructions](../.agents/documentation.md) | The document being changed |

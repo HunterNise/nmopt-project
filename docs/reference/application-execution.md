@@ -9,7 +9,8 @@ If you are adding a new recipe/scenario/backend adapter, start with
 existing application through `.prm`, use
 [Parameter files](parameter-files.md).
 
-The reusable execution boundary is:
+For the compiler-backed nmopt-native applications documented here, the
+reusable execution pattern is:
 
 ```text
 typed ScenarioT
@@ -32,6 +33,11 @@ BenchmarkArtifactWriter
       ▼
 artifact.kv
 ```
+
+`HeadlessBenchmarkRunnerT` itself is generic over the value returned by the
+problem builder. The `ProblemSpec` builder shown here is the application
+pattern used by the current registered compiler-backed families, not a
+requirement of the generic runner type.
 
 The repository application `nmopt_runner` then adds matrix expansion,
 filesystem run sets, manifests, configuration snapshots, and registered

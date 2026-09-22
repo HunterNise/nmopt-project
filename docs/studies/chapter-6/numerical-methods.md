@@ -1,18 +1,19 @@
-# Chapter 6 numerical-methods implementation guide
+# Chapter 6 numerical-methods catalogue
 
 ## Purpose and scope
 
 This guide turns Chapter 6 of *Optimal Control of Partial Differential
-Equations* (Manzoni, Quarteroni, Salsa; book pages 167–218) into an
-implementation handoff. It catalogues the numerical methods in Sections
-6.2–6.4, 6.6, and 6.8, including their discrete assumptions and solver
-services. It does not introduce a class per textbook method or PDE.
+Equations* (Manzoni, Quarteroni, Salsa; book pages 167–218) into a
+source-derived numerical-method catalogue and framework correspondence. It
+catalogues the numerical methods in Sections 6.2–6.4, 6.6, and 6.8,
+including their discrete assumptions and solver services. It does not
+introduce a class per textbook method or PDE.
 
 The numerical experiments in Sections 6.5, 6.7, and 6.9 are deliberately
-kept out of this guide. Their PDE data, algorithms, parameters, and reported
-quantities are in the separate
-[Chapter 6 numerical-examples reference](numerical-examples.md).
-They are future reproduction targets, not current acceptance tests.
+kept out of this guide. Their PDE data, algorithms, parameters, source
+omissions, and reproduction evidence are kept in the separate
+[Chapter 6 numerical-examples reference](numerical-examples.md) and replication
+records rather than duplicated here.
 
 Sections 6.10 and 6.11, respectively a-priori and a-posteriori error
 estimates, are excluded at the user's request. Section 6.12 exercises is also
@@ -540,24 +541,32 @@ active equalities are $O_{c}=y_{a}$ or $O_{c}=y_{b}$ and stationarity gains
 the $\varepsilon\mu$ covector. It reuses P5.5 semantics but needs P6.5 for
 the generic PDAS solve.
 
-## Implementation sequence and verification
+## Framework correspondence and verification
 
-1. Completed: extend the reduced solver to selected reduced directions and
+> **Historical implementation labels.** P6.1–P6.5 below are retained as
+> lineage labels for the bounded slices reached during development. They do not
+> define an active implementation sequence.
+
+The implemented Chapter 6 method correspondence reached the following bounded
+project slices:
+
+1. **P6.1:** extend the reduced solver to selected reduced directions and
    line searches (P6.1), while retaining the baseline one-state/one-decision
    DTO boundary.
-2. Completed: add the explicit formulation, trial/test, and supplied-system
+2. **P6.2:** add the explicit formulation, trial/test, and supplied-system
    declaration for the selected canonical supplied-OTD slice (P6.2). The
    compiler records whether the product is DTO or supplied OTD; it does not
    derive automatic continuous adjoints or claim generic stabilised-Lagrangian
    coverage.
-3. Completed: generalise executable algebra to equality-constrained quadratic
+3. **P6.3:** generalise executable algebra to equality-constrained quadratic
    KKT products (P6.3), including the canonical supplied-OTD bridge and the
    serial DTO assembled/matrix-free comparison.
-4. Completed: add MINRES/GMRES policies and diagnostics to the KKT boundary;
+4. **P6.4-related solver support:** add MINRES/GMRES policies and diagnostics
+   to the KKT boundary;
    the selected serial slice uses an identity preconditioner and reports
    stationarity and feasibility independently. P6.4 preconditioner families
    remain conditional.
-5. Completed: add typed complementarity, selection, and PDAS (P6.5) for the
+5. **P6.5:** add typed complementarity, selection, and PDAS for the
    selected cellwise box path. The regularised mixed constraint remains a
    separate extension.
 

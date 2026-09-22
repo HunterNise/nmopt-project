@@ -8,7 +8,7 @@ remains authoritative for the mathematics, while the
 [Compiler reference](../../reference/compiler.md) records the current realized
 compiler paths. The
 [problem-library roadmap](../../planning/chapter-5-problem-library-roadmap.md)
-is retained as the development plan and status record for the recipe work.
+records the original intended recipe scope and development sequence.
 
 A recipe is a typed builder of `semantic::v1::ProblemSpec`. It is not a PDE
 class and it does not own deal.II functions, a mesh, a compiler, a solver, or

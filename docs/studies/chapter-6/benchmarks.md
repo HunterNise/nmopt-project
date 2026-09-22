@@ -7,16 +7,20 @@ post-processing APIs.
 
 The authorities are deliberately separate:
 
-- the [numerical-examples reference](numerical-examples.md)
-  records what the book states and leaves unresolved;
-- the [Chapter 6 application scenarios](scenarios.md) define
-  recipe selection, scenario construction, and runtime ports;
-- the [benchmark-suite roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md)
-  owns selection, order, dependencies, and suite-level gates;
-- the [application roadmap](../../planning/application-roadmap.md) owns runner,
-  artifact, post-processing, and current execution status; and
-- the [application execution and artifact reference](../../reference/application-execution.md)
-  defines the public artifact and execution interfaces.
+- the [numerical-examples reference](numerical-examples.md) records what the
+  book states and leaves unresolved;
+- the [Chapter 6 application scenarios](scenarios.md) define recipe selection,
+  scenario construction, and runtime ports;
+- this document freezes benchmark-specific choices and acceptance
+  requirements;
+- the [B1 replication findings](b1-replication.md) and
+  [B2 replication findings](b2-replication.md) record observed reproduction
+  outcomes and remaining source gaps;
+- the [application execution reference](../../reference/application-execution.md)
+  defines the current public artifact, run-set, and execution interfaces; and
+- the retained
+  [benchmark-suite roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md)
+  records the originally intended extension sequence for B3–B6.
 
 A benchmark choice that cannot be inferred from the source record is recorded
 here when it is specific to a frozen run. Reusable semantic or API choices
@@ -81,8 +85,10 @@ projection using the public `nmopt-benchmark-v1` writer. The record must retain:
 B0 is contract-complete when repeated writes are byte-identical, invalid
 identity/diagnostic/measurement/field data is rejected, failed matrix entries
 remain visible with diagnostics, and path selection remains outside the
-artifact writer. Execution status and the concrete run layout belong to the
-[application roadmap](../../planning/application-roadmap.md#current-handoff-state).
+artifact writer. The concrete run layout and lifecycle belong to the
+[application execution reference](../../reference/application-execution.md);
+this benchmark contract freezes only the evidence required from a completed
+run.
 
 ## B1 — E6.5.1 distributed Laplace control
 
@@ -171,8 +177,9 @@ regularisation decreases and substantially less optimization work for L-BFGS.
 This trend is evidence, not a portable numerical tolerance; a failure is
 reported as a benchmark limitation.
 
-Execution and acceptance status are maintained in the [application roadmap](../../planning/application-roadmap.md#b1),
-not duplicated in this freeze.
+Observed B1 execution, reproduction, and remaining source gaps are recorded
+in the [B1 replication findings](b1-replication.md), not duplicated in this
+freeze.
 
 ## B2 — E6.5.2 Graetz-flow boundary control
 
@@ -282,10 +289,14 @@ Each of the four artifacts must retain:
 If the unstabilized Galerkin realization is inadequate, the limitation is
 reported without changing the frozen scenario.
 
-Execution and acceptance status are maintained in the [application roadmap](../../planning/application-roadmap.md#b2),
-not duplicated in this freeze.
+Observed B2 execution, negative reproduction closure, and remaining source
+gaps are recorded in the [B2 replication findings](b2-replication.md), not
+duplicated in this freeze.
 
-## Future benchmark contracts
+## Reserved benchmark contracts
+
+> **Historical programme note.** B3–B6 preserve the intended extension
+> programme. They are not active benchmark commitments.
 
 B3–B6 are part of the catalogue but are not executable freezes yet. Their
 selection, dependencies, and intended evidence are defined by the

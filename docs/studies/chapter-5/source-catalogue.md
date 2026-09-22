@@ -1,12 +1,12 @@
-# Chapter 5 elliptic optimal-control implementation guide
+# Chapter 5 elliptic optimal-control catalogue
 
 ## Purpose
 
 This guide turns Chapter 5 of *Optimal Control of Partial Differential
 Equations* (Manzoni, Quarteroni, Salsa; book pages 103–162) into declared
-formulations for this project. It is a problem catalogue and implementation
-handoff, not a claim that every continuous problem has a currently registered
-deal.II compiler target.
+formulations for this project. It is a source-derived problem catalogue and
+framework-input record, not a claim that every continuous problem has a
+currently registered deal.II compiler target.
 
 The source chapter contains eleven application families. Sections 5.3 and 5.4
 are shared theory: the first is the abstract linear-quadratic template and
@@ -624,9 +624,13 @@ mixed equations, traction, curl observation, and boundary multiplier blocks.
 The implementation must retain all of those as separate components; it must
 not add a `StokesVorticityControlProblem` class.
 
-## Implementation sequence for one selected application
+## Deriving an implementation request from one catalogue entry
 
-For any one catalogue entry, an agent should proceed in this order:
+> **Historical handoff note.** This checklist originated as implementation
+> handoff guidance. It is retained as a derivation checklist for a catalogue
+> entry, not as a current work queue.
+
+For any one catalogue entry, proceed in this order:
 
 1. Select the exact continuous variant, including every region, state/control
    space, observation space, control metric, admissible set, and source
@@ -651,7 +655,9 @@ For any one catalogue entry, an agent should proceed in this order:
    capability diagnostic for every unregistered space, boundary partition,
    trace, or formulation choice.
 
-The roadmap requests below are the only intended route for extending the
-registered compiler. They keep the Chapter 5 catalogue compositional
-and make the difference between a new general capability and a new application
-configuration explicit.
+Extending compiler support for a catalogue entry is a framework change
+rather than part of this catalogue. Record the source-level mathematical
+requirement here, document supported public realization paths in the
+[Compiler reference](../../reference/compiler.md), and document lowering or
+implementation mechanics in
+[Compiler implementation](../../internals/compiler.md).

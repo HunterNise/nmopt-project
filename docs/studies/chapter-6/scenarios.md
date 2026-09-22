@@ -2,11 +2,16 @@
 
 This document catalogues Chapter 6 application scenarios, each of which
 describes how a Chapter 5 recipe is configured. It is not a second problem
-library and does not contain PDE assembly or solver implementations. The
+library and does not contain PDE assembly or solver implementations.
+
+The [numerical-examples reference](numerical-examples.md) owns source equations,
+data, and omissions. The [numerical-methods catalogue](numerical-methods.md)
+records source methods and reusable framework correspondence. The
+[benchmark contracts](benchmarks.md) freeze benchmark-specific execution and
+acceptance choices. The retained
 [benchmark roadmap](../../planning/chapter-6-benchmark-suite-roadmap.md)
-owns selection and status, the [numerical-examples reference](numerical-examples.md)
-owns source equations and data, and the [numerical-methods guide](numerical-methods.md)
-owns reusable solver contracts.
+records the originally intended later benchmark sequence rather than current
+execution status.
 
 The public execution path is:
 
@@ -40,11 +45,12 @@ a library default when that changes the mathematical or numerical comparison.
 Benchmark-specific evidence, artifact formats, and acceptance criteria belong
 to the [Chapter 6 benchmark specification](benchmarks.md).
 
-## Activation matrix
+## Scenario catalogue
 
-The catalogue covers the current B0–B2 scenarios and the later B3–B6
-application shapes. The benchmark roadmap owns their activation order and
-dependencies.
+B0–B2 are the application scenarios realized by the current registered runner
+slice. B3–B6 record reserved scenario shapes from the intended Chapter 6
+programme; their presence here does not imply executable benchmark
+registration.
 
 | ID | Source example | Recipe family | Product/method |
 | --- | --- | --- | --- |
@@ -323,7 +329,11 @@ The benchmark-specific frozen B2 inputs, stabilization boundary, and required
 evidence are defined in the [Chapter 6 benchmark
 specification](benchmarks.md).
 
-## Later scenario contracts
+## Reserved scenario shapes
+
+> **Historical programme note.** The B3–B6 shapes below preserve the intended
+> extension programme. They are not current runner registrations or an active
+> activation queue.
 
 B3 and B4 must use cellwise-discontinuous control for the first framework
 native PDAS runs. The coefficientwise box, positive-diagonal `l2_cellwise`
@@ -338,10 +348,10 @@ contracts belong in the benchmark specification. Do not activate a
 preconditioner merely because the source used one; measure whether the
 selected scalar run needs it first.
 
-## Scenario handoff checklist
+## Scenario completeness checklist
 
-Before a benchmark run is enabled, an agent should be able to answer without
-reading compiler code:
+Before a benchmark run is enabled, the scenario record should answer the
+following without requiring compiler-code inspection:
 
 1. Which recipe ID/version creates the graph?
 2. Which mesh labels become semantic region IDs and material IDs?

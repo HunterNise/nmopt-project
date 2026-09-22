@@ -10,19 +10,16 @@
 
 ## Purpose and authority
 
-This roadmap owns the mutable application-layer work after a semantic problem
-can be compiled and executed. It records what the application units are for,
-what has actually been implemented, how a unit becomes complete, and what the
-next handoff is.
+This retained roadmap records the application-layer development sequence, the
+completion criteria used during implementation, and the state reached during
+the project. It no longer owns mutable project status or a current handoff.
 
-It does not own compiler, lowerer, solver, or backend capability status. Those
-remain in the [implementation roadmap](implementation-roadmap.md). Frozen
-benchmark definitions remain in the [Chapter 6 benchmark contracts](../studies/chapter-6/benchmarks.md),
-scenario assembly remains in the [Chapter 6 application contract](../studies/chapter-6/scenarios.md),
-and the operational schemas and commands remain in the
-[application execution and artifact reference](../reference/application-execution.md).
+Current public execution and configuration behavior belongs to
+`docs/reference/`; current B1/B2 reproduction outcomes belong to
+`docs/studies/`; current implementation mechanics belong to source, focused
+tests, and `docs/internals/`.
 
-The application roadmap owns:
+The roadmap covered:
 
 - recipe, scenario, catalog, and application discovery surfaces;
 - runner configuration, reproduction policy, and generated-run organization;
@@ -58,7 +55,11 @@ The roadmap distinguishes these states:
 - **acceptance-complete** — all benchmark evidence and gates are present; and
 - **deferred** — intentionally outside the current sequence.
 
-## Current status
+## Recorded project-completion status
+
+> **Historical snapshot.** The table below records the state represented by the
+> final active roadmap. It is preserved as development evidence, not as a
+> mutable current-status ledger.
 
 | Area | Status | Actual state |
 | --- | --- | --- |
@@ -70,8 +71,8 @@ The roadmap distinguishes these states:
 | B1 source-oriented execution | Reproduction-verified | The selected seven-case release profile combines continuous P1 control, a regular triangular mesh, constant-half forcing, and the common early-stop policy. Revision `631537a` completed all seven artifacts and their PNG comparisons without failures; the selected replacements do not claim recovery of omitted source data. |
 | B2 framework-native execution | Framework-verified; replication attempt closed negatively | The refreshed historical Release matrix and the final 17-record Debug forward audit contain derivative, objective, field, post-processing, and manifest evidence. The reusable immutable natural-boundary-source contract is implemented and tested; no source-compatible interpretation reproduces Figure 6.5, so no optimizer campaign is promoted. |
 | Parameter files | Implemented for registered B1/B2 slice | One ordered schema registry and benchmark adapters drive matrix expansion, exact exclusions, typed capability resolution, solver policy, run layout, and post-processing provenance. B3–B6 extension contracts are tested but not registered as executable benchmarks. |
-| Later Chapter 6 benchmarks | Planned | B3/B4 are the next selected benchmark families after B1/B2 reproduction is resolved; B5/B6 remain later. |
-| Complete Chapter 5 recipe library | Planned | The selected recipes used by B1/B2 exist, but the reusable recipe families listed in the problem-library roadmap are not all implemented. |
+| Later Chapter 6 benchmarks | Unimplemented continuation candidates | B3/B4 were the selected next families in the retained programme; resuming them requires a fresh selection and frozen benchmark contract. B5/B6 remain conditional later extensions. |
+| Complete Chapter 5 recipe library | Unimplemented continuation candidate | The selected recipes used by B1/B2 form the completed project slice; the broader reusable families in the retained problem-library roadmap were not all implemented. |
 
 The current B1 authoritative manifest records the seven unique combinations
 shown across Figures 6.2–6.3. All cases terminate at the common relative
@@ -439,8 +440,9 @@ boundary; extending it to B3–B6 remains part of A8.
 
 ### A8 — Implement the next Chapter 6 benchmarks
 
-**Status:** planned; after the remaining A6 B2 reproduction audit and benchmark
-contracts. A7 is complete for the current registered B1/B2 slice.
+**Recorded status:** unimplemented continuation candidate. The A6 B2
+replication attempt is closed; resuming B3/B4 would require a fresh benchmark
+selection and frozen contract. A7 is complete for the registered B1/B2 slice.
 
 **Purpose:** Extend the application layer beyond the selected B1/B2 vertical
 slice while reusing the same recipe, runner, artifact, native-output, and
@@ -464,7 +466,8 @@ records is not a completed benchmark unit.
 
 ### A9 — Complete the Chapter 5 problem library
 
-**Status:** planned; selected B1/B2 recipes are the initial partial slice.
+**Recorded status:** unimplemented continuation candidate; the selected
+B1/B2 recipes form the completed project slice.
 
 **Purpose:** Turn the existing composition interfaces into a coherent,
 parameterized library of reusable Chapter 5 application recipes.
@@ -497,9 +500,13 @@ native fields, and reports. It must not introduce a second execution path.
 This unit remains deferred until the command-line and parameter-file contracts
 are stable.
 
-## Handoff protocol
+## Recorded handoff protocol
 
-Each application unit is one review-sized work unit unless its contract change
+> **Historical handoff note.** The protocol and final handoff below are
+> preserved from the roadmap's active period. They are not current execution
+> instructions.
+
+Each application unit was one review-sized work unit unless its contract change
 requires a smaller split. Every handoff must report:
 
 ```text
@@ -513,11 +520,11 @@ Known limitations:
 Next unit:
 ```
 
-The next handoff is the A6 B2 coupled-scaling forward screen: use the existing
-`release-dealii` build without rebuilding it, test only the prescribed F1
-values, and do not resume optimization until a candidate passes the range,
-shape, trend, peak-location, provenance, and refinement checks recorded in the
-B2 replication report.
+> **Recorded final handoff.** At the time this roadmap was active, the next
+> handoff was the A6 B2 coupled-scaling forward screen using the existing
+> `release-dealii` build and prescribed F1 values. That investigation is now
+> closed; the current outcome is recorded in the
+> [B2 replication findings](../studies/chapter-6/b2-replication.md).
 
 ## Exclusions
 

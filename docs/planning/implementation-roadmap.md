@@ -71,7 +71,12 @@ Manual commands do not load `build.local.conf`; supply any desired
 `--parallel` limit explicitly. The helper's `pipeline` action adds build
 timing, compact configure output, and progress-oriented CTest output.
 
-## Current handoff state
+## Recorded handoff snapshot
+
+> **Historical snapshot.** The inventory and verification counts below are
+> preserved from the roadmap's final development phase. Paths, executable
+> names, scenario counts, and `current` wording inside this section are
+> historical unless a current reference explicitly reaffirms them.
 
 Stage B common stabilization is complete on
 `codex/ch5-ch6-development`. Batches R0
@@ -1320,11 +1325,15 @@ recorded in the manifest. Real serial MINRES solves cover inactive and active
 boxes. The regularised mixed observation and continuous-control box semantics
 remain out of scope as declared above.
 
-## Current next-agent sequence
+## Recorded continuation sequence
+
+> **Historical sequence.** The section below preserves the final continuation
+> language used while this roadmap was active. It is not a current work queue.
+
 
 The C5.6 Neumann composition is complete. P5.1 is acceptance-complete. The
-remediation review documents are static evidence; this roadmap is the status
-ledger. The C1/C2 remediation slices are implemented and acceptance-complete:
+remediation review documents are static evidence; this roadmap served as the status
+ledger during that phase. The C1/C2 remediation slices are implemented and acceptance-complete:
 one checked resolved request, truthful P5.1 data placements and boundary
 realization, plan-owned scalar residual/data and objective/service lowering,
 resolved-decision manifest records, common realized-map/space records, and
@@ -1435,9 +1444,13 @@ recorded in the
   36/36 `debug-neutral`, 71/71 `debug-dealii`, and 36/36
   `sanitize-neutral` scenarios.
 
-### Current remediation and benchmark dependencies
+### Recorded remediation and benchmark dependencies
 
-P4.1 and P4.2 remain ignored for the current ordered implementation run. The
+> **Historical dependency note.** The dependency language below records the
+> final ordered implementation run; it does not activate new work today.
+
+
+P4.1 and P4.2 remain ignored for the recorded ordered implementation run. The
 selected P6.3 and P6.5 implementation surfaces are acceptance-complete. S1,
 P6.1, and the selected P6.2 supplied-OTD slice are closed. The P6.5
 remediation sequence is closed; the remaining sequence is benchmark work

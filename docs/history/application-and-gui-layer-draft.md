@@ -1,8 +1,10 @@
 # Draft: application, run, and GUI layer
 
-Status: working draft for later refinement. This document records an
-application-layer and user-interface direction; it is not an architectural
-contract and is not part of the implementation roadmap.
+> **Historical draft.** This document predates the current
+> application/runner layer. Several headless-runner, parameter, artifact, and
+> run-directory ideas were subsequently realized in the current application
+> architecture; the GUI proposal remains unimplemented. This document is not a
+> current plan or architectural contract.
 
 ## Intent
 
@@ -19,9 +21,9 @@ The GUI should be a client of the same headless runner used by scripts. It
 should not contain a second solver path, silently construct a different
 problem, or make the core compiler depend on Slint.
 
-## Current repository starting point
+## Repository starting point at the time of the draft
 
-The repository currently has reusable library and compiler code plus test
+The repository at the time had reusable library and compiler code plus test
 executables, but not a user-facing application catalog or a GUI application.
 The existing scenario-dispatch pattern is a useful starting point: an
 executable can expose named scenarios and list them, while the scenario
@@ -368,15 +370,19 @@ serialization and language-boundary choices are fixed.
 - Is ParaView an optional external dependency, and what is the fallback when
   it is unavailable?
 
-## Related authoritative material
+## Related material
 
-The design should eventually be reconciled with the existing compiled-problem
-manifest, solver result/reporting interfaces, and refactor assessment:
+> **Historical-link note.** The compiler and review links below are pinned to
+> the documentation baseline in which this draft's surrounding architecture
+> existed. For current application behavior, use
+> [`docs/reference/application-authoring.md`](../reference/application-authoring.md),
+> [`docs/reference/application-execution.md`](../reference/application-execution.md),
+> and [`docs/internals/runner.md`](../internals/runner.md).
 
-- [`semantic-compiler.md`](../implementation/v1/semantic-compiler.md)
+- [semantic compiler at the audit baseline](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md)
 - [`reduced_gradient.hpp`](../../include/nmopt/solvers/reduced_gradient.hpp)
 - [`compiled_problem.hpp`](../../include/nmopt/compiler/v1/compiled_problem.hpp)
-- [`pre-Chapter 5/6 assessment`](../planning/review/pre-ch5-ch6/assessment.md)
+- [pre-Chapter 5/6 assessment at the audit baseline](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/pre-ch5-ch6/assessment.md)
 
-Until those interfaces are intentionally extended, this draft should remain a
-discussion artifact and should not be treated as an implementation commitment.
+This draft remains a discussion artifact and should not be treated as an
+implementation commitment.

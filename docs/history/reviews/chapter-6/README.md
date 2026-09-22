@@ -1,10 +1,12 @@
 # Chapter 6 reviews
 
 These documents record static review evidence and remediation handoffs for the
-Chapter 6 implementation commits. The
-[implementation roadmap](../../../planning/implementation-roadmap.md) remains the sole
-owner of mutable feature status, acceptance state, and the current agent
-handoff.
+Chapter 6 implementation commits.
+
+> **Historical authority note.** At the time of these reviews, the
+> [implementation roadmap](../../../planning/implementation-roadmap.md) served
+> as the mutable feature-status and handoff ledger. It is now a retained
+> planning record; the findings below remain historical evidence.
 
 The S1 preparation review records the current-state audit of the prerequisite
 that should have preceded P6.1. S1 has no dedicated historical commit range:

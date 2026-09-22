@@ -12,8 +12,11 @@ full assessment by default.
   `RF-001` through `RF-020`.
 - [Assessment plan](assessment-plan.md) records the completed Stage A audit
   method. It is historical context, not required execution reading.
-- [Implementation roadmap](../../../planning/implementation-roadmap.md) remains the sole
-  owner of mutable project status, completed tasks, and the current handoff.
+> **Historical authority note.** At the time of this review, the
+> [implementation roadmap](../../../planning/implementation-roadmap.md) served
+> as the mutable project-status and handoff ledger. It is now retained as a
+> historical plan; current authority is routed through the root documentation
+> map.
 
 The integration branch is `codex/ch5-ch6-development`. The immutable
 behavioral comparison point is tag `pre-refactor-ch5-ch6` at `7c2496b`.

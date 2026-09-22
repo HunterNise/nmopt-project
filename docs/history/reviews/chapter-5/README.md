@@ -1,9 +1,14 @@
 # Chapter 5 reviews
 
 These documents review the C1/C2 preparation and selected Chapter 5
-implementation slices. They are static evidence and remediation handoffs; the
-[implementation roadmap](../../../planning/implementation-roadmap.md) owns current
-status and acceptance state.
+implementation slices.
+
+> **Historical authority note.** They are static evidence and remediation
+> handoffs. The
+> [implementation roadmap](../../../planning/implementation-roadmap.md)
+> records the development/status context used during these reviews; current
+> compiler/application authority belongs to the current references, studies,
+> source, and tests.
 
 The reviewed C1/C2 and P5.1–P5.4 remediation gates are now acceptance-complete;
 the roadmap and owning checklists record that status. The post-audit fixes

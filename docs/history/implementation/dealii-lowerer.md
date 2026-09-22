@@ -5,7 +5,8 @@
 > moved to the v1 component/compiler path. The implementation is no longer
 > shipped; the sections below describe the pre-E1 implementation for
 > historical comparison only. Current users should follow the
-> [v1 semantic compiler](../v1/semantic-compiler.md) or the
+> [compiler reference](../../reference/compiler.md),
+> [compiler implementation guide](../../internals/compiler.md), or the
 > [external deal.II integration reference](../../reference/external-dealii-solver-integration.md).
 
 ## Implemented slice

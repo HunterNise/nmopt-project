@@ -1,13 +1,17 @@
-# Planning reviews
+# Review history
 
-This directory contains review evidence and remediation handoffs for work
-already performed. The applicable implementation/refactor roadmap, not an
-assessment document, owns mutable feature status, acceptance state, and the
-current handoff.
+> **Historical evidence.** This directory preserves review, audit, remediation,
+> and closure evidence for work already performed. The documents record the
+> repository state and decision context at the time of each review; they are
+> not current project-status ledgers.
+
+Use the root documentation map and current `reference/`, `design/`, or
+`internals/` documents for present authority. Retained roadmaps under
+`docs/planning/` preserve the plans that accompanied some of these reviews.
 
 - [PDE–solver boundary refactor](pde-solver-refactor/README.md) records the
   accepted boundary, architecture atlas, audit findings, deletion ledger, and
-  bounded execution plan for the current PDE/formulation/compiler cleanup.
+  bounded execution plan for the completed PDE/formulation/compiler cleanup.
 - [Pre-Chapter 5/6 review](pre-ch5-ch6/README.md) records the bounded
   readiness assessment and its Stage B execution plan.
 - [Chapter 5 reviews](chapter-5/README.md) record the C1/C2 preparation and

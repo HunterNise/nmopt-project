@@ -1,21 +1,27 @@
 # PDE–solver boundary refactor review
 
 This directory records the architecture audit and bounded implementation plan
-for the PDE/formulation/compiler cleanup.
+used for the completed PDE/formulation/compiler cleanup.
 
-Read the smallest document that answers the current task:
+> **Historical review context.** Paths, coupling observations, work units, and
+> handoff language in this directory describe the reviewed/refactor-time state.
+> Current implementation correspondence lives in
+> [`docs/internals/`](../../../internals/).
+
+Read the smallest document that answers the historical review question:
 
 - [PDE–solver boundary](../../../design/pde-solver-boundary.md) — accepted
   long-lived ownership and integration rules.
-- [Architecture map](architecture-map.md) — detailed current architecture,
-  runtime/compiler flows, typed-numerics decomposition, ownership, and
-  current-to-target correspondence.
+- [Architecture map](architecture-map.md) — detailed architecture at the
+  review baseline, runtime/compiler flows, typed-numerics decomposition,
+  ownership, and baseline-to-target correspondence.
 - [Assessment](assessment.md) — audit evidence, finding IDs, judgments, and
   deferred decisions. Read only assigned findings during implementation.
-- [Deletion ledger](deletion-ledger.md) — current types/paths to keep, narrow,
-  migrate, audit, or delete and the gates that protect unique behavior.
+- [Deletion ledger](deletion-ledger.md) — reviewed types/paths to keep,
+  narrow, migrate, audit, or delete and the gates that protected unique
+  behavior.
 - [Roadmap](roadmap.md) — executable work units, verification, decision
-  criteria, and current handoff.
+  criteria, and the recorded handoff.
 
 ## Agent routing
 

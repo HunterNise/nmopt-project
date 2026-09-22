@@ -43,10 +43,10 @@ scope decision.
 
 | Batch | Findings | Primary documents after this file |
 | --- | --- | --- |
-| R0 | RF-020 | [Implementation roadmap](../../../planning/implementation-roadmap.md), [v1 compiler record](../../../internals/compiler/semantic-compiler.md), and status-bearing documents named by RF-020 |
+| R0 | RF-020 | [Implementation roadmap](../../../planning/implementation-roadmap.md), [v1 compiler record at the last pre-replacement revision](https://github.com/HunterNise/nmopt-project/blob/6902badd00ba37857cf0a23aeaeab0cd32ef7fee/docs/internals/compiler/semantic-compiler.md), and status-bearing documents named by RF-020 |
 | R1 | RF-006, RF-009, RF-016 | Affected executable/semantic/compiler contracts and current tests |
 | R2a | RF-001, RF-006 | [V0 executable contract](../../implementation/executable-contract.md) and typed contract tests |
-| R2b | RF-002 through RF-006 | [Interface specification](../../../design/interface-specification.md), [v1 compiler record](../../../internals/compiler/semantic-compiler.md), and semantic tests |
+| R2b | RF-002 through RF-006 | [Interface specification](../../../design/interface-specification.md), [v1 compiler record at the last pre-replacement revision](https://github.com/HunterNise/nmopt-project/blob/6902badd00ba37857cf0a23aeaeab0cd32ef7fee/docs/internals/compiler/semantic-compiler.md), and semantic tests |
 | R2c | RF-008, RF-012 | Selected policies, compiler record, and deal.II contract tests |
 | R3 | RF-016 through RF-019 | Build conventions, root CMake configuration, and test registration |
 | C1 | RF-008 through RF-013 | V0/v1 contracts, selected policies, compiler code, and numerical provenance requirements |

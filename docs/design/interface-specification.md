@@ -1199,10 +1199,14 @@ The first binary reduced formulation may name its decision port with a
 parameter variable rather than a control variable; this changes the semantic
 role and residual derivatives, not the generic two-block DTO protocol.
 
-## 10. Required implementation sequence
+## 10. Interface obligations exposed by the original implementation sequence
 
-The first implementation MUST support the following interfaces even if some
-advanced instances return an unsupported-capability diagnostic:
+> **Historical rollout note.** This section preserves the interface
+> obligations revealed by the first implementation sequence. The sequence
+> itself is not a current plan.
+
+A conforming implementation MUST preserve the following roles even when a
+particular concrete instance returns an unsupported-capability diagnostic:
 
 1. regions, scalar spaces, pairings, variables, data, and requirement policy;
 2. transformations, residual terms, equation blocks, observations, losses,
@@ -1212,9 +1216,11 @@ advanced instances return an unsupported-capability diagnostic:
 4. DTO reduced state-adjoint-gradient formulation;
 5. term-level adjoint-consistency and Taylor-remainder tests.
 
-The first concrete instances SHOULD be scalar stationary diffusion-reaction,
-fixed Dirichlet data, volume and Neumann controls, distributed and boundary
-tracking, $L^{2}$ and $H^{1}$ metrics, and box constraints.
+The initial concrete slice deliberately selected scalar stationary
+diffusion-reaction, fixed Dirichlet data, volume and Neumann controls,
+distributed and boundary tracking, $L^{2}$ and $H^{1}$ metrics, and box
+constraints. That bounded feature choice does not narrow the interface
+obligations above.
 
 Dirichlet control, coefficient identification, time terms, Petrov–Galerkin,
 and OTD SHOULD be added only as new instances or formulation builders.  If an

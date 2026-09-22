@@ -91,6 +91,9 @@ reconstruction, diagnostics, or field output and therefore recovered the
 concrete model with `dynamic_cast`. The surviving boundary keeps typed native
 ownership beside the erased solver-facing operations.
 
+> **Historical refactor context.** The sequence below describes the
+> pre-refactor failure mode retained here to explain why this boundary exists.
+
 That sequence erases too much information too early:
 
 ```text
@@ -101,7 +104,7 @@ semantic graph
     -> application dynamic_cast back to concrete model
 ```
 
-The target architecture retains the typed numerical realization while exposing
+The architectural boundary retains the typed numerical realization while exposing
 only the narrow mathematical operations required by formulations and
 optimizers:
 
@@ -329,7 +332,7 @@ ProblemSpec
   -> semantic validation and resolution
   -> closed compilation/lowering decision
   -> typed numerical realization
-  -> solver-facing operations + typed native view
+  -> solver-facing operations + compiled application view
   -> formulation and optimizer
 ```
 
@@ -337,7 +340,8 @@ The compiler must not represent the same realization decision repeatedly as
 parallel target enums, predicate sets, boolean fields, construction switches,
 and manifest compatibility copies.
 
-A future closed plan should describe the selected numerical axes once. Exact
+A closed lowering decision or plan should describe the selected numerical
+axes once. Exact
 C++ representation is deferred to the implementation unit that can prove which
 fields and variants remove existing duplication.
 
@@ -381,13 +385,15 @@ output is written.
 `ExecutableModelT`, `ReducedDTOT`, optimizers, and reusable numerical
 components must not own filesystem or application-output policy.
 
-The compiler/native application path therefore retains a typed native view
-beside the erased solver-facing view. Application code must not recover private
-compiler target types through `dynamic_cast` from `ExecutableModelT`.
+The compiler path may retain a typed compiled application view beside the
+erased solver-facing view. An external application instead keeps equivalent
+native ownership and application-specific operations in its own code.
+Application code must not recover private compiler target types through
+`dynamic_cast` from `ExecutableModelT`.
 
-A native view may expose typed field data, reconstruction operations, geometry,
-or side-effect-free diagnostic access needed by the application. This does not
-imply a universal field-output interface.
+A compiled application view may expose typed field data, reconstruction
+operations, geometry, or side-effect-free diagnostic access needed by the
+application. This does not imply a universal field-output interface.
 
 Introduce a shared output abstraction only if multiple real applications
 demonstrate one stable requirement and the abstraction removes more code or
@@ -397,20 +403,17 @@ duplication than it adds.
 
 The rules in this document are implementation-independent.
 
-The R0 refactor review contains a descriptive
-[architecture map](../history/reviews/pde-solver-refactor/architecture-map.md)
-showing how the code at the start of the refactor corresponds to these
-boundaries. It records the native and external producer paths, compiler and
-lowering flow, typed-numerics axes, formulation runtime, ownership and
-lifetime, and the current coupling pressure points.
+For the current correspondence between these architectural roles and the
+source tree, use the
+[implementation map](../internals/implementation-map.md).
 
-That map is review evidence rather than design authority. This document remains
-authoritative for the boundary itself.
+> **Historical refactor evidence.** The PDE-solver refactor's
+> [architecture map](../history/reviews/pde-solver-refactor/architecture-map.md)
+> records the implementation state, producer paths, ownership, and coupling
+> pressures observed at the start of that refactor. It is review evidence, not
+> current design or implementation authority.
 
-The architecture map is intentionally allowed to name current concrete types
-and implementation pressure that may disappear during the refactor. Durable
-parts of that correspondence can later be promoted into the permanent design
-documentation after the implementation stabilizes.
+This document remains authoritative for the boundary itself.
 
 ## Design non-goals
 

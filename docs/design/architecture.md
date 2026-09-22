@@ -229,9 +229,14 @@ very weak formulation   requires trial/test-space and pairing realization
 This is a feature: it keeps subtle mathematical assumptions visible instead of
 hiding them in branches of unrelated classes.
 
-## Initial vertical slice
+## Original vertical-slice constraint
 
-Implement and test the following before attempting the advanced cases:
+> **Historical rollout note.** The list below records the deliberately narrow
+> first executable slice used to pressure-test the interfaces. It is not a
+> current feature or status checklist.
+
+The original implementation plan deliberately constrained the first executable
+slice to:
 
 ```text
 scalar stationary diffusion-reaction equation
@@ -245,6 +250,6 @@ Armijo gradient method, nonlinear CG or L-BFGS
 adjoint-consistency, Taylor-remainder, and manufactured-solution tests
 ```
 
-Future extensions should preserve the same contracts. In particular, do not
+Extensions should preserve the same contracts. In particular, do not
 add PDE-specific conditions to optimizers or solver-specific behavior to weak
 form terms.

@@ -731,9 +731,13 @@ input is merely a strong differential expression, a boundary-control flag,
 or labels such as `Hminus1` and `point tracking` without their spaces,
 pairings, and policies.
 
-## 6. Consequences for the first implementation slice
+## 6. Consequences for a deliberately narrow implementation slice
 
-The first executable slice can remain much smaller than the semantics above:
+> **Historical rollout note.** The original executable slice was intentionally
+> smaller than the semantic model. The feature list below explains that design
+> pressure; it is not a current capability ledger.
+
+A concrete executable slice may remain much smaller than the semantics above:
 scalar stationary diffusion–reaction; primal conforming Galerkin spaces;
 volume and Neumann controls; homogeneous or fixed lifted Dirichlet data;
 distributed/boundary observations; $L^{2}$ and $H^{1}$ metrics; and box constraints.

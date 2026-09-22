@@ -201,7 +201,9 @@ boundary trace-adjoint edge.  Changing it to Dirichlet control instead adds a
 control-to-state lifting before residual and observation evaluation; this is
 one of the intentional cross-cutting cases above.
 
-## Decisions to make now
+## Durable composition decisions
+
+The design fixes the following decisions:
 
 1. Fix the typed ports: spaces, pairings, map value/JVP/transpose-JVP,
    transformations, residual blocks, observations/losses, metrics, and

@@ -47,21 +47,28 @@ component contracts, and accepted design decisions.
 
 ### Reference
 
-- [Application assembly API](reference/application-api.md)
-- [Application execution](reference/application-execution.md)
+- [Problem authoring](reference/problem-authoring.md)
+- [Compiler](reference/compiler.md)
+- [Application authoring](reference/application-authoring.md)
 - [External deal.II solver integration](reference/external-dealii-solver-integration.md)
+- [Optimization](reference/optimization.md)
+- [Application execution](reference/application-execution.md)
 - [Parameter files](reference/parameter-files.md)
 
-These documents describe exact current public interfaces, schemas,
-configuration, execution, and integration contracts.
+These task-oriented documents describe the practical current programming
+interface: how to author, compile, integrate, optimize, execute, and configure
+applications using the supported public surface.
 
 ### Internals
 
-- [System blueprint](internals/system-blueprint.md)
-- [Semantic compiler internals](internals/compiler/semantic-compiler.md)
+- [Implementation map](internals/implementation-map.md)
+- [Compiler implementation](internals/compiler.md)
+- [Repository runner implementation](internals/runner.md)
 
-These documents describe current implementation mechanics and capability
-internals without replacing the public references or design contracts.
+These documents are maintainer maps for the current implementation: ownership,
+stage and dependency flow, lifetime boundaries, extension points, and focused
+verification. Public programming contracts remain in `reference/`; source and
+focused tests remain authoritative for implementation behavior.
 
 ### Studies
 
@@ -114,14 +121,15 @@ before inspecting or changing repository content.
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
 | First-time project reader | [Manual overview](manual/overview/README.md) | [Concept chapters](manual/concepts/README.md), then the reference for the task at hand |
-| Understand the whole system and code correspondence | [System blueprint](internals/system-blueprint.md) | [Interface specification](design/interface-specification.md) and [semantic compiler internals](internals/compiler/semantic-compiler.md) |
+| Understand the whole system and code correspondence | [Implementation map](internals/implementation-map.md) | [Compiler implementation](internals/compiler.md), [runner implementation](internals/runner.md), and the relevant design record |
 | Author or modify a semantic problem | [Problem authoring](reference/problem-authoring.md) | [Compiler](reference/compiler.md) and the relevant manual concept chapter |
 | Author a reusable nmopt-native application | [Application authoring](reference/application-authoring.md) | [Problem authoring](reference/problem-authoring.md), [compiler](reference/compiler.md), and [application execution](reference/application-execution.md) |
 | Connect an existing PDE application | [External deal.II solver integration](reference/external-dealii-solver-integration.md) | [Optimization](reference/optimization.md) and the relevant public contract/deal.II headers |
 | Add or use an optimization method | [Optimization](reference/optimization.md) | [Reduced optimization methods](manual/concepts/06-reduced-optimization-methods.md) and the public solver/contract headers |
 | Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) | [Application execution](reference/application-execution.md), [parameter files](reference/parameter-files.md), and the [benchmark roadmap](planning/chapter-6-benchmark-suite-roadmap.md) |
 | Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Problem authoring](reference/problem-authoring.md), [architecture](design/architecture.md), and [composition boundaries](design/composition-boundaries.md) |
-| Change deal.II compiler/lowering implementation | [Compiler](reference/compiler.md) | [Semantic compiler internals](internals/compiler/semantic-compiler.md), [interface specification](design/interface-specification.md), and [implementation roadmap](planning/implementation-roadmap.md) |
+| Change deal.II compiler/lowering implementation | [Compiler implementation](internals/compiler.md) | [Compiler reference](reference/compiler.md), [interface specification](design/interface-specification.md), and focused compiler tests |
+| Change repository runner/configuration implementation | [Runner implementation](internals/runner.md) | [Application execution](reference/application-execution.md), [parameter files](reference/parameter-files.md), and focused application tests |
 | Check mathematical signs or formulas | [Mathematical model](design/mathematical-model.md) | [Laplace formulas](studies/case-studies/laplace-interface-formulas.md) and [growth study](studies/case-studies/laplace-growth.md) |
 | Implement or reproduce a Chapter 5 application | [Chapter 5 recipes](studies/chapter-5/recipes.md) | [Application authoring](reference/application-authoring.md), [source catalogue](studies/chapter-5/source-catalogue.md), and [problem-library roadmap](planning/chapter-5-problem-library-roadmap.md) |
 | Generate or inspect application runs | [Application execution](reference/application-execution.md) | [Parameter files](reference/parameter-files.md), [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md), and [application roadmap](planning/application-roadmap.md) |

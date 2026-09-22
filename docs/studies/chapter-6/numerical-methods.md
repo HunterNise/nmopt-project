@@ -19,12 +19,12 @@ estimates, are excluded at the user's request. Section 6.12 exercises is also
 not an implementation method. References to SQP and nonlinear OCPs belong to
 later chapters; this guide records only the capabilities Chapter 6 needs.
 
-Consult the [roadmap handoff](../../planning/implementation-roadmap.md#current-handoff-state)
-for implemented solver and formulation services and the
-[v1 capability table](../../internals/compiler/semantic-compiler.md#registered-capabilities)
-for exact compiler targets. The required reusable Chapter 6 extensions are
-P6.1–P6.5 in the
-[implementation roadmap](../../planning/implementation-roadmap.md#chapter-6-feature-requests).
+Consult [Optimization](../../reference/optimization.md) for the current solver
+and formulation-product interfaces and the
+[Compiler reference](../../reference/compiler.md) for current compiler
+targets. The P6.1–P6.5 sequence remains recorded in the
+[implementation roadmap](../../planning/implementation-roadmap.md#chapter-6-feature-requests)
+as development history.
 
 ## Framework convention and discrete notation
 

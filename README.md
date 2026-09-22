@@ -127,9 +127,9 @@ useful entry points are:
   reading path from the project architecture into the concept chapters.
 - [Concept chapters](docs/manual/concepts/README.md) — the progressive mathematical,
   formulation, compiler, and integration manual.
-- [System blueprint](docs/internals/system-blueprint.md) — the shortest
-  implementer-oriented overview of the theory, specification, implementation,
-  and test correspondence.
+- [Implementation map](docs/internals/implementation-map.md) — the
+  maintainer-oriented map from architectural responsibilities to source,
+  ownership, and focused tests.
 - [Architecture overview](docs/design/architecture.md) — long-lived design
   rationale and component boundaries.
 - [Interface specification](docs/design/interface-specification.md) —

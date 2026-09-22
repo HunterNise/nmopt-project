@@ -268,6 +268,44 @@ Changes made during the repository-structure branch should therefore not be mist
 for documentation architecture proposals, and earlier documentation plans should not
 be assumed to describe source paths that had not yet stabilized.
 
+## Current implementation-documentation split
+
+The final implementation-documentation pass replaced the two broad legacy
+internals with narrower maintainer-oriented documents:
+
+```text
+docs/internals/system-blueprint.md
+    → docs/internals/implementation-map.md
+
+docs/internals/compiler/semantic-compiler.md
+    → docs/reference/compiler.md
+      + docs/internals/compiler.md
+
+new:
+docs/internals/runner.md
+```
+
+`system-blueprint.md` had mixed conceptual teaching, architecture
+correspondence, implementation navigation, and verification guidance. Those
+roles are now separated between the manual/design records and the current
+implementation map.
+
+`compiler/semantic-compiler.md` had combined public capability documentation
+with compiler implementation mechanics. Current public compilation workflows,
+supported realization families, products, diagnostics, and rejection
+boundaries now belong to the task-oriented compiler reference. Request closure,
+lowering/planning mechanics, target ownership, product packaging, provenance,
+lifetimes, and verification belong to the compiler internals.
+
+`runner.md` was added because the repository application has a distinct
+maintainer-facing implementation structure that the public execution reference
+intentionally abstracts: parameter/schema resolution, `RunSetPlan`, lifecycle
+and manifest ownership, execution registration, and Chapter-6-specific
+orchestration.
+
+The superseded files are not copied under `history/`; Git remains their exact
+archive and this page records their replacements.
+
 ## Recovering important earlier documents
 
 Git is the canonical archive for files that were renamed or later superseded.

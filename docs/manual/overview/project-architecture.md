@@ -584,8 +584,10 @@ For authority beyond the overview layer:
   the accepted ownership and integration rules.
 - [Composition boundaries](../../design/composition-boundaries.md) gives the more
   prescriptive subsystem composition rules.
-- [v1 semantic compiler](../../internals/compiler/semantic-compiler.md) is the detailed
-  current compiler capability ledger.
+- [Compiler reference](../../reference/compiler.md) records current public
+  compiler capabilities and usage.
+- [Compiler implementation](../../internals/compiler.md) maps the current
+  compiler's internal stages and ownership.
 - [External deal.II solver integration](../../reference/external-dealii-solver-integration.md)
   gives exact contracts for the direct-application path.
 - [Application execution](../../reference/application-execution.md) and

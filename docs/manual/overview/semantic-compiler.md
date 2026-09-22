@@ -354,9 +354,10 @@ The main implementation areas are:
 - `include/nmopt/application/` – project recipes and scenarios that construct
   semantic problems for the Chapter 5/6 application layer.
 
-The detailed current capability ledger lives in
-[`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md).
-That document is intentionally much more exhaustive than this overview.
+The current operational capability description lives in the
+[Compiler reference](../../reference/compiler.md). The corresponding
+implementation stages, ownership, and verification map live in
+[Compiler implementation](../../internals/compiler.md).
 
 ## 13. When to use this path
 
@@ -385,8 +386,10 @@ the other.
 
 For deeper detail, use the document whose authority matches the question:
 
-- [v1 semantic compiler](../../internals/compiler/semantic-compiler.md) is the current
-  capability ledger and implementation record for registered compiler targets.
+- [Compiler reference](../../reference/compiler.md) records the current public
+  capability and diagnostic boundary.
+- [Compiler implementation](../../internals/compiler.md) records current
+  lowering, realization, product, provenance, and verification mechanics.
 - [Problem authoring](../../reference/problem-authoring.md),
   [Compiler](../../reference/compiler.md), and
   [Application authoring](../../reference/application-authoring.md) record the

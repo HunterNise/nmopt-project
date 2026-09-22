@@ -1576,8 +1576,9 @@ Useful existing documents are:
   by the graph.
 - [Chapter 5 elliptic optimal-control guide](../../studies/chapter-5/source-catalogue.md),
   for the source problem families that motivated many of the semantic components.
-- [v1 semantic/compiler capability](../../internals/compiler/semantic-compiler.md),
-  for the exhaustive current capability ledger.
+- [Compiler reference](../../reference/compiler.md), for the current supported
+  realization families and whole-problem compilation constraints.
 
-This chapter explains what a semantic problem **is**. The capability ledger remains
-authoritative for what the current compiler can actually construct.
+This chapter explains what a semantic problem **is**. The compiler reference
+describes the supported public paths; `DealiiCompiler::validate()` remains the
+concrete public check for a particular graph, policy, and product.

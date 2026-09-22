@@ -101,8 +101,10 @@ Once the mental model is clear, route by the kind of authority you need:
 - [`docs/design/pde-solver-boundary.md`](../../design/pde-solver-boundary.md) records
   the accepted ownership boundary between PDE realization, formulation, compiler,
   and optimization.
-- [`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md)
-  is the detailed current capability ledger for the v1 semantic/compiler path.
+- [`docs/reference/compiler.md`](../../reference/compiler.md) describes the
+  current public compiler paths, products, capabilities, and diagnostics.
+- [`docs/internals/compiler.md`](../../internals/compiler.md) explains the
+  current compiler implementation mechanics.
 - `docs/reference/` contains the exact public operational contracts that already have
   dedicated references, including external deal.II integration, application
   execution, and parameter files.

@@ -2048,8 +2048,8 @@ Useful existing documents are:
   among reduced, supplied OTD, KKT, and PDAS formulation products.
 - [Semantic compiler](../overview/semantic-compiler.md), for the high-level
   compiler path that can construct selected formulation products.
-- [v1 semantic/compiler capability](../../internals/compiler/semantic-compiler.md),
-  for the exact currently registered formulation/capability ledger.
+- [Compiler reference](../../reference/compiler.md), for current registered
+  formulation-product support and compiler rejection boundaries.
 
 The next concept chapter will connect the equality-constrained KKT system to bound
 constraints, complementarity, and primal-dual active-set iterations.

@@ -2076,8 +2076,8 @@ Useful existing documents are:
 - [Metrics, gradients, and constraints](04-metrics-gradients-and-constraints.md), for
   metric projection and the primal–dual identification reused by multiplier
   representations.
-- [v1 semantic/compiler capability](../../internals/compiler/semantic-compiler.md),
-  for the exact currently registered complementarity/PDAS capability ledger.
+- [Compiler reference](../../reference/compiler.md), for current registered
+  complementarity/PDAS compilation support and rejection boundaries.
 
 A future optimization background chapter can go deeper into normal cones,
 complementarity functions, semismooth Newton theory, and convergence results without

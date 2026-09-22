@@ -2043,12 +2043,11 @@ The optional application-facing seam is:
 
 - [`include/nmopt/compiler/v1/compiled_application_view.hpp`](../../../include/nmopt/compiler/v1/compiled_application_view.hpp)
 
-For the exact registered target families and their bounded capabilities, use:
+For the current registered target families and their bounded capabilities, use
+the [Compiler reference](../../reference/compiler.md).
 
-- [`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md)
-
-That ledger remains authoritative for which complete semantic signatures the current
-compiler accepts.
+For one concrete semantic graph and policy, use compiler validation rather than
+inferring support from isolated component kinds.
 
 ## 38. Part III closes at the numerical contract boundary
 
@@ -2092,8 +2091,10 @@ Useful existing documents are:
   shorter architecture view.
 - [Numerical realization](../overview/numerical-realization.md), for the
   shorter project-wide view of the numerical layer.
-- [v1 semantic graph and deal.II compiler](../../internals/compiler/semantic-compiler.md),
-  for the exact registered capability and target ledger.
+- [Compiler reference](../../reference/compiler.md), for current public
+  capability and target support.
+- [Compiler implementation](../../internals/compiler.md), for lowering,
+  realization, product-packaging, and provenance mechanics.
 - [Validation, resolution, and capabilities](10-validation-resolution-and-capabilities.md),
   for the acceptance boundaries that precede this chapter.
 - [Semantic problem model](09-semantic-problem-model.md), for the semantic vocabulary

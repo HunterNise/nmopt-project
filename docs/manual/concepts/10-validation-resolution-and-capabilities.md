@@ -1390,14 +1390,12 @@ is there any registered residual lowerer for this ResidualTermKind?
 is there any registered observation lowerer for this ObservationKind?
 ```
 
-The implementation capability ledger in
+The current [Compiler reference](../../reference/compiler.md) records
+supported realization families, factory routes, products, and common rejection
+boundaries. For one concrete graph, policy, and product,
+`DealiiCompiler::validate()` is the public whole-request capability check.
 
-- [`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md)
-
-records the **complete registered problem signatures** and their selected
-implementations.
-
-The ledger is therefore the better answer to
+Those are therefore the better answers to
 
 > Can the current compiler build this whole problem?
 
@@ -1750,13 +1748,14 @@ Useful existing documents are:
 
 - [Describing and compiling a problem](../overview/semantic-compiler.md), for the
   short architecture-level description of the path.
-- [v1 semantic graph and deal.II compiler](../../internals/compiler/semantic-compiler.md),
-  for the authoritative detailed capability ledger.
+- [Compiler reference](../../reference/compiler.md), for current public
+  capabilities, products, diagnostics, and rejection boundaries.
+- [Compiler implementation](../../internals/compiler.md), for request closure,
+  lowering/planning mechanics, realization ownership, and verification.
 - [Semantic problem model](09-semantic-problem-model.md), for the `ProblemSpec` vocabulary
   assumed by this chapter.
 - [Project architecture](../overview/project-architecture.md), for the relationship
   between compiler-produced and externally supplied numerical services.
 
-The capability ledger remains authoritative for the exact set of registered v1
-problem signatures; the acceptance boundaries above explain how a request reaches
-that ledger.
+The compiler reference records the supported public paths; validation of a
+concrete request determines whether the current compiler accepts it.

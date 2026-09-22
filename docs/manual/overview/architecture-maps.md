@@ -161,8 +161,9 @@ problem and execution choices. Direct client code can build the same `ProblemSpe
 without either layer.
 
 For prose, read [Describing and compiling a problem](semantic-compiler.md). The
-detailed current capability ledger is
-[`docs/internals/compiler/semantic-compiler.md`](../../internals/compiler/semantic-compiler.md).
+current public capability and compilation details are in the
+[Compiler reference](../../reference/compiler.md); implementation mechanics are
+mapped in [Compiler implementation](../../internals/compiler.md).
 
 ## 3. Existing-application integration path
 

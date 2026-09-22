@@ -4,10 +4,11 @@ This document turns the selected Chapter 5 catalogue into application-facing
 recipe contracts. It is an authoring aid: it names the semantic graph seed,
 the required runtime bindings, the discrete control representation, and the
 allowed option seams. The [Chapter 5 guide](source-catalogue.md)
-remains authoritative for the mathematics, the [v1 capability table](../../internals/compiler/semantic-compiler.md#registered-capabilities)
-remains authoritative for realized compiler registrations, and the
+remains authoritative for the mathematics, while the
+[Compiler reference](../../reference/compiler.md) records the current realized
+compiler paths. The
 [problem-library roadmap](../../planning/chapter-5-problem-library-roadmap.md)
-owns recipe implementation order and status.
+is retained as the development plan and status record for the recipe work.
 
 A recipe is a typed builder of `semantic::v1::ProblemSpec`. It is not a PDE
 class and it does not own deal.II functions, a mesh, a compiler, a solver, or

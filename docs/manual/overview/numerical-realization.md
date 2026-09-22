@@ -416,8 +416,10 @@ Step-4 realization, use:
   for exact public contracts.
 
 For compiler-owned realizations, the
-[v1 semantic compiler record](../../internals/compiler/semantic-compiler.md) owns the
-current capability ledger.
+[Compiler reference](../../reference/compiler.md) records the current public
+capability boundary, while
+[Compiler implementation](../../internals/compiler.md) explains the lowering
+and realization mechanics.
 
 For implementation source, the main areas are:
 

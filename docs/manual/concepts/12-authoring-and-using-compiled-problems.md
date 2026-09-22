@@ -1271,8 +1271,10 @@ For exact current programming interfaces, use:
 - [Application authoring](../../reference/application-authoring.md);
 - [Optimization](../../reference/optimization.md).
 
-For implementation mechanics and the registered capability ledger, use the
-[v1 semantic graph and deal.II compiler](../../internals/compiler/semantic-compiler.md).
+For implementation mechanics, use the
+[compiler implementation map](../../internals/compiler.md). Current supported
+public compiler paths and rejection boundaries belong to the
+[compiler reference](../../reference/compiler.md).
 
 ## Read next
 

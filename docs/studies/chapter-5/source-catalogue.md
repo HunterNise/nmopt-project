@@ -50,10 +50,10 @@ feasibility/projection or apply/inverse-apply test.
 
 ## Capability routing and stable feature deltas
 
-Consult the [v1 capability table](../../internals/compiler/semantic-compiler.md#registered-capabilities)
-for exact compiler support and the
+Consult the [Compiler reference](../../reference/compiler.md) for current
+compiler support. The
 [implementation roadmap](../../planning/implementation-roadmap.md#chapter-5-feature-requests)
-for completion state. The table below records stable mathematical and
+is retained as the development/completion record. The table below records stable mathematical and
 architectural deltas required by the source families; it is not a second
 release-status table.
 
@@ -526,8 +526,8 @@ tangential shape gradients. It supplies both the selected tangential
 $H^{1}(\Gamma)$ control loss and search metric while preserving their
 separate semantic identities.
 
-The exact registered Dirichlet-control boundary is recorded in the
-[v1 capability table](../../internals/compiler/semantic-compiler.md#registered-capabilities).
+The current registered Dirichlet-control boundary is summarized in the
+[Compiler reference](../../reference/compiler.md).
 The complete-boundary factories
 `make_hhalf_dirichlet_laplace_control_problem()`,
 `make_h1_tracking_hhalf_dirichlet_laplace_control_problem()`, and

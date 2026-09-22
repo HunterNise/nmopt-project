@@ -623,20 +623,32 @@ public:
     auto reduced =
       compilation.problem->make_reduced_dto();
 
-    const auto report =
+    auto report =
       solve_selected_method(
         reduced,
         compilation.problem->metric(),
         scenario.solver);
 
-    return make_detached_evidence(
+    const auto solver_policy =
+      nmopt::experiment::make_reduced_search_policy_snapshot(report);
+
+    Envelope envelope{
       compilation.problem->manifest(),
-      report,
-      scenario,
-      environment_);
+      solver_policy,
+      std::move(report),
+      environment_};
+
+    return Evidence{
+      std::move(envelope),
+      compilation.diagnostics,
+      {},
+      {},
+      {}};
   }
 };
 ```
+
+`environment_` is a caller-supplied `RunEnvironmentRecord`; environment collection is orchestration policy rather than a responsibility of the numerical formulation. The envelope owns the manifest, policy snapshot, solver report, and environment values, but does not retain the compiled numerical service. For a trust-region result, use `make_reduced_trust_region_policy_snapshot()` with `ReducedTrustRegionExperimentEnvelopeT`.
 
 The helper names in this sketch are application-local. The key is the
 responsibility split:

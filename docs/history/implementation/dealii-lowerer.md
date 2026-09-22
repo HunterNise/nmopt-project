@@ -42,10 +42,12 @@ $$
 The source, target, and sign convention are thus exactly those required by
 the backend-parametric `ExecutableModelT` contract.
 
-This direct v0 model remains a preserved reference implementation. The
-[v1 semantic compiler](../v1/semantic-compiler.md) constructs a separate
-executable from `ProblemSpec` and compares it with this direct path; it does
-not replace or mutate this model.
+This direct v0 model remains a preserved reference implementation.
+
+> **Historical implementation note.** At the audit baseline, the
+> [v1 semantic compiler](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md) constructed a separate executable from
+> `ProblemSpec` and compared it with this direct path; it did not replace or
+> mutate this model.
 
 ## Selected discrete policies
 

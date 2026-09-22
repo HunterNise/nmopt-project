@@ -15,9 +15,13 @@ discretisation or formulation policy and by providing the required tests.
 
 The baseline terminology in this review records the original implementation
 generation. The direct scalar deal.II realization was retired by the
-PDE–solver refactor; current compiler capability is recorded in the
-[v1 semantic compiler record](v1/semantic-compiler.md), while existing
-applications use the [external deal.II integration reference](../reference/external-dealii-solver-integration.md).
+PDE–solver refactor.
+
+> **Current-routing note.** Current compiler capability is documented in the
+> [compiler reference](../../reference/compiler.md), current compiler mechanics
+> in [compiler internals](../../internals/compiler.md), and existing-application
+> integration in the
+> [external deal.II integration reference](../../reference/external-dealii-solver-integration.md).
 
 The result is deliberately conservative:
 
@@ -374,8 +378,11 @@ extension, corner/interface compatibility, and behavior on fixed Dirichlet
 portions. The discrete problem records the lifting choice because different
 liftings can produce different discrete intermediate systems. Dirichlet
 control was excluded from the original baseline rather than simulated by a
-Neumann-like coupling. The [v1 capability table](v1/semantic-compiler.md#registered-capabilities)
-owns the status and bounds of any registered realization.
+Neumann-like coupling.
+
+> **Historical capability note.** The
+> [v1 capability table at the audit baseline](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md#registered-capabilities)
+> recorded the status and bounds of registered realizations at that time.
 
 #### 8.2.1 $L^{2}(\Gamma)$ Dirichlet control by a conforming trace subspace
 
@@ -533,9 +540,11 @@ transfer map. They are not inferred from a boundary ID.
 
 This policy requires the state and adjoint realizations to use the same
 visible gauge, check all discrete compatibility conditions, and record the
-gauge and solve policy in provenance. The
-[v1 capability table](v1/semantic-compiler.md#registered-capabilities) owns
-the exact bounds of any registered pure-Neumann target.
+gauge and solve policy in provenance.
+
+> **Historical capability note.** The
+> [v1 capability table at the audit baseline](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md#registered-capabilities)
+> recorded the exact bounds of registered pure-Neumann targets at that time.
 
 ## 9. Mesh, data, geometry, and time
 
@@ -608,11 +617,16 @@ assembled DTO residual/JVP/VJP; L2 search metric
 unconstrained reduced gradient, then L2-projected box gradient
 ~~~
 
-This is a policy baseline, not a mutable release ledger. The exact current v1
-graphs, target implementations, bounds, tests, and exclusions live in the
-[v1 capability table](v1/semantic-compiler.md#registered-capabilities) and its
-[exclusions](v1/semantic-compiler.md#exclusions). Task order and completion
-state live only in the [implementation roadmap](../planning/implementation-roadmap.md).
+This is a policy baseline, not a mutable release ledger.
+
+> **Historical status note.** At the time of this review, registered graphs,
+> target implementations, bounds, tests, and exclusions were tracked in the
+> [v1 capability table](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md#registered-capabilities) and its
+> [exclusions](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md#exclusions), while task order and completion state were
+> tracked in the
+> [implementation roadmap](../../planning/implementation-roadmap.md). Current
+> capability and implementation authority belongs to the current references,
+> source, focused tests, and internals.
 
 Every extension must declare its own lowering boundary, capability diagnostic,
 and tests. Fixed reconstruction precedes controlled-essential lifting;

@@ -1,10 +1,15 @@
 # V0 executable contract
 
+> **Historical implementation record.** This page describes the V0 executable
+> contract and implementation generation. Current public programming guidance
+> belongs to `docs/reference/`; current implementation correspondence belongs
+> to `docs/internals/`.
+
 ## Scope
 
 This is the first code-level realization of the default policies in the
-[implementation-readiness review](../implementation-readiness-review.md). It is
-backend-neutral on purpose: the [v1 deal.II compiler](../v1/semantic-compiler.md)
+[implementation-readiness review](implementation-readiness-review.md). It is
+backend-neutral on purpose: the [v1 deal.II compiler at the audit baseline](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md)
 lowers its supported semantic graph to this contract, while the contract
 itself does not contain a DoFHandler, finite element, matrix type, or solver
 selection.

@@ -1,6 +1,6 @@
 # Application authoring reference
 
-This reference explains how to author a **reusable nmopt-native application
+This reference explains how to author a **reusable `nmopt`-native application
 family** so that downstream users can select a scenario, supply a `.prm`
 configuration, and run it without reconstructing the semantic graph or backend
 integration by hand.
@@ -882,7 +882,7 @@ logic in the runner.
 
 ## A complete authoring route
 
-For a new nmopt-native application family, the shortest maintainable route is:
+For a new `nmopt`-native application family, the shortest maintainable route is:
 
 1. Reuse or define a semantic recipe and typed recipe parameters.
 2. Define the application problem record with runtime definitions/provenance.

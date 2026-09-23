@@ -1,6 +1,6 @@
 # Problem authoring reference
 
-This reference is for code that constructs nmopt's semantic problem description.
+This reference is for code that constructs `nmopt`'s semantic problem description.
 It starts from mathematical ingredients that have already been chosen and shows
 how to represent them as a `semantic::v1::ProblemSpec`, validate the graph, and
 package reusable families as `ProblemRecipeT`.

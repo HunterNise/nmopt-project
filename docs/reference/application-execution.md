@@ -1,6 +1,6 @@
 # Application execution reference
 
-This reference explains how to **run an already-authored nmopt application**,
+This reference explains how to **run an already-authored `nmopt` application**,
 retain deterministic evidence, organize a run set, and post-process persisted
 outputs.
 
@@ -9,7 +9,7 @@ If you are adding a new recipe/scenario/backend adapter, start with
 existing application through `.prm`, use
 [Parameter files](parameter-files.md).
 
-For the compiler-backed nmopt-native applications documented here, the
+For the compiler-backed `nmopt`-native applications documented here, the
 reusable execution pattern is:
 
 ```text

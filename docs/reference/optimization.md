@@ -1,6 +1,6 @@
 # Optimization reference
 
-This reference describes how to consume nmopt formulation products with the
+This reference describes how to consume `nmopt` formulation products with the
 current reduced-search, trust-region, KKT, and PDAS interfaces.
 
 For the mathematical background, use:
@@ -447,7 +447,7 @@ recursion.
 
 With `metric_inverse`, the initial inverse-Hessian action is $G^{-1}$.
 
-With `scalar_secant`, nmopt scales that metric inverse by
+With `scalar_secant`, `nmopt` scales that metric inverse by
 
 $$
 \gamma_{k}
@@ -522,7 +522,7 @@ $$
 \le
 \max\left(
   \texttt{absolute\_tolerance},
-  \texttt{relative\_tolerance}\,\lVert r_{0}\rVert_{G^{-1}}
+  \texttt{relative\_tolerance}\lVert r_{0}\rVert_{G^{-1}}
 \right).
 $$
 
@@ -541,12 +541,12 @@ nmopt::solvers::NewtonDirectionPolicyT<Backend>
 ```
 
 `curvature_tolerance` checks the Hessian curvature used by inner CG. For an
-inner search direction $p$, nmopt requires
+inner search direction $p$, `nmopt` requires
 
 $$
 \langle Hp,p\rangle
 >
-\texttt{curvature\_tolerance}\,
+\texttt{curvature\_tolerance}
 \lVert p\rVert_{G}^{2}.
 $$
 
@@ -843,7 +843,7 @@ trust.shrink_factor = 0.25;
 trust.expansion_factor = 2.0;
 ```
 
-For a trial step $s$, nmopt records
+For a trial step $s$, `nmopt` records
 
 $$
 \text{ared}
@@ -957,7 +957,7 @@ c
 \end{bmatrix}.
 $$
 
-The nmopt product stores typed primal/multiplier layouts, the $Q$, $D$,
+The `nmopt` product stores typed primal/multiplier layouts, the $Q$, $D$,
 $D^{\ast}$ and transpose actions, right-hand sides, pairings, multiplier
 conversion, and declared structural assumptions.
 

@@ -402,7 +402,7 @@ nmopt_dealii_contract
 `nmopt_contract` adds the project include tree and C++17 requirement.
 `nmopt_dealii_contract` composes that target with the discovered deal.II package.
 
-The current CMake project does **not** install/export an nmopt package for downstream
+The current CMake project does **not** install/export an `nmopt` package for downstream
 `find_package(nmopt)` use. Do not infer an installed-package workflow from the
 interface-target names.
 
@@ -473,7 +473,7 @@ evidence lifetime are documented separately.
 | Change manifest/provenance | `compilation_manifest.hpp`, manifest projection in `dealii_compiler.hpp` | manifest test helpers and artifact consumers |
 | Add a generic optimization method | `include/nmopt/solvers/` | optimization reference and contract tests |
 | Adapt an existing PDE code directly | application code + `CallbackExecutableModelT` | external-integration reference and Step-4 minimal consumers |
-| Add an nmopt-native application family | `include/nmopt/application/` | application-authoring reference and application tests |
+| Add an `nmopt`-native application family | `include/nmopt/application/` | application-authoring reference and application tests |
 | Register a repository benchmark | `apps/nmopt-runner/benchmark_registry.hpp` | parameter schema/binder, execution registration, parameters, runner tests |
 | Change run-set/output policy | `apps/nmopt-runner/` | application-execution and parameter-file references |
 | Change persisted-artifact interpretation | `tools/nmopt_artifacts/`, `tools/nmopt_postprocess/` | tool contracts and reporting/post-processing consumers |

@@ -1,7 +1,7 @@
 # External deal.II solver integration reference
 
 This reference explains how to connect an **existing deal.II PDE code** to
-nmopt without rebuilding that code as a semantic `ProblemSpec`.
+`nmopt` without rebuilding that code as a semantic `ProblemSpec`.
 
 Use this path when the application already owns its mesh, finite-element
 spaces, assembly, linear solvers, boundary treatment, and output. The job of
@@ -46,7 +46,7 @@ application-owned reconstruction / output
 
 ## Choose this path instead of the compiler path
 
-nmopt has two peer producer paths:
+`nmopt` has two peer producer paths:
 
 ```text
 semantic/compiler path                    existing-application path
@@ -65,7 +65,7 @@ DealiiCompiler                         application-local OCP facade
                       solvers
 ```
 
-If nmopt should create the numerical realization from a semantic graph, use
+If `nmopt` should create the numerical realization from a semantic graph, use
 [Problem authoring](problem-authoring.md) and [Compiler](compiler.md).
 
 If the PDE code already exists and should remain authoritative for assembly
@@ -73,11 +73,11 @@ and solves, use the direct path here.
 
 Do not create a dummy `ProblemSpec` only to reach the optimizer.
 `CompiledProblemT` is a compiler-path product, not a universal wrapper for all
-nmopt applications.
+`nmopt` applications.
 
 ## First decide what the existing code must expose
 
-Before writing nmopt adapters, isolate an application-local OCP facade around
+Before writing `nmopt` adapters, isolate an application-local OCP facade around
 the existing PDE code.
 
 For a reduced problem with state $y$ and control $u$, the facade needs the
@@ -140,9 +140,9 @@ public:
 };
 ```
 
-Those exact method names are **application-local**, not required nmopt API.
+Those exact method names are **application-local**, not required `nmopt` API.
 The point is to put the OCP-facing operations in one narrow layer rather than
-spread nmopt callbacks across assembly classes and executable code.
+spread `nmopt` callbacks across assembly classes and executable code.
 
 The Step-4 `integration/problem_a.hpp` and `integration/problem_b.hpp` are the
 concrete examples of this facade.
@@ -155,7 +155,7 @@ $$
 x=(y,u).
 $$
 
-The nmopt executable model expects:
+The `nmopt` executable model expects:
 
 ```text
 residual(x)                 E(y,u)
@@ -189,7 +189,7 @@ operators are linear in the relevant variables.
 The following sequence mirrors Step-4 Problem A and shows where each piece
 belongs.
 
-### Step 1 – define nmopt layouts from native coordinate spaces
+### Step 1 – define `nmopt` layouts from native coordinate spaces
 
 ```cpp
 using Backend =
@@ -243,7 +243,7 @@ not make two spaces interchangeable.
 
 For an application with constrained/full and independent/free coordinates,
 do not hide that difference by assigning the same `SpaceId`; expose the
-independent coordinates to nmopt and keep reconstruction in the application
+independent coordinates to `nmopt` and keep reconstruction in the application
 facade. Problem B below shows that case.
 
 ### Step 2 – wrap the five executable-model callbacks
@@ -333,7 +333,7 @@ Model model(
 
 The application facade may expose a simpler signature when an operator is
 constant. For example, Step-4 Problem A does not need the current point for
-its derivative actions. The nmopt callback still has the general signature;
+its derivative actions. The `nmopt` callback still has the general signature;
 the adapter is where the simplification belongs.
 
 ### Step 3 – expose the state/control partition
@@ -423,13 +423,13 @@ solve_report(const NativeSolveEvidence &evidence)
 }
 ```
 
-Report the algorithm and termination actually used by the native code. nmopt
+Report the algorithm and termination actually used by the native code. `nmopt`
 uses this evidence to reject failed state/adjoint solves rather than silently
 continuing optimization.
 
 ### Step 5 – adapt the native adjoint solve
 
-nmopt uses the convention
+`nmopt` uses the convention
 
 $$
 E_{y}(y,u)^{\ast}p=J_{y}(y,u),
@@ -468,7 +468,7 @@ solvers.solve_adjoint =
 
 If the native application has a symmetric linear state operator, its adjoint
 implementation may reuse the state matrix. That reuse belongs inside the
-application facade. The nmopt binding should still expose a separate adjoint
+application facade. The `nmopt` binding should still expose a separate adjoint
 service because a different application may need an actual transpose
 assembly/solve.
 
@@ -605,13 +605,13 @@ Reduced reduced(
   solvers);
 ```
 
-At this point the existing application has become an nmopt reduced
+At this point the existing application has become an `nmopt` reduced
 state/adjoint service.
 
 The reference-taking constructor does not own `model`; the model and every
 application object captured by its callbacks must outlive `reduced`.
 
-### Step 8 – solve through nmopt
+### Step 8 – solve through `nmopt`
 
 ```cpp
 #include "nmopt/solvers/reduced_gradient.hpp"
@@ -666,7 +666,7 @@ and field interpretation.
 Do not perform an extra state solve only to obtain output unless that solve is
 an intentional independent verification.
 
-## Put the nmopt pieces in one binding object
+## Put the `nmopt` pieces in one binding object
 
 A useful application layout is:
 
@@ -730,7 +730,7 @@ private:
 };
 ```
 
-This is an application pattern, not a required nmopt base class.
+This is an application pattern, not a required `nmopt` base class.
 
 The Step-4 bindings delete copy/move operations because the members borrow
 from one another and from the native application. That is a simple way to make
@@ -741,7 +741,7 @@ the local lifetime graph stable.
 A real deal.II application often does not optimize directly in the full
 physical coefficient vector.
 
-Step-4 Problem B uses essential-boundary constraints. Its nmopt state/test
+Step-4 Problem B uses essential-boundary constraints. Its `nmopt` state/test
 space is the vector of independent/free coefficients, while output uses the
 full reconstructed field:
 
@@ -804,10 +804,10 @@ The JVP/VJP must use the same maps and their transpose relationships.
 The canonical code is:
 
 - [Problem B application integration](../../apps/external-dealii/step-4/integration/problem_b.hpp);
-- [Problem B nmopt binding](../../apps/external-dealii/step-4/minimal/problem_b_binding.hpp);
+- [Problem B `nmopt` binding](../../apps/external-dealii/step-4/minimal/problem_b_binding.hpp);
 - [Problem B minimal consumer](../../apps/external-dealii/step-4/minimal/problem_b.cc).
 
-The important rule is not that nmopt requires free coordinates. It is that the
+The important rule is not that `nmopt` requires free coordinates. It is that the
 binding must expose one coherent independent-coordinate contract; physical
 reconstruction remains application-owned.
 
@@ -852,7 +852,7 @@ $$
 \langle E'(x)^{\ast}q,v\rangle.
 $$
 
-In nmopt types:
+In `nmopt` types:
 
 ```cpp
 const auto jvp =
@@ -985,7 +985,7 @@ owner. That can retain an owner explicitly, but it cannot discover ownership
 of raw pointers captured inside arbitrary callbacks.
 
 `LinearSolveReport` is part of the reduced contract for the same reason:
-nmopt cannot inspect an external application's native linear solve after the
+`nmopt` cannot inspect an external application's native linear solve after the
 fact. The application adapter must say whether the solve converged and retain
 its algorithm, iteration, tolerance, residual, and termination evidence.
 
@@ -1023,7 +1023,7 @@ For an existing deal.II application, the practical conversion sequence is:
    coordinates.
 4. Expose truthful state/adjoint solve evidence.
 5. Decide the control metric and implement/apply its Riesz map.
-6. Put nmopt layouts/model/partition/metric/DTO in a binding object beside the
+6. Put `nmopt` layouts/model/partition/metric/DTO in a binding object beside the
    application, not inside the PDE assembly internals.
 7. Bring up one reduced evaluation and derivative test.
 8. Pass the resulting DTO and metric to the optimizer.

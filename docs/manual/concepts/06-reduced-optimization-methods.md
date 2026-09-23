@@ -607,8 +607,8 @@ retaining a well-behaved curvature model.
 For the `nmopt` solver boundary, those structural properties are more important than the
 closed-form rank-two matrix formula. The implementation acts through stored secant
 information and inverse-approximation actions rather than assembling a dense approximate
-Hessian; a general optimization background chapter can derive the classical formula in
-detail.
+Hessian; the classical rank-two formula is outside the scope of this project-focused
+chapter.
 
 ### 5.3 Why the secant pair has mixed primal/dual types
 
@@ -2346,7 +2346,7 @@ The next conceptual shift is substantial. Reduced methods eliminate the PDE stat
 through an inner state solve.
 
 Chapter 7, **Optimality systems and KKT**, instead retains state,
-control, and multiplier variables together and derive the coupled first-order system
+control, and multiplier variables together and derives the coupled first-order system
 that an all-at-once method solves.
 
 That chapter will therefore return to the Lagrangian introduced in the reduced

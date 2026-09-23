@@ -313,22 +313,18 @@ This makes it possible to regenerate presentation outputs from recorded artifact
 without solving the PDE again, and it makes missing or changed post-processing code
 less dangerous to the scientific meaning of the numerical result.
 
-## 12. The current Chapter 6 application status
+## 12. Application coverage is intentionally uneven
 
-The current active application/parameter path is concentrated on B1 and B2.
+B1 and B2 are the repository's most developed Chapter 6 application examples and
+remain useful illustrations of the experiment layer.
 
-B1 is the distributed scalar-control family used for the main reduced-method
-comparisons.
+That application coverage is narrower than the framework's implemented formulation
+surface. KKT, supplied-OTD, complementarity, and PDAS capabilities should therefore
+not be inferred from the set of named reproduction campaigns.
 
-B2 is the Graetz-flow boundary-control family with observation-region and boundary
-realization choices.
-
-The repository also contains later scenario contracts and formulation capabilities
-for KKT/PDAS/all-at-once work, but those should not be read as if every scenario has
-the same current reproduction status or runner coverage.
-
-This is one reason the application, benchmark, and planning documentation remains
-separate from the reusable numerical overviews.
+For current scenario, benchmark, and replication status, use the Chapter 6 study
+material rather than this durable overview. This keeps changing application status
+separate from the reusable numerical architecture described here.
 
 ## 13. How this layer relates to a library user
 

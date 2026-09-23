@@ -1583,8 +1583,8 @@ reclassify
 
 The implementation exposes exactly those objects.
 
-A future optimization background chapter can derive the semismooth-Newton equivalence in
-more detail without making the project concept chapter depend on that theory.
+A detailed derivation of the semismooth-Newton equivalence is outside the scope of
+this project-focused chapter.
 
 ## 21. Initial feasibility is a real precondition of the current solver
 
@@ -2058,7 +2058,7 @@ Part III asks:
 > How does a problem description become those executable numerical objects?
 
 Chapter 9, **Semantic problem model**, begins again from a
-concrete PDE-constrained problem and construct its backend-neutral `ProblemSpec`
+concrete PDE-constrained problem and constructs its backend-neutral `ProblemSpec`
 progressively.
 
 Chapter 10, **Validation, resolution, and capabilities**, explains what can be
@@ -2079,6 +2079,5 @@ Useful existing documents are:
 - [Compiler reference](../../reference/compiler.md), for current registered
   complementarity/PDAS compilation support and rejection boundaries.
 
-A future optimization background chapter can go deeper into normal cones,
-complementarity functions, semismooth Newton theory, and convergence results without
-turning this project concept chapter into a general nonlinear-optimization textbook.
+Detailed treatments of normal cones, complementarity functions, semismooth Newton
+theory, and convergence results are outside the scope of this project-focused chapter.

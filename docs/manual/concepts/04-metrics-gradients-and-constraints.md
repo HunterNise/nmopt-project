@@ -500,9 +500,9 @@ This is one reason Sobolev or mass-matrix metrics are useful in PDE optimization
 they express geometry in terms of the represented field rather than the arbitrary
 raw coefficient scaling.
 
-The [Numerical realization](../overview/numerical-realization.md) overview discusses discretization-dependent norm
-equivalences more carefully. Here the practical message is that a metric is part of
-the numerical meaning of a gradient.
+The [Numerical realization](../overview/numerical-realization.md) overview places these metric choices in the broader
+discretization layer. Here the practical message is that a metric is part of the
+numerical meaning of a gradient.
 
 ## 6. What `MetricT` represents
 

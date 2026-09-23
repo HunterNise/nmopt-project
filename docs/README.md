@@ -105,6 +105,8 @@ Completed reviews and audits belong under history.
   implementation records.
 - [`history/reviews/`](history/reviews/) contains reviews, audits, closure
   reports, and historical evidence.
+- [Documentation lineage](history/documentation-lineage.md) records the major
+  documentation-structure transitions and Git recovery points.
 - [Review history index](history/reviews/README.md) routes the available review,
   audit, and closure series.
 - [Human-readability audit](history/reviews/human-readability-audit/00-audit-index.md)
@@ -125,7 +127,7 @@ before inspecting or changing repository content.
 | First-time project reader | [Manual overview](manual/overview/README.md) | [Concept chapters](manual/concepts/README.md), then the reference for the task at hand |
 | Understand the whole system and code correspondence | [Implementation map](internals/implementation-map.md) | [Compiler implementation](internals/compiler.md), [runner implementation](internals/runner.md), and the relevant design record |
 | Author or modify a semantic problem | [Problem authoring](reference/problem-authoring.md) | [Compiler](reference/compiler.md) and the relevant manual concept chapter |
-| Author a reusable nmopt-native application | [Application authoring](reference/application-authoring.md) | [Problem authoring](reference/problem-authoring.md), [compiler](reference/compiler.md), and [application execution](reference/application-execution.md) |
+| Author a reusable `nmopt`-native application | [Application authoring](reference/application-authoring.md) | [Problem authoring](reference/problem-authoring.md), [compiler](reference/compiler.md), and [application execution](reference/application-execution.md) |
 | Connect an existing PDE application | [External deal.II solver integration](reference/external-dealii-solver-integration.md) | [Optimization](reference/optimization.md) and the relevant public contract/deal.II headers |
 | Add or use an optimization method | [Optimization](reference/optimization.md) | [Reduced optimization methods](manual/concepts/06-reduced-optimization-methods.md) and the public solver/contract headers |
 | Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) | [Application execution](reference/application-execution.md), [parameter files](reference/parameter-files.md), and the [B1](studies/chapter-6/b1-replication.md) / [B2](studies/chapter-6/b2-replication.md) replication records |

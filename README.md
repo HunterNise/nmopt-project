@@ -138,7 +138,7 @@ useful entry points are:
   [compiler reference](docs/reference/compiler.md) — build supported problems
   through the semantic/compiler path.
 - [Application authoring](docs/reference/application-authoring.md) — package a
-  reusable nmopt-native application family.
+  reusable `nmopt`-native application family.
 - [External deal.II solver integration](docs/reference/external-dealii-solver-integration.md)
   — connect an existing PDE code while preserving its numerical ownership.
 - [Optimization](docs/reference/optimization.md) — consume reduced, KKT, PDAS,

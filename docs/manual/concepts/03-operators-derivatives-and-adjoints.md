@@ -206,7 +206,7 @@ That can happen because:
 - an application already exposes a linearized operator;
 - the matrix exists conceptually but is too expensive or unnecessary to materialize.
 
-For that reason, nmopt treats the **action** of the derivative as the primary
+For that reason, `nmopt` treats the **action** of the derivative as the primary
 numerical capability.
 
 The matrix is one possible realization.
@@ -1197,7 +1197,7 @@ $$
 M y_{\mathrm{phys}}.
 $$
 
-But the objective derivative returned to nmopt must act on an independent state
+But the objective derivative returned to `nmopt` must act on an independent state
 perturbation $\delta z$.
 
 As derived in the previous chapter, the corresponding state covector is pulled back
@@ -1389,7 +1389,7 @@ $$
 E'(x)^{\ast}p.
 $$
 
-In nmopt this is the role of the VJP action.
+In `nmopt` this is the role of the VJP action.
 
 ### The adjoint variable
 
@@ -1697,7 +1697,7 @@ The pairing test then checks that the two independently supplied actions agree.
 
 At this point the relationships among the objects can be summarized as:
 
-| Object/action | Map | Coordinate picture | nmopt operation |
+| Object/action | Map | Coordinate picture | `nmopt` operation |
 | --- | --- | --- | --- |
 | Residual | $`E:X_{h}\to Z_{h}^{\ast}`$ | $\mathbf E(\mathbf x)$ | `residual(x)` |
 | Residual derivative | $`E'(x):X_{h}\to Z_{h}^{\ast}`$ | $`J_{E}(\mathbf x)\delta\mathbf x`$ | `residual_jvp(x, dx)` |

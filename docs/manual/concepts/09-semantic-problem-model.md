@@ -1299,16 +1299,16 @@ A useful placement rule is:
 
 ```text
 changes mathematical roles/relationships
-    -> ProblemSpec or recipe parameter selecting a ProblemSpec
+    → ProblemSpec or recipe parameter selecting a ProblemSpec
 
 changes discretization/lowering
-    -> compile options
+    → compile options
 
 changes optimization iteration
-    -> solver options
+    → solver options
 
 changes experiment/reproduction organization
-    -> experiment options
+    → experiment options
 ```
 
 ## 18. Reusing `ProblemSpec` components without creating one giant problem type

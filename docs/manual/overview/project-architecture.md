@@ -22,7 +22,7 @@ application.
 This page develops that picture from the problem being solved down to the main
 repository areas.
 
-## 1. The kind of problem nmopt represents
+## 1. The kind of problem `nmopt` represents
 
 The common mathematical starting point is
 
@@ -114,7 +114,7 @@ KKT, and complementarity/PDAS products are also implemented framework capabiliti
 map and several zoomed views. The map collection also defines the visual legend used
 there.
 
-## 3. What nmopt owns, and what it deliberately does not own
+## 3. What `nmopt` owns, and what it deliberately does not own
 
 A first-time reader can understand most of the repository by asking which layer owns
 each decision.

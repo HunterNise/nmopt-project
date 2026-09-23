@@ -973,7 +973,7 @@ different aspect of the same problem. In particular, a coefficient vector is a
 representation of a field or functional in a chosen basis, not the field or
 functional itself.
 
-## 10. From the derived problem to one nmopt realization
+## 10. From the derived problem to one `nmopt` realization
 
 Sections 1–9 followed one mathematical/numerical derivation. From here the chapter
 changes perspective.

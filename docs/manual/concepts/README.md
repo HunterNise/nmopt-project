@@ -13,7 +13,7 @@ The chapter numbers below belong to this manual. References to **source Chapter 
 or **source Chapter 6** refer to the Manzoni–Quarteroni–Salsa material and the
 repository application families derived from it, not to manual Chapters 5 and 6.
 
-## Part I – The numerical language of nmopt
+## Part I – The numerical language of `nmopt`
 
 ### 1. Anatomy of a discrete PDE-constrained problem
 
@@ -122,7 +122,7 @@ reconstruction and pullback, observation transposes, metric and state/adjoint so
 services, common executable contracts, `CompiledProblemT`, formulation-product
 packaging, and the typed compilation manifest.
 
-## Part IV – Using and integrating nmopt
+## Part IV – Using and integrating `nmopt`
 
 ### 12. Authoring and using compiled problems
 

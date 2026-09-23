@@ -203,7 +203,7 @@ observation space
     dimension = m
 
 point_sensor observation
-    state -> observation space
+    state → observation space
 ```
 
 The condition
@@ -386,7 +386,7 @@ ProblemSpec
     │
     ├── SemanticValidator
     │       │
-    │       └── invalid -> diagnostics only
+    │       └── invalid --> diagnostics only
     │
     ▼
 ResolvedProblemView
@@ -610,7 +610,7 @@ The public compiler validation path follows this sequence:
 ```text
 SemanticResolver::resolve
         │
-        ├── invalid -> return semantic diagnostics
+        ├── invalid --> return semantic diagnostics
         │
         ▼
 resolve_compilation_request

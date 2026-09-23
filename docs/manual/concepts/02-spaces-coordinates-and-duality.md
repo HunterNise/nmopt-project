@@ -34,7 +34,7 @@ coordinates, while output and objective evaluation may still use the full physic
 field.
 
 This chapter develops the distinctions that make those situations precise. Only
-after the mathematical picture is clear will we introduce nmopt's `BlockLayout`,
+after the mathematical picture is clear will we introduce `nmopt`'s `BlockLayout`,
 `PrimalBlockT`, and `CovectorBlockT`.
 
 The central progression is:
@@ -133,7 +133,7 @@ The Step-4 external integration contains both kinds of example:
 Problem B makes a dimension mismatch visible immediately. Problem A is more subtle:
 dimension alone cannot distinguish the roles at all.
 
-This is one reason nmopt's runtime checks use more than vector length.
+This is one reason `nmopt`'s runtime checks use more than vector length.
 
 ### 1.2 A coordinate vector depends on the chosen basis
 
@@ -676,7 +676,7 @@ covector coefficients lambda = M g
 scalar lambda^T v
 ```
 
-That separation is central to nmopt's representation.
+That separation is central to `nmopt`'s representation.
 
 ### 5.2 Why `dot(covector, primal)` is not an $L^{2}$ inner product
 
@@ -823,7 +823,7 @@ baking a Galerkin-specific coincidence into a more general numerical interface.
 This explains why the executable model exposes both a variable layout and a test
 layout even when a particular application happens to give them equal dimensions.
 
-## 8. Product spaces explain why nmopt uses blocks
+## 8. Product spaces explain why `nmopt` uses blocks
 
 The optimization problem rarely contains only one field.
 
@@ -903,7 +903,7 @@ This product-space viewpoint is why a block-oriented runtime representation is
 natural for the project.
 
 The particular class `BlockLayout`, however, is still an **implementation choice**.
-The mathematics gives us product spaces. nmopt chooses to preserve selected
+The mathematics gives us product spaces. `nmopt` chooses to preserve selected
 information about those products as ordered runtime blocks.
 
 ### 8.1 Blocks preserve relationships that offsets alone hide
@@ -1061,7 +1061,7 @@ introspection.
 
 This gives `BlockLayout::compatible_with()` a very specific meaning.
 
-If two layouts are compatible, nmopt knows that:
+If two layouts are compatible, `nmopt` knows that:
 
 - they have the same number of blocks;
 - the corresponding blocks carry the same producer-assigned space IDs;
@@ -1196,7 +1196,7 @@ rather than "primal variable or dual variable?"
 
 The primal space $`X_{h}`$ and its dual $`X_{h}^{\ast}`$ have the same finite dimension.
 
-nmopt therefore uses the same `BlockLayout` to describe the block identities and
+`nmopt` therefore uses the same `BlockLayout` to describe the block identities and
 dimensions of both a `PrimalBlockT` and a `CovectorBlockT`.
 
 The distinction between $`X_{h}`$ and $`X_{h}^{\ast}`$ is carried by the wrapper type,
@@ -1332,7 +1332,7 @@ That is the conceptual reason `pair()` itself does not know about metrics.
 ## 13. The Step-4 binding shows the representation in one place
 
 The external Step-4 integration is useful because the native application mathematics
-and the nmopt contract wrapping are both visible.
+and the `nmopt` contract wrapping are both visible.
 
 Problem B exposes:
 
@@ -1856,7 +1856,7 @@ Finally read:
 
 The layout construction near the top of `ProblemBBinding` is the point where native
 state/control/test coordinates receive the IDs and block dimensions used by generic
-nmopt code.
+`nmopt` code.
 
 The callback definitions then show native vectors being wrapped as either primal
 values or covectors according to their mathematical role.

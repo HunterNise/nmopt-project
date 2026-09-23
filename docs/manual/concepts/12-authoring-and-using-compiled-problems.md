@@ -86,7 +86,7 @@ In code, the shape is:
 ```text
 ProblemRecipeT<Parameters>
     metadata
-    builder : Parameters -> ProblemSpec
+    builder : Parameters → ProblemSpec
 ```
 
 It does not own
@@ -190,7 +190,7 @@ The distinction between recipe and scenario is therefore
 
 ```text
 recipe
-    parameters -> semantic problem
+    parameters → semantic problem
 
 scenario
     one application case
@@ -719,13 +719,13 @@ Conceptually:
 
 ```text
 CompilationProduct::reduced_dto
-    -> CompiledProblemT
+    → CompiledProblemT
 
 CompilationProduct::quadratic_kkt
-    -> compiled quadratic KKT product
+    → compiled quadratic KKT product
 
 CompilationProduct::pdas
-    -> compiled PDAS product
+    → compiled PDAS product
 ```
 
 A supplied OTD formulation can also produce its own executable product when the
@@ -1166,16 +1166,16 @@ When approaching a new task, ask:
 
 ```text
 Does a ready-made scenario already represent the run?
-    yes -> start from the scenario
+    yes → start from the scenario
 
 no:
 Does a ready-made recipe represent the mathematical family?
-    yes -> use the recipe directly and provide your own runtime/compile/solver setup
+    yes → use the recipe directly and provide your own runtime/compile/solver setup
 
 no:
 Can the problem be expressed with existing semantic components
 and registered compiler capabilities?
-    yes -> author a new ProblemRecipeT and backend adapter
+    yes → author a new ProblemRecipeT and backend adapter
 
 no:
 the work is a semantic/compiler capability extension,

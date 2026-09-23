@@ -631,15 +631,15 @@ penalizes that hypothesis when the coefficient lies well inside the feasible box
 ```text
 at the upper bound
     r_i - u_i = 0
-    -> the multiplier sign decides
+    → the multiplier sign decides
 
 well below the upper bound
     r_i - u_i > 0
-    -> the negative slack term opposes upper activity
+    → the negative slack term opposes upper activity
 
 above the upper bound
     u_i - r_i > 0
-    -> the signed distance reinforces upper activity
+    → the signed distance reinforces upper activity
 ```
 
 So the two expressions are not inconsistent:
@@ -1481,7 +1481,7 @@ Then:
 
 ```text
 1. classify
-       (u, mu) -> lower / free / upper
+       (u, mu) → lower / free / upper
 
 2. freeze active controls
        lower-active u_i = ell_i

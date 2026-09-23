@@ -1539,7 +1539,7 @@ These tests make the intended runtime decomposition concrete.
 
 This chapter has answered:
 
-> Given a control, how does nmopt construct the reduced objective and reduced
+> Given a control, how does `nmopt` construct the reduced objective and reduced
 > derivative?
 
 It has deliberately not answered:

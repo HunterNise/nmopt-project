@@ -536,13 +536,10 @@ U_{h}.
 The C++ return types make the two directions explicit:
 
 ```text
-PrimalBlockT
-    --apply-->
-CovectorBlockT
-
-CovectorBlockT
-    --inverse_apply-->
-PrimalBlockT
+                    apply: G
+PrimalBlockT ───────────────────▶ CovectorBlockT
+             ◀───────────────────
+                inverse_apply: G⁻¹
 ```
 
 This is the runtime version of the Riesz-map diagram.

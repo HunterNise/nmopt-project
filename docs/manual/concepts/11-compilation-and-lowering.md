@@ -397,7 +397,7 @@ geometric selections
     Dirichlet / Robin / tracking / flux / sensor regions
 
 provenance
-    semantic component <- lowering handler
+    semantic component ← lowering handler
 ```
 
 That makes the plan a useful compiler IR: it is concrete enough to drive numerical
@@ -612,7 +612,7 @@ check semantic kind
     ↓
 append ScalarResidualContribution
     ↓
-record component_id <- handler_id provenance
+record component_id ← handler_id provenance
 ```
 
 The numerical model consumes the resulting plan later.
@@ -623,20 +623,20 @@ Each scalar handler appends a record of the form
 
 ```text
 semantic component
-    <- lowering handler
+    ← lowering handler
 ```
 
 For the baseline residual, the plan can retain facts such as
 
 ```text
 diffusion_reaction
-    <- dealii.scalar.residual.diffusion_reaction
+    ← dealii.scalar.residual.diffusion_reaction
 
 volume_source
-    <- dealii.scalar.residual.volume_source
+    ← dealii.scalar.residual.volume_source
 
 volume_control
-    <- dealii.scalar.residual.volume_control
+    ← dealii.scalar.residual.volume_control
 ```
 
 This matters because once the compiler has produced a matrix, several semantic
@@ -687,8 +687,8 @@ transformation
     none
 
 data placements
-    forcing        -> volume quadrature
-    desired_state  -> volume quadrature
+    forcing        → volume quadrature
+    desired_state  → volume quadrature
 ```
 
 The mathematical problem has not changed.
@@ -1695,7 +1695,7 @@ The same principle appeared in Chapter 10 for `RequirementPolicySpec`:
 
 Compilation extends that rule to the whole lowering path.
 
-## 35. `CompiledProblemT` is not the universal nmopt integration type
+## 35. `CompiledProblemT` is not the universal `nmopt` integration type
 
 The compiler path ends in `CompiledProblemT` because the compiler has responsibility
 for constructing and packaging the numerical realization.

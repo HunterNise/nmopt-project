@@ -47,7 +47,7 @@ is added.
 The direct binding borrows or references the numerical application as needed and
 presents its operations through the common mathematical interfaces.
 
-## 3. What nmopt needs from the application
+## 3. What `nmopt` needs from the application
 
 For the common first-order formulation boundary, the relevant operations are
 conceptually:
@@ -326,7 +326,7 @@ a prerequisite for the first integration.
 ## Read later: authoritative sources
 
 For the concrete worked case, read
-[How nmopt connects to an existing deal.II application](../../../apps/external-dealii/step-4/external-integration-overview.md).
+[How `nmopt` connects to an existing deal.II application](../../../apps/external-dealii/step-4/external-integration-overview.md).
 
 For exact public calling conventions, read
 [External deal.II solver integration](../../reference/external-dealii-solver-integration.md).

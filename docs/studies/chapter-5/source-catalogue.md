@@ -121,10 +121,10 @@ Its weak volume action is
 
 ```math
 a(y,\phi)=
-(A\nabla y,\nabla\phi)_\Omega
--(y,b\mathbin\cdot\nabla\phi)_\Omega
-+(c\mathbin\cdot\nabla y,\phi)_\Omega
-+(r y,\phi)_\Omega.
+(A\nabla y,\nabla\phi)_{\Omega}
+-(y,b\mathbin\cdot\nabla\phi)_{\Omega}
++(c\mathbin\cdot\nabla y,\phi)_{\Omega}
++(r y,\phi)_{\Omega}.
 ```
 
 The conormal flux is $(A\nabla y-b y)\mathbin\cdot n$. Dirichlet data are
@@ -244,9 +244,9 @@ metric/Riesz map, not the residual. P5.2 adds the state energy observation and
 gives the $H^{-1}$ metric its own selected realization.
 
 The registered discrete realization uses independent homogeneous-Dirichlet
-continuous `FE_Q` control coordinates $P_h$ and
-$G_h=M_hK_h^{-1}M_h$, with $K_h$ the Dirichlet Laplacian. Its inverse is
-$M_h^{-1}K_hM_h^{-1}$, so this is not the existing $H^{1}$ Sobolev-gradient
+continuous `FE_Q` control coordinates $`P_{h}`$ and
+$`G_{h}=M_{h}K_{h}^{-1}M_{h}`$, with $`K_{h}`$ the Dirichlet Laplacian. Its inverse is
+$`M_{h}^{-1}K_{h}M_{h}^{-1}`$, so this is not the existing $H^{1}$ Sobolev-gradient
 solve. The fixed boundary removes the constant mode and the compiler records
 identity-preconditioned CG tolerances for every inverse action. An $L^{2}$
 companion factory uses the same graph and control coordinates. Their compiled
@@ -303,7 +303,7 @@ The registered P5.2 target declares multiplication by boundary data $h$ as an
 explicit `weighted_boundary_trace` observation with its own immutable data
 port and face-quadrature policy. It reuses the Neumann residual and facewise
 $L^{2}$ control metric unchanged; the tracking pullback realizes the boundary
-datum $h(h\gamma y-z_d)$.
+datum $`h(h\gamma y-z_{d})`$.
 
 ### C5.8 — Normal-flux tracking with distributed control
 
@@ -351,8 +351,8 @@ the test space $Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ and defines the very
 weak solution $w\in L^{2}(\Omega)$ through equations (5.130)–(5.134):
 
 ```math
--(w,\Delta\psi)_\Omega=(f,\psi)_\Omega
--(g,\partial_{n}\psi)_\Gamma
+-(w,\Delta\psi)_{\Omega}=(f,\psi)_{\Omega}
+-(g,\partial_{n}\psi)_{\Gamma}
 \qquad\forall\psi\in Y.
 ```
 
@@ -360,8 +360,8 @@ Equivalently, declare the residual $E_{\mathrm{tr}}(w,g;f)\in Y^{\ast}$ by
 
 ```math
 \langle E_{\mathrm{tr}}(w,g;f),\psi\rangle
-=(w,-\Delta\psi)_\Omega-(f,\psi)_\Omega
-+(g,\partial_{n}\psi)_\Gamma.
+=(w,-\Delta\psi)_{\Omega}-(f,\psi)_{\Omega}
++(g,\partial_{n}\psi)_{\Gamma}.
 ```
 
 This is a formulation choice. Proposition 5.11 applies transposition with
@@ -459,8 +459,8 @@ The source's variants are:
    J(y,u)&=\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
    +\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Gamma)}^{2}, \\
    \langle E_{\mathrm{tr}}(y,u;f),\psi\rangle
-   &=(y,-\Delta\psi)_\Omega-(f,\psi)_\Omega
-   +(u,\partial_{n}\psi)_\Gamma=0
+   &=(y,-\Delta\psi)_{\Omega}-(f,\psi)_{\Omega}
+   +(u,\partial_{n}\psi)_{\Gamma}=0
    \quad\forall\psi\in H^{2}(\Omega)\cap H^{1}_{0}(\Omega).
    \end{aligned}
    ```
@@ -584,8 +584,8 @@ The state has velocity and pressure blocks:
 ```
 
 Velocity has fixed Dirichlet data on $\Gamma_{D}$ and traction data on
-$\Gamma_{N}$. Use $X=H^{1}_{\Gamma_{D}}(\Omega)^d$ for velocity,
-$Q=L^{2}(\Omega)$ with the selected pressure gauge, and $U=L^{2}(\Omega)^d$
+$`\Gamma_{N}`$. Use $`X=H^{1}_{\Gamma_{D}}(\Omega)^{d}`$ for velocity,
+$Q=L^{2}(\Omega)$ with the selected pressure gauge, and $U=L^{2}(\Omega)^{d}$
 for an unconstrained force control. The objective is
 
 ```math

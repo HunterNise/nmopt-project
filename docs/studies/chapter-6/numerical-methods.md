@@ -226,9 +226,9 @@ inverse-metric action; a direction formed after accepting a secant pair
 performs two, one for the metric gradient and one for the two-loop recursion.
 L-BFGS history eviction does not add hidden metric actions.
 For the scalar-secant option, the initial two-loop action is
-$\gamma_kG^{-1}$ with
-$\gamma_k=\langle s_k,y_k\rangle/\langle y_k,G^{-1}y_k\rangle$; the
-retained metric-gradient difference supplies $G^{-1}y_k$ without another
+$`\gamma_{k}G^{-1}`$ with
+$`\gamma_{k}=\langle s_{k},y_{k}\rangle/\langle y_{k},G^{-1}y_{k}\rangle`$; the
+retained metric-gradient difference supplies $`G^{-1}y_{k}`$ without another
 inverse metric application.
 
 The Armijo policy can also enforce a positive minimum trial step. Rejected
@@ -297,7 +297,7 @@ provider:
 | --- | --- | --- |
 | Fixed-Dirichlet volume | exposed and checked | `fixed_dirichlet` |
 | Material-subdomain volume | exposed and checked | `subdomain_observation` |
-| Full-domain $H^1$ state observation | exposed and checked | `h1_state_observation` |
+| Full-domain $H^{1}$ state observation | exposed and checked | `h1_state_observation` |
 | Point sensor | exposed and checked | `point_sensor` |
 | Normal flux | exposed and checked | `normal_flux` |
 | Nonsymmetric general scalar tensor/transport/Robin | exposed and checked | `general_scalar_robin` |

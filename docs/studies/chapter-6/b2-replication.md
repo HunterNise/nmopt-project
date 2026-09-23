@@ -79,7 +79,7 @@ The current assessment is:
   constant target $20$, and the same row swap; these are three explicit source
   contradictions rather than a replacement specification;
 - the source counts constrain aggregate boundary subdivision under standard
-  $P_1$ assumptions, but do not determine interior mesh connectivity;
+  $`P_{1}`$ assumptions, but do not determine interior mesh connectivity;
 - the current uniform facewise metric makes the relative metric-gradient and
   coefficient-derivative norms identical, so this realization cannot
   distinguish the book's gradient convention; and
@@ -97,8 +97,8 @@ attempt is closed unless new source evidence justifies reopening it.
 ## Source facts and omissions
 
 The source fixes $\Omega=(0,4)\times(0,1)$, diffusion $\mu=0.1$,
-regularisation $\beta=10^{-3}$, zero initial control $u_0=0$, fixed
-temperature $1$, transport field $b(x)=(1.5x_2(1-x_2),0)$, two downstream
+regularisation $\beta=10^{-3}$, zero initial control $`u_{0}=0`$, fixed
+temperature $1$, transport field $`b(x)=(1.5x_{2}(1-x_{2}),0)`$, two downstream
 observation regions, two targets, linear triangular finite elements, and
 BFGS. It reports 11,028 vertices,
 21,653 triangles, 10,907 state and adjoint degrees of freedom, and 243 control
@@ -143,19 +143,19 @@ T = 2V - B - 2.
 ```
 
 The published $V=11028$ and $T=21653$ imply $B=401$. If the state uses one
-nodal $P_1$ coordinate per vertex, the difference $11028-10907=121$ is exactly
+nodal $`P_{1}`$ coordinate per vertex, the difference $11028-10907=121$ is exactly
 the number of strongly constrained Dirichlet vertices. The fixed boundary is
 one connected arc from the lower transition point around the inlet to the
 upper transition point, so those 121 vertices imply 120 fixed-boundary edges.
 
 Under the additional standard assumption that the control uses independent
-continuous $P_1$ traces on the two disconnected downstream wall segments, 243
+continuous $`P_{1}`$ traces on the two disconnected downstream wall segments, 243
 control nodes imply 241 control edges: each segment contributes one more node
 than edge. The remaining boundary then contains $401-120-241=40$ outflow
 edges. Thus the reported dimensions are compatible with the aggregate split
 
 ```math
-(N_D,N_c,N_{\mathrm{out}})=(120,241,40).
+(N_{D},N_{c},N_{\mathrm{out}})=(120,241,40).
 ```
 
 This deduction depends on nodal endpoint and junction conventions, and the
@@ -176,7 +176,7 @@ The current refinement-6 realization is structurally different:
 | Wings/full observation measure | exact $1.8/3$ | $1.78125/3$ |
 
 The wings-measure error is caused by selecting complete cells from their
-centres at the $x_2=0.3$ and $x_2=0.7$ interfaces. It is small compared with the
+centres at the $`x_{2}=0.3`$ and $`x_{2}=0.7`$ interfaces. It is small compared with the
 present field and objective discrepancies, but it must be controlled in a
 source-oriented mesh.
 
@@ -295,7 +295,7 @@ and adds $(1-\mu)(b\mathbin\cdot n)y$ on the control and outflow faces. Its
 control load is correspondingly scaled by $\mu$, as required when the source
 condition is $\partial_{n}y-(b\mathbin\cdot n)y=u$. On the B2 rectangle, a
 constant test/state check gives
-$(1-0.1)\int_{0}^{1}1.5x_{2}(1-x_{2})\,dx_{2}=0.225$ for the
+$`(1-0.1)\int_{0}^{1}1.5x_{2}(1-x_{2})\mathrm{d}x_{2}=0.225`$ for the
 ordinary-minus-total residual difference. The Debug contract
 `nmopt.application.dealii.b2_ordinary_transport_boundary_operator` now locks
 this coefficient and the outlet integral; the existing realization comparison
@@ -306,7 +306,7 @@ audit.
 
 The second campaign comprised 17 complete Debug run sets and 92 artifacts at
 revision `21982c6`. It used the boundary-aligned $160\times40$ structured
-simplex mesh, continuous $P_1$ trace control, order-three analytic observation
+simplex mesh, continuous $`P_{1}`$ trace control, order-three analytic observation
 quadrature, and the ordinary-normal boundary form unless stated otherwise.
 All manifests completed successfully. Debug timings are not benchmark
 evidence. Following the source audit, this campaign is retained only as
@@ -604,7 +604,7 @@ the common zero control and for the same target, a positively weighted
 tracking integral must therefore satisfy
 
 ```math
-J_{h,\mathrm{wings}}(u_0) \leq J_{h,\mathrm{full}}(u_0).
+J_{h,\mathrm{wings}}(u_{0}) \leq J_{h,\mathrm{full}}(u_{0}).
 ```
 
 Table 6.2 instead reports $316.6661>192.8385$ for the constant target,

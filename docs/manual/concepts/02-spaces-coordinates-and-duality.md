@@ -1770,7 +1770,7 @@ information required by the consumer at that boundary.
 
 The main distinctions in this chapter can be summarized as follows:
 
-| Question | Mathematical answer | Concrete numerical object | nmopt-facing representation |
+| Question | Mathematical answer | Concrete numerical object | `nmopt`-facing representation |
 | --- | --- | --- | --- |
 | What field is this? | $`x_{h}\in X_{h}`$ | coefficients in a chosen basis | `PrimalBlockT` |
 | What functional is this? | $`\lambda\in X_{h}^{\ast}`$ | basis evaluations of the functional | `CovectorBlockT` |

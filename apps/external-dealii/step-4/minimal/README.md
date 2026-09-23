@@ -1,7 +1,7 @@
 # Minimal Step-4 consumers
 
 This directory contains small, complete external applications that use the
-current nmopt public contracts to optimize the existing Step-4 Problems A and
+current `nmopt` public contracts to optimize the existing Step-4 Problems A and
 B. They are the canonical external-consumer examples, not replacements for
 the evaluated comparison support or for the Step-4 application itself.
 

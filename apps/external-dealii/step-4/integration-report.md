@@ -16,14 +16,14 @@ The final source attribution separates those two things clearly:
 
 | Scope | Code-bearing lines | Needed by the canonical minimal consumers? |
 | --- | ---: | --- |
-| Functional Step-4/OCP/nmopt path, using the adapted source once | **1,722** | Yes, by role |
-| Of that: minimal nmopt binding headers | **426** | Yes |
+| Functional Step-4/OCP/`nmopt` path, using the adapted source once | **1,722** | Yes, by role |
+| Of that: minimal `nmopt` binding headers | **426** | Yes |
 | Of that: minimal executable entry points | **219** | Yes, but largely ordinary program/policy code |
 | Evaluation, comparison, verification, diagnostics, and test/evidence support | **10,256** | **No at runtime; the optional diagnostics type is a transitive source dependency** |
 
 The large experiment footprint therefore should not be read as the amount of code an
 external application must adopt. The evaluation layers exist to test fidelity,
-mathematical correctness, native/nmopt equivalence, attribution, and output.
+mathematical correctness, native/`nmopt` equivalence, attribution, and output.
 
 The tested boundary is nevertheless not effortless. The minimal bindings still
 require several public concepts: layouts, five executable-model callbacks, two solve
@@ -67,7 +67,7 @@ diagnostics/              optional counters and evidence records
 The important ownership rule is that the application remains the numerical owner.
 `source/adapted/step-4.cc` owns its mesh, FE space, matrix, RHS, native CG solve, and
 writer. The OCP layer owns the control model, objective, derivatives, coordinate
-maps, and metric. The nmopt binding owns only contract adaptation and reduced-service
+maps, and metric. The `nmopt` binding owns only contract adaptation and reduced-service
 composition.
 
 The optional diagnostics used by the experiment are source-level dependencies of
@@ -155,7 +155,7 @@ The upstream and stripped baseline both contain **191 code-bearing lines**. The
 adapted tutorial contains **244**, a net increase of **53**.
 
 The adaptation makes an originally monolithic forward example reusable without
-turning it into an nmopt application. It exposes:
+turning it into an `nmopt` application. It exposes:
 
 | Reuse seam | Purpose |
 | --- | --- |
@@ -171,13 +171,13 @@ The preprocessor protocol is centralized in
 reuse header. Consumer code includes that named seam rather than repeating a
 `#define`/include/`#undef` sequence.
 
-No nmopt header, type, callback, metric, or solver enters
+No `nmopt` header, type, callback, metric, or solver enters
 `source/adapted/step-4.cc`. Its original forward `run()` remains available, and the
 standalone adapted target remains a direct source build.
 
 ## 4. Application-owned OCP mathematics
 
-The OCP implementation is deliberately separated from nmopt-specific binding code.
+The OCP implementation is deliberately separated from `nmopt`-specific binding code.
 These mathematical choices would still have to exist if a different optimization
 library were used.
 
@@ -244,7 +244,7 @@ and reduced derivative are
 ```math
 \left\{
 \begin{aligned}
-Kz &= b_F+Bu, \\
+Kz &= b_{F}+Bu, \\
 K^{\mathsf T}p &= P^{\mathsf T}M y_{\mathrm{phys}}
 \end{aligned}
 \right.
@@ -264,13 +264,13 @@ physical output reconstructs $y_{\mathrm{phys}}$ before calling Step-4's writer.
 
 The growth from A to B is therefore mainly OCP/numerical work: coordinate semantics,
 FE coupling, a physical objective, and a nonidentity metric. It is not growth in the
-nmopt optimizer or compiler.
+`nmopt` optimizer or compiler.
 
 ## 5. Mathematical operations and the public connection
 
 The canonical minimal A and B bindings expose the same public shape.
 
-| Mathematical operation | Native owner | nmopt representation |
+| Mathematical operation | Native owner | `nmopt` representation |
 | --- | --- | --- |
 | residual $E$ | `ProblemA` / `ProblemB` | test-layout covector callback |
 | residual JVP $E'\delta x$ | native problem | test-layout covector callback |
@@ -334,8 +334,8 @@ All paths below are relative to `apps/external-dealii/step-4/` unless noted.
 | Free/full state coordinates and lifting | – | 118 | – | Yes, B OCP work |
 | FE mass assembly and control coupling | – | 183 | – | Yes, B OCP work |
 | Native mass metric | – | 81 | – | Yes, B OCP work |
-| Minimal nmopt binding | 206 | 220 | – | **Yes, framework-specific** |
-| Consumer entry point | 107 | 112 | – | Yes, mixed nmopt use + ordinary program policy |
+| Minimal `nmopt` binding | 206 | 220 | – | **Yes, framework-specific** |
+| Consumer entry point | 107 | 112 | – | Yes, mixed `nmopt` use + ordinary program policy |
 
 Counting the complete adapted source once rather than the baseline plus delta gives a
 **functional gross of 1,722 code-bearing lines**:
@@ -362,12 +362,12 @@ mixed consumer entry points       219
 net functional addition         1,531
 ```
 
-The 829 OCP lines are not nmopt boilerplate: they define the optimal-control problem
+The 829 OCP lines are not `nmopt` boilerplate: they define the optimal-control problem
 that the original forward solver did not contain. The 219 executable lines are also
 not pure framework burden; they include frozen example policy, output allocation,
 CLI handling, reporting, and error handling.
 
-### 6.3 Minimal nmopt binding breakdown
+### 6.3 Minimal `nmopt` binding breakdown
 
 The two canonical bindings total **426 code-bearing lines**. Their explicit A/B
 separation is intentional: it shows that the richer B mathematics does not require a
@@ -478,7 +478,7 @@ framework obligation.
 ## 7. What another application would need
 
 For an application that already has callable assembly/solve/output and already owns
-the chosen OCP mathematics, the current reduced path requires the following nmopt
+the chosen OCP mathematics, the current reduced path requires the following `nmopt`
 adaptation:
 
 1. compatible state/control/test layouts;
@@ -490,7 +490,7 @@ adaptation:
 
 An application that does **not** already contain an OCP must additionally define its
 control coordinates/coupling, objective, derivatives, adjoint, and metric. Those are
-mathematical/application obligations, not evidence that nmopt rewrites the PDE.
+mathematical/application obligations, not evidence that `nmopt` rewrites the PDE.
 
 The current reduced DTO supports one state block, one control block, and one
 residual-test block. Application-specific state reconstruction and output remain
@@ -506,7 +506,7 @@ implementation still retains the same separation of native and public paths.
 | --- | --- |
 | Forward fidelity | upstream, stripped, and adapted programs compare original 2D/3D output |
 | Mathematical correctness | off-solution residual/JVP/VJP checks, reduced derivative checks, fresh equation audits, independent dense optimum oracles |
-| Native/nmopt equivalence | matched reduced evaluations and matched optimization traces for A and B |
+| Native/`nmopt` equivalence | matched reduced evaluations and matched optimization traces for A and B |
 | FE metric verification | B final stationarity checked independently with dense mass algebra |
 | Consumer fidelity | actual minimal executables checked against audited native reports and VTK payloads |
 | Post-refactor reproduction | fresh Problem A and B reproduction at `170c9f1` matched the historical numerical evidence |
@@ -580,7 +580,7 @@ nmopt_external_tutorial_step_4_stripped
 nmopt_external_tutorial_step_4_adapted
 ```
 
-They use deal.II directly and do not link nmopt. From the repository root:
+They use deal.II directly and do not link `nmopt`. From the repository root:
 
 ```bash
 python3 tools/external_dealii/strip_comments.py \
@@ -629,7 +629,7 @@ remain in `docs/history/reviews/external-dealii-boundary-evaluation/`.
 ## 10. Limits and conclusion
 
 The experiment demonstrates that the tested Step-4 application can act as an
-independently owned numerical producer for nmopt's reduced formulation and optimizer.
+independently owned numerical producer for `nmopt`'s reduced formulation and optimizer.
 No semantic compiler, recipe, manifest, project runner, shared optimizer change, or
 framework-specific PDE base class is required by the minimal path.
 

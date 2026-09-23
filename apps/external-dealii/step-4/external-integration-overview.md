@@ -1,4 +1,4 @@
-# Using nmopt as a library from an existing deal.II application
+# Using `nmopt` as a library from an existing deal.II application
 
 ## Question and result
 
@@ -37,7 +37,7 @@ For the wider project architecture, see the
 For exact source accounting and reproduction commands, use the
 [implementation report](integration-report.md).
 
-## 1. Where the experiment fits in nmopt
+## 1. Where the experiment fits in `nmopt`
 
 `nmopt` separates the producer of numerical PDE operations from the formulations and
 algorithms that consume them. A supported problem can be described through the
@@ -327,7 +327,7 @@ The experiment does more than show that the minimal programs compile:
 | FE metric | Problem B final stationarity checked with an independent dense mass solve |
 | Consumer fidelity | actual minimal executables launched and their reports/VTK payloads checked against audited native results |
 | Post-refactor reproduction | fresh A and B reproductions at `170c9f1` matched the historical numerical evidence; forward 2D/3D payloads also matched |
-| Current routine gate | `debug-dealii` pipeline 178/178 at `170c9f1` with deal.II build jobs = 1 |
+| Post-closure routine gate | `debug-dealii` pipeline 178/178 at `170c9f1` with deal.II build jobs = 1 |
 
 A post-closure reproduction on 2026-09-19 re-ran the historical comparison content
 against the final refactored tree. Problem A passed 11/11 selected
@@ -338,7 +338,7 @@ payloads were also identical after ignoring generated timestamp headers.
 
 The historical artifacts were not overwritten. The new evidence lives in separate
 unique run directories and differs only in expected provenance such as paths,
-timestamps, current commit/build metadata, and the current routine test inventory.
+timestamps, commit/build metadata, and the routine test inventory recorded by that reproduction.
 The
 [closure report](../../../docs/history/reviews/external-dealii-boundary-evaluation/closure-report.md)
 records the historical and post-closure evidence separately.

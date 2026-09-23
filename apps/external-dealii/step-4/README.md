@@ -2,26 +2,26 @@
 
 This self-contained case study asks a narrow question: can an existing deal.II
 application remain the owner of its mesh, finite-element discretization, linear
-solves, boundary treatment, and output while using nmopt as an optimization
+solves, boundary treatment, and output while using `nmopt` as an optimization
 library?
 
 For the two tested Step-4 optimal-control problems, the answer is yes. The
 adapted tutorial retains its numerical implementation, the OCP mathematics stays
-application-owned, and the canonical nmopt consumers are confined to explicit
+application-owned, and the canonical `nmopt` consumers are confined to explicit
 bindings under `minimal/`. The much larger comparison, verification, and evidence
 machinery is kept outside that consumer path.
 
 Problem A is a deliberately simple algebraic RHS-control case. Problem B is the
 stronger test: it adds free/full state coordinates, fixed boundary lifting, a
 rectangular finite-element control coupling, and a nonidentity mass metric without
-requiring a shared nmopt API, compiler, formulation, or optimizer change.
+requiring a shared `nmopt` API, compiler, formulation, or optimizer change.
 
 ## Reading paths
 
 | Purpose | Start here |
 | --- | --- |
 | Review the experiment, its result, evidence, and limits | [External integration overview](external-integration-overview.md) |
-| Understand the wider nmopt architecture and producer paths | [Project overviews](../../../docs/manual/overview/README.md) |
+| Understand the wider `nmopt` architecture and producer paths | [Project overviews](../../../docs/manual/overview/README.md) |
 | Inspect exact source responsibilities, LOC accounting, and reproduction details | [Implementation report](integration-report.md) |
 | Build and run the canonical external-consumer examples | [Minimal consumer commands](minimal/README.md) |
 | Look up exact public callbacks, solve reports, metrics, and lifetime rules | [External API reference](../../../docs/reference/external-dealii-solver-integration.md) |
@@ -41,7 +41,7 @@ diagnostics/   optional counters and evidence records
 ```
 
 `integration/adapted_step4.hpp` is the single private reuse seam that consumes the
-preserved adapted tutorial without its standalone `main()`. No nmopt include or
+preserved adapted tutorial without its standalone `main()`. No `nmopt` include or
 type is introduced into `source/adapted/step-4.cc`.
 
 Generated VTK output and evaluation evidence remain ignored below `runs/`. The

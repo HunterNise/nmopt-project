@@ -100,9 +100,9 @@ study, the important fact is not their particular formula but the ownership mode
 Step-4 already has a complete mesh/assembly/solve/output lifecycle before `nmopt` is
 introduced.
 
-With the continuous first-order `FE_Q` space $V_{h}$ and its homogeneous-test
-subspace $V_{h,0}$, the finite-element problem is: \
-find $y_{h}\in V_{h}$ with the prescribed discrete boundary values such that
+With the continuous first-order `FE_Q` space $`V_{h}`$ and its homogeneous-test
+subspace $`V_{h,0}`$, the finite-element problem is: \
+find $`y_{h}\in V_{h}`$ with the prescribed discrete boundary values such that
 
 ```math
 \int_{\Omega} \nabla y_{h} \cdot \nabla v_{h} \mathrm{d}x
@@ -258,9 +258,9 @@ j'(u) &= Mu+B^{\mathsf T}p
 ```
 
 For the public model callback, the primal equation is equivalently represented by
-$E(z,u)=Kz-b_{F}-Bu$. The application owns both the OCP operators and the mass
+$`E(z,u)=Kz-b_{F}-Bu`$. The application owns both the OCP operators and the mass
 metric $G=M$. State and adjoint solves reuse the native Step-4 linear solver;
-physical output reconstructs $y_{\mathrm{phys}}$ before calling Step-4's writer.
+physical output reconstructs $`y_{\mathrm{phys}}`$ before calling Step-4's writer.
 
 The growth from A to B is therefore mainly OCP/numerical work: coordinate semantics,
 FE coupling, a physical objective, and a nonidentity metric. It is not growth in the

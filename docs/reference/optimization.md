@@ -139,7 +139,7 @@ The defaults most relevant to this path are:
 | `maximum_line_search_trials` | `20` | Maximum Armijo trials per outer iteration |
 | `gradient_tolerance` | `1e-8` | Absolute metric-gradient stopping tolerance |
 | `initial_step_length` | `1.0` | First trial step parameter |
-| `armijo_fraction` | `1e-4` | Armijo sufficient-decrease constant $c_{1}$ |
+| `armijo_fraction` | `1e-4` | Armijo sufficient-decrease constant $`c_{1}`$ |
 | `backtracking_factor` | `0.5` | Multiplicative reduction $\rho$ for rejected trials |
 
 ### Understand the Armijo fields
@@ -422,7 +422,7 @@ s_{k}=u_{k}-u_{k-1},
  y_{k}=j'(u_{k})-j'(u_{k-1}).
 $$
 
-Here $s_{k}$ is primal and $y_{k}$ is a covector. The pair is accepted only when
+Here $`s_{k}`$ is primal and $`y_{k}`$ is a covector. The pair is accepted only when
 
 $$
 \langle y_{k},s_{k}\rangle
@@ -613,7 +613,7 @@ wolfe.sufficient_decrease_fraction = 1.0e-4;
 wolfe.curvature_fraction = 0.9;
 ```
 
-With trial update $s=u_{\mathrm{trial}}-u$, the sufficient-decrease condition
+With trial update $`s=u_{\mathrm{trial}}-u`$, the sufficient-decrease condition
 is
 
 $$
@@ -767,7 +767,7 @@ u_{\mathrm{trial}}
 P_{G}(u+\alpha d),
 $$
 
-where $P_{G}$ is the constraint projection in the declared metric. That is why
+where $`P_{G}`$ is the constraint projection in the declared metric. That is why
 Armijo/Wolfe acceptance uses the actual update
 
 $$

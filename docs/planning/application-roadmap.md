@@ -323,7 +323,7 @@ book's B1/B2 figures.
 
 - source facts and omissions are separated from project replacement choices;
 - raw and plotted field identities, extrema, orientation, point association,
-  and the comparison-only $p_{\mathrm{book}}=-p$ sign are auditable;
+  and the comparison-only $`p_{\mathrm{book}}=-p`$ sign are auditable;
 - desired-state and forcing plots retain provenance and coordinate mapping;
 - the `turbo` rendering, interpolation, shared normalization, and endpoint
   colorbar policy are explicit;

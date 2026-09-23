@@ -78,7 +78,7 @@ The required reusable extensions are recorded as P5.1–P5.6 in the
 ### Abstract linear-quadratic template — source Section 5.3
 
 Declare Hilbert spaces $V$, $U$, and $Z$, a closed convex admissible set
-$U_{\mathrm{ad}}\subseteq U$, a continuous coercive bilinear form $a$, a
+$`U_{\mathrm{ad}}\subseteq U`$, a continuous coercive bilinear form $a$, a
 control operator $B:U\rightarrow V^{\ast}$, and a continuous observation
 operator $C:V\rightarrow Z$. The state and objective are
 
@@ -156,10 +156,10 @@ J(y,u) &= \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
 \end{aligned}
 ```
 
-- **Spaces and components:** state/test and adjoint are $H^{1}_{0}(\Omega)$;
+- **Spaces and components:** state/test and adjoint are $`H^{1}_{0}(\Omega)`$;
   control is $L^{2}(\Omega)$; the control residual term is a volume source;
   the observation is full-volume state restriction.
-- **Data and analysis policy:** $f,z_{d}\in L^{2}(\Omega)$; the book assumes
+- **Data and analysis policy:** $`f,z_{d}\in L^{2}(\Omega)`$; the book assumes
   $b\in C^{1}$ and $\mathrm{div} b=0$, giving coercivity of the stated
   form. The adjoint strong operator is $-\Delta p-b\mathbin\cdot\nabla p$.
 - **Optimality:** $p+\beta u=0$ in $L^{2}(\Omega)$. In the framework this is
@@ -206,15 +206,15 @@ J(y,u) &= \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega_{0})}^{2}
 ```
 
 - **Spaces:** $V=H^{1}(\Omega)$, $U=L^{2}(\Omega)$, and observation space
-  $L^{2}(\Omega_{0})$, where $\Omega_{0}$ is a declared volume region.
+  $`L^{2}(\Omega_{0})`$, where $`\Omega_{0}`$ is a declared volume region.
 - **Data and analysis policy:** $f\in L^{2}(\Omega)$,
-  $g\in L^{2}(\Gamma)$, $z_{d}\in L^{2}(\Omega_{0})$, and
-  $0\leq h\leq h_{0}$ with $h\in L^{\infty}(\Gamma)$. The source's first
-  coercive case assumes $r\geq c_{0}>0$.
+  $g\in L^{2}(\Gamma)$, $`z_{d}\in L^{2}(\Omega_{0})`$, and
+  $`0\leq h\leq h_{0}`$ with $h\in L^{\infty}(\Gamma)$. The source's first
+  coercive case assumes $`r\geq c_{0}>0`$.
 - **Residual decomposition:** volume diffusion, volume reaction, volume
   source/control, Robin bilinear boundary term, and Robin boundary source.
 - **Adjoint:** it has the adjoint volume form, zero Robin datum, and source
-  $(y-z_{d})\chi_{\Omega_{0}}$. The control covector is $p+\beta u$.
+  $`(y-z_{d})\chi_{\Omega_{0}}`$. The control covector is $p+\beta u$.
 - **Variants:** no constraint, nonnegative controls, and two-sided boxes. If
   $\beta=0$, the bounded control set gives existence but the subdomain
   observation need not identify a unique control.
@@ -231,9 +231,9 @@ J(y,u)=\frac{1}{2}\lVert y-z_{d}\rVert_{H^{1}_{0}(\Omega)}^{2}.
 ```
 
 The primary variant has $f\in L^{2}(\Omega)$ and
-$z_{d}\in H^{1}_{0}(\Omega)$, and uses bounded, closed, convex controls in
-$L^{2}(\Omega)$. The adjoint source is the $H^{1}_{0}$ Riesz derivative,
-$(I-\Delta)(y-z_{d})$ in $H^{-1}(\Omega)$, and the $L^{2}$ control gradient is
+$`z_{d}\in H^{1}_{0}(\Omega)`$, and uses bounded, closed, convex controls in
+$L^{2}(\Omega)$. The adjoint source is the $`H^{1}_{0}`$ Riesz derivative,
+$`(I-\Delta)(y-z_{d})`$ in $H^{-1}(\Omega)$, and the $L^{2}$ control gradient is
 $p$. For an $L^{2}$ ball, the variational inequality has the standard radial
 projection solution.
 
@@ -269,14 +269,14 @@ J(y,u)&=\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega_{0})}^{2}
 ```
 
 Declare separate volume, fixed-Dirichlet, Neumann-control, and observation
-regions. State/test space is $H^{1}_{\Gamma_{D}}(\Omega)$; control is
-$L^{2}(\Gamma_{N})$. The control residual is a Neumann trace pairing and its
+regions. State/test space is $`H^{1}_{\Gamma_{D}}(\Omega)`$; control is
+$`L^{2}(\Gamma_{N})`$. The control residual is a Neumann trace pairing and its
 VJP is the adjoint trace. The boundary reduced covector is
-$p|_{\Gamma_{N}}+\beta u$. The source assumes a coercivity policy involving
+$`p|_{\Gamma_{N}}+\beta u`$. The source assumes a coercivity policy involving
 $b\mathbin\cdot n$ and $\mathrm{div} b$ : $b$ has Lipschitz components,
-$b\mathbin\cdot n\leq0$ on $\Gamma_{N}$, and
+$b\mathbin\cdot n\leq0$ on $`\Gamma_{N}`$, and
 $\mathrm{div} b\geq0$ in $\Omega$. It takes
-$f\in L^{2}(\Omega)$ and $z_{d}\in L^{2}(\Omega_{0})$.
+$f\in L^{2}(\Omega)$ and $`z_{d}\in L^{2}(\Omega_{0})`$.
 
 This source combination requires composition of volume tracking with boundary
 Neumann control, plus P5.1 transport/mixed-boundary support.
@@ -292,11 +292,11 @@ The state is
 
 Control is $L^{2}(\Gamma)$ and the observation is the weighted trace
 $h\gamma y$ in $L^{2}(\Gamma)$. The objective is boundary tracking plus
-$\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Gamma)}^{2}$. The adjoint has no
-volume source and Neumann boundary datum $h(h\gamma y-z_{d})$; the gradient is
+$`\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Gamma)}^{2}`$. The adjoint has no
+volume source and Neumann boundary datum $`h(h\gamma y-z_{d})`$; the gradient is
 $\gamma p+\beta u$. With zero regularisation, a bounded admissible set gives
 existence and nonzero $h$ supplies the source's uniqueness condition. Require
-$f\in L^{2}(\Omega)$, $z_{d}\in L^{2}(\Gamma)$, and
+$f\in L^{2}(\Omega)$, $`z_{d}\in L^{2}(\Gamma)`$, and
 $h\in L^{\infty}(\Gamma)$; the reaction term $+y$ supplies coercivity.
 
 The registered P5.2 target declares multiplication by boundary data $h$ as an
@@ -319,12 +319,12 @@ J(y,u)&=\frac{1}{2}\lVert \partial_{n} y-z_{d}\rVert_{L^{2}(\Gamma_{0})}^{2}
 ```
 
 It requires a convex or sufficiently smooth domain so the state belongs to
-$H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ and its normal trace is meaningful.
+$`H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$ and its normal trace is meaningful.
 The formal adjoint is harmonic but has $L^{2}$ Dirichlet data on the boundary,
 so its correct formulation is a very weak solution in $L^{2}(\Omega)$.
 The volume reduced covector remains $p+\beta u$. Require
-$f\in L^{2}(\Omega)$, $z_{d}\in L^{2}(\Gamma_{0})$, a smooth boundary subset
-$\Gamma_{0}$, and $\beta>0$.
+$f\in L^{2}(\Omega)$, $`z_{d}\in L^{2}(\Gamma_{0})`$, a smooth boundary subset
+$`\Gamma_{0}`$, and $\beta>0$.
 
 An implementation must select either a strong-state normal-flux policy or an
 $H(\mathrm{div})$ trace policy, and must lower the adjoint through the
@@ -332,9 +332,9 @@ declared transposition policy. P5.3 is required; treating a normal derivative
 as an ordinary boundary trace is incorrect.
 
 The first registered C5.8 slice selects the strong-state policy
-$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ on the declared convex or sufficiently
+$`Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$ on the declared convex or sufficiently
 smooth domain. Its deal.II realization evaluates
-$\partial_{n}y=\nabla y\mathbin\cdot n_{\mathrm{out}}$ with `FEFaceValues` at
+$`\partial_{n}y=\nabla y\mathbin\cdot n_{\mathrm{out}}`$ with `FEFaceValues` at
 selected boundary-face quadrature points and assembles the transpose of the
 same face map. The objective uses this face-quadrature $L^{2}$ pairing and the
 adjoint is recorded as the corresponding very-weak boundary source. An
@@ -347,7 +347,7 @@ fixed region to cover every exterior mesh face.
 ### C5.9 — Transposition policy for low-regularity Dirichlet data
 
 For $-\Delta w=f$ with boundary datum $g\in L^{2}(\Gamma)$, the source uses
-the test space $Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ and defines the very
+the test space $`Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$ and defines the very
 weak solution $w\in L^{2}(\Omega)$ through equations (5.130)–(5.134):
 
 ```math
@@ -356,7 +356,7 @@ weak solution $w\in L^{2}(\Omega)$ through equations (5.130)–(5.134):
 \qquad\forall\psi\in Y.
 ```
 
-Equivalently, declare the residual $E_{\mathrm{tr}}(w,g;f)\in Y^{\ast}$ by
+Equivalently, declare the residual $`E_{\mathrm{tr}}(w,g;f)\in Y^{\ast}`$ by
 
 ```math
 \langle E_{\mathrm{tr}}(w,g;f),\psi\rangle
@@ -383,9 +383,9 @@ outside it are rejected.
 ### C5.10 — Finite point-sensor tracking
 
 For $d=2,3$ and a convex or $C^{2}$ domain, choose
-$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ so that point evaluation is
+$`Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$ so that point evaluation is
 continuous. Take $r\in L^{\infty}(\Omega)$, $r\geq0$,
-$f\in L^{2}(\Omega)$, and $z_{d}\in C(\overline\Omega)$.
+$f\in L^{2}(\Omega)$, and $`z_{d}\in C(\overline\Omega)`$.
 The problem is
 
 ```math
@@ -411,13 +411,13 @@ The first registered point-sensor slice selects the finite point-evaluation
 alternative. Its semantic
 point-set region stores finite, unique physical coordinates and its observation
 space has one coefficient per coordinate. The continuous policy declares
-$Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ and
+$`Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$ and
 $T=-\kappa\Delta+rI:Y\rightarrow L^{2}(\Omega)$, with $\kappa$ and $r$
 bound through the scalar residual's diffusion and reaction data ports, under a
 convex-or-$C^{2}$ domain assumption. The deal.II realization evaluates `FE_Q`
 shape functions at each physical coordinate to form the finite-dimensional map
-$C_{h}$ and assembles
-$C_{h}^{\mathsf{T}}(C_{h}y-z_{d})$ as the point-load transpose for the
+$`C_{h}`$ and assembles
+$`C_{h}^{\mathsf{T}}(C_{h}y-z_{d})`$ as the point-load transpose for the
 very-weak adjoint solve. This is the selected evaluation and transpose policy;
 nearest-node, quadrature-coincidence, and general transposition alternatives
 remain unregistered. The sibling C5.8 slice uses the separately declared
@@ -436,7 +436,7 @@ All variants use
 
 with an unconstrained control and positive regularisation. Dirichlet control
 is a physical-state transformation, not a boundary load. The source takes
-$f\in L^{2}(\Omega)$ and $z_{d}$ in the selected observation space $Z$:
+$f\in L^{2}(\Omega)$ and $`z_{d}`$ in the selected observation space $Z$:
 
 ```math
 y_{\mathrm{phys}}=P\widehat y+\ell_{0}+L_{D} u.
@@ -449,10 +449,10 @@ The source's variants are:
    the fractional Riesz map in the Euler equation. With $L^{2}(\Gamma)$
    regularisation instead, use $H^{1}(\Omega)$ state tracking to retain
    coercivity; the Euler equation is a boundary duality involving
-   $\partial_{n} p$.
+   $`\partial_{n} p`$.
 2. **Control space $L^{2}(\Gamma)$.** The state is initially very weak and
    needs the C5.9 transposition policy. More precisely, Section 5.11.2 takes
-   $Z=L^{2}(\Omega)$, $U=U_{0}=L^{2}(\Gamma)$, and
+   $Z=L^{2}(\Omega)$, $`U=U_{0}=L^{2}(\Gamma)`$, and
 
    ```math
    \begin{aligned}
@@ -465,7 +465,7 @@ The source's variants are:
    \end{aligned}
    ```
 
-   Here $f,z_{d}\in L^{2}(\Omega)$ and $\beta>0$. With the project convention
+   Here $`f,z_{d}\in L^{2}(\Omega)`$ and $\beta>0$. With the project convention
    $\mathcal L=J-\langle p,E\rangle$, the adjoint and Euler equations are
 
    ```math
@@ -481,13 +481,13 @@ The source's variants are:
 
    Transposition well-posedness requires a convex or sufficiently smooth
    domain. Proposition 5.16 uses a $C^{2}$ domain for the stronger conclusion:
-   $p\in H^{2}(\Omega)\cap H^{1}_{0}(\Omega)$ implies
-   $\partial_{n}p\in H^{1/2}(\Gamma)$, the Euler equation then gives
+   $`p\in H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$ implies
+   $`\partial_{n}p\in H^{1/2}(\Gamma)`$, the Euler equation then gives
    $u\in H^{1/2}(\Gamma)$, and the optimal state is the ordinary
    $H^{1}(\Omega)$ variational solution.
 
    For the first discrete target, choose a conforming trace-control subspace
-   $U_{h}\subset H^{1/2}(\Gamma)\subset L^{2}(\Gamma)$ with the boundary
+   $`U_{h}\subset H^{1/2}(\Gamma)\subset L^{2}(\Gamma)`$ with the boundary
    $L^{2}$ mass metric. For every discrete datum, the associated continuous
    transposition state has the equivalent $H^{1}$ variational formulation, so
    a lifted conforming Galerkin solve is valid at every discrete iterate, not
@@ -502,17 +502,17 @@ The source's variants are:
    gradient and its metric.
 
 The first discrete realization of item 1 uses the quotient trace norm induced
-by the volume $H^{1}$ energy. For $U_{h}=\mathrm{tr}_{\Gamma}V_{h}$, let
-$E_{h}u_{h}$ minimize the discrete $H^{1}(\Omega)$ norm among functions with
-trace $u_{h}$ and set
+by the volume $H^{1}$ energy. For $`U_{h}=\mathrm{tr}_{\Gamma}V_{h}`$, let
+$`E_{h}u_{h}`$ minimize the discrete $H^{1}(\Omega)$ norm among functions with
+trace $`u_{h}`$ and set
 
 ```math
 \langle G_{1/2,h}u_{h},v_{h}\rangle
 =(E_{h}u_{h},E_{h}v_{h})_{H^{1}(\Omega)}.
 ```
 
-Thus $G_{1/2,h}$ is the Schur complement of
-$M_{\Omega,h}+K_{\Omega,h}$ with respect to the interior coordinates. This
+Thus $`G_{1/2,h}`$ is the Schur complement of
+$`M_{\Omega,h}+K_{\Omega,h}`$ with respect to the interior coordinates. This
 choice supplies the fractional Riesz map required by Section 5.11.1 without
 introducing a separate boundary eigendecomposition. Its two source options
 remain distinct: the first uses the fractional action for both control loss
@@ -521,7 +521,7 @@ loss, $H^{1}$ state tracking, and the fractional action only for direction
 formation.
 
 The first discrete realization of item 3 uses
-$G_{1,h}=M_{\Gamma,h}+K_{\Gamma,h}$, with $K_{\Gamma,h}$ assembled from
+$`G_{1,h}=M_{\Gamma,h}+K_{\Gamma,h}`$, with $`K_{\Gamma,h}`$ assembled from
 tangential shape gradients. It supplies both the selected tangential
 $H^{1}(\Gamma)$ control loss and search metric while preserving their
 separate semantic identities.
@@ -542,7 +542,7 @@ variant.
 ### C5.12 — State-constrained distributed control
 
 The source problem is on a bounded Lipschitz domain, with
-$y_{a},y_{b}\in L^{\infty}(\Omega)$ and a feasible control. It is
+$`y_{a},y_{b}\in L^{\infty}(\Omega)`$ and a feasible control. It is
 
 ```math
 \begin{aligned}
@@ -583,7 +583,7 @@ The state has velocity and pressure blocks:
 \end{aligned}
 ```
 
-Velocity has fixed Dirichlet data on $\Gamma_{D}$ and traction data on
+Velocity has fixed Dirichlet data on $`\Gamma_{D}`$ and traction data on
 $`\Gamma_{N}`$. Use $`X=H^{1}_{\Gamma_{D}}(\Omega)^{d}`$ for velocity,
 $Q=L^{2}(\Omega)$ with the selected pressure gauge, and $U=L^{2}(\Omega)^{d}$
 for an unconstrained force control. The objective is
@@ -596,8 +596,8 @@ J(v,u)=\frac{1}{2}\lVert v-z_{d}\rVert_{L^{2}(\Omega)^{d}}^{2}
 The residual consists of momentum and incompressibility equation blocks. Its
 well-posedness depends on the declared inf-sup and pressure-gauge policies.
 The source takes $f\in L^{2}(\Omega)^{d}$ and traction data in
-$L^{2}(\Gamma_{N})^{d}$.
-The adjoint is a Stokes system driven by $v-z_{d}$; its velocity component $z$
+$`L^{2}(\Gamma_{N})^{d}`$.
+The adjoint is a Stokes system driven by $`v-z_{d}`$; its velocity component $z$
 gives reduced covector $z+\tau u$. P5.6 must extend the formulation and
 compiler paths to mixed blocks before this is implemented.
 
@@ -606,7 +606,7 @@ compiler paths to mixed blocks before this is implemented.
 This two-dimensional Stokes case controls velocity on a subset of a body
 boundary. Fixed inflow, wall, and outflow conditions coexist with the
 controlled Dirichlet trace. The source selects a normal velocity control in
-$H^{1}_{0}(\Gamma_{c})^{2}$ and minimises
+$`H^{1}_{0}(\Gamma_{c})^{2}`$ and minimises
 
 ```math
 J(v,u)=\frac{1}{2}\lVert \nabla\mathbin\times v\rVert_{L^{2}(\Omega)}^{2}
@@ -616,7 +616,7 @@ J(v,u)=\frac{1}{2}\lVert \nabla\mathbin\times v\rVert_{L^{2}(\Omega)}^{2}
 It uses a mixed Stokes formulation with a boundary multiplier for the
 Dirichlet relation, rather than an unstated lifting. The adjoint is another
 Stokes system with curl-curl forcing. The Euler condition is a surface
-Poisson balance between the $H^{1}_{0}(\Gamma_{c})$ regularisation and the
+Poisson balance between the $`H^{1}_{0}(\Gamma_{c})`$ regularisation and the
 adjoint boundary multiplier.
 
 This needs P5.4 for the trace/surface metric pieces and P5.6 for vector

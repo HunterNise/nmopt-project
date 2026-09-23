@@ -49,7 +49,7 @@ W &= C^{\mathsf T}M_{z}C.
 ```
 
 Here $A$ is the state operator, $B$ maps control coefficients into the state
-residual dual, $C$ is the declared observation, $M_{z}$ is its pairing, and
+residual dual, $C$ is the declared observation, $`M_{z}`$ is its pairing, and
 $N$ is the control-loss pairing. They must remain separate: full-volume,
 subdomain, boundary, and point observations do not justify identifying them.
 
@@ -63,9 +63,9 @@ j_{h}'(u) &= \beta N u+B^{\mathsf T}p.
 ```
 
 Chapter 6 uses the opposite adjoint sign:
-$p_{\mathrm{book}}=-p$. Its relations
-$A^{\mathsf T}p_{\mathrm{book}}=-M(y-z_{d})$ and
-$\beta N u-B^{\mathsf T}p_{\mathrm{book}}=0$ are equivalent to those above.
+$`p_{\mathrm{book}}=-p`$. Its relations
+$`A^{\mathsf T}p_{\mathrm{book}}=-M(y-z_{d})`$ and
+$`\beta N u-B^{\mathsf T}p_{\mathrm{book}}=0`$ are equivalent to those above.
 An all-at-once implementation may use the book's symmetric KKT multiplier
 $\lambda=-p$, but the conversion must be explicit at the formulation
 boundary; it must not change `ReducedDTO` signs.
@@ -84,7 +84,7 @@ The chapter compares two formulation orders:
 
 - **Optimise then discretise (OtD):** derive continuous state, adjoint, and
   control optimality conditions, then discretise every equation.
-- **Discretise then optimise (DtO):** lower $r_{h}$ and $J_{h}$, then
+- **Discretise then optimise (DtO):** lower $`r_{h}`$ and $`J_{h}`$, then
   differentiate that exact finite-dimensional problem. The adjoint is the
   residual VJP and the reduced covector is the DTO covector above.
 
@@ -112,8 +112,8 @@ y &= 0 && \text{on }\Gamma_{D}, \\
 \end{aligned}
 ```
 
-The outflow is $\Gamma_{N}$, $\mathrm{div} b\leq0$, and the local Péclet
-number is large. The observation is $k y$ on $\Omega_{0}$ and the control is
+The outflow is $`\Gamma_{N}`$, $\mathrm{div} b\leq0$, and the local Péclet
+number is large. The observation is $k y$ on $`\Omega_{0}`$ and the control is
 penalised in $L^{2}(\Omega)$. The Galerkin–least-squares (GLS) state term is
 
 ```math
@@ -156,7 +156,7 @@ A_{S}=\begin{bmatrix}E&B^{\mathsf T}\\B&0\end{bmatrix}.
 ```
 
 The source's all-at-once preconditioner assumes a positive pressure tracking
-term $\delta M_{\pi}$. A reduced target may track velocity only, but that
+term $`\delta M_{\pi}`$. A reduced target may track velocity only, but that
 specific full-KKT Schur complement then becomes singular. The framework needs
 multiple residual/test blocks, a pressure gauge, and an inf-sup policy before
 this compiles; those are P5.6 prerequisites extended by P6.3–P6.4.
@@ -164,7 +164,7 @@ this compiles; those are P5.6 prerequisites extended by P6.3–P6.4.
 ### C6.3 — Reduced-space methods for unconstrained OCPs
 
 Eliminate the state through the declared state solve, $y=y(u)$, and minimise
-$j_{h}(u)=J_{h}(y(u),u)$. Every reduced iteration must:
+$`j_{h}(u)=J_{h}(y(u),u)`$. Every reduced iteration must:
 
 1. solve the state for the accepted control;
 2. solve the DTO adjoint and assemble the reduced covector;
@@ -201,7 +201,7 @@ diagnostics. The older parallel histories remain compatibility views and are
 checked against these records when the terminal report is assembled.
 
 The book writes directions in Euclidean coefficient coordinates. In this
-framework, $g=G^{-1}j_{h}'(u)$ is the gradient for the selected metric $G$.
+framework, $`g=G^{-1}j_{h}'(u)`$ is the gradient for the selected metric $G$.
 The portable steepest direction is therefore $d=-g$, not bare coefficient
 negation.
 
@@ -214,7 +214,7 @@ option.
 
 | Method | Required direction service | First general policy |
 | --- | --- | --- |
-| Steepest descent | $d=-G^{-1}j_{h}'$ | Existing reduced Armijo solver. |
+| Steepest descent | $`d=-G^{-1}j_{h}'`$ | Existing reduced Armijo solver. |
 | Nonlinear conjugate gradient | Gradient history and selected Fletcher–Reeves or Polak–Ribière update | The selected slice defaults to metric-aware PR+, exposes Fletcher–Reeves, verifies exact-search quadratic equivalence, and includes a strict classical quadratic-CG policy. |
 | Trust region | Quadratic model, Hessian-vector action, and radius update | Unconstrained metric Cauchy or truncated-CG subproblem with actual/predicted reduction and subproblem-status diagnostics. |
 | Newton / truncated Newton | Hessian-vector action and inner linear solve | The selected slice uses capability-gated Newton; explicit truncated-Newton termination remains an extension. |
@@ -444,7 +444,7 @@ KKT formulation.
 
 With $S=DQ^{-1}D^{\mathsf T}$, the source proposes these reusable families:
 
-- **Block diagonal:** $P_{d}=\mathrm{diag}(Q,S)$. For full-volume scalar
+- **Block diagonal:** $`P_{d}=\mathrm{diag}(Q,S)`$. For full-volume scalar
   control with $B=N=W=M$, the exact Schur block is
   $S=\beta^{-1}M+A M^{-1}A^{\mathsf T}$. Approximate mass inverses with
   lumping, symmetric Gauss–Seidel, or Chebyshev iteration, and approximate
@@ -456,13 +456,13 @@ With $S=DQ^{-1}D^{\mathsf T}$, the source proposes these reusable families:
   blocks and CG in an explicitly declared non-standard inner product. The
   scaling that makes it positive definite is part of the policy.
 - **Constraint preconditioner / PPCG:** retain exact constraint blocks in
-  $P_{C}=\begin{bmatrix}G&D^{\mathsf T}\\D&0\end{bmatrix}$. PPCG starts from
-  a feasible $x_{0}$ satisfying $Dx_{0}=f$ and keeps iterates in that
+  $`P_{C}=\begin{bmatrix}G&D^{\mathsf T}\\D&0\end{bmatrix}`$. PPCG starts from
+  a feasible $`x_{0}`$ satisfying $`Dx_{0}=f`$ and keeps iterates in that
   equality-constraint manifold.
 
 Boundary control merely makes $B$ rectangular. It preserves the generic
 $Q$, $D$, and Schur-complement construction. For Stokes, take
-$D_{S}=[A_{S}\ -V]$. The source's nested approximate Stokes solve can use a
+$`D_{S}=[A_{S}\ -V]`$. The source's nested approximate Stokes solve can use a
 stationary Uzawa method; a variable Krylov inner solve instead requires
 flexible GMRES outside.
 
@@ -536,8 +536,8 @@ y_{a}\leq y+\varepsilon u\leq y_{b},
 \qquad \varepsilon>0.
 $$
 
-It is the observation $O_{c}(y,u)=y+\varepsilon u$, not a control box. The
-active equalities are $O_{c}=y_{a}$ or $O_{c}=y_{b}$ and stationarity gains
+It is the observation $`O_{c}(y,u)=y+\varepsilon u`$, not a control box. The
+active equalities are $`O_{c}=y_{a}`$ or $`O_{c}=y_{b}`$ and stationarity gains
 the $\varepsilon\mu$ covector. It reuses P5.5 semantics but needs P6.5 for
 the generic PDAS solve.
 

@@ -146,7 +146,7 @@ A Neumann-control residual likewise MUST carry a typed discrete-control
 selection. The selection identifies the control variable, its mathematical
 space, the controlled boundary, and the selected metric, and distinguishes a
 facewise-constant realization from a continuous nodal-trace realization. Both
-are discrete subspaces of the declared $L^{2}(\Gamma_{c})$ control space; the
+are discrete subspaces of the declared $`L^{2}(\Gamma_{c})`$ control space; the
 topology of the semantic parent space does not select one implicitly. A
 facewise coefficient box applies only to the facewise-constant realization.
 The compiler MUST diagnose a selected realization for which it has no
@@ -261,7 +261,7 @@ A data component MUST NOT expose a derivative block.  To estimate a datum, the
 author MUST replace it with a variable block and add all required residual,
 loss, metric, and constraint connections.
 
-For a tracking loss declared on an $H^{1}_{0}$ observation space, the graph
+For a tracking loss declared on an $`H^{1}_{0}`$ observation space, the graph
 MUST carry a typed target-data membership policy. It MUST identify the
 `desired_state` datum, the observation space, the selected fixed-Dirichlet
 boundary, the availability of values and weak gradients, and zero-trace
@@ -496,7 +496,7 @@ a loss; an $H^{1}$ search geometry is a metric.
 
 The first selected $H^{-1}$ realization makes the discrete policy explicit.
 Its search space is the independent homogeneous-Dirichlet coefficient space
-$P_{h}=\mathrm{span}\{\phi_{i}\}\subset H^{1}_{0}(\Omega)$. With the control
+$`P_{h}=\mathrm{span}\{\phi_{i}\}\subset H^{1}_{0}(\Omega)`$. With the control
 mass and Dirichlet-Laplacian matrices
 
 $$
@@ -958,8 +958,8 @@ builders MAY produce the same KKT product shape, but their provenance and
 construction evidence remain distinct in the manifest.
 
 The formulation MUST declare the assumptions needed by the selected solve
-policy, including the rank or compatibility condition for $D_{h}$ and the
-positive-definiteness of $Q_{h}$ on $\ker(D_{h})$. If those assumptions are not
+policy, including the rank or compatibility condition for $`D_{h}`$ and the
+positive-definiteness of $`Q_{h}`$ on $`\ker(D_{h})`$. If those assumptions are not
 declared or the requested product cannot provide the required pairing, the
 compiler MUST return a formulation diagnostic rather than select a
 Schur-complement or Krylov policy by implication.

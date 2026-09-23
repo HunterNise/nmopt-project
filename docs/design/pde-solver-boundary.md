@@ -201,7 +201,7 @@ Dirichlet control extends the same pattern:
 ```
 
 Then both state and control derivatives receive pullbacks through $P^{T}$ and
-$L_{D}^{T}$. Observations and native output should act on the physical field;
+$`L_{D}^{T}`$. Observations and native output should act on the physical field;
 state-coordinate machinery is responsible for translating to and from
 solver-facing coordinates.
 
@@ -229,7 +229,7 @@ class.
 ### State-reconstruction controls
 
 Dirichlet control enters through the physical-state reconstruction
-$L_{D} u$, so residuals and observations see the reconstructed physical field.
+$`L_{D} u`$, so residuals and observations see the reconstructed physical field.
 Its natural numerical operations are lifting and dual pullback rather than a
 standalone forcing matrix.
 

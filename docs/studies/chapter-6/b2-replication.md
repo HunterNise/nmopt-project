@@ -119,7 +119,7 @@ The source does not provide:
 
 The book does explicitly provide the volume right-hand side and boundary
 operator. Equation (6.65) uses zero volume forcing and
-$\partial_{n} y-(b\mathbin\cdot n)y$ on both controlled and outflow boundaries;
+$`\partial_{n} y-(b\mathbin\cdot n)y`$ on both controlled and outflow boundaries;
 the ordinary normal derivative is not diffusion-weighted. References [187]
 and [205] support this classification: [187], equation (37), also has zero
 volume right-hand side, while [205] separates a distributed heat-source test
@@ -290,10 +290,10 @@ evidence gate, not evidence of an incorrect derivative.
 
 The direct weak-form audit is now complete. The assembled ordinary realization
 uses the conservative volume form
-$\int_{\Omega}\mu\nabla y\mathbin\cdot\nabla v-yb\mathbin\cdot\nabla v$
+$`\int_{\Omega}\mu\nabla y\mathbin\cdot\nabla v-yb\mathbin\cdot\nabla v`$
 and adds $(1-\mu)(b\mathbin\cdot n)y$ on the control and outflow faces. Its
 control load is correspondingly scaled by $\mu$, as required when the source
-condition is $\partial_{n}y-(b\mathbin\cdot n)y=u$. On the B2 rectangle, a
+condition is $`\partial_{n}y-(b\mathbin\cdot n)y=u`$. On the B2 rectangle, a
 constant test/state check gives
 $`(1-0.1)\int_{0}^{1}1.5x_{2}(1-x_{2})\mathrm{d}x_{2}=0.225`$ for the
 ordinary-minus-total residual difference. The Debug contract
@@ -392,7 +392,7 @@ diagnostics, not source-replication hypotheses:
 - `figure-6.5-table-6.2-parabolic-fit.prm` uses $f=0.65$ for the strongest
   simultaneous field and parabolic-row agreement; and
 - `target-transcription-gate.prm` holds the source PDE and zero forcing fixed
-  while comparing targets $2$, $20$, and $4x_{2}(1-x_{2})$ at zero control.
+  while comparing targets $2$, $20$, and $`4x_{2}(1-x_{2})`$ at zero control.
 
 All four use continuous trace control, the source-oriented structured simplex
 mesh, fixed step $0.05$, and retained fields. The three fitted optimization
@@ -425,7 +425,7 @@ reproduction.
 
 The runner now exposes the constant and parabolic target definitions as
 expression-backed scalar-function records. The source defaults remain $2$ and
-$4x_{2}(1-x_{2})$; the selected definition, kind, value, and expression are
+$`4x_{2}(1-x_{2})`$; the selected definition, kind, value, and expression are
 retained in B2 artifact evidence. This enables the conditional constant-target
 transcription hypothesis to be tested without changing the PDE, adding
 forcing, or introducing an objective multiplier.
@@ -516,16 +516,16 @@ reproduction.
 
 The promoted [target-transcription gate](../../../parameters/chapter-6/b2/development/target-transcription-gate.prm)
 uses the source-oriented $160\mathbin\times40$ simplex mesh, continuous
-$P_{1}$ trace control, zero forcing, source coefficients, and zero initial
+$`P_{1}`$ trace control, zero forcing, source coefficients, and zero initial
 control. It compares constant targets $2$ and $20$ with the source parabolic
 target. The preserved release run completed all six artifacts and
 postprocessed all six without failures.
 
-| Target | Wings $J(u_{0})$ | Full $J(u_{0})$ | Full minus wings |
+| Target | Wings $`J(u_{0})`$ | Full $`J(u_{0})`$ | Full minus wings |
 | --- | ---: | ---: | ---: |
 | constant $2$ | $0.875017$ | $1.458699$ | $0.583682$ |
 | constant $20$ | $324.413590$ | $540.695200$ | $216.281610$ |
-| $4x_{2}(1-x_{2})$ | $0.310938$ | $0.315372$ | $0.004433$ |
+| $`4x_{2}(1-x_{2})`$ | $0.310938$ | $0.315372$ | $0.004433$ |
 
 Every computed pair satisfies the required nesting order. Solving the
 constant-target quadratic for each printed objective gives incompatible
@@ -539,11 +539,11 @@ not explain the parabolic objectives or Figure 6.5.
 ### Forensic forcing/target factorial
 
 The release factorial tested $f\in\{0,0.64\}$, both regions, and targets
-$2$, $20$, and $4x_{2}(1-x_{2})$ in 12 one-step cases. The best tested table
+$2$, $20$, and $`4x_{2}(1-x_{2})`$ in 12 one-step cases. The best tested table
 reconstruction uses $f=0.64$, target $20$, and the swapped constant-row
 association:
 
-| Compared case | Candidate $J(u_{0})$ | Printed $J(u_{0})$ | Relative error |
+| Compared case | Candidate $`J(u_{0})`$ | Printed $`J(u_{0})`$ | Relative error |
 | --- | ---: | ---: | ---: |
 | wings/constant $20$ to row b | $189.5193$ | $192.8385$ | $-1.72\%$ |
 | full/constant $20$ to row a | $317.1569$ | $316.6661$ | $+0.16\%$ |
@@ -564,7 +564,7 @@ counts remain far from the source. Table 6.2 reports one gradient ratio; the
 artifacts retain both the metric-gradient and coefficient-derivative ratios,
 which coincide for the uniform facewise control realization.
 
-| Case | Count | Source/current $J(u_{0})$ | Source/current $J$ | Source/current reduction | Source/current metric ratio | Current coefficient ratio |
+| Case | Count | Source/current $`J(u_{0})`$ | Source/current $J$ | Source/current reduction | Source/current metric ratio | Current coefficient ratio |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | a | 59 | $316.6661/0.865904$ | $3.5682/0.0232535$ | $98.87\%/97.31\%$ | $0.0250/4.600\mathbin\times10^{-5}$ | $4.600\mathbin\times10^{-5}$ |
 | b | 54 | $192.8385/1.458708$ | $2.6368/0.0437242$ | $98.63\%/97.00\%$ | $0.0569/4.895\mathbin\times10^{-5}$ | $4.895\mathbin\times10^{-5}$ |
@@ -591,8 +591,8 @@ the book's ordinary-normal-minus-transport condition. That difference does
 not explain Figure 6.5's no-control field. With zero control and forcing, the
 constant field $y=1$ satisfies the Test 3 PDE, inlet value, and homogeneous
 diffusion-Neumann conditions. In the cross-section-averaged model
-$\bar y=C_{1}+C_{2}e^{2.5x_{1}}$, the outlet condition
-$\bar y'(4)=0$ forces $C_{2}=0$. The state shown on the retained
+$`\bar y=C_{1}+C_{2}e^{2.5x_{1}}`$, the outlet condition
+$\bar y'(4)=0$ forces $`C_{2}=0`$. The state shown on the retained
 [reference page](assets/reference-205-page-A2336.png) is
 an optimized controlled state, not an uncontrolled-state record. The
 ancestral natural-Neumann form is therefore analytically rejected as a
@@ -632,7 +632,7 @@ the terminal-to-initial ratio. Both interpretations give the current relative
 gradient values in the comparison table.
 
 Table 6.2 therefore cannot distinguish the two interpretations under the
-frozen realization. A nonuniform boundary mesh or continuous $P_{1}$ boundary
+frozen realization. A nonuniform boundary mesh or continuous $`P_{1}`$ boundary
 control gives a non-scalar mass matrix and can make the ratios differ. B2 now
 records the selected control and compiled metric explicitly, so candidate runs
 can make that comparison without a further artifact-schema change.
@@ -645,8 +645,8 @@ can make that comparison without a further artifact-schema change.
 | F1 | Ancestral inlet-only Dirichlet partition with the book outflow form | **Open as a forward-only forensic check.** Figure 6.4 fixes the source partition, but reference [205] fixes only the inlet and controls the horizontal walls. This combination can change the no-control state because it retains the book outflow condition. | Parameter-only through the upstream transition; label it non-source. |
 | F2 | Historically motivated transport amplitudes and direction | **Open only under the book outflow form.** Zero, unit, source $1.5$, and referenced scaled amplitudes can localize whether the field gap enters through volume transport or its coupled outlet term. | Parameter-only through the transport expression; retain exact provenance. |
 | 1 | Diffusion-weighted conormal alternative | **Rejected as a source interpretation.** Equation (6.65) explicitly uses the ordinary-normal-minus-transport form; the total-conormal screen is retained only as historical diagnostic evidence. | No further framework change for B2. Any independently scaled boundary-transport coefficient would be a new, explicitly non-source hypothesis. |
-| 2 | Source-oriented triangular $P_{1}$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
-| 3 | Continuous $P_{1}$ boundary control | **Screened and retained in historical diagnostics.** The source states linear finite elements and $N_{u}=243$; the $160\times40$ realization has 242 trace controls and distinguishes the metric from coefficient geometry. It does not by itself repair the field scale. | No further change for the current diagnostic; exact odd source counts would require an asymmetric or imported mesh. |
+| 2 | Source-oriented triangular $`P_{1}`$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
+| 3 | Continuous $`P_{1}`$ boundary control | **Screened and retained in historical diagnostics.** The source states linear finite elements and $`N_{u}=243`$; the $160\times40$ realization has 242 trace controls and distinguishes the metric from coefficient geometry. It does not by itself repair the field scale. | No further change for the current diagnostic; exact odd source counts would require an asymmetric or imported mesh. |
 | 4 | Boundary-aligned observation geometry | **Screened.** The aligned meshes recover exact measure $1.8$ but do not materially reduce the objective discrepancy. | No further change for structured meshes. |
 | 5 | Constant-step and stopping candidates | **Screened.** Step $0.05$ with evaluation at the source counts gives the strongest common reductions; it does not repair the full/parabolic terminal gradient. | No further change for fixed-step runs. Initial full-BFGS inverse-Hessian policies remain a possible framework extension. |
 | 6 | Metric versus coefficient gradient norm | **Screened with continuous control.** The two relative histories differ, but neither consistently resolves all four published ratios. | No further evidence-schema change; nonuniform or exact source topology remains optional. |
@@ -846,7 +846,7 @@ The reusable contract provides:
   Dirichlet lifting and the Neumann control, with a declared trace/boundary
   pairing;
 - an explicit normal/orientation policy and a choice between ordinary
-  $\partial_{n}y-(b\mathbin\cdot n)y$ and total-conormal boundary terms;
+  $`\partial_{n}y-(b\mathbin\cdot n)y`$ and total-conormal boundary terms;
 - distinct wall and outlet source locations, with provenance, scaling, units,
   and face-partition information persisted in the run manifest; and
 - regression coverage for zero-source identity, constant wall source,

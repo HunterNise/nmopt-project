@@ -221,7 +221,7 @@ The frozen runtime and region metadata are:
 | Forcing provenance | `chapter-6.e6.5.2.zero-forcing` |
 | Desired-state provenance | `chapter-6.e6.5.2.target` |
 | Constant target | `2` |
-| Parabolic target | $4x_{2}(1-x_{2})$ |
+| Parabolic target | $`4x_{2}(1-x_{2})`$ |
 | Fixed-temperature provenance | `chapter-6.e6.5.2.fixed-temperature` |
 | Conservative-transport provenance | `chapter-6.e6.5.2.graetz-transport` |
 | Fixed Dirichlet region | `dirichlet_boundary`, boundary ID `0` |
@@ -233,15 +233,15 @@ The source-sized framework mesh provenance is
 `chapter-6.e6.5.2.framework-native-rectangle-r7`; a development refinement
 uses the same identifier with its realized refinement in place of `7`.
 The fixed temperature is `1`, and the manufactured transport field is
-$b(x)=(1.5x_{2}(1-x_{2}),0)$.
+$`b(x)=(1.5x_{2}(1-x_{2}),0)`$.
 
 The boundary IDs realize the source geometry as follows:
 
 | Region | Geometry | State condition |
 | --- | --- | --- |
-| `dirichlet_boundary` (`0`) | Left edge and upstream top/bottom walls, $0\leq x_{1}\leq 1$ | Fixed temperature $y=1$ |
-| `control_boundary` (`1`) | Downstream top/bottom walls, $1\leq x_{1}\leq 4$ | Facewise control $u$ |
-| `outflow_boundary` (`2`) | Right edge, $x_{1}=4$ | Zero natural transport outflow |
+| `dirichlet_boundary` (`0`) | Left edge and upstream top/bottom walls, $`0\leq x_{1}\leq 1`$ | Fixed temperature $y=1$ |
+| `control_boundary` (`1`) | Downstream top/bottom walls, $`1\leq x_{1}\leq 4`$ | Facewise control $u$ |
+| `outflow_boundary` (`2`) | Right edge, $`x_{1}=4`$ | Zero natural transport outflow |
 
 The book explicitly fixes the frozen boundary interpretation as the
 ordinary-normal condition
@@ -251,7 +251,7 @@ $$
 $$
 
 on the control boundary, with zero outflow condition. There is no diffusion
-factor multiplying $\partial_{n} y$ in equation (6.65). The compiler may retain
+factor multiplying $`\partial_{n} y`$ in equation (6.65). The compiler may retain
 the total conservative-transport conormal as a diagnostic alternative, but it
 is not a source-parity interpretation and is not part of the frozen benchmark.
 

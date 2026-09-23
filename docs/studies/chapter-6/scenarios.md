@@ -80,10 +80,13 @@ or artifact contract.
 ### Scenario selection
 
 Use the distributed scalar recipe with homogeneous Dirichlet data and
-full-domain $L^{2}$ state tracking. The authoritative scenario selects a
-cellwise `FE_DGQ(0)` volume control and its positive cellwise $L^{2}$ metric.
-Development scenarios may instead select independent homogeneous-Dirichlet
-continuous `FE_Q` control with its assembled $L^{2}$ metric. The scenario
+full-domain $L^{2}$ state tracking. The default typed scenario produced by
+`make_b1_scenario()` selects a cellwise `FE_DGQ(0)` volume control and its
+positive cellwise $L^{2}$ metric. The
+[authoritative B1 reproduction profile](../../../parameters/chapter-6/b1/authoritative.prm)
+overrides that default with independent homogeneous-Dirichlet continuous
+control on its source-oriented simplex mesh. Other parameterized scenarios
+may select either supported control representation explicitly. The scenario
 records this discrete control representation and exposes the runtime target
 and forcing selections; the
 [source definition](numerical-examples.md) and the

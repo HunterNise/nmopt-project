@@ -32,7 +32,7 @@ solver fields.
         |
    admissible-set constraints
 
- all semantic components -- discretisation policy --> executable operators
+ all semantic components → discretisation policy → executable operators
 ```
 
 ## Minimal component set
@@ -189,10 +189,10 @@ becomes the small graph
 state variable:       y in V = H^1_0(Omega)
 test space:           Z = V
 residual term:        (grad y, grad v) - (f, v) - (u, v)
-control coupling:     U=L^2(Omega) -> V*  [volume source]
-observation + loss:   y -> L^2(omega_o) -> tracking scalar
-control loss:         u -> L^2(Omega) -> regularisation scalar
-metric (optional):    U <-> U* for a search direction
+control coupling:     U=L^2(Omega) → V*  [volume source]
+observation + loss:   y → L^2(omega_o) → tracking scalar
+control loss:         u → L^2(Omega) → regularisation scalar
+metric (optional):    U ↔ U* for a search direction
 constraint (optional): box constraint on U
 ```
 

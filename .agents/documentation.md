@@ -80,12 +80,17 @@ uses a different Markdown/LaTeX pipeline.
   topology is the main information and automatic layout materially improves a
   multi-node dependency, branching/converging flow, cycle, sequence, or state
   diagram. Do not convert a diagram merely because it is large.
-- In new or current `text` diagrams, prefer Unicode structural and arrow
-  symbols such as `│`, `─`, `├`, `└`, `┬`, `┴`, `┼`, `→`, `←`, `↑`, `↓`, and
-  `↔` over diagrammatic ASCII such as `|`, `+---`, `->`, and `<-`. Preserve
-  literal code, CLI syntax, serialized formats, and mathematical notation.
-  Historical documents do not need cosmetic diagram conversion unless a
-  diagram is broken or misleading.
+- In new or current `text` diagrams, use Unicode structure deliberately.
+  For branching or converging graphs, use box-drawing geometry such as `│`,
+  `─`, `├`, `└`, `┬`, `┴`, and `┼`, with `►` for horizontal branch edges and
+  `▼` for vertical branch/progression edges. For one-line relations or
+  mappings, use `→`, `←`, or `↔`; use mathematical `↦` for mapsto. For a
+  vertical linear flow or pipeline, use `↓`. Avoid diagrammatic ASCII such as
+  `|`, `+---`, `->`, `-->`, and `<-`. Preserve literal code, CLI syntax,
+  serialized formats, C++ member access, Mermaid edge syntax, and mathematical
+  notation that is not being used as diagram geometry. Historical documents do
+  not need cosmetic diagram conversion unless a diagram is broken or
+  misleading.
 - When a current document deliberately retains rollout, status, or other
   historical context, use a `>` block with a concise bold label such as
   `**Historical context.**` or `**Historical rollout note.**` when that helps

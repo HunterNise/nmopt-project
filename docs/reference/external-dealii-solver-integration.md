@@ -348,8 +348,8 @@ Partition partition(model, 0, 1);
 This declares:
 
 ```text
-variable block 0 -> state
-variable block 1 -> control
+variable block 0 → state
+variable block 1 → control
 ```
 
 Use the derived layouts downstream:

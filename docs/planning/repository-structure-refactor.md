@@ -61,18 +61,23 @@ Two producer paths reach common numerical/formulation contracts:
 ```text
 semantic/compiler path
 ProblemSpec
-  -> validation/resolution
-  -> compiler/lowering
-  -> numerical realization
-  -> compiled formulation product
-                         \
-                          +-> common formulation / solver contracts
-                         /
-native/application path
-existing application
-  -> thin numerical adapters
-  -> layouts, actions, solves, metrics, constraints
-  -> formulation product
+  ↓
+validation/resolution
+  ↓
+compiler/lowering
+  ↓
+numerical realization
+  ↓
+compiled formulation product ─────────────┐
+                                          ├──► common formulation / solver contracts
+native/application path                   │
+existing application                      │
+  ↓                                       │
+thin numerical adapters                   │
+  ↓                                       │
+layouts, actions, solves, metrics, constraints
+  ↓                                       │
+formulation product ──────────────────────┘
 ```
 
 They converge at shared numerical/formulation contracts, **not** at
@@ -1043,10 +1048,14 @@ Flow:
 
 ```text
 JSON profile
-  -> schema validation / parsing
-  -> resolved PostprocessProfile presentation policy
-  -> generic pipeline
-  -> generic renderer
+  ↓
+schema validation / parsing
+  ↓
+resolved PostprocessProfile presentation policy
+  ↓
+generic pipeline
+  ↓
+generic renderer
 ```
 
 Move benchmark-specific metadata-key fallback into the Chapter-6 profile
@@ -1769,8 +1778,7 @@ instrumentation types.
 Desired direction:
 
 ```text
-functional integration
-  <- optional observer/instrumentation
+functional integration ← optional observer/instrumentation
 ```
 
 rather than functional code depending on evaluation machinery.
@@ -1947,28 +1955,17 @@ A likely low-churn path is:
 
 ```text
 R0
- |
- +--> R1
- |
- +--> R2 ----+
- |           |
- +--> R3 ----+--> later CMake cleanup (R10)
- |
- +--> R4
- |
- +--> R5 --> R6 --> R7 decision
- |
- +--> R8
- |
- +--> R9 decisions
- |
- +--> R11 decision if still useful
- |
- +--> R12 decision
- |
- +--> R13 optional decision
- |
- +--> R14
+├──► R1
+├──► R2 ────┐
+├──► R3 ────┴──► later CMake cleanup (R10)
+├──► R4
+├──► R5 ──► R6 ──► R7 decision
+├──► R8
+├──► R9 decisions
+├──► R11 decision if still useful
+├──► R12 decision
+├──► R13 optional decision
+└──► R14
 ```
 
 Important non-dependencies:

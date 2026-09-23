@@ -62,7 +62,7 @@ backend realization
 
 repository runner integration (optional)
     parameter schema adapter
-    parameter -> scenario binder
+    parameter → scenario binder
     benchmark metadata registration
     artifact-coordinate planner
     execution registration

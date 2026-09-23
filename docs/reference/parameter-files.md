@@ -199,15 +199,15 @@ The current Chapter 6 binder resolves a file/combination into the same typed
 scenario used by C++ callers:
 
 ```text
-Problem         -> scenario.problem recipe choices
-Functions       -> scenario.problem runtime definitions
-Runtime         -> scenario.problem scalar runtime values
-Boundary        -> scenario.problem boundary selections
-Observation     -> scenario.problem observation selections
-Mesh            -> scenario.compile.mesh
-Compile         -> scenario.compile
-Solver          -> scenario.solver
-Run / Output    -> scenario.experiment
+Problem         → scenario.problem recipe choices
+Functions       → scenario.problem runtime definitions
+Runtime         → scenario.problem scalar runtime values
+Boundary        → scenario.problem boundary selections
+Observation     → scenario.problem observation selections
+Mesh            → scenario.compile.mesh
+Compile         → scenario.compile
+Solver          → scenario.solver
+Run / Output    → scenario.experiment
 ```
 
 The parameter layer therefore does not bypass scenario validation. It is a

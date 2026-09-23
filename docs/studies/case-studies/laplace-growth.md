@@ -76,17 +76,17 @@ variables
   u : control, space U, admissible set U_ad=U
 
 state equation block (test space Z)
-  diffusion term     : (y,v) |-> integral_Omega grad(y).grad(v)
-  source-data term   : (f,v) |-> - integral_Omega f v
-  source-control term: (u,v) |-> - integral_Omega u v
+  diffusion term     : (y,v) ↦ integral_Omega grad(y).grad(v)
+  source-data term   : (f,v) ↦ - integral_Omega f v
+  source-control term: (u,v) ↦ - integral_Omega u v
 
 objective
-  observation C     : y |-> y restricted to omega_o, into Q
-  tracking loss     : q |-> 1/2 \lVert q-y_d\rVert_Q^2
-  control loss      : u |-> alpha/2 \lVert u\rVert_U^2
+  observation C     : y ↦ y restricted to omega_o, into Q
+  tracking loss     : q ↦ 1/2 \lVert q-y_d\rVert_Q^2
+  control loss      : u ↦ alpha/2 \lVert u\rVert_U^2
 
 algorithmic metric (only if a gradient method requires one)
-  G_U : U -> U*     : chosen L^2 Riesz map
+  G_U : U → U*     : chosen L^2 Riesz map
 ```
 
 The resulting mathematical objects are
@@ -187,8 +187,8 @@ one of the following generic formulations built from `ExecutableModel`.
 
 ```text
 Reduced formulation
-  solve_state(u_h) -> y_h satisfying r_h(y_h,u_h)=0
-  solve_adjoint(y_h,u_h) -> p_h
+  solve_state(u_h) → y_h satisfying r_h(y_h,u_h)=0
+  solve_adjoint(y_h,u_h) → p_h
   reduced_derivative(u_h) in U_h*
   metric/constraint operations
 
@@ -237,9 +237,12 @@ DTO is the direct route from the compiled model:
 
 ```text
 semantic graph (E, J)
-       -> compile chosen residual and objective (E_h, J_h)
-       -> differentiate E_h and J_h
-       -> solve the discrete reduced or KKT system
+       ↓
+compile chosen residual and objective (E_h, J_h)
+       ↓
+differentiate E_h and J_h
+       ↓
+solve the discrete reduced or KKT system
 ```
 
 For the baseline this is exactly (6).  DTO requires the compiler to provide:
@@ -262,9 +265,12 @@ OTD first differentiates the continuous selected formulation:
 
 ```text
 semantic graph (E, J)
-       -> continuous state, adjoint, and stationarity relations
-       -> choose and compile a discretisation of those relations
-       -> solve the resulting discrete optimality system
+       ↓
+continuous state, adjoint, and stationarity relations
+       ↓
+choose and compile a discretisation of those relations
+       ↓
+solve the resulting discrete optimality system
 ```
 
 For the baseline weak form,

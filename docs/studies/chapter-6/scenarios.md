@@ -17,12 +17,18 @@ The public execution path is:
 
 ```text
 typed scenario
-  -> Chapter 5 problem recipe
-  -> ProblemSpec + runtime data bindings
-  -> owned deal.II compilation session
-  -> selected reduced/KKT/PDAS product
-  -> solver report + compilation manifest
-  -> detached experiment envelope
+  ↓
+Chapter 5 problem recipe
+  ↓
+ProblemSpec + runtime data bindings
+  ↓
+owned deal.II compilation session
+  ↓
+selected reduced/KKT/PDAS product
+  ↓
+solver report + compilation manifest
+  ↓
+detached experiment envelope
 ```
 
 ## Scenario contract

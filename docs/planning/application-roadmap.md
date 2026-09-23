@@ -123,11 +123,16 @@ The application output pipeline is:
 
 ```text
 nmopt_runner
-  -> artifact.kv, solver-trace.csv, native/*.vtu, native/*.svg
-  -> tools/postprocess.py
-  -> artifact plots, postprocess.json, comparison plots, postprocess-index.json
-  -> tools/chapter6_report.py
-  -> summary.csv, summary.md
+  ↓
+artifact.kv, solver-trace.csv, native/*.vtu, native/*.svg
+  ↓
+tools/postprocess.py
+  ↓
+artifact plots, postprocess.json, comparison plots, postprocess-index.json
+  ↓
+tools/chapter6_report.py
+  ↓
+summary.csv, summary.md
 ```
 
 The current tooling has these responsibilities:

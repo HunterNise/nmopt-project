@@ -868,11 +868,11 @@ $$
 The field mapping is direct:
 
 ```text
-acceptance_threshold  -> accept when ρ >= this value
-shrink_threshold      -> accepted step shrinks radius when ρ is below this
-expansion_threshold   -> expand when ρ is above this and step is near boundary
-shrink_factor         -> Δ <- factor * Δ
-expansion_factor      -> Δ <- factor * Δ
+acceptance_threshold  → accept when ρ >= this value
+shrink_threshold      → accepted step shrinks radius when ρ is below this
+expansion_threshold   → expand when ρ is above this and step is near boundary
+shrink_factor         → Δ ← factor * Δ
+expansion_factor      → Δ ← factor * Δ
 ```
 
 Rejected trials always shrink the radius.

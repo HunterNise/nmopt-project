@@ -436,25 +436,29 @@ generic result object.
 
 ```text
 semantic/compiler producer
-    -> CompilationManifest
-       selected semantic/compiler decision and realized numerical services
+    ↓
+CompilationManifest
+    selected semantic/compiler decision and realized numerical services
 
 solver/formulation
-    -> reduced/KKT/PDAS result or report
-       convergence, work, histories, and retained numerical evaluation
+    ↓
+reduced/KKT/PDAS result or report
+    convergence, work, histories, and retained numerical evaluation
 
 experiment
-    -> ReducedExperimentEnvelopeT
-       manifest + solver-policy snapshot + solver report + run environment
+    ↓
+ReducedExperimentEnvelopeT
+    manifest + solver-policy snapshot + solver report + run environment
 
 application harness
-    -> BenchmarkArtifactT
-       benchmark identity + diagnostics + envelope + measurements
+    ↓
+BenchmarkArtifactT
+    benchmark identity + diagnostics + envelope + measurements
 
 repository runner
-    -> artifact.kv / solver-trace.csv / native output
-    -> run-manifest.json
-       run-set inventory, configuration provenance, and artifact outcomes
+    ├──► artifact.kv / solver-trace.csv / native output
+    └──► run-manifest.json
+         run-set inventory, configuration provenance, and artifact outcomes
 ```
 
 The envelope owns values and does not retain the executable compiler product. By

@@ -129,10 +129,14 @@ Its original public interface is essentially one monolithic `run()` operation:
 
 ```text
 make grid
-  -> distribute DoFs / allocate system
-  -> assemble PDE
-  -> solve native linear system
-  -> write VTK output
+  ↓
+distribute DoFs / allocate system
+  ↓
+assemble PDE
+  ↓
+solve native linear system
+  ↓
+write VTK output
 ```
 
 The standalone `main()` executes that forward problem in both 2D and 3D. In the 2D

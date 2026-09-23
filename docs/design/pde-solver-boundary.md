@@ -34,17 +34,17 @@ compiler and an existing deal.II application two independent producers of the
 same downstream mathematical operations:
 
 ```text
-nmopt ProblemSpec -> compiler/lowering --------\
-                                              +-> executable operations
-existing deal.II application -> adapter -------/   + state/adjoint solves
-                                                  + metric
-                                                  + optional constraint/Hessian
-                                                            |
-                                                            v
-                                                       formulation
-                                                            |
-                                                            v
-                                                       optimizer
+nmopt ProblemSpec ──► compiler/lowering ──────────┐
+                                                  ├──► executable operations
+existing deal.II application ──► adapter ─────────┘       ├──► state/adjoint solves
+                                                          ├──► metric
+                                                          └──► optional constraint/Hessian
+                                                                   │
+                                                                   ▼
+                                                              formulation
+                                                                   │
+                                                                   ▼
+                                                               optimizer
 ```
 
 The two paths converge on solver-facing mathematical operations. They do not
@@ -99,9 +99,12 @@ That sequence erases too much information too early:
 ```text
 pre-refactor sequence:
 semantic graph
-    -> complete concrete model
-    -> ExecutableModelT
-    -> application dynamic_cast back to concrete model
+    ↓
+complete concrete model
+    ↓
+ExecutableModelT
+    ↓
+application dynamic_cast back to concrete model
 ```
 
 The architectural boundary retains the typed numerical realization while exposing
@@ -110,21 +113,19 @@ optimizers:
 
 ```text
 semantic description
-        |
-        v
+        │
+        ▼
 closed lowering decision
-        |
-        v
+        │
+        ▼
 typed numerical realization
-        |\
-        | \
-        |  +--> compiled application view
-        |        reconstruction, dimensions, diagnostics, output
-        |
-        +-----> solver-facing ports
-                 E, E'v, E'^*p, J, J'
-                 state/adjoint solves
-                 metric/optional capabilities
+        ├──► compiled application view
+        │    reconstruction, dimensions, diagnostics, output
+        │
+        └──► solver-facing ports
+             E, E'v, E'^*p, J, J'
+             state/adjoint solves
+             metric/optional capabilities
 ```
 
 Type erasure is therefore a useful solver boundary, not the ownership boundary
@@ -189,9 +190,9 @@ For fixed essential data, a useful discrete form is
 The corresponding numerical operations are:
 
 ```text
-reconstruct:       y_hat -> P y_hat + ell
-embed tangent:    dy_hat -> P dy_hat
-pull back dual:        q -> P^T q
+reconstruct:       y_hat → P y_hat + ell
+embed tangent:    dy_hat → P dy_hat
+pull back dual:        q → P^T q
 ```
 
 Dirichlet control extends the same pattern:
@@ -253,7 +254,7 @@ specialization justified by demonstrated code reuse.
 Observations and losses are semantically distinct:
 
 ```text
-physical state -> observation map O -> loss
+physical state → observation map O → loss
 ```
 
 For quadratic tracking, numerical lowering may compile the composition into
@@ -329,11 +330,16 @@ The native compiler path remains:
 
 ```text
 ProblemSpec
-  -> semantic validation and resolution
-  -> closed compilation/lowering decision
-  -> typed numerical realization
-  -> solver-facing operations + compiled application view
-  -> formulation and optimizer
+  ↓
+semantic validation and resolution
+  ↓
+closed compilation/lowering decision
+  ↓
+typed numerical realization
+  ↓
+solver-facing operations + compiled application view
+  ↓
+formulation and optimizer
 ```
 
 The compiler must not represent the same realization decision repeatedly as

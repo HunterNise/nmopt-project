@@ -99,7 +99,7 @@ model must not be flattened to achieve that.
 
 ### 3.1 `apps/` remains the application/showcase area
 
-`apps/` contains concrete final consumers of the reusable nmopt core.
+`apps/` contains concrete final consumers of the reusable `nmopt` core.
 
 The current examples demonstrate different consumption modes:
 
@@ -1794,7 +1794,7 @@ Do not change:
 - upstream/baseline/adapted source snapshots;
 - source line accounting;
 - Problem A/B mathematics;
-- accepted native/nmopt comparison semantics.
+- accepted native/`nmopt` comparison semantics.
 
 ### Validation
 

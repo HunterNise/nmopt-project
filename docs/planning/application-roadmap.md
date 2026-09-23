@@ -400,7 +400,7 @@ The current diagnostic basis is the
 forward-state candidate table and preserve the distinction between source
 facts, historically grounded hypotheses, and fitted controls.
 
-### A7 — Add Deal.II-style parameter files
+### A7 — Add deal.II-style parameter files
 
 **Status:** implemented for the registered B1/B2 slice; B3–B6 extension
 contracts remain unregistered.

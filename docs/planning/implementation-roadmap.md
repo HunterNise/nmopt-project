@@ -190,7 +190,7 @@ The following pieces exist and are tested:
 | Layer | Existing artifact | Meaning |
 |---|---|---|
 | Typed algebra | `include/nmopt/contract/layout.hpp` | `PrimalBlockT` and `CovectorBlockT` are distinct typed wrappers, even when a backend uses one vector storage type. Their block storage is read-only after construction; checked algebraic updates preserve the declared dimensions. |
-| V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,problem_library}.hpp` | Deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
+| V1 semantic graph | `include/nmopt/semantic/v1/{types,validation,problem_library}.hpp` | deal.II-free selected graph with safe incomplete states, whole-graph closure checks, explicit two-sided pairings, structural/policy diagnostics, and ID-based reference deltas. |
 | V1 compiler | `include/nmopt/compiler/v1/{compiled_problem,dealii_compiler,dealii_scalar_plan}.hpp` | Backend-generic compiled package, typed manifest container, and stored scalar handler plan. The bounded scalar path consumes the resolved request and typed residual/service records; current public realization families and constraints are summarized in the [Compiler reference](../reference/compiler.md). |
 | Operator contract | `include/nmopt/contract/executable_model.hpp` | Residual, JVP, VJP, objective, and objective derivative. |
 | DTO workflow | `include/nmopt/contract/reduced_dto.hpp` | One state block, one decision block (control or parameter), one test block, externally supplied state/adjoint solves. |
@@ -198,7 +198,7 @@ The following pieces exist and are tested:
 | Reference oracle | `tests/support/reference_models/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend with a checked conversion from contract dimensions to the native deal.II size type. |
 | Canonical v1 scalar realization | `include/nmopt/compiler/v1/{dealii_compiler,dealii_fixed_dirichlet}.hpp` | Assembled scalar `FE_Q`/`FE_DGQ(0)` realization with typed data placement, independent state coordinates, full-domain tracking, homogeneous/fixed Dirichlet data, and DTO services. |
-| deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric,trace_hhalf_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, fractional-trace, and negative-norm layouts. The selected $H^{-1}$ realization applies $M_hK_h^{-1}M_h$; the $H^{1/2}$ realization applies the minimum-volume-$H^{1}$ Schur complement without forming a dense fractional matrix. All inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
+| deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric,trace_hhalf_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, fractional-trace, and negative-norm layouts. The selected $H^{-1}$ realization applies $`M_{h}K_{h}^{-1}M_{h}`$; the $H^{1/2}$ realization applies the minimum-volume-$H^{1}$ Schur complement without forming a dense fractional matrix. All inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric reduced search loop over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`, with typed direction policies, explicit Hessian/Newton support, configurable Armijo/exact/Wolfe line searches, and uniform action reporting. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
@@ -760,7 +760,7 @@ reduced Taylor convergence, and unchanged metric provenance. The
 `make_weighted_boundary_trace_neumann_control_problem()` separately selects
 `weighted_boundary_trace`, whose explicit immutable `boundary_weight` data
 port is evaluated with the desired target at boundary face quadrature. Its
-Neumann target assembles $h^{2}$ in the tracking operator and $h z_d$ in the
+Neumann target assembles $h^{2}$ in the tracking operator and $`h z_{d}`$ in the
 target load, while leaving the residual and `l2_facewise` control metric
 unchanged. Semantic contracts cover the data port and quadrature policy;
 deal.II contracts cover missing/provenance/shape diagnostics, exact
@@ -770,9 +770,9 @@ unchanged metric action, reduced Taylor convergence, and manifest provenance.
 `make_l2_metric_h1_state_tracking_continuous_control_problem()` and
 `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()`
 select the same independent homogeneous-Dirichlet continuous `FE_Q` control
-coordinates. The first retains $G_h=M_h$; the second selects
-$G_h=M_hK_h^{-1}M_h$, where $K_h$ is the Dirichlet Laplacian, so
-$G_h^{-1}=M_h^{-1}K_hM_h^{-1}$ and no mean constraint is needed. Both retain
+coordinates. The first retains $`G_{h}=M_{h}`$; the second selects
+$`G_{h}=M_{h}K_{h}^{-1}M_{h}`$, where $`K_{h}`$ is the Dirichlet Laplacian, so
+$`G_{h}^{-1}=M_{h}^{-1}K_{h}M_{h}^{-1}`$ and no mean constraint is needed. Both retain
 the same energy observation, volume residual, $L^{2}$ control loss, state
 solve, and adjoint solve. The registered target has no coefficientwise box.
 The shared identity-preconditioned CG tolerances are recorded for the mass and
@@ -1153,8 +1153,8 @@ P6.1 has three separable layers:
 
    ```math
    \begin{aligned}
-   A\,\delta y &= B w,\\
-   A^{\ast}\,\delta p &= W\,\delta y,\\
+   A\delta y &= B w,\\
+   A^{\ast}\delta p &= W\delta y,\\
    H w &= \beta N w+B^{\ast}\delta p.
    \end{aligned}
    ```

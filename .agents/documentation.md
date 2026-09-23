@@ -56,13 +56,45 @@ uses a different Markdown/LaTeX pipeline.
 - Put code symbols, class names, functions, commands, options, filenames,
   paths, branch names, and environment variables in backticks, for example
   `ProblemSpec`, `docs/design/architecture.md`, and `cmake --build build`.
-- Use fenced code blocks with a language tag, such as `cpp`, `bash`, or `text`.
+- In current prose, headings, table cells, and ordinary blockquotes, write the
+  project/library name as `nmopt`. This includes possessive and compound forms
+  such as `nmopt`'s compiler and `nmopt`-native application. Do not add an
+  extra code span inside fenced blocks, URLs, literal program output, or larger
+  code identifiers such as `nmopt::application`, `nmopt_runner`, or
+  `nmopt_contract`. The exact repository title `nmopt-project` may remain plain
+  as the root document title.
+- Treat established project/tool names such as deal.II, CMake, CTest, Ninja,
+  Python, and ParaView as normal prose names. Use backticks only for exact
+  symbols, configuration values, commands, or identifiers such as
+  `DEAL_II_DIR` or `debug-dealii`.
+- Use fenced code blocks with a language tag, such as `cpp`, `bash`, `text`,
+  `math`, or `mermaid`.
 - Use relative Markdown links for repository files and give links descriptive
   labels.
 - Keep headings hierarchical and use blank lines around lists and code blocks.
 - Keep tables limited to compact comparisons. Move explanatory prose or long
   equations outside tables.
+- Choose diagram format deliberately. Prefer fenced `text` for compact local
+  flows, directory trees, record/layout sketches, and visuals where exact
+  monospace alignment carries meaning. Prefer fenced `mermaid` when graph
+  topology is the main information and automatic layout materially improves a
+  multi-node dependency, branching/converging flow, cycle, sequence, or state
+  diagram. Do not convert a diagram merely because it is large.
+- In new or current `text` diagrams, prefer Unicode structural and arrow
+  symbols such as `│`, `─`, `├`, `└`, `┬`, `┴`, `┼`, `→`, `←`, `↑`, `↓`, and
+  `↔` over diagrammatic ASCII such as `|`, `+---`, `->`, and `<-`. Preserve
+  literal code, CLI syntax, serialized formats, and mathematical notation.
+  Historical documents do not need cosmetic diagram conversion unless a
+  diagram is broken or misleading.
+- When a current document deliberately retains rollout, status, or other
+  historical context, use a `>` block with a concise bold label such as
+  `**Historical context.**` or `**Historical rollout note.**` when that helps
+  prevent the material from being mistaken for current authority.
 - Use a literal Unicode en dash `–` in prose. Preserve `--` where it is
   Markdown table syntax or part of a shell command or option.
+- Preserve historical evidence as historical evidence. Fix broken links,
+  rendering defects, and misleading present-day routing, but do not perform
+  bulk cosmetic modernization of `docs/history/` merely to match current
+  typography.
 - Before finishing, inspect the rendered-looking Markdown for unmatched
   backticks, broken links, malformed tables, and inconsistent notation.

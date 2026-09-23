@@ -48,7 +48,7 @@ evidence remains below `runs/` and is never a source of configuration.
 
 ### Experiment files
 
-Numerical experiment families use Deal.II-style `.prm` files parsed through a
+Numerical experiment families use deal.II-style `.prm` files parsed through a
 typed `ParameterHandler` boundary. The file owns every choice that affects
 the numerical run or retained evidence:
 

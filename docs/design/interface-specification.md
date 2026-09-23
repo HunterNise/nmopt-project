@@ -165,7 +165,7 @@ For the selected natural-boundary convention, the source contributes the
 functional
 
 $$
-  B_{s}(g,v)=\left\langle g,\operatorname{tr}_{\Gamma_{s}}v\right\rangle_{L^{2}(\Gamma_{s})}
+  B_{s}(g,v)=\left\langle g,\mathrm{tr}_{\Gamma_{s}}v\right\rangle_{L^{2}(\Gamma_{s})}
 $$
 
 to the state residual with the same datum scaling as the selected boundary
@@ -496,21 +496,21 @@ a loss; an $H^{1}$ search geometry is a metric.
 
 The first selected $H^{-1}$ realization makes the discrete policy explicit.
 Its search space is the independent homogeneous-Dirichlet coefficient space
-$P_h=\operatorname{span}\{\phi_i\}\subset H^1_0(\Omega)$. With the control
+$P_{h}=\mathrm{span}\{\phi_{i}\}\subset H^{1}_{0}(\Omega)$. With the control
 mass and Dirichlet-Laplacian matrices
 
 $$
-(M_h)_{ij}=(\phi_j,\phi_i)_{L^2},
+(M_{h})_{ij}=(\phi_{j},\phi_{i})_{L^{2}},
 \qquad
-(K_h)_{ij}=(\nabla\phi_j,\nabla\phi_i)_{L^2},
+(K_{h})_{ij}=(\nabla\phi_{j},\nabla\phi_{i})_{L^{2}},
 $$
 
 the metric is the pulled-back negative norm
 
 $$
-G_h=M_hK_h^{-1}M_h,
+G_{h}=M_{h}K_{h}^{-1}M_{h},
 \qquad
-G_h^{-1}=M_h^{-1}K_hM_h^{-1}.
+G_{h}^{-1}=M_{h}^{-1}K_{h}M_{h}^{-1}.
 $$
 
 The fixed-Dirichlet policy removes the constant nullspace, so this realization

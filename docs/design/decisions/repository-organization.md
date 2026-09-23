@@ -196,7 +196,7 @@ private lowerers to make a test pass.
 ## Reserved future locations
 
 The `parameters/` tree is reserved for versioned experiment inputs. Numerical
-experiment families use Deal.II-style `.prm` files; reusable post-processing
+experiment families use deal.II-style `.prm` files; reusable post-processing
 styles use versioned JSON profiles beside them. Their current schema and precedence rules are defined by the
 [parameter-file reference](../../reference/parameter-files.md) and the
 [parameter/plotting-profile decision](parameter-and-plotting-profiles.md);

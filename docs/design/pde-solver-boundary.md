@@ -200,8 +200,8 @@ Dirichlet control extends the same pattern:
   y_{\mathrm{phys}} = P_{h}\widehat y + L_{D,h}u + \ell_{0,h}.
 ```
 
-Then both state and control derivatives receive pullbacks through $P^T$ and
-$L_{D}^T$. Observations and native output should act on the physical field;
+Then both state and control derivatives receive pullbacks through $P^{T}$ and
+$L_{D}^{T}$. Observations and native output should act on the physical field;
 state-coordinate machinery is responsible for translating to and from
 solver-facing coordinates.
 
@@ -222,14 +222,14 @@ Distributed and Neumann controls have the fixed-linear form
   E(y,u) = A y - f - B u,
 ```
 
-with decision actions $B u$ and $B^T p$. Different control discretizations may
+with decision actions $B u$ and $B^{T} p$. Different control discretizations may
 share this internal pattern without creating a universal public control base
 class.
 
 ### State-reconstruction controls
 
 Dirichlet control enters through the physical-state reconstruction
-$L_D u$, so residuals and observations see the reconstructed physical field.
+$L_{D} u$, so residuals and observations see the reconstructed physical field.
 Its natural numerical operations are lifting and dual pullback rather than a
 standalone forcing matrix.
 
@@ -245,7 +245,7 @@ Its derivative contains both a state action and a parameter derivative of the
 operator. It cannot be reduced to a fixed decision-coupling matrix.
 
 The universal solver-facing contract therefore remains $E$, $E'v$, and
-$E'^*p$. Any lower-level fixed-linear coupling abstraction is only an internal
+$E'^{\ast}p$. Any lower-level fixed-linear coupling abstraction is only an internal
 specialization justified by demonstrated code reuse.
 
 ## Observations and losses
@@ -367,7 +367,7 @@ small adapter supplies:
 5. a metric, plus a constraint or Hessian only when required.
 
 The adapter may construct a callback-backed `ExecutableModelT`, but the
-original PDE class should not be required to inherit an nmopt interface.
+original PDE class should not be required to inherit an `nmopt` interface.
 Callbacks may borrow or own captured objects; lifetime choice must remain
 explicit. Do not copy meshes, DoF handlers, or matrices merely to conceal a
 lifetime requirement.

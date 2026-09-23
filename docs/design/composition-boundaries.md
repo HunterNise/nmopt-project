@@ -131,7 +131,7 @@ $$
   B_{s}:L^{2}(\Gamma_{s})\longrightarrow V^{\ast},
   \qquad
   \left\langle B_{s}g,v\right\rangle
-    =\left\langle g,\operatorname{tr}_{\Gamma_{s}}v\right\rangle.
+    =\left\langle g,\mathrm{tr}_{\Gamma_{s}}v\right\rangle.
 $$
 
 The source is immutable in the first implementation, so it contributes no

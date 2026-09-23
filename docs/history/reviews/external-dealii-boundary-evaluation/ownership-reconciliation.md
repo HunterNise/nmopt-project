@@ -7,7 +7,7 @@ This note makes the implementation boundary explicit after the original G1
 report and records where corrected ignored artifacts are recreated. It does
 not change the G1 conclusion, the shared nmopt API, or the frozen Problem A
 comparison. The authoritative execution record remains the
-[external deal.II boundary evaluation roadmap](../../external-dealii-boundary-evaluation.md).
+[external deal.II boundary evaluation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-boundary-evaluation.md).
 
 ## Minimum functional path
 

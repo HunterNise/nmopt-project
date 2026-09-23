@@ -13,7 +13,7 @@ This document preserves the architectural reasoning, external precedents,
 source-supported facts, and open hypotheses that motivated the controlled
 Step-4 evaluation. It defines no interfaces, implementation requirements, or
 accepted architectural decisions. The
-[evaluation roadmap](../../external-dealii-boundary-evaluation.md) owns the
+[evaluation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-boundary-evaluation.md) owns the
 E0–G1 protocol, sequence, freeze, gates, and phase status. This note does not
 amend that protocol or add E1–E5 work.
 
@@ -451,7 +451,7 @@ This section synthesizes the later discussion following `> ===` in the local
 architecture transcript and the review of `ed450bd`. The
 [G1 report](g1-report.md) owns the supported Problem A results and remaining
 failure-evidence qualification. The
-[roadmap](../../external-dealii-boundary-evaluation.md) owns the next unit.
+[roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-boundary-evaluation.md) owns the next unit.
 No new public interface or Problem B implementation is adopted here.
 
 Subsequent PB0 decision (2026-09-11): the candidate below was selected and its
@@ -471,7 +471,7 @@ class. Historical line counts in G1 are descriptive. Forecasts such as
 150–250 binding lines, reuse percentages, or a larger adapter triggering a
 boundary redesign have not been measured and are not acceptance thresholds.
 
-[`NmoptBinding`](../../../../apps/external-dealii/step-4/integration/nmopt_binding.hpp)
+[`NmoptBinding`](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/apps/external-dealii/step-4/integration/nmopt_binding.hpp)
 owns a concrete `ProblemA`, translates its operations and solve reports, and
 installs its identity metric. Repeating that construction for another OCP can
 reveal mechanical duplication. Problem B on Step-4 is still the same external
@@ -481,7 +481,7 @@ application's lifecycle or numerical storage.
 Separate dimensions and nonidentity geometry already have supporting code:
 [`StateControlPartitionT`](../../../../include/nmopt/contract/reduced_dto.hpp)
 does not require equal state/control dimensions, and the
-[compiled volume-control test](../../../../tests/dealii/dealii_diffusion_contract.cc)
+[compiled volume-control test](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/tests/dealii/dealii_diffusion_contract.cc)
 exercises an FE control coupling and nonidentity mass metric through the common
 contracts. The public
 [`MassMetric`](../../../../include/nmopt/dealii/mass_metric.hpp) is an existing

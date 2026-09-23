@@ -86,11 +86,11 @@ not create additional branches or worktrees unless the user requests them.
 
 The assessment is bounded by the capabilities already recorded in:
 
-- the [Chapter 5 implementation guide](../../../guides/chapter-5-elliptic-control.md);
-- the [Chapter 6 numerical-methods guide](../../../guides/chapter-6-numerical-methods.md);
-- the [Chapter 6 numerical-examples reference](../../../guides/chapter-6-numerical-examples.md);
+- the [Chapter 5 implementation guide](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-5-elliptic-control.md);
+- the [Chapter 6 numerical-methods guide](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-methods.md);
+- the [Chapter 6 numerical-examples reference](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-examples.md);
 - P5.1–P5.6 and P6.1–P6.5 of the
-  [implementation roadmap](../../implementation-roadmap.md).
+  [implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md).
 
 The project is not required to implement every catalogue entry. Until the
 user selects exact targets, the assessment must present conditional findings:

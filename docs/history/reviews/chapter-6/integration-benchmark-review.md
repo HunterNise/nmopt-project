@@ -10,14 +10,14 @@ unimplemented conditional extension and is not treated as a missing
 prerequisite for the selected reduced-space or PDAS benchmarks.
 
 This is review evidence and a remediation handoff, not a second status ledger.
-The [implementation roadmap](../../implementation-roadmap.md) remains the sole
+The [implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md) remains the sole
 owner of mutable feature status. The
-[Chapter 6 benchmark suite roadmap](../../chapter-6-benchmark-suite-roadmap.md)
+[Chapter 6 benchmark suite roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/chapter-6-benchmark-suite-roadmap.md)
 owns benchmark selection and acceptance, while the
-[Chapter 6 numerical-examples reference](../../../guides/chapter-6-numerical-examples.md),
-[Chapter 6 numerical-methods guide](../../../guides/chapter-6-numerical-methods.md),
+[Chapter 6 numerical-examples reference](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-examples.md),
+[Chapter 6 numerical-methods guide](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-methods.md),
 [interface specification](../../../design/interface-specification.md), and
-[v1 semantic compiler](../../../implementation/v1/semantic-compiler.md) remain
+[v1 semantic compiler](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md) remain
 authoritative for the numerical, method, formulation, and compiler boundaries.
 
 The individual reviews record 16 open P1 defects and seven open P2 gaps across

@@ -3,11 +3,11 @@
 ## Status and authority
 
 **Superseded for current implementation work.** Follow the
-[external deal.II boundary evaluation roadmap](external-dealii-boundary-evaluation.md)
+[external deal.II boundary evaluation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-boundary-evaluation.md)
 for the current protocol, work units, gates, and phase status.
 
 This document preserves the historical T0–T5 proposal following the completed
-[PDE–solver boundary refactor](review/pde-solver-refactor/roadmap.md).
+[PDE–solver boundary refactor](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/pde-solver-refactor/roadmap.md).
 The intent, selection rules, distributed-control/mass-metric path, work
 sequence, and acceptance matrix below are historical planning, not current
 implementation instructions. Their preservation does not assert that their
@@ -15,9 +15,9 @@ acceptance criteria were completed. The refactor roadmap remains complete.
 
 The proposal's authoritative inputs were:
 
-- [PDE–solver and application boundary](../design/pde-solver-boundary.md);
-- [external deal.II integration reference](../reference/external-dealii-solver-integration.md);
-- [A2 external-application proof](review/pde-solver-refactor/roadmap.md#a2--prove-an-unchanged-dealii-application-can-use-nmopt);
+- [PDE–solver and application boundary](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/design/pde-solver-boundary.md);
+- [external deal.II integration reference](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/reference/external-dealii-solver-integration.md);
+- [A2 external-application proof](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/pde-solver-refactor/roadmap.md#a2--prove-an-unchanged-dealii-application-can-use-nmopt);
 - the selected upstream deal.II tutorial source and its license/provenance
   record, once T0 is complete.
 
@@ -256,5 +256,5 @@ That snapshot does not contain the controlled native-versus-current-nmopt
 evaluation now planned. The existing Poisson contract fixture exercises API
 functionality; it does not settle authentic adaptation cost or ergonomic
 sufficiency. Current work and status are owned by the
-[evaluation roadmap](external-dealii-boundary-evaluation.md), which preserves
+[evaluation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-boundary-evaluation.md), which preserves
 both the completed refactor and the previous tutorial attempt as baselines.

@@ -9,7 +9,7 @@ if the historical implementation had already passed. The acceptance
 checklists are updated only when current code and verification establish an
 item as complete.
 
-The [implementation roadmap](../../implementation-roadmap.md) remains the
+The [implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md) remains the
 mutable project status ledger. This file is the separate working record for
 remaining issues, verification notes, and follow-up decisions.
 

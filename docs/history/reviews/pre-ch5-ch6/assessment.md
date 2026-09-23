@@ -210,9 +210,9 @@ directory. Whether that granularity is appropriate remains a Phase 4 question.
 ### Interpretation
 
 The matrix is derived from P5.1–P5.6 and P6.1–P6.5 of the
-[implementation roadmap](../../implementation-roadmap.md), the
-[Chapter 5 implementation guide](../../../guides/chapter-5-elliptic-control.md), and the
-[Chapter 6 numerical-methods guide](../../../guides/chapter-6-numerical-methods.md).
+[implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md), the
+[Chapter 5 implementation guide](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-5-elliptic-control.md), and the
+[Chapter 6 numerical-methods guide](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-methods.md).
 
 “Documented baseline” reports what those sources claim. It is not treated as
 verified code evidence until the relevant implementation and tests are
@@ -524,12 +524,12 @@ diagnostic/manifest assertion rather than treated as one opaque passing
 executable.
 
 Authoritative records used in this wave were the
-[v1 compiler record](../../../implementation/v1/semantic-compiler.md), the
-[v0 lowerer record](../../../implementation/v0/dealii-lowerer.md), the compiler/lowering sections of
-the [system blueprint](../../../design/system-blueprint.md), the manifest requirements in the
-[implementation-readiness review](../../../implementation/implementation-readiness-review.md), and
+[v1 compiler record](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md), the
+[v0 lowerer record](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v0/dealii-lowerer.md), the compiler/lowering sections of
+the [system blueprint](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/design/system-blueprint.md), the manifest requirements in the
+[implementation-readiness review](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/implementation-readiness-review.md), and
 the Chapter 6 provenance requirements in the
-[numerical-methods guide](../../../guides/chapter-6-numerical-methods.md).
+[numerical-methods guide](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-methods.md).
 
 ## Architecture and code findings: contracts and semantic layer
 
@@ -547,9 +547,9 @@ vectors through the mutable references, and called `pair()`. The call
 succeeded and returned `32` while reporting declared dimension `2` and stored
 dimension `3`.
 
-**Authority:** The [executable contract](../../../implementation/v0/executable-contract.md) describes
+**Authority:** The [executable contract](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v0/executable-contract.md) describes
 `BlockLayout` as the compatible block dimensions, and the
-[implementation-readiness review](../../../implementation/implementation-readiness-review.md)
+[implementation-readiness review](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/implementation-readiness-review.md)
 requires typed coefficient objects whose discrete layouts are preserved.
 
 **Consequence:** Layout compatibility is not an invariant after construction.
@@ -704,7 +704,7 @@ remained valid.
 
 **Authority:** The [interface specification](../../../design/interface-specification.md)
 requires every dual value to be paired with its declared primal space, and the
-[implementation-readiness review](../../../implementation/implementation-readiness-review.md) makes
+[implementation-readiness review](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/implementation-readiness-review.md) makes
 the primal/covector distinction the first discrete-algebra default.
 
 **Consequence:** The semantic graph can claim a test-space pairing while its
@@ -794,7 +794,7 @@ solver callback, metric, or constraint construction. All current tests pass,
 so this is a containment and localization weakness rather than a failing
 baseline.
 
-**Authority:** The [implementation-readiness review](../../../implementation/implementation-readiness-review.md)
+**Authority:** The [implementation-readiness review](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/implementation-readiness-review.md)
 requires explicit component diagnostics and value/JVP/VJP, constraint, and
 formulation verification. The assessment plan requires tests to localize the
 responsible layer and cover negative and degenerate cases.
@@ -854,7 +854,7 @@ therefore be “registered” while no independently composable lowerer for that
 kind exists.
 
 **Authority:** The root mission, [composition boundaries](../../../design/composition-boundaries.md),
-and [system blueprint](../../../design/system-blueprint.md) require residual, observation,
+and [system blueprint](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/design/system-blueprint.md) require residual, observation,
 loss, metric, constraint, transformation, and discretization components to be
 lowered without a new problem class for every combination.
 
@@ -988,7 +988,7 @@ graph through the fallback and compares the two instances at lines
 packaging, layout, metric, or constraint wiring, but the residual, objective,
 derivative, and assembly code are identical.
 
-**Authority:** The [v1 compiler record](../../../implementation/v1/semantic-compiler.md) describes
+**Authority:** The [v1 compiler record](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v1/semantic-compiler.md) describes
 this as a v0/v1 comparison guarantee, while the assessment plan requires
 independent verification or an explicit record of shared implementation.
 
@@ -1242,10 +1242,10 @@ service in `include/nmopt/contract/reduced_dto.hpp`; inventoried every logical
 test scenario and its numerical checks; and reviewed the complete root CMake
 configuration and repository-local developer tooling. Relevant authority came
 from the reduced and verification sections of the
-[executable contract](../../../implementation/v0/executable-contract.md),
-[implementation-readiness review](../../../implementation/implementation-readiness-review.md),
-[implementation roadmap](../../implementation-roadmap.md), and
-[Chapter 6 numerical-methods guide](../../../guides/chapter-6-numerical-methods.md).
+[executable contract](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v0/executable-contract.md),
+[implementation-readiness review](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/implementation-readiness-review.md),
+[implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md), and
+[Chapter 6 numerical-methods guide](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-methods.md).
 
 There is no separate formulation package today. That is appropriate for the
 implemented slice: `StateControlPartitionT` plus `ReducedDTOT` is explicitly

@@ -8,7 +8,7 @@ made.
 
 This is the retained execution contract for the completed bounded experiment, not a new
 nmopt interface or a universal FE-control policy. The
-[Problem A roadmap](../../external-dealii-boundary-evaluation.md) retains A's frozen
+[Problem A roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-boundary-evaluation.md) retains A's frozen
 protocol and history. Its [G1 report](g1-report.md)
 records the successful comparison; the
 [design investigation](design-investigation.md#8-post-g1-review-and-problem-b-candidate)

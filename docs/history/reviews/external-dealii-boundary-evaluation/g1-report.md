@@ -14,7 +14,7 @@ Pre-EC5 closure verification: `6a9d1a565bdf0b21ad72889e6f3e06bcdf5a3282`
 EC5 implementation: `0357d4f`, `e8050ff`
 Final native trace follow-up: `36afb62` (tested on `0bb1307` plus the
 subsequently committed native-driver correction)
-Roadmap: [external deal.II boundary evaluation](../../external-dealii-boundary-evaluation.md)
+Roadmap: [external deal.II boundary evaluation](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-boundary-evaluation.md)
 Review context: [design investigation](design-investigation.md)
 
 Final phase disposition: [closure report](closure-report.md). This G1 record

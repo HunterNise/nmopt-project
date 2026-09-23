@@ -43,16 +43,16 @@ it does not mean permanently preserving the old file text or content hash.
 ## Authority and scope
 
 The accepted boundary is the
-[parameter and plotting profile decision](../../../decisions/parameter-and-plotting-profiles.md):
+[parameter and plotting profile decision](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/decisions/parameter-and-plotting-profiles.md):
 numerical experiment families use deal.II-style `.prm` files parsed through a
 typed `ParameterHandler` boundary, while JSON is the plotting-profile format.
 The detailed public behavior remains in the
 [parameter-file reference](../../../reference/parameter-files.md) and the
 [application execution reference](../../../reference/application-execution.md).
 B1/B2 mathematical and evidence requirements come from the
-[Chapter 6 application contract](../../../applications/chapter-6.md), the
-[Chapter 6 benchmark contract](../../../benchmarks/chapter-6.md), and the
-[Chapter 6 benchmark roadmap](../../chapter-6-benchmark-suite-roadmap.md).
+[Chapter 6 application contract](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/applications/chapter-6.md), the
+[Chapter 6 benchmark contract](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/benchmarks/chapter-6.md), and the
+[Chapter 6 benchmark roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/chapter-6-benchmark-suite-roadmap.md).
 
 This remediation owns only:
 

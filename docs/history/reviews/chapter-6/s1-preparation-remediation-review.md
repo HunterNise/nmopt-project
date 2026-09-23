@@ -8,12 +8,12 @@ message names S1, `RF-014`, or `RF-015`. Parts of the gate arrived indirectly
 with P6.1, but the gate was never separately closed.
 
 This is static review evidence and an implementation handoff, not a second
-status ledger. The [implementation roadmap](../../implementation-roadmap.md)
+status ledger. The [implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md)
 remains the sole owner of mutable status and acceptance state. The
 [Stage B S1 gate](../pre-ch5-ch6/stage-b-roadmap.md#s1--prepare-selected-p61-reduced-methods),
 [refactor assessment](../pre-ch5-ch6/assessment.md#s1--prepare-only-the-selected-p61-reduced-methods),
-[Chapter 6 numerical-methods guide](../../../guides/chapter-6-numerical-methods.md#c63--reduced-space-methods-for-unconstrained-ocps),
-and [required verification and provenance](../../../implementation/implementation-readiness-review.md#12-required-verification-and-provenance)
+[Chapter 6 numerical-methods guide](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-methods.md#c63--reduced-space-methods-for-unconstrained-ocps),
+and [required verification and provenance](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/implementation-readiness-review.md#12-required-verification-and-provenance)
 remain authoritative.
 
 S1 is partially implemented. The selected direction and line-search policy
@@ -93,8 +93,8 @@ S1 unit, read only the relevant authorities and current interfaces:
 - [Stage B S1 actions and exit](../pre-ch5-ch6/stage-b-roadmap.md#s1--prepare-selected-p61-reduced-methods);
 - [assessment RF-014](../pre-ch5-ch6/assessment.md#rf-014--the-reduced-evaluation-protocol-performs-an-adjoint-solve-for-every-objective-only-trial);
 - [assessment RF-015](../pre-ch5-ch6/assessment.md#rf-015--solver-reporting-cannot-yet-audit-a-chapter-6-run-or-carry-its-compilation-provenance);
-- [selected reduced methods](../../../guides/chapter-6-numerical-methods.md#c63--reduced-space-methods-for-unconstrained-ocps);
-- [numerical-example provenance requirements](../../../guides/chapter-6-numerical-examples.md#purpose-and-use);
+- [selected reduced methods](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-methods.md#c63--reduced-space-methods-for-unconstrained-ocps);
+- [numerical-example provenance requirements](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/guides/chapter-6-numerical-examples.md#purpose-and-use);
 - [P6.1 retained behavior and open findings](p6.1-implementation-review.md);
 - [`ReducedDTOT`](../../../../include/nmopt/contract/reduced_dto.hpp);
 - [shared reduced result and direction contracts](../../../../include/nmopt/solvers/reduced_search.hpp);

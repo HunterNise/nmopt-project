@@ -7,7 +7,7 @@ commits against the acceptance checklists in this directory. The audit is
 bounded to deciding whether implementation may proceed to Chapter 6. It does
 not reopen deferred architecture or unselected capabilities.
 
-The [implementation roadmap](../../implementation-roadmap.md) remains the
+The [implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md) remains the
 status ledger. Checked acceptance items remain in their owning review files.
 
 ## Resolved issues

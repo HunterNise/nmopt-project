@@ -12,13 +12,13 @@ This roadmap is the execution contract for evaluating the current external Step-
 | Next unit | None selected; no further implementation follows from this evaluation |
 | Shared-nmopt freeze | Active; no shared nmopt changes |
 
-The [closure report](review/external-dealii-boundary-evaluation/closure-report.md)
+The [closure report](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/external-dealii-boundary-evaluation/closure-report.md)
 owns the final assessment against the original concerns. The
-[Step-4 overview](../../apps/external-dealii/step-4/external-integration-overview.md)
+[Step-4 overview](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/apps/external-dealii/step-4/external-integration-overview.md)
 explains the complete application path; the
-[implementation report](../../apps/external-dealii/step-4/integration-report.md)
+[implementation report](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/apps/external-dealii/step-4/integration-report.md)
 accounts for the concrete source responsibilities, and the
-[external API reference](../reference/external-dealii-solver-integration.md)
+[external API reference](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/reference/external-dealii-solver-integration.md)
 describes existing contracts. The investigation is complete; low-effort
 authoring is partly achieved and newcomer usability remains untested.
 Historical unit sequences below do not authorize restarting completed work.
@@ -76,16 +76,16 @@ Necessary local fixes to experiment code are allowed. A shared-library bug or mi
 
 ## 2. Authority and required reading
 
-Before every unit, read [agent routing](../../.agents/README.md), follow its routing, inspect current repository state when required, then read this roadmap's unit and phase status. Reuse already-read, unchanged instructions within a session. Use the [documentation map](../README.md) for routing instead of reading all design documents.
+Before every unit, read [agent routing](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/.agents/README.md), follow its routing, inspect current repository state when required, then read this roadmap's unit and phase status. Reuse already-read, unchanged instructions within a session. Use the [documentation map](../README.md) for routing instead of reading all design documents.
 
 Relevant action instructions are `.agents/workflow.md`, `.agents/git.md`, `.agents/code.md`, `.agents/documentation.md`, `.agents/build.md`, and `.agents/run.md` when their actions apply. This experiment is not a Chapter 6 run and does not adopt Chapter 6 parameter or manifest schemas merely because run instructions mention them.
 
 Authority split:
 
 - This roadmap owns current work sequence, frozen experiment conventions, gates, and status.
-- The [PDE–solver boundary](../design/pde-solver-boundary.md) and [v0 executable contract](../implementation/v0/executable-contract.md) remain the architecture and current executable-contract authorities. Evaluate the current contract faithfully; its ergonomic sufficiency is under investigation.
-- The [external integration reference](../reference/external-dealii-solver-integration.md) describes the existing public API and tested reference consumer, with the factual qualifications below.
-- The [tutorial roadmap](external-dealii-tutorial-roadmap.md) is a superseded historical plan for this work. Its original intended sequence remains historical planning; this roadmap owns current evaluation work.
+- The [PDE–solver boundary](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/design/pde-solver-boundary.md) and [v0 executable contract](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v0/executable-contract.md) remain the architecture and current executable-contract authorities. Evaluate the current contract faithfully; its ergonomic sufficiency is under investigation.
+- The [external integration reference](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/reference/external-dealii-solver-integration.md) describes the existing public API and tested reference consumer, with the factual qualifications below.
+- The [tutorial roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-tutorial-roadmap.md) is a superseded historical plan for this work. Its original intended sequence remains historical planning; this roadmap owns current evaluation work.
 - Raw traces, working attribution, and speculative explanations remain ignored working evidence. At closure, promote the reviewed factual report and reproducible commands; generated run outputs and the working ledger remain ignored. Long-lived design changes require a subsequent accepted decision.
 
 E0 factual corrections:
@@ -108,7 +108,7 @@ Unit-specific reading uses contract-header names relative to `include/nmopt/cont
 | E3 | Frozen Problem A and policy sections here; E2 seams; boundary mathematical sign/metric conventions; installed deal.II dense factorization API used by the verification oracle. |
 | E4 | External integration reference; v0 executable contract; `callback_executable_model.hpp`, `layout.hpp`, `linear_solve.hpp`, `metric_constraint.hpp`, `reduced_dto.hpp`, `dealii/serial_backend.hpp`; existing `tests/application/external_application_dealii_contract.cc` as API evidence. |
 | E5 | `reduced_search.hpp`, `reduced_line_search.hpp`, `reduced_gradient.hpp`; staged-evaluation and work-count tests in `tests/contract/reduced_dto_contract.cc`; frozen optimization policy below. |
-| G1 | Completed E0–E5 evidence, ledger, final diff, and accepted boundary; [design investigation](review/external-dealii-boundary-evaluation/design-investigation.md) as non-authoritative review context. Read other subsystems only to investigate a named finding. |
+| G1 | Completed E0–E5 evidence, ledger, final diff, and accepted boundary; [design investigation](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/external-dealii-boundary-evaluation/design-investigation.md) as non-authoritative review context. Read other subsystems only to investigate a named finding. |
 
 ## 3. Source organization and ownership
 
@@ -688,7 +688,7 @@ Prospective commit: `docs(dealii): report external boundary evaluation findings`
 
 Gate: stop implementation after presenting the recommendation. Helper/API changes and Problem B require their own accepted scope. When possible, prefer running Problem B against the same frozen baseline before changing the boundary, so its incremental comparison remains interpretable.
 
-G1 report (2026-09-11): [External deal.II boundary evaluation: G1 report](review/external-dealii-boundary-evaluation/g1-report.md)
+G1 report (2026-09-11): [External deal.II boundary evaluation: G1 report](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/external-dealii-boundary-evaluation/g1-report.md)
 promotes the E0–E5 source, mathematical, reduced-evaluation, and matched-
 optimization evidence. It classifies the full-VJP state component as a
 tested frozen-API obligation with measured repeated transpose work whose
@@ -714,7 +714,7 @@ The accepted G1 decision led only to local clarity and evidence corrections:
   separate.
 
 The detailed permanent note is
-[Step-4 ownership and evidence reconciliation](review/external-dealii-boundary-evaluation/ownership-reconciliation.md).
+[Step-4 ownership and evidence reconciliation](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/external-dealii-boundary-evaluation/ownership-reconciliation.md).
 This reconciliation does not promote a generic helper, change the shared API,
 reorganize ignored run artifacts, or start another tutorial evaluation.
 
@@ -793,7 +793,7 @@ The final native-driver follow-up was committed as
 ### PB0 – Prepare the Problem B protocol
 
 Completed on 2026-09-11. The
-[Problem B execution protocol](review/external-dealii-boundary-evaluation/problem-b-protocol.md)
+[Problem B execution protocol](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/external-dealii-boundary-evaluation/problem-b-protocol.md)
 now owns B's frozen mathematics, numerical policies, ownership, acceptance,
 and implementation units. It selects same-mesh full continuous control,
 free state coordinates with the original boundary lifting, consistent mass
@@ -802,7 +802,7 @@ Native and current-nmopt paths share declared mass-solve and optimization
 policies. An independent dense KKT oracle supplements derivative, metric,
 coordinate, and paired checks.
 
-The [investigation](review/external-dealii-boundary-evaluation/design-investigation.md#8-post-g1-review-and-problem-b-candidate)
+The [investigation](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/external-dealii-boundary-evaluation/design-investigation.md#8-post-g1-review-and-problem-b-candidate)
 remains historical reasoning. Problem B is a second OCP on the same Step-4
 application; line counts and repeated construction do not establish average
 external-application cost. The shared-nmopt freeze and preserved Problem A
@@ -813,7 +813,7 @@ frozen protocol; their bounded attribution is recorded by G2 below.
 
 Completed on 2026-09-12, including the bounded audit and attribution
 corrections. The
-[Problem B boundary evaluation report](review/external-dealii-boundary-evaluation/problem-b-report.md)
+[Problem B boundary evaluation report](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/external-dealii-boundary-evaluation/problem-b-report.md)
 records the factual comparison, functional-wiring ownership map, measured
 runtime incidence, verification limits, and next decision. Its final
 stationarity values use the required independent dense mass audit, and its
@@ -833,7 +833,7 @@ accepted question and scope.
 ### MC1 – Minimal Problem A consumer
 
 MC1 is the first unit of the separately accepted minimal-consumer usability
-follow-up. It adds the [minimal Problem A consumer](../../apps/external-dealii/step-4/minimal/README.md)
+follow-up. It adds the [minimal Problem A consumer](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/apps/external-dealii/step-4/minimal/README.md)
 and its focused validation without reopening G1 or G2. The consumer reuses
 `integration/problem_a.hpp`, writes the current public layouts, five callbacks,
 partition, native solve-report translation, identity metric, reduced DTO, and
@@ -855,7 +855,7 @@ Problem B surface.
 ### MC2 – Minimal Problem B consumer
 
 MC2 is the second unit of the separately accepted minimal-consumer usability
-follow-up. It adds the [minimal Problem B consumer](../../apps/external-dealii/step-4/minimal/README.md)
+follow-up. It adds the [minimal Problem B consumer](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/apps/external-dealii/step-4/minimal/README.md)
 and its focused validation without reopening G1 or G2. The consumer borrows a
 prepared `Step4<2>` application through `ProblemB`, writes the current public
 layouts, five callbacks, partition, native solve-report translation, mass
@@ -877,7 +877,7 @@ usability. MC3 is the final unit for the factual A/B authoring comparison.
 ### MC3 – Compare authoring requirements and stop
 
 MC3 is the initial assessment unit of the separately accepted minimal-consumer usability
-follow-up. The [minimal consumer assessment](review/external-dealii-boundary-evaluation/minimal-consumers-report.md)
+follow-up. The [minimal consumer assessment](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/review/external-dealii-boundary-evaluation/minimal-consumers-report.md)
 separates reused Step-4/PDE mathematics, required public nmopt wiring,
 executable configuration/output, and accessory evaluation/diagnostics. It
 compares the explicit A and B consumers with the evaluated bindings and records

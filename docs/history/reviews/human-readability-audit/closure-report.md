@@ -6,7 +6,7 @@
 
 **Repository-structure interlude:** closed separately by [`10-repository-structure-refactor-closure.md`](10-repository-structure-refactor-closure.md)
 
-**Status:** closure draft; make final after the last historical Step-4 section-link repair and final `git diff --check`
+**Status:** complete
 
 ## 1. Purpose and closure verdict
 
@@ -67,10 +67,10 @@ visible as real but secondary formulation products. The Chapter-6 runner and
 reproduction machinery remain optional project infrastructure rather than a
 required layer of the reusable numerical library.
 
-The refactor is therefore considered complete when the final two historical
-Step-4 section links are pinned to their original pre-refactor targets and the
-resulting documentation diff passes its final whitespace check. No further
-broad documentation or source cleanup is required for this audit.
+The final two historical Step-4 section links were pinned to their original
+pre-refactor targets, and the resulting documentation diff passed its final
+whitespace check. The human-readability refactor is complete. No further broad
+documentation or source cleanup is required for this audit.
 
 ## 2. Evidence and interpretation
 
@@ -1011,20 +1011,20 @@ Its final consistency audit established:
 - 131 broken historical file targets pinned to the original pre-refactor
   snapshot rather than modernized to successor documents.
 
-The final bounded residual identified after reconstructing the historical anchor
-set is:
+The final historical-anchor review identified two links in:
 
 ```text
 docs/history/reviews/external-dealii-boundary-evaluation/
     minimal-consumers-report.md
 ```
 
-Two links still name historical sections of the Step-4 integration report whose
-headings were later reorganized. Their historical referents exist at the audit
-baseline and should be pinned there.
+Those links named historical sections of the Step-4 integration report whose
+headings were later reorganized. Their original referents were confirmed at the
+audit baseline and the links were pinned to that frozen snapshot.
 
-After that two-link repair and a final `git diff --check`, no known
-human-readability defect remains that justifies another broad pass.
+With those links repaired and the final documentation diff passing
+`git diff --check`, no known human-readability defect remains that justifies
+another broad pass.
 
 ## 30. Closure
 

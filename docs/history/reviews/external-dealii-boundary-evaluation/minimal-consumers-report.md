@@ -159,9 +159,9 @@ reflecting its coordinate and mass-metric requirements. The larger B contract
 test contains dense/reference and executable checks; those lines do not
 belong to the functional consumer.
 
-The [implementation report](../../../../apps/external-dealii/step-4/integration-report.md#4-source-accounting)
+The [implementation report](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/apps/external-dealii/step-4/integration-report.md#4-source-accounting)
 extends this inventory to native OCP code, shared Step-4 adaptation, and
-comparison support. Its [binding-region breakdown](../../../../apps/external-dealii/step-4/integration-report.md#5-inside-the-minimal-bindings)
+comparison support. Its [binding-region breakdown](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/apps/external-dealii/step-4/integration-report.md#5-inside-the-minimal-bindings)
 reconciles the 206/222 totals to disjoint construction responsibilities.
 
 ## Validation and usability limits

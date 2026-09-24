@@ -23,6 +23,9 @@ Use the root documentation map and current `reference/`, `design/`, or
 - [External deal.II Problem B boundary evaluation](external-dealii-boundary-evaluation/problem-b-report.md)
   records the completed distributed-control attribution review and bounded
   G2 decision.
+- [Late September 2026 build and run refresh](release-refresh-2026-09-24.md)
+  reviews the clean pipelines, Release replays, historical input migration,
+  comparison limits, and release provenance for execution commit `18dd7ddba440`.
 - [Human-readability and architecture audit](human-readability-audit/00-audit-index.md)
   records the code-derived architecture, source/documentation audit,
   information-architecture proposal, and bounded documentation-refactor

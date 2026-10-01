@@ -48,7 +48,7 @@ The main chapter ended with Céa's estimate. For a bounded and coercive bilinear
 
 $$
 \lVert u-u_{h}\rVert_{V}
-\le
+\leq
 \frac{M}{\alpha}
 \inf_{v_{h}\in V_{h}}
 \lVert u-v_{h}\rVert_{V}.
@@ -67,8 +67,7 @@ $$
 is defined by requiring the finite-element degrees of freedom of $I_{h}u$ to equal those of $u$. For a nodal basis,
 
 $$
-I_{h}u
-=
+I_{h}u =
 \sum_{i=1}^{n}u(x_{i})\varphi_{i}.
 $$
 
@@ -77,7 +76,7 @@ Since $I_{h}u$ is one admissible member of $V_{h}$,
 $$
 \inf_{v_{h}\in V_{h}}
 \lVert u-v_{h}\rVert_{V}
-\le
+\leq
 \lVert u-I_{h}u\rVert_{V}.
 $$
 
@@ -85,7 +84,7 @@ Therefore Céa immediately gives
 
 $$
 \lVert u-u_{h}\rVert_{V}
-\le
+\leq
 \frac{M}{\alpha}
 \lVert u-I_{h}u\rVert_{V}.
 $$
@@ -126,7 +125,7 @@ $$
 where
 
 $$
-h:=\max_{K\in\mathcal T_{h}}h_{K}.
+h\coloneqq\max_{K\in\mathcal T_{h}}h_{K}.
 $$
 
 Combining this with Céa gives the familiar first-order energy-norm estimate for piecewise-affine conforming elements,
@@ -197,7 +196,7 @@ A family of meshes is called **shape regular** when there is a constant $C$ inde
 
 $$
 \frac{h_{K}}{\rho_{K}}
-\le C
+\leq C
 \qquad
 \text{for every cell }K
 $$
@@ -209,8 +208,7 @@ in every mesh of the family.
 Suppose an affine map sends a reference cell to a physical cell,
 
 $$
-F_{K}(\widehat x)
-=
+F_{K}(\widehat x) =
 B_{K}\widehat x+b_{K}.
 $$
 
@@ -239,8 +237,7 @@ $$
 then the gradient transformation contains $B_{K}^{-1}$:
 
 $$
-\nabla v(x)
-=
+\nabla v(x) =
 B_{K}^{-\mathsf T}
 \widehat\nabla\widehat v(\widehat x).
 $$
@@ -325,17 +322,15 @@ The last option is often the simplest. If an assembly formula only needs the val
 Let
 
 $$
-V_{h}
-=
-\mathrm{span}
-\{\varphi_{1},\ldots,\varphi_{n}\}
+V_{h} =
+\mathop{\mathrm{span}}
+\lbrace\varphi_{1},\ldots,\varphi_{n}\rbrace
 $$
 
 be a nodal Lagrange space with nodes $x_{i}$. If a function $f$ is regular enough for the point values $f(x_{i})$ to be meaningful, its nodal interpolant is
 
 $$
-I_{h}f
-=
+I_{h}f =
 \sum_{i=1}^{n}
 f(x_{i})\varphi_{i}.
 $$
@@ -343,16 +338,14 @@ $$
 By construction,
 
 $$
-(I_{h}f)(x_{i})
-=
+(I_{h}f)(x_{i}) =
 f(x_{i}).
 $$
 
 More generally, if the finite element has degrees of freedom $\sigma_{i}$ rather than point evaluations, interpolation is defined by
 
 $$
-\sigma_{i}(I_{h}f)
-=
+\sigma_{i}(I_{h}f) =
 \sigma_{i}(f).
 $$
 
@@ -371,8 +364,7 @@ The $L^{2}$ projection $P_{h}f\in V_{h}$ is defined by
 $$
 \int_{\Omega}
 (P_{h}f-f)v_{h}
- \mathrm{d}x
-=
+\thinspace\mathrm{d}x =
 0
 \qquad
 \text{for every }v_{h}\in V_{h}.
@@ -381,8 +373,7 @@ $$
 Write
 
 $$
-P_{h}f
-=
+P_{h}f =
 \sum_{j=1}^{n}c_{j}\varphi_{j}.
 $$
 
@@ -393,12 +384,11 @@ $$
 \left(
 \int_{\Omega}
 \varphi_{j}\varphi_{i}
- \mathrm{d}x
-\right)c_{j}
-=
+\thinspace\mathrm{d}x
+\right)c_{j} =
 \int_{\Omega}
 f\varphi_{i}
- \mathrm{d}x.
+\thinspace\mathrm{d}x.
 $$
 
 Thus the coefficient vector $\mathbf c$ satisfies
@@ -410,9 +400,8 @@ $$
 where $M$ is the mass matrix and
 
 $$
-b_{i}
-=
-\int_{\Omega}f\varphi_{i} \mathrm{d}x.
+b_{i} =
+\int_{\Omega}f\varphi_{i}\thinspace\mathrm{d}x.
 $$
 
 Interpolation therefore determines coefficients from degrees of freedom, whereas an $L^{2}$ projection determines them by solving a mass-matrix system. The two coincide only in special cases.
@@ -422,9 +411,8 @@ Interpolation therefore determines coefficients from degrees of freedom, whereas
 The distinction becomes especially transparent for the discontinuous cellwise-constant space
 
 $$
-U_{h}
-=
-\{v_{h}:v_{h}\rvert_{K}\text{ is constant on every cell }K\}.
+U_{h} =
+\lbrace v_{h}:v_{h}\rvert_{K}\text{ is constant on every cell }K\rbrace.
 $$
 
 Let
@@ -436,18 +424,16 @@ $$
 Testing the $L^{2}$ projection with the indicator of the cell $K$ gives
 
 $$
-c_{K}|K|
-=
-\int_{K}f \mathrm{d}x,
+c_{K}\lvert K\rvert =
+\int_{K}f\thinspace\mathrm{d}x,
 $$
 
 so
 
 $$
-c_{K}
-=
-\frac{1}{|K|}
-\int_{K}f \mathrm{d}x.
+c_{K} =
+\frac{1}{\lvert K\rvert}
+\int_{K}f\thinspace\mathrm{d}x.
 $$
 
 The projected coefficient is the **cell average** of $f$. Sampling $f$ at the cell center would be a different approximation. For a smooth function and a symmetric cell the two may be close, but they are not the same construction.
@@ -459,10 +445,9 @@ This distinction is useful for distributed controls and coefficient fields. A ce
 Suppose the load vector is
 
 $$
-b_{i}
-=
+b_{i} =
 \int_{\Omega}
-f\varphi_{i} \mathrm{d}x.
+f\varphi_{i}\thinspace\mathrm{d}x.
 $$
 
 If $f$ is available as an analytic function, a data file, or a callback that can evaluate $f(x)$, finite-element assembly can approximate this integral directly:
@@ -485,7 +470,7 @@ $$
 \frac{1}{2}
 \int_{\Omega}
 (y_{h}-y_{d})^{2}
- \mathrm{d}x,
+\thinspace\mathrm{d}x,
 $$
 
 or to a variable coefficient $\kappa(x)$ in
@@ -494,7 +479,7 @@ $$
 \int_{\Omega}
 \kappa
 \nabla u_{h}\cdot\nabla v_{h}
- \mathrm{d}x.
+\thinspace\mathrm{d}x.
 $$
 
 Whether data should first be projected into a finite-element space is therefore a modeling and numerical decision, not an automatic step in the finite-element method.
@@ -505,13 +490,13 @@ On a one-dimensional reference interval $\widehat K$, a quadrature rule has the 
 
 $$
 Q(g)
-:=
+\coloneqq
 \sum_{q=1}^{n_{q}}
 \widehat w_{q}g(\widehat x_{q})
 \approx
 \int_{\widehat K}
 g(\widehat x)
- \mathrm{d}\widehat x.
+\thinspace\mathrm{d}\widehat x.
 $$
 
 The points $\widehat x_{q}$ are the **quadrature nodes** and the numbers $\widehat w_{q}$ are the **weights**.
@@ -519,9 +504,8 @@ The points $\widehat x_{q}$ are the **quadrature nodes** and the numbers $\wideh
 The **degree of exactness** is the largest integer $r$ such that
 
 $$
-Q(p)
-=
-\int_{\widehat K}p(\widehat x) \mathrm{d}\widehat x
+Q(p) =
+\int_{\widehat K}p(\widehat x)\thinspace\mathrm{d}\widehat x
 $$
 
 for every polynomial $p$ of degree at most $r$.
@@ -562,7 +546,7 @@ In two dimensions,
 $$
 \int_{\widehat K}
 g(\xi,\eta)
- \mathrm{d}\xi \mathrm{d}\eta
+\thinspace\mathrm{d}\xi\thinspace\mathrm{d}\eta
 $$
 
 is approximated by
@@ -587,23 +571,22 @@ $$
 be the reference-to-physical map. Then
 
 $$
-\int_{K}g(x) \mathrm{d}x
-=
+\int_{K}g(x)\thinspace\mathrm{d}x =
 \int_{\widehat K}
 g(F_{K}(\widehat x))
-|\det J_{K}(\widehat x)|
- \mathrm{d}\widehat x.
+\lvert\det J_{K}(\widehat x)\rvert
+\thinspace\mathrm{d}\widehat x.
 $$
 
 Applying the reference quadrature rule gives
 
 $$
-\int_{K}g(x) \mathrm{d}x
+\int_{K}g(x)\thinspace\mathrm{d}x
 \approx
 \sum_{q=1}^{n_{q}}
 \widehat w_{q}
 g(F_{K}(\widehat x_{q}))
-|\det J_{K}(\widehat x_{q})|.
+\lvert\det J_{K}(\widehat x_{q})\rvert.
 $$
 
 For affine cells the Jacobian determinant is constant. For curved or more general mapped cells it varies with the quadrature point, so even a polynomial physical integrand need not remain a polynomial of the same degree after pullback.
@@ -611,8 +594,7 @@ For affine cells the Jacobian determinant is constant. For curved or more genera
 Variable coefficients produce the same issue. If
 
 $$
-g(x)
-=
+g(x) =
 \kappa(x)
 \nabla\phi_{j}(x)\cdot\nabla\phi_{i}(x)
 $$
@@ -640,8 +622,7 @@ If quadrature is exact for the integrands that occur, the two discrete problems 
 The ideal Galerkin problem uses the exact bilinear form and exact right-hand side:
 
 $$
-a(u_{h},v_{h})
-=
+a(u_{h},v_{h}) =
 F(v_{h})
 \qquad
 \text{for every }v_{h}\in V_{h}.
@@ -650,8 +631,7 @@ $$
 In an implementation, integrals are normally replaced by quadrature. More generally, geometry, coefficients, or operators may also be approximated. The computer may therefore solve
 
 $$
-a_{h}(u_{h},v_{h})
-=
+a_{h}(u_{h},v_{h}) =
 F_{h}(v_{h})
 \qquad
 \text{for every }v_{h}\in V_{h},
@@ -689,7 +669,7 @@ $$
 
 Subtracting no longer produces zero. Instead,
 
-```math
+$$
 \begin{aligned}
 a_{h}(u-u_{h},v_{h})
 &=
@@ -700,17 +680,17 @@ a_{h}(u,v_{h})-F_{h}(v_{h})
 +
 \bigl(F(v_{h})-F_{h}(v_{h})\bigr).
 \end{aligned}
-```
+$$
 
 The right-hand side measures the **consistency error** introduced by replacing the continuous form with the numerical one.
 
 ### 5.2 A Strang-type error decomposition
 
-Assume the discrete bilinear form is stable in the sense that, for some $\alpha_{h}>0$,
+Assume the discrete bilinear form is stable in the sense that, for some $\alpha_{h}\gt 0$,
 
 $$
 a_{h}(w_{h},w_{h})
-\ge
+\geq
 \alpha_{h}
 \lVert w_{h}\rVert_{V}^{2}
 \qquad
@@ -721,7 +701,7 @@ Choose any comparison function $v_{h}\in V_{h}$. By the triangle inequality,
 
 $$
 \lVert u-u_{h}\rVert_{V}
-\le
+\leq
 \lVert u-v_{h}\rVert_{V}
 +
 \lVert v_{h}-u_{h}\rVert_{V}.
@@ -732,7 +712,7 @@ Discrete coercivity controls the second term:
 $$
 \alpha_{h}
 \lVert v_{h}-u_{h}\rVert_{V}^{2}
-\le
+\leq
  a_{h}(v_{h}-u_{h},v_{h}-u_{h}).
 $$
 
@@ -743,7 +723,7 @@ Using the discrete equation for $u_{h}$ and adding and subtracting the exact for
 
 After taking a supremum over discrete test functions, one obtains a bound of the schematic form
 
-```math
+$$
 \lVert u-u_{h}\rVert_{V}
 \lesssim
 \inf_{v_{h}\in V_{h}}
@@ -755,7 +735,7 @@ After taking a supremum over discrete test functions, one obtains a bound of the
 }{
 \lVert w_{h}\rVert_{V}
 }.
-```
+$$
 
 The first term is approximation error. The second is consistency error. This is the central message of Strang's lemmas.
 
@@ -779,7 +759,7 @@ consider a conforming finite-element solution $u_{h}$. Inside a cell $K$, define
 
 $$
 r_{K}
-:=
+\coloneqq
 f+\Delta u_{h}.
 $$
 
@@ -789,7 +769,7 @@ The gradient of $u_{h}$ is generally different on the two sides of an interior f
 
 $$
 j_{F}
-:=
+\coloneqq
 \nabla u_{h}^{+}\cdot n^{+}
 +
 \nabla u_{h}^{-}\cdot n^{-}.
@@ -801,31 +781,28 @@ For an exact sufficiently smooth solution of the homogeneous-diffusion Poisson e
 
 The origin of these terms is another cellwise integration by parts. For a test function $v$,
 
-```math
+$$
 \sum_{K}
 \int_{K}
 \nabla(u-u_{h})\cdot\nabla v
-\mathrm{d}x
-=
+\thinspace\mathrm{d}x =
 \sum_{K}
 \left[
 \int_{K}
 (f+\Delta u_{h})v
-\mathrm{d}x
--
-\int_{\partial K}
+\thinspace\mathrm{d}x
+-\int_{\partial K}
 (\nabla u_{h}\cdot n_{K})v
-\mathrm{d}s
+\thinspace\mathrm{d}s
 \right].
-```
+$$
 
 When the cell-boundary terms are collected globally, external boundary contributions are treated by the boundary conditions, while an interior face receives contributions from both neighboring cells. Those two contributions combine into the flux jump $j_{F}$.
 
 A typical residual indicator therefore has the structure
 
 $$
-\eta_{K}^{2}
-=
+\eta_{K}^{2} =
 h_{K}^{2}
 \lVert r_{K}\rVert_{L^{2}(K)}^{2}
 +
@@ -859,8 +836,7 @@ Local refinement destroys quasi-uniformity by design, but it can preserve shape 
 It can also create **hanging nodes**: fine cells may introduce support points on an interface that do not exist on a neighboring coarse cell. For a conforming method, the corresponding fine-grid degree of freedom cannot remain independent. It must satisfy an interpolation relation such as
 
 $$
-y_{c}
-=
+y_{c} =
 \frac12 y_{1}
 +
 \frac12 y_{2},
@@ -886,7 +862,7 @@ A discontinuous piecewise-polynomial function still has an ordinary gradient ins
 
 $$
 \nabla_{h}v_{h}\rvert_{K}
-:=
+\coloneqq
 \nabla(v_{h}\rvert_{K}).
 $$
 
@@ -896,7 +872,7 @@ $$
 \sum_{K}
 \int_{K}
 \nabla_{h}u_{h}\cdot\nabla_{h}v_{h}
-\mathrm{d}x
+\thinspace\mathrm{d}x
 $$
 
 is well defined. But it does not by itself communicate how neighboring cells should interact. If two cells share a face, their traces are independent and may disagree.
@@ -905,7 +881,7 @@ Define the scalar jump across an interior face by choosing the two traces $v_{h}
 
 $$
 [v_{h}]
-:=
+\coloneqq
 v_{h}^{+}-v_{h}^{-}.
 $$
 
@@ -915,36 +891,35 @@ For a continuous finite-element function this jump is zero. For a discontinuous 
 
 Interior-penalty discontinuous Galerkin methods augment the cellwise gradient form with face terms. Schematically, a symmetric interior-penalty form contains
 
-```math
+$$
 \begin{aligned}
 a_{h}(u_{h},v_{h})
 ={}&
 \sum_{K}
 \int_{K}
 \nabla u_{h}\cdot\nabla v_{h}
-\mathrm{d}x
+\thinspace\mathrm{d}x
 \\
 &-
 \sum_{F}
 \int_{F}
-\{\partial_{n}u_{h}\}[v_{h}]
-\mathrm{d}s
--
-\sum_{F}
+\lbrace\partial_{n}u_{h}\rbrace[v_{h}]
+\thinspace\mathrm{d}s
+-\sum_{F}
 \int_{F}
-\{\partial_{n}v_{h}\}[u_{h}]
-\mathrm{d}s
+\lbrace\partial_{n}v_{h}\rbrace[u_{h}]
+\thinspace\mathrm{d}s
 \\
 &+
 \sum_{F}
 \frac{\sigma}{h_{F}}
 \int_{F}
 [u_{h}][v_{h}]
-\mathrm{d}s.
+\thinspace\mathrm{d}s.
 \end{aligned}
-```
+$$
 
-Here $\{\partial_{n}u_{h}\}$ denotes a suitable average of the two neighboring normal derivatives, and $\sigma>0$ is a penalty parameter.
+Here $\lbrace\partial_{n}u_{h}\rbrace$ denotes a suitable average of the two neighboring normal derivatives, and $\sigma\gt 0$ is a penalty parameter.
 
 The first face terms encode the flux coupling produced by integration by parts. The penalty term controls the jump itself. With an appropriate scaling and sufficiently large penalty, the resulting method can be stable even though the discrete functions are not members of the continuous $H^{1}$ space.
 
@@ -965,7 +940,7 @@ $$
 with
 
 $$
-a:V\times W\to\mathbb R.
+a\colon V\times W\to\mathbb{R}.
 $$
 
 A discrete method chooses
@@ -992,7 +967,7 @@ When $V=W$ and $a$ is coercive, testing with the same function controls its norm
 
 $$
 a(v,v)
-\ge
+\geq
 \alpha
 \lVert v\rVert_{V}^{2}.
 $$
@@ -1010,14 +985,14 @@ $$
 \lVert v_{h}\rVert_{V}
 \lVert w_{h}\rVert_{W}
 }
-\ge
-\beta_{h}>0.
+\geq
+\beta_{h}\gt 0.
 $$
 
 For a stable family of discretizations, one wants a lower bound
 
 $$
-\beta_{h}\ge\beta_{0}>0
+\beta_{h}\geq\beta_{0}\gt 0
 $$
 
 that does not collapse as $h\to0$.
@@ -1028,7 +1003,7 @@ This is the analogue of requiring mesh-independent coercivity. A discrete proble
 
 A common mixed problem introduces two unknown fields $v\in V$ and $\pi\in Q$ and asks for
 
-```math
+$$
 \begin{aligned}
 a(v,w)+b(w,\pi) &= F(w)
 &&\text{for every }w\in V,
@@ -1036,14 +1011,14 @@ a(v,w)+b(w,\pi) &= F(w)
 b(v,q) &= G(q)
 &&\text{for every }q\in Q.
 \end{aligned}
-```
+$$
 
 Choose bases
 
 $$
-V_{h}=\mathrm{span}\{\varphi_{1},\ldots,\varphi_{n}\},
+V_{h}=\mathop{\mathrm{span}}\lbrace\varphi_{1},\ldots,\varphi_{n}\rbrace,
 \qquad
-Q_{h}=\mathrm{span}\{\psi_{1},\ldots,\psi_{m}\}.
+Q_{h}=\mathop{\mathrm{span}}\lbrace\psi_{1},\ldots,\psi_{m}\rbrace.
 $$
 
 The two bilinear forms produce matrices
@@ -1060,7 +1035,7 @@ $$
 
 The discrete equations have the block form
 
-```math
+$$
 \begin{bmatrix}
 A & B^{\mathsf T}\\
 B & 0
@@ -1068,13 +1043,12 @@ B & 0
 \begin{bmatrix}
 \mathbf v\\
 \boldsymbol{\pi}
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 \mathbf f\\
 \mathbf g
 \end{bmatrix}.
-```
+$$
 
 This matrix is generally indefinite. Its well-posedness is not determined by the quality of $V_{h}$ and $Q_{h}$ separately. The **pair** of spaces matters through a discrete inf-sup condition for $b$.
 

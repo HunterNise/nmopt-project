@@ -8,7 +8,7 @@ Next: [03 · Finite elements](03-finite-elements.md)
 
 A vector and a derivative can be stored as the same list of numbers and still play different mathematical roles. A perturbation is something we can *apply* to a state or parameter. A derivative of a scalar functional is something that *acts on* such a perturbation. An operator sends primal objects forward; its transpose or adjoint sends dual information backward. An inner product can identify a dual object with a primal representative, but that identification depends on the chosen geometry.
 
-These distinctions are easy to hide in Euclidean coordinates because the standard dot product identifies $\mathbb R^{n}$ with its dual almost invisibly. They become unavoidable in function spaces, finite elements, and PDE-constrained optimization.
+These distinctions are easy to hide in Euclidean coordinates because the standard dot product identifies $\mathbb{R}^{n}$ with its dual almost invisibly. They become unavoidable in function spaces, finite elements, and PDE-constrained optimization.
 
 This chapter develops the underlying mathematics before any project-specific representation is introduced. We begin with linear functionals and dual coordinates, derive how vectors and covectors transform differently, introduce Riesz maps, and then extend ordinary differentiation to maps between normed spaces. The chain rule leads naturally to pullbacks and adjoint actions. Finally, we distinguish derivatives from gradients, introduce second derivatives as operator actions, and derive the numerical checks that later let us verify derivative and adjoint implementations.
 
@@ -51,25 +51,21 @@ The later manual uses all of these ideas in discrete spaces. This chapter stops 
 Let $X$ and $Y$ be normed vector spaces. A map
 
 $$
-A:X\to Y
+A\colon X\to Y
 $$
 
 is **linear** if
 
 $$
-A(\alpha x+\beta z)
-=
-\alpha Ax+\beta Az
+A(\alpha x+\beta z)=\alpha Ax+\beta Az
 $$
 
 for all $x,z\in X$ and scalars $\alpha,\beta$.
 
-For finite-dimensional spaces every linear map is continuous. In infinite-dimensional spaces this is no longer automatic, so we explicitly require the linear maps used in analysis to be **bounded**: there exists a constant $C\ge0$ such that
+For finite-dimensional spaces every linear map is continuous. In infinite-dimensional spaces this is no longer automatic, so we explicitly require the linear maps used in analysis to be **bounded**: there exists a constant $C\geq 0$ such that
 
 $$
-\lVert Ax\rVert_{Y}
-\le
-C\lVert x\rVert_{X}
+\lVert Ax\rVert_{Y}\leq C\lVert x\rVert_{X}
 \qquad
 \text{for every }x\in X.
 $$
@@ -83,11 +79,9 @@ $$
 for the space of bounded linear maps from $X$ to $Y$. Its standard operator norm is
 
 $$
-\lVert A\rVert_{\mathcal L(X,Y)}
-:=
+\lVert A\rVert_{\mathcal L(X,Y)}\coloneqq
 \sup_{x\ne0}
-\frac{\lVert Ax\rVert_{Y}}{\lVert x\rVert_{X}}
-=
+\frac{\lVert Ax\rVert_{Y}}{\lVert x\rVert_{X}}=
 \sup_{\lVert x\rVert_{X}=1}
 \lVert Ax\rVert_{Y}.
 $$
@@ -95,46 +89,39 @@ $$
 Boundedness and continuity are equivalent for linear maps. One direction is immediate: if $A$ is bounded, then
 
 $$
-\lVert Ax-Az\rVert_{Y}
-=
-\lVert A(x-z)\rVert_{Y}
-\le
+\lVert Ax-Az\rVert_{Y}=\lVert A(x-z)\rVert_{Y}\leq
 \lVert A\rVert_{\mathcal L(X,Y)}
 \lVert x-z\rVert_{X},
 $$
 
 so $A$ is in fact Lipschitz continuous.
 
-For the converse, suppose $A$ is continuous at the origin. Taking $\varepsilon=1$, there exists $\delta>0$ such that
+For the converse, suppose $A$ is continuous at the origin. Taking $\varepsilon=1$, there exists $\delta\gt 0$ such that
 
 $$
-\lVert z\rVert_{X}<\delta
+\lVert z\rVert_{X}\lt\delta
 \quad\Longrightarrow\quad
-\lVert Az\rVert_{Y}<1.
+\lVert Az\rVert_{Y}\lt 1.
 $$
 
 For any nonzero $x$, choose
 
 $$
-z
-:=
+z\coloneqq
 \frac{\delta}{2\lVert x\rVert_{X}}x.
 $$
 
-Then $\lVert z\rVert_{X}=\delta/2<\delta$, so $\lVert Az\rVert_{Y}<1$. By linearity,
+Then $\lVert z\rVert_{X}=\delta/2\lt\delta$, so $\lVert Az\rVert_{Y}\lt 1$. By linearity,
 
 $$
-\frac{\delta}{2\lVert x\rVert_{X}}
-\lVert Ax\rVert_{Y}
-<1,
+\frac{\delta}{2\lVert x\rVert_{X}}\lVert Ax\rVert_{Y}\lt 1,
 $$
 
 and therefore
 
 $$
 \lVert Ax\rVert_{Y}
-<
-\frac{2}{\delta}\lVert x\rVert_{X}.
+\lt\frac{2}{\delta}\lVert x\rVert_{X}.
 $$
 
 Thus continuity at one point already forces a linear map to be bounded everywhere.
@@ -142,15 +129,13 @@ Thus continuity at one point already forces a linear map to be bounded everywher
 A **linear functional** on $X$ is a linear map
 
 $$
-\ell:X\to\mathbb R.
+\ell\colon X\to\mathbb{R}.
 $$
 
 When it is bounded, it belongs to the **dual space**
 
 $$
-X^{\ast}
-:=
-\mathcal L(X,\mathbb R).
+X^{\ast}\coloneqq\mathcal L(X,\mathbb{R}).
 $$
 
 An element of $X$ is often called a **primal vector** or simply a vector. An element of $X^{\ast}$ is often called a **covector**. The word *covector* emphasizes the role of the object: it consumes a vector and returns a scalar. A row vector is only one coordinate representation of a covector; the mathematical object is the functional itself.
@@ -158,26 +143,21 @@ An element of $X$ is often called a **primal vector** or simply a vector. An ele
 The action of $\ell\in X^{\ast}$ on $x\in X$ is written
 
 $$
-\langle \ell,x\rangle_{X^{\ast},X}
-:=
-\ell(x).
+\langle \ell,x\rangle_{X^{\ast},X}\coloneqq\ell(x).
 $$
 
 This scalar evaluation is the **dual pairing**. It requires no inner product.
 
-For example, on $X=\mathbb R^{2}$ the rule
+For example, on $X=\mathbb{R}^{2}$ the rule
 
 $$
-\ell(x_{1},x_{2})
-:=
-3x_{1}-2x_{2}
+\ell(x_{1},x_{2})\coloneqq 3x_{1}-2x_{2}
 $$
 
 is a linear functional. In the standard basis we may store it as the coefficient array
 
 $$
-r
-=
+r =
 \begin{bmatrix}
 3\\
 -2
@@ -199,30 +179,27 @@ The distinction becomes sharper when the basis changes.
 Let $X$ be an $n$-dimensional vector space with basis
 
 $$
-\{\phi_{1},\ldots,\phi_{n}\}.
+\lbrace\phi_{1},\ldots,\phi_{n}\rbrace.
 $$
 
 Every vector $x\in X$ has coordinates $x_{j}$ defined by
 
 $$
-x
-=
+x =
 \sum_{j=1}^{n}x_{j}\phi_{j}.
 $$
 
 The associated **dual basis**
 
 $$
-\{\phi^{1},\ldots,\phi^{n}\}
+\lbrace\phi^{1},\ldots,\phi^{n}\rbrace
 \subset X^{\ast}
 $$
 
 is defined by
 
 $$
-\phi^{i}(\phi_{j})
-=
-\delta_{ij},
+\phi^{i}(\phi_{j})=\delta_{ij},
 $$
 
 where $\delta_{ij}$ is the Kronecker delta: it is $1$ when $i=j$ and $0$ otherwise.
@@ -230,14 +207,12 @@ where $\delta_{ij}$ is the Kronecker delta: it is $1$ when $i=j$ and $0$ otherwi
 Every covector $\ell\in X^{\ast}$ can therefore be expanded as
 
 $$
-\ell
-=
-\sum_{i=1}^{n}r_{i}\phi^{i}.
+\ell=\sum_{i=1}^{n}r_{i}\phi^{i}.
 $$
 
 Applying it to $x$ gives
 
-```math
+$$
 \begin{aligned}
 \ell(x)
 &=
@@ -254,7 +229,7 @@ r_{i}x_{j}\delta_{ij}
 &=
 \sum_{i=1}^{n}r_{i}x_{i}.
 \end{aligned}
-```
+$$
 
 Thus the familiar coordinate formula
 
@@ -266,11 +241,10 @@ is not itself an inner product. It is the coordinate expression of the natural p
 
 ### A basis change
 
-Suppose a second basis $\{\widetilde\phi_{1},\ldots,\widetilde\phi_{n}\}$ is related to the first by an invertible matrix $P$:
+Suppose a second basis $\lbrace\widetilde\phi_{1},\ldots,\widetilde\phi_{n}\rbrace$ is related to the first by an invertible matrix $P$:
 
 $$
-\widetilde\phi_{i}
-=
+\widetilde\phi_{i} =
 \sum_{j=1}^{n}\phi_{j}P_{ji}.
 $$
 
@@ -279,8 +253,7 @@ The columns of $P$ contain the new basis vectors written in the old basis.
 Let $x$ and $\widetilde x$ be the coordinate arrays of the same vector in the old and new bases. Since
 
 $$
-\sum_{j=1}^{n}x_{j}\phi_{j}
-=
+\sum_{j=1}^{n}x_{j}\phi_{j} =
 \sum_{i=1}^{n}\widetilde x_{i}\widetilde\phi_{i},
 $$
 
@@ -299,24 +272,21 @@ $$
 Now let $r$ and $\widetilde r$ be the corresponding coordinate arrays of a fixed covector $\ell$. The scalar pairing cannot depend on which basis we use:
 
 $$
-r^{\mathsf T}x
-=
+r^{\mathsf T}x =
 \widetilde r^{\mathsf T}\widetilde x.
 $$
 
 Using $x=P\widetilde x$,
 
 $$
-r^{\mathsf T}P\widetilde x
-=
+r^{\mathsf T}P\widetilde x =
 \widetilde r^{\mathsf T}\widetilde x
 $$
 
 for every $\widetilde x$. Therefore
 
 $$
-\widetilde r
-=
+\widetilde r =
 P^{\mathsf T}r.
 $$
 
@@ -330,7 +300,7 @@ covector coordinates
     r  ──►  P^{T} r
 ```
 
-A small example makes the distinction concrete. In $\mathbb R^{2}$, let
+A small example makes the distinction concrete. In $\mathbb{R}^{2}$, let
 
 $$
 \widetilde e_{1}=e_{1}+e_{2},
@@ -367,10 +337,8 @@ $$
 and new coordinates
 
 $$
-\widetilde x
-=
-P^{-1}x
-=
+\widetilde x =
+P^{-1}x =
 \begin{bmatrix}
 1\\
 1
@@ -396,10 +364,8 @@ $$
 Its new dual coordinates are
 
 $$
-\widetilde r
-=
-P^{\mathsf T}r
-=
+\widetilde r =
+P^{\mathsf T}r =
 \begin{bmatrix}
 7\\
 4
@@ -433,12 +399,12 @@ means: **apply this functional to this vector**.
 An inner product on a real vector space $H$ is instead a map
 
 $$
-(\cdot,\cdot)_{H}:H\times H\to\mathbb R
+(\cdot,\cdot)_{H}\colon H\times H\to\mathbb{R}
 $$
 
 that is bilinear, symmetric, and positive definite. It equips the primal space with geometry: lengths, angles, orthogonality, and projections.
 
-In $\mathbb R^{n}$ the standard Euclidean inner product is
+In $\mathbb{R}^{n}$ the standard Euclidean inner product is
 
 $$
 (x,z)_{2}=x^{\mathsf T}z.
@@ -449,19 +415,18 @@ That formula looks identical to the coordinate pairing $r^{\mathsf T}x$. The rol
 - in $r^{\mathsf T}x$, $r$ stores a covector and $x$ stores a vector;
 - in $x^{\mathsf T}z$, both $x$ and $z$ store vectors, and the Euclidean inner product supplies the identification that lets one vector act like a covector.
 
-Other inner products produce different identifications. Let $G\in\mathbb R^{n\times n}$ be symmetric positive definite. Then
+Other inner products produce different identifications. Let $G\in\mathbb{R}^{n\times n}$ be symmetric positive definite. Then
 
 $$
 (x,z)_{G}
-:=
+\coloneqq
 x^{\mathsf T}Gz
 $$
 
 is also an inner product. The vector $x$ now acts on $z$ through the covector with coordinate array $Gx$, because
 
 $$
-(x,z)_{G}
-=
+(x,z)_{G} =
 (Gx)^{\mathsf T}z.
 $$
 
@@ -472,8 +437,7 @@ Thus there is no basis-independent rule saying that the numbers stored in a vect
 Let $H$ be a real Hilbert space. We will use the Riesz representation theorem without proving it; its proof belongs to the functional-analysis material deliberately left outside this chapter. The theorem states that every bounded linear functional $\ell\in H^{\ast}$ can be represented uniquely by an element $g\in H$ such that
 
 $$
-\langle \ell,v\rangle_{H^{\ast},H}
-=
+\langle \ell,v\rangle_{H^{\ast},H} =
 (g,v)_{H}
 \qquad
 \text{for every }v\in H.
@@ -484,21 +448,21 @@ The theorem is important because it gives a precise way to move between a dual o
 For later use, define the **Riesz map** in the primal-to-dual direction,
 
 $$
-R_{H}:H\to H^{\ast},
+R_{H}\colon H\to H^{\ast},
 $$
 
 by
 
 $$
 \langle R_{H}g,v\rangle_{H^{\ast},H}
-:=
+\coloneqq
 (g,v)_{H}.
 $$
 
 The Riesz theorem says that $R_{H}$ is a one-to-one and onto isometry. Its inverse
 
 $$
-R_{H}^{-1}:H^{\ast}\to H
+R_{H}^{-1}\colon H^{\ast}\to H
 $$
 
 assigns to each functional its unique Riesz representative.
@@ -511,29 +475,27 @@ $$
 
 ### Coordinate form: the Gram matrix
 
-Let $H_{h}$ be finite dimensional with basis $\{\phi_{1},\ldots,\phi_{n}\}$. Define the Gram matrix of the inner product by
+Let $H_{h}$ be finite dimensional with basis $\lbrace\phi_{1},\ldots,\phi_{n}\rbrace$. Define the Gram matrix of the inner product by
 
 $$
 G_{ij}
-:=
+\coloneqq
 (\phi_{i},\phi_{j})_{H}.
 $$
 
 For
 
 $$
-g
-=
+g =
 \sum_{i=1}^{n}g_{i}\phi_{i},
 \qquad
-v
-=
+v =
 \sum_{j=1}^{n}v_{j}\phi_{j},
 $$
 
 we obtain
 
-```math
+$$
 \begin{aligned}
 (g,v)_{H}
 &=
@@ -547,7 +509,7 @@ g^{\mathsf T}Gv
 &=
 (Gg)^{\mathsf T}v,
 \end{aligned}
-```
+$$
 
 where the last equality uses the symmetry of $G$.
 
@@ -570,9 +532,8 @@ The Euclidean case is only the special choice $G=I$.
 In $H=L^{2}(\Omega)$,
 
 $$
-(g,v)_{L^{2}}
-=
-\int_{\Omega}gv \mathrm{d}x.
+(g,v)_{L^{2}} =
+\int_{\Omega}gv \thinspace\mathrm{d}x.
 $$
 
 Thus an $L^{2}$ function $g$ represents the functional
@@ -580,15 +541,15 @@ Thus an $L^{2}$ function $g$ represents the functional
 $$
 v
 \longmapsto
-\int_{\Omega}gv \mathrm{d}x.
+\int_{\Omega}gv \thinspace\mathrm{d}x.
 $$
 
-For any finite-dimensional function basis $\{\phi_{i}\}$, the $L^{2}$ Gram matrix has entries
+For any finite-dimensional function basis $\lbrace\phi_{i}\rbrace$, the $L^{2}$ Gram matrix has entries
 
 $$
 M_{ij}
-:=
-\int_{\Omega}\phi_{i}\phi_{j} \mathrm{d}x.
+\coloneqq
+\int_{\Omega}\phi_{i}\phi_{j} \thinspace\mathrm{d}x.
 $$
 
 In finite-element terminology, this is the **mass matrix**. The same abstract Riesz map that is invisible in Euclidean coordinates therefore becomes a nontrivial operator after discretization.
@@ -598,7 +559,7 @@ In finite-element terminology, this is the **mass matrix**. The same abstract Ri
 Let
 
 $$
-A:X\to Y
+A\colon X\to Y
 $$
 
 be a bounded linear map. A primal vector moves **forward** through $A$:
@@ -619,7 +580,7 @@ by
 
 $$
 \langle A^{\ast}q,x\rangle_{X^{\ast},X}
-:=
+\coloneqq
 \langle q,Ax\rangle_{Y^{\ast},Y}
 \qquad
 \text{for every }x\in X.
@@ -628,14 +589,14 @@ $$
 The map
 
 $$
-A^{\ast}:Y^{\ast}\to X^{\ast}
+A^{\ast}\colon Y^{\ast}\to X^{\ast}
 $$
 
 is the **dual**, **transpose**, or **Banach adjoint** of $A$. The terminology varies by source; the pairing identity is the definition that matters.
 
 In coordinates, let $A$ be represented by a matrix $\mathbf A$. If $q$ has dual-coordinate vector $\mathbf q$, then
 
-```math
+$$
 \begin{aligned}
 \langle q,Ax\rangle
 &=
@@ -644,7 +605,7 @@ In coordinates, let $A$ be represented by a matrix $\mathbf A$. If $q$ has dual-
 &=
 (\mathbf A^{\mathsf T}\mathbf q)^{\mathsf T}\mathbf x.
 \end{aligned}
-```
+$$
 
 Therefore
 
@@ -662,13 +623,13 @@ If $X$ and $Y$ are Hilbert spaces, their Riesz maps allow us to turn the dual op
 
 $$
 A^{\dagger}
-:=
-R_{X}^{-1}A^{\ast}R_{Y}:Y\to X.
+\coloneqq
+R_{X}^{-1}A^{\ast}R_{Y}\colon Y\to X.
 $$
 
 Then
 
-```math
+$$
 \begin{aligned}
 (Ax,y)_{Y}
 &=
@@ -683,11 +644,11 @@ Then
 &=
 (x,A^{\dagger}y)_{X}.
 \end{aligned}
-```
+$$
 
 Thus $A^{\dagger}$ is the usual Hilbert-space adjoint. Many texts denote both the dual operator and the Hilbert adjoint by $A^{\ast}$. Keeping the Riesz maps visible makes clear which object is being used.
 
-No inner product is required to define the dual pullback $A^{\ast}:Y^{\ast}\to X^{\ast}$. Inner products enter only when we additionally want a primal representative in $X$ or $Y$.
+No inner product is required to define the dual pullback $A^{\ast}\colon Y^{\ast}\to X^{\ast}$. Inner products enter only when we additionally want a primal representative in $X$ or $Y$.
 
 ## 6. Directional derivatives and Fréchet derivatives
 
@@ -696,7 +657,7 @@ A nonlinear map is not itself a linear operator, but near a point we may approxi
 Let $X$ and $Y$ be normed spaces, let $U\subset X$ be open, and let
 
 $$
-F:U\to Y.
+F\colon U\to Y.
 $$
 
 The openness assumption is practical: if $x\in U$, then sufficiently small perturbations $x+h$ remain inside the domain, so it makes sense to ask how $F$ changes in arbitrary nearby directions.
@@ -708,7 +669,7 @@ $d$ is
 
 $$
 D F(x)[d]
-:=
+\coloneqq
 \lim_{t\to0}
 \frac{F(x+td)-F(x)}{t},
 $$
@@ -735,8 +696,7 @@ $$
 such that
 
 $$
-F(x+h)
-=
+F(x+h) =
 F(x)+F'(x)h+r(h),
 $$
 
@@ -763,7 +723,7 @@ $$
 (A-B)h=o(\lVert h\rVert_{X}).
 $$
 
-Set $h=td$ for a fixed direction $d$, divide by $|t|$, and let $t\to0$. Linearity gives
+Set $h=td$ for a fixed direction $d$, divide by $\lvert t\rvert$, and let $t\to0$. Linearity gives
 
 $$
 \lVert (A-B)d\rVert_{Y}=0,
@@ -774,16 +734,14 @@ so $Ad=Bd$ for every $d\in X$, hence $A=B$. The Fréchet derivative is therefore
 It automatically produces every directional derivative. Set $h=t d$ for a fixed direction $d$. Then
 
 $$
-F(x+td)-F(x)
-=
+F(x+td)-F(x) =
 tF'(x)d+r(td).
 $$
 
 Dividing by $t\ne0$ gives
 
 $$
-\frac{F(x+td)-F(x)}{t}
-=
+\frac{F(x+td)-F(x)}{t} =
 F'(x)d+
 \frac{r(td)}{t}.
 $$
@@ -793,9 +751,8 @@ Moreover,
 $$
 \left\lVert
 \frac{r(td)}{t}
-\right\rVert_{Y}
-=
-\frac{\lVert r(td)\rVert_{Y}}{|t|\lVert d\rVert_{X}}
+\right\rVert_{Y} =
+\frac{\lVert r(td)\rVert_{Y}}{\lvert t\rvert\lVert d\rVert_{X}}
 \lVert d\rVert_{X}
 \longrightarrow0.
 $$
@@ -803,8 +760,7 @@ $$
 Hence
 
 $$
-D F(x)[d]
-=
+D F(x)[d] =
 F'(x)d.
 $$
 
@@ -817,10 +773,9 @@ The term **Gâteaux derivative** is often used for a directional derivative that
 Consider
 
 $$
-F:\mathbb R^{2}\to\mathbb R^{2},
+F\colon\mathbb{R}^{2}\to\mathbb{R}^{2},
 \qquad
-F(x_{1},x_{2})
-=
+F(x_{1},x_{2}) =
 \begin{bmatrix}
 x_{1}^{2}+x_{2}\\
 \sin x_{1}
@@ -829,7 +784,7 @@ $$
 
 Perturb $x$ by $h=(h_{1},h_{2})$. Then
 
-```math
+$$
 \begin{aligned}
 F(x+h)-F(x)
 &=
@@ -849,13 +804,12 @@ h_{1}^{2}\\
 \sin(x_{1}+h_{1})-\sin x_{1}-(\cos x_{1})h_{1}
 \end{bmatrix}.
 \end{aligned}
-```
+$$
 
 The first vector is linear in $h$. The second is of smaller order than $\lVert h\rVert$: its first component is quadratic, and the scalar Taylor expansion of sine gives a quadratic remainder in $h_{1}$. Therefore
 
 $$
-F'(x)
-=
+F'(x) =
 \begin{bmatrix}
 2x_{1}&1\\
 \cos x_{1}&0
@@ -869,16 +823,15 @@ At a fixed point $x$, the derivative is a linear operator in the perturbation $h
 Let
 
 $$
-F:U\subset X\to Y,
+F\colon U\subset X\to Y,
 \qquad
-G:V\subset Y\to Z,
+G\colon V\subset Y\to Z,
 $$
 
 with $F(U)\subset V$. Suppose $F$ is Fréchet differentiable at $x$ and $G$ is Fréchet differentiable at $F(x)$. Then
 
 $$
-(G\circ F)'(x)
-=
+(G\circ F)'(x) =
 G'(F(x))F'(x).
 $$
 
@@ -887,11 +840,10 @@ The formula is the same as in finite-dimensional calculus, but it is worth seein
 Write
 
 $$
-F(x+h)
-=
+F(x+h) =
 F(x)+Ah+r_{F}(h),
 \qquad
-A:=F'(x),
+A\coloneqq F'(x),
 $$
 
 with
@@ -905,7 +857,7 @@ Set
 
 $$
 k
-:=
+\coloneqq
 Ah+r_{F}(h).
 $$
 
@@ -913,7 +865,7 @@ Because $r_{F}(h)=o(\lVert h\rVert_{X})$, there is a neighborhood of the origin 
 
 $$
 \lVert r_{F}(h)\rVert_{Y}
-\le
+\leq
 \lVert h\rVert_{X}.
 $$
 
@@ -921,7 +873,7 @@ For such $h$, boundedness of $A$ gives
 
 $$
 \lVert k\rVert_{Y}
-\le
+\leq
 \left(\lVert A\rVert_{\mathcal L(X,Y)}+1\right)
 \lVert h\rVert_{X}.
 $$
@@ -931,25 +883,23 @@ Thus $k$ tends to zero at least proportionally to $h$.
 Now expand $G$ around $F(x)$:
 
 $$
-G(F(x)+k)
-=
+G(F(x)+k) =
 G(F(x))+Bk+r_{G}(k),
 \qquad
-B:=G'(F(x)),
+B\coloneqq G'(F(x)),
 $$
 
 where
 
 $$
 \lVert r_{G}(k)\rVert_{Z}
-=o(\lVert k\rVert_{Y})
-=
+=o(\lVert k\rVert_{Y}) =
 o(\lVert h\rVert_{X}).
 $$
 
 Substituting $k=Ah+r_{F}(h)$ gives
 
-```math
+$$
 \begin{aligned}
 G(F(x+h))-G(F(x))
 &=
@@ -962,7 +912,7 @@ Br_{F}(h)
 +
 r_{G}(k).
 \end{aligned}
-```
+$$
 
 Since $B$ is bounded,
 
@@ -981,40 +931,38 @@ same as the coordinates used to represent the corresponding physical field.
 Let
 
 $$
-z\in\mathbb R^{n}
+z\in\mathbb{R}^{n}
 $$
 
 denote independent coordinates and let
 
 $$
-y_{\mathrm{phys}}\in\mathbb R^{N},
+y_{\mathrm{phys}}\in\mathbb{R}^{N},
 \qquad
-n\le N,
+n\leq N,
 $$
 
 denote physical coordinates. Consider the affine reconstruction map
 
 $$
-R:\mathbb R^{n}\to\mathbb R^{N},
+R\colon\mathbb{R}^{n}\to\mathbb{R}^{N},
 \qquad
-R(z):=Pz+\ell,
+R(z)\coloneqq Pz+\ell,
 $$
 
 where
 
 $$
-P\in\mathbb R^{N\times n},
+P\in\mathbb{R}^{N\times n},
 \qquad
-\ell\in\mathbb R^{N}.
+\ell\in\mathbb{R}^{N}.
 $$
 
 Thus
 
 $$
-y_{\mathrm{phys}}
-=
-R(z)
-=
+y_{\mathrm{phys}} =
+R(z) =
 Pz+\ell.
 $$
 
@@ -1022,41 +970,38 @@ The fixed vector $\ell$ contributes to the physical value but not to its
 perturbations. If the independent coordinates change by $\delta z$, then
 
 $$
-R'(z)[\delta z]
-=
+R'(z)[\delta z] =
 P\delta z,
 $$
 
 so
 
 $$
-\delta y_{\mathrm{phys}}
-=
+\delta y_{\mathrm{phys}} =
 P\delta z.
 $$
 
 Now let
 
 $$
-\Phi_{\mathrm{phys}}:\mathbb R^{N}\to\mathbb R
+\Phi_{\mathrm{phys}}\colon\mathbb{R}^{N}\to\mathbb{R}
 $$
 
 be a differentiable scalar functional of the physical coordinates, and define its
 expression in independent coordinates by
 
 $$
-\widehat\Phi:\mathbb R^{n}\to\mathbb R,
+\widehat\Phi\colon\mathbb{R}^{n}\to\mathbb{R},
 \qquad
 \widehat\Phi(z)
-:=
+\coloneqq
 \Phi_{\mathrm{phys}}(R(z)).
 $$
 
 The chain rule gives
 
 $$
-\widehat\Phi'(z)[\delta z]
-=
+\widehat\Phi'(z)[\delta z] =
 \Phi_{\mathrm{phys}}'(y_{\mathrm{phys}})
 [P\delta z].
 $$
@@ -1065,12 +1010,12 @@ Suppose the derivative of $\Phi_{\mathrm{phys}}$ at $y_{\mathrm{phys}}$ has
 physical-coordinate covector
 
 $$
-r_{\mathrm{phys}}\in\mathbb R^{N}.
+r_{\mathrm{phys}}\in\mathbb{R}^{N}.
 $$
 
 Then
 
-```math
+$$
 \begin{aligned}
 \widehat\Phi'(z)[\delta z]
 &=
@@ -1080,7 +1025,7 @@ r_{\mathrm{phys}}^{\mathsf T}P\delta z
 \left(P^{\mathsf T}r_{\mathrm{phys}}\right)^{\mathsf T}
 \delta z.
 \end{aligned}
-```
+$$
 
 Therefore the same derivative, expressed as a covector on the independent coordinate
 space, has coordinates
@@ -1110,10 +1055,10 @@ no inner product or Riesz identification is involved.
 Let
 
 $$
-J:U\subset X\to\mathbb R
+J\colon U\subset X\to\mathbb{R}
 $$
 
-be Fréchet differentiable. Since the codomain is $\mathbb R$, its derivative is a bounded linear functional:
+be Fréchet differentiable. Since the codomain is $\mathbb{R}$, its derivative is a bounded linear functional:
 
 $$
 J'(x)\in X^{\ast}.
@@ -1122,8 +1067,7 @@ $$
 For a perturbation $h\in X$,
 
 $$
-J(x+h)
-=
+J(x+h) =
 J(x)+J'(x)[h]+o(\lVert h\rVert_{X}).
 $$
 
@@ -1136,7 +1080,7 @@ Nothing in this definition turns $J'(x)$ into a primal vector.
 If $X=H$ is a Hilbert space, a chosen inner product supplies the Riesz map
 
 $$
-R_{H}:H\to H^{\ast}.
+R_{H}\colon H\to H^{\ast}.
 $$
 
 The **gradient of $J$ with respect to that inner product** is the vector
@@ -1149,16 +1093,14 @@ $$
 satisfying
 
 $$
-R_{H}\nabla_{H}J(x)
-=
+R_{H}\nabla_{H}J(x) =
 J'(x),
 $$
 
 or equivalently,
 
 $$
-J'(x)[h]
-=
+J'(x)[h] =
 (\nabla_{H}J(x),h)_{H}
 \qquad
 \text{for every }h\in H.
@@ -1171,14 +1113,13 @@ The derivative is fixed by the functional. The gradient changes when the inner p
 Consider
 
 $$
-J(x_{1},x_{2})
-=
+J(x_{1},x_{2}) =
 \frac{1}{2}x_{1}^{2}+2x_{2}^{2}.
 $$
 
 Expanding $J(x+h)-J(x)$ gives
 
-```math
+$$
 \begin{aligned}
 J(x+h)-J(x)
 &=
@@ -1186,21 +1127,19 @@ x_{1}h_{1}+4x_{2}h_{2}
 +
 \frac{1}{2}h_{1}^{2}+2h_{2}^{2}.
 \end{aligned}
-```
+$$
 
 Hence
 
 $$
-J'(x)[h]
-=
+J'(x)[h] =
 x_{1}h_{1}+4x_{2}h_{2}.
 $$
 
 Its covector coordinates are
 
 $$
-r
-=
+r =
 \begin{bmatrix}
 x_{1}\\
 4x_{2}
@@ -1210,8 +1149,7 @@ $$
 Under the Euclidean inner product, $G=I$, so
 
 $$
-\nabla_{2}J(x)
-=
+\nabla_{2}J(x) =
 \begin{bmatrix}
 x_{1}\\
 4x_{2}
@@ -1222,7 +1160,7 @@ Now choose instead
 
 $$
 (x,z)_{G}
-:=
+\coloneqq
 x^{\mathsf T}
 \begin{bmatrix}
 1&0\\
@@ -1240,8 +1178,7 @@ $$
 Therefore
 
 $$
-g_{G}
-=
+g_{G} =
 \begin{bmatrix}
 x_{1}\\
 x_{2}
@@ -1251,10 +1188,8 @@ $$
 Both vectors represent the same derivative under different inner products:
 
 $$
-J'(x)[h]
-=
-(\nabla_{2}J(x),h)_{2}
-=
+J'(x)[h] =
+(\nabla_{2}J(x),h)_{2} =
 (g_{G},h)_{G}.
 $$
 
@@ -1266,37 +1201,31 @@ Let $H=L^{2}(\Omega)$ and
 
 $$
 J(u)
-:=
+\coloneqq
 \frac{1}{2}
 \lVert u-z\rVert_{L^{2}(\Omega)}^{2}.
 $$
 
 For a perturbation $h$,
 
-```math
+$$
 \begin{aligned}
 J(u+h)-J(u)
-&=
-\frac{1}{2}
-\int_{\Omega}
-\left((u-z)+h\right)^{2}
--
-(u-z)^{2}
-\mathrm{d}x
+&= \frac{1}{2}\int_{\Omega}\left((u-z)+h\right)^{2} -
+(u-z)^{2}\thinspace\mathrm{d}x
 \\
 &=
-\int_{\Omega}(u-z)h \mathrm{d}x
+\int_{\Omega}(u-z)h\thinspace\mathrm{d}x
 +
-\frac{1}{2}\int_{\Omega}h^{2} \mathrm{d}x.
+\frac{1}{2}\int_{\Omega}h^{2}\thinspace\mathrm{d}x.
 \end{aligned}
-```
+$$
 
 Thus
 
 $$
-J'(u)[h]
-=
-\int_{\Omega}(u-z)h \mathrm{d}x.
+J'(u)[h] =
+\int_{\Omega}(u-z)h \thinspace\mathrm{d}x.
 $$
 
 With the $L^{2}$ inner product, the Riesz representative is simply
@@ -1312,13 +1241,13 @@ If the same functional is considered on a different Hilbert space with a differe
 Let
 
 $$
-F:X\to Y
+F\colon X\to Y
 $$
 
 be differentiable. At a fixed point $x$, its derivative is a bounded linear operator
 
 $$
-F'(x):X\to Y.
+F'(x)\colon X\to Y.
 $$
 
 A perturbation moves forward through this linearization:
@@ -1339,8 +1268,7 @@ $$
 where
 
 $$
-\langle F'(x)^{\ast}q,h\rangle_{X^{\ast},X}
-=
+\langle F'(x)^{\ast}q,h\rangle_{X^{\ast},X} =
 \langle q,F'(x)h\rangle_{Y^{\ast},Y}
 $$
 
@@ -1353,8 +1281,7 @@ This is the adjoint or transpose action of the derivative. It is defined entirel
 For
 
 $$
-F(x_{1},x_{2})
-=
+F(x_{1},x_{2}) =
 \begin{bmatrix}
 x_{1}^{2}+x_{2}\\
 \sin x_{1}
@@ -1364,8 +1291,7 @@ $$
 we found
 
 $$
-F'(x)
-=
+F'(x) =
 \begin{bmatrix}
 2x_{1}&1\\
 \cos x_{1}&0
@@ -1385,8 +1311,7 @@ $$
 the forward derivative action is
 
 $$
-F'(x)h
-=
+F'(x)h =
 \begin{bmatrix}
 2x_{1}h_{1}+h_{2}\\
 (\cos x_{1})h_{1}
@@ -1408,8 +1333,7 @@ the transpose action is
 $$
 F'(x)^{\ast}q
 \quad\longleftrightarrow\quad
-F'(x)^{\mathsf T}q
-=
+F'(x)^{\mathsf T}q =
 \begin{bmatrix}
 2x_{1}q_{1}+(\cos x_{1})q_{2}\\
 q_{1}
@@ -1418,7 +1342,7 @@ $$
 
 The defining equality can be checked directly:
 
-```math
+$$
 \begin{aligned}
 q^{\mathsf T}F'(x)h
 &=
@@ -1432,27 +1356,27 @@ q_{1}(2x_{1}h_{1}+h_{2})
 &=
 \left(F'(x)^{\mathsf T}q\right)^{\mathsf T}h.
 \end{aligned}
-```
+$$
 
 ### When the residual already takes values in a dual space
 
 Variational PDE residuals often have the form
 
 $$
-E:X\to Z^{\ast}.
+E\colon X\to Z^{\ast}.
 $$
 
 Then
 
 $$
-E'(x):X\to Z^{\ast}.
+E'(x)\colon X\to Z^{\ast}.
 $$
 
 For a test-space element $p\in Z$, the residual covector $E'(x)h\in Z^{\ast}$ can act directly on $p$. This defines a covector on $X$ by
 
 $$
 \langle E'(x)^{\ast}p,h\rangle_{X^{\ast},X}
-:=
+\coloneqq
 \langle E'(x)h,p\rangle_{Z^{\ast},Z}.
 $$
 
@@ -1472,13 +1396,13 @@ This distinction is one of the main reasons to keep pairings and inner products 
 Suppose a scalar functional
 
 $$
-J:U\subset X\to\mathbb R
+J\colon U\subset X\to\mathbb{R}
 $$
 
 is Fréchet differentiable and its derivative map
 
 $$
-J':U\to X^{\ast}
+J'\colon U\to X^{\ast}
 $$
 
 is itself Fréchet differentiable. The **second derivative** at $x$ is then
@@ -1500,15 +1424,14 @@ That covector can act on another direction $k\in X$:
 
 $$
 J''(x)[h,k]
-:=
+\coloneqq
 \langle J''(x)h,k\rangle_{X^{\ast},X}.
 $$
 
 If $J$ is twice continuously Fréchet differentiable in a neighborhood of $x$, this bilinear form is symmetric:
 
 $$
-J''(x)[h,k]
-=
+J''(x)[h,k] =
 J''(x)[k,h].
 $$
 
@@ -1527,21 +1450,19 @@ This is a **Hessian action**.
 Let
 
 $$
-J(x)
-=
+J(x) =
 \frac{1}{2}x^{\mathsf T}Qx-b^{\mathsf T}x,
 $$
 
 where $Q$ is symmetric. Expanding $J(x+h)-J(x)$ gives
 
-```math
+$$
 \begin{aligned}
 J(x+h)-J(x)
 &=
 \frac{1}{2}(x+h)^{\mathsf T}Q(x+h)
 -b^{\mathsf T}(x+h)
--
-\frac{1}{2}x^{\mathsf T}Qx
+-\frac{1}{2}x^{\mathsf T}Qx
 +b^{\mathsf T}x
 \\
 &=
@@ -1549,7 +1470,7 @@ J(x+h)-J(x)
 +
 \frac{1}{2}h^{\mathsf T}Qh.
 \end{aligned}
-```
+$$
 
 Therefore
 
@@ -1576,21 +1497,19 @@ If a Hilbert-space gradient rather than a covector is desired, a Riesz map can a
 The definition of the Fréchet derivative already gives a first-order remainder:
 
 $$
-F(x+h)-F(x)-F'(x)h
-=
+F(x+h)-F(x)-F'(x)h =
 o(\lVert h\rVert_{X}).
 $$
 
 Along a fixed direction $d$, set $h=\varepsilon d$. Then
 
 $$
-F(x+\varepsilon d)
-=
+F(x+\varepsilon d) =
 F(x)
 +
 \varepsilon F'(x)d
 +
-o(|\varepsilon|).
+o(\lvert\varepsilon\rvert).
 $$
 
 This immediately justifies a finite-difference derivative check:
@@ -1603,11 +1522,10 @@ $$
 
 as $\varepsilon\to0$.
 
-For a twice Fréchet-differentiable map $F:X\to Y$, the second derivative $F''(x)$ is a bounded bilinear map from $X\times X$ to $Y$. If $F$ is twice continuously Fréchet differentiable near $x$, Taylor's theorem strengthens the expansion to
+For a twice Fréchet-differentiable map $F\colon X\to Y$, the second derivative $F''(x)$ is a bounded bilinear map from $X\times X$ to $Y$. If $F$ is twice continuously Fréchet differentiable near $x$, Taylor's theorem strengthens the expansion to
 
 $$
-F(x+h)
-=
+F(x+h) =
 F(x)
 +
 F'(x)h
@@ -1623,7 +1541,7 @@ Define the first-order remainder along $d$ by
 
 $$
 R_{1}(\varepsilon)
-:=
+\coloneqq
 F(x+\varepsilon d)
 -F(x)
 -\varepsilon F'(x)d.
@@ -1632,28 +1550,26 @@ $$
 Under the twice-differentiable assumptions,
 
 $$
-\lVert R_{1}(\varepsilon)\rVert_{Y}
-=
+\lVert R_{1}(\varepsilon)\rVert_{Y} =
 O(\varepsilon^{2}).
 $$
 
-Here $O(\varepsilon^{2})$ means that there are constants $C>0$ and $\varepsilon_{0}>0$ such that
+Here $O(\varepsilon^{2})$ means that there are constants $C\gt 0$ and $\varepsilon_{0}\gt 0$ such that
 
 $$
 \lVert R_{1}(\varepsilon)\rVert_{Y}
-\le
-C|\varepsilon|^{2}
+\leq
+C\lvert\varepsilon\rvert^{2}
 $$
 
-whenever $|\varepsilon|<\varepsilon_{0}$. Thus halving $\varepsilon$ should reduce the remainder by approximately a factor of four until roundoff or other numerical errors dominate.
+whenever $\lvert\varepsilon\rvert\lt\varepsilon_{0}$. Thus halving $\varepsilon$ should reduce the remainder by approximately a factor of four until roundoff or other numerical errors dominate.
 
 ### An adjoint check
 
 A derivative implementation and its transpose implementation can also be checked independently of finite differences. For arbitrary compatible $h$ and $q$, the defining identity requires
 
 $$
-\langle q,F'(x)h\rangle_{Y^{\ast},Y}
-=
+\langle q,F'(x)h\rangle_{Y^{\ast},Y} =
 \langle F'(x)^{\ast}q,h\rangle_{X^{\ast},X}.
 $$
 
@@ -1661,8 +1577,7 @@ If, in chosen bases, the derivative $F'(x)$ is represented by a matrix
 $\mathbf A(x)$, the same identity becomes
 
 $$
-q^{\mathsf T}\mathbf A(x)h
-=
+q^{\mathsf T}\mathbf A(x)h =
 \left(\mathbf A(x)^{\mathsf T}q\right)^{\mathsf T}h.
 $$
 
@@ -1684,7 +1599,7 @@ This is the second-derivative analogue of the first-order finite-difference chec
 
 ## 12. What changes in infinite dimensions
 
-The formulas in this chapter look deliberately similar to finite-dimensional calculus, but several assumptions that are automatic in $\mathbb R^{n}$ become meaningful in function spaces.
+The formulas in this chapter look deliberately similar to finite-dimensional calculus, but several assumptions that are automatic in $\mathbb{R}^{n}$ become meaningful in function spaces.
 
 First, **norms matter**. Fréchet differentiability is defined using the norms of the domain and codomain. The same algebraic formula can define a differentiable map between one pair of function spaces and fail to do so between another pair. Pointwise nonlinearities are a common example: whether products or compositions remain in the desired space depends on integrability and regularity.
 

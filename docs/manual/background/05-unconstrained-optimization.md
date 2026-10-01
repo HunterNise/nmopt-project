@@ -65,12 +65,12 @@ $$
 
 with $f:\mathbb R^{n}\to\mathbb R$ differentiable.
 
-A point $x_{\ast}$ is a **local minimizer** if there exists $r>0$ such that
+A point $x_{\ast}$ is a **local minimizer** if there exists $r\gt 0$ such that
 
 $$
 f(x_{\ast})\leq f(x)
 \qquad
-\text{whenever }\lVert x-x_{\ast}\rVert<r.
+\text{whenever }\lVert x-x_{\ast}\rVert\lt r.
 $$
 
 It is a **strict local minimizer** if the inequality is strict for every nearby $x\neq x_{\ast}$. It is a **global minimizer** if
@@ -126,7 +126,7 @@ For a nonconvex objective, stationarity has only local meaning. A stationary poi
 Take any direction $d\in\mathbb R^{n}$ and define the one-dimensional restriction
 
 $$
-\phi(t):=f(x_{\ast}+td).
+\phi(t)\coloneqq f(x_{\ast}+td).
 $$
 
 If $x_{\ast}$ is a local minimizer, then $t=0$ is a local minimizer of $\phi$. Therefore
@@ -138,8 +138,7 @@ $$
 By the chain rule,
 
 $$
-\phi'(0)
-=
+\phi'(0)=
 f'(x_{\ast})[d].
 $$
 
@@ -164,8 +163,7 @@ The argument is worth remembering: an unconstrained local minimum must look like
 Assume now that $f$ is twice differentiable near $x_{\ast}$. Along the same line,
 
 $$
-\phi''(0)
-=
+\phi''(0)=
 d^{\mathsf T}\nabla^{2}f(x_{\ast})d.
 $$
 
@@ -195,7 +193,7 @@ $$
 and
 
 $$
-d^{\mathsf T}\nabla^{2}f(x_{\ast})d>0
+d^{\mathsf T}\nabla^{2}f(x_{\ast})d\gt 0
 \qquad
 \text{for every nonzero }d.
 $$
@@ -203,19 +201,16 @@ $$
 Taylor expansion gives, for a small displacement $s$,
 
 $$
-f(x_{\ast}+s)
-=
+f(x_{\ast}+s)=
 f(x_{\ast})
-+
-\frac{1}{2}s^{\mathsf T}\nabla^{2}f(x_{\ast})s
-+
-o(\lVert s\rVert^{2}).
++\frac{1}{2}s^{\mathsf T}\nabla^{2}f(x_{\ast})s
++o(\lVert s\rVert^{2}).
 $$
 
 Positive definiteness makes the quadratic term uniformly positive relative to $\lVert s\rVert^{2}$, while the remainder is smaller order. Hence sufficiently small nonzero $s$ satisfy
 
 $$
-f(x_{\ast}+s)>f(x_{\ast}),
+f(x_{\ast}+s)\gt f(x_{\ast}),
 $$
 
 and $x_{\ast}$ is a strict local minimizer.
@@ -227,7 +222,7 @@ The companion notes develop the related existence questions, compact sublevel se
 [02 · Duality, derivatives, and adjoints](02-duality-derivatives-and-adjoints.md) emphasized that the derivative is intrinsically a covector. Let
 
 $$
-r:=f'(x)\in X^{\ast}
+r\coloneqq f'(x)\in X^{\ast}
 $$
 
 for a finite-dimensional space $X$.
@@ -253,17 +248,15 @@ $$
 The directional derivative along $d\in X$ is
 
 $$
-f'(x)[d]
-=
-\langle r,d\rangle
-=
+f'(x)[d]=
+\langle r,d\rangle=
 \langle Gg,d\rangle.
 $$
 
 In ordinary Euclidean coordinates, $G=I$, so the derivative coordinates and the gradient coordinates coincide. Classical optimization texts usually work in this setting, and most formulas below use
 
 $$
-g_{k}:=\nabla f(x_{k}).
+g_{k}\coloneqq\nabla f(x_{k}).
 $$
 
 The underlying rule is nevertheless metric-dependent. When a later application uses a non-Euclidean metric, the primal gradient is obtained from the derivative before a direction such as $-g_{k}$ is formed.
@@ -273,15 +266,11 @@ The underlying rule is nevertheless metric-dependent. When a later application u
 At the current iterate $x_{k}$, Taylor expansion gives
 
 $$
-f(x_{k}+s)
-=
+f(x_{k}+s)=
 f(x_{k})
-+
-g_{k}^{\mathsf T}s
-+
-\frac{1}{2}s^{\mathsf T}H_{k}s
-+
-o(\lVert s\rVert^{2}),
++g_{k}^{\mathsf T}s
++\frac{1}{2}s^{\mathsf T}H_{k}s
++o(\lVert s\rVert^{2}),
 $$
 
 where
@@ -301,25 +290,25 @@ $$
 A vector $d_{k}$ is a **descent direction** if
 
 $$
-g_{k}^{\mathsf T}d_{k}<0.
+g_{k}^{\mathsf T}d_{k}\lt 0.
 $$
 
 Why is that enough to predict decrease? Set
 
 $$
-\phi(\alpha):=f(x_{k}+\alpha d_{k}).
+\phi(\alpha)\coloneqq f(x_{k}+\alpha d_{k}).
 $$
 
 Then
 
 $$
-\phi'(0)=g_{k}^{\mathsf T}d_{k}<0.
+\phi'(0)=g_{k}^{\mathsf T}d_{k}\lt 0.
 $$
 
 Therefore, for sufficiently small positive $\alpha$,
 
 $$
-f(x_{k}+\alpha d_{k})<f(x_{k}).
+f(x_{k}+\alpha d_{k})\lt f(x_{k}).
 $$
 
 The derivative tells us that a small step should work. It does **not** tell us that a unit step will work. This is the basic reason for globalization.
@@ -335,7 +324,7 @@ $$
 There are two logically different decisions:
 
 1. choose $d_{k}$ from local derivative/curvature information;
-2. choose $\alpha_{k}>0$ so that the proposed movement is acceptable.
+2. choose $\alpha_{k}\gt 0$ so that the proposed movement is acceptable.
 
 Steepest descent, nonlinear CG, Newton, and BFGS mainly differ in step 1. Armijo and Wolfe rules mainly address step 2.
 
@@ -346,15 +335,14 @@ Keeping these roles separate makes it much easier to understand why the same lin
 In Euclidean geometry, choose
 
 $$
-d_{k}:=-g_{k}.
+d_{k}\coloneqq-g_{k}.
 $$
 
 Then
 
 $$
-g_{k}^{\mathsf T}d_{k}
-=
--\lVert g_{k}\rVert_{2}^{2}<0
+g_{k}^{\mathsf T}d_{k}=
+-\lVert g_{k}\rVert_{2}^{2}\lt 0
 $$
 
 whenever $g_{k}\ne0$.
@@ -369,8 +357,7 @@ and
 
 $$
 f'(x_{k})[d_{k}]
-=
--\lVert d_{k}\rVert_{G}^{2}.
+=-\lVert d_{k}\rVert_{G}^{2}.
 $$
 
 Steepest descent uses only first-order information. It is therefore cheap and robust enough to serve as a reference method, but it can converge very slowly when the objective has strongly different curvatures in different directions.
@@ -380,11 +367,10 @@ Steepest descent uses only first-order information. It is therefore cheap and ro
 Consider
 
 $$
-q(x)
-=
+q(x)=
 \frac{1}{2}x^{\mathsf T}H x-b^{\mathsf T}x,
 \qquad
-H=H^{\mathsf T}>0.
+H=H^{\mathsf T}\gt 0.
 $$
 
 Its gradient is
@@ -404,7 +390,7 @@ Thus minimizing an SPD quadratic and solving an SPD linear system are the same m
 Let
 
 $$
-e_{k}:=x_{k}-x_{\ast}.
+e_{k}\coloneqq x_{k}-x_{\ast}.
 $$
 
 Since $Hx_{\ast}=b$,
@@ -416,8 +402,7 @@ $$
 The Hessian eigenvectors are the principal axes of the quadratic level sets. If the eigenvalues vary greatly, the level sets are elongated. The condition number
 
 $$
-\kappa_{2}(H)
-=
+\kappa_{2}(H)=
 \frac{\lambda_{\max}(H)}{\lambda_{\min}(H)}
 $$
 
@@ -434,7 +419,7 @@ Given a descent direction $d_{k}$, exact line search asks for
 $$
 \alpha_{k}
 \in
-\mathop{\mathrm{argmin}}_{\alpha\ge0}
+\mathop{\mathrm{argmin}}\nolimits_{\alpha\geq 0}
 f(x_{k}+\alpha d_{k}).
 $$
 
@@ -443,42 +428,36 @@ For a general nonlinear objective, solving this one-dimensional optimization pro
 Define
 
 $$
-\phi(\alpha)
-:=
+\phi(\alpha)\coloneqq
 q(x_{k}+\alpha d_{k}).
 $$
 
 Then
 
 $$
-\phi'(\alpha)
-=
+\phi'(\alpha)=
 d_{k}^{\mathsf T}
 \left(
 H(x_{k}+\alpha d_{k})-b
-\right)
-=
+\right)=
 d_{k}^{\mathsf T}g_{k}
-+
-\alpha d_{k}^{\mathsf T}H d_{k}.
++\alpha d_{k}^{\mathsf T}H d_{k}.
 $$
 
 Set the derivative to zero:
 
 $$
-\alpha_{k}
-=
+\alpha_{k}=
 -\frac{g_{k}^{\mathsf T}d_{k}}
 {d_{k}^{\mathsf T}H d_{k}}.
 $$
 
-Because $H$ is SPD, the denominator is positive. If $d_{k}$ is a descent direction, the numerator is negative, so $\alpha_{k}>0$.
+Because $H$ is SPD, the denominator is positive. If $d_{k}$ is a descent direction, the numerator is negative, so $\alpha_{k}\gt 0$.
 
 For steepest descent, $d_{k}=-g_{k}$, hence
 
 $$
-\alpha_{k}
-=
+\alpha_{k}=
 \frac{g_{k}^{\mathsf T}g_{k}}
 {g_{k}^{\mathsf T}H g_{k}}.
 $$
@@ -493,8 +472,7 @@ $$
 f(x_{k}+\alpha d_{k})
 \approx
 f(x_{k})
-+
-\alpha g_{k}^{\mathsf T}d_{k}.
++\alpha g_{k}^{\mathsf T}d_{k}.
 $$
 
 For very small $\alpha$, this is reliable. For a large $\alpha$, higher-order terms can dominate and the trial point may increase the objective.
@@ -513,13 +491,13 @@ The word *globalization* does not mean that the method finds a global minimizer.
 Let $d_{k}$ be a descent direction and define
 
 $$
-\phi(\alpha):=f(x_{k}+\alpha d_{k}).
+\phi(\alpha)\coloneqq f(x_{k}+\alpha d_{k}).
 $$
 
 At the current point,
 
 $$
-\phi'(0)=g_{k}^{\mathsf T}d_{k}<0.
+\phi'(0)=g_{k}^{\mathsf T}d_{k}\lt 0.
 $$
 
 The first-order Taylor model therefore predicts
@@ -536,20 +514,19 @@ $$
 c_{1}\in(0,1)
 $$
 
-and accept $\alpha>0$ when
+and accept $\alpha\gt 0$ when
 
 $$
 f(x_{k}+\alpha d_{k})
 \leq
 f(x_{k})
-+
-c_{1}\alpha g_{k}^{\mathsf T}d_{k}.
++c_{1}\alpha g_{k}^{\mathsf T}d_{k}.
 $$
 
-Because $g_{k}^{\mathsf T}d_{k}<0$, the right-hand side is below the current objective value. More specifically, the linear model predicts a decrease
+Because $g_{k}^{\mathsf T}d_{k}\lt 0$, the right-hand side is below the current objective value. More specifically, the linear model predicts a decrease
 
 $$
--\alpha g_{k}^{\mathsf T}d_{k}>0,
+-\alpha g_{k}^{\mathsf T}d_{k}\gt 0,
 $$
 
 while Armijo asks the actual decrease to be at least the fraction $c_{1}$ of that prediction. A small $c_{1}$ is therefore permissive: it asks for definite progress without insisting that the local linear model remain quantitatively accurate over the whole step.
@@ -557,13 +534,10 @@ while Armijo asks the actual decrease to be at least the fraction $c_{1}$ of tha
 The condition is not arbitrary. Differentiability gives
 
 $$
-\phi(\alpha)
-=
+\phi(\alpha)=
 \phi(0)
-+
-\alpha\phi'(0)
-+
-o(\alpha).
++\alpha\phi'(0)
++o(\alpha).
 $$
 
 Subtract the Armijo right-hand side. We need
@@ -572,13 +546,13 @@ $$
 (1-c_{1})\alpha\phi'(0)+o(\alpha)\leq0.
 $$
 
-The leading term is strictly negative because $c_{1}<1$ and $\phi'(0)<0$. Hence Armijo must hold for all sufficiently small positive $\alpha$. This is why backtracking from a trial step is a sensible algorithm rather than a blind heuristic.
+The leading term is strictly negative because $c_{1}\lt 1$ and $\phi'(0)\lt 0$. Hence Armijo must hold for all sufficiently small positive $\alpha$. This is why backtracking from a trial step is a sensible algorithm rather than a blind heuristic.
 
 ### 8.1 Backtracking
 
 A simple practical strategy is:
 
-1. choose an initial trial step $\alpha_{0}>0$, often $1$;
+1. choose an initial trial step $\alpha_{0}\gt 0$, often $1$;
 2. choose a contraction factor $\beta\in(0,1)$;
 3. while Armijo fails, replace $\alpha$ by $\beta\alpha$;
 4. accept the first successful step.
@@ -601,7 +575,7 @@ Armijo answers mainly the question **is the step too large to realize enough of 
 Armijo controls function decrease, but consider what an exact one-dimensional minimizer would satisfy. If
 
 $$
-\alpha_{\ast}>0
+\alpha_{\ast}\gt 0
 $$
 
 is an interior minimizer of $\phi(\alpha)=f(x_{k}+\alpha d_{k})$, then
@@ -613,7 +587,7 @@ $$
 At the starting point, by contrast,
 
 $$
-\phi'(0)=g_{k}^{\mathsf T}d_{k}<0.
+\phi'(0)=g_{k}^{\mathsf T}d_{k}\lt 0.
 $$
 
 So a line search that stops almost immediately can satisfy Armijo while the objective is still descending nearly as steeply as it was at the start. Wolfe's curvature condition asks for evidence that we have moved far enough along the line for that negative slope to relax.
@@ -621,7 +595,7 @@ So a line search that stops almost immediately can satisfy Armijo while the obje
 Choose
 
 $$
-0<c_{1}<c_{2}<1.
+0\lt c_{1}\lt c_{2}\lt 1.
 $$
 
 The **Wolfe conditions** require Armijo sufficient decrease together with
@@ -637,14 +611,14 @@ Both quantities on the right are negative. The accepted directional derivative m
 The **strong Wolfe condition** replaces the curvature inequality by
 
 $$
-\left|
+\left\lvert
 \nabla f(x_{k}+\alpha d_{k})^{\mathsf T}d_{k}
-\right|
+\right\rvert
 \leq
 c_{2}
-\left|
+\left\lvert
 g_{k}^{\mathsf T}d_{k}
-\right|.
+\right\rvert.
 $$
 
 Now the accepted slope must be small in magnitude. Besides avoiding premature stopping, this also limits severe overshoot past a line minimizer. That extra control is particularly useful when the next direction reuses the previous one, as in nonlinear conjugate-gradient methods.
@@ -670,8 +644,7 @@ $$
 Equivalently, linear CG minimizes the quadratic
 
 $$
-q(x)
-=
+q(x)=
 \frac{1}{2}x^{\mathsf T}H x-b^{\mathsf T}x.
 $$
 
@@ -687,8 +660,7 @@ With exact line searches, the method reaches the exact solution in at most $n$ s
 For a nonlinear $f$, there is no single fixed Hessian $H$ governing every iteration. **Nonlinear conjugate gradient** keeps the short recurrence
 
 $$
-d_{k}
-=
+d_{k}=
 -g_{k}+\beta_{k}d_{k-1},
 $$
 
@@ -701,8 +673,7 @@ The method should therefore be understood as carrying useful directional memory 
 Nonlinear CG keeps the recurrence
 
 $$
-d_{k}
-=
+d_{k}=
 -g_{k}+\beta_{k}d_{k-1}.
 $$
 
@@ -710,7 +681,7 @@ The formulas for $\beta_{k}$ are easier to remember if we first recover one of t
 
 $$
 q(x)=\frac{1}{2}x^{\mathsf T}H x-b^{\mathsf T}x,
-\qquad H=H^{\mathsf T}>0,
+\qquad H=H^{\mathsf T}\gt 0,
 $$
 
 and exact line search is used. Consecutive CG gradients are then orthogonal,
@@ -728,8 +699,7 @@ $$
 Insert $d_{k}=-g_{k}+\beta_{k}d_{k-1}$ and solve for $\beta_{k}$:
 
 $$
-\beta_{k}
-=
+\beta_{k}=
 \frac{g_{k}^{\mathsf T}H d_{k-1}}
 {d_{k-1}^{\mathsf T}H d_{k-1}}.
 $$
@@ -737,16 +707,14 @@ $$
 For a quadratic objective the gradient change along the previous accepted step is exact:
 
 $$
-g_{k}-g_{k-1}
-=
+g_{k}-g_{k-1}=
 \alpha_{k-1}H d_{k-1}.
 $$
 
 Using this relation together with the orthogonality identities produced by exact line search gives
 
 $$
-\beta_{k}^{\mathrm{FR}}
-=
+\beta_{k}^{\mathrm{FR}}=
 \frac{g_{k}^{\mathsf T}g_{k}}
 {g_{k-1}^{\mathsf T}g_{k-1}}.
 $$
@@ -756,8 +724,7 @@ This is the **Fletcher–Reeves** coefficient. It can be read as retaining an am
 The **Polak–Ribière** coefficient keeps the gradient-difference information visible instead of reducing it using the exact quadratic orthogonality identities:
 
 $$
-\beta_{k}^{\mathrm{PR}}
-=
+\beta_{k}^{\mathrm{PR}}=
 \frac{
 g_{k}^{\mathsf T}(g_{k}-g_{k-1})
 }
@@ -767,7 +734,7 @@ $$
 This has a useful nonlinear interpretation. The difference
 
 $$
-y_{k-1}:=g_{k}-g_{k-1}
+y_{k-1}\coloneqq g_{k}-g_{k-1}
 $$
 
 is a measured change in the derivative, and for a smooth objective it behaves locally like a Hessian action on the accepted displacement. PR therefore lets the update react to how the gradient **changed**, rather than only to the ratio of gradient magnitudes. On an exact quadratic with exact line search, the relevant orthogonality reduces PR to FR; away from that ideal setting they need not agree.
@@ -775,9 +742,7 @@ is a measured change in the derivative, and for a smooth objective it behaves lo
 The commonly used **Polak–Ribière+** variant is
 
 $$
-\beta_{k}^{\mathrm{PR+}}
-=
-\max\left\{0,\beta_{k}^{\mathrm{PR}}\right\}.
+\beta_{k}^{\mathrm{PR+}}=\max\left\lbrace 0,\beta_{k}^{\mathrm{PR}}\right\rbrace.
 $$
 
 If the raw PR coefficient is negative, the old direction is not retained and
@@ -813,7 +778,7 @@ then Euclidean dot products of gradients are replaced by the corresponding prima
 
 $$
 \lVert g_{k}\rVert_{G}^{2}
-=
+\lVert g_{k}\rVert_{G}^{2}=
 \langle r_{k},g_{k}\rangle.
 $$
 
@@ -824,20 +789,16 @@ The conceptual derivation is unchanged: the metric determines the primal represe
 Return to the second-order Taylor model
 
 $$
-m_{k}(d)
-:=
+m_{k}(d)\coloneqq
 f(x_{k})
-+
-g_{k}^{\mathsf T}d
-+
-\frac{1}{2}d^{\mathsf T}H_{k}d.
++g_{k}^{\mathsf T}d
++\frac{1}{2}d^{\mathsf T}H_{k}d.
 $$
 
 If $H_{k}$ is positive definite, $m_{k}$ has a unique minimizer. Differentiate with respect to $d$:
 
 $$
-\nabla m_{k}(d)
-=
+\nabla m_{k}(d)=
 g_{k}+H_{k}d.
 $$
 
@@ -853,7 +814,7 @@ $$
 x_{k+1}=x_{k}+\alpha_{k}d_{k},
 $$
 
-where a globalized method may use $\alpha_{k}<1$ until the local quadratic model is reliable enough for full steps.
+where a globalized method may use $\alpha_{k}\lt 1$ until the local quadratic model is reliable enough for full steps.
 
 ### 12.1 Why Newton can be fast
 
@@ -866,9 +827,8 @@ Under standard local assumptions, full Newton steps can converge quadratically.
 If $H_{k}$ is SPD, then
 
 $$
-g_{k}^{\mathsf T}d_{k}
-=
--d_{k}^{\mathsf T}H_{k}d_{k}<0
+g_{k}^{\mathsf T}d_{k}=
+-d_{k}^{\mathsf T}H_{k}d_{k}\lt 0
 $$
 
 for $d_{k}\ne0$.
@@ -914,29 +874,24 @@ Newton uses the true Hessian. Quasi-Newton methods try to infer useful curvature
 Suppose an accepted step gives
 
 $$
-s_{k}
-:=
+s_{k}\coloneqq
 x_{k+1}-x_{k}
 $$
 
 and a gradient change
 
 $$
-y_{k}
-:=
+y_{k}\coloneqq
 g_{k+1}-g_{k}.
 $$
 
 Taylor expansion of the gradient gives
 
 $$
-g(x_{k}+s_{k})
-=
+g(x_{k}+s_{k})=
 g(x_{k})
-+
-H_{k}s_{k}
-+
-o(\lVert s_{k}\rVert).
++H_{k}s_{k}
++o(\lVert s_{k}\rVert).
 $$
 
 Hence
@@ -979,8 +934,7 @@ The formula can be understood as a two-part correction. Start from $B_{k}$ and f
 
 $$
 B_{k}
--
-\frac{B_{k}s_{k}s_{k}^{\mathsf T}B_{k}}
+-\frac{B_{k}s_{k}s_{k}^{\mathsf T}B_{k}}
 {s_{k}^{\mathsf T}B_{k}s_{k}}.
 $$
 
@@ -994,32 +948,23 @@ $$
 The result is the **BFGS Hessian update**
 
 $$
-B_{k+1}
-=
+B_{k+1}=
 B_{k}
--
-\frac{B_{k}s_{k}s_{k}^{\mathsf T}B_{k}}
+-\frac{B_{k}s_{k}s_{k}^{\mathsf T}B_{k}}
 {s_{k}^{\mathsf T}B_{k}s_{k}}
-+
-\frac{y_{k}y_{k}^{\mathsf T}}
++\frac{y_{k}y_{k}^{\mathsf T}}
 {y_{k}^{\mathsf T}s_{k}}.
 $$
 
 The secant equation is now immediate:
 
-```math
+$$
 \begin{aligned}
-B_{k+1}s_{k}
-&=
-B_{k}s_{k}
--
-B_{k}s_{k}
-+
-y_{k}
+B_{k+1}s_{k} &= B_{k}s_{k} - B_{k}s_{k} + y_{k}
 \\
-&=y_{k}.
+&= y_{k}.
 \end{aligned}
-```
+$$
 
 This does not uniquely characterize BFGS among all conceivable secant updates; a deeper derivation views it as a particular minimal-change member of the Broyden family. For the present purpose, the important heuristic is concrete: **replace the old curvature prediction in the direction just explored by the curvature actually observed, while retaining a symmetric positive-definite model elsewhere as much as possible**.
 
@@ -1028,7 +973,7 @@ This does not uniquely characterize BFGS among all conceivable secant updates; a
 The update requires
 
 $$
-y_{k}^{\mathsf T}s_{k}>0.
+y_{k}^{\mathsf T}s_{k}\gt 0.
 $$
 
 For the exact Hessian, this quantity is locally
@@ -1043,19 +988,13 @@ so positivity is precisely what one expects from positive curvature along the ac
 
 There is also a direct algebraic reason. For any vector $z$,
 
-```math
+$$
 \begin{aligned}
-z^{\mathsf T}B_{k+1}z
-={}&
-z^{\mathsf T}B_{k}z
--
-\frac{(z^{\mathsf T}B_{k}s_{k})^{2}}
-{s_{k}^{\mathsf T}B_{k}s_{k}}
-+
-\frac{(z^{\mathsf T}y_{k})^{2}}
-{y_{k}^{\mathsf T}s_{k}}.
+z^{\mathsf T}B_{k+1}z ={}& z^{\mathsf T}B_{k}z
+-\frac{(z^{\mathsf T}B_{k}s_{k})^{2}}{s_{k}^{\mathsf T}B_{k}s_{k}}
++\frac{(z^{\mathsf T}y_{k})^{2}}{y_{k}^{\mathsf T}s_{k}}.
 \end{aligned}
-```
+$$
 
 If $B_{k}$ is SPD, the first two terms are nonnegative by Cauchy–Schwarz in the $B_{k}$ inner product. The final term is nonnegative, and the strict positivity of $y_{k}^{\mathsf T}s_{k}$ prevents the update from becoming singular in the removed $s_{k}$ direction. Thus BFGS preserves positive definiteness.
 
@@ -1068,9 +1007,8 @@ $$
 then
 
 $$
-g_{k}^{\mathsf T}d_{k}
-=
--d_{k}^{\mathsf T}B_{k}d_{k}<0.
+g_{k}^{\mathsf T}d_{k}=
+-d_{k}^{\mathsf T}B_{k}d_{k}\lt 0.
 $$
 
 So the direction is descent. Wolfe-type line searches are useful here because their curvature condition can imply a positive value of $y_{k}^{\mathsf T}s_{k}$ for a descent step. This is why line search and BFGS are mathematically coupled rather than two unrelated implementation choices.
@@ -1092,21 +1030,18 @@ $$
 With
 
 $$
-\rho_{k}
-:=
+\rho_{k}\coloneqq
 \frac{1}{y_{k}^{\mathsf T}s_{k}},
 $$
 
 the inverse update is
 
 $$
-C_{k+1}
-=
+C_{k+1}=
 \left(I-\rho_{k}s_{k}y_{k}^{\mathsf T}\right)
 C_{k}
 \left(I-\rho_{k}y_{k}s_{k}^{\mathsf T}\right)
-+
-\rho_{k}s_{k}s_{k}^{\mathsf T}.
++\rho_{k}s_{k}s_{k}^{\mathsf T}.
 $$
 
 Its corresponding secant relation is
@@ -1152,8 +1087,7 @@ $$
 For each stored pair define
 
 $$
-\rho_{i}
-=
+\rho_{i}=
 \frac{1}{y_{i}^{\mathsf T}s_{i}}.
 $$
 
@@ -1177,12 +1111,10 @@ d_k = -r
 Here $C_{k}^{(0)}$ is a simple initial inverse model for the part of the space not represented by the stored history. A common scalar choice is
 
 $$
-C_{k}^{(0)}
-=
+C_{k}^{(0)}=
 \gamma_{k}I,
 \qquad
-\gamma_{k}
-=
+\gamma_{k}=
 \frac{s_{k-1}^{\mathsf T}y_{k-1}}
 {y_{k-1}^{\mathsf T}y_{k-1}},
 $$
@@ -1210,13 +1142,10 @@ A trust-region method asks instead:
 At iteration $k$, form a quadratic model
 
 $$
-m_{k}(s)
-=
+m_{k}(s)=
 f(x_{k})
-+
-g_{k}^{\mathsf T}s
-+
-\frac{1}{2}s^{\mathsf T}B_{k}s,
++g_{k}^{\mathsf T}s
++\frac{1}{2}s^{\mathsf T}B_{k}s,
 $$
 
 where $B_{k}$ may be the exact Hessian or a symmetric approximation.
@@ -1234,24 +1163,21 @@ The radius $\Delta_{k}$ limits how far we are willing to trust the model.
 The model predicts the reduction
 
 $$
-\mathrm{pred}_{k}
-:=
+\mathrm{pred}_{k}\coloneqq
 m_{k}(0)-m_{k}(s_{k}).
 $$
 
 The objective delivers the actual reduction
 
 $$
-\mathrm{ared}_{k}
-:=
+\mathrm{ared}_{k}\coloneqq
 f(x_{k})-f(x_{k}+s_{k}).
 $$
 
 Compare them through
 
 $$
-\rho_{k}
-:=
+\rho_{k}\coloneqq
 \frac{\mathrm{ared}_{k}}
 {\mathrm{pred}_{k}}.
 $$
@@ -1345,8 +1271,8 @@ can indicate that the iterates have stabilized. It can also indicate that a line
 A small relative change such as
 
 $$
-\frac{|f(x_{k+1})-f(x_{k})|}
-{\max\{1,|f(x_{k})|\}}
+\frac{\lvert f(x_{k+1})-f(x_{k})\rvert}
+{\max\lbrace 1,\lvert f(x_{k})\rvert\rbrace}
 $$
 
 can be useful, but a flat objective value alone does not guarantee stationarity.

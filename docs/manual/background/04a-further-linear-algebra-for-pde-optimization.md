@@ -76,16 +76,16 @@ This is why iteration counts are often reported against mesh size. The important
 Suppose $A_{h}$ and $P_{h}$ are SPD matrices. We say they are **spectrally equivalent**, uniformly in $h$, if there exist constants
 
 $$
-0<c\le C<\infty
+0\lt c\leq C\lt \infty
 $$
 
 independent of $h$ such that
 
 $$
 c v^{\mathsf T}P_{h}v
-\le
+\leq
 v^{\mathsf T}A_{h}v
-\le
+\leq
 C v^{\mathsf T}P_{h}v
 $$
 
@@ -94,23 +94,21 @@ for every vector $v$.
 Consider the generalized eigenvalue problem
 
 $$
-A_{h}v
-=
+A_{h}v =
 \lambda P_{h}v.
 $$
 
 Pairing with $v$ gives
 
 $$
-\lambda
-=
+\lambda =
 \frac{v^{\mathsf T}A_{h}v}{v^{\mathsf T}P_{h}v}.
 $$
 
 The spectral-equivalence inequalities therefore imply
 
 $$
-c\le\lambda\le C.
+c\leq\lambda\leq C.
 $$
 
 Equivalently, the symmetrically preconditioned operator
@@ -126,7 +124,7 @@ $$
 \left(
 P_{h}^{-1/2}A_{h}P_{h}^{-1/2}
 \right)
-\le
+\leq
 \frac{C}{c}.
 $$
 
@@ -197,8 +195,7 @@ so the state and adjoint blocks may share the same algebraic operator and often 
 Consider the equality-constrained quadratic KKT matrix
 
 $$
-K
-=
+K =
 \begin{bmatrix}
 Q & D^{\mathsf T}\\
 D & 0
@@ -211,15 +208,14 @@ Define the Schur complement
 
 $$
 S
-:=
+\coloneqq
 DQ^{-1}D^{\mathsf T}.
 $$
 
 Then
 
-```math
-K
-=
+$$
+K =
 \begin{bmatrix}
 I & 0\\
 DQ^{-1} & I
@@ -232,7 +228,7 @@ Q & 0\\
 I & Q^{-1}D^{\mathsf T}\\
 0 & I
 \end{bmatrix}.
-```
+$$
 
 This factorization is exact. It immediately identifies two difficult inverse actions:
 
@@ -255,8 +251,7 @@ $$
 For example, a block-diagonal preconditioner may use
 
 $$
-P_{\mathrm{BD}}
-=
+P_{\mathrm{BD}} =
 \begin{bmatrix}
 \widehat Q & 0\\
 0 & \widehat S
@@ -272,8 +267,7 @@ The derivation explains why block preconditioners are not arbitrary collections 
 The exact Schur action is
 
 $$
-S\lambda
-=
+S\lambda =
 D
 \left(
 Q^{-1}
@@ -312,7 +306,7 @@ Thus an algebraically appealing factorization does not automatically determine t
 PDE-constrained optimization introduces parameters in addition to the mesh size. A common example is a regularization weight
 
 $$
-\beta>0.
+\beta\gt 0.
 $$
 
 After discretization, a KKT system may therefore belong to a two-parameter family,
@@ -419,8 +413,7 @@ deal.II's tutorial sequence makes this role very explicit. Step-16 introduces mu
 A second family splits the discrete space or physical domain into smaller, often overlapping pieces and solves local problems on those pieces. In a Schwarz method, one may write schematically
 
 $$
-V_{h}
-=
+V_{h} =
 \sum_{j=1}^{J} V_{j},
 $$
 

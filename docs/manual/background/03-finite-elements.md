@@ -57,7 +57,7 @@ The running PDE is the homogeneous-Dirichlet Poisson problem from [01 · Functio
 
 Consider the weak Poisson problem on a bounded domain $\Omega$:
 
-> find $y\in V:=H_{0}^{1}(\Omega)$ such that
+> find $y\in V\coloneqq H_{0}^{1}(\Omega)$ such that
 >
 > $$
 > a(y,v)=F(v)
@@ -69,12 +69,12 @@ Consider the weak Poisson problem on a bounded domain $\Omega$:
 >
 > $$
 > a(y,v)
-> :=
-> \int_{\Omega}\nabla y\cdot\nabla v \mathrm{d}x,
+> \coloneqq
+> \int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x,
 > \qquad
 > F(v)
-> :=
-> \int_{\Omega}fv \mathrm{d}x.
+> \coloneqq
+> \int_{\Omega}fv\thinspace\mathrm{d}x.
 > $$
 
 The unknown $y$ belongs to an infinite-dimensional function space. A Galerkin method chooses a finite-dimensional subspace
@@ -86,8 +86,7 @@ $$
 and asks for a discrete function $y_{h}\in V_{h}$ satisfying the same variational equation against every discrete test function:
 
 $$
-a(y_{h},v_{h})
-=
+a(y_{h},v_{h}) =
 F(v_{h})
 \qquad
 \text{for every }v_{h}\in V_{h}.
@@ -136,31 +135,31 @@ and divide the interval into cells
 
 $$
 K_{e}
-:=
+\coloneqq
 [x_{e},x_{e+1}],
 \qquad
-0=x_{0}<x_{1}<\cdots<x_{N}=1.
+0=x_{0}\lt x_{1}\lt\cdots\lt x_{N}=1.
 $$
 
 For the moment assume a uniform mesh,
 
 $$
-h:=x_{e+1}-x_{e}=\frac{1}{N}.
+h\coloneqq x_{e+1}-x_{e}=\frac{1}{N}.
 $$
 
 Define
 
-```math
+$$
 V_{h}
-:=
-\left\{
+\coloneqq
+\left\lbrace
  v_{h}\in C^{0}([0,1])
  :
  v_{h}\rvert_{K_{e}}\text{ is affine for every }K_{e},
  \quad
  v_{h}(0)=v_{h}(1)=0
-\right\}.
-```
+\right\rbrace.
+$$
 
 Every function in $V_{h}$ is affine on each cell but need not have the same slope on neighboring cells. The function is continuous at the cell interfaces, while its derivative may jump there.
 
@@ -181,8 +180,7 @@ Each $\varphi_{i}$ is piecewise affine, equals one at $x_{i}$, equals zero at ev
 Any $v_{h}\in V_{h}$ can then be written uniquely as
 
 $$
-v_{h}(x)
-=
+v_{h}(x) =
 \sum_{i=1}^{N-1}v_{i}\varphi_{i}(x).
 $$
 
@@ -196,9 +194,9 @@ The coefficient vector is
 
 $$
 \mathbf v
-:=
+\coloneqq
 (v_{1},\ldots,v_{N-1})^{\mathsf T}
-\in\mathbb R^{N-1}.
+\in\mathbb{R}^{N-1}.
 $$
 
 This is the first concrete finite-element representation:
@@ -237,21 +235,20 @@ The functions in $V_{h}$ are affine inside each cell, so they are classically di
 
 Let $v_{h}$ be continuous and affine on every cell. For any test function $\phi\in C_{c}^{\infty}(0,1)$, integrate by parts cell by cell:
 
-```math
+$$
 \begin{aligned}
--\int_{0}^{1}v_{h}\phi'\mathrm{d}x
+-\int_{0}^{1}v_{h}\phi'\thinspace\mathrm{d}x
 &=
 -\sum_{e=0}^{N-1}
-\int_{x_{e}}^{x_{e+1}}v_{h}\phi'\mathrm{d}x
+\int_{x_{e}}^{x_{e+1}}v_{h}\phi'\thinspace\mathrm{d}x
 \\
 &=
 \sum_{e=0}^{N-1}
-\int_{x_{e}}^{x_{e+1}}v_{h}'\phi\mathrm{d}x
--
-\sum_{e=0}^{N-1}
+\int_{x_{e}}^{x_{e+1}}v_{h}'\phi\thinspace\mathrm{d}x
+-\sum_{e=0}^{N-1}
 \left[v_{h}\phi\right]_{x_{e}}^{x_{e+1}}.
 \end{aligned}
-```
+$$
 
 The endpoint terms at $0$ and $1$ vanish because $\phi$ has compact support. At an interior node $x_{i}$, the contribution from the cell on the left and the contribution from the cell on the right combine to
 
@@ -270,9 +267,8 @@ $$
 so every interface contribution vanishes. Hence
 
 $$
--\int_{0}^{1}v_{h}\phi'\mathrm{d}x
-=
-\int_{0}^{1}v_{h}'\phi\mathrm{d}x,
+-\int_{0}^{1}v_{h}\phi'\thinspace\mathrm{d}x =
+\int_{0}^{1}v_{h}'\phi\thinspace\mathrm{d}x,
 $$
 
 where on the right $v_{h}'$ denotes the ordinary derivative taken separately on each cell. This identity is exactly the definition of a weak derivative, so the piecewise classical derivative is the weak derivative of $v_{h}$.
@@ -280,11 +276,10 @@ where on the right $v_{h}'$ denotes the ordinary derivative taken separately on 
 We still have to check that this weak derivative has the regularity required by $H^{1}$. Because $v_{h}$ is affine on every cell, $v_{h}'$ is piecewise constant. The mesh contains finitely many cells, so
 
 $$
-\int_{0}^{1}\lvert v_{h}'(x)\rvert^{2}\mathrm{d}x
-=
+\int_{0}^{1}\lvert v_{h}'(x)\rvert^{2}\thinspace\mathrm{d}x =
 \sum_{e=0}^{N-1}
-\int_{K_{e}}\lvert v_{h}'(x)\rvert^{2}\mathrm{d}x
-<\infty.
+\int_{K_{e}}\lvert v_{h}'(x)\rvert^{2}\thinspace\mathrm{d}x
+\lt\infty.
 $$
 
 Thus $v_{h}'\in L^{2}(0,1)$ and therefore
@@ -335,7 +330,7 @@ Here:
 
 - $K$ is the **cell** or element domain, such as an interval, triangle, quadrilateral, tetrahedron, or hexahedron;
 - $\mathcal P$ is a finite-dimensional space of functions on $K$, usually polynomials;
-- $\Sigma=\{\sigma_{1},\ldots,\sigma_{m}\}$ is a set of $m=\dim\mathcal P$ linearly independent **degrees of freedom**, each $\sigma_{i}$ being a linear functional on $\mathcal P$.
+- $\Sigma=\lbrace\sigma_{1},\ldots,\sigma_{m}\rbrace$ is a set of $m=\dim\mathcal P$ linearly independent **degrees of freedom**, each $\sigma_{i}$ being a linear functional on $\mathcal P$.
 
 The degrees of freedom identify a function in $\mathcal P$ by a finite list of numbers:
 
@@ -363,7 +358,7 @@ $$
 
 Because $\mathcal P$ and the list of degrees of freedom have the same finite dimension, this is equivalent to saying that arbitrary admissible degree-of-freedom values determine one and only one function in $\mathcal P$.
 
-Unisolvence gives a canonical local basis $\{\phi_{1},\ldots,\phi_{m}\}$ characterized by
+Unisolvence gives a canonical local basis $\lbrace\phi_{1},\ldots,\phi_{m}\rbrace$ characterized by
 
 $$
 \sigma_{i}(\phi_{j})=\delta_{ij}.
@@ -374,8 +369,7 @@ This is precisely the primal/dual basis relation from [02 · Duality, derivative
 For any $p\in\mathcal P$,
 
 $$
-p
-=
+p =
 \sum_{j=1}^{m}\sigma_{j}(p)\phi_{j}.
 $$
 
@@ -392,7 +386,7 @@ $$
 and define
 
 $$
-\sigma_{i}(p):=p(a_{i}).
+\sigma_{i}(p)\coloneqq p(a_{i}).
 $$
 
 The corresponding basis functions satisfy
@@ -414,25 +408,22 @@ On a simplex – an interval in one dimension, triangle in two dimensions, tetra
 For example, on a triangle with coordinates $(x,y)$,
 
 $$
-\mathbb P_{1}
-=
-\mathrm{span}\{1,x,y\},
+\mathbb P_{1} =
+\mathop{\mathrm{span}}\lbrace1,x,y\rbrace,
 $$
 
 while
 
 $$
-\mathbb P_{2}
-=
-\mathrm{span}\{1,x,y,x^{2},xy,y^{2}\}.
+\mathbb P_{2} =
+\mathop{\mathrm{span}}\lbrace1,x,y,x^{2},xy,y^{2}\rbrace.
 $$
 
 On a tensor-product reference cell such as a square or cube, $\mathbb Q_{k}$ denotes polynomials of degree at most $k$ **in each coordinate separately**. On a square,
 
 $$
-\mathbb Q_{1}
-=
-\mathrm{span}\{1,x,y,xy\}.
+\mathbb Q_{1} =
+\mathop{\mathrm{span}}\lbrace1,x,y,xy\rbrace.
 $$
 
 The term $xy$ is why a $\mathbb Q_{1}$ function on a square is usually called **bilinear** rather than affine.
@@ -443,8 +434,8 @@ On the reference triangle
 
 $$
 \widehat K
-:=
-\left\{(\xi,\eta):\xi\ge0,\ \eta\ge0,\ \xi+\eta\le1\right\},
+\coloneqq
+\left\lbrace(\xi,\eta):\xi\geq0,\ \eta\geq0,\ \xi+\eta\leq1\right\rbrace,
 $$
 
 use the three vertices
@@ -477,7 +468,7 @@ $$
 
 use the four vertices as support points. The tensor-product basis is
 
-```math
+$$
 \begin{aligned}
 \widehat\phi_{1}(\xi,\eta)
 &=(1-\xi)(1-\eta),
@@ -491,7 +482,7 @@ use the four vertices as support points. The tensor-product basis is
 \widehat\phi_{4}(\xi,\eta)
 &=(1-\xi)\eta.
 \end{aligned}
-```
+$$
 
 Higher-order Lagrange elements add support points on edges and, eventually, in cell interiors. Their construction follows the same principle: the number and placement of the support points must make the interpolation problem unisolvent.
 
@@ -504,7 +495,7 @@ Let $\mathcal T_{h}$ be a mesh of $\Omega$: a finite collection of cells $K$ who
 For a simple conforming mesh, neighboring cells meet along complete lower-dimensional entities – a common vertex, edge, or face – rather than overlapping arbitrarily. We denote the diameter of a cell by $h_{K}$ and often write
 
 $$
-h:=\max_{K\in\mathcal T_{h}}h_{K}.
+h\coloneqq\max_{K\in\mathcal T_{h}}h_{K}.
 $$
 
 A local polynomial space on each cell does not yet define a global $H^{1}$ finite-element space. We must specify how neighboring cell functions are glued together.
@@ -517,17 +508,17 @@ For first-order triangles the mechanism is particularly transparent. The trace o
 
 A typical conforming scalar space can be written schematically as
 
-```math
+$$
 V_{h}
-:=
-\left\{
+\coloneqq
+\left\lbrace
  v_{h}\in C^{0}(\overline\Omega)
  :
  v_{h}\rvert_{K}\in\mathcal P(K)
  \text{ for every }K\in\mathcal T_{h},
  \text{ with the required boundary values}
-\right\}.
-```
+\right\rbrace.
+$$
 
 For $\mathbb P_{1}$ on a triangular mesh,
 
@@ -551,21 +542,21 @@ Sharing degrees of freedom across cells is a design choice, not an inevitable pr
 
 Suppose we place one constant polynomial on each cell and do **not** identify values between neighboring cells. Then
 
-```math
+$$
 U_{h}^{0}
-:=
-\left\{
+\coloneqq
+\left\lbrace
  u_{h}
  :
  u_{h}\rvert_{K}\text{ is constant for every }K\in\mathcal T_{h}
-\right\}.
-```
+\right\rbrace.
+$$
 
 A convenient basis contains one cell indicator per cell:
 
 $$
 \chi_{K}(x)
-:=
+\coloneqq
 \begin{cases}
 1, & x\in K,\\
 0, & x\notin K.
@@ -575,8 +566,7 @@ $$
 Then
 
 $$
-u_{h}
-=
+u_{h} =
 \sum_{K\in\mathcal T_{h}}u_{K}\chi_{K}.
 $$
 
@@ -592,8 +582,8 @@ For the cell-indicator basis,
 
 $$
 M_{KL}
-:=
-\int_{\Omega}\chi_{L}\chi_{K} \mathrm{d}x.
+\coloneqq
+\int_{\Omega}\chi_{L}\chi_{K}\thinspace\mathrm{d}x.
 $$
 
 Different indicators have disjoint interiors, so for $K\ne L$,
@@ -605,21 +595,18 @@ $$
 For $K=L$,
 
 $$
-M_{KK}
-=
-\int_{K}1 \mathrm{d}x
-=
-|K|.
+M_{KK} =
+\int_{K}1\thinspace\mathrm{d}x =
+\lvert K\rvert.
 $$
 
 Therefore
 
 $$
-M
-=
-\mathrm{diag}
+M =
+\mathop{\mathrm{diag}}
 \left(
-|K_{1}|,\ldots,|K_{N_{K}}|
+\lvert K_{1}\rvert,\ldots,\lvert K_{N_{K}}\rvert
 \right).
 $$
 
@@ -648,36 +635,35 @@ Let a physical cell be
 $$
 K=[x_{a},x_{b}],
 \qquad
-h_{K}:=x_{b}-x_{a}.
+h_{K}\coloneqq x_{b}-x_{a}.
 $$
 
 The affine map
 
 $$
-F_{K}:\widehat K\to K,
+F_{K}\colon\widehat K\to K,
 \qquad
-x=F_{K}(\xi):=x_{a}+h_{K}\xi
+x=F_{K}(\xi)\coloneqq x_{a}+h_{K}\xi
 $$
 
 maps the reference interval onto the physical interval. Define the physical basis by composition with the inverse map:
 
 $$
 \phi_{i}^{K}(x)
-:=
+\coloneqq
 \widehat\phi_{i}(F_{K}^{-1}(x)).
 $$
 
 The change of variables gives
 
 $$
-\mathrm{d}x=h_{K} \mathrm{d}\xi,
+\mathrm{d}x=h_{K}\thinspace\mathrm{d}\xi,
 $$
 
 and the chain rule gives
 
 $$
-\frac{\mathrm{d}\phi_{i}^{K}}{\mathrm{d}x}
-=
+\frac{\mathrm{d}\phi_{i}^{K}}{\mathrm{d}x} =
 \frac{1}{h_{K}}
 \frac{\mathrm{d}\widehat\phi_{i}}{\mathrm{d}\xi}.
 $$
@@ -689,34 +675,30 @@ These two scaling factors – one from the volume element, one from the derivati
 For an affine simplex map, write
 
 $$
-x
-=
+x =
 F_{K}(\widehat x)
-:=
+\coloneqq
 B_{K}\widehat x+b_{K},
 $$
 
 where $B_{K}$ is an invertible $d\times d$ matrix. Then
 
 $$
-\mathrm{d}x
-=
-|\det B_{K}| \mathrm{d}\widehat x.
+\mathrm{d}x =
+\lvert\det B_{K}\rvert\thinspace\mathrm{d}\widehat x.
 $$
 
 If
 
 $$
-\phi^{K}(x)
-=
+\phi^{K}(x) =
 \widehat\phi(F_{K}^{-1}(x)),
 $$
 
 then the multivariable chain rule gives
 
 $$
-\nabla_{x}\phi^{K}(x)
-=
+\nabla_{x}\phi^{K}(x) =
 B_{K}^{-\mathsf T}
 \nabla_{\widehat x}\widehat\phi(\widehat x).
 $$
@@ -724,7 +706,7 @@ $$
 Hence an integral such as
 
 $$
-\int_{K}\nabla\phi_{j}^{K}\cdot\nabla\phi_{i}^{K} \mathrm{d}x
+\int_{K}\nabla\phi_{j}^{K}\cdot\nabla\phi_{i}^{K}\thinspace\mathrm{d}x
 $$
 
 can be evaluated on the reference cell using the same reference shape functions and cell-specific geometric factors.
@@ -736,20 +718,20 @@ For general quadrilaterals, hexahedra, curved cells, or higher-order geometry ma
 Return to the one-dimensional Poisson equation. On one physical cell $K=[x_{a},x_{b}]$, the local weak contribution is
 
 $$
-\int_{K}y_{h}'v_{h}' \mathrm{d}x.
+\int_{K}y_{h}'v_{h}'\thinspace\mathrm{d}x.
 $$
 
 Using the two local $\mathbb P_{1}$ basis functions, define the **local stiffness matrix**
 
 $$
 A_{ij}^{K}
-:=
+\coloneqq
 \int_{K}
 (\phi_{j}^{K})'
 (\phi_{i}^{K})'
- \mathrm{d}x,
+\thinspace\mathrm{d}x,
 \qquad
-i,j\in\{1,2\}.
+i,j\in\lbrace1,2\rbrace.
 $$
 
 On the reference cell,
@@ -762,7 +744,7 @@ $$
 
 Using the mapping formulas,
 
-```math
+$$
 \begin{aligned}
 A_{ij}^{K}
 &=
@@ -773,21 +755,20 @@ A_{ij}^{K}
 \left(
 \frac{1}{h_{K}}\widehat\phi_{i}'
 \right)
-h_{K} \mathrm{d}\xi
+h_{K}\thinspace\mathrm{d}\xi
 \\
 &=
 \frac{1}{h_{K}}
 \int_{0}^{1}
 \widehat\phi_{j}'\widehat\phi_{i}'
- \mathrm{d}\xi.
+\thinspace\mathrm{d}\xi.
 \end{aligned}
-```
+$$
 
 Therefore
 
 $$
-A^{K}
-=
+A^{K} =
 \frac{1}{h_{K}}
 \begin{bmatrix}
 1&-1\\
@@ -799,45 +780,40 @@ The corresponding **local mass matrix** represents the $L^{2}$ bilinear form:
 
 $$
 M_{ij}^{K}
-:=
-\int_{K}\phi_{j}^{K}\phi_{i}^{K} \mathrm{d}x.
+\coloneqq
+\int_{K}\phi_{j}^{K}\phi_{i}^{K}\thinspace\mathrm{d}x.
 $$
 
 Changing variables,
 
 $$
-M_{ij}^{K}
-=
+M_{ij}^{K} =
 h_{K}
 \int_{0}^{1}
-\widehat\phi_{j}\widehat\phi_{i} \mathrm{d}\xi.
+\widehat\phi_{j}\widehat\phi_{i}\thinspace\mathrm{d}\xi.
 $$
 
 The three required integrals are
 
 $$
-\int_{0}^{1}(1-\xi)^{2} \mathrm{d}\xi
-=
+\int_{0}^{1}(1-\xi)^{2}\thinspace\mathrm{d}\xi =
 \frac{1}{3},
 $$
 
 $$
-\int_{0}^{1}\xi(1-\xi) \mathrm{d}\xi
-=
+\int_{0}^{1}\xi(1-\xi)\thinspace\mathrm{d}\xi =
 \frac{1}{6},
 $$
 
 $$
-\int_{0}^{1}\xi^{2} \mathrm{d}\xi
-=
+\int_{0}^{1}\xi^{2}\thinspace\mathrm{d}\xi =
 \frac{1}{3}.
 $$
 
 Thus
 
 $$
-M^{K}
-=
+M^{K} =
 \frac{h_{K}}{6}
 \begin{bmatrix}
 2&1\\
@@ -849,8 +825,8 @@ For a source $f$, the **local load vector** is
 
 $$
 f_{i}^{K}
-:=
-\int_{K}f\phi_{i}^{K} \mathrm{d}x.
+\coloneqq
+\int_{K}f\phi_{i}^{K}\thinspace\mathrm{d}x.
 $$
 
 Unlike the stiffness and mass matrices for these simple affine elements, this integral depends on the actual source data. It is typically evaluated numerically.
@@ -886,7 +862,7 @@ $$
 such that
 
 $$
-\int_{\widehat K}g(\widehat x) \mathrm{d}\widehat x
+\int_{\widehat K}g(\widehat x)\thinspace\mathrm{d}\widehat x
 \approx
 \sum_{q=1}^{n_{q}}
 \widehat w_{q}g(\widehat x_{q}).
@@ -897,45 +873,43 @@ A rule has a certain **degree of exactness** if the equality is exact for every 
 Under a cell map $F_{K}$, the physical-cell integral becomes
 
 $$
-\int_{K}g(x) \mathrm{d}x
-=
+\int_{K}g(x)\thinspace\mathrm{d}x =
 \int_{\widehat K}
  g(F_{K}(\widehat x))
- |\det J_{K}(\widehat x)|
- \mathrm{d}\widehat x,
+ \lvert\det J_{K}(\widehat x)\rvert
+\thinspace\mathrm{d}\widehat x,
 $$
 
 where $J_{K}$ is the Jacobian of the map. Quadrature therefore gives
 
 $$
-\int_{K}g(x) \mathrm{d}x
+\int_{K}g(x)\thinspace\mathrm{d}x
 \approx
 \sum_{q=1}^{n_{q}}
 \widehat w_{q}
  g(F_{K}(\widehat x_{q}))
- |\det J_{K}(\widehat x_{q})|.
+ \lvert\det J_{K}(\widehat x_{q})\rvert.
 $$
 
 For an affine map, $J_{K}$ is constant. For a more general mapped cell it varies with the quadrature point.
 
 ### Example: assembling a diffusion entry
 
-Let $\kappa:\Omega\to\mathbb R$ denote the scalar **diffusion coefficient** multiplying the gradient term in the weak form. A diffusion matrix entry on one cell has the form
+Let $\kappa\colon\Omega\to\mathbb{R}$ denote the scalar **diffusion coefficient** multiplying the gradient term in the weak form. A diffusion matrix entry on one cell has the form
 
 $$
-A_{ij}^{K}
-=
+A_{ij}^{K} =
 \int_{K}
 \kappa(x)
 \nabla\phi_{j}^{K}(x)
 \cdot
 \nabla\phi_{i}^{K}(x)
-\mathrm{d}x.
+\thinspace\mathrm{d}x.
 $$
 
 A quadrature approximation is
 
-```math
+$$
 A_{ij}^{K}
 \approx
 \sum_{q=1}^{n_{q}}
@@ -944,7 +918,7 @@ A_{ij}^{K}
  \nabla\phi_{j}^{K}(x_{q}^{K})
  \cdot
  \nabla\phi_{i}^{K}(x_{q}^{K}),
-```
+$$
 
 where $x_{q}^{K}$ and $w_{q}^{K}$ are the mapped quadrature points and weights.
 
@@ -987,8 +961,7 @@ For continuous elements, neighboring cells can map different local indices to th
 A cell-local coefficient vector is therefore obtained by gathering entries from the global vector:
 
 $$
-(\mathbf y^{K})_{\alpha}
-=
+(\mathbf y^{K})_{\alpha} =
 \mathbf y_{I_{K}(\alpha)}.
 $$
 
@@ -1001,39 +974,35 @@ The numbering itself is not part of the mathematical finite-element space. Renum
 For the Poisson bilinear form,
 
 $$
-a(y_{h},v_{h})
-=
-\int_{\Omega}\nabla y_{h}\cdot\nabla v_{h} \mathrm{d}x.
+a(y_{h},v_{h}) =
+\int_{\Omega}\nabla y_{h}\cdot\nabla v_{h}\thinspace\mathrm{d}x.
 $$
 
 Because the mesh partitions the domain,
 
 $$
-a(y_{h},v_{h})
-=
+a(y_{h},v_{h}) =
 \sum_{K\in\mathcal T_{h}}
-\int_{K}\nabla y_{h}\cdot\nabla v_{h} \mathrm{d}x.
+\int_{K}\nabla y_{h}\cdot\nabla v_{h}\thinspace\mathrm{d}x.
 $$
 
 Write the restrictions to one cell in its local basis:
 
 $$
-y_{h}\rvert_{K}
-=
+y_{h}\rvert_{K} =
 \sum_{\beta=1}^{m}
  y_{I_{K}(\beta)}\phi_{\beta}^{K},
 $$
 
 $$
-v_{h}\rvert_{K}
-=
+v_{h}\rvert_{K} =
 \sum_{\alpha=1}^{m}
  v_{I_{K}(\alpha)}\phi_{\alpha}^{K}.
 $$
 
 Then
 
-```math
+$$
 \begin{aligned}
 a(y_{h},v_{h})
 &=
@@ -1046,7 +1015,7 @@ a(y_{h},v_{h})
  \nabla\phi_{\beta}^{K}
  \cdot
  \nabla\phi_{\alpha}^{K}
- \mathrm{d}x
+\thinspace\mathrm{d}x
  \right)
  y_{I_{K}(\beta)}
 \\
@@ -1057,7 +1026,7 @@ a(y_{h},v_{h})
  A_{\alpha\beta}^{K}
  y_{I_{K}(\beta)}.
 \end{aligned}
-```
+$$
 
 Thus the global matrix is obtained by adding
 
@@ -1109,8 +1078,7 @@ with $x_{0}$ and $x_{4}$ fixed by homogeneous Dirichlet conditions. The independ
 Each local stiffness matrix is
 
 $$
-A^{K}
-=
+A^{K} =
 \frac{1}{h}
 \begin{bmatrix}
 1&-1\\
@@ -1120,9 +1088,8 @@ $$
 
 If we first assemble on the unconstrained nodal basis including the two boundary nodes, the resulting matrix is
 
-```math
-A_{\mathrm{full}}
-=
+$$
+A_{\mathrm{full}} =
 \frac{1}{h}
 \begin{bmatrix}
  1&-1& 0& 0& 0\\
@@ -1131,13 +1098,12 @@ A_{\mathrm{full}}
  0& 0&-1& 2&-1\\
  0& 0& 0&-1& 1
 \end{bmatrix}.
-```
+$$
 
 Restricting the test and trial functions to the three free interior degrees of freedom gives
 
 $$
-A
-=
+A =
 \frac{1}{h}
 \begin{bmatrix}
 2&-1&0\\
@@ -1155,16 +1121,14 @@ In higher dimensions the pattern is less visually regular because it depends on 
 Let
 
 $$
-V_{h}
-=
-\mathrm{span}\{\varphi_{1},\ldots,\varphi_{n}\}
+V_{h} =
+\mathop{\mathrm{span}}\lbrace\varphi_{1},\ldots,\varphi_{n}\rbrace
 $$
 
 and write
 
 $$
-y_{h}
-=
+y_{h} =
 \sum_{j=1}^{n}y_{j}\varphi_{j}.
 $$
 
@@ -1179,8 +1143,7 @@ $$
 Because both sides are linear in the test function, it is enough to enforce the equation for every basis function $\varphi_{i}$:
 
 $$
-a(y_{h},\varphi_{i})
-=
+a(y_{h},\varphi_{i}) =
 F(\varphi_{i}),
 \qquad
 i=1,\ldots,n.
@@ -1190,8 +1153,7 @@ Substituting the expansion of $y_{h}$,
 
 $$
 \sum_{j=1}^{n}
-y_{j}a(\varphi_{j},\varphi_{i})
-=
+y_{j}a(\varphi_{j},\varphi_{i}) =
 F(\varphi_{i}).
 $$
 
@@ -1199,7 +1161,7 @@ Define
 
 $$
 A_{ij}
-:=
+\coloneqq
 a(\varphi_{j},\varphi_{i}),
 $$
 
@@ -1207,7 +1169,7 @@ and
 
 $$
 f_{i}
-:=
+\coloneqq
 F(\varphi_{i}).
 $$
 
@@ -1220,11 +1182,10 @@ $$
 For Poisson,
 
 $$
-A_{ij}
-=
+A_{ij} =
 \int_{\Omega}
 \nabla\varphi_{j}\cdot\nabla\varphi_{i}
- \mathrm{d}x.
+\thinspace\mathrm{d}x.
 $$
 
 This is the global **stiffness matrix**.
@@ -1246,18 +1207,16 @@ $$
 If the bilinear form is coercive on $V_{h}$, then for every nonzero coefficient vector $\mathbf z$ representing
 
 $$
-z_{h}
-=
+z_{h} =
 \sum_{j}z_{j}\varphi_{j},
 $$
 
 we have
 
 $$
-\mathbf z^{\mathsf T}A\mathbf z
-=
+\mathbf z^{\mathsf T}A\mathbf z =
 a(z_{h},z_{h})
->0.
+\gt0.
 $$
 
 Thus the matrix is positive definite. These algebraic properties are inherited from the variational form; they are not accidental features of assembly.
@@ -1271,30 +1230,28 @@ Suppose the full finite-element coefficient vector has dimension $N$ and is deno
 $$
 \mathbf y_{\mathrm{phys}}
 \in
-\mathbb R^{N}.
+\mathbb{R}^{N}.
 $$
 
 Some coefficients are fixed or linearly dependent, leaving only $n$ independent coordinates
 
 $$
-\mathbf z\in\mathbb R^{n}.
+\mathbf z\in\mathbb{R}^{n}.
 $$
 
 As in [02 · Duality, derivatives, and adjoints](02-duality-derivatives-and-adjoints.md), write the affine reconstruction as
 
 $$
-\mathbf y_{\mathrm{phys}}
-=
+\mathbf y_{\mathrm{phys}} =
 P\mathbf z+\boldsymbol\ell.
 $$
 
-Here $P\in\mathbb R^{N\times n}$ embeds homogeneous independent variations into the full coefficient vector, while $\boldsymbol\ell$ carries the fixed affine part.
+Here $P\in\mathbb{R}^{N\times n}$ embeds homogeneous independent variations into the full coefficient vector, while $\boldsymbol\ell$ carries the fixed affine part.
 
 A perturbation satisfies
 
 $$
-\delta\mathbf y_{\mathrm{phys}}
-=
+\delta\mathbf y_{\mathrm{phys}} =
 P\delta\mathbf z.
 $$
 
@@ -1303,8 +1260,7 @@ $$
 For simple nodal Lagrange elements, $P$ can be an insertion matrix. Suppose a five-entry physical vector has its second and fifth entries prescribed:
 
 $$
-\mathbf y_{\mathrm{phys}}
-=
+\mathbf y_{\mathrm{phys}} =
 \begin{bmatrix}
 z_{1}\\
 g_{1}\\
@@ -1316,9 +1272,8 @@ $$
 
 Then
 
-```math
-P
-=
+$$
+P =
 \begin{bmatrix}
 1&0&0\\
 0&0&0\\
@@ -1327,8 +1282,7 @@ P
 0&0&0
 \end{bmatrix},
 \qquad
-\boldsymbol\ell
-=
+\boldsymbol\ell =
 \begin{bmatrix}
 0\\
 g_{1}\\
@@ -1336,7 +1290,7 @@ g_{1}\\
 0\\
 g_{4}
 \end{bmatrix}.
-```
+$$
 
 ### The reduced linear system
 
@@ -1369,8 +1323,7 @@ $$
 or
 
 $$
-P^{\mathsf T}AP\mathbf z
-=
+P^{\mathsf T}AP\mathbf z =
 P^{\mathsf T}(\mathbf f-A\boldsymbol\ell).
 $$
 
@@ -1386,8 +1339,7 @@ For simple elimination of boundary nodes, $P^{\mathsf T}AP$ is just the free/fre
 Local mesh refinement can create a point on one cell edge that lies in the middle of a coarser neighboring edge. For a continuous piecewise-linear field, the value at such a constrained point may have to satisfy a relation such as
 
 $$
-y_{c}
-=
+y_{c} =
 \frac{1}{2}y_{1}
 +
 \frac{1}{2}y_{2}.
@@ -1406,24 +1358,22 @@ Matrix names are useful only if their underlying spaces and forms remain visible
 For one discrete space
 
 $$
-V_{h}
-=
-\mathrm{span}\{\varphi_{1},\ldots,\varphi_{n}\},
+V_{h} =
+\mathop{\mathrm{span}}\lbrace\varphi_{1},\ldots,\varphi_{n}\rbrace,
 $$
 
 the $L^{2}$ mass matrix is
 
 $$
 M_{ij}
-:=
-\int_{\Omega}\varphi_{j}\varphi_{i} \mathrm{d}x.
+\coloneqq
+\int_{\Omega}\varphi_{j}\varphi_{i}\thinspace\mathrm{d}x.
 $$
 
 It represents the $L^{2}$ pairing of two finite-element functions:
 
 $$
-(v_{h},w_{h})_{L^{2}}
-=
+(v_{h},w_{h})_{L^{2}} =
 \mathbf v^{\mathsf T}M\mathbf w.
 $$
 
@@ -1433,17 +1383,16 @@ For Poisson,
 
 $$
 A_{ij}
-:=
+\coloneqq
 \int_{\Omega}
 \nabla\varphi_{j}\cdot\nabla\varphi_{i}
- \mathrm{d}x.
+\thinspace\mathrm{d}x.
 $$
 
 It represents the energy bilinear form
 
 $$
-a(v_{h},w_{h})
-=
+a(v_{h},w_{h}) =
 \mathbf v^{\mathsf T}A\mathbf w.
 $$
 
@@ -1460,96 +1409,90 @@ $$
 We are not yet formulating an optimization problem; for the present purpose, $u$ is simply another field that enters the PDE. Its weak form contains
 
 $$
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-=
-\int_{\Omega}fv\mathrm{d}x
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x =
+\int_{\Omega}fv\thinspace\mathrm{d}x
 +
-\int_{\Omega}uv\mathrm{d}x.
+\int_{\Omega}uv\thinspace\mathrm{d}x.
 $$
 
 Let the state/test space be
 
 $$
-V_{h}
-=
-\mathrm{span}\{\varphi_{1},\ldots,\varphi_{n_{y}}\},
+V_{h} =
+\mathop{\mathrm{span}}\lbrace\varphi_{1},\ldots,\varphi_{n_{y}}\rbrace,
 $$
 
 with
 
 $$
-y_{h}
-=
+y_{h} =
 \sum_{j=1}^{n_{y}}y_{j}\varphi_{j},
 $$
 
 and let the control use a possibly different discrete space
 
 $$
-U_{h}
-=
-\mathrm{span}\{\psi_{1},\ldots,\psi_{n_{u}}\},
+U_{h} =
+\mathop{\mathrm{span}}\lbrace\psi_{1},\ldots,\psi_{n_{u}}\rbrace,
 $$
 
 with
 
 $$
-u_{h}
-=
+u_{h} =
 \sum_{k=1}^{n_{u}}u_{k}\psi_{k}.
 $$
 
 Testing the weak equation with $v_{h}=\varphi_{i}$ gives
 
-```math
+$$
 \begin{aligned}
 \sum_{j=1}^{n_{y}}
 y_{j}
 \int_{\Omega}
 \nabla\varphi_{j}\cdot\nabla\varphi_{i}
-\mathrm{d}x
+\thinspace\mathrm{d}x
 &=
-\int_{\Omega}f\varphi_{i}\mathrm{d}x
+\int_{\Omega}f\varphi_{i}\thinspace\mathrm{d}x
 +
 \sum_{k=1}^{n_{u}}
 u_{k}
 \int_{\Omega}
 \psi_{k}\varphi_{i}
-\mathrm{d}x.
+\thinspace\mathrm{d}x.
 \end{aligned}
-```
+$$
 
 Define
 
 $$
 A_{ij}
-:=
+\coloneqq
 \int_{\Omega}
 \nabla\varphi_{j}\cdot\nabla\varphi_{i}
-\mathrm{d}x,
+\thinspace\mathrm{d}x,
 $$
 
 $$
 f_{i}
-:=
-\int_{\Omega}f\varphi_{i}\mathrm{d}x,
+\coloneqq
+\int_{\Omega}f\varphi_{i}\thinspace\mathrm{d}x,
 $$
 
 and
 
 $$
 B_{ik}
-:=
+\coloneqq
 \int_{\Omega}
 \psi_{k}\varphi_{i}
-\mathrm{d}x.
+\thinspace\mathrm{d}x.
 $$
 
 The discrete equation is therefore
 
 $$
-A\mathbf y
-=
+A\mathbf y =
 \mathbf f+B\mathbf u.
 $$
 
@@ -1562,7 +1505,7 @@ Since
 $$
 B
 \in
-\mathbb R^{n_{y}\times n_{u}},
+\mathbb{R}^{n_{y}\times n_{u}},
 $$
 
 there is no reason for $n_{y}$ and $n_{u}$ to agree. If $U_{h}=V_{h}$ with the same basis, $B$ numerically coincides with the mass matrix. If $U_{h}$ is cellwise constant while $V_{h}$ is continuous piecewise linear, $B$ is generally rectangular. Its role remains **control-to-test coupling** in both cases.
@@ -1574,10 +1517,8 @@ Let the state/test space use continuous piecewise-linear basis functions and let
 On one cell, the two local state basis functions satisfy
 
 $$
-\int_{K_{e}}\phi_{1}^{K_{e}} \mathrm{d}x
-=
-\int_{K_{e}}\phi_{2}^{K_{e}} \mathrm{d}x
-=
+\int_{K_{e}}\phi_{1}^{K_{e}}\thinspace\mathrm{d}x =
+\int_{K_{e}}\phi_{2}^{K_{e}}\thinspace\mathrm{d}x =
 \frac{h_{e}}{2}.
 $$
 
@@ -1598,16 +1539,14 @@ This example is the finite-element origin of many rectangular control-to-state o
 For a chosen basis,
 
 $$
-y_{h}(x)
-=
+y_{h}(x) =
 \sum_{j=1}^{n}y_{j}\varphi_{j}(x).
 $$
 
 The vector
 
 $$
-\mathbf y
-=
+\mathbf y =
 (y_{1},\ldots,y_{n})^{\mathsf T}
 $$
 
@@ -1620,8 +1559,7 @@ This distinction has several practical consequences.
 At a physical point $x$,
 
 $$
-y_{h}(x)
-=
+y_{h}(x) =
 \boldsymbol\varphi(x)^{\mathsf T}\mathbf y,
 $$
 
@@ -1629,7 +1567,7 @@ where
 
 $$
 \boldsymbol\varphi(x)
-:=
+\coloneqq
 \begin{bmatrix}
 \varphi_{1}(x)\\
 \vdots\\
@@ -1654,9 +1592,8 @@ That is a property of this basis, not a universal definition of a finite-element
 A source $f(x)$ or desired field $y_{d}(x)$ may be known analytically or through some external representation. To assemble
 
 $$
-f_{i}
-=
-\int_{\Omega}f\varphi_{i} \mathrm{d}x,
+f_{i} =
+\int_{\Omega}f\varphi_{i}\thinspace\mathrm{d}x,
 $$
 
 we only need to evaluate $f$ where the quadrature requires it. There is no mathematical requirement to first interpolate $f$ into $V_{h}$.
@@ -1667,7 +1604,7 @@ $$
 \frac{1}{2}
 \int_{\Omega}
 (y_{h}-y_{d})^{2}
- \mathrm{d}x
+\thinspace\mathrm{d}x
 $$
 
 can be evaluated directly at quadrature points even when $y_{d}$ has no state-space coefficient vector.
@@ -1719,8 +1656,8 @@ For the coercive setting of [01 · Function spaces and weak PDEs](01-function-sp
 Assume the bilinear form is bounded:
 
 $$
-|a(v,w)|
-\le
+\lvert a(v,w)\rvert
+\leq
 M
 \lVert v\rVert_{V}
 \lVert w\rVert_{V},
@@ -1730,12 +1667,12 @@ and coercive:
 
 $$
 a(v,v)
-\ge
+\geq
 \alpha
 \lVert v\rVert_{V}^{2},
 $$
 
-for constants $M>0$ and $\alpha>0$.
+for constants $M\gt0$ and $\alpha\gt0$.
 
 Let $y\in V$ solve the continuous problem and $y_{h}\in V_{h}\subset V$ solve the Galerkin problem. We already derived
 
@@ -1753,11 +1690,11 @@ $$
 
 Hence
 
-```math
+$$
 \begin{aligned}
 \alpha
 \lVert y-y_{h}\rVert_{V}^{2}
-&\le
+&\leq
  a(y-y_{h},y-y_{h})
 \\
 &=
@@ -1768,18 +1705,18 @@ Hence
 &=
  a(y-y_{h},y-w_{h})
 \\
-&\le
+&\leq
  M
  \lVert y-y_{h}\rVert_{V}
  \lVert y-w_{h}\rVert_{V}.
 \end{aligned}
-```
+$$
 
 If $y\ne y_{h}$, cancel one factor of $\lVert y-y_{h}\rVert_{V}$ to obtain
 
 $$
 \lVert y-y_{h}\rVert_{V}
-\le
+\leq
 \frac{M}{\alpha}
 \lVert y-w_{h}\rVert_{V}.
 $$
@@ -1788,7 +1725,7 @@ Because this holds for every $w_{h}\in V_{h}$,
 
 $$
 \lVert y-y_{h}\rVert_{V}
-\le
+\leq
 \frac{M}{\alpha}
 \inf_{w_{h}\in V_{h}}
 \lVert y-w_{h}\rVert_{V}.

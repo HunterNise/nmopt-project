@@ -10,7 +10,7 @@ Use the first row that describes something you would not yet be comfortable expl
 
 | If this is unfamiliar | Start here |
 | --- | --- |
-| $L^2$, $H^1$, weak derivatives, test functions, weak boundary conditions | [01 · Function spaces and weak PDEs](01-function-spaces-and-weak-pdes.md) |
+| $L^{2}$, $H^{1}$, weak derivatives, test functions, weak boundary conditions | [01 · Function spaces and weak PDEs](01-function-spaces-and-weak-pdes.md) |
 | dual spaces, covectors, Riesz maps, Fréchet derivatives, JVPs/VJPs, adjoints | [02 · Duality, derivatives, and adjoints](02-duality-derivatives-and-adjoints.md) |
 | meshes, finite elements, degrees of freedom, quadrature, assembly, mass/stiffness matrices | [03 · Finite elements](03-finite-elements.md) |
 | conditioning, CG/MINRES/GMRES, preconditioning, Schur complements, saddle-point systems | [04 · Numerical linear algebra for PDE and optimization systems](04-numerical-linear-algebra.md) |

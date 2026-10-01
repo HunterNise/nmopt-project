@@ -116,15 +116,14 @@ At a feasible point $x\in K$, a direction $d$ is locally feasible if we can appr
 One convenient definition of the **tangent cone** is
 
 $$
-T_{K}(x)
-:=
-\left\{
- d:\
+T_{K}(x)\coloneqq
+\left\lbrace
+ d\colon
  \begin{array}{l}
- \text{there exist }t_{j}>0\text{ with }t_{j}\to0,\\
+ \text{there exist }t_{j}\gt 0\text{ with }t_{j}\to0,\\
  d_{j}\to d,\text{ and }x+t_{j}d_{j}\in K
  \end{array}
-\right\}.
+\right\rbrace.
 $$
 
 The exact technical definition matters in general nonlinear geometry. For the sets we use most often, its meaning is simpler: it contains the directions tangent to the feasible boundary or pointing into the feasible region.
@@ -137,15 +136,14 @@ $$
 
 we have
 
-```math
-T_{K}(x)
-=
+$$
+T_{K}(x)=
 \begin{cases}
 [0,\infty), & x=\ell,\\
-\mathbb R, & \ell<x<r,\\
+\mathbb R, & \ell\lt x\lt r,\\
 (-\infty,0], & x=r.
 \end{cases}
-```
+$$
 
 Thus an interior point admits both signs, a lower-bound point admits only nonnegative first-order motion, and an upper-bound point admits only nonpositive first-order motion.
 
@@ -191,8 +189,7 @@ $$
 f(v)
 \geq
 f(x_{\ast})
-+
-\nabla f(x_{\ast})^{\mathsf T}(v-x_{\ast}),
++\nabla f(x_{\ast})^{\mathsf T}(v-x_{\ast}),
 $$
 
 and the variational inequality makes the second term nonnegative.
@@ -208,18 +205,18 @@ $$
 write
 
 $$
-g:=f'(x).
+g\coloneqq f'(x).
 $$
 
 The variational inequality gives
 
-```math
+$$
 \begin{cases}
-g=0, & \ell<x<r,\\
+g=0, & \ell\lt x\lt r,\\
 g\geq0, & x=\ell,\\
 g\leq0, & x=r.
 \end{cases}
-```
+$$
 
 This is one of the most useful facts in the chapter. Bounds replace one stationarity equation by a switching condition.
 
@@ -228,9 +225,8 @@ This is one of the most useful facts in the chapter. Bounds replace one stationa
 Let $K\subset\mathbb R^{n}$ be nonempty, closed, and convex. The Euclidean projection of $z$ onto $K$ is
 
 $$
-P_{K}(z)
-:=
-\mathop{\mathrm{argmin}}_{v\in K}
+P_{K}(z)\coloneqq
+\mathop{\mathrm{argmin}}\nolimits_{v\in K}
 \frac{1}{2}\lVert v-z\rVert_{2}^{2}.
 $$
 
@@ -245,8 +241,7 @@ $$
 The projection itself is a constrained minimization problem with objective
 
 $$
-\varphi(v)
-=
+\varphi(v)=
 \frac{1}{2}\lVert v-z\rVert_{2}^{2}.
 $$
 
@@ -281,17 +276,13 @@ This is the fundamental characterization of projection that we will reuse below.
 For
 
 $$
-K
-=
-\{x:\ell_{i}\leq x_{i}\leq r_{i}\},
+K=\lbrace x:\ell_{i}\leq x_{i}\leq r_{i}\rbrace,
 $$
 
 the Euclidean projection separates componentwise:
 
 $$
-(P_{K}(z))_{i}
-=
-\min\{r_{i},\max\{\ell_{i},z_{i}\}\}.
+(P_{K}(z))_{i}=\min\lbrace r_{i},\max\lbrace\ell_{i},z_{i}\rbrace\rbrace.
 $$
 
 So projection onto a box is just clipping each coordinate to its interval.
@@ -301,8 +292,7 @@ So projection onto a box is just clipping each coordinate to its interval.
 A direct way to preserve feasibility is to take an unconstrained gradient step and project it back:
 
 $$
-x_{k+1}
-=
+x_{k+1}=
 P_{K}(x_{k}-\alpha_{k}\nabla f(x_{k})).
 $$
 
@@ -310,7 +300,7 @@ This is **projected gradient descent**.
 
 Why is projection more than a repair operation? At a solution, the variational inequality is equivalent to a projection fixed point.
 
-Let $\alpha>0$ and set
+Let $\alpha\gt 0$ and set
 
 $$
 z=x_{\ast}-\alpha\nabla f(x_{\ast}).
@@ -319,9 +309,7 @@ $$
 Then
 
 $$
-z-x_{\ast}
-=
--\alpha\nabla f(x_{\ast}).
+z-x_{\ast}=-\alpha\nabla f(x_{\ast}).
 $$
 
 The projection characterization says
@@ -338,7 +326,7 @@ $$
 \forall v\in K.
 $$
 
-Substituting the expression for $z-x_{\ast}$ and dividing by $\alpha>0$ gives exactly
+Substituting the expression for $z-x_{\ast}$ and dividing by $\alpha\gt 0$ gives exactly
 
 $$
 \nabla f(x_{\ast})^{\mathsf T}(v-x_{\ast})\geq0.
@@ -348,22 +336,20 @@ Hence
 
 $$
 \boxed{
-x_{\ast}
-=
+x_{\ast}=
 P_{K}\bigl(x_{\ast}-\alpha\nabla f(x_{\ast})\bigr)
 }
 $$
 
-for every $\alpha>0$ if and only if the first-order variational inequality holds.
+for every $\alpha\gt 0$ if and only if the first-order variational inequality holds.
 
 ### 5.1 Projection depends on the chosen geometry
 
 In a space with SPD metric $G$, the natural projection is
 
 $$
-P_{K}^{G}(z)
-:=
-\mathop{\mathrm{argmin}}_{v\in K}
+P_{K}^{G}(z)\coloneqq
+\mathop{\mathrm{argmin}}\nolimits_{v\in K}
 \frac{1}{2}\lVert v-z\rVert_{G}^{2},
 $$
 
@@ -376,8 +362,7 @@ $$
 If the derivative covector is $r=f'(x)$ and the metric gradient is $g=G^{-1}r$, the corresponding projected step is
 
 $$
-x_{k+1}
-=
+x_{k+1}=
 P_{K}^{G}(x_{k}-\alpha_{k}g_{k}).
 $$
 
@@ -388,13 +373,12 @@ For a Euclidean box, projection is componentwise clipping. For a general non-dia
 For a closed convex set $K$, the normal cone is intrinsically a set of covectors. In Euclidean coordinates we identify the dual with $\mathbb R^{n}$ through the standard inner product and define the **normal cone** at $x\in K$ by
 
 $$
-N_{K}(x)
-:=
-\left\{
+N_{K}(x)\coloneqq
+\left\lbrace
 \eta\in\mathbb R^{n}:
 \eta^{\mathsf T}(v-x)\leq0
 \quad\forall v\in K
-\right\}.
+\right\rbrace.
 $$
 
 The variational inequality
@@ -426,15 +410,14 @@ This notation is useful because it separates two ingredients:
 
 For the scalar interval,
 
-```math
-N_{[\ell,r]}(x)
-=
+$$
+N_{[\ell,r]}(x)=
 \begin{cases}
 (-\infty,0], & x=\ell,\\
-\{0\}, & \ell<x<r,\\
+\lbrace 0\rbrace, & \ell\lt x\lt r,\\
 [0,\infty), & x=r.
 \end{cases}
-```
+$$
 
 Thus the three-case derivative sign rule from Section 3 is exactly a normal-cone inclusion.
 
@@ -442,12 +425,12 @@ Thus the three-case derivative sign rule from Section 3 is exactly a normal-cone
 
 Consider first one smooth equality constraint,
 
-```math
+$$
 \begin{aligned}
 \min_{x\in\mathbb R^{n}}\quad & f(x),\\
 \text{subject to}\quad & h(x)=0.
 \end{aligned}
-```
+$$
 
 The multiplier condition is easiest to understand as geometry, not as a matrix identity.
 
@@ -470,7 +453,7 @@ $$
 Thus every feasible velocity
 
 $$
-d:=\dot x(0)
+d\coloneqq\dot x(0)
 $$
 
 is tangent to the constraint surface, while $\nabla h(x_{\ast})$ is normal to it.
@@ -486,11 +469,8 @@ $$
 has a local minimum at $t=0$. Therefore
 
 $$
-\frac{\mathrm d}{\mathrm dt}f(x(t))\rvert_{t=0}
-=
-\nabla f(x_{\ast})^{\mathsf T}d
-=
-0
+\frac{\mathrm d}{\mathrm dt}f(x(t))\rvert_{t=0}=
+\nabla f(x_{\ast})^{\mathsf T}d=0
 $$
 
 for every feasible tangent direction $d$.
@@ -502,11 +482,7 @@ So the objective gradient is orthogonal to the whole tangent space. In other wor
 For one regular scalar constraint, the normal space is spanned by $\nabla h(x_{\ast})$. Hence there is a scalar $\lambda$ such that
 
 $$
-\nabla f(x_{\ast})
-+
-\lambda\nabla h(x_{\ast})
-=
-0.
+\nabla f(x_{\ast})+\lambda\nabla h(x_{\ast})=0.
 $$
 
 This is the Lagrange-multiplier equation. The multiplier is the coefficient of the normal reaction needed to balance the objective derivative. The gradient of the objective does **not** vanish; only its tangential component must vanish.
@@ -528,11 +504,7 @@ $$
 such that
 
 $$
-\nabla f(x_{\ast})
-+
-Dh(x_{\ast})^{\mathsf T}\lambda
-=
-0.
+\nabla f(x_{\ast})+Dh(x_{\ast})^{\mathsf T}\lambda=0.
 $$
 
 The precise rank and constraint-qualification hypotheses behind this statement are important but not part of the main thread; they are developed in the companion notes.
@@ -542,16 +514,14 @@ The precise rank and constraint-qualification hypotheses behind this statement a
 Define
 
 $$
-\mathcal L(x,\lambda)
-:=
+\mathcal L(x,\lambda)\coloneqq
 f(x)+\lambda^{\mathsf T}h(x).
 $$
 
 Then
 
 $$
-\nabla_{x}\mathcal L
-=
+\nabla_{x}\mathcal L=
 \nabla f+Dh^{\mathsf T}\lambda,
 $$
 
@@ -563,12 +533,12 @@ $$
 
 The first-order conditions can therefore be written compactly as
 
-```math
+$$
 \begin{aligned}
 \nabla_{x}\mathcal L(x_{\ast},\lambda)&=0,\\
 h(x_{\ast})&=0.
 \end{aligned}
-```
+$$
 
 The Lagrangian is therefore not introducing a new physical law. It is a device that packages two requirements already visible geometrically:
 
@@ -588,8 +558,7 @@ There is also a useful sensitivity interpretation. If an equality is written wit
 Consider
 
 $$
-f(x_{1},x_{2})
-=
+f(x_{1},x_{2})=
 \frac{1}{2}x_{1}^{2}+2x_{2}^{2},
 $$
 
@@ -608,29 +577,27 @@ $$
 while the constraint normal is
 
 $$
-\nabla h
-=
+\nabla h=
 \begin{bmatrix}1\\1\end{bmatrix}.
 $$
 
 At the constrained minimizer, the objective gradient must have no component along the tangent, so it must be parallel to this normal. The Lagrangian
 
 $$
-\mathcal L(x_{1},x_{2},\lambda)
-=
+\mathcal L(x_{1},x_{2},\lambda)=
 \frac{1}{2}x_{1}^{2}+2x_{2}^{2}
 +\lambda(x_{1}+x_{2}-1)
 $$
 
 gives
 
-```math
+$$
 \begin{aligned}
 x_{1}+\lambda&=0,\\
 4x_{2}+\lambda&=0,\\
 x_{1}+x_{2}&=1.
 \end{aligned}
-```
+$$
 
 Solving,
 
@@ -645,8 +612,7 @@ $$
 The objective gradient is
 
 $$
-\nabla f(x_{\ast})
-=
+\nabla f(x_{\ast})=
 \begin{bmatrix}
 4/5\\
 4/5
@@ -659,13 +625,13 @@ which is exactly normal to the feasible line. The multiplier term cancels that n
 
 Consider the quadratic program
 
-```math
+$$
 \begin{aligned}
 \min_{x}\quad &
 \frac{1}{2}x^{\mathsf T}H x-b^{\mathsf T}x,\\
 \text{subject to}\quad & Ax=c,
 \end{aligned}
-```
+$$
 
 where
 
@@ -676,8 +642,7 @@ $$
 The Lagrangian is
 
 $$
-\mathcal L(x,\lambda)
-=
+\mathcal L(x,\lambda)=
 \frac{1}{2}x^{\mathsf T}H x-b^{\mathsf T}x
 +\lambda^{\mathsf T}(Ax-c).
 $$
@@ -696,7 +661,7 @@ $$
 
 Therefore
 
-```math
+$$
 \boxed{
 \begin{bmatrix}
 H & A^{\mathsf T}\\
@@ -705,14 +670,12 @@ A & 0
 \begin{bmatrix}
 x\\
 \lambda
-\end{bmatrix}
-=
-\begin{bmatrix}
+\end{bmatrix}=\begin{bmatrix}
 b\\
 c
 \end{bmatrix}.
 }
-```
+$$
 
 This is the canonical equality-constrained **KKT system**.
 
@@ -721,7 +684,7 @@ The zero multiplier block is what gives the system its saddle-point structure. [
 For uniqueness, it is enough in the standard convex quadratic case that $A$ have full row rank and that $H$ be positive definite on feasible directions,
 
 $$
-d^{\mathsf T}Hd>0
+d^{\mathsf T}Hd\gt 0
 \qquad
 \text{for every nonzero }d\in\ker A.
 $$
@@ -734,27 +697,26 @@ Now fix one common sign convention: equality constraints are written as $h(x)=0$
 
 Consider
 
-```math
+$$
 \begin{aligned}
 \min_{x}\quad & f(x),\\
 \text{subject to}\quad & h(x)=0,\\
 & g(x)\leq0,
 \end{aligned}
-```
+$$
 
 with equality multipliers $\lambda$ and inequality multipliers $\mu$.
 
 Define
 
 $$
-\mathcal L(x,\lambda,\mu)
-:=
+\mathcal L(x,\lambda,\mu)\coloneqq
 f(x)+\lambda^{\mathsf T}h(x)+\mu^{\mathsf T}g(x).
 $$
 
 Under a suitable constraint qualification, a local minimizer satisfies the first-order Karush–Kuhn–Tucker conditions:
 
-```math
+$$
 \begin{aligned}
 \nabla f(x)
 +Dh(x)^{\mathsf T}\lambda
@@ -770,7 +732,7 @@ g(x)&\leq0,
 \mu_{i}g_{i}(x)&=0
 \quad\text{for every }i.
 \end{aligned}
-```
+$$
 
 The last relation is **complementary slackness**.
 
@@ -783,7 +745,7 @@ $$
 and **inactive** when
 
 $$
-g_{i}(x)<0.
+g_{i}(x)\lt 0.
 $$
 
 Complementarity says
@@ -833,22 +795,17 @@ $$
 For a differentiable objective, stationarity becomes
 
 $$
-\nabla f(x)
--
-\mu^{L}
-+
-\mu^{U}
-=0.
+\nabla f(x)-\mu^{L}+\mu^{U}=0.
 $$
 
 Complementarity is
 
-```math
+$$
 \begin{aligned}
 \mu_{i}^{L}(x_{i}-\ell_{i})&=0,\\
 \mu_{i}^{U}(r_{i}-x_{i})&=0.
 \end{aligned}
-```
+$$
 
 The componentwise cases follow immediately.
 
@@ -857,7 +814,7 @@ The componentwise cases follow immediately.
 If
 
 $$
-\ell_{i}<x_{i}<r_{i},
+\ell_{i}\lt x_{i}\lt r_{i},
 $$
 
 both slacks are positive. Complementarity forces
@@ -907,8 +864,7 @@ We have recovered exactly the variational-inequality sign rule from Section 3, n
 Instead of carrying separate lower and upper multipliers, define one signed multiplier
 
 $$
-\lambda
-:=
+\lambda\coloneqq
 -\mu^{L}+\mu^{U}.
 $$
 
@@ -944,8 +900,7 @@ So the normal-cone, KKT, and componentwise sign descriptions are not competing f
 For
 
 $$
-f(x_{1},x_{2})
-=
+f(x_{1},x_{2})=
 \frac{1}{2}(x_{1}-2)^{2}
 +2(x_{2}+1)^{2},
 $$
@@ -961,8 +916,7 @@ $$
 the unconstrained minimizer $(2,-1)$ lies outside the box. The constrained minimizer is
 
 $$
-x_{\ast}
-=
+x_{\ast}=
 \begin{bmatrix}
 1\\
 -1/2
@@ -972,8 +926,7 @@ $$
 The gradient there is
 
 $$
-\nabla f(x_{\ast})
-=
+\nabla f(x_{\ast})=
 \begin{bmatrix}
 -1\\
 2
@@ -985,9 +938,7 @@ The first coefficient is upper-active and has a nonpositive gradient. The second
 The signed multiplier is
 
 $$
-\lambda
-=-\nabla f(x_{\ast})
-=
+\lambda=-\nabla f(x_{\ast})=
 \begin{bmatrix}
 1\\
 -2
@@ -1031,9 +982,7 @@ For very large box-constrained problems, changing one working-set index at a tim
 Return to the box
 
 $$
-K
-=
-\{x:\ell\leq x\leq r\}
+K=\lbrace x:\ell\leq x\leq r\rbrace
 $$
 
 and the signed multiplier $\lambda$ satisfying
@@ -1046,58 +995,51 @@ At a solution:
 
 - lower-active means $x_{i}=\ell_{i}$ and $\lambda_{i}\leq0$;
 - upper-active means $x_{i}=r_{i}$ and $\lambda_{i}\geq0$;
-- inactive means $\ell_{i}<x_{i}<r_{i}$ and $\lambda_{i}=0$.
+- inactive means $\ell_{i}\lt x_{i}\lt r_{i}$ and $\lambda_{i}=0$.
 
-A useful classification combines the current multiplier with the signed distance to the bounds. Choose $c>0$ and define
+A useful classification combines the current multiplier with the signed distance to the bounds. Choose $c\gt 0$ and define
 
-```math
+$$
 \begin{aligned}
-\mathcal A_{U}(x,\lambda)
-&:=
-\{i:\lambda_{i}+c(x_{i}-r_{i})>0\},\\
-\mathcal A_{L}(x,\lambda)
-&:=
-\{i:\lambda_{i}+c(x_{i}-\ell_{i})<0\},\\
-\mathcal I(x,\lambda)
-&:=
-\{1,\ldots,n\}
+\mathcal A_{U}(x,\lambda)&\coloneqq
+\lbrace i:\lambda_{i}+c(x_{i}-r_{i})\gt 0\rbrace,\\
+\mathcal A_{L}(x,\lambda)&\coloneqq
+\lbrace i:\lambda_{i}+c(x_{i}-\ell_{i})\lt 0\rbrace,\\
+\mathcal I(x,\lambda)&\coloneqq
+\lbrace 1,\ldots,n\rbrace
 \setminus
 (\mathcal A_{U}\cup\mathcal A_{L}).
 \end{aligned}
-```
+$$
 
 Why do these tests make sense?
 
-At an exact upper-active coefficient,
+At a strictly complementary upper-active coefficient,
 
 $$
 x_{i}=r_{i},
 \qquad
-\lambda_{i}>0,
+\lambda_{i}\gt 0,
 $$
 
 so
 
 $$
-\lambda_{i}+c(x_{i}-r_{i})
-=
-\lambda_{i}>0.
+\lambda_{i}+c(x_{i}-r_{i})=\lambda_{i}\gt 0.
 $$
 
-At an exact lower-active coefficient,
+At a strictly complementary lower-active coefficient,
 
 $$
 x_{i}=\ell_{i},
 \qquad
-\lambda_{i}<0,
+\lambda_{i}\lt 0,
 $$
 
 so
 
 $$
-\lambda_{i}+c(x_{i}-\ell_{i})
-=
-\lambda_{i}<0.
+\lambda_{i}+c(x_{i}-\ell_{i})=\lambda_{i}\lt 0.
 $$
 
 For an inactive exact coefficient,
@@ -1105,10 +1047,10 @@ For an inactive exact coefficient,
 $$
 \lambda_{i}=0,
 \qquad
-\ell_{i}<x_{i}<r_{i},
+\ell_{i}\lt x_{i}\lt r_{i},
 $$
 
-and neither active inequality is triggered.
+and neither active inequality is triggered. A bound-active coefficient with a zero multiplier is degenerate: neither strict test selects it as active.
 
 Away from the solution, the distance terms discourage declaring a coefficient active merely because its current multiplier has a small noisy sign while the variable lies well inside the box.
 
@@ -1136,8 +1078,7 @@ stop when the sets and residuals are stable
 For the quadratic box problem
 
 $$
-f(x)
-=
+f(x)=
 \frac{1}{2}x^{\mathsf T}H x-b^{\mathsf T}x,
 $$
 
@@ -1156,18 +1097,14 @@ $$
 On the active indices, $x$ is fixed at the appropriate bound. Partitioning the stationarity equation therefore gives the free system
 
 $$
-H_{\mathcal I\mathcal I}x_{\mathcal I}
-=
-b_{\mathcal I}
--
-H_{\mathcal I\mathcal A}x_{\mathcal A}.
+H_{\mathcal I\mathcal I}x_{\mathcal I}=
+b_{\mathcal I}-H_{\mathcal I\mathcal A}x_{\mathcal A}.
 $$
 
 After solving for the inactive coordinates, the active multipliers are reconstructed from
 
 $$
-\lambda_{\mathcal A}
-=
+\lambda_{\mathcal A}=
 b_{\mathcal A}-(Hx)_{\mathcal A}.
 $$
 
@@ -1177,16 +1114,13 @@ If additional equality constraints are present, the inactive variables and equal
 
 ## 15. Complementarity can be written as one nonsmooth equation
 
-The same box conditions can be compressed into a pointwise algebraic equation. With the signed multiplier convention above and any $c>0$, define
+The same box conditions can be compressed into a pointwise algebraic equation. With the signed multiplier convention above and any $c\gt 0$, define
 
 $$
-\Phi_{i}(x,\lambda)
-:=
+\Phi_{i}(x,\lambda)\coloneqq
 \lambda_{i}
--
-\min\{0,\lambda_{i}+c(x_{i}-\ell_{i})\}
--
-\max\{0,\lambda_{i}+c(x_{i}-r_{i})\}.
+-\min\lbrace 0,\lambda_{i}+c(x_{i}-\ell_{i})\rbrace
+-\max\lbrace 0,\lambda_{i}+c(x_{i}-r_{i})\rbrace.
 $$
 
 Then the box complementarity conditions are equivalent to
@@ -1206,7 +1140,7 @@ If
 $$
 x_{i}=\ell_{i},
 \qquad
-\lambda_{i}<0,
+\lambda_{i}\leq 0,
 $$
 
 then the minimum term equals $\lambda_{i}$ and the maximum term vanishes, so $\Phi_{i}=0$.
@@ -1216,7 +1150,7 @@ then the minimum term equals $\lambda_{i}$ and the maximum term vanishes, so $\P
 If
 
 $$
-\ell_{i}<x_{i}<r_{i},
+\ell_{i}\lt x_{i}\lt r_{i},
 \qquad
 \lambda_{i}=0,
 $$
@@ -1230,7 +1164,7 @@ If
 $$
 x_{i}=r_{i},
 \qquad
-\lambda_{i}>0,
+\lambda_{i}\geq 0,
 $$
 
 then the maximum term equals $\lambda_{i}$ and the minimum term vanishes.

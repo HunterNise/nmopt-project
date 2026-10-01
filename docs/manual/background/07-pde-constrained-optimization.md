@@ -74,12 +74,12 @@ $$
 
 be a control. A broad class of problems can be written as
 
-```math
+$$
 \begin{aligned}
 \min_{y,u}\quad & J(y,u),\\
 \text{subject to}\quad & E(y,u)=0.
 \end{aligned}
-```
+$$
 
 The objective is a scalar functional
 
@@ -134,13 +134,12 @@ The same mathematical quantity could play different roles in different problems.
 
 Let $\Omega\subset\mathbb R^{d}$ be a bounded Lipschitz domain. Consider
 
-```math
+$$
 \begin{aligned}
 \min_{y,u}\quad
 J(y,u)
-&:=
-\frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
-+
+&\coloneqq
+\frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2} +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2},\\
 \text{subject to}\quad
 -\Delta y
@@ -150,9 +149,9 @@ f+u
 y&=0
 \quad\text{on }\partial\Omega,
 \end{aligned}
-```
+$$
 
-with $\beta>0$.
+with $\beta\gt0$.
 
 The roles are:
 
@@ -167,15 +166,13 @@ The tracking term rewards states close to $y_{d}$. The control term discourages 
 The weak state problem is: find
 
 $$
-y\in V:=H_{0}^{1}(\Omega)
+y\in V\coloneqq H_{0}^{1}(\Omega)
 $$
 
 such that
 
 $$
-a(y,v)
-=
-(f+u,v)_{L^{2}(\Omega)}
+a(y,v) = (f+u,v)_{L^{2}(\Omega)}
 \qquad
 \forall v\in V,
 $$
@@ -183,9 +180,8 @@ $$
 where
 
 $$
-a(y,v)
-:=
-\int_{\Omega}\nabla y\cdot\nabla v \mathrm{d}x.
+a(y,v)\coloneqq
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x.
 $$
 
 Equivalently, define
@@ -197,8 +193,7 @@ $$
 by
 
 $$
-\langle E(y,u),v\rangle
-:=
+\langle E(y,u),v\rangle\coloneqq
 a(y,v)-(f+u,v)_{L^{2}(\Omega)}.
 $$
 
@@ -216,10 +211,7 @@ This residual convention will be used throughout the chapter.
 The objective need not compare the whole state directly with a target in $L^{2}(\Omega)$. A useful general form is
 
 $$
-J(y,u)
-=
-\frac{1}{2}\lVert Cy-z_{d}\rVert_{O}^{2}
-+
+J(y,u) = \frac{1}{2}\lVert Cy-z_{d}\rVert_{O}^{2} +
 \frac{\beta}{2}\lVert u\rVert_{U}^{2},
 $$
 
@@ -234,10 +226,7 @@ is an observation operator into an observation space $O$. Depending on the probl
 If $O$ is a Hilbert space with Riesz map $R_{O}$, the state derivative of the tracking term is
 
 $$
-D_{y}J(y,u)
-=
-C^{\ast}R_{O}(Cy-z_{d})
-\in Y^{\ast}.
+D_{y}J(y,u) = C^{\ast}R_{O}(Cy-z_{d})\in Y^{\ast}.
 $$
 
 The running example corresponds to the simplest case where $O=L^{2}(\Omega)$ and $C$ is the natural embedding of the state into $L^{2}(\Omega)$. Introducing $C$ explicitly is useful because it separates the PDE from the question of what part or feature of the state is actually observed.
@@ -355,18 +344,13 @@ $$
 where
 
 $$
-j(u)
-:=
-J(S(u),u).
+j(u)\coloneqq J(S(u),u).
 $$
 
 For the running example,
 
 $$
-j(u)
-=
-\frac{1}{2}\lVert S(u)-y_{d}\rVert_{L^{2}(\Omega)}^{2}
-+
+j(u) = \frac{1}{2}\lVert S(u)-y_{d}\rVert_{L^{2}(\Omega)}^{2} +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
 $$
 
@@ -410,7 +394,7 @@ $$
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}
 $$
 
-is strictly convex when $\beta>0$. Adding the convex tracking term preserves strict convexity, so the minimizer is unique.
+is strictly convex when $\beta\gt0$. Adding the convex tracking term preserves strict convexity, so the minimizer is unique.
 
 This argument is special in its simplicity. For nonlinear state equations the reduced map can be nonconvex even when the original tracking functional looks convex, and first-order conditions then cease to characterize a global minimizer.
 
@@ -425,9 +409,7 @@ $$
 be a control perturbation. The induced state perturbation is
 
 $$
-s
-:=
-S'(u)[h].
+s\coloneqq S'(u)[h].
 $$
 
 The letter $s$ is used here for a **sensitivity state**; $p$ will later be reserved for the adjoint.
@@ -441,11 +423,7 @@ $$
 Differentiate in the direction $h$. The chain rule gives
 
 $$
-D_{y}E(y,u)[s]
-+
-D_{u}E(y,u)[h]
-=
-0,
+D_{y}E(y,u)[s] + D_{u}E(y,u)[h] = 0,
 $$
 
 where
@@ -458,19 +436,14 @@ Therefore the sensitivity satisfies the **linearized state equation**
 
 $$
 \boxed{
-D_{y}E(y,u)[s]
-=
--D_{u}E(y,u)[h].
+D_{y}E(y,u)[s] = -D_{u}E(y,u)[h].
 }
 $$
 
 If $D_{y}E(y,u)$ is invertible, this may be written formally as
 
 $$
-S'(u)[h]
-=
--
-D_{y}E(y,u)^{-1}D_{u}E(y,u)[h].
+S'(u)[h] = -D_{y}E(y,u)^{-1}D_{u}E(y,u)[h].
 $$
 
 The inverse notation describes the mathematics; a numerical method normally solves a linearized PDE rather than constructing an inverse operator.
@@ -480,32 +453,28 @@ The inverse notation describes the mathematics; a numerical method normally solv
 For
 
 $$
-\langle E(y,u),v\rangle
-=
+\langle E(y,u),v\rangle =
 a(y,v)-(f+u,v)_{L^{2}(\Omega)},
 $$
 
 we have
 
 $$
-\langle D_{y}E(y,u)[s],v\rangle
-=
+\langle D_{y}E(y,u)[s],v\rangle =
 a(s,v)
 $$
 
 and
 
 $$
-\langle D_{u}E(y,u)[h],v\rangle
-=
+\langle D_{u}E(y,u)[h],v\rangle =
 -(h,v)_{L^{2}(\Omega)}.
 $$
 
 Hence the sensitivity equation is
 
 $$
-a(s,v)
-=
+a(s,v) =
 (h,v)_{L^{2}(\Omega)}
 \qquad
 \forall v\in V.
@@ -532,11 +501,7 @@ $$
 For a control perturbation $h$,
 
 $$
-j'(u)[h]
-=
-D_{y}J(y,u)[s]
-+
-D_{u}J(y,u)[h],
+j'(u)[h] = D_{y}J(y,u)[s] + D_{u}J(y,u)[h],
 $$
 
 where
@@ -548,26 +513,19 @@ $$
 For the running objective,
 
 $$
-D_{y}J(y,u)[s]
-=
-(y-y_{d},s)_{L^{2}(\Omega)}
+D_{y}J(y,u)[s] = (y-y_{d},s)_{L^{2}(\Omega)}
 $$
 
 and
 
 $$
-D_{u}J(y,u)[h]
-=
-\beta(u,h)_{L^{2}(\Omega)}.
+D_{u}J(y,u)[h] = \beta(u,h)_{L^{2}(\Omega)}.
 $$
 
 Therefore
 
 $$
-j'(u)[h]
-=
-(y-y_{d},s)_{L^{2}(\Omega)}
-+
+j'(u)[h] = (y-y_{d},s)_{L^{2}(\Omega)} +
 \beta(u,h)_{L^{2}(\Omega)}.
 $$
 
@@ -590,15 +548,13 @@ $$
 or enough information to construct a gradient. If $U_{h}$ is a discrete control space with basis
 
 $$
-\{\psi_{1},\ldots,\psi_{N_{u}}\},
+\lbrace\psi_{1},\ldots,\psi_{N_{u}}\rbrace,
 $$
 
 constructing the derivative coefficient by coefficient with direct sensitivities would require solving
 
 $$
-D_{y}E(y,u)[s_{k}]
-=
--D_{u}E(y,u)[\psi_{k}],
+D_{y}E(y,u)[s_{k}] = -D_{u}E(y,u)[\psi_{k}],
 \qquad
 k=1,\ldots,N_{u}.
 $$
@@ -632,13 +588,8 @@ $$
 defined by
 
 $$
-\left\langle
-D_{y}E(y,u)[\delta y],p
-\right\rangle_{Z^{\ast},Z}
-=
-\left\langle
-D_{y}E(y,u)^{\ast}p,\delta y
-\right\rangle_{Y^{\ast},Y}.
+\left\langle D_{y}E(y,u)[\delta y],p\right\rangle_{Z^{\ast},Z} =
+\left\langle D_{y}E(y,u)^{\ast}p,\delta y\right\rangle_{Y^{\ast},Y}.
 $$
 
 Choose the adjoint state
@@ -651,15 +602,13 @@ to solve
 
 $$
 \boxed{
-D_{y}E(y,u)^{\ast}p
-=
-D_{y}J(y,u).
+D_{y}E(y,u)^{\ast}p = D_{y}J(y,u).
 }
 $$
 
 Now use the adjoint equation in the state-dependent term of the reduced derivative:
 
-```math
+$$
 \begin{aligned}
 D_{y}J(y,u)[s]
 &=
@@ -667,19 +616,17 @@ D_{y}J(y,u)[s]
 &=
 \left\langle D_{y}E(y,u)[s],p\right\rangle.
 \end{aligned}
-```
+$$
 
 The sensitivity equation gives
 
 $$
-D_{y}E(y,u)[s]
-=
--D_{u}E(y,u)[h].
+D_{y}E(y,u)[s] = -D_{u}E(y,u)[h].
 $$
 
 Hence
 
-```math
+$$
 \begin{aligned}
 D_{y}J(y,u)[s]
 &=
@@ -687,17 +634,13 @@ D_{y}J(y,u)[s]
 &=
 -\left\langle D_{u}E(y,u)^{\ast}p,h\right\rangle.
 \end{aligned}
-```
+$$
 
 Substituting into the chain rule yields
 
 $$
 \boxed{
-j'(u)
-=
-D_{u}J(y,u)
--
-D_{u}E(y,u)^{\ast}p,
+j'(u) = D_{u}J(y,u) - D_{u}E(y,u)^{\ast}p,
 }
 $$
 
@@ -705,9 +648,7 @@ with
 
 $$
 \boxed{
-D_{y}E(y,u)^{\ast}p
-=
-D_{y}J(y,u).
+D_{y}E(y,u)^{\ast}p = D_{y}J(y,u).
 }
 $$
 
@@ -748,17 +689,13 @@ This is the same forward-versus-reverse distinction seen in [02 · Duality, deri
 For the Poisson residual,
 
 $$
-\langle D_{y}E[s],v\rangle
-=
-a(s,v).
+\langle D_{y}E[s],v\rangle = a(s,v).
 $$
 
 The adjoint equation asks for $p\in V$ such that
 
 $$
-a(\delta y,p)
-=
-(y-y_{d},\delta y)_{L^{2}(\Omega)}
+a(\delta y,p) = (y-y_{d},\delta y)_{L^{2}(\Omega)}
 \qquad
 \forall \delta y\in V.
 $$
@@ -772,9 +709,7 @@ $$
 so this can also be written
 
 $$
-a(p,v)
-=
-(y-y_{d},v)_{L^{2}(\Omega)}
+a(p,v) = (y-y_{d},v)_{L^{2}(\Omega)}
 \qquad
 \forall v\in V.
 $$
@@ -794,32 +729,27 @@ The equality of the state and adjoint differential operators here is a consequen
 For a control direction $h$,
 
 $$
-\left\langle D_{u}E[h],p\right\rangle
-=
--(h,p)_{L^{2}(\Omega)}.
+\left\langle D_{u}E[h],p\right\rangle = -(h,p)_{L^{2}(\Omega)}.
 $$
 
 Therefore
 
-```math
+$$
 \begin{aligned}
 j'(u)[h]
 &=
-\beta(u,h)_{L^{2}(\Omega)}
--
+\beta(u,h)_{L^{2}(\Omega)}-
 \left[-(h,p)_{L^{2}(\Omega)}\right]\\
 &=
 (\beta u+p,h)_{L^{2}(\Omega)}.
 \end{aligned}
-```
+$$
 
 Thus
 
 $$
 \boxed{
-j'(u)[h]
-=
-(\beta u+p,h)_{L^{2}(\Omega)}.
+j'(u)[h] = (\beta u+p,h)_{L^{2}(\Omega)}.
 }
 $$
 
@@ -859,9 +789,7 @@ $$
 If the control metric is the ordinary $L^{2}(\Omega)$ inner product, then
 
 $$
-j'(u)[h]
-=
-(\beta u+p,h)_{L^{2}(\Omega)}
+j'(u)[h] = (\beta u+p,h)_{L^{2}(\Omega)}
 $$
 
 shows directly that
@@ -988,13 +916,8 @@ $$
 Using the adjoint formula,
 
 $$
-\left\langle
-D_{u}J(\bar y,\bar u)
--
-D_{u}E(\bar y,\bar u)^{\ast}\bar p,
- v-\bar u
-\right\rangle
-\geq0.
+\left\langle D_{u}J(\bar y,\bar u) -
+D_{u}E(\bar y,\bar u)^{\ast}\bar p, v-\bar u\right\rangle\geq0.
 $$
 
 The state and adjoint equations have the same form as before. Only the control stationarity condition changes.
@@ -1004,13 +927,11 @@ The state and adjoint equations have the same form as before. Only the control s
 Let
 
 $$
-U_{\mathrm{ad}}
-=
-\left\{
+U_{\mathrm{ad}} = \left\lbrace
 u\in L^{2}(\Omega):
  u_{a}(x)\leq u(x)\leq u_{b}(x)
 \text{ a.e. in }\Omega
-\right\}.
+\right\rbrace.
 $$
 
 Then
@@ -1022,27 +943,22 @@ $$
 \forall v\in U_{\mathrm{ad}}.
 $$
 
-For $\beta>0$, the projection characterization from [06 · Constrained optimization](06-constrained-optimization.md) gives
+For $\beta\gt0$, the projection characterization from [06 · Constrained optimization](06-constrained-optimization.md) gives
 
 $$
 \boxed{
-\bar u
-=
-P_{U_{\mathrm{ad}}}
-\left(-\frac{1}{\beta}\bar p\right).
+\bar u = P_{U_{\mathrm{ad}}}\left(-\frac{1}{\beta}\bar p\right).
 }
 $$
 
 For pointwise box constraints this is simply clipping:
 
 $$
-\bar u(x)
-=
-\min\left\{
+\bar u(x) = \min\left\lbrace
 u_{b}(x),
-\max\left\{
-u_{a}(x),-\frac{1}{\beta}\bar p(x)\right\}
-\right\}
+\max\left\lbrace
+u_{a}(x),-\frac{1}{\beta}\bar p(x)\right\rbrace
+\right\rbrace
 $$
 
 for almost every $x\in\Omega$.
@@ -1061,10 +977,7 @@ and define the Lagrangian
 
 $$
 \boxed{
-\mathcal L(y,u,p)
-:=
-J(y,u)
--
+\mathcal L(y,u,p)\coloneqq J(y,u) -
 \langle E(y,u),p\rangle_{Z^{\ast},Z}.
 }
 $$
@@ -1078,9 +991,7 @@ For an unconstrained control, stationarity of $\mathcal L$ with respect to the t
 For any $\delta p\in Z$,
 
 $$
-D_{p}\mathcal L(y,u,p)[\delta p]
-=
--\langle E(y,u),\delta p\rangle.
+D_{p}\mathcal L(y,u,p)[\delta p] = -\langle E(y,u),\delta p\rangle.
 $$
 
 Requiring this to vanish for every $\delta p$ gives
@@ -1093,12 +1004,11 @@ $$
 
 For any $\delta y\in Y$,
 
-```math
+$$
 \begin{aligned}
 D_{y}\mathcal L(y,u,p)[\delta y]
 &=
-D_{y}J(y,u)[\delta y]
--
+D_{y}J(y,u)[\delta y] -
 \langle D_{y}E(y,u)[\delta y],p\rangle\\
 &=
 \left\langle
@@ -1106,14 +1016,12 @@ D_{y}J(y,u)-D_{y}E(y,u)^{\ast}p,
 \delta y
 \right\rangle.
 \end{aligned}
-```
+$$
 
 Hence
 
 $$
-D_{y}E(y,u)^{\ast}p
-=
-D_{y}J(y,u).
+D_{y}E(y,u)^{\ast}p = D_{y}J(y,u).
 $$
 
 ### 11.3 Variation with respect to the control: reduced stationarity
@@ -1121,12 +1029,8 @@ $$
 For any $h\in U$,
 
 $$
-D_{u}\mathcal L(y,u,p)[h]
-=
-\left\langle
-D_{u}J(y,u)-D_{u}E(y,u)^{\ast}p,
-h
-\right\rangle.
+D_{u}\mathcal L(y,u,p)[h] =
+\left\langle D_{u}J(y,u)-D_{u}E(y,u)^{\ast}p,h\right\rangle.
 $$
 
 For an unconstrained control,
@@ -1187,13 +1091,13 @@ Neither organization is universally superior. A mature PDE solver can make reduc
 
 For the running problem, the all-at-once first-order conditions are
 
-```math
+$$
 \begin{aligned}
 -\Delta y &= f+u,\\
 -\Delta p &= y-y_{d},\\
 \beta u+p &= 0,
 \end{aligned}
-```
+$$
 
 with homogeneous Dirichlet conditions on $y$ and $p$.
 
@@ -1204,9 +1108,7 @@ After discretization these equations form a saddle-point system. The same struct
 Let
 
 $$
-x
-:=
-\begin{bmatrix}
+x\coloneqq \begin{bmatrix}
 y\\
 u
 \end{bmatrix}
@@ -1221,20 +1123,14 @@ $$
 A quadratic objective has the form
 
 $$
-\varphi(x)
-=
-\frac{1}{2}\langle Qx,x\rangle
--\langle c,x\rangle
-+c_{0}.
+\varphi(x) = \frac{1}{2}\langle Qx,x\rangle -
+\langle c,x\rangle + c_{0}.
 $$
 
 The conventional quadratic-programming Lagrangian is often written
 
 $$
-\widehat{\mathcal L}(x,\lambda)
-=
-\varphi(x)
-+
+\widehat{\mathcal L}(x,\lambda) = \varphi(x) +
 \langle\lambda,Dx-d\rangle.
 $$
 
@@ -1252,7 +1148,7 @@ $$
 
 In finite-dimensional coordinates this yields the canonical KKT system
 
-```math
+$$
 \begin{bmatrix}
 Q & D^{\mathsf T}\\
 D & 0
@@ -1260,22 +1156,19 @@ D & 0
 \begin{bmatrix}
 x\\
 \lambda
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 c\\
 d
 \end{bmatrix}.
-```
+$$
 
 ### 13.1 The KKT multiplier and the PDE adjoint may differ by a sign
 
 Our PDE Lagrangian convention is
 
 $$
-\mathcal L
-=
-J-\langle E,p\rangle,
+\mathcal L = J-\langle E,p\rangle,
 $$
 
 and for the equality residual
@@ -1395,13 +1288,13 @@ for the control.
 The spaces need not have the same dimension. Let
 
 $$
-\{\phi_{1},\ldots,\phi_{N_{y}}\}
+\lbrace\phi_{1},\ldots,\phi_{N_{y}}\rbrace
 $$
 
 be a basis of $V_{h}$ and
 
 $$
-\{\psi_{1},\ldots,\psi_{N_{u}}\}
+\lbrace\psi_{1},\ldots,\psi_{N_{u}}\rbrace
 $$
 
 be a basis of $U_{h}$.
@@ -1409,13 +1302,9 @@ be a basis of $U_{h}$.
 Expand
 
 $$
-y_{h}
-=
-\sum_{j=1}^{N_{y}} y_{j}\phi_{j},
+y_{h} = \sum_{j=1}^{N_{y}} y_{j}\phi_{j},
 \qquad
-u_{h}
-=
-\sum_{k=1}^{N_{u}} u_{k}\psi_{k}.
+u_{h} = \sum_{k=1}^{N_{u}} u_{k}\psi_{k}.
 $$
 
 ### 15.1 The discrete state equation
@@ -1423,33 +1312,25 @@ $$
 Testing with $\phi_{i}$ gives
 
 $$
-\sum_{j=1}^{N_{y}}y_{j}a(\phi_{j},\phi_{i})
-=
-(f,\phi_{i})_{L^{2}}
-+
+\sum_{j=1}^{N_{y}}y_{j}a(\phi_{j},\phi_{i}) =
+(f,\phi_{i})_{L^{2}} +
 \sum_{k=1}^{N_{u}}u_{k}(\psi_{k},\phi_{i})_{L^{2}}.
 $$
 
 Define
 
 $$
-A_{ij}
-:=
-a(\phi_{j},\phi_{i}),
+A_{ij}\coloneqq a(\phi_{j},\phi_{i}),
 $$
 
 $$
-B_{ik}
-:=
-(\psi_{k},\phi_{i})_{L^{2}(\Omega)},
+B_{ik}\coloneqq (\psi_{k},\phi_{i})_{L^{2}(\Omega)},
 $$
 
 and
 
 $$
-f_{i}
-:=
-(f,\phi_{i})_{L^{2}(\Omega)}.
+f_{i}\coloneqq (f,\phi_{i})_{L^{2}(\Omega)}.
 $$
 
 Then
@@ -1473,38 +1354,26 @@ is rectangular when the state and control spaces have different dimensions.
 Define the state and control mass matrices
 
 $$
-(M_{y})_{ij}
-:=
-(\phi_{j},\phi_{i})_{L^{2}(\Omega)},
+(M_{y})_{ij}\coloneqq (\phi_{j},\phi_{i})_{L^{2}(\Omega)},
 $$
 
 and
 
 $$
-(M_{u})_{k\ell}
-:=
-(\psi_{\ell},\psi_{k})_{L^{2}(\Omega)}.
+(M_{u})_{k\ell}\coloneqq (\psi_{\ell},\psi_{k})_{L^{2}(\Omega)}.
 $$
 
 If the target $y_{d}$ is not itself represented by a coefficient vector in $V_{h}$, define the load-like vector
 
 $$
-(q_{d})_{i}
-:=
-(y_{d},\phi_{i})_{L^{2}(\Omega)}.
+(q_{d})_{i}\coloneqq (y_{d},\phi_{i})_{L^{2}(\Omega)}.
 $$
 
 Then, up to a constant independent of $(y,u)$,
 
 $$
-J_{h}(y,u)
-=
-\frac{1}{2}y^{\mathsf T}M_{y}y
--q_{d}^{\mathsf T}y
-+
-\frac{\beta}{2}u^{\mathsf T}M_{u}u
-+
-\text{constant}.
+J_{h}(y,u) = \frac{1}{2}y^{\mathsf T}M_{y}y - q_{d}^{\mathsf T}y +
+\frac{\beta}{2}u^{\mathsf T}M_{u}u + \text{constant}.
 $$
 
 This form avoids pretending that an arbitrary continuous target automatically has a nodal coefficient vector.
@@ -1514,18 +1383,14 @@ This form avoids pretending that an arbitrary continuous target automatically ha
 The discrete residual is
 
 $$
-E_{h}(y,u)
-:=
-Ay-Bu-f.
+E_{h}(y,u)\coloneqq Ay-Bu-f.
 $$
 
 With the same minus-sign Lagrangian convention,
 
 $$
-\mathcal L_{h}(y,u,p)
-=
-J_{h}(y,u)
--p^{\mathsf T}(Ay-Bu-f).
+\mathcal L_{h}(y,u,p) = J_{h}(y,u) -
+p^{\mathsf T}(Ay-Bu-f).
 $$
 
 State stationarity gives
@@ -1572,7 +1437,7 @@ $$
 
 The complete three-block system is
 
-```math
+$$
 \begin{bmatrix}
 A & 0 & -B\\
 M_{y} & -A^{\mathsf T} & 0\\
@@ -1582,14 +1447,13 @@ M_{y} & -A^{\mathsf T} & 0\\
 y\\
 p\\
 u
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 f\\
 q_{d}\\
 0
 \end{bmatrix}.
-```
+$$
 
 The same equations may be reordered and the multiplier sign changed to obtain the conventional symmetric KKT layout when the primal quadratic form and pairings are symmetric.
 
@@ -1644,10 +1508,7 @@ p
 For the linear-quadratic problem, the reduced Hessian is
 
 $$
-H_{\mathrm{red}}
-=
-\beta M_{u}
-+
+H_{\mathrm{red}} = \beta M_{u} +
 B^{\mathsf T}A^{-\mathsf T}M_{y}A^{-1}B.
 $$
 
@@ -1655,17 +1516,16 @@ The formula is useful conceptually, but there is usually no need to assemble the
 
 This expression also makes positivity visible. For any control increment $d$,
 
-```math
+$$
 \begin{aligned}
 d^{\mathsf T}H_{\mathrm{red}}d
 &=
-\beta d^{\mathsf T}M_{u}d
-+
+\beta d^{\mathsf T}M_{u}d +
 (A^{-1}Bd)^{\mathsf T}M_{y}(A^{-1}Bd).
 \end{aligned}
-```
+$$
 
-If $M_{u}$ is positive definite and $\beta>0$, then the reduced Hessian is positive definite. This is the discrete reflection of strict convexity of the linear-quadratic reduced problem.
+If $M_{u}$ is positive definite and $\beta\gt0$, then the reduced Hessian is positive definite. This is the discrete reflection of strict convexity of the linear-quadratic reduced problem.
 
 ## 17. Derivative and adjoint verification
 
@@ -1708,17 +1568,13 @@ $$
 with finite differences. A centered check is
 
 $$
-D_{t}
-:=
-\frac{j(u+t h)-j(u-t h)}{2t}.
+D_{t}\coloneqq \frac{j(u+t h)-j(u-t h)}{2t}.
 $$
 
 For a sufficiently smooth problem and sufficiently accurate state solves,
 
 $$
-D_{t}-j'(u)[h]
-=
-O(t^{2})
+D_{t}-j'(u)[h] = O(t^{2})
 $$
 
 until floating-point error and solve tolerances dominate.
@@ -1726,11 +1582,7 @@ until floating-point error and solve tolerances dominate.
 A first-order Taylor remainder is also useful:
 
 $$
-R(t)
-:=
-\left|
- j(u+t h)-j(u)-t j'(u)[h]
-\right|.
+R(t)\coloneqq \left\lvert j(u+t h)-j(u)-t j'(u)[h]\right\rvert.
 $$
 
 For a correct derivative,

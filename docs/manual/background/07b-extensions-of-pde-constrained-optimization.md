@@ -53,7 +53,7 @@ The Hamiltonian part then derives the state–costate equations from the Lagrang
 A stationary PDE-constrained problem asks for fields on a spatial domain $\Omega$. A time-dependent problem asks for **trajectories of fields** on a space-time cylinder
 
 $$
-Q_{T}:=\Omega\times(0,T).
+Q_{T}\coloneqq\Omega\times(0,T).
 $$
 
 The control may also vary in time, so instead of one $u(x)$ we optimize a history $u(x,t)$. Objectives may measure tracking over the whole interval,
@@ -80,7 +80,7 @@ Two broad evolution classes already show why "add time" is not a single modifica
 
 A linear heat or diffusion-reaction equation has the form
 
-```math
+$$
 \begin{aligned}
 y_{t}
 -\nabla\cdot(\kappa\nabla y)
@@ -92,7 +92,7 @@ y&=0
 y(0)&=y_{0}
 &&\text{in }\Omega.
 \end{aligned}
-```
+$$
 
 An advection-diffusion model adds transport,
 
@@ -104,22 +104,19 @@ These are **parabolic** problems. Diffusion damps high-frequency components and 
 
 The cost may observe the whole trajectory or only its endpoint. For example,
 
-```math
+$$
 J(y,u)
-=
-\frac{1}{2}
+= \frac{1}{2}
 \int_{0}^{T}
 \lVert y(t)-y_{d}(t)\rVert_{L^{2}(\Omega)}^{2}
 \mathrm{d}t
-+
-\frac{\alpha}{2}
++\frac{\alpha}{2}
 \int_{0}^{T}
 \lVert u(t)\rVert_{U}^{2}
 \mathrm{d}t
-+
-\frac{\beta}{2}
++\frac{\beta}{2}
 \lVert y(T)-y_{T}\rVert_{L^{2}(\Omega)}^{2}.
-```
+$$
 
 The terminal term is important because it becomes a **final condition for the adjoint**.
 
@@ -127,7 +124,7 @@ The terminal term is important because it becomes a **final condition for the ad
 
 A model wave-control problem is
 
-```math
+$$
 \begin{aligned}
 y_{tt}-c^{2}\Delta y&=Bu+f
 &&\text{in }Q_{T},\\
@@ -136,7 +133,7 @@ y&=0
 y(0)&=y_{0},\\
 y_{t}(0)&=v_{0}.
 \end{aligned}
-```
+$$
 
 The wave equation is **hyperbolic**, not parabolic. It propagates information at finite speed and does not have the same dissipative smoothing mechanism as the heat equation. Two initial conditions are required because the equation is second order in time.
 
@@ -172,15 +169,14 @@ $$
 \int_{0}^{T}
 \lVert v(t)\rVert_{X}^{p}
 \mathrm{d}t
-<\infty.
+\lt\infty.
 $$
 
 For $p=2$,
 
 $$
 \lVert v\rVert_{L^{2}(0,T;X)}^{2}
-=
-\int_{0}^{T}\lVert v(t)\rVert_{X}^{2}\mathrm{d}t.
+= \int_{0}^{T}\lVert v(t)\rVert_{X}^{2}\thinspace\mathrm{d}t.
 $$
 
 If $X=\mathbb R^{n}$ this is just the familiar space of square-integrable vector-valued time signals. In PDEs, $X$ itself is a spatial function space, so one should think of a Bochner-space element as a time-indexed family of fields with an integrated spatial norm.
@@ -205,11 +201,11 @@ The natural energy space is
 
 $$
 W(0,T)
-:=
-\left\{
+\coloneqq
+\left\lbrace
 y\in L^{2}(0,T;V):
 y_{t}\in L^{2}(0,T;V^{\ast})
-\right\}.
+\right\rbrace.
 $$
 
 This choice is not decorative notation. The spatial elliptic operator naturally maps $V$ into $V^{\ast}$, so the equation
@@ -234,10 +230,8 @@ Let $A:V\to V^{\ast}$ be induced by a continuous coercive bilinear form $a$. The
 
 $$
 \langle y_{t}(t),v\rangle_{V^{\ast},V}
-+
-a(y(t),v)
-=
-\langle Bu(t)+f(t),v\rangle_{V^{\ast},V}
++a(y(t),v)
+= \langle Bu(t)+f(t),v\rangle_{V^{\ast},V}
 $$
 
 for every $v\in V$ and almost every $t$.
@@ -260,7 +254,7 @@ Use the residual
 
 $$
 E(y,u)
-:=
+\coloneqq
 y_{t}+Ay-Bu-f
 $$
 
@@ -268,10 +262,8 @@ and the same Lagrangian convention as the rest of these notes:
 
 $$
 \mathcal L(y,u,p)
-=
-J(y,u)
--
-\int_{0}^{T}\langle p,E(y,u)\rangle\mathrm{d}t.
+= J(y,u)
+-\int_{0}^{T}\langle p,E(y,u)\rangle\thinspace\mathrm{d}t.
 $$
 
 Let $z$ be a state variation satisfying
@@ -283,20 +275,15 @@ $$
 because the initial condition is fixed. The time-derivative contribution to the variation is
 
 $$
--
-\int_{0}^{T}\langle p,z_{t}\rangle\mathrm{d}t.
+-\int_{0}^{T}\langle p,z_{t}\rangle\thinspace\mathrm{d}t.
 $$
 
 The weak integration-by-parts identity gives
 
 $$
--
-\int_{0}^{T}\langle p,z_{t}\rangle\mathrm{d}t
-=
--
-(p(T),z(T))_{H}
-+
-\int_{0}^{T}\langle p_{t},z\rangle\mathrm{d}t,
+-\int_{0}^{T}\langle p,z_{t}\rangle\thinspace\mathrm{d}t
+= -(p(T),z(T))_{H}
++\int_{0}^{T}\langle p_{t},z\rangle\thinspace\mathrm{d}t,
 $$
 
 because $z(0)=0$.
@@ -320,8 +307,7 @@ For the interior variation to vanish, we obtain
 $$
 \boxed{
 -p_{t}+A^{\ast}p
-=
-R_{H}(y-y_{d}).
+= R_{H}(y-y_{d}).
 }
 $$
 
@@ -331,8 +317,7 @@ The control derivative is
 
 $$
 j'(u)
-=
-\alpha R_{U}u+B^{\ast}p.
+= \alpha R_{U}u+B^{\ast}p.
 $$
 
 The complete computational pattern becomes
@@ -365,12 +350,9 @@ Suppose implicit Euler with time step $\tau$ gives the discrete state equation
 
 $$
 (M+\tau K)Y^{k}
-=
-MY^{k-1}
-+
-\tau B U^{k}
-+
-\tau F^{k},
+= MY^{k-1}
++\tau B U^{k}
++\tau F^{k},
 \qquad
 k=1,\ldots,N.
 $$
@@ -381,10 +363,8 @@ If we first define this discrete state evolution and then differentiate the resu
 
 $$
 (M+\tau K)^{\mathsf T}P^{k}
-=
-M^{\mathsf T}P^{k+1}
-+
-\tau M(Y^{k}-Y_{d}^{k}),
+= M^{\mathsf T}P^{k+1}
++\tau M(Y^{k}-Y_{d}^{k}),
 $$
 
 with the appropriate terminal contribution at $k=N$.
@@ -414,7 +394,7 @@ The basic object is the **convex subdifferential**.
 Let $X$ be a Banach space and let
 
 $$
-\phi:X\to\mathbb R\cup\{+\infty\}
+\phi:X\to\mathbb R\cup\lbrace+\infty\rbrace
 $$
 
 be a proper convex functional. A covector
@@ -430,8 +410,7 @@ $$
 \phi(v)
 \geq
 \phi(x)
-+
-\langle\xi,v-x\rangle
++\langle\xi,v-x\rangle
 \qquad
 \forall v\in X.
 }
@@ -441,12 +420,12 @@ The set of all such subgradients is the **subdifferential**
 
 $$
 \partial\phi(x)
-:=
-\left\{
+\coloneqq
+\left\lbrace
 \xi\in X^{\ast}:
 \phi(v)\geq\phi(x)+\langle\xi,v-x\rangle
 \ \forall v
-\right\}.
+\right\rbrace.
 $$
 
 Geometrically, every $\xi\in\partial\phi(x)$ defines an affine supporting hyperplane below the graph of the convex function.
@@ -454,7 +433,7 @@ Geometrically, every $\xi\in\partial\phi(x)$ defines an affine supporting hyperp
 If $\phi$ is Fréchet differentiable at $x$, convexity implies
 
 $$
-\partial\phi(x)=\{\phi'(x)\}.
+\partial\phi(x)=\lbrace\phi'(x)\rbrace.
 $$
 
 So the subdifferential does not replace derivatives when derivatives work; it extends the same first-order idea to corners and flat set-valued slopes.
@@ -476,18 +455,17 @@ This is the nonsmooth analogue of ``gradient equals zero.''
 For
 
 $$
-\phi(s)=|s|,
+\phi(s)=\lvert s\rvert,
 $$
 
 one finds
 
 $$
-\partial |s|
-=
-\begin{cases}
-\{1\}, & s>0,\\
+\partial \lvert s\rvert
+= \begin{cases}
+\lbrace1\rbrace, & s\gt0,\\
 [-1,1], & s=0,\\
-\{-1\}, & s<0.
+\lbrace-1\rbrace, & s\lt0.
 \end{cases}
 $$
 
@@ -501,12 +479,9 @@ Consider
 
 $$
 J(y,u)
-=
-\frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
-+
-\frac{\alpha}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}
-+
-\beta\lVert u\rVert_{L^{1}(\Omega)}.
+= \frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
++\frac{\alpha}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}
++\beta\lVert u\rVert_{L^{1}(\Omega)}.
 $$
 
 Let $j_{\mathrm{sm}}$ denote the differentiable reduced tracking plus quadratic part. The first-order condition becomes
@@ -516,8 +491,7 @@ $$
 0
 \in
 j_{\mathrm{sm}}'(u)
-+
-\beta\partial\lVert u\rVert_{L^{1}}.
++\beta\partial\lVert u\rVert_{L^{1}}.
 }
 $$
 
@@ -533,16 +507,16 @@ $$
 \lambda(x)
 \in
 \begin{cases}
-\{1\}, & u(x)>0,\\
+\lbrace1\rbrace, & u(x)\gt0,\\
 [-1,1], & u(x)=0,\\
-\{-1\}, & u(x)<0.
+\lbrace-1\rbrace, & u(x)\lt0.
 \end{cases}
 $$
 
 Suppose the smooth reduced gradient is $g$. Then at a point where
 
 $$
-|g(x)|<\beta,
+\lvert g(x)\rvert\lt\beta,
 $$
 
 the inclusion can be satisfied with
@@ -553,13 +527,12 @@ $$
 
 This is the mechanism behind **sparsity promotion**: a whole interval of smooth-gradient values is compatible with an exactly zero control.
 
-The proximal map of the scalar absolute value makes the same mechanism explicit. For $\tau>0$,
+The proximal map of the scalar absolute value makes the same mechanism explicit. For $\tau\gt0$,
 
 $$
-\mathrm{prox}_{\tau\beta|\cdot|}(s)
-=
-\mathrm{sign}(s)
-\max\{|s|-\tau\beta,0\},
+\mathrm{prox}_{\tau\beta\lvert\cdot\rvert}(s)
+= \mathrm{sign}(s)
+\max\lbrace\lvert s\rvert-\tau\beta,0\rbrace,
 $$
 
 the familiar soft-thresholding rule.
@@ -570,8 +543,7 @@ Let $K\subset X$ be a closed convex set and define its indicator functional
 
 $$
 I_{K}(x)
-=
-\begin{cases}
+= \begin{cases}
 0, & x\in K,\\
 +\infty, & x\notin K.
 \end{cases}
@@ -676,13 +648,13 @@ $$
 
 In contact, obstacle, or complementarity models, the state may instead satisfy a variational inequality. A schematic obstacle problem is
 
-```math
+$$
 \begin{aligned}
 y&\geq\psi,\\
 Ay-f-u&\geq0,\\
 (y-\psi)(Ay-f-u)&=0.
 \end{aligned}
-```
+$$
 
 At each point either the obstacle is inactive and the PDE equality holds, or the state touches the obstacle and a reaction force becomes active.
 
@@ -715,10 +687,8 @@ and a cost
 
 $$
 J(y,u)
-=
-\Phi(y(T))
-+
-\int_{0}^{T}\ell(y(t),u(t))\mathrm{d}t.
+= \Phi(y(T))
++\int_{0}^{T}\ell(y(t),u(t))\thinspace\mathrm{d}t.
 $$
 
 Using the residual
@@ -731,20 +701,16 @@ and the same minus-sign convention as the rest of the background notes,
 
 $$
 \mathcal L(y,u,p)
-=
-J(y,u)
--
-\int_{0}^{T}p^{\mathsf T}E(y,u)\mathrm{d}t.
+= J(y,u)
+-\int_{0}^{T}p^{\mathsf T}E(y,u)\thinspace\mathrm{d}t.
 $$
 
 Expanding the residual gives
 
 $$
 \mathcal L
-=
-\Phi(y(T))
-+
-\int_{0}^{T}
+= \Phi(y(T))
++\int_{0}^{T}
 \left[
 \ell(y,u)
 +p^{\mathsf T}F(y,u)
@@ -758,7 +724,7 @@ This motivates the Hamiltonian
 $$
 \boxed{
 H(y,u,p)
-:=
+\coloneqq
 \ell(y,u)+p^{\mathsf T}F(y,u).
 }
 $$
@@ -767,10 +733,8 @@ The Lagrangian can now be read as
 
 $$
 \mathcal L
-=
-\Phi(y(T))
-+
-\int_{0}^{T}
+= \Phi(y(T))
++\int_{0}^{T}
 \left[
 H(y,u,p)-p^{\mathsf T}\dot y
 \right]
@@ -799,13 +763,13 @@ $$
 
 Thus the familiar forward state/backward adjoint pair becomes
 
-```math
+$$
 \begin{aligned}
 \dot y&=H_{p},\\
 -\dot p&=H_{y},\\
 p(T)&=\Phi_{y}(y(T)).
 \end{aligned}
-```
+$$
 
 The word **costate** used in optimal-control theory refers to the same mathematical role that we have called the adjoint or equality-constraint multiplier.
 
@@ -831,8 +795,7 @@ Under the standard hypotheses of the Pontryagin principle, a general admissible 
 $$
 \boxed{
 H(\bar y(t),\bar u(t),\bar p(t))
-=
-\min_{v\in U_{\mathrm{ad}}}
+= \min_{v\in U_{\mathrm{ad}}}
 H(\bar y(t),v,\bar p(t))
 }
 $$
@@ -855,28 +818,22 @@ with
 
 $$
 J(y,u)
-=
-\frac{q_{T}}{2}(y(T)-y_{T})^{2}
-+
-\int_{0}^{T}
+= \frac{q_{T}}{2}(y(T)-y_{T})^{2}
++\int_{0}^{T}
 \left(
 \frac{q}{2}y^{2}
-+
-\frac{r}{2}u^{2}
++\frac{r}{2}u^{2}
 \right)
 \mathrm{d}t,
 $$
 
-where $r>0$. The Hamiltonian is
+where $r\gt0$. The Hamiltonian is
 
 $$
 H(y,u,p)
-=
-\frac{q}{2}y^{2}
-+
-\frac{r}{2}u^{2}
-+
-p(ay+bu).
+= \frac{q}{2}y^{2}
++\frac{r}{2}u^{2}
++p(ay+bu).
 $$
 
 The state equation is recovered from
@@ -889,10 +846,8 @@ The costate equation is
 
 $$
 -\dot p
-=
-H_{y}
-=
-qy+ap,
+= H_{y}
+= qy+ap,
 $$
 
 with terminal condition
@@ -926,8 +881,7 @@ the pointwise minimization gives
 $$
 \boxed{
 u
-=
-P_{[u_{a},u_{b}]}
+= P_{[u_{a},u_{b}]}
 \left(-\frac{b}{r}p\right).
 }
 $$
@@ -959,10 +913,8 @@ the Hamiltonian becomes a functional involving the appropriate spatial pairing,
 
 $$
 \mathcal H(y,u,p)
-=
-\ell(y,u)
-+
-\langle p,\mathcal F(y,u)\rangle.
+= \ell(y,u)
++\langle p,\mathcal F(y,u)\rangle.
 $$
 
 The derivatives $\mathcal H_{y}$ and $\mathcal H_{u}$ are then function-space covectors. The resulting state–adjoint–control structure is the same one already derived through the PDE Lagrangian; the Hamiltonian notation highlights its dynamical organization rather than introducing a different optimization problem.
@@ -991,17 +943,16 @@ $$
 
 At an iterate $(w_{k},p_{k})$, an exact-Hessian SQP step $d$ solves the local quadratic problem
 
-```math
+$$
 \begin{aligned}
 \min_{d}\quad&
 J'(w_{k})[d]
-+
-\frac{1}{2}
++\frac{1}{2}
 \mathcal L_{ww}''(w_{k},p_{k})[d,d],\\
 \text{subject to}\quad&
 E(w_{k})+E'(w_{k})d=0.
 \end{aligned}
-```
+$$
 
 The nonlinear PDE constraint has been replaced by its **linearized state equation**, while the objective curvature is represented by the Hessian of the Lagrangian.
 
@@ -1073,14 +1024,14 @@ The examples below are not full derivations. They give enough of the equations t
 
 For an incompressible viscous flow, the steady Stokes state can be written schematically as
 
-```math
+$$
 \begin{aligned}
 -\nu\Delta v+\nabla\pi&=f+Bu
 &&\text{in }\Omega,\\
 \nabla\cdot v&=0
 &&\text{in }\Omega.
 \end{aligned}
-```
+$$
 
 The state is already a pair:
 
@@ -1116,7 +1067,7 @@ What becomes harder is the linear algebra: every state or adjoint application is
 
 The steady incompressible Navier–Stokes equations add convection:
 
-```math
+$$
 \begin{aligned}
 -\nu\Delta v
 +(v\cdot\nabla)v
@@ -1124,14 +1075,13 @@ The steady incompressible Navier–Stokes equations add convection:
 &=f+Bu,\\
 \nabla\cdot v&=0.
 \end{aligned}
-```
+$$
 
 Now the control-to-state map is nonlinear. Linearizing about a current velocity $v$ produces an Oseen-type operator containing
 
 $$
 (v\cdot\nabla)\delta v
-+
-(\delta v\cdot\nabla)v.
++(\delta v\cdot\nabla)v.
 $$
 
 The adjoint contains the transpose of these convection terms, so it is not obtained by simply reusing the forward operator. Several complications arrive at once:
@@ -1180,7 +1130,7 @@ The adjoint still propagates backward and the discrete-adjoint principle still a
 
 The monodomain model used in cardiac electrophysiology is a representative coupled system:
 
-```math
+$$
 \begin{aligned}
 v_{t}
 -\nabla\cdot(\sigma\nabla v)
@@ -1188,7 +1138,7 @@ v_{t}
 &=I_{e},\\
 w_{t}&=g(v,w).
 \end{aligned}
-```
+$$
 
 Here $v$ is a spatially diffusing electrical potential while $w$ is a recovery/gating variable governed locally by an ODE. The nonlinear functions $I_{\mathrm{ion}}$ and $g$ couple the two.
 
@@ -1227,10 +1177,8 @@ For a linear-quadratic problem, one therefore studies estimates of the schematic
 
 $$
 \lVert y-y_{h}\rVert_{Y}
-+
-\lVert p-p_{h}\rVert_{P}
-+
-\lVert u-u_{h}\rVert_{U}
++\lVert p-p_{h}\rVert_{P}
++\lVert u-u_{h}\rVert_{U}
 \leq
 \text{approximation terms},
 $$
@@ -1286,7 +1234,7 @@ A **shape derivative** studies
 $$
 \frac{\mathrm{d}}{\mathrm{d}t}
 J(\Omega_{t})
-\Big|_{t=0}.
+\Big\rvert_{t=0}.
 $$
 
 The PDE state must also be transported between changing domains before it can be differentiated consistently. Surface geometry, normal variations, and tangential calculus then enter naturally.

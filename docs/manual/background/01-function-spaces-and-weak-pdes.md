@@ -54,7 +54,7 @@ The finite-element method itself is deliberately deferred to [03 · Finite eleme
 
 ## 1. Why a classical solution may ask for too much
 
-Throughout this chapter, a **domain** $\Omega\subset\mathbb R^{d}$ means an open connected set, and $\partial\Omega$ denotes its boundary.
+Throughout this chapter, a **domain** $\Omega\subset\mathbb{R}^{d}$ means an open connected set, and $\partial\Omega$ denotes its boundary.
 
 Consider the one-dimensional boundary-value problem
 
@@ -74,8 +74,7 @@ $$
 likewise appears to require second partial derivatives of $y$, since the Laplacian is
 
 $$
-\Delta y
-:=
+\Delta y\coloneqq
 \sum_{i=1}^{d}
 \frac{\partial^{2}y}{\partial x_{i}^{2}}.
 $$
@@ -85,7 +84,7 @@ For very smooth data and domains, sufficiently smooth solutions may exist. But n
 A simple one-dimensional example already shows why a weaker notion of derivative is useful. The function
 
 $$
-y(x)=|x|
+y(x)=\lvert x\rvert
 \qquad \text{for }x\in(-1,1)
 $$
 
@@ -94,8 +93,8 @@ is continuous but not classically differentiable at $x=0$. Away from the origin 
 $$
 y'(x)=
 \begin{cases}
--1, & x<0,\\
-1, & x>0.
+-1, & x\lt 0,\\
+1, & x\gt 0.
 \end{cases}
 $$
 
@@ -112,15 +111,15 @@ The word *space* in PDE analysis means more than a collection of functions. We n
 A **normed vector space** $X$ is a vector space equipped with a norm $\lVert\cdot\rVert_{X}$. The norm satisfies the familiar properties
 
 $$
-\lVert x\rVert_{X}\ge 0,
+\lVert x\rVert_{X}\geq 0,
 \qquad
 \lVert x\rVert_{X}=0 \Longleftrightarrow x=0,
 $$
 
 $$
-\lVert \alpha x\rVert_{X}=|\alpha|\lVert x\rVert_{X},
+\lVert \alpha x\rVert_{X}=\lvert\alpha\rvert\lVert x\rVert_{X},
 \qquad
-\lVert x+z\rVert_{X}\le \lVert x\rVert_{X}+\lVert z\rVert_{X}.
+\lVert x+z\rVert_{X}\leq \lVert x\rVert_{X}+\lVert z\rVert_{X}.
 $$
 
 The norm lets us define convergence: $x_{n}\to x$ in $X$ when
@@ -129,7 +128,7 @@ $$
 \lVert x_{n}-x\rVert_{X}\to 0.
 $$
 
-A sequence $\{x_{n}\}$ is **Cauchy** if its elements eventually become arbitrarily close to one another, that is,
+A sequence $\lbrace x_{n}\rbrace$ is **Cauchy** if its elements eventually become arbitrarily close to one another, that is,
 
 $$
 \lVert x_{n}-x_{m}\rVert_{X}\to0
@@ -151,17 +150,16 @@ We do not need the general theory of Banach spaces before continuing. The point 
 
 ## 3. The space $L^{2}(\Omega)$
 
-Let $\Omega\subset\mathbb R^{d}$ be a bounded domain. We will not construct Lebesgue measure or the Lebesgue integral here; that belongs to a course in real analysis. We only need the resulting notion of integrability. All ordinary continuous and piecewise-continuous functions used in the examples below are Lebesgue measurable, so this abstraction does not obstruct the calculations we perform.
+Let $\Omega\subset\mathbb{R}^{d}$ be a bounded domain. We will not construct Lebesgue measure or the Lebesgue integral here; that belongs to a course in real analysis. We only need the resulting notion of integrability. All ordinary continuous and piecewise-continuous functions used in the examples below are Lebesgue measurable, so this abstraction does not obstruct the calculations we perform.
 
 Informally, $L^{2}(\Omega)$ contains measurable functions whose square is integrable:
 
 $$
-L^{2}(\Omega)
-=
-\left\{
-q:\Omega\to\mathbb R:
-\int_{\Omega}|q(x)|^{2}\mathrm{d}x<\infty
-\right\},
+L^{2}(\Omega)=
+\left\lbrace
+q\colon\Omega\to\mathbb{R}:
+\int_{\Omega}\lvert q(x)\rvert^{2}\thinspace\mathrm{d}x\lt\infty
+\right\rbrace,
 $$
 
 where functions that agree **almost everywhere** are identified. A property holds almost everywhere, abbreviated a.e., if it can fail only on a set of Lebesgue measure zero. Thus two functions that differ at a single point, or on any other measure-zero set, represent the same element of $L^{2}(\Omega)$.
@@ -169,19 +167,17 @@ where functions that agree **almost everywhere** are identified. A property hold
 The norm and inner product are
 
 $$
-\lVert q\rVert_{L^{2}(\Omega)}
-:=
+\lVert q\rVert_{L^{2}(\Omega)}\coloneqq
 \left(
-\int_{\Omega}|q|^{2}\mathrm{d}x
+\int_{\Omega}\lvert q\rvert^{2}\thinspace\mathrm{d}x
 \right)^{1/2},
 $$
 
 and
 
 $$
-(q,r)_{L^{2}(\Omega)}
-:=
-\int_{\Omega}qr\mathrm{d}x.
+(q,r)_{L^{2}(\Omega)}\coloneqq
+\int_{\Omega}qr\thinspace\mathrm{d}x.
 $$
 
 With this inner product, $L^{2}(\Omega)$ is a Hilbert space.
@@ -193,8 +189,8 @@ First, an $L^{2}$ function need not be continuous. Integrability is the requirem
 $$
 q(x)=
 \begin{cases}
-1, & 0<x<1/2,\\
-0, & 1/2<x<1
+1, & 0\lt x\lt 1/2,\\
+0, & 1/2\lt x\lt 1
 \end{cases}
 $$
 
@@ -205,10 +201,10 @@ Second, point values are not generally intrinsic pieces of information for an $L
 The Cauchy–Schwarz inequality in $L^{2}$,
 
 $$
-\left|
-\int_{\Omega}qr\mathrm{d}x
-\right|
-\le
+\left\lvert
+\int_{\Omega}qr\thinspace\mathrm{d}x
+\right\rvert
+\leq
 \lVert q\rVert_{L^{2}(\Omega)}
 \lVert r\rVert_{L^{2}(\Omega)},
 $$
@@ -220,10 +216,8 @@ will be one of our basic tools. In particular, it immediately tells us when prod
 Suppose for the moment that $y$ and a test function $\varphi$ are smooth on an interval and that $\varphi$ vanishes at the boundary. Integration by parts gives
 
 $$
-\int y'\varphi\mathrm{d}x
-=
--
-\int y\varphi'\mathrm{d}x.
+\int y'\varphi\thinspace\mathrm{d}x =
+-\int y\varphi'\thinspace\mathrm{d}x.
 $$
 
 Notice that the right-hand side only needs $y$ itself, not its derivative. This suggests turning the identity around and using it as the *definition* of a derivative for functions that may not possess a classical one.
@@ -237,24 +231,21 @@ The notation $C_{c}^{\infty}(\Omega)$ means the set of infinitely differentiable
 Let $y\in L_{\mathrm{loc}}^{1}(\Omega)$. A function $w\in L_{\mathrm{loc}}^{1}(\Omega)$ is the **weak partial derivative** of $y$ with respect to $x_{i}$ if
 
 $$
-\int_{\Omega}w\varphi\mathrm{d}x
-=
--
-\int_{\Omega}y
-\frac{\partial\varphi}{\partial x_{i}}
-\mathrm{d}x
+\int_{\Omega}w\varphi\thinspace\mathrm{d}x =
+-\int_{\Omega}y
+\frac{\partial\varphi}{\partial x_{i}}\thinspace\mathrm{d}x
 \qquad
 \text{for every }\varphi\in C_{c}^{\infty}(\Omega).
 $$
 
 If $y$ is classically differentiable, ordinary integration by parts shows that its classical derivative satisfies this identity. The weak definition therefore extends the classical derivative rather than replacing it with a conflicting notion on smooth functions.
 
-### Checking the derivative of $|x|$
+### Checking the derivative of $\lvert x\rvert$
 
 Return to
 
 $$
-y(x)=|x|
+y(x)=\lvert x\rvert
 \qquad
 \text{on }(-1,1),
 $$
@@ -264,52 +255,41 @@ and define
 $$
 w(x)=
 \begin{cases}
--1, & x<0,\\
-1, & x>0.
+-1, & x\lt 0,\\
+1, & x\gt 0.
 \end{cases}
 $$
 
 The value assigned to $w(0)$ is irrelevant because a single point has measure zero. Let $\varphi\in C_{c}^{\infty}(-1,1)$. Then
 
-```math
+$$
 \begin{aligned}
--
-\int_{-1}^{1}|x|\varphi'(x)\mathrm{d}x
-&=
-\int_{-1}^{0}x\varphi'(x)\mathrm{d}x
--
-\int_{0}^{1}x\varphi'(x)\mathrm{d}x
+-\int_{-1}^{1}\lvert x\rvert\varphi'(x)\thinspace\mathrm{d}x
+&=\int_{-1}^{0}x\varphi'(x)\thinspace\mathrm{d}x
+-\int_{0}^{1}x\varphi'(x)\thinspace\mathrm{d}x
 \\
-&=
-\left[x\varphi(x)\right]_{-1}^{0}
--
-\int_{-1}^{0}\varphi(x)\mathrm{d}x
--
-\left[x\varphi(x)\right]_{0}^{1}
-+
-\int_{0}^{1}\varphi(x)\mathrm{d}x.
+&=\left[x\varphi(x)\right]_{-1}^{0}
+-\int_{-1}^{0}\varphi(x)\thinspace\mathrm{d}x
+-\left[x\varphi(x)\right]_{0}^{1}
++\int_{0}^{1}\varphi(x)\thinspace\mathrm{d}x.
 \end{aligned}
-```
+$$
 
 Because $\varphi$ has compact support in $(-1,1)$, it vanishes near $-1$ and $1$. The factors of $x$ also make the two contributions at $x=0$ vanish. Hence
 
 $$
--
-\int_{-1}^{1}|x|\varphi'(x)\mathrm{d}x
-=
--
-\int_{-1}^{0}\varphi(x)\mathrm{d}x
-+
-\int_{0}^{1}\varphi(x)\mathrm{d}x.
+-\int_{-1}^{1}\lvert x\rvert\varphi'(x)\thinspace\mathrm{d}x =
+-\int_{-1}^{0}\varphi(x)\thinspace\mathrm{d}x
++\int_{0}^{1}\varphi(x)\thinspace\mathrm{d}x.
 $$
 
 But the right-hand side is exactly
 
 $$
-\int_{-1}^{1}w(x)\varphi(x)\mathrm{d}x.
+\int_{-1}^{1}w(x)\varphi(x)\thinspace\mathrm{d}x.
 $$
 
-Therefore $w$ is the weak derivative of $|x|$. We did not ignore the failure of classical differentiability at the origin; the integral identity simply shows that this isolated failure does not prevent an $L^{1}_{\mathrm{loc}}$ derivative from existing.
+Therefore $w$ is the weak derivative of $\lvert x\rvert$. We did not ignore the failure of classical differentiability at the origin; the integral identity simply shows that this isolated failure does not prevent an $L_{\mathrm{loc}}^{1}$ derivative from existing.
 
 Weak derivatives are defined only up to almost-everywhere equality, just like elements of $L^{p}$ spaces. We can therefore ask not only whether weak derivatives exist, but also whether they have a specified integrability. That leads to Sobolev spaces.
 
@@ -320,21 +300,19 @@ The general theory of distributions pushes this idea further and allows derivati
 The space $H^{1}(\Omega)$ consists of square-integrable functions whose first weak derivatives are also square-integrable:
 
 $$
-H^{1}(\Omega)
-:=
-\left\{
+H^{1}(\Omega)\coloneqq
+\left\lbrace
 y\in L^{2}(\Omega):
 \frac{\partial y}{\partial x_{i}}
 \in L^{2}(\Omega)
 \text{ weakly for }i=1,\ldots,d
-\right\}.
+\right\rbrace.
 $$
 
 The weak derivatives form the **weak gradient**
 
 $$
-\nabla y
-=
+\nabla y=
 \left(
 \frac{\partial y}{\partial x_{1}},
 \ldots,
@@ -345,28 +323,25 @@ $$
 The standard $H^{1}$ inner product is
 
 $$
-(y,v)_{H^{1}(\Omega)}
-:=
-\int_{\Omega}yv\mathrm{d}x
+(y,v)_{H^{1}(\Omega)}\coloneqq
+\int_{\Omega}yv\thinspace\mathrm{d}x
 +
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x,
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x,
 $$
 
 and the induced norm is
 
 $$
-\lVert y\rVert_{H^{1}(\Omega)}^{2}
-=
+\lVert y\rVert_{H^{1}(\Omega)}^{2}=
 \lVert y\rVert_{L^{2}(\Omega)}^{2}
-+
-\lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}^{2}.
++\lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}^{2}.
 $$
 
 With this inner product, $H^{1}(\Omega)$ is a Hilbert space. The completeness statement is a theorem from Sobolev-space theory; we use it here rather than prove it.
 
 The definition is worth reading operationally. Membership in $H^{1}(\Omega)$ says that both the field and its first weak derivatives have finite $L^{2}$ size. It does **not** say that $y$ is continuously differentiable, or even that it has a meaningful value at every point. The topology of the space is tied to integral control of the function and its weak gradient.
 
-This is precisely the regularity that the weak Poisson form will need: its main integral contains $\nabla y$, but no second derivative of $y$. The earlier example $y(x)=|x|$ belongs to $H^{1}(-1,1)$ because both $|x|$ and its weak derivative are square-integrable, even though the classical derivative fails at the origin.
+This is precisely the regularity that the weak Poisson form will need: its main integral contains $\nabla y$, but no second derivative of $y$. The earlier example $y(x)=\lvert x\rvert$ belongs to $H^{1}(-1,1)$ because both $\lvert x\rvert$ and its weak derivative are square-integrable, even though the classical derivative fails at the origin.
 
 More generally, Sobolev spaces $W^{k,p}(\Omega)$ contain functions whose weak derivatives through order $k$ belong to $L^{p}(\Omega)$. When $p=2$, the usual notation is $H^{k}(\Omega)$. We will need almost none of that generality in the main chapter. The companion [01a · Further notes on function spaces and weak PDEs](01a-further-function-space-notes.md) make the higher-dimensional notation and Sobolev seminorms explicit before continuing to embeddings and higher regularity, because all of these ideas recur in finite-element estimates and more delicate PDE examples.
 
@@ -386,14 +361,14 @@ For the rest of the chapter we assume that $\Omega$ is a **bounded Lipschitz dom
 The **trace theorem** states that there is a bounded linear map
 
 $$
-\gamma:H^{1}(\Omega)\to H^{1/2}(\partial\Omega)
+\gamma\colon H^{1}(\Omega)\to H^{1/2}(\partial\Omega)
 $$
 
-that agrees with ordinary boundary restriction for smooth functions. In particular, there is a constant $C_{\mathrm{tr}}>0$ such that
+that agrees with ordinary boundary restriction for smooth functions. In particular, there is a constant $C_{\mathrm{tr}}\gt0$ such that
 
 $$
 \lVert\gamma y\rVert_{L^{2}(\partial\Omega)}
-\le
+\leq
 C_{\mathrm{tr}}
 \lVert y\rVert_{H^{1}(\Omega)}.
 $$
@@ -401,8 +376,7 @@ $$
 The fractional space $H^{1/2}(\partial\Omega)$ is the natural trace space of $H^{1}(\Omega)$. The main chapter does not develop fractional Sobolev spaces, but one concrete characterization already makes the notation useful:
 
 $$
-H^{1/2}(\partial\Omega)
-=
+H^{1/2}(\partial\Omega)=
 \gamma\bigl(H^{1}(\Omega)\bigr),
 $$
 
@@ -411,28 +385,26 @@ with a norm measuring the smallest $H^{1}$ norm among all interior functions hav
 The space with homogeneous Dirichlet boundary values is
 
 $$
-H_{0}^{1}(\Omega)
-:=
+H_{0}^{1}(\Omega)\coloneqq
 \overline{C_{c}^{\infty}(\Omega)}^{H^{1}(\Omega)}.
 $$
 
 On a bounded Lipschitz domain, this is equivalently the kernel of the trace operator:
 
 $$
-H_{0}^{1}(\Omega)
-=
-\left\{
+H_{0}^{1}(\Omega)=
+\left\lbrace
 y\in H^{1}(\Omega):\gamma y=0
-\right\}.
+\right\rbrace.
 $$
 
 The closure definition is more fundamental than the informal phrase “functions in $H^{1}$ that vanish on the boundary,” because it does not assume ordinary pointwise boundary values.
 
-A second crucial result is the **Poincaré inequality**: there is a constant $C_{P}>0$ such that
+A second crucial result is the **Poincaré inequality**: there is a constant $C_{P}\gt0$ such that
 
 $$
 \lVert y\rVert_{L^{2}(\Omega)}
-\le
+\leq
 C_{P}
 \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}
 \qquad
@@ -447,7 +419,7 @@ $$
 
 while $c\ne0$. Homogeneous Dirichlet data remove those constant modes. Poincaré then tells us that the gradient controls the entire $H^{1}$ size:
 
-```math
+$$
 \begin{aligned}
 \lVert y\rVert_{H^{1}(\Omega)}^{2}
 &=
@@ -455,17 +427,16 @@ while $c\ne0$. Homogeneous Dirichlet data remove those constant modes. Poincaré
 +
 \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}^{2}
 \\
-&\le
+&\leq
 \left(C_{P}^{2}+1\right)
 \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}^{2}.
 \end{aligned}
-```
+$$
 
 Therefore
 
 $$
-\lVert y\rVert_{V}
-:=
+\lVert y\rVert_{V}\coloneqq
 \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}
 $$
 
@@ -496,7 +467,7 @@ reduces the unknown part to $z\in H_{0}^{1}(\Omega)$. This simple change of vari
 A **linear functional** on a vector space $V$ is a linear map
 
 $$
-F:V\to\mathbb R.
+F\colon V\to\mathbb{R}.
 $$
 
 If $V$ is normed, a functional is **continuous** when convergence of its input implies convergence of its output:
@@ -507,11 +478,11 @@ v_{n}\to v\text{ in }V
 F(v_{n})\to F(v).
 $$
 
-For a linear functional, continuity is equivalent to **boundedness**: there exists a constant $C\ge0$ such that
+For a linear functional, continuity is equivalent to **boundedness**: there exists a constant $C\geq0$ such that
 
 $$
-|F(v)|
-\le
+\lvert F(v)\rvert
+\leq
 C\lVert v\rVert_{V}
 \qquad
 \text{for every }v\in V.
@@ -520,10 +491,9 @@ $$
 We will use this equivalence without proving it. The smallest admissible bound is encoded by the dual norm
 
 $$
-\lVert F\rVert_{V^{\ast}}
-:=
+\lVert F\rVert_{V^{\ast}}\coloneqq
 \sup_{v\ne0}
-\frac{|F(v)|}{\lVert v\rVert_{V}}.
+\frac{\lvert F(v)\rvert}{\lVert v\rVert_{V}}.
 $$
 
 The collection of all bounded linear functionals on $V$ is the **dual space**, denoted $V^{\ast}$. The action of $F\in V^{\ast}$ on $v\in V$ is often written as the dual pairing
@@ -543,32 +513,31 @@ $$
 with the gradient norm, and let $f\in L^{2}(\Omega)$. Define
 
 $$
-F(v)
-:=
-\int_{\Omega}fv\mathrm{d}x.
+F(v)\coloneqq
+\int_{\Omega}fv\thinspace\mathrm{d}x.
 $$
 
 This map is linear. By Cauchy–Schwarz and Poincaré,
 
-```math
+$$
 \begin{aligned}
-|F(v)|
-&\le
+\lvert F(v)\rvert
+&\leq
 \lVert f\rVert_{L^{2}(\Omega)}
 \lVert v\rVert_{L^{2}(\Omega)}
 \\
-&\le
+&\leq
 C_{P}
 \lVert f\rVert_{L^{2}(\Omega)}
 \lVert v\rVert_{V}.
 \end{aligned}
-```
+$$
 
 So $F$ is bounded and hence continuous. In particular,
 
 $$
 \lVert F\rVert_{V^{\ast}}
-\le
+\leq
 C_{P}\lVert f\rVert_{L^{2}(\Omega)}.
 $$
 
@@ -577,8 +546,7 @@ This is the precise sense in which an $L^{2}$ forcing term naturally defines a f
 The dual of $H_{0}^{1}(\Omega)$ is commonly denoted
 
 $$
-H^{-1}(\Omega)
-:=
+H^{-1}(\Omega)\coloneqq
 \left(H_{0}^{1}(\Omega)\right)^{\ast}.
 $$
 
@@ -589,24 +557,24 @@ The notation does not mean “ordinary functions with minus one derivative.” I
 Suppose $V$ is a Hilbert space. A **bilinear form** is a map
 
 $$
-a:V\times V\to\mathbb R
+a\colon V\times V\to\mathbb{R}
 $$
 
-that is linear in each argument separately. It is **bounded**, also called continuous, if there is a constant $M>0$ such that
+that is linear in each argument separately. It is **bounded**, also called continuous, if there is a constant $M\gt0$ such that
 
 $$
-|a(y,v)|
-\le
+\lvert a(y,v)\rvert
+\leq
 M\lVert y\rVert_{V}\lVert v\rVert_{V}
 \qquad
 \text{for all }y,v\in V.
 $$
 
-It is **coercive** if there is a constant $\alpha>0$ such that
+It is **coercive** if there is a constant $\alpha\gt0$ such that
 
 $$
 a(v,v)
-\ge
+\geq
 \alpha\lVert v\rVert_{V}^{2}
 \qquad
 \text{for all }v\in V.
@@ -615,6 +583,7 @@ $$
 Given such a form and a functional $F\in V^{\ast}$, an **abstract variational problem** has the form
 
 > Find $y\in V$ such that
+>
 > $$
 > a(y,v)=\langle F,v\rangle_{V^{\ast},V}
 > \qquad
@@ -630,8 +599,7 @@ In the Poisson example the unknown and test functions use the same space. More g
 The same problem can also be written as a residual equation. Define $E(y)\in V^{\ast}$ by
 
 $$
-\langle E(y),v\rangle_{V^{\ast},V}
-:=
+\langle E(y),v\rangle_{V^{\ast},V}\coloneqq
 a(y,v)-\langle F,v\rangle_{V^{\ast},V}.
 $$
 
@@ -656,100 +624,97 @@ This is the viewpoint that later transfers naturally to PDE-constrained optimiza
 
 We now have the pieces needed to derive the model weak problem rather than simply write it down.
 
-Let $\Omega\subset\mathbb R^{d}$ be a bounded Lipschitz domain and consider
+Let $\Omega\subset\mathbb{R}^{d}$ be a bounded Lipschitz domain and consider
 
-```math
+$$
 \begin{aligned}
 -\Delta y &= f
 && \text{in }\Omega,\\
 y &= 0
 && \text{on }\partial\Omega.
 \end{aligned}
-```
+$$
 
 Assume first that $y$ and $f$ are smooth enough for ordinary calculus identities to hold. Choose a smooth test function $v$ whose boundary value is zero. Multiply the PDE by $v$ and integrate:
 
 $$
--
-\int_{\Omega}(\Delta y)v\mathrm{d}x
-=
-\int_{\Omega}fv\mathrm{d}x.
+-\int_{\Omega}(\Delta y)v\thinspace\mathrm{d}x =
+\int_{\Omega}fv\thinspace\mathrm{d}x.
 $$
 
 For smooth $y$, define the outward normal derivative by
 
 $$
-\frac{\partial y}{\partial n}
-:=
+\frac{\partial y}{\partial n}\coloneqq
 \nabla y\cdot n,
 $$
 
 where $n$ is the outward unit normal on $\partial\Omega$. Green's identity gives
 
 $$
--
-\int_{\Omega}(\Delta y)v\mathrm{d}x
-=
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
--
-\int_{\partial\Omega}
-\frac{\partial y}{\partial n}v
-\mathrm{d}s.
+-\int_{\Omega}(\Delta y)v\thinspace\mathrm{d}x =
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
+-\int_{\partial\Omega}\frac{\partial y}{\partial n}v\thinspace\mathrm{d}s.
 $$
 
 Because $v$ vanishes on $\partial\Omega$, the boundary term disappears. We obtain
 
 $$
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-=
-\int_{\Omega}fv\mathrm{d}x.
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x =
+\int_{\Omega}fv\thinspace\mathrm{d}x.
 $$
 
 The key change is now visible: the strong equation involved second derivatives of $y$, while the tested identity contains only first derivatives.
 
 > **Why $H_{0}^{1}(\Omega)$ is the right space here.** The choice is dictated by the terms we have just derived, not by notation. If $y,v\in H_{0}^{1}(\Omega)$, then their weak gradients belong to $L^{2}(\Omega)^{d}$, so Cauchy–Schwarz gives
+>
 > $$
-> \left|
-> \int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-> \right|
-> \le
+> \left\lvert
+> \int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
+> \right\rvert
+> \leq
 > \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}
 > \lVert\nabla v\rVert_{L^{2}(\Omega)^{d}}.
 > $$
+>
 > Thus the left-hand side is finite. If $f\in L^{2}(\Omega)$, then
-> ```math
+>
+> $$
 > \begin{aligned}
-> \left|
-> \int_{\Omega}fv\mathrm{d}x
-> \right|
-> &\le
+> \left\lvert
+> \int_{\Omega}fv\thinspace\mathrm{d}x
+> \right\rvert
+> &\leq
 > \lVert f\rVert_{L^{2}(\Omega)}
 > \lVert v\rVert_{L^{2}(\Omega)}
 > \\
-> &\le
+> &\leq
 > C_{P}
 > \lVert f\rVert_{L^{2}(\Omega)}
 > \lVert\nabla v\rVert_{L^{2}(\Omega)^{d}},
 > \end{aligned}
-> ```
+> $$
+>
 > so the right-hand side is also finite and continuous in the test function. Finally, $H_{0}^{1}(\Omega)$ encodes the homogeneous Dirichlet condition through its zero trace. The smaller space $H^{2}(\Omega)$ would demand second weak derivatives that no longer appear in the variational identity; the larger space $L^{2}(\Omega)$ would not provide the $L^{2}$ gradients required by the left-hand side. In this sense, $H_{0}^{1}(\Omega)$ is the natural **energy space** for this problem: the quantity
+>
 > $$
-> a(v,v)=\int_{\Omega}|\nabla v|^{2}\mathrm{d}x
+> a(v,v)=\int_{\Omega}\lvert\nabla v\rvert^{2}\thinspace\mathrm{d}x
 > $$
+>
 > is finite there and, by Poincaré, controls the full $H^{1}$ size of $v$.
 
 We can therefore enlarge the class of admissible solutions from classically twice-differentiable functions to
 
 $$
-V:=H_{0}^{1}(\Omega).
+V\coloneqq H_{0}^{1}(\Omega).
 $$
 
 The **weak Poisson problem** is:
 
 > Given a forcing functional $F\in V^{\ast}$, find $y\in V$ such that
+>
 > $$
-> \int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-> =
+> \int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x =
 > \langle F,v\rangle_{V^{\ast},V}
 > \qquad
 > \text{for every }v\in V.
@@ -758,26 +723,22 @@ The **weak Poisson problem** is:
 When $f\in L^{2}(\Omega)$, the functional is
 
 $$
-\langle F,v\rangle_{V^{\ast},V}
-=
-\int_{\Omega}fv\mathrm{d}x.
+\langle F,v\rangle_{V^{\ast},V}\coloneqq
+\int_{\Omega}fv\thinspace\mathrm{d}x.
 $$
 
 The bilinear form is
 
 $$
-a(y,v)
-:=
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x,
+a(y,v)\coloneqq
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x,
 $$
 
 and the residual is
 
 $$
-\langle E(y),v\rangle_{V^{\ast},V}
-:=
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
--
+\langle E(y),v\rangle_{V^{\ast},V}\coloneqq
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x -
 \langle F,v\rangle_{V^{\ast},V}.
 $$
 
@@ -796,7 +757,7 @@ The homogeneous Dirichlet condition disappeared from the boundary integral in Se
 
 Neumann conditions enter differently. Split the boundary into two portions, $\Gamma_{D}$ and $\Gamma_{N}$, and consider
 
-```math
+$$
 \begin{aligned}
 -\Delta y &= f
 && \text{in }\Omega,\\
@@ -805,66 +766,56 @@ y &= 0
 \frac{\partial y}{\partial n} &= g
 && \text{on }\Gamma_{N}.
 \end{aligned}
-```
+$$
 
 Use the space
 
 $$
-V
-:=
-\left\{
+V\coloneqq
+\left\lbrace
 v\in H^{1}(\Omega):
 \gamma v=0\text{ on }\Gamma_{D}
-\right\}.
+\right\rbrace.
 $$
 
 For the standard coercive mixed problem, assume that the Dirichlet portion $\Gamma_{D}$ is large enough—for example, that it has positive boundary measure—so that a Poincaré-type inequality holds on $V$. If $\Gamma_{D}$ is empty, the problem is purely Neumann and requires the separate compatibility discussion below.
 
 For smooth functions, Green's identity gives
 
-```math
-\begin{aligned}
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
--
-\int_{\Gamma_{D}}
-\frac{\partial y}{\partial n}v\mathrm{d}s
--
-\int_{\Gamma_{N}}
-\frac{\partial y}{\partial n}v\mathrm{d}s
-=
-\int_{\Omega}fv\mathrm{d}x.
-\end{aligned}
-```
+$$
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
+-\int_{\Gamma_{D}}\frac{\partial y}{\partial n}v\thinspace\mathrm{d}s
+-\int_{\Gamma_{N}}\frac{\partial y}{\partial n}v\thinspace\mathrm{d}s =
+\int_{\Omega}fv\thinspace\mathrm{d}x.
+$$
 
 The trace of $v$ vanishes on $\Gamma_{D}$, so the first boundary term is zero. Substituting the prescribed Neumann datum on $\Gamma_{N}$ gives
 
 $$
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-=
-\int_{\Omega}fv\mathrm{d}x
-+
-\int_{\Gamma_{N}}gv\mathrm{d}s.
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x =
+\int_{\Omega}fv\thinspace\mathrm{d}x
++\int_{\Gamma_{N}}gv\thinspace\mathrm{d}s.
 $$
 
 Thus the Dirichlet condition enters through the definition of $V$, whereas the Neumann condition appears as part of the forcing functional. For this reason Neumann data are called **natural boundary conditions** for this variational form.
 
 The trace theorem makes the boundary functional precise. If $g\in L^{2}(\Gamma_{N})$, then
 
-```math
+$$
 \begin{aligned}
-\left|
-\int_{\Gamma_{N}}gv\mathrm{d}s
-\right|
-&\le
+\left\lvert
+\int_{\Gamma_{N}}gv\thinspace\mathrm{d}s
+\right\rvert
+&\leq
 \lVert g\rVert_{L^{2}(\Gamma_{N})}
 \lVert\gamma v\rVert_{L^{2}(\Gamma_{N})}
 \\
-&\le
+&\leq
 C_{\mathrm{tr}}
 \lVert g\rVert_{L^{2}(\Gamma_{N})}
 \lVert v\rVert_{H^{1}(\Omega)}.
 \end{aligned}
-```
+$$
 
 So the boundary integral is not merely formal: under these assumptions it defines a bounded functional on the test space.
 
@@ -873,86 +824,74 @@ So the boundary integral is not merely formal: under these assumptions it define
 A Robin condition mixes the value of the state with its normal derivative. Suppose, for simplicity, that on a boundary portion $\Gamma_{R}$ we prescribe
 
 $$
-\frac{\partial y}{\partial n}
-+
-\kappa y
-=
-g,
+\frac{\partial y}{\partial n}+\kappa y=g,
 $$
 
 where $\kappa\in L^{\infty}(\Gamma_{R})$. Equivalently,
 
 $$
-\frac{\partial y}{\partial n}
-=
-g-\kappa y.
+\frac{\partial y}{\partial n}=g-\kappa y.
 $$
 
 Before inserting the condition, integration by parts gives
 
 $$
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
--
-\int_{\Gamma_{R}}
-\frac{\partial y}{\partial n}v\mathrm{d}s
-=
-\int_{\Omega}fv\mathrm{d}x,
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
+-\int_{\Gamma_{R}}\frac{\partial y}{\partial n}v\thinspace\mathrm{d}s
+=\int_{\Omega}fv\thinspace\mathrm{d}x,
 $$
 
 where any essential boundary portion has already been absorbed into the test space. Substitute the Robin condition:
 
-```math
+$$
 \begin{aligned}
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
--
-\int_{\Gamma_{R}}(g-\kappa y)v\mathrm{d}s
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
+-\int_{\Gamma_{R}}(g-\kappa y)v\thinspace\mathrm{d}s
 &=
-\int_{\Omega}fv\mathrm{d}x.
+\int_{\Omega}fv\thinspace\mathrm{d}x.
 \end{aligned}
-```
+$$
 
 Rearranging gives the weak form
 
 $$
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-+
-\int_{\Gamma_{R}}\kappa yv\mathrm{d}s
-=
-\int_{\Omega}fv\mathrm{d}x
-+
-\int_{\Gamma_{R}}gv\mathrm{d}s.
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
++\int_{\Gamma_{R}}\kappa yv\thinspace\mathrm{d}s
+=\int_{\Omega}fv\thinspace\mathrm{d}x
++\int_{\Gamma_{R}}gv\thinspace\mathrm{d}s.
 $$
 
 The new boundary term belongs on the left because it depends bilinearly on the unknown $y$ and the test function $v$. The trace estimate explains why the assumption $\kappa\in L^{\infty}(\Gamma_{R})$ is convenient:
 
-```math
+$$
 \begin{aligned}
-\left|
-\int_{\Gamma_{R}}\kappa yv\mathrm{d}s
-\right|
-&\le
+\left\lvert
+\int_{\Gamma_{R}}\kappa yv\thinspace\mathrm{d}s
+\right\rvert
+&\leq
 \lVert\kappa\rVert_{L^{\infty}(\Gamma_{R})}
 \lVert\gamma y\rVert_{L^{2}(\Gamma_{R})}
 \lVert\gamma v\rVert_{L^{2}(\Gamma_{R})}
 \\
-&\le
+&\leq
 C_{\mathrm{tr}}^{2}
 \lVert\kappa\rVert_{L^{\infty}(\Gamma_{R})}
 \lVert y\rVert_{H^{1}(\Omega)}
 \lVert v\rVert_{H^{1}(\Omega)}.
 \end{aligned}
-```
+$$
 
 So the Robin boundary contribution is a bounded bilinear form on $H^{1}(\Omega)$.
 
 > **Natural does not mean automatically well posed.** If the entire boundary carries a pure Neumann condition, constants have zero gradient, so the Poisson bilinear form is not coercive on all of $H^{1}(\Omega)$. The weak equation tested with $v=1$ also forces the compatibility condition
+>
 > $$
-> 0
-> =
-> \int_{\Omega}f\mathrm{d}x
+> 0 =
+> \int_{\Omega}f\thinspace\mathrm{d}x
 > +
-> \int_{\partial\Omega}g\mathrm{d}s.
+> \int_{\partial\Omega}g\thinspace\mathrm{d}s.
 > $$
+>
 > When that condition holds, the solution is determined only up to an additive constant unless one imposes an additional normalization. This is a concrete example of why the function space and the well-posedness assumptions must be checked together rather than inferred from the differential equation alone.
 
 ## 11. Lax–Milgram: when the variational problem is well posed
@@ -961,25 +900,28 @@ Deriving a weak formulation proves that the expressions make sense under the cho
 
 Let $V$ be a real Hilbert space. Assume:
 
-1. $a:V\times V\to\mathbb R$ is bilinear and bounded, so there is an $M>0$ with
+1. $a\colon V\times V\to\mathbb{R}$ is bilinear and bounded, so there is an $M\gt0$ with
+
    $$
-   |a(y,v)|
-   \le
+   \lvert a(y,v)\rvert
+   \leq
    M\lVert y\rVert_{V}\lVert v\rVert_{V};
    $$
-2. $a$ is coercive, so there is an $\alpha>0$ with
+
+2. $a$ is coercive, so there is an $\alpha\gt0$ with
+
    $$
    a(v,v)
-   \ge
+   \geq
    \alpha\lVert v\rVert_{V}^{2};
    $$
+
 3. $F\in V^{\ast}$ is a bounded linear functional.
 
 Under **all three assumptions**, there exists a unique $y\in V$ such that
 
 $$
-a(y,v)
-=
+a(y,v) =
 \langle F,v\rangle_{V^{\ast},V}
 \qquad
 \text{for every }v\in V.
@@ -989,7 +931,7 @@ Moreover,
 
 $$
 \lVert y\rVert_{V}
-\le
+\leq
 \frac{1}{\alpha}
 \lVert F\rVert_{V^{\ast}}.
 $$
@@ -998,7 +940,7 @@ The theorem therefore gives existence, uniqueness, and stability in one statemen
 
 ### Why coercivity gives uniqueness
 
-Suppose $y_{1}$ and $y_{2}$ both solve the same problem. Their difference $w:=y_{1}-y_{2}$ satisfies
+Suppose $y_{1}$ and $y_{2}$ both solve the same problem. Their difference $w\coloneqq y_{1}-y_{2}$ satisfies
 
 $$
 a(w,v)=0
@@ -1009,10 +951,9 @@ $$
 Choose $v=w$. Then
 
 $$
-0
-=
+0 =
 a(w,w)
-\ge
+\geq
 \alpha\lVert w\rVert_{V}^{2}.
 $$
 
@@ -1022,26 +963,26 @@ Hence $\lVert w\rVert_{V}=0$, so $w=0$ and $y_{1}=y_{2}$.
 
 Choose $v=y$ in the variational equation. Coercivity and the definition of the dual norm give
 
-```math
+$$
 \begin{aligned}
 \alpha\lVert y\rVert_{V}^{2}
-&\le
+&\leq
 a(y,y)
 \\
 &=
 \langle F,y\rangle_{V^{\ast},V}
 \\
-&\le
+&\leq
 \lVert F\rVert_{V^{\ast}}
 \lVert y\rVert_{V}.
 \end{aligned}
-```
+$$
 
 If $y\ne0$, divide by $\lVert y\rVert_{V}$ to obtain
 
 $$
 \lVert y\rVert_{V}
-\le
+\leq
 \frac{1}{\alpha}
 \lVert F\rVert_{V^{\ast}}.
 $$
@@ -1061,34 +1002,30 @@ $$
 with
 
 $$
-\lVert v\rVert_{V}
-:=
+\lVert v\rVert_{V}\coloneqq
 \lVert\nabla v\rVert_{L^{2}(\Omega)^{d}}.
 $$
 
 Poincaré tells us that this really is a norm equivalent to the usual $H^{1}$ norm. For
 
 $$
-a(y,v)
-=
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x,
+a(y,v) =
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x,
 $$
 
 Cauchy–Schwarz gives
 
 $$
-|a(y,v)|
-\le
+\lvert a(y,v)\rvert
+\leq
 \lVert y\rVert_{V}\lVert v\rVert_{V},
 $$
 
 so $a$ is bounded with $M=1$. Also,
 
 $$
-a(v,v)
-=
-\int_{\Omega}|\nabla v|^{2}\mathrm{d}x
-=
+a(v,v) =
+\int_{\Omega}\lvert\nabla v\rvert^{2}\thinspace\mathrm{d}x =
 \lVert v\rVert_{V}^{2},
 $$
 
@@ -1097,7 +1034,7 @@ so $a$ is coercive with $\alpha=1$.
 For $f\in L^{2}(\Omega)$, Section 7 showed that
 
 $$
-F(v)=\int_{\Omega}fv\mathrm{d}x
+F(v)=\int_{\Omega}fv\thinspace\mathrm{d}x
 $$
 
 is a bounded linear functional on $V$. Every Lax–Milgram hypothesis is therefore satisfied. We conclude that there is one and only one weak solution
@@ -1109,32 +1046,31 @@ $$
 For this concrete forcing, we can obtain a slightly more explicit estimate. Testing with $v=y$ gives
 
 $$
-\lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}^{2}
-=
-\int_{\Omega}fy\mathrm{d}x.
+\lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}^{2} =
+\int_{\Omega}fy\thinspace\mathrm{d}x.
 $$
 
 Then
 
-```math
+$$
 \begin{aligned}
 \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}^{2}
-&\le
+&\leq
 \lVert f\rVert_{L^{2}(\Omega)}
 \lVert y\rVert_{L^{2}(\Omega)}
 \\
-&\le
+&\leq
 C_{P}
 \lVert f\rVert_{L^{2}(\Omega)}
 \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}.
 \end{aligned}
-```
+$$
 
 Hence
 
 $$
 \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}
-\le
+\leq
 C_{P}\lVert f\rVert_{L^{2}(\Omega)}.
 $$
 
@@ -1148,23 +1084,22 @@ If a classical solution exists, it is also a weak solution: multiply the strong 
 
 Conversely, suppose a weak solution is smooth enough that $\Delta y$ is an ordinary integrable function. For every $v\in C_{c}^{\infty}(\Omega)$, the weak equation and integration by parts give
 
-```math
+$$
 \begin{aligned}
 0
 &=
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
--
-\int_{\Omega}fv\mathrm{d}x
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
+-\int_{\Omega}fv\thinspace\mathrm{d}x
 \\
 &=
-\int_{\Omega}(-\Delta y-f)v\mathrm{d}x.
+\int_{\Omega}(-\Delta y-f)v\thinspace\mathrm{d}x.
 \end{aligned}
-```
+$$
 
 A standard fundamental result for test functions says that if an integrable function $q$ satisfies
 
 $$
-\int_{\Omega}qv\mathrm{d}x=0
+\int_{\Omega}qv\thinspace\mathrm{d}x=0
 \qquad
 \text{for every }v\in C_{c}^{\infty}(\Omega),
 $$
@@ -1191,7 +1126,7 @@ For some smooth elliptic problems on sufficiently regular or convex domains, one
 
 $$
 \lVert y\rVert_{H^{2}(\Omega)}
-\le
+\leq
 C\lVert f\rVert_{L^{2}(\Omega)}.
 $$
 

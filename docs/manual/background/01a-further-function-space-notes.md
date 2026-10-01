@@ -37,22 +37,19 @@ We first make trace spaces and liftings more concrete. We then fill in two piece
 For a bounded Lipschitz domain, the trace theorem gives a bounded surjective map
 
 $$
-\gamma:H^{1}(\Omega)\to H^{1/2}(\partial\Omega).
+\gamma\colon H^{1}(\Omega)\to H^{1/2}(\partial\Omega).
 $$
 
 A useful way to read this statement is to define the boundary space by the traces that can actually occur:
 
 $$
-H^{1/2}(\partial\Omega)
-:=
-\gamma\bigl(H^{1}(\Omega)\bigr).
+H^{1/2}(\partial\Omega)\coloneqq\gamma\bigl(H^{1}(\Omega)\bigr).
 $$
 
 This tells us what its elements are, but we also need a norm. A boundary value $g$ may have many different interior extensions $v\in H^{1}(\Omega)$ satisfying $\gamma v=g$. The natural quotient norm is
 
 $$
-\lVert g\rVert_{H^{1/2}(\partial\Omega)}
-:=
+\lVert g\rVert_{H^{1/2}(\partial\Omega)}\coloneqq
 \inf_{\substack{v\in H^{1}(\Omega)\\\gamma v=g}}
 \lVert v\rVert_{H^{1}(\Omega)}.
 $$
@@ -61,7 +58,7 @@ Thus the $H^{1/2}$ size of a boundary field measures how cheaply it can be reali
 
 $$
 \lVert\gamma v\rVert_{H^{1/2}(\partial\Omega)}
-\le
+\leq
 \lVert v\rVert_{H^{1}(\Omega)}.
 $$
 
@@ -105,9 +102,7 @@ This is more than a proof trick. Numerically, the same decomposition separates p
 There is also a dual boundary space,
 
 $$
-H^{-1/2}(\partial\Omega)
-:=
-\left(H^{1/2}(\partial\Omega)\right)^{\ast},
+H^{-1/2}(\partial\Omega)\coloneqq\left(H^{1/2}(\partial\Omega)\right)^{\ast},
 $$
 
 which is the natural home for weak normal fluxes in many elliptic problems. A full treatment requires more duality than the first background chapter develops, so this notation is best revisited after [02 · Duality, derivatives, and adjoints](02-duality-derivatives-and-adjoints.md).
@@ -119,7 +114,7 @@ The main chapter defined $H^{1}(\Omega)$ directly because first weak derivatives
 Let
 
 $$
-\Omega\subset\mathbb R^{d}
+\Omega\subset\mathbb{R}^{d}
 $$
 
 and let
@@ -131,9 +126,7 @@ $$
 be a **multi-index**, meaning that each $\alpha_{i}$ is a nonnegative integer. Its order is
 
 $$
-\lvert\alpha\rvert
-:=
-\alpha_{1}+\cdots+\alpha_{d}.
+\lvert\alpha\rvert\coloneqq\alpha_{1}+\cdots+\alpha_{d}.
 $$
 
 The notation
@@ -160,25 +153,22 @@ D^{(1,1)}u,
 D^{(0,2)}u.
 $$
 
-For an integer $k\ge0$ and $1\le p<\infty$, the Sobolev space $W^{k,p}(\Omega)$ is
+For an integer $k\geq 0$ and $1\leq p\lt\infty$, the Sobolev space $W^{k,p}(\Omega)$ is
 
 $$
-W^{k,p}(\Omega)
-:=
-\left\{
+W^{k,p}(\Omega)\coloneqq\left\lbrace
  u\in L^{p}(\Omega):
  D^{\alpha}u\in L^{p}(\Omega)
- \text{ for every }\lvert\alpha\rvert\le k
-\right\}.
+ \text{ for every }\lvert\alpha\rvert\leq k
+\right\rbrace.
 $$
 
 A standard norm is
 
 $$
-\lVert u\rVert_{W^{k,p}(\Omega)}
-:=
+\lVert u\rVert_{W^{k,p}(\Omega)}\coloneqq
 \left(
-\sum_{\lvert\alpha\rvert\le k}
+\sum_{\lvert\alpha\rvert\leq k}
 \lVert D^{\alpha}u\rVert_{L^{p}(\Omega)}^{p}
 \right)^{1/p}.
 $$
@@ -186,7 +176,7 @@ $$
 When $p=2$, we write
 
 $$
-H^{k}(\Omega):=W^{k,2}(\Omega).
+H^{k}(\Omega)\coloneqq W^{k,2}(\Omega).
 $$
 
 Thus $H^{2}(\Omega)$ in two dimensions asks for $u$, both first weak derivatives, and all second weak derivatives to lie in $L^{2}(\Omega)$. Schematically,
@@ -204,8 +194,7 @@ H² in two dimensions
 Often we want to measure only derivatives of one particular order. The **Sobolev seminorm** of order $k$ is
 
 $$
-\lvert u\rvert_{W^{k,p}(\Omega)}
-:=
+\lvert u\rvert_{W^{k,p}(\Omega)}\coloneqq
 \left(
 \sum_{\lvert\alpha\rvert=k}
 \lVert D^{\alpha}u\rVert_{L^{p}(\Omega)}^{p}
@@ -216,8 +205,7 @@ For $p=2$ this becomes $\lvert u\rvert_{H^{k}(\Omega)}$. In particular,
 
 $$
 \lvert u\rvert_{H^{1}(\Omega)}
-=
-\lVert\nabla u\rVert_{L^{2}(\Omega)^{d}}.
+=\lVert\nabla u\rVert_{L^{2}(\Omega)^{d}}.
 $$
 
 The word *seminorm* matters. A norm can vanish only on the zero element, whereas a seminorm may vanish on nonzero functions. For example, every constant $c$ satisfies
@@ -232,18 +220,13 @@ The full Sobolev norm restores the lower-order information. For $H^{1}$,
 
 $$
 \lVert u\rVert_{H^{1}(\Omega)}^{2}
-=
-\lVert u\rVert_{L^{2}(\Omega)}^{2}
-+
-\lvert u\rvert_{H^{1}(\Omega)}^{2}.
+=\lVert u\rVert_{L^{2}(\Omega)}^{2}+\lvert u\rvert_{H^{1}(\Omega)}^{2}.
 $$
 
 There are important subspaces on which a seminorm becomes a genuine norm. [01 · Function spaces and weak PDEs](01-function-spaces-and-weak-pdes.md) already encountered the basic example: Poincaré's inequality gives
 
 $$
-\lVert u\rVert_{L^{2}(\Omega)}
-\le
-C_{P}\lvert u\rvert_{H^{1}(\Omega)}
+\lVert u\rVert_{L^{2}(\Omega)}\leq C_{P}\lvert u\rvert_{H^{1}(\Omega)}
 \qquad
 \text{for }u\in H_{0}^{1}(\Omega).
 $$
@@ -253,9 +236,7 @@ Hence $\lvert u\rvert_{H^{1}(\Omega)}$ is a norm on $H_{0}^{1}(\Omega)$ and is e
 This notation becomes especially common in finite-element analysis. An estimate such as
 
 $$
-\lVert u-I_{h}u\rVert_{H^{1}(\Omega)}
-\le
-C h\lvert u\rvert_{H^{2}(\Omega)}
+\lVert u-I_{h}u\rVert_{H^{1}(\Omega)}\leq C h\lvert u\rvert_{H^{2}(\Omega)}
 $$
 
 separates two different roles: the left-hand side measures the approximation error in the full $H^{1}$ norm, while the right-hand side measures the second-order variation of the exact function. The derivation of such estimates belongs to finite-element approximation theory; the point here is simply to make the notation and its meaning explicit before it is used.
@@ -275,7 +256,7 @@ only makes sense as an intrinsic quantity if the function-space element has a we
 Sobolev embedding theorems relate the number of weak derivatives, their integrability, and the spatial dimension. A useful schematic rule is that sufficiently many derivatives relative to the dimension force continuity. For instance, on a regular bounded domain, if
 
 $$
-kp>d,
+kp\gt d,
 $$
 
 then $W^{k,p}(\Omega)$ embeds into a space of continuous functions under the standard hypotheses.
@@ -286,18 +267,18 @@ $$
 H^{1}(\Omega)=W^{1,2}(\Omega)
 $$
 
-does **not** satisfy $1\cdot2>2$, so $H^{1}$ regularity alone does not guarantee continuity. On the other hand,
+does **not** satisfy $1\cdot2\gt 2$, so $H^{1}$ regularity alone does not guarantee continuity. On the other hand,
 
 $$
 H^{2}(\Omega)=W^{2,2}(\Omega)
 $$
 
-has $2\cdot2>2$ and, under the usual domain assumptions, embeds continuously into $C^{0}(\overline\Omega)$.
+has $2\cdot2\gt 2$ and, under the usual domain assumptions, embeds continuously into $C^{0}(\overline\Omega)$.
 
 This is why a weak state in $H_{0}^{1}(\Omega)$ may be perfectly adequate for integral observations such as
 
 $$
-\int_{\Omega}qy\mathrm{d}x
+\int_{\Omega}qy\thinspace\mathrm{d}x
 $$
 
 while a point observation $y(x_{0})$ can require additional regularity.
@@ -308,7 +289,7 @@ The exact embedding theorems have borderline cases and domain assumptions that m
 
 In a finite-dimensional space, every bounded sequence has a convergent subsequence. That fact is so familiar that it is easy to use it unconsciously. It fails in infinite-dimensional normed spaces.
 
-For example, let $\{e_{k}\}$ be an orthonormal sequence in an infinite-dimensional Hilbert space. Then
+For example, let $\lbrace e_k\rbrace$ be an orthonormal sequence in an infinite-dimensional Hilbert space. Then
 
 $$
 \lVert e_{j}-e_{k}\rVert^{2}=2
@@ -353,9 +334,7 @@ $$
 is compact: a sequence bounded in $H^{1}$ has a subsequence converging strongly in $L^{2}$. This compactness result is much stronger than the elementary continuous estimate
 
 $$
-\lVert v\rVert_{L^{2}(\Omega)}
-\le
-\lVert v\rVert_{H^{1}(\Omega)}.
+\lVert v\rVert_{L^{2}(\Omega)}\leq\lVert v\rVert_{H^{1}(\Omega)}.
 $$
 
 The first background chapter does not need these ideas to establish Poisson well-posedness, but they become central when proving existence of optimal controls or passing to limits in nonlinear PDEs.
@@ -369,15 +348,13 @@ A **distribution** is, roughly, a continuous linear functional on the test-funct
 $$
 \varphi
 \mapsto
-\int_{\Omega}q\varphi\mathrm{d}x.
+\int_{\Omega}q\varphi\thinspace\mathrm{d}x.
 $$
 
 But distributions also include objects that are not ordinary functions. The Dirac delta at a point $x_{0}$ is defined by
 
 $$
-\langle\delta_{x_{0}},\varphi\rangle
-:=
-\varphi(x_{0}).
+\langle\delta_{x_{0}},\varphi\rangle\coloneqq\varphi(x_{0}).
 $$
 
 Its derivative is then defined by moving the derivative onto the test function:
@@ -386,10 +363,7 @@ $$
 \left\langle
 \frac{\partial\delta_{x_{0}}}{\partial x_{i}},
 \varphi
-\right\rangle
-:=
--
-\left\langle
+\right\rangle\coloneqq -\left\langle
 \delta_{x_{0}},
 \frac{\partial\varphi}{\partial x_{i}}
 \right\rangle.
@@ -430,9 +404,7 @@ $$
 with an estimate
 
 $$
-\lVert y\rVert_{H^{2}(\Omega)}
-\le
-C\lVert f\rVert_{L^{2}(\Omega)},
+\lVert y\rVert_{H^{2}(\Omega)}\leq C\lVert f\rVert_{L^{2}(\Omega)},
 $$
 
 provided the domain and boundary conditions satisfy the required regularity hypotheses. Convex polygonal domains often enjoy useful $H^{2}$ regularity for Poisson; re-entrant corners can create singularities that reduce it.
@@ -447,24 +419,24 @@ The Poisson problem used in the main chapter has one trial space, one test space
 
 The stationary Stokes equations, for example, couple a velocity $v$ with a pressure $\pi$. A typical weak formulation has the schematic structure
 
-```math
+$$
 \begin{aligned}
 a(v,w)+b(w,\pi)&=F(w),\\
 b(v,q)&=0,
 \end{aligned}
-```
+$$
 
 for every velocity test function $w$ and pressure test function $q$.
 
 The associated block problem is a **mixed** or **saddle-point** variational problem. The full bilinear form is not coercive on the whole product space, so the ordinary Lax–Milgram theorem is not the right tool. Well posedness is instead controlled by coercivity on a suitable kernel together with an **inf-sup**, or Ladyzhenskaya–Babuška–Brezzi, condition of the form
 
 $$
-\inf_{q\ne0}
-\sup_{v\ne0}
+\inf_{q\ne 0}
+\sup_{v\ne 0}
 \frac{b(v,q)}
 {\lVert v\rVert_{V}\lVert q\rVert_{Q}}
-\ge
-\beta>0.
+\geq
+\beta\gt 0.
 $$
 
 The inequality says, informally, that no nonzero multiplier direction $q$ is invisible to all admissible primal directions $v$. It plays a role analogous to a stability condition for the coupling.

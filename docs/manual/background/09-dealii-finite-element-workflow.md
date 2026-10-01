@@ -89,9 +89,8 @@ $$
 such that
 
 $$
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-=
-\int_{\Omega}fv\mathrm{d}x
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
+= \int_{\Omega}fv\thinspace\mathrm{d}x
 \qquad
 \forall v\in H_{0}^{1}(\Omega).
 $$
@@ -100,16 +99,14 @@ A conforming finite-element discretization chooses a space
 
 $$
 V_{h}
-=
-\mathrm{span}\{\varphi_{1},\ldots,\varphi_{N}\}
+= \mathop{\mathrm{span}}\lbrace\varphi_{1},\ldots,\varphi_{N}\rbrace
 $$
 
 and seeks
 
 $$
 y_{h}
-=
-\sum_{j=1}^{N}Y_{j}\varphi_{j}.
+= \sum_{j=1}^{N}Y_{j}\varphi_{j}.
 $$
 
 The discrete system is
@@ -122,12 +119,10 @@ with
 
 $$
 A_{ij}
-=
-\int_{\Omega}\nabla\varphi_{j}\cdot\nabla\varphi_{i}\mathrm{d}x,
+= \int_{\Omega}\nabla\varphi_{j}\cdot\nabla\varphi_{i}\thinspace\mathrm{d}x,
 \qquad
 F_{i}
-=
-\int_{\Omega}f\varphi_{i}\mathrm{d}x.
+= \int_{\Omega}f\varphi_{i}\thinspace\mathrm{d}x.
 $$
 
 A program must represent at least four conceptually different things:
@@ -162,8 +157,7 @@ The mathematical counterpart is the triangulation
 
 $$
 \mathcal T_{h}
-=
-\{K\}.
+= \lbrace K\rbrace.
 $$
 
 The triangulation knows which cells exist and how they meet. It does not by itself say whether the approximation uses piecewise linear, quadratic, continuous, discontinuous, scalar, or vector-valued finite elements.
@@ -216,7 +210,7 @@ It does **not** enumerate all global basis functions over the mesh. That is the 
 For one cell $K$, let
 
 $$
-\{\varphi_{\alpha}^{K}\}_{\alpha=1}^{n_{\text{loc}}}
+\lbrace\varphi_{\alpha}^{K}\rbrace_{\alpha=1}^{n_{\text{loc}}}
 $$
 
 be its local basis. Then the code quantity corresponding to $n_{\text{loc}}$ is conceptually
@@ -335,7 +329,7 @@ More general mappings are required when curved geometry or higher-order geometri
 The reference gradient of a shape function is not in general the physical gradient used in
 
 $$
-\int_{K}\nabla\varphi_{i}\cdot\nabla\varphi_{j}\mathrm{d}x.
+\int_{K}\nabla\varphi_{i}\cdot\nabla\varphi_{j}\thinspace\mathrm{d}x.
 $$
 
 The gradient must be transformed by the cell map, and the integration measure picks up the Jacobian determinant.
@@ -355,7 +349,7 @@ dealii::QGauss<dim> quadrature(fe.degree + 1);
 The mathematical approximation is
 
 $$
-\int_{K}g(x)\mathrm{d}x
+\int_{K}g(x)\thinspace\mathrm{d}x
 \approx
 \sum_{q=1}^{n_{q}}
 w_{q}^{K}g(x_{q}^{K}).
@@ -486,8 +480,7 @@ is the quadrature weight transformed to the physical cell. Conceptually,
 
 $$
 \mathrm{JxW}_{q}
-=
-\left|\det DF_{K}(\widehat x_{q})\right|\widehat w_{q}
+= \left\lvert\det DF_{K}(\widehat x_{q})\right\rvert\widehat w_{q}
 $$
 
 for an ordinary full-dimensional cell map.
@@ -496,8 +489,7 @@ Thus a cell contribution such as
 
 $$
 A_{ij}^{K}
-=
-\int_{K}\nabla\varphi_{j}^{K}\cdot\nabla\varphi_{i}^{K}\mathrm{d}x
+= \int_{K}\nabla\varphi_{j}^{K}\cdot\nabla\varphi_{i}^{K}\thinspace\mathrm{d}x
 $$
 
 becomes
@@ -630,8 +622,7 @@ A constrained coefficient may satisfy an affine relation
 
 $$
 Y_{i}
-=
-\sum_{j}c_{ij}Y_{j}+b_{i}.
+= \sum_{j}c_{ij}Y_{j}+b_{i}.
 $$
 
 This general form covers several important cases:
@@ -668,8 +659,7 @@ distribute constrained values into final coefficient vector
 
 $$
 y_{\mathrm{phys}}
-=
-Pz+\ell,
+= Pz+\ell,
 $$
 
 where $z$ contains independent coordinates and $\ell$ carries fixed values.
@@ -708,7 +698,7 @@ fe_face_values.reinit(cell, face_no);
 This supports terms such as
 
 $$
-\int_{\Gamma_{N}}g_{N}v\mathrm{d}s
+\int_{\Gamma_{N}}g_{N}v\thinspace\mathrm{d}s
 $$
 
 or boundary-control couplings.

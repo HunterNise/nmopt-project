@@ -70,9 +70,9 @@ $$
 with
 
 $$
-A\in\mathbb R^{n\times n},
+A\in\mathbb{R}^{n\times n},
 \qquad
-x,b\in\mathbb R^{n}.
+x,b\in\mathbb{R}^{n}.
 $$
 
 If $A$ is nonsingular, elementary algebra writes the exact solution as
@@ -101,7 +101,7 @@ Let $x_{k}$ be an approximation to $x_{\ast}$. Its **algebraic residual** is
 
 $$
 r_{k}
-:=
+\coloneqq
 b-Ax_{k}.
 $$
 
@@ -109,7 +109,7 @@ Its **error** is
 
 $$
 e_{k}
-:=
+\coloneqq
 x_{\ast}-x_{k}.
 $$
 
@@ -137,7 +137,7 @@ It also shows why a small residual does not automatically mean a small error in 
 
 $$
 \lVert e_{k}\rVert
-\le
+\leq
 \lVert A^{-1}\rVert
 \lVert r_{k}\rVert.
 $$
@@ -223,8 +223,8 @@ $$
 We can therefore regard the numerical object as an action
 
 $$
-\mathcal A:
-\mathbb R^{n}\to\mathbb R^{n}
+\mathcal A\colon
+\mathbb{R}^{n}\to\mathbb{R}^{n}
 $$
 
 without requiring an explicitly stored global matrix.
@@ -258,19 +258,17 @@ $$
 Equivalently,
 
 $$
-x^{\mathsf T}Ay
-=
+x^{\mathsf T}Ay =
 y^{\mathsf T}Ax
 $$
 
-for every $x,y\in\mathbb R^{n}$.
+for every $x,y\in\mathbb{R}^{n}$.
 
 A finite-element matrix inherits symmetry when the underlying bilinear form is symmetric. For the Poisson bilinear form
 
 $$
-a(v,w)
-=
-\int_{\Omega}\nabla v\cdot\nabla w \mathrm{d}x,
+a(v,w) =
+\int_{\Omega}\nabla v\cdot\nabla w\thinspace\mathrm{d}x,
 $$
 
 we have
@@ -286,7 +284,7 @@ and therefore the stiffness matrix is symmetric.
 A symmetric matrix $A$ is **positive definite** when
 
 $$
-x^{\mathsf T}Ax>0
+x^{\mathsf T}Ax\gt0
 \qquad
 \text{for every }x\ne0.
 $$
@@ -296,14 +294,13 @@ A symmetric positive-definite matrix is abbreviated **SPD**.
 For a conforming Poisson discretization with homogeneous Dirichlet conditions, let
 
 $$
-v_{h}
-=
+v_{h} =
 \sum_{j=1}^{n}x_{j}\varphi_{j}.
 $$
 
 Then
 
-```math
+$$
 \begin{aligned}
 x^{\mathsf T}Ax
 &=
@@ -316,14 +313,14 @@ a(v_{h},v_{h})
 &=
 \int_{\Omega}
 \lvert\nabla v_{h}\rvert^{2}
-\mathrm{d}x.
+\thinspace\mathrm{d}x.
 \end{aligned}
-```
+$$
 
 If $x\ne0$, then $v_{h}$ is not the zero function. Because the homogeneous Dirichlet space contains no nonzero constant functions, Poincaré's inequality implies
 
 $$
-\int_{\Omega}\lvert\nabla v_{h}\rvert^{2}\mathrm{d}x>0.
+\int_{\Omega}\lvert\nabla v_{h}\rvert^{2}\thinspace\mathrm{d}x\gt0.
 $$
 
 Thus the discrete stiffness matrix is SPD.
@@ -341,7 +338,7 @@ $$
 For example, an advection-diffusion weak form may contain
 
 $$
-\int_{\Omega}(\boldsymbol\beta\cdot\nabla y)v \mathrm{d}x.
+\int_{\Omega}(\boldsymbol\beta\cdot\nabla y)v\thinspace\mathrm{d}x.
 $$
 
 The associated contribution is generally not symmetric under exchange of trial and test functions. The assembled matrix therefore loses the symmetry of pure diffusion.
@@ -367,9 +364,9 @@ A singular system therefore requires more than choosing a generic solver. One mu
 A symmetric matrix is **indefinite** when its quadratic form takes both signs: there exist vectors $x$ and $y$ such that
 
 $$
-x^{\mathsf T}Ax>0,
+x^{\mathsf T}Ax\gt0,
 \qquad
- y^{\mathsf T}Ay<0.
+ y^{\mathsf T}Ay\lt0.
 $$
 
 Saddle-point and KKT systems are common symmetric-indefinite systems. They may be perfectly nonsingular while failing the positivity assumption required by CG.
@@ -397,7 +394,7 @@ Fix a vector norm $\lVert\cdot\rVert$. The corresponding **induced matrix norm**
 
 $$
 \lVert A\rVert
-:=
+\coloneqq
 \sup_{z\ne0}
 \frac{\lVert Az\rVert}{\lVert z\rVert}.
 $$
@@ -406,7 +403,7 @@ It is the smallest constant satisfying
 
 $$
 \lVert Az\rVert
-\le
+\leq
 \lVert A\rVert
 \lVert z\rVert
 \qquad
@@ -422,8 +419,7 @@ $$
 The perturbed solution is
 
 $$
-x+\delta x
-=
+x+\delta x =
 A^{-1}(b+\delta b),
 $$
 
@@ -437,7 +433,7 @@ Using an induced matrix norm,
 
 $$
 \lVert\delta x\rVert
-\le
+\leq
 \lVert A^{-1}\rVert
 \lVert\delta b\rVert.
 $$
@@ -452,7 +448,7 @@ hence
 
 $$
 \lVert b\rVert
-\le
+\leq
 \lVert A\rVert
 \lVert x\rVert,
 $$
@@ -461,7 +457,7 @@ or
 
 $$
 \frac{1}{\lVert x\rVert}
-\le
+\leq
 \frac{\lVert A\rVert}{\lVert b\rVert}.
 $$
 
@@ -469,7 +465,7 @@ Combining the two bounds gives
 
 $$
 \frac{\lVert\delta x\rVert}{\lVert x\rVert}
-\le
+\leq
 \lVert A\rVert
 \lVert A^{-1}\rVert
 \frac{\lVert\delta b\rVert}{\lVert b\rVert}.
@@ -479,7 +475,7 @@ This motivates the **condition number**
 
 $$
 \kappa(A)
-:=
+\coloneqq
 \lVert A\rVert
 \lVert A^{-1}\rVert.
 $$
@@ -498,11 +494,11 @@ Order them as
 
 $$
 \sigma_{\max}(A)
-\ge
+\geq
 \cdots
-\ge
+\geq
 \sigma_{\min}(A)
-\ge0.
+\geq0.
 $$
 
 The induced two-norm satisfies
@@ -511,27 +507,24 @@ $$
 \lVert A\rVert_{2}=\sigma_{\max}(A).
 $$
 
-If $A$ is nonsingular, then $\sigma_{\min}(A)>0$ and
+If $A$ is nonsingular, then $\sigma_{\min}(A)\gt0$ and
 
 $$
-\lVert A^{-1}\rVert_{2}
-=
+\lVert A^{-1}\rVert_{2} =
 \frac{1}{\sigma_{\min}(A)}.
 $$
 
 Therefore
 
 $$
-\kappa_{2}(A)
-=
+\kappa_{2}(A) =
 \frac{\sigma_{\max}(A)}{\sigma_{\min}(A)}.
 $$
 
 For an SPD matrix, the singular values are its positive eigenvalues, so
 
 $$
-\kappa_{2}(A)
-=
+\kappa_{2}(A) =
 \frac{\lambda_{\max}(A)}{\lambda_{\min}(A)}.
 $$
 
@@ -549,7 +542,7 @@ The same argument gives
 
 $$
 \lVert e_{k}\rVert
-\le
+\leq
 \lVert A^{-1}\rVert
 \lVert r_{k}\rVert.
 $$
@@ -557,10 +550,9 @@ $$
 Moreover,
 
 $$
-\lVert b\rVert
-=
+\lVert b\rVert =
 \lVert Ax_{\ast}\rVert
-\le
+\leq
 \lVert A\rVert
 \lVert x_{\ast}\rVert.
 $$
@@ -569,7 +561,7 @@ Therefore
 
 $$
 \frac{\lVert e_{k}\rVert}{\lVert x_{\ast}\rVert}
-\le
+\leq
 \kappa(A)
 \frac{\lVert r_{k}\rVert}{\lVert b\rVert}.
 $$
@@ -680,15 +672,15 @@ The $m$-th **Krylov space** generated by $A$ and $r_{0}$ is
 
 $$
 \mathcal K_{m}(A,r_{0})
-:=
-\mathrm{span}
-\left\{
+\coloneqq
+\mathop{\mathrm{span}}
+\left\lbrace
 r_{0},
 Ar_{0},
 A^{2}r_{0},
 \ldots,
 A^{m-1}r_{0}
-\right\}.
+\right\rbrace.
 $$
 
 Many important iterative methods choose
@@ -714,14 +706,13 @@ $$
 for some polynomial $q_{m-1}$ of degree at most $m-1$. Therefore a Krylov iterate has the form
 
 $$
-x_{m}
-=
+x_{m} =
 x_{0}+q_{m-1}(A)r_{0}.
 $$
 
 Its residual is
 
-```math
+$$
 \begin{aligned}
 r_{m}
 &=
@@ -733,13 +724,13 @@ r_{0}-Aq_{m-1}(A)r_{0}
 &=
 p_{m}(A)r_{0},
 \end{aligned}
-```
+$$
 
 where
 
 $$
 p_{m}(t)
-:=
+\coloneqq
 1-tq_{m-1}(t).
 $$
 
@@ -789,7 +780,7 @@ The system is equivalent to minimizing the quadratic function
 
 $$
 \phi(x)
-:=
+\coloneqq
 \frac12 x^{\mathsf T}Ax-b^{\mathsf T}x.
 $$
 
@@ -812,7 +803,7 @@ Because $A$ is positive definite, $\phi$ is strictly convex and has a unique min
 If we define
 
 $$
-r_{k}:=b-Ax_{k},
+r_{k}\coloneqq b-Ax_{k},
 $$
 
 then
@@ -828,8 +819,7 @@ So the residual is the negative gradient of the quadratic.
 Suppose we have a search direction $d_{k}$ and consider
 
 $$
-x_{k+1}
-=
+x_{k+1} =
 x_{k}+\alpha d_{k}.
 $$
 
@@ -837,13 +827,13 @@ Along this line,
 
 $$
 \psi(\alpha)
-:=
+\coloneqq
 \phi(x_{k}+\alpha d_{k}).
 $$
 
 Differentiate:
 
-```math
+$$
 \begin{aligned}
 \psi'(\alpha)
 &=
@@ -855,13 +845,12 @@ d_{k}^{\mathsf T}
 +
 \alpha d_{k}^{\mathsf T}Ad_{k}.
 \end{aligned}
-```
+$$
 
 Setting $\psi'(\alpha)=0$ gives
 
 $$
-\alpha_{k}
-=
+\alpha_{k} =
 \frac{d_{k}^{\mathsf T}r_{k}}
 {d_{k}^{\mathsf T}Ad_{k}}.
 $$
@@ -869,7 +858,7 @@ $$
 Because $A$ is positive definite,
 
 $$
-d_{k}^{\mathsf T}Ad_{k}>0
+d_{k}^{\mathsf T}Ad_{k}\gt0
 $$
 
 for every nonzero direction, so the denominator is safe in exact arithmetic.
@@ -883,8 +872,7 @@ $$
 which gives the familiar formula
 
 $$
-\alpha_{k}
-=
+\alpha_{k} =
 \frac{r_{k}^{\mathsf T}r_{k}}
 {d_{k}^{\mathsf T}Ad_{k}}.
 $$
@@ -900,7 +888,7 @@ $$
 This is orthogonality in the inner product induced by the SPD matrix:
 
 $$
-(v,w)_{A}:=v^{\mathsf T}Aw.
+(v,w)_{A}\coloneqq v^{\mathsf T}Aw.
 $$
 
 Why is this useful? Suppose an update contains components along two directions,
@@ -934,16 +922,14 @@ $$
 the residual can be updated without recomputing $Ax_{k+1}$ from scratch:
 
 $$
-r_{k+1}
-=
+r_{k+1} =
 r_{k}-\alpha_{k}Ad_{k}.
 $$
 
 The next direction is constructed from the new residual and the previous direction:
 
 $$
-d_{k+1}
-=
+d_{k+1} =
 r_{k+1}+\beta_{k}d_{k}.
 $$
 
@@ -962,8 +948,7 @@ $$
 gives first
 
 $$
-\beta_{k}
-=
+\beta_{k} =
 -\frac{r_{k+1}^{\mathsf T}A d_{k}}
 {d_{k}^{\mathsf T}A d_{k}}.
 $$
@@ -971,18 +956,15 @@ $$
 Now use the residual update
 
 $$
-A d_{k}
-=
+A d_{k} =
 \frac{r_{k}-r_{k+1}}{\alpha_{k}}.
 $$
 
 At the minimizing step length, the line derivative vanishes. Using the residual at the new point,
 
 $$
-\psi'(\alpha_{k})
-=
--d_{k}^{\mathsf T}r_{k+1}
-=
+\psi'(\alpha_{k}) =
+-d_{k}^{\mathsf T}r_{k+1} =
 0.
 $$
 
@@ -994,7 +976,7 @@ $$
 
 Therefore
 
-```math
+$$
 \begin{aligned}
 -r_{k+1}^{\mathsf T}A d_{k}
 &=
@@ -1005,13 +987,12 @@ r_{k+1}^{\mathsf T}(r_{k}-r_{k+1})
 \frac{1}{\alpha_{k}}
 r_{k+1}^{\mathsf T}r_{k+1}.
 \end{aligned}
-```
+$$
 
 From the formula for $\alpha_{k}$,
 
 $$
-d_{k}^{\mathsf T}A d_{k}
-=
+d_{k}^{\mathsf T}A d_{k} =
 \frac{1}{\alpha_{k}}
 r_{k}^{\mathsf T}r_{k}.
 $$
@@ -1019,8 +1000,7 @@ $$
 Hence
 
 $$
-\beta_{k}
-=
+\beta_{k} =
 \frac{r_{k+1}^{\mathsf T}r_{k+1}}
 {r_{k}^{\mathsf T}r_{k}}.
 $$
@@ -1053,15 +1033,14 @@ The SPD matrix defines the energy norm
 
 $$
 \lVert e\rVert_{A}
-:=
+\coloneqq
 \sqrt{e^{\mathsf T}Ae}.
 $$
 
 CG chooses $x_{m}$ so that, in exact arithmetic,
 
 $$
-\lVert x_{\ast}-x_{m}\rVert_{A}
-=
+\lVert x_{\ast}-x_{m}\rVert_{A} =
 \min_{x\in x_{0}+\mathcal K_{m}(A,r_{0})}
 \lVert x_{\ast}-x\rVert_{A}.
 $$
@@ -1075,7 +1054,7 @@ In exact arithmetic, an $n$-dimensional SPD system is solved in at most $n$ CG s
 The recurrence above repeatedly uses positivity. In particular,
 
 $$
-d_{k}^{\mathsf T}Ad_{k}>0
+d_{k}^{\mathsf T}Ad_{k}\gt0
 $$
 
 must hold for nonzero $d_{k}$. If $A$ is symmetric indefinite, this denominator may be zero or negative, and the quadratic $\phi$ is no longer strictly convex.
@@ -1123,8 +1102,7 @@ The word “symmetric” remains essential. A preconditioner used with MINRES mu
 For a general matrix $A$, the **Arnoldi process** constructs an orthonormal basis
 
 $$
-V_{m}
-=
+V_{m} =
 \begin{bmatrix}
 v_{1}&\cdots&v_{m}
 \end{bmatrix}
@@ -1133,8 +1111,7 @@ $$
 for the Krylov space. Its central relation is
 
 $$
-A V_{m}
-=
+A V_{m} =
 V_{m+1}\overline H_{m},
 $$
 
@@ -1153,14 +1130,13 @@ $$
 Every candidate in the affine Krylov space can be written
 
 $$
-x_{m}
-=
+x_{m} =
 x_{0}+V_{m}y
 $$
 
-for some $y\in\mathbb R^{m}$. Its residual is
+for some $y\in\mathbb{R}^{m}$. Its residual is
 
-```math
+$$
 \begin{aligned}
 r_{m}
 &=
@@ -1175,13 +1151,12 @@ V_{m+1}
 \beta e_{1}-\overline H_{m}y
 \right).
 \end{aligned}
-```
+$$
 
 Because the columns of $V_{m+1}$ are orthonormal,
 
 $$
-\lVert r_{m}\rVert_{2}
-=
+\lVert r_{m}\rVert_{2} =
 \left\lVert
 \beta e_{1}-\overline H_{m}y
 \right\rVert_{2}.
@@ -1190,7 +1165,7 @@ $$
 GMRES therefore reduces the large residual-minimization problem to the small least-squares problem
 
 $$
-\min_{y\in\mathbb R^{m}}
+\min_{y\in\mathbb{R}^{m}}
 \left\lVert
 \beta e_{1}-\overline H_{m}y
 \right\rVert_{2}.
@@ -1221,8 +1196,7 @@ Let $M$ be a matrix that approximates $A$ in some useful sense and is much cheap
 A left-preconditioned system is
 
 $$
-M^{-1}Ax
-=
+M^{-1}Ax =
 M^{-1}b.
 $$
 
@@ -1336,22 +1310,20 @@ Finite-element structure makes the operator-only viewpoint especially concrete.
 Suppose
 
 $$
-A_{ij}
-=
+A_{ij} =
 a(\varphi_{j},\varphi_{i})
 $$
 
 and let
 
 $$
-v_{h}
-=
+v_{h} =
 \sum_{j=1}^{n}v_{j}\varphi_{j}.
 $$
 
 Then the $i$-th component of $Av$ is
 
-```math
+$$
 \begin{aligned}
 (Av)_{i}
 &=
@@ -1364,16 +1336,15 @@ a(\varphi_{j},\varphi_{i})v_{j}
 &=
 a(v_{h},\varphi_{i}).
 \end{aligned}
-```
+$$
 
 For the Poisson operator,
 
 $$
-(Av)_{i}
-=
+(Av)_{i} =
 \int_{\Omega}
 \nabla v_{h}\cdot\nabla\varphi_{i}
-\mathrm{d}x.
+\thinspace\mathrm{d}x.
 $$
 
 Instead of first assembling every $A_{ij}$, a matrix-free implementation can evaluate this action cell by cell:
@@ -1432,7 +1403,7 @@ Many PDE and optimization systems contain several groups of unknowns. Instead of
 
 Consider
 
-```math
+$$
 \begin{bmatrix}
 A & B^{\mathsf T}\\
 B & -C
@@ -1440,63 +1411,59 @@ B & -C
 \begin{bmatrix}
 x\\
 p
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 f\\
 g
 \end{bmatrix},
-```
+$$
 
 where $A$ is assumed nonsingular for the moment.
 
 The equations are
 
-```math
+$$
 \begin{aligned}
 Ax+B^{\mathsf T}p&=f,
 \\
 Bx-Cp&=g.
 \end{aligned}
-```
+$$
 
 ### 11.1 Eliminate the first block
 
 From the first equation,
 
 $$
-x
-=
+x =
 A^{-1}(f-B^{\mathsf T}p).
 $$
 
 Substitute this into the second equation:
 
-```math
+$$
 \begin{aligned}
 B A^{-1}(f-B^{\mathsf T}p)-Cp
 &=g,
 \\
 B A^{-1}f
--
-\left(BA^{-1}B^{\mathsf T}+C\right)p
+-\left(BA^{-1}B^{\mathsf T}+C\right)p
 &=g.
 \end{aligned}
-```
+$$
 
 Define the **Schur complement**
 
 $$
 S
-:=
+\coloneqq
 C+BA^{-1}B^{\mathsf T}.
 $$
 
 Then $p$ satisfies
 
 $$
-Sp
-=
+Sp =
 BA^{-1}f-g.
 $$
 
@@ -1546,12 +1513,11 @@ $$
 
 the block matrix has the exact factorization
 
-```math
+$$
 \begin{bmatrix}
 A & B^{\mathsf T}\\
 B & -C
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 I & 0\\
 BA^{-1} & I
@@ -1564,7 +1530,7 @@ A & 0\\
 I & A^{-1}B^{\mathsf T}\\
 0 & I
 \end{bmatrix}.
-```
+$$
 
 This identity explains why good block preconditioners often contain approximations to two ingredients:
 
@@ -1577,7 +1543,7 @@ The exact factorization would solve the original problem. A practical block prec
 
 The mixed finite-element companion [03a · Further finite-element notes](03a-further-finite-element-notes.md) introduced systems of the form
 
-```math
+$$
 \begin{bmatrix}
 A & B^{\mathsf T}\\
 B & 0
@@ -1585,19 +1551,18 @@ B & 0
 \begin{bmatrix}
 x\\
 p
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 f\\
 g
 \end{bmatrix}.
-```
+$$
 
 The same algebraic pattern appears in equality-constrained optimization. If a quadratic objective has Hessian $Q$ and equality Jacobian $D$, the associated KKT matrix is
 
 $$
 K
-:=
+\coloneqq
 \begin{bmatrix}
 Q & D^{\mathsf T}\\
 D & 0
@@ -1611,8 +1576,7 @@ $$
 Take a vector with zero multiplier component:
 
 $$
-z_{+}
-=
+z_{+} =
 \begin{bmatrix}
 x\\
 0
@@ -1624,10 +1588,9 @@ $$
 Then
 
 $$
-z_{+}^{\mathsf T}Kz_{+}
-=
+z_{+}^{\mathsf T}Kz_{+} =
 x^{\mathsf T}Qx
->0.
+\gt0.
 $$
 
 Now choose a nonzero multiplier $p$ for which
@@ -1645,8 +1608,7 @@ $$
 For
 
 $$
-z_{-}
-=
+z_{-} =
 \begin{bmatrix}
 x\\
 p
@@ -1655,7 +1617,7 @@ $$
 
 we have
 
-```math
+$$
 \begin{aligned}
 z_{-}^{\mathsf T}Kz_{-}
 &=
@@ -1665,14 +1627,13 @@ x^{\mathsf T}Qx
 \\
 &=
 p^{\mathsf T}DQ^{-1}D^{\mathsf T}p
--
-2p^{\mathsf T}DQ^{-1}D^{\mathsf T}p
+-2p^{\mathsf T}DQ^{-1}D^{\mathsf T}p
 \\
 &=
 -p^{\mathsf T}DQ^{-1}D^{\mathsf T}p
-<0.
+\lt0.
 \end{aligned}
-```
+$$
 
 Thus $K$ takes both positive and negative values: it is symmetric indefinite.
 
@@ -1683,14 +1644,13 @@ This immediately rules out ordinary CG on the full KKT matrix even though the pr
 Assume $Q$ is SPD and $D$ has full row rank. The Schur complement is
 
 $$
-S
-=
+S =
 DQ^{-1}D^{\mathsf T}.
 $$
 
 For any nonzero multiplier vector $p$,
 
-```math
+$$
 \begin{aligned}
 p^{\mathsf T}Sp
 &=
@@ -1701,7 +1661,7 @@ p^{\mathsf T}DQ^{-1}D^{\mathsf T}p
 Q^{-1}
 (D^{\mathsf T}p).
 \end{aligned}
-```
+$$
 
 Because $Q^{-1}$ is SPD, this quantity is positive whenever
 
@@ -1712,7 +1672,7 @@ $$
 Full row rank of $D$ makes $D^{\mathsf T}$ injective, so
 
 $$
-p^{\mathsf T}Sp>0
+p^{\mathsf T}Sp\gt0
 \qquad
 \text{for every }p\ne0.
 $$
@@ -1758,7 +1718,7 @@ A common residual-based criterion is
 
 $$
 \lVert r_{k}\rVert
-\le
+\leq
 \tau_{\mathrm{abs}}
 +
 \tau_{\mathrm{rel}}\lVert b\rVert,
@@ -1776,7 +1736,7 @@ The solver may also impose a maximum iteration count.
 A purely absolute threshold such as
 
 $$
-\lVert r_{k}\rVert\le10^{-10}
+\lVert r_{k}\rVert\leq10^{-10}
 $$
 
 has different meaning when $\lVert b\rVert$ is $10^{-2}$ and when it is $10^{8}$.

@@ -69,10 +69,10 @@ but there is no $x_{\ast}\in\mathbb R$ with $f(x_{\ast})=0$.
 This motivates the notion of a **minimizing sequence**. Let
 
 $$
-m:=\inf_{x\in K} f(x).
+m\coloneqq\inf_{x\in K} f(x).
 $$
 
-A sequence $\{x_{k}\}\subset K$ is minimizing if
+A sequence $\lbrace x_{k}\rbrace\subset K$ is minimizing if
 
 $$
 f(x_{k})\to m.
@@ -82,7 +82,7 @@ Every optimization problem with finite infimum admits minimizing sequences by th
 
 ### 1.1 Compactness plus continuity gives existence
 
-Suppose $K\subset\mathbb R^{n}$ is nonempty and compact and $f:K\to\mathbb R$ is continuous. Take a minimizing sequence $\{x_{k}\}\subset K$.
+Suppose $K\subset\mathbb R^{n}$ is nonempty and compact and $f:K\to\mathbb R$ is continuous. Take a minimizing sequence $\lbrace x_{k}\rbrace\subset K$.
 
 Compactness gives a convergent subsequence
 
@@ -93,10 +93,8 @@ $$
 Continuity then gives
 
 $$
-f(x_{\ast})
-=
-\lim_{j\to\infty}f(x_{k_{j}})
-=
+f(x_{\ast})=
+\lim_{j\to\infty}f(x_{k_{j}})=
 m.
 $$
 
@@ -117,9 +115,8 @@ $$
 Fix any point $x_{0}$ and consider the sublevel set
 
 $$
-L_{0}
-:=
-\{x:f(x)\leq f(x_{0})\}.
+L_{0}\coloneqq
+\lbrace x:f(x)\leq f(x_{0})\rbrace.
 $$
 
 Coercivity makes this set bounded. If $f$ is continuous, it is also closed, hence compact in finite dimensions. Since no global minimizer can have value larger than the trial value $f(x_{0})$, the search can be restricted to $L_{0}$ and the compactness argument applies.
@@ -132,16 +129,14 @@ The main chapter used convexity to turn stationarity into global optimality. Two
 
 ### 2.1 Strong convexity gives uniform positive curvature
 
-A differentiable function is $m$-strongly convex, with $m>0$, if
+A differentiable function is $m$-strongly convex, with $m\gt 0$, if
 
 $$
 f(y)
 \geq
 f(x)
-+
-\nabla f(x)^{\mathsf T}(y-x)
-+
-\frac{m}{2}\lVert y-x\rVert^{2}
++\nabla f(x)^{\mathsf T}(y-x)
++\frac{m}{2}\lVert y-x\rVert^{2}
 $$
 
 for all $x,y$.
@@ -196,10 +191,8 @@ $$
 f(x+s)
 \leq
 f(x)
-+
-\nabla f(x)^{\mathsf T}s
-+
-\frac{L}{2}\lVert s\rVert^{2}.
++\nabla f(x)^{\mathsf T}s
++\frac{L}{2}\lVert s\rVert^{2}.
 $$
 
 This is often called the **descent lemma**. It turns the qualitative statement
@@ -212,14 +205,13 @@ $$
 f(x-\alpha g)
 \leq
 f(x)
--
-\alpha\left(1-\frac{L\alpha}{2}\right)\lVert g\rVert^{2}.
+-\alpha\left(1-\frac{L\alpha}{2}\right)\lVert g\rVert^{2}.
 $$
 
 Thus any
 
 $$
-0<\alpha<\frac{2}{L}
+0\lt\alpha\lt\frac{2}{L}
 $$
 
 produces decrease. This is one analytical explanation for why step-size restrictions depend on curvature.
@@ -298,7 +290,7 @@ Convex closed sets and convex lower-semicontinuous functionals fit this framewor
 
 ### 3.3 Second-order sufficiency has the same shape
 
-Suppose $F$ is twice Fréchet differentiable, $F'(u_{\ast})=0$, and there is a constant $\alpha>0$ such that
+Suppose $F$ is twice Fréchet differentiable, $F'(u_{\ast})=0$, and there is a constant $\alpha\gt 0$ such that
 
 $$
 \langle F''(u_{\ast})w,w\rangle_{X^{\ast},X}
@@ -327,7 +319,7 @@ This observation is useful even when the numerical algorithm is ultimately appli
 Suppose an algorithm generates $x_{k}\to x_{\ast}$. Define the error
 
 $$
-e_{k}:=\lVert x_{k}-x_{\ast}\rVert.
+e_{k}\coloneqq\lVert x_{k}-x_{\ast}\rVert.
 $$
 
 The terminology used in optimization describes how rapidly $e_{k}$ shrinks once the iterates are sufficiently close to the limit.
@@ -343,7 +335,7 @@ $$
 for some fixed
 
 $$
-0<q<1.
+0\lt q\lt 1.
 $$
 
 Each iteration removes a roughly fixed fraction of the remaining error.
@@ -366,7 +358,7 @@ $$
 e_{k+1}\leq C e_{k}^{2}
 $$
 
-for some $C>0$.
+for some $C\gt 0$.
 
 Once $e_{k}$ is small, squaring it can reduce the error extremely rapidly. Newton's method has this local behavior under the usual nonsingularity and smoothness assumptions.
 
@@ -383,9 +375,8 @@ $$
 Then every iterate remains in the initial sublevel set
 
 $$
-L(x_{0})
-:=
-\{x:f(x)\leq f(x_{0})\}.
+L(x_{0})\coloneqq
+\lbrace x:f(x)\leq f(x_{0})\rbrace.
 $$
 
 If that set is compact, the sequence cannot diverge to infinity and must have accumulation points. A convergence theorem then tries to show that every such accumulation point is stationary, often using assumptions on gradient continuity and the line search.
@@ -467,8 +458,7 @@ These methods differ substantially in local convergence and robustness, but they
 The two-variable Rosenbrock function is
 
 $$
-f(x_{1},x_{2})
-=
+f(x_{1},x_{2})=
 100(x_{2}-x_{1}^{2})^{2}+(1-x_{1})^{2}.
 $$
 

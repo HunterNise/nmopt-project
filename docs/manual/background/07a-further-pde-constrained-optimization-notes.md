@@ -51,14 +51,13 @@ The second half changes the way the control enters the PDE. Neumann boundary con
 
 Consider the semilinear elliptic problem
 
-```math
+$$
 \begin{aligned}
 \min_{y,u}\quad
 J(y,u)
-&:=
+&\coloneqq
 \frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
-+
-\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2},\\
++\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2},\\
 \text{subject to}\quad
 -\Delta y+y^{3}
 &=
@@ -67,14 +66,14 @@ f+u
 y&=0
 \quad\text{on }\partial\Omega,
 \end{aligned}
-```
+$$
 
-with $\beta>0$. Assume, for this model, that the dimension and regularity are such that the cubic term defines a bounded element of $V^{\ast}$; for the standard energy setting, $d\leq3$ is a convenient case. Let
+with $\beta\gt0$. Assume, for this model, that the dimension and regularity are such that the cubic term defines a bounded element of $V^{\ast}$; for the standard energy setting, $d\leq3$ is a convenient case. Let
 
 $$
-V:=H_{0}^{1}(\Omega),
+V\coloneqq H_{0}^{1}(\Omega),
 \qquad
-U:=L^{2}(\Omega).
+U\coloneqq L^{2}(\Omega).
 $$
 
 The weak residual is
@@ -87,12 +86,10 @@ defined by
 
 $$
 \langle E(y,u),v\rangle
-:=
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-+
-\int_{\Omega}y^{3}v\mathrm{d}x
--
-\int_{\Omega}(f+u)v\mathrm{d}x.
+\coloneqq
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
++\int_{\Omega}y^{3}v\thinspace\mathrm{d}x
+-\int_{\Omega}(f+u)v\thinspace\mathrm{d}x.
 $$
 
 The equation is nonlinear because of $y^{3}$. Even if the objective is quadratic, the map
@@ -122,19 +119,15 @@ with action
 
 $$
 \langle D_{y}E(\bar y,\bar u)z,v\rangle
-=
-\int_{\Omega}\nabla z\cdot\nabla v\mathrm{d}x
-+
-\int_{\Omega}3\bar y^{2}zv\mathrm{d}x.
+= \int_{\Omega}\nabla z\cdot\nabla v\thinspace\mathrm{d}x
++\int_{\Omega}3\bar y^{2}zv\thinspace\mathrm{d}x.
 $$
 
 The control derivative is simpler:
 
 $$
 \langle D_{u}E(\bar y,\bar u)h,v\rangle
-=
--
-\int_{\Omega}hv\mathrm{d}x.
+= -\int_{\Omega}hv\thinspace\mathrm{d}x.
 $$
 
 If $E$ is sufficiently smooth near $(\bar y,\bar u)$ and
@@ -156,7 +149,7 @@ The word **local** matters. For a nonlinear PDE, uniqueness of the state can fai
 Let
 
 $$
-z:=S'(u)h
+z\coloneqq S'(u)h
 $$
 
 be the state perturbation induced by a control perturbation $h$. Differentiating
@@ -169,20 +162,15 @@ gives
 
 $$
 D_{y}E(y,u)z
-+
-D_{u}E(y,u)h
-=
-0.
++D_{u}E(y,u)h = 0.
 $$
 
 For the semilinear example this becomes
 
 $$
-\int_{\Omega}\nabla z\cdot\nabla v\mathrm{d}x
-+
-\int_{\Omega}3y^{2}zv\mathrm{d}x
-=
-\int_{\Omega}hv\mathrm{d}x
+\int_{\Omega}\nabla z\cdot\nabla v\thinspace\mathrm{d}x
++\int_{\Omega}3y^{2}zv\thinspace\mathrm{d}x
+= \int_{\Omega}hv\thinspace\mathrm{d}x
 \qquad
 \forall v\in V.
 $$
@@ -234,13 +222,11 @@ becomes only a first-order necessary condition for a local optimum unless additi
 
 The direct reduced derivative is
 
-```math
+$$
 j'(u)[h]
-=
-D_{y}J(y,u)[z]
-+
-D_{u}J(y,u)[h],
-```
+= D_{y}J(y,u)[z]
++D_{u}J(y,u)[h],
+$$
 
 where $z=S'(u)h$ solves the linearized state equation.
 
@@ -248,34 +234,29 @@ For the running example,
 
 $$
 D_{y}J(y,u)[z]
-=
-(y-y_{d},z)_{L^{2}(\Omega)},
+= (y-y_{d},z)_{L^{2}(\Omega)},
 $$
 
 and
 
 $$
 D_{u}J(y,u)[h]
-=
-\beta(u,h)_{L^{2}(\Omega)}.
+= \beta(u,h)_{L^{2}(\Omega)}.
 $$
 
 Introduce an adjoint $p\in V$ through the same convention as [07 · PDE-constrained optimization](07-pde-constrained-optimization.md):
 
 $$
 D_{y}E(y,u)^{\ast}p
-=
-D_{y}J(y,u).
+= D_{y}J(y,u).
 $$
 
 The state linearization in this example is symmetric under the weak pairing, so the adjoint equation is
 
 $$
-\int_{\Omega}\nabla p\cdot\nabla v\mathrm{d}x
-+
-\int_{\Omega}3y^{2}pv\mathrm{d}x
-=
-\int_{\Omega}(y-y_{d})v\mathrm{d}x
+\int_{\Omega}\nabla p\cdot\nabla v\thinspace\mathrm{d}x
++\int_{\Omega}3y^{2}pv\thinspace\mathrm{d}x
+= \int_{\Omega}(y-y_{d})v\thinspace\mathrm{d}x
 \qquad
 \forall v\in V.
 $$
@@ -284,8 +265,7 @@ In strong notation, when the regularity is sufficient,
 
 $$
 -\Delta p+3y^{2}p
-=
-y-y_{d}.
+= y-y_{d}.
 $$
 
 The adjoint operator therefore depends on the current state for the same reason as the sensitivity operator.
@@ -294,13 +274,9 @@ Using the adjoint identity and the linearized state equation,
 
 $$
 D_{y}J(y,u)[z]
-=
-\langle D_{y}E(y,u)^{\ast}p,z\rangle
-=
-\langle p,D_{y}E(y,u)z\rangle
-=
--
-\langle p,D_{u}E(y,u)h\rangle.
+= \langle D_{y}E(y,u)^{\ast}p,z\rangle
+= \langle p,D_{y}E(y,u)z\rangle
+= -\langle p,D_{u}E(y,u)h\rangle.
 $$
 
 Hence
@@ -308,10 +284,8 @@ Hence
 $$
 \boxed{
 j'(u)
-=
-D_{u}J(y,u)
--
-D_{u}E(y,u)^{\ast}p.
+= D_{u}J(y,u)
+-D_{u}E(y,u)^{\ast}p.
 }
 $$
 
@@ -368,11 +342,9 @@ $$
 from
 
 $$
-\int_{\Omega}\nabla z\cdot\nabla v\mathrm{d}x
-+
-\int_{\Omega}3y^{2}zv\mathrm{d}x
-=
-\int_{\Omega}hv\mathrm{d}x.
+\int_{\Omega}\nabla z\cdot\nabla v\thinspace\mathrm{d}x
++\int_{\Omega}3y^{2}zv\thinspace\mathrm{d}x
+= \int_{\Omega}hv\thinspace\mathrm{d}x.
 $$
 
 This is the same sensitivity equation as before.
@@ -382,7 +354,7 @@ This is the same sensitivity equation as before.
 Let
 
 $$
-q:=p'(u)h
+q\coloneqq p'(u)h
 $$
 
 be the adjoint variation. The adjoint equation is
@@ -394,7 +366,7 @@ $$
 where
 
 $$
-A_{y}v:=-\Delta v+3y^{2}v.
+A_{y}v\coloneqq-\Delta v+3y^{2}v.
 $$
 
 The state changes by $z$, so the derivative of the coefficient $3y^{2}$ is
@@ -407,23 +379,19 @@ Differentiating the adjoint equation gives
 
 $$
 A_{y}q
-+
-6yzp
-=
-z.
++6yzp
+= z.
 $$
 
 In weak form,
 
-```math
-\int_{\Omega}\nabla q\cdot\nabla v\mathrm{d}x
-+
-\int_{\Omega}3y^{2}qv\mathrm{d}x
-=
-\int_{\Omega}\left(z-6yzp\right)v\mathrm{d}x
+$$
+\int_{\Omega}\nabla q\cdot\nabla v\thinspace\mathrm{d}x
++\int_{\Omega}3y^{2}qv\thinspace\mathrm{d}x
+= \int_{\Omega}\left(z-6yzp\right)v\thinspace\mathrm{d}x
 \qquad
 \forall v\in V.
-```
+$$
 
 This is an **incremental adjoint equation**. It uses the same principal linearized state operator $A_{y}$ but a new right-hand side containing both the state variation and the second derivative of the nonlinear PDE term.
 
@@ -469,24 +437,22 @@ Instead of reducing to the control, retain the state, adjoint, and control as in
 
 $$
 \mathcal L(y,u,p)
-=
-J(y,u)
--
-\langle p,E(y,u)\rangle,
+= J(y,u)
+-\langle p,E(y,u)\rangle,
 $$
 
 the smooth unconstrained first-order system is
 
-```math
+$$
 F(y,p,u)
-:=
+\coloneqq
 \begin{bmatrix}
 E(y,u)\\
 D_{y}J(y,u)-D_{y}E(y,u)^{\ast}p\\
 D_{u}J(y,u)-D_{u}E(y,u)^{\ast}p
 \end{bmatrix}
 =0.
-```
+$$
 
 For a nonlinear problem, $F$ is itself nonlinear. Newton's method asks for a correction
 
@@ -503,8 +469,7 @@ F'(y,p,u)
 \delta p\\
 \delta u
 \end{bmatrix}
-=
--F(y,p,u).
+= -F(y,p,u).
 $$
 
 The derivative of the first block contains only the first derivatives
@@ -529,16 +494,14 @@ The same Newton step can be understood from constrained optimization. At the cur
 
 $$
 E(y,u)
-+
-D_{y}E(y,u)\delta y
-+
-D_{u}E(y,u)\delta u
++D_{y}E(y,u)\delta y
++D_{u}E(y,u)\delta u
 =0.
 $$
 
 Then build a quadratic model of the Lagrangian in the primal variables. Schematically,
 
-```math
+$$
 \frac{1}{2}
 \begin{bmatrix}
 \delta y\\
@@ -549,15 +512,14 @@ H_{\mathcal L}
 \delta y\\
 \delta u
 \end{bmatrix}
-+
-\left\langle
++\left\langle
 \nabla_{y,u}\mathcal L,
 \begin{bmatrix}
 \delta y\\
 \delta u
 \end{bmatrix}
 \right\rangle,
-```
+$$
 
 subject to the linearized state equation.
 
@@ -579,33 +541,30 @@ with a volume control operator $B$. Nothing in the adjoint derivation requires $
 
 Consider the coercive model
 
-```math
+$$
 \begin{aligned}
 -\Delta y+\sigma y&=f
 &&\text{in }\Omega,\\
 \partial_{n}y&=u
 &&\text{on }\Gamma,
 \end{aligned}
-```
+$$
 
-with $\sigma>0$. Let
+with $\sigma\gt0$. Let
 
 $$
-V:=H^{1}(\Omega),
+V\coloneqq H^{1}(\Omega),
 \qquad
-U:=L^{2}(\Gamma).
+U\coloneqq L^{2}(\Gamma).
 $$
 
 The weak equation is
 
 $$
-\int_{\Omega}\nabla y\cdot\nabla v\mathrm{d}x
-+
-\sigma\int_{\Omega}yv\mathrm{d}x
-=
-\int_{\Omega}fv\mathrm{d}x
-+
-\int_{\Gamma}u\gamma v\mathrm{d}s
+\int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x
++\sigma\int_{\Omega}yv\thinspace\mathrm{d}x
+= \int_{\Omega}fv\thinspace\mathrm{d}x
++\int_{\Gamma}u\gamma v\thinspace\mathrm{d}s
 $$
 
 for every $v\in V$, where
@@ -620,8 +579,7 @@ The control operator is therefore characterized by
 
 $$
 \langle Bu,v\rangle_{V^{\ast},V}
-=
-\int_{\Gamma}u\gamma v\mathrm{d}s.
+= \int_{\Gamma}u\gamma v\thinspace\mathrm{d}s.
 $$
 
 The trace theorem is doing real work here: it makes the right-hand side a bounded functional of $v$ and therefore makes
@@ -650,20 +608,16 @@ the reduced derivative is
 
 $$
 j'(u)
-=
-D_{u}J-D_{u}E^{\ast}p
-=
-\beta R_{U}u+B^{\ast}p.
+= D_{u}J-D_{u}E^{\ast}p
+= \beta R_{U}u+B^{\ast}p.
 $$
 
 The adjoint control operator is characterized by
 
 $$
 \langle B^{\ast}p,h\rangle_{U^{\ast},U}
-=
-\langle Bh,p\rangle_{V^{\ast},V}
-=
-\int_{\Gamma}h\gamma p\mathrm{d}s.
+= \langle Bh,p\rangle_{V^{\ast},V}
+= \int_{\Gamma}h\gamma p\thinspace\mathrm{d}s.
 $$
 
 Thus, under the standard $L^{2}(\Gamma)$ Riesz identification,
@@ -671,8 +625,7 @@ Thus, under the standard $L^{2}(\Gamma)$ Riesz identification,
 $$
 \boxed{
 \nabla j(u)
-=
-\beta u+\gamma p.
+= \beta u+\gamma p.
 }
 $$
 
@@ -707,12 +660,12 @@ $$
 
 Assume for simplicity that
 
-```math
+$$
 \begin{aligned}
 -\Delta y&=f &&\text{in }\Omega,\\
 y&=u &&\text{on }\Gamma.
 \end{aligned}
-```
+$$
 
 Choose a continuous right inverse of the trace,
 
@@ -733,11 +686,9 @@ $$
 The unknown $z$ now satisfies a standard homogeneous variational problem:
 
 $$
-\int_{\Omega}\nabla z\cdot\nabla v\mathrm{d}x
-=
-\int_{\Omega}fv\mathrm{d}x
--
-\int_{\Omega}\nabla(\mathcal E u)\cdot\nabla v\mathrm{d}x
+\int_{\Omega}\nabla z\cdot\nabla v\thinspace\mathrm{d}x
+= \int_{\Omega}fv\thinspace\mathrm{d}x
+-\int_{\Omega}\nabla(\mathcal E u)\cdot\nabla v\thinspace\mathrm{d}x
 \qquad
 \forall v\in H_{0}^{1}(\Omega).
 $$
@@ -748,29 +699,25 @@ Suppose, for example,
 
 $$
 J(y,u)
-=
-\frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
-+
-\frac{\beta}{2}\lVert u\rVert_{U}^{2}.
+= \frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
++\frac{\beta}{2}\lVert u\rVert_{U}^{2}.
 $$
 
 The adjoint still solves the interior equation
 
-```math
+$$
 \begin{aligned}
 -\Delta p&=y-y_{d} &&\text{in }\Omega,\\
 p&=0 &&\text{on }\Gamma.
 \end{aligned}
-```
+$$
 
 A boundary perturbation $h\in H^{1/2}(\Gamma)$ is represented in the state by a lifting $\mathcal E h$. After using the adjoint equation and Green's identity, the reduced derivative has the form
 
 $$
 j'(u)[h]
-=
-\beta (u,h)_{U}
--
-\left\langle
+= \beta (u,h)_{U}
+-\left\langle
 \partial_{n}p,h
 \right\rangle_{H^{-1/2}(\Gamma),H^{1/2}(\Gamma)}.
 $$
@@ -798,18 +745,15 @@ Now a generic control $u\in L^{2}(\Gamma)$ need not be the trace of an $H^{1}(\O
 A useful alternative is the **transposition**, or **very-weak**, formulation. Assume enough elliptic regularity of the domain that
 
 $$
-Y:=H^{2}(\Omega)\cap H_{0}^{1}(\Omega)
+Y\coloneqq H^{2}(\Omega)\cap H_{0}^{1}(\Omega)
 $$
 
 is an appropriate test space and that the normal derivative of $\psi\in Y$ belongs to $L^{2}(\Gamma)$. Starting from a smooth solution and integrating twice by parts gives
 
 $$
--
-\int_{\Omega}y\Delta\psi\mathrm{d}x
-=
-\int_{\Omega}f\psi\mathrm{d}x
--
-\int_{\Gamma}u\partial_{n}\psi\mathrm{d}s.
+-\int_{\Omega}y\Delta\psi\thinspace\mathrm{d}x
+= \int_{\Omega}f\psi\thinspace\mathrm{d}x
+-\int_{\Gamma}u\partial_{n}\psi\thinspace\mathrm{d}s.
 $$
 
 This identity still makes sense when
@@ -823,12 +767,9 @@ $$
 because all derivatives have been moved onto the smoother test function $\psi$. We therefore **define** the very-weak state by
 
 $$
--
-(y,\Delta\psi)_{L^{2}(\Omega)}
-=
-(f,\psi)_{L^{2}(\Omega)}
--
-(u,\partial_{n}\psi)_{L^{2}(\Gamma)}
+-(y,\Delta\psi)_{L^{2}(\Omega)}
+= (f,\psi)_{L^{2}(\Omega)}
+-(u,\partial_{n}\psi)_{L^{2}(\Gamma)}
 \qquad
 \forall\psi\in Y.
 $$
@@ -839,28 +780,25 @@ For the $L^{2}$ tracking functional
 
 $$
 J(y,u)
-=
-\frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
-+
-\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Gamma)}^{2},
+= \frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
++\frac{\beta}{2}\lVert u\rVert_{L^{2}(\Gamma)}^{2},
 $$
 
 the adjoint has the stronger regularity role. Formally, and under the same regularity assumptions,
 
-```math
+$$
 \begin{aligned}
 -\Delta p&=y-y_{d} &&\text{in }\Omega,\\
 p&=0 &&\text{on }\Gamma,
 \end{aligned}
-```
+$$
 
 with $p\in Y$. The reduced derivative becomes
 
 $$
 \boxed{
 j'(u)[h]
-=
-(\beta u-\partial_{n}p,h)_{L^{2}(\Gamma)}.
+= (\beta u-\partial_{n}p,h)_{L^{2}(\Gamma)}.
 }
 $$
 
@@ -885,26 +823,25 @@ So the phrase "boundary control" hides several mathematically different cases. T
 
 A second important generalization is to optimize a coefficient inside the PDE operator. Consider
 
-```math
+$$
 \begin{aligned}
 \min_{y,a}\quad
 J(y,a)
-&:=
+&\coloneqq
 \frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2}
-+
-\frac{\alpha}{2}\lVert a-a_{\mathrm{ref}}\rVert_{L^{2}(\Omega)}^{2},\\
++\frac{\alpha}{2}\lVert a-a_{\mathrm{ref}}\rVert_{L^{2}(\Omega)}^{2},\\
 \text{subject to}\quad
 -\nabla\cdot(a\nabla y)&=f
 \quad\text{in }\Omega,\\
 y&=0
 \quad\text{on }\partial\Omega.
 \end{aligned}
-```
+$$
 
 Assume the admissible coefficients belong to $L^{\infty}(\Omega)$ and satisfy uniform positive bounds
 
 $$
-0<a_{\min}
+0\lt a_{\min}
 \leq
 a(x)
 \leq
@@ -927,10 +864,8 @@ The weak residual is
 
 $$
 \langle E(y,a),v\rangle
-=
-\int_{\Omega}a\nabla y\cdot\nabla v\mathrm{d}x
--
-\int_{\Omega}fv\mathrm{d}x.
+= \int_{\Omega}a\nabla y\cdot\nabla v\thinspace\mathrm{d}x
+-\int_{\Omega}fv\thinspace\mathrm{d}x.
 $$
 
 Perturb the coefficient by $h$ and let
@@ -942,21 +877,16 @@ $$
 Differentiating the state equation gives
 
 $$
-\int_{\Omega}a\nabla z\cdot\nabla v\mathrm{d}x
-+
-\int_{\Omega}h\nabla y\cdot\nabla v\mathrm{d}x
-=
-0.
+\int_{\Omega}a\nabla z\cdot\nabla v\thinspace\mathrm{d}x
++\int_{\Omega}h\nabla y\cdot\nabla v\thinspace\mathrm{d}x = 0.
 $$
 
 Therefore
 
 $$
 \boxed{
-\int_{\Omega}a\nabla z\cdot\nabla v\mathrm{d}x
-=
--
-\int_{\Omega}h\nabla y\cdot\nabla v\mathrm{d}x.
+\int_{\Omega}a\nabla z\cdot\nabla v\thinspace\mathrm{d}x
+= -\int_{\Omega}h\nabla y\cdot\nabla v\thinspace\mathrm{d}x.
 }
 $$
 
@@ -968,22 +898,18 @@ With the project sign convention,
 
 $$
 \mathcal L(y,a,p)
-=
-J(y,a)
--
-\left(
-\int_{\Omega}a\nabla y\cdot\nabla p\mathrm{d}x
--
-\int_{\Omega}fp\mathrm{d}x
+= J(y,a)
+-\left(
+\int_{\Omega}a\nabla y\cdot\nabla p\thinspace\mathrm{d}x
+-\int_{\Omega}fp\thinspace\mathrm{d}x
 \right).
 $$
 
 Stationarity with respect to the state gives
 
 $$
-\int_{\Omega}a\nabla p\cdot\nabla v\mathrm{d}x
-=
-\int_{\Omega}(y-y_{d})v\mathrm{d}x
+\int_{\Omega}a\nabla p\cdot\nabla v\thinspace\mathrm{d}x
+= \int_{\Omega}(y-y_{d})v\thinspace\mathrm{d}x
 \qquad
 \forall v\in H_{0}^{1}(\Omega).
 $$
@@ -992,10 +918,8 @@ Now differentiate the Lagrangian with respect to the coefficient in direction $h
 
 $$
 D_{a}\mathcal L(y,a,p)[h]
-=
-\alpha(a-a_{\mathrm{ref}},h)_{L^{2}(\Omega)}
--
-\int_{\Omega}h\nabla y\cdot\nabla p\mathrm{d}x.
+= \alpha(a-a_{\mathrm{ref}},h)_{L^{2}(\Omega)}
+-\int_{\Omega}h\nabla y\cdot\nabla p\thinspace\mathrm{d}x.
 $$
 
 At a feasible state and its adjoint this is the reduced derivative, so formally the $L^{2}$ gradient density is
@@ -1003,10 +927,8 @@ At a feasible state and its adjoint this is the reduced derivative, so formally 
 $$
 \boxed{
 \nabla j(a)
-=
-\alpha(a-a_{\mathrm{ref}})
--
-\nabla y\cdot\nabla p.
+= \alpha(a-a_{\mathrm{ref}})
+-\nabla y\cdot\nabla p.
 }
 $$
 
@@ -1033,20 +955,16 @@ be an observation operator into a Hilbert observation space $O$, and consider
 
 $$
 J(y,u)
-=
-\frac{1}{2}\lVert Cy-z_{d}\rVert_{O}^{2}
-+
-\frac{\alpha}{2}\lVert u-u_{\mathrm{ref}}\rVert_{U}^{2}.
+= \frac{1}{2}\lVert Cy-z_{d}\rVert_{O}^{2}
++\frac{\alpha}{2}\lVert u-u_{\mathrm{ref}}\rVert_{U}^{2}.
 $$
 
 Then
 
 $$
 D_{y}J(y,u)[z]
-=
-(Cy-z_{d},Cz)_{O}
-=
-\left\langle
+= (Cy-z_{d},Cz)_{O}
+= \left\langle
 C^{\ast}R_{O}(Cy-z_{d}),z
 \right\rangle.
 $$
@@ -1073,8 +991,7 @@ For $y\in L^{2}(\Omega)$ this is a bounded restriction operator. The tracking de
 
 $$
 D_{y}J(y,u)[z]
-=
-\int_{\omega}(y-z_{d})z\mathrm{d}x.
+= \int_{\omega}(y-z_{d})z\thinspace\mathrm{d}x.
 $$
 
 Equivalently, the adjoint receives the observation mismatch extended by zero outside $\omega$. Analytically, this behaves much like full-domain tracking; only the support of the adjoint source changes.
@@ -1091,8 +1008,7 @@ and, on a bounded Lipschitz boundary, a continuous embedding into $L^{2}(\Gamma)
 
 $$
 Cy
-=
-\gamma y\rvert_{\Gamma_{\mathrm{obs}}}.
+= \gamma y\rvert_{\Gamma_{\mathrm{obs}}}.
 $$
 
 The adjoint forcing is no longer a volume source: $C^{\ast}$ turns the boundary mismatch into a functional acting on state test functions through their traces. In a weak PDE formulation this typically appears as a natural boundary contribution.
@@ -1136,16 +1052,14 @@ If the sensor residual is $r\in\mathbb R^{m}$, then
 
 $$
 C^{\ast}r
-=
-\sum_{j=1}^{m}r_{j}\delta_{\xi_{j}},
+= \sum_{j=1}^{m}r_{j}\delta_{\xi_{j}},
 $$
 
 where $\delta_{\xi_{j}}$ is the Dirac point-evaluation functional. The adjoint equation therefore contains singular sources. In a Poisson-type model it has the formal form
 
 $$
 -\Delta p
-=
-\sum_{j=1}^{m}
+= \sum_{j=1}^{m}
 \bigl(y(\xi_{j})-z_{d,j}\bigr)\delta_{\xi_{j}}.
 $$
 
@@ -1167,25 +1081,24 @@ lower regularity for the adjoint
 
 Suppose the state solves
 
-```math
+$$
 \begin{aligned}
 -\Delta y&=f+u &&\text{in }\Omega,\\
 y&=0 &&\text{on }\Gamma,
 \end{aligned}
-```
+$$
 
 and the measured quantity is the outgoing flux on $\Gamma_{0}\subset\Gamma$:
 
 $$
 Cy
-=
-\partial_{n}y\rvert_{\Gamma_{0}}.
+= \partial_{n}y\rvert_{\Gamma_{0}}.
 $$
 
 The minimal energy regularity $y\in H_{0}^{1}(\Omega)$ is not enough to regard $\partial_{n}y$ as an $L^{2}$ boundary function. If elliptic regularity gives
 
 $$
-y\in Y:=H^{2}(\Omega)\cap H_{0}^{1}(\Omega),
+y\in Y\coloneqq H^{2}(\Omega)\cap H_{0}^{1}(\Omega),
 $$
 
 then the normal derivative has a trace and the cost
@@ -1203,8 +1116,7 @@ Its state derivative is
 
 $$
 D_{y}J(y,u)[z]
-=
-\int_{\Gamma_{0}}
+= \int_{\Gamma_{0}}
 \left(
 \partial_{n}y-z_{d}
 \right)
@@ -1216,7 +1128,7 @@ This expression already reveals the difficulty: the right-hand side is not a bou
 
 Using the strong residual and integrating by parts twice leads formally to an adjoint that is harmonic in the interior and whose **Dirichlet boundary data are the flux mismatch**. With the sign convention used in these notes, one convenient form is
 
-```math
+$$
 \begin{aligned}
 -\Delta p&=0 &&\text{in }\Omega,\\
 p&=-\chi_{\Gamma_{0}}
@@ -1225,14 +1137,13 @@ p&=-\chi_{\Gamma_{0}}
 \right)
 &&\text{on }\Gamma.
 \end{aligned}
-```
+$$
 
 The datum on the boundary is only $L^{2}$ in this model, so it need not be the trace of an $H^{1}$ function. The adjoint is therefore naturally interpreted as a **very-weak solution**, possibly only in $L^{2}(\Omega)$. For a distributed source control, the reduced derivative then has the familiar volume form
 
 $$
 j'(u)[h]
-=
-(\beta u+p,h)_{L^{2}(\Omega)}.
+= (\beta u+p,h)_{L^{2}(\Omega)}.
 $$
 
 Boundary-flux observation is a useful warning against treating $C$ as an innocent matrix. The choice of observation can change the correct state space, the multiplier space, and even which formulation of the adjoint PDE is mathematically meaningful.

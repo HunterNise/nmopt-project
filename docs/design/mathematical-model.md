@@ -59,31 +59,31 @@ solvers must not select a different convention.
 Let $\mathcal I$ be a finite set of variable blocks.  A block may represent a
 state, a control, a parameter, a flux, an initial value, or an auxiliary
 mixed variable.  For every $i \in \mathcal I$, declare a topological vector
-space $`X_{i}`$; the full unknown is
+space $X_{i}$; the full unknown is
 
 $$
-  x=(x_{i})_{i\in\mathcal I}\in X:=\prod_{i\in\mathcal I}X_{i}.
+  x=(x_{i})_{i\in\mathcal I}\in X\coloneqq\prod_{i\in\mathcal I}X_{i}.
 $$
 
 Examples are $H^{1}(\Omega)$, $L^{2}(\Omega)^{m}$, $H(\mathrm{div};\Omega)$,
-$`L^{2}(\Gamma_{c})`$, a finite-dimensional Euclidean space, and a Bochner space
+$L^{2}(\Gamma_{c})$, a finite-dimensional Euclidean space, and a Bochner space
 such as $L^{2}(I;V)$.  Scalar, vector, and tensor fields differ only in the
 field shape carried by their space; they are not different kinds of problem.
 
 Fixed coefficients, source functions, desired states, geometry tags, and
-initial data belong to data spaces $`D_{r}`$.  With
+initial data belong to data spaces $D_{r}$.  With
 
 $$
-  d=(d_{r})_{r\in\mathcal R}\in D:=\prod_{r\in\mathcal R}D_{r},
+  d=(d_{r})_{r\in\mathcal R}\in D\coloneqq\prod_{r\in\mathcal R}D_{r},
 $$
 
 the residual is allowed to depend on data,
 
 $$
-  E_{a}:X\times D\longrightarrow Z_{a}^{\ast},\qquad a\in\mathcal A,
+  E_{a}\colon X\times D\longrightarrow Z_{a}^{\ast},\qquad a\in\mathcal A,
 $$
 
-where $`Z_{a}`$ is the declared test space for equation block $a$.  The
+where $Z_{a}$ is the declared test space for equation block $a$.  The
 mathematical problem is
 
 $$
@@ -101,10 +101,10 @@ $$
 $$
 
 Thus a mixed system simply has several equation blocks and test spaces.  A
-Petrov–Galerkin formulation is already covered: its trial spaces $`X_{i}`$ and
-test spaces $`Z_{a}`$ need not coincide.
+Petrov–Galerkin formulation is already covered: its trial spaces $X_{i}$ and
+test spaces $Z_{a}$ need not coincide.
 
-$`X_{\mathrm{ad}}(d)`$ contains optimisation constraints, such as box constraints,
+$X_{\mathrm{ad}}(d)$ contains optimisation constraints, such as box constraints,
 affine restrictions, a mean-zero gauge, or positivity of a coefficient.  An
 essential boundary condition is normally **not** stored as a load term in
 $E$: it restricts or parameterises a physical trial space, as described in
@@ -145,14 +145,14 @@ its typed map and tested action are the mathematical contract.
 Objectives are factored through observations:
 
 $$
-  O_{k}:X\times D\longrightarrow Q_{k},
+  O_{k}\colon X\times D\longrightarrow Q_{k},
   \qquad
   J(x;d)=\sum_{k\in\mathcal K}\Phi_{k}(O_{k}(x;d);d). \quad\text{(3)}
 $$
 
-The observation space $`Q_{k}`$ is explicit.  It can be a volume space, a trace
+The observation space $Q_{k}$ is explicit.  It can be a volume space, a trace
 space, a flux space, a space-time space, or $R^{m}$ for a finite sensor array.
-The loss $`\Phi_{k}`$ supplies a scalar value and derivative in $`Q_{k}^{\ast}`$.  Hence a
+The loss $\Phi_{k}$ supplies a scalar value and derivative in $Q_{k}^{\ast}$.  Hence a
 tracking term is not intrinsically an $L^{2}$ mass matrix.  For example,
 
 $$
@@ -167,9 +167,9 @@ a boundary norm, and a discrete sensor covariance are different choices.
 At a differentiability point, a residual term provides partial linearizations
 
 $$
-  D_{i}E_{a}(x;d):X_{i}\longrightarrow Z_{a}^{\ast},
+  D_{i}E_{a}(x;d)\colon X_{i}\longrightarrow Z_{a}^{\ast},
   \qquad
-  D_{i}E_{a}(x;d)^{\ast}:Z_{a}\longrightarrow X_{i}^{\ast}. \quad\text{(4)}
+  D_{i}E_{a}(x;d)^{\ast}\colon Z_{a}\longrightarrow X_{i}^{\ast}. \quad\text{(4)}
 $$
 
 The latter is the transpose action with respect to the declared dual
@@ -179,7 +179,7 @@ $$
   D_{i}J(x;d)\in X_{i}^{\ast}.
 $$
 
-For a state/control split $x=(y,u)$ and adjoints $`p_{a} \in Z_{a}`$, the first
+For a state/control split $x=(y,u)$ and adjoints $p_{a} \in Z_{a}$, the first
 order pattern for an unconstrained state is
 
 $$
@@ -196,7 +196,7 @@ condition.  A reduced gradient is not obtained until a primal–dual
 identification is chosen.  In a Hilbert control space, a metric/Riesz map
 
 $$
-  R_{U}:U\longrightarrow U^{\ast},\qquad \nabla_{U} j=R_{U}^{-1}j'(u) \quad\text{(6)}
+  R_{U}\colon U\longrightarrow U^{\ast},\qquad \nabla_{U} j=R_{U}^{-1}j'(u) \quad\text{(6)}
 $$
 
 defines one such identification.  Choosing $L^{2}$, $H^{1}$, boundary $L^{2}$, or an
@@ -209,7 +209,7 @@ The variable in (1) need not be the physical field appearing in a PDE.  A
 reconstruction or transformation is a map
 
 $$
-  T:\widehat X\times D\longrightarrow X_{\mathrm{phys}}.
+  T\colon\widehat X\times D\longrightarrow X_{\mathrm{phys}}.
 $$
 
 The declared residual is then the composite
@@ -282,13 +282,13 @@ can safely guess.
 
 ### 2.3 Essential, natural, and Robin conditions
 
-Suppose $`\Gamma_{D}`$ carries a Dirichlet datum $`g_{D}`$.  Set
+Suppose $\Gamma_{D}$ carries a Dirichlet datum $g_{D}$.  Set
 
-```math
-  V:=\left\{v\in H^{1}(\Omega):\mathrm{tr}_{\Gamma_{D}}v=0\right\}
-```
+$$
+  V\coloneqq\left\lbrace v\in H^{1}(\Omega)\mid\mathop{\mathrm{tr}}\nolimits_{\Gamma_{D}}v=0\right\rbrace
+$$
 
-and choose a lifting $`\ell_{D}(g_{D})`$ with the desired trace.  The physical
+and choose a lifting $\ell_{D}(g_{D})$ with the desired trace.  The physical
 state is represented as
 
 $$
@@ -299,7 +299,7 @@ Thus an essential condition modifies the trial variable or its
 reconstruction.  It is not an ordinary functional on the test space.
 
 By contrast, a Neumann datum is a natural boundary functional, for example
-$`v \mapsto \int_{\Gamma_{N}} g_{N} v`$.  A Robin condition contributes both a
+$v \mapsto \int_{\Gamma_{N}} g_{N} v$.  A Robin condition contributes both a
 boundary bilinear term and, usually, a boundary functional.  A model with a
 pure Neumann operator must additionally provide a compatibility and
 nullspace/gauge policy.  Periodicity and hanging-node relations are likewise
@@ -314,7 +314,7 @@ $$
   -\Delta y=f\quad\text{in }\Omega,\qquad y=g\quad\text{on }\Gamma.
 $$
 
-The ordinary weak approach seeks a lifting plus an $`H^{1}_{0}(\Omega)`$ unknown.
+The ordinary weak approach seeks a lifting plus an $H^{1}_{0}(\Omega)$ unknown.
 If the available data or desired solution regularity instead calls for a
 transposition formulation, one possible model seeks
 
@@ -364,14 +364,14 @@ One possible primal weak formulation has the following substitutions into
 | Abstract component | This problem |
 |---|---|
 | Optimisation variables | $x=(\hat y,u)$ |
-| State trial space | $`Y=V=\left\{v \in H^{1}(\Omega): \mathrm{tr}_{\Gamma_{D}} v=0\right\}`$ |
-| Control space | $`U=L^{2}(\omega_{c})`$ |
+| State trial space | $Y=V=\left\lbrace v \in H^{1}(\Omega)\mid \mathop{\mathrm{tr}}\nolimits_{\Gamma_{D}} v=0\right\rbrace$ |
+| Control space | $U=L^{2}(\omega_{c})$ |
 | Test space | $Z=V$ |
-| Fixed data | $`d=(K,b,c,f,g_{D},g_{N},\rho,g_{R},y_{d},\alpha)`$ |
-| Reconstruction | $`y=\hat y+\ell_{D}(g_{D})`$ |
+| Fixed data | $d=(K,b,c,f,g_{D},g_{N},\rho,g_{R},y_{d},\alpha)$ |
+| Reconstruction | $y=\hat y+\ell_{D}(g_{D})$ |
 | Equation | One residual $E(\hat y,u;d) \in V^{\ast}$ |
 
-If $`\Gamma_{D}=\Gamma`$, then $`V=H^{1}_{0}(\Omega)`$ and this residual lies in
+If $\Gamma_{D}=\Gamma$, then $V=H^{1}_{0}(\Omega)$ and this residual lies in
 $V^{\ast}=H^{-1}(\Omega)$.
 
 For $v \in V$, define
@@ -397,7 +397,7 @@ For distributed tracking and $L^{2}$ control regularisation, select
 
 $$
 \begin{aligned}
- Q_{\Omega}&=L^{2}(\omega_{o}),& O_{\Omega}(\widehat y,u)&=(\widehat y+\ell_{D})\vert_{\omega_{o}},\\
+ Q_{\Omega}&=L^{2}(\omega_{o}),& O_{\Omega}(\widehat y,u)&=(\widehat y+\ell_{D})\rvert_{\omega_{o}},\\
  Q_{u}&=L^{2}(\omega_{c}),& O_{u}(\widehat y,u)&=u,\\
  J&=\tfrac{1}{2}\lVert O_{\Omega}-y_{d}\rVert_{L^{2}(\omega_{o})}^{2}+
        \tfrac{\alpha}{2}\lVert u\rVert_{L^{2}(\omega_{c})}^{2}. \quad\text{(12)}
@@ -425,8 +425,8 @@ $$
                        \int_{\omega_{c}}p\delta u. \quad\text{(15)}
 $$
 
-Only after selecting, for example, the $`L^{2}(\omega_{c})`$ Riesz map does (15)
-become the represented gradient $`\alpha u+p\vert_{\omega_{c}}`$.
+Only after selecting, for example, the $L^{2}(\omega_{c})$ Riesz map does (15)
+become the represented gradient $\alpha u+p\rvert_{\omega_{c}}$.
 
 For a vector state, replace $H^{1}(\Omega)$ by $H^{1}(\Omega)^{m}$ and give $K$,
 $b$, and $c$ compatible tensor shapes.  The residual contract itself is
@@ -434,42 +434,42 @@ unchanged.
 
 ### 3.2 Neumann and Dirichlet boundary control are different substitutions
 
-For a Neumann control on $`\Gamma_{c} \subset \Gamma_{N}`$, replace the volume
+For a Neumann control on $\Gamma_{c} \subset \Gamma_{N}$, replace the volume
 coupling in (11) by
 
 $$
-  B_{N}(u,v)=\int_{\Gamma_{c}}u\mathrm{tr}v,
+  B_{N}(u,v)=\int_{\Gamma_{c}}u\mathop{\mathrm{tr}}v,
   \qquad U=L^{2}(\Gamma_{c}). \quad\text{(16)}
 $$
 
-The residual contains $`-B_{N}(u,v)`$.  The model must declare the trace needed
-for (16), for example $`V \rightarrow L^{2}(\Gamma_{c})`$ in the selected setting.  Its
+The residual contains $-B_{N}(u,v)$.  The model must declare the trace needed
+for (16), for example $V \rightarrow L^{2}(\Gamma_{c})$ in the selected setting.  Its
 transpose is the trace-adjoint coupling, and (15) becomes
 
 $$
   j'(u)\delta u=\alpha(u,\delta u)_{L^{2}(\Gamma_{c})}+
-                  (\mathrm{tr}p,\delta u)_{L^{2}(\Gamma_{c})}.
+                  (\mathop{\mathrm{tr}}p,\delta u)_{L^{2}(\Gamma_{c})}.
 $$
 
 For Dirichlet control, take a boundary control space such as
-$`U=H^{1/2}(\Gamma_{c})`$ and a declared lifting
+$U=H^{1/2}(\Gamma_{c})$ and a declared lifting
 
 $$
-  L_{D}:U\longrightarrow H^{1}(\Omega),
-  \qquad \mathrm{tr}_{\Gamma_{c}}L_{D}u=u.
+  L_{D}\colon U\longrightarrow H^{1}(\Omega),
+  \qquad \mathop{\mathrm{tr}}\nolimits_{\Gamma_{c}}L_{D}u=u.
 $$
 
-With any fixed Dirichlet datum absorbed in $`\ell_{0}`$, reconstruct
+With any fixed Dirichlet datum absorbed in $\ell_{0}$, reconstruct
 
 $$
   y=\widehat y+\ell_{0}+L_{D}u,\qquad \widehat y\in V. \quad\text{(17)}
 $$
 
-The control enters the residual through $`a(L_{D}u,v)`$, not through a boundary
+The control enters the residual through $a(L_{D}u,v)$, not through a boundary
 load.  Consequently
 
 $$
-  D_{u}E(\widehat y,u)\delta u:v\longmapsto a(L_{D}\delta u,v),
+  D_{u}E(\widehat y,u)\delta u\colon v\longmapsto a(L_{D}\delta u,v),
 $$
 
 and the reduced derivative contains the chain-rule term
@@ -499,7 +499,7 @@ $$
   \qquad Z_{1}=H(\mathrm{div};\Omega),\quad Z_{2}=L^{2}(\Omega).
 $$
 
-For test functions $`(r,v) \in Z_{1} \times Z_{2}`$, residual blocks may be
+For test functions $(r,v) \in Z_{1} \times Z_{2}$, residual blocks may be
 
 $$
 \begin{aligned}
@@ -512,13 +512,13 @@ $$
 The boundary contribution in the first line depends on the chosen boundary
 condition and formulation; it must be made explicit rather than inferred.
 
-At compilation, select trial spaces $`X_{q,h}, X_{y,h}`$ and test spaces
-$`Z_{1,h}, Z_{2,h}`$.  Galerkin is the special case in which corresponding
+At compilation, select trial spaces $X_{q,h}, X_{y,h}$ and test spaces
+$Z_{1,h}, Z_{2,h}$.  Galerkin is the special case in which corresponding
 trial and test spaces coincide.  Petrov–Galerkin uses different spaces or a
 test transformation, while preserving the same typed residual form:
 
 $$
-  E_{h}:X_{h}\longrightarrow Z_{h}^{\ast},\qquad
+  E_{h}\colon X_{h}\longrightarrow Z_{h}^{\ast},\qquad
   \langle E_{h}(x_{h}),z_{h}\rangle=0\quad\forall z_{h}\in Z_{h}. \quad\text{(20)}
 $$
 
@@ -531,16 +531,16 @@ The same state equation supports different objectives by changing only (3).
 
 | Observation | Map and observation space | Required declaration |
 |---|---|---|
-| Distributed tracking | $`O(y)=y\vert_{\omega_{o}}`$, $`Q=L^{2}(\omega_{o})`$ | restriction and $L^{2}$ pairing |
-| Boundary tracking | $`O(y)=\mathrm{tr}_{\Gamma_{o}} y`$, $`Q=L^{2}(\Gamma_{o})`$ or a trace space | available trace and chosen boundary metric |
+| Distributed tracking | $O(y)=y\rvert_{\omega_{o}}$, $Q=L^{2}(\omega_{o})$ | restriction and $L^{2}$ pairing |
+| Boundary tracking | $O(y)=\mathop{\mathrm{tr}}\nolimits_{\Gamma_{o}} y$, $Q=L^{2}(\Gamma_{o})$ or a trace space | available trace and chosen boundary metric |
 | Flux tracking | $O(y)=(K \nabla y) \cdot n$, $Q$ a declared boundary/dual space | normal-flux regularity and realization |
-| Point sensors | $`O(y)=(y(x_{1}),...,y(x_{m}))`$, $Q=R^{m}$ | sufficient regularity, or an explicit discrete-only sensor policy |
-| Energy tracking | $O(y)=y$ with $`\Phi(y)=\tfrac{1}{2} a(y-y_{d},y-y_{d})`$ | declared bilinear form and positivity/semidefiniteness policy |
+| Point sensors | $O(y)=(y(x_{1}),...,y(x_{m}))$, $Q=R^{m}$ | sufficient regularity, or an explicit discrete-only sensor policy |
+| Energy tracking | $O(y)=y$ with $\Phi(y)=\tfrac{1}{2} a(y-y_{d},y-y_{d})$ | declared bilinear form and positivity/semidefiniteness policy |
 
 For example, boundary tracking adds
 
 $$
-  \tfrac{1}{2}\lVert\mathrm{tr}_{\Gamma_{o}}y-y_{d,\Gamma}\rVert_{L^{2}(\Gamma_{o})}^{2}
+  \tfrac{1}{2}\lVert\mathop{\mathrm{tr}}\nolimits_{\Gamma_{o}}y-y_{d,\Gamma}\rVert_{L^{2}(\Gamma_{o})}^{2}
 $$
 
 to (12).  Its derivative is a trace-adjoint contribution to the adjoint
@@ -567,24 +567,24 @@ $$
   Y=L^{2}(I;V)\cap H^{1}(I;V^{\ast}),\qquad Z=L^{2}(I;V). \quad\text{(22)}
 $$
 
-One formulation retains the time derivative on the state.  With $`a_{t}`$ the
-spatial weak form and $`B_{t}`$ the control coupling, it declares
+One formulation retains the time derivative on the state.  With $a_{t}$ the
+spatial weak form and $B_{t}$ the control coupling, it declares
 
 $$
   \langle E(y,u),v\rangle=
   \int_{0}^{T}\bigl[
     \langle \dot y(t),v(t)\rangle_{V^{\ast},V}+a_{t}(y(t),v(t))
     -F_{t}(v(t))-B_{t}(u(t),v(t))
-  \bigr]\mathrm{d}t, \quad\text{(23)}
+  \bigr]\thinspace\mathrm{d}t, \quad\text{(23)}
 $$
 
-together with the initial-trace condition $`y(0)=y_{0}`$, represented either by
+together with the initial-trace condition $y(0)=y_{0}$, represented either by
 the affine state space or by a separate residual/constraint block.  Typical
 space-time tracking is
 
 $$
-  \tfrac{1}{2}\int_{0}^{T}\lVert C y(t)-y_{d}(t)\rVert_{Q}^{2}\mathrm{d}t
-  +\tfrac{\alpha}{2}\int_{0}^{T}\lVert u(t)\rVert_{U}^{2}\mathrm{d}t,
+  \tfrac{1}{2}\int_{0}^{T}\lVert C y(t)-y_{d}(t)\rVert_{Q}^{2}\thinspace\mathrm{d}t
+  +\tfrac{\alpha}{2}\int_{0}^{T}\lVert u(t)\rVert_{U}^{2}\thinspace\mathrm{d}t,
 $$
 
 possibly with a terminal cost.
@@ -593,9 +593,9 @@ An integration-by-parts-in-time formulation is also possible, but is a
 different declared residual.  For sufficiently regular $v$,
 
 $$
-  \int_{0}^{T}\langle\dot y,v\rangle\mathrm{d}t
+  \int_{0}^{T}\langle\dot y,v\rangle\thinspace\mathrm{d}t
   =(y(T),v(T))_{H}-(y(0),v(0))_{H}-
-    \int_{0}^{T}(y,\dot v)_{H}\mathrm{d}t. \quad\text{(24)}
+    \int_{0}^{T}(y,\dot v)_{H}\thinspace\mathrm{d}t. \quad\text{(24)}
 $$
 
 Equation (24) shows exactly why initial and terminal terms cannot be guessed
@@ -604,7 +604,7 @@ from the transpose of the chosen time residual and the objective; they are
 not a special case coded into an optimiser.
 
 At the discrete level, (23) may be lowered to a space–time method or to a
-chosen time-stepping residual.  These are distinct $`E_{h}`$ objects.  The
+chosen time-stepping residual.  These are distinct $E_{h}$ objects.  The
 discrete adjoint must be the transpose of the actual compiled residual and
 objective; the framework must not assume that discretising a displayed
 continuous adjoint gives the same result.
@@ -640,7 +640,7 @@ $$
   \qquad m\in M_{\mathrm{ad}}. \quad\text{(27)}
 $$
 
-For example, choose $`Y=Z=H^{1}_{\Gamma_{D}}(\Omega)`$ and a parameter space
+For example, choose $Y=Z=H^{1}_{\Gamma_{D}}(\Omega)$ and a parameter space
 $M$ with the regularity and bounds needed for the product.  The residual is
 
 $$
@@ -663,7 +663,7 @@ analysis obligations that must be declared rather than presumed.
 
 ## 4. Continuous semantics versus a discrete executable problem
 
-The continuous semantic model records $`X_{i}`$, $`Z_{a}`$, residual terms,
+The continuous semantic model records $X_{i}$, $Z_{a}$, residual terms,
 transformations, observations, losses, pairings, constraints, and declared
 requirements.  It contains no deal.II vectors, finite elements, DoF
 handlers, or `AffineConstraints`.
@@ -679,7 +679,7 @@ realizations, lifting construction, and assembly or matrix-free execution.
 It lowers the semantic residual to
 
 $$
-  E_{h}:X_{h}\times D_{h}\longrightarrow Z_{h}^{\ast}, \quad\text{(30)}
+  E_{h}\colon X_{h}\times D_{h}\longrightarrow Z_{h}^{\ast}, \quad\text{(30)}
 $$
 
 and similarly lowers observations, metrics, constraints, and transformations.
@@ -693,7 +693,7 @@ $$
   E_{h}'(x_{h})\delta x_{h},\qquad E_{h}'(x_{h})^{\ast}p_{h},
 $$
 
-along with $`J_{h}`$ and its derivative.  This is the basis for exact discrete
+along with $J_{h}$ and its derivative.  This is the basis for exact discrete
 adjoint-consistency and Taylor tests.  It makes no blanket claim that a
 continuous adjoint, discretised independently, is identical to the discrete
 transpose.

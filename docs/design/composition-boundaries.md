@@ -128,10 +128,10 @@ shares a boundary region with an optimised Neumann control. For a declared
 source $g$ on the source boundary region, the source map is
 
 $$
-  B_{s}:L^{2}(\Gamma_{s})\longrightarrow V^{\ast},
+  B_{s}\colon L^{2}(\Gamma_{s})\longrightarrow V^{\ast},
   \qquad
   \left\langle B_{s}g,v\right\rangle
-    =\left\langle g,\mathrm{tr}_{\Gamma_{s}}v\right\rangle.
+    =\left\langle g,\mathop{\mathrm{tr}}\nolimits_{\Gamma_{s}}v\right\rangle.
 $$
 
 The source is immutable in the first implementation, so it contributes no
@@ -180,7 +180,7 @@ action and derivative ports.
 For example, the textbook equation
 
 $$
-  -\Delta y=f+u,\qquad y\vert_{\Gamma}=0
+  -\Delta y=f+u,\qquad y\rvert_{\Gamma}=0
 $$
 
 becomes the small graph

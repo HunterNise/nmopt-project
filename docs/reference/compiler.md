@@ -998,9 +998,9 @@ The fields with general application are:
 `SPDLinearSolvePolicy::maximum_iterations == 0` selects the current
 dimension-dependent rule
 
-```math
+$$
 \max(100, 10 n),
-```
+$$
 
 where $n$ is the realized operator dimension. Relative and absolute
 tolerances must be positive and finite.

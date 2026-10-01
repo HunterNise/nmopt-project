@@ -39,10 +39,10 @@ Here
 $$
 X=\prod_{i\in\mathcal I}X_{i},
 \qquad
-E_{a}:X\times D\to Z_{a}^{\ast}.
+E_{a}\colon X\times D\to Z_{a}^{\ast}.
 $$
 
-A variable block $`x_{i}`$ can be a state, control, parameter, flux, initial
+A variable block $x_{i}$ can be a state, control, parameter, flux, initial
 state, or any auxiliary field.  Data $d\in D$ are fixed during an
 optimisation solve.
 
@@ -146,7 +146,7 @@ A Neumann-control residual likewise MUST carry a typed discrete-control
 selection. The selection identifies the control variable, its mathematical
 space, the controlled boundary, and the selected metric, and distinguishes a
 facewise-constant realization from a continuous nodal-trace realization. Both
-are discrete subspaces of the declared $`L^{2}(\Gamma_{c})`$ control space; the
+are discrete subspaces of the declared $L^{2}(\Gamma_{c})$ control space; the
 topology of the semantic parent space does not select one implicitly. A
 facewise coefficient box applies only to the facewise-constant realization.
 The compiler MUST diagnose a selected realization for which it has no
@@ -165,7 +165,7 @@ For the selected natural-boundary convention, the source contributes the
 functional
 
 $$
-  B_{s}(g,v)=\left\langle g,\mathrm{tr}_{\Gamma_{s}}v\right\rangle_{L^{2}(\Gamma_{s})}
+  B_{s}(g,v)=\left\langle g,\mathop{\mathrm{tr}}\nolimits_{\Gamma_{s}}v\right\rangle_{L^{2}(\Gamma_{s})}
 $$
 
 to the state residual with the same datum scaling as the selected boundary
@@ -220,7 +220,7 @@ handler, matrix, or vector.
 A pairing is a separate declaration
 
 $$
-\langle\cdot,\cdot\rangle_{S^{\ast},S}:S^{\ast}\times S\to\mathbb R.
+\langle\cdot,\cdot\rangle_{S^{\ast},S}\colon S^{\ast}\times S\to\mathbb R.
 $$
 
 A compiler MUST lower every pairing used by a residual, loss, metric, or
@@ -234,7 +234,7 @@ A variable block MUST declare:
 | Field | Requirement |
 |---|---|
 | Identifier and role | state, control, parameter, flux, or auxiliary |
-| Space | one semantic primal space $`X_{i}`$ |
+| Space | one semantic primal space $X_{i}$ |
 | Physical-field relation | identity or a declared transformation output |
 | Admissible-set reference | optional constraint component |
 | Differentiability status | differentiable, nonsmooth, or externally supplied derivative policy |
@@ -261,7 +261,7 @@ A data component MUST NOT expose a derivative block.  To estimate a datum, the
 author MUST replace it with a variable block and add all required residual,
 loss, metric, and constraint connections.
 
-For a tracking loss declared on an $`H^{1}_{0}`$ observation space, the graph
+For a tracking loss declared on an $H^{1}_{0}$ observation space, the graph
 MUST carry a typed target-data membership policy. It MUST identify the
 `desired_state` datum, the observation space, the selected fixed-Dirichlet
 boundary, the availability of values and weak gradients, and zero-trace
@@ -275,7 +275,7 @@ arbitrary analytic Function as a runtime proof of its trace.
 A general map is the universal compositional primitive:
 
 $$
-T:X_{1}\times\cdots\times X_{n}\to Y.
+T\colon X_{1}\times\cdots\times X_{n}\to Y.
 $$
 
 It MUST declare source ports and target space.  If variable-dependent, it
@@ -329,10 +329,10 @@ connections.
 ### 3.7 Residual term
 
 A residual term contributes to exactly one equation block.  For equation test
-space $`Z_{a}`$, it represents
+space $Z_{a}$, it represents
 
 $$
-E_{a,t}:X_{a,t}\to Z_{a}^{\ast},
+E_{a,t}\colon X_{a,t}\to Z_{a}^{\ast},
 $$
 
 through its tested action
@@ -367,7 +367,7 @@ control-to-residual coupling.
 
 ### 3.8 Equation block
 
-An equation block owns a test space $`Z_{a}`$ and an ordered sum of residual
+An equation block owns a test space $Z_{a}$ and an ordered sum of residual
 terms:
 
 $$
@@ -393,7 +393,7 @@ PDE-family enum.
 An observation is a general map
 
 $$
-O_{k}:X_{\mathrm{phys}}\times D\to Q_{k}.
+O_{k}\colon X_{\mathrm{phys}}\times D\to Q_{k}.
 $$
 
 It MUST provide value, JVP, and transpose-JVP.  It MUST NOT contain a loss.
@@ -441,7 +441,7 @@ label or an untyped weight datum is not sufficient to select the map.
 A loss is a scalar map
 
 $$
-\Phi_{k}:Q_{k}\times D\to\mathbb R.
+\Phi_{k}\colon Q_{k}\times D\to\mathbb R.
 $$
 
 It MUST provide
@@ -474,19 +474,19 @@ A metric provides an explicit primal-dual identification for an algorithm.
 It MUST declare primal search space $P$, dual space $P^{\ast}$, and actions
 
 $$
-G:P\to P^{\ast},
+G\colon P\to P^{\ast},
 \qquad
-G^{-1}:P^{\ast}\to P,
+G^{-1}\colon P^{\ast}\to P,
 $$
 
 where inverse-apply MAY be unavailable if no selected solver needs it.
 
 If the reduced derivative is naturally in $U^{\ast}$ but the search space is
-$P$ with an injection $\iota:P\hookrightarrow U$, the metric protocol MUST
+$P$ with an injection $\iota\colon P\hookrightarrow U$, the metric protocol MUST
 also provide or reference
 
 $$
-\iota^{\ast}:U^{\ast}\to P^{\ast},
+\iota^{\ast}\colon U^{\ast}\to P^{\ast},
 \qquad
 \nabla_{G}j=G^{-1}\iota^{\ast}j'.
 $$
@@ -496,7 +496,7 @@ a loss; an $H^{1}$ search geometry is a metric.
 
 The first selected $H^{-1}$ realization makes the discrete policy explicit.
 Its search space is the independent homogeneous-Dirichlet coefficient space
-$`P_{h}=\mathrm{span}\{\phi_{i}\}\subset H^{1}_{0}(\Omega)`$. With the control
+$P_{h}=\mathop{\mathrm{span}}\lbrace\phi_{i}\rbrace\subset H^{1}_{0}(\Omega)$. With the control
 mass and Dirichlet-Laplacian matrices
 
 $$
@@ -557,10 +557,10 @@ $$
 
 For a box constraint,
 
-```math
+$$
 U_{\mathrm{ad}}
-=\left\{u\in U:u_{a}\leq u\leq u_{b}\ \text{a.e.}\right\},
-```
+=\left\lbrace u\in U\mid u_{a}\leq u\leq u_{b}\ \text{a.e.}\right\rbrace,
+$$
 
 the constraint owns the projection or normal-cone operation.  It MUST NOT
 modify a residual term.
@@ -637,7 +637,7 @@ the time term is a residual term
 
 $$
 e_{\mathrm{time}}(y;v)
-=\int_{0}^{T}\langle\dot y,v\rangle_{V^{\ast},V}\mathrm{d}t.
+=\int_{0}^{T}\langle\dot y,v\rangle_{V^{\ast},V}\thinspace\mathrm{d}t.
 $$
 
 Initial data MUST be represented by an affine state-space transformation or a
@@ -721,9 +721,9 @@ It MUST declare:
 | Execution | assembled or matrix-free operator realization |
 | Exceptional policies | point sensors, fractional norms, stabilization, and discrete-only objects |
 
-Galerkin is one policy with $`Y_{h}=Z_{h}`$.  Petrov–Galerkin is a policy with
-separately selected $`Y_{h}`$ and $`Z_{h}`$.  The latter MUST preserve the
-declared residual target $`Z_{h}^{\ast}`$.
+Galerkin is one policy with $Y_{h}=Z_{h}$.  Petrov–Galerkin is a policy with
+separately selected $Y_{h}$ and $Z_{h}$.  The latter MUST preserve the
+declared residual target $Z_{h}^{\ast}$.
 
 ### 6.2 Compiler obligations
 
@@ -765,11 +765,10 @@ and compiled metric and constraint actions.
 For every component that declares a transpose action, the implementation MUST
 support the adjoint-consistency identity
 
-```math
-\langle E_{h}'(x_{h})\delta x_{h},p_{h}\rangle_{Z_{h}^{\ast},Z_{h}}
-=
+$$
+\langle E_{h}'(x_{h})\delta x_{h},p_{h}\rangle_{Z_{h}^{\ast},Z_{h}} =
 \langle E_{h}'(x_{h})^{\ast}p_{h},\delta x_{h}\rangle_{X_{h}^{\ast},X_{h}}.
-```
+$$
 
 The test suite MUST exercise this identity for each term and composed block.
 
@@ -892,7 +891,7 @@ the supplied blocks to the common quadratic KKT boundary. It takes the
 negative supplied adjoint-equation JVP as the primal quadratic action, the
 state-equation JVP as the equality action, and the supplied residual VJP as
 the equality transpose. The adapter MUST retain the supplied block selection
-and the declared conversion $`\lambda_{h}=-p_{h}`$; it MUST NOT relabel the
+and the declared conversion $\lambda_{h}=-p_{h}$; it MUST NOT relabel the
 result as a DTO derivative. Non-canonical supplied-OTD block shapes require
 their own declared adapter or formulation diagnostic.
 
@@ -900,29 +899,29 @@ their own declared adapter or formulation diagnostic.
 
 An all-at-once equality-constrained quadratic product is a formulation-level
 composition of a primal quadratic operator and a linear equality operator. Let
-the primal space be $`X_{h}`$, the residual-multiplier space be
-$`\Lambda_{h}`$, and the equality residual space be $`Z_{h}^{\ast}`$. The
+the primal space be $X_{h}$, the residual-multiplier space be
+$\Lambda_{h}$, and the equality residual space be $Z_{h}^{\ast}$. The
 product declares
 
 $$
-Q_{h}:X_{h}\to X_{h}^{\ast},
+Q_{h}\colon X_{h}\to X_{h}^{\ast},
 \qquad
-D_{h}:X_{h}\to Z_{h}^{\ast},
+D_{h}\colon X_{h}\to Z_{h}^{\ast},
 $$
 
-with the quadratic and equality data represented by $`h_{h}\in X_{h}^{\ast}`$
-and $`f_{h}\in Z_{h}^{\ast}`$. Its KKT residual is
+with the quadratic and equality data represented by $h_{h}\in X_{h}^{\ast}$
+and $f_{h}\in Z_{h}^{\ast}$. Its KKT residual is
 
-```math
+$$
 \begin{bmatrix}
 Q_{h}x_{h}-h_{h}+D_{h}^{\ast}\lambda_{h}\\
 D_{h}x_{h}-f_{h}
 \end{bmatrix}=0,
-```
+$$
 
 and its block action on an increment is
 
-```math
+$$
 \begin{bmatrix}
 Q_{h} & D_{h}^{\ast}\\
 D_{h} & 0
@@ -931,11 +930,11 @@ D_{h} & 0
 \delta x_{h}\\
 \delta\lambda_{h}
 \end{bmatrix}.
-```
+$$
 
 The product MUST declare typed layouts for the primal, multiplier, equality
-residual, and KKT residual blocks. It MUST expose the actions of $`Q_{h}`$,
-$`D_{h}`$, and $`D_{h}^{\ast}`$, together with the KKT block action and the
+residual, and KKT residual blocks. It MUST expose the actions of $Q_{h}$,
+$D_{h}$, and $D_{h}^{\ast}$, together with the KKT block action and the
 corresponding transpose action. An assembled matrix MAY be a lowerer
 optimisation; it is not the product contract.
 
@@ -952,14 +951,14 @@ add deal.II or assembled-storage requirements to the generic product.
 
 The product MUST record the multiplier convention and any conversion between
 the KKT multiplier and the framework adjoint. For the selected scalar target,
-the symmetric book multiplier is $`\lambda_{h}=-p_{h}`$; this is a declared
+the symmetric book multiplier is $\lambda_{h}=-p_{h}$; this is a declared
 conversion, not a solver-wide sign rule. DTO and supplied-OTD formulation
 builders MAY produce the same KKT product shape, but their provenance and
 construction evidence remain distinct in the manifest.
 
 The formulation MUST declare the assumptions needed by the selected solve
-policy, including the rank or compatibility condition for $`D_{h}`$ and the
-positive-definiteness of $`Q_{h}`$ on $`\ker(D_{h})`$. If those assumptions are not
+policy, including the rank or compatibility condition for $D_{h}$ and the
+positive-definiteness of $Q_{h}$ on $\ker(D_{h})$. If those assumptions are not
 declared or the requested product cannot provide the required pairing, the
 compiler MUST return a formulation diagnostic rather than select a
 Schur-complement or Krylov policy by implication.
@@ -990,36 +989,36 @@ multiplier-to-adjoint conversion remains owned by the product.
 
 A box-complementarity product is a separate formulation service from the
 projection operation in Section 3.12. It acts on a declared primal control
-space $`U_{h}`$ and its compatible dual $`U_{h}^{\ast}`$, and MUST record the
+space $U_{h}$ and its compatible dual $U_{h}^{\ast}$, and MUST record the
 lower and upper bound representations, the multiplier representation, and the
 operations used to compare primal and dual quantities. A box constraint MUST
 NOT be treated as a multiplier-bearing complementarity constraint merely
 because it already provides coefficientwise projection.
 
-For the selected first realization, $`U_{h}`$ is the cellwise-discontinuous
+For the selected first realization, $U_{h}$ is the cellwise-discontinuous
 piecewise-constant volume-control space on the state mesh. The bounds are
 coefficientwise values in that same layout, and the declared pairing is the
-cellwise $`L^{2}`$ pairing with a positive diagonal Riesz map
+cellwise $L^{2}$ pairing with a positive diagonal Riesz map
 
 $$
-R_{u,h}:U_{h}\to U_{h}^{\ast}.
+R_{u,h}\colon U_{h}\to U_{h}^{\ast}.
 $$
 
-The box multiplier $`\mu_{h}`$ is a dual covector. Active-set classification
+The box multiplier $\mu_{h}$ is a dual covector. Active-set classification
 MUST first apply the declared dual-to-primal representative
-$`R_{u,h}^{-1}\mu_{h}`$; it MUST NOT compare raw dual coefficients with primal
-control coefficients. The classification parameter $`c>0`$ is interpreted in
+$R_{u,h}^{-1}\mu_{h}$; it MUST NOT compare raw dual coefficients with primal
+control coefficients. The classification parameter $c\gt0$ is interpreted in
 that selected representative. For the framework Lagrangian sign, with
-control stationarity $`j_{h}'(u_{h})+\mu_{h}=0`$, define
+control stationarity $j_{h}'(u_{h})+\mu_{h}=0$, define
 
-```math
+$$
 \begin{aligned}
 \widehat\mu_{h} &= R_{u,h}^{-1}\mu_{h},\\
-\mathcal A^{+} &= \{i:\widehat\mu_{h,i}+c(u_{h,i}-b_{h,i})>0\},\\
-\mathcal A^{-} &= \{i:\widehat\mu_{h,i}+c(u_{h,i}-a_{h,i})<0\},\\
-\mathcal I &= \{i:\widehat\mu_{h,i}+c(u_{h,i}-b_{h,i})\leq 0 \leq\widehat\mu_{h,i}+c(u_{h,i}-a_{h,i})\}.
+\mathcal A^{+} &= \lbrace i\mid\widehat\mu_{h,i}+c(u_{h,i}-b_{h,i})\gt0\rbrace,\\
+\mathcal A^{-} &= \lbrace i\mid\widehat\mu_{h,i}+c(u_{h,i}-a_{h,i})\lt0\rbrace,\\
+\mathcal I &= \lbrace i\mid\widehat\mu_{h,i}+c(u_{h,i}-b_{h,i})\leq 0 \leq\widehat\mu_{h,i}+c(u_{h,i}-a_{h,i})\rbrace.
 \end{aligned}
-```
+$$
 
 The three sets MUST be disjoint and exhaustive. A typed selection service
 MUST expose the selected representation and provide restriction and
@@ -1094,14 +1093,14 @@ The registered components are:
 
 | Component | Instance |
 |---|---|
-| Region | $\Omega$, $\Gamma$, $`\omega_{o}`$ |
+| Region | $\Omega$, $\Gamma$, $\omega_{o}$ |
 | Variables | $y\in V$, $u\in U$ |
-| Data | $f\in V^{\ast}$, $`y_{d}\in Q`$, $\alpha>0$ |
+| Data | $f\in V^{\ast}$, $y_{d}\in Q$, $\alpha\gt0$ |
 | Equation block | test space $V$ |
 | Residual terms | $`(\nabla y,\nabla v)_{\Omega}`$, $-\langle f,v\rangle$, $`-(u,v)_{\Omega}`$ |
-| Observation | $`C:y\mapsto y\vert_{\omega_{o}}`$ |
-| Losses | $`\tfrac{1}{2}\lVert Cy-y_{d}\rVert_{Q}^{2}`$, $`\tfrac{\alpha}{2}\lVert u\rVert_{U}^{2}`$ |
-| Metric | selected $`G_{U}`$ |
+| Observation | $C\colon y\mapsto y\rvert_{\omega_{o}}$ |
+| Losses | $\tfrac{1}{2}\lVert Cy-y_{d}\rVert_{Q}^{2}$, $\tfrac{\alpha}{2}\lVert u\rVert_{U}^{2}$ |
+| Metric | selected $G_{U}$ |
 | Constraint | absent, or a box constraint on $u$ |
 
 The compiled operators are
@@ -1160,19 +1159,19 @@ $$
 $$
 
 Add a lifting transformation and make both residual and observation consume
-$`y_{\mathrm{phys}}`$.  Compilation produces
+$y_{\mathrm{phys}}$.  Compilation produces
 
 $$
 r_{D,h}(\widehat y_{h},u_{h})
 =A_{h}\widehat y_{h}+A_{\mathrm{ext},h}L_{D,h}u_{h}+b_{\ell_{0},h}-f_{h}.
 $$
 
-This is not a replacement of $`B_{h}`$ by a boundary load matrix.
+This is not a replacement of $B_{h}$ by a boundary load matrix.
 
 The first v1 realization selects the explicit discrete policy
-$`\ell_{0,h}=0`$ with one shared nodal trace coefficient for every state DoF on
+$\ell_{0,h}=0$ with one shared nodal trace coefficient for every state DoF on
 the complete exterior controlled boundary. It evaluates residual and tracking
-on $`y_{\mathrm{phys}}`$ and uses $`P_{h}^{\ast}`$ and $`L_{D,h}^{\ast}`$ for
+on $y_{\mathrm{phys}}$ and uses $P_{h}^{\ast}$ and $L_{D,h}^{\ast}$ for
 the two pullbacks. Partial boundary controls, mixed controlled/fixed corners,
 interfaces, hanging-node trace relations, and trace-box projections require a
 separately declared lifting policy; they are not inferred by this realization.

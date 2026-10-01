@@ -183,9 +183,9 @@ the same vector.
 
 For fixed essential data, a useful discrete form is
 
-```math
+$$
   y_{\mathrm{phys}} = P_{h}\widehat y + \ell_{h}.
-```
+$$
 
 The corresponding numerical operations are:
 
@@ -197,12 +197,12 @@ pull back dual:        q → P^T q
 
 Dirichlet control extends the same pattern:
 
-```math
+$$
   y_{\mathrm{phys}} = P_{h}\widehat y + L_{D,h}u + \ell_{0,h}.
-```
+$$
 
 Then both state and control derivatives receive pullbacks through $P^{T}$ and
-$`L_{D}^{T}`$. Observations and native output should act on the physical field;
+$L_{D}^{T}$. Observations and native output should act on the physical field;
 state-coordinate machinery is responsible for translating to and from
 solver-facing coordinates.
 
@@ -219,9 +219,9 @@ a decision variable can affect the PDE.
 
 Distributed and Neumann controls have the fixed-linear form
 
-```math
+$$
   E(y,u) = A y - f - B u,
-```
+$$
 
 with decision actions $B u$ and $B^{T} p$. Different control discretizations may
 share this internal pattern without creating a universal public control base
@@ -230,7 +230,7 @@ class.
 ### State-reconstruction controls
 
 Dirichlet control enters through the physical-state reconstruction
-$`L_{D} u`$, so residuals and observations see the reconstructed physical field.
+$L_{D} u$, so residuals and observations see the reconstructed physical field.
 Its natural numerical operations are lifting and dual pullback rather than a
 standalone forcing matrix.
 
@@ -238,9 +238,9 @@ standalone forcing matrix.
 
 Coefficient identification has a point-dependent operator, for example
 
-```math
+$$
   E(y,m) = A(m)y - f.
-```
+$$
 
 Its derivative contains both a state action and a parameter derivative of the
 operator. It cannot be reduced to a fixed decision-coupling matrix.
@@ -259,10 +259,10 @@ physical state → observation map O → loss
 
 For quadratic tracking, numerical lowering may compile the composition into
 
-```math
+$$
   J_{\mathrm{track}}(y)
   = \frac{1}{2} y^{\mathsf T} Q y - q^{\mathsf T} y + \frac{1}{2} c.
-```
+$$
 
 That representation is often the efficient optimizer-facing form. Explicit
 observation value/JVP/VJP data should be retained when another consumer needs
@@ -280,10 +280,10 @@ mathematical roles.
 
 For
 
-```math
+$$
   J_{\mathrm{reg}}(u)
   = \frac{\alpha}{2} u^{\mathsf T} R u,
-```
+$$
 
 $R$ belongs to the objective definition.
 
@@ -294,10 +294,10 @@ the objective.
 A reduced Hessian combines PDE sensitivity, observation curvature, and direct
 objective curvature. In a fixed linear-quadratic case it has the form
 
-```math
+$$
   H_{\mathrm{red}}
   = B^{\mathsf T}A^{-\mathsf T}Q A^{-1}B + \alpha R.
-```
+$$
 
 It is therefore an optional composed formulation capability, not a primitive
 property of every PDE discretization.

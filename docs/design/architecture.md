@@ -63,7 +63,7 @@ vector without declaring a primal-dual identification. In a Hilbert space a
 chosen metric provides a Riesz map
 
 $$
- R_{U}:U\to U^{\ast},\qquad \nabla_{U} j=R_{U}^{-1}j'(u).
+ R_{U}\colon U\to U^{\ast},\qquad \nabla_{U} j=R_{U}^{-1}j'(u).
 $$
 
 Thus changing $L^{2}$ to $H^{1}$ regularization/gradient changes the metric
@@ -134,7 +134,7 @@ $$
   \qquad y=0\ \text{on }\partial\Omega,
 $$
 
-with $`y\in H_{0}^{1}(\Omega)`$, $u\in L^{2}(\Omega)$, and a distributed $L^{2}$
+with $y\in H_{0}^{1}(\Omega)$, $u\in L^{2}(\Omega)$, and a distributed $L^{2}$
 tracking and $L^{2}$ regularization objective. Its residual is
 
 $$

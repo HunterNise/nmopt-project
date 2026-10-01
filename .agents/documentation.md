@@ -243,3 +243,17 @@ because the chat renderer uses a different Markdown/LaTeX pipeline.
   punctuation used where the preferred named TeX form exists, unsupported or
   discouraged macros, malformed tables, broken relative links or heading
   fragments, accidental raw HTML, and inconsistent notation.
+
+## Validation
+
+- Before finishing a Markdown or LaTeX edit, run
+  `python3 tools/lint_markdown_math.py --changed`. For a repository-wide
+  documentation polish, also run `python3 tools/lint_markdown_math.py` over all
+  tracked Markdown.
+- Treat linter findings as review points, not authorization for mechanical
+  rewrites. Preserve mathematical meaning and apply the semantic conventions
+  above when choosing a correction.
+- The linter checks the project's known portable subset and Markdown/TeX parser
+  hazards; it is not a complete GFM parser or TeX renderer. Manually verify
+  unusual macros, environments, protected inline math, fenced `math` blocks,
+  or other constructs whose cross-renderer behavior is uncertain.

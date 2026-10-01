@@ -45,8 +45,11 @@ The linter is a fast deterministic guard for the project's documented portable
 subset. It is not a complete CommonMark/GFM parser, a TeX parser, or a substitute
 for rendering unusual expressions in GitHub, VS Code, and another target reader.
 In particular, novel macros/environments, deeply unusual Markdown nesting, and
-semantic typography choices still require review. A finding identifies a place
-to inspect; it does not authorize a mechanical rewrite.
+semantic typography choices still require review. The parser understands ordinary
+blockquote containers, fenced blocks, dollar-delimited math, and the project's
+protected-inline form, but it intentionally does not implement the whole GFM
+grammar. A finding identifies a place to inspect; it does not authorize a
+mechanical rewrite.
 """
 
 from __future__ import annotations
@@ -382,6 +385,85 @@ def _looks_like_table_row(line: str) -> bool:
     return stripped.startswith("|") or stripped.endswith("|") or stripped.count("|") >= 2
 
 
+@dataclass(frozen=True)
+class BlockquoteView:
+    text: str
+    prefix_len: int
+    depth: int
+
+
+def strip_blockquote_prefix(line: str, max_depth: int | None = None) -> BlockquoteView:
+    """Return the line after explicit leading GFM blockquote markers.
+
+    Each marker may have up to three spaces before ``>`` and one optional space
+    or tab after it. ``max_depth`` matters while parsing a quoted display or
+    fence: only the blockquote containers that were already open are stripped,
+    so an additional leading ``>`` remains visible as content and can still be
+    diagnosed as Markdown-active syntax.
+
+    This intentionally handles explicit quote markers only; lazy blockquote
+    continuation is one of the linter's documented non-goals.
+    """
+
+    pos = 0
+    depth = 0
+    while max_depth is None or depth < max_depth:
+        iteration_start = pos
+        spaces = 0
+        while pos < len(line) and spaces < 3 and line[pos] == " ":
+            pos += 1
+            spaces += 1
+        if pos >= len(line) or line[pos] != ">":
+            pos = iteration_start
+            break
+        pos += 1
+        depth += 1
+        if pos < len(line) and line[pos] in " \t":
+            pos += 1
+
+    return BlockquoteView(line[pos:], pos, depth)
+
+
+def _display_block_hazard(line: str) -> tuple[str, str] | None:
+    """Return ``(severity, description)`` for GFM-active display source.
+
+    Definite constructs with content are errors. A bare ``+``, ``*``, or
+    ordered-list marker such as ``0.`` can denote an empty list item depending
+    on block context, so it is reported conservatively as a warning. A bare
+    ``-`` is handled as a Setext-underline hazard as well as being list-like.
+    """
+
+    stripped = line.rstrip()
+
+    if re.fullmatch(r" {0,3}(?:=+|-+)", stripped):
+        return "error", "Setext heading underline"
+
+    if re.match(r"^ {0,3}[-+*][ \t]+\S", stripped):
+        return "error", "bullet-list marker"
+    if re.fullmatch(r" {0,3}[+*]", stripped):
+        return "warning", "possible empty bullet-list marker"
+
+    if re.match(r"^ {0,3}\d{1,9}[.)][ \t]+\S", stripped):
+        return "error", "ordered-list marker"
+    if re.fullmatch(r" {0,3}\d{1,9}[.)]", stripped):
+        return "warning", "possible empty ordered-list marker"
+
+    # A blockquote marker does not require a following space. Any additional
+    # `>` left after stripping an enclosing quote container is therefore active.
+    if re.match(r"^ {0,3}>", stripped):
+        return "error", "block-quote marker"
+
+    if re.match(r"^ {0,3}#{1,6}(?:[ \t]+|$)", stripped):
+        return "error", "ATX-heading marker"
+
+    if re.fullmatch(r" {0,3}(?:\*\s*){3,}", stripped) or re.fullmatch(
+        r" {0,3}(?:_\s*){3,}", stripped
+    ):
+        return "error", "thematic break"
+
+    return None
+
+
 def _excerpt(line: str, limit: int = 180) -> str:
     s = line.rstrip("\r\n")
     if len(s) <= limit:
@@ -601,12 +683,18 @@ def lint_cross_line_underscore_pairs(
     also span a soft line break inside one paragraph, so this second lightweight
     pass checks cross-line pairs. It intentionally requires both endpoints to
     occur in ordinary inline math to keep the heuristic conservative.
+
+    Explicit blockquote markers are treated as Markdown containers rather than
+    paragraph text. Quoted display/fence state remembers its opening quote depth
+    so only the enclosing quote markers are stripped from subsequent lines.
     """
 
     findings: list[Finding] = []
     fence_char: str | None = None
     fence_len = 0
+    fence_quote_depth = 0
     display_open = False
+    display_quote_depth = 0
     paragraph: list[tuple[int, int, bool, bool, str]] = []
 
     def flush() -> None:
@@ -635,45 +723,62 @@ def lint_cross_line_underscore_pairs(
 
     for idx, raw_line in enumerate(lines):
         line_no = idx + 1
-        line = raw_line.rstrip("\r\n")
+        physical = raw_line.rstrip("\r\n")
 
         if fence_char is not None:
-            stripped = line.lstrip(" ")
+            view = strip_blockquote_prefix(physical, fence_quote_depth)
+            logical = view.text if view.depth == fence_quote_depth else physical
+            stripped = logical.lstrip(" ")
             if (
                 re.match(rf"^{re.escape(fence_char)}{{{fence_len},}}\s*$", stripped)
-                and len(line) - len(stripped) <= 3
+                and len(logical) - len(stripped) <= 3
             ):
                 fence_char = None
                 fence_len = 0
+                fence_quote_depth = 0
             flush()
             continue
 
-        open_match = FENCE_OPEN.match(line)
+        if display_open:
+            view = strip_blockquote_prefix(physical, display_quote_depth)
+            logical = view.text if view.depth == display_quote_depth else physical
+            masked_code = mask_inline_code(logical)
+            protected = protected_math_ranges(masked_code)
+            protected_containers = [(r.start - 2, r.end + 2) for r in protected]
+            work = mask_ranges(masked_code, protected_containers)
+            if "$$" in work:
+                display_open = False
+                display_quote_depth = 0
+            flush()
+            continue
+
+        outer = strip_blockquote_prefix(physical)
+        logical = outer.text
+        column_offset = outer.prefix_len
+
+        open_match = FENCE_OPEN.match(logical)
         if open_match:
             marker = open_match.group(2)
             fence_char = marker[0]
             fence_len = len(marker)
+            fence_quote_depth = outer.depth
             flush()
             continue
 
-        masked_code = mask_inline_code(line)
+        masked_code = mask_inline_code(logical)
         protected = protected_math_ranges(masked_code)
         protected_containers = [(r.start - 2, r.end + 2) for r in protected]
         work = mask_ranges(masked_code, protected_containers)
 
-        if display_open:
-            if "$$" in work:
-                display_open = False
-            flush()
-            continue
         if "$$" in work:
             # Any display delimiter breaks this lightweight paragraph model.
             if work.count("$$") % 2 == 1:
                 display_open = True
+                display_quote_depth = outer.depth
             flush()
             continue
 
-        if not line.strip():
+        if not logical.strip():
             flush()
             continue
 
@@ -684,7 +789,13 @@ def lint_cross_line_underscore_pairs(
                     continue
                 can_open, can_close = underscore_open_close(work, pos)
                 paragraph.append(
-                    (line_no, pos, can_open, can_close, _excerpt(raw_line))
+                    (
+                        line_no,
+                        column_offset + pos,
+                        can_open,
+                        can_close,
+                        _excerpt(raw_line),
+                    )
                 )
 
     flush()
@@ -702,40 +813,70 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
     fence_char: str | None = None
     fence_len = 0
     fence_is_math = False
+    fence_quote_depth = 0
     display_open = False
     display_open_line = 0
+    display_quote_depth = 0
 
     # Track standalone display delimiters so blank-line checks can be applied
     # after the main pass without complicating the state machine.
-    standalone_display_lines: list[tuple[int, str]] = []  # (index, open|close)
+    standalone_display_lines: list[tuple[int, str, int]] = []  # (index, open|close, quote depth)
 
     for idx, raw_line in enumerate(lines):
         line_no = idx + 1
-        line = raw_line.rstrip("\r\n")
+        physical = raw_line.rstrip("\r\n")
 
-        # Fenced blocks.  Non-math fences are literal examples/code and should
-        # not be inspected as repository math.
+        # Fenced blocks. Non-math fences are literal examples/code and should
+        # not be inspected as repository math. Quoted fences remember their
+        # opening quote depth so `> ```math` / `> ``` ` works naturally.
         if fence_char is not None:
+            quote_view = strip_blockquote_prefix(physical, fence_quote_depth)
+            if quote_view.depth == fence_quote_depth:
+                line = quote_view.text
+                column_offset = quote_view.prefix_len
+            else:
+                line = physical
+                column_offset = 0
             stripped = line.lstrip(" ")
             close_match = re.match(rf"^{re.escape(fence_char)}{{{fence_len},}}\s*$", stripped)
             if close_match and len(line) - len(stripped) <= 3:
                 fence_char = None
                 fence_len = 0
                 fence_is_math = False
+                fence_quote_depth = 0
                 continue
             if fence_is_math:
-                seg = MathSegment(line, line_no, 1, "fence")
+                seg = MathSegment(line, line_no, column_offset + 1, "fence")
                 findings.extend(lint_math_segment(display_path, seg, raw_line))
             continue
 
-        open_match = FENCE_OPEN.match(line)
-        if open_match:
-            marker = open_match.group(2)
-            info = open_match.group(3).strip()
-            fence_char = marker[0]
-            fence_len = len(marker)
-            fence_is_math = bool(info) and info.split()[0].lower() == "math"
-            continue
+        # A display block opened inside a blockquote must strip exactly those
+        # enclosing quote markers from subsequent lines. An additional `>` is
+        # content and remains visible to the Markdown-hazard check below.
+        if display_open:
+            quote_view = strip_blockquote_prefix(physical, display_quote_depth)
+            if quote_view.depth == display_quote_depth:
+                line = quote_view.text
+                column_offset = quote_view.prefix_len
+            else:
+                line = physical
+                column_offset = 0
+            current_quote_depth = display_quote_depth
+        else:
+            quote_view = strip_blockquote_prefix(physical)
+            line = quote_view.text
+            column_offset = quote_view.prefix_len
+            current_quote_depth = quote_view.depth
+
+            open_match = FENCE_OPEN.match(line)
+            if open_match:
+                marker = open_match.group(2)
+                info = open_match.group(3).strip()
+                fence_char = marker[0]
+                fence_len = len(marker)
+                fence_is_math = bool(info) and info.split()[0].lower() == "math"
+                fence_quote_depth = current_quote_depth
+                continue
 
         # Mask ordinary inline code before any Markdown/math checks.
         masked_code = mask_inline_code(line)
@@ -751,7 +892,7 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                     Finding(
                         display_path,
                         line_no,
-                        pos + 1,
+                        column_offset + pos + 1,
                         "warning",
                         "MATH014",
                         rf"repository Markdown should use `$...$` / `$$...$$`, not `{token}` delimiters",
@@ -762,8 +903,8 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                 start = pos + len(token)
 
         # Project Markdown prefers a terminal backslash for an intentional hard
-        # break instead of two spaces.  Ignore blank lines.
-        content_no_nl = raw_line.rstrip("\r\n")
+        # break instead of two spaces. Ignore blank lines and fenced content.
+        content_no_nl = physical
         if content_no_nl.strip() and content_no_nl.endswith("  "):
             findings.append(
                 Finding(
@@ -785,7 +926,7 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
             seg = MathSegment(
                 line[r.start : r.end],
                 line_no,
-                r.start + 1,
+                column_offset + r.start + 1,
                 "protected",
             )
             findings.extend(lint_math_segment(display_path, seg, raw_line))
@@ -793,11 +934,12 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
         protected_container_ranges = [(r.start - 2, r.end + 2) for r in protected_ranges]
         work = mask_ranges(masked_code, protected_container_ranges)
 
-        # Display math state.  Canonical delimiters are standalone `$$` lines.
+        # Display math state. Canonical delimiters are standalone `$$` lines.
         if display_open:
             if re.fullmatch(r"\s*\$\$\s*", work):
                 display_open = False
-                standalone_display_lines.append((idx, "close"))
+                standalone_display_lines.append((idx, "close", display_quote_depth))
+                display_quote_depth = 0
                 continue
 
             closing = work.find("$$")
@@ -805,13 +947,13 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                 # Content before a non-standalone closer is still math.
                 content = line[:closing]
                 if content:
-                    seg = MathSegment(content, line_no, 1, "display")
+                    seg = MathSegment(content, line_no, column_offset + 1, "display")
                     findings.extend(lint_math_segment(display_path, seg, raw_line))
                 findings.append(
                     Finding(
                         display_path,
                         line_no,
-                        closing + 1,
+                        column_offset + closing + 1,
                         "warning",
                         "MATH006",
                         "put the closing `$$` delimiter on its own line",
@@ -820,43 +962,28 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                     )
                 )
                 display_open = False
+                display_quote_depth = 0
                 # Any material after the closer is intentionally not reparsed;
                 # the layout finding is sufficient and avoids cascading noise.
                 continue
 
-            # Exact GFM block constructs matter; punctuation alone does not.
-            stripped = work.rstrip()
-            hazard: str | None = None
-            if re.fullmatch(r" {0,3}(?:=+|-+)[ \t]*", stripped):
-                hazard = "Setext heading underline"
-            elif re.match(r"^ {0,3}[-+*](?:[ \t]+|$)", stripped):
-                hazard = "bullet-list marker"
-            elif re.match(r"^ {0,3}\d{1,9}[.)](?:[ \t]+|$)", stripped):
-                hazard = "ordered-list marker"
-            elif re.match(r"^ {0,3}>($|[ \t])", stripped):
-                hazard = "block-quote marker"
-            elif re.match(r"^ {0,3}#{1,6}(?:[ \t]+|$)", stripped):
-                hazard = "ATX-heading marker"
-            elif re.fullmatch(r" {0,3}(?:\*\s*){3,}", stripped) or re.fullmatch(
-                r" {0,3}(?:_\s*){3,}", stripped
-            ):
-                hazard = "thematic break"
-
+            hazard = _display_block_hazard(work)
             if hazard:
+                severity, description = hazard
                 findings.append(
                     Finding(
                         display_path,
                         line_no,
-                        1,
-                        "error",
+                        column_offset + 1,
+                        severity,
                         "MATH005",
-                        f"{hazard} is Markdown-active inside `$$...$$`; reflow the TeX source without changing rendered math",
+                        f"{description} is Markdown-active inside `$$...$$`; reflow the TeX source without changing rendered math",
                         _excerpt(raw_line),
                         False,
                     )
                 )
 
-            seg = MathSegment(line, line_no, 1, "display")
+            seg = MathSegment(line, line_no, column_offset + 1, "display")
             findings.extend(lint_math_segment(display_path, seg, raw_line))
             continue
 
@@ -864,7 +991,8 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
         if re.fullmatch(r"\s*\$\$\s*", work):
             display_open = True
             display_open_line = line_no
-            standalone_display_lines.append((idx, "open"))
+            display_quote_depth = current_quote_depth
+            standalone_display_lines.append((idx, "open", current_quote_depth))
             continue
 
         # Same-line display block, or an opening delimiter with content after it.
@@ -873,13 +1001,13 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
             second_dd = work.find("$$", first_dd + 2)
             if second_dd >= 0:
                 content = line[first_dd + 2 : second_dd]
-                seg = MathSegment(content, line_no, first_dd + 3, "display")
+                seg = MathSegment(content, line_no, column_offset + first_dd + 3, "display")
                 findings.extend(lint_math_segment(display_path, seg, raw_line))
                 findings.append(
                     Finding(
                         display_path,
                         line_no,
-                        first_dd + 1,
+                        column_offset + first_dd + 1,
                         "warning",
                         "MATH006",
                         "put display `$$` delimiters on their own lines with blank lines around the block",
@@ -892,7 +1020,7 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                         Finding(
                             display_path,
                             line_no,
-                            first_dd + 1,
+                            column_offset + first_dd + 1,
                             "error",
                             "MATH015",
                             "do not put display mathematics in a Markdown table cell; use inline math or move the equation outside the table",
@@ -905,13 +1033,13 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
             else:
                 content = line[first_dd + 2 :]
                 if content.strip():
-                    seg = MathSegment(content, line_no, first_dd + 3, "display")
+                    seg = MathSegment(content, line_no, column_offset + first_dd + 3, "display")
                     findings.extend(lint_math_segment(display_path, seg, raw_line))
                 findings.append(
                     Finding(
                         display_path,
                         line_no,
-                        first_dd + 1,
+                        column_offset + first_dd + 1,
                         "warning",
                         "MATH006",
                         "put the opening `$$` delimiter on its own line",
@@ -921,12 +1049,18 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                 )
                 display_open = True
                 display_open_line = line_no
+                display_quote_depth = current_quote_depth
                 work = work[:first_dd]
 
         # Ordinary inline math after code/protected/display regions are masked.
         inline_ranges = [r for r in find_inline_math_ranges(work) if not r.protected]
         for r in inline_ranges:
-            seg = MathSegment(line[r.start : r.end], line_no, r.start + 1, "inline")
+            seg = MathSegment(
+                line[r.start : r.end],
+                line_no,
+                column_offset + r.start + 1,
+                "inline",
+            )
             findings.extend(lint_math_segment(display_path, seg, raw_line))
 
         # Detect leftover ordinary dollar delimiters after complete inline spans
@@ -945,7 +1079,7 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                 Finding(
                     display_path,
                     line_no,
-                    pos + 1,
+                    column_offset + pos + 1,
                     "warning",
                     "MATH017",
                     "unmatched ordinary `$` math delimiter; verify the inline math boundary or escape/protect a literal dollar",
@@ -954,10 +1088,10 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                 )
             )
 
-        # Contextual underscore-emphasis analysis.  This does not search for
-        # literal "__".  It applies GFM-style opener/closer eligibility to all
-        # underscores on the line and reports a possible pair when at least one
-        # endpoint lies inside ordinary, unprotected inline math.
+        # Contextual underscore-emphasis analysis. This does not search for
+        # literal `__`. It applies GFM-style opener/closer eligibility to all
+        # underscores on the logical Markdown line and reports a possible pair
+        # when at least one endpoint lies inside ordinary, unprotected math.
         if inline_ranges:
             code_and_protected_mask = mask_ranges(masked_code, protected_container_ranges)
             positions: list[tuple[int, bool, bool, bool]] = []
@@ -975,10 +1109,6 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                 for b_pos, _b_open, b_close, b_math in positions[a_i + 1 :]:
                     if not b_close or not (a_math or b_math):
                         continue
-                    # At least one endpoint must be in ordinary math, and both
-                    # should be on the same Markdown line.  This catches both
-                    # within-span and cross-span pairings without claiming that
-                    # every underscore is unsafe.
                     span_kind = "across inline-math spans" if a_math and b_math and not any(
                         r.start <= a_pos < r.end and r.start <= b_pos < r.end
                         for r in inline_ranges
@@ -987,7 +1117,7 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                         Finding(
                             display_path,
                             line_no,
-                            a_pos + 1,
+                            column_offset + a_pos + 1,
                             "error",
                             "MATH004",
                             f"underscores can form GFM emphasis {span_kind}; prefer a portable TeX restructuring or protected inline math when unavoidable",
@@ -1014,10 +1144,18 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
             )
         )
 
-    # Blank lines around canonical display blocks.
-    for index, kind in standalone_display_lines:
+    def content_at_quote_depth(index: int, depth: int) -> str:
+        physical = lines[index].rstrip("\r\n")
+        if depth == 0:
+            return physical
+        view = strip_blockquote_prefix(physical, depth)
+        return view.text if view.depth == depth else physical
+
+    # Blank lines around canonical display blocks. For quoted display math, a
+    # line containing only the enclosing `>` marker(s) counts as blank.
+    for index, kind, quote_depth in standalone_display_lines:
         if kind == "open":
-            if index > 0 and lines[index - 1].strip():
+            if index > 0 and content_at_quote_depth(index - 1, quote_depth).strip():
                 findings.append(
                     Finding(
                         display_path,
@@ -1031,7 +1169,7 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
                     )
                 )
         else:
-            if index + 1 < len(lines) and lines[index + 1].strip():
+            if index + 1 < len(lines) and content_at_quote_depth(index + 1, quote_depth).strip():
                 findings.append(
                     Finding(
                         display_path,
@@ -1048,7 +1186,7 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
     findings.extend(lint_cross_line_underscore_pairs(lines, display_path))
 
     # Suppress style-only modernization in historical evidence unless explicitly
-    # requested.  Rendering/parser hazards still surface there.
+    # requested. Rendering/parser hazards still surface there.
     is_history = display_path.replace("\\", "/").startswith("docs/history/")
     if is_history and not include_history_style:
         findings = [f for f in findings if not f.style_only]

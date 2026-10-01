@@ -82,6 +82,19 @@ a report-only run. Style-only findings under `docs/history/` are suppressed by
 default; use `--include-history-style` only when historical material is
 intentionally being modernized.
 
+The parser treats explicit Markdown blockquote prefixes as containers, so quoted
+`$$...$$` blocks and quoted fenced math are linted as math rather than reported
+merely because each source line begins with `>`. Inside dollar-delimited display
+math, definite list/heading/quote constructs are errors. Bare `+`, `*`, or an
+ordered marker such as `0.` is reported as a warning because it can denote an
+empty list item depending on block context; punctuation attached directly to
+mathematical content, such as `-\nabla`, is not a list-marker finding.
+
+Literal TeX-special characters are also context-sensitive. Escapes such as
+`\_`, `\$`, `\%`, `\#`, and `\&` are reported in ordinary dollar math,
+where Markdown can consume the backslash, but are allowed inside protected
+inline math or fenced `math` when the literal character is genuinely intended.
+
 The linter is deliberately narrower than a full GFM parser or TeX renderer.
 Known limits are intentional:
 
@@ -89,6 +102,8 @@ Known limits are intentional:
   or prove that an unlisted macro is supported by every renderer;
 - ordinary/protected inline math is expected to stay on one physical source line;
   unusual multiline inline constructs require manual review;
+- explicit blockquote markers are supported, but lazy blockquote continuation
+  and deeply nested container interactions are not a complete GFM implementation;
 - underscore-emphasis analysis models the project hazards conservatively rather
   than implementing every GFM delimiter-run and nested-link edge case; and
 - semantic choices such as whether a bar means `\mid` or `\rvert`, or where

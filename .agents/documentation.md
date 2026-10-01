@@ -31,11 +31,12 @@ because the chat renderer uses a different Markdown/LaTeX pipeline.
   alignment.
 - Preserve readable TeX source wrapping unless the exact source text forms a
   Markdown construct. Do not treat punctuation at the beginning of a source
-  line as unsafe by itself. In particular, `-`, `+`, and `*` are list markers
-  only when the required following whitespace is present, and `=` or `-`
-  acts as a Setext heading underline only when the line has the required
-  underline form. Reflow only actual Markdown parsing hazards, while keeping
-  the rendered mathematics unchanged.
+  line as unsafe by itself. In particular, punctuation attached directly to
+  mathematical content, such as `-\nabla`, is not a list marker, while a bare
+  `+`, `*`, or ordered marker can represent an empty list item depending on
+  block context. Likewise, `=` or `-` acts as a Setext heading underline only
+  when the line has the required underline form. Reflow only actual Markdown
+  parsing hazards while keeping the rendered mathematics unchanged.
 - Use `\begin{aligned}...\end{aligned}` when the rendered mathematics is
   intentionally multiline or aligned.
 - Prefer `cases` for genuine piecewise definitions. Use `array` only when its
@@ -85,10 +86,14 @@ because the chat renderer uses a different Markdown/LaTeX pipeline.
   | Map/type colon | `F\colon X\to Y` | `F:X\to Y` |
   | Definition | `a\coloneqq b` | `a := b` |
 
-- Do not solve a Markdown collision by inserting a Markdown backslash escape
-  into TeX. Forms such as `\*` and `\_` can be consumed differently by
-  Markdown and can be invalid commands in KaTeX. Use the proper TeX command or
-  a protected-math escape hatch instead.
+- Do not introduce punctuation control-symbol escapes merely to defeat Markdown
+  parsing. Prefer the project's named mathematical forms when an equivalent
+  exists. In ordinary dollar-delimited math, literal-character escapes such as
+  `\_`, `\$`, `\%`, `\#`, and `\&` can still collide with Markdown
+  processing even though they are meaningful TeX spellings. When such a literal
+  character is genuinely required, use it inside protected inline math or a
+  fenced `math` escape hatch. Forms such as `\*` are not a substitute for the
+  proper mathematical command.
 - Do not replace `_` or `^` with `\sb` or `\sp`; use ordinary braced TeX
   scripts.
 
@@ -102,11 +107,11 @@ because the chat renderer uses a different Markdown/LaTeX pipeline.
 - For a custom named operator, use `\mathop{\mathrm{...}}`, for example
   `\mathop{\mathrm{span}}`, `\mathop{\mathrm{diag}}`,
   `\mathop{\mathrm{div}}`, or `\mathop{\mathrm{tr}}`.
-- When a custom operator carries side scripts, use `\nolimits` where that is the
-  intended mathematical layout and it gives a Markdown-safe spelling, for
-  example `$\mathop{\mathrm{tr}}\nolimits_{\Gamma_{D}} v$`.
-  Do not add `\nolimits` mechanically to operators without scripts or where
-  limits-style placement is mathematically intended.
+- When a custom operator carries side scripts, use `\nolimits` where that is
+  the intended mathematical layout and it gives a Markdown-safe spelling, for
+  example `$\mathop{\mathrm{tr}}\nolimits_{\Gamma_{D}} v$`. Do not add
+  `\nolimits` mechanically to operators without scripts or where limits-style
+  placement is mathematically intended.
 - Do not use `\operatorname` or `\operatorname*`; GitHub currently rejects
   those macros even though stock MathJax and KaTeX support them.
 - Use `\text{...}` for ordinary prose inside mathematics, `\mathrm{...}` for

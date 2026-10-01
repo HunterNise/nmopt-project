@@ -126,6 +126,68 @@ class MarkdownMathLintTests(unittest.TestCase):
         msgs = [f.message for f in findings if f.rule == "MATH003" and "operatorname" in f.message]
         self.assertEqual(1, len(msgs))
 
+
+    def test_standalone_plus_is_context_sensitive_warning_not_error(self):
+        findings = self.scan("$$\n+\n$$\n")
+        matches = [f for f in findings if f.rule == "MATH005"]
+        self.assertEqual(1, len(matches))
+        self.assertEqual("warning", matches[0].severity)
+
+    def test_standalone_ordered_marker_is_context_sensitive_warning_not_error(self):
+        findings = self.scan("$$\n0.\n$$\n")
+        matches = [f for f in findings if f.rule == "MATH005"]
+        self.assertEqual(1, len(matches))
+        self.assertEqual("warning", matches[0].severity)
+
+    def test_plus_with_following_content_is_definite_list_hazard(self):
+        findings = self.scan("$$\n+ x\n$$\n")
+        matches = [f for f in findings if f.rule == "MATH005"]
+        self.assertEqual(1, len(matches))
+        self.assertEqual("error", matches[0].severity)
+
+    def test_quoted_display_math_treats_quote_prefix_as_container(self):
+        findings = self.scan(
+            "> Quoted equation:\n"
+            ">\n"
+            "> $$\n"
+            "> \\begin{aligned}\n"
+            "> x &= y, \\\\n"
+            "> z &= w.\n"
+            "> \\end{aligned}\n"
+            "> $$\n"
+            ">\n"
+            "> Following text.\n"
+        )
+        self.assertNotIn("MATH005", [f.rule for f in findings])
+        self.assertNotIn("MATH006", [f.rule for f in findings])
+
+    def test_quoted_math_fence_treats_quote_prefix_as_container(self):
+        findings = self.scan(
+            "> ```math\n"
+            "> \\mathrm{is\\_feasible}\n"
+            "> ```\n"
+        )
+        self.assertFalse(any(f.rule == "MATH002" for f in findings))
+        self.assertNotIn("MATH006", [f.rule for f in findings])
+
+    def test_extra_quote_marker_inside_quoted_display_is_still_hazard(self):
+        findings = self.scan(">\n> $$\n> >0\n> $$\n>\n")
+        matches = [f for f in findings if f.rule == "MATH005"]
+        self.assertEqual(1, len(matches))
+        self.assertEqual("error", matches[0].severity)
+
+    def test_literal_underscore_escape_is_reported_in_ordinary_math(self):
+        findings = self.scan(r"Value $\mathrm{is\_feasible}$." + "\n")
+        self.assertTrue(any(f.rule == "MATH002" and f.severity == "error" for f in findings))
+
+    def test_literal_underscore_escape_is_allowed_in_protected_math(self):
+        findings = self.scan(r"Value $`\mathrm{is\_feasible}`$." + "\n")
+        self.assertFalse(any(f.rule == "MATH002" for f in findings))
+
+    def test_literal_underscore_escape_is_allowed_in_math_fence(self):
+        findings = self.scan("```math\n\\mathrm{is\\_feasible}\n```\n")
+        self.assertFalse(any(f.rule == "MATH002" for f in findings))
+
     def test_history_suppresses_style_only_but_not_rendering_hazards(self):
         findings = self.scan(
             r"Old $x_i := y|_\Gamma$." + "\n",

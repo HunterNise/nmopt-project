@@ -52,7 +52,7 @@ presents its operations through the common mathematical interfaces.
 For the common first-order formulation boundary, the relevant operations are
 conceptually:
 
-```math
+$$
 \begin{aligned}
 E(x) &\quad &&\text{residual evaluation},\\
 E'(x) \delta x &&&\text{Jacobian action},\\
@@ -60,7 +60,7 @@ E'(x)^{\ast}p &&&\text{transpose / pullback action},\\
 J(x) &&&\text{objective value},\\
 J'(x) &&&\text{objective derivative}.
 \end{aligned}
-```
+$$
 
 A reduced formulation additionally needs callable state and adjoint solves.
 

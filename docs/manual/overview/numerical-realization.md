@@ -19,7 +19,7 @@ the compiler's implementation details.
 
 Suppose the continuous optimization problem uses a state space $Y$ and control space
 $U$. A finite-element implementation replaces them with discrete spaces
-$`Y_{h}`$ and $`U_{h}`$ and then represents fields by coefficient vectors.
+$Y_{h}$ and $U_{h}$ and then represents fields by coefficient vectors.
 
 That sounds straightforward, but the coefficient vector stored in memory is not
 always the physical field seen by the PDE.
@@ -72,17 +72,16 @@ $$
 Kz=b_{F}+Bu,
 $$
 
-with $K$ the free-state operator and $`b_{F}`$ the boundary-treated load.
+with $K$ the free-state operator and $b_{F}$ the boundary-treated load.
 
 The objective used in this integration is
 
-```math
-J(z,u)
-=
+$$
+J(z,u)=
 \frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)
 +
 \frac{1}{2}u^{\mathsf T}Mu.
-```
+$$
 
 Several project concepts are visible in this one example:
 
@@ -134,7 +133,7 @@ contains the coefficient representation of $(y,u)$ – and let $Z$ denote the
 discrete residual test space. Their dual spaces are $X^{\ast}$ and $Z^{\ast}$.
 For a point $x\in X$, the relevant operations are conceptually:
 
-```math
+$$
 \begin{aligned}
 E(x) &\in Z^{\ast}, \\
 E'(x) \delta x &\in Z^{\ast}, \\
@@ -142,7 +141,7 @@ E'(x)^{\ast}p &\in X^{\ast}, \\
 J(x) &\in \mathbb{R}, \\
 J'(x) &\in X^{\ast}.
 \end{aligned}
-```
+$$
 
 The Jacobian-vector product propagates a primal perturbation forward. The adjoint
 Jacobian action pulls a test/adjoint variable back to covectors on the variables.
@@ -188,8 +187,7 @@ optimization geometry are separate mathematical decisions.
 Consider
 
 $$
-J(y,u)
-=
+J(y,u)=
 J_{\mathrm{state}}(y)
 +
 \frac{\beta}{2}u^{\mathsf T}Mu.
@@ -251,7 +249,7 @@ a derived quantity.
 A volume observation over a subregion $\omega\subset\Omega$ may contribute
 
 $$
-\frac{1}{2}\int_{\omega}(y-y_{\mathrm{d}})^{2} \mathrm{d}x.
+\frac{1}{2}\int_{\omega}(y-y_{\mathrm{d}})^{2}\thinspace\mathrm{d}x.
 $$
 
 Its discrete realization needs to know:

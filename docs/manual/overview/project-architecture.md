@@ -33,7 +33,7 @@ E(x)=0.
 $$
 
 Here $J$ is the objective, $E$ represents the governing equation or residual, and
-$`X_{\mathrm{ad}}`$ is the admissible set for the optimization variables.
+$X_{\mathrm{ad}}$ is the admissible set for the optimization variables.
 
 For a PDE optimal-control problem, the variable usually splits into a state and a
 decision variable,
@@ -54,7 +54,7 @@ A typical finite-element problem might ask for a distributed source $u$ such tha
 the PDE state $y$ follows a desired field while the control remains reasonably
 small:
 
-```math
+$$
 \begin{aligned}
 -\Delta y &= f + u && \text{in } \Omega, \\
 y &= 0 && \text{on } \partial\Omega, \\
@@ -64,7 +64,7 @@ J(y,u)
 +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
 \end{aligned}
-```
+$$
 
 After discretization, the optimization code does not need the symbolic PDE itself.
 It needs numerical operations representing the residual, objective, derivatives,
@@ -308,7 +308,7 @@ $$
 $$
 
 A search algorithm usually needs a primal gradient $g\in U$. A metric
-$G:U\rightarrow U^{\ast}$ supplies that identification:
+$G\colon U\to U^{\ast}$ supplies that identification:
 
 $$
 Gg=j'(u),
@@ -328,8 +328,7 @@ metrics. The distinction is mathematical rather than stylistic.
 For a state-control problem, define the Lagrangian
 
 $$
-\mathcal{L}(y,u,p)
-=
+\mathcal{L}(y,u,p)=
 J(y,u)-\langle p,E(y,u)\rangle.
 $$
 
@@ -348,8 +347,7 @@ $$
 then forms
 
 $$
-j'(u)
-=
+j'(u)=
 J_{u}'(y,u)-E_{u}'(y,u)^{\ast}p.
 $$
 

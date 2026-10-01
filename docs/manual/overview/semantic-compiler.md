@@ -44,26 +44,25 @@ repository's stable scenario ID for its distributed Laplace-control example.
 The B1 application is a distributed scalar-control problem. At a conceptual level,
 the scenario requests something like
 
-```math
+$$
 \begin{aligned}
 -\nabla\cdot(\kappa\nabla y) + c y &= f + u
 && \text{in } \Omega, \\
 y &= 0
 && \text{on } \partial\Omega,
 \end{aligned}
-```
+$$
 
 Here $y$ is the state, $u$ the distributed control, $\kappa$ the diffusion
 coefficient, $c$ a reaction coefficient, and $f$ the forcing. The desired state
-$`y_{\mathrm{d}}`$ and regularization weight $\beta$ enter an objective of the form
+$y_{\mathrm{d}}$ and regularization weight $\beta$ enter an objective of the form
 
-```math
-J(y,u)
-=
+$$
+J(y,u)=
 \frac{1}{2}\lVert y-y_{\mathrm{d}}\rVert_{L^{2}(\Omega)}^{2}
 +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
-```
+$$
 
 The semantic request needs to say more than those equations alone. It also chooses,
 for example, the control representation and its metric, the observation region, the

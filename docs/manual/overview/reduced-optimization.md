@@ -42,24 +42,21 @@ the full reduced derivative.
 Use the Lagrangian
 
 $$
-\mathcal{L}(y,u,p)
-=
+\mathcal{L}(y,u,p)=
 J(y,u)-\langle p,E(y,u)\rangle.
 $$
 
 At a state satisfying $E(y,u)=0$, choose $p$ from
 
 $$
-E_{y}'(y,u)^{\ast}p
-=
+E_{y}'(y,u)^{\ast}p=
 J_{y}'(y,u).
 $$
 
 Then the reduced derivative is
 
 $$
-j'(u)
-=
+j'(u)=
 J_{u}'(y,u)-E_{u}'(y,u)^{\ast}p.
 $$
 
@@ -82,13 +79,13 @@ The number of control coefficients does not imply one PDE solve per coefficient.
 
 ## 3. What one value evaluation does
 
-Suppose the optimizer asks for the value at a control $`u_{k}`$.
+Suppose the optimizer asks for the value at a control $u_{k}$.
 
 The reduced formulation:
 
-1. calls the state solver to obtain $`y_{k}`$;
+1. calls the state solver to obtain $y_{k}$;
 2. records the state-solve convergence evidence;
-3. evaluates $`J(y_{k},u_{k})`$;
+3. evaluates $J(y_{k},u_{k})$;
 4. retains the state together with the control and objective value.
 
 Conceptually:
@@ -112,27 +109,26 @@ control, the formulation should not solve the state equation again.
 
 ## 4. Derivative augmentation reuses the retained state
 
-Given a retained value at $`(y_{k},u_{k})`$, derivative augmentation proceeds as
+Given a retained value at $(y_{k},u_{k})$, derivative augmentation proceeds as
 
-1. evaluate the state and control parts of $`J'(y_{k},u_{k})`$;
-2. solve the adjoint equation for $`p_{k}`$;
+1. evaluate the state and control parts of $J'(y_{k},u_{k})$;
+2. solve the adjoint equation for $p_{k}$;
 3. evaluate the residual transpose action;
-4. combine the control covectors into $`j'(u_{k})`$.
+4. combine the control covectors into $j'(u_{k})$.
 
 In symbols,
 
-```math
+$$
 \begin{aligned}
 E_{y}'(y_{k},u_{k})^{\ast}p_{k}
 &=
 J_{y}'(y_{k},u_{k}),\\
 j'(u_{k})
 &=
-J_{u}'(y_{k},u_{k})
--
+J_{u}'(y_{k},u_{k})-
 E_{u}'(y_{k},u_{k})^{\ast}p_{k}.
 \end{aligned}
-```
+$$
 
 The returned derivative remains a covector.
 
@@ -150,17 +146,15 @@ $$
 
 and
 
-```math
-J(z,u)
-=
-\frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)
-+
+$$
+J(z,u)=
+\frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)+
 \frac{1}{2}u^{\mathsf T}Mu.
-```
+$$
 
 The objective derivatives are
 
-```math
+$$
 \begin{aligned}
 J_{z}
 &=
@@ -169,7 +163,7 @@ J_{u}
 &=
 Mu.
 \end{aligned}
-```
+$$
 
 The adjoint solves
 
@@ -226,7 +220,7 @@ history differently. The formulation does not choose the algorithm.
 
 ## 7. Why value and derivative evaluation are separate
 
-Consider an Armijo line search from $`u_{k}`$ along a direction $`d_{k}`$.
+Consider an Armijo line search from $u_{k}$ along a direction $d_{k}$.
 
 A trial control is
 
@@ -364,12 +358,11 @@ mathematical services, but it should not alter the meaning of the existing ones.
 
 ## 12. Constraints and projection
 
-For an admissible control set $`U_{\mathrm{ad}}`$, a reduced method may need to project
+For an admissible control set $U_{\mathrm{ad}}$, a reduced method may need to project
 a trial point:
 
 $$
-u_{\mathrm{trial}}
-=
+u_{\mathrm{trial}}=
 \Pi_{U_{\mathrm{ad}}}^{G}(u+\alpha d).
 $$
 
@@ -395,10 +388,8 @@ A solver may stop based on quantities such as:
 When a gradient is defined through $Gg=j'(u)$, its natural norm depends on the metric:
 
 $$
-\lVert g\rVert_{G}^{2}
-=
-\langle Gg,g\rangle
-=
+\lVert g\rVert_{G}^{2}=
+\langle Gg,g\rangle=
 \langle j'(u),g\rangle.
 $$
 

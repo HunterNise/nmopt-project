@@ -86,6 +86,12 @@ metrics, line search, and similar concepts. They explain how those ideas are use
 inside this repository, but they are not intended to teach all prerequisite theory
 from first principles.
 
+If any of those prerequisites are unfamiliar, use the
+[background guide](../background/README.md) selectively. It provides separate routes
+through weak PDEs, finite elements, numerical linear algebra, optimization, C++,
+scientific-software workflow, and deal.II; it is not a required preface to these
+overviews.
+
 The prerequisite theory is intentionally kept separate from the architectural
 story. These overviews should remain technically accurate rather than replacing
 project terminology with simpler but less precise analogies. The concept chapters

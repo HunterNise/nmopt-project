@@ -9,6 +9,11 @@ follow the implementation rather than merely recognize its names.
 The chapters are organized as a progression. They are not intended to mirror the
 directory tree or enumerate public classes.
 
+These chapters assume the standard PDE, finite-element, optimization, and C++
+background used by the project. If a prerequisite is missing, use the
+[background guide](../background/README.md) as needed and then return here. The
+background material is optional support, not a second required reading sequence.
+
 The chapter numbers below belong to this manual. References to **source Chapter 5**
 or **source Chapter 6** refer to the Manzoni–Quarteroni–Salsa material and the
 repository application families derived from it, not to manual Chapters 5 and 6.

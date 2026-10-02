@@ -7,16 +7,18 @@ not read every document by default.
 ## Start here
 
 For a first-time reading of the project, start with the
-[manual overview](manual/overview/README.md), then follow the
-[concept chapters](manual/concepts/README.md). Use the sections below when you
-need an exact design decision, public contract, implementation map, study
-record, planning record, or historical review.
+[manual overview](manual/overview/README.md). If weak PDEs, finite elements,
+numerical linear algebra, optimization, C++, or deal.II are unfamiliar, use the
+[background guide](manual/background/README.md) as needed. Then continue with the
+[concept chapters](manual/concepts/README.md). Use the sections below when you need
+an exact design decision, public contract, implementation map, study record,
+planning record, or historical review.
 
 ## Organization and authority
 
 ```text
 docs/
-  manual/       teach the current project
+  manual/       teach the project and provide optional prerequisite background
   design/       long-lived architecture, mathematics, and accepted decisions
   reference/    exact current public interfaces, configuration, and execution
   internals/    current implementation mechanics and maintainer maps
@@ -29,6 +31,9 @@ docs/
 
 - [Manual overview](manual/overview/README.md) is the recommended first-time
   reading path.
+- [Background guide](manual/background/README.md) provides optional prerequisite
+  routes through weak PDEs, finite elements, numerical linear algebra,
+  optimization, C++, scientific-software workflow, and deal.II.
 - [Concept chapters](manual/concepts/README.md) develop the project’s
   mathematical, formulation, compiler, and integration language.
 
@@ -125,6 +130,7 @@ before inspecting or changing repository content.
 | Audience or task | Start with | Then consult |
 | --- | --- | --- |
 | First-time project reader | [Manual overview](manual/overview/README.md) | [Concept chapters](manual/concepts/README.md), then the reference for the task at hand |
+| Fill prerequisite gaps in PDEs, FEM, optimization, C++, or deal.II | [Background guide](manual/background/README.md) | Return to the relevant overview or concept chapter once the missing prerequisite is comfortable |
 | Understand the whole system and code correspondence | [Implementation map](internals/implementation-map.md) | [Compiler implementation](internals/compiler.md), [runner implementation](internals/runner.md), and the relevant design record |
 | Author or modify a semantic problem | [Problem authoring](reference/problem-authoring.md) | [Compiler](reference/compiler.md) and the relevant manual concept chapter |
 | Author a reusable `nmopt`-native application | [Application authoring](reference/application-authoring.md) | [Problem authoring](reference/problem-authoring.md), [compiler](reference/compiler.md), and [application execution](reference/application-execution.md) |

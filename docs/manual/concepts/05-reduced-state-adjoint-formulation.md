@@ -190,8 +190,7 @@ By the chain rule,
 
 $$
 j_{h}'(u)[\delta u] =
-D_{y} J_{h}(y,u)[\delta y]
-+
+D_{y} J_{h}(y,u)[\delta y] +
 D_{u} J_{h}(y,u)[\delta u],
 $$
 
@@ -211,10 +210,8 @@ $$
 Because $y$ depends on $u$,
 
 $$
-D_{y} E_{h}(y,u)[\delta y]
-+
-D_{u} E_{h}(y,u)[\delta u] =
-0.
+D_{y} E_{h}(y,u)[\delta y] +
+D_{u} E_{h}(y,u)[\delta u] = 0.
 $$
 
 Therefore the sensitivity satisfies
@@ -244,8 +241,7 @@ D_{y} J_{h}(y,u)
 D_{u} E_{h}(y,u)[\delta u]
 \right]
 \\
-&\quad
-+
+&\quad +
 D_{u} J_{h}(y,u)[\delta u].
 \end{aligned}
 $$

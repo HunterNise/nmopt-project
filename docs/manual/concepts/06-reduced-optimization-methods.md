@@ -118,10 +118,8 @@ For sufficiently small positive $\alpha$,
 
 $$
 j_{h}(u_{k}+\alpha d_{k}) =
-j_{h}(u_{k})
-+
-\alpha r_{k}[d_{k}]
-+
+j_{h}(u_{k}) +
+\alpha r_{k}[d_{k}] +
 o(\alpha),
 $$
 
@@ -503,10 +501,8 @@ The derivative itself has the first-order expansion
 
 $$
 j_{h}'(u_{k}+s) =
-j_{h}'(u_{k})
-+
-H_{k} s
-+
+j_{h}'(u_{k}) +
+H_{k} s +
 o(\lVert s\rVert),
 $$
 
@@ -788,10 +784,8 @@ Around the current control $u_{k}$, a second-order Taylor model is
 $$
 m_{k}(s)
 \coloneqq
-j_{h}(u_{k})
-+
-r_{k}[s]
-+
+j_{h}(u_{k}) +
+r_{k}[s] +
 \frac12
 \langle H_{k} s,s\rangle,
 $$
@@ -815,8 +809,7 @@ respect to an arbitrary perturbation $v\in U_{h}$:
 
 $$
 D m_{k}(s)[v] =
-r_{k}[v]
-+
+r_{k}[v] +
 \langle H_{k} s,v\rangle.
 $$
 
@@ -993,10 +986,8 @@ A local quadratic model along the line is
 $$
 \phi(\alpha)
 \approx
-\phi(0)
-+
-\alpha\phi'(0)
-+
+\phi(0) +
+\alpha\phi'(0) +
 \frac12\alpha^{2}\kappa,
 $$
 
@@ -1048,8 +1039,7 @@ The classical Armijo condition is
 $$
 j_{h}(u_{k}+\alpha d_{k})
 \leq
-j_{h}(u_{k})
-+
+j_{h}(u_{k}) +
 c_{1}\alpha r_{k}[d_{k}],
 $$
 
@@ -1142,8 +1132,7 @@ rather than reconstructing $\alpha d_{k}$ separately:
 $$
 j_{h}(u_{\mathrm{trial}})
 \leq
-j_{h}(u_{k})
-+
+j_{h}(u_{k}) +
 c_{1} r_{k}[s_{k}].
 $$
 
@@ -1272,10 +1261,8 @@ For an exactly quadratic reduced objective and a straight-line direction $d$,
 
 $$
 j(u+\alpha d) =
-j(u)
-+
-\alpha r[d]
-+
+j(u) +
+\alpha r[d] +
 \frac12\alpha^{2}\langle Hd,d\rangle.
 $$
 
@@ -1284,8 +1271,7 @@ Differentiate with respect to $\alpha$:
 $$
 \frac{d}{d\alpha}
 j(u+\alpha d) =
-r[d]
-+
+r[d] +
 \alpha\langle Hd,d\rangle.
 $$
 
@@ -1680,10 +1666,8 @@ $u_{k}$, write
 $$
 m_{k}(s)
 \coloneqq
-j_{h}(u_{k})
-+
-r_{k}[s]
-+
+j_{h}(u_{k}) +
+r_{k}[s] +
 \frac12
 \langle H_{k} s,s\rangle,
 $$
@@ -1716,8 +1700,7 @@ The trust-region subproblem is therefore
 $$
 \min_{s\in U_{h}}
 \hspace{0.5em}
-r_{k}[s]
-+
+r_{k}[s] +
 \frac12\langle H_{k} s,s\rangle
 \quad
 \text{subject to}
@@ -1766,8 +1749,7 @@ Substitute $s=-tg_{k}$ into the quadratic model change:
 
 $$
 m_{k}(-t g_{k})-j_{h}(u_{k}) =
--t\langle r_{k},g_{k}\rangle
-+
+-t\langle r_{k},g_{k}\rangle +
 \frac12t^{2}
 \langle H_{k} g_{k},g_{k}\rangle.
 $$
@@ -1920,10 +1902,8 @@ The scalar $\tau$ is found from the quadratic equation
 
 $$
 \lVert s+\tau p\rVert_{G}^{2} =
-\lVert s\rVert_{G}^{2}
-+
-2\tau(s,p)_{G}
-+
+\lVert s\rVert_{G}^{2} +
+2\tau(s,p)_{G} +
 \tau^{2}\lVert p\rVert_{G}^{2} =
 \Delta_{k}^{2}.
 $$
@@ -1933,8 +1913,7 @@ The positive boundary intersection is
 $$
 \tau =
 \frac{
--(s,p)_{G}
-+
+-(s,p)_{G} +
 \sqrt{
 (s,p)_{G}^{2} -
 \lVert p\rVert_{G}^{2}

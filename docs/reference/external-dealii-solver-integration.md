@@ -168,8 +168,7 @@ objective_derivative(x)     J'(y,u)
 The VJP result contains both state and control covector components:
 
 $$
-E'(y,u)^{\ast}q
-=
+E'(y,u)^{\ast}q =
 \begin{bmatrix}
 E_{y}(y,u)^{\ast}q\\
 E_{u}(y,u)^{\ast}q
@@ -438,8 +437,7 @@ $$
 which leads to the reduced derivative
 
 $$
-j'(u)
-=
+j'(u) =
 J_{u}(y,u)-E_{u}(y,u)^{\ast}p.
 $$
 

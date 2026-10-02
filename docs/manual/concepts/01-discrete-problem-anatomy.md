@@ -49,8 +49,7 @@ source Chapter 6 numerical examples:
 $$
 \begin{aligned}
 \min_{y,u}\quad &
-\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
-+
+\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2} +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2},
 \\
 -\Delta y &= f+u
@@ -212,8 +211,7 @@ Multiplying by a test function $v\in V$ and integrating by parts gives
 
 $$
 \int_{\Omega}\nabla y\cdot\nabla v
-= \int_{\Omega}fv
-+
+= \int_{\Omega}fv +
 \int_{\Omega}uv.
 $$
 
@@ -424,8 +422,7 @@ $$
 \frac{1}{2}
 \left(
 \mathbf y^{\mathsf T}M_{y}\mathbf y
--2\mathbf q^{\mathsf T}\mathbf y
-+
+-2\mathbf q^{\mathsf T}\mathbf y +
 c
 \right),
 $$
@@ -503,11 +500,9 @@ J_{h}(\mathbf y,\mathbf u)
 \frac{1}{2}
 \left(
 \mathbf y^{\mathsf T}M_{y}\mathbf y
--2\mathbf q^{\mathsf T}\mathbf y
-+
+-2\mathbf q^{\mathsf T}\mathbf y +
 c
-\right)
-+
+\right) +
 \frac{\beta}{2}
 \mathbf u^{\mathsf T}N_{u}\mathbf u.
 $$
@@ -605,8 +600,7 @@ The directional derivative of the reduced objective is therefore
 
 $$
 j_{h}'(\mathbf u)[\delta\mathbf u]
-= \mathbf d_{y}^{\mathsf T}\delta\mathbf y
-+
+= \mathbf d_{y}^{\mathsf T}\delta\mathbf y +
 \mathbf d_{u}^{\mathsf T}\delta\mathbf u,
 $$
 
@@ -706,8 +700,7 @@ Substituting this back into the chain rule gives
 $$
 j_{h}'(\mathbf u)[\delta\mathbf u]
 = \left(
-\mathbf d_{u}
-+
+\mathbf d_{u} +
 B^{\mathsf T}\mathbf p
 \right)^{\mathsf T}
 \delta\mathbf u.
@@ -718,8 +711,7 @@ Hence the coefficient vector representing the reduced derivative is
 $$
 \mathbf r_{u}
 \coloneqq
-\mathbf d_{u}
-+
+\mathbf d_{u} +
 B^{\mathsf T}\mathbf p
 = \beta N_{u}\mathbf u+B^{\mathsf T}\mathbf p.
 $$
@@ -882,8 +874,7 @@ $$
 \begin{aligned}
 -\Delta y &= f+u,\\
 J(y,u) &\coloneqq
-\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}}^{2}
-+
+\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}}^{2} +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}}^{2}.
 \end{aligned}
 $$
@@ -913,11 +904,9 @@ J_{h}(\mathbf y,\mathbf u)
 \frac{1}{2}
 \left(
 \mathbf y^{\mathsf T}M_{y}\mathbf y
--2\mathbf q^{\mathsf T}\mathbf y
-+
+-2\mathbf q^{\mathsf T}\mathbf y +
 c
-\right)
-+
+\right) +
 \frac{\beta}{2}
 \mathbf u^{\mathsf T}N_{u}\mathbf u.
 \end{aligned}

@@ -340,7 +340,7 @@ continue to pass through a declared metric.
 variable blocks and one test block in
 `include/nmopt/contract/reduced_dto.hpp:18-37`. `ReducedDTOT::evaluate()`
 centralizes the documented Lagrangian sign by computing
-$J_{u}' - E_{u}'^{*} p$ at lines 147-163. State and adjoint solves are injected as
+$J_{u}' - E_{u}'^{\ast} p$ at lines 147-163. State and adjoint solves are injected as
 formulation services rather than hidden in a residual term.
 
 **Preserve:** Mixed states, multiple equations, all-at-once actions, OTD, and

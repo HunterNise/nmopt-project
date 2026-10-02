@@ -676,8 +676,7 @@ a_{h}(u-u_{h},v_{h})
 a_{h}(u,v_{h})-F_{h}(v_{h})
 \\
 &=
-\bigl(a_{h}(u,v_{h})-a(u,v_{h})\bigr)
-+
+\bigl(a_{h}(u,v_{h})-a(u,v_{h})\bigr) +
 \bigl(F(v_{h})-F_{h}(v_{h})\bigr).
 \end{aligned}
 $$
@@ -702,8 +701,7 @@ Choose any comparison function $v_{h}\in V_{h}$. By the triangle inequality,
 $$
 \lVert u-u_{h}\rVert_{V}
 \leq
-\lVert u-v_{h}\rVert_{V}
-+
+\lVert u-v_{h}\rVert_{V} +
 \lVert v_{h}-u_{h}\rVert_{V}.
 $$
 
@@ -727,8 +725,7 @@ $$
 \lVert u-u_{h}\rVert_{V}
 \lesssim
 \inf_{v_{h}\in V_{h}}
-\lVert u-v_{h}\rVert_{V}
-+
+\lVert u-v_{h}\rVert_{V} +
 \sup_{w_{h}\in V_{h}}
 \frac{
 \lvert a_{h}(u,w_{h})-F_{h}(w_{h})\rvert
@@ -770,8 +767,7 @@ The gradient of $u_{h}$ is generally different on the two sides of an interior f
 $$
 j_{F}
 \coloneqq
-\nabla u_{h}^{+}\cdot n^{+}
-+
+\nabla u_{h}^{+}\cdot n^{+} +
 \nabla u_{h}^{-}\cdot n^{-}.
 $$
 
@@ -804,8 +800,7 @@ A typical residual indicator therefore has the structure
 $$
 \eta_{K}^{2} =
 h_{K}^{2}
-\lVert r_{K}\rVert_{L^{2}(K)}^{2}
-+
+\lVert r_{K}\rVert_{L^{2}(K)}^{2} +
 \sum_{F\subset\partial K\cap\Omega}
 h_{F}
 \lVert j_{F}\rVert_{L^{2}(F)}^{2},
@@ -837,8 +832,7 @@ It can also create **hanging nodes**: fine cells may introduce support points on
 
 $$
 y_{c} =
-\frac12 y_{1}
-+
+\frac12 y_{1} +
 \frac12 y_{2},
 $$
 

@@ -640,7 +640,7 @@ $$
   \qquad m\in M_{\mathrm{ad}}. \quad\text{(27)}
 $$
 
-For example, choose $Y=Z=H^{1}_{\Gamma_{D}}(\Omega)$ and a parameter space
+For example, choose $`Y=Z=H^{1}_{\Gamma_{D}}(\Omega)`$ and a parameter space
 $M$ with the regularity and bounds needed for the product.  The residual is
 
 $$

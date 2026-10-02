@@ -252,7 +252,7 @@ native/nmopt agreement alone does not verify shared OCP mathematics.
   in the mass norm. For reduced centered differences, use
   $h=10^{-2},10^{-3},10^{-4},10^{-5},10^{-6}$ and recompute perturbed states.
   Require two adjacent steps to satisfy error at most
-  $`10^{-7}\max(1,|r^{\mathsf T}v|)`$. Retain the complete table.
+  $`10^{-7}\max(1,\lvert r^{\mathsf T}v\rvert)`$. Retain the complete table.
 - At zero control, check first-order Taylor remainders for both directions at
   $h=0.1,0.05,0.025$: positive, above ten times repeat-objective variation,
   with consecutive halving ratios in $[3.5,4.5]$. No silent point filtering.
@@ -279,7 +279,7 @@ Paired coefficient vectors (including $z,u,p,r,g$) and scalars use:
 ```math
 \begin{aligned}
 \lVert a-b\rVert_{2}&\leq10^{-11}+10^{-10}\max(\lVert a\rVert_{2},\lVert b\rVert_{2}),\\
-|a-b|&\leq10^{-12}+10^{-11}\max(|a|,|b|).
+\lvert a-b\rvert&\leq10^{-12}+10^{-11}\max(\lvert a\rvert,\lvert b\rvert).
 \end{aligned}
 ```
 

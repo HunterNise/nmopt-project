@@ -60,8 +60,7 @@ $$
 y &= 0 && \text{on } \partial\Omega, \\
 J(y,u)
 &=
-\frac{1}{2}\lVert y-y_{\mathrm{d}}\rVert_{L^{2}(\Omega)}^{2}
-+
+\frac{1}{2}\lVert y-y_{\mathrm{d}}\rVert_{L^{2}(\Omega)}^{2} +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
 \end{aligned}
 $$

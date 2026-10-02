@@ -841,8 +841,7 @@ d_{k}^{\mathsf T}
 \left(A(x_{k}+\alpha d_{k})-b\right)
 \\
 &=
--d_{k}^{\mathsf T}r_{k}
-+
+-d_{k}^{\mathsf T}r_{k} +
 \alpha d_{k}^{\mathsf T}Ad_{k}.
 \end{aligned}
 $$
@@ -964,8 +963,7 @@ At the minimizing step length, the line derivative vanishes. Using the residual 
 
 $$
 \psi'(\alpha_{k}) =
--d_{k}^{\mathsf T}r_{k+1} =
-0.
+-d_{k}^{\mathsf T}r_{k+1} = 0.
 $$
 
 The conjugate-direction construction extends this orthogonality to all search directions already generated. Since those directions span the same Krylov space in which the earlier residuals lie, successive residuals are orthogonal in exact arithmetic:
@@ -1621,8 +1619,7 @@ $$
 \begin{aligned}
 z_{-}^{\mathsf T}Kz_{-}
 &=
-x^{\mathsf T}Qx
-+
+x^{\mathsf T}Qx +
 2p^{\mathsf T}Dx
 \\
 &=
@@ -1719,8 +1716,7 @@ A common residual-based criterion is
 $$
 \lVert r_{k}\rVert
 \leq
-\tau_{\mathrm{abs}}
-+
+\tau_{\mathrm{abs}} +
 \tau_{\mathrm{rel}}\lVert b\rVert,
 $$
 

@@ -59,8 +59,7 @@ $y_{\mathrm{d}}$ and regularization weight $\beta$ enter an objective of the for
 
 $$
 J(y,u)=
-\frac{1}{2}\lVert y-y_{\mathrm{d}}\rVert_{L^{2}(\Omega)}^{2}
-+
+\frac{1}{2}\lVert y-y_{\mathrm{d}}\rVert_{L^{2}(\Omega)}^{2} +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
 $$
 

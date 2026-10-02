@@ -56,7 +56,7 @@ This direct v0 model remains a preserved reference implementation.
 | Geometry and execution | One static serial `Triangulation`; assembled `SparseMatrix` and `Vector` operations. |
 | State and test | Scalar `FE_Q` state/test space, degree at least one. |
 | Volume control | `FE_DGQ(0)` control space on the same active cells. |
-| PDE coefficients | Constant scalar diffusion $k>0$ and reaction $c\geq0$. |
+| PDE coefficients | Constant scalar diffusion $k\gt0$ and reaction $c\geq0$. |
 | Data rule | Forcing and target are deal.II `Function` objects evaluated at declared cell quadrature points. |
 | Observation/loss | Distributed state tracking assembled as state mass matrix, target load, and target norm. |
 | Essential boundary | Selected homogeneous Dirichlet boundary ids, defaulting to id zero. |

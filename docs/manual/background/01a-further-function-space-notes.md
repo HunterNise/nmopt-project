@@ -289,7 +289,7 @@ The exact embedding theorems have borderline cases and domain assumptions that m
 
 In a finite-dimensional space, every bounded sequence has a convergent subsequence. That fact is so familiar that it is easy to use it unconsciously. It fails in infinite-dimensional normed spaces.
 
-For example, let $\lbrace e_k\rbrace$ be an orthonormal sequence in an infinite-dimensional Hilbert space. Then
+For example, let $\lbrace e_{k}\rbrace$ be an orthonormal sequence in an infinite-dimensional Hilbert space. Then
 
 $$
 \lVert e_{j}-e_{k}\rVert^{2}=2

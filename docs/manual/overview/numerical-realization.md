@@ -78,8 +78,7 @@ The objective used in this integration is
 
 $$
 J(z,u)=
-\frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)
-+
+\frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell) +
 \frac{1}{2}u^{\mathsf T}Mu.
 $$
 
@@ -188,8 +187,7 @@ Consider
 
 $$
 J(y,u)=
-J_{\mathrm{state}}(y)
-+
+J_{\mathrm{state}}(y) +
 \frac{\beta}{2}u^{\mathsf T}Mu.
 $$
 

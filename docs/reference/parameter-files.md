@@ -383,7 +383,7 @@ selected generator/application.
 `lower` and `upper` must have `dimension` entries and satisfy
 
 $$
-\text{lower}_{i} < \text{upper}_{i}
+\text{lower}_{i} \lt \text{upper}_{i}
 $$
 
 for every coordinate.

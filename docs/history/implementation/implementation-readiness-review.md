@@ -306,7 +306,7 @@ latter coercive, and its inverse changes only the search direction.
 |---|---|---|
 | $L^{2}$ metric | $`G=M_{U}`$ in the selected control realization. | **First default.** |
 | $H^{1}$ Sobolev metric | Select a search space $P\subseteq U$, injection $\iota:P\to U$, and coercive Riesz map $G:P\to P^{\ast}$. Direction formation solves $Gg=\iota^{\ast}j'$. | Allowed with an explicit coercivity policy and a separately declared compatible constraint, if any. |
-| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default. The named P5.2 realization on independent homogeneous-Dirichlet `FE_Q` coordinates uses $G_h=M_hK_h^{-1}M_h$ and is supported only with its typed primal/dual space, pairing, complete fixed-boundary, nullspace, operator/inverse, and solve-policy references. |
+| $H^{-1}$-type metric | Must state the actual Hilbert space and operator. If $`(v,w)_{-1}=(A^{-1}v,w)_{L^{2}}`$, then the metric operator is $A^{-1}$ and its inverse is $A$; this is not the same operation as an $H^{1}$ Sobolev-gradient solve. | No generic default. The named P5.2 realization on independent homogeneous-Dirichlet `FE_Q` coordinates uses $G_{h}=M_{h}K_{h}^{-1}M_{h}$ and is supported only with its typed primal/dual space, pairing, complete fixed-boundary, nullspace, operator/inverse, and solve-policy references. |
 | Fractional metric | Requires a named discrete realization and spectral/extension/auxiliary problem policy. | Unsupported initially. |
 
 An $H^{1}$ metric includes a positive zero-order term or an explicit
@@ -388,13 +388,13 @@ Neumann-like coupling.
 
 The selected continuous parent for the first Chapter 5.11.2 specialization is
 the unconstrained full-boundary Laplace problem with
-$f,z_{d}\in L^{2}(\Omega)$, $\beta>0$, state $y\in L^{2}(\Omega)$, and control
+$f,z_{d}\in L^{2}(\Omega)$, $\beta\gt0$, state $y\in L^{2}(\Omega)$, and control
 $u\in L^{2}(\Gamma)$. It declares the transposition residual
 
 ```math
 \langle E_{\mathrm{tr}}(y,u;f),\psi\rangle
-=(y,-\Delta\psi)_\Omega-(f,\psi)_\Omega
-+(u,\partial_{n}\psi)_\Gamma,
+=(y,-\Delta\psi)_{\Omega}-(f,\psi)_{\Omega}
++(u,\partial_{n}\psi)_{\Gamma},
 \qquad
 \psi\in Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega).
 ```

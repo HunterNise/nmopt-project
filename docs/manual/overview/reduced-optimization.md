@@ -264,8 +264,7 @@ A sufficient-decrease test has the form
 $$
 j(u_{k}+\alpha d_{k})
 \leq
-j(u_{k})
-+
+j(u_{k}) +
 c \alpha\langle j'(u_{k}),d_{k}\rangle.
 $$
 

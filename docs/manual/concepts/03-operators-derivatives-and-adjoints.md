@@ -98,8 +98,7 @@ A(y+\varepsilon\delta y) -
 B(u+\varepsilon\delta u) -
 f\\
 &=
-E_{h}(y,u)
-+
+E_{h}(y,u) +
 \varepsilon
 \left(
 A\delta y-B\delta u
@@ -303,8 +302,7 @@ Its weak residual is
 $$
 \langle E(y,u),v\rangle
 \coloneqq
-\int_{\Omega}\nabla y\cdot\nabla v
-+
+\int_{\Omega}\nabla y\cdot\nabla v +
 \int_{\Omega}c y^{3}v
 -\int_{\Omega}fv
 -\int_{\Omega}uv.
@@ -314,8 +312,7 @@ Perturb $y$ by $\delta y$ and $u$ by $\delta u$. Differentiating gives
 
 $$
 \langle E'(y,u)[\delta y,\delta u],v\rangle
-= \int_{\Omega}\nabla\delta y\cdot\nabla v
-+
+= \int_{\Omega}\nabla\delta y\cdot\nabla v +
 \int_{\Omega}3c y^{2}\delta y v
 -\int_{\Omega}\delta u v.
 $$
@@ -345,10 +342,8 @@ For a sufficiently smooth residual,
 
 $$
 E_{h}(x+\varepsilon\delta x) =
-E_{h}(x)
-+
-\varepsilon E_{h}'(x)[\delta x]
-+
+E_{h}(x) +
+\varepsilon E_{h}'(x)[\delta x] +
 \mathcal O(\varepsilon^{2}).
 $$
 
@@ -667,8 +662,7 @@ We had
 
 $$
 \langle E'(y,u)[\delta y,\delta u],p\rangle =
-\int_{\Omega}\nabla\delta y\cdot\nabla p
-+
+\int_{\Omega}\nabla\delta y\cdot\nabla p +
 \int_{\Omega}3c y^{2}\delta y p -
 \int_{\Omega}\delta u p.
 $$
@@ -680,8 +674,7 @@ $$
 \langle E'(y,u)[\delta y,\delta u],p\rangle
 &=
 \left[
-\int_{\Omega}\nabla\delta y\cdot\nabla p
-+
+\int_{\Omega}\nabla\delta y\cdot\nabla p +
 \int_{\Omega}3c y^{2}\delta y p
 \right]\\
 &\quad -
@@ -811,11 +804,9 @@ J_{h}(y,u)
 \frac{1}{2}
 \left(
 y^{\mathsf T}M_{y}y -
-2q^{\mathsf T}y
-+
+2q^{\mathsf T}y +
 c
-\right)
-+
+\right) +
 \frac{\beta}{2}
 u^{\mathsf T}N_{u}u,
 $$
@@ -841,10 +832,8 @@ A first-order Taylor expansion gives
 
 $$
 J_{h}(x+\varepsilon\delta x) =
-J_{h}(x)
-+
-\varepsilon J_{h}'(x)[\delta x]
-+
+J_{h}(x) +
+\varepsilon J_{h}'(x)[\delta x] +
 \mathcal O(\varepsilon^{2}).
 $$
 

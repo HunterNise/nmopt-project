@@ -366,7 +366,7 @@ numerical operations. Do not infer that all controls require one public
 **Impact.** A universal fixed coupling matrix abstraction would fail for
 Dirichlet lifting and coefficient-dependent operators.
 
-**Direction.** Keep the universal solver contract at $E$, $E'v$, $E'^*p$.
+**Direction.** Keep the universal solver contract at $E$, $E'v$, $E'^{\ast}p$.
 Compiler plans may use a closed decision-realization variant; fixed-linear
 coupling helpers are internal specializations only where they delete code.
 
@@ -376,7 +376,7 @@ coupling helpers are internal specializations only where they delete code.
 the direct v0 and continuous-control paths use full FE coordinates with
 constrained/identity rows, while `ScalarComponentModel` uses independent
 coordinates and an affine reconstruction $P \hat{y} + \ell$.
-`DirichletControlLiftingModel` extends the same mechanism with $L_D u$.
+`DirichletControlLiftingModel` extends the same mechanism with $L_{D} u$.
 
 **Impact.** Boundary/state-coordinate policy is duplicated inside complete
 models and cannot be described as part of one PDE-family class.
@@ -629,7 +629,7 @@ State/adjoint solve realization
 ```
 
 `ScalarComponentModel` already demonstrates the useful coordinate actions
-$P$, $P^T$, and fixed lifting. `DirichletControlLiftingModel` adds $L_D$ and
+$P$, $P^{T}$, and fixed lifting. `DirichletControlLiftingModel` adds $L_{D}$ and
 its pullback. Full-coordinate identity-row schemes are alternative coordinate
 policies, not separate PDE families.
 

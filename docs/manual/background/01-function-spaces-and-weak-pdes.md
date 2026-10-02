@@ -324,8 +324,7 @@ The standard $H^{1}$ inner product is
 
 $$
 (y,v)_{H^{1}(\Omega)}\coloneqq
-\int_{\Omega}yv\thinspace\mathrm{d}x
-+
+\int_{\Omega}yv\thinspace\mathrm{d}x +
 \int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x,
 $$
 
@@ -423,8 +422,7 @@ $$
 \begin{aligned}
 \lVert y\rVert_{H^{1}(\Omega)}^{2}
 &=
-\lVert y\rVert_{L^{2}(\Omega)}^{2}
-+
+\lVert y\rVert_{L^{2}(\Omega)}^{2} +
 \lVert\nabla y\rVert_{L^{2}(\Omega)^{d}}^{2}
 \\
 &\leq
@@ -887,8 +885,7 @@ So the Robin boundary contribution is a bounded bilinear form on $H^{1}(\Omega)$
 >
 > $$
 > 0 =
-> \int_{\Omega}f\thinspace\mathrm{d}x
-> +
+> \int_{\Omega}f\thinspace\mathrm{d}x +
 > \int_{\partial\Omega}g\thinspace\mathrm{d}s.
 > $$
 >

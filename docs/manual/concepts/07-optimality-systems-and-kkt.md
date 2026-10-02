@@ -531,11 +531,9 @@ J_{h}(y,u)
 \frac12
 \left(
 y^{\mathsf T}M_{y} y -
-2q^{\mathsf T}y
-+
+2q^{\mathsf T}y +
 c
-\right)
-+
+\right) +
 \frac{\beta}{2}
 u^{\mathsf T}N_{u} u.
 $$
@@ -666,8 +664,7 @@ $$
 \coloneqq
 \frac12
 x^{\mathsf T}Qx -
-c_{x}^{\mathsf T}x
-+
+c_{x}^{\mathsf T}x +
 c_{0},
 $$
 
@@ -728,8 +725,7 @@ For the canonical quadratic program it is conventional to use the Lagrangian
 $$
 \widehat{\mathcal L}(x,\lambda)
 \coloneqq
-\varphi(x)
-+
+\varphi(x) +
 \lambda^{\mathsf T}(Dx-d).
 $$
 
@@ -766,10 +762,8 @@ Differentiate the canonical quadratic Lagrangian
 $$
 \widehat{\mathcal L}(x,\lambda) =
 \frac12x^{\mathsf T}Qx -
-c_{x}^{\mathsf T}x
-+
-\lambda^{\mathsf T}(Dx-d)
-+
+c_{x}^{\mathsf T}x +
+\lambda^{\mathsf T}(Dx-d) +
 c_{0}.
 $$
 
@@ -833,8 +827,7 @@ u
 \begin{bmatrix}
 q\\
 0
-\end{bmatrix}
-+
+\end{bmatrix} +
 \begin{bmatrix}
 A^{\mathsf T}\\
 -B^{\mathsf T}
@@ -1003,8 +996,7 @@ $$
 Pair the first equation with $x$:
 
 $$
-\langle Qx,x\rangle
-+
+\langle Qx,x\rangle +
 \langle D^{\mathsf T}\lambda,x\rangle = 0.
 $$
 

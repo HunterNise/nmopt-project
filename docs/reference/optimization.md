@@ -75,10 +75,8 @@ const auto gradient =
 The metric norm used by the reduced solvers is
 
 $$
-\lVert g \rVert_{G}
-=
-\sqrt{\langle Gg,g\rangle}
-=
+\lVert g \rVert_{G} =
+\sqrt{\langle Gg,g\rangle} =
 \sqrt{\langle j'(u),g\rangle}.
 $$
 
@@ -368,8 +366,7 @@ $$
 For Fletcher–Reeves,
 
 $$
-\beta_{k}^{\mathrm{FR}}
-=
+\beta_{k}^{\mathrm{FR}} =
 \frac{\langle j'(u_{k}),g_{k}\rangle}
      {\langle j'(u_{k-1}),g_{k-1}\rangle},
 $$
@@ -377,8 +374,7 @@ $$
 while the PR+ numerator is
 
 $$
-\langle j'(u_{k}),g_{k}\rangle
--
+\langle j'(u_{k}),g_{k}\rangle -
 \langle j'(u_{k-1}),g_{k}\rangle,
 $$
 
@@ -425,8 +421,7 @@ $$
 Here $s_{k}$ is primal and $y_{k}$ is a covector. The pair is accepted only when
 
 $$
-\langle y_{k},s_{k}\rangle
->
+\langle y_{k},s_{k}\rangle \gt
 \texttt{curvature\_tolerance}.
 $$
 
@@ -450,8 +445,7 @@ With `metric_inverse`, the initial inverse-Hessian action is $G^{-1}$.
 With `scalar_secant`, `nmopt` scales that metric inverse by
 
 $$
-\gamma_{k}
-=
+\gamma_{k} =
 \frac{\langle y_{k},s_{k}\rangle}
      {\langle y_{k},G^{-1}y_{k}\rangle}.
 $$
@@ -510,8 +504,7 @@ $$
 and the reported residual norm is
 
 $$
-\lVert r\rVert_{G^{-1}}
-=
+\lVert r\rVert_{G^{-1}} =
 \sqrt{\langle r,G^{-1}r\rangle}.
 $$
 
@@ -544,8 +537,7 @@ nmopt::solvers::NewtonDirectionPolicyT<Backend>
 inner search direction $p$, `nmopt` requires
 
 $$
-\langle Hp,p\rangle
->
+\langle Hp,p\rangle \gt
 \texttt{curvature\_tolerance}
 \lVert p\rVert_{G}^{2}.
 $$
@@ -645,7 +637,7 @@ curvature_fraction = c2.
 The implementation requires
 
 $$
-0<c_{1}<c_{2}<1.
+0\lt c_{1}\lt c_{2}\lt 1.
 $$
 
 Because Wolfe evaluates the trial derivative, derivative-bearing trials can
@@ -675,9 +667,7 @@ nmopt::solvers::WeakWolfeLineSearchPolicyT<Backend>
 For a quadratic reduced model and a direction $d$, the exact step is
 
 $$
-\alpha_{\ast}
-=
--
+\alpha_{\ast} = -
 \frac{j'(u)[d]}
      {\langle H d,d\rangle}.
 $$
@@ -697,8 +687,7 @@ nmopt::solvers::ExactQuadraticLineSearchPolicyT<Backend>
 `curvature_tolerance` requires
 
 $$
-\langle Hd,d\rangle
->
+\langle Hd,d\rangle \gt
 \texttt{curvature\_tolerance}.
 $$
 
@@ -706,10 +695,9 @@ After taking the exact straight-line step, the implementation still checks
 that the trial objective has not increased beyond
 
 $$
-j(u)
-+
+j(u) +
 \texttt{objective\_tolerance}
-\max(1,|j(u)|).
+\max(1,\lvert j(u)\rvert).
 $$
 
 That second field is therefore a numerical acceptance tolerance, not another
@@ -762,8 +750,7 @@ For a direction $d$ and step parameter $\alpha$, the trial builder has the
 form
 
 $$
-u_{\mathrm{trial}}
-=
+u_{\mathrm{trial}} =
 P_{G}(u+\alpha d),
 $$
 
@@ -808,12 +795,9 @@ and is a separate solver rather than a line-search policy.
 The local quadratic model is
 
 $$
-m_{k}(s)
-=
-j(u_{k})
-+
-j'(u_{k})[s]
-+
+m_{k}(s) =
+j(u_{k}) +
+j'(u_{k})[s] +
 \frac12\langle H_{k} s,s\rangle,
 $$
 
@@ -846,22 +830,19 @@ trust.expansion_factor = 2.0;
 For a trial step $s$, `nmopt` records
 
 $$
-\text{ared}
-=
+\text{ared} =
 j(u_{k})-j(u_{k}+s),
 $$
 
 $$
-\text{pred}
-=
+\text{pred} =
 m_{k}(0)-m_{k}(s),
 $$
 
 and
 
 $$
-\rho
-=
+\rho =
 \frac{\text{ared}}{\text{pred}}.
 $$
 
@@ -932,8 +913,7 @@ For a problem of the form
 
 $$
 \min_{x}
-\frac12\langle Qx,x\rangle
--
+\frac12\langle Qx,x\rangle -
 \langle b,x\rangle
 \quad\text{subject to}\quad
 Dx=c,
@@ -949,8 +929,7 @@ D & 0
 \begin{bmatrix}
 x\\
 \lambda
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 b\\
 c

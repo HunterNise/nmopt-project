@@ -279,7 +279,7 @@ Native loop behavior:
 3. Check finite values and descent. If the accepted-iteration budget has been reached without convergence, return iteration-limit failure.
 4. Start the trial step $t$ at 1. Build each trial by copying the current control and using the native scaled-add operation with $td$.
 5. Solve only the trial state and evaluate only its objective. Compute the actual update $`\delta u=u_{\mathrm{trial}}-u`$ by subtracting the current control from the computed trial control, then compute $s=\langle j'(u),\delta u\rangle$.
-6. Accept exactly when $s<0$, the trial objective is finite, and $`J_{\mathrm{trial}}\leq J_{\mathrm{current}}+10^{-4}s`$. A nonfinite slope is a failure. A nonfinite objective is recorded and rejected, as in current nmopt. Native solve failures abort rather than becoming objective infinities.
+6. Accept exactly when $s\lt0$, the trial objective is finite, and $`J_{\mathrm{trial}}\leq J_{\mathrm{current}}+10^{-4}s`$. A nonfinite slope is a failure. A nonfinite objective is recorded and rejected, as in current nmopt. Native solve failures abort rather than becoming objective infinities.
 7. On rejection, halve the step and try again, up to 30 total trials. No adjoint, objective derivative, or metric gradient is evaluated at a rejected trial. Each retry is formed from the original current control, not from the preceding rejected trial.
 8. On acceptance, retain the already-solved trial state and objective, compute the objective derivatives and adjoint once, and form the reduced derivative. Do not solve the state again. Increment accepted iterations and return to the stopping check.
 9. If no trial is accepted, report line-search failure. Do not alter stopping criteria or invoke another method.
@@ -383,7 +383,7 @@ For paired vectors and paired scalar objectives, respectively, use:
 ```math
 \begin{aligned}
 \lVert a-b\rVert_{2}&\leq 10^{-11}+10^{-10}\max(\lVert a\rVert_{2},\lVert b\rVert_{2}),\\
-|a-b|&\leq 10^{-12}+10^{-11}\max(|a|,|b|).
+\lvert a-b\rvert&\leq 10^{-12}+10^{-11}\max(\lvert a\rvert,\lvert b\rvert).
 \end{aligned}
 ```
 
@@ -420,7 +420,7 @@ Checks:
 
 - Residual JVP centered finite difference and full JVP/VJP dual pairing, including separate state-only and control-only tangents. Relative/scaled error target $10^{-8}$ for finite differences, $10^{-12}$ for direct linear pairing.
 - Objective directional derivative at an off-solution point, target $10^{-8}$ scaled error.
-- Reduced centered finite differences with states recomputed at every perturbation, using $h=10^{-2},10^{-3},10^{-4},10^{-5},10^{-6}$. Require agreement within $10^{-7}\max(1,|\langle j'(u),v\rangle|)$ for at least two adjacent usable steps, where $v$ is the normalized direction. Save the full table, including the small-step noise floor.
+- Reduced centered finite differences with states recomputed at every perturbation, using $h=10^{-2},10^{-3},10^{-4},10^{-5},10^{-6}$. Require agreement within $10^{-7}\max(1,\lvert\langle j'(u),v\rangle\rvert)$ for at least two adjacent usable steps, where $v$ is the normalized direction. Save the full table, including the small-step noise floor.
 - Reduced first-order Taylor remainder at $h=0.1,0.05,0.025$. Require positive remainders above ten times the observed repeat-evaluation objective variation and consecutive halving ratios between 3.5 and 4.5. If numerical noise defeats this fixed range, report and review it; do not silently filter inconvenient points.
 - Dense oracle system relative residual and independent stationarity residual at most $10^{-10}$ under their recorded normalizations. Compare the native reduced gradient evaluated at oracle control against zero with norm at most $10^{-8}$.
 - For optimization, require both paths to stop by gradient norm and independently audit final gradients at most $1.1\cdot10^{-6}$. Require the absolute control distance to the oracle to be at most $2\cdot10^{-6}$, contingent on the oracle checks passing. Retain objective gaps as evidence as well.

@@ -447,7 +447,7 @@ Architectural consequence:
 
 > Do not make the typed state layer assume one persistent sparse matrix or one
 > linear solver. The universal downstream language remains $E$, $E'v$,
-> $E'^*p$, plus supplied state/adjoint solve callbacks.
+> $E'^{\ast}p$, plus supplied state/adjoint solve callbacks.
 
 ## Decision realization zoom
 

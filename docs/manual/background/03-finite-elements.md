@@ -1340,8 +1340,7 @@ Local mesh refinement can create a point on one cell edge that lies in the middl
 
 $$
 y_{c} =
-\frac{1}{2}y_{1}
-+
+\frac{1}{2}y_{1} +
 \frac{1}{2}y_{2}.
 $$
 
@@ -1410,8 +1409,7 @@ We are not yet formulating an optimization problem; for the present purpose, $u$
 
 $$
 \int_{\Omega}\nabla y\cdot\nabla v\thinspace\mathrm{d}x =
-\int_{\Omega}fv\thinspace\mathrm{d}x
-+
+\int_{\Omega}fv\thinspace\mathrm{d}x +
 \int_{\Omega}uv\thinspace\mathrm{d}x.
 $$
 
@@ -1453,8 +1451,7 @@ y_{j}
 \nabla\varphi_{j}\cdot\nabla\varphi_{i}
 \thinspace\mathrm{d}x
 &=
-\int_{\Omega}f\varphi_{i}\thinspace\mathrm{d}x
-+
+\int_{\Omega}f\varphi_{i}\thinspace\mathrm{d}x +
 \sum_{k=1}^{n_{u}}
 u_{k}
 \int_{\Omega}
@@ -1698,8 +1695,7 @@ $$
  a(y-y_{h},y-y_{h})
 \\
 &=
- a(y-y_{h},y-w_{h})
-+
+ a(y-y_{h},y-w_{h}) +
  a(y-y_{h},w_{h}-y_{h})
 \\
 &=

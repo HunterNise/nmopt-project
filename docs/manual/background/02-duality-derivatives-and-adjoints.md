@@ -797,8 +797,7 @@ F(x+h)-F(x)
 \begin{bmatrix}
 2x_{1}h_{1}+h_{2}\\
 (\cos x_{1})h_{1}
-\end{bmatrix}
-+
+\end{bmatrix} +
 \begin{bmatrix}
 h_{1}^{2}\\
 \sin(x_{1}+h_{1})-\sin x_{1}-(\cos x_{1})h_{1}
@@ -906,10 +905,8 @@ G(F(x+h))-G(F(x))
 B\left(Ah+r_{F}(h)\right)+r_{G}(k)
 \\
 &=
-BAh
-+
-Br_{F}(h)
-+
+BAh +
+Br_{F}(h) +
 r_{G}(k).
 \end{aligned}
 $$
@@ -1123,8 +1120,7 @@ $$
 \begin{aligned}
 J(x+h)-J(x)
 &=
-x_{1}h_{1}+4x_{2}h_{2}
-+
+x_{1}h_{1}+4x_{2}h_{2} +
 \frac{1}{2}h_{1}^{2}+2h_{2}^{2}.
 \end{aligned}
 $$
@@ -1215,8 +1211,7 @@ J(u+h)-J(u)
 (u-z)^{2}\thinspace\mathrm{d}x
 \\
 &=
-\int_{\Omega}(u-z)h\thinspace\mathrm{d}x
-+
+\int_{\Omega}(u-z)h\thinspace\mathrm{d}x +
 \frac{1}{2}\int_{\Omega}h^{2}\thinspace\mathrm{d}x.
 \end{aligned}
 $$
@@ -1466,8 +1461,7 @@ J(x+h)-J(x)
 +b^{\mathsf T}x
 \\
 &=
-(Qx-b)^{\mathsf T}h
-+
+(Qx-b)^{\mathsf T}h +
 \frac{1}{2}h^{\mathsf T}Qh.
 \end{aligned}
 $$
@@ -1505,10 +1499,8 @@ Along a fixed direction $d$, set $h=\varepsilon d$. Then
 
 $$
 F(x+\varepsilon d) =
-F(x)
-+
-\varepsilon F'(x)d
-+
+F(x) +
+\varepsilon F'(x)d +
 o(\lvert\varepsilon\rvert).
 $$
 
@@ -1526,12 +1518,9 @@ For a twice Fréchet-differentiable map $F\colon X\to Y$, the second derivative 
 
 $$
 F(x+h) =
-F(x)
-+
-F'(x)h
-+
-\frac{1}{2}F''(x)[h,h]
-+
+F(x) +
+F'(x)h +
+\frac{1}{2}F''(x)[h,h] +
 o(\lVert h\rVert_{X}^{2}).
 $$
 

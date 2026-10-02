@@ -236,7 +236,7 @@ The [assessment](assessment.md) owns the evidence and finding IDs. The
 - **Current role:** broad v1 scalar assembled target containing state
   reconstruction, residual assembly, control coupling, observation/loss
   assembly, solves, metrics, constraints, Hessian, diagnostics/output.
-- **Valuable internal pieces:** independent state coordinates $P$, $P^T$, fixed
+- **Valuable internal pieces:** independent state coordinates $P$, $P^{T}$, fixed
   lifting; component-driven residual assembly; physical/reduced operator
   distinction.
 - **Target:** source of reusable typed numerical responsibilities, not a new
@@ -281,7 +281,7 @@ The [assessment](assessment.md) owns the evidence and finding IDs. The
 - **Current role:** independent state coordinates, controlled trace map,
   physical reconstruction, solves, tracking, L2/H1/H1/2 control norms/metrics,
   diagnostics/output.
-- **Valuable behavior:** $P$, $L_D$, fixed lifting and dual pullbacks; trace
+- **Valuable behavior:** $P$, $L_{D}$, fixed lifting and dual pullbacks; trace
   metric/regularization evidence.
 - **Migration destination:** reusable state-coordinate/reconstruction and
   decision-lifting components if they delete duplication.

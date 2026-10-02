@@ -540,7 +540,7 @@ first extraction is understood.
 **Characterization:**
 
 - record state physical and solver-facing dimensions;
-- record construction of $P$, $P^T$, fixed lifting, independent DoF maps;
+- record construction of $P$, $P^{T}$, fixed lifting, independent DoF maps;
 - record handling of hanging/Dirichlet constraints;
 - record residual/objective/native-output callers;
 - compare the two implementations mathematically before sharing code.
@@ -554,7 +554,7 @@ required by the roadmap.
 - at least two production consumers;
 - one owner for reconstruction matrices/maps;
 - value, tangent, and dual pullback semantics are explicit;
-- Dirichlet control can compose $L_D$ without forcing every state coordinate
+- Dirichlet control can compose $L_{D}$ without forcing every state coordinate
   representation to know about a decision variable;
 - containing target classes shrink;
 - net deletion after both consumers migrate.
@@ -1057,7 +1057,7 @@ deferred subunit visible from the roadmap itself.
 | C1b | Migrated `DirichletControlLiftingModel` to the same state-coordinate value while retaining its local controlled trace map and trace metrics. |
 | C2a | Prototyped affine decision coupling, measured its code-positive result, and removed it without a commit; the two FE assembly paths remain target-specific. |
 | C2b | Narrowed `NeumannControlRealisation` to topology, coordinates, coupling, and mass capabilities; moved regularization, metric, and facewise-box construction into `NeumannBoundaryControlModel`. C2c remains deferred. |
-| C3a | Reused `VolumeObservationAssembly` for continuous-control $L^2$ tracking while preserving the distinct local $H^1$ tracking path and fused FE traversal. |
+| C3a | Reused `VolumeObservationAssembly` for continuous-control $L^{2}$ tracking while preserving the distinct local $H^{1}$ tracking path and fused FE traversal. |
 | C3b | Added dimension-checked `QuadraticForm` value/gradient/Hessian actions and migrated repeated tracking and matrix-backed regularization algebra across four targets. |
 | C4a | Reused the serial SPD solve service directly in five compiler targets, deleting target-local forwarding helpers while preserving direct, transpose, mean-zero, and coefficient-dependent solve paths. C4b remains deferred. |
 | D1a | Selected the existing `ResolvedCompilationRequest` and its `ResolvedTargetFamily` as the closed owner of the complete lowering choice. |

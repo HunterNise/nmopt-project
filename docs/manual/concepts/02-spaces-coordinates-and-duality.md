@@ -1245,16 +1245,14 @@ the pairing is
 
 $$
 \langle \lambda,x\rangle
-= \langle \lambda_{y},y\rangle
-+
+= \langle \lambda_{y},y\rangle +
 \langle \lambda_{u},u\rangle.
 $$
 
 In coefficient form,
 
 $$
-= \boldsymbol\lambda_{y}^{\mathsf T}\mathbf y
-+
+= \boldsymbol\lambda_{y}^{\mathsf T}\mathbf y +
 \boldsymbol\lambda_{u}^{\mathsf T}\mathbf u.
 $$
 
@@ -1525,8 +1523,7 @@ Grouping terms gives the independent-coordinate system
 
 $$
 K\mathbf z
-= \mathbf b_{F}
-+
+= \mathbf b_{F} +
 B\mathbf u,
 $$
 

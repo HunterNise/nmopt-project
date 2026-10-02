@@ -1191,10 +1191,8 @@ Expanding the block product gives
 
 $$
 \mathcal E(\mathbf b,\mathbf i) =
-\frac{1}{2}\mathbf b^{\mathsf T}A_{BB}\mathbf b
-+
-\mathbf b^{\mathsf T}A_{BI}\mathbf i
-+
+\frac{1}{2}\mathbf b^{\mathsf T}A_{BB}\mathbf b +
+\mathbf b^{\mathsf T}A_{BI}\mathbf i +
 \frac{1}{2}\mathbf i^{\mathsf T}A_{II}\mathbf i.
 $$
 
@@ -1214,10 +1212,8 @@ $$
 At the minimum this must vanish for every $\delta\mathbf i$, so
 
 $$
-A_{IB}\mathbf b
-+
-A_{II}\mathbf i =
-0.
+A_{IB}\mathbf b +
+A_{II}\mathbf i = 0.
 $$
 
 Hence the minimum-energy interior coefficients are
@@ -1236,8 +1232,7 @@ action:
 
 $$
 \begin{aligned}
-A_{BB}\mathbf b
-+
+A_{BB}\mathbf b +
 A_{BI}\mathbf i_{\ast}
 &=
 A_{BB}\mathbf b -
@@ -1384,17 +1379,14 @@ Write this as two block equations:
 
 $$
 \begin{aligned}
-A_{BB}\mathbf x_{B}
-+
+A_{BB}\mathbf x_{B} +
 A_{BI}\mathbf x_{I}
 &=
 \mathbf r_{B},
 \\
-A_{IB}\mathbf x_{B}
-+
+A_{IB}\mathbf x_{B} +
 A_{II}\mathbf x_{I}
-&=
-0.
+&= 0.
 \end{aligned}
 $$
 
@@ -1411,8 +1403,7 @@ $$
 \begin{aligned}
 \mathbf r_{B}
 &=
-A_{BB}\mathbf x_{B}
-+
+A_{BB}\mathbf x_{B} +
 A_{BI}
 \left(
 -A_{II}^{-1}A_{IB}\mathbf x_{B}

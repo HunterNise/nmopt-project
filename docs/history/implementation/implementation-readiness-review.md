@@ -123,11 +123,10 @@ without a reversible block map.
 For every term, map, and composed equation block, test random compatible
 directions and seeds:
 
-```math
- \mathrm{pair}_{Z}(E_{h}'(x_{h})\delta x_{h},p_{h})
- =
+$$
+ \mathrm{pair}_{Z}(E_{h}'(x_{h})\delta x_{h},p_{h}) =
  \mathrm{pair}_{X}(E_{h}'(x_{h})^{\ast}p_{h},\delta x_{h}).
-```
+$$
 
 The test is performed after applying the same constraint and distribution
 rules used in production. For deterministic assembled double-precision tests,
@@ -391,13 +390,13 @@ the unconstrained full-boundary Laplace problem with
 $f,z_{d}\in L^{2}(\Omega)$, $\beta\gt0$, state $y\in L^{2}(\Omega)$, and control
 $u\in L^{2}(\Gamma)$. It declares the transposition residual
 
-```math
+$$
 \langle E_{\mathrm{tr}}(y,u;f),\psi\rangle
 =(y,-\Delta\psi)_{\Omega}-(f,\psi)_{\Omega}
 +(u,\partial_{n}\psi)_{\Gamma},
 \qquad
 \psi\in Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega).
-```
+$$
 
 The model author must declare a domain on which
 $-\Delta:Y\rightarrow L^{2}(\Omega)$ has the required isomorphism property;
@@ -411,10 +410,10 @@ bootstrap without a separate result.
 The first discrete policy does not introduce an $H^{2}$-conforming state or
 test element. It selects the existing complete-boundary nodal trace space
 
-```math
+$$
 U_{h}=\mathrm{tr}_{\Gamma}V_{h}
 \subset H^{1/2}(\Gamma)\subset L^{2}(\Gamma)
-```
+$$
 
 and the boundary $L^{2}$ pairing independently for the control loss and
 control metric. Both lower to the same boundary mass matrix but remain
@@ -429,18 +428,18 @@ Dirichlet control under this policy.
 For the pure Laplace bilinear form $a$, define the discrete outward conormal
 covector using the same lifting as the physical reconstruction:
 
-```math
+$$
 \langle q_{h},v_{h}\rangle
 =a(L_{D,h}v_{h},p_{h})
 -(y_{h}-z_{d},L_{D,h}v_{h})_{\Omega}.
-```
+$$
 
 The discrete reduced covector is
 
-```math
+$$
 j_{h}'(u_{h})v_{h}
 =\beta(u_{h},v_{h})_{\Gamma}-\langle q_{h},v_{h}\rangle.
-```
+$$
 
 For a smooth exact adjoint, $q_{h}$ represents the pullback of
 $\partial_{n}p$; it is not defined by pointwise differentiation of an
@@ -457,26 +456,26 @@ The selected discrete realization for Section 5.11.1 uses the same
 complete-boundary conforming trace space
 $U_{h}=\mathop{\mathrm{tr}}\nolimits_{\Gamma} V_{h}$. Let
 
-```math
+$$
 a_{H^{1}}(w_{h},v_{h})
 =(w_{h},v_{h})_{\Omega}+(\nabla w_{h},\nabla v_{h})_{\Omega}
-```
+$$
 
 on $V_{h}$, and let $E_{h}u_{h}$ be the unique minimum-$a_{H^{1}}$ extension
 with trace $u_{h}$. The selected fractional trace Riesz map is
 
-```math
+$$
 \langle G_{1/2,h}u_{h},v_{h}\rangle
 =a_{H^{1}}(E_{h}u_{h},E_{h}v_{h}).
-```
+$$
 
 If the volume $H^{1}$ matrix is partitioned into interior and boundary
 coordinates, this is the Schur complement
 
-```math
+$$
 G_{1/2,h}=A_{BB}-A_{BI}A_{II}^{-1}A_{IB},
 \qquad A=M_{\Omega,h}+K_{\Omega,h}.
-```
+$$
 
 The positive volume mass term controls constants and makes both $A$ and the
 trace Schur complement positive definite. Application uses one declared
@@ -497,13 +496,13 @@ separate semantic components even when they share an operator.
 The selected Section 5.11.3 realization uses the complete-boundary trace
 space with the discrete Riesz map
 
-```math
+$$
 G_{1,h}=M_{\Gamma,h}+K_{\Gamma,h},
 \qquad
 (K_{\Gamma,h})_{ij}
 =\int_{\Gamma}\nabla_{\Gamma}\phi_{i}\mathbin\cdot
  \nabla_{\Gamma}\phi_{j}\mathrm{d}\sigma.
-```
+$$
 
 Tangential gradients are obtained by projecting the ambient shape gradients
 onto each boundary face. The positive boundary mass term fixes the constant

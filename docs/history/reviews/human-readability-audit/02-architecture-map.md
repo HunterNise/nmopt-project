@@ -1,6 +1,6 @@
 # Architecture map — derived from code
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)\
 **Status:** complete code-derived architecture synthesis. The human-facing documentation structure is proposed separately in `07-human-information-architecture.md`.
 
 ## 1. Method

@@ -173,17 +173,17 @@ The control experiments use Step-4 in 2D only: its existing square $[-1,1]^{2}$,
 
 Let $A,b$ denote the matrix and RHS after Step-4's original boundary elimination. All control and state entries use those full algebraic coordinates.
 
-```math
+$$
 E(y,u)=Ay-b-u=0,
 \qquad y,u\in\mathbb{R}^{n},
 \qquad J(y,u)=\frac{1}{2} y^{\mathsf T}y+\frac{1}{2} u^{\mathsf T}u.
-```
+$$
 
 Zero target, regularization coefficient 1, identity control influence, Euclidean metric, no optimization constraints, initial control zero. This is an algebraic load-vector architecture probe. It is neither a physical distributed-control nor a Dirichlet-control discretization. Perturbing already-eliminated boundary rows is intentional; do not clamp the controlled state afterward or zero boundary components of controls/derivatives.
 
 Mathematical operations:
 
-```math
+$$
 \begin{aligned}
 E'(y,u)(v_{y},v_{u})&=Av_{y}-v_{u},\\
 E'(y,u)^{\ast}q&=(A^{\mathsf T}q,-q),\\
@@ -192,7 +192,7 @@ Ay&=b+u,\\
 A^{\mathsf T}p&=y,\\
 j'(u)&=u+p,\qquad g(u)=j'(u),\qquad d(u)=-g(u).
 \end{aligned}
-```
+$$
 
 The full VJP must be valid for arbitrary supplied $q$, not only for an adjoint returned by a solve. Do not replace its state block with $`J_{y}`$ merely because the exact adjoint equation would identify the two at one particular point.
 
@@ -200,10 +200,10 @@ For this pinned assembled symmetric operator, the native adjoint can reuse the s
 
 Independent optimum oracle:
 
-```math
+$$
 (I+A^{\mathsf T}A)y^{\ast}=A^{\mathsf T}b,
 \qquad u^{\ast}=Ay^{\ast}-b.
-```
+$$
 
 Build and factor the small dense oracle system using deal.II dense/LAPACK facilities. Keep its storage, factorization, and work in verification. Do not call native reduced evaluation, nmopt, or a reduced-Hessian implementation to produce the oracle. Do not form a dense inverse. Independently evaluate its system residual and the stationarity expression $`y_{\mathrm{oracle}} + A^{\mathsf T}u_{\mathrm{oracle}}`$; normalize the latter by $`\max(1, \lVert y_{\mathrm{oracle}}\rVert_{2}, \lVert A^{\mathsf T}u_{\mathrm{oracle}}\rVert_{2})`$. The oracle's matrix extraction/transpose/indexing code should not reuse a production reduced-gradient implementation.
 
@@ -380,30 +380,30 @@ Add a small source-size summary to the final report using one stated counting co
 
 For paired vectors and paired scalar objectives, respectively, use:
 
-```math
+$$
 \begin{aligned}
 \lVert a-b\rVert_{2}&\leq 10^{-11}+10^{-10}\max(\lVert a\rVert_{2},\lVert b\rVert_{2}),\\
 \lvert a-b\rvert&\leq 10^{-12}+10^{-11}\max(\lvert a\rvert,\lvert b\rvert).
 \end{aligned}
-```
+$$
 
 Matrix/RHS assembly should be identical in the paired environment; investigate any difference before reduced evaluation. For symmetry use:
 
-```math
+$$
 \frac{\lVert A-A^{\mathsf T}\rVert_{\mathrm F}}{\max(1,\lVert A\rVert_{\mathrm F})}\leq 10^{-14}.
-```
+$$
 
 Require successful CG under its unchanged `1e-12` monitored-residual policy. Independently check:
 
-```math
+$$
 \frac{\lVert Ax-\mathrm{rhs}\rVert_{2}}{\max(1,\lVert\mathrm{rhs}\rVert_{2})}\leq 10^{-10}.
-```
+$$
 
 This is a verification tolerance, not a replacement solver stopping rule. Log both residuals and their definitions.
 
 For $n=289$, define native vectors by index $i=0,\ldots,n-1$, avoiding platform-dependent random generation:
 
-```math
+$$
 \begin{aligned}
 c_{i}&=\frac{1}{\sqrt{n}},\\
 r_{i}&=\frac{i/(n-1)-1/2}{\sqrt{n}},\\
@@ -412,7 +412,7 @@ a_{i}&=\begin{cases}
 1/\sqrt{n},&i\text{ even}.
 \end{cases}
 \end{aligned}
-```
+$$
 
 Reduced evaluation controls: $0$, $0.1c$, $0.1r$, $0.1a$. Include a fresh repeated evaluation of $0.1r$ after another control to detect leaked mutable solve state. Normalize directions $r$ and $a$ to unit Euclidean norm for reduced derivative checks. Test an off-solution full point with nonzero state/control and independent nonzero state/control tangents and test seed.
 
@@ -680,8 +680,7 @@ therefore closes E5 successfully for this tested case. The exact evidence
 commands were the focused matched-optimization CTest selection and
 `./build.sh build debug-dealii --target
 nmopt_external_step4_optimization_contract_test`,
-`ctest --test-dir build/debug-dealii --output-on-failure -R
-'^nmopt\.external\.tutorial_step_4\.matched_optimization$'`, and
+`ctest --test-dir build/debug-dealii --output-on-failure -R '^nmopt\.external\.tutorial_step_4\.matched_optimization$'`, and
 `./build.sh pipeline debug-dealii`; the Debug deal.II profile used one build
 job. G1 is the next unit and owns interpretation, source-size accounting, and
 the bounded attribution/decision report.

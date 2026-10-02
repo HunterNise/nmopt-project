@@ -4,21 +4,20 @@
 
 The previous chapter ended with an equality-constrained quadratic problem
 
-```math
+$$
 \begin{aligned}
 \min_{x}\quad&
 \frac12\langle Qx,x\rangle
--
-\langle c_{x},x\rangle,
+-\langle c_{x},x\rangle,
 \\
 \text{subject to}\quad&
 Dx=d,
 \end{aligned}
-```
+$$
 
 and the corresponding KKT equations
 
-```math
+$$
 \begin{bmatrix}
 Q & D^{\mathsf T}\\
 D & 0
@@ -26,13 +25,12 @@ D & 0
 \begin{bmatrix}
 x\\
 \lambda
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 c_{x}\\
 d
 \end{bmatrix}.
-```
+$$
 
 Now suppose one block of the primal variable is a control $u$ subject to componentwise
 bounds
@@ -353,15 +351,14 @@ $$
 
 For a scalar interval $[\ell,r]$, this normal cone is
 
-```math
-N_{[\ell,r]}(u)
-=
+$$
+N_{[\ell,r]}(u)=
 \begin{cases}
 (-\infty,0], & u=\ell,\\
 \lbrace0\rbrace, & \ell\lt u\lt r,\\
 [0,\infty), & u=r.
 \end{cases}
-```
+$$
 
 That is exactly the sign pattern above.
 
@@ -396,7 +393,7 @@ $$
 
 The box conditions become
 
-```math
+$$
 \begin{aligned}
 \ell_{i}\leq u_{i}\leq r_{i},
 \\
@@ -404,7 +401,7 @@ The box conditions become
 \\
 \mu_{i}^{+}(r_{i}-u_{i})=0.
 \end{aligned}
-```
+$$
 
 These are the complementary-slackness relations. They say:
 
@@ -439,15 +436,15 @@ $$
 
 The implementation then measures the two scalar products
 
-```math
+$$
 \max(m_{i},0)(r_{i}-u_{i})
-```
+$$
 
 and
 
-```math
+$$
 \min(m_{i},0)(u_{i}-\ell_{i}).
-```
+$$
 
 At an exact complementary point both vanish. The maximum absolute violation over all
 control coefficients becomes the reported complementarity residual. In the declared
@@ -552,15 +549,15 @@ $$
 
 the current `BoxComplementarityT::classify()` evaluates
 
-```math
+$$
 m_{i}+c(u_{i}-r_{i})
-```
+$$
 
 and
 
-```math
+$$
 m_{i}+c(u_{i}-\ell_{i}).
-```
+$$
 
 The coefficient is classified as:
 
@@ -967,9 +964,9 @@ $$
 
 Then
 
-```math
+$$
 D_{I}x_{I}+D_{A}\bar x_{A}=d.
-```
+$$
 
 Therefore the inactive-coordinate problem must satisfy
 
@@ -1312,13 +1309,13 @@ strictly inside
 
 The implementation measures the corresponding positive violation:
 
-```math
+$$
 \begin{cases}
 \max(m_{i},0), & u_{i}\leq\ell_{i},\\
 \max(-m_{i},0), & u_{i}\geq r_{i},\\
 \lvert m_{i}\rvert, & \ell_{i}\lt u_{i}\lt r_{i}.
 \end{cases}
-```
+$$
 
 and keeps the maximum over coefficients.
 

@@ -1,9 +1,9 @@
 # Repository-structure refactor closure
 
-**Branch:** `codex/repo-structure-refactor`  
+**Branch:** `codex/repo-structure-refactor`\
 **Base HEAD:** `0881ee9f768c8e36099939a3261b841830402b0b`
-(`docs(step4): refresh external integration study`)  
-**Governing roadmap:** [`docs/planning/repository-structure-refactor.md`](../../../planning/repository-structure-refactor.md)  
+(`docs(step4): refresh external integration study`)\
+**Governing roadmap:** [`docs/planning/repository-structure-refactor.md`](../../../planning/repository-structure-refactor.md)\
 **Follow-up assessment:** [`09-repository-structure-follow-up.md`](09-repository-structure-follow-up.md)
 
 ## 1. Result

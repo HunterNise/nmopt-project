@@ -1,7 +1,7 @@
 # nmopt human-readability and architecture audit
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1) (`codex/main` at the start of the audit)  
-**Baseline commit message:** `docs(dealii): close the external boundary evaluation`  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1) (`codex/main` at the start of the audit)\
+**Baseline commit message:** `docs(dealii): close the external boundary evaluation`\
 **Status:** closed for the documentation-refactor decision. A later dedicated non-documentation structure assessment is recorded in [`09-repository-structure-follow-up.md`](09-repository-structure-follow-up.md).
 
 ## Purpose

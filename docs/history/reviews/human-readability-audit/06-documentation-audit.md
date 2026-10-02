@@ -1,6 +1,6 @@
 # Documentation audit
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)\
 **Status:** complete for the documentation-refactor scope: architecture, implementation authority, public API, application execution, project status, and repository-organization documents were reconciled to the audit baseline.
 
 ## 1. Overall finding

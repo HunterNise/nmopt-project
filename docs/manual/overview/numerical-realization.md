@@ -247,7 +247,7 @@ a derived quantity.
 A volume observation over a subregion $\omega\subset\Omega$ may contribute
 
 $$
-\frac{1}{2}\int_{\omega}(y-y_{\mathrm{d}})^{2}\thinspace\mathrm{d}x.
+\frac{1}{2}\int_{\omega}(y-y_{d})^{2}\thinspace\mathrm{d}x.
 $$
 
 Its discrete realization needs to know:

@@ -278,12 +278,12 @@ The wrapper's mathematics combines identity load-vector control with a
 mass-weighted objective. With $A,b$ denoting the boundary-eliminated Step-4
 system and $M$ the newly assembled mass matrix, its definitions are:
 
-```math
+$$
 E(y,u)=Ay-b-u,
 \qquad
 J(y,u)=\frac{1}{2}y^{\mathsf T}My+
        \frac{0.2}{2}u^{\mathsf T}Mu.
-```
+$$
 
 Mass assembly follows that objective/metric choice. The residual does not
 apply a mass or FE coupling matrix to the control. Adding $M$ to the objective
@@ -498,7 +498,7 @@ coordinates and $\ell$ carry the original prescribed boundary coefficients,
 with zero entries on free DoFs. With $A,b$ the existing boundary-eliminated
 system and $M$ the full FE mass matrix, define:
 
-```math
+$$
 \begin{aligned}
 y_{\mathrm{phys}} &= Pz+\ell, &
 K &= P^{\mathsf T}AP, & b_{F} &= P^{\mathsf T}b,\\
@@ -507,20 +507,20 @@ E(z,u) &= Kz-b_{F}-Bu,\\
 J(z,u) &= \frac{1}{2}(Pz+\ell-y_{d})^{\mathsf T}M(Pz+\ell-y_{d})
           +\frac{\alpha}{2}u^{\mathsf T}Mu.
 \end{aligned}
-```
+$$
 
 The simple candidate $`y_{d}=0`$ and $\alpha=1$ keeps target and regularization
 choices close to A while changing their FE interpretation. These choices,
 quadrature, coordinates, and tolerances remain to be adopted in the B protocol.
 With the same residual sign convention, the adjoint and reduced covector are:
 
-```math
+$$
 \begin{aligned}
 K^{\mathsf T}p &= P^{\mathsf T}M(Pz+\ell-y_{d}),\\
 r &= \alpha Mu+B^{\mathsf T}p,\\
 g &= M^{-1}r.
 \end{aligned}
-```
+$$
 
 Here $g$ is the $L^{2}$ gradient; the chosen metric is $M$, separately from
 the regularization weight $\alpha$. A symmetric $M$ does not make rectangular

@@ -55,11 +55,11 @@ $$
 
 Here $y$ is the state, $u$ the distributed control, $\kappa$ the diffusion
 coefficient, $c$ a reaction coefficient, and $f$ the forcing. The desired state
-$y_{\mathrm{d}}$ and regularization weight $\beta$ enter an objective of the form
+$y_{d}$ and regularization weight $\beta$ enter an objective of the form
 
 $$
 J(y,u)=
-\frac{1}{2}\lVert y-y_{\mathrm{d}}\rVert_{L^{2}(\Omega)}^{2} +
+\frac{1}{2}\lVert y-y_{d}\rVert_{L^{2}(\Omega)}^{2} +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
 $$
 

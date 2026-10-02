@@ -90,13 +90,13 @@ For this linear-quadratic target, `ScalarDiffusionReactionModel` also exposes
 the exact `ReducedHessianT<SerialBackend>` action. For a control direction
 $w$, it applies
 
-```math
+$$
 \begin{aligned}
 A_{h}\delta y &= B_{h}w,\\
 A_{h}^{\ast}\delta p &= M_{y}\delta y,\\
 H_{h}w &= \alpha M_{u}w+B_{h}^{\ast}\delta p.
 \end{aligned}
-```
+$$
 
 The tangent-state and incremental-adjoint solves use the same serial SPD
 solve boundary as the DTO state and adjoint services. This is an exact

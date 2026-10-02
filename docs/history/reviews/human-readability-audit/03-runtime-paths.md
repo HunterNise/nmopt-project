@@ -1,6 +1,6 @@
 # Representative runtime paths
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)\
 **Status:** complete for the architecture decision. The external reduced path and semantic/compiler reduced path are traced in detail; the research runner is traced to the level needed to classify its responsibilities. Non-reduced product centrality is established from compiler/build/test evidence rather than a second full end-to-end runtime trace.
 
 ## Why runtime traces matter

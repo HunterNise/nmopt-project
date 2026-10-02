@@ -1,6 +1,6 @@
 # Repository scope — code-derived classification
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)\
 **Status:** complete for the documentation-refactor decision. This file records the implemented scope reconstructed from the audit baseline.
 
 ## 1. Why scope needs to be reconstructed

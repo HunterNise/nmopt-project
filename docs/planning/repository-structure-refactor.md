@@ -1,7 +1,7 @@
 # Repository-structure readability refactor
 
-**Working branch:** `codex/repo-structure-refactor`  
-**Starting point:** documentation structure commit `997367f37b14da0010e0e474cf1e75690c4d79fb`  
+**Working branch:** `codex/repo-structure-refactor`\
+**Starting point:** documentation structure commit `997367f37b14da0010e0e474cf1e75690c4d79fb`\
 **Status:** completed; retained as the implementation roadmap used for the refactor
 **Assessment:** `docs/history/reviews/human-readability-audit/09-repository-structure-follow-up.md`
 **Closure:** `docs/history/reviews/human-readability-audit/10-repository-structure-refactor-closure.md`
@@ -493,8 +493,8 @@ the churn.
 
 ## R0 — Record assessment and active roadmap
 
-**Authority:** GREEN  
-**Intervention:** documentation only  
+**Authority:** GREEN\
+**Intervention:** documentation only\
 **Suggested commit:** `docs(audit): record repository structure follow-up`
 
 ### Orientation
@@ -541,8 +541,8 @@ V0 only.
 
 ## R1 — Cheap path-neutral readability cleanup
 
-**Authority:** GREEN  
-**Intervention:** light edits  
+**Authority:** GREEN\
+**Intervention:** light edits\
 **Suggested commit:** `refactor(readability): remove stale implementation-era wording`
 
 ### Orientation
@@ -630,8 +630,8 @@ case and ask.
 
 ## R2 — Split neutral test responsibilities
 
-**Authority:** GREEN for physical splitting; AMBER for changing logical CTest identities  
-**Intervention:** static split  
+**Authority:** GREEN for physical splitting; AMBER for changing logical CTest identities\
+**Intervention:** static split\
 **Suggested commit:** `test(structure): separate neutral contract and solver coverage`
 
 ### Orientation
@@ -739,8 +739,8 @@ choosing new executable targets.
 
 ## R3 — Split the deal.II compiler capability test ledger
 
-**Authority:** GREEN for responsibility-based physical splitting  
-**Intervention:** static split  
+**Authority:** GREEN for responsibility-based physical splitting\
+**Intervention:** static split\
 **Suggested commit:** `test(dealii): split compiler capability coverage`
 
 ### Orientation
@@ -856,8 +856,8 @@ Step-4 classification is intentionally late.
 
 ## R4 — Extract reusable runner behavior from `main.cc`
 
-**Authority:** GREEN for minimal extraction; AMBER for broad redesign  
-**Intervention:** substantial refactor with behavior preservation  
+**Authority:** GREEN for minimal extraction; AMBER for broad redesign\
+**Intervention:** substantial refactor with behavior preservation\
 **Suggested commit:** `refactor(runner): extract reusable execution seams`
 
 ### Orientation
@@ -975,8 +975,8 @@ headers broadly.
 
 ## R5 — Correct the plotting-profile implementation
 
-**Authority:** GREEN because the governing design is already accepted  
-**Intervention:** explicit behavior correction  
+**Authority:** GREEN because the governing design is already accepted\
+**Intervention:** explicit behavior correction\
 **Suggested commit:** `fix(postprocess): honor plotting profile policy`
 
 ### Orientation
@@ -1099,8 +1099,8 @@ Run all existing post-processing contracts plus new policy coverage.
 
 ## R6 — Give Python tool contracts a supported test path
 
-**Authority:** GREEN for straightforward registration; AMBER for a new permanent profile/option policy  
-**Intervention:** build/test integration  
+**Authority:** GREEN for straightforward registration; AMBER for a new permanent profile/option policy\
+**Intervention:** build/test integration\
 **Suggested commit:** `test(tools): register postprocessing contracts`
 
 ### Orientation
@@ -1177,8 +1177,8 @@ Do **not** add a new permanent CMake preset without approval.
 
 ## R7 — Unify persisted artifact parsing
 
-**Authority:** AMBER  
-**Intervention:** substantial refactor / evidence semantics  
+**Authority:** AMBER\
+**Intervention:** substantial refactor / evidence semantics\
 **Suggested commit after decision:** `refactor(tools): share artifact parsing`
 
 ### Orientation
@@ -1287,8 +1287,8 @@ V1 only.
 
 ## R8 — Hide large implementation bodies behind stable C++ facades
 
-**Authority:** GREEN for private/static split; AMBER if public include paths change  
-**Intervention:** static split  
+**Authority:** GREEN for private/static split; AMBER if public include paths change\
+**Intervention:** static split\
 **Suggested commits:** separate semantic and compiler units
 
 This unit has two independent sub-units. They do not need to be done together.
@@ -1421,7 +1421,7 @@ Do not decompose `dealii_compiler.hpp` as part of R8.
 
 ## R9 — Public include/file naming decisions
 
-**Authority:** AMBER  
+**Authority:** AMBER\
 **Intervention:** public organization decision
 
 ### Orientation
@@ -1577,8 +1577,8 @@ independently reviewable.
 
 ## R10 — Simplify root CMake after paths stabilize
 
-**Authority:** GREEN if behavior is unchanged  
-**Intervention:** static split  
+**Authority:** GREEN if behavior is unchanged\
+**Intervention:** static split\
 **Suggested commit:** `build(cmake): group repository target registration`
 
 ### Orientation
@@ -1674,7 +1674,7 @@ This is a good point for a broader gate because registration itself changes:
 
 ## R11 — Optional `apps/` taxonomy decision
 
-**Authority:** AMBER  
+**Authority:** AMBER\
 **Intervention:** move/rename only if selected
 
 ### Orientation
@@ -1719,8 +1719,8 @@ Present the actual final `apps/` tree before asking for a taxonomy decision.
 
 ## R12 — Step-4 binding cleanup
 
-**Authority:** AMBER  
-**Intervention:** late substantial refactor  
+**Authority:** AMBER\
+**Intervention:** late substantial refactor\
 **Suggested commit:** only after explicit approval
 
 ### Orientation
@@ -1817,7 +1817,7 @@ No release reproduction run is required.
 
 ## R13 — Major `dealii_compiler.hpp` decomposition
 
-**Authority:** AMBER and optional  
+**Authority:** AMBER and optional\
 **Intervention:** high-cost substantial refactor
 
 ### Orientation

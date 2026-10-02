@@ -5,10 +5,10 @@ including independent stationarity and runtime-attribution corrections.
 Generated run artifacts remain ignored and are recreated by the commands below;
 no run evidence is tracked.
 
-Date: 2026-09-12  
+Date: 2026-09-12\
 Evaluated source revision: `46aaa7b` (`test(dealii): retain Problem B operation
 attribution`)
-Protocol: [`problem-b-protocol.md`](problem-b-protocol.md)  
+Protocol: [`problem-b-protocol.md`](problem-b-protocol.md)\
 Earlier decision: [`g1-report.md`](g1-report.md)
 
 Final phase disposition and consumer follow-up: [closure report](closure-report.md).

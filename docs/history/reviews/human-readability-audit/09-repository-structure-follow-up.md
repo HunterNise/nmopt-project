@@ -1,7 +1,7 @@
 # Repository-structure follow-up to the human-readability audit
 
-**Follow-up baseline:** [`997367f37b14`](https://github.com/HunterNise/nmopt-project/commit/997367f37b14da0010e0e474cf1e75690c4d79fb) (`docs(structure): reorganize documentation by role`)  
-**Review scope:** non-documentation repository structure and source inspectability after the documentation information-architecture decision  
+**Follow-up baseline:** [`997367f37b14`](https://github.com/HunterNise/nmopt-project/commit/997367f37b14da0010e0e474cf1e75690c4d79fb) (`docs(structure): reorganize documentation by role`)\
+**Review scope:** non-documentation repository structure and source inspectability after the documentation information-architecture decision\
 **Status:** complete assessment; implementation was completed and closed in
 the [repository-structure refactor closure](10-repository-structure-refactor-closure.md)
 

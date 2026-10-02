@@ -1,6 +1,6 @@
 # Audit recommendations and proposed refactor sequence
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)\
 **Status:** final audit handoff for the documentation refactor. The implementation remains frozen; deeper source/API restructuring is outside this audit's evidentiary scope.
 
 ## 1. Main conclusion

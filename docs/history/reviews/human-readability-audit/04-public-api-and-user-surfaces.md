@@ -1,6 +1,6 @@
 # Public API and user surfaces
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)\
 **Status:** complete for the documentation-refactor decision. External application, semantic/compiler, algorithm/expert, and research/application surfaces are mapped; remaining questions are explicitly deferred API-maintainability questions.
 
 ## 1. There is not one user surface

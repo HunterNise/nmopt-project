@@ -1,6 +1,6 @@
 # Proposed human information architecture
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)\
 **Status:** recommended documentation structure for the refactor, based on the code-derived architecture and documentation audit. Exact wording and routing remain subject to review as the documentation commits are prepared.
 
 ## 1. Design goal

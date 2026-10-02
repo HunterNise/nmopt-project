@@ -65,10 +65,10 @@ and let $P$ inject those coordinates into a full vector. Let $\ell$ contain
 the original prescribed boundary coefficients and zero entries on $F$.
 With $A,b$ denoting Step-4's already boundary-eliminated matrix and RHS:
 
-```math
+$$
 y_{\mathrm{phys}}=Pz+\ell,\qquad
 K=P^{\mathsf T}AP,\qquad b_{F}=P^{\mathsf T}b.
-```
+$$
 
 The lifting correction is already present in $b$; do not subtract it again.
 State/test coordinates have dimension 225, control coordinates dimension 289.
@@ -78,10 +78,10 @@ output and physical-state tracking use the reconstructed field.
 Assemble one full consistent FE mass matrix with two Gauss points per
 coordinate direction on each original cell:
 
-```math
-M_{ij}=\int_{\Omega}\phi_{i}\phi_{j}\mathrm{d}x,
+$$
+M_{ij}=\int_{\Omega}\phi_{i}\phi_{j}\thinspace\mathrm{d}x,
 \qquad B=P^{\mathsf T}M.
-```
+$$
 
 Use the same quadrature realization for tracking and regularization. No mass
 lumping, boundary elimination of $M$, zeroing of control columns, or additional
@@ -94,13 +94,13 @@ work and copy consequences must be recorded.
 
 Select zero desired state, $`y_{d}=0`$, and $\alpha=1$:
 
-```math
+$$
 \begin{aligned}
 E(z,u)&=Kz-b_{F}-Bu,\\
 J(z,u)&=\frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)
        +\frac{\alpha}{2}u^{\mathsf T}Mu.
 \end{aligned}
-```
+$$
 
 This is FE distributed forcing, $-\Delta y=f+u$. The objective includes the
 inhomogeneous physical boundary lifting, including its cross terms. Controls
@@ -110,7 +110,7 @@ the prescribed state values or the eliminated boundary equations.
 Use Euclidean coefficient dual pairing for covectors. The complete executable
 operations, including arbitrary off-solution test seeds $q$, are:
 
-```math
+$$
 \begin{aligned}
 E'(z,u)(v,w)&=Kv-Bw,\\
 E'(z,u)^{\ast}q&=(K^{\mathsf T}q,-B^{\mathsf T}q),\\
@@ -118,7 +118,7 @@ J_{z}&=P^{\mathsf T}M(Pz+\ell),\qquad J_{u}=\alpha Mu,\\
 Kz&=b_{F}+Bu,\qquad K^{\mathsf T}p=J_{z},\\
 r=j'(u)&=\alpha Mu+B^{\mathsf T}p,\qquad g=M^{-1}r.
 \end{aligned}
-```
+$$
 
 The native reduced path needs the control pullback $`-B^{\mathsf T}p`$.
 The public model still requires a valid full VJP. Verify residual/JVP/full
@@ -158,9 +158,9 @@ metric application is one $M$ action. For metric inversion use serial CG with
 identity preconditioning, zero initial vector, maximum 1000 iterations, and
 absolute stopping threshold:
 
-```math
+$$
 \tau_{M}(r)=\max(10^{-14},10^{-12}\lVert r\rVert_{2}).
-```
+$$
 
 Construct solver/control afresh per inverse application and propagate failure.
 Both paths call the same application-native metric operations through direct
@@ -197,11 +197,11 @@ actual coefficient update. Match current nmopt's arithmetic order rather than
 replacing the stopping expression by $`\sqrt{r^{\mathsf T}g}`$, which can
 differ when the mass solve is inexact. Armijo uses the covector pairing:
 
-```math
+$$
 \delta u=u_{\mathrm{trial}}-u,\qquad
 s=r^{\mathsf T}\delta u,\qquad
 J_{\mathrm{trial}}\leq J_{\mathrm{current}}+10^{-4}s.
-```
+$$
 
 Form trial controls from the retained current control, and compute the actual
 update by subtraction; do not replace $s$ by a step-scaled direction pairing.
@@ -263,9 +263,9 @@ Require successful native CG reports under the selected stopping policies.
 Independently recompute state, adjoint, and metric equation residuals, using
 the actual RHS of each equation, and require:
 
-```math
+$$
 \frac{\lVert Lx-q\rVert_{2}}{\max(1,\lVert q\rVert_{2})}\leq10^{-10}.
-```
+$$
 
 Audit both restricted and expanded state/adjoint equations at sample controls
 and final iterates. Retain monitored and recomputed residuals separately.
@@ -276,12 +276,12 @@ Reject invalid or failed mass solves rather than treating them as exact.
 
 Paired coefficient vectors (including $z,u,p,r,g$) and scalars use:
 
-```math
+$$
 \begin{aligned}
 \lVert a-b\rVert_{2}&\leq10^{-11}+10^{-10}\max(\lVert a\rVert_{2},\lVert b\rVert_{2}),\\
 \lvert a-b\rvert&\leq10^{-12}+10^{-11}\max(\lvert a\rvert,\lvert b\rvert).
 \end{aligned}
-```
+$$
 
 Compare sample objectives, state/adjoint solutions, reduced covectors, metric
 gradients, and solve evidence. During optimization compare stopping reasons,
@@ -297,7 +297,7 @@ Use a verification-only dense factorization of the full KKT system, assembled
 directly from $K,B,M,P,\ell$. Define $`Q=P^{\mathsf T}MP`$ and
 $`c=P^{\mathsf T}M\ell`$:
 
-```math
+$$
 \begin{bmatrix}
 Q&0&-K^{\mathsf T}\\
 0&\alpha M&B^{\mathsf T}\\
@@ -305,7 +305,7 @@ Q&0&-K^{\mathsf T}\\
 \end{bmatrix}
 \begin{bmatrix}z^{\ast}\\u^{\ast}\\p^{\ast}\end{bmatrix}
 =\begin{bmatrix}-c\\0\\-b_{F}\end{bmatrix}.
-```
+$$
 
 Use dense LU with pivoting; do not form an inverse or call native/nmopt reduced
 evaluation to build or solve this oracle. Shared assembled operators are
@@ -320,9 +320,9 @@ instance; compare with returned values. Compute the independent final
 stationarity norm by a dense mass solve, not the optimizer's stored metric
 gradient, and require it at most $1.1\cdot10^{-6}$. Require:
 
-```math
+$$
 \lVert u-u^{\ast}\rVert_{M}\leq2\cdot10^{-6}.
-```
+$$
 
 This is an absolute mass-norm distance, not A's Euclidean coefficient distance
 or a relative bound. With $\alpha=1$, strong convexity in this metric motivates

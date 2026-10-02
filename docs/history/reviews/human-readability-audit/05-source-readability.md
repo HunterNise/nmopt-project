@@ -1,6 +1,6 @@
 # Source readability audit
 
-**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)  
+**Audit baseline:** [`f53b7f009e5c`](https://github.com/HunterNise/nmopt-project/commit/f53b7f009e5c418ec4f3855db29f7eb924faf6f1)\
 **Status:** complete as a bounded readability pass for the documentation-refactor decision. This is not a dedicated repository-wide source-maintainability or refactor audit.
 
 ## 1. The code is not uniformly hard to read

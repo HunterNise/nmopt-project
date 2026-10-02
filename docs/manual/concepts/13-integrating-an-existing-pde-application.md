@@ -117,35 +117,21 @@ A forward PDE application alone is not yet an optimization problem.
 
 For Step-4 Problem B, the added optimal-control model is
 
-```math
-K\mathbf z
-=
-\mathbf b_{F}
-+
-B\mathbf u,
-```
+$$
+K\mathbf z=\mathbf b_{F}+B\mathbf u,
+$$
 
 with
 
-```math
-\mathbf y_{\mathrm{phys}}
-=
-P\mathbf z+\boldsymbol\ell,
-```
+$$
+\mathbf y_{\mathrm{phys}}=P\mathbf z+\boldsymbol\ell,
+$$
 
 and objective
 
-```math
-J(\mathbf z,\mathbf u)
-=
-\frac12
-(P\mathbf z+\boldsymbol\ell)^{\mathsf T}
-M
-(P\mathbf z+\boldsymbol\ell)
-+
-\frac12
-\mathbf u^{\mathsf T}M\mathbf u.
-```
+$$
+J(\mathbf z,\mathbf u)=\frac12(P\mathbf z+\boldsymbol\ell)^{\mathsf T}M(P\mathbf z+\boldsymbol\ell)+\frac12\mathbf u^{\mathsf T}M\mathbf u.
+$$
 
 The native Step-4 application supplies the prepared stiffness matrix and solver.
 
@@ -196,11 +182,9 @@ test block
 
 The relationship is
 
-```math
-\mathbf y_{\mathrm{phys}}
-=
-P\mathbf z+\boldsymbol\ell.
-```
+$$
+\mathbf y_{\mathrm{phys}}=P\mathbf z+\boldsymbol\ell.
+$$
 
 The control-to-state coupling is
 
@@ -298,15 +282,9 @@ PDE mathematics.
 
 Problem B defines
 
-```math
-E(\mathbf z,\mathbf u)
-=
-K\mathbf z
--
-\mathbf b_{F}
--
-B\mathbf u.
-```
+$$
+E(\mathbf z,\mathbf u)=K\mathbf z-\mathbf b_{F}-B\mathbf u.
+$$
 
 Its native method is conceptually:
 
@@ -361,19 +339,9 @@ correct and efficient.
 
 Problem B evaluates
 
-```math
-J(\mathbf z,\mathbf u)
-=
-\frac12
-\mathbf y_{\mathrm{phys}}^{\mathsf T}
-M
-\mathbf y_{\mathrm{phys}}
-+
-\frac12
-\mathbf u^{\mathsf T}
-M
-\mathbf u.
-```
+$$
+J(\mathbf z,\mathbf u)=\frac12\mathbf y_{\mathrm{phys}}^{\mathsf T}M\mathbf y_{\mathrm{phys}}+\frac12\mathbf u^{\mathsf T}M\mathbf u.
+$$
 
 Its native objective derivative computes
 
@@ -440,15 +408,15 @@ It embeds that right-hand side into the physical system and calls the native sol
 For the symmetric Step-4 stiffness matrix, the same native solve algorithm realizes
 both
 
-```math
+$$
 K\mathbf z=\mathbf b
-```
+$$
 
 and
 
-```math
+$$
 K^{\mathsf T}\mathbf p=\mathbf r.
-```
+$$
 
 A nonsymmetric application could expose a distinct transpose solve.
 

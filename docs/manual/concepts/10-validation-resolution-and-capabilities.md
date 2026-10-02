@@ -183,15 +183,14 @@ together.
 
 For a point observation
 
-```math
-\mathcal O_{\mathrm s}(y)
-=
+$$
+\mathcal O_{\mathrm s}(y)=
 \begin{bmatrix}
 y(x_{1})\\
 \vdots\\
 y(x_{m})
 \end{bmatrix},
-```
+$$
 
 the semantic structure contains at least
 
@@ -209,9 +208,7 @@ point_sensor observation
 The condition
 
 $$
-\dim(\text{observation space})
-=
-\lvert X_{\mathrm s}\rvert
+\dim(\text{observation space})=\lvert X_{\mathrm s}\rvert
 $$
 
 is a semantic consistency condition. It does not depend on how deal.II will later
@@ -269,9 +266,7 @@ A point observation is again a useful example.
 Writing
 
 $$
-\mathcal O_{\mathrm s}(y)
-=
-[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}
+\mathcal O_{\mathrm s}(y)=[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}
 $$
 
 does not, by itself, explain the analytical/discrete assumptions under which point
@@ -325,11 +320,11 @@ means that the model author is asserting an analytical condition.
 
 For example,
 
-```math
+$$
 a(v,v)
 \geq
 c\lVert v\rVert^{2}
-```
+$$
 
 may be declared as a coercivity assumption.
 
@@ -720,25 +715,14 @@ The scalar compiler demonstrates the idea particularly clearly.
 
 For the baseline distributed-control residual,
 
-```math
-E(y,u)[v]
-=
+$$
+E(y,u)[v]=
 \underbrace{
-\int_{\Omega}
-\kappa\nabla y\cdot\nabla v
-+
-cyv
-\mathrm{d}x
-}_{\texttt{diffusion\_reaction}}
--
-\underbrace{
-\int_{\Omega}fv\mathrm{d}x
-}_{\texttt{volume\_source}}
--
-\underbrace{
-\int_{\Omega}uv\mathrm{d}x
-}_{\texttt{volume\_control}},
-```
+\int_{\Omega}\kappa\nabla y\cdot\nabla v+cyv\thinspace\mathrm{d}x
+}_{\texttt{diffusion\_reaction}} -
+\underbrace{\int_{\Omega}fv\thinspace\mathrm{d}x}_{\texttt{volume\_source}} -
+\underbrace{\int_{\Omega}uv\thinspace\mathrm{d}x}_{\texttt{volume\_control}},
+$$
 
 the bounded scalar planner can produce residual contributions for the three semantic
 terms.
@@ -914,9 +898,7 @@ automatically lowerable.
 For a point observation
 
 $$
-\mathcal O_{\mathrm s}(y)
-=
-[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T},
+\mathcal O_{\mathrm s}(y)=[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T},
 $$
 
 semantic validation checks the graph and required policies.
@@ -1141,7 +1123,7 @@ supplied-OTD capability step in addition to the generic formulation/product chec
 
 Part II derived the abstract equality-constrained quadratic system
 
-```math
+$$
 \begin{bmatrix}
 Q & D^{\mathsf T}\\
 D & 0
@@ -1149,13 +1131,12 @@ D & 0
 \begin{bmatrix}
 x\\
 \lambda
-\end{bmatrix}
-=
+\end{bmatrix}=
 \begin{bmatrix}
 c\\
 d
 \end{bmatrix}.
-```
+$$
 
 Many numerical problems can be written in this form.
 
@@ -1228,15 +1209,14 @@ were simply called "unsupported".
 
 Chapter 9 showed the supplied first-order residual
 
-```math
-F_{h}(y,p,u)
-=
+$$
+F_{h}(y,p,u)=
 \begin{bmatrix}
 Ay-f-Bu\\
 A^{\mathsf T}p-M_{y} y+q\\
 B^{\mathsf T}p+\beta N_{u} u
 \end{bmatrix}.
-```
+$$
 
 A structurally valid `SuppliedOTDDeclaration` can name all three blocks correctly and
 still be outside the current supplied-OTD lowerer.
@@ -1582,9 +1562,9 @@ Those are very different changes and should not be conflated.
 
 Mathematics:
 
-```math
+$$
 -\nabla\cdot(\kappa\nabla y)+cy=f+u.
-```
+$$
 
 Semantic structure:
 
@@ -1610,11 +1590,9 @@ The reduced product is then checked against the formulation capability.
 
 Mathematics:
 
-```math
-\mathcal O_{\mathrm s}(y)
-=
-[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}.
-```
+$$
+\mathcal O_{\mathrm s}(y)=[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}.
+$$
 
 Semantic structure:
 
@@ -1642,13 +1620,13 @@ The observation does not become executable merely because the enum
 
 Mathematics:
 
-```math
+$$
 \ell_{i}
 \leq
 u_{i}
 \leq
 r_{i}.
-```
+$$
 
 Semantic structure:
 

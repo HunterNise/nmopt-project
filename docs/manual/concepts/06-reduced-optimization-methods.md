@@ -64,7 +64,7 @@ Suppose the current reduced evaluation contains
 $$
 j_{h}(u_{k})
 \qquad\text{and}\qquad
-r_{k}:=j_{h}'(u_{k}).
+r_{k}\coloneqq j_{h}'(u_{k}).
 $$
 
 A line-search iteration can be written schematically as
@@ -104,22 +104,20 @@ acceptance test
 The key quantity before globalization is the directional derivative
 
 $$
-r_{k}[d_{k}]
-=
+r_{k}[d_{k}] =
 \langle r_{k},d_{k}\rangle.
 $$
 
 A descent direction satisfies
 
 $$
-r_{k}[d_{k}]<0.
+r_{k}[d_{k}]\lt 0.
 $$
 
 For sufficiently small positive $\alpha$,
 
 $$
-j_{h}(u_{k}+\alpha d_{k})
-=
+j_{h}(u_{k}+\alpha d_{k}) =
 j_{h}(u_{k})
 +
 \alpha r_{k}[d_{k}]
@@ -143,7 +141,7 @@ The **line-search policy** asks:
 > How much of that movement should be accepted?
 
 For example, steepest descent with an Armijo search and Newton with an Armijo search
-share the same globalization rule but construct $`d_{k}`$ very differently.
+share the same globalization rule but construct $d_{k}$ very differently.
 
 Conversely, the same steepest-descent direction can be paired with a fixed step, Armijo
 search, weak Wolfe search, or strong Wolfe search.
@@ -164,15 +162,14 @@ The metric supplies the primal gradient
 
 $$
 g_{k}
-:=
+\coloneqq
 G^{-1}r_{k}.
 $$
 
 Its metric norm is
 
 $$
-\lVert g_{k}\rVert_{G}
-=
+\lVert g_{k}\rVert_{G} =
 \sqrt{
 \langle Gg_{k},g_{k}\rangle
 }.
@@ -187,8 +184,7 @@ $$
 the same norm satisfies
 
 $$
-\lVert g_{k}\rVert_{G}^{2}
-=
+\lVert g_{k}\rVert_{G}^{2} =
 \langle r_{k},g_{k}\rangle.
 $$
 
@@ -215,14 +211,13 @@ line-search and trust-region solvers.
 The simplest direction is
 
 $$
-d_{k}:=-g_{k}.
+d_{k}\coloneqq -g_{k}.
 $$
 
 Then
 
 $$
-r_{k}[d_{k}]
-=
+r_{k}[d_{k}] =
 -\lVert g_{k}\rVert_{G}^{2}
 \leq0.
 $$
@@ -236,7 +231,7 @@ That makes steepest descent an important reference even when it is not the final
 algorithm one intends to use.
 
 Several more elaborate direction policies in the current implementation explicitly fall
-back to $`-g_{k}`$ when their history becomes unreliable or fails a curvature/descent test.
+back to $-g_{k}$ when their history becomes unreliable or fails a curvature/descent test.
 
 ### 3.1 Why a more elaborate direction can help
 
@@ -247,10 +242,8 @@ directions.
 For a quadratic reduced objective
 
 $$
-j(u)
-=
-\frac12\langle Hu,u\rangle
--
+j(u) =
+\frac12\langle Hu,u\rangle -
 \langle b,u\rangle,
 $$
 
@@ -267,9 +260,8 @@ reduced objective
 
 $$
 j(u)
-:=
-\frac12\langle Hu,u\rangle
--
+\coloneqq
+\frac12\langle Hu,u\rangle -
 \langle b,u\rangle,
 $$
 
@@ -291,8 +283,7 @@ directions to be geometrically orthogonal in the metric, it constructs direction
 are **conjugate with respect to the Hessian**:
 
 $$
-\langle H d_{i},d_{j}\rangle
-=
+\langle H d_{i},d_{j}\rangle =
 0
 \qquad
 i\neq j.
@@ -301,15 +292,15 @@ $$
 This removes the quadratic cross-coupling between directions.
 
 To see why that matters, suppose an exact line search has already minimized the
-quadratic along $`d_{i}`$, and a later update moves along an $H$-conjugate direction $`d_{j}`$.
+quadratic along $d_{i}$, and a later update moves along an $H$-conjugate direction $d_{j}$.
 In the quadratic term, the interaction between those two components contains
 
 $$
 \langle H d_{i},d_{j}\rangle.
 $$
 
-Because this pairing is zero, movement along $`d_{j}`$ does not reintroduce second-order
-coupling with the already-treated $`d_{i}`$ direction. Informally, each new conjugate
+Because this pairing is zero, movement along $d_{j}$ does not reintroduce second-order
+coupling with the already-treated $d_{i}$ direction. Informally, each new conjugate
 direction can remove a new component of the error without zig-zagging back through the
 curvature direction handled previously.
 
@@ -319,27 +310,27 @@ The metric turns the Hessian into a primal-to-primal operator
 
 $$
 A
-:=
+\coloneqq
 G^{-1}H:
 U_{h}
 \longrightarrow
 U_{h}.
 $$
 
-Starting from the initial metric gradient $`g_{0}`$, classical preconditioned CG explores
+Starting from the initial metric gradient $g_{0}$, classical preconditioned CG explores
 the Krylov spaces
 
 $$
 \mathcal K_{m}(A,g_{0})
-:=
+\coloneqq
 \mathrm{span}
-\left\{
+\left\lbrace
 g_{0},
 Ag_{0},
 A^{2}g_{0},
 \ldots,
 A^{m-1}g_{0}
-\right\}.
+\right\rbrace.
 $$
 
 After $m$ iterations, the quadratic minimizer is sought in an affine space of the form
@@ -364,13 +355,12 @@ conjugacy relations remain exact from one iterate to the next.
 Nonlinear CG nevertheless keeps the same structural idea:
 
 $$
-d_{k}
-=
+d_{k} =
 -g_{k}+\beta_{k} d_{k-1}.
 $$
 
 The previous direction contains information about the orientation of the local valley
-encountered by the last step. The coefficient $`\beta_{k}`$ tries to retain the useful part
+encountered by the last step. The coefficient $\beta_{k}$ tries to retain the useful part
 of that information while adapting it to the new derivative.
 
 This should be understood as a nonlinear analogue of the quadratic Krylov recurrence,
@@ -390,8 +380,7 @@ All are expressed with the declared metric and explicit primal/covector pairings
 Because
 
 $$
-\langle r_{k},g_{k}\rangle
-=
+\langle r_{k},g_{k}\rangle =
 \lVert g_{k}\rVert_{G}^{2},
 $$
 
@@ -399,7 +388,7 @@ the Fletcher–Reeves coefficient can be written
 
 $$
 \beta_{k}^{\mathrm{FR}}
-:=
+\coloneqq
 \frac{
 \langle r_{k},g_{k}\rangle
 }{
@@ -410,8 +399,7 @@ $$
 Then
 
 $$
-d_{k}
-=
+d_{k} =
 -g_{k}+\beta_{k}^{\mathrm{FR}}d_{k-1}.
 $$
 
@@ -422,19 +410,17 @@ by the primal/dual pairing induced by the selected metric gradient.
 
 The implemented Polak–Ribière numerator is
 
-```math
-\langle r_{k},g_{k}\rangle
--
-\langle r_{k-1},g_{k}\rangle
-=
+$$
+\langle r_{k},g_{k}\rangle -
+\langle r_{k-1},g_{k}\rangle =
 \langle r_{k}-r_{k-1},g_{k}\rangle.
-```
+$$
 
 Thus
 
 $$
 \beta_{k}^{\mathrm{PR}}
-:=
+\coloneqq
 \frac{
 \langle r_{k}-r_{k-1},g_{k}\rangle
 }{
@@ -489,8 +475,8 @@ Newton's method uses the reduced Hessian directly. For a large PDE control space
 forming that Hessian explicitly would be expensive even when a matrix-free Hessian
 action exists.
 
-If the control dimension is $`n_{u}`$, assembling all columns of the reduced Hessian by
-probing basis directions would require up to $`n_{u}`$ Hessian actions. A single reduced
+If the control dimension is $n_{u}$, assembling all columns of the reduced Hessian by
+probing basis directions would require up to $n_{u}$ Hessian actions. A single reduced
 Hessian action may itself contain tangent-state, incremental-adjoint, or other PDE work.
 
 Quasi-Newton methods instead try to capture useful local curvature information from work
@@ -499,7 +485,7 @@ give the primal displacement
 
 $$
 s_{k}
-:=
+\coloneqq
 u_{k+1}-u_{k}
 \in U_{h}
 $$
@@ -508,7 +494,7 @@ and the derivative change
 
 $$
 \Delta r_{k}
-:=
+\coloneqq
 r_{k+1}-r_{k}
 \in U_{h}^{\ast}.
 $$
@@ -516,8 +502,7 @@ $$
 The derivative itself has the first-order expansion
 
 $$
-j_{h}'(u_{k}+s)
-=
+j_{h}'(u_{k}+s) =
 j_{h}'(u_{k})
 +
 H_{k} s
@@ -529,7 +514,7 @@ where
 
 $$
 H_{k}
-:=
+\coloneqq
 j_{h}''(u_{k}).
 $$
 
@@ -546,12 +531,11 @@ basis of the whole control space.
 
 ### 5.1 The secant condition turns that observation into an approximation
 
-A quasi-Newton Hessian approximation $`B_{k+1}`$ can be required to reproduce the observed
+A quasi-Newton Hessian approximation $B_{k+1}$ can be required to reproduce the observed
 change exactly:
 
 $$
-\Delta r_{k}
-=
+\Delta r_{k} =
 B_{k+1}s_{k}.
 $$
 
@@ -568,8 +552,7 @@ $$
 the equivalent condition is
 
 $$
-C_{k+1}\Delta r_{k}
-=
+C_{k+1}\Delta r_{k} =
 s_{k}.
 $$
 
@@ -588,7 +571,7 @@ important properties are:
 - it satisfies the new secant condition;
 - it preserves symmetry;
 - if the previous approximation is positive definite and
-  $`\langle\Delta r_{k},s_{k}\rangle>0`$, the updated approximation remains positive
+  $\langle\Delta r_{k},s_{k}\rangle\gt 0$, the updated approximation remains positive
   definite.
 
 The last property matters because a positive-definite inverse approximation tends to
@@ -678,7 +661,7 @@ the relevant curvature is
 
 $$
 \rho_{k}^{-1}
-:=
+\coloneqq
 \langle \Delta r_{k},s_{k}\rangle.
 $$
 
@@ -725,16 +708,14 @@ The implementation can also scale the baseline inverse using the most recent sec
 information. If
 
 $$
-\widetilde g_{k}
-=
+\widetilde g_{k} =
 G^{-1}\Delta r_{k},
 $$
 
 then
 
 $$
-\langle \Delta r_{k},\widetilde g_{k}\rangle
-=
+\langle \Delta r_{k},\widetilde g_{k}\rangle =
 \langle \Delta r_{k},G^{-1}\Delta r_{k}\rangle.
 $$
 
@@ -742,7 +723,7 @@ The scalar scaling used by the current implementation is
 
 $$
 \gamma_{k}
-:=
+\coloneqq
 \frac{
 \langle \Delta r_{k},s_{k}\rangle
 }{
@@ -779,7 +760,7 @@ dense matrix storage.
 Full BFGS checks
 
 $$
-\langle \Delta r_{k},s_{k}\rangle>0
+\langle \Delta r_{k},s_{k}\rangle\gt 0
 $$
 
 up to its configured curvature tolerance. A bad pair clears the accumulated history and
@@ -802,24 +783,24 @@ direction is used instead. This is a recurring pattern in the reduced solver lay
 The derivative gives the linear part of the local objective change. Newton's method also
 uses the leading change of that derivative itself: the Hessian.
 
-Around the current control $`u_{k}`$, a second-order Taylor model is
+Around the current control $u_{k}$, a second-order Taylor model is
 
-```math
+$$
 m_{k}(s)
-:=
+\coloneqq
 j_{h}(u_{k})
 +
 r_{k}[s]
 +
 \frac12
 \langle H_{k} s,s\rangle,
-```
+$$
 
 where
 
 $$
 H_{k}
-:=
+\coloneqq
 j_{h}''(u_{k}):
 U_{h}
 \longrightarrow
@@ -830,21 +811,19 @@ The first-order term asks whether $s$ points downhill. The quadratic term says h
 slope is expected to change as we move in that direction.
 
 To find the stationary point of this local quadratic model, differentiate it with
-respect to an arbitrary perturbation $`v\in U_{h}`$:
+respect to an arbitrary perturbation $v\in U_{h}$:
 
-```math
-D m_{k}(s)[v]
-=
+$$
+D m_{k}(s)[v] =
 r_{k}[v]
 +
 \langle H_{k} s,v\rangle.
-```
+$$
 
 Requiring this to vanish for every $v$ gives
 
 $$
-H_{k} s
-=
+H_{k} s =
 -r_{k}.
 $$
 
@@ -892,7 +871,7 @@ conjugate-gradient solve using the supplied Hessian action. The inner residual b
 
 $$
 q_{0}
-:=
+\coloneqq
 -r_{k}.
 $$
 
@@ -900,7 +879,7 @@ The metric inverse provides the preconditioned residual
 
 $$
 z_{0}
-:=
+\coloneqq
 G^{-1}q_{0}.
 $$
 
@@ -908,7 +887,7 @@ The inner residual norm is measured as
 
 $$
 \lVert q\rVert_{G^{-1}}
-:=
+\coloneqq
 \sqrt{
 \langle q,G^{-1}q\rangle
 }.
@@ -921,7 +900,7 @@ $$
 H_{k} p_{i}
 $$
 
-for its current primal CG search direction $`p_{i}`$. No Hessian matrix is required.
+for its current primal CG search direction $p_{i}$. No Hessian matrix is required.
 
 ### 8.3 Positive curvature is required by this Newton–CG path
 
@@ -929,10 +908,10 @@ For the current inner CG solve, each search direction must satisfy a positive cu
 condition
 
 $$
-\langle H_{k} p_{i},p_{i}\rangle>0
+\langle H_{k} p_{i},p_{i}\rangle\gt 0
 $$
 
-up to a numerical tolerance scaled by the metric norm of $`p_{i}`$.
+up to a numerical tolerance scaled by the metric norm of $p_{i}$.
 
 If the reduced Hessian has nonpositive curvature in the explored direction, this Newton
 direction policy does not convert the event into an indefinite Newton step. It rejects
@@ -963,7 +942,7 @@ from the outer histories.
 
 ## 9. A direction is not enough: globalization controls the step
 
-All direction policies ultimately provide a primal $`d_{k}`$ and its current directional
+All direction policies ultimately provide a primal $d_{k}$ and its current directional
 derivative
 
 $$
@@ -998,18 +977,15 @@ steps. To see why, restrict the reduced objective to the line
 
 $$
 \phi(\alpha)
-:=
+\coloneqq
 j_{h}(u_{k}+\alpha d_{k}).
 $$
 
 At the current point,
 
 $$
-\phi'(0)
-=
-r_{k}[d_{k}]
-<
-0.
+\phi'(0) =
+r_{k}[d_{k}]\lt 0.
 $$
 
 A local quadratic model along the line is
@@ -1028,30 +1004,28 @@ where, when second-order information is available,
 
 $$
 \kappa
-:=
+\coloneqq
 \langle H_{k} d_{k},d_{k}\rangle.
 $$
 
-If $\kappa>0$, the linear term initially drives the objective downward, but the
+If $\kappa\gt 0$, the linear term initially drives the objective downward, but the
 quadratic curvature term eventually dominates. The minimizer of this one-dimensional
 quadratic model is
 
 $$
-\alpha_{\ast}
-=
+\alpha_{\ast} =
 -\frac{\phi'(0)}{\kappa},
 $$
 
 and the quadratic model returns to its starting value at
 
 $$
-\alpha
-=
+\alpha =
 -\frac{2\phi'(0)}{\kappa}.
 $$
 
 A trial step substantially larger than that can therefore **shoot past the local minimum
-and increase the objective**, even though $`d_{k}`$ is a valid descent direction.
+and increase the objective**, even though $d_{k}$ is a valid descent direction.
 
 For a nonlinear objective we do not generally know the correct quadratic model over a
 large step. Backtracking is a cheap way to retreat from an overambitious initial trial
@@ -1065,8 +1039,7 @@ It does not try to locate the exact one-dimensional minimum.
 For an unconstrained straight-line trial,
 
 $$
-u(\alpha)
-=
+u(\alpha) =
 u_{k}+\alpha d_{k}.
 $$
 
@@ -1083,10 +1056,10 @@ $$
 with
 
 $$
-0<c_{1}<1.
+0\lt c_{1}\lt 1.
 $$
 
-Because $`r_{k}[d_{k}]<0`$, the right-hand side lies below the current objective for positive
+Because $r_{k}[d_{k}]\lt 0$, the right-hand side lies below the current objective for positive
 $\alpha$.
 
 The condition therefore asks the actual objective decrease to be at least a small
@@ -1098,13 +1071,13 @@ The current Armijo policy begins from an initial step length and repeatedly mult
 it by a factor
 
 $$
-0<\rho<1
+0\lt \rho\lt 1
 $$
 
 until the sufficient-decrease condition holds or the trial limit/minimum step is
 reached.
 
-Because $`d_{k}`$ is a descent direction and $`j_{h}`$ is differentiable, the first-order term
+Because $d_{k}$ is a descent direction and $j_{h}$ is differentiable, the first-order term
 dominates for sufficiently small positive $\alpha$. Geometric reduction is therefore a
 simple way of searching for a scale on which the local model becomes trustworthy without
 solving a separate one-dimensional optimization problem.
@@ -1146,17 +1119,15 @@ For an unconstrained straight-line step,
 
 $$
 s_{k}
-:=
-u_{\mathrm{trial}}-u_{k}
-=
+\coloneqq
+u_{\mathrm{trial}}-u_{k} =
 \alpha d_{k}.
 $$
 
 Then
 
 $$
-r_{k}[s_{k}]
-=
+r_{k}[s_{k}] =
 \alpha r_{k}[d_{k}].
 $$
 
@@ -1166,7 +1137,7 @@ $$
 s_{k}
 $$
 
-rather than reconstructing $`\alpha d_{k}`$ separately:
+rather than reconstructing $\alpha d_{k}$ separately:
 
 $$
 j_{h}(u_{\mathrm{trial}})
@@ -1179,7 +1150,7 @@ $$
 For an unconstrained line search the two forms are identical.
 
 This formulation becomes useful for the current projected steepest-descent path, where
-the projected trial need not lie exactly on the straight ray $`u_{k}+\alpha d_{k}`$.
+the projected trial need not lie exactly on the straight ray $u_{k}+\alpha d_{k}$.
 
 ## 11. A fixed step is the simplest globalization policy
 
@@ -1206,17 +1177,16 @@ derivative at the trial point has changed enough. For a straight-line unconstrai
 
 $$
 \phi(\alpha)
-:=
+\coloneqq
 j_{h}(u_{k}+\alpha d_{k}),
 $$
 
 we have
 
 $$
-\phi'(0)
-=
+\phi'(0) =
 r_{k}[d_{k}]
-<0.
+\lt 0.
 $$
 
 A weak Wolfe curvature condition asks
@@ -1230,7 +1200,7 @@ $$
 where
 
 $$
-c_{1}<c_{2}<1.
+c_{1}\lt c_{2}\lt 1.
 $$
 
 Since $\phi'(0)$ is negative, this says that the slope has become less negative: we have
@@ -1240,9 +1210,9 @@ than taking an unnecessarily tiny step.
 The strong Wolfe condition instead asks
 
 $$
-|\phi'(\alpha)|
+\lvert\phi'(\alpha)\rvert
 \leq
-c_{2}|\phi'(0)|.
+c_{2}\lvert\phi'(0)\rvert.
 $$
 
 This prevents the trial slope from remaining too negative **or** becoming too positive
@@ -1278,7 +1248,7 @@ The current weak/strong Wolfe policies form
 
 $$
 s_{k}
-:=
+\coloneqq
 u_{\mathrm{trial}}-u_{k}
 $$
 
@@ -1290,7 +1260,7 @@ r_{k}[s_{k}]
 r_{\mathrm{trial}}[s_{k}].
 $$
 
-For a straight line $`s_{k}=\alpha d_{k}`$, the common positive factor $\alpha$ cancels from
+For a straight line $s_{k}=\alpha d_{k}$, the common positive factor $\alpha$ cancels from
 the curvature inequality, so this is equivalent to the usual directional-slope form.
 
 For the projected steepest-descent specialization, it instead evaluates the slope along
@@ -1301,8 +1271,7 @@ the actual feasible update produced by the projection.
 For an exactly quadratic reduced objective and a straight-line direction $d$,
 
 $$
-j(u+\alpha d)
-=
+j(u+\alpha d) =
 j(u)
 +
 \alpha r[d]
@@ -1314,8 +1283,7 @@ Differentiate with respect to $\alpha$:
 
 $$
 \frac{d}{d\alpha}
-j(u+\alpha d)
-=
+j(u+\alpha d) =
 r[d]
 +
 \alpha\langle Hd,d\rangle.
@@ -1324,21 +1292,20 @@ $$
 If
 
 $$
-r[d]<0
+r[d]\lt 0
 $$
 
 and
 
 $$
-\langle Hd,d\rangle>0,
+\langle Hd,d\rangle\gt 0,
 $$
 
 the minimizing step is
 
 $$
 \boxed{
-\alpha_{\ast}
-=
+\alpha_{\ast} =
 -\frac{r[d]}{\langle Hd,d\rangle}.
 }
 $$
@@ -1348,11 +1315,10 @@ action.
 
 ### 13.1 Why the trial must remain on the straight line
 
-The formula for $`\alpha_{\ast}`$ was derived under
+The formula for $\alpha_{\ast}$ was derived under
 
 $$
-u_{\mathrm{trial}}
-=
+u_{\mathrm{trial}} =
 u+\alpha_{\ast}d.
 $$
 
@@ -1383,8 +1349,7 @@ $$
 The current projected reduced search forms a trial by
 
 $$
-u_{\mathrm{trial}}
-=
+u_{\mathrm{trial}} =
 P_{C}^{G}(u_{k}+\alpha d_{k}).
 $$
 
@@ -1392,7 +1357,7 @@ The actual update is therefore
 
 $$
 s_{k}
-:=
+\coloneqq
 u_{\mathrm{trial}}-u_{k}.
 $$
 
@@ -1417,7 +1382,7 @@ The solver constructs the unit projected point
 
 $$
 \widehat u_{k}
-:=
+\coloneqq
 P_{C}^{G}(u_{k}-g_{k})
 $$
 
@@ -1425,7 +1390,7 @@ and the projected update
 
 $$
 s_{k}^{\mathrm{proj}}
-:=
+\coloneqq
 \widehat u_{k}-u_{k}.
 $$
 
@@ -1438,8 +1403,7 @@ $$
 At a first-order constrained stationary point,
 
 $$
-u_{k}
-=
+u_{k} =
 P_{C}^{G}(u_{k}-g_{k}),
 $$
 
@@ -1511,7 +1475,7 @@ $$
 \tau_{\mathrm{rel}},
 $$
 
-where $`\eta_{k}`$ denotes the unconstrained gradient norm or projected norm as appropriate.
+where $\eta_{k}$ denotes the unconstrained gradient norm or projected norm as appropriate.
 This can be useful when the natural scale of the initial derivative varies across
 problem instances.
 
@@ -1520,7 +1484,7 @@ problem instances.
 After an accepted step, one may stop when
 
 $$
-|j_{h}(u_{k+1})-j_{h}(u_{k})|
+\lvert j_{h}(u_{k+1})-j_{h}(u_{k})\rvert
 \leq
 \tau_{J}.
 $$
@@ -1711,20 +1675,20 @@ than the mathematical pseudocode alone would suggest.
 ## 19. Trust regions globalize a quadratic model instead of a direction
 
 A trust-region method begins from a local quadratic model of the reduced objective. At
-$`u_{k}`$, write
+$u_{k}$, write
 
-```math
+$$
 m_{k}(s)
-:=
+\coloneqq
 j_{h}(u_{k})
 +
 r_{k}[s]
 +
 \frac12
 \langle H_{k} s,s\rangle,
-```
+$$
 
-where $`s\in U_{h}`$ is a candidate step.
+where $s\in U_{h}$ is a candidate step.
 
 Rather than choosing a direction and then a line-search length, the method asks for a
 step that approximately minimizes this model inside
@@ -1735,7 +1699,7 @@ $$
 \Delta_{k}.
 $$
 
-The radius $`\Delta_{k}`$ expresses how far the algorithm currently trusts the quadratic
+The radius $\Delta_{k}$ expresses how far the algorithm currently trusts the quadratic
 model. Here the roles are
 
 $$
@@ -1749,7 +1713,7 @@ $$
 
 The trust-region subproblem is therefore
 
-```math
+$$
 \min_{s\in U_{h}}
 \hspace{0.5em}
 r_{k}[s]
@@ -1759,10 +1723,10 @@ r_{k}[s]
 \text{subject to}
 \quad
 \lVert s\rVert_{G}\leq\Delta_{k}.
-```
+$$
 
 Both terms in the objective are scalars obtained by pairing covectors with the primal
-step $s$. The constant $`j_{h}(u_{k})`$ can be omitted from the subproblem because it does not
+step $s$. The constant $j_{h}(u_{k})$ can be omitted from the subproblem because it does not
 affect the minimizer.
 
 ### 19.1 Trust regions require explicit reduced-Hessian actions in the current implementation
@@ -1794,29 +1758,26 @@ $$
 Recall that
 
 $$
-r_{k}[g_{k}]
-=
+r_{k}[g_{k}] =
 \lVert g_{k}\rVert_{G}^{2}.
 $$
 
-Substitute $`s=-tg_{k}`$ into the quadratic model change:
+Substitute $s=-tg_{k}$ into the quadratic model change:
 
-```math
-m_{k}(-t g_{k})-j_{h}(u_{k})
-=
+$$
+m_{k}(-t g_{k})-j_{h}(u_{k}) =
 -t\langle r_{k},g_{k}\rangle
 +
 \frac12t^{2}
 \langle H_{k} g_{k},g_{k}\rangle.
-```
+$$
 
 Define
 
 $$
 a
-:=
-\langle r_{k},g_{k}\rangle
-=
+\coloneqq
+\langle r_{k},g_{k}\rangle =
 \lVert g_{k}\rVert_{G}^{2}
 $$
 
@@ -1824,31 +1785,29 @@ and
 
 $$
 c
-:=
+\coloneqq
 \langle H_{k} g_{k},g_{k}\rangle.
 $$
 
 If
 
 $$
-a>0,
+a\gt 0,
 \qquad
-c>0,
+c\gt 0,
 $$
 
 the unconstrained minimizer along this ray is
 
 $$
-t_{\ast}
-=
+t_{\ast} =
 \frac{a}{c}.
 $$
 
 But the trust-region bound requires
 
 $$
-\lVert -t g_{k}\rVert_{G}
-=
+\lVert -t g_{k}\rVert_{G} =
 t\lVert g_{k}\rVert_{G}
 \leq
 \Delta_{k}.
@@ -1866,7 +1825,7 @@ The Cauchy step uses
 
 $$
 t_{C}
-:=
+\coloneqq
 \min
 \left(
 \frac{a}{c},
@@ -1877,18 +1836,15 @@ $$
 and
 
 $$
-s_{C}
-=
+s_{C} =
 -t_{C} g_{k}.
 $$
 
 The predicted reduction is
 
 $$
-\mathrm{pred}_{k}
-=
-t_{C} a
--
+\mathrm{pred}_{k} =
+t_{C} a -
 \frac12 t_{C}^{2} c.
 $$
 
@@ -1905,7 +1861,7 @@ $$
 assumes
 
 $$
-c>0.
+c\gt 0.
 $$
 
 The current Cauchy implementation therefore rejects a nonpositive-curvature model along
@@ -1956,36 +1912,31 @@ $$
 where the current ray first reaches
 
 $$
-\lVert s+\tau p\rVert_{G}
-=
+\lVert s+\tau p\rVert_{G} =
 \Delta_{k}.
 $$
 
 The scalar $\tau$ is found from the quadratic equation
 
-```math
-\lVert s+\tau p\rVert_{G}^{2}
-=
+$$
+\lVert s+\tau p\rVert_{G}^{2} =
 \lVert s\rVert_{G}^{2}
 +
 2\tau(s,p)_{G}
 +
-\tau^{2}\lVert p\rVert_{G}^{2}
-=
+\tau^{2}\lVert p\rVert_{G}^{2} =
 \Delta_{k}^{2}.
-```
+$$
 
 The positive boundary intersection is
 
-```math
-\tau
-=
+$$
+\tau =
 \frac{
 -(s,p)_{G}
 +
 \sqrt{
-(s,p)_{G}^{2}
--
+(s,p)_{G}^{2} -
 \lVert p\rVert_{G}^{2}
 \left(
 \lVert s\rVert_{G}^{2}-\Delta_{k}^{2}
@@ -1994,7 +1945,7 @@ The positive boundary intersection is
 }{
 \lVert p\rVert_{G}^{2}
 }.
-```
+$$
 
 The same boundary construction is used if an ordinary positive-curvature CG step would
 leave the trust region.
@@ -2005,14 +1956,12 @@ return a boundary step when negative curvature is encountered.
 
 ## 22. Predicted reduction is compared with actual reduction
 
-Once a trust-region step $`s_{k}`$ has been computed, the local model predicts
+Once a trust-region step $s_{k}$ has been computed, the local model predicts
 
 $$
 \mathrm{pred}_{k}
-:=
--
-r_{k}[s_{k}]
--
+\coloneqq -
+r_{k}[s_{k}] -
 \frac12
 \langle H_{k}s_{k},s_{k}\rangle.
 $$
@@ -2021,7 +1970,7 @@ The actual reduced evaluation gives
 
 $$
 \mathrm{ared}_{k}
-:=
+\coloneqq
 j_{h}(u_{k})-j_{h}(u_{k}+s_{k}).
 $$
 
@@ -2029,7 +1978,7 @@ The agreement ratio is
 
 $$
 \rho_{k}
-:=
+\coloneqq
 \frac{
 \mathrm{ared}_{k}
 }{
@@ -2302,18 +2251,18 @@ reduced interface.
 
 | Optimization idea | Mathematical object | Current code role |
 | --- | --- | --- |
-| reduced derivative | $`r=j_{h}'(u)\in U_{h}^{\ast}`$ | `ReducedEvaluationT::reduced_derivative` |
+| reduced derivative | $r=j_{h}'(u)\in U_{h}^{\ast}$ | `ReducedEvaluationT::reduced_derivative` |
 | metric gradient | $g=G^{-1}r$ | `make_metric_gradient` |
 | steepest direction | $d=-g$ | `SteepestDescentDirectionPolicyT` |
-| nonlinear CG | $`d_{k}=-g_{k}+\beta_{k}d_{k-1}`$ | nonlinear-CG direction policies |
-| secant data | $`s_{k},\ \Delta r_{k}:=r_{k+1}-r_{k}`$ | BFGS history |
-| Newton equation | $`H_{k}d=-r_{k}`$ | `NewtonDirectionPolicyT` |
+| nonlinear CG | $d_{k}=-g_{k}+\beta_{k}d_{k-1}$ | nonlinear-CG direction policies |
+| secant data | $s_{k},\ \Delta r_{k}\coloneqq r_{k+1}-r_{k}$ | BFGS history |
+| Newton equation | $H_{k}d=-r_{k}$ | `NewtonDirectionPolicyT` |
 | line-search trial | $u+\alpha d$ or projected update | trial-control builder |
 | Armijo | sufficient decrease | `ArmijoLineSearchPolicyT` |
 | Wolfe | decrease + slope condition | weak/strong Wolfe policies |
 | exact quadratic step | $-r[d]/\langle Hd,d\rangle$ | `ExactQuadraticLineSearchPolicyT` |
 | trust-region model | $r[s]+\frac12\langle Hs,s\rangle$ | `ReducedTrustRegionSolverT` |
-| trust radius | $`\lVert s\rVert_{G}\leq\Delta`$ | metric trust-region bound |
+| trust radius | $\lVert s\rVert_{G}\leq\Delta$ | metric trust-region bound |
 | model agreement | $\rho=\mathrm{ared}/\mathrm{pred}$ | trust-region acceptance/radius update |
 
 ## 28. What this completes, and what comes next

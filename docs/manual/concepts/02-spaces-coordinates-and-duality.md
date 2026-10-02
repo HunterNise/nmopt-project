@@ -64,7 +64,7 @@ Consider again the state space from the previous chapter.
 At the continuous level we used
 
 $$
-V:=H_{0}^{1}(\Omega).
+V\coloneqq H_{0}^{1}(\Omega).
 $$
 
 After choosing a mesh and finite-element family we obtained a finite-dimensional
@@ -75,16 +75,15 @@ V_{h}\subset V.
 $$
 
 After choosing a basis
-$`\{\varphi_{1},\ldots,\varphi_{n}\}`$, every $`v_{h}\in V_{h}`$ could be represented by
+$\lbrace\varphi_{1},\ldots,\varphi_{n}\rbrace$, every $v_{h}\in V_{h}$ could be represented by
 coordinates
 
 $$
 v_{h}
-=
-\sum_{i=1}^{n}v_{i}\varphi_{i}
+= \sum_{i=1}^{n}v_{i}\varphi_{i}
 \quad\longleftrightarrow\quad
 \mathbf v
-:=
+\coloneqq
 (v_{1},\ldots,v_{n})^{\mathsf T}\in\mathbb R^{n}.
 $$
 
@@ -94,8 +93,8 @@ These are related, but they are not the same object:
 
 | Level | Example | What it tells us |
 | --- | --- | --- |
-| Continuous space | $`H_{0}^{1}(\Omega)`$ | regularity, boundary meaning, topology |
-| Discrete FE space | $`V_{h}`$ on a chosen mesh and element family | basis functions and admissible discrete fields |
+| Continuous space | $H_{0}^{1}(\Omega)$ | regularity, boundary meaning, topology |
+| Discrete FE space | $V_{h}$ on a chosen mesh and element family | basis functions and admissible discrete fields |
 | Coordinate space | $\mathbb R^{n}$ with a chosen basis interpretation | finite coefficients used by algebra |
 | Native storage | `dealii::Vector<double>` | how those coefficients are stored and manipulated |
 
@@ -117,7 +116,7 @@ $$
 Then both state and control coordinates are elements of $\mathbb R^{289}$ as plain
 arrays.
 
-That does not identify $`Y_{h}`$ with $`U_{h}`$.
+That does not identify $Y_{h}$ with $U_{h}$.
 
 The state basis might consist of nodal basis functions satisfying one set of
 constraints, while the control basis could describe a different field, different
@@ -173,7 +172,7 @@ Let
 $$
 \mathbf z\in\mathbb R^{n},
 \qquad
-n<N,
+n\lt N,
 $$
 
 contain only the independent state coordinates.
@@ -182,7 +181,7 @@ The full physical coefficient vector can be reconstructed in affine form as
 
 $$
 \mathbf y_{\mathrm{phys}}
-:=
+\coloneqq
 P\mathbf z+\boldsymbol\ell.
 $$
 
@@ -216,8 +215,7 @@ The free coordinates are
 
 $$
 \mathbf z
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 z_{0}\\
 z_{1}\\
 z_{2}
@@ -226,9 +224,9 @@ $$
 
 One possible reconstruction is
 
-```math
+$$
 P
-:=
+\coloneqq
 \begin{bmatrix}
 1&0&0\\
 0&0&0\\
@@ -238,7 +236,7 @@ P
 \end{bmatrix},
 \qquad
 \boldsymbol\ell
-:=
+\coloneqq
 \begin{bmatrix}
 0\\
 g_{1}\\
@@ -246,21 +244,20 @@ g_{1}\\
 0\\
 g_{4}
 \end{bmatrix}.
-```
+$$
 
 Then
 
-```math
+$$
 P\mathbf z+\boldsymbol\ell
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 z_{0}\\
 g_{1}\\
 z_{1}\\
 z_{2}\\
 g_{4}
 \end{bmatrix}.
-```
+$$
 
 The matrix contains no PDE physics. It is a coordinate map between the independent
 state representation and the physical finite-element coefficient vector.
@@ -295,16 +292,14 @@ If
 
 $$
 \mathbf y_{\mathrm{phys}}
-=
-P\mathbf z+\boldsymbol\ell,
+= P\mathbf z+\boldsymbol\ell,
 $$
 
 then a perturbation satisfies
 
 $$
 \delta\mathbf y_{\mathrm{phys}}
-=
-P\delta\mathbf z.
+= P\delta\mathbf z.
 $$
 
 The fixed vector $\boldsymbol\ell$ disappears under differentiation.
@@ -360,7 +355,7 @@ Let
 
 $$
 R(\mathbf z)
-:=
+\coloneqq
 P\mathbf z+\boldsymbol\ell
 $$
 
@@ -368,7 +363,7 @@ be the affine reconstruction map from independent coordinates to the physical
 finite-element vector. Suppose
 
 $$
-\Phi_{\mathrm{phys}}:
+\Phi_{\mathrm{phys}}\colon
 \mathbb R^{N}
 \longrightarrow
 \mathbb R
@@ -379,33 +374,31 @@ seen as a function of the independent coordinates is the composition
 
 $$
 \widehat\Phi(\mathbf z)
-:=
+\coloneqq
 \Phi_{\mathrm{phys}}(R(\mathbf z))
-=
-\Phi_{\mathrm{phys}}(P\mathbf z+\boldsymbol\ell).
+= \Phi_{\mathrm{phys}}(P\mathbf z+\boldsymbol\ell).
 $$
 
 This distinction matters because a perturbation
 $\delta\mathbf z\in\mathbb R^{n}$ is **not** an admissible argument of
-$`D\Phi_{\mathrm{phys}}`$ by itself. The derivative of $`\Phi_{\mathrm{phys}}`$ acts on
+$D\Phi_{\mathrm{phys}}$ by itself. The derivative of $\Phi_{\mathrm{phys}}$ acts on
 physical perturbations in $\mathbb R^{N}$.
 
 Assume that, at
 
 $$
 \mathbf y_{\mathrm{phys}}
-:=
+\coloneqq
 R(\mathbf z),
 $$
 
 the physical-coordinate derivative is represented by a covector
-$`\mathbf r_{\mathrm{phys}}`$:
+$\mathbf r_{\mathrm{phys}}$:
 
 $$
 D\Phi_{\mathrm{phys}}(\mathbf y_{\mathrm{phys}})
 [\delta\mathbf y_{\mathrm{phys}}]
-=
-\mathbf r_{\mathrm{phys}}^{\mathsf T}
+= \mathbf r_{\mathrm{phys}}^{\mathsf T}
 \delta\mathbf y_{\mathrm{phys}}.
 $$
 
@@ -414,16 +407,15 @@ map sends that perturbation to
 
 $$
 DR(\mathbf z)[\delta\mathbf z]
-=
-P\delta\mathbf z.
+= P\delta\mathbf z.
 $$
 
 There is no contribution from $\boldsymbol\ell$ because the lifting is fixed.
 
-Applying the chain rule to the composed function $`\widehat\Phi=\Phi_{\mathrm{phys}}\circ R`$
+Applying the chain rule to the composed function $\widehat\Phi=\Phi_{\mathrm{phys}}\circ R$
 gives
 
-```math
+$$
 \begin{aligned}
 D\widehat\Phi(\mathbf z)[\delta\mathbf z]
 &=
@@ -441,7 +433,7 @@ P\delta\mathbf z\\
 \left(P^{\mathsf T}\mathbf r_{\mathrm{phys}}\right)^{\mathsf T}
 \delta\mathbf z.
 \end{aligned}
-```
+$$
 
 The $P$ has therefore not disappeared from the derivative argument. It first pushes
 the independent perturbation into physical coordinates. Only after that step do we
@@ -453,7 +445,7 @@ represented in independent coordinates by
 
 $$
 \mathbf r_{\mathrm{ind}}
-:=
+\coloneqq
 P^{\mathsf T}\mathbf r_{\mathrm{phys}}.
 $$
 
@@ -526,23 +518,22 @@ To make that distinction more systematic, let
 
 $$
 X_{h}
-:=
-\mathrm{span}\{\phi_{1},\ldots,\phi_{n}\}.
+\coloneqq
+\mathop{\mathrm{span}}\lbrace\phi_{1},\ldots,\phi_{n}\rbrace.
 $$
 
 A primal field
 
 $$
 x_{h}
-=
-\sum_{i=1}^{n}x_{i}\phi_{i}
+= \sum_{i=1}^{n}x_{i}\phi_{i}
 $$
 
 is represented by the coordinate vector
 
 $$
 \mathbf x
-:=
+\coloneqq
 (x_{1},\ldots,x_{n})^{\mathsf T}.
 $$
 
@@ -558,7 +549,7 @@ Its coordinate representation can be defined by evaluating it on the basis:
 
 $$
 \lambda_{i}
-:=
+\coloneqq
 \lambda(\phi_{i}).
 $$
 
@@ -566,7 +557,7 @@ Collect those values into
 
 $$
 \boldsymbol\lambda
-:=
+\coloneqq
 (\lambda_{1},\ldots,\lambda_{n})^{\mathsf T}.
 $$
 
@@ -574,13 +565,12 @@ Then for
 
 $$
 x_{h}
-=
-\sum_{i=1}^{n}x_{i}\phi_{i},
+= \sum_{i=1}^{n}x_{i}\phi_{i},
 $$
 
 linearity gives
 
-```math
+$$
 \begin{aligned}
 \lambda(x_{h})
 &=
@@ -588,7 +578,7 @@ linearity gives
 &=
 \boldsymbol\lambda^{\mathsf T}\mathbf x.
 \end{aligned}
-```
+$$
 
 This is the coefficient dual pairing.
 
@@ -604,15 +594,14 @@ Suppose instead that we begin with a primal field
 
 $$
 g_{h}
-=
-\sum_{i=1}^{n}g_{i}\phi_{i}
+= \sum_{i=1}^{n}g_{i}\phi_{i}
 $$
 
 and want the functional
 
 $$
 \lambda(v_{h})
-:=
+\coloneqq
 (g_{h},v_{h})_{L^{2}(\Omega)}.
 $$
 
@@ -620,23 +609,21 @@ Writing
 
 $$
 v_{h}
-=
-\sum_{j=1}^{n}v_{j}\phi_{j},
+= \sum_{j=1}^{n}v_{j}\phi_{j},
 $$
 
 we obtain
 
-```math
+$$
 \lambda(v_{h})
-=
-\mathbf g^{\mathsf T}M\mathbf v,
-```
+= \mathbf g^{\mathsf T}M\mathbf v,
+$$
 
 where
 
 $$
 M_{ij}
-:=
+\coloneqq
 \int_{\Omega}\phi_{j}\phi_{i}.
 $$
 
@@ -644,10 +631,8 @@ Therefore the covector coordinates of $\lambda$ are
 
 $$
 \boldsymbol\lambda
-=
-M^{\mathsf T}\mathbf g
-=
-M\mathbf g
+= M^{\mathsf T}\mathbf g
+= M\mathbf g
 $$
 
 for the symmetric mass matrix.
@@ -687,8 +672,7 @@ Conceptually,
 
 $$
 \mathrm{pair}(\boldsymbol\lambda,\mathbf v)
-=
-\boldsymbol\lambda^{\mathsf T}\mathbf v.
+= \boldsymbol\lambda^{\mathsf T}\mathbf v.
 $$
 
 Calling the native vector dot product is therefore appropriate at this stage.
@@ -717,8 +701,8 @@ For a test space
 
 $$
 Z_{h}
-:=
-\mathrm{span}\{\zeta_{1},\ldots,\zeta_{m}\},
+\coloneqq
+\mathop{\mathrm{span}}\lbrace\zeta_{1},\ldots,\zeta_{m}\rbrace,
 $$
 
 the discrete residual is a functional
@@ -733,7 +717,7 @@ Its coefficient representation is naturally
 
 $$
 (\mathbf r_{E})_{i}
-:=
+\coloneqq
 \langle E_{h}(x_{h}),\zeta_{i}\rangle.
 $$
 
@@ -741,16 +725,14 @@ Given a test function
 
 $$
 p_{h}
-=
-\sum_{i=1}^{m}p_{i}\zeta_{i},
+= \sum_{i=1}^{m}p_{i}\zeta_{i},
 $$
 
 the residual acts as
 
 $$
 \langle E_{h}(x_{h}),p_{h}\rangle
-=
-\mathbf r_{E}^{\mathsf T}\mathbf p.
+= \mathbf r_{E}^{\mathsf T}\mathbf p.
 $$
 
 So the residual coefficient array and the test coefficient array may have the same
@@ -831,7 +813,7 @@ For the distributed-control example,
 
 $$
 X_{h}
-:=
+\coloneqq
 Y_{h}\times U_{h}.
 $$
 
@@ -839,8 +821,7 @@ A point in the full variable space is
 
 $$
 x_{h}
-=
-(y_{h},u_{h}).
+= (y_{h},u_{h}).
 $$
 
 After choosing coordinates in each factor, one could flatten everything into a single
@@ -848,8 +829,7 @@ long vector,
 
 $$
 \mathbf x
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 \mathbf y\\
 \mathbf u
 \end{bmatrix}.
@@ -871,16 +851,14 @@ dual decomposition
 
 $$
 X_{h}^{\ast}
-=
-Y_{h}^{\ast}\times U_{h}^{\ast}.
+= Y_{h}^{\ast}\times U_{h}^{\ast}.
 $$
 
 So a full objective derivative can be viewed as
 
 $$
 J_{h}'(x_{h})
-=
-\left(
+= \left(
 D_{y}J_{h},
 D_{u}J_{h}
 \right).
@@ -890,8 +868,7 @@ In coordinates,
 
 $$
 \mathbf r_{J}
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 \mathbf r_{y}\\
 \mathbf r_{u}
 \end{bmatrix},
@@ -1179,27 +1156,27 @@ Examples include:
 - a test vector;
 - an adjoint represented in the test space.
 
-So an adjoint $`p\in Z_{h}`$ can be a `PrimalBlockT` with the test layout.
+So an adjoint $p\in Z_{h}$ can be a `PrimalBlockT` with the test layout.
 
 A covector represents an element of the corresponding dual space.
 
 Examples include:
 
-- a residual in $`Z_{h}^{\ast}`$;
-- an objective derivative in $`X_{h}^{\ast}`$;
-- a reduced derivative in $`U_{h}^{\ast}`$.
+- a residual in $Z_{h}^{\ast}$;
+- an objective derivative in $X_{h}^{\ast}$;
+- a reduced derivative in $U_{h}^{\ast}$.
 
 This terminology becomes much less confusing if one asks "element or functional?"
 rather than "primal variable or dual variable?"
 
 ### 11.2 One layout can describe both a space and its dual coordinate shape
 
-The primal space $`X_{h}`$ and its dual $`X_{h}^{\ast}`$ have the same finite dimension.
+The primal space $X_{h}$ and its dual $X_{h}^{\ast}$ have the same finite dimension.
 
 `nmopt` therefore uses the same `BlockLayout` to describe the block identities and
 dimensions of both a `PrimalBlockT` and a `CovectorBlockT`.
 
-The distinction between $`X_{h}`$ and $`X_{h}^{\ast}`$ is carried by the wrapper type,
+The distinction between $X_{h}$ and $X_{h}^{\ast}$ is carried by the wrapper type,
 not by a second "dual layout".
 
 That matches the coordinate mathematics:
@@ -1251,28 +1228,24 @@ For a two-block product space,
 
 $$
 X_{h}
-=
-Y_{h}\times U_{h},
+= Y_{h}\times U_{h},
 $$
 
 with
 
 $$
 \lambda
-=
-(\lambda_{y},\lambda_{u}),
+= (\lambda_{y},\lambda_{u}),
 \qquad
 x
-=
-(y,u),
+= (y,u),
 $$
 
 the pairing is
 
 $$
 \langle \lambda,x\rangle
-=
-\langle \lambda_{y},y\rangle
+= \langle \lambda_{y},y\rangle
 +
 \langle \lambda_{u},u\rangle.
 $$
@@ -1280,8 +1253,7 @@ $$
 In coefficient form,
 
 $$
-=
-\boldsymbol\lambda_{y}^{\mathsf T}\mathbf y
+= \boldsymbol\lambda_{y}^{\mathsf T}\mathbf y
 +
 \boldsymbol\lambda_{u}^{\mathsf T}\mathbf u.
 $$
@@ -1313,16 +1285,14 @@ For the finite-element $L^{2}$ geometry:
 
 $$
 \boldsymbol\lambda
-=
-M\mathbf g.
+= M\mathbf g.
 $$
 
 Then
 
 $$
 \mathrm{pair}(\boldsymbol\lambda,\mathbf x)
-=
-\mathbf g^{\mathsf T}M\mathbf x.
+= \mathbf g^{\mathsf T}M\mathbf x.
 $$
 
 The mass matrix belongs to the first arrow, not the second.
@@ -1365,8 +1335,7 @@ The variable product is
 
 $$
 X_{h}
-=
-Y_{h}^{\mathrm{ind}}
+= Y_{h}^{\mathrm{ind}}
 \times
 U_{h},
 $$
@@ -1498,12 +1467,10 @@ Suppose, for illustration, that the full physical residual is
 $$
 \mathbf R_{\mathrm{phys}}
 (\mathbf y_{\mathrm{phys}},\mathbf u)
-:=
+\coloneqq
 A\mathbf y_{\mathrm{phys}}
--
-\mathbf b
--
-M\mathbf u.
+-\mathbf b
+-M\mathbf u.
 $$
 
 Admissible test perturbations are also generated by the homogeneous embedding $P$.
@@ -1524,8 +1491,7 @@ The weak residual equation requires
 $$
 (P\mathbf w)^{\mathsf T}
 \mathbf R_{\mathrm{phys}}
-=
-0
+= 0
 \qquad
 \text{for every }\mathbf w.
 $$
@@ -1535,55 +1501,49 @@ Equivalently,
 $$
 P^{\mathsf T}
 \mathbf R_{\mathrm{phys}}
-=
-0.
+= 0.
 $$
 
 Substitute
 
 $$
 \mathbf y_{\mathrm{phys}}
-=
-P\mathbf z+\boldsymbol\ell:
+= P\mathbf z+\boldsymbol\ell:
 $$
 
-```math
+$$
 P^{\mathsf T}
 \left(
 A(P\mathbf z+\boldsymbol\ell)
--
-\mathbf b
--
-M\mathbf u
+-\mathbf b
+-M\mathbf u
 \right)
-=
-0.
-```
+= 0.
+$$
 
 Grouping terms gives the independent-coordinate system
 
-```math
+$$
 K\mathbf z
-=
-\mathbf b_{F}
+= \mathbf b_{F}
 +
 B\mathbf u,
-```
+$$
 
 with the conceptual definitions
 
-```math
+$$
 \begin{aligned}
-K &:= P^{\mathsf T}AP,\\
-B &:= P^{\mathsf T}M,\\
+K &\coloneqq P^{\mathsf T}AP,\\
+B &\coloneqq P^{\mathsf T}M,\\
 \mathbf b_{F}
-&:=
+&\coloneqq
 P^{\mathsf T}
 \left(
 \mathbf b-A\boldsymbol\ell
 \right).
 \end{aligned}
-```
+$$
 
 The exact assembly details of an existing application can differ – Step-4 already
 contains its own boundary-treated system and lifting corrections – but this reduction
@@ -1642,11 +1602,10 @@ constraints are common.
 
 The mathematical pattern remains the same:
 
-```math
+$$
 \mathbf y_{\mathrm{phys}}
-=
-P\mathbf z+\boldsymbol\ell.
-```
+= P\mathbf z+\boldsymbol\ell.
+$$
 
 What changes is the structure of $P$.
 
@@ -1730,8 +1689,8 @@ dimension 289
 
 the layout does not tell us whether the coefficients represent:
 
-- a volume $`\mathbb P_{1}`$ field;
-- a $`\mathbb Q_{1}`$ field on quadrilaterals;
+- a volume $\mathbb P_{1}$ field;
+- a $\mathbb Q_{1}$ field on quadrilaterals;
 - a boundary trace;
 - a cellwise-constant field;
 - a parameter vector unrelated to finite elements.
@@ -1772,11 +1731,11 @@ The main distinctions in this chapter can be summarized as follows:
 
 | Question | Mathematical answer | Concrete numerical object | `nmopt`-facing representation |
 | --- | --- | --- | --- |
-| What field is this? | $`x_{h}\in X_{h}`$ | coefficients in a chosen basis | `PrimalBlockT` |
-| What functional is this? | $`\lambda\in X_{h}^{\ast}`$ | basis evaluations of the functional | `CovectorBlockT` |
+| What field is this? | $x_{h}\in X_{h}$ | coefficients in a chosen basis | `PrimalBlockT` |
+| What functional is this? | $\lambda\in X_{h}^{\ast}$ | basis evaluations of the functional | `CovectorBlockT` |
 | How do they interact? | $\langle\lambda,x\rangle$ | $\boldsymbol\lambda^{\mathsf T}\mathbf x$ | `pair(covector, primal)` |
-| Which product factor is this? | $`X_{h}=Y_{h}\times U_{h}`$ | block ordering and sizes | `BlockLayout` |
-| How is a constrained state represented? | $`y_{\mathrm{phys}}=Pz+\ell`$ | reconstruction matrix + lifting | `IndependentStateCoordinates` or application-owned equivalent |
+| Which product factor is this? | $X_{h}=Y_{h}\times U_{h}$ | block ordering and sizes | `BlockLayout` |
+| How is a constrained state represented? | $y_{\mathrm{phys}}=Pz+\ell$ | reconstruction matrix + lifting | `IndependentStateCoordinates` or application-owned equivalent |
 | How does a physical covector move to independent coordinates? | pullback through $P$ | $P^{\mathsf T}r$ | `pullback()` / equivalent native operation |
 
 The table compresses the chapter, but the direction is important: the rightmost
@@ -1822,11 +1781,11 @@ pullback
 
 and relate them directly to
 
-```math
+$$
 Pz,\qquad
 Pz+\ell,\qquad
 P^{\mathsf T}r.
-```
+$$
 
 The code that constructs the columns of `reconstruction_` by distributing
 `AffineConstraints` is the implementation detail that turns deal.II constraint
@@ -1885,13 +1844,13 @@ But an optimizer and adjoint method need more than residual values. They need th
 linearized map
 
 $$
-E_{h}'(x):X_{h}\longrightarrow Z_{h}^{\ast}
+E_{h}'(x)\colon X_{h}\longrightarrow Z_{h}^{\ast}
 $$
 
 and its transpose
 
 $$
-E_{h}'(x)^{\ast}:Z_{h}\longrightarrow X_{h}^{\ast}.
+E_{h}'(x)^{\ast}\colon Z_{h}\longrightarrow X_{h}^{\ast}.
 $$
 
 Why are these maps represented as JVP and VJP actions rather than matrices? What

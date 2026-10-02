@@ -36,24 +36,21 @@ CompiledProblemT
 
 The running example is again the scalar distributed-control problem
 
-```math
+$$
 \begin{aligned}
 -\nabla\cdot(\kappa\nabla y)+cy &= f+u
 && \text{in }\Omega,\\
 y &= 0
 && \text{on }\partial\Omega,
 \end{aligned}
-```
+$$
 
 with objective
 
-```math
-J(y,u)
-=
-\frac12\lVert y-y_{\mathrm d}\rVert_{L^{2}(\Omega)}^{2}
-+
+$$
+J(y,u)=\frac12\lVert y-y_{\mathrm d}\rVert_{L^{2}(\Omega)}^{2}+
 \frac{\beta}{2}\lVert u\rVert_{L^{2}(\Omega)}^{2}.
-```
+$$
 
 For this baseline problem, the semantic graph already says that:
 
@@ -101,15 +98,9 @@ ResidualTermKind::diffusion_reaction
 
 may eventually become the assembled action
 
-```math
-\underbrace{
-\int_{\Omega}
-\kappa\nabla y\cdot\nabla v
-+
-cyv
-\mathrm{d}x
-}_{\text{concrete FE bilinear contribution}}.
-```
+$$
+\underbrace{\int_{\Omega}(\kappa\nabla y\cdot\nabla v+cyv)\thinspace\mathrm{d}x}_{\text{concrete FE bilinear contribution}}.
+$$
 
 Likewise,
 
@@ -462,11 +453,11 @@ The objective path follows the same pattern.
 
 For full-domain state tracking,
 
-```math
+$$
 \underbrace{
 \mathcal O_{y}(y)=y
 }_{\texttt{volume\_restriction}}
-```
+$$
 
 becomes a `ScalarObservationContribution` with
 
@@ -478,12 +469,12 @@ output_space_id = state_observation_space
 
 The tracking loss
 
-```math
+$$
 \frac12
 \lVert
 \mathcal O_{y}(y)-y_{\mathrm d}
 \rVert^{2}
-```
+$$
 
 becomes a separate `ScalarLossContribution`.
 
@@ -492,17 +483,15 @@ mathematical form of the loss.
 
 For example,
 
-```math
+$$
 \mathcal O_{y}(y)=y
-```
+$$
 
 can be replaced by
 
-```math
-\mathcal O_{\mathrm s}(y)
-=
-[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}
-```
+$$
+\mathcal O_{\mathrm s}(y)=[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T}
+$$
 
 while the outer objective remains a quadratic tracking loss.
 
@@ -1010,19 +999,19 @@ need to know how the residual was assembled.
 
 For the running problem it needs operations corresponding to
 
-```math
+$$
 E_{h}(y,u)
-```
+$$
 
 and its derivatives:
 
-```math
+$$
 D E_{h}(y,u)[\delta y,\delta u],
-```
+$$
 
-```math
+$$
 D E_{h}(y,u)^{\ast} r.
-```
+$$
 
 It also needs objective value/derivative services.
 
@@ -1057,15 +1046,15 @@ VJP
 
 while state/adjoint solver services perform inverse operations such as
 
-```math
+$$
 D_{y}E_{h}(y,u)\delta y=b
-```
+$$
 
 or
 
-```math
+$$
 D_{y}E_{h}(y,u)^{\ast} p = r_{y}.
-```
+$$
 
 `CompiledProblemT` therefore retains a `StateAdjointSolversT` alongside the executable
 model.
@@ -1125,9 +1114,9 @@ bound data are supplied, compilation additionally creates the corresponding
 
 For a cellwise box,
 
-```math
+$$
 \ell_{i}\leq u_{i}\leq r_{i},
-```
+$$
 
 the compiled problem may also retain the concrete bound data as one shared source of
 truth.
@@ -1465,23 +1454,12 @@ The entire transition can now be followed without introducing another abstractio
 
 Start from the state residual:
 
-```math
-E(y,u)[v]
-=
-\int_{\Omega}
-\kappa\nabla y\cdot\nabla v
-+
-cyv
-\mathrm{d}x
--
-\int_{\Omega}
-fv
-\mathrm{d}x
--
-\int_{\Omega}
-uv
-\mathrm{d}x.
-```
+$$
+E(y,u)[v]=
+\int_{\Omega}(\kappa\nabla y\cdot\nabla v+cyv)\thinspace\mathrm{d}x -
+\int_{\Omega}fv\thinspace\mathrm{d}x -
+\int_{\Omega}uv\thinspace\mathrm{d}x.
+$$
 
 ### 32.1 Semantic graph
 
@@ -1633,9 +1611,9 @@ Consider a Dirichlet-control problem.
 
 Its physical state may satisfy schematically
 
-```math
+$$
 y\rvert_{\Gamma_{C}}=u.
-```
+$$
 
 The semantic graph declares a controlled-Dirichlet lifting and the required boundary
 spaces, loss, metric, and realization policies.
@@ -1736,30 +1714,24 @@ numerical actions.
 
 For the baseline scalar problem, the important coordinate relation is
 
-```math
-\mathbf y_{\mathrm{phys}}
-=
-P\mathbf z+\boldsymbol\ell,
-```
+$$
+\mathbf y_{\mathrm{phys}}=P\mathbf z+\boldsymbol\ell,
+$$
 
 where $\mathbf z$ contains independent state coordinates, $P$ embeds them into the
 physical finite-element vector, and $\boldsymbol\ell$ carries fixed boundary data.
 
 The corresponding tangent and covector maps are
 
-```math
-\delta\mathbf y_{\mathrm{phys}}
-=
-P\delta\mathbf z,
-```
+$$
+\delta\mathbf y_{\mathrm{phys}}=P\delta\mathbf z,
+$$
 
 and
 
-```math
-\mathbf r
-=
-P^{\mathsf T}\mathbf r_{\mathrm{phys}}.
-```
+$$
+\mathbf r=P^{\mathsf T}\mathbf r_{\mathrm{phys}}.
+$$
 
 The compiled scalar realization exposes these roles through the concrete
 `IndependentStateCoordinates` service:
@@ -1782,39 +1754,25 @@ the physical finite-element state need not use the same coordinates.
 
 For the linear residual
 
-```math
-\mathbf E_{\mathrm{phys}}
-=
-A\mathbf y_{\mathrm{phys}}
--
-B_{\mathrm{phys}}\mathbf u
--
-\mathbf f,
-```
+$$
+\mathbf E_{\mathrm{phys}}=A\mathbf y_{\mathrm{phys}}-B_{\mathrm{phys}}\mathbf u-\mathbf f,
+$$
 
 substituting the reconstruction and pulling the residual back gives
 
-```math
-\mathbf E(\mathbf z,\mathbf u)
-=
-\underbrace{P^{\mathsf T}AP}_{\widehat A}\mathbf z
--
-\underbrace{P^{\mathsf T}B_{\mathrm{phys}}}_{\widehat B}\mathbf u
--
+$$
+\mathbf E(\mathbf z,\mathbf u)=
+\underbrace{P^{\mathsf T}AP}_{\widehat A}\mathbf z -
+\underbrace{P^{\mathsf T}B_{\mathrm{phys}}}_{\widehat B}\mathbf u -
 P^{\mathsf T}(\mathbf f-A\boldsymbol\ell).
-```
+$$
 
 Thus the compiled state and control operators are naturally
 
-```math
-\widehat A
-=
-P^{\mathsf T}AP,
-\qquad
-\widehat B
-=
-P^{\mathsf T}B_{\mathrm{phys}}.
-```
+$$
+\widehat A=P^{\mathsf T}AP,\qquad
+\widehat B=P^{\mathsf T}B_{\mathrm{phys}}.
+$$
 
 The compiler-owned scalar model constructs these reduced-coordinate actions from the
 physical operators rather than assuming that constrained DoFs can simply be dropped.
@@ -1832,34 +1790,27 @@ $$
 
 For a quadratic loss,
 
-```math
-J_{\mathrm{obs}}
-=
-\frac12
-\lVert
-O_{h}\mathbf y_{\mathrm{phys}}-\mathbf d
-\rVert_{W}^{2},
-```
+$$
+J_{\mathrm{obs}}=\frac12\lVert O_{h}\mathbf y_{\mathrm{phys}}-\mathbf d\rVert_{W}^{2},
+$$
 
 the independent-state covector is
 
-```math
+$$
 P^{\mathsf T}
 O_{h}^{\mathsf T}
 W
 (O_{h}(P\mathbf z+\boldsymbol\ell)-\mathbf d).
-```
+$$
 
 That formula explains why an observation realization needs both forward and
 transpose actions.
 
 For point sensors,
 
-```math
-\mathcal O_{\mathrm s}(y)
-=
-[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T},
-```
+$$
+\mathcal O_{\mathrm s}(y)=[y(x_{1}),\ldots,y(x_{m})]^{\mathsf T},
+$$
 
 the compiler stores one evaluation vector per sensor. Forward evaluation takes dot
 products with the physical state; the VJP accumulates the corresponding weighted
@@ -1886,23 +1837,17 @@ $$
 
 For the registered $H^{-1}$ realization,
 
-```math
-G
-=
-MK^{-1}M,
-```
+$$
+G=MK^{-1}M,
+$$
 
 so even the forward Riesz action contains an internal solve.
 
 For the trace $H^{1/2}$ realization,
 
-```math
-G
-=
-A_{BB}
--
-A_{BI}A_{II}^{-1}A_{IB},
-```
+$$
+G=A_{BB}-A_{BI}A_{II}^{-1}A_{IB},
+$$
 
 and `apply()` performs the minimum-energy interior extension rather than explicitly
 forming a dense Schur complement.
@@ -1914,31 +1859,21 @@ realizations are substantially different.
 
 Residual evaluation computes
 
-```math
-\widehat A\mathbf z
--
-\widehat B\mathbf u
--
-\widehat{\mathbf f}.
-```
+$$
+\widehat A\mathbf z-\widehat B\mathbf u-\widehat{\mathbf f}.
+$$
 
 A state solve instead finds
 
-```math
-\widehat A\mathbf z
-=
-\widehat{\mathbf f}
-+
-\widehat B\mathbf u.
-```
+$$
+\widehat A\mathbf z=\widehat{\mathbf f}+\widehat B\mathbf u.
+$$
 
 The adjoint solve uses
 
-```math
-\widehat A^{\mathsf T}\mathbf p
-=
-\mathbf r_{y}.
-```
+$$
+\widehat A^{\mathsf T}\mathbf p=\mathbf r_{y}.
+$$
 
 For symmetric diffusion–reaction problems, state and adjoint solves may reuse the same
 SPD operator and solver implementation. Once transport makes the state Jacobian

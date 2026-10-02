@@ -73,13 +73,7 @@ and may select a different compiler target.
 
 ## 2. `ProblemRecipeT` owns problem construction, not execution
 
-A recipe is a typed mapping
-
-```math
-\text{parameters}
-\longmapsto
-\texttt{ProblemSpec}.
-```
+A recipe is a typed mapping from parameters to `ProblemSpec`.
 
 In code, the shape is:
 

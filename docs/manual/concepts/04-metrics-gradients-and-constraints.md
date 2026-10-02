@@ -10,7 +10,7 @@ $$
 
 That object answers a precise question:
 
-> If the control changes by $`\delta u\in U_{h}`$, what is the first-order change in
+> If the control changes by $\delta u\in U_{h}$, what is the first-order change in
 > the reduced objective?
 
 The answer is
@@ -22,8 +22,7 @@ $$
 In coordinates,
 
 $$
-j_{h}'(u)[\delta u]
-=
+j_{h}'(u)[\delta u] =
 \mathbf r^{\mathsf T}\delta\mathbf u,
 $$
 
@@ -69,13 +68,13 @@ It is the operator that identifies primal control directions with dual derivativ
 
 ## 1. The same derivative has different gradients in different geometries
 
-Let $`U_{h}`$ be a finite-dimensional control space.
+Let $U_{h}$ be a finite-dimensional control space.
 
 Suppose the reduced derivative at $u$ is the covector
 
 $$
 r
-:=
+\coloneqq
 j_{h}'(u)
 \in
 U_{h}^{\ast}.
@@ -87,14 +86,13 @@ $$
 (\cdot,\cdot)_{G}
 $$
 
-on $`U_{h}`$.
+on $U_{h}$.
 
 The **gradient with respect to that inner product** is the unique
-$`g\in U_{h}`$ satisfying
+$g\in U_{h}$ satisfying
 
 $$
-r[\delta u]
-=
+r[\delta u] =
 (g,\delta u)_{G}
 \qquad
 \text{for every }\delta u\in U_{h}.
@@ -106,14 +104,14 @@ The important word is **chosen**.
 
 The derivative $r$ is fixed by the objective and PDE model.
 
-The gradient depends on the geometry used to identify $`U_{h}`$ with its dual.
+The gradient depends on the geometry used to identify $U_{h}$ with its dual.
 
 ### 1.1 Coordinate form
 
 Let
 
 $$
-G:
+G\colon
 U_{h}
 \longrightarrow
 U_{h}^{\ast}
@@ -125,31 +123,28 @@ By definition,
 
 $$
 (v,w)_{G}
-:=
+\coloneqq
 \langle Gv,w\rangle.
 $$
 
 If $\mathbf G$ is its matrix in the chosen basis, then
 
 $$
-(v,w)_{G}
-=
+(v,w)_{G} =
 \mathbf v^{\mathsf T}\mathbf G^{\mathsf T}\mathbf w.
 $$
 
 For the symmetric positive-definite realizations used here,
 
 $$
-\mathbf G^{\mathsf T}
-=
+\mathbf G^{\mathsf T} =
 \mathbf G.
 $$
 
 The gradient condition becomes
 
 $$
-\mathbf r^{\mathsf T}\delta\mathbf u
-=
+\mathbf r^{\mathsf T}\delta\mathbf u =
 \mathbf g^{\mathsf T}\mathbf G\delta\mathbf u
 \qquad
 \text{for every }\delta\mathbf u.
@@ -158,16 +153,14 @@ $$
 Therefore
 
 $$
-\mathbf G\mathbf g
-=
+\mathbf G\mathbf g =
 \mathbf r,
 $$
 
 and hence
 
 $$
-\mathbf g
-=
+\mathbf g =
 \mathbf G^{-1}\mathbf r.
 $$
 
@@ -205,23 +198,22 @@ Suppose we consider all unit directions in the chosen norm,
 
 $$
 \lVert d\rVert_{G}
-:=
+\coloneqq
 \sqrt{(d,d)_{G}}.
 $$
 
 Among those directions, we want the one that produces the most negative first-order
 change in the objective:
 
-```math
+$$
 \min_{\lVert d\rVert_{G}=1}
 j_{h}'(u)[d].
-```
+$$
 
 Because
 
 $$
-j_{h}'(u)[d]
-=
+j_{h}'(u)[d] =
 (g,d)_{G},
 $$
 
@@ -230,16 +222,14 @@ the Cauchy–Schwarz inequality gives
 $$
 (g,d)_{G}
 \geq
--\lVert g\rVert_{G}\lVert d\rVert_{G}
-=
+-\lVert g\rVert_{G}\lVert d\rVert_{G} =
 -\lVert g\rVert_{G}.
 $$
 
 Equality is attained for
 
 $$
-d
-=
+d =
 -\frac{g}{\lVert g\rVert_{G}}.
 $$
 
@@ -261,22 +251,20 @@ $$
 and lets the step length $\alpha$ determine how far to move:
 
 $$
-u_{\mathrm{trial}}
-=
+u_{\mathrm{trial}} =
 u+\alpha d.
 $$
 
 The directional derivative is
 
-```math
-j_{h}'(u)[d]
-=
+$$
+j_{h}'(u)[d] =
 -\lVert g\rVert_{G}^{2}.
-```
+$$
 
 Indeed,
 
-```math
+$$
 \begin{aligned}
 j_{h}'(u)[-g]
 &=
@@ -284,7 +272,7 @@ j_{h}'(u)[-g]
 &=
 -\lVert g\rVert_{G}^{2}.
 \end{aligned}
-```
+$$
 
 This is exactly the descent relation that the reduced search implementation checks
 after obtaining the metric gradient.
@@ -296,8 +284,7 @@ Return to the distributed-control example.
 Let the control be
 
 $$
-u_{h}
-=
+u_{h} =
 \sum_{i=1}^{n}u_{i}\psi_{i},
 $$
 
@@ -306,23 +293,22 @@ with coefficient vector $\mathbf u$.
 The finite-element $L^{2}$ inner product is
 
 $$
-(u_{h},v_{h})_{L^{2}(\Omega)}
-=
+(u_{h},v_{h})_{L^{2}(\Omega)} =
 \int_{\Omega}u_{h}v_{h}.
 $$
 
 In coordinates,
 
 $$
-=
-\mathbf u^{\mathsf T}M\mathbf v,
+(u_{h},v_{h})_{L^{2}(\Omega)}
+= \mathbf u^{\mathsf T}M\mathbf v,
 $$
 
 where the mass matrix is
 
 $$
 M_{ij}
-:=
+\coloneqq
 \int_{\Omega}\psi_{j}\psi_{i}.
 $$
 
@@ -336,22 +322,20 @@ If the reduced derivative has covector coordinates $\mathbf r$, then the
 $L^{2}$ gradient is found from
 
 $$
-M\mathbf g
-=
+M\mathbf g =
 \mathbf r.
 $$
 
 This is not merely a preconditioning trick added for numerical convenience. It is the
-coordinate form of the mathematical identification between $`U_{h}`$ and
-$`U_{h}^{\ast}`$ induced by the $L^{2}$ inner product.
+coordinate form of the mathematical identification between $U_{h}$ and
+$U_{h}^{\ast}$ induced by the $L^{2}$ inner product.
 
 ### 3.1 The norm comes from the same map
 
 Once $g$ is known,
 
 $$
-\lVert g\rVert_{L^{2}}^{2}
-=
+\lVert g\rVert_{L^{2}}^{2} =
 \mathbf g^{\mathsf T}M\mathbf g.
 $$
 
@@ -377,13 +361,13 @@ norm^2 = pair(metric_gradient, gradient)
 
 The three operations correspond exactly to
 
-```math
+$$
 g=G^{-1}r,
 \qquad
 Gg,
 \qquad
 \langle Gg,g\rangle.
-```
+$$
 
 ## 4. Regularization and optimization geometry are different choices
 
@@ -415,7 +399,7 @@ The objective contains
 
 $$
 R(u)
-:=
+\coloneqq
 \frac{\beta}{2}
 u^{\mathsf T}Mu.
 $$
@@ -423,8 +407,7 @@ $$
 Therefore
 
 $$
-R'(u)
-=
+R'(u) =
 \beta Mu.
 $$
 
@@ -435,7 +418,7 @@ Changing this term changes the optimization problem itself.
 The solver chooses
 
 $$
-G:=M
+G\coloneqq M
 $$
 
 to identify a derivative covector with an $L^{2}$ gradient.
@@ -477,8 +460,7 @@ $\mathbf r$ directly as a primal gradient.
 That uses the Euclidean coefficient norm
 
 $$
-\lVert \mathbf v\rVert_{2}^{2}
-=
+\lVert \mathbf v\rVert_{2}^{2} =
 \sum_{i}v_{i}^{2}.
 $$
 
@@ -491,8 +473,7 @@ different meshes.
 By contrast, the finite-element mass norm approximates the physical $L^{2}$ norm:
 
 $$
-\lVert v_{h}\rVert_{L^{2}}^{2}
-=
+\lVert v_{h}\rVert_{L^{2}}^{2} =
 \mathbf v^{\mathsf T}M\mathbf v.
 $$
 
@@ -515,23 +496,18 @@ apply(primal)
 inverse_apply(covector)
 ```
 
-with the mathematical interpretation
+The metric's `apply()` and `inverse_apply()` operations have these mathematical
+interpretations:
 
-```math
+$$
 \begin{aligned}
-\mathrm{apply}(v)
-&=
-Gv
-\in
-U_{h}^{\ast},
+\texttt{apply}(v)
+&=Gv \in U_{h}^{\ast},
 \\
-\mathrm{inverse\_apply}(r)
-&=
-G^{-1}r
-\in
-U_{h}.
+\texttt{inverse\_apply}(r)
+&=G^{-1}r \in U_{h}.
 \end{aligned}
-```
+$$
 
 The C++ return types make the two directions explicit:
 
@@ -638,7 +614,7 @@ its **numerical realization**.
 The abstract statement is
 
 $$
-G^{-1}:U_{h}^{\ast}\to U_{h}.
+G^{-1}\colon U_{h}^{\ast}\to U_{h}.
 $$
 
 The deal.II realization must decide how accurately to apply that inverse.
@@ -652,7 +628,7 @@ stopping criteria, and higher-level optimization behavior.
 The cellwise-constant control realization introduced in the first chapter has an
 important simplification.
 
-Suppose the control basis contains one indicator-like basis function $`\psi_{K}`$ for
+Suppose the control basis contains one indicator-like basis function $\psi_{K}$ for
 each mesh cell $K$.
 
 Different basis functions have disjoint support, so
@@ -668,9 +644,8 @@ The mass matrix is therefore diagonal.
 For the simplest unscaled cell indicator basis,
 
 $$
-M_{KK}
-=
-|K|,
+M_{KK} =
+\lvert K\rvert,
 $$
 
 the measure of the cell.
@@ -678,20 +653,18 @@ the measure of the cell.
 Thus
 
 $$
-M
-=
-\mathrm{diag}
+M =
+\mathop{\mathrm{diag}}
 \left(
-|K_{1}|,\ldots,|K_{n}|
+\lvert K_{1}\rvert,\ldots,\lvert K_{n}\rvert
 \right).
 $$
 
 The $L^{2}$ gradient is then obtained coefficient by coefficient:
 
 $$
-g_{K}
-=
-\frac{r_{K}}{|K|}.
+g_{K} =
+\frac{r_{K}}{\lvert K\rvert}.
 $$
 
 This is a useful case because several ideas coincide cleanly:
@@ -705,7 +678,7 @@ The last point becomes important later in the chapter.
 
 ### 8.1 Continuous finite elements do not have the same simplification
 
-For a continuous nodal space such as $`\mathbb P_{1}`$ or $`\mathbb Q_{1}`$, neighboring
+For a continuous nodal space such as $\mathbb P_{1}$ or $\mathbb Q_{1}$, neighboring
 basis functions overlap.
 
 The mass matrix therefore has off-diagonal entries.
@@ -752,27 +725,26 @@ Let
 
 $$
 V_{h}
-:=
-\mathrm{span}\{\phi_{1},\ldots,\phi_{n}\}
+\coloneqq
+\mathop{\mathrm{span}}\lbrace\phi_{1},\ldots,\phi_{n}\rbrace
 \subset H_{0}^{1}(\Omega).
 $$
 
 For coefficient vectors $\mathbf v$ and $\mathbf w$, write the corresponding fields
-as $`v_{h}`$ and $`w_{h}`$.
+as $v_{h}$ and $w_{h}$.
 
 The **mass matrix** is
 
 $$
 M_{ij}
-:=
+\coloneqq
 \int_{\Omega}\phi_{j}\phi_{i}.
 $$
 
 It represents the $L^{2}$ pairing:
 
 $$
-\mathbf v^{\mathsf T}M\mathbf w
-=
+\mathbf v^{\mathsf T}M\mathbf w =
 \int_{\Omega}v_{h}w_{h}.
 $$
 
@@ -780,7 +752,7 @@ The **stiffness matrix** for the homogeneous-Dirichlet Laplacian is
 
 $$
 K_{ij}
-:=
+\coloneqq
 \int_{\Omega}
 \nabla\phi_{j}\cdot\nabla\phi_{i}.
 $$
@@ -788,14 +760,13 @@ $$
 It represents the Dirichlet energy pairing:
 
 $$
-\mathbf v^{\mathsf T}K\mathbf w
-=
+\mathbf v^{\mathsf T}K\mathbf w =
 \int_{\Omega}
 \nabla v_{h}\cdot\nabla w_{h}.
 $$
 
 So $M$ measures the size of the fields themselves, whereas $K$ measures their
-spatial variation. On $`H_{0}^{1}(\Omega)`$, the zero boundary condition removes the
+spatial variation. On $H_{0}^{1}(\Omega)$, the zero boundary condition removes the
 constant nullspace, and the Laplace stiffness matrix is positive definite under the
 usual assumptions.
 
@@ -804,33 +775,30 @@ bilinear forms.
 
 ### 10.2 Why a potential appears in an $H^{-1}$ norm
 
-The notation $H^{-1}$ means the dual of $`H_{0}^{1}`$, so its norm is naturally defined
-through how a source acts on $`H_{0}^{1}`$ test functions.
+The notation $H^{-1}$ means the dual of $H_{0}^{1}$, so its norm is naturally defined
+through how a source acts on $H_{0}^{1}$ test functions.
 
 Using the Dirichlet-energy norm for the test space, one may think of
 
-```math
-\lVert u\rVert_{H^{-1}}
-=
+$$
+\lVert u\rVert_{H^{-1}} =
 \sup_{v\in H_{0}^{1}(\Omega),\ v\neq0}
 \frac{\langle u,v\rangle}
-{\left(\int_{\Omega}|\nabla v|^{2}\right)^{1/2}}.
-```
+{\left(\int_{\Omega}\lVert\nabla v\rVert^{2}\right)^{1/2}}.
+$$
 
 When the source $u$ is represented by an ordinary $L^{2}$ function, its action is
 
 $$
-\langle u,v\rangle
-=
+\langle u,v\rangle =
 \int_{\Omega}uv.
 $$
 
 Instead of evaluating the supremum directly, introduce the Riesz representative
-$`w\in H_{0}^{1}(\Omega)`$ defined by
+$w\in H_{0}^{1}(\Omega)$ defined by
 
 $$
-\int_{\Omega}\nabla w\cdot\nabla v
-=
+\int_{\Omega}\nabla w\cdot\nabla v =
 \int_{\Omega}uv
 \qquad
 \text{for every }v\in H_{0}^{1}(\Omega).
@@ -850,19 +818,16 @@ applying the inverse Dirichlet Laplacian to $u$.
 
 Why is this useful for the norm? Set $v=w$ in the weak equation:
 
-```math
-\int_{\Omega}|\nabla w|^{2}
-=
+$$
+\int_{\Omega}\lVert\nabla w\rVert^{2} =
 \int_{\Omega}u w.
-```
+$$
 
 The Riesz-representation argument gives
 
 $$
-\lVert u\rVert_{H^{-1}}^{2}
-=
-\int_{\Omega}|\nabla w|^{2}
-=
+\lVert u\rVert_{H^{-1}}^{2} =
+\int_{\Omega}\lVert\nabla w\rVert^{2} =
 \int_{\Omega}u w.
 $$
 
@@ -881,8 +846,7 @@ $\mathbf w$ contain the coefficients of its potential.
 Testing the weak potential equation with every basis function gives
 
 $$
-K\mathbf w
-=
+K\mathbf w =
 M\mathbf u.
 $$
 
@@ -898,14 +862,13 @@ is exactly $M\mathbf u$.
 Solving for the potential gives
 
 $$
-\mathbf w
-=
+\mathbf w =
 K^{-1}M\mathbf u.
 $$
 
 Now evaluate its Dirichlet energy:
 
-```math
+$$
 \begin{aligned}
 \mathbf w^{\mathsf T}K\mathbf w
 &=
@@ -919,7 +882,7 @@ Now evaluate its Dirichlet energy:
 M K^{-1}M
 \mathbf u.
 \end{aligned}
-```
+$$
 
 The first equality uses the discrete potential equation
 $K\mathbf w=M\mathbf u$; the second uses symmetry of $M$.
@@ -928,15 +891,14 @@ Hence the project uses the discrete negative-order Riesz map
 
 $$
 G
-:=
+\coloneqq
 M K^{-1}M.
 $$
 
 The norm induced by that map is
 
 $$
-\lVert \mathbf u\rVert_{G}^{2}
-=
+\lVert \mathbf u\rVert_{G}^{2} =
 \mathbf u^{\mathsf T}G\mathbf u.
 $$
 
@@ -948,8 +910,7 @@ shown above rather than assembling a matrix product $M K^{-1}M$ explicitly.
 To compute
 
 $$
-G\mathbf u
-=
+G\mathbf u =
 M K^{-1}M\mathbf u,
 $$
 
@@ -987,22 +948,20 @@ Unlike the simple mass metric, applying $G$ itself therefore requires a linear s
 From
 
 $$
-G
-=
+G =
 M K^{-1}M,
 $$
 
 we obtain
 
 $$
-G^{-1}
-=
+G^{-1} =
 M^{-1}K M^{-1}.
 $$
 
 One can verify the factorization directly:
 
-```math
+$$
 \begin{aligned}
 G G^{-1}
 &=
@@ -1015,13 +974,12 @@ M K^{-1}K M^{-1}
 &=
 I.
 \end{aligned}
-```
+$$
 
 So for a derivative covector $\mathbf r$, the metric gradient
 
 $$
-\mathbf g
-=
+\mathbf g =
 G^{-1}\mathbf r
 $$
 
@@ -1060,16 +1018,14 @@ The derivative covector is the same no matter which metric is chosen.
 With an $L^{2}$ metric,
 
 $$
-\mathbf g_{L^{2}}
-=
+\mathbf g_{L^{2}} =
 M^{-1}\mathbf r.
 $$
 
 With the discrete $H^{-1}$ metric,
 
 $$
-\mathbf g_{H^{-1}}
-=
+\mathbf g_{H^{-1}} =
 M^{-1}K M^{-1}\mathbf r.
 $$
 
@@ -1094,7 +1050,7 @@ A trace field $b$ on the boundary can usually be extended into the volume in man
 ways. If $v$ is one such extension, then all we know is
 
 $$
-v|_{\Gamma}=b.
+v\rvert_{\Gamma}=b.
 $$
 
 Different choices of the interior values of $v$ can have very different $H^{1}$
@@ -1103,12 +1059,12 @@ energies.
 The quotient or minimum-extension viewpoint defines the trace norm by choosing the
 least expensive extension:
 
-```math
+$$
 \lVert b\rVert_{H^{1/2}(\Gamma)}^{2}
 \sim
-\min_{v|_{\Gamma}=b}
+\min_{v\rvert_{\Gamma}=b}
 \lVert v\rVert_{H^{1}(\Omega)}^{2}.
-```
+$$
 
 The exact continuous norm-equivalence constants are not important here. What matters
 for the implementation is the construction: **hold the trace fixed and let the
@@ -1134,8 +1090,7 @@ be the symmetric positive-definite matrix representing the chosen volume $H^{1}$
 inner product. In the simplest case it is a mass-plus-stiffness matrix:
 
 $$
-A
-=
+A =
 M+K,
 $$
 
@@ -1146,7 +1101,7 @@ $$
 \approx
 \int_{\Omega}
 \left(
-|v_{h}|^{2}+|\nabla v_{h}|^{2}
+\lvert v_{h}\rvert^{2}+\lVert\nabla v_{h}\rVert^{2}
 \right).
 $$
 
@@ -1157,14 +1112,13 @@ Now reorder the volume degrees of freedom into two groups:
 
 With this ordering,
 
-```math
-A
-=
+$$
+A =
 \begin{bmatrix}
 A_{BB} & A_{BI}\\
 A_{IB} & A_{II}
 \end{bmatrix}.
-```
+$$
 
 The subscripts describe both the input coefficients and the covector rows:
 
@@ -1185,8 +1139,7 @@ A_II
 Because $A$ is symmetric,
 
 $$
-A_{IB}
-=
+A_{IB} =
 A_{BI}^{\mathsf T}.
 $$
 
@@ -1208,7 +1161,7 @@ The full volume extension is therefore
 
 $$
 \mathbf e
-:=
+\coloneqq
 \begin{bmatrix}
 \mathbf b\\
 \mathbf i
@@ -1219,9 +1172,9 @@ $$
 
 The extension energy is
 
-```math
+$$
 \mathcal E(\mathbf b,\mathbf i)
-:=
+\coloneqq
 \frac{1}{2}
 \begin{bmatrix}
 \mathbf b\\
@@ -1232,49 +1185,45 @@ A
 \mathbf b\\
 \mathbf i
 \end{bmatrix}.
-```
+$$
 
 Expanding the block product gives
 
-```math
-\mathcal E(\mathbf b,\mathbf i)
-=
+$$
+\mathcal E(\mathbf b,\mathbf i) =
 \frac{1}{2}\mathbf b^{\mathsf T}A_{BB}\mathbf b
 +
 \mathbf b^{\mathsf T}A_{BI}\mathbf i
 +
 \frac{1}{2}\mathbf i^{\mathsf T}A_{II}\mathbf i.
-```
+$$
 
 The trace $\mathbf b$ is fixed. We minimize only over $\mathbf i$.
 
 For an interior perturbation $\delta\mathbf i$,
 
-```math
+$$
 D_{\mathbf i}\mathcal E(\mathbf b,\mathbf i)
-[\delta\mathbf i]
-=
+[\delta\mathbf i] =
 \delta\mathbf i^{\mathsf T}
 \left(
 A_{IB}\mathbf b+A_{II}\mathbf i
 \right).
-```
+$$
 
 At the minimum this must vanish for every $\delta\mathbf i$, so
 
 $$
 A_{IB}\mathbf b
 +
-A_{II}\mathbf i
-=
+A_{II}\mathbf i =
 0.
 $$
 
 Hence the minimum-energy interior coefficients are
 
 $$
-\mathbf i_{\ast}(\mathbf b)
-=
+\mathbf i_{\ast}(\mathbf b) =
 -A_{II}^{-1}A_{IB}\mathbf b.
 $$
 
@@ -1285,32 +1234,29 @@ This is the interior solve performed by the trace metric.
 Substitute the minimizing interior coefficients into the boundary block of the volume
 action:
 
-```math
+$$
 \begin{aligned}
 A_{BB}\mathbf b
 +
 A_{BI}\mathbf i_{\ast}
 &=
-A_{BB}\mathbf b
--
+A_{BB}\mathbf b -
 A_{BI}A_{II}^{-1}A_{IB}\mathbf b
 \\
 &=
 \left(
-A_{BB}
--
+A_{BB} -
 A_{BI}A_{II}^{-1}A_{IB}
 \right)\mathbf b.
 \end{aligned}
-```
+$$
 
 Define
 
 $$
 G
-:=
-A_{BB}
--
+\coloneqq
+A_{BB} -
 A_{BI}A_{II}^{-1}A_{IB}.
 $$
 
@@ -1320,11 +1266,10 @@ coefficients.
 It is also the trace Riesz map.
 
 To see the energy interpretation explicitly, substitute
-$`\mathbf i_{\ast}`$ into the quadratic form. The minimum extension energy becomes
+$\mathbf i_{\ast}$ into the quadratic form. The minimum extension energy becomes
 
 $$
-\mathcal E(\mathbf b,\mathbf i_{\ast})
-=
+\mathcal E(\mathbf b,\mathbf i_{\ast}) =
 \frac{1}{2}
 \mathbf b^{\mathsf T}G\mathbf b.
 $$
@@ -1337,8 +1282,7 @@ extension.
 The formula
 
 $$
-G
-=
+G =
 A_{BB}-A_{BI}A_{II}^{-1}A_{IB}
 $$
 
@@ -1349,12 +1293,13 @@ Given trace coefficients $\mathbf b$:
 
 1. place $\mathbf b$ in the trace positions of a full volume vector;
 2. solve
+
    $$
-   A_{II}\mathbf i_{\ast}
-   =
+   A_{II}\mathbf i_{\ast} =
    -A_{IB}\mathbf b;
    $$
-3. fill the interior positions with $`\mathbf i_{\ast}`$;
+
+3. fill the interior positions with $\mathbf i_{\ast}$;
 4. apply the full volume matrix $A$;
 5. retain only the trace rows.
 
@@ -1362,18 +1307,17 @@ Why does that produce $G\mathbf b$?
 
 The full action on the minimum extension is
 
-```math
+$$
 A
 \begin{bmatrix}
 \mathbf b\\
 \mathbf i_{\ast}
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 A_{BB}\mathbf b+A_{BI}\mathbf i_{\ast}\\
 A_{IB}\mathbf b+A_{II}\mathbf i_{\ast}
 \end{bmatrix}.
-```
+$$
 
 The interior block is zero by the minimum-extension equation. The trace block is
 exactly
@@ -1384,18 +1328,17 @@ $$
 
 Therefore
 
-```math
+$$
 A
 \begin{bmatrix}
 \mathbf b\\
 \mathbf i_{\ast}
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 G\mathbf b\\
 0
 \end{bmatrix}.
-```
+$$
 
 Restricting the full action to the trace DoFs gives the metric covector without ever
 forming $G$ as a standalone matrix.
@@ -1413,35 +1356,33 @@ $$
 and want the primal trace vector
 
 $$
-\mathbf x_{B}
-=
+\mathbf x_{B} =
 G^{-1}\mathbf r_{B}.
 $$
 
 One possibility would be:
 
 1. assemble the Schur complement $G$;
-2. solve $`G\mathbf x_{B}=\mathbf r_{B}`$.
+2. solve $G\mathbf x_{B}=\mathbf r_{B}$.
 
 The implementation uses a more direct strategy. Embed the trace covector into the
 full volume dual space by setting the interior right-hand side to zero, and solve
 
-```math
+$$
 A
 \begin{bmatrix}
 \mathbf x_{B}\\
 \mathbf x_{I}
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 \mathbf r_{B}\\
 0
 \end{bmatrix}.
-```
+$$
 
 Write this as two block equations:
 
-```math
+$$
 \begin{aligned}
 A_{BB}\mathbf x_{B}
 +
@@ -1455,19 +1396,18 @@ A_{II}\mathbf x_{I}
 &=
 0.
 \end{aligned}
-```
+$$
 
 The second equation implies
 
 $$
-\mathbf x_{I}
-=
+\mathbf x_{I} =
 -A_{II}^{-1}A_{IB}\mathbf x_{B}.
 $$
 
 Substitute this into the first equation:
 
-```math
+$$
 \begin{aligned}
 \mathbf r_{B}
 &=
@@ -1480,8 +1420,7 @@ A_{BI}
 \\
 &=
 \left(
-A_{BB}
--
+A_{BB} -
 A_{BI}A_{II}^{-1}A_{IB}
 \right)
 \mathbf x_{B}
@@ -1489,13 +1428,12 @@ A_{BI}A_{II}^{-1}A_{IB}
 &=
 G\mathbf x_{B}.
 \end{aligned}
-```
+$$
 
 Therefore the trace part of the full-volume solution is precisely
 
 $$
-\mathbf x_{B}
-=
+\mathbf x_{B} =
 G^{-1}\mathbf r_{B}.
 $$
 
@@ -1542,8 +1480,7 @@ realization uses auxiliary interior unknowns.
 In finite dimensions, the update
 
 $$
-d
-=
+d =
 -G^{-1}r
 $$
 
@@ -1588,12 +1525,12 @@ simple coefficient representation:
 
 $$
 C
-:=
-\left\{
+\coloneqq
+\left\lbrace
 \mathbf u\in\mathbb R^{n}
-:
+\mid
 \ell_{i}\leq u_{i}\leq r_{i}
-\right\}.
+\right\rbrace.
 $$
 
 Testing feasibility is coefficientwise: every entry must lie in its interval.
@@ -1606,8 +1543,8 @@ feasible point in the $G$-norm**:
 
 $$
 P_{C}^{G}(\mathbf x)
-:=
-\mathop{\mathrm{argmin}}_{\mathbf z\in C}
+\coloneqq
+\underset{\mathbf z\in C}{\mathop{\mathrm{argmin}}}
 \frac{1}{2}
 \lVert \mathbf z-\mathbf x\rVert_{G}^{2}.
 $$
@@ -1615,8 +1552,7 @@ $$
 Because
 
 $$
-\lVert \mathbf z-\mathbf x\rVert_{G}^{2}
-=
+\lVert \mathbf z-\mathbf x\rVert_{G}^{2} =
 (\mathbf z-\mathbf x)^{\mathsf T}
 G
 (\mathbf z-\mathbf x),
@@ -1638,7 +1574,7 @@ Let
 
 $$
 \mathbf z
-:=
+\coloneqq
 P_{C}^{G}(\mathbf x).
 $$
 
@@ -1647,7 +1583,7 @@ segment
 
 $$
 \mathbf z(t)
-:=
+\coloneqq
 \mathbf z+t(\mathbf v-\mathbf z),
 \qquad
 0\leq t\leq1,
@@ -1659,7 +1595,7 @@ Define the squared-distance objective along this feasible line:
 
 $$
 q(t)
-:=
+\coloneqq
 \frac{1}{2}
 \lVert
 \mathbf z(t)-\mathbf x
@@ -1676,7 +1612,7 @@ $$
 
 Differentiate:
 
-```math
+$$
 \begin{aligned}
 q'(0)
 &=
@@ -1690,7 +1626,7 @@ G(\mathbf z-\mathbf x),
 \mathbf v-\mathbf z
 \right\rangle.
 \end{aligned}
-```
+$$
 
 Hence
 
@@ -1725,26 +1661,25 @@ Let
 
 $$
 G
-:=
-\mathrm{diag}(g_{1},\ldots,g_{n}),
+\coloneqq
+\mathop{\mathrm{diag}}(g_{1},\ldots,g_{n}),
 \qquad
-g_{i}>0.
+g_{i}\gt 0.
 $$
 
 The projection objective becomes
 
-```math
+$$
 \frac{1}{2}
 (\mathbf z-\mathbf x)^{\mathsf T}
 G
-(\mathbf z-\mathbf x)
-=
+(\mathbf z-\mathbf x) =
 \frac{1}{2}
 \sum_{i=1}^{n}
 g_{i}(z_{i}-x_{i})^{2}.
-```
+$$
 
-There are no cross-terms involving $`z_{i}z_{j}`$ for $i\neq j$. The minimization
+There are no cross-terms involving $z_{i}z_{j}$ for $i\neq j$. The minimization
 therefore splits into $n$ independent one-dimensional problems:
 
 $$
@@ -1752,7 +1687,7 @@ $$
 \frac{g_{i}}{2}(z_{i}-x_{i})^{2}.
 $$
 
-Because $`g_{i}>0`$, multiplying the one-dimensional objective by $`g_{i}`$ does not
+Because $g_{i}\gt 0$, multiplying the one-dimensional objective by $g_{i}$ does not
 change its minimizer.
 
 Three cases remain:
@@ -1771,8 +1706,7 @@ x_i > r_i
 Thus
 
 $$
-\left(P_{C}^{G}(\mathbf x)\right)_{i}
-=
+\left(P_{C}^{G}(\mathbf x)\right)_{i} =
 \min
 \left(
 r_{i},
@@ -1796,7 +1730,7 @@ Now take the same box but a coupled SPD metric:
 
 $$
 G
-:=
+\coloneqq
 \begin{bmatrix}
 2&1\\
 1&2
@@ -1807,7 +1741,7 @@ Project
 
 $$
 \mathbf x
-:=
+\coloneqq
 \begin{bmatrix}
 2\\
 0
@@ -1823,22 +1757,21 @@ $$
 Euclidean clipping would give
 
 $$
-\mathbf z_{\mathrm{clip}}
-=
+\mathbf z_{\mathrm{clip}} =
 \begin{bmatrix}
 1\\
 0
 \end{bmatrix}.
 $$
 
-But the off-diagonal entries in $G$ couple the two coordinates. Changing $`z_{2}`$ can
-reduce the metric distance caused by the error in $`z_{1}`$.
+But the off-diagonal entries in $G$ couple the two coordinates. Changing $z_{2}$ can
+reduce the metric distance caused by the error in $z_{1}$.
 
-Consider the upper boundary $`z_{1}=1`$ and write
+Consider the upper boundary $z_{1}=1$ and write
 
 $$
 \mathbf z(t)
-:=
+\coloneqq
 \begin{bmatrix}
 1\\
 t
@@ -1850,8 +1783,7 @@ $$
 Then
 
 $$
-\mathbf z(t)-\mathbf x
-=
+\mathbf z(t)-\mathbf x =
 \begin{bmatrix}
 -1\\
 t
@@ -1860,7 +1792,7 @@ $$
 
 Compute the quadratic form explicitly:
 
-```math
+$$
 \begin{aligned}
 G(\mathbf z(t)-\mathbf x)
 &=
@@ -1879,11 +1811,11 @@ t
 -1+2t
 \end{bmatrix},
 \end{aligned}
-```
+$$
 
 so
 
-```math
+$$
 \begin{aligned}
 (\mathbf z(t)-\mathbf x)^{\mathsf T}
 G(\mathbf z(t)-\mathbf x)
@@ -1894,7 +1826,7 @@ G(\mathbf z(t)-\mathbf x)
 &=
 2-2t+2t^{2}.
 \end{aligned}
-```
+$$
 
 Differentiate with respect to $t$:
 
@@ -1912,7 +1844,7 @@ The candidate metric projection is therefore
 
 $$
 \mathbf z_{\ast}
-:=
+\coloneqq
 \begin{bmatrix}
 1\\
 1/2
@@ -1924,20 +1856,18 @@ Section 13.1.
 
 First,
 
-```math
-G(\mathbf z_{\ast}-\mathbf x)
-=
+$$
+G(\mathbf z_{\ast}-\mathbf x) =
 G
 \begin{bmatrix}
 -1\\
 1/2
-\end{bmatrix}
-=
+\end{bmatrix} =
 \begin{bmatrix}
 -3/2\\
 0
 \end{bmatrix}.
-```
+$$
 
 For any feasible
 
@@ -1947,7 +1877,7 @@ $$
 
 we have
 
-```math
+$$
 \begin{aligned}
 \left\langle
 G(\mathbf z_{\ast}-\mathbf x),
@@ -1958,18 +1888,17 @@ G(\mathbf z_{\ast}-\mathbf x),
 \\
 &\geq0,
 \end{aligned}
-```
+$$
 
-because $`v_{1}\leq1`$.
+because $v_{1}\leq1$.
 
-Thus $`\mathbf z_{\ast}`$ satisfies the projection condition and, by strict convexity,
+Thus $\mathbf z_{\ast}$ satisfies the projection condition and, by strict convexity,
 is the unique metric projection.
 
 The result is
 
 $$
-P_{C}^{G}(\mathbf x)
-=
+P_{C}^{G}(\mathbf x) =
 \begin{bmatrix}
 1\\
 1/2
@@ -2141,7 +2070,7 @@ be a closed convex admissible set, and let
 
 $$
 r
-:=
+\coloneqq
 j'(u)
 \in
 U_{h}^{\ast}
@@ -2153,7 +2082,7 @@ Choose the metric $G$ and define the metric gradient
 
 $$
 g
-:=
+\coloneqq
 G^{-1}r.
 $$
 
@@ -2174,7 +2103,7 @@ Take any $v\in C$. Convexity implies that
 
 $$
 u(t)
-:=
+\coloneqq
 u+t(v-u)
 $$
 
@@ -2184,7 +2113,7 @@ Define
 
 $$
 \varphi(t)
-:=
+\coloneqq
 j(u(t)).
 $$
 
@@ -2198,10 +2127,8 @@ $$
 Using the chain rule,
 
 $$
-\varphi'(0)
-=
-j'(u)[v-u]
-=
+\varphi'(0) =
+j'(u)[v-u] =
 \langle r,v-u\rangle.
 $$
 
@@ -2218,13 +2145,13 @@ This is a **first-order stationarity condition**. For a general nonlinear object
 it is necessary but not sufficient for local optimality. If $j$ is convex, the same
 condition is also sufficient for global optimality over $C$.
 
-### 19.2 The projection condition for $`u=P_{C}^{G}(u-g)`$
+### 19.2 The projection condition for $u=P_{C}^{G}(u-g)$
 
 Now form the point
 
 $$
 x
-:=
+\coloneqq
 u-g.
 $$
 
@@ -2258,36 +2185,33 @@ $$
 
 First simplify the displacement inside the metric:
 
-```math
+$$
 \begin{aligned}
 z-x
 &=
 u-(u-g)\\
 &=g.
 \end{aligned}
-```
+$$
 
 Apply the metric:
 
 $$
-G(z-x)
-=
-Gg
-=
+G(z-x) =
+Gg =
 r.
 $$
 
 Also,
 
 $$
-v-z
-=
+v-z =
 v-u.
 $$
 
 Therefore the projection variational inequality becomes
 
-```math
+$$
 \left\langle
 r,
 v-u
@@ -2295,14 +2219,14 @@ v-u
 \geq0
 \qquad
 \text{for every }v\in C.
-```
+$$
 
 But this is exactly the constrained first-order stationarity condition derived in
 Section 19.1.
 
 We have therefore shown the equivalence
 
-```math
+$$
 \boxed{
 \begin{aligned}
 \langle j'(u),v-u\rangle
@@ -2316,7 +2240,7 @@ u
 P_{C}^{G}(u-G^{-1}j'(u)).
 \end{aligned}
 }
-```
+$$
 
 The fixed point is not an unrelated projection trick. It is another form of the same
 first-order variational inequality.
@@ -2327,7 +2251,7 @@ Define
 
 $$
 \widehat u
-:=
+\coloneqq
 P_{C}^{G}(u-g)
 $$
 
@@ -2335,7 +2259,7 @@ and
 
 $$
 s
-:=
+\coloneqq
 \widehat u-u.
 $$
 
@@ -2375,22 +2299,19 @@ $s=0$ can hold even while $g\neq0$.
 
 ### 19.4 Why the solver uses a unit metric-gradient step here
 
-More generally, for any scalar $\tau>0$, the stationarity condition is also
+More generally, for any scalar $\tau\gt 0$, the stationarity condition is also
 equivalent to
 
 $$
-u
-=
+u =
 P_{C}^{G}(u-\tau g).
 $$
 
 Indeed, the projection variational inequality would contain
 
 $$
-G\left(u-(u-\tau g)\right)
-=
-\tau Gg
-=
+G\left(u-(u-\tau g)\right) =
+\tau Gg =
 \tau r,
 $$
 
@@ -2408,8 +2329,7 @@ The current reduced search code follows the preceding construction quite closely
 First, the direction policy computes the metric gradient
 
 $$
-g
-=
+g =
 G^{-1}j'(u)
 $$
 
@@ -2422,18 +2342,15 @@ $$
 For a constrained solve, the solver then forms the unit projected point
 
 $$
-\widehat u
-=
-P_{C}^{G}(u+d)
-=
+\widehat u =
+P_{C}^{G}(u+d) =
 P_{C}^{G}(u-g).
 $$
 
 The projected update is
 
 $$
-s
-=
+s =
 \widehat u-u.
 $$
 
@@ -2453,7 +2370,7 @@ $$
 
 as the relevant descent measure.
 
-That is substantially more meaningful than testing $`\lVert g\rVert_{G}`$ alone:
+That is substantially more meaningful than testing $\lVert g\rVert_{G}$ alone:
 at an active constrained optimum the unconstrained gradient need not vanish, while
 the projected-gradient mapping does.
 
@@ -2468,8 +2385,7 @@ $$
 and, when a constraint is present, projects the result back into the admissible set:
 
 $$
-u_{\mathrm{trial}}
-=
+u_{\mathrm{trial}} =
 P_{C}^{G}(u+\alpha d).
 $$
 
@@ -2490,8 +2406,7 @@ The metric enters the reduced search in several distinct places.
 The helper `make_metric_gradient()` computes
 
 $$
-g
-=
+g =
 G^{-1}r
 $$
 
@@ -2506,8 +2421,7 @@ $$
 with `metric.apply(gradient)` and forms
 
 $$
-\lVert g\rVert_{G}^{2}
-=
+\lVert g\rVert_{G}^{2} =
 \langle Gg,g\rangle
 $$
 
@@ -2529,8 +2443,7 @@ $$
 The descent measure is not a Euclidean dot product between two primal vectors. It is
 
 $$
-j'(u)[d]
-=
+j'(u)[d] =
 \langle r,d\rangle.
 $$
 
@@ -2547,16 +2460,14 @@ using the derivative covector and primal direction.
 After a trial step has been accepted, the actual update
 
 $$
-s
-=
+s =
 u_{\mathrm{new}}-u
 $$
 
 is measured through
 
 $$
-\lVert s\rVert_{G}
-=
+\lVert s\rVert_{G} =
 \sqrt{\langle Gs,s\rangle}.
 $$
 
@@ -2623,7 +2534,7 @@ The concrete realizations discussed in this chapter can be compared compactly.
 | `DiagonalMetric` | positive diagonal $D$ | diagonal multiplication | diagonal division |
 | `MassMetric` | supplied SPD matrix $M$ | sparse matrix action | CG solve with $M$ |
 | `Hminus1Metric` | $M K^{-1}M$ | mass action + Laplace solve + mass action | mass solve + Laplace action + mass solve |
-| `TraceHhalfMetric` | $`A_{BB}-A_{BI}A_{II}^{-1}A_{IB}`$ | minimum-extension solve + volume action + trace restriction | full volume solve + trace restriction |
+| `TraceHhalfMetric` | $A_{BB}-A_{BI}A_{II}^{-1}A_{IB}$ | minimum-extension solve + volume action + trace restriction | full volume solve + trace restriction |
 
 The first is a backend-neutral dense/reference realization.
 
@@ -2678,7 +2589,7 @@ $$
 The metric describes the geometry
 
 $$
-G:U_{h}\to U_{h}^{\ast}.
+G\colon U_{h}\to U_{h}^{\ast}.
 $$
 
 Feasibility,
@@ -2897,13 +2808,13 @@ The main objects can now be placed side by side.
 
 | Mathematical object | Coordinate realization | Contract/runtime role |
 | --- | --- | --- |
-| derivative $`r\in U_{h}^{\ast}`$ | covector coefficients $\mathbf r$ | `CovectorBlockT` |
-| Riesz map $`G:U_{h}\to U_{h}^{\ast}`$ | SPD operator/matrix | `MetricT::apply` |
+| derivative $r\in U_{h}^{\ast}$ | covector coefficients $\mathbf r$ | `CovectorBlockT` |
+| Riesz map $G\colon U_{h}\to U_{h}^{\ast}$ | SPD operator/matrix | `MetricT::apply` |
 | metric gradient $g=G^{-1}r$ | solve/apply inverse operator | `MetricT::inverse_apply` |
-| norm $`\lVert v\rVert_{G}^{2}`$ | $\mathbf v^{\mathsf T}G\mathbf v$ | `pair(metric.apply(v), v)` |
+| norm $\lVert v\rVert_{G}^{2}$ | $\mathbf v^{\mathsf T}G\mathbf v$ | `pair(metric.apply(v), v)` |
 | admissible set $C$ | bounds or other constraint data | `ConstraintT` |
-| metric projection $`P_{C}^{G}`$ | constrained quadratic minimization | `project_in(primal, metric)` |
-| projected stationarity | $`P_{C}^{G}(u-g)-u`$ | projected-gradient update/norm |
+| metric projection $P_{C}^{G}$ | constrained quadratic minimization | `project_in(primal, metric)` |
+| projected stationarity | $P_{C}^{G}(u-g)-u$ | projected-gradient update/norm |
 
 The important movement is
 

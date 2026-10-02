@@ -8,12 +8,12 @@ from its mathematical motivation to its runtime structure.
 
 The reduced state–adjoint formulation begins from a constrained problem
 
-```math
+$$
 \begin{aligned}
 \min_{y,u}\quad & J_{h}(y,u),\\
 \text{subject to}\quad & E_{h}(y,u)=0.
 \end{aligned}
-```
+$$
 
 Here
 
@@ -33,20 +33,20 @@ $$
 y=S_{h}(u),
 $$
 
-where $`S_{h}`$ is the discrete **control-to-state map**. The original constrained problem
+where $S_{h}$ is the discrete **control-to-state map**. The original constrained problem
 then becomes the unconstrained reduced problem
 
 $$
 \min_{u} j_{h}(u),
 \qquad
 j_{h}(u)
-:=
+\coloneqq
 J_{h}(S_{h}(u),u).
 $$
 
 The state has disappeared from the list of optimization variables, but it has not
-disappeared computationally. Every evaluation of $`j_{h}(u)`$ still requires a state solve.
-Every derivative of $`j_{h}`$ must still account for how that state changes with the
+disappeared computationally. Every evaluation of $j_{h}(u)$ still requires a state solve.
+Every derivative of $j_{h}$ must still account for how that state changes with the
 control.
 
 That is where the adjoint enters.
@@ -102,7 +102,7 @@ distributed-control problem from the first chapter,
 
 $$
 E_{h}(y,u)
-:=
+\coloneqq
 Ay-Bu-f,
 $$
 
@@ -115,8 +115,7 @@ $$
 Assuming $A$ is invertible,
 
 $$
-S_{h}(u)
-=
+S_{h}(u) =
 A^{-1}(f+Bu).
 $$
 
@@ -129,13 +128,13 @@ $$
 E_{h}(y,u)=0
 $$
 
-may require a Newton method or some other nonlinear state solver. The notation $`S_{h}(u)`$
+may require a Newton method or some other nonlinear state solver. The notation $S_{h}(u)$
 still makes sense locally if the state problem has a well-defined solution, but the
 computational object behind it is now a solve procedure rather than a single matrix
 inverse.
 
 This distinction is reflected directly in the formulation interface. The reduced
-formulation is not given a matrix called $`S_{h}`$. It is given a callable **state solve
+formulation is not given a matrix called $S_{h}$. It is given a callable **state solve
 service**
 
 ```text
@@ -158,7 +157,7 @@ the chosen discretization and solve policy.
 `ReducedDTOT` does not prove those facts. It receives a state solver from the numerical
 realization and requires that the solve report says the state solve converged.
 
-So the symbol $`S_{h}`$ should be read as
+So the symbol $S_{h}$ should be read as
 
 > the state selected by the supplied numerical state-solve service for this control,
 
@@ -170,7 +169,7 @@ The reduced objective is
 
 $$
 j_{h}(u)
-:=
+\coloneqq
 J_{h}(S_{h}(u),u).
 $$
 
@@ -183,20 +182,18 @@ $$
 The state changes by
 
 $$
-\delta y
-=
+\delta y =
 S_{h}'(u)[\delta u].
 $$
 
 By the chain rule,
 
-```math
-j_{h}'(u)[\delta u]
-=
+$$
+j_{h}'(u)[\delta u] =
 D_{y} J_{h}(y,u)[\delta y]
 +
 D_{u} J_{h}(y,u)[\delta u],
-```
+$$
 
 where
 
@@ -213,40 +210,34 @@ $$
 
 Because $y$ depends on $u$,
 
-```math
+$$
 D_{y} E_{h}(y,u)[\delta y]
 +
-D_{u} E_{h}(y,u)[\delta u]
-=
+D_{u} E_{h}(y,u)[\delta u] =
 0.
-```
+$$
 
 Therefore the sensitivity satisfies
 
 $$
-D_{y} E_{h}(y,u)[\delta y]
-=
--
+D_{y} E_{h}(y,u)[\delta y] = -
 D_{u} E_{h}(y,u)[\delta u].
 $$
 
 If the state Jacobian can be inverted, then formally
 
 $$
-\delta y
-=
--
+\delta y = -
 \left(D_{y} E_{h}(y,u)\right)^{-1}
 D_{u} E_{h}(y,u)[\delta u].
 $$
 
 Substituting into the chain rule gives
 
-```math
+$$
 \begin{aligned}
 j_{h}'(u)[\delta u]
-&=
--
+&= -
 D_{y} J_{h}(y,u)
 \left[
 \left(D_{y} E_{h}(y,u)\right)^{-1}
@@ -257,7 +248,7 @@ D_{u} E_{h}(y,u)[\delta u]
 +
 D_{u} J_{h}(y,u)[\delta u].
 \end{aligned}
-```
+$$
 
 This formula is correct, but it is a poor way to construct the whole reduced derivative
 when the control dimension is large.
@@ -266,9 +257,9 @@ when the control dimension is large.
 
 For one chosen direction $\delta u$, the direct method can be entirely reasonable:
 
-1. apply $`D_{u} E_{h}`$ to $\delta u$;
+1. apply $D_{u} E_{h}$ to $\delta u$;
 2. solve one linearized state equation for $\delta y$;
-3. evaluate $`D_{y}J_{h}[\delta y]`$.
+3. evaluate $D_{y}J_{h}[\delta y]$.
 
 The problem appears when we want a representation of
 
@@ -278,19 +269,17 @@ $$
 
 that can act on **every** control direction. 
 
-Let $`\{\psi_{1},\ldots,\psi_{n_{u}}\}`$ be a
-basis of $`U_{h}`$. A basis-by-basis sensitivity construction would require
+Let $\lbrace\psi_{1},\ldots,\psi_{n_{u}}\rbrace$ be a
+basis of $U_{h}$. A basis-by-basis sensitivity construction would require
 
 $$
-D_{y}E_{h}(y,u)[\delta y_{k}]
-=
--
+D_{y}E_{h}(y,u)[\delta y_{k}] = -
 D_{u}E_{h}(y,u)[\psi_{k}],
 \qquad
 k=1,\ldots,n_{u}.
 $$
 
-That is one linearized state solve per control basis direction. For PDE controls, $`n_{u}`$
+That is one linearized state solve per control basis direction. For PDE controls, $n_{u}$
 can be large.
 
 The adjoint method reorganizes the same chain rule so that the state-side inverse is
@@ -322,18 +311,17 @@ Z_{h}
 Y_{h}^{\ast}.
 $$
 
-Choose the adjoint $`p\in Z_{h}`$ to satisfy
+Choose the adjoint $p\in Z_{h}$ to satisfy
 
 $$
-D_{y}E_{h}(y,u)^{\ast}p
-=
+D_{y}E_{h}(y,u)^{\ast}p =
 D_{y}J_{h}(y,u).
 $$
 
 This is the **adjoint equation** used by the current reduced formulation. Now apply the
 transpose identity to the state-sensitivity term:
 
-```math
+$$
 \begin{aligned}
 D_{y}J_{h}(y,u)[\delta y]
 &=
@@ -348,59 +336,51 @@ D_{y}E_{h}(y,u)[\delta y],
 p
 \right\rangle.
 \end{aligned}
-```
+$$
 
 The linearized state equation tells us that
 
 $$
-D_{y}E_{h}(y,u)[\delta y]
-=
--
+D_{y}E_{h}(y,u)[\delta y] = -
 D_{u}E_{h}(y,u)[\delta u].
 $$
 
 Therefore
 
-```math
+$$
 \begin{aligned}
 D_{y}J_{h}(y,u)[\delta y]
-&=
--
+&= -
 \left\langle
 D_{u}E_{h}(y,u)[\delta u],
 p
 \right\rangle
 \\
-&=
--
+&= -
 \left\langle
 D_{u}E_{h}(y,u)^{\ast}p,
 \delta u
 \right\rangle.
 \end{aligned}
-```
+$$
 
 Substitute this into the chain rule:
 
-```math
-j_{h}'(u)[\delta u]
-=
+$$
+j_{h}'(u)[\delta u] =
 \left\langle
-D_{u}J_{h}(y,u)
--
+D_{u}J_{h}(y,u) -
 D_{u}E_{h}(y,u)^{\ast}p,
 \delta u
 \right\rangle.
-```
+$$
 
 Hence
 
 $$
 \boxed{
-j_{h}'(u)
-=
-D_{u}J_{h}(y,u)
--
+j_{h}'(u) =
+D_{u}J_{h}(y,u) -
 D_{u}E_{h}(y,u)^{\ast}p
 }
 $$
@@ -409,8 +389,7 @@ with
 
 $$
 \boxed{
-D_{y}E_{h}(y,u)^{\ast}p
-=
+D_{y}E_{h}(y,u)^{\ast}p =
 D_{y}J_{h}(y,u).
 }
 $$
@@ -425,7 +404,7 @@ For the running linear residual,
 
 $$
 E_{h}(y,u)
-:=
+\coloneqq
 Ay-Bu-f,
 $$
 
@@ -440,33 +419,30 @@ $$
 The adjoint equation is
 
 $$
-A^{\mathsf T}p
-=
+A^{\mathsf T}p =
 D_{y}J_{h}.
 $$
 
 The control part of the residual transpose is
 
 $$
-D_{u}E_{h}^{\ast}p
-=
+D_{u}E_{h}^{\ast}p =
 -B^{\mathsf T}p.
 $$
 
 Therefore
 
-```math
+$$
 \begin{aligned}
 j_{h}'(u)
 &=
-D_{u}J_{h}
--
+D_{u}J_{h} -
 \left(-B^{\mathsf T}p\right)
 \\
 &=
 D_{u}J_{h}+B^{\mathsf T}p.
 \end{aligned}
-```
+$$
 
 This is the same formula derived in [Anatomy of a discrete PDE-constrained
 problem](01-discrete-problem-anatomy.md), now written in the general derivative/VJP
@@ -482,9 +458,8 @@ The project writes
 
 $$
 \mathcal L(y,u,p)
-:=
-J_{h}(y,u)
--
+\coloneqq
+J_{h}(y,u) -
 \langle p,E_{h}(y,u)\rangle.
 $$
 
@@ -526,15 +501,15 @@ solve an equation involving those operators
 The reduced state–adjoint formulation uses both categories. The executable model
 supplies:
 
-- $`J_{h}(y,u)`$;
-- $`J_{h}'(y,u)`$;
-- $`E_{h}'(y,u)^{\ast}p`$ through the VJP.
+- $J_{h}(y,u)$;
+- $J_{h}'(y,u)$;
+- $E_{h}'(y,u)^{\ast}p$ through the VJP.
 
 The numerical realization separately supplies:
 
-- a state solver for $`E_{h}(y,u)=0`$;
+- a state solver for $E_{h}(y,u)=0$;
 - an adjoint solver for
-  $`D_{y}E_{h}(y,u)^{\ast}p=D_{y}J_{h}(y,u)`$.
+  $D_{y}E_{h}(y,u)^{\ast}p=D_{y}J_{h}(y,u)$.
 
 This separation is visible in `StateAdjointSolversT`. Conceptually its two callbacks are
 
@@ -590,8 +565,7 @@ adjoint equation.
 `solve_adjoint` does not receive the entire objective derivative. The full derivative is
 
 $$
-J_{h}'(y,u)
-=
+J_{h}'(y,u) =
 \left(
 D_{y}J_{h},
 D_{u}J_{h}
@@ -603,8 +577,7 @@ $$
 Only the state component belongs on the right-hand side of
 
 $$
-D_{y}E_{h}(y,u)^{\ast}p
-=
+D_{y}E_{h}(y,u)^{\ast}p =
 D_{y}J_{h}.
 $$
 
@@ -658,7 +631,7 @@ partitions would require a richer formulation boundary.
 
 ### 6.1 Why the partition belongs between the model and formulation
 
-`ExecutableModelT` only knows that its variable space is some product $`X_{h}`$.
+`ExecutableModelT` only knows that its variable space is some product $X_{h}$.
 
 It does not know that block 0 is to be eliminated as a state while block 1 is to be
 optimized as a control.
@@ -785,8 +758,7 @@ $$
 Evaluate the full objective derivative:
 
 $$
-J_{h}'(x)
-=
+J_{h}'(x) =
 \left(
 D_{y}J_{h},
 D_{u}J_{h}
@@ -802,16 +774,14 @@ $$
 and solve the adjoint equation
 
 $$
-D_{y}E_{h}(x)^{\ast}p
-=
+D_{y}E_{h}(x)^{\ast}p =
 D_{y}J_{h}.
 $$
 
 Then evaluate the full residual VJP
 
 $$
-E_{h}'(x)^{\ast}p
-=
+E_{h}'(x)^{\ast}p =
 \left(
 D_{y}E_{h}(x)^{\ast}p,
 D_{u}E_{h}(x)^{\ast}p
@@ -822,10 +792,8 @@ Extract its control component and subtract it from the direct control objective
 derivative:
 
 $$
-j_{h}'(u)
-=
-D_{u}J_{h}
--
+j_{h}'(u) =
+D_{u}J_{h} -
 D_{u}E_{h}(x)^{\ast}p.
 $$
 
@@ -881,8 +849,7 @@ But the full VJP returns both state and control covectors. The state component s
 satisfy
 
 $$
-D_{y}E_{h}(x)^{\ast}p
-=
+D_{y}E_{h}(x)^{\ast}p =
 D_{y}J_{h}
 $$
 
@@ -943,16 +910,14 @@ as an optimization algorithm evaluates trial points that may be rejected.
 A line search may inspect several trial controls before accepting one. For each trial
 
 $$
-u_{\mathrm{trial}}
-=
+u_{\mathrm{trial}} =
 u+\alpha d,
 $$
 
 the reduced objective value requires a state solve:
 
 $$
-y_{\mathrm{trial}}
-=
+y_{\mathrm{trial}} =
 S_{h}(u_{\mathrm{trial}}).
 $$
 
@@ -1057,14 +1022,13 @@ full_point
 are mutually consistent. Conceptually,
 
 $$
-x
-=
+x =
 \mathrm{compose}(y,u)
 $$
 
 must still hold.
 
-This matters because the derivative stage evaluates $`J_{h}'(x)`$ and $`E_{h}'(x)^{\ast}p`$ at
+This matters because the derivative stage evaluates $J_{h}'(x)$ and $E_{h}'(x)^{\ast}p$ at
 that full point. Reusing a state with a different control would break the mathematical
 premise of the adjoint derivation.
 
@@ -1090,7 +1054,7 @@ immediate function call that created it.
 
 ## 12. Solve reports make the state and adjoint part of the evaluation record
 
-A reduced evaluation contains not only $y$, $p$, $`j_{h}(u)`$, and $`j_{h}'(u)`$, but also the
+A reduced evaluation contains not only $y$, $p$, $j_{h}(u)$, and $j_{h}'(u)$, but also the
 reports from the state and adjoint solves.
 
 This is useful because the mathematical equations
@@ -1330,8 +1294,7 @@ $$
 one may identify the derivative with the primal metric gradient
 
 $$
-g
-=
+g =
 G^{-1}j_{h}'(u).
 $$
 
@@ -1374,10 +1337,8 @@ $$
 and
 
 $$
-j_{h}'(u)
-=
-D_{u}J_{h}
--
+j_{h}'(u) =
+D_{u}J_{h} -
 D_{u}E_{h}^{\ast}p.
 $$
 
@@ -1406,7 +1367,7 @@ j_{h}''(u)[w]
 U_{h}^{\ast}
 $$
 
-for a primal control direction $`w\in U_{h}`$. That action is not implied merely by having:
+for a primal control direction $w\in U_{h}$. That action is not implied merely by having:
 
 - residual JVP;
 - residual VJP;
@@ -1443,16 +1404,16 @@ It is useful to place the mathematical construction and runtime methods side by 
 
 | Stage | Mathematics | Runtime operation |
 | --- | --- | --- |
-| Control | $`u\in U_{h}`$ | control `PrimalBlockT` |
-| State | solve $`E_{h}(y,u)=0`$ | `solve_state(u)` |
-| Full point | $x:=(y,u)$ | `partition.compose(y,u)` |
-| Objective | $`j_{h}(u):=J_{h}(x)`$ | `model.objective(x)` |
-| Full derivative | $`J_{h}'(x)`$ | `model.objective_derivative(x)` |
-| Adjoint RHS | $`D_{y}J_{h}(x)`$ | `partition.state_component(...)` |
-| Adjoint | solve $`D_{y}E_{h}(x)^{\ast}p=D_{y}J_{h}`$ | `solve_adjoint(x, state_rhs)` |
-| Residual pullback | $`E_{h}'(x)^{\ast}p`$ | `model.residual_vjp(x,p)` |
-| Reduced derivative | $`D_{u}J_{h}-D_{u}E_{h}^{\ast}p`$ | control-block subtraction |
-| Metric gradient | $`G^{-1}j_{h}'(u)`$ | solver/metric layer |
+| Control | $u\in U_{h}$ | control `PrimalBlockT` |
+| State | solve $E_{h}(y,u)=0$ | `solve_state(u)` |
+| Full point | $x\coloneqq(y,u)$ | `partition.compose(y,u)` |
+| Objective | $j_{h}(u)\coloneqq J_{h}(x)$ | `model.objective(x)` |
+| Full derivative | $J_{h}'(x)$ | `model.objective_derivative(x)` |
+| Adjoint RHS | $D_{y}J_{h}(x)$ | `partition.state_component(...)` |
+| Adjoint | solve $D_{y}E_{h}(x)^{\ast}p=D_{y}J_{h}$ | `solve_adjoint(x, state_rhs)` |
+| Residual pullback | $E_{h}'(x)^{\ast}p$ | `model.residual_vjp(x,p)` |
+| Reduced derivative | $D_{u}J_{h}-D_{u}E_{h}^{\ast}p$ | control-block subtraction |
+| Metric gradient | $G^{-1}j_{h}'(u)$ | solver/metric layer |
 
 The table is short because the preceding derivation has already supplied the meaning of
 each row.
@@ -1544,7 +1505,7 @@ This chapter has answered:
 
 It has deliberately not answered:
 
-> Once $`j_{h}(u)`$ and $`j_{h}'(u)`$ are available, how should the control be updated?
+> Once $j_{h}(u)$ and $j_{h}'(u)$ are available, how should the control be updated?
 
 That next question introduces another layer of decisions:
 

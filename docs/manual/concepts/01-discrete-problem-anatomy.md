@@ -46,7 +46,7 @@ design note is
 A useful running example is the distributed elliptic control problem used by the
 source Chapter 6 numerical examples:
 
-```math
+$$
 \begin{aligned}
 \min_{y,u}\quad &
 \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
@@ -59,13 +59,13 @@ source Chapter 6 numerical examples:
 y &= 0
 \qquad \text{on }\partial\Omega.
 \end{aligned}
-```
+$$
 
 The source example takes $\Omega=(0,1)^{2}$ and
 
 $$
 z_{d}(x)
-:=
+\coloneqq
 10x_{1}(1-x_{1})x_{2}(1-x_{2}).
 $$
 
@@ -80,7 +80,7 @@ At first glance the problem contains only two unknown fields:
 - the **state** $y$, whose value is constrained by the PDE;
 - the **control** $u$, which the optimization algorithm is free to vary.
 
-The forcing $f$, desired state $`z_{d}`$, and regularization parameter $\beta$ are fixed
+The forcing $f$, desired state $z_{d}$, and regularization parameter $\beta$ are fixed
 data.
 
 That distinction already matters. If $f$ were instead an unknown coefficient to be
@@ -109,7 +109,7 @@ $$
 $$
 
 penalizes control effort. Increasing $\beta$ makes large controls more expensive;
-decreasing it permits the optimizer to track $`z_{d}`$ more closely at the price of a
+decreasing it permits the optimizer to track $z_{d}$ more closely at the price of a
 larger control.
 
 Nothing about this statement yet tells us how many coefficients will represent
@@ -124,14 +124,14 @@ of the most important ideas to keep in mind when reading the repository.
 Before comparing the source example with the project, it helps to attach a little
 meaning to the finite-element vocabulary that will recur throughout the manual.
 
-A **mesh** $`\mathcal T_{h}`$ partitions the physical domain into simpler cells – for
+A **mesh** $\mathcal T_{h}$ partitions the physical domain into simpler cells – for
 example triangles or quadrilaterals in two dimensions. The subscript $h$ conventionally
 refers to a characteristic mesh scale: smaller $h$ means a finer spatial
 discretization. A finite-element space then
 specifies what kind of function is allowed on each cell and how neighboring cells are
 coupled.
 
-On a triangular mesh, the standard $`\mathbb P_{1}`$ space consists of functions that
+On a triangular mesh, the standard $\mathbb P_{1}$ space consists of functions that
 are affine on each triangle. When the space is continuous, neighboring triangles
 share nodal values, so the global field is continuous across their common edge.
 The familiar degrees of freedom are therefore values associated with mesh vertices.
@@ -147,7 +147,7 @@ These few sentences are only enough to read the present example. The
 choices in the project architecture; this manual focuses on the distinctions that
 matter to optimization rather than teaching general finite-element mechanics.
 
-The book's E6.5.1 example reports continuous $`\mathbb P_{1}`$ state, adjoint, and
+The book's E6.5.1 example reports continuous $\mathbb P_{1}$ state, adjoint, and
 control spaces on a triangular mesh. The current project supports more than one
 realization of the same distributed-control problem family.
 
@@ -187,7 +187,7 @@ choices. For now, the important point is simpler: **the finite-dimensional probl
 not determined until the spaces and coordinate representations have been chosen.**
 
 When the manual refers to a mathematical finite-element family, it will use notation
-such as $`\mathbb P_{1}`$ or $`\mathbb Q_{1}`$. Backticks are reserved for literal
+such as $\mathbb P_{1}$ or $\mathbb Q_{1}$. Backticks are reserved for literal
 implementation names such as `FE_Q`, `cellwise_constant`, or
 `homogeneous_dirichlet_continuous`.
 
@@ -205,30 +205,27 @@ with a variational statement.
 Let
 
 $$
-V := H_{0}^{1}(\Omega).
+V \coloneqq H_{0}^{1}(\Omega).
 $$
 
 Multiplying by a test function $v\in V$ and integrating by parts gives
 
 $$
 \int_{\Omega}\nabla y\cdot\nabla v
-=
-\int_{\Omega}fv
+= \int_{\Omega}fv
 +
 \int_{\Omega}uv.
 $$
 
 Equivalently, define the residual action
 
-```math
+$$
 \langle E(y,u),v\rangle
-:=
+\coloneqq
 \int_{\Omega}\nabla y\cdot\nabla v
--
-\int_{\Omega}fv
--
-\int_{\Omega}uv.
-```
+-\int_{\Omega}fv
+-\int_{\Omega}uv.
+$$
 
 The state equation becomes
 
@@ -278,8 +275,8 @@ Now choose a finite-element state/test space
 
 $$
 V_{h}
-:=
-\mathrm{span}\{\varphi_{1},\ldots,\varphi_{n_{y}}\}
+\coloneqq
+\mathop{\mathrm{span}}\lbrace\varphi_{1},\ldots,\varphi_{n_{y}}\rbrace
 \subset V.
 $$
 
@@ -287,7 +284,7 @@ Write
 
 $$
 y_{h}
-:=
+\coloneqq
 \sum_{j=1}^{n_{y}} y_{j}\varphi_{j}.
 $$
 
@@ -295,7 +292,7 @@ The state is now represented by a coefficient vector
 
 $$
 \mathbf y
-:=
+\coloneqq
 (y_{1},\ldots,y_{n_{y}})^{\mathsf T}.
 $$
 
@@ -303,27 +300,27 @@ The control requires its own discrete space. Let
 
 $$
 U_{h}
-:=
-\mathrm{span}\{\psi_{1},\ldots,\psi_{n_{u}}\}.
+\coloneqq
+\mathop{\mathrm{span}}\lbrace\psi_{1},\ldots,\psi_{n_{u}}\rbrace.
 $$
 
 Then
 
 $$
 u_{h}
-:=
+\coloneqq
 \sum_{k=1}^{n_{u}}u_{k}\psi_{k},
 \qquad
 \mathbf u
-:=
+\coloneqq
 (u_{1},\ldots,u_{n_{u}})^{\mathsf T}.
 $$
 
-Nothing requires $`U_{h}`$ to equal $`V_{h}`$.
+Nothing requires $U_{h}$ to equal $V_{h}$.
 
-If the control is continuous $`\mathbb P_{1}`$ on the same triangular mesh, the two spaces may be closely
+If the control is continuous $\mathbb P_{1}$ on the same triangular mesh, the two spaces may be closely
 related and may even have the same dimension after boundary treatment. If the control
-is cellwise constant, however, $`U_{h}`$ has one basis function per control cell and
+is cellwise constant, however, $U_{h}$ has one basis function per control cell and
 its dimension and topology are different.
 
 This distinction will later motivate the framework's explicit treatment of spaces
@@ -339,13 +336,13 @@ numbers.
 
 ## 4. The weak residual becomes a matrix equation
 
-Test the weak equation with each state basis function $`\varphi_{i}`$.
+Test the weak equation with each state basis function $\varphi_{i}$.
 
 The diffusion matrix is
 
 $$
 A_{ij}
-:=
+\coloneqq
 \int_{\Omega}
 \nabla\varphi_{j}\cdot\nabla\varphi_{i}.
 $$
@@ -354,7 +351,7 @@ The forcing vector is
 
 $$
 (\mathbf f)_{i}
-:=
+\coloneqq
 \int_{\Omega} f\varphi_{i}.
 $$
 
@@ -362,7 +359,7 @@ The control-to-state coupling is
 
 $$
 B_{ik}
-:=
+\coloneqq
 \int_{\Omega}\psi_{k}\varphi_{i}.
 $$
 
@@ -370,15 +367,14 @@ The finite-element state equation is therefore
 
 $$
 A\mathbf y
-=
-\mathbf f+B\mathbf u.
+= \mathbf f+B\mathbf u.
 $$
 
 Move everything to the left and define the discrete residual
 
 $$
 \mathbf E(\mathbf y,\mathbf u)
-:=
+\coloneqq
 A\mathbf y-B\mathbf u-\mathbf f.
 $$
 
@@ -407,7 +403,7 @@ A\in\mathbb R^{n_{y}\times n_{y}},
 B\in\mathbb R^{n_{y}\times n_{u}}.
 $$
 
-If $`U_{h}`$ is cellwise constant, $B$ is generally rectangular. If the control uses
+If $U_{h}$ is cellwise constant, $B$ is generally rectangular. If the control uses
 the same continuous nodal basis as the state, $B$ becomes a mass-like square
 coupling, but its *role* is still control-to-test coupling.
 
@@ -422,45 +418,44 @@ $$
 \frac{1}{2}\int_{\Omega}(y_{h}-z_{d})^{2}.
 $$
 
-Expanding $`y_{h}`$ gives
+Expanding $y_{h}$ gives
 
-```math
+$$
 \frac{1}{2}
 \left(
 \mathbf y^{\mathsf T}M_{y}\mathbf y
--
-2\mathbf q^{\mathsf T}\mathbf y
+-2\mathbf q^{\mathsf T}\mathbf y
 +
 c
 \right),
-```
+$$
 
 where
 
-```math
+$$
 \begin{aligned}
 (M_{y})_{ij}
-&:=
+&\coloneqq
 \int_{\Omega}\varphi_{j}\varphi_{i},
 \\
 q_{i}
-&:=
+&\coloneqq
 \int_{\Omega}z_{d}\varphi_{i},
 \\
 c
-&:=
+&\coloneqq
 \int_{\Omega}z_{d}^{2}.
 \end{aligned}
-```
+$$
 
 This form is worth pausing over because it exposes a detail that is easy to hide in
-notation such as $`\lVert \mathbf y-\mathbf z_{d}\rVert_{M}^{2}`$.
+notation such as $\lVert \mathbf y-\mathbf z_{d}\rVert_{M}^{2}$.
 
-The target $`z_{d}`$ need not be represented by a state-space coefficient vector at
+The target $z_{d}$ need not be represented by a state-space coefficient vector at
 all. It may remain an analytic function evaluated at quadrature points. In that case
 the implementation naturally assembles the linear term $\mathbf q$ and scalar
-constant $c$ from the function, rather than first interpolating $`z_{d}`$ into
-$`V_{h}`$.
+constant $c$ from the function, rather than first interpolating $z_{d}$ into
+$V_{h}$.
 
 The current B1 path does exactly this kind of thing: the desired state is retained as
 a runtime `dealii::Function`, with the B1 polynomial expression supplied by the
@@ -496,7 +491,7 @@ define the control mass matrix
 
 $$
 (N_{u})_{k\ell}
-:=
+\coloneqq
 \int_{\Omega}\psi_{\ell}\psi_{k}.
 $$
 
@@ -504,12 +499,11 @@ Then
 
 $$
 J_{h}(\mathbf y,\mathbf u)
-:=
+\coloneqq
 \frac{1}{2}
 \left(
 \mathbf y^{\mathsf T}M_{y}\mathbf y
--
-2\mathbf q^{\mathsf T}\mathbf y
+-2\mathbf q^{\mathsf T}\mathbf y
 +
 c
 \right)
@@ -518,11 +512,11 @@ c
 \mathbf u^{\mathsf T}N_{u}\mathbf u.
 $$
 
-The use of a separate symbol $`N_{u}`$ is intentional. If the state and control use
+The use of a separate symbol $N_{u}$ is intentional. If the state and control use
 different finite-element spaces, there is no reason for the two mass matrices to be
 the same.
 
-For a cellwise-constant control, $`N_{u}`$ is particularly simple: on a standard
+For a cellwise-constant control, $N_{u}$ is particularly simple: on a standard
 elementwise basis it is diagonal, with entries related to cell measures. For a
 continuous nodal control, it is the usual sparse finite-element mass matrix.
 
@@ -532,7 +526,7 @@ The continuous objective did not change. The algebra needed to evaluate it did.
 
 After discretization, the optimization problem has become
 
-```math
+$$
 \begin{aligned}
 \min_{\mathbf y,\mathbf u}\quad &
 J_{h}(\mathbf y,\mathbf u),
@@ -540,7 +534,7 @@ J_{h}(\mathbf y,\mathbf u),
 \text{subject to}\quad &
 A\mathbf y-B\mathbf u-\mathbf f=0.
 \end{aligned}
-```
+$$
 
 At this stage, one can forget the strong PDE temporarily and ask what operations a
 numerical optimization method actually needs.
@@ -594,7 +588,7 @@ After eliminating the state conceptually, the reduced objective is
 
 $$
 j_{h}(\mathbf u)
-:=
+\coloneqq
 J_{h}(\mathbf y(\mathbf u),\mathbf u).
 $$
 
@@ -604,34 +598,32 @@ linearized state equation. For the present linear problem,
 
 $$
 A\delta\mathbf y
-=
-B\delta\mathbf u.
+= B\delta\mathbf u.
 $$
 
 The directional derivative of the reduced objective is therefore
 
-```math
+$$
 j_{h}'(\mathbf u)[\delta\mathbf u]
-=
-\mathbf d_{y}^{\mathsf T}\delta\mathbf y
+= \mathbf d_{y}^{\mathsf T}\delta\mathbf y
 +
 \mathbf d_{u}^{\mathsf T}\delta\mathbf u,
-```
+$$
 
 where we introduce the coordinate vectors
 
-```math
+$$
 \begin{aligned}
 \mathbf d_{y}
-&:=
+&\coloneqq
 M_{y}\mathbf y-\mathbf q,\\
 \mathbf d_{u}
-&:=
+&\coloneqq
 \beta N_{u}\mathbf u.
 \end{aligned}
-```
+$$
 
-These vectors represent the partial derivatives of $`J_{h}`$ with respect to the state
+These vectors represent the partial derivatives of $J_{h}$ with respect to the state
 and control coordinates. Chapters 2 and 3 make the primal/dual interpretation
 of such coefficient vectors more precise.
 
@@ -647,12 +639,11 @@ and substitute the resulting $\delta\mathbf y$ into the directional derivative.
 The difficulty appears when an optimization method needs the *whole reduced
 derivative*, meaning a representation that can act on arbitrary control directions.
 A direct basis-by-basis construction would use the control basis vectors
-$`\mathbf e_{1},\ldots,\mathbf e_{n_{u}}`$ and solve
+$\mathbf e_{1},\ldots,\mathbf e_{n_{u}}$ and solve
 
 $$
 A\delta\mathbf y_{k}
-=
-B\mathbf e_{k},
+= B\mathbf e_{k},
 \qquad
 k=1,\ldots,n_{u}.
 $$
@@ -666,7 +657,7 @@ $$
 is compact algebra, but numerically it hides exactly this collection of solves (or an
 equivalent multiple-right-hand-side computation). Even if a factorization of $A$ can
 be reused, constructing or applying the full sensitivity map becomes unattractive
-when $`n_{u}`$ is large.
+when $n_{u}$ is large.
 
 The adjoint avoids building that control-to-state sensitivity map. It rearranges the
 same chain-rule term so that the expensive inverse of the state operator is applied
@@ -678,8 +669,7 @@ Define the adjoint $\mathbf p$ as the solution of
 
 $$
 A^{\mathsf T}\mathbf p
-=
-\mathbf d_{y}.
+= \mathbf d_{y}.
 $$
 
 The transpose is important even though the Laplace stiffness matrix in this example is
@@ -690,13 +680,12 @@ Now start from the state-dependent part of the directional derivative. Because
 
 $$
 \delta\mathbf y
-=
-A^{-1}B\delta\mathbf u,
+= A^{-1}B\delta\mathbf u,
 $$
 
 we have
 
-```math
+$$
 \begin{aligned}
 \mathbf d_{y}^{\mathsf T}\delta\mathbf y
 &=
@@ -710,38 +699,36 @@ B\delta\mathbf u\\
 \left(B^{\mathsf T}\mathbf p\right)^{\mathsf T}
 \delta\mathbf u.
 \end{aligned}
-```
+$$
 
 Substituting this back into the chain rule gives
 
-```math
+$$
 j_{h}'(\mathbf u)[\delta\mathbf u]
-=
-\left(
+= \left(
 \mathbf d_{u}
 +
 B^{\mathsf T}\mathbf p
 \right)^{\mathsf T}
 \delta\mathbf u.
-```
+$$
 
 Hence the coefficient vector representing the reduced derivative is
 
 $$
 \mathbf r_{u}
-:=
+\coloneqq
 \mathbf d_{u}
 +
 B^{\mathsf T}\mathbf p
-=
-\beta N_{u}\mathbf u+B^{\mathsf T}\mathbf p.
+= \beta N_{u}\mathbf u+B^{\mathsf T}\mathbf p.
 $$
 
 The sign is a consequence of the residual convention
 
 $$
 \mathbf E(\mathbf y,\mathbf u)
-:=
+\coloneqq
 A\mathbf y-B\mathbf u-\mathbf f.
 $$
 
@@ -783,16 +770,14 @@ The vector
 
 $$
 \mathbf r_{u}
-=
-\beta N_{u}\mathbf u+B^{\mathsf T}\mathbf p
+= \beta N_{u}\mathbf u+B^{\mathsf T}\mathbf p
 $$
 
 encodes the reduced derivative through
 
 $$
 j_{h}'(\mathbf u)[\delta\mathbf u]
-=
-\mathbf r_{u}^{\mathsf T}\delta\mathbf u.
+= \mathbf r_{u}^{\mathsf T}\delta\mathbf u.
 $$
 
 This object tells us how the objective changes in every control direction. It does
@@ -805,8 +790,7 @@ with that inner product is defined by the requirement
 
 $$
 j_{h}'(\mathbf u)[\delta\mathbf u]
-=
-(\mathbf g,\delta\mathbf u)_{U}
+= (\mathbf g,\delta\mathbf u)_{U}
 \qquad
 \text{for every }\delta\mathbf u.
 $$
@@ -815,53 +799,49 @@ If the chosen geometry is the finite-element $L^{2}$ inner product, then
 
 $$
 (\mathbf g,\delta\mathbf u)_{L^{2}}
-=
-\mathbf g^{\mathsf T}N_{u}\delta\mathbf u.
+= \mathbf g^{\mathsf T}N_{u}\delta\mathbf u.
 $$
 
 Comparing the two representations for every $\delta\mathbf u$ gives
 
 $$
 N_{u}^{\mathsf T}\mathbf g
-=
-\mathbf r_{u}.
+= \mathbf r_{u}.
 $$
 
 The mass matrix is symmetric, so this becomes
 
 $$
 N_{u}\mathbf g
-=
-\mathbf r_{u},
+= \mathbf r_{u},
 $$
 
 or equivalently
 
 $$
 \mathbf g
-=
-N_{u}^{-1}\mathbf r_{u}.
+= N_{u}^{-1}\mathbf r_{u}.
 $$
 
-So the appearance of $`N_{u}^{-1}`$ is not an ad hoc rescaling of the derivative. The
+So the appearance of $N_{u}^{-1}$ is not an ad hoc rescaling of the derivative. The
 mass matrix is the coordinate representation of the $L^{2}$ Riesz map
 
 $$
-R_{U}:U_{h}\longrightarrow U_{h}^{\ast},
+R_{U}\colon U_{h}\longrightarrow U_{h}^{\ast},
 $$
 
-and solving the mass-matrix system applies $`R_{U}^{-1}`$ to the derivative covector.
+and solving the mass-matrix system applies $R_{U}^{-1}$ to the derivative covector.
 
 If we instead chose the Euclidean coefficient inner product, the Riesz map would be
-the identity matrix and the coefficient vector $`\mathbf r_{u}`$ would itself be the
+the identity matrix and the coefficient vector $\mathbf r_{u}$ would itself be the
 gradient. If we chose an $H^{1}$-type or negative-order metric, a different operator
 would appear.
 
 This is also why it is useful to keep two ideas separate even when the same mass
 matrix occurs in both:
 
-- $`N_{u}`$ inside the objective contributes to the **regularization derivative**;
-- $`N_{u}`$ used as a Riesz map defines the **optimization geometry**.
+- $N_{u}$ inside the objective contributes to the **regularization derivative**;
+- $N_{u}$ used as a Riesz map defines the **optimization geometry**.
 
 They happen to coincide for this common $L^{2}$ choice, but they answer different
 questions.
@@ -898,36 +878,34 @@ We can now place three descriptions of the same problem side by side.
 
 ### Continuous level
 
-```math
+$$
 \begin{aligned}
 -\Delta y &= f+u,\\
-J(y,u) &:=
+J(y,u) &\coloneqq
 \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}}^{2}
 +
 \frac{\beta}{2}\lVert u\rVert_{L^{2}}^{2}.
 \end{aligned}
-```
+$$
 
 This level expresses the mathematical problem.
 
 ### Variational level
 
-```math
+$$
 \langle E(y,u),v\rangle
-:=
+\coloneqq
 \int_{\Omega}\nabla y\cdot\nabla v
--
-\int_{\Omega}fv
--
-\int_{\Omega}uv.
-```
+-\int_{\Omega}fv
+-\int_{\Omega}uv.
+$$
 
 Together with the objective integrals, this level specifies the weak operations that
 a finite-element method must realize.
 
 ### Discrete algebraic level
 
-```math
+$$
 \begin{aligned}
 A\mathbf y-B\mathbf u-\mathbf f &= 0,\\
 J_{h}(\mathbf y,\mathbf u)
@@ -935,8 +913,7 @@ J_{h}(\mathbf y,\mathbf u)
 \frac{1}{2}
 \left(
 \mathbf y^{\mathsf T}M_{y}\mathbf y
--
-2\mathbf q^{\mathsf T}\mathbf y
+-2\mathbf q^{\mathsf T}\mathbf y
 +
 c
 \right)
@@ -944,7 +921,7 @@ c
 \frac{\beta}{2}
 \mathbf u^{\mathsf T}N_{u}\mathbf u.
 \end{aligned}
-```
+$$
 
 This level is close to what numerical kernels and solvers execute.
 
@@ -961,12 +938,12 @@ The correspondence can be summarized compactly:
 
 | Concept | Continuous/model view | Variational/FE view | Discrete coefficient view |
 | --- | --- | --- | --- |
-| State | $y$ | $`y\in V:=H_{0}^{1}(\Omega)`$, later $`y_{h}\in V_{h}`$ | $`\mathbf y\in\mathbb R^{n_{y}}`$ |
-| Control | $u$ | $u$ belongs to a chosen control space; later $`u_{h}\in U_{h}`$ | $`\mathbf u\in\mathbb R^{n_{u}}`$ |
-| PDE constraint | $-\Delta y=f+u$ | $`\langle E(y,u),v\rangle:=\int_{\Omega}\nabla y\cdot\nabla v-\int_{\Omega}fv-\int_{\Omega}uv`$ | $\mathbf E(\mathbf y,\mathbf u):=A\mathbf y-B\mathbf u-\mathbf f$ |
-| State tracking | $`\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}}^{2}`$ | $`\frac{1}{2}\int_{\Omega}(y_{h}-z_{d})^{2}`$ | $`\frac{1}{2}(\mathbf y^{\mathsf T}M_{y}\mathbf y-2\mathbf q^{\mathsf T}\mathbf y+c)`$ |
-| Control penalty | $`\frac{\beta}{2}\lVert u\rVert_{L^{2}}^{2}`$ | $`\frac{\beta}{2}\int_{\Omega}u_{h}^{2}`$ | $`\frac{\beta}{2}\mathbf u^{\mathsf T}N_{u}\mathbf u`$ |
-| Reduced derivative | $j'(u)\in U^{\ast}$ | $j'(u)[\delta u]$ acts on a control direction | $`\mathbf r_{u}^{\mathsf T}\delta\mathbf u`$ |
+| State | $y$ | $y\in V\coloneqq H_{0}^{1}(\Omega)$, later $y_{h}\in V_{h}$ | $\mathbf y\in\mathbb R^{n_{y}}$ |
+| Control | $u$ | $u$ belongs to a chosen control space; later $u_{h}\in U_{h}$ | $\mathbf u\in\mathbb R^{n_{u}}$ |
+| PDE constraint | $-\Delta y=f+u$ | $\langle E(y,u),v\rangle\coloneqq\int_{\Omega}\nabla y\cdot\nabla v-\int_{\Omega}fv-\int_{\Omega}uv$ | $\mathbf E(\mathbf y,\mathbf u)\coloneqq A\mathbf y-B\mathbf u-\mathbf f$ |
+| State tracking | $\frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}}^{2}$ | $\frac{1}{2}\int_{\Omega}(y_{h}-z_{d})^{2}$ | $\frac{1}{2}(\mathbf y^{\mathsf T}M_{y}\mathbf y-2\mathbf q^{\mathsf T}\mathbf y+c)$ |
+| Control penalty | $\frac{\beta}{2}\lVert u\rVert_{L^{2}}^{2}$ | $\frac{\beta}{2}\int_{\Omega}u_{h}^{2}$ | $\frac{\beta}{2}\mathbf u^{\mathsf T}N_{u}\mathbf u$ |
+| Reduced derivative | $j'(u)\in U^{\ast}$ | $j'(u)[\delta u]$ acts on a control direction | $\mathbf r_{u}^{\mathsf T}\delta\mathbf u$ |
 
 The table is deliberately not an identification of the columns. Each column exposes a
 different aspect of the same problem. In particular, a coefficient vector is a
@@ -1066,15 +1043,12 @@ That list is much easier to understand after deriving the discrete problem.
 
 For example, the three residual terms correspond to the weak residual
 
-```math
+$$
 \langle E(y,u),v\rangle
-=
-\underbrace{\int_{\Omega}\nabla y\cdot\nabla v}_{\text{diffusion/reaction family}}
--
-\underbrace{\int_{\Omega}fv}_{\text{volume source}}
--
-\underbrace{\int_{\Omega}uv}_{\text{volume control}},
-```
+= \underbrace{\int_{\Omega}\nabla y\cdot\nabla v}_{\text{diffusion/reaction family}}
+-\underbrace{\int_{\Omega}fv}_{\text{volume source}}
+-\underbrace{\int_{\Omega}uv}_{\text{volume control}},
+$$
 
 with reaction omitted in the pure Laplace case.
 
@@ -1263,7 +1237,7 @@ metric application / inverse application
 ```
 
 For an assembled deal.II realization, these operations may internally use sparse
-matrices $A$, $B$, $`M_{y}`$, and $`N_{u}`$.
+matrices $A$, $B$, $M_{y}$, and $N_{u}$.
 
 For an external PDE application, they may call methods on an existing application
 object.
@@ -1363,7 +1337,7 @@ Changing the problem reveals why later parts of the framework exist.
 
 ### Boundary control
 
-If the control acts on a boundary $`\Gamma_{c}`$ rather than in the volume, then
+If the control acts on a boundary $\Gamma_{c}$ rather than in the volume, then
 
 $$
 U=L^{2}(\Gamma_{c})

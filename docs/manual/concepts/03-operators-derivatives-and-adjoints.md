@@ -7,9 +7,9 @@ boundary.
 
 We now have:
 
-- a discrete variable space $`X_{h}`$, possibly a product such as
-  $`Y_{h}\times U_{h}`$;
-- a test space $`Z_{h}`$;
+- a discrete variable space $X_{h}$, possibly a product such as
+  $Y_{h}\times U_{h}$;
+- a test space $Z_{h}$;
 - primal coordinate representations for elements of those spaces;
 - covector coordinate representations for elements of their duals; and
 - a residual
@@ -55,7 +55,7 @@ For the running example, let
 
 $$
 X_{h}
-:=
+\coloneqq
 Y_{h}\times U_{h},
 $$
 
@@ -63,7 +63,7 @@ and write a point as
 
 $$
 x
-:=
+\coloneqq
 (y,u).
 $$
 
@@ -71,33 +71,31 @@ The discrete residual is
 
 $$
 E_{h}(y,u)
-:=
+\coloneqq
 Ay-Bu-f
 \in
 Z_{h}^{\ast}.
 $$
 
-For the simple Galerkin Laplace example, $`Y_{h}`$ and $`Z_{h}`$ may use the same finite
+For the simple Galerkin Laplace example, $Y_{h}$ and $Z_{h}$ may use the same finite
 element space, but we keep their roles distinct.
 
 Now perturb the point by
 
 $$
 \delta x
-:=
+\coloneqq
 (\delta y,\delta u).
 $$
 
 Because the residual is affine,
 
-```math
+$$
 \begin{aligned}
 E_{h}(y+\varepsilon\delta y,u+\varepsilon\delta u)
 &=
-A(y+\varepsilon\delta y)
--
-B(u+\varepsilon\delta u)
--
+A(y+\varepsilon\delta y) -
+B(u+\varepsilon\delta u) -
 f\\
 &=
 E_{h}(y,u)
@@ -107,14 +105,13 @@ E_{h}(y,u)
 A\delta y-B\delta u
 \right).
 \end{aligned}
-```
+$$
 
 The linearized residual is therefore
 
 $$
 E_{h}'(y,u)[\delta y,\delta u]
-=
-A\delta y-B\delta u.
+= A\delta y-B\delta u.
 $$
 
 In this particular problem the derivative does not depend on $(y,u)$ because the
@@ -223,7 +220,7 @@ In coordinates,
 
 $$
 \mathbf r_{\mathrm{jvp}}
-:=
+\coloneqq
 J_{E}(\mathbf x)\delta\mathbf x.
 $$
 
@@ -241,8 +238,7 @@ vectors.
 For the distributed-control residual,
 
 $$
-E_{h}'(y,u)[\delta y,\delta u]
-=
+E_{h}'(y,u)[\delta y,\delta u] =
 A\delta y-B\delta u.
 $$
 
@@ -255,16 +251,14 @@ With
 
 $$
 X_{h}
-=
-Y_{h}\times U_{h},
+= Y_{h}\times U_{h},
 $$
 
 the derivative can be viewed blockwise as
 
 $$
 E_{h}'(y,u)
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 D_{y}E_{h} & D_{u}E_{h}
 \end{bmatrix}.
 $$
@@ -279,17 +273,16 @@ $$
 
 Therefore
 
-```math
-E_{h}'(y,u)[\delta y,\delta u]
-=
+$$
+E_{h}'(y,u)[\delta y,\delta u] =
 D_{y}E_{h} \delta y+D_{u}E_{h} \delta u.
-```
+$$
 
 This block form becomes important in reduced optimization because the state
 linearization and control linearization play different roles:
 
-- $`D_{y}E_{h}`$ defines the state sensitivity and adjoint systems;
-- $`D_{u}E_{h}`$ carries the effect of the control into the residual.
+- $D_{y}E_{h}$ defines the state sensitivity and adjoint systems;
+- $D_{u}E_{h}$ carries the effect of the control into the residual.
 
 The generic executable model does not hard-code this state/control split. It exposes
 the full derivative action on the variable product. The reduced formulation later
@@ -303,33 +296,29 @@ $$
 -\Delta y+c y^{3}=f+u,
 $$
 
-with $c>0$.
+with $c\gt 0$.
 
 Its weak residual is
 
-```math
+$$
 \langle E(y,u),v\rangle
-:=
+\coloneqq
 \int_{\Omega}\nabla y\cdot\nabla v
 +
 \int_{\Omega}c y^{3}v
--
-\int_{\Omega}fv
--
-\int_{\Omega}uv.
-```
+-\int_{\Omega}fv
+-\int_{\Omega}uv.
+$$
 
 Perturb $y$ by $\delta y$ and $u$ by $\delta u$. Differentiating gives
 
-```math
+$$
 \langle E'(y,u)[\delta y,\delta u],v\rangle
-=
-\int_{\Omega}\nabla\delta y\cdot\nabla v
+= \int_{\Omega}\nabla\delta y\cdot\nabla v
 +
 \int_{\Omega}3c y^{2}\delta y v
--
-\int_{\Omega}\delta u v.
-```
+-\int_{\Omega}\delta u v.
+$$
 
 Now the linearized state operator depends on the current state $y$ through the
 coefficient $3cy^{2}$.
@@ -354,25 +343,24 @@ A derivative implementation should agree with the change in the underlying resid
 
 For a sufficiently smooth residual,
 
-```math
-E_{h}(x+\varepsilon\delta x)
-=
+$$
+E_{h}(x+\varepsilon\delta x) =
 E_{h}(x)
 +
 \varepsilon E_{h}'(x)[\delta x]
 +
 \mathcal O(\varepsilon^{2}).
-```
+$$
 
 Rearranging gives the first-order finite-difference check
 
-```math
+$$
 \frac{
 E_{h}(x+\varepsilon\delta x)-E_{h}(x)
 }{\varepsilon}
 \longrightarrow
 E_{h}'(x)[\delta x]
-```
+$$
 
 as $\varepsilon\to0$.
 
@@ -381,8 +369,7 @@ In coefficient form, one can compare the implemented JVP with
 $$
 \frac{
 \mathbf E(\mathbf x+\varepsilon\delta\mathbf x)
--
-\mathbf E(\mathbf x)
+-\mathbf E(\mathbf x)
 }{\varepsilon}.
 $$
 
@@ -396,20 +383,16 @@ Instead of dividing by $\varepsilon$, consider the remainder
 
 $$
 R(\varepsilon)
-:=
-E_{h}(x+\varepsilon\delta x)
--
-E_{h}(x)
--
-\varepsilon E_{h}'(x)[\delta x].
+\coloneqq
+E_{h}(x+\varepsilon\delta x)-E_{h}(x)
+-\varepsilon E_{h}'(x)[\delta x].
 $$
 
 For a smooth residual,
 
 $$
 \lVert R(\varepsilon)\rVert
-=
-\mathcal O(\varepsilon^{2}).
+= \mathcal O(\varepsilon^{2}).
 $$
 
 So halving $\varepsilon$ should reduce the remainder by roughly a factor of four
@@ -459,19 +442,18 @@ $$
 
 defined by the identity
 
-```math
+$$
 \left\langle
 E_{h}'(x)[\delta x],
 p
-\right\rangle_{Z_{h}^{\ast},Z_{h}}
-=
+\right\rangle_{Z_{h}^{\ast},Z_{h}} =
 \left\langle
 E_{h}'(x)^{\ast}p,
 \delta x
 \right\rangle_{X_{h}^{\ast},X_{h}}
-```
+$$
 
-for every $`\delta x\in X_{h}`$.
+for every $\delta x\in X_{h}$.
 
 This identity is the central definition.
 
@@ -507,8 +489,8 @@ $$
 E_{h}'(x)^{\ast}:Z_{h}\to X_{h}^{\ast}.
 $$
 
-A metric enters only if we later want to identify a covector in $`X_{h}^{\ast}`$ with
-a primal vector in $`X_{h}`$.
+A metric enters only if we later want to identify a covector in $X_{h}^{\ast}$ with
+a primal vector in $X_{h}$.
 
 That is why the executable model can expose a VJP without knowing the optimization
 metric.
@@ -526,7 +508,7 @@ Let $\mathbf p$ contain the primal coordinates of the test seed.
 Using the coefficient pairings from
 [Spaces, coordinates, and duality](02-spaces-coordinates-and-duality.md),
 
-```math
+$$
 \begin{aligned}
 \left\langle
 E_{h}'(x)[\delta x],
@@ -542,13 +524,13 @@ J_{E}(\mathbf x)\delta\mathbf x
 J_{E}(\mathbf x)^{\mathsf T}
 \mathbf p.
 \end{aligned}
-```
+$$
 
 Therefore the covector coordinates of the transpose action are
 
 $$
 \mathbf r_{\mathrm{vjp}}
-:=
+\coloneqq
 J_{E}(\mathbf x)^{\mathsf T}\mathbf p.
 $$
 
@@ -574,27 +556,25 @@ pairing identity must hold.
 Return to
 
 $$
-E_{h}'(y,u)
-=
+E_{h}'(y,u) =
 \begin{bmatrix}
 A & -B
 \end{bmatrix}.
 $$
 
-Let $`p\in Z_{h}`$.
+Let $p\in Z_{h}$.
 
 Then
 
-```math
+$$
 E_{h}'(y,u)^{\ast}p
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 A^{\mathsf T}p\\
 -B^{\mathsf T}p
 \end{bmatrix}
 \in
 Y_{h}^{\ast}\times U_{h}^{\ast}.
-```
+$$
 
 The two components have immediate interpretations:
 
@@ -608,15 +588,14 @@ A^T p
 
 Check the defining identity:
 
-```math
+$$
 \begin{aligned}
 \left(
 A\delta y-B\delta u
 \right)^{\mathsf T}p
 &=
 \delta y^{\mathsf T}A^{\mathsf T}p
--
-\delta u^{\mathsf T}B^{\mathsf T}p\\
+-\delta u^{\mathsf T}B^{\mathsf T}p\\
 &=
 \left\langle
 \begin{bmatrix}
@@ -629,7 +608,7 @@ A^{\mathsf T}p\\
 \end{bmatrix}
 \right\rangle.
 \end{aligned}
-```
+$$
 
 This is exactly the transpose structure that appeared in the reduced derivative in
 the first chapter.
@@ -686,19 +665,17 @@ without first writing a Jacobian matrix.
 
 We had
 
-```math
-\langle E'(y,u)[\delta y,\delta u],p\rangle
-=
+$$
+\langle E'(y,u)[\delta y,\delta u],p\rangle =
 \int_{\Omega}\nabla\delta y\cdot\nabla p
 +
-\int_{\Omega}3c y^{2}\delta y p
--
+\int_{\Omega}3c y^{2}\delta y p -
 \int_{\Omega}\delta u p.
-```
+$$
 
 Regroup the expression by the perturbations:
 
-```math
+$$
 \begin{aligned}
 \langle E'(y,u)[\delta y,\delta u],p\rangle
 &=
@@ -707,11 +684,10 @@ Regroup the expression by the perturbations:
 +
 \int_{\Omega}3c y^{2}\delta y p
 \right]\\
-&\quad
--
+&\quad -
 \int_{\Omega}\delta u p.
 \end{aligned}
-```
+$$
 
 The bracketed term is a linear functional of $\delta y$; the last term is a linear
 functional of $\delta u$.
@@ -809,8 +785,7 @@ $$
 For a perturbation $\delta x$,
 
 $$
-J_{h}'(x)[\delta x]
-=
+J_{h}'(x)[\delta x] =
 \left\langle
 J_{h}'(x),
 \delta x
@@ -820,8 +795,8 @@ $$
 In coordinates,
 
 $$
-=
-\mathbf r_{J}^{\mathsf T}\delta\mathbf x.
+J_{h}'(x)[\delta x]
+= \mathbf r_{J}^{\mathsf T}\delta\mathbf x.
 $$
 
 Because the codomain of the objective is already scalar, there is usually no reason
@@ -830,13 +805,12 @@ returned derivative covector can be paired with any tangent direction.
 
 For the quadratic objective from the first chapter,
 
-```math
+$$
 J_{h}(y,u)
-:=
+\coloneqq
 \frac{1}{2}
 \left(
-y^{\mathsf T}M_{y}y
--
+y^{\mathsf T}M_{y}y -
 2q^{\mathsf T}y
 +
 c
@@ -844,18 +818,17 @@ c
 +
 \frac{\beta}{2}
 u^{\mathsf T}N_{u}u,
-```
+$$
 
 the derivative covector is
 
-```math
-J_{h}'(y,u)
-=
+$$
+J_{h}'(y,u) =
 \begin{bmatrix}
 M_{y}y-q\\
 \beta N_{u}u
 \end{bmatrix}.
-```
+$$
 
 Pairing it with $(\delta y,\delta u)$ gives the directional derivative.
 
@@ -866,26 +839,21 @@ the operation `objective_derivative()`.
 
 A first-order Taylor expansion gives
 
-```math
-J_{h}(x+\varepsilon\delta x)
-=
+$$
+J_{h}(x+\varepsilon\delta x) =
 J_{h}(x)
 +
 \varepsilon J_{h}'(x)[\delta x]
 +
 \mathcal O(\varepsilon^{2}).
-```
+$$
 
 So the scalar remainder
 
 $$
 R_{J}(\varepsilon)
-:=
-J_{h}(x+\varepsilon\delta x)
--
-J_{h}(x)
--
-\varepsilon
+\coloneqq
+J_{h}(x+\varepsilon\delta x)-J_{h}(x)-\varepsilon
 \left\langle
 J_{h}'(x),
 \delta x
@@ -917,7 +885,7 @@ API list.
 
 The interface represents the maps
 
-```math
+$$
 \begin{aligned}
 E_{h}(x)
 &\in
@@ -939,7 +907,7 @@ J_{h}'(x)
 &\in
 X_{h}^{\ast}.
 \end{aligned}
-```
+$$
 
 The corresponding methods are:
 
@@ -958,17 +926,17 @@ The type flow can be summarized as:
 
 | Operation | Input | Output | Mathematical meaning |
 | --- | --- | --- | --- |
-| `residual` | primal in $`X_{h}`$ | covector in $`Z_{h}^{\ast}`$ | $`E_{h}(x)`$ |
-| `residual_jvp` | point and tangent in $`X_{h}`$ | covector in $`Z_{h}^{\ast}`$ | $`E_{h}'(x)[\delta x]`$ |
-| `residual_vjp` | point in $`X_{h}`$, seed in $`Z_{h}`$ | covector in $`X_{h}^{\ast}`$ | $`E_{h}'(x)^{\ast}p`$ |
-| `objective` | primal in $`X_{h}`$ | scalar | $`J_{h}(x)`$ |
-| `objective_derivative` | primal in $`X_{h}`$ | covector in $`X_{h}^{\ast}`$ | $`J_{h}'(x)`$ |
+| `residual` | primal in $X_{h}$ | covector in $Z_{h}^{\ast}$ | $E_{h}(x)$ |
+| `residual_jvp` | point and tangent in $X_{h}$ | covector in $Z_{h}^{\ast}$ | $E_{h}'(x)[\delta x]$ |
+| `residual_vjp` | point in $X_{h}$, seed in $Z_{h}$ | covector in $X_{h}^{\ast}$ | $E_{h}'(x)^{\ast}p$ |
+| `objective` | primal in $X_{h}$ | scalar | $J_{h}(x)$ |
+| `objective_derivative` | primal in $X_{h}$ | covector in $X_{h}^{\ast}$ | $J_{h}'(x)$ |
 
 The table also explains one detail that can look odd on first inspection:
 `residual_vjp()` takes a **primal** test seed.
 
-The seed $p$ is an element of the test space $`Z_{h}`$. The result is the dual object
-in $`X_{h}^{\ast}`$.
+The seed $p$ is an element of the test space $Z_{h}$. The result is the dual object
+in $X_{h}^{\ast}$.
 
 ### 13.1 Why the interface exposes actions rather than a Jacobian object
 
@@ -1089,7 +1057,7 @@ Its residual is conceptually
 
 $$
 E(z,u)
-:=
+\coloneqq
 Kz-b_{F}-Bu,
 $$
 
@@ -1098,7 +1066,7 @@ where:
 - $z$ contains independent state coordinates;
 - $K$ is the state operator in those coordinates;
 - $B$ couples the full control field into the independent state equations;
-- $`b_{F}`$ is the fixed right-hand side after boundary treatment.
+- $b_{F}$ is the fixed right-hand side after boundary treatment.
 
 The actual code does not spell this as one matrix expression. It composes native
 operations:
@@ -1128,8 +1096,7 @@ Mathematically,
 
 $$
 E'(z,u)[\delta z,\delta u]
-=
-K\delta z-B\delta u.
+= K\delta z-B\delta u.
 $$
 
 The method does not need the current $(z,u)$.
@@ -1138,14 +1105,13 @@ The method does not need the current $(z,u)$.
 
 Given a test seed $p$, the transpose action is
 
-```math
-E'(z,u)^{\ast}p
-=
+$$
+E'(z,u)^{\ast}p =
 \begin{bmatrix}
 K^{\mathsf T}p\\
 -B^{\mathsf T}p
 \end{bmatrix}.
-```
+$$
 
 The native implementation therefore calls:
 
@@ -1187,8 +1153,7 @@ The native code reconstructs
 
 $$
 y_{\mathrm{phys}}
-=
-Pz+\ell
+= Pz+\ell
 $$
 
 and forms the physical mass action
@@ -1218,14 +1183,13 @@ $$
 
 So the objective derivative has the product-space form
 
-```math
-J'(z,u)
-=
+$$
+J'(z,u) =
 \begin{bmatrix}
 P^{\mathsf T}M(Pz+\ell)\\
 M u
 \end{bmatrix}
-```
+$$
 
 for the Step-4 quadratic objective.
 
@@ -1248,25 +1212,23 @@ The executable interface sees only the final independent-coordinate covector.
 For any point $x$, tangent $\delta x$, and test seed $p$, a correct JVP/VJP pair must
 satisfy
 
-```math
+$$
 \left\langle
 E'(x)[\delta x],
 p
 \right\rangle
-=
-\left\langle
+= \left\langle
 E'(x)^{\ast}p,
 \delta x
 \right\rangle.
-```
+$$
 
 After coordinate representation this becomes
 
 $$
 \mathrm{pair}(
 \mathrm{JVP}(x,\delta x),
-p)
-=
+p) =
 \mathrm{pair}(
 \mathrm{VJP}(x,p),
 \delta x).
@@ -1276,37 +1238,34 @@ The backend-neutral executable-model contract test checks exactly this identity.
 
 Its synthetic residual is
 
-```math
+$$
 E(y_{0},y_{1},u)
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 y_{0}-u\\
 y_{1}-2u
 \end{bmatrix}.
-```
+$$
 
 Therefore
 
-```math
+$$
 E'
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 1&0&-1\\
 0&1&-2
 \end{bmatrix},
-```
+$$
 
 and
 
-```math
+$$
 E'^{\mathsf T}p
-=
-\begin{bmatrix}
+= \begin{bmatrix}
 p_{0}\\
 p_{1}\\
 -p_{0}-2p_{1}
 \end{bmatrix}.
-```
+$$
 
 The test supplies arbitrary tangent and seed vectors and compares the two pairings.
 
@@ -1337,13 +1296,11 @@ Does the JVP differentiate the residual?
 
 Check
 
-```math
-E(x+\varepsilon\delta x)
--
-E(x)
+$$
+E(x+\varepsilon\delta x) - E(x)
 \approx
 \varepsilon E'(x)[\delta x].
-```
+$$
 
 ### JVP/VJP consistency
 
@@ -1351,11 +1308,10 @@ Is the VJP the transpose of that JVP under the declared pairings?
 
 Check
 
-```math
+$$
 \langle E'(x)[\delta x],p\rangle
-=
-\langle E'(x)^{\ast}p,\delta x\rangle.
-```
+= \langle E'(x)^{\ast}p,\delta x\rangle.
+$$
 
 If only the second test is present, one could implement a wrong JVP and the matching
 transpose of that wrong JVP; the pairing test would still pass.
@@ -1414,8 +1370,7 @@ $$
 The adjoint equation has the form
 
 $$
-D_{y}E_{h}(y,u)^{\ast}p
-=
+D_{y}E_{h}(y,u)^{\ast}p =
 D_{y}J_{h}(y,u)
 \in
 Y_{h}^{\ast}
@@ -1528,8 +1483,7 @@ be a feasible state/control point.
 The objective derivative is the product covector
 
 $$
-J'(x)
-=
+J'(x) =
 \left(
 D_{y}J,
 D_{u}J
@@ -1541,41 +1495,36 @@ $$
 Solve the adjoint equation
 
 $$
-D_{y}E_{h}(x)^{\ast}p
-=
+D_{y}E_{h}(x)^{\ast}p =
 D_{y}J_{h}.
 $$
 
 Now evaluate the **full** residual VJP:
 
 $$
-E'(x)^{\ast}p
-=
+E'(x)^{\ast}p =
 \left(
 D_{y}E_{h}(x)^{\ast}p,
 D_{u}E_{h}(x)^{\ast}p
 \right).
 $$
 
-The first component is, by construction, $`D_{y}J`$.
+The first component is, by construction, $D_{y}J$.
 
 The second component gives the control contribution from the state equation.
 
 With the project's convention
 
 $$
-\mathcal L(x,p)
-=
+\mathcal L(x,p) =
 J(x)-\langle p,E(x)\rangle,
 $$
 
 the control derivative of the reduced objective is
 
 $$
-j'(u)
-=
-D_{u}J_{h}
--
+j'(u) =
+D_{u}J_{h} -
 D_{u}E_{h}(x)^{\ast}p.
 $$
 
@@ -1588,16 +1537,14 @@ $$
 we have
 
 $$
-D_{u}E_{h}(x)^{\ast}p
-=
+D_{u}E_{h}(x)^{\ast}p =
 -B^{\mathsf T}p,
 $$
 
 and therefore
 
 $$
-j'(u)
-=
+j'(u) =
 D_{u}J+B^{\mathsf T}p.
 $$
 
@@ -1699,13 +1646,13 @@ At this point the relationships among the objects can be summarized as:
 
 | Object/action | Map | Coordinate picture | `nmopt` operation |
 | --- | --- | --- | --- |
-| Residual | $`E:X_{h}\to Z_{h}^{\ast}`$ | $\mathbf E(\mathbf x)$ | `residual(x)` |
-| Residual derivative | $`E'(x):X_{h}\to Z_{h}^{\ast}`$ | $`J_{E}(\mathbf x)\delta\mathbf x`$ | `residual_jvp(x, dx)` |
-| Residual transpose | $`E'(x)^{\ast}:Z_{h}\to X_{h}^{\ast}`$ | $`J_{E}(\mathbf x)^{\mathsf T}\mathbf p`$ | `residual_vjp(x, p)` |
-| Objective | $`J:X_{h}\to\mathbb R`$ | $J(\mathbf x)$ | `objective(x)` |
-| Objective derivative | $`J'(x)\in X_{h}^{\ast}`$ | $`\mathbf r_{J}`$ | `objective_derivative(x)` |
+| Residual | $E:X_{h}\to Z_{h}^{\ast}$ | $\mathbf E(\mathbf x)$ | `residual(x)` |
+| Residual derivative | $E'(x):X_{h}\to Z_{h}^{\ast}$ | $J_{E}(\mathbf x)\delta\mathbf x$ | `residual_jvp(x, dx)` |
+| Residual transpose | $E'(x)^{\ast}:Z_{h}\to X_{h}^{\ast}$ | $J_{E}(\mathbf x)^{\mathsf T}\mathbf p$ | `residual_vjp(x, p)` |
+| Objective | $J:X_{h}\to\mathbb R$ | $J(\mathbf x)$ | `objective(x)` |
+| Objective derivative | $J'(x)\in X_{h}^{\ast}$ | $\mathbf r_{J}$ | `objective_derivative(x)` |
 | State solve | solve $E(y,u)=0$ for $y$ | inverse/nonlinear solve | separate solve service |
-| Adjoint solve | solve $`D_{y}E_{h}(x)^{\ast}p=D_{y}J_{h}`$ | transpose-system solve | separate solve service |
+| Adjoint solve | solve $D_{y}E_{h}(x)^{\ast}p=D_{y}J_{h}$ | transpose-system solve | separate solve service |
 
 The table also marks the boundary of this chapter.
 
@@ -1779,14 +1726,13 @@ After `executable_model.hpp`, read:
 
 The contract test uses a deliberately tiny model:
 
-```math
-E(y_{0},y_{1},u)
-=
+$$
+E(y_{0},y_{1},u) =
 \begin{bmatrix}
 y_{0}-u\\
 y_{1}-2u
 \end{bmatrix}.
-```
+$$
 
 Because every derivative can be written by inspection, it is an effective place to
 see:

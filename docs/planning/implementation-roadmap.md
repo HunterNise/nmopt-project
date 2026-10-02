@@ -114,7 +114,7 @@ surface is acceptance-complete after the P6.5 R1–R7 and C6-I4 remediation
 closure. The final gates pass 44/44 `debug-neutral`, 82/82 `debug-dealii`,
 and 44/44 `sanitize-neutral` scenarios; the completed optimized
 `release-dealii` gate passes 82/82 scenarios.
-The typed trace and negative-metric policies, explicit $`H^{1}_{0}`$ target-data
+The typed trace and negative-metric policies, explicit $H_{0}^{1}$ target-data
 assumption, control-boundary realization, and realized observation-space
 dimensions are covered by the semantic and deal.II contracts. The reviewed
 operator formulas, exact-transpose solve, energy/weighted observation
@@ -198,7 +198,7 @@ The following pieces exist and are tested:
 | Reference oracle | `tests/support/reference_models/linear_quadratic_model.hpp` | Dense linear-quadratic model used to test signs and derivatives independently of deal.II. |
 | deal.II backend | `include/nmopt/dealii/serial_backend.hpp` | Serial Vector backend with a checked conversion from contract dimensions to the native deal.II size type. |
 | Canonical v1 scalar realization | `include/nmopt/compiler/v1/{dealii_compiler,dealii_fixed_dirichlet}.hpp` | Assembled scalar `FE_Q`/`FE_DGQ(0)` realization with typed data placement, independent state coordinates, full-domain tracking, homogeneous/fixed Dirichlet data, and DTO services. |
-| deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric,trace_hhalf_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, fractional-trace, and negative-norm layouts. The selected $H^{-1}$ realization applies $`M_{h}K_{h}^{-1}M_{h}`$; the $H^{1/2}$ realization applies the minimum-volume-$H^{1}$ Schur complement without forming a dense fractional matrix. All inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
+| deal.II metrics | `include/nmopt/dealii/{mass_metric,hminus1_metric,trace_hhalf_metric}.hpp` | One-block sparse SPD Riesz actions for the registered volume, boundary, trace, parameter, fractional-trace, and negative-norm layouts. The selected $H^{-1}$ realization applies $M_{h}K_{h}^{-1}M_{h}$; the $H^{1/2}$ realization applies the minimum-volume-$H^{1}$ Schur complement without forming a dense fractional matrix. All inverse actions use recorded serial-CG policies and operator-bound realization witnesses. |
 | deal.II constraints | `include/nmopt/dealii/{cellwise,facewise}_box_constraint.hpp` | Coefficientwise boxes coupled to the actual positive-diagonal cellwise-volume or facewise-boundary $L^{2}$ metric realization, never to its display string. |
 | Reduced solver | `include/nmopt/solvers/reduced_gradient.hpp` | Backend-parametric reduced search loop over `ReducedDTOT`, `MetricT`, and optional `ConstraintT`, with typed direction policies, explicit Hessian/Newton support, configurable Armijo/exact/Wolfe line searches, and uniform action reporting. |
 | Build/test workflow | `CMakePresets.json` and `CMakeLists.txt` | Explicit neutral/deal.II Debug, neutral sanitizer, and deal.II Release profiles; requested dependency failures; target-scoped warnings; and labeled, time-bounded scenarios. |
@@ -253,9 +253,9 @@ that it is needed; it is not a prerequisite for the reduced-space examples.
 
 1. Preserve the global convention
 
-   The global convention is $`\mathcal L(x,p)=J(x)-\langle p,E(x)\rangle`$.
+   The global convention is $\mathcal L(x,p)=J(x)-\langle p,E(x)\rangle$.
 
-   Thus the reduced covector is always $`J_{u}'-E_{u}'^{\ast}p`$.
+   Thus the reduced covector is always $J_{u}'-E_{u}'^{\ast}p$.
 
 2. Residuals and objective derivatives return covectors. A metric alone maps
    the reduced covector to a primal direction.
@@ -276,7 +276,7 @@ that it is needed; it is not a prerequisite for the reduced-space examples.
 ### P0.1 — Add a real deal.II $L^{2}$ metric — completed
 
 **Why first:** The canonical scalar realization already assembles the control mass matrix
-$`M_{u}`$, and the reduced DTO builder already produces $`j_{h}'(u)`$. The
+$M_{u}$, and the reduced DTO builder already produces $j_{h}'(u)$. The
 missing operation is
 
 $$
@@ -302,7 +302,7 @@ compiled-object registry.
 
 - applying the inverse followed by apply recovers a random covector;
 - a metric direction satisfies
-  $`\langle M_{u} g,\delta u\rangle=\langle j',\delta u\rangle`$;
+  $\langle M_{u} g,\delta u\rangle=\langle j',\delta u\rangle$;
 - the test uses actual deal.II vectors and a nontrivial control mass matrix.
 
 **Implemented:** `dealii_backend::MassMetric` provides the generic one-block
@@ -421,8 +421,8 @@ Dirichlet data.
 **Choices and default:**
 
 - **Default:** represent
-  $`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}`$, where $`P_{h}`$ handles all
-  affine constraints and $`\ell_{0,h}`$ is a declared fixed lifting.
+  $y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}$, where $P_{h}$ handles all
+  affine constraints and $\ell_{0,h}$ is a declared fixed lifting.
 - Alternative: work only with full vectors plus modified rows. This is the
   current homogeneous implementation and must not be generalized implicitly
   to nonzero data.
@@ -435,8 +435,8 @@ test; and changing the lifting/data invalidates all appropriate caches.
 `fixed_dirichlet_reconstruction` transformation, and the compiler then binds
 explicit fixed-Dirichlet `Function` data. Its private v1-only compiler target
 compiles independent `FE_Q` coordinates with
-$`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}`$, evaluates residual and
-tracking on the physical field, and applies $`P_{h}^{\ast}`$ for every
+$y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}$, evaluates residual and
+tracking on the physical field, and applies $P_{h}^{\ast}$ for every
 state-side covector. The former direct baseline is retained only in the
 historical lowerer record. The
 manifest records the transformation, nodal boundary interpolation data rule,
@@ -458,7 +458,7 @@ It also forces the compiler to make region and data semantics real.
   FE projection/interpolation. No implicit nodal interpretation.
 
 **Done when:** changing only the observation region changes the adjoint RHS
-and objective, not $`A_{h}`$, $`B_{h}`$, the state solution, or solver code.
+and objective, not $A_{h}$, $B_{h}$, the state solution, or solver code.
 
 **Implemented (v1):** `RegionSpec` now names material-id volume subregions;
 the state tracking observation, observation space, desired state, and selected
@@ -486,7 +486,7 @@ marked boundary faces of the state triangulation. Assemble with `FEFaceValues`.
 
 - Boundary Region declarations and a boundary control layout.
 - A residual term
-  $`-\langle u,\gamma v\rangle_{\Gamma_{c}}`$ and its VJP.
+  $-\langle u,\gamma v\rangle_{\Gamma_{c}}$ and its VJP.
 - Boundary trace observation/loss on a marked boundary region.
 - Independent boundary $L^{2}$ metric and box constraint realization.
 
@@ -499,7 +499,7 @@ separate Dirichlet, control, and observation boundary regions; an explicit
 `neumann_control` residual term; a state `boundary_trace` observation; and
 the trace policies required for both. The private v1 Neumann target assigns
 one scalar to each marked active boundary face and uses `FEFaceValues` to
-assemble $`-\langle u,\gamma v\rangle_{\Gamma_{c}}`$, its transpose, and
+assemble $-\langle u,\gamma v\rangle_{\Gamma_{c}}$, its transpose, and
 boundary tracking. It has a separate diagonal face-measure `l2_facewise`
 metric and `FacewiseBoxConstraint`, with separate facewise bound bindings.
 Focused semantic tests reject an absent trace policy or a mismatched control
@@ -539,18 +539,18 @@ exercise it.
 **Implement in two different tasks or commits:**
 
 1. $H^{1}$ **regularisation**: a new control loss and likely an `FE_Q` control
-   space; it changes $`J_{u}'`$.
+   space; it changes $J_{u}'$.
 2. $H^{1}$ **metric**: a Riesz map/inverse used only for
    $G^{-1}j'$; it does not change the objective or adjoint.
 
 **Implemented (v1):**
 `make_h1_regularised_scalar_diffusion_reaction_problem()` selects a new
 `quadratic_h1_control_regularisation` loss and continuous control `FE_Q` space.
-Its private v1 target adds $`\alpha(M_{u}+K_{u})u`$ to the control objective
+Its private v1 target adds $\alpha(M_{u}+K_{u})u$ to the control objective
 derivative while retaining the `l2_continuous` mass-matrix search metric.
 `make_h1_metric_scalar_diffusion_reaction_problem()` selects the separate
 `h1_continuous` metric on the same continuous control space. Its Riesz map is
-$`G=M_{u}+K_{u}`$, with the positive mass term providing coercivity; its CG
+$G=M_{u}+K_{u}$, with the positive mass term providing coercivity; its CG
 inverse is used only to form the search direction. It does not alter the
 objective, residual, state solve, or adjoint solve, and neither realization
 selects a box constraint. Focused contracts compare the two metrics while
@@ -585,7 +585,7 @@ decision port for a `diffusion_parameter` variable rather than a source
 control. The parameter is cellwise `FE_DGQ(0)` and must select a cellwise L2
 box whose lower bound is strictly positive; this is the first explicit
 positivity policy, with no logarithmic transformation. Its private v1 target
-realises $`(m\nabla y,\nabla v)+(c y,v)-(f,v)`$, reassembles the SPD state
+realises $(m\nabla y,\nabla v)+(c y,v)-(f,v)$, reassembles the SPD state
 matrix for each parameter point, and supplies both JVP and VJP parameter
 actions. The parameter L2 metric and box use the separate
 `l2_cellwise_parameter` identifier. Focused contracts check positivity
@@ -606,7 +606,7 @@ $$
 $$
 
 with forward value, JVP, and VJP. Both residual and observation consume
-$`y_{\mathrm{phys}}`$.
+$y_{\mathrm{phys}}$.
 
 **Done when:** the implementation passes a composed-transformation VJP test
 and a reduced Taylor test. Reject boundary spaces or corner/interface
@@ -614,14 +614,14 @@ configurations with no declared lifting policy.
 
 **Implementation:** `make_dirichlet_control_scalar_diffusion_reaction_problem()`
 selects a separate v1-only assembled target with
-$`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+L_{D,h}u_{h}`$. The initial registered
+$y_{\mathrm{phys}}=P_{h}\widehat y_{h}+L_{D,h}u_{h}$. The initial registered
 trace policy has one shared nodal control coefficient for every `FE_Q` state
-DoF on the complete exterior boundary; its $`\ell_{0,h}`$ term is zero. The
+DoF on the complete exterior boundary; its $\ell_{0,h}$ term is zero. The
 compiler rejects partial boundaries, undeclared corner or interface rules,
 hanging-node relations, and box constraints rather than choosing a trace
 value implicitly. Residual and full-volume tracking assemble on the physical
-state, while state and control covectors use $`P_{h}^{\ast}`$ and
-$`L_{D,h}^{\ast}`$. The deal.II contract test verifies a nonzero manufactured
+state, while state and control covectors use $P_{h}^{\ast}$ and
+$L_{D,h}^{\ast}$. The deal.II contract test verifies a nonzero manufactured
 state, composed lifting VJP, reduced Taylor remainder, trace metric, manifest,
 and incomplete-boundary diagnostic. The retired direct baseline is not a
 current production path.
@@ -729,7 +729,7 @@ control-space formulation requires a separate $H^{-1}$ primal-dual map.
 **First observation slice:**
 
 - Add a full-domain `h1_state_restriction` observation with its explicitly
-  declared $`H^{1}_{0}`$ pairing. Its quadratic loss lowers to selected mass and
+  declared $H_{0}^{1}$ pairing. Its quadratic loss lowers to selected mass and
   stiffness contributions, and its VJP supplies the corresponding state
   covector.
 - Add `weighted_boundary_trace`, a general map from a state trace and fixed
@@ -749,7 +749,7 @@ changing the reduced covector.
 
 **Implemented slices:**
 `make_h1_state_tracking_scalar_diffusion_reaction_problem()` selects the new
-`h1_state_restriction` kind and an explicit $`H^{1}_{0}`$ observation pairing.
+`h1_state_restriction` kind and an explicit $H_{0}^{1}$ observation pairing.
 The bounded scalar component target assembles the mass-plus-stiffness tracking
 operator, target value/gradient load and norm, and corresponding state
 covector while retaining the cellwise $L^{2}$ control metric. The manifest
@@ -760,7 +760,7 @@ reduced Taylor convergence, and unchanged metric provenance. The
 `make_weighted_boundary_trace_neumann_control_problem()` separately selects
 `weighted_boundary_trace`, whose explicit immutable `boundary_weight` data
 port is evaluated with the desired target at boundary face quadrature. Its
-Neumann target assembles $h^{2}$ in the tracking operator and $`h z_{d}`$ in the
+Neumann target assembles $h^{2}$ in the tracking operator and $h z_{d}$ in the
 target load, while leaving the residual and `l2_facewise` control metric
 unchanged. Semantic contracts cover the data port and quadrature policy;
 deal.II contracts cover missing/provenance/shape diagnostics, exact
@@ -770,9 +770,9 @@ unchanged metric action, reduced Taylor convergence, and manifest provenance.
 `make_l2_metric_h1_state_tracking_continuous_control_problem()` and
 `make_hminus1_metric_h1_state_tracking_scalar_diffusion_reaction_problem()`
 select the same independent homogeneous-Dirichlet continuous `FE_Q` control
-coordinates. The first retains $`G_{h}=M_{h}`$; the second selects
-$`G_{h}=M_{h}K_{h}^{-1}M_{h}`$, where $`K_{h}`$ is the Dirichlet Laplacian, so
-$`G_{h}^{-1}=M_{h}^{-1}K_{h}M_{h}^{-1}`$ and no mean constraint is needed. Both retain
+coordinates. The first retains $G_{h}=M_{h}$; the second selects
+$G_{h}=M_{h}K_{h}^{-1}M_{h}$, where $K_{h}$ is the Dirichlet Laplacian, so
+$G_{h}^{-1}=M_{h}^{-1}K_{h}M_{h}^{-1}$ and no mean constraint is needed. Both retain
 the same energy observation, volume residual, $L^{2}$ control loss, state
 solve, and adjoint solve. The registered target has no coefficientwise box.
 The shared identity-preconditioned CG tolerances are recorded for the mass and
@@ -784,9 +784,9 @@ provenance. These implementation slices have landed.
 
 **Acceptance status:** complete for the registered bounded slices. The typed
 trace and negative-metric selections, control-boundary realization, explicit
-$`H^{1}_{0}`$ target-data assumption, and realized weighted-observation
+$H_{0}^{1}$ target-data assumption, and realized weighted-observation
 dimensions are covered by semantic and deal.II contracts. The mass-plus-
-stiffness observation, weighted pullback, $`M_{h}K_{h}^{-1}M_{h}`$ action/inverse,
+stiffness observation, weighted pullback, $M_{h}K_{h}^{-1}M_{h}$ action/inverse,
 and comparison/Taylor tests remain retained behavior.
 
 ### P5.3 — Add normal-flux and point-sensor observations through an explicit strong/very-weak policy — acceptance complete
@@ -811,7 +811,7 @@ slices while leaving alternate flux/evaluation formulations unselected.
 
 **First registered targets:** C5.8 strong-state normal-flux observation and
 C5.10 point-sensor observation. C5.8 selects
-$`Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$, the outward normal, selected
+$Y=H^{2}(\Omega)\cap H_{0}^{1}(\Omega)$, the outward normal, selected
 boundary-face quadrature, and an assembled very-weak boundary-source
 transpose. C5.10 selects physical point evaluation and its assembled
 very-weak point-load transpose. Alternate flux/evaluation policies and a
@@ -827,7 +827,7 @@ product records all regularity, orientation, and evaluation policies.
 strong-state normal-flux graph. Its boundary region owns the selected IDs and
 its observation space is an $L^{2}$ face-quadrature output. The selected
 strong-state parent is
-$`Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$ with
+$Y=H^{2}(\Omega)\cap H_{0}^{1}(\Omega)$ with
 $T=-\kappa\Delta+rI:Y\rightarrow L^{2}(\Omega)$ using the bound diffusion
 and reaction data ports, under a declared convex-or-$C^{2}$ domain assumption.
 The deal.II lowerer evaluates the outward normal
@@ -867,7 +867,7 @@ fixed data, fractional trace geometry, and tangential $H^{1}$ regularisation.
 
 - A boundary-partition/lifting policy that explicitly resolves every
   fixed-controlled interface, corner, and hanging-node relation in
-  $`y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}`$.
+  $y_{\mathrm{phys}}=P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}$.
 - Selected trace-space declarations and metrics for boundary $L^{2}$,
   fractional $H^{1/2}$, and tangential $H^{1}$ choices. A metric is separate
   from the associated control regularisation loss.
@@ -894,7 +894,7 @@ one fixed-data port, a complete fixed/controlled boundary partition, and
 fixed-data precedence at shared corner/interface DoFs. The private nodal target
 uses the relative-interior controlled trace with zero endpoint extension,
 assembles the independent trace $L^{2}$ metric, and realizes
-$`P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}`$. Focused contracts distinguish
+$P_{h}\widehat y_{h}+\ell_{0,h}+L_{D,h}u_{h}$. Focused contracts distinguish
 fixed and controlled values, test state/control residual and objective
 pullbacks, metric apply/inverse, changed fixed data, and exact diagnostics for
 overlapping or absent boundary regions. Sobolev metrics on this partial trace,
@@ -903,11 +903,11 @@ remain P5.4 follow-ups.
 
 **Implemented Chapter 5.11.2 slice:**
 `make_l2_dirichlet_laplace_control_problem()` declares
-$`Y=H^{2}(\Omega)\cap H^{1}_{0}(\Omega)`$,
+$Y=H^{2}(\Omega)\cap H_{0}^{1}(\Omega)$,
 $T=-\Delta:Y\rightarrow L^{2}(\Omega)$, residual codomain $Y^{\ast}$, and
 multiplier space $Y$ for the complete-boundary $L^{2}(\Gamma)$ Dirichlet
 control. Its selected discrete space
-$`U_{h}=\mathrm{tr}_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)`$ permits the equivalent
+$U_{h}=\mathop{\mathrm{tr}}\nolimits_{\Gamma}V_{h}\subset H^{1/2}(\Gamma)$ permits the equivalent
 lifted $H^{1}$ Galerkin solve. The manifest records the continuous parent,
 conforming subspace, equivalence, normalized Laplacian, and exclusions; it
 does not claim support for facewise or discontinuous controls or a general
@@ -917,25 +917,25 @@ The corresponding discrete conormal is the lifting pullback of the adjoint
 residual, not a pointwise `FE_Q` normal derivative. The focused contract
 verifies
 
-```math
+$$
 \langle q_{h},v_{h}\rangle
 =a(L_{D,h}v_{h},p_{h})
 -(y_{h}-z_{d},L_{D,h}v_{h})_{\Omega}
-```
+$$
 
 and the reduced stationarity covector
-$`\beta M_{\Gamma,h}u_{h}-q_{h}`$. This fixes the sign from source equations
+$\beta M_{\Gamma,h}u_{h}-q_{h}$. This fixes the sign from source equations
 (5.171)–(5.174), rather than the inconsistent plus sign printed in Remark
 5.18. `DirichletControlLiftingModel::discrete_conormal_covector()` and
 `nmopt.dealii.l2_dirichlet_transposition` provide the independent contract.
 
 **Implemented remaining Section 5.11 slices:** the Section 5.11.1
 $H^{1/2}(\Gamma)$ metric is the minimum-volume-$H^{1}$ extension norm on
-$`U_{h}=\mathrm{tr}_{\Gamma}V_{h}`$, realized by the Schur complement of
-$`M_{\Omega,h}+K_{\Omega,h}`$. Register both source options: fractional control
+$U_{h}=\mathop{\mathrm{tr}}\nolimits_{\Gamma}V_{h}$, realized by the Schur complement of
+$M_{\Omega,h}+K_{\Omega,h}$. Register both source options: fractional control
 loss with $L^{2}$ state tracking, and boundary $L^{2}$ control loss with
 $H^{1}$ state tracking. Section 5.11.3 uses
-$`M_{\Gamma,h}+K_{\Gamma,h}`$ for its tangential $H^{1}(\Gamma)$ loss and
+$M_{\Gamma,h}+K_{\Gamma,h}$ for its tangential $H^{1}(\Gamma)$ loss and
 metric. Loss and search metric remain distinct components in every case, and
 none of these registrations has a trace box. `TraceHhalfMetric` applies the
 Schur complement through one interior minimum-extension solve and applies its
@@ -958,14 +958,14 @@ measure multipliers and is outside the present first-order executable scope.
 
 **First supported formulation:** declare a state-control observation
 
-```math
+$$
 w=O_{c}(y,u)=y+\lambda u,
-\qquad \lambda>0,
-```
+\qquad \lambda\gt0,
+$$
 
 with box constraints on $w$. The compiler must record the selected
 Lavrentiev regularisation and may introduce the transformed decision
-$`v=(\lambda I+S)u`$ only through declared maps and solves. It must expose the
+$v=(\lambda I+S)u$ only through declared maps and solves. It must expose the
 $L^{2}$ multipliers, complementarity residual, and regularised adjoint relation.
 
 **Do not do:** represent the original state constraint as a cellwise control
@@ -1151,13 +1151,13 @@ P6.1 has three separable layers:
    linear-quadratic DTO problem, it is exact: a tangent-state solve and an
    incremental-adjoint solve produce
 
-   ```math
+   $$
    \begin{aligned}
    A\delta y &= B w,\\
    A^{\ast}\delta p &= W\delta y,\\
    H w &= \beta N w+B^{\ast}\delta p.
    \end{aligned}
-   ```
+   $$
 
    This is enough to run Newton or truncated Newton on E6.5.1 without
    assembling a dense reduced Hessian.
@@ -1300,7 +1300,7 @@ sequence of KKT subproblems.
 - A PDAS/semismooth-Newton service that constructs KKT equality subproblems
   through P6.3, updates sets, and reports stable-set plus full-KKT
   convergence.
-- Do not include the regularised observation $`O_{c}(y,u)=y+\varepsilon u`$
+- Do not include the regularised observation $O_{c}(y,u)=y+\varepsilon u$
   in the selected path. It belongs to deferred P5.5/Section 5.12 work, and
   the original measure-multiplier state constraint remains out of scope.
 

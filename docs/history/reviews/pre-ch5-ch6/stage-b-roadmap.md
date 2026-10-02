@@ -4,8 +4,9 @@
 
 This is the concise execution guide derived from the exhaustive
 [assessment](assessment.md). It defines stable batch boundaries and acceptance
-criteria. The [implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md), not this
-document, owns current progress and the next-agent handoff.
+criteria. At the time, the [implementation roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/implementation-roadmap.md)
+owned mutable progress and the next-agent handoff; this document preserves the
+planned Stage B batches.
 
 The final assessment decision is:
 

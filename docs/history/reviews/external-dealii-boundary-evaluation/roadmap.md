@@ -1,6 +1,17 @@
 # External deal.II boundary evaluation roadmap
 
-This roadmap is the execution contract for evaluating the current external Step-4 boundary. E0 is adopted; its protocol was committed as `e9ae1ac`, promoting the reviewed local handoff at `.codex/plans/external/nmopt-external-dealii-boundary-evaluation-handoff.md`. This tracked roadmap is the current authority; the local handoff is supporting source material. Subsequent implementation does not require that handoff or the review conversation.
+> **Historical roadmap.** The evaluation closed on 2026-09-12. This record
+> preserves the protocol, status, and evidence context; it is not a current work
+> queue. The current external integration contract is in the
+> [reference](../../../reference/external-dealii-solver-integration.md).
+
+This roadmap was the execution contract for evaluating the external Step-4
+boundary. E0 was adopted; its protocol was committed as `e9ae1ac`, promoting the
+reviewed local handoff at
+`.codex/plans/external/nmopt-external-dealii-boundary-evaluation-handoff.md`.
+At the time, this tracked roadmap was the evaluation authority; the local
+handoff was supporting source material. Subsequent implementation did not
+require that handoff or the review conversation.
 
 ## Phase status
 
@@ -82,10 +93,11 @@ Relevant action instructions are `.agents/workflow.md`, `.agents/git.md`, `.agen
 
 Authority split:
 
-- This roadmap owns current work sequence, frozen experiment conventions, gates, and status.
-- The [PDE–solver boundary](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/design/pde-solver-boundary.md) and [v0 executable contract](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v0/executable-contract.md) remain the architecture and current executable-contract authorities. Evaluate the current contract faithfully; its ergonomic sufficiency is under investigation.
-- The [external integration reference](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/reference/external-dealii-solver-integration.md) describes the existing public API and tested reference consumer, with the factual qualifications below.
-- The [tutorial roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-tutorial-roadmap.md) is a superseded historical plan for this work. Its original intended sequence remains historical planning; this roadmap owns current evaluation work.
+- During the evaluation, this roadmap owned the work sequence, frozen
+  experiment conventions, gates, and status.
+- At the evaluation baseline, the [PDE–solver boundary](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/design/pde-solver-boundary.md) and [v0 executable contract](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/implementation/v0/executable-contract.md) set the architecture and executable-contract authority. The G1 and G2 reports preserve the findings from evaluating that contract.
+- At that baseline, the [external integration reference](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/reference/external-dealii-solver-integration.md) described the public API and tested reference consumer, with the factual qualifications below.
+- The [tutorial roadmap](https://github.com/HunterNise/nmopt-project/blob/f53b7f009e5c418ec4f3855db29f7eb924faf6f1/docs/planning/external-dealii-tutorial-roadmap.md) is a superseded historical plan for this work. Its original intended sequence remains historical planning; this roadmap owned the evaluation work before closure.
 - Raw traces, working attribution, and speculative explanations remain ignored working evidence. At closure, promote the reviewed factual report and reproducible commands; generated run outputs and the working ledger remain ignored. Long-lived design changes require a subsequent accepted decision.
 
 E0 factual corrections:

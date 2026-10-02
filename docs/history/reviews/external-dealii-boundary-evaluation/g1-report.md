@@ -214,8 +214,8 @@ including the repeated-control sequence. Every paired state, objective,
 adjoint, and reduced-gradient error was zero. Both paths recorded seven state
 solves and seven adjoint solves. Native used seven direct control pullbacks;
 current nmopt used seven full residual VJPs and seven explicit transpose
-actions. The result is preserved in
-[the recreated reduced-evaluation artifact](../../../../runs/external-dealii/step-4/reduced-evaluation/reduced-1789148523091774/comparison.csv).
+actions. The recorded artifact path is
+`runs/external-dealii/step-4/reduced-evaluation/reduced-1789148523091774/comparison.csv`.
 
 The E5 matched optimization run used the same zero initial control and frozen
 steepest-descent/Armijo policy. Both paths stopped by gradient tolerance after
@@ -231,16 +231,17 @@ steepest-descent/Armijo policy. Both paths stopped by gradient tolerance after
 The final gradient norm was `9.5036543162094535e-7`. Native used 829 direct
 control VJPs. Current nmopt used 829 residual VJPs and 829 explicit matrix
 transpose actions, plus 829 reported identity-metric solves and no Hessian
-actions. The corrected paired summary is
-[here](../../../../runs/external-dealii/step-4/optimization/paired-1789148523884470/comparison/summary.txt);
+actions. The corrected paired summary's recorded path is
+`runs/external-dealii/step-4/optimization/paired-1789148523884470/comparison/summary.txt`;
 its counters, residual audits, gradient audits, and complete traces are
 retained beside it in the ignored run directory.
 
 ## Causal attribution
 
-The working ledger is [here](../../../../runs/external-dealii/step-4/working/attribution.csv);
-it is intentionally ignored and is recreated or reviewed alongside the run
-artifacts rather than copied into tracked documentation.
+The working ledger's recorded path is
+`runs/external-dealii/step-4/working/attribution.csv`; it is intentionally
+ignored and is recreated or reviewed alongside the run artifacts rather than
+copied into tracked documentation.
 The categories below are causal classifications, not mutually exclusive
 claims about source files.
 

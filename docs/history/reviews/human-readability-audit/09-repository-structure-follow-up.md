@@ -2,7 +2,8 @@
 
 **Follow-up baseline:** [`997367f37b14`](https://github.com/HunterNise/nmopt-project/commit/997367f37b14da0010e0e474cf1e75690c4d79fb) (`docs(structure): reorganize documentation by role`)  
 **Review scope:** non-documentation repository structure and source inspectability after the documentation information-architecture decision  
-**Status:** complete assessment; implementation is owned by the active `docs/planning/repository-structure-refactor.md`
+**Status:** complete assessment; implementation was completed and closed in
+the [repository-structure refactor closure](10-repository-structure-refactor-closure.md)
 
 ## 1. Why this follow-up exists
 
@@ -615,8 +616,8 @@ and presented as a separate decision before implementation.
 ## 13. Handoff
 
 Implementation order, decision gates, compatibility rules, and validation
-cadence are defined in the active roadmap
-`docs/planning/repository-structure-refactor.md`.
+cadence are preserved in the [historical roadmap](../../../planning/repository-structure-refactor.md)
+and its [closure report](10-repository-structure-refactor-closure.md).
 
 The purpose of that roadmap is not to implement every optional cleanup listed
 here. It is to make the repository easier to inspect while keeping the

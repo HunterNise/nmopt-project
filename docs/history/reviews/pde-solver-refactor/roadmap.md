@@ -1,8 +1,14 @@
 # PDE–solver boundary refactor roadmap
 
+> **Historical roadmap.** This plan governed the completed PDE–solver refactor.
+> Its status and handoff sections preserve the state at closure; they do not
+> assign current work. Current architecture and implementation authority lives
+> in the [PDE–solver boundary](../../../design/pde-solver-boundary.md) and
+> [implementation map](../../../internals/implementation-map.md).
+
 ## Status and scope
 
-This is the operative implementation plan derived from the
+This was the operative implementation plan derived from the
 [assessment](assessment.md) and governed by the
 [PDE–solver boundary](../../../design/pde-solver-boundary.md).
 
@@ -16,12 +22,12 @@ standardize every linear solver or preconditioner, or make the compiler lower
 every semantically valid component combination. Such work requires a separate
 selected requirement.
 
-The refactor starts from the frozen pre-refactor application milestone. The
-current work branch is `codex/refactor/pde-solver-boundary`. Update this
-document's current handoff as units are accepted; do not copy mutable status
-into design or assessment documents.
+The refactor started from the frozen pre-refactor application milestone and
+used the work branch `codex/refactor/pde-solver-boundary`. During the refactor,
+this document's handoff was updated as units were accepted; mutable status did
+not belong in design or assessment documents.
 
-Current accepted status:
+Recorded accepted status at refactor closure:
 
 - R0 is complete and committed as `d9bc50f`.
 - Phase A is complete and committed as `b7c2844`, `091b540`, and `9979169`.
@@ -973,7 +979,7 @@ architecture without retaining stale parallel narratives.
 - design docs describe long-lived boundaries;
 - implementation docs describe exact implemented capability;
 - reference docs describe current public/application contracts;
-- planning roadmap owns mutable work status;
+- the planning roadmap owned mutable work status during the refactor;
 - review assessment remains historical evidence and is not rewritten to pretend
   it observed the final state.
 
@@ -1097,7 +1103,7 @@ coupling with a small composition boundary:
   semantic compiler, and without providing second-order capability for a
   first-order optimizer.
 
-## Current handoff
+## Final handoff recorded at closure
 
 ```text
 Completed: R0 and Phases A–F2; F3 source proof and final accounting recorded

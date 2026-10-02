@@ -455,7 +455,7 @@ normal-flux observations, and Dirac-source adjoints.
 
 The selected discrete realization for Section 5.11.1 uses the same
 complete-boundary conforming trace space
-$U_{h}=\mathrm{tr}_{\Gamma}V_{h}$. Let
+$U_{h}=\mathop{\mathrm{tr}}\nolimits_{\Gamma} V_{h}$. Let
 
 ```math
 a_{H^{1}}(w_{h},v_{h})

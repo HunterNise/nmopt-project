@@ -171,6 +171,26 @@ FORBIDDEN_MACROS: dict[str, tuple[str, str, bool]] = {
         r"use \mkern5mu when a thick math space is actually justified",
         False,
     ),
+    r"\textunderscore": (
+        "error",
+        r"do not manufacture literal underscores with \textunderscore; use \verb!...! for an exact identifier",
+        False,
+    ),
+    r"\detokenize": (
+        "error",
+        r"\detokenize is outside the portable project subset; use \verb!...! for an exact identifier",
+        False,
+    ),
+    r"\chardef": (
+        "error",
+        r"\chardef is outside the portable project subset; use \verb!...! for an exact identifier",
+        False,
+    ),
+    r"\char": (
+        "error",
+        r"\char is outside the portable project subset; use \verb!...! for an exact identifier",
+        False,
+    ),
 }
 
 # Markdown can consume the backslash from these TeX control-symbol forms before
@@ -185,7 +205,7 @@ CONTROL_SYMBOLS: dict[str, str] = {
     r"\}": r"use \rbrace",
     r"\|": r"use \lVert/\rVert or another named vertical delimiter",
     r"\*": r"use \ast or another semantic operator",
-    r"\_": r"if a literal underscore is intended, use a protected math escape hatch; otherwise use ordinary _{...} for a script",
+    r"\_": r"for an exact code/configuration identifier, use \verb!...! directly without a font wrapper; otherwise use a semantic TeX rewrite, or protected math only when a literal underscore is unavoidable",
     r"\$": r"if a literal dollar is intended, use protected inline math or a fenced math block",
     r"\%": r"if a literal percent sign is intended, use a protected math escape hatch",
     r"\#": r"if a literal hash is intended, use a protected math escape hatch",
@@ -471,6 +491,38 @@ def _excerpt(line: str, limit: int = 180) -> str:
     return s[: limit - 1] + "…"
 
 
+def mask_tex_verb(text: str) -> str:
+    r"""Mask ``\verb`` payloads while preserving string length.
+
+    Exact program/configuration identifiers may contain punctuation such as
+    underscores that is literal data rather than TeX or Markdown syntax.
+    ``\verb`` uses the character immediately after the command (or ``\verb*``)
+    as its delimiter. The delimiter and payload are masked so ordinary math
+    rules do not reinterpret their contents.
+    """
+
+    chars = list(text)
+    pos = 0
+    pattern = re.compile(r"\\verb\*?")
+    while True:
+        m = pattern.search(text, pos)
+        if not m:
+            break
+        delim_pos = m.end()
+        if delim_pos >= len(text) or text[delim_pos].isspace():
+            pos = m.end()
+            continue
+        delim = text[delim_pos]
+        end = text.find(delim, delim_pos + 1)
+        if end < 0:
+            pos = delim_pos + 1
+            continue
+        for i in range(delim_pos, end + 1):
+            chars[i] = " "
+        pos = end + 1
+    return "".join(chars)
+
+
 def mask_tex_text_arguments(text: str) -> str:
     r"""Mask literal-text arguments where punctuation is not math syntax.
 
@@ -518,7 +570,7 @@ def mask_tex_text_arguments(text: str) -> str:
 def lint_math_segment(path: str, seg: MathSegment, source_line: str) -> list[Finding]:
     findings: list[Finding] = []
     text = seg.text
-    syntax_text = mask_tex_text_arguments(text)
+    syntax_text = mask_tex_verb(mask_tex_text_arguments(text))
     base = seg.column
 
     def add(
@@ -745,7 +797,7 @@ def lint_cross_line_underscore_pairs(
             masked_code = mask_inline_code(logical)
             protected = protected_math_ranges(masked_code)
             protected_containers = [(r.start - 2, r.end + 2) for r in protected]
-            work = mask_ranges(masked_code, protected_containers)
+            work = mask_tex_verb(mask_ranges(masked_code, protected_containers))
             if "$$" in work:
                 display_open = False
                 display_quote_depth = 0
@@ -768,7 +820,7 @@ def lint_cross_line_underscore_pairs(
         masked_code = mask_inline_code(logical)
         protected = protected_math_ranges(masked_code)
         protected_containers = [(r.start - 2, r.end + 2) for r in protected]
-        work = mask_ranges(masked_code, protected_containers)
+        work = mask_tex_verb(mask_ranges(masked_code, protected_containers))
 
         if "$$" in work:
             # Any display delimiter breaks this lightweight paragraph model.
@@ -1093,7 +1145,9 @@ def lint_file(path: Path, display_path: str, include_history_style: bool) -> lis
         # underscores on the logical Markdown line and reports a possible pair
         # when at least one endpoint lies inside ordinary, unprotected math.
         if inline_ranges:
-            code_and_protected_mask = mask_ranges(masked_code, protected_container_ranges)
+            code_and_protected_mask = mask_tex_verb(
+                mask_ranges(masked_code, protected_container_ranges)
+            )
             positions: list[tuple[int, bool, bool, bool]] = []
             for pos, ch in enumerate(code_and_protected_mask):
                 if ch != "_" or _is_escaped(code_and_protected_mask, pos):

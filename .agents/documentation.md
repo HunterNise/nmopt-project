@@ -88,12 +88,21 @@ because the chat renderer uses a different Markdown/LaTeX pipeline.
 
 - Do not introduce punctuation control-symbol escapes merely to defeat Markdown
   parsing. Prefer the project's named mathematical forms when an equivalent
-  exists. In ordinary dollar-delimited math, literal-character escapes such as
-  `\_`, `\$`, `\%`, `\#`, and `\&` can still collide with Markdown
-  processing even though they are meaningful TeX spellings. When such a literal
-  character is genuinely required, use it inside protected inline math or a
-  fenced `math` escape hatch. Forms such as `\*` are not a substitute for the
-  proper mathematical command.
+  exists. In ordinary dollar-delimited math, escapes such as `\_`, `\$`,
+  `\%`, `\#`, and `\&` can be consumed by Markdown before the math renderer
+  sees them. Forms such as `\*` are not a substitute for the proper
+  mathematical command.
+- When an exact code or configuration identifier must appear inside mathematics,
+  use `\verb!...!`, for example `$\verb!gradient_tolerance!$`. Use `!` as the
+  normal delimiter because it does not conflict with Markdown table syntax. If
+  the literal identifier itself contains `!`, choose another delimiter that does
+  not occur in the identifier. Do not wrap `\verb` in `\texttt`, `\mathrm`,
+  or another font command.
+- Use `\verb` only for exact literal identifiers. Use `\text{...}` for
+  human-readable mathematical labels, and use ordinary Markdown code spans for
+  exact identifiers that do not need to be embedded in mathematics. Do not use
+  `\textunderscore`, `\char`, `\chardef`, `\detokenize`, custom macros, or
+  underline/rule tricks merely to manufacture a literal underscore.
 - Do not replace `_` or `^` with `\sb` or `\sp`; use ordinary braced TeX
   scripts.
 
@@ -116,8 +125,10 @@ because the chat renderer uses a different Markdown/LaTeX pipeline.
   those macros even though stock MathJax and KaTeX support them.
 - Use `\text{...}` for ordinary prose inside mathematics, `\mathrm{...}` for
   roman mathematical labels and symbols, `\mathbf{...}` for bold roman
-  mathematical symbols, and `\mathtt{...}` when monospaced mathematical text
-  is genuinely intended.
+  mathematical symbols, and `\mathtt{...}` for mathematical text that is
+  conceptually monospaced but is not an exact program identifier. Use
+  `\verb!...!` when the exact literal spelling of a code or configuration
+  identifier must appear in mathematics.
 - Write the differential with a roman `d`, for example
   `\thinspace\mathrm{d}x` in explicit integrals.
 - Do not use legacy declarations such as `\rm`, `\tt`, or `\bf` in new or

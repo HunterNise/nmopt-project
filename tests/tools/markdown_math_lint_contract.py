@@ -188,6 +188,53 @@ class MarkdownMathLintTests(unittest.TestCase):
         findings = self.scan("```math\n\\mathrm{is\\_feasible}\n```\n")
         self.assertFalse(any(f.rule == "MATH002" for f in findings))
 
+    def test_verb_identifier_is_safe_inline(self):
+        findings = self.scan(r"Value $\verb!gradient_tolerance!$." + "\n")
+        self.assertNotIn("MATH002", [f.rule for f in findings])
+        self.assertNotIn("MATH004", [f.rule for f in findings])
+        self.assertNotIn("MATH010", [f.rule for f in findings])
+
+    def test_verb_identifier_is_safe_in_display(self):
+        findings = self.scan("$$\n" + r"\alpha=\verb!step_length!." + "\n$$\n")
+        self.assertNotIn("MATH002", [f.rule for f in findings])
+        self.assertNotIn("MATH004", [f.rule for f in findings])
+        self.assertNotIn("MATH010", [f.rule for f in findings])
+
+    def test_verb_identifier_is_safe_in_underbrace_script(self):
+        findings = self.scan(
+            "$$\n" + r"\underbrace{x}_{\verb!volume_source!}" + "\n$$\n"
+        )
+        self.assertNotIn("MATH002", [f.rule for f in findings])
+        self.assertNotIn("MATH004", [f.rule for f in findings])
+        self.assertNotIn("MATH010", [f.rule for f in findings])
+
+    def test_verb_identifier_is_safe_as_subscript(self):
+        findings = self.scan("$$\n" + r"x_{\verb!some_identifier!}" + "\n$$\n")
+        self.assertNotIn("MATH002", [f.rule for f in findings])
+        self.assertNotIn("MATH004", [f.rule for f in findings])
+        self.assertNotIn("MATH010", [f.rule for f in findings])
+
+    def test_verb_masks_multiple_literal_underscores_from_emphasis_check(self):
+        findings = self.scan(
+            r"Value $\verb!relative_gradient_tolerance!$ and "
+            r"$\verb!objective_change_tolerance!$." + "\n"
+        )
+        self.assertNotIn("MATH004", [f.rule for f in findings])
+
+    def test_pipe_delimited_verb_payload_is_not_a_raw_bar(self):
+        findings = self.scan(r"Value $\verb|gradient_tolerance|$." + "\n")
+        self.assertNotIn("MATH001", [f.rule for f in findings])
+
+    def test_nonportable_underscore_manufacturing_commands_are_reported(self):
+        for source in (
+            r"$\textunderscore$",
+            r'$\char"5F$',
+            r"$\chardef\foo=95 \foo$",
+            r"$\detokenize{some_identifier}$",
+        ):
+            with self.subTest(source=source):
+                self.assertIn("MATH003", self.rules(source + "\n"))
+
     def test_history_suppresses_style_only_but_not_rendering_hazards(self):
         findings = self.scan(
             r"Old $x_i := y|_\Gamma$." + "\n",

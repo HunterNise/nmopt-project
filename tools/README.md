@@ -92,8 +92,13 @@ mathematical content, such as `-\nabla`, is not a list-marker finding.
 
 Literal TeX-special characters are also context-sensitive. Escapes such as
 `\_`, `\$`, `\%`, `\#`, and `\&` are reported in ordinary dollar math,
-where Markdown can consume the backslash, but are allowed inside protected
-inline math or fenced `math` when the literal character is genuinely intended.
+where Markdown can consume the backslash. For an exact program or configuration
+identifier that must remain inside mathematics, use `\verb!...!`, for example
+`$\verb!gradient_tolerance!$`; the linter masks the verbatim payload so literal
+underscores are not misdiagnosed as scripts or Markdown emphasis. Use `!` as the
+normal delimiter unless the identifier itself contains it. Protected inline
+math or fenced `math` remains the escape hatch for other genuinely literal
+punctuation when no clean portable spelling exists.
 
 The linter is deliberately narrower than a full GFM parser or TeX renderer.
 Known limits are intentional:

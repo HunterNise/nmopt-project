@@ -504,7 +504,7 @@ $$
 \texttt{apply}(v)
 &=Gv \in U_{h}^{\ast},
 \\
-\texttt{inverse\_apply}(r)
+\verb!inverse_apply!(r)
 &=G^{-1}r \in U_{h}.
 \end{aligned}
 $$

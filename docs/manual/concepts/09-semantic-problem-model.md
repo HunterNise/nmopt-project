@@ -501,9 +501,9 @@ $$
 \underbrace{
 \int_{\Omega}\kappa\nabla y\cdot\nabla v\thinspace\mathrm{d}x
 +\int_{\Omega}cyv\thinspace\mathrm{d}x
-}_{\texttt{diffusion\_reaction}} -
-\underbrace{\int_{\Omega}fv\thinspace\mathrm{d}x}_{\texttt{volume\_source}} -
-\underbrace{\int_{\Omega}uv\thinspace\mathrm{d}x}_{\texttt{volume\_control}}=0.
+}_{\verb!diffusion_reaction!} -
+\underbrace{\int_{\Omega}fv\thinspace\mathrm{d}x}_{\verb!volume_source!} -
+\underbrace{\int_{\Omega}uv\thinspace\mathrm{d}x}_{\verb!volume_control!}=0.
 $$
 
 The mathematics is one residual equation. The semantic graph decomposes it into
@@ -626,7 +626,7 @@ name.
 Full-domain state tracking uses
 
 $$
-\underbrace{\mathcal O_{y}(y)}_{\texttt{volume\_restriction}}=y
+\underbrace{\mathcal O_{y}(y)}_{\verb!volume_restriction!}=y
 \quad\text{on }\Omega.
 $$
 
@@ -652,7 +652,7 @@ $$
 the observation is simply
 
 $$
-\underbrace{\mathcal O_{\mathrm s}(y)}_{\texttt{point\_sensor}}=
+\underbrace{\mathcal O_{\mathrm s}(y)}_{\verb!point_sensor!}=
 \begin{bmatrix}
 y(x_{1})\\
 \vdots\\
@@ -709,13 +709,13 @@ J(y,u)=
 \underbrace{\mathcal O_{y}(y)}_{\texttt{ObservationSpec}} -
 \underbrace{y_{\mathrm d}}_{\texttt{DataSpec}}
 \right\rVert^{2}
-}_{\texttt{quadratic\_tracking}} +
+}_{\verb!quadratic_tracking!} +
 \underbrace{
 \frac{\beta}{2}
 \left\lVert
 \underbrace{\mathcal O_{u}(u)}_{\texttt{ObservationSpec}}
 \right\rVert^{2}
-}_{\texttt{quadratic\_control\_regularisation}}.
+}_{\verb!quadratic_control_regularisation!}.
 $$
 
 The division of responsibility is:
@@ -989,7 +989,7 @@ For the baseline reduced problem, the `FormulationKind::reduced_dto` path is the
 composition
 
 $$
-\underbrace{u\mapsto y=S_{h}(u)\mapsto j_{h}(u)}_{\texttt{FormulationKind::reduced\_dto}}.
+\underbrace{u\mapsto y=S_{h}(u)\mapsto j_{h}(u)}_{\verb!FormulationKind::reduced_dto!}.
 $$
 
 The semantic selection is essentially:

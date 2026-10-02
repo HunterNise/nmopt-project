@@ -456,7 +456,7 @@ For full-domain state tracking,
 $$
 \underbrace{
 \mathcal O_{y}(y)=y
-}_{\texttt{volume\_restriction}}
+}_{\verb!volume_restriction!}
 $$
 
 becomes a `ScalarObservationContribution` with

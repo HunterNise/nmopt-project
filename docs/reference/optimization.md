@@ -287,7 +287,7 @@ For absolute metric-gradient stopping,
 $$
 \lVert g_{k}\rVert_{G}
 \leq
-\texttt{gradient\_tolerance}.
+\verb!gradient_tolerance!.
 $$
 
 For relative gradient stopping,
@@ -295,7 +295,7 @@ For relative gradient stopping,
 $$
 \frac{\lVert g_{k}\rVert_{G}}{\lVert g_{0}\rVert_{G}}
 \leq
-\texttt{relative\_gradient\_tolerance}.
+\verb!relative_gradient_tolerance!.
 $$
 
 Configure it with:
@@ -311,7 +311,7 @@ Objective-change stopping uses the accepted reduction
 $$
 j(u_{k})-j(u_{k+1})
 \leq
-\texttt{objective\_change\_tolerance},
+\verb!objective_change_tolerance!,
 $$
 
 while step stopping uses the metric norm
@@ -319,7 +319,7 @@ while step stopping uses the metric norm
 $$
 \lVert u_{k+1}-u_{k}\rVert_{G}
 \leq
-\texttt{step\_tolerance}.
+\verb!step_tolerance!.
 $$
 
 A positive optional tolerance enables the corresponding condition in automatic
@@ -422,7 +422,7 @@ Here $s_{k}$ is primal and $y_{k}$ is a covector. The pair is accepted only when
 
 $$
 \langle y_{k},s_{k}\rangle \gt
-\texttt{curvature\_tolerance}.
+\verb!curvature_tolerance!.
 $$
 
 A failed curvature test clears the stored history and returns to a metric
@@ -514,8 +514,8 @@ $$
 \lVert r\rVert_{G^{-1}}
 \leq
 \max\left(
-  \texttt{absolute\_tolerance},
-  \texttt{relative\_tolerance}\lVert r_{0}\rVert_{G^{-1}}
+  \verb!absolute_tolerance!,
+  \verb!relative_tolerance!\lVert r_{0}\rVert_{G^{-1}}
 \right).
 $$
 
@@ -538,7 +538,7 @@ inner search direction $p$, `nmopt` requires
 
 $$
 \langle Hp,p\rangle \gt
-\texttt{curvature\_tolerance}
+\verb!curvature_tolerance!
 \lVert p\rVert_{G}^{2}.
 $$
 
@@ -588,7 +588,7 @@ For a straight-line unprojected update,
 $$
 u_{k+1}=u_{k}+\alpha d_{k},
 \qquad
-\alpha=\texttt{step\_length}.
+\alpha=\verb!step_length!.
 $$
 
 ### Strong Wolfe
@@ -688,7 +688,7 @@ nmopt::solvers::ExactQuadraticLineSearchPolicyT<Backend>
 
 $$
 \langle Hd,d\rangle \gt
-\texttt{curvature\_tolerance}.
+\verb!curvature_tolerance!.
 $$
 
 After taking the exact straight-line step, the implementation still checks
@@ -696,7 +696,7 @@ that the trial objective has not increased beyond
 
 $$
 j(u) +
-\texttt{objective\_tolerance}
+\verb!objective_tolerance!
 \max(1,\lvert j(u)\rvert).
 $$
 

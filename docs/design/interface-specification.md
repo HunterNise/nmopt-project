@@ -546,7 +546,7 @@ A constraint acts on one or more variable blocks.  It MUST declare its source
 space and supported operations.  It MAY provide any of:
 
 $$
-\mathrm{is\_feasible}(x),
+\verb!is_feasible!(x),
 \qquad
 \Pi_{X_{\mathrm{ad}}}(x),
 \qquad

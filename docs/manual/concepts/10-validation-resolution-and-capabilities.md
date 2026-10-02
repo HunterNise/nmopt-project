@@ -719,9 +719,9 @@ $$
 E(y,u)[v]=
 \underbrace{
 \int_{\Omega}\kappa\nabla y\cdot\nabla v+cyv\thinspace\mathrm{d}x
-}_{\texttt{diffusion\_reaction}} -
-\underbrace{\int_{\Omega}fv\thinspace\mathrm{d}x}_{\texttt{volume\_source}} -
-\underbrace{\int_{\Omega}uv\thinspace\mathrm{d}x}_{\texttt{volume\_control}},
+}_{\verb!diffusion_reaction!} -
+\underbrace{\int_{\Omega}fv\thinspace\mathrm{d}x}_{\verb!volume_source!} -
+\underbrace{\int_{\Omega}uv\thinspace\mathrm{d}x}_{\verb!volume_control!},
 $$
 
 the bounded scalar planner can produce residual contributions for the three semantic

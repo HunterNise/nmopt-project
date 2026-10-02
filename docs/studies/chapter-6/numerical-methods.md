@@ -39,33 +39,33 @@ $$
 For the linear-quadratic scalar model, write the discrete residual and
 objective as
 
-```math
+$$
 \begin{aligned}
 r_{h}(y,u) &= A y-f-Bu, \\
 J_{h}(y,u) &= \frac{1}{2}(C y-z_{d})^{\mathsf T}M_{z}(C y-z_{d})
  +\frac{\beta}{2}u^{\mathsf T}N u, \\
 W &= C^{\mathsf T}M_{z}C.
 \end{aligned}
-```
+$$
 
 Here $A$ is the state operator, $B$ maps control coefficients into the state
-residual dual, $C$ is the declared observation, $`M_{z}`$ is its pairing, and
+residual dual, $C$ is the declared observation, $M_{z}$ is its pairing, and
 $N$ is the control-loss pairing. They must remain separate: full-volume,
 subdomain, boundary, and point observations do not justify identifying them.
 
 The framework adjoint and reduced covector are
 
-```math
+$$
 \begin{aligned}
 A^{\mathsf T}p &= W y-C^{\mathsf T}M_{z}z_{d}, \\
 j_{h}'(u) &= \beta N u+B^{\mathsf T}p.
 \end{aligned}
-```
+$$
 
 Chapter 6 uses the opposite adjoint sign:
-$`p_{\mathrm{book}}=-p`$. Its relations
-$`A^{\mathsf T}p_{\mathrm{book}}=-M(y-z_{d})`$ and
-$`\beta N u-B^{\mathsf T}p_{\mathrm{book}}=0`$ are equivalent to those above.
+$p_{\mathrm{book}}=-p$. Its relations
+$A^{\mathsf T}p_{\mathrm{book}}=-M(y-z_{d})$ and
+$\beta N u-B^{\mathsf T}p_{\mathrm{book}}=0$ are equivalent to those above.
 An all-at-once implementation may use the book's symmetric KKT multiplier
 $\lambda=-p$, but the conversion must be explicit at the formulation
 boundary; it must not change `ReducedDTO` signs.
@@ -84,7 +84,7 @@ The chapter compares two formulation orders:
 
 - **Optimise then discretise (OtD):** derive continuous state, adjoint, and
   control optimality conditions, then discretise every equation.
-- **Discretise then optimise (DtO):** lower $`r_{h}`$ and $`J_{h}`$, then
+- **Discretise then optimise (DtO):** lower $r_{h}$ and $J_{h}$, then
   differentiate that exact finite-dimensional problem. The adjoint is the
   residual VJP and the reduced covector is the DTO covector above.
 
@@ -103,24 +103,24 @@ diagnostics.
 
 Section 6.2.4 treats
 
-```math
+$$
 \begin{aligned}
 E y &= -\mathrm{div}(\nu\nabla y)+b\mathbin\cdot\nabla y=u
  && \text{in }\Omega, \\
 y &= 0 && \text{on }\Gamma_{D}, \\
 \nu\partial_{n}y &= 0 && \text{on }\Gamma_{N}.
 \end{aligned}
-```
+$$
 
-The outflow is $`\Gamma_{N}`$, $\mathrm{div} b\leq0$, and the local Péclet
-number is large. The observation is $k y$ on $`\Omega_{0}`$ and the control is
+The outflow is $\Gamma_{N}$, $\mathrm{div} b\leq0$, and the local Péclet
+number is large. The observation is $k y$ on $\Omega_{0}$ and the control is
 penalised in $L^{2}(\Omega)$. The Galerkin–least-squares (GLS) state term is
 
-```math
+$$
 s_{h}(y_{h},\phi_{h})=
 \sum_{K\in\mathcal T_{h}}
 \int_{K}\delta_{K}\bigl(Ey_{h}-u_{h}\bigr)E\phi_{h}.
-```
+$$
 
 The source distinguishes three results that an implementation must not
 conflate:
@@ -149,14 +149,14 @@ whether the discrete objective was differentiated.
 Section 6.2.5 uses the steady Stokes state $Y=(v,\pi)$ with distributed vector
 control $u$ and a stable velocity-pressure pair:
 
-```math
+$$
 A_{S}Y=f_{S}+V u,
 \qquad
 A_{S}=\begin{bmatrix}E&B^{\mathsf T}\\B&0\end{bmatrix}.
-```
+$$
 
 The source's all-at-once preconditioner assumes a positive pressure tracking
-term $`\delta M_{\pi}`$. A reduced target may track velocity only, but that
+term $\delta M_{\pi}$. A reduced target may track velocity only, but that
 specific full-KKT Schur complement then becomes singular. The framework needs
 multiple residual/test blocks, a pressure gauge, and an inf-sup policy before
 this compiles; those are P5.6 prerequisites extended by P6.3–P6.4.
@@ -164,7 +164,7 @@ this compiles; those are P5.6 prerequisites extended by P6.3–P6.4.
 ### C6.3 — Reduced-space methods for unconstrained OCPs
 
 Eliminate the state through the declared state solve, $y=y(u)$, and minimise
-$`j_{h}(u)=J_{h}(y(u),u)`$. Every reduced iteration must:
+$j_{h}(u)=J_{h}(y(u),u)$. Every reduced iteration must:
 
 1. solve the state for the accepted control;
 2. solve the DTO adjoint and assemble the reduced covector;
@@ -201,7 +201,7 @@ diagnostics. The older parallel histories remain compatibility views and are
 checked against these records when the terminal report is assembled.
 
 The book writes directions in Euclidean coefficient coordinates. In this
-framework, $`g=G^{-1}j_{h}'(u)`$ is the gradient for the selected metric $G$.
+framework, $g=G^{-1}j_{h}'(u)$ is the gradient for the selected metric $G$.
 The portable steepest direction is therefore $d=-g$, not bare coefficient
 negation.
 
@@ -214,7 +214,7 @@ option.
 
 | Method | Required direction service | First general policy |
 | --- | --- | --- |
-| Steepest descent | $`d=-G^{-1}j_{h}'`$ | Existing reduced Armijo solver. |
+| Steepest descent | $d=-G^{-1}j_{h}'$ | Existing reduced Armijo solver. |
 | Nonlinear conjugate gradient | Gradient history and selected Fletcher–Reeves or Polak–Ribière update | The selected slice defaults to metric-aware PR+, exposes Fletcher–Reeves, verifies exact-search quadratic equivalence, and includes a strict classical quadratic-CG policy. |
 | Trust region | Quadratic model, Hessian-vector action, and radius update | Unconstrained metric Cauchy or truncated-CG subproblem with actual/predicted reduction and subproblem-status diagnostics. |
 | Newton / truncated Newton | Hessian-vector action and inner linear solve | The selected slice uses capability-gated Newton; explicit truncated-Newton termination remains an extension. |
@@ -226,9 +226,9 @@ inverse-metric action; a direction formed after accepting a secant pair
 performs two, one for the metric gradient and one for the two-loop recursion.
 L-BFGS history eviction does not add hidden metric actions.
 For the scalar-secant option, the initial two-loop action is
-$`\gamma_{k}G^{-1}`$ with
-$`\gamma_{k}=\langle s_{k},y_{k}\rangle/\langle y_{k},G^{-1}y_{k}\rangle`$; the
-retained metric-gradient difference supplies $`G^{-1}y_{k}`$ without another
+$\gamma_{k}G^{-1}$ with
+$\gamma_{k}=\langle s_{k},y_{k}\rangle/\langle y_{k},G^{-1}y_{k}\rangle$; the
+retained metric-gradient difference supplies $G^{-1}y_{k}$ without another
 inverse metric application.
 
 The Armijo policy can also enforce a positive minimum trial step. Rejected
@@ -248,7 +248,7 @@ produces line-search failure rather than an accepted evaluation.
 
 For the trust-region subproblem, the Cauchy policy minimizes the quadratic
 model along the metric steepest direction. The truncated-CG policy instead
-solves $`H s=-j_{h}'`$ inside $`\lVert s\rVert_{G}\leq\Delta`$ using the
+solves $H s=-j_{h}'$ inside $\lVert s\rVert_{G}\leq\Delta$ using the
 inverse metric as preconditioner. It terminates when the preconditioned
 residual reaches its tolerance, intersects the trust-region boundary, detects
 non-positive curvature, or reaches its iteration limit. The selected
@@ -279,9 +279,9 @@ behavior away from stationarity.
 
 For a linear-quadratic target, the reduced Hessian is constant:
 
-```math
+$$
 H=\beta N+B^{\mathsf T}A^{-\mathsf T}W A^{-1}B.
-```
+$$
 
 Its action on a direction $w$ requires no explicit $H$: solve
 $A\delta y=Bw$, solve $A^{\mathsf T}\delta p=W\delta y$, and return
@@ -308,9 +308,9 @@ canonical volume scenario. Other compiled target families do not acquire a
 Hessian merely from sharing first-order residual infrastructure.
 
 The reduced Newton direction solves the covector equation
-$`H d=-j_{h}'`$ with metric-preconditioned conjugate gradients. Its residual
-norm is $`\sqrt{\langle r,G^{-1}r\rangle}`$, where
-$`r=H d+j_{h}'`$; the inverse metric is therefore the preconditioner, not a
+$H d=-j_{h}'$ with metric-preconditioned conjugate gradients. Its residual
+norm is $\sqrt{\langle r,G^{-1}r\rangle}$, where
+$r=H d+j_{h}'$; the inverse metric is therefore the preconditioner, not a
 conversion that identifies primal and dual coefficients. The
 `ReducedHessianSolveDiagnostics` report records the initial and final norms
 and the number of inner Hessian actions for each direction evaluation. On the
@@ -377,11 +377,11 @@ provide that capability implicitly.
 
 For $a\leq u\leq b$, use the same covector and a metric-qualified projection:
 
-```math
+$$
 u^{+}=\Pi_{U_{\mathrm{ad}}}(u+\tau d),
 \qquad
 r_{\Pi}=u-\Pi_{U_{\mathrm{ad}}}\bigl(u-G^{-1}j_{h}'(u)\bigr).
-```
+$$
 
 Measure the projected residual in the declared metric. Projected Armijo must
 use the actual displacement $u^{+}-u$, not the unprojected direction. The
@@ -399,21 +399,20 @@ transition, and metric-coupling tests before they can be enabled.
 All-at-once methods retain state and control as simultaneous optimisation
 variables. With $x=(y,u)$, define
 
-```math
+$$
 Q=\begin{bmatrix}W&0\\0&\beta N\end{bmatrix},
 \qquad
 D=\begin{bmatrix}A&-B\end{bmatrix}.
-```
+$$
 
 For the symmetric book multiplier $\lambda=-p$, the equality-constrained
 quadratic-program KKT system is
 
-```math
+$$
 \begin{bmatrix}Q&D^{\mathsf T}\\D&0\end{bmatrix}
-\begin{bmatrix}x\\\lambda\end{bmatrix}
-=
+\begin{bmatrix}x\\\lambda\end{bmatrix} =
 \begin{bmatrix}h\\f\end{bmatrix}.
-```
+$$
 
 This generic operator, not a scalar-PDE KKT class, is the unit to compile.
 The compiler must construct its exact action from objective derivatives and
@@ -444,7 +443,7 @@ KKT formulation.
 
 With $S=DQ^{-1}D^{\mathsf T}$, the source proposes these reusable families:
 
-- **Block diagonal:** $`P_{d}=\mathrm{diag}(Q,S)`$. For full-volume scalar
+- **Block diagonal:** $P_{d}=\mathrm{diag}(Q,S)$. For full-volume scalar
   control with $B=N=W=M$, the exact Schur block is
   $S=\beta^{-1}M+A M^{-1}A^{\mathsf T}$. Approximate mass inverses with
   lumping, symmetric Gauss–Seidel, or Chebyshev iteration, and approximate
@@ -456,13 +455,13 @@ With $S=DQ^{-1}D^{\mathsf T}$, the source proposes these reusable families:
   blocks and CG in an explicitly declared non-standard inner product. The
   scaling that makes it positive definite is part of the policy.
 - **Constraint preconditioner / PPCG:** retain exact constraint blocks in
-  $`P_{C}=\begin{bmatrix}G&D^{\mathsf T}\\D&0\end{bmatrix}`$. PPCG starts from
-  a feasible $`x_{0}`$ satisfying $`Dx_{0}=f`$ and keeps iterates in that
+  $P_{C}=\begin{bmatrix}G&D^{\mathsf T}\\D&0\end{bmatrix}$. PPCG starts from
+  a feasible $x_{0}$ satisfying $Dx_{0}=f$ and keeps iterates in that
   equality-constraint manifold.
 
 Boundary control merely makes $B$ rectangular. It preserves the generic
 $Q$, $D$, and Schur-complement construction. For Stokes, take
-$`D_{S}=[A_{S}\ -V]`$. The source's nested approximate Stokes solve can use a
+$D_{S}=[A_{S}\ -V]$. The source's nested approximate Stokes solve can use a
 stationary Uzawa method; a variable Krylov inner solve instead requires
 flexible GMRES outside.
 
@@ -487,13 +486,13 @@ $$
 For a positive PDAS parameter $c$, classify sets under a selected discrete
 evaluation policy:
 
-```math
+$$
 \begin{aligned}
-\mathcal A^{+}&=\{\mu+c(u-b)>0\}, \\
-\mathcal A^{-}&=\{\mu+c(u-a)<0\}, \\
-\mathcal I&=\{\mu+c(u-b)\leq0\leq\mu+c(u-a)\}.
+\mathcal A^{+}&=\lbrace\mu+c(u-b)\gt0\rbrace, \\
+\mathcal A^{-}&=\lbrace\mu+c(u-a)\lt0\rbrace, \\
+\mathcal I&=\lbrace\mu+c(u-b)\leq0\leq\mu+c(u-a)\rbrace.
 \end{aligned}
-```
+$$
 
 At every iteration solve the coupled KKT system with upper/lower values on
 active sets and zero multiplier on the inactive set; reclassify; and stop only
@@ -533,11 +532,11 @@ The source also applies PDAS to the Lavrentiev-regularised mixed constraint
 
 $$
 y_{a}\leq y+\varepsilon u\leq y_{b},
-\qquad \varepsilon>0.
+\qquad \varepsilon\gt0.
 $$
 
-It is the observation $`O_{c}(y,u)=y+\varepsilon u`$, not a control box. The
-active equalities are $`O_{c}=y_{a}`$ or $`O_{c}=y_{b}`$ and stationarity gains
+It is the observation $O_{c}(y,u)=y+\varepsilon u$, not a control box. The
+active equalities are $O_{c}=y_{a}$ or $O_{c}=y_{b}$ and stationarity gains
 the $\varepsilon\mu$ covector. It reuses P5.5 semantics but needs P6.5 for
 the generic PDAS solve.
 

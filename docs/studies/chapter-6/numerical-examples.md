@@ -35,7 +35,7 @@ source record but should not silently rewrite it.
 
 **Source:** equations (6.64), Figures 6.2–6.3, book pages 187–188.
 
-~~~math
+$$
 \begin{aligned}
 \min_{y,u}\quad &
 \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
@@ -43,22 +43,22 @@ source record but should not silently rewrite it.
 -\Delta y &= f+u && \text{in }\Omega, \\
 y&=0 && \text{on }\partial\Omega.
 \end{aligned}
-~~~
+$$
 
 Take $\Omega=(0,1)^{2}$ and
-$`z_{d}(x)=10x_{1}(1-x_{1})x_{2}(1-x_{2})`$. The supplied text does not
+$z_{d}(x)=10x_{1}(1-x_{1})x_{2}(1-x_{2})$. The supplied text does not
 specialise $f$ beyond equation (6.64); a reproduction must resolve it from
 the original source material or declare a manufactured replacement.
 
 - **Discretisation:** continuous linear triangular (`P1`) state, adjoint,
   and distributed-control spaces; 17,361 vertices and 34,320 triangles;
-  reported $`N_{y}=N_{u}=N_{p}=16{,}961`$.
+  reported $N_{y}=N_{u}=N_{p}=16{,}961$.
 - **Methods:** the text names steepest descent and BFGS with backtracking
   Armijo; Figure 6.3 labels the quasi-Newton curves LM-BFGS. The comparison
   uses $\beta=10^{-1}$, $10^{-2}$, and $10^{-3}$; Figure 6.2 also plots BFGS
   fields for $\beta=10^{-3}$ and $10^{-6}$.
 - **Start and stopping:** the discussion normalizes the gradient norm by its
-  value at the no-control start $`u_{0}=0`$. Steepest descent uses relative
+  value at the no-control start $u_{0}=0$. Steepest descent uses relative
   tolerance $10^{-3}$.
   BFGS is stopped when its objective reaches the steepest-descent final
   objective, rather than at a separate common tolerance.
@@ -82,8 +82,8 @@ objective histories, or field images.
 Figure 6.2 nevertheless motivates a concrete forcing hypothesis. For
 $\beta=10^{-6}$ the plotted state nearly reaches the target maximum $0.625$
 and the plotted control maximum is approximately $8.90$. Since
-$`-\Delta z_{d}`$ reaches $10$ at the centre of the square, these extrema are
-consistent with $f\equiv1$ and $`u\approx-\Delta z_{d}-1`$ there. This is an
+$-\Delta z_{d}$ reaches $10$ at the centre of the square, these extrema are
+consistent with $f\equiv1$ and $u\approx-\Delta z_{d}-1$ there. This is an
 inference from rendered extrema rather than source data; both $f\equiv0$ and
 $f\equiv1$ must remain explicitly labelled candidates until numerical field
 and history comparisons provide further evidence.
@@ -99,7 +99,7 @@ published figures alone.
 
 **Source:** equation (6.65), Table 6.2, Figures 6.4–6.5, book pages 188–190.
 
-~~~math
+$$
 \begin{aligned}
 \min_{y,u}\quad &
 \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega_{0})}^{2}
@@ -109,36 +109,36 @@ y&=1 && \text{on }\Gamma_{D}, \\
 \partial_{n}y-(b\mathbin\cdot n)y&=u && \text{on }\Gamma_{c}, \\
 \partial_{n}y-(b\mathbin\cdot n)y&=0 && \text{on }\Gamma_{\mathrm{out}}.
 \end{aligned}
-~~~
+$$
 
 - **Data:** $\mu=0.1$, $\beta=10^{-3}$,
   $\Omega=(0,1+l)\mathbin\times(0,1)$ with $l=3$, and
-  $`b(x)=(1.5x_{2}(1-x_{2}),0)`$. The state space is
+  $b(x)=(1.5x_{2}(1-x_{2}),0)$. The state space is
   $`H^{1}_{\Gamma_{D}}(\Omega)`$ and the control space is
-  $`L^{2}(\Gamma_{c})`$.
+  $L^{2}(\Gamma_{c})$.
 - **Volume forcing:** equation (6.65) explicitly has zero volume forcing.
   The book's phrase “forced steady heat convection” describes the prescribed
   flow, not a nonzero source term $f$.
 - **Scenarios:**
-  $`\Omega_{0}^{1}=\{x:x_{1}>1,\ x_{2}<0.3\ \text{or}\ x_{2}>0.7\}`$ and
-  $`\Omega_{0}^{2}=\{x:x_{1}>1\}`$; target choices are $`z_{d}^{1}=2`$ and
-  $`z_{d}^{2}=4x_{2}(1-x_{2})`$.
-- **Boundary geometry (Figure 6.4):** $`\Gamma_{D}`$ contains the left edge
-  and the upstream portions of the top and bottom walls for $`0\leq x_{1}\leq 1`$;
-  $`\Gamma_{c}`$ contains the downstream wall portions for $`1\leq x_{1}\leq 4`$;
-  and $`\Gamma_{\mathrm{out}}`$ is the right edge $`x_{1}=4`$.
+  $\Omega_{0}^{1}=\lbrace x:x_{1}\gt1,\ x_{2}\lt0.3\ \text{or}\ x_{2}\gt0.7\rbrace$ and
+  $\Omega_{0}^{2}=\lbrace x:x_{1}\gt1\rbrace$; target choices are $z_{d}^{1}=2$ and
+  $z_{d}^{2}=4x_{2}(1-x_{2})$.
+- **Boundary geometry (Figure 6.4):** $\Gamma_{D}$ contains the left edge
+  and the upstream portions of the top and bottom walls for $0\leq x_{1}\leq 1$;
+  $\Gamma_{c}$ contains the downstream wall portions for $1\leq x_{1}\leq 4$;
+  and $\Gamma_{\mathrm{out}}$ is the right edge $x_{1}=4$.
 - **Discretisation:** `P1` triangular finite elements; 11,028 vertices and
-  21,653 triangles; reported $`N_{y}=N_{p}=10{,}907`$ and $`N_{u}=243`$.
+  21,653 triangles; reported $N_{y}=N_{p}=10{,}907$ and $N_{u}=243$.
 - **Method:** BFGS for all scenarios. The nearby text attributes high
   iteration counts to a constant step but does not state its value; a
   reproduction must declare a fixed-step or line-search policy.
 
-| Case | Observation | Target | Iterations | $`J_{h}(u_{0})`$ | $`J_{h}(\hat u)`$ | Reduction | Relative gradient |
+| Case | Observation | Target | Iterations | $J_{h}(u_{0})$ | $J_{h}(\hat u)$ | Reduction | Relative gradient |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| a | $`\Omega_{0}^{1}`$ | $`z_{d}^{1}`$ | 59 | 316.6661 | 3.5682 | 98.87% | 0.0250 |
-| b | $`\Omega_{0}^{2}`$ | $`z_{d}^{1}`$ | 54 | 192.8385 | 2.6368 | 98.63% | 0.0569 |
-| c | $`\Omega_{0}^{1}`$ | $`z_{d}^{2}`$ | 48 | 29.2188 | 0.7826 | 97.32% | 0.0753 |
-| d | $`\Omega_{0}^{2}`$ | $`z_{d}^{2}`$ | 87 | 45.9996 | 0.8464 | 98.16% | 0.0387 |
+| a | $\Omega_{0}^{1}$ | $z_{d}^{1}$ | 59 | 316.6661 | 3.5682 | 98.87% | 0.0250 |
+| b | $\Omega_{0}^{2}$ | $z_{d}^{1}$ | 54 | 192.8385 | 2.6368 | 98.63% | 0.0569 |
+| c | $\Omega_{0}^{1}$ | $z_{d}^{2}$ | 48 | 29.2188 | 0.7826 | 97.32% | 0.0753 |
+| d | $\Omega_{0}^{2}$ | $z_{d}^{2}$ | 87 | 45.9996 | 0.8464 | 98.16% | 0.0387 |
 
 Source references:
 - [page 189, equations (6.65), Figure 6.4 and Table 6.2](assets/source-page-189.png);
@@ -161,16 +161,16 @@ The book cites the following related Graetz references in this discussion:
 
 **Source completeness.** The book does not provide the mesh connectivity,
 boundary-node subdivision, or the exact basis and quadrature used for the
-$`N_{u}=243`$ control degrees of freedom. It also does not provide the source
+$N_{u}=243$ control degrees of freedom. It also does not provide the source
 linear-solver tolerances or the precise target and
 boundary quadrature policies. However, equation (6.65) does resolve the
-boundary convention: $`\partial_{n}y-(b\mathbin\cdot n)y`$ is the ordinary
+boundary convention: $\partial_{n}y-(b\mathbin\cdot n)y$ is the ordinary
 normal derivative minus the transport trace, with no diffusion factor on
-$`\partial_{n}y`$. The diffusion-weighted total conormal is therefore a
+$\partial_{n}y$. The diffusion-weighted total conormal is therefore a
 framework diagnostic, not a source-realisation candidate.
 
 At zero control, $b\mathbin\cdot n=0$ on the horizontal control walls, but
-$b\mathbin\cdot n>0$ on the outlet. Consequently $y\equiv1$ does not satisfy
+$b\mathbin\cdot n\gt0$ on the outlet. Consequently $y\equiv1$ does not satisfy
 the outlet condition, so a nontrivial uncontrolled state is compatible with
 the zero volume right-hand side. This explains why a nonconstant Figure 6.5
 state does not justify introducing a fitted volume forcing.
@@ -184,7 +184,7 @@ plotting configuration. These details remain unresolved in the source record.
 
 **Source:** equation (6.66), Table 6.3, Figure 6.6, book pages 190–192.
 
-~~~math
+$$
 \begin{aligned}
 \min_{v,\pi,u}\quad &
 \frac{1}{2}\lVert v-v_{d}\rVert_{L^{2}(\Omega)^{2}}^{2}
@@ -192,16 +192,16 @@ plotting configuration. These details remain unresolved in the source record.
 -\nu\Delta v+\nabla\pi&=f+u && \text{in }\Omega, \\
 \mathrm{div} v&=0 && \text{in }\Omega.
 \end{aligned}
-~~~
+$$
 
-The velocity is zero on $`\partial\Omega\setminus\Gamma_{\mathrm{right}}`$. On
-$`\Gamma_{\mathrm{right}}`$, the source uses $v\mathbin\cdot t=0$ and
+The velocity is zero on $\partial\Omega\setminus\Gamma_{\mathrm{right}}$. On
+$\Gamma_{\mathrm{right}}$, the source uses $v\mathbin\cdot t=0$ and
 $(T(v,\pi)n)\mathbin\cdot n=0$, with
-$`T(v,\pi)n=-\pi n+\nu\partial_{n}v`$.
+$T(v,\pi)n=-\pi n+\nu\partial_{n}v$.
 
 - **Data:** $\Omega=(0,1)\mathbin\times(0,2)$,
-  $`\Gamma_{\mathrm{right}}=\{x:x_{1}=1\}`$, $`f=-e_{2}`$, and
-  $`v_{d}=x_{2}e_{1}`$.
+  $\Gamma_{\mathrm{right}}=\lbrace x:x_{1}=1\rbrace$, $f=-e_{2}$, and
+  $v_{d}=x_{2}e_{1}$.
 - **Discretisation:** inf-sup compatible `P2–P1` pair on 5,140 vertices and
   10,278 triangles.
 - **Method:** steepest descent with fixed $\tau=5$ for
@@ -209,13 +209,13 @@ $`T(v,\pi)n=-\pi n+\nu\partial_{n}v`$.
 - **Naming:** equation (6.66) uses $\alpha$, while the accompanying Table
   6.3 labels its coefficient column $\beta$.
 
-| $\beta$ | $`J_{h}(\hat u)`$ | Iterations | $`\lVert\hat u\rVert_{L^{2}(\Omega)}`$ |
+| $\beta$ | $J_{h}(\hat u)$ | Iterations | $\lVert\hat u\rVert_{L^{2}(\Omega)}$ |
 | ---: | ---: | ---: | ---: |
 | $10^{-2}$ | 0.00317078 | 29 | 0.752571 |
 | $10^{-3}$ | 0.000383566 | 70 | 0.827743 |
 | $10^{-4}$ | $5.9189\mathbin\cdot10^{-5}$ | 90 | 0.847255 |
 
-The source gives $`J_{h}(u_{0})=0.076222`$ and reports that smaller
+The source gives $J_{h}(u_{0})=0.076222$ and reports that smaller
 regularisation strengthens control action and lowers cost.
 
 Source references:
@@ -226,7 +226,7 @@ Source references:
 **Source completeness.** The source does not state the viscosity $\nu$, a
 pressure gauge, the mesh connectivity, the linear-solver tolerances, or the
 stopping criterion behind the reported convergence counts. The prose says
-that the distance $`\lVert\hat v-v_{d}\rVert_{L^{2}(\Omega)^{2}}`$ is reported,
+that the distance $\lVert\hat v-v_{d}\rVert_{L^{2}(\Omega)^{2}}$ is reported,
 but the printed Table 6.3 contains no distance column. Figure 6.6 is a
 rendered field figure without source field arrays or plotting settings. These
 details remain unresolved in the source record.
@@ -238,7 +238,7 @@ details remain unresolved in the source record.
 **Source:** equations (6.84)–(6.88), Table 6.4, Figure 6.7, book pages
 202–205.
 
-~~~math
+$$
 \begin{aligned}
 \min_{y,u}\quad &
 \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
@@ -246,34 +246,33 @@ details remain unresolved in the source record.
 -\Delta y&=u && \text{in }\Omega, \\
 y&=z_{d} && \text{on }\partial\Omega.
 \end{aligned}
-~~~
+$$
 
 The source uses $\beta\lVert u\rVert^{2}$, not
 $\beta\lVert u\rVert^{2}/2$; its KKT control block is consequently
 $2\beta M$. It takes $\Omega=(0,1)^{2}$ and
 
-~~~math
+$$
 z_{d}(x)=
 \begin{cases}
 (2x_{1}-1)^{2}(2x_{2}-1)^{2} & x\in(0,1/2]^{2}, \\
 0 & \text{otherwise}.
 \end{cases}
-~~~
+$$
 
 The source uses a DtO discretisation with stiffness matrix $K$, mass matrix
-$M$, $`b=Mz_{d}`$, and a boundary-value vector $d$. Its discrete state
+$M$, $b=Mz_{d}$, and a boundary-value vector $d$. Its discrete state
 equation is $Ky=Mu+d$, and the KKT system is
 
-~~~math
+$$
 \begin{bmatrix}
 2\beta M & 0 & M^{\mathsf T} \\
 0 & M & K^{\mathsf T} \\
 M & K & 0
 \end{bmatrix}
-\begin{bmatrix}u \\ y \\ p\end{bmatrix}
-=
+\begin{bmatrix}u \\ y \\ p\end{bmatrix} =
 \begin{bmatrix}0 \\ b \\ d\end{bmatrix}.
-~~~
+$$
 
 - **Discretisation/formulation:** DtO with conforming bilinear `Q1`
   elements; Table 6.4 uses $h=2^{-2},\ldots,2^{-9}$.
@@ -295,7 +294,7 @@ Table 6.4 reports timings and outer iterations for the three tabulated
 coefficients. The compact projection below retains the iteration counts; each
 entry is geometric-MG MINRES / AMG MINRES / PPCG / PPCG with
 $G=\mathrm{diag}(K)$. The complete source table, including timings and
-$`3N_{y}`$, is linked below.
+$3N_{y}$, is linked below.
 
 | $h$ | $10^{-2}$ | $5\mathbin\cdot10^{-5}$ | $10^{-5}$ |
 | --- | --- | --- | --- |
@@ -332,29 +331,28 @@ This has the same form and data as E6.7.1, including its target, domain,
 `Q1` DtO discretisation, preconditioners, parameter sweep, and stopping
 criteria. The state equation is instead
 
-~~~math
+$$
 -\Delta y+y=u \quad\text{in }\Omega,
 \qquad y=z_{d}\quad\text{on }\partial\Omega.
-~~~
+$$
 
-With $`b=Mz_{d}`$ and the same boundary-value vector $d$, the corresponding
+With $b=Mz_{d}$ and the same boundary-value vector $d$, the corresponding
 discrete KKT system is
 
-~~~math
+$$
 \begin{bmatrix}
 2\beta M & 0 & M^{\mathsf T} \\
 0 & M & (K+M)^{\mathsf T} \\
 M & K+M & 0
 \end{bmatrix}
-\begin{bmatrix}u \\ y \\ p\end{bmatrix}
-=
+\begin{bmatrix}u \\ y \\ p\end{bmatrix} =
 \begin{bmatrix}0 \\ b \\ d\end{bmatrix}.
-~~~
+$$
 
 The block-diagonal preconditioners have the same form as in E6.7.1, with
 approximations of the stiffness solves replaced by approximations of $K+M$;
 the source states that the same multigrid solvers are used. Figure 6.8 plots
-the MINRES method with $`\widehat P_{da}`$ and PPCG with $`\widehat P_{ca}`$ for
+the MINRES method with $\widehat P_{da}$ and PPCG with $\widehat P_{ca}$ for
 $\beta=10^{-2},5\mathbin\cdot10^{-5},10^{-5},10^{-8}$ as functions of the
 mesh size $h$. The source reports trends similar to the Laplace case and
 does not repeat the timing table: it states that the computational-time
@@ -376,7 +374,7 @@ surrounding text and the preconditioner notation call it PPCG.
 
 **Source:** equation (6.105), Figures 6.9–6.13, book pages 211–214.
 
-~~~math
+$$
 \begin{aligned}
 \min_{y,u}\quad &
 \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
@@ -385,21 +383,21 @@ surrounding text and the preconditioner notation call it PPCG.
 y&=z_{d} && \text{on }\partial\Omega, \\
 -a&\leq u\leq a.
 \end{aligned}
-~~~
+$$
 
-Take $\Omega=(0,1)^{2}$, $a>0$, and
-$`z_{d}=\sin(2\pi x_{1})\sin(2\pi x_{2})`$. The source quotes the
+Take $\Omega=(0,1)^{2}$, $a\gt0$, and
+$z_{d}=\sin(2\pi x_{1})\sin(2\pi x_{2})$. The source quotes the
 unconstrained exact control
-$`u_{\mathrm{ex}}=8\pi^{2}\sin(2\pi x_{1})\sin(2\pi x_{2})`$ and considers
-$\beta>0$.
+$u_{\mathrm{ex}}=8\pi^{2}\sin(2\pi x_{1})\sin(2\pi x_{2})$ and considers
+$\beta\gt0$.
 
 - **Discretisation:** conforming bilinear `Q1` elements on a quadrilateral
   mesh; mesh size is not stated.
-- **Method:** PDAS from $`u_{0}=0`$ and multiplier $`\lambda_{0}=0`$.
+- **Method:** PDAS from $u_{0}=0$ and multiplier $\lambda_{0}=0$.
 - **Sweep:** $\beta=10^{-2},10^{-4},10^{-6},10^{-8}$ and
   $a=100,70,50,30$.
 - **Published trend:** $a=100$ converges in one iteration because
-  $`\lVert u_{\mathrm{ex}}\rVert_{L^{\infty}(\Omega)}\leq80`$. Tighter bounds
+  $\lVert u_{\mathrm{ex}}\rVert_{L^{\infty}(\Omega)}\leq80$. Tighter bounds
   require more PDAS iterations, and finer meshes increase the iteration count
   for fixed $a$ and $\beta$. Smaller $\beta$ increases the control norm and
   active-region extent while lowering tracking error; larger $\beta$ lowers
@@ -432,7 +430,7 @@ captions use $\beta$.
 
 **Source:** equation (6.106), Figures 6.14–6.15, book pages 214–216.
 
-~~~math
+$$
 \begin{aligned}
 \min_{y,u}\quad &
 \frac{1}{2}\lVert y-z_{d}\rVert_{L^{2}(\Omega)}^{2}
@@ -441,26 +439,26 @@ captions use $\beta$.
 y&=z_{d} && \text{on }\partial\Omega, \\
 a(x)&\leq u(x)\leq b(x).
 \end{aligned}
-~~~
+$$
 
 For $d=2$ and $d=3$, use the target and bounds
 
-~~~math
+$$
 \begin{aligned}
 z_{d}(x)&=-x_{1}\exp\left(-\sum_{i=1}^{d}(x_{i}-0.5)^{2}\right), \\
 a(x)&=
 \begin{cases}
--0.15 & x_{1}<0.5, \\
+-0.15 & x_{1}\lt0.5, \\
 -0.2 & x_{1}\geq0.5,
 \end{cases} \\
 b(x)&=-0.01\exp\left(-\sum_{i=1}^{d}x_{i}^{2}\right).
 \end{aligned}
-~~~
+$$
 
 - **Discretisation:** the source states conforming piecewise bilinear `Q1`
   finite elements on a quadrilateral mesh for $d=2$ and a hexahedral mesh for
   $d=3$, respectively.
-- **Method/sweep:** PDAS from $`u_{0}=0`$, $`\lambda_{0}=0`$ for
+- **Method/sweep:** PDAS from $u_{0}=0$, $\lambda_{0}=0$ for
   $\beta=10^{-2},10^{-4},10^{-6}$.
 - **Published provenance:** the source identifies this test case as
   originally proposed in [228].
@@ -489,7 +487,7 @@ of numerical values.
 
 **Source:** equation (6.107), Table 6.5, Figure 6.16, book pages 215–218.
 
-~~~math
+$$
 \begin{aligned}
 \min_{v,\pi,u}\quad &
 \frac{1}{2}\lVert v-v_{d}\rVert_{L^{2}(\Omega)^{2}}^{2}
@@ -499,22 +497,21 @@ of numerical values.
 v&=g && \text{on }\partial\Omega, \\
 -550&\leq u_{i}\leq550 && i=1,2.
 \end{aligned}
-~~~
+$$
 
 The domain is $\Omega=(0,1)^{2}$ and
-$`\Gamma_{\mathrm{right}}=\{x:x_{1}=1\}`$. The boundary datum is $g=0$ on
-$`\Gamma_{\mathrm{right}}`$ and $`g=-e_{2}`$ elsewhere. The target is
+$\Gamma_{\mathrm{right}}=\lbrace x:x_{1}=1\rbrace$. The boundary datum is $g=0$ on
+$\Gamma_{\mathrm{right}}$ and $g=-e_{2}$ elsewhere. The target is
 
-~~~math
+$$
 v_{d}=(x_{2}-0.5)e_{1}-(x_{1}-0.5)e_{2}.
-~~~
+$$
 
 - The source sets
-  $`V=H_{0}^{1}(\Gamma_{\mathrm{right}})^{2}\times L^{2}(\Omega)`$ and
-  $U_{\mathrm{ad}}=\{u\in L^{2}(\Omega)^{2}:-550\leq u_{i}\leq550
-  \text{ a.e. in }\Omega,\ i=1,2\}$.
+  $V=H_{0}^{1}(\Gamma_{\mathrm{right}})^{2}\times L^{2}(\Omega)$ and
+  $U_{\mathrm{ad}}=\lbrace u\in L^{2}(\Omega)^{2}:-550\leq u_{i}\leq550\ \text{a.e. in }\Omega,\ i=1,2\rbrace$.
 - **Discretisation:** the inf-sup compatible `Q2–Q1` pair; the reported
-  dimensions are $`N_{v}=51{,}842`$ and $`N_{\pi}=6{,}561`$.
+  dimensions are $N_{v}=51{,}842$ and $N_{\pi}=6{,}561$.
 - **Method:** the numerical-examples section presents the case as a PDAS
   computation, but this case does not state the initial control or multiplier.
 - **Naming:** equation (6.107) calls regularisation $\alpha$, while Figure
@@ -522,14 +519,14 @@ v_{d}=(x_{2}-0.5)e_{1}-(x_{1}-0.5)e_{2}.
 - **Published provenance:** the source identifies this test case as
   originally proposed in [229].
 
-| $\beta$ | $`J_{h}(\hat u)`$ | Iterations | $`\lVert\hat u\rVert_{L^{2}(\Omega)}`$ | $`\lVert\hat v-v_{d}\rVert_{L^{2}(\Omega)}`$ |
+| $\beta$ | $J_{h}(\hat u)$ | Iterations | $\lVert\hat u\rVert_{L^{2}(\Omega)}$ | $\lVert\hat v-v_{d}\rVert_{L^{2}(\Omega)}$ |
 | ---: | ---: | ---: | ---: | ---: |
 | $10^{-2}$ | 0.0579601 | 1 | 0.326406 | 0.338902 |
 | $10^{-4}$ | 0.0430436 | 1 | 10.3743 | 0.274453 |
 | $10^{-6}$ | 0.0244265 | 1 | 72.2504 | 0.208885 |
 | $10^{-8}$ | 0.0176069 | 6 | 308.912 | 0.185093 |
 
-The uncontrolled reference is $`J_{h}(u_{0})=0.0585097`$. The target velocity
+The uncontrolled reference is $J_{h}(u_{0})=0.0585097$. The target velocity
 is incompatible with the prescribed state-velocity boundary data, so the
 cost cannot be reduced below a certain value. The source observes that the
 control moves the vortex from the right side towards the centre, with a more

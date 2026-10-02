@@ -79,7 +79,7 @@ The current assessment is:
   constant target $20$, and the same row swap; these are three explicit source
   contradictions rather than a replacement specification;
 - the source counts constrain aggregate boundary subdivision under standard
-  $`P_{1}`$ assumptions, but do not determine interior mesh connectivity;
+  $P_{1}$ assumptions, but do not determine interior mesh connectivity;
 - the current uniform facewise metric makes the relative metric-gradient and
   coefficient-derivative norms identical, so this realization cannot
   distinguish the book's gradient convention; and
@@ -97,8 +97,8 @@ attempt is closed unless new source evidence justifies reopening it.
 ## Source facts and omissions
 
 The source fixes $\Omega=(0,4)\times(0,1)$, diffusion $\mu=0.1$,
-regularisation $\beta=10^{-3}$, zero initial control $`u_{0}=0`$, fixed
-temperature $1$, transport field $`b(x)=(1.5x_{2}(1-x_{2}),0)`$, two downstream
+regularisation $\beta=10^{-3}$, zero initial control $u_{0}=0$, fixed
+temperature $1$, transport field $b(x)=(1.5x_{2}(1-x_{2}),0)$, two downstream
 observation regions, two targets, linear triangular finite elements, and
 BFGS. It reports 11,028 vertices,
 21,653 triangles, 10,907 state and adjoint degrees of freedom, and 243 control
@@ -119,7 +119,7 @@ The source does not provide:
 
 The book does explicitly provide the volume right-hand side and boundary
 operator. Equation (6.65) uses zero volume forcing and
-$`\partial_{n} y-(b\mathbin\cdot n)y`$ on both controlled and outflow boundaries;
+$\partial_{n} y-(b\mathbin\cdot n)y$ on both controlled and outflow boundaries;
 the ordinary normal derivative is not diffusion-weighted. References [187]
 and [205] support this classification: [187], equation (37), also has zero
 volume right-hand side, while [205] separates a distributed heat-source test
@@ -128,7 +128,7 @@ omissions still prevent coefficient-wise parity, but they do not justify
 fitting a nonzero B2 forcing or selecting total conormal as the source form.
 
 At zero control, $b\mathbin\cdot n=0$ on the horizontal control walls, while
-$b\mathbin\cdot n>0$ on the outlet. Thus $y\equiv1$ does not satisfy the
+$b\mathbin\cdot n\gt0$ on the outlet. Thus $y\equiv1$ does not satisfy the
 outflow condition, and a nontrivial uncontrolled state is compatible with a
 zero volume right-hand side. The Figure 6.5 maximum therefore cannot be used
 by itself to infer an omitted forcing term.
@@ -138,25 +138,25 @@ by itself to infer an omitted forcing term.
 For a conforming triangulation of a simply connected rectangle with $V$
 vertices, $T$ triangles, and $B$ boundary vertices,
 
-```math
+$$
 T = 2V - B - 2.
-```
+$$
 
 The published $V=11028$ and $T=21653$ imply $B=401$. If the state uses one
-nodal $`P_{1}`$ coordinate per vertex, the difference $11028-10907=121$ is exactly
+nodal $P_{1}$ coordinate per vertex, the difference $11028-10907=121$ is exactly
 the number of strongly constrained Dirichlet vertices. The fixed boundary is
 one connected arc from the lower transition point around the inlet to the
 upper transition point, so those 121 vertices imply 120 fixed-boundary edges.
 
 Under the additional standard assumption that the control uses independent
-continuous $`P_{1}`$ traces on the two disconnected downstream wall segments, 243
+continuous $P_{1}$ traces on the two disconnected downstream wall segments, 243
 control nodes imply 241 control edges: each segment contributes one more node
 than edge. The remaining boundary then contains $401-120-241=40$ outflow
 edges. Thus the reported dimensions are compatible with the aggregate split
 
-```math
+$$
 (N_{D},N_{c},N_{\mathrm{out}})=(120,241,40).
-```
+$$
 
 This deduction depends on nodal endpoint and junction conventions, and the
 odd control-edge total permits asymmetric top and bottom subdivisions. It
@@ -176,7 +176,7 @@ The current refinement-6 realization is structurally different:
 | Wings/full observation measure | exact $1.8/3$ | $1.78125/3$ |
 
 The wings-measure error is caused by selecting complete cells from their
-centres at the $`x_{2}=0.3`$ and $`x_{2}=0.7`$ interfaces. It is small compared with the
+centres at the $x_{2}=0.3$ and $x_{2}=0.7$ interfaces. It is small compared with the
 present field and objective discrepancies, but it must be controlled in a
 source-oriented mesh.
 
@@ -188,14 +188,14 @@ Table 6.2 caption; it is not one minus that ratio.
 
 | Case | Region / target | Iterations, source/current | Initial objective, source/current | Final objective, source/current | Reduction, source/current | Relative gradient, source/current |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| a | wings / constant | $59/100$ (limit) | $316.6661/0.865898$ | $3.5682/0.0241174$ | $98.87\%/97.21\%$ | $0.0250/(3.63\times10^{-8})$ |
-| b | full / constant | $54/100$ (limit) | $192.8385/1.45870$ | $2.6368/0.0450412$ | $98.63\%/96.91\%$ | $0.0569/(2.49\times10^{-8})$ |
-| c | wings / parabolic | $48/100$ (limit) | $29.2188/0.310643$ | $0.7826/0.0502506$ | $97.32\%/83.82\%$ | $0.0753/(2.37\times10^{-7})$ |
-| d | full / parabolic | $87/100$ (limit) | $45.9996/0.315375$ | $0.8464/0.122553$ | $98.16\%/61.14\%$ | $0.0387/(1.79\times10^{-7})$ |
+| a | wings / constant | $59/100$ (limit) | $316.6661/0.865898$ | $3.5682/0.0241174$ | $98.87$%/$97.21$% | $0.0250/(3.63\times10^{-8})$ |
+| b | full / constant | $54/100$ (limit) | $192.8385/1.45870$ | $2.6368/0.0450412$ | $98.63$%/$96.91$% | $0.0569/(2.49\times10^{-8})$ |
+| c | wings / parabolic | $48/100$ (limit) | $29.2188/0.310643$ | $0.7826/0.0502506$ | $97.32$%/$83.82$% | $0.0753/(2.37\times10^{-7})$ |
+| d | full / parabolic | $87/100$ (limit) | $45.9996/0.315375$ | $0.8464/0.122553$ | $98.16$%/$61.14$% | $0.0387/(1.79\times10^{-7})$ |
 
 The discrepancy is not a single missing scale: the current-to-source ratio
-varies from $0.27\%$ to $1.06\%$ for the initial objectives and from $0.68\%$
-to $14.48\%$ for the final objectives. The parabolic cases also fail to reproduce
+varies from $0.27$% to $1.06$% for the initial objectives and from $0.68$%
+to $14.48$% for the final objectives. The parabolic cases also fail to reproduce
 the source's objective reduction. Scaling the reported functional would not
 repair those case-dependent differences.
 
@@ -242,8 +242,8 @@ exact count-matched connectivity is not justified by this evidence.
 
 The retained refinement-6 fields also permit observation-objective variants to
 be evaluated without rerunning the PDE. Interpolating the target into the
-state space changes the objectives by at most about $0.05\%$, and consistent
-mass lumping changes them by at most about $0.16\%$. An unweighted sum over
+state space changes the objectives by at most about $0.05$%, and consistent
+mass lumping changes them by at most about $0.16$%. An unweighted sum over
 nodal coefficients produces much larger values, but with case-dependent
 factors and without representing the stated $L^{2}$ tracking functional.
 Neither the defensible target interpolation nor quadrature variants explain
@@ -290,12 +290,12 @@ evidence gate, not evidence of an incorrect derivative.
 
 The direct weak-form audit is now complete. The assembled ordinary realization
 uses the conservative volume form
-$`\int_{\Omega}\mu\nabla y\mathbin\cdot\nabla v-yb\mathbin\cdot\nabla v`$
+$\int_{\Omega}\mu\nabla y\mathbin\cdot\nabla v-yb\mathbin\cdot\nabla v$
 and adds $(1-\mu)(b\mathbin\cdot n)y$ on the control and outflow faces. Its
 control load is correspondingly scaled by $\mu$, as required when the source
-condition is $`\partial_{n}y-(b\mathbin\cdot n)y=u`$. On the B2 rectangle, a
+condition is $\partial_{n}y-(b\mathbin\cdot n)y=u$. On the B2 rectangle, a
 constant test/state check gives
-$`(1-0.1)\int_{0}^{1}1.5x_{2}(1-x_{2})\mathrm{d}x_{2}=0.225`$ for the
+$(1-0.1)\int_{0}^{1}1.5x_{2}(1-x_{2})\thinspace\mathrm{d}x_{2}=0.225$ for the
 ordinary-minus-total residual difference. The Debug contract
 `nmopt.application.dealii.b2_ordinary_transport_boundary_operator` now locks
 this coefficient and the outlet integral; the existing realization comparison
@@ -306,7 +306,7 @@ audit.
 
 The second campaign comprised 17 complete Debug run sets and 92 artifacts at
 revision `21982c6`. It used the boundary-aligned $160\times40$ structured
-simplex mesh, continuous $`P_{1}`$ trace control, order-three analytic observation
+simplex mesh, continuous $P_{1}$ trace control, order-three analytic observation
 quadrature, and the ordinary-normal boundary form unless stated otherwise.
 All manifests completed successfully. Debug timings are not benchmark
 evidence. Following the source audit, this campaign is retained only as
@@ -332,13 +332,13 @@ source interpretation: it contradicts the explicit zero forcing in equation
 objectives are only $7.66096$, $12.5635$, $16.4355$, and $24.9966$.
 Optimizing this candidate with the source-stated $\beta=10^{-3}$ and Armijo
 globalization drives all four objectives below $0.062$ and reduces them by
-more than $99.5\%$, again incompatible with Table 6.2.
+more than $99.5$%, again incompatible with Table 6.2.
 
 A regularisation sweep rules out $\beta$ as the sole missing detail. For zero
 forcing, lowering $\beta$ from $10^{-3}$ to $10^{-6}$ raises the constant-case
-reductions to about $98.9\%$, but the parabolic reductions remain near
-$84.9\%$ on the wings and $62.0\%$ on the full region. With $f=1$, however,
-$\beta=10^{-2}$ and Armijo give reductions between $98.43\%$ and $99.00\%$.
+reductions to about $98.9$%, but the parabolic reductions remain near
+$84.9$% on the wings and $62.0$% on the full region. With $f=1$, however,
+$\beta=10^{-2}$ and Armijo give reductions between $98.43$% and $99.00$%.
 The earlier fixed-step calibration identified step $0.05$ as the strongest
 common candidate for comparing the published iteration counts.
 
@@ -347,10 +347,10 @@ reported quantity within one decimal order of Table 6.2:
 
 | Case | Iteration | Initial $J$, source/candidate | $J$ at iteration, source/candidate | Reduction, source/candidate | Relative metric gradient, source/candidate |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| a | $59$ | $316.6661/45.9714$ | $3.5682/0.831156$ | $98.87\%/98.19\%$ | $0.0250/0.04874$ |
-| b | $54$ | $192.8385/75.5286$ | $2.6368/1.15928$ | $98.63\%/98.47\%$ | $0.0569/0.06185$ |
-| c | $48$ | $29.2188/65.2729$ | $0.7826/1.45561$ | $97.32\%/97.77\%$ | $0.0753/0.08570$ |
-| d | $87$ | $45.9996/103.266$ | $0.8464/1.05098$ | $98.16\%/98.98\%$ | $0.0387/0.01065$ |
+| a | $59$ | $316.6661/45.9714$ | $3.5682/0.831156$ | $98.87$%/$98.19$% | $0.0250/0.04874$ |
+| b | $54$ | $192.8385/75.5286$ | $2.6368/1.15928$ | $98.63$%/$98.47$% | $0.0569/0.06185$ |
+| c | $48$ | $29.2188/65.2729$ | $0.7826/1.45561$ | $97.32$%/$97.77$% | $0.0753/0.08570$ |
+| d | $87$ | $45.9996/103.266$ | $0.8464/1.05098$ | $98.16$%/$98.98$% | $0.0387/0.01065$ |
 
 This is the best all-case order-of-magnitude fit found, but both $f=1$ and
 $\beta=10^{-2}$ contradict printed source values. A forcing near $0.65$ is a
@@ -359,21 +359,21 @@ cases:
 
 | Case | Initial $J$, source/candidate | $J$ at source iteration, source/candidate | Reduction, source/candidate | Relative metric gradient, source/candidate |
 | --- | ---: | ---: | ---: | ---: |
-| a | $316.6661/17.0244$ | $3.5682/0.328626$ | $98.87\%/98.07\%$ | $0.0250/0.04843$ |
-| b | $192.8385/27.9462$ | $2.6368/0.453623$ | $98.63\%/98.38\%$ | $0.0569/0.06171$ |
-| c | $29.2188/29.3729$ | $0.7826/0.666825$ | $97.32\%/97.73\%$ | $0.0753/0.08554$ |
-| d | $45.9996/45.5753$ | $0.8464/0.470078$ | $98.16\%/98.97\%$ | $0.0387/0.01050$ |
+| a | $316.6661/17.0244$ | $3.5682/0.328626$ | $98.87$%/$98.07$% | $0.0250/0.04843$ |
+| b | $192.8385/27.9462$ | $2.6368/0.453623$ | $98.63$%/$98.38$% | $0.0569/0.06171$ |
+| c | $29.2188/29.3729$ | $0.7826/0.666825$ | $97.32$%/$97.73$% | $0.0753/0.08554$ |
+| d | $45.9996/45.5753$ | $0.8464/0.470078$ | $98.16$%/$98.97$% | $0.0387/0.01050$ |
 
-Its uncontrolled maximum is $9.55411$, about $32\%$ above the Figure 6.5
+Its uncontrolled maximum is $9.55411$, about $32$% above the Figure 6.5
 maximum. The parabolic initial objectives differ from Table 6.2 by only
-$0.5\%$ and $0.9\%$; the wings final objective and relative gradient differ
-by about $15\%$ and $14\%$. The full/parabolic terminal gradient remains the
+$0.5$% and $0.9$%; the wings final objective and relative gradient differ
+by about $15$% and $14$%. The full/parabolic terminal gradient remains the
 largest optimization-side mismatch.
 
 The constant rows show a separate, striking reconstruction clue. At $f=0.65$,
 recomputing the tracking term with constant target $20$ and swapping the two
 constant-region Table labels gives initial objectives $187.788$ and $314.284$,
-only $2.6\%$ and $0.75\%$ from the swapped published values. Independently
+only $2.6$% and $0.75$% from the swapped published values. Independently
 solving for forcing gives $f=0.621019$ and $0.641707$ for those constant cases,
 and $f=0.648059$ and $0.653155$ for the two parabolic cases. This clustering
 near $f\approx0.64$ motivates a possible implementation or transcription
@@ -392,7 +392,7 @@ diagnostics, not source-replication hypotheses:
 - `figure-6.5-table-6.2-parabolic-fit.prm` uses $f=0.65$ for the strongest
   simultaneous field and parabolic-row agreement; and
 - `target-transcription-gate.prm` holds the source PDE and zero forcing fixed
-  while comparing targets $2$, $20$, and $`4x_{2}(1-x_{2})`$ at zero control.
+  while comparing targets $2$, $20$, and $4x_{2}(1-x_{2})$ at zero control.
 
 All four use continuous trace control, the source-oriented structured simplex
 mesh, fixed step $0.05$, and retained fields. The three fitted optimization
@@ -425,7 +425,7 @@ reproduction.
 
 The runner now exposes the constant and parabolic target definitions as
 expression-backed scalar-function records. The source defaults remain $2$ and
-$`4x_{2}(1-x_{2})`$; the selected definition, kind, value, and expression are
+$4x_{2}(1-x_{2})$; the selected definition, kind, value, and expression are
 retained in B2 artifact evidence. This enables the conditional constant-target
 transcription hypothesis to be tested without changing the PDE, adding
 forcing, or introducing an objective multiplier.
@@ -507,7 +507,7 @@ data because equation (6.65) explicitly has zero right-hand side.
 The optimized panels cannot be explained by rescaling the same fields. For
 cases a--d, the source-literal normalized correlations are respectively
 $0.368$, $-0.092$, $0.246$, and $0.554$. Their signs, peak locations, and
-streamwise trends also differ. The printed panel b has about $11.28\%$
+streamwise trends also differ. The printed panel b has about $11.28$%
 negative decoded pixels, while none of the 13 unique retained panel-b fields
 crosses zero. The no-control fit is therefore not a hidden four-panel
 reproduction.
@@ -516,44 +516,44 @@ reproduction.
 
 The promoted [target-transcription gate](../../../parameters/chapter-6/b2/development/target-transcription-gate.prm)
 uses the source-oriented $160\mathbin\times40$ simplex mesh, continuous
-$`P_{1}`$ trace control, zero forcing, source coefficients, and zero initial
+$P_{1}$ trace control, zero forcing, source coefficients, and zero initial
 control. It compares constant targets $2$ and $20$ with the source parabolic
 target. The preserved release run completed all six artifacts and
 postprocessed all six without failures.
 
-| Target | Wings $`J(u_{0})`$ | Full $`J(u_{0})`$ | Full minus wings |
+| Target | Wings $J(u_{0})$ | Full $J(u_{0})$ | Full minus wings |
 | --- | ---: | ---: | ---: |
 | constant $2$ | $0.875017$ | $1.458699$ | $0.583682$ |
 | constant $20$ | $324.413590$ | $540.695200$ | $216.281610$ |
-| $`4x_{2}(1-x_{2})`$ | $0.310938$ | $0.315372$ | $0.004433$ |
+| $4x_{2}(1-x_{2})$ | $0.310938$ | $0.315372$ | $0.004433$ |
 
 Every computed pair satisfies the required nesting order. Solving the
 constant-target quadratic for each printed objective gives incompatible
 positive roots $19.7719$ and $12.3525$ under the printed row association.
 Swapping only the two printed constant rows gives roots $15.6520$ and
 $15.5438$. Their midpoint, $15.5979$, predicts both swapped objectives within
-$0.75\%$. This is a qualified table-only transcription clue: it changes the
+$0.75$%. This is a qualified table-only transcription clue: it changes the
 association of printed rows, not the selected wings/full scenario, and it does
 not explain the parabolic objectives or Figure 6.5.
 
 ### Forensic forcing/target factorial
 
-The release factorial tested $f\in\{0,0.64\}$, both regions, and targets
-$2$, $20$, and $`4x_{2}(1-x_{2})`$ in 12 one-step cases. The best tested table
+The release factorial tested $f\in\lbrace0,0.64\rbrace$, both regions, and targets
+$2$, $20$, and $4x_{2}(1-x_{2})$ in 12 one-step cases. The best tested table
 reconstruction uses $f=0.64$, target $20$, and the swapped constant-row
 association:
 
-| Compared case | Candidate $`J(u_{0})`$ | Printed $`J(u_{0})`$ | Relative error |
+| Compared case | Candidate $J(u_{0})$ | Printed $J(u_{0})$ | Relative error |
 | --- | ---: | ---: | ---: |
-| wings/constant $20$ to row b | $189.5193$ | $192.8385$ | $-1.72\%$ |
-| full/constant $20$ to row a | $317.1569$ | $316.6661$ | $+0.16\%$ |
-| wings/parabolic | $28.5555$ | $29.2188$ | $-2.27\%$ |
-| full/parabolic | $44.2697$ | $45.9996$ | $-3.76\%$ |
+| wings/constant $20$ to row b | $189.5193$ | $192.8385$ | $-1.72$% |
+| full/constant $20$ to row a | $317.1569$ | $316.6661$ | $+0.16$% |
+| wings/parabolic | $28.5555$ | $29.2188$ | $-2.27$% |
+| full/parabolic | $44.2697$ | $45.9996$ | $-3.76$% |
 
-The next-best tested combination has maximum relative error above $64\%$, so
+The next-best tested combination has maximum relative error above $64$%, so
 the clustering is real. It is nevertheless explicitly non-source: it jointly
 requires nonzero forcing, target $20$, and a row reinterpretation, while its
-no-control maximum $9.42435$ is $30.53\%$ above the displayed $7.22$. The
+no-control maximum $9.42435$ is $30.53$% above the displayed $7.22$. The
 factorial is recorded as contradiction evidence and is not promoted as stable
 configuration.
 
@@ -564,12 +564,12 @@ counts remain far from the source. Table 6.2 reports one gradient ratio; the
 artifacts retain both the metric-gradient and coefficient-derivative ratios,
 which coincide for the uniform facewise control realization.
 
-| Case | Count | Source/current $`J(u_{0})`$ | Source/current $J$ | Source/current reduction | Source/current metric ratio | Current coefficient ratio |
+| Case | Count | Source/current $J(u_{0})$ | Source/current $J$ | Source/current reduction | Source/current metric ratio | Current coefficient ratio |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| a | 59 | $316.6661/0.865904$ | $3.5682/0.0232535$ | $98.87\%/97.31\%$ | $0.0250/4.600\mathbin\times10^{-5}$ | $4.600\mathbin\times10^{-5}$ |
-| b | 54 | $192.8385/1.458708$ | $2.6368/0.0437242$ | $98.63\%/97.00\%$ | $0.0569/4.895\mathbin\times10^{-5}$ | $4.895\mathbin\times10^{-5}$ |
-| c | 48 | $29.2188/0.310638$ | $0.7826/0.0500038$ | $97.32\%/83.90\%$ | $0.0753/1.843\mathbin\times10^{-4}$ | $1.843\mathbin\times10^{-4}$ |
-| d | 87 | $45.9996/0.315369$ | $0.8464/0.122407$ | $98.16\%/61.19\%$ | $0.0387/2.126\mathbin\times10^{-7}$ | $2.126\mathbin\times10^{-7}$ |
+| a | 59 | $316.6661/0.865904$ | $3.5682/0.0232535$ | $98.87$%/$97.31$% | $0.0250/4.600\mathbin\times10^{-5}$ | $4.600\mathbin\times10^{-5}$ |
+| b | 54 | $192.8385/1.458708$ | $2.6368/0.0437242$ | $98.63$%/$97.00$% | $0.0569/4.895\mathbin\times10^{-5}$ | $4.895\mathbin\times10^{-5}$ |
+| c | 48 | $29.2188/0.310638$ | $0.7826/0.0500038$ | $97.32$%/$83.90$% | $0.0753/1.843\mathbin\times10^{-4}$ | $1.843\mathbin\times10^{-4}$ |
+| d | 87 | $45.9996/0.315369$ | $0.8464/0.122407$ | $98.16$%/$61.19$% | $0.0387/2.126\mathbin\times10^{-7}$ | $2.126\mathbin\times10^{-7}$ |
 
 These results establish documented non-reproducibility for the completed
 joint campaign, but they do not justify ending all B2 investigation. The next
@@ -591,8 +591,8 @@ the book's ordinary-normal-minus-transport condition. That difference does
 not explain Figure 6.5's no-control field. With zero control and forcing, the
 constant field $y=1$ satisfies the Test 3 PDE, inlet value, and homogeneous
 diffusion-Neumann conditions. In the cross-section-averaged model
-$`\bar y=C_{1}+C_{2}e^{2.5x_{1}}`$, the outlet condition
-$\bar y'(4)=0$ forces $`C_{2}=0`$. The state shown on the retained
+$\bar y=C_{1}+C_{2}e^{2.5x_{1}}$, the outlet condition
+$\bar y'(4)=0$ forces $C_{2}=0$. The state shown on the retained
 [reference page](assets/reference-205-page-A2336.png) is
 an optimized controlled state, not an uncontrolled-state record. The
 ancestral natural-Neumann form is therefore analytically rejected as a
@@ -603,11 +603,11 @@ The wings observation region is a subset of the full downstream region. At
 the common zero control and for the same target, a positively weighted
 tracking integral must therefore satisfy
 
-```math
+$$
 J_{h,\mathrm{wings}}(u_{0}) \leq J_{h,\mathrm{full}}(u_{0}).
-```
+$$
 
-Table 6.2 instead reports $316.6661>192.8385$ for the constant target,
+Table 6.2 instead reports $316.6661\gt192.8385$ for the constant target,
 while its parabolic cases have the expected ordering. Possible explanations
 include a case-label or transcription error, non-nested discrete observation
 sets, or an unreported objective convention. The current evidence cannot
@@ -632,7 +632,7 @@ the terminal-to-initial ratio. Both interpretations give the current relative
 gradient values in the comparison table.
 
 Table 6.2 therefore cannot distinguish the two interpretations under the
-frozen realization. A nonuniform boundary mesh or continuous $`P_{1}`$ boundary
+frozen realization. A nonuniform boundary mesh or continuous $P_{1}$ boundary
 control gives a non-scalar mass matrix and can make the ratios differ. B2 now
 records the selected control and compiled metric explicitly, so candidate runs
 can make that comparison without a further artifact-schema change.
@@ -645,8 +645,8 @@ can make that comparison without a further artifact-schema change.
 | F1 | Ancestral inlet-only Dirichlet partition with the book outflow form | **Open as a forward-only forensic check.** Figure 6.4 fixes the source partition, but reference [205] fixes only the inlet and controls the horizontal walls. This combination can change the no-control state because it retains the book outflow condition. | Parameter-only through the upstream transition; label it non-source. |
 | F2 | Historically motivated transport amplitudes and direction | **Open only under the book outflow form.** Zero, unit, source $1.5$, and referenced scaled amplitudes can localize whether the field gap enters through volume transport or its coupled outlet term. | Parameter-only through the transport expression; retain exact provenance. |
 | 1 | Diffusion-weighted conormal alternative | **Rejected as a source interpretation.** Equation (6.65) explicitly uses the ordinary-normal-minus-transport form; the total-conormal screen is retained only as historical diagnostic evidence. | No further framework change for B2. Any independently scaled boundary-transport coefficient would be a new, explicitly non-source hypothesis. |
-| 2 | Source-oriented triangular $`P_{1}`$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
-| 3 | Continuous $`P_{1}`$ boundary control | **Screened and retained in historical diagnostics.** The source states linear finite elements and $`N_{u}=243`$; the $160\times40$ realization has 242 trace controls and distinguishes the metric from coefficient geometry. It does not by itself repair the field scale. | No further change for the current diagnostic; exact odd source counts would require an asymmetric or imported mesh. |
+| 2 | Source-oriented triangular $P_{1}$ state mesh | **Screened.** Boundary-aligned structured and centroid-split meshes give nearly identical states and objectives; connectivity sensitivity is negligible at this scale. | No further change unless source connectivity becomes available. |
+| 3 | Continuous $P_{1}$ boundary control | **Screened and retained in historical diagnostics.** The source states linear finite elements and $N_{u}=243$; the $160\times40$ realization has 242 trace controls and distinguishes the metric from coefficient geometry. It does not by itself repair the field scale. | No further change for the current diagnostic; exact odd source counts would require an asymmetric or imported mesh. |
 | 4 | Boundary-aligned observation geometry | **Screened.** The aligned meshes recover exact measure $1.8$ but do not materially reduce the objective discrepancy. | No further change for structured meshes. |
 | 5 | Constant-step and stopping candidates | **Screened.** Step $0.05$ with evaluation at the source counts gives the strongest common reductions; it does not repair the full/parabolic terminal gradient. | No further change for fixed-step runs. Initial full-BFGS inverse-Hessian policies remain a possible framework extension. |
 | 6 | Metric versus coefficient gradient norm | **Screened with continuous control.** The two relative histories differ, but neither consistently resolves all four published ratios. | No further evidence-schema change; nonuniform or exact source topology remains optional. |
@@ -787,7 +787,7 @@ $$
 with the prescribed values
 
 $$
-s\in\{5,7,8,8.5,8.75,9,9.5\}.
+s\in\lbrace5,7,8,8.5,8.75,9,9.5\rbrace.
 $$
 
 Each case uses the source-sized `160,40`
@@ -846,7 +846,7 @@ The reusable contract provides:
   Dirichlet lifting and the Neumann control, with a declared trace/boundary
   pairing;
 - an explicit normal/orientation policy and a choice between ordinary
-  $`\partial_{n}y-(b\mathbin\cdot n)y`$ and total-conormal boundary terms;
+  $\partial_{n}y-(b\mathbin\cdot n)y$ and total-conormal boundary terms;
 - distinct wall and outlet source locations, with provenance, scaling, units,
   and face-partition information persisted in the run manifest; and
 - regression coverage for zero-source identity, constant wall source,

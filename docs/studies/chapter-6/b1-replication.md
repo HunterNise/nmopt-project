@@ -66,13 +66,13 @@ established from the book alone.
 For the framework adjoint sign convention, unconstrained first-order
 stationarity in the stated common continuous `P1` control and adjoint space is
 
-```math
+$$
 p + \beta u = 0.
-```
+$$
 
-The comparison-only book-convention field is $`p_{\mathrm{book}}=-p`$, so a
+The comparison-only book-convention field is $p_{\mathrm{book}}=-p$, so a
 converged discrete solution must satisfy
-$`p_{\mathrm{book}}=\beta u`$. The mass matrix does not weaken this conclusion:
+$p_{\mathrm{book}}=\beta u$. The mass matrix does not weaken this conclusion:
 the same invertible `P1` mass matrix multiplies both terms.
 
 The top row of Figure 6.2 is consistent with this relation. For
@@ -141,12 +141,12 @@ family, not equivalence of the two stopping-policy declarations.
 
 ### Constant-forcing screen
 
-Constant forcings $f\in\{0,0.5,1\}$ were screened with continuous control on
+Constant forcings $f\in\lbrace0,0.5,1\rbrace$ were screened with continuous control on
 the refinement-7 framework mesh. The $\beta=10^{-3}$ fields use a relative
 gradient tolerance of $10^{-5}$; the $\beta=10^{-6}$ comparison uses the
-common screening tolerance $10^{-4}$. Here $`p_{\mathrm{book}}=-p`$.
+common screening tolerance $10^{-4}$. Here $p_{\mathrm{book}}=-p$.
 
-| $\beta$ | Candidate | State maximum | Control maximum | $`p_{\mathrm{book}}`$ range |
+| $\beta$ | Candidate | State maximum | Control maximum | $p_{\mathrm{book}}$ range |
 | ---: | --- | ---: | ---: | ---: |
 | $10^{-3}$ | Book | about 0.475 | about 8.57 | about $[0,8.57\times10^{-3}]$ |
 | $10^{-3}$ | $f=0$ | 0.474663 | 9.04268 | $[0,9.04281\times10^{-3}]$ |
@@ -176,7 +176,7 @@ control, the book Armijo constants, metric-inverse memory-5 L-BFGS, and a
 $10^{-3}$ relative-gradient stop. Every tested constant stopped after exactly
 four accepted unit steps.
 
-| $\beta$ | Candidate | State maximum | Control maximum | $`p_{\mathrm{book}}`$ range |
+| $\beta$ | Candidate | State maximum | Control maximum | $p_{\mathrm{book}}$ range |
 | ---: | --- | ---: | ---: | ---: |
 | $10^{-3}$ | Book | about 0.475 | about 8.57 | about $[0,8.57\times10^{-3}]$ |
 | $10^{-3}$ | $f=0$ | 0.474561 | 9.03985 | $[0,9.04217\times10^{-3}]$ |
@@ -201,9 +201,9 @@ At zero control, the discrete state depends affinely on a constant forcing,
 so the initial objective is quadratic. The three computed values at
 $f=0,0.5,1$ give
 
-```math
+$$
 J_{0}(f)=0.0008510022804 f^{2}-0.0137379298020 f+0.055555555556.
-```
+$$
 
 Matching the approximately `0.05` initial level visible in Figure 6.3 gives
 roots `0.4150674` and `15.7282`; only the smaller root is plausible in the
@@ -226,9 +226,9 @@ The published counts constrain the topology but do not determine the mesh.
 For a conforming triangulation of a simply connected square with $V$ vertices,
 $T$ triangles, and $B$ boundary vertices,
 
-```math
+$$
 T = 2V - B - 2.
-```
+$$
 
 The book's $V=17{,}361$ and $T=34{,}320$ therefore imply $B=400$, which also
 explains the 16,961 independent homogeneous-Dirichlet coordinates. The counts
@@ -271,7 +271,7 @@ iterate. Memory 5 and memory 20 with metric-inverse scaling produced identical
 iteration-4 fields in the tested cases. Changing only the initial scaling to
 scalar-secant produced the following tradeoff:
 
-| Forcing | Scaling | Relative gradient | State maximum | Control maximum | $`p_{\mathrm{book}}`$ range |
+| Forcing | Scaling | Relative gradient | State maximum | Control maximum | $p_{\mathrm{book}}$ range |
 | ---: | --- | ---: | ---: | ---: | ---: |
 | $0.5$ | Metric inverse | $7.06\times10^{-4}$ | 0.618962 | 9.02305 | $[-1.487,3.774]\times10^{-5}$ |
 | $0.5$ | Scalar secant | $6.00\times10^{-4}$ | 0.620112 | 8.87188 | $[-1.121,3.251]\times10^{-5}$ |
@@ -443,7 +443,7 @@ information omitted from the source.
   change at the tested resolution. Alternative assembly policies would
   require a scoped framework change and rebuild.
 - **Adjoint sign and plotting – high confidence.** Native $p$ and comparison
-  field $`p_{\mathrm{book}}=-p`$ are now explicit; the run `006` sign changes are
+  field $p_{\mathrm{book}}=-p$ are now explicit; the run `006` sign changes are
   numerical rather than a color-map artifact. No further framework change is
   needed.
 

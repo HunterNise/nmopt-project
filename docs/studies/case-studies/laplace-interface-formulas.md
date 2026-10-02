@@ -13,7 +13,7 @@ y\in V,\qquad
 u\in U,\qquad
 f\in V^{\ast},\qquad
 y_{d}\in Q,\qquad
-\alpha>0.
+\alpha\gt0.
 $$
 
 $$
@@ -29,7 +29,7 @@ J(y,u)
 =\frac{1}{2}\lVert Cy-y_{d}\rVert_{Q}^{2}
 +\frac{\alpha}{2}\lVert u\rVert_{U}^{2},
 \qquad
-C:V\to Q,\quad Cy=y\vert_{\omega_{o}}.
+C:V\to Q,\quad Cy=y\rvert_{\omega_{o}}.
 $$
 
 | Component | Concrete input |
@@ -91,11 +91,11 @@ $$
 
 Choose
 
-```math
-Y_{h}=\mathrm{span}\left\{\varphi_{i}\right\},\qquad
-Z_{h}=\mathrm{span}\left\{\psi_{j}\right\},\qquad
-U_{h}=\mathrm{span}\left\{\chi_{\ell}\right\}.
-```
+$$
+Y_{h}=\mathop{\mathrm{span}}\left\lbrace\varphi_{i}\right\rbrace,\qquad
+Z_{h}=\mathop{\mathrm{span}}\left\lbrace\psi_{j}\right\rbrace,\qquad
+U_{h}=\mathop{\mathrm{span}}\left\lbrace\chi_{\ell}\right\rbrace.
+$$
 
 Define
 
@@ -107,7 +107,7 @@ $$
 (f_{h})_{j}=\langle f,\psi_{j}\rangle.
 $$
 
-For an observation basis $`\left\{\eta_{k}\right\}`$,
+For an observation basis $\left\lbrace\eta_{k}\right\rbrace$,
 
 $$
 (W_{h})_{kr}=(\eta_{k},\eta_{r})_{Q},
@@ -127,7 +127,7 @@ J_{h}(y_{h},u_{h})
 +\frac{\alpha}{2}u_{h}^{\mathsf T}R_{\mathrm{reg},h}u_{h},
 $$
 
-```math
+$$
 E_{h}'(y_{h},u_{h})
 \begin{bmatrix}
 \delta y_{h}\\
@@ -135,13 +135,12 @@ E_{h}'(y_{h},u_{h})
 \end{bmatrix}
 =A_{h}\delta y_{h}-B_{h}\delta u_{h},
 \qquad
-E_{h}'(y_{h},u_{h})^{\ast}p_{h}
-=
+E_{h}'(y_{h},u_{h})^{\ast}p_{h} =
 \begin{bmatrix}
 A_{h}^{\mathsf T}p_{h}\\
 -B_{h}^{\mathsf T}p_{h}
 \end{bmatrix}.
-```
+$$
 
 The DTO solver receives
 
@@ -200,14 +199,14 @@ policy if the chosen form needs one.
 
 Replace the full Dirichlet boundary setting by
 
-```math
+$$
 \Gamma=\Gamma_{D}\mathbin{\dot\cup}\Gamma_{N},
 \qquad
 V=H_{\Gamma_{D}}^{1}(\Omega)
-=\left\{v\in H^{1}(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
+=\left\lbrace v\in H^{1}(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\rbrace,
 \qquad
 \Gamma_{c}\subseteq\Gamma_{N}.
-```
+$$
 
 Set
 
@@ -236,7 +235,7 @@ j_{\Gamma}'(u)\delta u
 +\langle\delta u,\gamma_{\Gamma_{c}}p\rangle.
 $$
 
-With $`U_{\Gamma,h}=\mathrm{span}\left\{\xi_{\ell}\right\}`$,
+With $U_{\Gamma,h}=\mathop{\mathrm{span}}\left\lbrace\xi_{\ell}\right\rbrace$,
 
 $$
 (B_{\Gamma,h})_{j\ell}
@@ -389,10 +388,10 @@ $\iota^{\ast}$ is unnecessary.
 
 ### 3.7 Box constraints
 
-```math
+$$
 U_{\mathrm{ad}}
-=\left\{u\in U:u_{a}\leq u\leq u_{b}\ \text{a.e. in }\Omega\right\}.
-```
+=\left\lbrace u\in U:u_{a}\leq u\leq u_{b}\ \text{a.e. in }\Omega\right\rbrace.
+$$
 
 Replace unconstrained stationarity by
 
@@ -413,11 +412,11 @@ multiplier operation.  No residual or adjoint formula changes.
 
 Let
 
-```math
+$$
 \Gamma_{D}=\Gamma_{0}\mathbin{\dot\cup}\Gamma_{c},
 \qquad
-V_{0}=\left\{v\in H^{1}(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\},
-```
+V_{0}=\left\lbrace v\in H^{1}(\Omega):\gamma v=0\ \text{on }\Gamma_{D}\right\rbrace,
+$$
 
 $$
 U_{\Gamma}=H^{1/2}(\Gamma_{c}),
@@ -547,15 +546,15 @@ $$
 +(\nabla y,\nabla v)_{\Omega}
 -\langle f,v\rangle
 -(u,v)_{\Omega}
- \right]\mathrm{d}t.
+  \right]\thinspace\mathrm{d}t.
 $$
 
 For
 
 $$
 J_{T}(y,u)
-=\frac{1}{2}\int_{0}^{T}\lVert Cy(t)-y_{d}(t)\rVert_{Q}^{2}\mathrm{d}t
-+\frac{\alpha}{2}\int_{0}^{T}\lVert u(t)\rVert_{U}^{2}\mathrm{d}t,
+=\frac{1}{2}\int_{0}^{T}\lVert Cy(t)-y_{d}(t)\rVert_{Q}^{2}\thinspace\mathrm{d}t
++\frac{\alpha}{2}\int_{0}^{T}\lVert u(t)\rVert_{U}^{2}\thinspace\mathrm{d}t,
 $$
 
 the adjoint relation is
@@ -565,8 +564,8 @@ $$
 \left[
 \langle\dot w,p\rangle_{V^{\ast},V}
 +(\nabla w,\nabla p)_{\Omega}
- \right]\mathrm{d}t
-=\int_{0}^{T}(Cy-y_{d},Cw)_{Q}\mathrm{d}t.
+ \right]\thinspace\mathrm{d}t
+=\int_{0}^{T}(Cy-y_{d},Cw)_{Q}\thinspace\mathrm{d}t.
 $$
 
 For $w(0)=0$,
@@ -581,8 +580,8 @@ The reduced derivative is
 
 $$
 j_{T}'(u)\delta u
-=\alpha\int_{0}^{T}(u,\delta u)_{U}\mathrm{d}t
-+\int_{0}^{T}(p,\delta u)_{\Omega}\mathrm{d}t.
+=\alpha\int_{0}^{T}(u,\delta u)_{U}\thinspace\mathrm{d}t
++\int_{0}^{T}(p,\delta u)_{\Omega}\thinspace\mathrm{d}t.
 $$
 
 Required interfaces: time-space descriptors, time-derivative residual term,

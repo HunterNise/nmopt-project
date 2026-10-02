@@ -88,36 +88,35 @@ field to VTK.
 
 At the continuous level, the tutorial has the familiar form
 
-```math
+$$
 \begin{aligned}
 -\Delta y &= f && \text{in } \Omega, \\
 y &= g && \text{on } \partial\Omega.
 \end{aligned}
-```
+$$
 
 The tutorial itself chooses the forcing and boundary values. For this integration
 study, the important fact is not their particular formula but the ownership model:
 Step-4 already has a complete mesh/assembly/solve/output lifecycle before `nmopt` is
 introduced.
 
-With the continuous first-order `FE_Q` space $`V_{h}`$ and its homogeneous-test
-subspace $`V_{h,0}`$, the finite-element problem is: \
-find $`y_{h}\in V_{h}`$ with the prescribed discrete boundary values such that
+With the continuous first-order `FE_Q` space $V_{h}$ and its homogeneous-test
+subspace $V_{h,0}$, the finite-element problem is: \
+find $y_{h}\in V_{h}$ with the prescribed discrete boundary values such that
 
-```math
-\int_{\Omega} \nabla y_{h} \cdot \nabla v_{h} \mathrm{d}x
-=
-\int_{\Omega} f v_{h} \mathrm{d}x
+$$
+\int_{\Omega} \nabla y_{h} \cdot \nabla v_{h} \thinspace\mathrm{d}x =
+\int_{\Omega} f v_{h} \thinspace\mathrm{d}x
 \qquad
 \text{for all } v_{h}\in V_{h,0}.
-```
+$$
 
 After assembly and Step-4's existing Dirichlet treatment, this becomes the algebraic
 system
 
-```math
+$$
 A y = b.
-```
+$$
 
 The symbols $A$ and $b$ used below refer to these already assembled and
 boundary-treated Step-4 objects. The OCP experiment does not replace this
@@ -195,8 +194,8 @@ Problem A keeps the same assembled matrix $A$ and turns the existing algebraic
 right-hand side into the control channel. Its primal equation, adjoint, objective,
 and reduced derivative are
 
-```math
-\left\{
+$$
+\left\lbrace
 \begin{aligned}
 Ay &= b+u,\\
 A^{\mathsf T}p &= y
@@ -208,7 +207,7 @@ J(y,u) &= \frac{1}{2}y^{\mathsf T}y
         + \frac{1}{2}u^{\mathsf T}u,\\
 j'(u) &= u+p
 \end{aligned}
-```
+$$
 
 For the public model callback, the same state equation is
 represented by the residual $E(y,u)=Ay-b-u$.
@@ -233,20 +232,20 @@ The full control has 289 continuous FE coefficients while the state/test spaces 
 225 free coordinates. With $P$ the free-to-full injection, $\ell$ the fixed boundary
 lifting, and $M$ the full consistent mass matrix, define
 
-```math
+$$
 \begin{aligned}
 y_{\mathrm{phys}} &= Pz+\ell, \\
 K &= P^{\mathsf T}AP, \quad
 b_{F} = P^{\mathsf T}b, \quad
 B = P^{\mathsf T}M.
 \end{aligned}
-```
+$$
 
 The resulting primal equation, adjoint, objective,
 and reduced derivative are
 
-```math
-\left\{
+$$
+\left\lbrace
 \begin{aligned}
 Kz &= b_{F}+Bu, \\
 K^{\mathsf T}p &= P^{\mathsf T}M y_{\mathrm{phys}}
@@ -259,12 +258,12 @@ J(z,u) &= \frac{1}{2}y_{\mathrm{phys}}^{\mathsf T}
           + \frac{1}{2}u^{\mathsf T}Mu,\\
 j'(u) &= Mu+B^{\mathsf T}p
 \end{aligned}
-```
+$$
 
 For the public model callback, the primal equation is equivalently represented by
-$`E(z,u)=Kz-b_{F}-Bu`$. The application owns both the OCP operators and the mass
+$E(z,u)=Kz-b_{F}-Bu$. The application owns both the OCP operators and the mass
 metric $G=M$. State and adjoint solves reuse the native Step-4 linear solver;
-physical output reconstructs $`y_{\mathrm{phys}}`$ before calling Step-4's writer.
+physical output reconstructs $y_{\mathrm{phys}}$ before calling Step-4's writer.
 
 The growth from A to B is therefore mainly OCP/numerical work: coordinate semantics,
 FE coupling, a physical objective, and a nonidentity metric. It is not growth in the

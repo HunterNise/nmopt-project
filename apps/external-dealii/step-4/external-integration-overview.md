@@ -161,12 +161,12 @@ regardless of the optimization framework.
 
 Problem A uses the already boundary-treated Step-4 system:
 
-```math
+$$
 \begin{aligned}
 Ay &= b + u, \\
 J(y,u) &= \frac{1}{2} y^{\mathsf T}y + \frac{1}{2} u^{\mathsf T}u.
 \end{aligned}
-```
+$$
 
 State and control both have 289 entries and the control metric is the identity. The
 case is intentionally simple: it verifies the library boundary before adding more
@@ -186,14 +186,14 @@ $$
 The consistent FE mass matrix $M$ supplies the weak control coupling
 $B=P^{\mathsf T}M$ and the selected $L^{2}$ geometry:
 
-```math
+$$
 \begin{aligned}
 Kz &= b_{F} + Bu, \\
 J(z,u)
   &= \frac{1}{2}(Pz+\ell)^{\mathsf T}M(Pz+\ell)
-   + \frac{1}{2}u^{\mathsf T}Mu.
+   +\frac{1}{2}u^{\mathsf T}Mu.
 \end{aligned}
-```
+$$
 
 The application/OCP layer owns the coordinate map, lifting, mass and coupling
 operators, residual and objective derivatives, state/adjoint solves, and native mass

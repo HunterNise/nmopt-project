@@ -47,7 +47,7 @@ form and boundary treatment.
 For the usual weak formulation, choose
 
 $$
-  Y=Z=V:=H^{1}_{0}(\Omega),\qquad U=L^{2}(\Omega),\qquad E:Y\times U\to V^{\ast}=H^{-1}(\Omega).
+  Y=Z=V\coloneqq H^{1}_{0}(\Omega),\qquad U=L^{2}(\Omega),\qquad E:Y\times U\to V^{\ast}=H^{-1}(\Omega).
 $$
 
 The program-facing semantic graph is:
@@ -492,7 +492,7 @@ $$
 
 $$
   \langle E(y,u),v\rangle=
-  \int_{0}^{T}\left[\langle\dot y,v\rangle+a(y,v)-(f+u,v)\right]\mathrm{d}t,
+  \int_{0}^{T}\left[\langle\dot y,v\rangle+a(y,v)-(f+u,v)\right]\thinspace\mathrm{d}t,
   \qquad y(0)=y_{0}. \quad\text{(14)}
 $$
 

@@ -125,17 +125,21 @@ def main() -> int:
             REPOSITORY_ROOT / "parameters/plotting/chapter-6-b1.json",
             snapshot_root / "plotting-profile.json",
         )
-        shutil.copyfile(
-            REPOSITORY_ROOT / "runs/chapter-6/b1/development/008/run-manifest.json",
-            snapshot_root / "run-manifest.json",
-        )
         snapshot_manifest_path = snapshot_root / "run-manifest.json"
-        snapshot_manifest = json.loads(snapshot_manifest_path.read_text(encoding="utf-8"))
-        snapshot_manifest["parameters"]["excluded_combinations"] = (
-            "[method=steepest-descent,regularisation=1e-2]"
-        )
         snapshot_manifest_path.write_text(
-            json.dumps(snapshot_manifest), encoding="utf-8"
+            json.dumps(
+                {
+                    "parameters": {
+                        "excluded_combinations": (
+                            "[method=steepest-descent,regularisation=1e-2]"
+                        )
+                    }
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
         )
         snapshot_profile = _profile_from_run_snapshot(
             snapshot_root, CHAPTER6_PROFILE

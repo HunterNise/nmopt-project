@@ -1,124 +1,264 @@
 # Repository tools
 
-This directory contains repository-local scripts and reusable analysis tooling.
-It is not a second application or numerical implementation layer: tools
-consume public interfaces and persisted artifacts.
+`tools/` contains repository-local command-line utilities around the numerical
+applications and their persisted output.
 
-## Entry points
+The tools do **not** implement another PDE, compiler, or optimizer layer. They
+either orchestrate an already-built application or consume files that an
+application has already written.
 
-| Tool | Purpose |
+The main Chapter 6 flow is:
+
+```text
+built nmopt_runner
+      │
+      ▼
+run_chapter6.sh
+      │
+      ├──► persisted run / native fields
+      │          │
+      │          ├──► postprocess.py ──► figures / comparisons
+      │          │
+      │          └──► chapter6_report.py ──► summary tables
+      │
+      └──► generated output under runs/
+```
+
+For installation and build profiles, start with [`BUILD.md`](../BUILD.md).
+For the exact run-set, manifest, and artifact contracts, use
+[Application execution](../docs/reference/application-execution.md).
+
+## Common workflows
+
+Run these commands from the repository root.
+
+### Run and post-process a Chapter 6 development case
+
+Build the deal.II runner first, then:
+
+```bash
+tools/run_chapter6.sh --benchmark b1 --refinement 1
+```
+
+or:
+
+```bash
+tools/run_chapter6.sh --benchmark b2 --refinement 1
+```
+
+The wrapper defaults to:
+
+- `build/debug-dealii/bin/nmopt_runner`;
+- a `development` run;
+- refinement `1`;
+- the repository `runs/` output root;
+- `python3`; and
+- PNG post-processing.
+
+It runs the selected benchmark, finds the run directory allocated by the
+runner, post-processes the persisted output, and generates a manifest-aware
+report.
+
+Use:
+
+```bash
+tools/run_chapter6.sh --help
+```
+
+for runner, Python, output, refinement, and format overrides.
+
+The wrapper **does not build the C++ runner**. See [`BUILD.md`](../BUILD.md)
+when the executable is missing or the required profile has not been built.
+
+### Re-render an existing run
+
+Post-processing reads persisted artifacts and native fields; it does not rerun
+the PDE:
+
+```bash
+python3 tools/postprocess.py \
+  --input runs/... \
+  --output runs/.../postprocess
+```
+
+For one artifact:
+
+```bash
+python3 tools/postprocess.py \
+  --artifact runs/.../artifacts/... \
+  --output runs/.../artifacts/.../postprocess
+```
+
+The effective plotting policy is normally reconstructed from the configuration
+snapshots stored with the run. See
+[Parameter files and plotting profiles](../docs/reference/parameter-files.md)
+for the tracked configuration and precedence rules.
+
+### Regenerate a benchmark report
+
+Reports consume the persisted run manifest:
+
+```bash
+python3 tools/chapter6_report.py \
+  --run-manifest runs/.../run-manifest.json \
+  --output runs/.../report
+```
+
+The report preserves failed, pending, and missing artifact status rather than
+silently reporting only successful coordinates.
+
+### Check Markdown and LaTeX
+
+For files currently changed in the working tree:
+
+```bash
+python3 tools/lint_markdown_math.py --changed
+```
+
+For all tracked Markdown:
+
+```bash
+python3 tools/lint_markdown_math.py
+```
+
+The linter is read-only. It checks the repository's portable Markdown/LaTeX
+conventions and known GitHub parser hazards; it does not rewrite prose or
+mathematics.
+
+### Inspect external deal.II integrations
+
+[`external_dealii/`](external_dealii/) contains source and forward-output checks
+used by the external deal.II studies. These tools support the evidence and
+comparison workflow; they do not participate in the minimal `nmopt` consumer
+path.
+
+Start with the
+[Step-4 integration README](../apps/external-dealii/step-4/README.md) before
+using those scripts.
+
+## Tool map
+
+| Entry point | Use it when... |
 | --- | --- |
-| `lint_markdown_math.py` | Read-only linter for the repository's portable Markdown/LaTeX conventions and known GitHub parser hazards. |
-| `run_chapter6.sh` | Run an already-built Chapter 6 B1/B2 executable, post-process its run set, and generate its report. |
-| `postprocess.py` | Profile-driven field rendering and run-root comparison entry point. |
-| `chapter6_postprocess.py` | Compatibility wrapper for older Chapter 6 post-processing invocations. |
-| `chapter6_report.py` | Deterministic CSV/Markdown benchmark report from a persisted run manifest. |
-| `external_dealii/` | Reusable source and forward-output checks for external deal.II tutorials. |
+| [`run_chapter6.sh`](run_chapter6.sh) | you want one command for a B1/B2 development run, post-processing, and report generation |
+| [`postprocess.py`](postprocess.py) | you already have persisted numerical output and want figures or comparisons |
+| [`chapter6_report.py`](chapter6_report.py) | you already have a run manifest and want deterministic CSV/Markdown summaries |
+| [`chapter6_postprocess.py`](chapter6_postprocess.py) | you are reproducing an older invocation that still uses the compatibility wrapper |
+| [`lint_markdown_math.py`](lint_markdown_math.py) | you want to check repository Markdown/LaTeX conventions |
+| [`external_dealii/`](external_dealii/) | you are running source/output checks for the external deal.II studies |
+| [`nmopt_postprocess/`](nmopt_postprocess/) | you are maintaining the reusable Python implementation behind `postprocess.py` |
 
-The reusable Python implementation is under
-`nmopt_postprocess/`. Its Chapter 6 profile, mesh/field and solver-history
-readers, renderers, comparison builders, and output manifests are
-implementation details of the public post-processing entry point.
+## Chapter 6 run wrapper
 
-The `external_dealii/` directory contains small command-line tools that
-operate on tutorial source files and standalone executable outputs. They do
-not own PDE assembly, numerical methods, or experiment configuration.
+`run_chapter6.sh` is convenience orchestration around the already-built
+repository runner.
 
-For commands, output paths, native-file names, supported formats, and agent
-verification, read the [application execution and artifact
-reference](../docs/reference/application-execution.md). The wrapper does not
-build the C++ runner. Build and test it from the repository root with the
-preferred root-level helper:
+Its high-level behavior is:
 
-```bash
-./build.sh init-config
-./build.sh pipeline debug-dealii
+```text
+nmopt_runner
+   │
+   ├──► run-manifest.json
+   ├──► artifact.kv
+   ├──► solver traces
+   └──► native FE output
+             │
+             ▼
+       postprocess.py
+             │
+             ▼
+       chapter6_report.py
 ```
 
-When only the runner target is needed, use the atomic build action:
+The wrapper records the current Git revision by default and lets the runner
+allocate the concrete development run slot. Generated data stays under the
+ignored `runs/` tree.
 
-```bash
-./build.sh build debug-dealii --target nmopt_runner
+For direct `nmopt_runner` commands, authoritative versus development runs,
+matrix selection, run slots, manifests, and artifact layout, use
+[Application execution](../docs/reference/application-execution.md).
+
+For the meaning and structure of checked-in `.prm` and plotting inputs, use
+[Parameter files](../docs/reference/parameter-files.md).
+
+## Post-processing
+
+`postprocess.py` is the public profile-driven rendering/comparison entry point.
+
+The reusable implementation lives under
+[`nmopt_postprocess/`](nmopt_postprocess/), including:
+
+- native mesh and field readers;
+- solver-history readers;
+- field renderers;
+- comparison builders;
+- plotting-profile handling; and
+- derived-output manifests.
+
+The postprocessor consumes persisted numerical output. It must not reconstruct
+an authoritative finite-element field by rerunning a solve or inventing data
+that the application did not write.
+
+The current Chapter 6 workflow uses NumPy, Matplotlib, and meshio. Those are
+runtime tooling dependencies, not C++ build dependencies.
+
+`chapter6_postprocess.py` is retained as a compatibility wrapper for older
+commands. New workflows should use `postprocess.py`.
+
+## Reporting
+
+`chapter6_report.py` projects one persisted `run-manifest.json` and its
+artifacts into deterministic summary output such as:
+
+```text
+report/
+  summary.csv
+  summary.md
 ```
 
-`build.sh` delegates to the checked-in CMake presets and applies the
-machine-local configuration from `build.local.conf`, including the maximum
-number of jobs for each profile. Direct CMake and CTest commands remain useful
-when a workflow needs lower-level control; see the [dependencies and
-environment reference](../DEPENDENCIES.md) for equivalent manual commands
-and the [agent build instructions](../.agents/build.md) for agent-specific
-verification requirements.
+It does not rerun the application or postprocessor and does not infer missing
+numerical values.
+
+This separation is intentional:
+
+```text
+run manifest + artifacts ──► report tables
+
+artifact metadata
++ native fields
++ solver histories ────────► plots / comparisons
+```
 
 ## Markdown and LaTeX linting
 
-`lint_markdown_math.py` is a zero-dependency, read-only check for the portable
-Markdown/LaTeX subset defined in
-[the documentation conventions](../.agents/documentation.md). It catches known
-Markdown-versus-TeX collisions and deterministic project-style violations; it
-does not modify files or mechanically choose mathematical rewrites.
+`lint_markdown_math.py` checks the portable subset defined by the
+[documentation conventions](../.agents/documentation.md).
 
-Run it from the repository root:
+Useful invocations are:
 
 ```bash
-# All tracked Markdown
-python3 tools/lint_markdown_math.py
-
-# Only currently modified or untracked Markdown
+# Only modified or untracked Markdown
 python3 tools/lint_markdown_math.py --changed
 
-# A selected file or subtree
-python3 tools/lint_markdown_math.py docs/manual README.md
+# Selected files or subtrees
+python3 tools/lint_markdown_math.py README.md docs/manual
 
 # Machine-readable findings
 python3 tools/lint_markdown_math.py --changed --json
 
-# Rule catalogue
+# Available rules
 python3 tools/lint_markdown_math.py --list-rules
 ```
 
 Warnings and errors fail by default. Use `--fail-on error` to fail only on
-errors, `--fail-on info` to include advisory findings, or `--fail-on none` for
-a report-only run. Style-only findings under `docs/history/` are suppressed by
-default; use `--include-history-style` only when historical material is
-intentionally being modernized.
+errors or `--fail-on none` for report-only use.
 
-The parser treats explicit Markdown blockquote prefixes as containers, so quoted
-`$$...$$` blocks and quoted fenced math are linted as math rather than reported
-merely because each source line begins with `>`. Inside dollar-delimited display
-math, definite list/heading/quote constructs are errors. Bare `+`, `*`, or an
-ordered marker such as `0.` is reported as a warning because it can denote an
-empty list item depending on block context; punctuation attached directly to
-mathematical content, such as `-\nabla`, is not a list-marker finding.
+The linter is deliberately narrower than a full Markdown or TeX parser. It
+catches deterministic repository-style and renderer hazards while leaving
+semantic choices—such as mathematical notation or prose rewrites—to the
+reviewer.
 
-Literal TeX-special characters are also context-sensitive. Escapes such as
-`\_`, `\$`, `\%`, `\#`, and `\&` are reported in ordinary dollar math,
-where Markdown can consume the backslash. For an exact program or configuration
-identifier that must remain inside mathematics, use `\verb!...!`, for example
-`$\verb!gradient_tolerance!$`; the linter masks the verbatim payload so literal
-underscores are not misdiagnosed as scripts or Markdown emphasis. Use `!` as the
-normal delimiter unless the identifier itself contains it. Protected inline
-math or fenced `math` remains the escape hatch for other genuinely literal
-punctuation when no clean portable spelling exists.
-
-The linter is deliberately narrower than a full GFM parser or TeX renderer.
-Known limits are intentional:
-
-- it does not validate general TeX syntax, balance arbitrary braces/environments,
-  or prove that an unlisted macro is supported by every renderer;
-- ordinary/protected inline math is expected to stay on one physical source line;
-  unusual multiline inline constructs require manual review;
-- explicit blockquote markers are supported, but lazy blockquote continuation
-  and deeply nested container interactions are not a complete GFM implementation;
-- underscore-emphasis analysis models the project hazards conservatively rather
-  than implementing every GFM delimiter-run and nested-link edge case; and
-- semantic choices such as whether a bar means `\mid` or `\rvert`, or where
-  fine spacing is typographically appropriate, remain reviewer decisions.
-
-When renderer compatibility is uncertain, manually inspect GitHub, VS Code, and
-another target Markdown reader rather than extending the linter with a blind
-mechanical rewrite.
-
-Run its focused contract tests with:
+Its focused contract test is:
 
 ```bash
 python3 tests/tools/markdown_math_lint_contract.py
@@ -126,20 +266,18 @@ python3 tests/tools/markdown_math_lint_contract.py
 
 ## Dependencies and output boundaries
 
-The Markdown/LaTeX linter and report generator use only Python's standard
-library. The post-processing tools use `python3`, `meshio`, and `matplotlib`.
-These Python dependencies are runtime tooling dependencies, not C++ or CTest
-dependencies.
+The tools have deliberately different dependency levels:
 
-Tools must:
+| Tool family | Runtime dependencies |
+| --- | --- |
+| Markdown linter | Python standard library |
+| Chapter 6 report | Python standard library |
+| Field/history post-processing | Python 3, NumPy, Matplotlib, meshio |
+| Chapter 6 run wrapper | built `nmopt_runner`, Bash, Git, plus the post-processing dependencies |
 
-- read authoritative native fields and artifact records without modifying
-  them;
-- write derived plots, indexes, and reports under the selected run output;
-- preserve missing or failed artifact records instead of inferring values; and
-- keep numerical assembly, PDE lowering, and optimization algorithms in the
-  application and library layers.
+See [`DEPENDENCIES.md`](../DEPENDENCIES.md) for installation and environment
+setup.
 
-Generated Python caches such as `__pycache__/` are ignored. Do not commit
-generated tool output; experiment evidence belongs under the ignored
-`runs/` tree.
+Generated Python caches and generated analysis output are ignored. Persistent
+experiment inputs belong under `parameters/`; generated run evidence and
+derived plots belong under `runs/`.

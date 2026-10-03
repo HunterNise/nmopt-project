@@ -1,148 +1,260 @@
-# Documentation map
+# Documentation
 
-The documentation is organized by role and authority. Start with the smallest
-document that answers the task, then follow its links to deeper material. Do
-not read every document by default.
+`docs/` contains the project manual, current references, implementation maps,
+design records, numerical studies, retained plans, and historical evidence.
 
-## Start here
+There is no single required reading order. Start by identifying the kind of
+information you need, then follow the corresponding file below.
 
-For a first-time reading of the project, start with the
-[manual overview](manual/overview/README.md). If weak PDEs, finite elements,
-numerical linear algebra, optimization, C++, or deal.II are unfamiliar, use the
-[background guide](manual/background/README.md) as needed. Then continue with the
-[concept chapters](manual/concepts/README.md). Use the sections below when you need
-an exact design decision, public contract, implementation map, study record,
-planning record, or historical review.
-
-## Organization and authority
+## Structure
 
 ```text
 docs/
-  manual/       teach the project and provide optional prerequisite background
-  design/       long-lived architecture, mathematics, and accepted decisions
-  reference/    exact current public interfaces, configuration, and execution
-  internals/    current implementation mechanics and maintainer maps
-  studies/      Chapter 5/6 source, application, benchmark, and case-study corpus
-  planning/     retained development roadmaps and planning records
-  history/      superseded implementations, reviews, audits, and evidence
+├── manual/       teaching and orientation
+│   ├── overview/     project architecture, scope, and experiment overview
+│   ├── concepts/     project-specific mathematical and software concepts
+│   └── background/   optional prerequisite material
+├── reference/    current public programming, configuration, and execution interfaces
+├── internals/    current implementation ownership and mechanics
+├── design/       long-lived architecture, mathematics, and accepted decisions
+├── studies/      source problems, applications, benchmarks, and numerical evidence
+├── planning/     retained roadmaps and possible continuation work
+└── history/      superseded work, reviews, audits, and closure evidence
 ```
 
-### Manual
+Repository-level build and environment documentation sits outside `docs/`:
 
-- [Manual overview](manual/overview/README.md) is the recommended first-time
-  reading path.
-- [Background guide](manual/background/README.md) provides optional prerequisite
-  routes through weak PDEs, finite elements, numerical linear algebra,
-  optimization, C++, scientific-software workflow, and deal.II.
-- [Concept chapters](manual/concepts/README.md) develop the project’s
-  mathematical, formulation, compiler, and integration language.
+- [`BUILD.md`](../BUILD.md) — build profiles, testing, focused verification,
+  application execution, and generated output.
+- [`DEPENDENCIES.md`](../DEPENDENCIES.md) — installation, dependencies, and
+  machine/environment setup.
 
-### Design
+## Where should I start?
 
-- [Architecture](design/architecture.md)
-- [Composition boundaries](design/composition-boundaries.md)
-- [Interface specification](design/interface-specification.md)
-- [Mathematical model](design/mathematical-model.md)
-- [PDE–solver boundary](design/pde-solver-boundary.md)
-- [Repository organization decision](design/decisions/repository-organization.md)
-- [Parameter and plotting profiles decision](design/decisions/parameter-and-plotting-profiles.md)
+| If you want to... | Start with |
+| --- | --- |
+| Understand the project as a whole | [`manual/overview/README.md`](manual/overview/README.md) |
+| Check what is currently implemented | [`manual/overview/implemented-scope.md`](manual/overview/implemented-scope.md) |
+| Learn the project-specific concepts in depth | [`manual/concepts/README.md`](manual/concepts/README.md) |
+| Fill gaps in PDEs, FEM, optimization, C++, or deal.II | [`manual/background/README.md`](manual/background/README.md) |
+| Build, test, or run the repository | [`../BUILD.md`](../BUILD.md) |
+| Describe a new supported problem | [`reference/problem-authoring.md`](reference/problem-authoring.md) |
+| Understand what the compiler can build | [`reference/compiler.md`](reference/compiler.md) |
+| Use reduced optimization, KKT, OTD, or PDAS | [`reference/optimization.md`](reference/optimization.md) |
+| Build a reusable `nmopt` application | [`reference/application-authoring.md`](reference/application-authoring.md) |
+| Run/configure an existing application | [`reference/application-execution.md`](reference/application-execution.md) |
+| Integrate an existing deal.II PDE code | [`reference/external-dealii-solver-integration.md`](reference/external-dealii-solver-integration.md) |
+| Find where something is implemented | [`internals/implementation-map.md`](internals/implementation-map.md) |
+| Understand a design or mathematical decision | [`design/`](design/) |
+| Inspect Chapter 5/6 studies and evidence | [`studies/`](studies/) |
+| Trace old plans, reviews, or superseded work | [`planning/`](planning/) and [`history/`](history/) |
 
-These documents own long-lived architecture, mathematical conventions,
-component contracts, and accepted design decisions.
+## Manual
 
-### Reference
+The manual is the best place to learn the project before reading APIs or source.
 
-- [Problem authoring](reference/problem-authoring.md)
-- [Compiler](reference/compiler.md)
-- [Application authoring](reference/application-authoring.md)
-- [External deal.II solver integration](reference/external-dealii-solver-integration.md)
-- [Optimization](reference/optimization.md)
-- [Application execution](reference/application-execution.md)
-- [Parameter files](reference/parameter-files.md)
+### `manual/overview/`
 
-These task-oriented documents describe the practical current programming
-interface: how to author, compile, integrate, optimize, execute, and configure
-applications using the supported public surface.
+- [`manual/overview/README.md`](manual/overview/README.md) — recommended first
+  reading; routes the overview pages and explains what each one contributes.
+- [`manual/overview/project-architecture.md`](manual/overview/project-architecture.md)
+  — high-level architecture, scope, and the common numerical boundary.
+- [`manual/overview/architecture-maps.md`](manual/overview/architecture-maps.md)
+  — visual maps of producer paths, formulation families, reduced evaluation,
+  and experiment/evidence flow.
+- [`manual/overview/semantic-compiler.md`](manual/overview/semantic-compiler.md)
+  — the structured `ProblemSpec` → validation/resolution → deal.II compiler path.
+- [`manual/overview/numerical-realization.md`](manual/overview/numerical-realization.md)
+  — how spaces, operators, boundary conditions, metrics, observations, and
+  linear solves become the numerical services consumed by formulations.
+- [`manual/overview/reduced-optimization.md`](manual/overview/reduced-optimization.md)
+  — the reduced state–adjoint workflow and one optimization iteration.
+- [`manual/overview/experiments-and-replication.md`](manual/overview/experiments-and-replication.md)
+  — scenarios, parameter files, runs, artifacts, provenance, and
+  post-processing.
+- [`manual/overview/external-applications.md`](manual/overview/external-applications.md)
+  — how an existing PDE application can keep numerical ownership while using
+  `nmopt`.
+- [`manual/overview/implemented-scope.md`](manual/overview/implemented-scope.md)
+  — concise boundary of what is implemented, demonstrated, and intentionally
+  unsupported.
 
-### Internals
+### `manual/concepts/`
 
-- [Implementation map](internals/implementation-map.md)
-- [Compiler implementation](internals/compiler.md)
-- [Repository runner implementation](internals/runner.md)
+- [`manual/concepts/README.md`](manual/concepts/README.md) — ordered concept
+  chapters covering numerical spaces, duality, operators, metrics,
+  formulations, optimization, semantic modeling, compilation, and integration.
 
-These documents are maintainer maps for the current implementation: ownership,
-stage and dependency flow, lifetime boundaries, extension points, and focused
-verification. Public programming contracts remain in `reference/`; source and
-focused tests remain authoritative for implementation behavior.
+Use this when the overview gives you the right mental model but you need the
+mathematical/software ideas developed more carefully.
 
-### Studies
+### `manual/background/`
 
-- [Chapter 5 source catalogue](studies/chapter-5/source-catalogue.md)
-- [Chapter 5 application recipes](studies/chapter-5/recipes.md)
-- [Chapter 6 numerical methods](studies/chapter-6/numerical-methods.md)
-- [Chapter 6 numerical examples](studies/chapter-6/numerical-examples.md)
-- [Chapter 6 scenarios](studies/chapter-6/scenarios.md)
-- [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md)
-- [B1 replication](studies/chapter-6/b1-replication.md)
-- [B2 replication](studies/chapter-6/b2-replication.md)
-- [Laplace growth case study](studies/case-studies/laplace-growth.md)
-- [Laplace interface formulas](studies/case-studies/laplace-interface-formulas.md)
+- [`manual/background/README.md`](manual/background/README.md) — optional
+  prerequisite routing for weak PDEs, finite elements, numerical linear
+  algebra, unconstrained/constrained optimization, PDE-constrained
+  optimization, modern C++, scientific-software workflow, and deal.II.
 
-This is the current Chapter 5/6 source, application, benchmark, and case-study
-corpus. It records study content and evidence rather than general framework
-architecture.
+This is support material, not a required preface to the project manual.
 
-### Planning
+## Reference
 
-- [Implementation roadmap](planning/implementation-roadmap.md)
-- [Application roadmap](planning/application-roadmap.md)
-- [Chapter 5 problem-library roadmap](planning/chapter-5-problem-library-roadmap.md)
-- [Chapter 6 benchmark-suite roadmap](planning/chapter-6-benchmark-suite-roadmap.md)
+`reference/` describes **current public behavior**. Use these files when you
+already know what you want to do.
 
-Planning contains retained development roadmaps and planning records. Their
-status banners determine whether a document describes active work or a
-historical/intended plan; folder location alone is not a current work queue.
-Completed reviews and audits belong under history.
+- [`reference/problem-authoring.md`](reference/problem-authoring.md) — construct
+  and validate semantic problem descriptions.
+- [`reference/compiler.md`](reference/compiler.md) — supported deal.II compiler
+  targets, capabilities, products, and unsupported-combination diagnostics.
+- [`reference/optimization.md`](reference/optimization.md) — reduced
+  optimization, supplied OTD, quadratic KKT, PDAS, metrics, constraints, and
+  solver compatibility.
+- [`reference/application-authoring.md`](reference/application-authoring.md) —
+  define reusable recipes, typed scenarios, runtime data, and execution
+  adapters.
+- [`reference/application-execution.md`](reference/application-execution.md) —
+  run already-authored applications; runner CLI, run sets, manifests,
+  artifacts, native output, and post-processing.
+- [`reference/parameter-files.md`](reference/parameter-files.md) — `.prm`
+  configuration, experiment matrices, selections/exclusions, plotting profiles,
+  and precedence rules.
+- [`reference/external-dealii-solver-integration.md`](reference/external-dealii-solver-integration.md)
+  — integrate an application-owned deal.II solver through numerical callbacks,
+  solve services, metrics, and lifetime rules.
 
-### History
+## Internals
 
-- [`history/implementation/`](history/implementation/) contains superseded
-  implementation records.
-- [`history/reviews/`](history/reviews/) contains reviews, audits, closure
-  reports, and historical evidence.
-- [Documentation lineage](history/documentation-lineage.md) records the major
-  documentation-structure transitions and Git recovery points.
-- [Review history index](history/reviews/README.md) routes the available review,
+`internals/` maps current architecture to source ownership and implementation
+mechanics.
+
+- [`internals/implementation-map.md`](internals/implementation-map.md) — best
+  starting point for source-level work; maps the major layers to directories,
+  headers, applications, and focused tests.
+- [`internals/compiler.md`](internals/compiler.md) — compiler resolution,
+  lowering stages, product construction, ownership, and extension points.
+- [`internals/runner.md`](internals/runner.md) — parameter parsing, run-set
+  planning, scenario resolution, execution, manifests, and artifact lifecycle.
+
+For repository working conventions, also read [`AGENTS.md`](../AGENTS.md) and
+the relevant files under [`.agents/`](../.agents/). Despite the name,
+`.agents/` also records human-useful conventions for builds, Git,
+documentation, verification, and source organization.
+
+## Design
+
+`design/` records long-lived architectural and mathematical decisions. These
+documents explain **why the current interfaces and boundaries look the way
+they do**.
+
+- [`design/architecture.md`](design/architecture.md) — overall component model
+  and architecture.
+- [`design/composition-boundaries.md`](design/composition-boundaries.md) —
+  ownership and dependency boundaries between numerical layers.
+- [`design/interface-specification.md`](design/interface-specification.md) —
+  foundational component contracts and interface vocabulary.
+- [`design/mathematical-model.md`](design/mathematical-model.md) — conventions
+  for residuals, derivatives, adjoints, covectors, metrics, and formulations.
+- [`design/pde-solver-boundary.md`](design/pde-solver-boundary.md) — accepted
+  separation between PDE realization, formulation, compiler, and optimization.
+- [`design/decisions/repository-organization.md`](design/decisions/repository-organization.md)
+  — rationale for the current repository/documentation layout.
+- [`design/decisions/parameter-and-plotting-profiles.md`](design/decisions/parameter-and-plotting-profiles.md)
+  — rationale for separating numerical `.prm` inputs from plotting policy.
+
+## Studies
+
+`studies/` contains the concrete problem families, benchmark definitions,
+replication work, and numerical evidence. Use it to understand **what was
+actually studied**, rather than the general framework API.
+
+### `studies/chapter-5/`
+
+- [`studies/chapter-5/source-catalogue.md`](studies/chapter-5/source-catalogue.md)
+  — catalogue of the Chapter 5 source problem families used to shape the
+  semantic/compiler work.
+- [`studies/chapter-5/recipes.md`](studies/chapter-5/recipes.md) — mapping from
+  those problem families to reusable application/compiler recipes.
+
+### `studies/chapter-6/`
+
+- [`studies/chapter-6/numerical-methods.md`](studies/chapter-6/numerical-methods.md)
+  — Chapter 6 optimization/numerical-method material relevant to the project.
+- [`studies/chapter-6/numerical-examples.md`](studies/chapter-6/numerical-examples.md)
+  — source numerical examples and their project interpretation.
+- [`studies/chapter-6/scenarios.md`](studies/chapter-6/scenarios.md) — typed
+  application/scenario choices used by the repository.
+- [`studies/chapter-6/benchmarks.md`](studies/chapter-6/benchmarks.md) — benchmark
+  contracts, evidence expectations, and run families.
+- [`studies/chapter-6/b1-replication.md`](studies/chapter-6/b1-replication.md) —
+  B1 distributed-control reproduction record and project replacement choices.
+- [`studies/chapter-6/b2-replication.md`](studies/chapter-6/b2-replication.md) —
+  B2 boundary-control verification/replication record, including the preserved
+  negative literal source-replication result.
+
+### `studies/case-studies/`
+
+- [`studies/case-studies/laplace-growth.md`](studies/case-studies/laplace-growth.md)
+  — focused study of Laplace problem growth/behavior.
+- [`studies/case-studies/laplace-interface-formulas.md`](studies/case-studies/laplace-interface-formulas.md)
+  — concrete formulas used to check interface/sign conventions.
+
+The external-application case study lives with the application itself:
+
+- [`apps/external-dealii/step-4/README.md`](../apps/external-dealii/step-4/README.md)
+  — overview, result, evidence, and reading paths for the Step-4 integration.
+
+## Planning
+
+`planning/` retains development plans and possible continuation work. These
+files are useful for understanding intended sequencing and unfinished ideas,
+but they are not automatically current implementation requirements.
+
+- [`planning/future-extensions.md`](planning/future-extensions.md) — current
+  summary of substantial capabilities left unimplemented, deferred, or
+  conditional.
+- [`planning/implementation-roadmap.md`](planning/implementation-roadmap.md) —
+  retained core implementation roadmap.
+- [`planning/application-roadmap.md`](planning/application-roadmap.md) —
+  retained application/runner roadmap.
+- [`planning/chapter-5-problem-library-roadmap.md`](planning/chapter-5-problem-library-roadmap.md)
+  — retained plan for the Chapter 5 problem/recipe library.
+- [`planning/chapter-6-benchmark-suite-roadmap.md`](planning/chapter-6-benchmark-suite-roadmap.md)
+  — retained benchmark-suite plan, including later B3–B6 candidates.
+- [`planning/repository-structure-refactor.md`](planning/repository-structure-refactor.md)
+  — retained plan/record for the repository-structure refactor.
+
+Read each file's own status before treating an item as active or incomplete.
+
+## History
+
+`history/` preserves superseded implementation records, reviews, audits, and
+closure evidence. It is primarily for provenance and reconstruction.
+
+Useful entry points are:
+
+- [`history/reviews/README.md`](history/reviews/README.md) — index of review,
   audit, and closure series.
-- [Human-readability audit](history/reviews/human-readability-audit/00-audit-index.md)
-  is the index for that specific audit series.
+- [`history/implementation/`](history/implementation/) — superseded
+  implementation records kept for provenance and comparison with the current
+  code.
+- [`history/documentation-lineage.md`](history/documentation-lineage.md) —
+  major documentation-structure transitions and recovery points.
+- [`history/application-and-gui-layer-draft.md`](history/application-and-gui-layer-draft.md)
+  — historical application/GUI proposal; useful for provenance, not as a
+  statement of current architecture.
 
-The application-local [external Step-4 overview](../apps/external-dealii/step-4/external-integration-overview.md)
-and [integration report](../apps/external-dealii/step-4/integration-report.md)
-describe the external application study and its evidence.
+## Which documents are authoritative?
 
-Agent working instructions live in the
-[agent instructions](../.agents/README.md). Read the applicable instruction
-before inspecting or changing repository content.
+For current implementation behavior:
 
-## Choose by task
+1. current source and focused tests are primary;
+2. `reference/` describes the supported public surface;
+3. `internals/` describes current implementation ownership/mechanics;
+4. `design/` records accepted long-lived architecture and mathematical
+   conventions;
+5. `studies/` owns numerical/application evidence;
+6. `planning/` and `history/` explain intended or historical states and should
+   not override current source/reference behavior.
 
-| Audience or task | Start with | Then consult |
-| --- | --- | --- |
-| First-time project reader | [Manual overview](manual/overview/README.md) | [Concept chapters](manual/concepts/README.md), then the reference for the task at hand |
-| Fill prerequisite gaps in PDEs, FEM, optimization, C++, or deal.II | [Background guide](manual/background/README.md) | Return to the relevant overview or concept chapter once the missing prerequisite is comfortable |
-| Understand the whole system and code correspondence | [Implementation map](internals/implementation-map.md) | [Compiler implementation](internals/compiler.md), [runner implementation](internals/runner.md), and the relevant design record |
-| Author or modify a semantic problem | [Problem authoring](reference/problem-authoring.md) | [Compiler](reference/compiler.md) and the relevant manual concept chapter |
-| Author a reusable `nmopt`-native application | [Application authoring](reference/application-authoring.md) | [Problem authoring](reference/problem-authoring.md), [compiler](reference/compiler.md), and [application execution](reference/application-execution.md) |
-| Connect an existing PDE application | [External deal.II solver integration](reference/external-dealii-solver-integration.md) | [Optimization](reference/optimization.md) and the relevant public contract/deal.II headers |
-| Add or use an optimization method | [Optimization](reference/optimization.md) | [Reduced optimization methods](manual/concepts/06-reduced-optimization-methods.md) and the public solver/contract headers |
-| Add or reproduce a Chapter 6 benchmark | [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) | [Application execution](reference/application-execution.md), [parameter files](reference/parameter-files.md), and the [B1](studies/chapter-6/b1-replication.md) / [B2](studies/chapter-6/b2-replication.md) replication records |
-| Change semantic interfaces or ports | [Interface specification](design/interface-specification.md) | [Problem authoring](reference/problem-authoring.md), [architecture](design/architecture.md), and [composition boundaries](design/composition-boundaries.md) |
-| Change deal.II compiler/lowering implementation | [Compiler implementation](internals/compiler.md) | [Compiler reference](reference/compiler.md), [interface specification](design/interface-specification.md), and focused compiler tests |
-| Change repository runner/configuration implementation | [Runner implementation](internals/runner.md) | [Application execution](reference/application-execution.md), [parameter files](reference/parameter-files.md), and focused application tests |
-| Check mathematical signs or formulas | [Mathematical model](design/mathematical-model.md) | [Laplace formulas](studies/case-studies/laplace-interface-formulas.md) and [growth study](studies/case-studies/laplace-growth.md) |
-| Implement or reproduce a Chapter 5 application | [Chapter 5 recipes](studies/chapter-5/recipes.md) | [Application authoring](reference/application-authoring.md), [problem authoring](reference/problem-authoring.md), and the [source catalogue](studies/chapter-5/source-catalogue.md) |
-| Generate or inspect application runs | [Application execution](reference/application-execution.md) | [Parameter files](reference/parameter-files.md) and [Chapter 6 benchmarks](studies/chapter-6/benchmarks.md) |
-| Design parameter files or plotting profiles | [Parameter files](reference/parameter-files.md) | [Parameter and plotting profiles](design/decisions/parameter-and-plotting-profiles.md) and [application execution](reference/application-execution.md) |
-| Review historical decisions or evidence | [Review history](history/reviews/README.md) | The relevant closure report, audit, or implementation record under `history/` |
-| Edit Markdown or LaTeX | [Documentation instructions](../.agents/documentation.md) | The document being changed |
+Historical documents may intentionally preserve terminology, paths, and
+assumptions from the state they record.

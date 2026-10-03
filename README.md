@@ -1,184 +1,159 @@
-# nmopt-project
+# nmopt
 
-A deal.II-oriented framework for PDE-constrained optimal control and inverse
-problems. The project is designed around reusable combinations of PDE
-operators, boundary conditions, controls, observations, norms, constraints,
-and solvers rather than a separate problem class for every combination.
-
-## Current scope
-
-The current implementation is centered on serial deal.II finite-element
-realizations behind backend-neutral numerical contracts. It includes:
-
-- a backend-neutral executable model and formulation vocabulary;
-- a semantic `ProblemSpec` layer with validation, resolution, and a bounded v1
-  deal.II compiler;
-- reduced state–adjoint, supplied-OTD, quadratic KKT, complementarity, and PDAS
-  formulation surfaces with their required numerical services;
-- reduced optimization algorithms, metrics, constraints, and solve-report contracts;
-- both compiler-owned and independently owned application paths to the common
-  formulation boundary; and
-- recipes, scenarios, a runner, and reproduction infrastructure for the current
-  Chapter 5/6 application work.
-
-Semantic validity is broader than the combinations implemented by the current
-compiler, and benchmark coverage is narrower than framework capability. The
-[project manual](docs/manual/overview/README.md) explains those boundaries before
-the exact design and reference documents.
-
-## Installation
+> [!NOTE]
+> **Course project.** This repository was developed for the [*Numerical Methods
+> for Optimal Control*](https://luca-heltai.github.io/numerical-methods-for-optimal-control/)
+> course. It is a completed educational/research project, not a maintained production library.
 
 > [!WARNING]
-> This project is meant to run in a Linux environment. Windows users should
-> install WSL2 with an Ubuntu distribution and work inside the Linux
-> environment. See the [WSL installation guide](https://learn.microsoft.com/en-us/windows/wsl/install).
+> **Agent-authored code.** Most of the implementation and a substantial part of
+> the documentation were written by coding agents under human direction. The
+> repository includes automated tests, numerical checks, application studies,
+> build/run evidence, and later review passes, but the implementation was not
+> independently reviewed line by line.
 
-Read [Dependencies and environment](DEPENDENCIES.md) for the complete
-toolchain, installation options, version checks, and runtime requirements.
+`nmopt` is a C++17/deal.II project for discretized PDE-constrained optimal
+control and inverse problems.
+
+## Why this project
+
+Course examples are often implemented as separate programs: each one owns its
+PDE discretization, solvers, optimization loop, constraints, and output.
+
+The project instead asks:
+
+**Which parts are genuinely problem-specific, and which numerical interfaces
+can be reused across different optimal-control problems?**
+
+The project separates three concerns:
+
+| Concern | Owns |
+| --- | --- |
+| **PDE realization** | FE spaces, matrix assembly, boundary conditions, state/adjoint solves, native fields |
+| **Optimal-control formulation** | reduced systems, supplied OTD, KKT systems, complementarity |
+| **Optimization** | search directions, globalization, constraints, stopping criteria |
+
+That separation led to two peer ways of supplying the PDE side:
+
+```text
+structured problem ──► nmopt deal.II compiler ──┐
+                                                ├──► formulations ──► solvers
+existing deal.II app ─► thin numerical adapter ─┘
+```
+
+An existing application can therefore keep its own mesh, assembly, solves, and
+output; it does not have to be rewritten around the framework's compiler.
+
+## What `nmopt` is today
+
+| Area | Current project |
+| --- | --- |
+| **Numerical core** | Reusable contracts for PDE actions, derivatives/adjoints, state and adjoint solves, metrics, constraints, and solver evidence |
+| **Formulations** | Reduced state–adjoint, supplied optimize-then-discretize (OTD), quadratic KKT, complementarity/PDAS |
+| **Optimization** | Steepest descent, nonlinear CG, BFGS/L-BFGS, Newton, line searches, trust region, projected search where supported |
+| **deal.II realization** | Registered scalar elliptic/control families, several volume/boundary controls, observations, metrics, and constraints |
+| **Applications** | Typed recipes/scenarios, parameter files, headless execution, native FE output, run manifests, post-processing and reports |
+| **Evidence** | Chapter 5/6 problem studies, B1/B2 numerical replication work, and an external deal.II Step-4 integration |
+
+The strongest implemented and demonstrated region is **serial, scalar,
+steady/elliptic finite-element optimal control**. The compiler is deliberately
+bounded: a mathematically valid problem is not automatically a supported
+deal.II realization.
+
+See [Implemented scope](docs/manual/overview/implemented-scope.md) for the
+detailed capability boundary, and
+[Future extensions](docs/planning/future-extensions.md) for directions that
+were left unimplemented or deferred.
+
+## Repository guide
+
+| Path | What to expect |
+| --- | --- |
+| [`include/nmopt/`](include/nmopt/) | Reusable contracts, formulations, solvers, semantic model, compiler, deal.II services, application interfaces |
+| [`apps/`](apps/) | Concrete applications, repository runner, external-integration examples |
+| [`parameters/`](parameters/) | Checked-in application and experiment configuration |
+| [`tests/`](tests/) | Contract, compiler, solver, deal.II, application, and tooling verification |
+| [`tools/`](tools/) | Run helpers, post-processing, reporting, documentation utilities |
+| [`docs/`](docs/) | Manual, reference, design, internals, studies, planning, and history |
+| [`.agents/`](.agents/) | Repository conventions for code, Git, builds, documentation, explanations, and agent-assisted work |
+| [`cmake/`](cmake/) | Repository-specific CMake support |
+
+Generated build and run output lives under the ignored `build/` and `runs/`
+directories.
+
+For source-level ownership and dependency flow, use the
+[implementation map](docs/internals/implementation-map.md).
+
+## Start here
+
+**New to the project**
+
+- [Project overviews](docs/manual/overview/README.md) — architecture and main ideas.
+- [Concept chapters](docs/manual/concepts/README.md) — project-specific mathematical and software concepts.
+- [Background guide](docs/manual/background/README.md) — optional PDE, FEM, optimization, C++, and deal.II prerequisites.
+
+**Want to use it**
+
+- [Problem authoring](docs/reference/problem-authoring.md) — describe a supported problem.
+- [Compiler](docs/reference/compiler.md) — build its deal.II realization.
+- [External deal.II integration](docs/reference/external-dealii-solver-integration.md) — keep an existing PDE application in control.
+- [Optimization](docs/reference/optimization.md) — consume reduced, KKT, PDAS, and supplied-OTD products.
+
+**Want to build, test, or run the included applications**
+
+- [Build, test, and run](BUILD.md) — build profiles, focused verification, the runner, and generated output.
+- [Dependencies and environment](DEPENDENCIES.md) — installation and machine setup.
+- [Application execution](docs/reference/application-execution.md) — exact runner, run-set, manifest, and artifact contracts.
+- [Parameter files](docs/reference/parameter-files.md) — tracked application/run configuration.
+- [Repository tools](tools/README.md) — run helpers, post-processing, reporting, and linting.
+
+**Want to inspect the project itself**
+
+- [Documentation map](docs/README.md) — documentation organization and routing.
+- [Implementation map](docs/internals/implementation-map.md) — map architecture and responsibilities to source directories, applications, and focused tests.
+- [Numerical studies](docs/studies/) — Chapter 5/6 problem material, benchmarks, replication records, and case studies.
+- [`AGENTS.md`](AGENTS.md) and [`.agents/`](.agents/) — repository conventions for code, Git, builds, documentation, verification, and agent-assisted work.
 
 ## Build and test
 
-The preferred local build and test entry point is the root-level `build.sh`
-helper. It requires a C++ compiler, CMake, and Ninja. The deal.II package is
-needed only for the deal.II-enabled profiles.
+> The supported development environment is Linux; Windows users can use WSL2.
 
-Create the machine-local configuration once before running a build pipeline:
+See [DEPENDENCIES.md](DEPENDENCIES.md) for installation and environment setup.
+The canonical build, test, and execution workflow is documented in
+[BUILD.md](BUILD.md).
+
+A first backend-neutral check is:
 
 ```bash
 ./build.sh init-config
-```
-
-The default backend-neutral verification loop is:
-
-```bash
 ./build.sh pipeline debug-neutral
 ```
 
-The helper also supports the deal.II and sanitizer profiles, multiple profiles
-in one invocation, and the complete profile set:
+With deal.II available:
 
 ```bash
 ./build.sh pipeline debug-dealii
-./build.sh pipeline debug-neutral sanitize-neutral
-./build.sh all
 ```
 
-Use `configure`, `build`, or `test` when only one phase is needed. These are
-thin wrappers around the corresponding CMake or CTest preset commands:
+## Run
 
-```bash
-./build.sh configure debug-neutral
-./build.sh build debug-neutral
-./build.sh test debug-neutral
-```
-
-The configuration file records machine-specific settings such as the
-deal.II package directory and the maximum number of build jobs for each
-profile. Run `./build.sh show-config` to inspect the active values. The
-pipeline additionally times builds and uses compact configure output plus
-progress-oriented test output. Pass phase-specific options such as `--target`
-to `build` or `--ctest-arg=--output-on-failure` to `test`; `--dry-run` and
-`--verbose` are useful with any action when more control is needed.
-
-The helper maps directly to the checked-in CMake presets. The equivalent
-manual neutral-profile commands are:
-
-```bash
-cmake --preset debug-neutral
-cmake --build --preset debug-neutral
-ctest --preset debug-neutral
-```
-
-Manual commands remain useful for one-off CMake/CTest options or a workflow
-that does not fit the helper. Unlike `build.sh`, they do not read
-`build.local.conf` or apply its per-profile job limit automatically.
-
-The deal.II backend uses the separate `debug-dealii` preset and requires an
-official deal.II CMake package. The helper, dependency setup, generated
-output, focused tests, and environment-specific notes are documented in the
-[dependencies and environment reference](DEPENDENCIES.md), the [application
-execution reference](docs/reference/application-execution.md), and the
-[build instructions](.agents/build.md).
-
-## Running applications
-
-After building the `debug-dealii` profile, run a Chapter 6 development case
-with the repository helper:
+After building the deal.II profile, a small development run can be started with:
 
 ```bash
 tools/run_chapter6.sh --benchmark b1 --refinement 1
 ```
 
-Replace `b1` with `b2` for the second benchmark. The helper runs the compiled
-application, post-processes its native fields, and writes artifacts and
-reports under the ignored `runs/` directory. Python post-processing
-dependencies are required for this step.
+The helper runs the application, post-processes its native output, and writes
+the generated run set under `runs/`.
 
-See the [application execution reference](docs/reference/application-execution.md)
-for run schemas, output organization, direct runner commands, and report
-details.
+See [BUILD.md](BUILD.md) for choosing a build profile and running the included
+applications, and [Application execution](docs/reference/application-execution.md)
+for the exact runner, manifest, artifact, and output contracts.
 
-## Where to start
+## License
 
-The [documentation map](docs/README.md) is the task-oriented index. The most
-useful entry points are:
+Project code is released under the MIT License.
 
-- [Project manual](docs/manual/overview/README.md) — the recommended first-time
-  reading path from the project architecture into the concept chapters.
-- [Concept chapters](docs/manual/concepts/README.md) — the progressive mathematical,
-  formulation, compiler, and integration manual.
-- [Implementation map](docs/internals/implementation-map.md) — the
-  maintainer-oriented map from architectural responsibilities to source,
-  ownership, and focused tests.
-- [Architecture overview](docs/design/architecture.md) — long-lived design
-  rationale and component boundaries.
-- [Interface specification](docs/design/interface-specification.md) —
-  normative component contracts and compilation protocols.
-- [Problem authoring](docs/reference/problem-authoring.md) and
-  [compiler reference](docs/reference/compiler.md) — build supported problems
-  through the semantic/compiler path.
-- [Application authoring](docs/reference/application-authoring.md) — package a
-  reusable `nmopt`-native application family.
-- [External deal.II solver integration](docs/reference/external-dealii-solver-integration.md)
-  — connect an existing PDE code while preserving its numerical ownership.
-- [Optimization](docs/reference/optimization.md) — consume reduced, KKT, PDAS,
-  and supplied-OTD products through the current solver interfaces.
-- [Application execution](docs/reference/application-execution.md) and
-  [parameter files](docs/reference/parameter-files.md) — run and configure
-  already-authored applications.
-
-For application and benchmark work, use the [Chapter 5 application
-recipes](docs/studies/chapter-5/recipes.md), [Chapter 6 application
-scenarios](docs/studies/chapter-6/scenarios.md), [Chapter 6 benchmark
-specifications](docs/studies/chapter-6/benchmarks.md), and the
-[B1](docs/studies/chapter-6/b1-replication.md) and
-[B2](docs/studies/chapter-6/b2-replication.md) replication records. The
-[Chapter 6 numerical examples](docs/studies/chapter-6/numerical-examples.md)
-guide records what the book says; current execution and configuration mechanics
-belong in the reference layer, while replication outcomes belong in the study
-records. Retained roadmaps document development history rather than current
-interface authority.
-
-## Repository layout
-
-| Path | Role |
-| --- | --- |
-| `include/nmopt/` | Public C++ headers, organized by semantic, compiler, backend, solver, and application layer. |
-| `apps/` | Executable entry points and application-specific orchestration. |
-| `tests/` | Contract, semantic, backend, application, and benchmark tests. |
-| `tools/` | Run generation, post-processing, reporting, and related utilities. |
-| `cmake/` | CMake helpers for scenario discovery and generated test registration. |
-| `docs/` | Manual, design, reference, internals, studies, planning, and historical records. |
-| `.agents/` | Detailed instructions and prompt references for coding-agent work. |
-| `build/` | Ignored, profile-specific CMake and build output. |
-| `runs/` | Ignored generated application-run artifacts and reports. |
-
-The [repository organization decision](docs/design/decisions/repository-organization.md)
-records the ownership boundaries in more detail.
-
-## Working with coding agents
-
-[`AGENTS.md`](AGENTS.md) is the concise agent entry point and routes to the
-detailed files under `.agents/`. The [prompt cookbook](.agents/prompts.md) is a
-human-maintained collection of useful prompts; it is not part of the normal
-agent instruction routing.
+Third-party material retains its original copyright and licensing terms.
+Preserved upstream deal.II tutorial source remains under the license stated in
+those files.

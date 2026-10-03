@@ -20,6 +20,10 @@ integrate an existing PDE code, describe a problem through the semantic/compiler
 path, inspect the optimization machinery, or reproduce the repository's Chapter 6
 experiments.
 
+For a compact inventory of what is implemented and how strongly it is exercised,
+see [Implemented scope](implemented-scope.md). It complements these explanatory
+pages; it is not a required first read.
+
 ## Suggested reading order
 
 Start with [Project architecture](project-architecture.md). It explains the scope of
@@ -112,8 +116,8 @@ Once the mental model is clear, route by the kind of authority you need:
 - [`docs/internals/compiler.md`](../../internals/compiler.md) explains the
   current compiler implementation mechanics.
 - `docs/reference/` contains the exact public operational contracts that already have
-  dedicated references, including external deal.II integration, application
-  execution, and parameter files.
+  dedicated references, including build/test/run, external deal.II integration,
+  application execution, and parameter files.
 - `docs/studies/` owns the concrete
   Chapter 5/6 problem families, source transcriptions, and reproduction evidence.
 - `docs/history/reviews/` preserves audits and historical review evidence; it is not
